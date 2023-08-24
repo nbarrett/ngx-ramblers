@@ -1,0 +1,378 @@
+$colour-grey-1: #e6e6e6
+$colour-grey-2: #d9d9d9
+$colour-grey-3: #ccc
+$colour-grey-4: #b3b3b3
+$colour-grey-5: #999
+$colour-lighter-green: #e2e7ad
+$colour-grey-lighter: $ramblers-colour-highlight
+$colour-light-blue: $ramblers-colour-highlight-dark
+
+.ng-select.ng-select-opened > .ng-select-container
+  background: $ramblers-colour-cloudy
+  border-color: $colour-grey-4 $colour-grey-3 $colour-grey-2
+
+
+.ng-select.ng-select-opened > .ng-select-container:hover
+  box-shadow: none
+
+
+.ng-select.ng-select-opened > .ng-select-container .ng-arrow
+  top: -2px
+  border-color: transparent transparent $colour-grey-5
+  border-width: 0 5px 5px
+
+.ng-select.ng-select-opened > .ng-select-container .ng-arrow:hover
+  border-color: transparent transparent $ramblers-colour-granite
+
+
+.ng-select.ng-select-opened.ng-select-bottom > .ng-select-container
+  border-bottom-right-radius: 0
+  border-bottom-left-radius: 0
+
+
+.ng-select.ng-select-opened.ng-select-top > .ng-select-container
+  border-top-right-radius: 0
+  border-top-left-radius: 0
+
+
+.ng-select.ng-select-focused:not(.ng-select-opened) > .ng-select-container
+  border-color: $ramblers-colour-mintcake
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 0 3px rgba(0, 0, 0, 0.075)
+
+
+.ng-select.ng-select-disabled > .ng-select-container
+  background-color: $ramblers-colour-cloudy
+
+
+.ng-select .ng-has-value .ng-placeholder
+  display: none
+
+
+.ng-select .ng-select-container
+  color: $ramblers-colour-granite
+  background-color: $ramblers-colour-cloudy
+  border-radius: 4px
+  border: 1px solid $colour-grey-3
+  min-height: 36px
+  align-items: center
+
+
+.ng-select .ng-select-container:hover
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06)
+
+
+.ng-select .ng-select-container .ng-value-container
+  align-items: center
+  padding-left: 10px
+
+
+[dir="rtl"] .ng-select .ng-select-container .ng-value-container
+  padding-right: 10px
+  padding-left: 0
+
+
+.ng-select .ng-select-container .ng-value-container .ng-placeholder
+  color: $colour-grey-5
+
+
+.ng-select.ng-select-single .ng-select-container
+  height: 36px
+
+
+.ng-select.ng-select-single .ng-select-container .ng-value-container .ng-input
+  top: 5px
+  left: 0
+  padding-left: 10px
+  padding-right: 50px
+
+
+[dir="rtl"] .ng-select.ng-select-single .ng-select-container .ng-value-container .ng-input
+  padding-right: 10px
+  padding-left: 50px
+
+
+.ng-select.ng-select-multiple.ng-select-disabled > .ng-select-container .ng-value-container .ng-value
+  background-color: $ramblers-colour-cloudy
+  color: $ramblers-colour-granite
+  border: 1px solid $colour-grey-1
+
+
+.ng-select.ng-select-multiple.ng-select-disabled > .ng-select-container .ng-value-container .ng-value .ng-value-label
+  color: $ramblers-colour-granite
+  padding: 0 5px
+
+
+.ng-select.ng-select-multiple .ng-select-container .ng-value-container
+  padding-top: 5px
+  padding-left: 7px
+
+
+[dir="rtl"] .ng-select.ng-select-multiple .ng-select-container .ng-value-container
+  padding-right: 7px
+  padding-left: 0
+
+
+.ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value
+  font-size: .9em
+  margin-bottom: 5px
+  background-color: $colour-lighter-green
+  border-radius: 2px
+  margin-right: 5px
+
+
+[dir="rtl"] .ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value
+  margin-right: 0
+  margin-left: 5px
+
+
+.ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value.ng-value-disabled
+  background-color: $ramblers-colour-cloudy
+
+
+.ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value.ng-value-disabled .ng-value-label
+  padding-left: 5px
+
+
+[dir="rtl"] .ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value.ng-value-disabled .ng-value-label
+  padding-left: 0
+  padding-right: 5px
+
+
+.ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value .ng-value-label
+  display: inline-block
+  padding: 1px 5px
+
+
+.ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value .ng-value-icon
+  display: inline-block
+  padding: 1px 5px
+
+
+.ng-select .ng-value-icon
+  border-radius: 2px
+  cursor: pointer
+  font-size: 17px
+  color: $ramblers-colour-mintcake
+
+.ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value .ng-value-icon:hover
+  color: $ramblers-colour-hover
+
+
+.ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value .ng-value-icon.left
+  border-right: 1px solid $colour-lighter-green
+
+
+[dir="rtl"] .ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value .ng-value-icon.left
+  border-left: 1px solid $colour-lighter-green
+  border-right: none
+
+
+.ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value .ng-value-icon.right
+  border-left: 1px solid $colour-lighter-green
+
+
+[dir="rtl"] .ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value .ng-value-icon.right
+  border-left: 0
+  border-right: 1px solid $colour-lighter-green
+
+
+.ng-select
+  color: $ramblers-colour-mintcake
+  background-color: $colour-lighter-green
+
+
+.ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-input
+  padding: 0 0 3px 3px
+
+
+[dir="rtl"] .ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-input
+  padding: 0 3px 3px 0
+
+
+.ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-placeholder
+  top: 5px
+  padding-bottom: 5px
+  padding-left: 3px
+
+
+[dir="rtl"] .ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-placeholder
+  padding-right: 3px
+  padding-left: 0
+
+
+.ng-select .ng-clear-wrapper
+  color: $colour-grey-5
+
+
+.ng-select .ng-clear-wrapper:hover .ng-clear
+  color: #D0021B
+
+
+.ng-select .ng-spinner-zone
+  padding: 5px 5px 0 0
+
+
+[dir="rtl"] .ng-select .ng-spinner-zone
+  padding: 5px 0 0 5px
+
+
+.ng-select .ng-arrow-wrapper
+  width: 25px
+  padding-right: 5px
+
+
+[dir="rtl"] .ng-select .ng-arrow-wrapper
+  padding-left: 5px
+  padding-right: 0
+
+
+.ng-select .ng-arrow-wrapper:hover .ng-arrow
+  border-top-color: #666
+
+
+.ng-select .ng-arrow-wrapper .ng-arrow
+  border-color: $colour-grey-5 transparent transparent
+  border-style: solid
+  border-width: 5px 5px 2.5px
+
+
+.ng-dropdown-panel
+  background-color: $ramblers-colour-cloudy
+  border: 1px solid $colour-grey-3
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06)
+  left: 0
+
+
+.ng-dropdown-panel.ng-select-bottom
+  top: 100%
+  border-bottom-right-radius: 4px
+  border-bottom-left-radius: 4px
+  border-top-color: $colour-grey-1
+  margin-top: -1px
+
+
+.ng-dropdown-panel.ng-select-bottom .ng-dropdown-panel-items .ng-option:last-child
+  border-bottom-right-radius: 4px
+  border-bottom-left-radius: 4px
+
+
+.ng-dropdown-panel.ng-select-top
+  bottom: 100%
+  border-top-right-radius: 4px
+  border-top-left-radius: 4px
+  border-bottom-color: $colour-grey-1
+  margin-bottom: -1px
+
+
+.ng-dropdown-panel.ng-select-top .ng-dropdown-panel-items .ng-option:first-child
+  border-top-right-radius: 4px
+  border-top-left-radius: 4px
+
+
+.ng-dropdown-panel .ng-dropdown-header
+  border-bottom: 1px solid $colour-grey-3
+  padding: 5px 7px
+
+
+.ng-dropdown-panel .ng-dropdown-footer
+  border-top: 1px solid $colour-grey-3
+  padding: 5px 7px
+
+
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-optgroup
+  user-select: none
+  padding: 8px 10px
+  color: rgba(0, 0, 0, 0.54)
+  cursor: pointer
+
+
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-optgroup.ng-option-disabled
+  cursor: default
+
+
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-optgroup.ng-option-marked
+  background-color: $colour-lighter-green
+
+
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-optgroup.ng-option-selected, .ng-dropdown-panel .ng-dropdown-panel-items .ng-optgroup.ng-option-selected.ng-option-marked
+  background-color: $colour-lighter-green
+
+
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-option
+  background-color: $ramblers-colour-cloudy
+  color: rgba(0, 0, 0, 0.87)
+  padding: 8px 10px
+
+
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-selected, .ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-selected.ng-option-marked
+  color: $ramblers-colour-granite
+  background-color: $colour-lighter-green
+
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-marked
+  background-color: $colour-light-blue
+  color: $ramblers-colour-granite
+
+
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-disabled
+  color: $colour-grey-3
+
+
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-child
+  padding-left: 22px
+
+
+[dir="rtl"] .ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-child
+  padding-right: 22px
+  padding-left: 0
+
+
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-option .ng-tag-label
+  font-size: 80%
+  padding-right: 5px
+
+
+[dir="rtl"] .ng-dropdown-panel .ng-dropdown-panel-items .ng-option .ng-tag-label
+  padding-left: 5px
+  padding-right: 0
+
+
+[dir="rtl"] .ng-dropdown-panel
+  direction: rtl
+  text-align: right
+
+
+.ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value
+  background-color: $ramblers-colour-granite
+  color: $ramblers-colour-cloudy
+  margin: 0 0.4375em 0.4375em 0
+  margin-bottom: 5px
+  border-radius: 2px
+  margin-right: 5px
+  padding: 0px 3px
+
+.ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value .ng-value-icon
+  cursor: pointer
+  font-size: 14px
+  color: $ramblers-colour-mintcake
+  padding: 0px 6px 2px 2px
+
+.ng-select.ramblers-bootstrap .ng-select.ramblers-choices-row.active span
+  background-color: $ramblers-colour-granite
+
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-selected, .ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-selected.ng-option-marked
+  color: $ramblers-colour-granite
+  background-color: $colour-grey-lighter
+
+
+.ng-select .ng-value-icon
+  border-radius: 2px
+  cursor: pointer
+  font-size: 17px
+  color: $ramblers-colour-mintcake
+
+.badge-group
+  margin-left: 6px
+
+.group-header
+  vertical-align: middle
+  font-weight: bold

@@ -1,0 +1,23 @@
+@import "../assets/styles/colours"
+
+.stories
+  position: absolute
+  cursor: pointer
+  display: block
+  z-index: 1000
+  float: right
+  right: 0
+  top: 6px
+  ul
+    list-style: none
+    margin: 0
+    li
+      float: left
+      a
+        padding: 6px 12px 8px
+        font-size: 12px
+        font-weight: normal
+        @extend .drop-shadow
+        color: $ramblers-colour-cloudy
+        &:hover
+          color: $ramblers-colour-hover

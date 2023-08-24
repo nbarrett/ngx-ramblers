@@ -1,0 +1,183 @@
+<div class="card mb-2">
+  <div class="card-body">
+    <div class="card-text">
+      <div *ngIf="showAlertMessage()" class="row">
+        <div class="col-md-12 mb-2">
+          <div class="alert {{notifyTarget.alert.class}}">
+            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+            <strong *ngIf="notifyTarget.alertTitle">
+              {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-12">
+          <input type="submit" [disabled]="notifyTarget.busy"
+                 value="Choose File"
+                 (click)="browseToFile(fileElement)"
+                 [ngClass]="{'disabled-button-form': notifyTarget.busy}">
+          <input #fileElement class="d-none" type="file" ng2FileSelect (onFileSelected)="onFileSelect($event)"
+                 [uploader]="uploader">
+        </div>
+        <div class="col-12">
+          <div ng2FileDrop [ngClass]="{'file-over': hasFileOver}"
+               (fileOver)="fileOver($event)"
+               (onFileDrop)="onFileDropped($event)"
+               [uploader]="uploader"
+               class="drop-zone flex-grow-1 mb-2">Or drop file here
+          </div>
+        </div>
+      </div>
+    <div class="row">
+      <div class="col-6">
+        <div [ngClass]="buttonClass(action)" (click)="rotateLeft()"
+             delay=500 tooltip="Rotate left">
+          <fa-icon [icon]="faRotateLeft"></fa-icon>
+          <span>left</span>
+        </div>
+      </div>
+      <div class="col-6">
+        <div [ngClass]="buttonClass(action)" (click)="rotateRight()"
+             delay=500 tooltip="Rotate right">
+          <fa-icon [icon]="faRotateRight"></fa-icon>
+          <span>right</span>
+        </div>
+      </div>
+      <div class="col-6">
+        <div [ngClass]="buttonClass(action)" (click)="flipHorizontal()"
+             delay=500 tooltip="Flip horizontal">
+          <fa-icon [icon]="faArrowRightArrowLeft"></fa-icon>
+          <span>flip</span>
+        </div>
+      </div>
+      <div class="col-6">
+        <div [ngClass]="buttonClass(action)" (click)="flipVertical()"
+             delay=500 tooltip="Flip vertical">
+          <fa-icon [icon]="faUpDown"></fa-icon>
+          <span>flip</span>
+        </div>
+      </div>
+      <div class="col-6">
+        <div [ngClass]="buttonClass(action)" (click)="zoomIn()"
+             delay=500 tooltip="Zoom in">
+          <fa-icon [icon]="faMagnifyingGlassPlus"></fa-icon>
+          <span>zoom</span>
+        </div>
+      </div>
+      <div class="col-6">
+        <div [ngClass]="buttonClass(action)" (click)="zoomOut()"
+             delay=500 tooltip="Zoom out">
+          <fa-icon [icon]="faMagnifyingGlassMinus"></fa-icon>
+          <span>zoom</span>
+        </div>
+      </div>
+      <div class="col-6">
+        <div [ngClass]="buttonClass(action)" (click)="resetImage()"
+             delay=500 tooltip="Reset image">
+          <fa-icon [icon]="faRedoAlt"></fa-icon>
+          <span>reset</span>
+        </div>
+      </div>
+      <div class="col-6">
+        <div (click)="toggleContainWithinAspectRatio()"
+             delay=500 [tooltip]="containWithinAspectRatio? 'fill aspect ratio' : 'contain within aspect ratio'"
+             [ngClass]="buttonClass(action)">
+          <fa-icon [icon]="containWithinAspectRatio? faCompress: faExpand"></fa-icon>
+          <span>{{containWithinAspectRatio ? 'fill' : 'contain'}}</span>
+        </div>
+      </div>
+    </div>
+      <div class="row mt-2 mb-2">
+        <div class="col-sm-12 img-fluid w-100">
+          <image-cropper
+            [allowMoveImage]="true"
+            [imageFile]="originalFile"
+            [maintainAspectRatio]="maintainAspectRatio"
+            [containWithinAspectRatio]="containWithinAspectRatio"
+            [aspectRatio]="aspectRatio"
+            [canvasRotation]="canvasRotation"
+            [transform]="transform"
+            (resize)="resized($event)"
+            [alignImage]="'left'"
+            [format]="format()"
+            [imageQuality]="imageQuality"
+            (transformChange)="transformChanged($event)"
+            (imageCropped)="imageCropped($event)"
+            (imageLoaded)="imageLoaded($event)"
+            (cropperReady)="cropperReady($event)"
+            (loadImageFailed)="loadImageFailed($event)"
+            (error)="error($event)">
+          </image-cropper>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-12 mb-2">
+          <label for="aspect-ratio">Aspect Ratio:</label>
+          <select class="form-control input-sm"
+                  [(ngModel)]="dimension"
+                  (change)="changeAspectRatioSettingsAndCrop($event)"
+                  id="aspect-ratio">
+            <option *ngFor="let aspectRatio of dimensions"
+                    [ngValue]="aspectRatio">{{formatAspectRatio(aspectRatio)}}</option>
+          </select>
+        </div>
+        <div class="col-12 mb-2">
+          <label for="compression">Compress to size ({{imageQuality}}%):</label>
+          <input type="range" min="1" max="100" value="90" step="1" class="custom-range" id="compression"
+                 (change)="changeRange($event, true)" (input)="changeRange($event, false)">
+        </div>
+      </div>
+      <div class="row mb-2" *ngIf="imagePresent()">
+        <div class="col-sm-6">
+          Original Size: {{originalSize()}}
+        </div>
+        <div class="col-sm-6">
+          Cropped Size: {{croppedSize()}}
+        </div>
+      </div>
+      <div class="row" *ngIf="action">
+        <div class="col-sm-12 mb-2 mt-2">
+          <div class="progress">
+            <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': progress() + '%' }">
+              {{action}} {{uploader.progress}}%
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row mb-2">
+        <div class="col-6">
+          <div (click)="quit.next()"
+               delay=500 tooltip="quit without saving" [ngClass]="buttonClass(action)">
+            <fa-icon [icon]="faClose"></fa-icon>
+            <span>quit</span>
+          </div>
+        </div>
+        <div class="col-6">
+          <div (click)="saveImage()"
+               delay=500 tooltip="save changes" [ngClass]="buttonClass(action)">
+            <fa-icon [icon]="faSave"></fa-icon>
+            <span>save</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<ng-container *ngIf="false">
+  <div class="col">
+    <label for="resizeToWidth">Resize to width:</label>
+  </div>
+  <div class="col">
+    <input id="resizeToWidth" (ngModelChange)="resizeToWidthChanged($event)"
+           placeholder="Resize to width" type="number"
+           class="form-control input-sm flex-grow-1"/>
+  </div>
+  <div class="col">
+    <label for="rotation">Rotation:</label>
+  </div>
+  <div class="col">
+    <input id="rotation" [(ngModel)]="rotation" placeholder="Rotation" type="number"
+           (keyup)="updateRotation()"
+           class="form-control input-sm flex-grow-1"/>
+  </div>
+</ng-container>

@@ -1,0 +1,361 @@
+<app-page>
+  <div class="row">
+    <div class="col-sm-12">
+      <tabset class="custom-tabset" *ngIf="config">
+        <tab heading="Group Details">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="group-href">Web Url</label>
+                  <input [(ngModel)]="config.group.href"
+                         type="text" value="" class="form-control input-sm"
+                         id="group-href"
+                         placeholder="Enter a link">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="group-long-name">Long Name</label>
+                  <input [(ngModel)]="config.group.longName"
+                         type="text" value="" class="form-control input-sm"
+                         id="group-long-name"
+                         placeholder="Enter a title for group long name">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="group-short-name">Short Name</label>
+                  <input [(ngModel)]="config.group.shortName"
+                         type="text" value="" class="form-control input-sm"
+                         id="group-short-name"
+                         placeholder="Enter a title for group short name">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="group-group-code">Ramblers Group Code</label>
+                  <input [(ngModel)]="config.group.groupCode"
+                         type="text" value="" class="form-control input-sm"
+                         id="group-group-code"
+                         placeholder="Enter the Ramblers group code">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="walk-population">Walk Population</label>
+                  <select [(ngModel)]="config.group.walkPopulation"
+                          class="form-control" id="walk-population">
+                    <option *ngFor="let walkPopulation of populationMethods"
+                            [ngValue]="walkPopulation.value">{{stringUtils.asTitle(walkPopulation.value)}}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Pages on Site ({{config.group.pages.length}})</div>
+              <div class="col-sm-12">
+                <app-links-edit [links]="config.group.pages"></app-links-edit>
+              </div>
+            </div>
+          </div>
+        </tab>
+        <tab app-image-collection-settings [heading]="systemConfigService.imageTypeDescription(backgrounds)"
+             [imageType]="backgrounds"
+             [config]="config"
+             [images]="config.backgrounds">
+        </tab>
+        <tab app-image-collection-settings [heading]="systemConfigService.imageTypeDescription(icons)"
+             [imageType]="icons"
+             [config]="config"
+             [images]="config.icons">
+        </tab>
+        <tab app-image-collection-settings [heading]="systemConfigService.imageTypeDescription(logos)"
+             [imageType]="logos"
+             [config]="config"
+             [images]="config.logos">
+        </tab>
+        <tab heading="Website Header">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Header Buttons ({{config.header.navigationButtons.length}})</div>
+              <div class="col-sm-12">
+                <app-links-edit [links]="config.header.navigationButtons"></app-links-edit>
+              </div>
+            </div>
+          </div>
+        </tab>
+        <tab heading="Website Footer">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Column 1: External Urls</div>
+              <div class="col-md-12">
+                <div class="custom-control custom-checkbox">
+                  <input [(ngModel)]="config.externalSystems.facebook.showFeed"
+                         type="checkbox" class="custom-control-input" id="facebook-show-feed">
+                  <label class="custom-control-label"
+                         for="facebook-show-feed">Show Facebook Feed
+                  </label>
+                </div>
+                <div class="form-group">
+                  <label for="facebook-group-url">Facebook Group Url</label>
+                  <input [(ngModel)]="config.externalSystems.facebook.groupUrl"
+                         type="text" value="" class="form-control input-sm" id="facebook-group-url"
+                         placeholder="Enter a group url for Facebook">
+                </div>
+                <div class="form-group">
+                  <label for="facebook-pages-url">Facebook Pages Url (optional)</label>
+                  <input [(ngModel)]="config.externalSystems.facebook.pagesUrl"
+                         type="text" value="" class="form-control input-sm" id="facebook-pages-url"
+                         placeholder="Enter a pages url for Facebook">
+                </div>
+                <div class="form-group">
+                  <label for="facebook-appId">Facebook App Id</label>
+                  <input [(ngModel)]="config.externalSystems.facebook.appId"
+                         type="text" value="" class="form-control input-sm" id="facebook-appId"
+                         placeholder="Enter an app id for Facebook">
+                </div>
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="custom-control custom-checkbox">
+                      <input [(ngModel)]="config.externalSystems.meetup.showFooterLink"
+                             type="checkbox" class="custom-control-input" id="meetup-show-footer-link">
+                      <label class="custom-control-label"
+                             for="meetup-show-footer-link">Show Meetup
+                      </label>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-inline">
+                      <label>Meetup Link Preview:</label>
+                      <a class="ml-2" [href]="config.externalSystems.meetup.groupUrl+'/'+config.externalSystems.meetup.groupName">{{config.externalSystems.meetup.groupName}}</a>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="youtube-href">Youtube</label>
+                  <input [(ngModel)]="config.externalSystems.youtube"
+                         type="text" value="" class="form-control input-sm" id="youtube-href"
+                         placeholder="Enter a group url for Youtube">
+                </div>
+                <div class="form-group">
+                  <label for="twitter-href">Twitter</label>
+                  <input [(ngModel)]="config.externalSystems.twitter"
+                         type="text" value="" class="form-control input-sm" id="twitter-href"
+                         placeholder="Enter a group url for Twitter">
+                </div>
+                <div class="form-group">
+                  <label for="instagram-href">Instagram</label>
+                  <input [(ngModel)]="config.externalSystems.instagram.groupUrl"
+                         type="text" value="" class="form-control input-sm" id="instagram-href"
+                         placeholder="Enter a group url for Instagram">
+                </div>
+                <div class="custom-control custom-checkbox">
+                  <input [(ngModel)]="config.externalSystems.instagram.showFeed"
+                         type="checkbox" class="custom-control-input" id="instagram-show-feed">
+                  <label class="custom-control-label"
+                         for="instagram-show-feed">Show Instagram Feed
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Column 2: Quick Links ({{config.footer.quickLinks.length}})</div>
+              <div class="col-sm-12">
+                <app-links-edit [links]="config.footer.quickLinks"></app-links-edit>
+              </div>
+            </div>
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Column 3: Legals ({{config.footer.legals.length}})</div>
+              <div class="col-sm-12">
+                <app-links-edit [links]="config.footer.legals"></app-links-edit>
+              </div>
+            </div>
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Column 4: Download Links</div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="area-long-name">Apple</label>
+                  <input [(ngModel)]="config.footer.appDownloads.apple"
+                         id="area-long-name"
+                         class="form-control input-sm">
+                </div>
+                <div class="form-group">
+                  <label for="area-short-name">Google</label>
+                  <input [(ngModel)]="config.footer.appDownloads.google"
+                         id="area-short-name"
+                         class="form-control input-sm">
+                </div>
+              </div>
+            </div>
+          </div>
+        </tab>
+        <tab heading="Ramblers Details">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="row" *ngIf="config?.national?.mainSite">
+              <div class="col-md-5">
+                <div class="form-group">
+                  <label for="main-site-href">Main Site Web Url</label>
+                  <input [(ngModel)]="config.national.mainSite.href"
+                         id="main-site-href"
+                         type="text" value="" class="form-control input-sm"
+                         placeholder="Enter main site link">
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label for="main-site-title">Main Site Name</label>
+                  <input [(ngModel)]="config.national.mainSite.title"
+                         id="main-site-title"
+                         type="text" value="" class="form-control input-sm"
+                         placeholder="Enter main site title">
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-group">
+                  <label>Link Preview</label>
+                </div>
+                <div class="form-group">
+                  <a
+                    [href]="config.national.mainSite.href">{{config.national.mainSite.title || config.national.mainSite.href}}</a>
+                </div>
+              </div>
+              <div class="col-md-5">
+                <div class="form-group">
+                  <label for="walks-manager-href">Walks Manager Web Url</label>
+                  <input [(ngModel)]="config.national.walksManager.href" id="walks-manager-href"
+                         type="text" value="" class="form-control input-sm"
+                         placeholder="Enter Walks Manager site link">
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label for="walks-manager-title">Walks Manager Name</label>
+                  <input [(ngModel)]="config.national.walksManager.title"
+                         id="walks-manager-title"
+                         type="text" value="" class="form-control input-sm"
+                         placeholder="Enter Walks Manager site title">
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-group">
+                  <label>Link Preview</label>
+                </div>
+                <div class="form-group">
+                  <a
+                    [href]="config.national.walksManager.href">{{config.national.walksManager.title || config.national.walksManager.href}}</a>
+                </div>
+              </div>
+              <div class="col-md-5">
+                <form class="form-group">
+                  <label for="walks-manager-user-name">Walks Manager User Name</label>
+                  <input [(ngModel)]="config.national.walksManager.userName"
+                         id="walks-manager-user-name"
+                         autocomplete="nope"
+                         name="newPassword"
+                         type="text" value="" class="form-control input-sm"
+                         placeholder="Enter Walks Manager userName">
+                </form>
+              </div>
+              <div class="col-md-4">
+                <form class="form-group">
+                  <label for="walks-manager-password" for="walks-manager-password">Walks Manager password</label>
+                  <input autocomplete="nope"
+                         [(ngModel)]="config.national.walksManager.password"
+                         type="text" value="" class="form-control input-sm"
+                         id="walks-manager-password"
+                         name="password"
+                         placeholder="Enter Walks Manager password">
+                </form>
+              </div>
+              <div class="col-md-3">
+                <form class="form-group">
+                  <label for="walks-manager-api-key">Walks Manager API Key</label>
+                  <input [(ngModel)]="config.national.walksManager.apiKey"
+                         autocomplete="nope"
+                         id="walks-manager-api-key"
+                         name="apiKey"
+                         type="text" value="" class="form-control input-sm"
+                         placeholder="Enter Walks Manager API key">
+                </form>
+              </div>
+            </div>
+          </div>
+        </tab>
+        <tab heading="External Systems">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Meetup</div>
+              <div class="col-sm-12">
+                <div class="row" *ngIf="config?.externalSystems.meetup">
+                  <div class="col-md-6">
+                    <div class="form-group">
+                      <label for="meetup-group-url">Group Url</label>
+                      <input [(ngModel)]="config.externalSystems.meetup.groupUrl"
+                             id="meetup-group-url"
+                             type="text" value="" class="form-control input-sm"
+                             placeholder="Enter Meetup Group Url">
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-group">
+                      <label for="meetup-group-name">Group Name</label>
+                      <input [(ngModel)]="config.externalSystems.meetup.groupName"
+                             id="meetup-group-name"
+                             type="text" value="" class="form-control input-sm"
+                             placeholder="Enter main site link">
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-group">
+                      <label for="meetup-group-url">Api Url</label>
+                      <input [(ngModel)]="config.externalSystems.meetup.apiUrl"
+                             id="meetup-api-url"
+                             type="text" value="" class="form-control input-sm"
+                             placeholder="Enter Meetup API Url">
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-group">
+                      <label for="meetup-access-token">Access Token</label>
+                      <input [(ngModel)]="config.externalSystems.meetup.accessToken"
+                             id="meetup-access-token"
+                             type="text" value="" class="form-control input-sm"
+                             placeholder="Enter Meetup Access Token">
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-group">
+                      <label for="meetup-api-key">API Key</label>
+                      <input [(ngModel)]="config.externalSystems.meetup.apiKey"
+                             id="meetup-api-key"
+                             type="text" value="" class="form-control input-sm"
+                             placeholder="Enter Meetup API Key">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </tab>
+      </tabset>
+      <div *ngIf="notifyTarget.showAlert" class="row">
+        <div class="col-sm-12 mb-10">
+          <div class="alert {{notifyTarget.alert.class}}">
+            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+            <strong *ngIf="notifyTarget.alertTitle">
+              {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-12">
+      <input type="submit" value="Save" (click)="save()"
+             title="Save notification settings"
+             class="button-form button-confirm green-confirm button-form-left">
+      <input type="submit" value="Cancel" (click)="cancel()"
+             title="Cancel without saving"
+             class="button-form button-confirm button-form-left">
+    </div>
+  </div>
+</app-page>

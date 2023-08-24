@@ -1,0 +1,102 @@
+$ramblers-colour-black: rgb(33, 37, 41)
+$ramblers-colour-cloudy: rgb(255, 255, 255)
+$ramblers-colour-granite: rgb(64, 65, 65)
+$ramblers-colour-grey: rgb(222, 226, 230)
+$ramblers-colour-highlight-dark: rgba(255, 221, 0, 0.4)
+$ramblers-colour-highlight: rgba(255, 221, 0, 0.2)
+$ramblers-colour-hover: rgb(255, 221, 0)
+$ramblers-colour-mintcake-hover-dark: rgb(99, 134, 110)
+$ramblers-colour-mintcake-hover: rgb(133, 173, 146)
+$ramblers-colour-mintcake-light: rgba(175, 226, 194, 0.6)
+$ramblers-colour-mintcake: rgb(155, 200, 171)
+$ramblers-colour-rosycheeks: rgb(246, 176, 157)
+$ramblers-colour-sunrise-hover-background: rgb(211, 150, 3)
+$ramblers-colour-sunrise-hover-border: rgb(199, 141, 3)
+$ramblers-colour-sunrise: rgb(249, 177, 4)
+$ramblers-colour-sunset: rgb(240, 128, 80)
+
+$disabled-color: rgb(153, 153, 153)
+$admin-color-hover: $ramblers-colour-mintcake-hover
+$admin-color: $ramblers-colour-mintcake
+$background-color: $ramblers-colour-mintcake
+$today-wrapper-hover: $ramblers-colour-mintcake-hover-dark
+$today-wrapper: $ramblers-colour-mintcake-hover
+
+.colour-cloudy
+  color: $ramblers-colour-cloudy
+
+.colour-granite
+  color: $ramblers-colour-granite
+
+.colour-mintcake
+  color: $ramblers-colour-mintcake
+
+.colour-rosycheeks
+  color: $ramblers-colour-rosycheeks
+
+.colour-sunrise
+  color: $ramblers-colour-sunrise
+
+.colour-sunset
+  color: $ramblers-colour-sunset
+
+.drop-shadow
+  text-shadow: 2px 2px 4px $ramblers-colour-granite
+  mix-blend-mode: difference
+
+.meetup
+  color: #e0393e
+  &:hover
+    color: #ff3e43
+
+.ramblers
+  color: $admin-color
+  &:hover
+    color: $admin-color-hover
+
+.calendar
+  color: #0097a4
+  &:hover
+    color: #00c2d1
+
+.theme-ramblers .bs-datepicker-head
+  background-color: $background-color
+
+.theme-ramblers .btn-today-wrapper .btn-success, .theme-ramblers .btn-clear-wrapper .btn-success
+  background-color: $background-color
+  border-color: $background-color
+
+.theme-ramblers .btn-today-wrapper .btn-success:not(:disabled):not(.disabled):active:focus, .theme-ramblers .btn-clear-wrapper .btn-success:not(:disabled):not(.disabled):active:focus
+  box-shadow: none
+
+.theme-ramblers .btn-today-wrapper .btn-success:focus, .theme-ramblers .btn-clear-wrapper .btn-success:focus
+  box-shadow: none
+
+.theme-ramblers .btn-today-wrapper .btn-success:not(:disabled):not(.disabled):active, .theme-ramblers .btn-clear-wrapper .btn-success:not(:disabled):not(.disabled):active
+  background-color: $today-wrapper
+  border-color: $today-wrapper
+
+.theme-ramblers .btn-today-wrapper .btn-success:hover, .theme-ramblers .btn-clear-wrapper .btn-success:hover
+  background-color: $today-wrapper-hover
+  border-color: $today-wrapper-hover
+
+.theme-ramblers .bs-datepicker-predefined-btns button.selected
+  background-color: $background-color
+
+.theme-ramblers .bs-datepicker-body table td span.selected, .theme-ramblers .bs-datepicker-body table td.selected span,
+.theme-ramblers .bs-datepicker-body table td span[class*=select-]:after, .theme-ramblers .bs-datepicker-body table td[class*=select-] span:after
+  background-color: $background-color
+
+.theme-ramblers .bs-datepicker-body table td.week span
+  color: $background-color
+
+.theme-ramblers .bs-datepicker-body table td.active-week span:hover
+  cursor: pointer
+  background-color: $background-color
+  color: #fff
+  opacity: 0.5
+  transition: 0s
+
+.theme-ramblers .btn-success
+  color: $ramblers-colour-granite
+  background: $ramblers-colour-sunrise

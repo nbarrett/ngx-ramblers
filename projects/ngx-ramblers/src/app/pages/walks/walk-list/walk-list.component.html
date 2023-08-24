@@ -1,0 +1,93 @@
+<app-page>
+  <div class="row mb-n3">
+    <div class="mb-3 col-sm-12">
+      <h4 class="card-title">Walks Programme</h4>
+      <app-walks-search [filterParameters]="filterParameters" [notifyTarget]="notifyTarget">
+        <pagination class="pagination rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="maxSize()"
+                    [totalItems]="walks?.length" [(ngModel)]="pageNumber"
+                    (pageChanged)="pageChanged($event)"></pagination>
+
+      </app-walks-search>
+      <div class="table-responsive"
+           *ngFor="let displayedWalk of currentPageWalks; let index = index; trackBy: walkTracker">
+        <div *ngIf="display.isExpanded(displayedWalk.walk)">
+          <app-walk-view *ngIf="!display.isEdit(displayedWalk.walk)"
+                         [displayedWalk]="displayedWalk"></app-walk-view>
+          <app-walk-edit *ngIf="display.isEdit(displayedWalk.walk)"
+                         [displayedWalk]="displayedWalk"></app-walk-edit>
+        </div>
+        <table *ngIf="!display.isExpanded(displayedWalk.walk)"
+               class="rounded table styled-table table-striped table-hover table-sm">
+          <thead *ngIf="showTableHeader(displayedWalk)" class="styled-table">
+          <tr>
+            <th *ngIf="memberLoginService.memberLoggedIn()" width="7%">Action</th>
+            <th width="13%">Walk Date</th>
+            <th class="d-none d-lg-table-cell" width="7%">Start Time</th>
+            <th width="32%">Walk Title</th>
+            <th class="d-none d-lg-table-cell" width="7%">Distance</th>
+            <th class="d-none d-lg-table-cell" width="8%">Postcode</th>
+            <th class="d-none d-lg-table-cell" width="12%">Walk Leader</th>
+            <th class="d-none d-lg-table-cell" width="11%">Contact Phone</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr [ngClass]="tableRowEven(displayedWalk)? 'default': 'active'">
+            <td *ngIf="memberLoginService.memberLoggedIn()" width="7%" id="walkAction-{{index}}"
+                class="nowrap"><input
+              *ngIf="displayedWalk?.walkAccessMode?.walkWritable" type="submit"
+              value="{{displayedWalk?.walkAccessMode?.caption}}"
+              (click)="display.edit(displayedWalk)"
+              class="button-form">
+            </td>
+            <td width="13%" (click)="display.view(displayedWalk.walk)"
+                id="walkDate-{{index}}" class="nowrap">
+                          <span [textContent]="displayedWalk.walk.walkDate|displayDate"
+                                name="walkDate"></span></td>
+            <td class="d-none d-lg-table-cell" width="7%" (click)="display.view(displayedWalk.walk)"
+                id="startTime-{{index}}">
+                          <span [textContent]="viewWalkField(displayedWalk, 'startTime')"
+                                name="startTime"></span>
+            </td>
+            <td width="32%" (click)="display.view(displayedWalk.walk)" name="briefDescriptionAndStartPoint"
+                id="briefDescription-{{index}}"
+                [textContent]="viewWalkField(displayedWalk, 'briefDescriptionAndStartPoint')"></td>
+            <td class="d-none d-lg-table-cell" width="7%" (click)="display.view(displayedWalk.walk)"
+                id="distance-{{index}}"
+                [textContent]="viewWalkField(displayedWalk, 'distance')" name="distance"></td>
+            <td class="d-none d-lg-table-cell" width="8%" id="postcode-{{index}}">
+              <a [href]="'http://maps.google.co.uk/maps?q=' + viewWalkField(displayedWalk, 'postcode')"
+                 target="_blank" [textContent]="viewWalkField(displayedWalk, 'postcode')"
+                 name="postcode"
+                 tooltip="Click to locate postcode {{viewWalkField(displayedWalk, 'postcode')}} on Google Maps"
+                 placement="left"></a></td>
+            <td class="d-none d-lg-table-cell" width="12%" id="contactEmail-{{index}}">
+              <a *ngIf="allowDetailView()" [href]="'mailto:'+ displayedWalk.walk.contactEmail"
+                 [textContent]="displayedWalk.walk.displayName"
+                 name="displayName"
+                 tooltip="Click to email {{displayedWalk.walk.displayName}} at {{displayedWalk.walk.contactEmail}}"
+                 placement="left"></a>
+              <span class="tooltip-link" *ngIf="!allowDetailView()" placement="left"
+                    (click)="login()" tooltip="Click to login as an EKWG member and send an email to {{displayedWalk.walk.displayName}}">
+                {{displayedWalk.walk.displayName}}</span></td>
+            <td class="d-none d-lg-table-cell" width="11%" id="contactPhone-{{index}}">
+              <a *ngIf="allowDetailView()" [href]="'tel:' + displayedWalk.walk.contactPhone"
+                 [textContent]="viewWalkField(displayedWalk, 'contactPhone')"
+                 name="contactPhone"
+                 tooltip="Click to ring {{displayedWalk.walk.displayName}} on {{viewWalkField(displayedWalk, 'contactPhone')}} (mobile devices only)"
+                 placement="left"></a>
+              <a *ngIf="!allowDetailView()" [href]="'tel:' + displayedWalk.walk.contactPhone">
+                              <span [textContent]="viewWalkField(displayedWalk, 'contactPhone')"
+                                    name="contactPhone"
+                                    tooltip="Click to ring {{displayedWalk.walk.displayName}} on {{viewWalkField(displayedWalk, 'contactPhone')}} (mobile devices only)"
+                                    placement="left"></span></a>
+              <app-panel-expander class="d-none d-lg-inline" [walk]="displayedWalk.walk" [expandable]="true">
+              </app-panel-expander>
+            </td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <app-dynamic-content [anchor]="'action-buttons'"></app-dynamic-content>
+</app-page>

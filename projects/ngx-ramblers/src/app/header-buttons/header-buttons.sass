@@ -1,0 +1,31 @@
+@import "../assets/styles/colours"
+
+.header-toolbar
+  float: right
+  background: #111
+  width: 750px
+  overflow: hidden
+  background: linear-gradient(to left, $ramblers-colour-granite 0%, #000 60%)
+
+
+.region-menu
+  float: left
+  list-style: none
+  padding: 6px 0 8px 10px
+  margin: 0
+  font-family: "Rucksack", sans-serif
+  font-size: 16px
+  li
+    list-style: none
+    float: left
+    padding: 0px 7px 0px 7px
+    border-right: 1px dotted #565656
+    a
+      color: $ramblers-colour-cloudy
+      font-weight: bold
+      &:hover
+        color: $ramblers-colour-mintcake
+      &.last
+        border: none
+      &.active
+        color: $ramblers-colour-mintcake

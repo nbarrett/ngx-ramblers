@@ -1,0 +1,40 @@
+<ng-container *ngIf="config">
+  <label class="control-label" for="default-prefix">Description prefix: </label>
+  <select class="form-control input-sm"
+          [(ngModel)]="config.defaultContent"
+          (ngModelChange)="changeDefaultContent($event)"
+          class="form-control"
+          id="default-prefix">
+    <option *ngFor="let contentTextItem of contentTextItems"
+            [ngValue]="contentTextItem.name"
+            [textContent]="contentTextItem.name">
+    </option>
+  </select>
+  <label class="control-label mt-2" for="publish-status">Create as:</label>
+  <select class="form-control"
+          [(ngModel)]="config.publishStatus"
+          class="form-control" id="publish-status">
+    <option *ngFor="let publishStatus of publishStatuses"
+            [ngValue]="publishStatus"
+            [textContent]="publishStatus">
+    </option>
+  </select>
+  <label class="control-label mt-2" for="guest-limit">RSVP limit:</label>
+  <select class="form-control"
+          [(ngModel)]="config.guestLimit"
+          (ngModelChange)="changeGuestLimit($event)"
+          class="form-control" id="guest-limit">
+
+    <option *ngFor="let guestLimit of guestLimits"
+            [ngValue]="guestLimit"
+            [textContent]="guestLimit">
+    </option>
+  </select>
+  <div class="custom-control custom-checkbox mt-2">
+    <input [(ngModel)]="config.announce"
+           name="showDetail" class="custom-control-input" type="checkbox" class="custom-control-input" id="announce">
+    <label class="custom-control-label"
+           for="announce">Announce
+    </label>
+  </div>
+</ng-container>

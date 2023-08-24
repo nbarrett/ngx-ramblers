@@ -1,0 +1,18 @@
+<div style="font-size:12px">
+  <p>This email is to notify you as an Expense Approver, that <strong
+    [textContent]="display.expenseClaimLatestEvent(expenseClaim).memberId | memberIdToFullName : members"></strong>
+    has just updated <strong
+      [textContent]="(display.expenseClaimCreatedEvent(expenseClaim).memberId | memberIdToFullName : members) + '\'s'"
+      class="nowrap"></strong>
+    EKWG expense claim to a status of <strong
+      [textContent]="display.expenseClaimLatestEvent(expenseClaim).eventType.description"></strong>.
+    For reference, the claim was originally created on <span
+      [textContent]="display.expenseClaimCreatedEvent(expenseClaim).date | displayDate" class="nowrap"></span>
+    and contains the following <span [textContent]="expenseClaim.expenseItems.length"></span> item(s):
+  </p>
+  <app-expense-notification-details [expenseClaim]="expenseClaim"></app-expense-notification-details>
+  <p>Because an EKWG expense claim needs 2 stages of approval, it will now need to be approved by a different person
+    (e.g. not <span
+      [textContent]="display.expenseClaimLatestEvent(expenseClaim).memberId | memberIdToFirstName : members"></span>).
+    Then Jon will be automatically notified to organise the payment.</p>
+</div>

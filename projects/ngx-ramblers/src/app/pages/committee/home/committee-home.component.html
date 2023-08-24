@@ -1,0 +1,17 @@
+<app-page>
+  <app-committee-year [committeeYear]="committeeYear"  [notify]="notify"></app-committee-year>
+  <app-dynamic-content [anchor]="'action-buttons'"></app-dynamic-content>
+  <div class="row">
+    <div class="col-sm-12">
+      <div *ngIf="showAlertMessage()" class="row">
+        <div class="col-sm-12 mb-10">
+          <div class="alert {{notifyTarget.alertClass}}">
+            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+            <strong *ngIf="notifyTarget.alertTitle">
+              {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</app-page>

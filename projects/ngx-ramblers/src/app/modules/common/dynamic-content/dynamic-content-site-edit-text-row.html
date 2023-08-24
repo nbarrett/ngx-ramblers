@@ -1,0 +1,136 @@
+<ng-container *ngIf="actions.isTextRow(row)">
+  <div [class]="actions.rowClasses(row)">
+    <ng-container *ngFor="let column of row?.columns; let columnIndex = index;">
+      <div [class]="'col-sm-' + column.columns">
+        <!-- beginning of row content editing-->
+        <div *ngIf="!column.rows" class="img-thumbnail thumbnail-walk-edit">
+          <div class="thumbnail-heading">Col {{columnIndex + 1}}</div>
+          <app-markdown-editor (saved)="actions.saveContentTextId($event, rowIndex, column, pageContent)"
+                               [buttonsAvailableOnlyOnFocus]="true"
+                               [category]="contentPath"
+                               [queryOnlyById]="true"
+                               [clearEnabled]="true"
+                               [description]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentDescription)"
+                               [id]="column?.contentTextId"
+                               [initialView]="actions.view()"
+                               [name]="actions.parentRowColFor(parentRowIndex, rowIndex, columnIndex)">
+            <ng-container prepend>
+              <div class="form-group">
+                <label
+                  [for]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'access-level-' + contentPath)">Access:</label>
+                <select [(ngModel)]="column.accessLevel"
+                        [id]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'access-level-' + contentPath)"
+                        class="form-control input-sm">
+                  <option *ngFor="let accessLevel of memberResourcesReferenceData.accessLevels()"
+                          [textContent]="accessLevel.description"
+                          [ngValue]="accessLevel.id">
+                </select>
+              </div>
+              <div class="form-group">
+                <label
+                  [for]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'column-width-' + contentPath)">Width:</label>
+                <input #input (input)="actions.changeColumnWidthFor(input, column)"
+                       [id]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'column-width-' + contentPath)"
+                       [value]="column.columns"
+                       autocomplete="columns"
+                       class="form-control input-sm" placeholder="Enter number of columns (1-12)"
+                       type="number">
+              </div>
+              <div (click)="editImage(rowIndex, columnIndex)"
+                   delay=500 tooltip="edit image" class="badge-button">
+                <fa-icon [icon]="column.imageSource? faPencil : faAdd"></fa-icon>
+                <span>{{column.imageSource ? 'edit' : 'add'}} image</span>
+              </div>
+              <app-actions-dropdown
+                [columnIndex]="columnIndex"
+                [pageContent]="pageContent"
+                [column]="column"
+                [row]="row">
+              </app-actions-dropdown>
+            </ng-container>
+          </app-markdown-editor>
+          <div *ngIf="imageSource(rowIndex, columnIndex, column?.imageSource) || editActive(rowIndex, columnIndex)"
+               class="mt-2 mb-3">
+            <app-image-cropper
+              *ngIf="editActive(rowIndex, columnIndex)"
+              [preloadImage]="column?.imageSource"
+              (imageChange)="imageChanged(rowIndex, columnIndex, $event)"
+              (quit)="exitImageEdit(rowIndex, columnIndex)"
+              (save)="imagedSaved(rowIndex, columnIndex, column, $event)">
+            </app-image-cropper>
+            <app-card-image
+              [borderRadius]="column?.imageBorderRadius"
+              [unconstrainedHeight]="true"
+              [imageSource]="imageSource(rowIndex, columnIndex, column?.imageSource)">
+            </app-card-image>
+            <div class="row mt-2">
+              <div [class]="imagePropertyColumnClasses(column)">
+                <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-source')">
+                  Image Source:</label>
+                <input [(ngModel)]="column.imageSource"
+                       [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-source')"
+                       type="text" class="form-control">
+              </div>
+              <div [class]="imagePropertyColumnClasses(column)">
+                <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')">
+                  Border Radius:</label>
+                <input [(ngModel)]="column.imageBorderRadius"
+                       [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')"
+                       type="number" class="form-control">
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- end of row content editing-->
+        <!-- start of column nested rows-->
+        <div *ngIf="column.rows" class="img-thumbnail thumbnail-walk-edit">
+          <div class="thumbnail-heading">Row {{rowIndex + 1}} column {{columnIndex + 1}}
+            ({{stringUtils.pluraliseWithCount(column.rows?.length, 'nested row')}})
+          </div>
+          <app-actions-dropdown [pageContent]="pageContent"
+                                [columnIndex]="columnIndex"
+                                [column]="column">
+          </app-actions-dropdown>
+          <div class="img-thumbnail thumbnail-walk-edit mt-3"
+               *ngFor="let row of column.rows; let nestedRowIndex = index;">
+            <div class="thumbnail-heading">Row {{rowIndex + 1}} (nested row {{nestedRowIndex + 1}}
+              column {{columnIndex + 1}}
+              ({{stringUtils.pluraliseWithCount(row?.columns.length, 'column')}}))
+            </div>
+            <div class="row align-items-end mb-3">
+              <div class="col-sm-4">
+                <app-margin-select label="Margin Top"
+                                   [data]="row"
+                                   field="marginTop">
+                </app-margin-select>
+              </div>
+              <div class="col-sm-4">
+                <app-margin-select label="Margin Bottom"
+                                   [data]="row"
+                                   field="marginBottom">
+                </app-margin-select>
+              </div>
+              <div class="col-sm-4">
+                <app-actions-dropdown [rowIndex]="nestedRowIndex"
+                                      [pageContent]="pageContent"
+                                      [rowIsNested]="true"
+                                      [column]="column"
+                                      [row]="row">
+                </app-actions-dropdown>
+              </div>
+            </div>
+            <app-dynamic-content-site-edit-text-row
+              [row]="row"
+              [parentRowIndex]="rowIndex"
+              [rowIndex]="nestedRowIndex"
+              [contentDescription]="contentDescription"
+              [contentPath]="contentPath"
+              [pageContent]="pageContent">
+            </app-dynamic-content-site-edit-text-row>
+          </div>
+        </div>
+        <!-- end of column nested rows-->
+      </div>
+    </ng-container>
+  </div>
+</ng-container>

@@ -1,0 +1,28 @@
+{
+  "extends": "../../tslint.json",
+  "semicolon": [
+    false
+  ],
+  "quotemark": [
+    true,
+    "double"
+  ],
+  "rules": {
+    "max-line-length": [
+      false
+    ],
+    "no-shadowed-variable": false,
+    "directive-selector": [
+      true,
+      "attribute",
+      "app",
+      "kebab-case"
+    ],
+    "component-selector": [
+      true,
+      ["element", "attribute"],
+      "app",
+      "kebab-case"
+    ]
+  }
+}

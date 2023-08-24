@@ -1,0 +1,151 @@
+<app-page>
+  <app-login-required></app-login-required>
+  <div *ngIf="allow.edit && contentMetadata">
+    <div class="row">
+      <div class="col-sm-12">
+        <app-markdown-editor name="image-editor-help" description="Image Editor help"></app-markdown-editor>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-sm-3">
+            <h6>Edit images from</h6>
+            <select [(ngModel)]="imageSource" id="imageSource" class="form-control rounded"
+                    (ngModelChange)="refreshImageMetaData(imageSource)">
+              <option selected="selected" value="imagesHome">Home Page</option>
+              <option value="imagesSocialEvents">Social Events</option>
+            </select>
+          </div>
+          <div class="col-sm-9 mt-auto">
+            <input [disabled]="this.changedItems.length > 0" type="submit" value="Save changes and exit"
+                   (click)="saveChangeAndExit()"
+                   [ngClass]="changedItems.length > 0 ? 'disabled-button-form': 'button-form'"/>
+            <input [disabled]="this.changedItems.length > 0" type="submit" value="Save changes"
+                   (click)="saveChanges()"
+                   [ngClass]="changedItems.length > 0 ? 'disabled-button-form': 'button-form'"/>
+            <input type="submit" value="Exit without saving" (click)="exitBackToPreviousWindow()"
+                   title="Exit without saving" class="button-form"/>
+            <input type="submit" value="Sort by latest date" (click)="sortByDate()" title="Sort by latest date"
+                   class="button-form"/>
+            <input type="submit" value="Reverse sort order" (click)="reverseSortOrder()"
+                   title="Reverse sort order"
+                   class="button-form"/>
+          </div>
+          <div class="col-sm-12 mt-4">
+            <div *ngIf="warningTarget.showAlert" class="flex-grow-1 alert {{warningTarget.alertClass}}">
+              <fa-icon [icon]="warningTarget.alert.icon"></fa-icon>
+              <strong *ngIf="warningTarget.alertTitle">
+                {{warningTarget.alertTitle}}: </strong> {{warningTarget.alertMessage}}
+            </div>
+          </div>
+        </div>
+        <div class="custom-control custom-checkbox">
+          <input [(ngModel)]="manageTags"
+                 type="checkbox" class="custom-control-input"
+                 id="configure-tags">
+          <label class="custom-control-label" for="configure-tags">Manage Tags</label>
+        </div>
+        <div class="row mb-2" *ngIf="manageTags">
+          <div class="col-sm-12">
+            <h6>Tag Management - {{imageSource}}</h6>
+            <app-tag-manager [contentMetadata]="contentMetadata"></app-tag-manager>
+          </div>
+        </div>
+        <h6>Image Filtering</h6>
+        <div class="custom-control custom-radio custom-control-inline">
+          <input [disabled]="notifyTarget.busy" id="recent-photos-filter"
+                 type="radio"
+                 class="custom-control-input"
+                 [(ngModel)]="filterType"
+                 (ngModelChange)="filterFor('recent')"
+                 value="recent"/>
+          <label class="custom-control-label" for="recent-photos-filter">Show recent photos</label>
+        </div>
+        <ng-container *ngIf="selectableTags().length>0">
+          <div
+            class="custom-control custom-radio custom-control-inline">
+            <input [disabled]="notifyTarget.busy" id="tag-filter"
+                   type="radio"
+                   class="custom-control-input"
+                   [(ngModel)]="filterType"
+                   (ngModelChange)="filterFor('tag')"
+                   value="tag"/>
+            <label class="custom-control-label" for="tag-filter">Show images tagged with:</label>
+          </div>
+          <div
+            class="custom-control custom-radio custom-control-inline">
+            <select [disabled]="filterType !== 'tag'"
+                    [ngModel]="imageTagDataService?.activeTag?.subject"
+                    id="filterByTag"
+                    class="form-control"
+                    (ngModelChange)="filterByTag($event)">
+              <option *ngFor="let imageTag of selectableTags(); trackBy: tagTracker"
+                      [ngValue]="imageTag.subject">{{imageTag.subject}}
+            </select>
+          </div>
+        </ng-container>
+        <div class="custom-control custom-radio custom-control-inline">
+          <input [disabled]="notifyTarget.busy" id="all-photos-filter"
+                 type="radio"
+                 class="custom-control-input"
+                 [(ngModel)]="filterType"
+                 (ngModelChange)="filterFor('all')"
+                 value="all"/>
+          <label class="custom-control-label" for="all-photos-filter">Show all photos</label>
+        </div>
+        <div class="row mb-3">
+          <div class="col-sm-6">
+            <label for="search">Filter images for text</label>
+            <input [(ngModel)]="filterText" type="text"
+                   (ngModelChange)="onSearchChange($event)" class="form-control input-md rounded ml-8 w-100"
+                   id="search"
+                   placeholder="any text">
+          </div>
+          <div class="col-sm-6 mt-auto">
+            <div class="custom-control custom-checkbox">
+              <input
+                [(ngModel)]="showDuplicates"
+                (ngModelChange)="applyFilter()"
+                type="checkbox" class="custom-control-input"
+                id="show-duplicates">
+              <label class="custom-control-label" for="show-duplicates">Show images that have duplicated
+                images</label>
+            </div>
+          </div>
+        </div>
+        <h6>Pagination</h6>
+        <div class="row">
+          <div class="col-sm-12 mt-3 d-flex">
+            <pagination class="pagination rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="maxSize()"
+                        [totalItems]="filteredFiles.length" [(ngModel)]="pageNumber"
+                        (pageChanged)="pageChanged($event)"></pagination>
+            <div *ngIf="notifyTarget.showAlert" class="flex-grow-1 alert {{notifyTarget.alertClass}}">
+              <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+              <strong *ngIf="notifyTarget.alertTitle">
+                {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
+            </div>
+          </div>
+        </div>
+        <input *ngIf="!contentMetadata.files.length>0" type="button" [value]="newImageCaption()"
+               (click)="insertToEmptyList()"
+               [title]="newImageCaption()" class="button-form"/>
+        <ng-container
+          *ngFor="let imageMetaDataItem of currentPageImages;let index = index; trackBy: metadataItemTracker;">
+          <app-edit-image [index]="index"
+                          [rootFolder]="imageSource"
+                          [filteredFiles]="currentPageImages"
+                          [item]="imageMetaDataItem"
+                          (imageInsert)="imageInsert($event)"
+                          (imageEdit)="imageEdit($event)"
+                          (imageChange)="imageChange($event)"
+                          (imagedSavedOrReverted)="imagedSavedOrReverted($event)"
+                          (delete)="delete($event)"
+                          (moveUp)="moveUp($event)"
+                          (moveDown)="moveDown($event)">
+          </app-edit-image>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+</app-page>

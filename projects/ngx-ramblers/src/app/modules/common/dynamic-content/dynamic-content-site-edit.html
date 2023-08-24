@@ -1,0 +1,179 @@
+<ng-container *ngIf="siteEditService.active()">
+  <ng-container *ngIf="notify.alertTarget.showAlert || !actions.pageContentFound(pageContent, queryCompleted)">
+    <div *ngIf="notify.alertTarget.showAlert" class="col-12 alert {{notify.alertTarget.alertClass}} mt-3">
+      <fa-icon [icon]="notify.alertTarget.alert.icon"></fa-icon>
+      <strong class="ml-2">{{notify.alertTarget.alertTitle}}</strong>
+      <span class="p-2">{{notify.alertTarget.alertMessage}}.
+        <a *ngIf="canCreateContent()" (click)="createContent()"
+           class="rams-text-decoration-pink"
+           type="button">Create content</a>
+        <a *ngIf="canGoToThatPage()" (click)="goToOtherPage()"
+           class="rams-text-decoration-pink"
+           type="button">Go to that page</a>
+      </span>
+    </div>
+  </ng-container>
+  <ng-container *ngIf="pageContent">
+    <div class="card mb-2">
+      <div class="card-body">
+        <h4 class="card-title">Page content for {{pageContent.path}} (<small
+          class="text-muted">{{stringUtils.pluraliseWithCount(pageContent?.rows.length, 'row')}}</small>)</h4>
+        <ng-template #saveButtonsAndPath>
+          <div class="form-inline">
+            <div (click)="savePageContent()"
+                 delay=500 [tooltip]="'Save page changes'" class="badge-button">
+              <fa-icon [icon]="faSave"></fa-icon>
+              Save page changes
+            </div>
+            <div (click)="revertPageContent()"
+                 delay=500 [tooltip]="'Revert page changes'" class="badge-button">
+              <fa-icon [icon]="faUndo"></fa-icon>
+              Revert page changes
+            </div>
+            <div *ngIf="this.insertableContent?.length > 0" (click)="insertData()"
+                 delay=500 [tooltip]="'Insert missing data'" class="badge-button">
+              <fa-icon [icon]="faAdd"></fa-icon>
+              Insert data
+            </div>
+            <div (click)="deletePageContent()"
+                 delay=500
+                 [tooltip]="deletePagContentTooltip()"
+                 [ngClass]="buttonClass(allReferringPages().length === 0)">
+              <fa-icon [icon]="faRemove"></fa-icon>
+              Delete page
+            </div>
+            <ng-container *ngIf="this.allReferringPageCount() > 0">
+              <div class="align-middle">Referred to by: <a class="ml-1"
+                                                           *ngFor="let referringPage of allReferringPages(); let linkIndex = index;"
+                                                           [href]="referringPage">{{formatHref(referringPage)}}{{linkIndex < allReferringPageCount() - 1 ? ',' : ''}}</a>
+              </div>
+            </ng-container>
+            <ng-container *ngIf="this.allReferringPageCount() === 0">
+              <div class="align-middle">Not Referred to by any other pages or links</div>
+            </ng-container>
+          </div>
+        </ng-template>
+        <ng-container *ngTemplateOutlet="saveButtonsAndPath"></ng-container>
+        <div class="row mt-2 align-items-end mb-3">
+          <div [ngClass]="pageContentRowService.rowsSelected()? 'col-md-10' : 'col'">
+            <form>
+              <label class="mr-2" for="path">Content Path:</label>
+              <input autocomplete="nope" [typeahead]="pageContentService.siteLinks"
+                     [typeaheadMinLength]="0" id="path"
+                     [(ngModel)]="pageContent.path"
+                     name="path"
+                     [ngModelOptions]="{standalone: true}"
+                     type="text" class="form-control">
+            </form>
+          </div>
+          <ng-container *ngIf="pageContentRowService.rowsSelected()">
+            <div class="col-sm-4  col-md-2">
+              <label for="action">Action:</label>
+              <select class="form-control input-sm"
+                      [(ngModel)]="action"
+                      id="action">
+                <option *ngFor="let action of contentActions"
+                        [ngValue]="action">{{action}}</option>
+              </select>
+            </div>
+            <div class="col-md-10 mt-3">
+              <form>
+                <label class="mr-2" for="move-or-copy-to-path">
+                  {{action}}
+                  {{stringUtils.pluraliseWithCount(pageContentRowService.selectedRowCount(), "row")}} to:</label>
+                <input id="move-or-copy-to-path"
+                       [typeahead]="pageContentService.siteLinks"
+                       name="destinationPath"
+                       autocomplete="nope"
+                       [typeaheadMinLength]="0"
+                       [disabled]="!pageContentRowService.rowsSelected()"
+                       (ngModelChange)="destinationPathLookupChange($event)"
+                       [ngModel]="destinationPath"
+                       type="text" class="form-control">
+              </form>
+            </div>
+            <div class="col-sm-4 col-md-2 mt-3">
+              <label for="before-after">Position:</label>
+              <select class="form-control input-sm"
+                      [(ngModel)]="destinationPathInsertBeforeAfterIndex"
+                      id="before-after">
+                <option *ngFor="let insertionRow of insertionRowPosition"
+                        [ngValue]="insertionRow.index">{{insertionRow.description}}</option>
+              </select>
+            </div>
+            <div class="col-md-10 mt-3">
+              <label for="insert-at-row">Row:</label>
+              <select class="form-control input-sm"
+                      [(ngModel)]="destinationPathInsertionRowIndex"
+                      (ngModelChange)="destinationPathInsertionRowIndexChange($event)"
+                      id="insert-at-row">
+                <option *ngFor="let insertionRow of insertionRowLookup"
+                        [ngValue]="insertionRow.index">{{insertionRow.description}}</option>
+              </select>
+            </div>
+            <div class="col mt-3">
+              <button [disabled]="actionDisabled()"
+                      delay=500 tooltip="{{action}} rows to {{destinationPath}}"
+                      type="submit"
+                      (click)="performCopyOrMoveAction()"
+                      [ngClass]="buttonClass(!actionDisabled())">
+                <fa-icon [icon]="faSave"></fa-icon>
+                <span class="ml-2">Perform {{action}}</span>
+              </button>
+            </div>
+          </ng-container>
+        </div>
+        <div class="img-thumbnail thumbnail-walk-edit mt-2"
+             *ngFor="let row of pageContent?.rows; let rowIndex = index;">
+          <div class="thumbnail-heading">Row {{rowIndex + 1}}
+            ({{stringUtils.pluraliseWithCount(row?.columns.length, 'column')}})
+          </div>
+          <div class="row align-items-end mb-3">
+            <div class="col-sm-2">
+              <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-type')">Row Type:</label>
+              <select class="form-control input-sm"
+                      [(ngModel)]="row.type"
+                      (ngModelChange)="changeType($event)"
+                      [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-type')">
+                <option *ngFor="let type of enumKeyValuesForPageContentType"
+                        [ngValue]="type.value">{{stringUtils.asTitle(type.value)}}</option>
+              </select>
+            </div>
+            <div class="col">
+              <app-margin-select label="Margin Top"
+                                 [data]="row"
+                                 field="marginTop">
+              </app-margin-select>
+            </div>
+            <div class="col">
+              <app-margin-select label="Margin Bottom"
+                                 [data]="row"
+                                 field="marginBottom">
+              </app-margin-select>
+            </div>
+            <app-action-buttons-settings [row]="row"></app-action-buttons-settings>
+            <div class="col">
+              <app-actions-dropdown [rowIndex]="rowIndex"
+                                    [pageContent]="pageContent"
+                                    [row]="row">
+              </app-actions-dropdown>
+            </div>
+            <app-bulk-action-selector [row]="row"></app-bulk-action-selector>
+          </div>
+          <app-action-buttons *ngIf="actions.isActionButtons(row)"
+                              [pageContent]="pageContent"
+                              [rowIndex]="rowIndex">
+          </app-action-buttons>
+          <app-dynamic-content-site-edit-text-row
+            [row]="row"
+            [rowIndex]="rowIndex"
+            [contentDescription]="contentDescription"
+            [contentPath]="contentPath"
+            [pageContent]="pageContent">
+          </app-dynamic-content-site-edit-text-row>
+        </div>
+        <ng-container *ngTemplateOutlet="saveButtonsAndPath"></ng-container>
+      </div>
+    </div>
+  </ng-container>
+</ng-container>

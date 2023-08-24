@@ -1,0 +1,30 @@
+<div class="row">
+<div class="px-0 col">
+  <div class="container">
+    <div class="row">
+      <div class="p-0 px-lg-3 col">
+        <nav class="navbar navbar-expand-lg bg-light justify-content-between">
+          <a class="navbar-brand" [href]="urlService.baseUrl()" aria-current="page" target="_self">
+            <img *ngIf="logo?.awsFileName" [src]="urlService.resourceRelativePathForAWSFileName(logo?.awsFileName)"
+                 [alt]="systemConfig?.group?.shortName" [width]="logo?.width"></a>
+          <button type="button" aria-label="Toggle navigation"
+                  class="navbar-toggler border-0 rounded-0 collapsed"
+                  data-toggle="collapse" data-target="#nav-collapse" aria-controls="nav-collapse"
+                  aria-expanded="false">
+            <app-svg class="text-dark icon"
+                     width="27"
+                     [icon]="icon()"
+                     (click)="toggleNavBar()">
+            </app-svg>
+          </button>
+          <div *ngIf="navbarContentWithinCollapse && this.navbarExpanded" class="collapse navbar-collapse"
+               id="nav-collapse">
+            <app-navbar-content></app-navbar-content>
+          </div>
+          <app-navbar-content *ngIf="!navbarContentWithinCollapse"></app-navbar-content>
+        </nav>
+      </div>
+    </div>
+  </div>
+</div>
+</div>

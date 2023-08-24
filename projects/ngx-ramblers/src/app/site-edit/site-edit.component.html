@@ -1,0 +1,8 @@
+<div (click)="toggle()" class="edit-site" [textContent]="caption()"></div>
+<ui-switch [checked]="active()"
+           (change)="onChange($event)"
+             [uncheckedTextColor]="'var(--pink)'"
+             [defaultBgColor]="'$ramblers-colour-granite'"
+           class="edit-site" size="small" checkedLabel="on" uncheckedLabel="off"></ui-switch>
+
+

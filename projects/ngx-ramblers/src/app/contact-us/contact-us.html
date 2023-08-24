@@ -1,0 +1,16 @@
+<ul *ngIf="format==='list'">
+  <h3>{{heading}}</h3>
+  <li *ngFor="let committeeMember of committeeMembers()"
+      [ngStyle]="{
+      'font-weight': 'normal',
+      'background-image': 'url('+ urlService.baseUrl() + '/assets/images/ramblers/icons/ramblers_icon_2_arrow_forward_rgb.png)',
+      'padding': '3px 0px 9px 24px',
+      'list-style': 'none outside',
+      'background-repeat': 'no-repeat',
+      'background-position': '0px 7px',
+      'background-size': '18px'}">
+    {{committeeMember.fullName}} - {{committeeMember.description}} - <a
+    [href]="'mailto:' + committeeMember.email">{{committeeMember.email}}</a>
+  </li>
+</ul>
+<a *ngIf="format!=='list'" [href]="'mailto:' + email()">{{text || email()}}</a>

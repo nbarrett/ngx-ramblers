@@ -1,0 +1,45 @@
+<div class="carousel-wrapper">
+  <div class="slider-container">
+    <div class="sc-inner">
+      <carousel [noPause]="false" [isAnimated]="true"
+                [interval]="slideInterval"
+                [showIndicators]="showIndicators"
+                [(activeSlide)]="activeSlideIndex"
+                (activeSlideChange)="activeSlideChange(false, $event)">
+        <app-carousel-story-navigator></app-carousel-story-navigator>
+        <slide *ngFor="let slide of viewableSlides; let index = index;">
+          <img class="img-fluid" loading="lazy" *ngIf="slide" [src]="slide.image" [alt]="slide.text"
+               style="display: block; width: 100%;">
+          <div class="carousel-caption">
+            <h4>{{slide.text}}</h4>
+            <div>
+              <a delay="500" class="badge event-date"
+                 *ngIf="showIndicators && slide.eventId" [tooltip]="eventTooltip(slide)"
+                 [placement]="'right'" [href]="eventUrl(slide)">
+                on {{slide.date | displayDate}}  </a>
+              <a delay="500" class="badge event-date"
+                 *ngIf="!showIndicators && slide.eventId" [tooltip]="eventTooltip(slide)"
+                 [placement]="'bottom'" [href]="eventUrl(slide)">
+                on {{slide.date | displayDate}}  </a>
+            </div>
+          </div>
+        </slide>
+      </carousel>
+    </div>
+  </div>
+</div>
+<div class="row pt-2 pb-2">
+  <div class="col-sm-12">
+    <div delay=500 tooltip="Edit images" class="badge-button" *ngIf="allowEdits()"
+         [routerLink]="'image-editor/imagesHome'"
+         [queryParams]="{story: imageTagDataService.activeTag?.key}">
+      <fa-icon [icon]="faPencil"></fa-icon>
+      <span>edit images</span>
+    </div>
+  </div>
+</div>
+<app-dynamic-content [anchor]="'home-content'"></app-dynamic-content>
+<div class="card-columns">
+  <app-facebook *ngIf="externalSystems?.facebook?.showFeed"></app-facebook>
+  <app-instagram *ngIf="externalSystems?.instagram?.showFeed"></app-instagram>
+</div>

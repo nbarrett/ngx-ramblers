@@ -1,0 +1,42 @@
+<div class="card shadow clickable h-100">
+  <div class="card-body">
+    <h4>Font Awesome Examples</h4>
+    <div class="card-text">
+      <div class="row mb-2">
+        <div class="col-4">
+          <label for="aspect-ratio">Aspect Ratio:</label>
+          <select class="form-control input-sm"
+                  [(ngModel)]="size"
+                  id="aspect-ratio">
+            <option *ngFor="let size of sizes"
+                    [ngValue]="size">{{size}}</option>
+          </select>
+          <div class="form-group">
+            <label class="form-label"
+                   for="filter">Filter For</label>
+            <input [(ngModel)]="filter"
+                   (ngModelChange)="modelChanged($event)"
+                   (change)="change($event)"
+                   [typeahead]="iconService.iconKeys"
+                   id="filter"
+                   class="form-control input-sm" placeholder="Enter href value">
+          </div>
+          <h6>{{filteredIcons.length}} icons matching {{filter}}</h6>
+        </div>
+        <div class="col-8">
+          <div class="row" *ngFor="let icon of filteredIcons">
+            <div class="col-sm-3">
+              {{icon.key}}
+            </div>
+            <div class="col-sm-3">
+              <div class="badge-button">
+                <fa-icon [icon]="icon.value" [class]="size"></fa-icon>
+                <span>{{icon.key}}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

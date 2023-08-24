@@ -1,0 +1,68 @@
+{
+  "extends": "tslint:latest",
+  "semicolon": [
+    false
+  ],
+  "rulesDirectory": "node_modules/tslint-microsoft-contrib",
+  "rules": {
+    "space-before-function-paren": [
+      true,
+      {
+        "anonymous": "always",
+        "named": "never",
+        "asyncArrow": "always"
+      }
+    ],
+    "no-console": false,
+    "no-duplicate-imports": false,
+    "no-implicit-dependencies": false,
+    "no-shadowed-variable": false,
+    "no-string-literal": false,
+    "no-submodule-imports": false,
+    "quotemark": [
+      true,
+      "double",
+      "avoid-escape"
+    ],
+    "one-variable-per-declaration": false,
+    "member-access": false,
+    "typedef-whitespace": [
+      true,
+      {
+        "call-signature": "nospace",
+        "index-signature": "nospace",
+        "parameter": "nospace",
+        "property-declaration": "nospace",
+        "variable-declaration": "nospace"
+      },
+      {
+        "call-signature": "onespace",
+        "index-signature": "onespace",
+        "parameter": "onespace",
+        "property-declaration": "space",
+        "variable-declaration": "space"
+      }
+    ],
+    "object-literal-sort-keys": false,
+    "no-bitwise": false,
+    "one-line": false,
+    "variable-name": [true, "ban-keywords"],
+    "interface-name": [true, "never-prefix"],
+    "max-line-length": [true, 180],
+    "member-ordering": [
+      true,
+      {
+        "order": [
+          "static-field",
+          "instance-field",
+          "static-method",
+          "instance-method"
+        ]
+      }
+    ],
+    "only-arrow-functions": false,
+    "arrow-parens": [true, "ban-single-arg-parens" ],
+    "max-classes-per-file": false,
+    "mocha-avoid-only": true
+  }
+}

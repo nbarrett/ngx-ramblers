@@ -1,0 +1,519 @@
+<div class="modal-content">
+  <div class="modal-header">
+    <h4 class="modal-title">{{editMode}} <em>Member</em> Details</h4>
+    <button type="button" class="close" data-dismiss="modal" (click)="this.bsModalRef.hide();"
+            aria-hidden="true">&times;
+    </button>
+  </div>
+  <div class="modal-body">
+    <tabset class="custom-tabset">
+      <tab active="true" heading="Contact">
+        <div class="img-thumbnail thumbnail-admin-edit">
+          <div class="row">
+            <div class="col-sm-12">
+              <div class="form-group">
+                <p class="title-in-thumbnail">The following contact information is managed
+                  locally in the member database and is never overwritten by the monthly Ramblers head office
+                  data</p>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-sm-6">
+              <form class="form-group">
+                <label for="first-name">First Name</label>
+                <input autocomplete="nope"
+                       name="firstName" [disabled]="!allowEdits" [(ngModel)]="member.firstName"
+                       type="text"
+                       class="form-control input-sm" id="first-name"
+                       placeholder="Enter First Name here">
+              </form>
+            </div>
+            <div class="col-sm-4">
+              <form class="form-group">
+                <label for="last-name">Last Name</label>
+                <input autocomplete="nope" name="lastName" [disabled]="!allowEdits" [(ngModel)]="member.lastName"
+                       type="text"
+                       class="form-control input-sm" id="last-name"
+                       placeholder="Enter Last Name here">
+              </form>
+            </div>
+            <div class="col-sm-2">
+              <form class="form-group">
+                <label for="name-alias">Alias</label>
+                <input autocomplete="nope" name="nameAlias" [disabled]="!allowEdits" [(ngModel)]="member.nameAlias"
+                       type="text"
+                       class="form-control input-sm" id="name-alias"
+                       placeholder="Enter additional name alias here to ensure name uniqueness">
+              </form>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-sm-6">
+              <form class="form-group">
+                <label for="mobile-number">Mobile Number</label>
+                <input autocomplete="nope" name="mobileNumber" [disabled]="!allowEdits"
+                       [(ngModel)]="member.mobileNumber"
+                       type="text" class="form-control input-sm" id="mobile-number"
+                       placeholder="Enter mobile number here">
+              </form>
+            </div>
+            <div class="col col-sm-6">
+              <form class="form-group">
+                <label for="contact-email">Contact Email</label>
+                <input autocomplete="nope" name="email" [disabled]="!allowEdits" [(ngModel)]="member.email"
+                       type="text"
+                       class="form-control input-sm" id="contact-email"
+                       placeholder="Enter contact email here">
+              </form>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col col-sm-6">
+              <form class="form-group">
+                <label for="postcode">Postcode</label>
+                <input autocomplete="nope" name="postcode" [(ngModel)]="member.postcode" type="text"
+                       class="form-control input-sm" id="postcode"
+                       placeholder="Enter home postcode">
+              </form>
+            </div>
+            <div class="col col-sm-6">
+              <form class="form-group">
+                <label for="display-name">Display Name</label>
+                <input autocomplete="nope" name="displayName" [(ngModel)]="member.displayName" type="text"
+                       class="form-control input-sm" id="display-name"
+                       placeholder="The display name as shown in walks and social events">
+              </form>
+            </div>
+          </div>
+        </div>
+      </tab>
+      <tab heading="Login">
+        <form>
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="row">
+              <div class="col-sm-6">
+                <form class="form-group">
+                  <label for="login-user-name">Login User Name</label>
+                  <input autocomplete="nope" name="userName" [disabled]="!allowEdits"
+                         [(ngModel)]="member.userName" type="text"
+                         class="form-control input-sm" id="login-user-name"
+                         placeholder="Enter login user name here">
+                </form>
+              </div>
+              <div class="col-sm-6">
+                <form class="form-group">
+                  <label for="new-password">Password</label>
+                  <input autocomplete="nope" name="new-password" [disabled]="true"
+                         [(ngModel)]="member.password"
+                         type="password" class="form-control input-sm" id="new-password"
+                         placeholder="Password can't be entered here">
+                </form>
+              </div>
+              <div class="col-sm-6">
+                <div class="form-group">
+                  <label for="lastLogin">Last Login</label>
+                  <input [disabled]="true" type="text"
+                         value="{{lastLoggedIn | displayDateAndTime}}"
+                         class="form-control input-sm" id="lastLogin"
+                         placeholder="Member has not logged in yet">
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <div class="custom-control custom-checkbox">
+                  <input name="expiredPassword" [disabled]="!allowEdits" [(ngModel)]="member.expiredPassword"
+                         type="checkbox" class="custom-control-input" id="is-member-ex">
+                  <label class="custom-control-label"
+                         for="is-member-ex">Expired Password
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </tab>
+      <tab heading="Privileges">
+        <div class="img-thumbnail thumbnail-admin-edit">
+          <div class="row">
+            <div class="col-sm-12">
+              <p>Please select the <b>privileges</b> that should be assigned to
+                {{member |
+                  fullNameWithAlias}} using the checkboxes below:</p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-sm-6">
+              <div class="custom-control custom-checkbox">
+                <input name="groupMember" [disabled]="!allowEdits" [(ngModel)]="member.groupMember"
+                       type="checkbox" class="custom-control-input"
+                       id="is-approved-group-member">
+                <label class="custom-control-label"
+                       for="is-approved-group-member">Approved Group Member
+                </label>
+              </div>
+              <div class="custom-control custom-checkbox">
+                <input [disabled]="!allowEdits" [(ngModel)]="member.socialMember"
+                       type="checkbox" class="custom-control-input"
+                       id="is-approved-social-member">
+                <label name="socialMember" class="custom-control-label"
+                       for="is-approved-social-member">Approved Social Member
+                </label>
+              </div>
+              <div class="custom-control custom-checkbox">
+                <input [disabled]="!allowEdits" [(ngModel)]="member.revoked"
+                       type="checkbox" class="custom-control-input"
+                       id="is-revoked-member">
+                <label name="revoked" class="custom-control-label"
+                       for="is-revoked-member">Revoked Member
+                </label>
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <div class="custom-control custom-checkbox">
+                <input [disabled]="!allowEdits" [(ngModel)]="member.contentAdmin"
+                       type="checkbox" class="custom-control-input"
+                       id="is-content-admin">
+                <label name="contentAdmin" class="custom-control-label"
+                       for="is-content-admin">Content Admin
+                </label>
+              </div>
+              <div class="custom-control custom-checkbox">
+                <input [disabled]="!allowEdits" [(ngModel)]="member.walkAdmin"
+                       type="checkbox" class="custom-control-input" id="is-walk-admin">
+                <label name="walkAdmin" class="custom-control-label"
+                       for="is-walk-admin">Walk Admin
+                </label>
+              </div>
+              <div class="custom-control custom-checkbox">
+                <input [disabled]="!allowEdits"
+                       [(ngModel)]="member.walkChangeNotifications" type="checkbox"
+                       class="custom-control-input"
+                       id="receives-walk-change-notifications">
+                <label class="custom-control-label"
+                       for="receives-walk-change-notifications">Walk Change Notifications
+
+                </label>
+              </div>
+              <div class="custom-control custom-checkbox">
+                <input [disabled]="!allowEdits" [(ngModel)]="member.socialAdmin"
+                       type="checkbox" class="custom-control-input" id="is-social-admin">
+                <label class="custom-control-label"
+                       for="is-social-admin">Social Admin
+                </label>
+              </div>
+              <div class="custom-control custom-checkbox">
+                <input [disabled]="!allowEdits" [(ngModel)]="member.memberAdmin"
+                       type="checkbox" class="custom-control-input" id="is-member-admin">
+                <label class="custom-control-label"
+                       for="is-member-admin">Member Admin
+                </label>
+              </div>
+              <div class="custom-control custom-checkbox">
+                <input [disabled]="!allowEdits" [(ngModel)]="member.financeAdmin"
+                       type="checkbox" class="custom-control-input" id="is-finance-admin">
+                <label class="custom-control-label"
+                       for="is-finance-admin">Finance Admin
+                </label>
+              </div>
+              <div class="custom-control custom-checkbox">
+                <input [disabled]="!allowEdits" [(ngModel)]="member.treasuryAdmin"
+                       type="checkbox" class="custom-control-input" id="is-treasury-admin">
+                <label class="custom-control-label"
+                       for="is-treasury-admin">Treasury Admin
+                </label>
+              </div>
+              <div class="custom-control custom-checkbox">
+                <input [disabled]="!allowEdits" [(ngModel)]="member.fileAdmin"
+                       type="checkbox" class="custom-control-input" id="is-file-admin">
+                <label class="custom-control-label"
+                       for="is-file-admin">File Admin
+                </label>
+              </div>
+              <div class="custom-control custom-checkbox">
+                <input [disabled]="!allowEdits" [(ngModel)]="member.committee"
+                       type="checkbox" class="custom-control-input" id="is-committee-member">
+                <label class="custom-control-label"
+                       for="is-committee-member">Committee Member
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </tab>
+      <tab heading="Preferences">
+        <div class="img-thumbnail thumbnail-admin-edit">
+          <div class="row">
+            <div class="col-sm-12">
+              <p>Please deselect the checkbox below to prompt {{member |
+                fullNameWithAlias}} to
+                confirm their profile settings on next login:</p>
+              <div class="custom-control custom-checkbox">
+                <input (ngModelChange)="profileSettingsConfirmedChecked($event)"
+                       [(ngModel)]="member.profileSettingsConfirmed" type="checkbox" class="custom-control-input"
+                       id="profile-settings-confirmed">
+                <label class="custom-control-label"
+                       for="profile-settings-confirmed">Profile settings confirmed
+                  ({{member | lastConfirmedDateDisplayed}})
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="row" *ngIf="member.mailchimpLists">
+            <div class="col-sm-12">
+              <p>Please select how {{member | fullNameWithAlias}} wants to be <b>emailed</b>
+                by using the subscription checkboxes below. To see the member entry in a
+                mailchimp list, click the corresponding mailchimp icon</p>
+
+              <div *ngIf="mailchimpConfig?.lists?.general" class="row">
+                <div class="col-sm-5">
+                  <div class="custom-control custom-checkbox">
+                    <input (change)="changeSubscribed('general')"
+                           [(ngModel)]="member.mailchimpLists.general.subscribed"
+                           type="checkbox" class="custom-control-input" id="subscribe-general-emails">
+                    <label class="custom-control-label"
+                           for="subscribe-general-emails">General emails
+                    </label>
+                  </div>
+                </div>
+                <div class="col-sm-7">
+                  <button [disabled]="!member?.mailchimpLists?.general.web_id"
+                          (click)="viewMailchimpListEntry(member?.mailchimpLists?.general.web_id)"
+                          title="View general list entry In Mailchimp">
+                    <img
+                      [ngClass]="member?.mailchimpLists?.general.web_id ? 'mailchimp-logo': 'mailchimp-logo disabled-image'"
+                      src="/assets/images/mailchimp/freddie_wink.svg"
+                      alt="View general list entry In Mailchimp"></button>
+                </div>
+              </div>
+              <div *ngIf="mailchimpConfig?.lists?.walks" class="row">
+                <div class="col-sm-5">
+                  <div class="custom-control custom-checkbox">
+                    <input (change)="changeSubscribed('walks')" [(ngModel)]="member.mailchimpLists.walks.subscribed"
+                           type="checkbox" class="custom-control-input" id="subscribe-walks-emails">
+                    <label class="custom-control-label"
+                           for="subscribe-walks-emails">Walks emails
+                    </label>
+                  </div>
+                </div>
+                <div class="col-sm-7">
+                  <button [disabled]="!member?.mailchimpLists?.walks?.web_id"
+                          (click)="viewMailchimpListEntry(member?.mailchimpLists?.walks?.web_id)"
+                          title="View walks list entry In Mailchimp">
+                    <img
+                      [ngClass]="member?.mailchimpLists?.walks?.web_id ? 'mailchimp-logo': 'mailchimp-logo disabled-image'"
+                      src="/assets/images/mailchimp/freddie_wink.svg"
+                      alt="View walks list entry In Mailchimp"></button>
+                </div>
+              </div>
+              <div *ngIf="mailchimpConfig?.lists?.socialEvents" class="row">
+                <div class="col-sm-5">
+                  <div class="custom-control custom-checkbox">
+                    <input (change)="changeSubscribed('socialEvents')"
+                           [(ngModel)]="member.mailchimpLists.socialEvents.subscribed"
+                           type="checkbox" class="custom-control-input" id="subscribe-social-events-emails">
+                    <label class="custom-control-label"
+                           for="subscribe-social-events-emails">Social events emails
+                    </label>
+                  </div>
+                </div>
+                <div class="col-sm-7">
+                  <button [disabled]="!member?.mailchimpLists?.socialEvents.web_id"
+                          (click)="viewMailchimpListEntry(member?.mailchimpLists?.socialEvents.web_id)"
+                          title="View social list entry In Mailchimp">
+                    <img
+                      [ngClass]="member?.mailchimpLists?.socialEvents?.web_id ? 'mailchimp-logo': 'mailchimp-logo disabled-image'"
+                      src="/assets/images/mailchimp/freddie_wink.svg"
+                      alt="View social list entry In Mailchimp"></button>
+                </div>
+              </div>
+            </div>
+              <div class="col-sm-12">
+                <p>Please select how {{member | fullNameWithAlias}} wishes to limit
+                  access to
+                  their member data using the checkboxes below:</p>
+                <div class="custom-control custom-checkbox">
+                  <input [(ngModel)]="member.hideSurname" type="checkbox" class="custom-control-input"
+                         id="hide-surname">
+                  <label class="custom-control-label"
+                         for="hide-surname">Hide surname from non-logged-in members
+                  </label>
+                </div>
+              </div>
+            </div>
+        </div>
+      </tab>
+      <tab heading="Membership">
+        <div class="img-thumbnail thumbnail-admin-edit">
+          <div class="row">
+            <div class="col col-sm-12">
+              <p>The membership information below is populated directly from the Ramblers
+                provided
+                data:</p>
+            </div>
+            <div class="col col-sm-6">
+              <div class="form-group">
+                <app-date-picker [label]="'Membership Expiry Date'"
+                                 [size]="'md round'"
+                                 (dateChange)="onMembershipDateChange($event)"
+                                 [value]="membershipExpiryDate">
+                </app-date-picker>
+              </div>
+            </div>
+            <div class="col col-sm-6">
+              <div class="form-group">
+                <label for="membership-number">Membership Number</label>
+                <input [(ngModel)]="member.membershipNumber" type="text"
+                       class="form-control input-sm" id="membership-number"
+                       placeholder="Enter Membership Number here">
+              </div>
+            </div>
+          </div>
+        </div>
+      </tab>
+      <tab heading="Ramblers Systems">
+        <div class="img-thumbnail thumbnail-admin-edit">
+          <div class="row">
+            <div class="col-sm-12">
+              <p class="title-in-thumbnail">The following section allows data to be managed for
+                <a target="_blank" [href]="config.national.walksManager.href">Ramblers Walks and Events Manager</a>
+                and <a target="_blank" href="https://volunteer.ramblers.org.uk">Assemble</a>
+            </div>
+            <div class="col-sm-12 mt-2 mb-2">
+              <app-markdown-editor category="admin" name="walks-manager-fields-help"
+                                   description="Walks Manager fields help"></app-markdown-editor>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col col-sm-6">
+              <label for="contact-id">Ramblers Assemble Name</label>
+              <div class="input-group">
+                <input autocomplete="nope" name="contactId" [(ngModel)]="member.contactId" type="text"
+                       class="form-control input-sm" id="contact-id"
+                       placeholder="The first name and last name used in Ramblers Assemble System">
+                <div class="input-group-append" tooltip="Set this field to be {{member | fullNameWithAlias}}">
+                  <div class="input-group-text pointer" (click)="defaultAssembleName()">
+                    <fa-icon [icon]="faPaste" class="fa-icon"></fa-icon>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col col-sm-6">
+              <form class="form-group">
+                <label for="assemble-id">Assemble Id</label>
+                <input autocomplete="nope" name="assembleId" [(ngModel)]="member.assembleId" type="text"
+                       class="form-control input-sm" id="assemble-id"
+                       placeholder="The Identifier as used in Ramblers Assemble System">
+              </form>
+            </div>
+            <div class="col col-sm-12">
+              <div class="form-group mb-0">
+                <label class="title-in-thumbnail">Assemble Links</label>
+              </div>
+              <div class="form-group" markdown>
+                <ul>
+                  <li><a *ngIf="member.assembleId" target="_blank"
+                         [href]="'https://volunteer.ramblers.org.uk/portal/user/'+member.assembleId+'#tab=1'">{{member | fullNameWithAlias}}
+                    's User Details</a>
+                  </li>
+                  <li>
+                    <a target="_blank"
+                       [href]="'https://volunteer.ramblers.org.uk/portal/supervisor/myteam'">View My Team</a>
+                  </li>
+                  <li><a target="_blank"
+                         [href]="'https://volunteer.ramblers.org.uk/portal/supervisor/volunteer/create#type=volunteer&sid'">
+                    Create new Volunteer in Assemble</a></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </tab>
+      <tab heading="Audit">
+        <div class="img-thumbnail thumbnail-admin-edit">
+          <div class="row">
+            <div class="col-sm-12">
+              <dl class="dl-horizontal input-sm">
+                <dt>Member Created</dt>
+                <dd [textContent]="member | createdAudit : members"></dd>
+                <dt>Member Updated</dt>
+                <dd [textContent]="member | updatedAudit : members"></dd>
+              </dl>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-sm-8">
+              <dl class="dl-horizontal input-sm">
+                <dt>Last Bulk Load Date</dt>
+                <dd [textContent]="member.lastBulkLoadDate | displayDateAndTime">
+                </dd>
+              </dl>
+            </div>
+            <div class="col-sm-4 custom-control custom-checkbox">
+              <input disabled [(ngModel)]="member.receivedInLastBulkLoad"
+                     type="checkbox" class="custom-control-input" id="received-in-last-bulkload">
+              <label class="custom-control-label"
+                     for="received-in-last-bulkload">Received In Last Bulk Load
+              </label>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col col-sm-12">
+              <p>The information below is an audit of all Member bulk loads from the
+                Ramblers provided data for {{member | fullNameWithAlias}}:</p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col col-sm-12">
+              <table
+                class="round styled-table table-striped table-hover table-sm table-pointer">
+                <thead>
+                <tr>
+                  <th>Update Time</th>
+                  <th>Member Action</th>
+                  <th>Audit Message</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr *ngFor="let memberUpdateAudit of memberUpdateAudits">
+                  <td>{{memberUpdateAudit.updateTime | displayDateAndTime}}</td>
+                  <td>{{memberUpdateAudit.memberAction}}</td>
+                  <td>{{memberUpdateAudit.auditMessage || 'No changes or differences found'}}
+                  </td>
+                </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </tab>
+      <tab heading="Member Raw Data">
+        <pre>{{member | json}}</pre>
+      </tab>
+    </tabset>
+    <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
+      <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+      <strong *ngIf="notifyTarget.alertTitle">
+        {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
+    </div>
+  </div>
+  <div class="modal-footer">
+    <input *ngIf="allowEdits" type="submit" [disabled]="saveInProgress"
+           [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
+           (click)="saveMemberDetails()" title="Save these member details" value="Save">
+    <input *ngIf="allowDelete" type="submit" [disabled]="saveInProgress"
+           [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
+           (click)="deleteMemberDetails()" title="Delete these member details" value="Delete">
+    <input *ngIf="allowConfirmDelete" type="submit" class="button-form button-form-left button-confirm"
+           (click)="confirmDeleteMemberDetails()" title="Confirm Delete of these member details"
+           value="Confirm Deletion">
+    <input *ngIf="allowEdits" type="submit" [disabled]="saveInProgress"
+           [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
+           (click)="this.bsModalRef.hide();" title="Cancel and don't save" value="Cancel">
+    <input *ngIf="allowEdits" type="submit" [disabled]="saveInProgress"
+           [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
+           (click)="copyDetailsToNewMember()" title="Copy details to new Member" value="Copy">
+    <input *ngIf="!allowEdits" type="submit" [disabled]="saveInProgress"
+           [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
+           (click)="this.bsModalRef.hide();" title="Close" value="Close">
+  </div>
+</div>

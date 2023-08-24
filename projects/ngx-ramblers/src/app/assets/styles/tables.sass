@@ -1,0 +1,36 @@
+@import "colours"
+
+table.styled-table
+  border-spacing: 0px
+  border-collapse: collapse
+  width: 100%
+  margin-bottom: 0px
+  cursor: pointer
+
+
+table.styled-table th
+  border: none
+  padding: 6px
+  background-color: $ramblers-colour-granite
+  color: $ramblers-colour-cloudy
+  font-weight: bold
+
+
+table.styled-table td
+  padding: 6px
+  background-color: $ramblers-colour-cloudy
+
+
+table.styled-table td.nowrap
+  white-space: nowrap
+
+table.styled-table th:first-child
+  border-radius: 6px 0 0 0
+
+
+table.styled-table th:last-child
+  border-radius: 0 6px 0 0
+
+
+table.styled-table th:only-child
+  border-radius: 6px 6px 0 0
