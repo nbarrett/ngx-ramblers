@@ -1,0 +1,93 @@
+<div class="modal-content">
+  <div class="modal-header">
+    <h4 class="modal-title">Submit <em>Expense Claim</em></h4>
+    <button type="button" class="close float-right" aria-label="Close" (click)="bsModalRef.hide()">&times;</button>
+  </div>
+  <div class="modal-body">
+    <h5>You are about to {{resubmit ? 'resubmit' : 'submit'}} your expense claim</h5>
+    <ul class="list-arrows">
+      <li>If you supply us with your bank account details below we will be able to pay your claim electronically
+        which will speed up the claim processing time.
+      </li>
+      <li>When you confirm using the button below your claim will be automatically submitted to us and we'll
+        notify with updates via email.
+      </li>
+    </ul>
+    <div class="mb-2">
+      <div class="custom-control custom-radio custom-control-inline">
+        <input [disabled]="notifyTarget.busy" id="supply-bank-details"
+               type="radio"
+               class="custom-control-input"
+               [(ngModel)]="supplyBankDetailsChoice"
+               (change)="supplyBankDetails(true)"
+               value="true"/>
+        <label class="custom-control-label" for="supply-bank-details">I'll supply bank details now</label>
+      </div>
+      <div class="custom-control custom-radio custom-control-inline">
+        <input [disabled]="notifyTarget.busy" id="send-me-a-cheque"
+               type="radio"
+               class="custom-control-input"
+               [(ngModel)]="supplyBankDetailsChoice"
+               (change)="supplyBankDetails(false)"
+               value="false"/>
+        <label class="custom-control-label" for="send-me-a-cheque">Please send me a cheque or contact me for bank
+          details, or I've already given you bank details in the past</label>
+      </div>
+    </div>
+    <div *ngIf="expenseClaim.bankDetails">
+      <div class="row">
+        <div class="col-sm-4">
+          <div class="form-group">
+            <label for="sortCode">Sort Code</label>
+
+            <input [disabled]="notifyTarget.busy" [(ngModel)]="expenseClaim.bankDetails.sortCode" type="text"
+                   class="form-control input-sm"
+                   id="sortCode"
+                   placeholder="Enter sort code here">
+          </div>
+        </div>
+        <div class="col-sm-4">
+          <div class="form-group">
+            <label for="accountNumber">Bank Account Number</label>
+
+            <input [disabled]="notifyTarget.busy" [(ngModel)]="expenseClaim.bankDetails.accountNumber" type="text"
+                   class="form-control input-sm"
+                   id="accountNumber"
+                   placeholder="Enter account number here">
+          </div>
+        </div>
+        <div class="col-sm-4">
+          <div class="form-group">
+            <label for="accountName">Account Name</label>
+
+            <input [disabled]="notifyTarget.busy" [(ngModel)]="expenseClaim.bankDetails.accountName" type="text"
+                   class="form-control input-sm"
+                   id="accountName"
+                   placeholder="Enter account holder name here">
+          </div>
+        </div>
+        </div>
+      </div>
+    <div *ngIf="notifyTarget.showAlert" class="row mb-2">
+      <div class="col-sm-12">
+        <div class="alert {{notifyTarget.alertClass}}">
+          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+          <strong
+            *ngIf="notifyTarget.alertTitle">
+            {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <input type="submit" value="Confirm Submit" [disabled]="!supplyBankDetailsChoice || notifyTarget.busy"
+           (click)="confirmSubmitExpenseClaim()"
+           title="Confirm submission of this Expense Claim (you won't be able to make any more changes to it after this)"
+           [ngClass]="!supplyBankDetailsChoice || notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
+    <input type="submit" value="Cancel Submit" [disabled]="notifyTarget.busy"
+           (click)="cancelSubmitExpenseClaim()"
+           title="Cancel submission of this Expense Claim (maybe you want to make some final changes to it?)"
+           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-confirm button-form-left'">
+  </div>
+</div>
+

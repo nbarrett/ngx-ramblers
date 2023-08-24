@@ -1,0 +1,74 @@
+<ng-container *ngIf="!currentWalkId">
+  <ng-container *ngIf="showPagination">
+    <div class="d-flex pb-0">
+      <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
+             (ngModelChange)="onSearchChange($event)"
+             name="quickSearch"
+             class="form-control rounded mr-3"
+             type="text" placeholder="Quick Search">
+      <select [(ngModel)]="filterParameters.selectType"
+              (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
+              class="form-control rounded mr-3">
+        <option *ngFor="let filter of walksFilter()" [ngValue]="filter.value"
+                [selected]="filter.selected">{{filter.description}}</option>
+      </select>
+      <select [(ngModel)]="filterParameters.ascending"
+              (ngModelChange)="refreshWalks('change filterParameters.ascending')" name="ascending"
+              class="form-control rounded">
+        <option selected [value]="true">Sort (date ascending)</option>
+        <option [value]="false">Sort (date descending)</option>
+      </select>
+    </div>
+    <div class="d-flex mt-3">
+      <ng-content></ng-content>
+      <div *ngIf="showAlertInline()" class="flex-grow-1">
+        <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
+          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+          <strong>{{notifyTarget.alertTitle}}</strong>
+          {{notifyTarget.alertMessage}}
+        </div>
+      </div>
+    </div>
+    <ng-container *ngIf="!showAlertInline()">
+      <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
+        <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+        <strong>{{notifyTarget.alertTitle}}</strong>
+        {{notifyTarget.alertMessage}}
+      </div>
+    </ng-container>
+  </ng-container>
+  <ng-container *ngIf="!showPagination">
+    <div class="d-lg-flex pb-0">
+      <div class="form-group mr-lg-3 mb-lg-0">
+        <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
+               (ngModelChange)="onSearchChange($event)"
+               name="quickSearch"
+               class="form-control rounded mr-3"
+               type="text" placeholder="Quick Search">
+      </div>
+      <div class="form-group mr-lg-3 mb-lg-0">
+        <select [(ngModel)]="filterParameters.selectType"
+                (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
+                class="form-control rounded mr-3">
+          <option *ngFor="let filter of walksFilter()" [ngValue]="filter.value"
+                  [selected]="filter.selected">{{filter.description}}</option>
+        </select>
+      </div>
+      <div class="form-group mr-lg-3 mb-lg-0">
+        <select [(ngModel)]="filterParameters.ascending"
+                (ngModelChange)="refreshWalks('change filterParameters.ascending')" name="ascending"
+                class="form-control rounded">
+          <option selected [value]="true">Sort (date ascending)</option>
+          <option [value]="false">Sort (date descending)</option>
+        </select>
+      </div>
+      <div class="form-group mb-0 flex-grow-1">
+        <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
+          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+          <strong>{{notifyTarget.alertTitle}}</strong>
+          {{notifyTarget.alertMessage}}
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</ng-container>

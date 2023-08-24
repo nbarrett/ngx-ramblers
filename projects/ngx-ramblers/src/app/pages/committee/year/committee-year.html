@@ -1,0 +1,75 @@
+<ng-template #committeeYearTemplate>
+  <h2>{{committeeYearTitle}}</h2>
+  <app-markdown-editor class="body-text" category="committee" [name]="'introduction'"
+                       description="Introduction"></app-markdown-editor>
+  <div class="card mb-3">
+    <div class="wrapper w-100 position-relative">
+      <img class="h-100 w-100 position-absolute"
+           role="presentation"
+           [src]="urlService.imageSource(imageSource)">
+    </div>
+    <div class="card-body">
+      <div class="card-title mb-4"><h4>Committee events for {{committeeYear?.year}}</h4></div>
+      <input (click)="addCommitteeFile()"
+             *ngIf="display.allowAddCommitteeFile() && filesForYear?.length===0"
+             class="button-form" title="Add new File" type="submit"
+             value="Add File">
+      <div *ngFor="let committeeFile of filesForYear" class="file-item"
+           (mouseover)="selectCommitteeFile(committeeFile)">
+        <div *ngIf="committeeFile.fileNameData" class="file-download">
+          <img [alt]="display.iconFile(committeeFile)"
+               [src]="'assets/images/ramblers/' + display.iconFile(committeeFile)"
+               class="icon"/>
+          <a [href]="display.fileUrl(committeeFile)" [title]="display.fileTitle(committeeFile)" class="morelink"
+             target='_blank'>Download</a>
+        </div>
+        <div class="file-detail">
+          <h6>{{committeeFile.fileType}}</h6>
+          <p>{{display.fileTitle(committeeFile)}}</p>
+          <div *ngIf="memberLoginService.allowCommittee() &&  isActive(committeeFile)" class="row">
+            <div class="col-sm-12">
+              <div class="action-button-group">
+                        <span *ngIf="!display.confirm.deleteConfirmOutstanding()">
+                          <input *ngIf="display.allowAddCommitteeFile()" type="submit"
+                                 value="Add File" (click)="addCommitteeFile()"
+                                 title="Add new File" class="button-form">
+                          <input *ngIf="display.allowEditCommitteeFile(committeeFile)"
+                                 type="submit" value="Edit File"
+                                 (click)="editCommitteeFile(committeeFile)"
+                                 title="Edit File for approval"
+                                 class="button-form green-confirm">
+                          <input *ngIf="display.allowEditCommitteeFile(committeeFile)"
+                                 type="submit" value="Send Email"
+                                 (click)="sendNotification(committeeFile)"
+                                 title="Send Email" class="button-form yellow-confirm">
+                          <input *ngIf="display.allowDeleteCommitteeFile(committeeFile)"
+                                 type="submit" value="Delete File"
+                                 (click)="deleteCommitteeFile();" title="Delete File"
+                                 class="button-form button-confirm">
+                        </span>
+                <div *ngIf="display.confirm.deleteConfirmOutstanding()">
+                  <input (click)="display.confirmDeleteCommitteeFile(notify, committeeFile)"
+                         class="button-form button-confirm"
+                         title="Delete File"
+                         type="submit" value="Confirm Delete of File">
+                  <input (click)="this.display.confirm.clear();" class="button-form green-confirm"
+                         title="Cancel delete of File"
+                         type="submit"
+                         value="Cancel Delete of File">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <hr *ngIf="notLast(committeeFile)" class="rule">
+      </div>
+    </div>
+  </div>
+  <app-dynamic-content [anchor]="'committee-years'"></app-dynamic-content>
+</ng-template>
+<app-page *ngIf="!committeeYear?.latestYear" [pageTitle]="committeeYearTitle">
+  <ng-container *ngTemplateOutlet="committeeYearTemplate"></ng-container>
+</app-page>
+<ng-container *ngIf="committeeYear?.latestYear">
+  <ng-container *ngTemplateOutlet="committeeYearTemplate"></ng-container>
+</ng-container>

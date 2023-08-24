@@ -1,0 +1,71 @@
+@import "~bootstrap"
+@import "../../assets/styles/colours"
+
+.carousel-wrapper
+  width: 100%
+  margin: 0 auto
+  background: #eee
+  border-bottom: 1px solid #ddd
+  float: left
+
+.carousel-caption h4
+  font-size: 14px
+
+@include media-breakpoint-up(sm)
+  .carousel-caption h4
+    font-size: 10px
+
+@include media-breakpoint-up(md)
+  .carousel-caption h4
+    font-size: 12px
+
+@include media-breakpoint-up(lg)
+  .carousel-caption h4
+    font-size: 15px
+
+@include media-breakpoint-up(xl)
+  .carousel-caption h4
+    font-size: 20px
+
+.slider-container
+  background: #eee
+  border-bottom: 1px solid #ddd
+  float: left
+  width: 100%
+
+.sc-inner
+  position: relative
+  margin: 0 auto
+
+
+.carousel-caption a
+  color: white
+  font-weight: normal
+
+
+.carousel-caption h4
+  color: $ramblers-colour-cloudy
+  @extend .drop-shadow
+
+.event-date
+  @extend .drop-shadow
+  font-weight: normal
+  color: $ramblers-colour-cloudy
+  padding: 4px 10px 6px 8px
+  margin: -4px 4px 6px 0px
+  &:hover
+    background: $ramblers-colour-hover
+    opacity: 90%
+
+.card-columns
+  @include media-breakpoint-only(lg)
+    column-count: 2
+
+  @include media-breakpoint-only(md)
+    column-count: 1
+
+  @include media-breakpoint-only(xl)
+    column-count: 2
+
+  @include media-breakpoint-only(sm)
+    column-count: 1

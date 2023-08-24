@@ -1,0 +1,190 @@
+<app-page>
+  <div class="row">
+  <div class="admin-frame rounded" *ngIf="memberFilter">
+    <div class="admin-header-background rounded">
+      <div class="admin-header-container">
+        <div class="form-inline" role="form">
+          <div class="form-group">
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
+              </div>
+              <input id="quick-search" [(ngModel)]="quickSearch"
+                     (ngModelChange)="onSearchChange($event)"
+                     name="quickSearch"
+                     class="form-control input-sm rounded"
+                     type="text" placeholder="Quick Search">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="spaced-label mr-2" for="filter-members">Filter:</label>
+            <select [disabled]="confirm.bulkDeleteOutstanding()" class="form-control input-sm"
+                    [(ngModel)]="memberFilter.selectedFilter"
+                    (ngModelChange)="refreshMembers($event)"
+                    id="filter-members">
+              <option *ngFor="let tableFilterItem of memberFilter?.availableFilters"
+                      [ngValue]="tableFilterItem"
+                      [textContent]="tableFilterItem.title">
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <p class="search-results rounded">Showing {{memberFilter.results.length}} member(s)</p>
+          </div>
+          <div class="form-group admin-header-buttons">
+            <ng-container *ngIf="!confirm.bulkDeleteOutstanding()">
+              <input [disabled]="notifyTarget.busy" type="submit" value="Add New Member"
+                     (click)="addMember()" title="Add New Member"
+                     [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
+              <input [disabled]="notifyTarget.busy" type="submit" value="Send Emails"
+                     (click)="showSendEmailsDialog()" title="Send Emails"
+                     [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
+              <input [disabled]="notifyTarget.busy || noMailchimpListsConfigured" type="submit"
+                     value="Update Mailchimp Lists"
+                     (click)="updateMailchimpLists()" title="Update Mailchimp Lists"
+                     [ngClass]="notifyTarget.busy || noMailchimpListsConfigured ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
+            </ng-container>
+            <ng-container *ngIf="notReceivedInLastBulkLoadSelected()">
+              <input *ngIf="!confirm.bulkDeleteOutstanding()" [disabled]="notifyTarget.busy" type="submit"
+                     [value]="'Begin Bulk Member Delete'"
+                     (click)="beginBulkMemberDelete()"
+                     [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
+              <ng-container *ngIf="confirm.bulkDeleteOutstanding()">
+                <input [disabled]="notifyTarget.busy" type="submit"
+                       [value]="'Cancel'"
+                       (click)="cancelBulkDelete()"
+                       [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab amber-confirm'">
+                <input
+                  [disabled]="notifyTarget.busy || bulkDeleteMarkedMemberIds.length === memberFilter.results.length"
+                  type="submit"
+                  [value]="'Select All ' + memberFilter.results.length + ' members'"
+                  (click)="markAllForBulkDelete()"
+                  [ngClass]="notifyTarget.busy  || bulkDeleteMarkedMemberIds.length === memberFilter.results.length? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
+                <input [disabled]="notifyTarget.busy || bulkDeleteMarkedMemberIds.length===0" type="submit"
+                       [value]="'Deselect All ' + memberFilter.results.length + ' members'"
+                       (click)="markNoneForBulkDelete()"
+                       [ngClass]="notifyTarget.busy|| bulkDeleteMarkedMemberIds.length===0 ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
+                <input [disabled]="notifyTarget.busy || bulkDeleteMarkedMemberIds.length === 0" type="submit"
+                       [value]="'Confirm Deletion of ' + bulkDeleteMarkedMemberIds.length + ' members'"
+                       (click)="confirmBulkDelete()"
+                       [ngClass]="notifyTarget.busy  || bulkDeleteMarkedMemberIds.length === 0 ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab button-confirm'">
+              </ng-container>
+            </ng-container>
+            <ng-container *ngIf="false">
+              <input [disabled]="notifyTarget.busy" type="submit"
+                     [value]="'Bulk Unsubscribe ' + memberFilter.results.length + ' members'"
+                     (click)="bulkUnsubscribe()"
+                     [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
+              <ng-container *ngIf="confirm.bulkActionOutstanding()">
+                <input [disabled]="notifyTarget.busy" type="submit"
+                       [value]="'Cancel Bulk Unsubscribe'"
+                       (click)="clearOutstandingAction()"
+                       [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab green-confirm'">
+                <input [disabled]="notifyTarget.busy" type="submit"
+                       [value]="'Confirm Bulk Unsubscribe'"
+                       (click)="confirmBulkUnsubscribe()"
+                       [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab button-confirm'">
+              </ng-container>
+            </ng-container>
+          </div>
+        </div>
+        <div *ngIf="notifyTarget.showAlert" class="row mb-0">
+          <div class="col-sm-12">
+            <div class="alert {{notifyTarget.alertClass}}">
+              <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+              <strong *ngIf="notifyTarget.alertTitle">
+                {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="round tbl-green-g table-striped table-hover table-sm">
+          <thead>
+          <tr class="white-anchor">
+            <th>Action</th>
+            <th (click)="sortMembersBy('memberName')">Member Name
+              <span class="sorting-header" *ngIf="showMembersColumn('memberName')"
+                    [textContent]="memberFilter.sortDirection"></span>
+            </th>
+            <th (click)="sortMembersBy('mobileNumber')">Mobile Number
+              <span class="sorting-header" *ngIf="showMembersColumn('mobileNumber')"
+                    [textContent]="memberFilter.sortDirection"></span>
+            </th>
+            <th (click)="sortMembersBy('createdDate')">Created Date
+              <span class="sorting-header" *ngIf="showMembersColumn('createdDate')"
+                    [textContent]="memberFilter.sortDirection"></span>
+            </th>
+            <th (click)="sortMembersBy('membershipExpiryDate')">Expiry Date
+              <span class="sorting-header" *ngIf="showMembersColumn('membershipExpiryDate')"
+                    [textContent]="memberFilter.sortDirection"></span>
+            </th>
+            <th (click)="sortMembersBy('receivedInLastBulkLoad')">Last Bulk Load
+              <span class="sorting-header" *ngIf="showMembersColumn('receivedInLastBulkLoad')"
+                    [textContent]="memberFilter.sortDirection"></span>
+            </th>
+            <th (click)="sortMembersBy('groupMember')">Group Member
+              <span class="sorting-header" *ngIf="showMembersColumn('groupMember')"
+                    [textContent]="memberFilter.sortDirection"></span>
+            </th>
+            <th (click)="sortMembersBy('socialMember')">Social Member
+              <span class="sorting-header" *ngIf="showMembersColumn('socialMember')"
+                    [textContent]="memberFilter.sortDirection"></span>
+            </th>
+            <th *ngIf="mailchimpConfig?.lists?.walks" (click)="sortMembersBy('mailchimpLists.walks.subscribed')">Walks
+              emails
+              <span class="sorting-header" *ngIf="showMembersColumn('mailchimpLists.walks.subscribed')"
+                    [textContent]="memberFilter.sortDirection"></span>
+            </th>
+            <th *ngIf="mailchimpConfig?.lists?.socialEvents"
+                (click)="sortMembersBy('mailchimpLists.socialEvents.subscribed')">Social emails
+              <span class="sorting-header"
+                    *ngIf="showMembersColumn('mailchimpLists.socialEvents.subscribed')"
+                    [textContent]="memberFilter.sortDirection"></span>
+            </th>
+            <th *ngIf="mailchimpConfig?.lists?.general" (click)="sortMembersBy('mailchimpLists.general.subscribed')">
+              General emails
+              <span class="sorting-header"
+                    *ngIf="showMembersColumn('mailchimpLists.general.subscribed')"
+                    [textContent]="memberFilter.sortDirection"></span>
+            </th>
+            <th *ngIf="confirm.bulkDeleteOutstanding()">Marked For Delete</th>
+          </tr>
+        </thead>
+        <tbody>
+        <tr *ngFor="let member of memberFilter.results">
+          <td>
+            <input (click)="editMember(member)" type="submit" value="edit"
+                   [disabled]="notifyTarget.busy"
+                   [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
+          </td>
+          <td><a [href]="'mailto:' + member.email">
+                        <span placement="right"
+                              tooltip="Click to email {{member | fullNameWithAlias}} at {{member.email}}">{{member | fullNameWithAlias}}</span></a>
+          </td>
+          <td>
+            <a [href]="'tel: ' + member.mobileNumber">
+                                            <span placement="right"
+                                                  tooltip="Click to ring {{member | fullNameWithAlias}} on {{member.mobileNumber}} (mobile devices only)">{{member.mobileNumber}}</span></a>
+          </td>
+          <td class="nowrap">{{member.createdDate | displayDate}}</td>
+          <td class="nowrap">{{member.membershipExpiryDate | displayDate}}</td>
+          <td>{{member.receivedInLastBulkLoad ? 'yes' : 'no'}}</td>
+          <td>{{member.groupMember ? 'yes' : 'no'}}</td>
+          <td>{{member.socialMember ? 'yes' : 'no'}}</td>
+          <td *ngIf="mailchimpConfig?.lists?.walks">{{member.mailchimpLists?.walks?.subscribed ? 'yes' : 'no'}}</td>
+          <td *ngIf="mailchimpConfig?.lists?.socialEvents">
+            {{member.mailchimpLists?.socialEvents?.subscribed ? 'yes' : 'no'}}</td>
+          <td *ngIf="mailchimpConfig?.lists?.general">
+            {{member.mailchimpLists?.general?.subscribed ? 'yes' : 'no'}}</td>
+          <td *ngIf="confirm.bulkDeleteOutstanding()" (click)="toggleDeletionMarker(member.id)">
+            <fa-icon *ngIf="markedForDelete(member.id)" [icon]="faUserXmark"></fa-icon>
+          </td>
+        </tr>
+        </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  </div>
+</app-page>

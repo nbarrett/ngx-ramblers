@@ -1,0 +1,29 @@
+@import "colours"
+
+.pagination-button
+  margin-right: 8px
+  background-color: $ramblers-colour-sunrise
+  color: $ramblers-colour-granite
+  border: none
+  border-radius: 6px
+
+.pagination .page-link
+  @extend .pagination-button
+
+.pagination .page-item.active .page-link
+  @extend .pagination-button
+
+.pagination .pagination-first.page-item.disabled
+  @extend .pagination-button
+
+.page-item.disabled .page-link
+  background-color: unset
+
+.pagination .pagination-last.page-item.disabled
+  @extend .pagination-button
+
+.pagination .pagination-prev.page-item.disabled
+  @extend .pagination-button
+
+.pagination .pagination-next.page-item.disabled
+  @extend .pagination-button

@@ -1,0 +1,62 @@
+<div class="col-sm-12">
+  <div class="row img-thumbnail thumbnail-walk-edit">
+    <div class="thumbnail-heading">Meetup</div>
+    <div class="hidden">
+      <ng-template app-walk-notification-template></ng-template>
+    </div>
+    <div class="row">
+      <div class="col-sm-12">
+        <app-markdown-editor name="meetup-help" description="Linking to Meetup"></app-markdown-editor>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-sm-12" *ngIf="allowEdits()">
+        <div class="custom-control custom-checkbox">
+          <input [disabled]="!allowEdits() || saveInProgress"
+                 (ngModelChange)="changedPublishMeetup($event)"
+                 [(ngModel)]="displayedWalk.walk.meetupPublish"
+                 type="checkbox" class="custom-control-input" id="walk-publish-meetup">
+          <label class="custom-control-label"
+                 for="walk-publish-meetup">Publish this walk to Meetup
+          </label>
+        </div>
+      </div>
+    </div>
+    <div *ngIf="displayedWalk.walk.meetupPublish">
+      <div class="row">
+        <div class="col-sm-12">
+          <app-walk-meetup-config-parameters *ngIf="contentTextItems.length>0 && meetupConfigExists()"
+                                             [contentTextItems]="contentTextItems"
+                                             [renderMarkdownField]="!meetupEventDescriptionExists()"
+                                             [config]="displayedWalk.walk.config.meetup"></app-walk-meetup-config-parameters>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12 mb-2 mt-3">
+          <app-markdown-editor *ngIf="meetupConfigExists()"
+                               [initialView]="view"
+                               [name]="'meetup-event-description'"
+                               [category]="CONTENT_CATEGORY"
+                               [text]="meetupEventDescription"
+                               [rows]="7"
+                               [description]="'Meetup event description'">
+          </app-markdown-editor>
+        </div>
+      </div>
+      <div class="col-sm-8" *ngIf="allowEdits()">
+        <div class="form-group" *ngIf="displayedWalk.walk.meetupEventUrl">
+          <label>Link preview:
+            <img class="related-links-image" src="/assets/images/local/meetup.ico"
+                 alt=""/>
+            <a target="_blank"
+               [href]="displayedWalk.walk.meetupEventUrl">
+                        <span class="related-links-title"
+
+                              tooltip="Click to view this walk in Meetup">
+                          View {{meetupService.meetupPublishedStatus(displayedWalk)}} event on Meetup</span>
+            </a></label>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

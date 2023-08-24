@@ -1,0 +1,446 @@
+<app-page>
+  <div class="row">
+    <div class="col-sm-12">
+      <tabset class="custom-tabset" *ngIf="mailchimpConfig">
+        <tab heading="General">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div *ngIf="mailchimpConfig" class="img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Global Settings</div>
+              <div class="col-sm-12">
+                <div class="custom-control custom-checkbox">
+                  <input [(ngModel)]="mailchimpConfig.mailchimpEnabled"
+                         type="checkbox" class="custom-control-input" id="mailchimp-enabled">
+                  <label class="custom-control-label"
+                         for="mailchimp-enabled">Enable Mailchimp Integration
+                  </label>
+                </div>
+                <div class="custom-control custom-checkbox">
+                  <input [(ngModel)]="mailchimpConfig.allowSendCampaign"
+                         type="checkbox" class="custom-control-input" id="allow-send-campaign">
+                  <label class="custom-control-label"
+                         for="allow-send-campaign">Allow Send Campaign
+                  </label>
+                </div>
+                <div class="form-group">
+                  <label for="api-url">API Url</label>
+                  <input [(ngModel)]="mailchimpConfig.apiUrl" type="text" class="form-control input-sm"
+                         id="api-url"
+                         placeholder="The Url endpoint for the mailchimp api">
+                </div>
+                <div class="form-group">
+                  <label for="api-key">API Key</label>
+                  <input [(ngModel)]="mailchimpConfig.apiKey" type="text" class="form-control input-sm"
+                         id="api-key"
+                         placeholder="The API key for the mailchimp api">
+                </div>
+              </div>
+            </div>
+            <div class="img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">List Settings</div>
+              <app-mailchimp-list-settings label="General"
+                                          [mailchimpListingResponse]="mailchimpListingResponse"
+                                          [notify]="notify"
+                                          [notReady]="notReady()"
+                                          [mailchimpConfig]="mailchimpConfig"
+                                          [listType]="'general'">
+              </app-mailchimp-list-settings>
+              <app-mailchimp-list-settings label="Walks"
+                                          [mailchimpListingResponse]="mailchimpListingResponse"
+                                          [notify]="notify"
+                                          [notReady]="notReady()"
+                                          [mailchimpConfig]="mailchimpConfig"
+                                          [listType]="'walks'">
+              </app-mailchimp-list-settings>
+              <app-mailchimp-list-settings label="Social Events"
+                                          [mailchimpListingResponse]="mailchimpListingResponse"
+                                          [notify]="notify"
+                                          [notReady]="notReady()"
+                                          [mailchimpConfig]="mailchimpConfig"
+                                          [listType]="'socialEvents'">
+              </app-mailchimp-list-settings>
+            </div>
+          </div>
+        </tab>
+        <tab heading="Defaults">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div *ngIf="mailchimpConfig.contactDefaults" class="img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Contact Defaults</div>
+              <app-mailchimp-contact [mailchimpContact]="mailchimpConfig.contactDefaults"></app-mailchimp-contact>
+            </div>
+            <div class="img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Campaign Defaults</div>
+              <app-mailchimp-campaign-defaults [campaignDefaults]="mailchimpConfig.campaignDefaults">
+              </app-mailchimp-campaign-defaults>
+            </div>
+          </div>
+        </tab>
+        <tab [heading]="'Walks'">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Walk Leader</div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="walks-campaign">Campaign Master</label>
+                  <div class="form-inline">
+                    <select id="walks-campaign"
+                            [(ngModel)]="mailchimpConfig.campaigns.walkNotification.campaignId"
+                            class="form-control input-sm flex-grow-1 mr-2">
+                      <option *ngFor="let campaign of mailchimpCampaignListResponse?.campaigns"
+                              [ngValue]="campaign.id"
+                              [textContent]="campaign.settings.title">
+                    </select>
+                    <input type="submit" value="Edit"
+                           (click)="editCampaign(mailchimpConfig?.campaigns?.walkNotification?.campaignId)"
+                           title="Edit"
+                           [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="walks-campaign-name">Email Title</label>
+                  <input [(ngModel)]="mailchimpConfig.campaigns.walkNotification.name"
+                         id="walks-campaign-name"
+                         class="form-control input-sm">
+                </div>
+              </div>
+            </div>
+          </div>
+        </tab>
+        <tab [heading]="'Social Events'">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Social Events</div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="social-events-campaign">Campaign Master</label>
+                  <div class="form-inline">
+                    <select [(ngModel)]="mailchimpConfig.campaigns.socialEvents.campaignId"
+                            id="social-events-campaign"
+                            class="form-control input-sm flex-grow-1 mr-2">
+                      <option *ngFor="let campaign of mailchimpCampaignListResponse?.campaigns"
+                              [ngValue]="campaign.id"
+                              [textContent]="campaign.settings.title">
+                    </select>
+                    <input type="submit" value="Edit"
+                           (click)="editCampaign(mailchimpConfig?.campaigns?.socialEvents?.campaignId)"
+                           title="Edit"
+                           [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="social-events-campaign-name">Email Title</label>
+                  <input [(ngModel)]="mailchimpConfig.campaigns.socialEvents.name"
+                         id="social-events-campaign-name"
+                         class="form-control input-sm">
+                </div>
+              </div>
+            </div>
+          </div>
+        </tab>
+        <tab [heading]="'Committee'">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">AGM and Committee</div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="committee-campaign-master">Campaign Master</label>
+                  <div class="form-inline">
+                    <select [(ngModel)]="mailchimpConfig.campaigns.committee.campaignId"
+                            id="committee-campaign-master"
+                            class="form-control input-sm flex-grow-1 mr-2">
+                      <option *ngFor="let campaign of mailchimpCampaignListResponse?.campaigns"
+                              [ngValue]="campaign.id"
+                              [textContent]="campaign.settings.title">
+                    </select>
+                    <input type="submit" value="Edit"
+                           (click)="editCampaign(mailchimpConfig?.campaigns?.committee?.campaignId)"
+                           title="Edit"
+                           [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="committee-campaign-name">Email Title</label>
+                  <input [(ngModel)]="mailchimpConfig.campaigns.committee.name"
+                         id="committee-campaign-name"
+                         class="form-control input-sm">
+                </div>
+              </div>
+            </div>
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Newsletter</div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="newsletter-campaign">Campaign Master</label>
+                  <div class="form-inline">
+                    <select [(ngModel)]="mailchimpConfig.campaigns.newsletter.campaignId"
+                            id="newsletter-campaign"
+                            class="form-control input-sm flex-grow-1 mr-2">
+                      <option *ngFor="let campaign of mailchimpCampaignListResponse?.campaigns"
+                              [ngValue]="campaign.id"
+                              [textContent]="campaign.settings.title">
+                    </select>
+                    <input type="submit" value="Edit"
+                           (click)="editCampaign(mailchimpConfig?.campaigns?.newsletter?.campaignId)"
+                           title="Edit"
+                           [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="newsletter-campaign-name">Email Title</label>
+                  <input [(ngModel)]="mailchimpConfig.campaigns.newsletter.name"
+                         id="newsletter-campaign-name"
+                         class="form-control input-sm">
+                </div>
+              </div>
+            </div>
+          </div>
+        </tab>
+        <tab [heading]="'Expenses'">
+          <div class="img-thumbnail thumbnail-admin-edit">
+
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Expenses</div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="expenses-campaign">Campaign Master</label>
+                  <div class="form-inline">
+                    <select
+                      [(ngModel)]="mailchimpConfig.campaigns.expenseNotification.campaignId"
+                      id="expenses-campaign"
+                      class="form-control input-sm flex-grow-1 mr-2">
+                      <option *ngFor="let campaign of mailchimpCampaignListResponse?.campaigns"
+                              [ngValue]="campaign.id"
+                              [textContent]="campaign.settings.title">
+                    </select>
+                    <input type="submit" value="Edit"
+                           (click)="editCampaign(mailchimpConfig?.campaigns?.expenseNotification?.campaignId)"
+                           title="Edit"
+                           [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="expenses-campaign-name">Email Title</label>
+                  <input [(ngModel)]="mailchimpConfig.campaigns.expenseNotification.name"
+                         id="expenses-campaign-name"
+                         class="form-control input-sm">
+                </div>
+              </div>
+            </div>
+          </div>
+        </tab>
+        <tab [heading]="'Passwords'">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Password Reset</div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="password-reset-campaign">Campaign Master</label>
+                  <div class="form-inline">
+                    <select [(ngModel)]="mailchimpConfig.campaigns.passwordReset.campaignId"
+                            id="password-reset-campaign"
+                            class="form-control input-sm flex-grow-1 mr-2">
+                      <option *ngFor="let campaign of mailchimpCampaignListResponse?.campaigns"
+                              [ngValue]="campaign.id"
+                              [textContent]="campaign.settings.title">
+                    </select>
+                    <input type="submit" value="Edit"
+                           (click)="editCampaign(mailchimpConfig?.campaigns?.passwordReset?.campaignId)"
+                           title="Edit"
+                           [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-8">
+                <div class="form-group">
+                  <label for="password-reset-campaign-name">Email Title</label>
+                  <input [(ngModel)]="mailchimpConfig.campaigns.passwordReset.name"
+                         id="password-reset-campaign-name"
+                         class="form-control input-sm">
+                </div>
+              </div>
+              <div class="col-sm-4">
+                <div class="form-group">
+                  <label for="password-reset-campaign-months-in-past-filter">Months In Past</label>
+                  <input [(ngModel)]="mailchimpConfig.campaigns.passwordReset.monthsInPast"
+                         type="number" id="password-reset-campaign-months-in-past-filter"
+                         class="form-control input-sm">
+                </div>
+              </div>
+            </div>
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Forgotten Password</div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="forgot-password-campaign">Campaign Master</label>
+                  <div class="form-inline">
+                    <select
+                      [(ngModel)]="mailchimpConfig.campaigns.forgottenPassword.campaignId"
+                      id="forgot-password-campaign"
+                      class="form-control input-sm flex-grow-1 mr-2">
+                      <option *ngFor="let campaign of mailchimpCampaignListResponse?.campaigns"
+                              [ngValue]="campaign.id"
+                              [textContent]="campaign.settings.title">
+                    </select>
+                    <input type="submit" value="Edit"
+                           (click)="editCampaign(mailchimpConfig?.campaigns?.forgottenPassword?.campaignId)"
+                           title="Edit"
+                           [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="forgot-password-campaign-name">Email Title</label>
+                  <input [(ngModel)]="mailchimpConfig.campaigns.forgottenPassword.name"
+                         id="forgot-password-campaign-name"
+                         class="form-control input-sm">
+                </div>
+              </div>
+            </div>
+          </div>
+        </tab>
+        <tab [heading]="'Membership'">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Welcome to EKWG</div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="welcome-campaign">Campaign Master</label>
+                  <div class="form-inline">
+                    <select [(ngModel)]="mailchimpConfig.campaigns.welcome.campaignId"
+                            id="welcome-campaign"
+                            class="form-control input-sm flex-grow-1 mr-2">
+                      <option *ngFor="let campaign of mailchimpCampaignListResponse?.campaigns"
+                              [ngValue]="campaign.id"
+                              [textContent]="campaign.settings.title">
+                    </select>
+                    <input type="submit" value="Edit"
+                           (click)="editCampaign(mailchimpConfig?.campaigns?.welcome?.campaignId)"
+                           title="Edit"
+                           [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-8">
+                <div class="form-group">
+                  <label for="welcome-campaign-name">Email Title</label>
+                  <input [(ngModel)]="mailchimpConfig.campaigns.welcome.name"
+                         id="welcome-campaign-name"
+                         class="form-control input-sm">
+                </div>
+              </div>
+              <div class="col-sm-4">
+                <div class="form-group">
+                  <label for="welcome-campaign-months-in-past-filter">Months In Past</label>
+                  <input [(ngModel)]="mailchimpConfig.campaigns.welcome.monthsInPast"
+                         type="number" id="welcome-campaign-months-in-past-filter"
+                         class="form-control input-sm">
+                </div>
+              </div>
+            </div>
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Expired Members - initial notification</div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="expired-members-campaign-initial">Campaign Master</label>
+                  <div class="form-inline">
+                    <select [(ngModel)]="mailchimpConfig.campaigns.expiredMembersWarning.campaignId"
+                            id="expired-members-campaign-initial"
+                            class="form-control input-sm flex-grow-1 mr-2">
+                      <option *ngFor="let campaign of mailchimpCampaignListResponse?.campaigns"
+                              [ngValue]="campaign.id"
+                              [textContent]="campaign.settings.title">
+                    </select>
+                    <input type="submit" value="Edit"
+                           (click)="editCampaign(mailchimpConfig?.campaigns?.expiredMembersWarning?.campaignId)"
+                           title="Edit"
+                           [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-8">
+                <div class="form-group">
+                  <label for="expired-members-warning-campaign-name">Email Title</label>
+                  <input [(ngModel)]="mailchimpConfig.campaigns.expiredMembersWarning.name"
+                         id="expired-members-warning-campaign-name"
+                         class="form-control input-sm">
+                </div>
+              </div>
+              <div class="col-sm-4">
+                <div class="form-group">
+                  <label for="expired-members-warning-campaign-months-in-past-filter">Months In Past</label>
+                  <input [(ngModel)]="mailchimpConfig.campaigns.expiredMembersWarning.monthsInPast"
+                         type="number" id="expired-members-warning-campaign-months-in-past-filter"
+                         class="form-control input-sm">
+                </div>
+              </div>
+            </div>
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Expired Members - final notification</div>
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="expired-members-campaign">Campaign Master</label>
+                  <div class="form-inline">
+                    <select [(ngModel)]="mailchimpConfig.campaigns.expiredMembers.campaignId"
+                            id="expired-members-campaign"
+                            class="form-control input-sm flex-grow-1 mr-2">
+                      <option *ngFor="let campaign of mailchimpCampaignListResponse?.campaigns"
+                              [ngValue]="campaign.id"
+                              [textContent]="campaign.settings.title">
+                    </select>
+                    <input type="submit" value="Edit"
+                           (click)="editCampaign(mailchimpConfig?.campaigns?.expiredMembers?.campaignId)"
+                           title="Edit"
+                           [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-8">
+                <div class="form-group">
+                  <label for="expired-members-campaign-name">Email Title</label>
+                  <input [(ngModel)]="mailchimpConfig.campaigns.expiredMembers.name"
+                         id="expired-members-campaign-name"
+                         class="form-control input-sm">
+                </div>
+              </div>
+              <div class="col-sm-4">
+                <div class="form-group">
+                  <label for="expired-members-campaign-months-in-past-filter">Months In Past</label>
+                  <input [(ngModel)]="mailchimpConfig.campaigns.expiredMembers.monthsInPast"
+                         type="number" id="expired-members-campaign-months-in-past-filter"
+                         class="form-control input-sm">
+                </div>
+              </div>
+            </div>
+          </div>
+        </tab>
+      </tabset>
+      <div *ngIf="notifyTarget.showAlert" class="row">
+        <div class="col-sm-12 mb-10">
+          <div class="alert {{notifyTarget.alert.class}}">
+            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+            <strong *ngIf="notifyTarget.alertTitle">
+              {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-12">
+      <input type="submit" value="Save" (click)="save()"
+             title="Save notification settings"
+             [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
+      <input type="submit" value="Cancel" (click)="cancel()"
+             title="Cancel without saving"
+             [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm button-form-left'">
+    </div>
+  </div>
+</app-page>

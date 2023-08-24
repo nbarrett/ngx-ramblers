@@ -1,0 +1,112 @@
+<div class="card shadow clickable h-100 mb-4">
+  <app-card-image
+    [smallIconContainer]="smallIconContainer"
+    [imageType]="imageType"
+    [icon]="iconService.iconForName(column.icon)"
+    [imageSource]="imageSourceOrPreview()"
+    [imageLink]="column.href"></app-card-image>
+  <div class="card-body">
+    <h4 class="card-title">
+      <a class="rams-text-decoration-pink" [href]="column.href"
+         target="_self">{{column.title}}</a>
+    </h4>
+    <app-image-cropper
+      *ngIf="pageContentEdit.editActive"
+      [preloadImage]="column?.imageSource"
+      (imageChange)="imageChanged($event)"
+      (quit)="exitImageEdit()"
+      (save)="imagedSaved($event)">
+    </app-image-cropper>
+    <ng-container *ngIf="siteEditService.active()">
+      <div class="form-group">
+        <label class="form-label"
+               [for]="idFor('title')">Title</label>
+        <input [(ngModel)]="column.title"
+               [id]="idFor('title')"
+               class="form-control input-sm" placeholder="Enter slide title"
+               type="text">
+      </div>
+      <form class="form-group">
+        <label class="form-label"
+               [for]="idFor('href')">Link</label>
+        <input [(ngModel)]="column.href"
+               name="href"
+               autocomplete="nope"
+               [typeahead]="pageContentService.siteLinks"
+               [id]="idFor('href')"
+               class="form-control input-sm" placeholder="Enter href value">
+      </form>
+      <div class="form-group">
+        <div class="custom-control custom-radio custom-control-inline">
+          <input [id]="idFor('use-image')"
+                 type="radio"
+                 class="custom-control-input"
+                 [name]="idFor('image-type')"
+                 [ngModel]="imageType"
+                 (change)="changeToImageType()"
+                 value="image"/>
+          <label class="custom-control-label"
+                 [for]="idFor('use-image')">
+            Use Image</label>
+        </div>
+        <div class="custom-control custom-radio custom-control-inline">
+          <input [id]="idFor('use-icon')"
+                 type="radio"
+                 [name]="idFor('image-type')"
+                 class="custom-control-input"
+                 [ngModel]="imageType"
+                 (change)="changeToIconType()"
+                 value="icon"/>
+          <label class="custom-control-label"
+                 [for]="idFor('use-icon')">
+            Use Icon</label>
+        </div>
+      </div>
+      <div *ngIf="imageType==='icon'" class="form-group">
+        <label class="form-label"
+               [for]="idFor('icon')">Icon</label>
+        <input [(ngModel)]="column.icon"
+               [typeahead]="iconService.iconKeys"
+               [id]="idFor('icon')"
+               class="form-control input-sm" placeholder="Enter icon value">
+      </div>
+      <div *ngIf="imageType==='image'" class="form-group">
+        <label class="form-label"
+               [for]="idFor('imageSource')">Image Source</label>
+        <input [(ngModel)]="column.imageSource"
+               [id]="idFor('imageSource')"
+               class="form-control input-sm" placeholder="Enter image source value"
+               type="text">
+      </div>
+      <div class="form-group">
+        <label [for]="idFor('access-level')">Access</label>
+        <select [(ngModel)]="column.accessLevel" [id]="idFor('access-level')"
+                class="form-control input-sm">
+          <option *ngFor="let accessLevel of memberResourcesReferenceData.accessLevels()"
+                  [textContent]="accessLevel.description"
+                  [ngValue]="accessLevel.id">
+        </select>
+      </div>
+    </ng-container>
+    <app-markdown-editor class="card-text"
+                         (saved)="actions.saveContentTextId($event, rowIndex, column, pageContent)"
+                         [actionCaptionSuffix]="'text'"
+                         [clearEnabled]="true"
+                         [category]="pageContent.path"
+                         [description]="idFor(pageContent.path)"
+                         [id]="column?.contentTextId"
+                         [name]="actions.rowColFor(rowIndex, columnIndex)">
+
+      <div *ngIf="!pageContentEdit.editActive"
+           (click)="editImage()"
+           delay=500 tooltip="edit image" class="badge-button">
+        <fa-icon [icon]="faPencil"></fa-icon>
+        <span>edit image</span>
+      </div>
+      <app-actions-dropdown [columnIndex]="columnIndex"
+                            [pageContent]="pageContent"
+                            [row]="row">
+      </app-actions-dropdown>
+    </app-markdown-editor>
+  </div>
+</div>

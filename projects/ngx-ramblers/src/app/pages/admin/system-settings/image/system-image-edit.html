@@ -1,0 +1,73 @@
+<div class="row mb-3 mt-3">
+  <div class="col-md-12">
+    <h5>{{logoTitle()}}</h5>
+    <app-image-cropper
+      *ngIf="logoEditActive"
+      [rootFolder]="images?.rootFolder"
+      [preloadImage]="image.awsFileName"
+      (imageChange)="imageChange($event)"
+      (quit)="exitImageEdit()"
+      (save)="imagedSaved($event)">
+    </app-image-cropper>
+  </div>
+  <div class="col-md-6 mt-2">
+    <div class="row">
+      <div class="col-md-12">
+        <label>Original Name</label>
+        <input [(ngModel)]="image.originalFileName"
+               type="text" value="" class="form-control input-sm w-100" [id]="uniqueIdFor('originalFileName')">
+      </div>
+    </div>
+    <div class="row mt-2">
+      <div class="col-md-12">
+        <label>Image Source Name</label>
+        <input [(ngModel)]="image.awsFileName"
+               type="text" value="" class="form-control input-sm w-100" [id]="uniqueIdFor('awsFileName')">
+      </div>
+    </div>
+    <div class="row mt-2">
+      <div class="col-md-6">
+        <div class="form-group">
+          <label>Height:</label>
+          <input [(ngModel)]="image.width"
+                 type="number" class="form-control input-sm">
+        </div>
+      </div>
+      <div class="col-md-6">
+        <label>Padding:</label>
+        <input [(ngModel)]="image.padding"
+               type="number" class="form-control input-sm">
+      </div>
+    </div>
+    <div class="row mt-2">
+      <div class="col">
+        <div *ngIf="logoMode" (click)="makeDefault()" class="badge-button"
+             [tooltip]="'Make ' + image.originalFileName + ' the default website logo'"
+             delay=500>
+          make logo
+          <fa-icon [icon]="faSave"></fa-icon>
+        </div>
+        <div (click)="toggleImageEditor()" class="badge-button"
+             [tooltip]="'Edit ' + image.originalFileName + ' image'"
+             delay=500>
+          edit image
+          <fa-icon [icon]="faEdit"></fa-icon>
+        </div>
+        <div (click)="delete()" class="badge-button"
+             [tooltip]="'Delete ' + image.originalFileName + ' from collection of ' + imageType"
+             delay=500>
+          delete
+          <fa-icon [icon]="faRemove"></fa-icon>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div *ngIf="imageValid(image)" class="col-md-6">
+    <div class="row">
+      <label>Image Preview</label>
+    </div>
+    <img  [src]="imageSourceOrPreview()" [alt]="image.originalFileName"
+         [style]="'width:' + image.width +'px; padding: '+ image.padding +'px; height: auto;'"
+         [ngClass]="image.awsFileName.endsWith('png') ? 'image-border-png':'image-border'">
+  </div>
+</div>

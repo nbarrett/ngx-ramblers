@@ -1,0 +1,13 @@
+<app-card-container>
+  <h5 class="card-title cta-button cta-instagram rounded"><a [href]="externalSystems?.instagram?.groupUrl">
+    <img class="instagram-image"
+         src="/assets/images/local/instagram.png"><span class="instagram-title float-right">{{instagramPath()}}</span></a>
+  </h5>
+  <p class="card-text">
+    <a *ngFor="let media of recentMedia" [href]="media.permalink" target="_blank"
+       delay="500" [tooltip]="dateUtils.displayDate( media.timestamp) + ' - ' + media.caption" [placement]="'top'">
+      <img [src]="media?.media_url" [alt]="media?.caption" class="rounded img-thumbnail"
+           [style]="'width:' + imageWidth(media)+'; height: '+ imageHeight(media)"/>
+    </a>
+  </p>
+</app-card-container>

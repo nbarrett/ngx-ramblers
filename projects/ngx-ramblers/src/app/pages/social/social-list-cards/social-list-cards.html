@@ -1,0 +1,14 @@
+<div class="row">
+  <div class="col-sm-8"><h2>{{display.socialEventsTitle(filterParameters.selectType)}}</h2></div>
+  <div class="col-lg-4 col-xs-12" *ngIf="display.allow.edits">
+    <input type="submit" *ngIf="display.confirm.noneOutstanding()" [disabled]="notifyTarget.busy"
+           class="float-lg-right mb-3"
+           value="Add New Social Event"
+           (click)="addSocialEvent()"/>
+  </div>
+</div>
+<div class="row">
+  <div *ngFor="let socialEvent of filteredSocialEvents" [class]="slideClasses()">
+    <app-social-card [socialEvent]="socialEvent"></app-social-card>
+  </div>
+</div>

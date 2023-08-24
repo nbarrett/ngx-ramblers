@@ -1,0 +1,7 @@
+<fa-icon *ngIf="justCopied()" container="body" [tooltip]="justCopied()?tooltipPostCopy:null"
+         [icon]="icon"
+         class="fa-icon fa-icon-copied mr-1 pointer"></fa-icon>
+<fa-icon *ngIf="!justCopied()" container="body" [tooltip]="tooltipPreCopy"
+         (click)="copyToClipboard(value)" [icon]="icon"
+         class="fa-icon mr-1 pointer"></fa-icon>
+<ng-content></ng-content>

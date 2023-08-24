@@ -1,0 +1,8 @@
+<app-page>
+  <app-login-required></app-login-required>
+  <app-dynamic-content *ngIf="loggedIn"
+                       [anchor]="'action-buttons'"
+                       [defaultPageContent]="defaultPageContent"
+                       [notifier]="notify">
+  </app-dynamic-content>
+</app-page>

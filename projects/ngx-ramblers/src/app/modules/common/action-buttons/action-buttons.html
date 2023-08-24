@@ -1,0 +1,35 @@
+<div class="row">
+  <div *ngIf="row.showSwiper && maxViewableSlideCount < pageContentColumns().length"
+       class="d-flex align-items-center mb-3 col">
+    <div class="flex-shrink-0">
+      <button aria-label="Previous slide" class="text-dark border-0 bg-transparent p-0 mr-1">
+        <app-svg (click)="back()"
+                 [disabled]="backDisabled()"
+                 class="icon"
+                 icon="i-back-round">
+        </app-svg>
+        <span class="sr-only">Previous slide</span></button>
+      <button aria-label="Next slide" class="text-dark border-0 bg-transparent p-0">
+        <app-svg (click)="forward()"
+                 [disabled]="forwardDisabled()"
+                 class="icon"
+                 icon="i-forward-round">
+        </app-svg>
+        <span class="sr-only">Next slide</span></button>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <ng-container *ngFor="let column of viewableColumns(); let columnIndex = index;">
+    <div [class]="slideClasses(column)"
+         [id]="actions.columnIdentifierFor(columnIndex,pageContent.path + '-card')">
+      <app-card-editor
+        [smallIconContainer]="smallIconContainer()"
+        [rowIndex]="rowIndex"
+        [column]="column"
+        [pageContent]="pageContent"
+        (pageContentEditEvents)="pageContentEditEvents = pageContentEditService.handleEvent($event, pageContentEditEvents)">
+      </app-card-editor>
+    </div>
+  </ng-container>
+</div>

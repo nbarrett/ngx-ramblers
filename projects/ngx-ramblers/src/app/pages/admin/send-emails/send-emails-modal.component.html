@@ -1,0 +1,159 @@
+<div *ngIf="emailTypes.length>0 && emailType" class="modal-content">
+  <div class="modal-header">
+    <h4 class="modal-title">Send <em>Emails</em> to Members</h4>
+    <button type="button" class="close" aria-label="Close" (click)="bsModalRef.hide()">&times;</button>
+  </div>
+  <div class="modal-body">
+    <div class="img-thumbnail thumbnail-admin-edit">
+      <div class="row">
+        <div class="col-sm-9">
+          <div class="form-group">
+            <label for="contact-member">Email Type</label>
+            <select class="form-control input-sm"
+                    [disabled]="notifyTarget.busy"
+                    [(ngModel)]="emailType"
+                    (ngModelChange)="emailTypeChanged($event)">
+              <option *ngFor="let emailType of emailTypes"
+                      [ngValue]="emailType"
+                      [textContent]="emailType?.name"
+                      class="form-control" id="contact-member">
+            </select>
+          </div>
+        </div>
+        <div class="col-sm-3 panel-toggle">
+          <a *ngIf="!helpInfo.showHelp"
+             (click)="toggleHelp(true, [tooltip1, tooltip2])" [href]="">
+            <fa-icon [icon]="faQuestion" class="markdown-preview-icon"></fa-icon>
+            show help</a>
+          <a *ngIf="helpInfo.showHelp" (click)="toggleHelp(false,[tooltip1, tooltip2])" [href]="">
+            <fa-icon [icon]="faQuestion" class="markdown-preview-icon"></fa-icon>
+            hide help</a>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12">
+          <div class="form-group">
+            <label for="radio-selections">Pre-select members</label>
+            <div id="radio-selections">
+              <div placement="top" triggers="" #tooltip1="bs-tooltip"
+                   [tooltip]="emailType?.dateTooltip" class="row">
+                <div class="col-sm-12">
+                  <input
+                    type="radio"
+                    class="custom-control-input"
+                    value="recently-added"
+                    [ngModel]="memberSelectorName"
+                    [disabled]="notifyTarget.busy"
+                    id="recently-added"
+                    (click)="populateMembers('recently-added')">
+                  <label class="custom-control-label" for="recently-added" class="form-inline">Added in last
+                    {{emailType.monthsInPast}} month(s) on/after:
+                    <app-date-picker *ngIf="memberSelectorName==='recently-added'"
+                                     class="input-group calendar-in-label"
+                                     (dateChange)="onMemberFilterDateChange($event)"
+                                     [value]="memberFilterDate">
+                    </app-date-picker>
+                  </label>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-sm-12">
+                  <div class="custom-control custom-radio align-middle">
+                    <input
+                      type="radio"
+                      class="custom-control-input"
+                      value="expired-members"
+                      [ngModel]="memberSelectorName"
+                      [disabled]="notifyTarget.busy"
+                      id="expired-members"
+                      (click)="populateMembers('expired-members')">
+                    <label class="custom-control-label form-inline" for="expired-members">
+                      {{emailType.monthsInPast}} months past expiry date:
+                      <app-date-picker *ngIf="memberSelectorName==='expired-members'"
+                                       class="calendar-in-label"
+                                       (dateChange)="onMemberFilterDateChange($event)"
+                                       [value]="memberFilterDate">
+                      </app-date-picker>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-sm-6">
+                  <div class="custom-control custom-radio">
+                    <input
+                      type="radio"
+                      class="custom-control-input"
+                      value="missing-from-bulk-load-members"
+                      [ngModel]="memberSelectorName"
+                      [disabled]="notifyTarget.busy"
+                      id="missing-from-bulk-load-members"
+                      (click)="populateMembers('missing-from-bulk-load-members')">
+                    <label class="custom-control-label" for="missing-from-bulk-load-members">Missing from last bulk
+                      load</label>
+                  </div>
+                  <div class="custom-control custom-radio">
+                    <input
+                      type="radio"
+                      class="custom-control-input"
+                      [disabled]="notifyTarget.busy"
+                      value="Clear all"
+                      [ngModel]="memberSelectorName"
+                      id="clear-members"
+                      (click)="clearSelectedMembers()"
+                      title="Clear current selection">
+                    <label class="custom-control-label" (click)="clearSelectedMembers()" for="clear-members">Clear
+                      all and enter manually</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12">
+          <div class="form-group" triggers="" #tooltip2="bs-tooltip" placement="bottom"
+               [tooltip]="helpMembers()">
+            <label>{{passwordResetCaption()}}</label>
+            <ng-select #select [items]="selectableMembers"
+                       bindLabel="memberInformation"
+                       bindValue="member.id"
+                       placeholder="Select one or more members"
+                       [disabled]="notifyTarget.busy"
+                       [dropdownPosition]="'bottom'"
+                       [groupBy]="groupBy"
+                       [groupValue]="groupValue"
+                       [multiple]="true"
+                       (click)="selectClick(select)"
+                       [closeOnSelect]="true"
+                       (change)="onChange($event)"
+                       [(ngModel)]="selectedMemberIds">
+              <ng-template ng-optgroup-tmp let-item="item">
+                <span class="group-header">{{item.name}} members </span>
+                <span class="ml-1 badge badge-secondary badge-group"> {{item.total}} </span>
+              </ng-template>
+            </ng-select>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
+          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+          <strong *ngIf="notifyTarget.alertTitle">
+            {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <input type="submit" [disabled]="notifyTarget.busy || sendEmailsDisabled()"
+           value="Send {{emailType?.name}} email"
+           (click)="sendEmails()"
+           title="Send {{emailType?.name}} email to the {{selectedMemberIds.length}} member(s)"
+           [ngClass]="notifyTarget.busy || sendEmailsDisabled()? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+    <input type="submit" [disabled]="notifyTarget.busy" value="Cancel"
+           (click)="cancelSendEmails()" title="Close this dialog"
+           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+  </div>
+</div>

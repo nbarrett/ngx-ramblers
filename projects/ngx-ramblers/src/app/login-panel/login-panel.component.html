@@ -1,0 +1,18 @@
+<div class="d-flex justify-content-between panel-container">
+  <a class="login-text" ramblers-list (click)="loginOrLogout()">
+    <img *ngIf="memberLoggedIn()" class="home-logo"
+         src="/assets/images/ramblers/icons/ramblers_icon_11_home_rgb.png"
+         [alt]="memberLoginStatus()">
+    <img *ngIf="!memberLoggedIn()" class="home-logo"
+         src="/assets/images/ramblers/icons/ramblers_icon_2_arrow_forward_rgb.png"
+         [alt]="memberLoginStatus()">
+    {{memberLoginStatus()}}
+  </a>
+  <div *ngIf="!memberLoggedIn()">
+    <a (click)="forgotPassword()" class="login-text">
+      <img *ngIf="!memberLoggedIn()" class="home-logo pointer"
+           src="/assets/images/ramblers/icons/ramblers_icon_25_rain_rgb.png"
+           alt="Forgot Password">Forgot Password</a>
+  </div>
+  <app-site-edit class="form-inline" *ngIf="allowEdits()"></app-site-edit>
+</div>

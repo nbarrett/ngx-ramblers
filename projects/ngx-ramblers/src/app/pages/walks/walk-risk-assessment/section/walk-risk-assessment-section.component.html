@@ -1,0 +1,39 @@
+<div class="row">
+  <div class="col-sm-12">
+    <div class="img-thumbnail thumbnail-walk-edit">
+      <div class="thumbnail-heading">{{riskAssessmentSection}}</div>
+      <div class="row">
+        <div class="col-sm-12">
+          <app-markdown-editor [category]="'risk-assessments'" [name]="'risk-assessments-' +riskAssessmentKey"
+                               [description]="riskAssessmentSection"></app-markdown-editor>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12">
+          <div class="form-group">
+                <textarea [disabled]="!allowEdits()"
+                          #input (input)="confirmParameterText(input.value)"
+                          [value]="riskAssessmentConfirmationText()" type="text"
+                          class="form-control input-sm" rows="2"
+                          [id]="'risk-assessment-text-' + riskAssessmentKey"
+                          [placeholder]="'Optional: Enter any free text related to ' + riskAssessmentSection + ' section here'"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-sm-12">
+        <div class="form-group">
+          <div class="custom-control custom-checkbox">
+            <input #checkbox (change)="confirmParameter(checkbox.checked)"
+                   [checked]="riskAssessmentConfirmed()" type="checkbox" class="custom-control-input"
+                   [id]="'risk-assessment-' + riskAssessmentKey">
+            <label class="custom-control-label"
+                   [for]="'risk-assessment-' + riskAssessmentKey">{{confirmLabel()}}
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>

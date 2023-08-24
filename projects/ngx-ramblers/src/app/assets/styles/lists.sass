@@ -1,0 +1,175 @@
+.list-style-arrows
+  font-weight: normal
+  padding: 3px 0px 9px 24px
+  list-style: none outside
+  background-image: url("../images/ramblers/icons/ramblers_icon_2_arrow_forward_rgb.png")
+  background-repeat: no-repeat
+  background-position: 0px 7px
+  background-size: 18px
+  margin-left: 0px
+
+.list-style-ticks-large
+  list-style: none
+  padding: 0px 4px 11px 33px
+  background: url("../images/ramblers/icons/ramblers_icon_8_tick_rgb.png") no-repeat
+  background-size: 25px
+
+[markdown] ul li
+  @extend .list-style-arrows
+
+ul.list-arrows li
+  @extend .list-style-arrows
+
+.no-bullets ul li
+  list-style: none
+
+.check-list h3
+  font-size: 16px
+  padding: 10px
+  margin-bottom: 0
+
+[markdown] ul
+  list-style: none
+  padding: 0
+  margin: 0
+
+.check-list ul
+  list-style: none
+  padding: 6px
+  margin: 0 0 0 6px
+
+.check-list ul li
+  @extend .list-style-ticks-large
+
+.button-content ul
+  font-weight: bold
+  padding: 0
+  margin: 0
+  background: none
+
+
+.button-content ul li
+  font-weight: normal
+  padding: 12px 0 0 0
+  list-style: none
+  background: none
+  margin: 0
+
+
+.button-content ul li a:hover
+  text-decoration: none
+  color: white
+
+.button-content ul li input
+  min-width: 90px
+  text-align: left
+
+ul[ramblers-list]
+  display: block
+  margin: 3rem 0
+
+
+li[ramblers-list], ul[ramblers-list]
+  padding: 0
+
+
+li[ramblers-list]
+  margin: .5rem 0
+  list-style: none
+  text-align: center
+
+
+ul li a[ramblers-list]
+  position: relative
+  font-size: 1.5rem
+  padding: .75rem .375rem
+  font-family: "Rucksack", serif
+
+
+@media (min-width: 576px)
+  ul li a[ramblers-list]
+    font-size: 2rem
+
+
+
+@media (min-width: 992px)
+  ul[ramblers-list]
+    display: flex
+    margin: 0
+
+
+  li[ramblers-list]
+    margin: 0 10px 0 0
+    display: inline-flex
+
+
+  ul li a[ramblers-list]
+    font-size: inherit
+
+
+
+.navigation[ramblers-list] a.active:after
+  content: ""
+  position: absolute
+  bottom: 1rem
+  left: 0
+  right: 0
+  top: auto
+  height: .25rem
+  background: $ramblers-colour-sunset
+  z-index: -1
+
+
+a.active[ramblers-list]
+  background-color: transparent
+  color: #000
+  text-decoration: none
+
+
+a
+  color: $ramblers-colour-granite
+  font-weight: bold
+
+.breadcrumb-item
+  a
+    font-weight: normal
+
+.breadcrumb-item.active
+  color: $ramblers-colour-granite
+  font-weight: bold
+
+a
+  position: relative
+
+
+a.active:focus
+  background-image: none
+
+
+a:focus
+  background: $ramblers-colour-hover
+  outline: 0
+  text-decoration: none
+  background-image: linear-gradient($ramblers-colour-granite, $ramblers-colour-granite)
+  background-position: 0 100%
+  background-repeat: no-repeat
+  background-size: 100% 2px
+
+
+a.active[ramblers-list]
+  background: linear-gradient($ramblers-colour-sunset, $ramblers-colour-sunset) 0 67% / 100% 0.25rem no-repeat
+
+.event-panel a
+  background: linear-gradient($ramblers-colour-rosycheeks, $ramblers-colour-rosycheeks) 0 87%/100% 4px no-repeat
+
+
+.font-family-sans-serif
+  font-family: "Assistant", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji" !important
+
+
+.border-5
+  border-width: 1ex !important
+
+
+.rich-content a
+  text-decoration: underline

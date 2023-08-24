@@ -1,0 +1,9 @@
+<div class="stories d-none d-md-block">
+  <ul>
+    <li *ngFor="let tag of imageTagDataService.imageTagsPlusRecentAndAll()">
+      <a ramblers-list placement="bottom" [tooltip]="'Show images for ' + tag.subject"
+         [ngClass]="{'active' : imageTagDataService.isActive(tag)}" (click)="imageTagDataService.select(tag)"
+         [textContent]="tag.subject"></a>
+    </li>
+  </ul>
+</div>

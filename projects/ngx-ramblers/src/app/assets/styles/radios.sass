@@ -1,0 +1,13 @@
+@import "colours"
+
+
+.custom-radio .custom-control-input:checked~.custom-control-label::before,
+.custom-radio .custom-control-input:checked~.custom-control-label::after
+  transform: scale(1.25)
+  background-color: $ramblers-colour-sunrise
+  border-radius: 50%
+  &:disabled
+   background-color: $ramblers-colour-granite
+
+.custom-control
+  margin-bottom: 6px

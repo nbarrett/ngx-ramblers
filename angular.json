@@ -1,0 +1,129 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "newProjectRoot": "projects",
+  "projects": {
+    "ngx-ramblers": {
+      "projectType": "application",
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "sass"
+        },
+        "@schematics/angular:application": {
+          "strict": true
+        }
+      },
+      "root": "projects/ngx-ramblers",
+      "sourceRoot": "projects/ngx-ramblers/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:browser",
+          "options": {
+            "outputPath": "dist/ngx-ramblers",
+            "index": "projects/ngx-ramblers/src/index.html",
+            "main": "projects/ngx-ramblers/src/main.ts",
+            "polyfills": "projects/ngx-ramblers/src/polyfills.ts",
+            "tsConfig": "projects/ngx-ramblers/tsconfig.app.json",
+            "inlineStyleLanguage": "sass",
+            "assets": [
+              "projects/ngx-ramblers/src/favicon.ico",
+              {
+                "input": "projects/ngx-ramblers/src/app/assets",
+                "glob": "**/**/*.*",
+                "output": "/assets"
+              }
+            ],
+            "styles": [
+              "projects/ngx-ramblers/src/app/assets/styles/styles.sass"
+            ],
+            "scripts": [
+              "./node_modules/jquery/dist/jquery.slim.min.js",
+              "./node_modules/bootstrap/dist/js/bootstrap.bundle.min.js",
+              "./node_modules/marked/marked.min.js"
+            ]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kb",
+                  "maximumError": "5mb"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "2kb",
+                  "maximumError": "5mb"
+                }
+              ],
+              "fileReplacements": [
+                {
+                  "replace": "projects/ngx-ramblers/src/environments/environment.ts",
+                  "with": "projects/ngx-ramblers/src/environments/environment.production.ts"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "development": {
+              "buildOptimizer": false,
+              "optimization": false,
+              "vendorChunk": true,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "namedChunks": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular-devkit/build-angular:dev-server",
+          "options": {
+            "proxyConfig": "projects/ngx-ramblers/proxy.config.json"
+          },
+          "configurations": {
+            "production": {
+              "browserTarget": "ngx-ramblers:build:production"
+            },
+            "development": {
+              "browserTarget": "ngx-ramblers:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "extract-i18n": {
+          "builder": "@angular-devkit/build-angular:extract-i18n",
+          "options": {
+            "browserTarget": "ngx-ramblers:build"
+          }
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "main": "projects/ngx-ramblers/src/test.ts",
+            "polyfills": "projects/ngx-ramblers/src/polyfills.ts",
+            "tsConfig": "projects/ngx-ramblers/tsconfig.spec.json",
+            "karmaConfig": "projects/ngx-ramblers/karma.conf.js",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              "projects/ngx-ramblers/src/favicon.ico",
+              "projects/ngx-ramblers/src/app/assets"
+            ],
+            "styles": [
+              "projects/ngx-ramblers/src/app/assets/styles/styles.sass"
+            ],
+            "scripts": []
+          }
+        }
+      }
+    }
+  },
+  "schematics": {
+    "@schematics/angular:component": {
+      "style": "sass"
+    }
+  },
+  "cli": {
+    "analytics": "2bb37b0d-21c6-47ef-b513-a7c5a141a02c"
+  }
+}

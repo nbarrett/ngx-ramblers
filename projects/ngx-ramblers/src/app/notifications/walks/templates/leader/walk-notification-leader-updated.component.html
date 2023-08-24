@@ -1,0 +1,15 @@
+<div style="font-size:12px">
+  <p>Thanks again for offering to lead the walk on <strong [textContent]="walk.walkDate | displayDate"
+                                                           class="nowrap"></strong>!</p>
+  <p>This email is a notification that at <strong [textContent]="event.date | displayDateAndTime"
+                                                  class="nowrap"></strong>,
+    <strong [textContent]="event.memberId | memberIdToFullName : members"></strong>
+    made the following changes to your walk:
+  </p>
+  <app-walk-notification-changes [data]="data"></app-walk-notification-changes>
+  <p *ngIf="validationMessages.length > 0"><strong>Note:</strong> Before I can publish your walk on our walks
+    programme, I need more information from you as
+    <span [textContent]="validationMessages | asWalkValidationsList"></span>.</p>
+  <p *ngIf="event.reason" [textContent]="event.reason"></p>
+  <app-walk-notification-footer [data]="data"></app-walk-notification-footer>
+</div>

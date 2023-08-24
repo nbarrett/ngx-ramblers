@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "allowSyntheticDefaultImports": true,
+    "declaration": true,
+    "downlevelIteration": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "lib": [
+      "es5",
+      "es6",
+      "dom"
+    ],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "ts-gen",
+    "sourceMap": true,
+    "target": "es2015"
+  },
+  "exclude": [
+    "..node_modules",
+    "node_modules"
+  ],
+  "include": [
+    "serenity-js/**/*.ts",
+    "lib/**/*.*",
+    "../projects/ngx-ramblers/src/app/models/**/*.*"
+  ]
+}

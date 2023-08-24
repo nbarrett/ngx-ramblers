@@ -1,0 +1,17 @@
+<ng-container *ngIf="displayImage()">
+  <img *ngIf="unconstrainedHeight" class="card-img-top" (load)="imageLoaded($event)"
+       (error)="imageError($event)"
+       [ngStyle]="{'border-radius.px': borderRadius}"
+       [src]="urlService.imageSource(imageSource)" [routerLink]="urlService.routerLinkUrl(imageLink)">
+  <img *ngIf="!unconstrainedHeight" class="card-img-top" [height]="200" (load)="imageLoaded($event)"
+       (error)="imageError($event)"
+       [ngStyle]="{'border-radius.px': borderRadius}"
+       [src]="urlService.imageSource(imageSource)"[routerLink]="urlService.routerLinkUrl(imageLink)">
+</ng-container>
+<div *ngIf="cardMissingImage() || cardShouldHaveIcon()" class="row no-image"
+     [ngClass]="{'small-icon-container': smallIconContainer}">
+  <div class="col align-self-center text-center">
+    <fa-icon [icon]="icon || faImage" class="fa-icon fa-3x"></fa-icon>
+    <div *ngIf="!icon">{{imageText}}</div>
+  </div>
+</div>

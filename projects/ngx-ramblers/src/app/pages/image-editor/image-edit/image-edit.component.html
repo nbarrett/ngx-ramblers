@@ -1,0 +1,111 @@
+<div class="card mb-3" (mouseenter)="refreshGroupEventsIfRequired()">
+  <div class="card-body">
+    <div class="row">
+      <div class="col-sm-12" *ngIf="editActive">
+        <app-image-cropper
+          [selectAspectRatio]="aspectRatio"
+          [rootFolder]="rootFolder"
+          [preloadImage]="item?.image"
+          (imageChange)="imageChanged($event)"
+          (error)="imageCroppingError($event)"
+          (cropError)="imageCroppingError($event)"
+          (quit)="exitImageEdit()"
+          (save)="imagedSaved($event)">
+        </app-image-cropper>
+      </div>
+      <div class="col-sm-7">
+        <div class="form-group">
+          <label [for]="'image-' + index">Image {{index + 1}} of {{filteredFiles?.length}}</label>
+          <img loading="lazy" [id]="'image-' + index" class="img-fluid" [src]="imageSourceOrPreview()"
+               [alt]="item.text"/>
+        </div>
+        <div class="form-group">
+          <input type="button" value="Delete" (click)="callDelete()" title="Delete this image"
+                 class="button-form"/>
+          <input type="button" value="Insert" (click)="callInsert()"
+                 title="Insert new image before this one" class="button-form"/>
+          <input [disabled]="!canMoveUp" type="button" value="Move up"
+                 (click)="callMoveUp()"
+                 title="move this image up in the sequence"
+                 [ngClass]="canMoveUp ? 'button-form': 'disabled-button-form'"/>
+          <input [disabled]="!canMoveDown" type="button"
+                 value="Move down" (click)="callMoveDown()"
+                 title="move this image down in the sequence"
+                 [ngClass]="canMoveDown ? 'button-form': 'disabled-button-form'"/>
+          <input [disabled]="editActive" type="button"
+                 value="Edit image" (click)="editImage()"
+                 [ngClass]="editActive ? 'disabled-button-form':'button-form'"/>
+        </div>
+        <div class="form-group">
+          <label [for]="'image-source-' + index">Image Source</label>
+          <input [(ngModel)]="item.image" type="text"
+                    class="form-control input-sm"
+                 [id]="'image-source-' + index" placeholder="Image source - updated automatically"/>
+        </div>
+      </div>
+      <div class="col-sm-5">
+        <div class="form-group">
+          <label [for]="stringUtils.kebabCase('image-title', index)">Image Title</label>
+          <textarea [(ngModel)]="item.text" (ngModelChange)="callImageChange()" type="text"
+                    class="form-control input-sm"
+                    rows="2" [id]="stringUtils.kebabCase('image-title', index)" placeholder="Enter title for image"></textarea>
+        </div>
+        <div class="row">
+          <div class="col-sm-5">
+            <div class="form-group">
+              <label [for]="stringUtils.kebabCase('date-source', index)">Date Source:</label>
+              <select [(ngModel)]="item.dateSource" [id]="stringUtils.kebabCase('date-source', index)" class="form-control"
+                      (ngModelChange)="filterEventsBySourceAndDate($event, item?.date)">
+                <option *ngFor="let dateSource of dateSources"
+                        [ngValue]="dateSource.area">{{dateSource.description}}</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-sm-7 no-left-padding">
+            <div class="form-group no-left-padding">
+              <app-date-picker [label]="'Image Date'"
+                               [size]="'md'"
+                               (dateChange)="onImageDateChange($event)"
+                               [value]="item?.date">
+              </app-date-picker>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <app-tag-editor [tags]="item?.tags"
+                          [text]="item?.text"
+                          (tagsChange)="tagsChange($event)"></app-tag-editor>
+        </div>
+      </div>
+    </div>
+    <div class="row" *ngIf="item?.dateSource!=='upload'">
+      <div class="col-sm-12">
+        <label>Link to {{item?.dateSource}} event</label>
+        <ng-select #select [items]="groupEvents"
+                   bindLabel="description"
+                   bindValue="id"
+                   [placeholder]="'Select a ' + item?.dateSource"
+                   [dropdownPosition]="'bottom'"
+                   [closeOnSelect]="true"
+                   [(ngModel)]="item.eventId"
+                   (focus)="refreshGroupEvents()"
+                   (change)="onChange()"
+                   (click)="selectClick(select)">
+          <ng-template ng-optgroup-tmp let-item="item">
+            <span class="group-header">{{item?.name}} {{item?.dateSource}} </span>
+            <span class="ml-1 badge badge-secondary badge-group"> {{item?.total}} </span>
+          </ng-template>
+        </ng-select>
+      </div>
+    </div>
+    <div class="row" *ngIf="notifyTarget.showAlert">
+      <div class="col-sm-12">
+        <div class="alert {{notifyTarget.alertClass}} table-pointer">
+          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+          <strong *ngIf="notifyTarget.alertTitle">
+            {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
