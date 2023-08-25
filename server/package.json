@@ -1,6 +1,6 @@
 {
-  "name": "ekwg",
-  "description": "server application to support EKWG application",
+  "name": "ngx-ramblers",
+  "description": "server application to support ngx-ramblers application",
   "version": "2.0.0",
   "license": "ISC",
   "private": true,
@@ -98,7 +98,7 @@
     "xlsx": "0.16.5"
   },
   "engines": {
-    "node": "16.14.2",
-    "npm": "8.5.0"
+    "node": "v18.17.1",
+    "npm": "9.6.7"
   }
 }

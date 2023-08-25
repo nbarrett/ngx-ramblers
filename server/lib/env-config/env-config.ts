@@ -6,23 +6,23 @@ function validatedEnvironmentVariable(variableName: string): string {
   return variableValue;
 }
 
+const APP_PREFIX = "NGX_RAMBLERS_";
 const env = validatedEnvironmentVariable("NODE_ENV");
 
 function logNamespace(moduleName: string) {
   return `ekwg:${env}:${moduleName || ""}`;
 }
-
 export const envConfig = {
   production: env === "production",
   auth: {
     secret: validatedEnvironmentVariable("AUTH_SECRET"),
   },
   aws: {
-    accessKeyId: validatedEnvironmentVariable("AWS_ACCESS_KEY_ID"),
-    bucket: validatedEnvironmentVariable("AWS_BUCKET"),
+    accessKeyId: validatedEnvironmentVariable(APP_PREFIX + "AWS_ACCESS_KEY_ID"),
+    bucket: validatedEnvironmentVariable(APP_PREFIX + "AWS_BUCKET"),
     region: validatedEnvironmentVariable("AWS_REGION"),
-    secretAccessKey: validatedEnvironmentVariable("AWS_SECRET_ACCESS_KEY"),
-    uploadUrl: `https://${validatedEnvironmentVariable("AWS_BUCKET")}.s3.amazonaws.com`,
+    secretAccessKey: validatedEnvironmentVariable(APP_PREFIX + "AWS_SECRET_ACCESS_KEY"),
+    uploadUrl: `https://${validatedEnvironmentVariable(APP_PREFIX + "AWS_BUCKET")}.s3.amazonaws.com`,
   },
   dev: env !== "production",
   env,
