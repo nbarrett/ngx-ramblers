@@ -42,7 +42,7 @@
     "@fortawesome/fontawesome-svg-core": "6.1.0",
     "@fortawesome/free-brands-svg-icons": "6.1.1",
     "@fortawesome/free-solid-svg-icons": "6.1.0",
-    "@ng-select/ng-select": "8.1.1",
+    "@ng-select/ng-select": "9.1.0",
     "@types/lodash-es": "4.17.3",
     "angular2-csv": "0.2.9",
     "aws-sdk": "2.596.0",
@@ -71,7 +71,7 @@
     "ngx-logger": "4.1.9",
     "ngx-markdown": "14.0.1",
     "ngx-tagify": "0.7.0",
-    "ngx-ui-switch": "13.0.2",
+    "ngx-ui-switch": "14.0.3",
     "path": "0.12.7",
     "popper.js": "1.16.1",
     "rxjs": "6.6.7",
@@ -106,7 +106,7 @@
     "webpack-bundle-analyzer": "3.6.0"
   },
   "engines": {
-    "node": "16.14.2",
-    "npm": "8.5.0"
+    "node": "v18.17.1",
+    "npm": "9.6.7"
   }
 }
