@@ -1,21 +1,27 @@
-import { lists } from "@mailchimp/mailchimp_marketing";
 import { Request } from "express";
 import { UploadedFile } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import {
+  BatchListMembersBody,
+  BatchListMembersOpts,
+  BatchListMembersResponse,
   MailchimpBatchSegmentAddOrRemoveRequest,
   MailchimpCampaignContentUpdateRequest,
+  MailchimpCampaignDefaults,
+  MailchimpCampaignGetContentResponse,
   MailchimpCampaignListResponse,
   MailchimpCampaignReplicateResponse,
-  MailchimpCampaignGetContentResponse,
+  MailchimpCampaignSearchResponse,
   MailchimpCampaignSendResponse,
   MailchimpCampaignUpdateRequest, MailchimpConfig,
+  MailchimpList,
   MailchimpListingResponse,
   MailchimpListSegmentBatchAddOrRemoveMembersResponse,
   MailchimpListsMembersResponse,
   MailchimpSegmentUpdateResponse,
-  MailchimpSetContentResponse, MailchimpCampaignSearchResponse, MailchimpCampaignDefaults, MailchimpList, MergeFieldAddResponse, MergeField
+  MailchimpSetContentResponse,
+  MergeField,
+  MergeFieldAddResponse
 } from "../../../projects/ngx-ramblers/src/app/models/mailchimp.model";
-import BatchListMembersResponse = lists.BatchListMembersResponse;
 
 export interface MessageHandlerOptions {
   req: any;
@@ -46,7 +52,7 @@ export interface MailchimpMarketingApiClient {
   };
   lists: {
     addListMergeField(listId: string, mergeField: MergeField): Promise<MergeFieldAddResponse>;
-    batchListMembers(listId: string, body: lists.BatchListMembersBody, options: lists.BatchListMembersOpts): Promise<BatchListMembersResponse>;
+    batchListMembers(listId: string, body: BatchListMembersBody, options: BatchListMembersOpts): Promise<BatchListMembersResponse>;
     batchSegmentMembers(bodyParameters: MailchimpBatchSegmentAddOrRemoveRequest, listId: string, segmentId: number): Promise<MailchimpListSegmentBatchAddOrRemoveMembersResponse>;
     createList(mailchimpListMembersRequest: MailchimpListCreateRequest): Promise<MailchimpList>;
     createSegment(listId: string, requestData: MailchimpCreateSegmentRequest): Promise<MailchimpListingResponse>;

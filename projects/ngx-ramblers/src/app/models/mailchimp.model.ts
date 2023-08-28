@@ -2,6 +2,39 @@ import { MailchimpContact } from "../../../../../server/lib/shared/server-models
 import { ApiResponse } from "./api-response.model";
 import { AuditStatus } from "./audit";
 
+type EmailType = "text"|"html";
+
+export type Status = "subscribed" | "unsubscribed" | "cleaned" | "pending" | "transactional";
+
+export interface BatchListMembersBodyMembersObject {
+  email_address: string;
+  email_type: EmailType;
+  status: Status;
+  vip?: boolean;
+  location?: {
+    latitude: number;
+    longtitude: number;
+  };
+  tags?: string[]; // non-documented tho still available to use
+  ip_signup?: string;
+  timestamp_signup?: string;
+  ip_opt?: string;
+  timestamp_opt?: string;
+  language?: string; // https://mailchimp.com/help/view-and-edit-contact-languages/
+  merge_fields?: {[k: string]: string}; // https://mailchimp.com/developer/marketing/docs/merge-fields/#structure
+}
+
+export interface BatchListMembersOpts {
+  skipMergeValidation?: boolean;
+  skipDuplicateCheck?: boolean;
+}
+
+export interface BatchListMembersBody {
+  members: BatchListMembersBodyMembersObject[];
+  sync_tags?: boolean;
+  update_existing?: boolean;
+}
+
 export interface MailchimpConfig {
   apiUrl: string;
   apiKey: string;
@@ -270,6 +303,125 @@ export interface MailchimpListSegmentAddOrRemoveMembersRequest {
   segmentId: number;
   membersToAdd: SubscriptionRequest[];
   membersToRemove: SubscriptionRequest[];
+}
+
+export interface MemberLocation {
+  latitude: number;
+  logitude: number;
+}
+
+export interface FullMemberLocation extends MemberLocation {
+  gmtoff: number;
+  dstoff: number;
+  country_code: string;
+  timezone: string;
+  region: string;
+}
+
+export interface BatchListMembersResponse {
+  new_members?: MembersSuccessResponse[];
+  updated_members?: MembersSuccessResponse[];
+  errors?: Array<{
+    email_address: string;
+    error: string;
+    error_code: string;
+    field: string;
+    field_message: string;
+  }>;
+}
+
+interface MembersSuccessResponse {
+  id: string;
+  email_address: string;
+  unique_email_id: string;
+  contact_id: string;
+  full_name: string;
+  web_id: number;
+  email_type: string;
+  status: string;
+  unsubscribe_reason: string;
+  consents_to_one_to_one_messaging: boolean;
+  merge_fields: Record<string, any>;
+  interests: Record<string, any>;
+  stats: MemberStats;
+  ip_signup: string;
+  timestamp_signup: string;
+  ip_opt: string;
+  timestamp_opt: string;
+  member_rating: string;
+  last_changed: string;
+  language: string;
+  vip: boolean;
+  email_client: string;
+  location: FullMemberLocation;
+  marketing_permissions: MemberMarketingPermissions[];
+  last_note: MemberLastNote;
+  source: string;
+  tags_count: number;
+  tags: Tag[];
+  list_id: string;
+  _links: Link[];
+}
+
+interface MemberLastNote {
+  note_id: number;
+  created_at: string;
+  created_by: string;
+  note: string;
+}
+
+interface MemberMarketingPermissions extends MemberMarketingPermissionsInput {
+  text: string;
+}
+
+interface MemberMarketingPermissionsInput {
+  marketing_permission_id: string;
+  enabled: boolean;
+}
+
+interface MemberStats {
+  avg_open_rate: number;
+  avg_click_rate: number;
+  ecommerce_data: MemberEcommerceData;
+}
+
+interface MemberEcommerceData {
+  total_revenue: number;
+  number_of_orders: number;
+  currency_code: number;
+}
+
+interface MembersSuccessResponse {
+  id: string;
+  email_address: string;
+  unique_email_id: string;
+  contact_id: string;
+  full_name: string;
+  web_id: number;
+  email_type: string;
+  status: string;
+  unsubscribe_reason: string;
+  consents_to_one_to_one_messaging: boolean;
+  merge_fields: Record<string, any>;
+  interests: Record<string, any>;
+  stats: MemberStats;
+  ip_signup: string;
+  timestamp_signup: string;
+  ip_opt: string;
+  timestamp_opt: string;
+  member_rating: string;
+  last_changed: string;
+  language: string;
+  vip: boolean;
+  email_client: string;
+  location: FullMemberLocation;
+  marketing_permissions: MemberMarketingPermissions[];
+  last_note: MemberLastNote;
+  source: string;
+  tags_count: number;
+  tags: Tag[];
+  list_id: string;
+  _links: Link[];
 }
 
 export interface MailchimpListSegmentBatchAddOrRemoveMembersResponse {
