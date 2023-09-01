@@ -2,14 +2,19 @@ import * as childProcess from "child_process";
 import parse from "csv-parse/sync";
 import debug from "debug";
 import * as fs from "fs";
-import { find, first, isObject, isEmpty, trim } from "lodash";
+import { find, first, isEmpty, isObject, trim } from "lodash";
 import moment from "moment-timezone";
 import * as path from "path";
 import * as xlsx from "xlsx";
 import { UploadedFile } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
-import { MemberBulkLoadAudit, MemberBulkLoadAuditApiResponse, RamblersMember } from "../../../projects/ngx-ramblers/src/app/models/member.model";
+import {
+  MemberBulkLoadAudit,
+  MemberBulkLoadAuditApiResponse,
+  RamblersMember
+} from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import * as aws from "../aws/aws-controllers";
 import { envConfig } from "../env-config/env-config";
+import { isAwsUploadErrorResponse } from "../aws/aws-utils";
 
 const BULK_LOAD_SUFFIX = "MemberList.csv";
 const NEW_MEMBER_SUFFIX = "new.csv";
@@ -84,66 +89,66 @@ export function uploadRamblersData(req, res) {
 
   function extractZipFile(receivedZipFileName: string, userZipFileName: string, res) {
     aws.putObjectDirect(uploadSessionFolder, userZipFileName, receivedZipFileName).then(response => {
-        if (response.error) {
-          return res.status(500).send(response);
-        } else {
-          debugAndInfo(response.information);
-          bulkUploadResponse.files.archive = `${uploadSessionFolder}/${uploadedFile.originalname}`;
-          const inflateToken = "inflating:";
-          const unzipPath = "/tmp/memberData/";
-          const zip = childProcess.spawn("unzip", ["-P", "J33ves33", "-o", "-d", unzipPath, receivedZipFileName]);
-          let zipOutputLines = [];
-          let zipErrorLines = [];
+      if (isAwsUploadErrorResponse(response)) {
+        return res.status(500).send(response);
+      } else {
+        debugAndInfo(response.information);
+        bulkUploadResponse.files.archive = `${uploadSessionFolder}/${uploadedFile.originalname}`;
+        const inflateToken = "inflating:";
+        const unzipPath = "/tmp/memberData/";
+        const zip = childProcess.spawn("unzip", ["-P", "J33ves33", "-o", "-d", unzipPath, receivedZipFileName]);
+        let zipOutputLines = [];
+        let zipErrorLines = [];
 
-          const handleError = data => {
-            zipErrorLines = zipErrorLines.concat(data.toString().trim().split("\n"));
+        const handleError = data => {
+          zipErrorLines = zipErrorLines.concat(data.toString().trim().split("\n"));
+          debugAndError(`Unzip of ${userZipFileName} ended unsuccessfully. Unzip process terminated with: ${zipErrorLines.join(", ")}`);
+          returnResponse();
+        };
+
+        zip.stdout.on("data", data => {
+          const logOutput = data.toString().trim().split("\n").filter(item => !isEmpty(item));
+          if (logOutput.length > 0) {
+            debugAndInfo("Unzip output [" + logOutput + "]");
+            zipOutputLines = zipOutputLines.concat(logOutput);
+          }
+        });
+
+        zip.on("error", handleError);
+
+        zip.stderr.on("data", handleError);
+
+        zip.on("exit", code => {
+          if (code !== 0) {
             debugAndError(`Unzip of ${userZipFileName} ended unsuccessfully. Unzip process terminated with: ${zipErrorLines.join(", ")}`);
             returnResponse();
-          };
-
-          zip.stdout.on("data", data => {
-            const logOutput = data.toString().trim().split("\n").filter(item => !isEmpty(item));
-            if (logOutput.length > 0) {
-              debugAndInfo("Unzip output [" + logOutput + "]");
-              zipOutputLines = zipOutputLines.concat(logOutput);
-            }
-          });
-
-          zip.on("error", handleError);
-
-          zip.stderr.on("data", handleError);
-
-          zip.on("exit", code => {
-            if (code !== 0) {
-              debugAndError(`Unzip of ${userZipFileName} ended unsuccessfully. Unzip process terminated with: ${zipErrorLines.join(", ")}`);
+          } else {
+            const extractedFiles = zipOutputLines
+              .filter(file => file.includes(inflateToken))
+              .map(file => file.replace(inflateToken, "").trim());
+            debugAndInfo("Unzip process completed successfully after processing", receivedZipFileName, "and extracted",
+              extractedFiles.length, "file(s):", extractedFiles.join(", "));
+            if (extractedFiles.length === 0) {
+              debugAndError("No files could be unzipped from " + userZipFileName);
               returnResponse();
             } else {
-              const extractedFiles = zipOutputLines
-                .filter(file => file.includes(inflateToken))
-                .map(file => file.replace(inflateToken, "").trim());
-              debugAndInfo("Unzip process completed successfully after processing", receivedZipFileName, "and extracted",
-                extractedFiles.length, "file(s):", extractedFiles.join(", "));
-              if (extractedFiles.length === 0) {
-                debugAndError("No files could be unzipped from " + userZipFileName);
-                returnResponse();
-              } else {
-                extractFromFile(unzipPath, extractedFiles, BULK_LOAD_SUFFIX, res).then(response => {
-                  if (response.error) {
-                    debugAndError(response.error);
-                    returnResponse();
-                  } else if (!response) {
-                    extractFromFile(unzipPath, extractedFiles, NEW_MEMBER_SUFFIX, res).then(response => {
-                      if (!response) {
-                        debugAndError(`No bulk load or new member file could be found in zip ${userZipFileName}.${extractedFiles.length} ignored files were: ${extractedFiles.join(", ")}`);
-                        returnResponse();
-                      }
-                    });
-                  }
-                });
-              }
+              extractFromFile(unzipPath, extractedFiles, BULK_LOAD_SUFFIX, res).then(response => {
+                if (response.error) {
+                  debugAndError(response.error);
+                  returnResponse();
+                } else if (!response) {
+                  extractFromFile(unzipPath, extractedFiles, NEW_MEMBER_SUFFIX, res).then(response => {
+                    if (!response) {
+                      debugAndError(`No bulk load or new member file could be found in zip ${userZipFileName}.${extractedFiles.length} ignored files were: ${extractedFiles.join(", ")}`);
+                      returnResponse();
+                    }
+                  });
+                }
+              });
             }
-          });
-        }
+          }
+        });
+      }
       }
     );
   }
@@ -153,7 +158,7 @@ export function uploadRamblersData(req, res) {
     bulkUploadResponse.files.data = `${uploadSessionFolder}/${userFileName}`;
     aws.putObjectDirect(uploadSessionFolder, userFileName, uploadedWorkbook)
       .then(response => {
-        if (response.error) {
+        if (isAwsUploadErrorResponse(response)) {
           return response;
         } else {
           const workbook = xlsx.readFile(uploadedWorkbook);
@@ -181,7 +186,7 @@ export function uploadRamblersData(req, res) {
       debugAndInfo(memberDataFileName, "matched", fileNameSuffix);
       return aws.putObjectDirect(uploadSessionFolder, memberDataFileName, memberDataFileName)
         .then(response => {
-          if (response.error) {
+          if (isAwsUploadErrorResponse(response)) {
             return response;
           } else {
             debugAndInfo(response.information);

@@ -5,9 +5,6 @@
   "license": "ISC",
   "private": true,
   "scripts": {
-    "prod": "concurrently --kill-others-on-fail \"npm run start:prod\" \"npm run serve\"",
-    "dev": "concurrently --kill-others-on-fail \"npm run start:test\" \"npm run serve\"",
-    "dev-2": "concurrently --kill-others-on-fail \"npm run start:dev-2\" \"npm run serve\"",
     "analyze": "webpack-bundle-analyzer dist/ngx-ramblers/stats-es2015.json",
     "build:stats": "ng build --project ngx-ramblers --configuration production --statsJson=true",
     "build": "ng build --project ngx-ramblers --build-optimizer --progress --configuration production",
@@ -18,9 +15,6 @@
     "postbuild": "npm install --prefix server",
     "postinstall": "ngcc",
     "serve": "ng serve --project ngx-ramblers --configuration development",
-    "start:prod": "server/scripts/run-prod.sh",
-    "start:test": "server/scripts/run-test.sh",
-    "start:dev-2": "server/scripts/run-dev-2.sh",
     "test": "ng test"
   },
   "cacheDirectories": [
@@ -89,7 +83,6 @@
     "@types/jasminewd2": "2.0.8",
     "@types/node": "12.11.1",
     "codelyzer": "6.0.1",
-    "concurrently": "7.4.0",
     "jasmine-core": "3.5.0",
     "jasmine-spec-reporter": "4.2.1",
     "karma": "6.3.2",

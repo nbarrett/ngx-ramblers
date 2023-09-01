@@ -15,12 +15,27 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import first from "lodash-es/first";
 import { FileUploader } from "ng2-file-upload";
-import { base64ToFile, Dimensions, ImageCroppedEvent, ImageCropperComponent, ImageTransform, LoadedImage, OutputFormat } from "ngx-image-cropper";
+import {
+  base64ToFile,
+  Dimensions,
+  ImageCroppedEvent,
+  ImageCropperComponent,
+  ImageTransform,
+  LoadedImage,
+  OutputFormat
+} from "ngx-image-cropper";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { FileUtilsService } from "../file-utils.service";
 import { AlertMessage, AlertTarget } from "../models/alert-target.model";
-import { AwsFileData, AwsFileUploadResponse, DescribedDimensions, FileNameData, ImageData } from "../models/aws-object.model";
+import {
+  AwsFileData,
+  AwsFileUploadResponse,
+  AwsUploadErrorResponse,
+  DescribedDimensions,
+  FileNameData,
+  ImageData
+} from "../models/aws-object.model";
 import { DateValue } from "../models/date.model";
 import { BroadcastService } from "../services/broadcast-service";
 import { FileUploadService } from "../services/file-upload.service";
@@ -31,12 +46,11 @@ import { UrlService } from "../services/url.service";
 
 @Component({
   selector: "app-image-cropper",
-  templateUrl: "./image-cropper.html",
-  styleUrls: ["./image-cropper.sass"]
+  templateUrl: "./image-cropper-and-resizer.html",
+  styleUrls: ["./image-cropper-and-resizer.sass"]
 })
 
 export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, OnDestroy {
-  private subscriptions: Subscription[] = [];
 
   constructor(private broadcastService: BroadcastService<any>, private numberUtils: NumberUtilsService,
               private fileUploadService: FileUploadService,
@@ -46,6 +60,8 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(ImageCropperAndResizerComponent, NgxLoggerLevel.OFF);
   }
+
+  private subscriptions: Subscription[] = [];
 
   @ViewChild(ImageCropperComponent) imageCropperComponent: ImageCropperComponent;
   @Input() selectAspectRatio: string;
@@ -100,6 +116,14 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
   public croppedFile: AwsFileData;
   public originalImageData: ImageData;
 
+  static isAwsUploadResponse(response: AwsFileUploadResponse | AwsUploadErrorResponse): response is AwsFileUploadResponse {
+    return (response as AwsFileUploadResponse)?.response !== undefined;
+  }
+
+  static isAwsUploadErrorResponse(response: AwsFileUploadResponse | AwsUploadErrorResponse): response is AwsUploadErrorResponse {
+    return (response as AwsUploadErrorResponse)?.error !== undefined;
+  }
+
   ngAfterViewInit(): void {
     this.imageCropperComponent.loadImageFailed.subscribe(error => {
       this.throwOrNotifyError({title: "Image Load Failed", message: error});
@@ -119,14 +143,16 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
       } else if (response === "Unauthorized") {
         this.throwOrNotifyError({title: "Upload failed", message: response + " - try logging out and logging back in again and trying this again."});
       } else {
-        const uploadResponse = JSON.parse(response);
-        this.fileNameData = uploadResponse.response.fileNameData;
-        if (this.fileNameData) {
+        const uploadResponse: AwsFileUploadResponse | AwsUploadErrorResponse = JSON.parse(response);
+        if (ImageCropperAndResizerComponent.isAwsUploadErrorResponse(uploadResponse)) {
+          this.notify.error({title: "File upload failed", message: uploadResponse});
+        } else {
+          this.fileNameData = uploadResponse.response?.fileNameData;
           this.fileNameData.title = this?.existingTitle;
+          this.notify.success({title: "File uploaded", message: this.fileNameData.title});
         }
-        this.logger.debug("JSON response:", uploadResponse, "committeeFile:", this.fileNameData);
+        this.logger.debug("JSON response:", uploadResponse, "fileNameData:", this.fileNameData);
         this.notify.clearBusy();
-        this.notify.success({title: "File uploaded", message: this.fileNameData.title});
       }
     }));
     if (this.preloadImage) {
@@ -348,13 +374,21 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
       this.uploader.addToQueue([this.croppedFile.file]);
       this.uploader.uploadAll();
       this.uploader.response.subscribe((uploaderResponse: string) => {
-        const response: AwsFileUploadResponse = JSON.parse(uploaderResponse);
-        const awsFileName = `${response?.response?.fileNameData?.rootFolder}/${response?.response?.fileNameData?.awsFileName}`;
-        this.croppedFile.awsFileName = awsFileName;
-        this.logger.debug("received response:", uploaderResponse, "awsFileName:", awsFileName, "local originalFile.name:", this.originalFile.name, "aws originalFileName", response?.response?.fileNameData.originalFileName);
-        this.save.next(this.croppedFile);
-        this.action = null;
-        this.notify.success({title: "File upload", message: "image was saved successfully"});
+        const response: AwsFileUploadResponse | AwsUploadErrorResponse = JSON.parse(uploaderResponse);
+        if (ImageCropperAndResizerComponent.isAwsUploadErrorResponse(response)) {
+          this.action = null;
+          this.notify.error({title: "File upload failed", message: response});
+        } else {
+          this.fileNameData = response.response?.fileNameData;
+          this.fileNameData.title = this?.existingTitle;
+          this.notify.success({title: "File uploaded", message: this.fileNameData.title});
+          const awsFileName = `${response?.response?.fileNameData?.rootFolder}/${response?.response?.fileNameData?.awsFileName}`;
+          this.croppedFile.awsFileName = awsFileName;
+          this.logger.debug("received response:", uploaderResponse, "awsFileName:", awsFileName, "local originalFile.name:", this.originalFile.name, "aws originalFileName", response?.response?.fileNameData.originalFileName);
+          this.save.next(this.croppedFile);
+          this.notify.success({title: "File upload", message: "image was saved successfully"});
+          this.action = null;
+        }
       });
     } catch (error) {
       this.logger.error("received error response:", error);
