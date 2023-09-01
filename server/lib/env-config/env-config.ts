@@ -1,12 +1,15 @@
-function validatedEnvironmentVariable(variableName: string): string {
-  const variableValue = process.env[variableName];
+const APP_PREFIX: string = "NGX_RAMBLERS_";
+
+function validatedEnvironmentVariable(variableName: string, prefixed?: boolean): string {
+  const resolvedName = prefixed ? APP_PREFIX + variableName : variableName;
+  const variableValue = process.env[resolvedName];
   if (!variableValue) {
-    throw new Error("Environment variable '" + variableName + "' must be set");
+    throw new Error("Environment variable '" + resolvedName + "' must be set");
+  } else {
+    return variableValue;
   }
-  return variableValue;
 }
 
-const APP_PREFIX = "NGX_RAMBLERS_";
 const env = validatedEnvironmentVariable("NODE_ENV");
 
 function logNamespace(moduleName: string) {
@@ -18,11 +21,11 @@ export const envConfig = {
     secret: validatedEnvironmentVariable("AUTH_SECRET"),
   },
   aws: {
-    accessKeyId: validatedEnvironmentVariable(APP_PREFIX + "AWS_ACCESS_KEY_ID"),
-    bucket: validatedEnvironmentVariable(APP_PREFIX + "AWS_BUCKET"),
+    accessKeyId: validatedEnvironmentVariable("AWS_ACCESS_KEY_ID"),
+    bucket: validatedEnvironmentVariable("AWS_BUCKET"),
     region: validatedEnvironmentVariable("AWS_REGION"),
-    secretAccessKey: validatedEnvironmentVariable(APP_PREFIX + "AWS_SECRET_ACCESS_KEY"),
-    uploadUrl: `https://${validatedEnvironmentVariable(APP_PREFIX + "AWS_BUCKET")}.s3.amazonaws.com`,
+    secretAccessKey: validatedEnvironmentVariable("AWS_SECRET_ACCESS_KEY"),
+    uploadUrl: `https://${validatedEnvironmentVariable("AWS_BUCKET")}.s3.amazonaws.com`,
   },
   dev: env !== "production",
   env,

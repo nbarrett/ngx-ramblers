@@ -1,6 +1,11 @@
 import { first, isObject, map } from "lodash";
 import { AuditStatus } from "../../../projects/ngx-ramblers/src/app/models/audit";
-import { AwsFileUploadResponse, AwsFileUploadResponseData, ServerFileNameData, UploadedFile } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
+import {
+  AwsFileUploadResponse,
+  AwsFileUploadResponseData,
+  ServerFileNameData,
+  UploadedFile
+} from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { envConfig } from "../env-config/env-config";
 import { generateUid, uidFormat } from "../shared/string-utils";
 import * as aws from "./aws-controllers";

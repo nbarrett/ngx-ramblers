@@ -7,7 +7,13 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { AwsFileData } from "../../../models/aws-object.model";
-import { GroupEvent, GroupEventsFilter, GroupEventType, groupEventTypeFor, GroupEventTypes } from "../../../models/committee.model";
+import {
+  GroupEvent,
+  GroupEventsFilter,
+  GroupEventType,
+  groupEventTypeFor,
+  GroupEventTypes
+} from "../../../models/committee.model";
 import { ContentMetadataItem, IMAGES_HOME, ImageTag } from "../../../models/content-metadata.model";
 import { DateValue } from "../../../models/date.model";
 import { CommitteeQueryService } from "../../../services/committee/committee-query.service";
@@ -21,21 +27,14 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { RouterHistoryService } from "../../../services/router-history.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
+import { ImageMessage } from "../../../models/images.model";
+import { faImage } from "@fortawesome/free-solid-svg-icons";
 
 @Component({
   selector: "app-edit-image",
   templateUrl: "./image-edit.component.html"
 })
 export class ImageEditComponent implements OnInit {
-  private logger: Logger;
-  public groupEvents: GroupEvent[] = [];
-  public item: ContentMetadataItem;
-  public index: number;
-  public filteredFiles: ContentMetadataItem[];
-  public canMoveUp = true;
-  public canMoveDown = true;
-  public notify: AlertInstance;
-  public notifyTarget: AlertTarget = {};
 
   @Input("index") set acceptChangesFromIndex(index: number) {
     this.index = index;
@@ -49,19 +48,6 @@ export class ImageEditComponent implements OnInit {
   @Input("filteredFiles") set acceptChangesFrom(filteredFiles: ContentMetadataItem[]) {
     this.filteredFiles = filteredFiles;
   }
-
-  @Input() rootFolder: string;
-  @Output() imagedSavedOrReverted: EventEmitter<ContentMetadataItem> = new EventEmitter();
-  @Output() imageChange: EventEmitter<ContentMetadataItem> = new EventEmitter();
-  @Output() moveUp: EventEmitter<ContentMetadataItem> = new EventEmitter();
-  @Output() moveDown: EventEmitter<ContentMetadataItem> = new EventEmitter();
-  @Output() delete: EventEmitter<ContentMetadataItem> = new EventEmitter();
-  @Output() imageInsert: EventEmitter<ContentMetadataItem> = new EventEmitter();
-  @Output() imageEdit: EventEmitter<ContentMetadataItem> = new EventEmitter();
-  public editActive: boolean;
-  private awsFileData: AwsFileData;
-  public aspectRatio: string;
-  public dateSources: GroupEventType[];
 
   constructor(public stringUtils: StringUtilsService,
               public imageDuplicatesService: ImageDuplicatesService,
@@ -77,11 +63,36 @@ export class ImageEditComponent implements OnInit {
               private urlService: UrlService, loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(ImageEditComponent, NgxLoggerLevel.OFF);
   }
+  private logger: Logger;
+  public groupEvents: GroupEvent[] = [];
+  public item: ContentMetadataItem;
+  public index: number;
+  public filteredFiles: ContentMetadataItem[];
+  public canMoveUp = true;
+  public canMoveDown = true;
+  public notify: AlertInstance;
+  public notifyTarget: AlertTarget = {};
+  public imageLoadText: string;
+
+  @Input() rootFolder: string;
+  @Output() imagedSavedOrReverted: EventEmitter<ContentMetadataItem> = new EventEmitter();
+  @Output() imageChange: EventEmitter<ContentMetadataItem> = new EventEmitter();
+  @Output() moveUp: EventEmitter<ContentMetadataItem> = new EventEmitter();
+  @Output() moveDown: EventEmitter<ContentMetadataItem> = new EventEmitter();
+  @Output() delete: EventEmitter<ContentMetadataItem> = new EventEmitter();
+  @Output() imageInsert: EventEmitter<ContentMetadataItem> = new EventEmitter();
+  @Output() imageEdit: EventEmitter<ContentMetadataItem> = new EventEmitter();
+  public editActive: boolean;
+  private awsFileData: AwsFileData;
+  public aspectRatio: string;
+  public dateSources: GroupEventType[];
+
+  protected readonly faImage = faImage;
 
   ngOnInit() {
     this.aspectRatio = this.rootFolder === IMAGES_HOME ? "Home page" : null;
     this.editActive = !this.item.image;
-    this.logger.info("ngOnInit:item", this.item, "index:", this.index, "this.aspectRatio:", this.aspectRatio, "editActive:", this.editActive);
+    this.logger.debug("ngOnInit:item", this.item, "index:", this.index, "this.aspectRatio:", this.aspectRatio, "editActive:", this.editActive);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.dateSources = [{
       area: "upload",
@@ -92,7 +103,7 @@ export class ImageEditComponent implements OnInit {
 
   onImageDateChange(dateValue: DateValue) {
     if (dateValue) {
-      this.logger.info("date changed from:", this.dateUtils.displayDateAndTime(this.item.date), "to", this.dateUtils.displayDateAndTime(dateValue.date));
+      this.logger.debug("date changed from:", this.dateUtils.displayDateAndTime(this.item.date), "to", this.dateUtils.displayDateAndTime(dateValue.date));
       this.item.date = dateValue.value;
       this.filterEventsBySourceAndDate(this.item.dateSource, this.item.date);
     }
@@ -126,7 +137,7 @@ export class ImageEditComponent implements OnInit {
   }
 
   callInsert() {
-    this.logger.info("inserting image  with filteredFiles:", this.filteredFiles);
+    this.logger.debug("inserting image  with filteredFiles:", this.filteredFiles);
     const newItem: ContentMetadataItem = {date: this.dateUtils.momentNow().valueOf(), dateSource: "upload", tags: this.item?.tags || []};
     this.imageInsert.emit(newItem);
   }
@@ -141,7 +152,7 @@ export class ImageEditComponent implements OnInit {
   }
 
   filterEventsBySourceAndDate(dateSource: string, date: number) {
-    this.logger.info("eventsFilteredFrom:", dateSource, "date:", date);
+    this.logger.debug("eventsFilteredFrom:", dateSource, "date:", date);
     const groupEventsFilter: GroupEventsFilter = {
       selectAll: true,
       fromDate: this.dateUtils.asDateValue(this.dateUtils.asMoment(date).add(-520, "weeks").valueOf()),
@@ -202,7 +213,7 @@ export class ImageEditComponent implements OnInit {
   }
 
   imageCroppingError(errorEvent: ErrorEvent) {
-    this.logger.info("errorEvent:", errorEvent);
+    this.logger.debug("errorEvent:", errorEvent);
     this.notify.error({
       title: "Image cropping error occurred",
       message: (errorEvent ? (". Error was: " + JSON.stringify(errorEvent)) : "")
@@ -218,8 +229,9 @@ export class ImageEditComponent implements OnInit {
 
   imagedSaved(awsFileData: AwsFileData) {
     const thumbnail = awsFileData.awsFileName;
-    this.logger.info("imagedSaved:", awsFileData, "setting thumbnail to", thumbnail);
+    this.logger.debug("imagedSaved:", awsFileData, "setting thumbnail to", thumbnail);
     this.item.image = thumbnail;
+    this.imageLoadText = null;
     this.exitImageEdit();
   }
 
@@ -229,6 +241,16 @@ export class ImageEditComponent implements OnInit {
 
   editImage() {
     this.editActive = true;
-    this.imageEdit.emit(this.item)
+    this.imageEdit.emit(this.item);
+  }
+
+  imageError(event: ErrorEvent) {
+    this.logger.info("imageError:", event);
+    this.imageLoadText = ImageMessage.IMAGE_LOAD_ERROR;
+  }
+
+  imageLoaded(event: Event) {
+    this.logger.info("imageLoaded:", event);
+    this.imageLoadText = null;
   }
 }

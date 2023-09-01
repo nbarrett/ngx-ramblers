@@ -1,18 +1,17 @@
 import * as AWS from "@aws-sdk/client-s3";
-import { GetObjectCommand, GetObjectRequest, PutObjectCommand, S3, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, GetObjectRequest, S3 } from "@aws-sdk/client-s3";
 import { ListObjectsCommandOutput } from "@aws-sdk/client-s3/dist-types/commands/ListObjectsCommand";
 import * as crypto from "crypto";
 import debug from "debug";
 import { Request, Response } from "express";
 import * as fs from "fs";
 import * as https from "https";
-import { first, omit } from "lodash";
+import { omit } from "lodash";
 import moment from "moment-timezone";
 import * as path from "path";
-import { AwsInfo, UploadedFile } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { S3Metadata } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
 import { envConfig } from "../env-config/env-config";
-import { MulterRequest } from "../shared/server-models";
+import { AwsInfo, AwsUploadErrorResponse } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 
 const logObject = false;
 const s3Config = {
@@ -22,7 +21,7 @@ const s3Config = {
 };
 const s3: S3 = new AWS.S3(s3Config);
 const debugLog = debug(envConfig.logNamespace("aws"));
-debugLog.enabled = false;
+debugLog.enabled = true;
 debugLog("configured with", s3Config, "Proxying S3 requests to", envConfig.aws.uploadUrl, "http.globalAgent.maxSockets:", https.globalAgent.maxSockets);
 
 export function listObjects(req: Request, res: Response) {
@@ -34,11 +33,11 @@ export function listObjects(req: Request, res: Response) {
   debugLog("listObjects:bucketParams:", bucketParams);
   s3.listObjects(bucketParams)
     .then((data: ListObjectsCommandOutput) => {
-      const response: S3Metadata[] = data.Contents.map(item => ({
+      const response: S3Metadata[] = data.Contents?.map(item => ({
         key: item.Key,
         lastModified: moment(item.LastModified).tz("Europe/London").valueOf(),
         size: item.Size
-      }));
+      })) || [];
       debugLog("returned data for:bucketParams:", bucketParams, "returned:", response.length, "items");
       res.status(200).send(response);
     })
@@ -80,7 +79,7 @@ export function listBuckets(req: Request, res: Response) {
   });
 }
 
-export function putObjectDirect(rootFolder: string, fileName: string, localFileName: string): Promise<AwsInfo> {
+export function putObjectDirect(rootFolder: string, fileName: string, localFileName: string): Promise<AwsInfo | AwsUploadErrorResponse> {
   debugLog("configured with", s3Config);
   const bucket = envConfig.aws.bucket;
   const objectKey = `${rootFolder}/${path.basename(fileName)}`;
@@ -121,30 +120,6 @@ function expiryTime() {
   const expiryDate = `${_date.getFullYear()}-${_date.getMonth() + 1}-${_date.getDate() + 1}T${_date.getHours() + 3}:00:00.000Z`;
   debugLog("expiryDate:", expiryDate);
   return expiryDate;
-}
-
-async function getObjectInChunks(req: Request, res: Response) {
-  const getObjectCommand = new GetObjectCommand(optionsFrom(req));
-  try {
-    const response: any = await s3.send(getObjectCommand);
-
-    // Store all of data chunks returned from the response data stream
-    // into an array then use Array#join() to use the returned contents as a String
-    const responseDataChunks = [];
-
-    // Handle an error while streaming the response body
-    response.Body.once("error", err => res.status(500).send(err));
-
-    // Attach a "data" listener to add the chunks of data to our array
-    // Each chunk is a Buffer instance
-    response.Body.on("data", chunk => responseDataChunks.push(chunk));
-
-    // Once the stream has no more data, join the chunks into a string and return the string
-    response.Body.once("end", () => res.status(200).send(responseDataChunks.join("")));
-  } catch (err) {
-    // Handle the error or throw
-    res.status(500).send(err);
-  }
 }
 
 function extensionFrom(key: string): string {
@@ -230,54 +205,4 @@ function s3Policy(req: Request, res: Response) {
     s3Signature: signature,
     AWSAccessKeyId: envConfig.aws.accessKeyId,
   });
-}
-
-function putObject(req: MulterRequest, res: Response) {
-  const uploadedFile: UploadedFile = first(req.files);
-  debugLog("received file", uploadedFile.originalname, "into location", uploadedFile.path, "containing", uploadedFile.size, "bytes");
-  return putObjectDirect("", req.params.key, req.params.file)
-    .then(response => {
-      if (response.error) {
-        return res.status(500).send(response);
-      } else {
-        return res.status(200).send(response);
-      }
-    });
-}
-
-function sendObject(rootFolder, fileName, localFileName): Promise<AwsInfo> {
-  debugLog("configured with", s3Config);
-  const bucket = envConfig.aws.bucket;
-
-  const objectKey = `${rootFolder}/${path.basename(fileName)}`;
-  const data = fs.readFileSync(localFileName);
-  const params = {
-    Bucket: bucket,
-    Key: objectKey,
-    Body: data,
-    ACL: "public-read",
-    ContentType: contentTypeFrom(objectKey)
-  };
-  debugLog(`Saving file to ${bucket}/${objectKey} using params`, JSON.stringify(omit(params, "Body")));
-  const region = envConfig.aws.region;
-  const accessKeyId = envConfig.aws.accessKeyId;
-  const secretAccessKey = envConfig.aws.secretAccessKey;
-  const s3Client = new S3Client({
-    region,
-    credentials: {
-      accessKeyId,
-      secretAccessKey
-    }
-  });
-  return s3Client.send(new PutObjectCommand(params))
-    .then(data => {
-      const information = `Successfully uploaded file to ${bucket}/${objectKey}`;
-      debugLog(information, "->", data);
-      return ({responseData: data, information});
-    })
-    .catch(error => {
-      const errorMessage = `Failed to upload object to ${bucket}/${objectKey}`;
-      debugLog(errorMessage, "->", error);
-      return ({responseData: error, error: errorMessage});
-    });
 }

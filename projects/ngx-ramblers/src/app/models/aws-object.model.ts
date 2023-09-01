@@ -25,35 +25,57 @@ export interface ServerFileNameData {
 }
 
 export interface UploadedFile {
-  fieldname: string;
-  originalname: string;
-  encoding: string;
-  mimetype: string;
   destination: string;
+  encoding: string;
+  fieldname: string;
   filename: string;
+  mimetype: string;
+  originalname: string;
   path: string;
-  size: number
+  size: number;
 }
 
 export interface AwsInfo {
   responseData: {
+    VersionId?: string;
     ETag?: string;
-  },
+    ServerSideEncryption?: string;
+    $metadata?: AwsMetadata
+  };
   information?: string;
-  error?: any;
 }
 
 export interface AwsFileUploadResponseData {
-  files: {},
   auditLog: AuditMessage[],
   awsInfo: AwsInfo,
   fileNameData: ServerFileNameData,
+  files: {},
   uploadedFile: UploadedFile
 }
 
 export interface AwsFileUploadResponse {
-  response: AwsFileUploadResponseData
-  error?: any;
+  response: AwsFileUploadResponseData;
+  error?: any // get rid of this and return error object instead
+}
+
+export interface AwsUploadErrorResponse {
+  responseData: {
+    RequestId: string;
+    $fault: string;
+    name: string;
+    HostId: string;
+    message: string;
+    Code: string;
+    $metadata: AwsMetadata
+  };
+  error?: string;
+}
+
+export interface AwsMetadata {
+  totalRetryDelay?: number;
+  extendedRequestId?: string;
+  httpStatusCode?: number;
+  attempts?: number;
 }
 
 export interface ImageData {

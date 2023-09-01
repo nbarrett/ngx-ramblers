@@ -29,7 +29,7 @@ import { LoggedInGuard } from "./admin-login-guard.service";
 import { AuthInterceptor } from "./auth/auth.interceptor";
 import { ContactUsComponent } from "./contact-us/contact-us-directive.component";
 import { DatePickerComponent } from "./date-picker/date-picker.component";
-import { ImageCropperAndResizerComponent } from "./image-cropper/image-cropper";
+import { ImageCropperAndResizerComponent } from "./image-cropper-and-resizer/image-cropper-and-resizer";
 import { MarkdownEditorComponent } from "./markdown-editor/markdown-editor.component";
 import { ActionButtonsComponent } from "./modules/common/action-buttons/action-buttons";
 import { ActionsDropdownComponent } from "./modules/common/actions-dropdown/actions-dropdown";

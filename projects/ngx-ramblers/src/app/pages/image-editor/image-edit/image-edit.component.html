@@ -16,8 +16,16 @@
       <div class="col-sm-7">
         <div class="form-group">
           <label [for]="'image-' + index">Image {{index + 1}} of {{filteredFiles?.length}}</label>
-          <img loading="lazy" [id]="'image-' + index" class="img-fluid" [src]="imageSourceOrPreview()"
+          <img *ngIf="!imageLoadText" (load)="imageLoaded($event)" (error)="imageError($event)" loading="lazy"
+               [id]="'image-' + index" class="img-fluid" [src]="imageSourceOrPreview()"
                [alt]="item.text"/>
+          <div *ngIf="imageLoadText" class="row no-image"
+               [ngClass]="{'small-icon-container': true}">
+            <div class="col align-self-center text-center">
+              <fa-icon [icon]="faImage" class="fa-icon fa-3x"></fa-icon>
+              <div>{{imageLoadText}}</div>
+            </div>
+          </div>
         </div>
         <div class="form-group">
           <input type="button" value="Delete" (click)="callDelete()" title="Delete this image"
