@@ -10,6 +10,8 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { UrlService } from "../../../services/url.service";
 import { MailingPreferencesModalComponent } from "../../mailing-preferences/mailing-preferences-modal.component";
 import { ForgotPasswordModalComponent } from "../forgot-password-modal/forgot-password-modal.component";
+import { SystemConfigService } from "../../../services/system/system-config.service";
+import { Organisation } from "../../../models/system.model";
 
 @Component({
   selector: "app-reset-password-modal-component",
@@ -26,10 +28,12 @@ export class ResetPasswordModalComponent implements OnInit, OnDestroy {
   public userName: string;
   public invalidPasswordLink: boolean;
   public message: string;
+  public group: Organisation;
 
   constructor(public bsModalRef: BsModalRef,
               private modalService: BsModalService,
               private authService: AuthService,
+              private systemConfigService: SystemConfigService,
               private memberLoginService: MemberLoginService,
               private urlService: UrlService,
               private notifierService: NotifierService, loggerFactory: LoggerFactory) {
@@ -39,6 +43,7 @@ export class ResetPasswordModalComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.logger.debug("constructed");
+    this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));
     if (this.invalidPasswordLink) {
       this.notify.showContactUs(true);
       this.notify.error({

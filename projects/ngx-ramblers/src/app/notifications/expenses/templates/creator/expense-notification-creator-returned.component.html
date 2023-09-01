@@ -1,5 +1,5 @@
 <div style="font-size:12px">
-    <p>We are sorry to let you know that the EKWG expense claim you created on <span [textContent]="display.expenseClaimCreatedEvent(expenseClaim).date | displayDate" class="nowrap"></span>
+    <p>We are sorry to let you know that the {{group?.shortName}} expense claim you created on <span [textContent]="display.expenseClaimCreatedEvent(expenseClaim).date | displayDate" class="nowrap"></span>
         with the <span [textContent]="expenseClaim.expenseItems.length"></span> item(s) listed below has been returned to you:
     </p>
     <app-expense-notification-details [expenseClaim]="expenseClaim"></app-expense-notification-details>

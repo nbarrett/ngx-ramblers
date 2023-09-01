@@ -12,7 +12,7 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { LoginResponse } from "../../../models/member.model";
 import { DeviceSize } from "../../../models/page.model";
 import { GroupWalk, RamblersWalksRawApiResponse } from "../../../models/ramblers-walks-manager";
-import { WalkPopulation } from "../../../models/system.model";
+import { Organisation, WalkPopulation } from "../../../models/system.model";
 import { DisplayedWalk, EventType, FilterParameters, Walk } from "../../../models/walk.model";
 import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
@@ -37,6 +37,7 @@ import { WalksService } from "../../../services/walks/walks.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { LoginModalComponent } from "../../login/login-modal/login-modal.component";
 import { WalkDisplayService } from "../walk-display.service";
+import { SystemConfigService } from "../../../services/system/system-config.service";
 
 @Component({
   selector: "app-walk-list",
@@ -63,8 +64,10 @@ export class WalkListComponent implements OnInit, OnDestroy {
     initialState: {}
   };
   private subscriptions: Subscription[] = [];
+  public group: Organisation;
 
   constructor(
+    private systemConfigService: SystemConfigService,
     private modalService: BsModalService,
     private pageService: PageService,
     public googleMapsService: GoogleMapsService,
@@ -96,6 +99,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
+    this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));
     this.todayValue = this.dateUtils.momentNowNoTime().valueOf();
     this.pageSize = 10;
     this.pageNumber = 1;

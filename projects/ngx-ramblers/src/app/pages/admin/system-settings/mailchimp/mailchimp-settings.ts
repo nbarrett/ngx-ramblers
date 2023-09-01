@@ -1,9 +1,13 @@
-import { Component, OnInit } from "@angular/core";
+import { Component, OnDestroy, OnInit } from "@angular/core";
 import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../../models/alert-target.model";
 import { NamedEventType } from "../../../../models/broadcast.model";
-import { MailchimpCampaignListResponse, MailchimpConfig, MailchimpListingResponse } from "../../../../models/mailchimp.model";
+import {
+  MailchimpCampaignListResponse,
+  MailchimpConfig,
+  MailchimpListingResponse
+} from "../../../../models/mailchimp.model";
 import { FullNameWithAliasPipe } from "../../../../pipes/full-name-with-alias.pipe";
 import { LineFeedsToBreaksPipe } from "../../../../pipes/line-feeds-to-breaks.pipe";
 import { BroadcastService } from "../../../../services/broadcast-service";
@@ -21,12 +25,15 @@ import { MemberService } from "../../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { UrlService } from "../../../../services/url.service";
+import { SystemConfigService } from "../../../../services/system/system-config.service";
+import { Organisation } from "../../../../models/system.model";
+import { Subscription } from "rxjs";
 
 @Component({
   selector: "app-mailchimp-settings",
   templateUrl: "./mailchimp-settings.html",
 })
-export class MailchimpSettingsComponent implements OnInit {
+export class MailchimpSettingsComponent implements OnInit, OnDestroy {
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   private logger: Logger;
@@ -34,11 +41,14 @@ export class MailchimpSettingsComponent implements OnInit {
   public campaignSearchTerm: string;
   public mailchimpConfig: MailchimpConfig;
   public mailchimpListingResponse: MailchimpListingResponse;
+  public group: Organisation;
+  private subscriptions: Subscription[] = [];
 
   constructor(private contentMetadataService: ContentMetadataService,
               private mailchimpSegmentService: MailchimpSegmentService,
               private mailchimpCampaignService: MailchimpCampaignService,
               private mailchimpConfigService: MailchimpConfigService,
+              private systemConfigService: SystemConfigService,
               private notifierService: NotifierService,
               private stringUtils: StringUtilsService,
               private committeeConfig: CommitteeConfigService,
@@ -58,6 +68,7 @@ export class MailchimpSettingsComponent implements OnInit {
 
   ngOnInit() {
     this.logger.debug("constructed");
+    this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.campaignSearchTerm = "Master";
     this.notify.setBusy();
@@ -101,6 +112,10 @@ export class MailchimpSettingsComponent implements OnInit {
       this.logger.info("event received:", NamedEventType.ERROR);
       this.notify.error({title: "Unexpected Error Occurred", message: error});
     });
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   private refreshMailchimpLists(): Promise<void> {

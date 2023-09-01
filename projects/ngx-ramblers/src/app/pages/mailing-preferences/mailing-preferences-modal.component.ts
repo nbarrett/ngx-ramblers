@@ -1,4 +1,4 @@
-import { Component, OnInit } from "@angular/core";
+import { Component, OnDestroy, OnInit } from "@angular/core";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AuthService } from "../../auth/auth.service";
@@ -14,20 +14,26 @@ import { ProfileConfirmationService } from "../../services/profile-confirmation.
 import { RouterHistoryService } from "../../services/router-history.service";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { UrlService } from "../../services/url.service";
+import { SystemConfigService } from "../../services/system/system-config.service";
+import { Organisation } from "../../models/system.model";
+import { Subscription } from "rxjs";
 
 @Component({
   selector: "app-mailing-preferences-modal-component",
   templateUrl: "./mailing-preferences-modal.component.html",
 })
-export class MailingPreferencesModalComponent implements OnInit {
+export class MailingPreferencesModalComponent implements OnInit, OnDestroy {
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   private logger: Logger;
   public memberId: string;
   public member: Member;
+  public group: Organisation;
+  private subscriptions: Subscription[] = [];
 
   constructor(private authService: AuthService,
               private memberService: MemberService,
+              private systemConfigService: SystemConfigService,
               private profileConfirmationService: ProfileConfirmationService,
               private mailchimpListSubscriptionService: MailchimpListSubscriptionService,
               private mailchimpSegmentService: MailchimpSegmentService,
@@ -44,12 +50,17 @@ export class MailingPreferencesModalComponent implements OnInit {
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.logger.debug("constructed");
+    this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));
     this.memberService.getById(this.memberId)
       .then(member => {
         this.logger.debug("memberId ->", this.memberId, "member ->", member);
         this.member = member;
       });
 
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   saveOrUpdateUnsuccessful(message) {

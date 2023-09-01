@@ -12,6 +12,8 @@ import { UrlService } from "../../../services/url.service";
 import { MailingPreferencesModalComponent } from "../../mailing-preferences/mailing-preferences-modal.component";
 import { ForgotPasswordModalComponent } from "../forgot-password-modal/forgot-password-modal.component";
 import { ResetPasswordModalComponent } from "../reset-password-modal/reset-password-modal.component";
+import { SystemConfigService } from "../../../services/system/system-config.service";
+import { Organisation } from "../../../models/system.model";
 
 @Component({
   selector: "app-login-modal-component",
@@ -25,9 +27,11 @@ export class LoginModalComponent implements OnInit, OnDestroy {
   userName: string;
   password: string;
   private subscriptions: Subscription[] = [];
+  public group: Organisation;
 
   constructor(public bsModalRef: BsModalRef,
               private modalService: BsModalService,
+              private systemConfigService: SystemConfigService,
               private authService: AuthService,
               private memberLoginService: MemberLoginService,
               private urlService: UrlService,
@@ -39,6 +43,7 @@ export class LoginModalComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.logger.debug("constructed");
+    this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse) => {
       this.logger.debug("subscribe:loginResponse", loginResponse);
       if (!loginResponse) {
