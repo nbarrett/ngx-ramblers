@@ -9,7 +9,7 @@ describe("UrlService", () => {
 
   const INJECTED_URL = "https://ng-ekwg-staging.herokuapp.com/walks/walk-programme";
 
-  const URL_PATH = "https://www.ekwg.co.uk/admin/member-bulk-load/12398719823";
+  const URL_PATH = "https://www.example.co.uk/admin/member-bulk-load/12398719823";
   const LOCATION_VALUE = {
     location: {
       href: URL_PATH
@@ -36,7 +36,7 @@ describe("UrlService", () => {
 
   it("should return baseUrl as the path segment before /", () => {
     const service: UrlService = TestBed.inject(UrlService);
-    expect(service.baseUrl()).toBe("https://www.ekwg.co.uk");
+    expect(service.baseUrl()).toBe("https://www.example.co.uk");
   });
 
   describe("area", () => {
@@ -66,7 +66,7 @@ describe("UrlService", () => {
       };
 
       const service: UrlService = TestBed.inject(UrlService);
-      expect(service.linkUrl(object)).toBe("https://www.ekwg.co.uk/walks/1234-567");
+      expect(service.linkUrl(object)).toBe("https://www.example.co.uk/walks/1234-567");
     });
 
     it("should return the url of an expense in the sub-area of admin", () => {
@@ -77,7 +77,7 @@ describe("UrlService", () => {
       };
 
       const service: UrlService = TestBed.inject(UrlService);
-      expect(service.linkUrl(object)).toBe("https://www.ekwg.co.uk/admin/expenses/1234-567");
+      expect(service.linkUrl(object)).toBe("https://www.example.co.uk/admin/expenses/1234-567");
     });
 
     it("should return the url without the baseUrl if relative supplied true", () => {
@@ -99,7 +99,7 @@ describe("UrlService", () => {
       };
 
       const service: UrlService = TestBed.inject(UrlService);
-      expect(service.linkUrl(object)).toBe("https://www.ekwg.co.uk/api/aws/s3/expenses/file.12346.pdf");
+      expect(service.linkUrl(object)).toBe("https://www.example.co.uk/api/aws/s3/expenses/file.12346.pdf");
     });
 
   });
@@ -108,7 +108,7 @@ describe("UrlService", () => {
 
     it("should return a path to an aws file name", () => {
       const service: UrlService = TestBed.inject(UrlService);
-      expect(service.absolutePathForAWSFileName("file.pdf")).toBe("https://www.ekwg.co.uk/api/aws/s3/file.pdf");
+      expect(service.absolutePathForAWSFileName("file.pdf")).toBe("https://www.example.co.uk/api/aws/s3/file.pdf");
     });
 
   });

@@ -67,7 +67,7 @@ it("transforms nested json", done => {
         "updated": false,
         "leid": "321760733",
         "lastUpdated": 1578250663257,
-        "email": "nick.barrett@ekwg.co.ukss"
+        "email": "nick.barrett@example.co.ukss"
       },
       "socialEvents": {
         "subscribed": true,
@@ -85,7 +85,7 @@ it("transforms nested json", done => {
       "mailchimpLists.socialEvents.leid": "321760737",
       "mailchimpLists.socialEvents.subscribed": true,
       "mailchimpLists.socialEvents.updated": false,
-      "mailchimpLists.walks.email": "nick.barrett@ekwg.co.ukss",
+      "mailchimpLists.walks.email": "nick.barrett@example.co.ukss",
       "mailchimpLists.walks.lastUpdated": 1578250663257,
       "mailchimpLists.walks.leid": "321760733",
       "mailchimpLists.walks.subscribed": true,
@@ -190,21 +190,21 @@ it("transforms whole json", done => {
         "updated": false,
         "leid": "321760733",
         "lastUpdated": 1578250663257,
-        "email": "nick.barrett@ekwg.co.uk"
+        "email": "nick.barrett@example.co.uk"
       },
       "socialEvents": {
         "subscribed": true,
         "updated": false,
         "leid": "321760737",
         "lastUpdated": "",
-        "email": "nick.barrett@ekwg.co.uk"
+        "email": "nick.barrett@example.co.uk"
       },
       "general": {
         "subscribed": true,
         "updated": false,
         "leid": "321760741",
         "lastUpdated": 1578250719650,
-        "email": "nick.barrett@ekwg.co.uk"
+        "email": "nick.barrett@example.co.uk"
       }
     },
     "mailchimpSegmentIds": {
@@ -258,16 +258,16 @@ it("transforms whole json", done => {
       "groupMember": true,
       "id": "56410469e4b039fe9dc75388",
       "lastName": "Barrett EK",
-      "mailchimpLists.general.email": "nick.barrett@ekwg.co.uk",
+      "mailchimpLists.general.email": "nick.barrett@example.co.uk",
       "mailchimpLists.general.lastUpdated": 1578250719650,
       "mailchimpLists.general.leid": "321760741",
       "mailchimpLists.general.subscribed": true,
       "mailchimpLists.general.updated": false,
-      "mailchimpLists.socialEvents.email": "nick.barrett@ekwg.co.uk",
+      "mailchimpLists.socialEvents.email": "nick.barrett@example.co.uk",
       "mailchimpLists.socialEvents.leid": "321760737",
       "mailchimpLists.socialEvents.subscribed": true,
       "mailchimpLists.socialEvents.updated": false,
-      "mailchimpLists.walks.email": "nick.barrett@ekwg.co.uk",
+      "mailchimpLists.walks.email": "nick.barrett@example.co.uk",
       "mailchimpLists.walks.lastUpdated": 1578250663257,
       "mailchimpLists.walks.leid": "321760733",
       "mailchimpLists.walks.updated": false,

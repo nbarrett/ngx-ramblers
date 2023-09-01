@@ -6,7 +6,7 @@ const NIC = {
   description: "Secretary",
   fullName: "Nic Meadway",
   memberId: "578bb704bd966f28bff5081b",
-  email: "secretary@ekwg.co.uk",
+  email: "secretary@example.co.uk",
   nameAndDescription: "Secretary (Nic Meadway)"
 };
 
@@ -14,7 +14,7 @@ const EXPECTED_NIC: CommitteeMember = {
   description: "Secretary",
   fullName: "Nic Meadway",
   memberId: "578bb704bd966f28bff5081b",
-  email: "secretary@ekwg.co.uk",
+  email: "secretary@example.co.uk",
   nameAndDescription: "Secretary (Nic Meadway)",
   type: "secretary"
 };
@@ -25,7 +25,7 @@ const mockData: CommitteeConfig = {
         type: "chairman",
         description: "Chairman",
         fullName: "Kerry O'Grady",
-        email: "chairman@ekwg.co.uk",
+        email: "chairman@example.co.uk",
         memberId: "52c595b3e4b003b51a33dac0"
       },
       secretary: NIC,
@@ -33,35 +33,35 @@ const mockData: CommitteeConfig = {
         type: "treasurer",
         description: "Treasurer",
         fullName: "Jon Inglett",
-        email: "treasurer@ekwg.co.uk",
+        email: "treasurer@example.co.uk",
         memberId: "5a22f683bd966f3d367dbd80"
       },
       membership: {
         type: "membership",
         description: "Membership",
         fullName: "Jenny Brown",
-        email: "membership@ekwg.co.uk",
+        email: "membership@example.co.uk",
         memberId: "5318ce73a08549a65a4a2899"
       },
       social: {
         type: "social",
         description: "Social Co-ordinator",
         fullName: "Andrew Goh",
-        email: "social@ekwg.co.uk",
+        email: "social@example.co.uk",
         memberId: "5a281ddec2ef160584439b1f"
       },
       walks: {
         type: "walks",
         description: "Walks Co-ordinator",
         fullName: "Stuart Maisner",
-        email: "walks@ekwg.co.uk",
+        email: "walks@example.co.uk",
         memberId: "55470ac1e4b0996846fa82ba"
       },
       support: {
         type: "support",
         description: "Technical Support",
         fullName: "Nick Barrett",
-        email: "nick.barrett@ekwg.co.uk",
+        email: "nick.barrett@example.co.uk",
         memberId: "52ab5d94e4b0f92ce9a5caee"
       }
     },

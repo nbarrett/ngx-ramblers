@@ -23,14 +23,6 @@ speed-measure-plugin.json
 .settings/
 *.sublime-workspace
 
-# IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-.history/*
-
 # misc
 /.sass-cache
 /connect.lock
@@ -46,17 +38,11 @@ testem.log
 Thumbs.db
 /non-vcs/
 /server/scripts/*
-/server/scripts/run-staging.sh
-/server/scripts/run-prod.sh
-/server/scripts/run-test.sh
 /server/node_modules/
-/src/ekwg-legacy/
 /server/target/
 /server/upload-errors-source.html
 /data/scripts/
 /server/ts-gen/
-/.angular/cache/14.1.3/
+/.angular/cache/
 /.angular/
 /data/mongo-scripts/
-
-/data/dump/
