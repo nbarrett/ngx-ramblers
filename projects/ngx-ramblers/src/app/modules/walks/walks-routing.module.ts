@@ -14,7 +14,7 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { PageService } from "../../services/page.service";
 import { hasDynamicPath, hasMongoId } from "../../services/path-matchers";
 import { StringUtilsService } from "../../services/string-utils.service";
-import { WalksAuthGuard } from "../../walks-auth-guard.service";
+import { WalksAuthGuard } from "../../guards/walks-auth-guard.service";
 import { ActionButtonsComponent } from "../common/action-buttons/action-buttons";
 import { DynamicContentPageComponent } from "../common/dynamic-content-page/dynamic-content-page";
 import { WalksModule } from "./walks.module";

@@ -252,8 +252,9 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
           this.pageContent = pageContent;
           this.logger.info("this.pageContent.path:", this.pageContent.path, "urlPath:", this.urlService.urlPath());
           if (this.pageContent.path !== this.urlService.urlPath()) {
-            this.logger.info("need to move to:", this.pageContent.path);
-            return this.urlService.navigateUnconditionallyTo(this.pageContent.path);
+            const navigateToPath = this.urlService.pathMinusAnchorForUrl(this.pageContent.path);
+            this.logger.info("need to move to:", navigateToPath);
+            return this.urlService.navigateUnconditionallyTo(navigateToPath);
           } else {
             return true;
           }

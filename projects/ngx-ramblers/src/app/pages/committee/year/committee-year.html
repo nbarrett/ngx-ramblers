@@ -4,7 +4,7 @@
                        description="Introduction"></app-markdown-editor>
   <div class="card mb-3">
     <div class="wrapper w-100 position-relative">
-      <img class="h-100 w-100 position-absolute"
+      <img *ngIf="imageSource" class="h-100 w-100 position-absolute"
            role="presentation"
            [src]="urlService.imageSource(imageSource)">
     </div>

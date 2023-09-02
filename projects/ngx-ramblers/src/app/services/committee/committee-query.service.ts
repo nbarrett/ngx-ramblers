@@ -2,7 +2,14 @@ import { Injectable } from "@angular/core";
 import first from "lodash-es/first";
 import { NgxLoggerLevel } from "ngx-logger";
 import { chain } from "../../functions/chain";
-import { CommitteeFile, CommitteeMember, CommitteeYear, GroupEvent, GroupEventsFilter, GroupEventTypes } from "../../models/committee.model";
+import {
+  CommitteeFile,
+  CommitteeMember,
+  CommitteeYear,
+  GroupEvent,
+  GroupEventsFilter,
+  GroupEventTypes
+} from "../../models/committee.model";
 import { Member } from "../../models/member.model";
 import { CommitteeDisplayService } from "../../pages/committee/committee-display.service";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
@@ -118,12 +125,15 @@ export class CommitteeQueryService {
   }
 
   queryCommitteeMembers() {
-    this.memberService.all({
-      criteria: {committee: {$eq: true}}, sort: {firstName: 1, lastName: 1}
-    }).then(members => {
-      this.logger.info("queried committeeMembers:", members);
-      this.committeeMembers = members;
-    });
+    this.logger.info("queryCommitteeMembers:loggedInMember:", this.memberLoginService.memberLoggedIn());
+    if (this.memberLoginService.memberLoggedIn()) {
+      this.memberService.all({
+        criteria: {committee: {$eq: true}}, sort: {firstName: 1, lastName: 1}
+      }).then(members => {
+        this.logger.info("queried committeeMembers:", members);
+        this.committeeMembers = members;
+      });
+    }
   }
 
   queryFiles(committeeFileId?: string): Promise<void> {
@@ -147,7 +157,7 @@ export class CommitteeQueryService {
   }
 
   latestYear(): number {
-    return this.extractYear(first(this.committeeFilesLatestFirst()));
+    return this.extractYear(first(this.committeeFilesLatestFirst())) || this.dateUtils.currentYear();
   }
 
   committeeFilesForYear(year: number): CommitteeFile[] {

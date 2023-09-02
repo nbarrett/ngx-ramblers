@@ -1,24 +1,29 @@
-<div *ngIf="!newEditInProgress()" class="badge-button mb-2" (click)="createNew()"
-     delay=500 tooltip="Add new link">
-  <fa-icon [icon]="faAdd"></fa-icon>
-  <span>add link</span>
-</div>
-<div class="col-sm-12">
-  <div class="form-row">
-    <div class="form-group col-md-3">
-      <label>Web Url</label>
+<div class="row img-thumbnail thumbnail-2">
+  <div class="thumbnail-heading">{{heading}} ({{links.length}})</div>
+  <div class="col-sm-12">
+    <div *ngIf="!newEditInProgress()" class="badge-button mb-2" (click)="createNew()"
+         delay=500 tooltip="Add new link">
+      <fa-icon [icon]="faAdd"></fa-icon>
+      <span>add link</span>
     </div>
-    <div class="form-group col-md-3">
-      <label>Title</label>
-    </div>
-    <div class="form-group col-md-3">
-      <label>Actions</label>
-    </div>
-    <div class="form-group col-md-3">
-      <label>Link Preview</label>
+    <div class="col-sm-12">
+      <div class="form-row">
+        <div class="form-group col-md-3">
+          <label>Web Url</label>
+        </div>
+        <div class="form-group col-md-3">
+          <label>Title</label>
+        </div>
+        <div class="form-group col-md-3">
+          <label>Actions</label>
+        </div>
+        <div class="form-group col-md-3">
+          <label>Link Preview</label>
+        </div>
+      </div>
+      <ng-container *ngFor="let link of links">
+        <app-link-edit [link]="link" [links]="links" (delete)="deleteLink($event)"></app-link-edit>
+      </ng-container>
     </div>
   </div>
-  <ng-container *ngFor="let link of links">
-    <app-link-edit [link]="link" [links]="links" (delete)="deleteLink($event)"></app-link-edit>
-  </ng-container>
 </div>

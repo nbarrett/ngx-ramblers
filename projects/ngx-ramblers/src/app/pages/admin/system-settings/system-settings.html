@@ -52,12 +52,7 @@
                 </div>
               </div>
             </div>
-            <div class="row img-thumbnail thumbnail-2">
-              <div class="thumbnail-heading">Pages on Site ({{config.group.pages.length}})</div>
-              <div class="col-sm-12">
-                <app-links-edit [links]="config.group.pages"></app-links-edit>
-              </div>
-            </div>
+            <app-links-edit [heading]='"Pages on Site"' [links]="config.group.pages"></app-links-edit>
           </div>
         </tab>
         <tab app-image-collection-settings [heading]="systemConfigService.imageTypeDescription(backgrounds)"
@@ -76,14 +71,7 @@
              [images]="config.logos">
         </tab>
         <tab heading="Website Header">
-          <div class="img-thumbnail thumbnail-admin-edit">
-            <div class="row img-thumbnail thumbnail-2">
-              <div class="thumbnail-heading">Header Buttons ({{config.header.navigationButtons.length}})</div>
-              <div class="col-sm-12">
-                <app-links-edit [links]="config.header.navigationButtons"></app-links-edit>
-              </div>
-            </div>
-          </div>
+          <app-links-edit [heading]="'Header Buttons'" [links]="config.header.navigationButtons"></app-links-edit>
         </tab>
         <tab heading="Website Footer">
           <div class="img-thumbnail thumbnail-admin-edit">
@@ -159,18 +147,8 @@
                 </div>
               </div>
             </div>
-            <div class="row img-thumbnail thumbnail-2">
-              <div class="thumbnail-heading">Column 2: Quick Links ({{config.footer.quickLinks.length}})</div>
-              <div class="col-sm-12">
-                <app-links-edit [links]="config.footer.quickLinks"></app-links-edit>
-              </div>
-            </div>
-            <div class="row img-thumbnail thumbnail-2">
-              <div class="thumbnail-heading">Column 3: Legals ({{config.footer.legals.length}})</div>
-              <div class="col-sm-12">
-                <app-links-edit [links]="config.footer.legals"></app-links-edit>
-              </div>
-            </div>
+            <app-links-edit [heading]='"Column 2: Quick Links"' [links]="config.footer.quickLinks"></app-links-edit>
+            <app-links-edit [heading]='"Column 3: Legals"' [links]="config.footer.legals"></app-links-edit>
             <div class="row img-thumbnail thumbnail-2">
               <div class="thumbnail-heading">Column 4: Download Links</div>
               <div class="col-sm-12">

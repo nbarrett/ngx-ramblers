@@ -1,7 +1,7 @@
 import { NgModule } from "@angular/core";
 import { RouterModule } from "@angular/router";
-import { AdminAuthGuard } from "../../admin-auth-guard.service";
-import { LoggedInGuard } from "../../admin-login-guard.service";
+import { AdminAuthGuard } from "../../guards/admin-auth-guard.service";
+import { LoggedInGuard } from "../../guards/admin-login-guard.service";
 import { SetPasswordComponent } from "../../login/set-password.component";
 import { AdminComponent } from "../../pages/admin/admin/admin.component";
 import { ExpensesComponent } from "../../pages/admin/expenses/expenses.component";
@@ -19,10 +19,11 @@ import { MailingPreferencesModalComponent } from "../../pages/mailing-preference
 import { hasDynamicPath } from "../../services/path-matchers";
 import { DynamicContentPageComponent } from "../common/dynamic-content-page/dynamic-content-page";
 import { AdminModule } from "./admin.module";
+import { AreaExistsGuard } from "../../guards/area-exists-guard.service";
 
 @NgModule({
   imports: [AdminModule, RouterModule.forChild([
-    {path: "", component: AdminComponent},
+    {path: "", component: AdminComponent, canActivate: [AreaExistsGuard]},
     {path: "expenses", component: ExpensesComponent, canActivate: [LoggedInGuard]},
     {path: "expenses/:expense-id", component: ExpensesComponent, canActivate: [LoggedInGuard]},
     {path: "mailing-preferences", component: MailingPreferencesModalComponent, canActivate: [AdminAuthGuard]},

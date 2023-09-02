@@ -10,6 +10,7 @@ import { AWSLinkConfig, LinkConfig } from "../models/link.model";
 import { SiteEditService } from "../site-edit/site-edit.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { isMongoId } from "./mongo-utils";
+import isEmpty from "lodash-es/isEmpty";
 
 @Injectable({
   providedIn: "root"
@@ -84,6 +85,14 @@ export class UrlService {
 
   firstPathSegment(): string {
     return first(this.pathSegments());
+  }
+
+  pathSegmentsForUrl(url: string): string[] {
+    return url?.split("/")?.filter(item => !isEmpty(item)) || [];
+  }
+
+  pathMinusAnchorForUrl(url: string): string {
+    return first(url?.split("#"));
   }
 
   lastPathSegment() {
@@ -166,7 +175,7 @@ export class UrlService {
   }
 
   hasRouteParameter(parameter): boolean {
-    return this.router.url.split("/").includes(parameter);
+    return this.pathSegmentsForUrl(this.router.url).includes(parameter);
   }
 
   pageUrl(page?: string): string {
@@ -179,7 +188,7 @@ export class UrlService {
   }
 
   areaUrl(): string {
-    return tail(new URL(this.absoluteUrl()).pathname.substring(1).split("/")).join("/");
+    return tail(this.pathSegmentsForUrl(new URL(this.absoluteUrl()).pathname.substring(1))).join("/");
   }
 
   private isBase64Image(url: string): boolean {
