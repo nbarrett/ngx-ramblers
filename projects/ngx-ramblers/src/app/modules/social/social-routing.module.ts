@@ -5,13 +5,14 @@ import { SocialViewPageComponent } from "../../pages/social/social-view-page/soc
 import { hasDynamicPath, hasMongoId } from "../../services/path-matchers";
 import { DynamicContentPageComponent } from "../common/dynamic-content-page/dynamic-content-page";
 import { SocialModule } from "./social.module";
+import { AreaExistsGuard } from "../../guards/area-exists-guard.service";
 
 @NgModule({
   imports: [SocialModule, RouterModule.forChild([
-    {matcher: hasMongoId, component: SocialViewPageComponent},
-    {path: "new", component: SocialViewPageComponent},
-    {matcher: hasDynamicPath, component: DynamicContentPageComponent},
-    {path: "**", component: SocialHomeComponent}
+    {matcher: hasMongoId, component: SocialViewPageComponent, canActivate: [AreaExistsGuard]},
+    {path: "new", component: SocialViewPageComponent, canActivate: [AreaExistsGuard]},
+    {matcher: hasDynamicPath, component: DynamicContentPageComponent, canActivate: [AreaExistsGuard]},
+    {path: "**", component: SocialHomeComponent, canActivate: [AreaExistsGuard]}
   ])]
 })
 export class SocialRoutingModule {

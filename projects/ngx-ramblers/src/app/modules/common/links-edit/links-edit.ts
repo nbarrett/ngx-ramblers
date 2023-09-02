@@ -3,6 +3,7 @@ import { faAdd } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Link } from "../../../models/page.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
+import { remove } from "lodash-es";
 
 @Component({
   selector: "app-links-edit",
@@ -10,6 +11,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 })
 export class LinksEditComponent implements OnInit {
   private logger: Logger;
+  @Input() heading: string;
   @Input() links: Link[];
 
   faAdd = faAdd;
@@ -32,7 +34,7 @@ export class LinksEditComponent implements OnInit {
   }
 
   deleteLink(link: Link) {
-    this.links = this.links.filter((item, index) => item !== link);
+    remove(this.links, link);
   }
 
 }

@@ -25,7 +25,7 @@ import { CustomNGXLoggerService, LoggerModule, NgxLoggerLevel } from "ngx-logger
 import { MarkdownModule } from "ngx-markdown";
 import { TagifyModule } from "ngx-tagify";
 import { UiSwitchModule } from "ngx-ui-switch";
-import { LoggedInGuard } from "./admin-login-guard.service";
+import { LoggedInGuard } from "./guards/admin-login-guard.service";
 import { AuthInterceptor } from "./auth/auth.interceptor";
 import { ContactUsComponent } from "./contact-us/contact-us-directive.component";
 import { DatePickerComponent } from "./date-picker/date-picker.component";
@@ -98,6 +98,7 @@ import { NotifierService } from "./services/notifier.service";
 import { PageContentService } from "./services/page-content.service";
 import { RouterHistoryService } from "./services/router-history.service";
 import { SiteEditService } from "./site-edit/site-edit.service";
+import { AreaExistsGuard } from "./guards/area-exists-guard.service";
 
 @NgModule({
   imports: [
@@ -278,6 +279,7 @@ export class SharedModule {
         LastConfirmedDateDisplayed,
         LineFeedsToBreaksPipe,
         LoggedInGuard,
+        AreaExistsGuard,
         MailchimpConfigService,
         MailchimpListSubscriptionService,
         MarkdownEditorFocusService,

@@ -46,7 +46,7 @@ import { AddressQueryService } from "../../services/walks/address-query.service"
 import { WalkNotificationService } from "../../services/walks/walk-notification.service";
 import { WalksService } from "../../services/walks/walks.service";
 import { SharedModule } from "../../shared-module";
-import { WalksAuthGuard } from "../../walks-auth-guard.service";
+import { WalksAuthGuard } from "../../guards/walks-auth-guard.service";
 
 @NgModule({
   declarations: [

@@ -152,4 +152,7 @@ export class DateUtilsService {
     return range(fromDate, toDate + 1, this.MILLISECONDS_IN_ONE_DAY);
   }
 
+  currentYear(): number {
+    return +this.asString(this.momentNow().valueOf(), undefined, "YYYY");
+  }
 }

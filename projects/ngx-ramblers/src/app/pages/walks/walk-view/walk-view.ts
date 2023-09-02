@@ -142,7 +142,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   drivingDirectionsDisabled() {
-    return this.fromPostcode.length < 3;
+    return this.fromPostcode?.length < 3;
   }
 
   durationInFutureFor(walk: Walk) {

@@ -81,6 +81,7 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
     this.committeeQueryService.queryFiles(this.committeeFileId)
       .then(() => {
         this.committeeYear = this.committeeQueryService.thisCommitteeYear();
+        this.logger.info("refreshCommitteeFiles:committeeYear:", this.committeeYear);
         this.generateActionButtons();
         this.confirm.clear();
       });
@@ -96,6 +97,7 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
   }
 
   refreshMembers() {
+    this.logger.info("refreshMembers:allowFileAdmin:", this.memberLoginService.allowFileAdmin());
     if (this.memberLoginService.allowFileAdmin()) {
       return this.memberService.all()
         .then(members => this.members = members);

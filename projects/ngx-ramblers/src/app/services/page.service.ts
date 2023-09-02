@@ -9,6 +9,8 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 import { StringUtilsService } from "./string-utils.service";
 import { SystemConfigService } from "./system/system-config.service";
 import { UrlService } from "./url.service";
+import isEmpty from "lodash-es/isEmpty";
+import first from "lodash-es/first";
 
 @Injectable({
   providedIn: "root"
@@ -80,12 +82,23 @@ export class PageService {
   }
 
   setTitle(pageTitle?: string) {
-    this.previouslySetTitle = pageTitle;
-    const areaTitle = this.areaTitle();
-    const subTitle = pageTitle || this.pageSubtitle();
-    this.logger.info("areaTitle:", areaTitle, "subTitle:", subTitle);
-    const fullTitle = areaTitle && subTitle && (areaTitle !== subTitle) ? `${this?.group?.shortName} — ${areaTitle} — ${subTitle}` : `${this?.group?.shortName} — ${areaTitle}`;
-    this.titleService.setTitle(fullTitle);
+    if (this?.group?.longName) {
+      this.previouslySetTitle = pageTitle;
+      const areaTitle = this.areaTitle();
+      const subTitle = pageTitle || this.pageSubtitle();
+      const fullTitle = areaTitle && subTitle && (areaTitle !== subTitle) ? `${this?.group?.shortName} — ${areaTitle} — ${subTitle}` : `${this?.group?.shortName} — ${areaTitle}`;
+      this.logger.info("group:", this?.group, "areaTitle:", areaTitle, "subTitle:", subTitle, "fullTitle:", fullTitle);
+      this.titleService.setTitle(fullTitle);
+    }
   }
 
+  areaExistsFor(url: string) {
+    this.logger.info("areaExistsFor:url", url, "pages:", this.group.pages);
+    const area = this.urlService.pageUrl(first(this.urlService.pathSegmentsForUrl(url)));
+    return !!this.group.pages.find(page => {
+      const pageUrl = this.urlService.pageUrl(page.href);
+      this.logger.info("area:", area, "pageUrl:", pageUrl);
+      return !isEmpty(page.href) && area === pageUrl;
+    });
+  }
 }

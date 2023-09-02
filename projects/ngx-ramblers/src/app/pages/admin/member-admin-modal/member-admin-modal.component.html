@@ -22,7 +22,7 @@
             <div class="col-sm-6">
               <form class="form-group">
                 <label for="first-name">First Name</label>
-                <input autocomplete="nope"
+                <input autocomplete="new-password"
                        name="firstName" [disabled]="!allowEdits" [(ngModel)]="member.firstName"
                        type="text"
                        class="form-control input-sm" id="first-name"
@@ -32,7 +32,7 @@
             <div class="col-sm-4">
               <form class="form-group">
                 <label for="last-name">Last Name</label>
-                <input autocomplete="nope" name="lastName" [disabled]="!allowEdits" [(ngModel)]="member.lastName"
+                <input autocomplete="new-password" name="lastName" [disabled]="!allowEdits" [(ngModel)]="member.lastName"
                        type="text"
                        class="form-control input-sm" id="last-name"
                        placeholder="Enter Last Name here">
@@ -41,7 +41,7 @@
             <div class="col-sm-2">
               <form class="form-group">
                 <label for="name-alias">Alias</label>
-                <input autocomplete="nope" name="nameAlias" [disabled]="!allowEdits" [(ngModel)]="member.nameAlias"
+                <input autocomplete="new-password" name="nameAlias" [disabled]="!allowEdits" [(ngModel)]="member.nameAlias"
                        type="text"
                        class="form-control input-sm" id="name-alias"
                        placeholder="Enter additional name alias here to ensure name uniqueness">
@@ -52,7 +52,7 @@
             <div class="col-sm-6">
               <form class="form-group">
                 <label for="mobile-number">Mobile Number</label>
-                <input autocomplete="nope" name="mobileNumber" [disabled]="!allowEdits"
+                <input autocomplete="new-password" name="mobileNumber" [disabled]="!allowEdits"
                        [(ngModel)]="member.mobileNumber"
                        type="text" class="form-control input-sm" id="mobile-number"
                        placeholder="Enter mobile number here">
@@ -61,7 +61,7 @@
             <div class="col col-sm-6">
               <form class="form-group">
                 <label for="contact-email">Contact Email</label>
-                <input autocomplete="nope" name="email" [disabled]="!allowEdits" [(ngModel)]="member.email"
+                <input autocomplete="new-password" name="email" [disabled]="!allowEdits" [(ngModel)]="member.email"
                        type="text"
                        class="form-control input-sm" id="contact-email"
                        placeholder="Enter contact email here">
@@ -72,7 +72,7 @@
             <div class="col col-sm-6">
               <form class="form-group">
                 <label for="postcode">Postcode</label>
-                <input autocomplete="nope" name="postcode" [(ngModel)]="member.postcode" type="text"
+                <input autocomplete="new-password" name="postcode" [(ngModel)]="member.postcode" type="text"
                        class="form-control input-sm" id="postcode"
                        placeholder="Enter home postcode">
               </form>
@@ -80,7 +80,7 @@
             <div class="col col-sm-6">
               <form class="form-group">
                 <label for="display-name">Display Name</label>
-                <input autocomplete="nope" name="displayName" [(ngModel)]="member.displayName" type="text"
+                <input autocomplete="new-password" name="displayName" [(ngModel)]="member.displayName" type="text"
                        class="form-control input-sm" id="display-name"
                        placeholder="The display name as shown in walks and social events">
               </form>
@@ -95,7 +95,7 @@
               <div class="col-sm-6">
                 <form class="form-group">
                   <label for="login-user-name">Login User Name</label>
-                  <input autocomplete="nope" name="userName" [disabled]="!allowEdits"
+                  <input autocomplete="new-password" name="userName" [disabled]="!allowEdits"
                          [(ngModel)]="member.userName" type="text"
                          class="form-control input-sm" id="login-user-name"
                          placeholder="Enter login user name here">
@@ -104,7 +104,7 @@
               <div class="col-sm-6">
                 <form class="form-group">
                   <label for="new-password">Password</label>
-                  <input autocomplete="nope" name="new-password" [disabled]="true"
+                  <input autocomplete="new-password" name="new-password"
                          [(ngModel)]="member.password"
                          type="password" class="form-control input-sm" id="new-password"
                          placeholder="Password can't be entered here">
@@ -387,7 +387,7 @@
             <div class="col col-sm-6">
               <label for="contact-id">Ramblers Assemble Name</label>
               <div class="input-group">
-                <input autocomplete="nope" name="contactId" [(ngModel)]="member.contactId" type="text"
+                <input autocomplete="new-password" name="contactId" [(ngModel)]="member.contactId" type="text"
                        class="form-control input-sm" id="contact-id"
                        placeholder="The first name and last name used in Ramblers Assemble System">
                 <div class="input-group-append" tooltip="Set this field to be {{member | fullNameWithAlias}}">
@@ -400,7 +400,7 @@
             <div class="col col-sm-6">
               <form class="form-group">
                 <label for="assemble-id">Assemble Id</label>
-                <input autocomplete="nope" name="assembleId" [(ngModel)]="member.assembleId" type="text"
+                <input autocomplete="new-password" name="assembleId" [(ngModel)]="member.assembleId" type="text"
                        class="form-control input-sm" id="assemble-id"
                        placeholder="The Identifier as used in Ramblers Assemble System">
               </form>

@@ -1,5 +1,5 @@
 import { NgModule } from "@angular/core";
-import { AdminAuthGuard } from "../../admin-auth-guard.service";
+import { AdminAuthGuard } from "../../guards/admin-auth-guard.service";
 import { ExpenseNotificationDirective } from "../../notifications/expenses/expense-notification.directive";
 import { ExpenseNotificationApproverFirstApprovalComponent } from "../../notifications/expenses/templates/approver/expense-notification-approver-first-approval.component";
 import { ExpenseNotificationApproverPaidComponent } from "../../notifications/expenses/templates/approver/expense-notification-approver-paid.component";

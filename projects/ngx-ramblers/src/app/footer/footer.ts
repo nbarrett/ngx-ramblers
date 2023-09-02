@@ -13,7 +13,7 @@ import { SystemConfigService } from "../services/system/system-config.service";
 })
 export class FooterComponent implements OnInit, OnDestroy {
   private logger: Logger;
-  public year: string;
+  public year: number;
   public footer: Footer;
   private subscriptions: Subscription[] = [];
   private national: Ramblers;
@@ -30,7 +30,7 @@ export class FooterComponent implements OnInit, OnDestroy {
       return this.footer = item.footer;
       return this.national = item.national;
     }));
-    this.year = this.dateUtils.asString(this.dateUtils.momentNow().valueOf(), undefined, "YYYY");
+    this.year = this.dateUtils.currentYear();
   }
 
   ngOnDestroy(): void {
