@@ -37,6 +37,10 @@ export class StringUtilsService {
     return isNumber(str) ? +replacedValue : replacedValue;
   }
 
+  asBoolean(val: any): boolean {
+    return val === true || val === "true";
+  }
+
   stringify(message): string {
     let returnValue;
     const extractedMessage = this.isAlertMessage(message) ? message.message : message;

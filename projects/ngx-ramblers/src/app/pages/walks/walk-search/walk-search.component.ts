@@ -67,6 +67,7 @@ export class WalkSearchComponent implements OnInit, OnDestroy {
   }
 
   refreshWalks(selectType: string) {
+    this.logger.info("filterParameters:", this.filterParameters);
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.REFRESH, selectType));
   }
 

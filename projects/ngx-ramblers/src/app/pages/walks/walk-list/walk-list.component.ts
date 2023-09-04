@@ -38,6 +38,7 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { LoginModalComponent } from "../../login/login-modal/login-modal.component";
 import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
+import { sortBy } from "../../../services/arrays";
 
 @Component({
   selector: "app-walk-list",
@@ -138,9 +139,9 @@ export class WalkListComponent implements OnInit, OnDestroy {
 
   applyFilterToWalks(searchTerm?: NamedEvent<string>): void {
     this.notify.setBusy();
-    this.logger.info("applyFilterToWalks:searchTerm:", searchTerm, "filterParameters.quickSearch:", this.filterParameters.quickSearch);
+    this.logger.info("applyFilterToWalks:searchTerm:", searchTerm, "filterParameters:", this.filterParameters, "localWalksSortObject:", this.localWalksSortObject());
     this.filteredWalks = this.searchFilterPipe.transform(this.walks, this.filterParameters.quickSearch)
-      .map(walk => this.display.toDisplayedWalk(walk));
+      .map(walk => this.display.toDisplayedWalk(walk)).sort(sortBy(this.localWalksSortObject()));
     this.pageNumber = 1;
     this.applyPagination();
     if (this.currentPageWalks.length > 0 && this.display.expandedWalks.length === 0) {
@@ -193,12 +194,22 @@ export class WalkListComponent implements OnInit, OnDestroy {
   }
 
   walksSortObject() {
-    this.logger.debug("walksSortObject:", this.filterParameters);
-    switch (Boolean(this.filterParameters.ascending)) {
+    this.logger.info("walksSortObject:", this.filterParameters);
+    switch (this.stringUtils.asBoolean(this.filterParameters.ascending)) {
       case true:
         return {walkDate: 1};
       case false:
         return {walkDate: -1};
+    }
+  }
+
+  localWalksSortObject() {
+    this.logger.info("localWalksSortObject:walksSortObject:", this.filterParameters);
+    switch (this.stringUtils.asBoolean(this.filterParameters.ascending)) {
+      case true:
+        return "walk.walkDate";
+      case false:
+        return "-walk.walkDate";
     }
   }
 
