@@ -4,7 +4,6 @@ import omit from "lodash-es/omit";
 import { BsModalRef, BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { chain } from "../../../functions/chain";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { DateValue } from "../../../models/date.model";
 import { MailchimpConfig, MailchimpSubscription } from "../../../models/mailchimp.model";
@@ -61,7 +60,6 @@ export class MemberAdminModalComponent implements OnInit {
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   lastLoggedIn: number;
-  membershipExpiryDate: DateValue;
   private logger: Logger;
   memberUpdateAudits: MemberUpdateAudit[] = [];
   public allowEdits: boolean;
@@ -84,8 +82,7 @@ export class MemberAdminModalComponent implements OnInit {
         this.config = config;
         this.logger.info("retrieved config", config);
       }));
-    this.membershipExpiryDate = this.dateUtils.asDateValue(this.member.membershipExpiryDate);
-    this.logger.debug("constructed with member", this.member, this.members.length, "members", "membershipExpiryDate", this.membershipExpiryDate);
+    this.logger.debug("constructed with member", this.member, this.members.length, "members");
     this.allowEdits = this.memberLoginService.allowMemberAdminEdits();
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     const existingRecordEditEnabled = this.allowEdits && this.editMode === EditMode.EDIT;
@@ -141,11 +138,8 @@ export class MemberAdminModalComponent implements OnInit {
   }
 
   onMembershipDateChange(dateValue: DateValue) {
-    if (dateValue) {
-      this.logger.debug("onMembershipDateChange:date", dateValue);
-      this.membershipExpiryDate = dateValue;
-      this.member.membershipExpiryDate = dateValue.value;
-    }
+    this.logger.debug("onMembershipDateChange:date", dateValue);
+    this.member.membershipExpiryDate = dateValue?.value || null;
   }
 
   saveMemberDetails() {
