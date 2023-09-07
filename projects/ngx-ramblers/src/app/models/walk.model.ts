@@ -99,6 +99,11 @@ export interface WalkApiResponse extends ApiResponse {
   response?: Walk | Walk[];
 }
 
+export interface WalkLeaderIdsApiResponse extends ApiResponse {
+  request: any;
+  response?: string[];
+}
+
 export enum WalkType {
   CIRCULAR = "Circular",
   LINEAR = "Linear"
@@ -129,6 +134,21 @@ export enum WalkViewMode {
   EDIT = "edit",
   EDIT_FULL_SCREEN = "edit-full-screen",
   LIST = "list"
+}
+
+export const WalkDateAscending = {walkDate: 1};
+export const WalkDateDescending = {walkDate: -1};
+
+export interface WalkDateGreaterThanOrEqualTo {
+  walkDate: { $gte: number };
+}
+
+export interface WalkDateLessThan {
+  walkDate: { $lt: number };
+}
+
+export interface WalkDateLessThanOrEqualTo {
+  walkDate: { $lte: number };
 }
 
 export interface DisplayedWalk {

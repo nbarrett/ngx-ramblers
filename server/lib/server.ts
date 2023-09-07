@@ -37,7 +37,7 @@ import memberResource = require("./mongo/routes/member-resource");
 import memberUpdateAuditRoutes = require("./mongo/routes/member-update-audit");
 import pageContent = require("./mongo/routes/page-content");
 import socialEvent = require("./mongo/routes/social-event");
-import walkRoutes = require("./mongo/routes/walk");
+import { walksRoutes } from "./mongo/routes/walk";
 
 install();
 const debugLog = debug(envConfig.logNamespace("server"));
@@ -80,7 +80,7 @@ app.use("/api/database/member-update-audit", memberUpdateAuditRoutes);
 app.use("/api/database/ramblers-upload-audit", ramblersUploadAuditRoutes);
 app.use("/api/database/social-event", socialEvent);
 app.use("/api/database/config", configRoutes);
-app.use("/api/database/walks", walkRoutes);
+app.use("/api/database/walks", walksRoutes);
 app.use("/api/logs", logs);
 app.use("/", express.static(distFolder));
 app.use((req, res, next) => {

@@ -1,83 +1,72 @@
 import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Observable, Subject } from "rxjs";
+import { Observable } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
-import { Walk, WalkApiResponse } from "../../models/walk.model";
+import { Walk, WalkApiResponse, WalkLeaderIdsApiResponse } from "../../models/walk.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { UrlService } from "../url.service";
+import { WalksLocalService } from "./walks-local.service";
+import { RamblersWalksAndEventsService } from "./ramblers-walks-and-events.service";
+import { Organisation, WalkPopulation } from "../../models/system.model";
+import { SystemConfigService } from "../system/system-config.service";
 
 @Injectable({
   providedIn: "root"
 })
 export class WalksService {
 
-  private BASE_URL = "/api/database/walks";
   private readonly logger: Logger;
-  private walkNotifications = new Subject<WalkApiResponse>();
+  public group: Organisation;
 
   constructor(private http: HttpClient,
+              private systemConfigService: SystemConfigService,
               private commonDataService: CommonDataService,
               private urlService: UrlService,
-              loggerFactory: LoggerFactory) {
+              private walksLocalService: WalksLocalService,
+              private ramblersWalksAndEventsService: RamblersWalksAndEventsService,
+              private loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(WalksService, NgxLoggerLevel.OFF);
+    this.applyConfig();
+  }
+
+  private applyConfig() {
+    this.logger.info("applyConfig called");
+    this.systemConfigService.events().subscribe(item => {
+      this.group = item.group;
+      this.logger.info("group:", this.group);
+    });
   }
 
   notifications(): Observable<WalkApiResponse> {
-    return this.walkNotifications.asObservable();
+    return this.walksLocalService.notifications();
   }
 
   async all(dataQueryOptions?: DataQueryOptions): Promise<Walk[]> {
-    const params = this.commonDataService.toHttpParams(dataQueryOptions);
-    this.logger.debug("all:dataQueryOptions", dataQueryOptions, "params", params.toString());
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<WalkApiResponse>(`${this.BASE_URL}/all`, {params}), this.walkNotifications);
-    return apiResponse.response as Walk[];
+    this.logger.info("all called with walkPopulation:", this.group.walkPopulation);
+    switch (this.group.walkPopulation) {
+      case WalkPopulation.WALKS_MANAGER:
+        return this.ramblersWalksAndEventsService.all(dataQueryOptions);
+      case WalkPopulation.LOCAL:
+        return this.walksLocalService.all(dataQueryOptions);
+    }
+  }
+
+  async queryPreviousWalkLeaderIds(): Promise<string[]> {
+    return this.walksLocalService.queryPreviousWalkLeaderIds();
   }
 
   async createOrUpdate(walk: Walk): Promise<Walk> {
-    if (walk.id) {
-      return this.update(walk);
-    } else {
-      return this.create(walk);
-    }
+    return this.walksLocalService.createOrUpdate(walk);
   }
 
   async getById(walkId: string): Promise<Walk> {
-    this.logger.debug("getById:", walkId);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<WalkApiResponse>(`${this.BASE_URL}/${walkId}`), this.walkNotifications);
-    return apiResponse.response as Walk;
+    return this.walksLocalService.getById(walkId);
   }
 
   async getByIdIfPossible(walkId: string): Promise<Walk | null> {
-    if (this.urlService.isMongoId(walkId)) {
-      this.logger.debug("getByIdIfPossible:walkId", walkId, "is valid MongoId");
-      return this.getById(walkId);
-    } else {
-      this.logger.debug("getByIdIfPossible:walkId", walkId, "is not valid MongoId - returning null");
-      return Promise.resolve(null);
-    }
-  }
-
-  async update(walk: Walk): Promise<Walk> {
-    this.logger.debug("updating", walk);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.put<WalkApiResponse>(this.BASE_URL + "/" + walk.id, walk), this.walkNotifications);
-    this.logger.debug("updated", walk, "- received", apiResponse);
-    return apiResponse.response as Walk;
-  }
-
-  async create(walk: Walk): Promise<Walk> {
-    this.logger.debug("creating", walk);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<WalkApiResponse>(this.BASE_URL, walk), this.walkNotifications);
-    this.logger.debug("created", walk, "- received", apiResponse);
-    return apiResponse.response as Walk;
-  }
-
-  async delete(walk: Walk): Promise<Walk> {
-    this.logger.debug("deleting", walk);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.delete<WalkApiResponse>(this.BASE_URL + "/" + walk.id), this.walkNotifications);
-    this.logger.debug("deleted", walk, "- received", apiResponse);
-    return apiResponse.response as Walk;
+    return this.walksLocalService.getByIdIfPossible(walkId);
   }
 
 }

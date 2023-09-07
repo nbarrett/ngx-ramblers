@@ -1,7 +1,15 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  Input,
+  OnDestroy,
+  OnInit,
+  ViewChild
+} from "@angular/core";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute } from "@angular/router";
-import { faCalendar, faCopy, faMagnifyingGlass, faPencil } from "@fortawesome/free-solid-svg-icons";
+import { faMagnifyingGlass, faPencil } from "@fortawesome/free-solid-svg-icons";
 import cloneDeep from "lodash-es/cloneDeep";
 import isEmpty from "lodash-es/isEmpty";
 import pick from "lodash-es/pick";
@@ -76,6 +84,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   @ViewChild(WalkNotificationDirective) notificationDirective: WalkNotificationDirective;
+  public previousWalkLeaderIds: string[] = [];
   private mailchimpConfig: MailchimpConfig;
   public displayedWalk: DisplayedWalk;
   public confirmAction: ConfirmType = ConfirmType.NONE;
@@ -130,7 +139,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   copySourceFromWalkLeaderMemberId: string;
   public copyFrom: any = {};
 
-  ngOnInit() {
+  async ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.committeeConfig.events().subscribe(committeeReferenceData => this.committeeReferenceData = committeeReferenceData));
     this.mailchimpConfigService.getConfig().then(response => {
@@ -146,6 +155,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
       }
     });
+    this.previousWalkLeaderIds = await this.walksService.queryPreviousWalkLeaderIds();
+    this.logger.info("previousWalkLeaderIds:", this.previousWalkLeaderIds);
     this.copyFrom = {walkTemplate: {}, walkTemplates: [] as Walk[]};
     this.configService.queryConfig<MeetupConfig>(ConfigKey.MEETUP).then(meetupConfig => this.meetupConfig = meetupConfig);
     this.showWalk(this.displayedWalk);
@@ -357,7 +368,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   previousWalkLeadersWithAliasOrMe(): DisplayMember[] {
     const displayMembers = this.membersWithAliasOrMe()
-      .filter(member => this.display.previousWalkLeaderIds?.includes(member.memberId));
+      .filter(member => this.previousWalkLeaderIds?.includes(member.memberId));
     this.logger.debug("this.membersWithAliasOrMe:", "\n" + displayMembers.map(item => item.membershipNumber + "," + item.contactId + "," + item.displayName).join("\n"));
     return displayMembers;
   }
@@ -717,10 +728,11 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         criteria = {walkLeaderMemberId: memberId};
       }
     }
-    this.logger.debug("selecting walks", this.copySource, criteria);
+    this.logger.info("selecting walks", this.copySource, criteria);
     this.walksService.all({criteria, sort: {walkDate: -1}})
       .then(walks => this.walksQueryService.activeWalks(walks))
       .then(walks => {
+        this.logger.info("received walks", walks);
         this.copyFrom.walkTemplates = walks;
         this.logDetectChanges();
       });

@@ -12,7 +12,6 @@ import { WalkAccessMode } from "../../models/walk-edit-mode.model";
 import { WalkEventType } from "../../models/walk-event-type.model";
 import { ExpandedWalk } from "../../models/walk-expanded-view.model";
 import { DisplayedWalk, EventType, GoogleMapsConfig, Walk, WalkType, WalkViewMode } from "../../models/walk.model";
-import { uniq } from "../../services/arrays";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { enumValues } from "../../services/enums";
 import { GoogleMapsService } from "../../services/google-maps.service";
@@ -24,7 +23,6 @@ import { UrlService } from "../../services/url.service";
 import { WalkEventService } from "../../services/walks/walk-event.service";
 import { WalksQueryService } from "../../services/walks/walks-query.service";
 import { WalksReferenceService } from "../../services/walks/walks-reference-data.service";
-import { WalksService } from "../../services/walks/walks.service";
 import { LoginModalComponent } from "../login/login-modal/login-modal.component";
 
 @Injectable({
@@ -41,7 +39,6 @@ export class WalkDisplayService {
   public members: Member[] = [];
   public googleMapsConfig: GoogleMapsConfig;
   public group: Organisation;
-  public previousWalkLeaderIds: string[];
   public config: ModalOptions = {
     animated: false,
     initialState: {}
@@ -50,7 +47,6 @@ export class WalkDisplayService {
   constructor(
     private systemConfigService: SystemConfigService,
     private googleMapsService: GoogleMapsService,
-    private walksService: WalksService,
     private memberService: MemberService,
     private memberLoginService: MemberLoginService,
     private router: Router,
@@ -76,10 +72,6 @@ export class WalkDisplayService {
 
   loggedIn(): boolean {
     return this.memberLoginService.memberLoggedIn();
-  }
-
-  private queryPreviousWalkLeaderIds(): Promise<string[]> {
-    return this.walksService.all().then(walks => uniq(walks.filter(item => item.walkLeaderMemberId).map(item => item.walkLeaderMemberId)));
   }
 
   findWalk(walk: Walk): ExpandedWalk {
@@ -148,8 +140,6 @@ export class WalkDisplayService {
       } else {
         this.members = await this.memberService.publicFields(this.memberService.filterFor.GROUP_MEMBERS);
       }
-      this.previousWalkLeaderIds = (await this.queryPreviousWalkLeaderIds() || []);
-      this.logger.debug("previousWalkLeaderIds:", this.previousWalkLeaderIds);
     }
   }
 

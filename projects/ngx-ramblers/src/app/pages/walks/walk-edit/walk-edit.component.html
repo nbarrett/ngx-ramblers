@@ -481,7 +481,7 @@
                 <div class="row">
                   <div class="col-sm-12 mt-2">
                     <label for="copy-walks-list">
-                      Copy from {{copyFrom.walkTemplates.length || 0}} available walk(s): </label>
+                      Copy from {{copyFrom?.walkTemplates?.length || 0}} available walk(s): </label>
                     <select [disabled]="!allowEdits()" class="form-control input-sm"
                             [(ngModel)]="copyFrom.walkTemplate"
                             (change)="populateCurrentWalkFromTemplate()"
