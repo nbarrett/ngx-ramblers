@@ -323,7 +323,7 @@
                             </span>
                         </span>
                         <span style="font-size: 14px;font-weight: bold">
-                            <span *ngIf="notification.groupEventsFilter.includeContact && groupEvent.contactName">Contact:
+                            <span *ngIf="notification.groupEventsFilter.includeContact && groupEvent.contactName"> • Contact:
                               <a
                                 [href]="'mailto:' + groupEvent.contactEmail">{{groupEvent.contactName || groupEvent.contactEmail}}</a>
                               <span *ngIf="groupEvent.contactPhone"> ({{groupEvent.contactPhone}})</span></span>

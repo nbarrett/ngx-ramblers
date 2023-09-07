@@ -17,6 +17,7 @@ import { WalksReferenceService } from "../../../services/walks/walks-reference-d
   templateUrl: "./walk-search.component.html"
 })
 export class WalkSearchComponent implements OnInit, OnDestroy {
+
   @Input()
   notifyTarget: AlertTarget;
 
@@ -34,7 +35,7 @@ export class WalkSearchComponent implements OnInit, OnDestroy {
               private memberLoginService: MemberLoginService,
               private broadcastService: BroadcastService<any>,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkSearchComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("WalkSearchComponent", NgxLoggerLevel.OFF);
     this.searchChangeObservable = new Subject<string>();
   }
 

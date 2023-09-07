@@ -17,6 +17,10 @@ export function listWalks(req, res): void {
       const systemConfig: SystemConfig = configDocument.value;
       const body: WalkListRequest = req.body;
       const limit = body.limit;
+      const sort = body.sort;
+      const order = body.order;
+      const date = body.date;
+      const dateEnd = body.dateEnd;
       const rawData: boolean = body.rawData;
       const defaultOptions = requestDefaults.createApiRequestOptions(systemConfig);
       debugLog("listWalks:defaultOptions:", defaultOptions);
@@ -26,7 +30,7 @@ export function listWalks(req, res): void {
           protocol: defaultOptions.protocol,
           headers: defaultOptions.headers,
           method: "get",
-          path: `/api/volunteers/walksevents?types=group-walk&limit=${limit}&groups=${systemConfig?.group?.groupCode}&api-key=${systemConfig?.national?.walksManager?.apiKey}`
+          path: `/api/volunteers/walksevents?types=group-walk&limit=${limit}&groups=${systemConfig?.group?.groupCode}&api-key=${systemConfig?.national?.walksManager?.apiKey}&sort=${sort}&order=${order}&date=${date}&date_end=${dateEnd}`
         },
         debug: debugLog,
         res,

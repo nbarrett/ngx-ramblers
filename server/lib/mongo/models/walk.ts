@@ -1,5 +1,5 @@
-const mongoose = require("mongoose");
-const uniqueValidator = require("mongoose-unique-validator");
+import mongoose = require("mongoose");
+import uniqueValidator = require("mongoose-unique-validator");
 
 const riskAssessmentRecord = {
   confirmationText: {type: String},
@@ -77,4 +77,4 @@ const walkSchema = mongoose.Schema({
 
 walkSchema.plugin(uniqueValidator);
 
-module.exports = mongoose.model("walks", walkSchema);
+export const walk = mongoose.model("walks", walkSchema);

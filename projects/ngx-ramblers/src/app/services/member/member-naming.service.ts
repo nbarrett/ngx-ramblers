@@ -30,10 +30,14 @@ export class MemberNamingService {
   }
 
   createDisplayNameFromContactName(contactName: string): string {
-    const contactNames: string[] = contactName.split(" ");
-    const firstName = first(contactNames);
-    const lastName = contactNames.length > 1 ? contactNames[1] : "";
-    return this.createDisplayName(firstName, lastName);
+    if (contactName) {
+      const contactNames: string[] = contactName.split(" ");
+      const firstName = first(contactNames);
+      const lastName = contactNames.length > 1 ? contactNames[1] : "";
+      return this.createDisplayName(firstName, lastName);
+    } else {
+      return null;
+    }
   }
 
   createUniqueUserName(member: RamblersMember | Member, members: Member[]) {

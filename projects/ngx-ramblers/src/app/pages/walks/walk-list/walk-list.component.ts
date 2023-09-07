@@ -11,9 +11,15 @@ import { AlertTarget } from "../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { LoginResponse } from "../../../models/member.model";
 import { DeviceSize } from "../../../models/page.model";
-import { GroupWalk, RamblersWalksRawApiResponse } from "../../../models/ramblers-walks-manager";
-import { Organisation, WalkPopulation } from "../../../models/system.model";
-import { DisplayedWalk, EventType, FilterParameters, Walk } from "../../../models/walk.model";
+import { Organisation } from "../../../models/system.model";
+import {
+  DisplayedWalk,
+  EventType,
+  FilterParameters,
+  Walk,
+  WalkDateAscending,
+  WalkDateDescending
+} from "../../../models/walk.model";
 import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
@@ -197,9 +203,9 @@ export class WalkListComponent implements OnInit, OnDestroy {
     this.logger.info("walksSortObject:", this.filterParameters);
     switch (this.stringUtils.asBoolean(this.filterParameters.ascending)) {
       case true:
-        return {walkDate: 1};
+        return WalkDateAscending;
       case false:
-        return {walkDate: -1};
+        return WalkDateDescending;
     }
   }
 
@@ -245,35 +251,22 @@ export class WalkListComponent implements OnInit, OnDestroy {
   refreshWalks(event?: any): Promise<any> {
     this.logger.info("Refreshing walks due to", event, "event and walkPopulation:", this.display.group.walkPopulation);
     this.notify.progress(`Refreshing ${this.stringUtils.asTitle(this.display.group.walkPopulation)} walks...`, true);
-    switch (this.display.group.walkPopulation) {
-      case WalkPopulation.WALKS_MANAGER:
-        return this.ramblersWalksAndEventsService.listRamblersWalksRawData()
-          .then((ramblersWalksRawApiResponse: RamblersWalksRawApiResponse) => {
-            this.applyWalks(this.populateFromGroupWalks(ramblersWalksRawApiResponse));
-          })
-          .catch(error => {
-            this.logger.error("error->", error);
-            this.notify.error({
-              title: "Problem with Querying Ramblers Walks Manager",
-              continue: true,
-              message: error
-            });
-          });
-      case WalkPopulation.LOCAL:
-        return this.query()
-          .then(walks => {
-            this.display.setNextWalkId(walks);
-            this.logger.info("refreshWalks", "hasWalksId", this.currentWalkId, "walks:", walks);
-            this.applyWalks(this.currentWalkId || this.filterParameters.selectType === 6 ? walks : this.walksQueryService.activeWalks(walks));
-            this.applyFilterToWalks();
-            this.notify.clearBusy();
-          });
-      default:
-        return Promise.resolve(() => {
-          this.logger.warn("unhandled case:", this.display?.group?.walkPopulation);
-          this.applyWalks([]);
+    return this.query()
+      .then(walks => {
+        this.display.setNextWalkId(walks);
+        this.queryGroups(walks);
+        this.logger.info("refreshWalks", "hasWalksId", this.currentWalkId, "walks:", walks);
+        this.applyWalks(this.currentWalkId || this.filterParameters.selectType === 6 ? walks : this.walksQueryService.activeWalks(walks));
+        this.applyFilterToWalks();
+        this.notify.clearBusy();
+      }).catch(error => {
+        this.logger.error("error->", error);
+        this.notify.error({
+          title: "Problem with querying walks",
+          continue: true,
+          message: error
         });
-    }
+      });
   }
 
   private applyWalks(walks: Walk[]) {
@@ -300,14 +293,13 @@ export class WalkListComponent implements OnInit, OnDestroy {
     this.applyPagination();
   }
 
-  private populateFromGroupWalks(ramblersWalksRawApiResponse: RamblersWalksRawApiResponse): Walk[] {
-    this.queryGroups(ramblersWalksRawApiResponse);
-    return ramblersWalksRawApiResponse.data.map(remoteWalk => this.ramblersWalksAndEventsService.toWalk(remoteWalk));
-  }
-
-  private async queryGroups(ramblersWalksRawApiResponse: RamblersWalksRawApiResponse) {
-    const groups: string[] = uniq(ramblersWalksRawApiResponse.data.map((groupWalk: GroupWalk) => groupWalk.group_code));
-    this.logger.info("finding groups:", groups);
-    await this.ramblersWalksAndEventsService.listRamblersGroups(groups);
+  private queryGroups(walks: Walk[]): void {
+    const groups: string[] = uniq(walks.map((groupWalk: Walk) => groupWalk?.group?.groupCode)).filter(item => item);
+    if (groups.length > 0) {
+      this.logger.info("finding groups:", groups);
+      this.ramblersWalksAndEventsService.listRamblersGroups(groups);
+    } else {
+      this.logger.info("no groups to query:", groups);
+    }
   }
 }

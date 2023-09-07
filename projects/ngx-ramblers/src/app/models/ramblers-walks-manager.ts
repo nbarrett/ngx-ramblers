@@ -148,6 +148,10 @@ export interface GroupListRequest {
 export interface WalkListRequest {
   rawData: boolean;
   limit: number;
+  sort: "date" | "distance";
+  order: "asc" | "desc";
+  date: string;
+  dateEnd: string;
 }
 
 export interface RamblersGroupsApiResponseApiResponse extends ApiResponse {
