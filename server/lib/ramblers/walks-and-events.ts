@@ -1,7 +1,12 @@
 import debug from "debug";
+import { isEmpty } from "lodash";
 import moment from "moment-timezone";
 import { ConfigDocument, ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
-import { RamblersWalkResponse, RamblersWalksRawApiResponse, WalkListRequest } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import {
+  RamblersWalkResponse,
+  RamblersWalksRawApiResponse,
+  WalkListRequest
+} from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { envConfig } from "../env-config/env-config";
 import * as config from "../mongo/controllers/config";
@@ -24,13 +29,22 @@ export function listWalks(req, res): void {
       const rawData: boolean = body.rawData;
       const defaultOptions = requestDefaults.createApiRequestOptions(systemConfig);
       debugLog("listWalks:defaultOptions:", defaultOptions);
+      const optionalParameters = [
+        optionalParameter("groups", systemConfig?.group?.groupCode),
+        optionalParameter("limit", limit),
+        optionalParameter("sort", sort),
+        optionalParameter("order", order),
+        optionalParameter("date", date),
+        optionalParameter("date_end", dateEnd)]
+        .filter(item => !isEmpty(item))
+        .join("&");
       return httpRequest({
         apiRequest: {
           hostname: defaultOptions.hostname,
           protocol: defaultOptions.protocol,
           headers: defaultOptions.headers,
           method: "get",
-          path: `/api/volunteers/walksevents?types=group-walk&limit=${limit}&groups=${systemConfig?.group?.groupCode}&api-key=${systemConfig?.national?.walksManager?.apiKey}&sort=${sort}&order=${order}&date=${date}&date_end=${dateEnd}`
+          path: `/api/volunteers/walksevents?api-key=${systemConfig?.national?.walksManager?.apiKey}&types=group-walk&${optionalParameters}`
         },
         debug: debugLog,
         res,
@@ -40,6 +54,10 @@ export function listWalks(req, res): void {
     })
     .then(response => res.json(response))
     .catch(error => res.json(error));
+}
+
+function optionalParameter(key: string, value: any): string {
+  return key && value ? `${key}=${value}` : "";
 }
 
 function transformListWalksResponse(systemConfig: SystemConfig) {
