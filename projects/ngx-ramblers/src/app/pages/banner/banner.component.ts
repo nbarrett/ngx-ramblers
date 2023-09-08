@@ -189,7 +189,7 @@ export class BannerComponent implements OnInit, OnDestroy {
   public showIcon = true;
   public config: SystemConfig;
   public logos: BannerImageType = BannerImageType.logos;
-  public bannerTypes: KeyValue[] = enumKeyValues(BannerType);
+  public bannerTypes: KeyValue<string>[] = enumKeyValues(BannerType);
   public backgrounds: BannerImageType = BannerImageType.backgrounds;
   public banners: BannerConfig[];
   public editableBanner: BannerConfig;

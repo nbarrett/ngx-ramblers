@@ -11,7 +11,7 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 
 export class IconService {
   private logger: Logger;
-  public iconArray: KeyValue[] = [];
+  public iconArray: KeyValue<any>[] = [];
   public iconValues: any[] = [];
   public iconKeys: string[] = [];
 

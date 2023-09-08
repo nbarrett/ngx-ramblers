@@ -30,7 +30,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   public backgrounds: BannerImageType = BannerImageType.backgrounds;
   faAdd = faAdd;
   private subscriptions: Subscription[] = [];
-  public populationMethods: KeyValue[] = enumKeyValues(WalkPopulation);
+  public populationMethods: KeyValue<string>[] = enumKeyValues(WalkPopulation);
 
   constructor(public systemConfigService: SystemConfigService,
               private notifierService: NotifierService,

@@ -29,7 +29,7 @@ export class DatePickerComponent implements OnInit, OnChanges {
 
   constructor(
     private dateUtils: DateUtilsService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("DatePickerComponent", NgxLoggerLevel.DEBUG);
+    this.logger = loggerFactory.createLogger("DatePickerComponent", NgxLoggerLevel.OFF);
   }
 
   ngOnChanges(changes: SimpleChanges) {

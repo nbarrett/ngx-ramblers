@@ -74,7 +74,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   faUndo = faUndo;
   public area: string;
   providers: [{ provide: BsDropdownConfig, useValue: { isAnimated: true, autoClose: true } }];
-  enumKeyValuesForPageContentType: KeyValue[] = enumKeyValues(PageContentType);
+  enumKeyValuesForPageContentType: KeyValue<string>[] = enumKeyValues(PageContentType);
   public unsavedMarkdownComponents: MarkdownEditorComponent[] = [];
   public destinationPath: string;
   public destinationPathLookup: Subject<string> = new Subject<string>();

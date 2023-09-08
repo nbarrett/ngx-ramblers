@@ -72,7 +72,7 @@ export class SocialDisplayService {
     return this.memberLoginService.memberLoggedIn();
   }
 
-  dateSelectionOptions(): KeyValue[] {
+  dateSelectionOptions(): KeyValue<string>[] {
     return enumValues(DateCriteria).map(item => ({key: item, value: this.socialEventsTitle(item)}));
   }
 

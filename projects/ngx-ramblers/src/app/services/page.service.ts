@@ -11,6 +11,7 @@ import { SystemConfigService } from "./system/system-config.service";
 import { UrlService } from "./url.service";
 import isEmpty from "lodash-es/isEmpty";
 import first from "lodash-es/first";
+import uniq from "lodash-es/uniq";
 
 @Injectable({
   providedIn: "root"
@@ -19,7 +20,7 @@ import first from "lodash-es/first";
 export class PageService {
   private logger: Logger;
   public group: Organisation;
-  private previouslySetTitle: string;
+  private previouslySetTitles: string[] = [];
 
   constructor(private stringUtils: StringUtilsService,
               private titleService: Title,
@@ -31,7 +32,7 @@ export class PageService {
     this.logger.info("subscribing to systemConfigService events");
     this.systemConfigService.events().subscribe(item => {
       this.group = item.group;
-      this.setTitle(this.previouslySetTitle);
+      this.setTitle(...this.previouslySetTitles);
     });
   }
 
@@ -81,14 +82,20 @@ export class PageService {
     return this.urlService.pathSegments().length > 1;
   }
 
-  setTitle(pageTitle?: string) {
+  setTitle(...pageTitles: string[]) {
     if (this?.group?.longName) {
-      this.previouslySetTitle = pageTitle;
+      this.previouslySetTitles = pageTitles;
       const areaTitle = this.areaTitle();
-      const subTitle = pageTitle || this.pageSubtitle();
-      const fullTitle = areaTitle && subTitle && (areaTitle !== subTitle) ? `${this?.group?.shortName} — ${areaTitle} — ${subTitle}` : `${this?.group?.shortName} — ${areaTitle}`;
-      this.logger.info("group:", this?.group, "areaTitle:", areaTitle, "subTitle:", subTitle, "fullTitle:", fullTitle);
+      const subTitle = this.pageSubtitle();
+      const delimiter = ` — `;
+      const rawData = pageTitles.length > 0 ? [this?.group?.shortName].concat(pageTitles) : [this?.group?.shortName, areaTitle, subTitle];
+      const uniqueData = uniq(rawData.filter(item => item));
+      const fullTitle = uniqueData.join(delimiter);
+      this.logger.debug("group:", this?.group);
+      this.logger.info("setTitle:pageTitles:", pageTitles, "rawData:", rawData, "uniqueData:", uniqueData, "fullTitle:", fullTitle);
       this.titleService.setTitle(fullTitle);
+    } else {
+      this.logger.info("setTitle:supplied pageTitles", pageTitles, "group not configured yet");
     }
   }
 

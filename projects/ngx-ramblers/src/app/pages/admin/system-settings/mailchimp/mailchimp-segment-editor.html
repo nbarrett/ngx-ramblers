@@ -1,0 +1,15 @@
+<div *ngIf="showTitle" class="mb-2 mt-4 font-weight-bold">Mailchimp Segments ({{editableSegments.length}})</div>
+<div class="row" *ngFor="let segment of editableSegments">
+  <div class="col-sm-6">
+    {{segment.key}}
+  </div>
+  <div class="col-sm-3">
+    {{segment.value}}
+  </div>
+  <div class="col-sm-3">
+    <div class="badge-button" (click)="clearSegment(segment.key)">
+      <fa-icon [icon]="faEraser"></fa-icon>
+      <span>delete</span>
+    </div>
+  </div>
+</div>
