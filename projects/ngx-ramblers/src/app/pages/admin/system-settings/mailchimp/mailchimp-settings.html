@@ -45,19 +45,24 @@
                                           [listType]="'general'">
               </app-mailchimp-list-settings>
               <app-mailchimp-list-settings label="Walks"
-                                          [mailchimpListingResponse]="mailchimpListingResponse"
-                                          [notify]="notify"
-                                          [notReady]="notReady()"
-                                          [mailchimpConfig]="mailchimpConfig"
-                                          [listType]="'walks'">
+                                           [mailchimpListingResponse]="mailchimpListingResponse"
+                                           [notify]="notify"
+                                           [notReady]="notReady()"
+                                           [mailchimpConfig]="mailchimpConfig"
+                                           [listType]="'walks'">
               </app-mailchimp-list-settings>
               <app-mailchimp-list-settings label="Social Events"
-                                          [mailchimpListingResponse]="mailchimpListingResponse"
-                                          [notify]="notify"
-                                          [notReady]="notReady()"
-                                          [mailchimpConfig]="mailchimpConfig"
-                                          [listType]="'socialEvents'">
+                                           [mailchimpListingResponse]="mailchimpListingResponse"
+                                           [notify]="notify"
+                                           [notReady]="notReady()"
+                                           [mailchimpConfig]="mailchimpConfig"
+                                           [listType]="'socialEvents'">
               </app-mailchimp-list-settings>
+            </div>
+            <div *ngIf="mailchimpConfig" class="img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Segments ({{segments.length}})</div>
+              <app-mailchimp-segment-editor *ngIf="mailchimpConfig?.segments?.general"
+                [segments]="mailchimpConfig.segments.general"></app-mailchimp-segment-editor>
             </div>
           </div>
         </tab>

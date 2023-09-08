@@ -3,7 +3,6 @@ import { Component, Inject, OnDestroy, OnInit } from "@angular/core";
 import { faCircleInfo, faEye, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { Options } from "angular2-csv";
 import find from "lodash-es/find";
-import get from "lodash-es/get";
 import map from "lodash-es/map";
 import { NgxLoggerLevel } from "ngx-logger";
 import { interval, Observable, Subscription } from "rxjs";
@@ -62,7 +61,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
               private displayDateAndTime: DisplayDateAndTimePipe,
               private displayDate: DisplayDatePipe,
               private walksQueryService: WalksQueryService,
-              private display: WalkDisplayService,
+              public display: WalkDisplayService,
               private dateUtils: DateUtilsService,
               private urlService: UrlService,
               loggerFactory: LoggerFactory) {
@@ -74,8 +73,17 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.ramblersUploadAuditData = [];
     this.walkExportNotifier = this.notifierService.createAlertInstance(this.walkExportTarget);
     this.auditNotifier = this.notifierService.createAlertInstance(this.auditTarget);
-    this.showAvailableWalkExports();
-    this.showAllAudits();
+    if (this.display.walkPopulationWalksManager()) {
+      const message = {
+        title: "Walks Export Initialisation",
+        message: "Walks cannot be exported from this view when the walk population is set to " + this.display.group.walkPopulation
+      };
+      this.walkExportNotifier.warning(message);
+      this.auditNotifier.warning(message);
+    } else {
+      this.showAvailableWalkExports();
+      this.showAllAudits();
+    }
   }
 
   ngOnDestroy(): void {
@@ -196,7 +204,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
             this.walkExportNotifier.error({
               title: "Problem with Ramblers export preparation",
               continue: true,
-              message: `${get(error, "data.response.error")} - ${get(error, "data.message")}`
+              message: error
             });
           });
       });

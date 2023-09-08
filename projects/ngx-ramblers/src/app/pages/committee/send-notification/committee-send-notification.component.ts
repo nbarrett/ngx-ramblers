@@ -20,8 +20,13 @@ import {
 import { Member, MemberFilterSelection } from "../../../models/member.model";
 import { Organisation } from "../../../models/system.model";
 import { ConfirmType } from "../../../models/ui-actions";
-import { CommitteeNotificationComponentAndData, CommitteeNotificationDirective } from "../../../notifications/committee/committee-notification.directive";
-import { CommitteeNotificationDetailsComponent } from "../../../notifications/committee/templates/committee-notification-details.component";
+import {
+  CommitteeNotificationComponentAndData,
+  CommitteeNotificationDirective
+} from "../../../notifications/committee/committee-notification.directive";
+import {
+  CommitteeNotificationDetailsComponent
+} from "../../../notifications/committee/templates/committee-notification-details.component";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { LineFeedsToBreaksPipe } from "../../../pipes/line-feeds-to-breaks.pipe";
 import { sortBy } from "../../../services/arrays";
@@ -91,7 +96,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     private urlService: UrlService,
     protected dateUtils: DateUtilsService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("CommitteeSendNotificationComponent", NgxLoggerLevel.ERROR);
+    this.logger = loggerFactory.createLogger("CommitteeSendNotificationComponent", NgxLoggerLevel.OFF);
   }
 
   ngOnInit() {
@@ -127,7 +132,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
       }));
 
       const masterSearchTeam = "Master";
-      const promises: any[] = [
+      Promise.all([
         this.memberService.publicFields(this.memberService.filterFor.GROUP_MEMBERS).then(members => {
           this.members = members;
           this.logger.debug("refreshMembers -> populated ->", this.members.length, "members");
@@ -163,13 +168,10 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
             campaigns: mailchimpCampaignListResponse.campaigns.filter(item => !keys(this.mailchimpConfig.campaigns).map(key => this.mailchimpConfig.campaigns[key].campaignId).includes(item.id))
           };
           this.logger.debug("draftMailchimpCampaignListResponse.campaigns", mailchimpCampaignListResponse.campaigns);
-        })
-      ];
-      if (!this.committeeFile) {
-        promises.push(this.populateGroupEvents());
-      }
-      Promise.all(promises).then(() => {
-        this.logger.debug("performed total of", promises.length);
+        }),
+        this.committeeFile ? Promise.resolve() : this.populateGroupEvents()
+      ]).then((tasksCompleted) => {
+        this.logger.debug("performed total of", tasksCompleted.length, "preparatory steps");
         this.notify.clearBusy();
       }).catch(error => {
         this.logger.info("Error caught:", error);
@@ -449,7 +451,6 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
 
     const validateExistenceOf = (list: string, fieldName: string) => {
       return Promise.reject("Cannot send email from " + list + " list as there is no mailchimp " + fieldName + " configured. Check Committee Notification settings and make sure all fields are complete.");
-      this.logger.debug("all good with fieldName", fieldName);
     };
     return this.memberService.getById(this.memberLoginService.loggedInMember().memberId)
       .then(currentMember => {

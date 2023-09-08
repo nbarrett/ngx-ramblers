@@ -42,6 +42,7 @@ import { ResetPasswordModalComponent } from "../../pages/login/reset-password-mo
 import { MailingPreferencesModalComponent } from "../../pages/mailing-preferences/mailing-preferences-modal.component";
 import { FormatAuditPipe } from "../../pipes/format-audit-pipe";
 import { SharedModule } from "../../shared-module";
+import { MailchimpSegmentEditorComponent } from "../../pages/admin/system-settings/mailchimp/mailchimp-segment-editor";
 
 @NgModule({
   declarations: [
@@ -76,6 +77,7 @@ import { SharedModule } from "../../shared-module";
     MailchimpContactComponent,
     MailchimpListSettingsComponent,
     MailchimpSettingsComponent,
+    MailchimpSegmentEditorComponent,
     MailingPreferencesModalComponent,
     MemberAdminComponent,
     MemberAdminModalComponent,

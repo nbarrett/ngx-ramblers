@@ -13,7 +13,7 @@ export function enumKeys<E>(enumValue: E): string[] {
   return enumKeyValues(enumValue)?.map(item => item.key);
 }
 
-function keyValue<E>(enumValue: E, value: any): KeyValue {
+function keyValue<E>(enumValue: E, value: any): KeyValue<string> {
   return enumKeyValues(enumValue)?.find(item => item?.value?.toLowerCase() === value?.toString()?.toLowerCase());
 }
 
@@ -25,11 +25,11 @@ export function enumValueForKey<E>(enumValue: E, value: any): string {
   return keyValue(enumValue, value)?.value;
 }
 
-export function enumKeyValues<E>(enumValue: E): KeyValue[] {
+export function enumKeyValues<E>(enumValue: E): KeyValue<string>[] {
   return Object.entries(enumValue)?.map((value) => ({key: value[0], value: value[1]})).filter(item => isNaN(+item.key));
 }
 
-export interface KeyValue {
+export interface KeyValue<T> {
   key: string;
-  value: any;
+  value: T;
 }

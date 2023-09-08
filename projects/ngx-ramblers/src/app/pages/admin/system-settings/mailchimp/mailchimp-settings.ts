@@ -34,6 +34,7 @@ import { Subscription } from "rxjs";
   templateUrl: "./mailchimp-settings.html",
 })
 export class MailchimpSettingsComponent implements OnInit, OnDestroy {
+
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   private logger: Logger;

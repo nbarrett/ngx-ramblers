@@ -258,6 +258,24 @@
               </div>
             </div>
           </div>
+          <div class="row">
+            <div class="col-sm-12">
+              <p>Please select how {{member | fullNameWithAlias}} wishes to limit
+                access to
+                their member data using the checkboxes below:</p>
+              <div class="custom-control custom-checkbox">
+                <input [(ngModel)]="member.hideSurname" type="checkbox" class="custom-control-input"
+                       id="hide-surname">
+                <label class="custom-control-label"
+                       for="hide-surname">Hide surname from non-logged-in members
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </tab>
+      <tab heading="Mailchimp">
+        <div class="img-thumbnail thumbnail-admin-edit">
           <div class="row" *ngIf="member.mailchimpLists">
             <div class="col-sm-12">
               <p>Please select how {{member | fullNameWithAlias}} wants to be <b>emailed</b>
@@ -283,6 +301,10 @@
                       [ngClass]="member?.mailchimpLists?.general.web_id ? 'mailchimp-logo': 'mailchimp-logo disabled-image'"
                       src="/assets/images/mailchimp/freddie_wink.svg"
                       alt="View general list entry In Mailchimp"></button>
+                </div>
+                <div class="col-sm-12">
+                  <app-mailchimp-segment-editor [showTitle]="true"
+                    [segments]="member?.mailchimpSegmentIds"></app-mailchimp-segment-editor>
                 </div>
               </div>
               <div *ngIf="mailchimpConfig?.lists?.walks" class="row">
@@ -327,19 +349,7 @@
                 </div>
               </div>
             </div>
-              <div class="col-sm-12">
-                <p>Please select how {{member | fullNameWithAlias}} wishes to limit
-                  access to
-                  their member data using the checkboxes below:</p>
-                <div class="custom-control custom-checkbox">
-                  <input [(ngModel)]="member.hideSurname" type="checkbox" class="custom-control-input"
-                         id="hide-surname">
-                  <label class="custom-control-label"
-                         for="hide-surname">Hide surname from non-logged-in members
-                  </label>
-                </div>
-              </div>
-            </div>
+          </div>
         </div>
       </tab>
       <tab heading="Membership">
@@ -449,7 +459,7 @@
               </dl>
             </div>
             <div class="col-sm-4 custom-control custom-checkbox">
-              <input disabled [(ngModel)]="member.receivedInLastBulkLoad"
+              <input disabled [checked]="member.receivedInLastBulkLoad"
                      type="checkbox" class="custom-control-input" id="received-in-last-bulkload">
               <label class="custom-control-label"
                      for="received-in-last-bulkload">Received In Last Bulk Load
@@ -487,7 +497,12 @@
         </div>
       </tab>
       <tab heading="Member Raw Data">
-        <pre>{{member | json}}</pre>
+        <div class="img-thumbnail thumbnail-admin-edit">
+          <div class="row">
+            <div class="col col-sm-12"></div>
+            <pre>{{member | json}}</pre>
+          </div>
+        </div>
       </tab>
     </tabset>
     <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">

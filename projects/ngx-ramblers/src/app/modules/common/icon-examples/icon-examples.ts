@@ -16,7 +16,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 export class IconExamplesComponent implements OnInit, OnDestroy {
 
   private logger: Logger;
-  public filteredIcons: KeyValue[] = [];
+  public filteredIcons: KeyValue<any>[] = [];
   filter: string;
   sizes = range(1, 6).map(size => `fa-${size}x`);
   size = "fa-3x";

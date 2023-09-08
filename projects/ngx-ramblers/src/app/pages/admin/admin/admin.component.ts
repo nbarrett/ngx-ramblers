@@ -53,7 +53,6 @@ export class AdminComponent implements OnInit, OnDestroy, OnDestroy {
   }
 
   ngOnInit() {
-    this.pageService.setTitle();
     this.generateActionButtons();
     this.setPrivileges();
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);

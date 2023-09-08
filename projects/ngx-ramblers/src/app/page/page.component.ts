@@ -4,6 +4,7 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { PageService } from "../services/page.service";
 import { StringUtilsService } from "../services/string-utils.service";
 import { SystemConfigService } from "../services/system/system-config.service";
+import isEmpty from "lodash-es/isEmpty";
 
 @Component({
   selector: "app-page",
@@ -15,7 +16,7 @@ export class PageComponent implements OnInit {
   public pageTitle: string;
 
   @Input("pageTitle") set acceptPageTitleChange(pageTitle: string) {
-    this.logger.debug("Input:pageTitle:", pageTitle);
+    this.logger.info("Input:pageTitle:", pageTitle);
     this.pageTitle = pageTitle;
     this.pageService.setTitle(pageTitle);
   }
@@ -26,14 +27,17 @@ export class PageComponent implements OnInit {
               private stringUtils: StringUtilsService,
               private systemConfigService: SystemConfigService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(PageComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("PageComponent", NgxLoggerLevel.OFF);
   }
 
   ngOnInit() {
+    this.logger.info("ngOnInit:pageTitle:", this.pageTitle, "this.relativePages", this.pageService.relativePages(), "suppliedOrDefaultPageTitle:", this.suppliedOrDefaultPageTitle());
+    this.pageService.setTitle(...this.pageService.relativePages().filter(item => !isEmpty(item?.href)).map(item => item?.title).concat(this.suppliedOrDefaultPageTitle()));
   }
 
 
   suppliedOrDefaultPageTitle() {
+    this.logger.debug("suppliedOrDefaultPageTitle:pageTitle:", this.pageTitle, "pageSubtitle:", this.pageService.pageSubtitle());
     return this.pageTitle || this.pageService.pageSubtitle();
   }
 }

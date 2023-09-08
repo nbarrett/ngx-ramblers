@@ -196,7 +196,20 @@ export class MemberAdminModalComponent implements OnInit {
   }
 
   copyDetailsToNewMember() {
-    const copiedMember = omit(this.member, "id");
+    const copiedMember = omit(this.member,
+      "id",
+      "mailchimpLists",
+      "mailchimpSegmentIds",
+      "password",
+      "profileSettingsConfirmed",
+      "receivedInLastBulkLoad",
+      "lastBulkLoadDate",
+      "createdDate",
+      "createdBy",
+      "updatedDate",
+      "updatedBy",
+      "profileSettingsConfirmedAt",
+      "profileSettingsConfirmedBy");
     this.mailchimpListService.defaultMailchimpSettings(copiedMember, true);
     this.profileConfirmationService.unconfirmProfile(copiedMember);
     this.member = copiedMember;
