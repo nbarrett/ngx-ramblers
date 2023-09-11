@@ -4,7 +4,14 @@ import { BehaviorSubject, Observable } from "rxjs";
 import { shareReplay } from "rxjs/operators";
 import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
 import { ConfigKey } from "../../models/config.model";
-import { BannerImageType, Images, Organisation, Ramblers, SystemConfig, WalkPopulation } from "../../models/system.model";
+import {
+  BannerImageType,
+  Images,
+  Organisation,
+  Ramblers,
+  SystemConfig,
+  WalkPopulation
+} from "../../models/system.model";
 import { BroadcastService } from "../broadcast-service";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -30,11 +37,11 @@ export class SystemConfigService {
   }
 
   async refresh() {
-    this.logger.info("systemConfig query:started");
-    const systemConfig = await this.getConfig();
-    this.logger.info("notifying systemConfig subscribers with:", systemConfig);
-    this.subject.next(systemConfig);
-    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SYSTEM_CONFIG_LOADED, systemConfig));
+      this.logger.info("systemConfig query:started");
+      const systemConfig = await this.getConfig();
+      this.logger.info("notifying systemConfig subscribers with:", systemConfig);
+      this.subject.next(systemConfig);
+      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SYSTEM_CONFIG_LOADED, systemConfig));
   }
 
   private async getConfig(): Promise<SystemConfig> {

@@ -48,8 +48,6 @@ export interface MailchimpConfig {
     general?: string
   };
   segments: {
-    walks: {};
-    socialEvents: {};
     general: {
       passwordResetSegmentId: number;
       forgottenPasswordSegmentId: number;

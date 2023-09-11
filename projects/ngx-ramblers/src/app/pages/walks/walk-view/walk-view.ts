@@ -16,6 +16,7 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { UrlService } from "../../../services/url.service";
 import { WalksService } from "../../../services/walks/walks.service";
 import { WalkDisplayService } from "../walk-display.service";
+import { SystemConfigService } from "../../../services/system/system-config.service";
 
 const SHOW_START_POINT = "show-start-point";
 const SHOW_DRIVING_DIRECTIONS = "show-driving-directions";
@@ -58,6 +59,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     private dateUtils: DateUtilsService,
     public meetupService: MeetupService,
     private urlService: UrlService,
+    private systemConfigService: SystemConfigService,
     private notifierService: NotifierService,
     private changeDetectorRef: ChangeDetectorRef,
     loggerFactory: LoggerFactory) {
@@ -73,12 +75,16 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     this.walkIdOrPath = this.urlService.lastPathSegment();
     this.logger.debug("initialised with walk", this.displayedWalk, "pathContainsMongoId:", this.pathContainsMongoId, "walkIdOrPath:", this.walkIdOrPath);
     this.queryIfRequired();
+    this.systemConfigService.events().subscribe(item => {
+      this.updateGoogleMap();
+    });
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => {
       this.logger.debug("loginResponseObservable:", loginResponse);
       this.display.refreshCachedData();
       this.loggedIn = loginResponse.memberLoggedIn;
       this.allowWalkAdminEdits = this.memberLoginService.allowWalkAdminEdits();
       this.refreshHomePostcode();
+      this.updateGoogleMap();
     }));
     this.notify.success({
       title: "Single walk showing",
@@ -103,7 +109,6 @@ export class WalkViewComponent implements OnInit, OnDestroy {
             });
           }
         });
-    } else {
     }
   }
 

@@ -60,9 +60,9 @@
               </app-mailchimp-list-settings>
             </div>
             <div *ngIf="mailchimpConfig" class="img-thumbnail thumbnail-2">
-              <div class="thumbnail-heading">Segments ({{segments.length}})</div>
-              <app-mailchimp-segment-editor *ngIf="mailchimpConfig?.segments?.general"
-                [segments]="mailchimpConfig.segments.general"></app-mailchimp-segment-editor>
+              <div class="thumbnail-heading">Mailchimp Segments</div>
+              <app-mailchimp-segment-editor [segments]="mailchimpConfig.segments.general">
+              </app-mailchimp-segment-editor>
             </div>
           </div>
         </tab>

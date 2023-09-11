@@ -164,7 +164,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
     const offset = (this.pageNumber - 1) * this.pageSize + 1;
     const pageIndicator = this.pages.length > 1 ? `page ${this.pageNumber} of ${this.pageCount}` : "";
     const toWalkNumber = Math.min(offset + this.pageSize - 1, this.walks.length);
-    this.notify.progress(`Showing ${offset} to ${toWalkNumber} of ${this.stringUtils.pluraliseWithCount(this.walks.length, "walk")} - ${pageIndicator}`);
+    this.notify.progress(`Showing ${offset} to ${toWalkNumber} of ${this.stringUtils.pluraliseWithCount(this.walks.length, "walk")}${pageIndicator ? " - " + pageIndicator : ""}`);
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SHOW_PAGINATION, this.pageCount > 1));
   }
 
@@ -249,8 +249,8 @@ export class WalkListComponent implements OnInit, OnDestroy {
   }
 
   refreshWalks(event?: any): Promise<any> {
-    this.logger.info("Refreshing walks due to", event, "event and walkPopulation:", this.display.group.walkPopulation);
-    this.notify.progress(`Refreshing ${this.stringUtils.asTitle(this.display.group.walkPopulation)} walks...`, true);
+    this.logger.info("Refreshing walks due to", event, "event and walkPopulation:", this.display?.group?.walkPopulation);
+    this.notify.progress(`Refreshing ${this.stringUtils.asTitle(this.display?.group?.walkPopulation)} walks...`, true);
     return this.query()
       .then(walks => {
         this.display.setNextWalkId(walks);

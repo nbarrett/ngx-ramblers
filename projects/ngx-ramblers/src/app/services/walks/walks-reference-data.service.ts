@@ -24,9 +24,9 @@ export class WalksReferenceService {
     {value: 1, description: "Walks Today Onwards", selected: true},
     {value: 2, description: "Past Walks"},
     {value: 3, description: "All Walks"},
-    {value: 4, description: "Walks With No Leader"},
-    {value: 5, description: "Walks With No Details"},
-    {value: 6, description: "Deleted Walks", adminOnly: true}
+    {value: 4, description: "Walks With No Leader", localWalkPopulationOnly: true},
+    {value: 5, description: "Walks With No Details", localWalkPopulationOnly: true},
+    {value: 6, description: "Deleted Walks", adminOnly: true, localWalkPopulationOnly: true}
   ];
 
   private logger: Logger;

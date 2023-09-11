@@ -115,7 +115,7 @@ export class WalkDisplayService {
   mapViewReady(googleMapsUrl: SafeResourceUrl): boolean {
     const zoomLevelValid = isNumber(this?.googleMapsConfig?.zoomLevel);
     const mapviewReady = !!(zoomLevelValid && googleMapsUrl);
-    this.logger.debug("mapViewReady:", mapviewReady);
+    this.logger.debug("googleMapsUrl:", googleMapsUrl, "mapViewReady:", mapviewReady);
     return mapviewReady;
   }
 
@@ -125,6 +125,12 @@ export class WalkDisplayService {
 
   public walkPopulationWalksManager(): boolean {
     const result = this.group?.walkPopulation === WalkPopulation.WALKS_MANAGER;
+    this.logger.debug("walkPopulationWalksManager:walkPopulation:", this.group?.walkPopulation, "result:", result);
+    return result;
+  }
+
+  public walkPopulationLocal(): boolean {
+    const result = this.group?.walkPopulation === WalkPopulation.LOCAL;
     this.logger.debug("walkPopulationWalksManager:walkPopulation:", this.group?.walkPopulation, "result:", result);
     return result;
   }
@@ -214,9 +220,9 @@ export class WalkDisplayService {
     if (this.memberLoginService.memberLoggedIn()) {
       if (this.loggedInMemberIsLeadingWalk(walk) ||
         this.memberLoginService.allowWalkAdminEdits()) {
-        returnValue = WalksReferenceService.walkAccessModes.edit;
+        returnValue = {...WalksReferenceService.walkAccessModes.edit, walkWritable: this.walkPopulationLocal()};
       } else if (!walk.walkLeaderMemberId) {
-        returnValue = WalksReferenceService.walkAccessModes.lead;
+        returnValue = {...WalksReferenceService.walkAccessModes.lead, walkWritable: this.walkPopulationLocal()};
       }
     }
     return returnValue;
