@@ -9,8 +9,22 @@ import { ConfigService } from "./config.service";
 })
 export class MailchimpConfigService {
 
-  public campaignDefaults: MailchimpCampaignDefaults = {from_name: null, from_email: null, language: "English", subject: ""};
+  public campaignDefaults: MailchimpCampaignDefaults = {
+    from_name: null,
+    from_email: null,
+    language: "English",
+    subject: ""
+  };
+
   public contactDefaults: MailchimpContact = {address1: null, city: null, company: null, country: "UK"};
+  public SegmentDefaults = {
+    passwordResetSegmentId: null,
+    forgottenPasswordSegmentId: null,
+    welcomeSegmentId: null,
+    committeeSegmentId: null,
+    expiredMembersSegmentId: null,
+    expiredMembersWarningSegmentId: null
+  };
 
   constructor(private config: ConfigService) {
   }
@@ -29,16 +43,7 @@ export class MailchimpConfigService {
         general: null
       },
       segments: {
-        walks: {},
-        socialEvents: {},
-        general: {
-          passwordResetSegmentId: null,
-          forgottenPasswordSegmentId: null,
-          welcomeSegmentId: null,
-          committeeSegmentId: null,
-          expiredMembersSegmentId: null,
-          expiredMembersWarningSegmentId: null
-        }
+        general: this.SegmentDefaults
       },
       campaigns: {
         walkNotification: {campaignId: null, name: null, monthsInPast: null},

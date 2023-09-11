@@ -11,6 +11,8 @@ import { BroadcastService } from "../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
+import { Organisation, SystemConfig } from "../../../models/system.model";
+import { WalkDisplayService } from "../walk-display.service";
 
 @Component({
   selector: "app-walks-search",
@@ -26,12 +28,14 @@ export class WalkSearchComponent implements OnInit, OnDestroy {
 
   public currentWalkId: string;
   public showPagination = false;
+  public group: Organisation;
   private logger: Logger;
   private searchChangeObservable: Subject<string>;
   private subscriptions: Subscription[] = [];
 
   constructor(private route: ActivatedRoute,
               private walksReferenceService: WalksReferenceService,
+              private displayService: WalkDisplayService,
               private memberLoginService: MemberLoginService,
               private broadcastService: BroadcastService<any>,
               loggerFactory: LoggerFactory) {
@@ -47,6 +51,10 @@ export class WalkSearchComponent implements OnInit, OnDestroy {
     this.broadcastService.on(NamedEventType.SHOW_PAGINATION, (show: NamedEvent<boolean>) => {
       this.logger.info("showPagination:", show);
       return this.showPagination = show.data;
+    });
+    this.broadcastService.on(NamedEventType.SYSTEM_CONFIG_LOADED, (namedEvent: NamedEvent<SystemConfig>) => {
+      this.logger.info("showPagination:", namedEvent.data.group);
+      return this.group = namedEvent.data.group;
     });
     this.subscriptions.push(this.searchChangeObservable.pipe(debounceTime(1000))
       .pipe(distinctUntilChanged())
@@ -64,7 +72,11 @@ export class WalkSearchComponent implements OnInit, OnDestroy {
 
   walksFilter() {
     return this.walksReferenceService.walksFilter
-      .filter(item => item.adminOnly ? this.memberLoginService.allowWalkAdminEdits() : true);
+      .filter(item => {
+        const condition1 = item.adminOnly ? this.memberLoginService.allowWalkAdminEdits() : true;
+        const condition2 = item.localWalkPopulationOnly ? this.displayService.walkPopulationLocal() : true;
+        return condition1 && condition2;
+      });
   }
 
   refreshWalks(selectType: string) {

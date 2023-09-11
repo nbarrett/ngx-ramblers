@@ -8,7 +8,6 @@ import { WalkEditComponent } from "../../pages/walks/walk-edit/walk-edit.compone
 import { WalkExportComponent } from "../../pages/walks/walk-export/walk-export.component";
 import { WalkListComponent } from "../../pages/walks/walk-list/walk-list.component";
 import { WalkMeetupSettingsComponent } from "../../pages/walks/walk-meetup-settings/walk-meetup-settings.component";
-import { WalkSubPageComponent } from "../../pages/walks/walk-sub-page/walk-sub-page";
 import { WalkViewComponent } from "../../pages/walks/walk-view/walk-view";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { PageService } from "../../services/page.service";
@@ -18,17 +17,27 @@ import { WalksAuthGuard } from "../../guards/walks-auth-guard.service";
 import { ActionButtonsComponent } from "../common/action-buttons/action-buttons";
 import { DynamicContentPageComponent } from "../common/dynamic-content-page/dynamic-content-page";
 import { WalksModule } from "./walks.module";
+import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-guard.service";
 
 @NgModule({
   imports: [WalksModule, RouterModule.forChild([
-    {path: "add", component: WalkEditComponent, canActivate: [WalksAuthGuard]},
-    {path: "admin", component: WalkAdminComponent, canActivate: [WalksAuthGuard]},
-    {path: "admin/add-walk-slots", component: WalkAddSlotsComponent, canActivate: [WalksAuthGuard]},
-    {path: "admin/export", component: WalkExportComponent, canActivate: [WalksAuthGuard]},
-    {path: "admin/meetup-settings", component: WalkMeetupSettingsComponent, canActivate: [WalksAuthGuard]},
-    {path: "edit/:walk-id", component: WalkEditFullPageComponent},
+    {path: "add", component: WalkEditComponent, canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]},
+    {path: "admin", component: WalkAdminComponent, canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]},
+    {
+      path: "admin/add-walk-slots",
+      component: WalkAddSlotsComponent,
+      canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]
+    },
+    {path: "admin/export", component: WalkExportComponent, canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]},
+    {
+      path: "admin/meetup-settings",
+      component: WalkMeetupSettingsComponent,
+      canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]
+    },
+    {
+      path: "edit/:walk-id", component: WalkEditFullPageComponent, canActivate: [WalksPopulationLocalGuard]
+    },
     {path: "carousel", component: ActionButtonsComponent},
-    {path: "sub-page", component: WalkSubPageComponent},
     {matcher: hasMongoId, component: WalkViewComponent},
     {matcher: hasDynamicPath, component: DynamicContentPageComponent},
     {path: "**", component: WalkListComponent},

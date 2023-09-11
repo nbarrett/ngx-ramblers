@@ -76,7 +76,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     if (this.display.walkPopulationWalksManager()) {
       const message = {
         title: "Walks Export Initialisation",
-        message: "Walks cannot be exported from this view when the walk population is set to " + this.display.group.walkPopulation
+        message: "Walks cannot be exported from this view when the walk population is set to " + this.display?.group?.walkPopulation
       };
       this.walkExportNotifier.warning(message);
       this.auditNotifier.warning(message);

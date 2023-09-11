@@ -124,6 +124,7 @@ export enum EventType {
 export interface WalkFilter {
   value: number;
   description: string;
+  localWalkPopulationOnly?: boolean;
   selected?: boolean;
   adminOnly?: boolean;
 }

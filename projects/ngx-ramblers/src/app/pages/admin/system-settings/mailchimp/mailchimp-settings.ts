@@ -87,6 +87,9 @@ export class MailchimpSettingsComponent implements OnInit, OnDestroy {
         if (!this.mailchimpConfig.lists) {
           this.mailchimpConfig.lists = {};
         }
+        if (!this.mailchimpConfig?.segments?.general) {
+          this.mailchimpConfig.segments = {general: this.mailchimpConfigService.SegmentDefaults};
+        }
         this.logger.info("retrieved mailchimpConfig (post-validation)", this.mailchimpConfig);
       }).catch(error => this.notify.error({title: "Failed to query Mailchimp config", message: error}));
     this.mailchimpCampaignService.list({
