@@ -53,6 +53,7 @@ import { DistanceValidationService } from "./distance-validation.service";
 import { WalksLocalService } from "./walks-local.service";
 import { DataQueryOptions } from "../../models/api-request.model";
 import isEqual from "lodash-es/isEqual";
+import { isNumericRamblersId } from "../path-matchers";
 
 @Injectable({
   providedIn: "root"
@@ -118,18 +119,35 @@ export class RamblersWalksAndEventsService {
     return this.commonDataService.responseFrom(this.logger, this.http.post<RamblersUploadAuditApiResponse>(`${this.BASE_URL}/upload-walks`, data), this.auditSubject);
   }
 
+  async getByIdIfPossible(walkId: string): Promise<Walk> {
+    if (isNumericRamblersId(walkId)) {
+      this.logger.debug("getByIdIfPossible:walkId", walkId, "is valid MongoId");
+      const walks = await this.listRamblersWalksRawData(null, [walkId])
+        .then((ramblersWalksRawApiResponse: RamblersWalksRawApiResponse) => ramblersWalksRawApiResponse.data.map(remoteWalk => this.toWalk(remoteWalk)));
+      if (walks?.length === 1) {
+        return walks[0];
+      } else {
+        this.logger.warn("walkId", walkId, "returned", this.stringUtilsService.pluraliseWithCount(walks.length, "walk"), "returning null - walks were:", walks);
+        return null;
+      }
+    } else {
+      this.logger.debug("getByIdIfPossible:walkId", walkId, "is not valid MongoId - returning null");
+      return Promise.resolve(null);
+    }
+  }
+
   async listRamblersWalks(): Promise<RamblersWalkResponse[]> {
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<RamblersWalksApiResponse>(`${this.BASE_URL}/list-walks`, {}), this.walksSubject);
     this.logger.info("received", apiResponse);
     return apiResponse.response;
   }
 
-  async listRamblersWalksRawData(dataQueryOptions: DataQueryOptions): Promise<RamblersWalksRawApiResponse> {
-    const order = isEqual(dataQueryOptions.sort, WalkDateDescending) ? "desc" : "asc";
-    const sort = isEqual(dataQueryOptions.sort, WalkDateDescending) || isEqual(dataQueryOptions.sort, WalkDateAscending) ? "date" : "date";
-    const date = this.createStartDate(dataQueryOptions.criteria);
-    const dateEnd = this.createEndDate(dataQueryOptions.criteria);
-    const body: WalkListRequest = {date, dateEnd, order, sort, rawData: true, limit: 200};
+  async listRamblersWalksRawData(dataQueryOptions: DataQueryOptions, ids?: string[]): Promise<RamblersWalksRawApiResponse> {
+    const order = isEqual(dataQueryOptions?.sort, WalkDateDescending) ? "desc" : "asc";
+    const sort = isEqual(dataQueryOptions?.sort, WalkDateDescending) || isEqual(dataQueryOptions?.sort, WalkDateAscending) ? "date" : "date";
+    const date = this.createStartDate(dataQueryOptions?.criteria);
+    const dateEnd = this.createEndDate(dataQueryOptions?.criteria);
+    const body: WalkListRequest = {date, dateEnd, order, sort, rawData: true, limit: 200, ids};
     this.logger.info("listRamblersWalksRawData:dataQueryOptions:", dataQueryOptions, "body:", body);
     const rawData = await this.commonDataService.responseFrom(this.logger, this.http.post<RamblersWalksRawApiResponseApiResponse>(`${this.BASE_URL}/list-walks`, body), this.rawWalksSubject);
     return rawData.response;
@@ -137,7 +155,7 @@ export class RamblersWalksAndEventsService {
 
   private createStartDate(criteria: object): string {
     if (RamblersWalksAndEventsService.isWalkDateGreaterThanOrEqualTo(criteria)) {
-      return this.dateUtils.asMoment(criteria.walkDate.$gte).format(this.WALKS_MANAGER_API_DATE_FORMAT);
+      return this.dateUtils.asMoment(criteria?.walkDate.$gte).format(this.WALKS_MANAGER_API_DATE_FORMAT);
     } else if(RamblersWalksAndEventsService.isWalkDateLessThan(criteria) || isEmpty(criteria)) {
       return this.dateUtils.asMoment().subtract(2, "year").format(this.WALKS_MANAGER_API_DATE_FORMAT);
     } else {
@@ -146,11 +164,11 @@ export class RamblersWalksAndEventsService {
   }
 
   private createEndDate(criteria: any): string {
-    this.logger.info("createEndDate.criteria:", criteria, "walkDate value:", criteria.walkDate, "walkDate formatted:", this.dateUtils.asMoment(criteria.walkDate).format(this.WALKS_MANAGER_API_DATE_FORMAT));
+    this.logger.info("createEndDate.criteria:", criteria, "walkDate value:", criteria?.walkDate, "walkDate formatted:", this.dateUtils.asMoment(criteria?.walkDate).format(this.WALKS_MANAGER_API_DATE_FORMAT));
     if (RamblersWalksAndEventsService.isWalkDateLessThan(criteria)) {
-      return this.dateUtils.asMoment(criteria.walkDate.$lt).subtract(1, "day").format(this.WALKS_MANAGER_API_DATE_FORMAT);
+      return this.dateUtils.asMoment(criteria?.walkDate?.$lt).subtract(1, "day").format(this.WALKS_MANAGER_API_DATE_FORMAT);
     } else if (RamblersWalksAndEventsService.isWalkDateLessThanOrEqualTo(criteria)) {
-      return this.dateUtils.asMoment(criteria.walkDate.$lte).format(this.WALKS_MANAGER_API_DATE_FORMAT);
+      return this.dateUtils.asMoment(criteria?.walkDate?.$lte).format(this.WALKS_MANAGER_API_DATE_FORMAT);
     } else {
       return this.dateUtils.asMoment().add(2, "year").format(this.WALKS_MANAGER_API_DATE_FORMAT);
     }

@@ -146,6 +146,7 @@ export interface GroupListRequest {
 }
 
 export interface WalkListRequest {
+  ids?: string[];
   rawData: boolean;
   limit: number;
   sort: "date" | "distance";
