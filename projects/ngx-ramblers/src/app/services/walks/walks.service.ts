@@ -66,7 +66,12 @@ export class WalksService {
   }
 
   async getByIdIfPossible(walkId: string): Promise<Walk | null> {
-    return this.walksLocalService.getByIdIfPossible(walkId);
+    switch (this.group.walkPopulation) {
+      case WalkPopulation.WALKS_MANAGER:
+        return this.ramblersWalksAndEventsService.getByIdIfPossible(walkId);
+      case WalkPopulation.LOCAL:
+        return this.walksLocalService.getByIdIfPossible(walkId);
+    }
   }
 
 }

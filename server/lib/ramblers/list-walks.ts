@@ -22,6 +22,7 @@ export function listWalks(req, res): void {
       const systemConfig: SystemConfig = configDocument.value;
       const body: WalkListRequest = req.body;
       const limit = body.limit;
+      const ids = body.ids?.join(",");
       const sort = body.sort;
       const order = body.order;
       const date = body.date;
@@ -31,6 +32,7 @@ export function listWalks(req, res): void {
       debugLog("listWalks:defaultOptions:", defaultOptions);
       const optionalParameters = [
         optionalParameter("groups", systemConfig?.group?.groupCode),
+        optionalParameter("ids", ids),
         optionalParameter("limit", limit),
         optionalParameter("sort", sort),
         optionalParameter("order", order),

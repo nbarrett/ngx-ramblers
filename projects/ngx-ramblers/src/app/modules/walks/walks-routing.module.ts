@@ -11,7 +11,7 @@ import { WalkMeetupSettingsComponent } from "../../pages/walks/walk-meetup-setti
 import { WalkViewComponent } from "../../pages/walks/walk-view/walk-view";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { PageService } from "../../services/page.service";
-import { hasDynamicPath, hasMongoId } from "../../services/path-matchers";
+import { hasDynamicPath, hasMongoId, hasRamblersIdOrUrl } from "../../services/path-matchers";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { WalksAuthGuard } from "../../guards/walks-auth-guard.service";
 import { ActionButtonsComponent } from "../common/action-buttons/action-buttons";
@@ -39,6 +39,7 @@ import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-g
     },
     {path: "carousel", component: ActionButtonsComponent},
     {matcher: hasMongoId, component: WalkViewComponent},
+    {matcher: hasRamblersIdOrUrl, component: WalkViewComponent},
     {matcher: hasDynamicPath, component: DynamicContentPageComponent},
     {path: "**", component: WalkListComponent},
   ])]

@@ -2,10 +2,10 @@ import express = require("express");
 import multer = require("multer");
 import * as authConfig from "../auth/auth-config";
 import { envConfig } from "../env-config/env-config";
-import * as groups from "./groups";
+import * as groups from "./list-groups";
 import * as memberBulkLoad from "./member-bulk-load";
 import * as ramblersWalkUpload from "./ramblers-walk-upload";
-import * as walksAndEvents from "./walks-and-events";
+import * as walksAndEvents from "./list-walks";
 
 const router = express.Router();
 

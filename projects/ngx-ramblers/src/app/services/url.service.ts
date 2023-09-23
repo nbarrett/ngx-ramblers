@@ -11,6 +11,7 @@ import { SiteEditService } from "../site-edit/site-edit.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { isMongoId } from "./mongo-utils";
 import isEmpty from "lodash-es/isEmpty";
+import { isNumericRamblersId } from "./path-matchers";
 
 @Injectable({
   providedIn: "root"
@@ -107,6 +108,10 @@ export class UrlService {
 
   pathContainsMongoId(): boolean {
     return this.isMongoId(this.lastPathSegment());
+  }
+
+  pathContainsNumericRamblersId(): boolean {
+    return isNumericRamblersId(this.lastPathSegment());
   }
 
   isMongoId(id: string): boolean {
