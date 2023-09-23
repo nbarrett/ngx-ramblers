@@ -100,11 +100,12 @@ export class WalkDisplayService {
     });
   }
 
-  googleMapsUrl(walk: Walk, showDrivingDirections: boolean, fromPostcode: string): SafeResourceUrl {
+  googleMapsUrl(showDrivingDirections: boolean, fromPostcode: string, toPostcode: string): SafeResourceUrl {
+    this.logger.info("googleMapsUrl:showDrivingDirections:", showDrivingDirections, "fromPostcode:", fromPostcode, "toPostcode:", toPostcode);
     if (this.googleMapsConfig?.apiKey && this.googleMapsConfig?.zoomLevel) {
       const googleMapsUrl = this.sanitiser.bypassSecurityTrustResourceUrl(showDrivingDirections ?
-        `https://www.google.com/maps/embed/v1/directions?origin=${fromPostcode}&destination=${walk.postcode}&key=${this.googleMapsConfig?.apiKey}` :
-        `https://www.google.com/maps/embed/v1/place?q=${walk.postcode}&zoom=${this.googleMapsConfig?.zoomLevel || 12}&key=${this.googleMapsConfig?.apiKey}`);
+        `https://www.google.com/maps/embed/v1/directions?origin=${fromPostcode}&destination=${toPostcode}&key=${this.googleMapsConfig?.apiKey}` :
+        `https://www.google.com/maps/embed/v1/place?q=${toPostcode}&zoom=${this.googleMapsConfig?.zoomLevel || 12}&key=${this.googleMapsConfig?.apiKey}`);
       this.logger.debug("given showDrivingDirections:", showDrivingDirections, "googleMapsUrl set to:", googleMapsUrl);
       return googleMapsUrl;
     } else {

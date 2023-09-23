@@ -109,6 +109,12 @@ export enum WalkType {
   LINEAR = "Linear"
 }
 
+export enum MapDisplay {
+  SHOW_START_POINT = "show-start-point",
+  SHOW_END_POINT = "show-end-point",
+  SHOW_DRIVING_DIRECTIONS = "show-driving-directions"
+}
+
 export enum EventType {
   AWAITING_LEADER = "awaitingLeader",
   AWAITING_WALK_DETAILS = "awaitingWalkDetails",

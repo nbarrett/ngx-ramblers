@@ -331,7 +331,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   private updateGoogleMapsUrl() {
-    this.googleMapsUrl = this.display.googleMapsUrl(this.displayedWalk.walk, false, this.displayedWalk.walk.postcode);
+    this.googleMapsUrl = this.display.googleMapsUrl(false, this.displayedWalk.walk.postcode, this.displayedWalk.walk.postcode);
   }
 
   populateCopySourceFromWalkLeaderMemberId() {

@@ -6,7 +6,7 @@ import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { LoginResponse } from "../../../models/member.model";
-import { DisplayedWalk, Walk } from "../../../models/walk.model";
+import { DisplayedWalk, MapDisplay, Walk } from "../../../models/walk.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -17,9 +17,6 @@ import { UrlService } from "../../../services/url.service";
 import { WalksService } from "../../../services/walks/walks.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
-
-const SHOW_START_POINT = "show-start-point";
-const SHOW_DRIVING_DIRECTIONS = "show-driving-directions";
 
 @Component({
   selector: "app-walk-view",
@@ -40,7 +37,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   public displayedWalk: DisplayedWalk;
   public displayLinks: boolean;
   public fromPostcode = "";
-  public mapDisplay = SHOW_START_POINT;
+  public mapDisplay: MapDisplay = MapDisplay.SHOW_START_POINT;
   private logger: Logger;
   public allowWalkAdminEdits: boolean;
   public googleMapsUrl: SafeResourceUrl;
@@ -63,7 +60,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     private notifierService: NotifierService,
     private changeDetectorRef: ChangeDetectorRef,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkViewComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("WalkViewComponent", NgxLoggerLevel.OFF);
   }
 
   ngOnInit() {
@@ -122,8 +119,10 @@ export class WalkViewComponent implements OnInit, OnDestroy {
 
   updateGoogleMap() {
     if (this.display.shouldShowFullDetails(this.displayedWalk)) {
-      this.googleMapsUrl = this.display.googleMapsUrl(this.displayedWalk?.walk,
-        !this.drivingDirectionsDisabled() && this.mapDisplay === SHOW_DRIVING_DIRECTIONS, this.fromPostcode);
+      this.googleMapsUrl = this.display.googleMapsUrl(!this.drivingDirectionsDisabled() && this.showDrivingDirections(), this.fromPostcode, this.showEndPoint() ? this.displayedWalk?.walk.postcodeFinish : this.displayedWalk?.walk.postcode);
+      this.logger.info("rendering googleMapsUrl:", this.googleMapsUrl);
+    } else {
+      this.logger.warn("Should show details false");
     }
   }
 
@@ -132,22 +131,31 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   autoSelectMapDisplay() {
-    const switchToShowStartPoint = this.drivingDirectionsDisabled() && this.mapDisplay === SHOW_DRIVING_DIRECTIONS;
-    const switchToShowDrivingDirections = !this.drivingDirectionsDisabled() && this.mapDisplay === SHOW_START_POINT;
+    const switchToShowStartPoint = this.drivingDirectionsDisabled() && this.showDrivingDirections();
+    const switchToShowDrivingDirections = this.validFromPostcodeEntered() && !this.showDrivingDirections();
+    this.logger.info("autoSelectMapDisplay on entering: drivingDirectionsDisabled:", this.drivingDirectionsDisabled(), "switchToShowStartPoint:", switchToShowStartPoint, "switchToShowDrivingDirections:", switchToShowDrivingDirections, "mapDisplay:", this.mapDisplay, "fromPostcode:", this.fromPostcode);
     if (switchToShowStartPoint) {
-      this.mapDisplay = SHOW_START_POINT;
+      this.mapDisplay = MapDisplay.SHOW_START_POINT;
     } else if (switchToShowDrivingDirections) {
-      this.mapDisplay = SHOW_DRIVING_DIRECTIONS;
+      this.mapDisplay = MapDisplay.SHOW_DRIVING_DIRECTIONS;
     }
     this.logger.info("autoSelectMapDisplay:mapDisplay:", this.mapDisplay);
   }
 
   showDrivingDirections(): boolean {
-    return this.mapDisplay === SHOW_DRIVING_DIRECTIONS;
+    return this.mapDisplay === MapDisplay.SHOW_DRIVING_DIRECTIONS;
+  }
+
+  showEndPoint(): boolean {
+    return this.mapDisplay === MapDisplay.SHOW_END_POINT;
   }
 
   drivingDirectionsDisabled() {
-    return this.fromPostcode?.length < 3;
+    return !this.validFromPostcodeEntered();
+  }
+
+  validFromPostcodeEntered() {
+    return this.fromPostcode?.length >= 3;
   }
 
   durationInFutureFor(walk: Walk) {
@@ -160,7 +168,8 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     this.updateGoogleMap();
   }
 
-  changeShowDrivingDirections(newValue: string) {
+  changeMapView(newValue: MapDisplay) {
+    this.logger.info("changeShowDrivingDirections:", newValue);
     this.mapDisplay = newValue;
     this.updateGoogleMap();
   }

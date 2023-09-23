@@ -109,7 +109,7 @@
                   [src]="googleMapsUrl" allowfullscreen></iframe>
         </div>
       </div>
-      <form class="rounded img-thumbnail map-radio-frame" (click)="refreshView()">
+      <form class="rounded img-thumbnail map-radio-frame">
         <label class="ml-2 mr-2 font-weight-bold">Show Map:</label>
         <div class="col-sm-12 ml-2 mr-2">
           <div class="custom-control custom-radio custom-control-inline">
@@ -117,27 +117,38 @@
                    type="radio"
                    class="custom-control-input"
                    [ngModel]="mapDisplay" name="mapDisplay"
-                   (ngModelChange)="changeShowDrivingDirections($event)"
+                   (ngModelChange)="changeMapView($event)"
                    value="show-start-point"/>
-            <label class="custom-control-label" for="{{displayedWalk.walk.id}}-show-start-point">At starting
-              point {{displayedWalk.walk.postcode}}</label>
+            <label class="custom-control-label" for="{{displayedWalk.walk.id}}-show-start-point">
+              At start point {{displayedWalk.walk.postcode}}</label>
+          </div>
+          <div *ngIf="displayedWalk.walk.postcodeFinish" class="custom-control custom-radio custom-control-inline">
+            <input class="custom-control-input" id="{{displayedWalk.walk.id}}-show-end-point"
+                   type="radio"
+                   class="custom-control-input"
+                   [ngModel]="mapDisplay" name="mapDisplay"
+                   (ngModelChange)="changeMapView($event)"
+                   value="show-end-point"/>
+            <label class="custom-control-label" for="{{displayedWalk.walk.id}}-show-end-point">
+              At finish point {{displayedWalk.walk.postcodeFinish}}</label>
           </div>
           <div class="custom-control custom-radio custom-control-inline">
             <input id="{{displayedWalk.walk.id}}-show-driving-directions"
                    type="radio"
-                   class="custom-control-input postcode-input"
-                   (ngModelChange)="changeShowDrivingDirections($event)"
+                   class="custom-control-input align-middle"
+                   (ngModelChange)="changeMapView($event)"
                    [ngModel]="mapDisplay" name="mapDisplay"
                    value="show-driving-directions"/>
-            <label class="custom-control-label" for="{{displayedWalk.walk.id}}-show-driving-directions">Driving from
-              postcode</label>
+            <label class="custom-control-label text-nowrap align-middle"
+                   [ngClass]="{'postcode-label-second-line' : displayedWalk.walk.postcodeFinish}"
+                   for="{{displayedWalk.walk.id}}-show-driving-directions">
+              Driving from</label>
+            <input class="form-control input-sm text-uppercase ml-2 postcode-input align-middle"
+                   [ngClass]="{'postcode-input-second-line' : displayedWalk.walk.postcodeFinish}"
+                   [ngModel]="fromPostcode" name="fromPostcode"
+                   (ngModelChange)="changeFromPostcode($event)"
+                   type="text">
           </div>
-          <input
-            class="form-control input-sm text-uppercase postcode-input mt-2"
-            [ngModel]="fromPostcode" name="fromPostcode"
-            (ngModelChange)="changeFromPostcode($event)"
-            (click)="autoSelectMapDisplay()"
-            type="text">
         </div>
       </form>
       <app-walk-details [displayedWalk]="displayedWalk"></app-walk-details>
