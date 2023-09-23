@@ -8,7 +8,7 @@ import * as transforms from "./transforms";
 import { createDocumentRequest, parseError, toObjectWithId } from "./transforms";
 
 const debugLog = debug(envConfig.logNamespace("config"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 const controller = crudController.create(config);
 
 export const create = controller.create;

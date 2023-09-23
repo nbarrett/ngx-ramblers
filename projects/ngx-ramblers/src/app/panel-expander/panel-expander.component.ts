@@ -34,6 +34,8 @@ export class PanelExpanderComponent implements OnInit {
   }
 
   ngOnInit() {
+    const viewMode = this.display.walkMode(this.walk);
+    this.logger.info("ngOnInit: viewMode", viewMode);
     if (!this.collapseAction) {
       this.collapseAction = "collapse";
     }

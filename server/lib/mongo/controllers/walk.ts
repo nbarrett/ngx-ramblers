@@ -5,7 +5,7 @@ import { walk } from "../models/walk";
 import { parseError } from "./transforms";
 
 const debugLog = debug(envConfig.logNamespace("walk"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export function queryWalkLeaderMemberIds(req: Request, res: Response): Promise<void> {
   return walk.distinct("walkLeaderMemberId")

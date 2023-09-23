@@ -14,7 +14,7 @@ import { httpRequest } from "../shared/message-handlers";
 import * as requestDefaults from "./request-defaults";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export function listWalks(req, res): void {
   config.queryKey(ConfigKey.SYSTEM)

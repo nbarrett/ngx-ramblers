@@ -110,6 +110,10 @@ export class UrlService {
     return this.isMongoId(this.lastPathSegment());
   }
 
+  pathContainsWalkId(): boolean {
+    return this.pathContainsMongoId() || this.pathContainsNumericRamblersId();
+  }
+
   pathContainsNumericRamblersId(): boolean {
     return isNumericRamblersId(this.lastPathSegment());
   }

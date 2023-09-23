@@ -4,7 +4,7 @@ import { DataQueryOptions, MongoId } from "../../../../projects/ngx-ramblers/src
 import { envConfig } from "../../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("transforms"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export function toObjectWithId(document) {
   return document ? {

@@ -80,7 +80,7 @@ export class WalkDisplayService {
 
   walkMode(walk: Walk): WalkViewMode {
     const expandedWalk = find(this.expandedWalks, {walkId: walk.id}) as ExpandedWalk;
-    const walkViewMode = expandedWalk ? expandedWalk.mode : this.urlService.pathContainsMongoId() ? WalkViewMode.VIEW_SINGLE : this.urlService.pathContains("edit") ? WalkViewMode.EDIT_FULL_SCREEN : WalkViewMode.LIST;
+    const walkViewMode = expandedWalk ? expandedWalk.mode : this.urlService.pathContainsWalkId() ? WalkViewMode.VIEW_SINGLE : this.urlService.pathContains("edit") ? WalkViewMode.EDIT_FULL_SCREEN : WalkViewMode.LIST;
     this.logger.debug("walkMode:", walkViewMode, "expandedWalk:", expandedWalk);
     return walkViewMode;
   }
@@ -188,7 +188,7 @@ export class WalkDisplayService {
       const newWalk = {walkId, mode: toggleTo};
       this.expandedWalks.push(newWalk);
       this.logger.info("display.toggleViewFor", toggleTo, "added", newWalk);
-      if (this.urlService.pathContainsMongoId() && toggleTo === WalkViewMode.EDIT) {
+      if (this.urlService.pathContainsWalkId() && toggleTo === WalkViewMode.EDIT) {
         this.editFullscreen(walk);
       }
     }

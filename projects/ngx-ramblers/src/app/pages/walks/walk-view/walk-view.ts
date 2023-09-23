@@ -36,8 +36,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   public walkIdOrPath: string;
-  public pathContainsMongoId: boolean;
-  public pathContainsRamblersId: boolean;
+  public pathContainsWalkId: boolean;
   public displayedWalk: DisplayedWalk;
   public displayLinks: boolean;
   public fromPostcode = "";
@@ -72,10 +71,9 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     this.loggedIn = this.memberLoginService.memberLoggedIn();
     this.allowWalkAdminEdits = this.memberLoginService.allowWalkAdminEdits();
     this.refreshHomePostcode();
-    this.pathContainsMongoId = this.urlService.pathContainsMongoId();
-    this.pathContainsRamblersId = this.urlService.pathContainsNumericRamblersId();
+    this.pathContainsWalkId = this.urlService.pathContainsWalkId();
     this.walkIdOrPath = this.urlService.lastPathSegment();
-    this.logger.debug("initialised with walk", this.displayedWalk, "pathContainsMongoId:", this.pathContainsMongoId, "pathContainsRamblersId:", this.pathContainsRamblersId, "walkIdOrPath:", this.walkIdOrPath);
+    this.logger.debug("initialised with walk", this.displayedWalk, "pathContainsMongoId:", this.pathContainsWalkId, "walkIdOrPath:", this.walkIdOrPath);
     this.queryIfRequired();
     this.systemConfigService.events().subscribe(item => {
       this.updateGoogleMap();
@@ -99,7 +97,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   queryIfRequired(): void {
-    if (this.pathContainsMongoId || this.pathContainsRamblersId) {
+    if (this.pathContainsWalkId) {
       this.walksService.getByIdIfPossible(this.walkIdOrPath)
         .then((walk: Walk) => {
           if (walk) {

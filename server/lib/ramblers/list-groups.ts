@@ -8,7 +8,7 @@ import { httpRequest } from "../shared/message-handlers";
 import * as requestDefaults from "./request-defaults";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:groups"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export function listGroups(req, res): void {
   config.queryKey(ConfigKey.SYSTEM)
