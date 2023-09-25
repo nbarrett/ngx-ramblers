@@ -17,6 +17,7 @@ import { UrlService } from "../../../services/url.service";
 import { WalksService } from "../../../services/walks/walks.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
+import { SystemConfig } from "../../../models/system.model";
 
 @Component({
   selector: "app-walk-view",
@@ -72,8 +73,9 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     this.walkIdOrPath = this.urlService.lastPathSegment();
     this.logger.debug("initialised with walk", this.displayedWalk, "pathContainsMongoId:", this.pathContainsWalkId, "walkIdOrPath:", this.walkIdOrPath);
     this.queryIfRequired();
-    this.systemConfigService.events().subscribe(item => {
-      this.updateGoogleMap();
+    this.systemConfigService.events().subscribe((systemConfig: SystemConfig) => {
+      this.logger.debug("systemConfigService returned systemConfig:", systemConfig);
+      this.queryIfRequired();
     });
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => {
       this.logger.debug("loginResponseObservable:", loginResponse);
@@ -100,6 +102,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
           if (walk) {
             this.applyWalk(this.display.toDisplayedWalk(walk));
           } else {
+            this.logger.warn("Walk not found:", this.walkIdOrPath)
             this.notify.warning({
               title: "Walk not found",
               message: "Content for this walk doesnt exist"
@@ -120,9 +123,9 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   updateGoogleMap() {
     if (this.display.shouldShowFullDetails(this.displayedWalk)) {
       this.googleMapsUrl = this.display.googleMapsUrl(!this.drivingDirectionsDisabled() && this.showDrivingDirections(), this.fromPostcode, this.showEndPoint() ? this.displayedWalk?.walk.postcodeFinish : this.displayedWalk?.walk.postcode);
-      this.logger.info("rendering googleMapsUrl:", this.googleMapsUrl);
+      this.logger.info("Should show details - rendering googleMapsUrl:", this.googleMapsUrl);
     } else {
-      this.logger.warn("Should show details false");
+      this.logger.warn("Should not show details for walk:", this.displayedWalk);
     }
   }
 
