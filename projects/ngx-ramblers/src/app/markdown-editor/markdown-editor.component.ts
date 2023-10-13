@@ -1,6 +1,15 @@
 import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
-import { faCircleCheck, faEraser, faMagnifyingGlass, faPencil, faRemove, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import {
+  faAngleDown,
+  faAngleUp,
+  faCircleCheck,
+  faEraser,
+  faMagnifyingGlass,
+  faPencil,
+  faRemove,
+  faSpinner
+} from "@fortawesome/free-solid-svg-icons";
 import cloneDeep from "lodash-es/cloneDeep";
 import isEmpty from "lodash-es/isEmpty";
 import isEqual from "lodash-es/isEqual";
@@ -14,6 +23,9 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { MarkdownEditorFocusService } from "../services/markdown-editor-focus-service";
 import { MemberLoginService } from "../services/member/member-login.service";
 import { SiteEditService } from "../site-edit/site-edit.service";
+import { UiActionsService } from "../services/ui-actions.service";
+import { StoredValue } from "../models/ui-actions";
+import { StringUtilsService } from "../services/string-utils.service";
 
 @Component({
   selector: "app-markdown-editor",
@@ -29,6 +41,7 @@ export class MarkdownEditorComponent implements OnInit {
   public name: string;
   public text: string;
   public category: string;
+  private hideParameterName: string;
 
   @Input("editNameEnabled") set acceptEditNameEnabledChangesFrom(editNameEnabled: boolean) {
     this.logger.debug("editNameEnabled:", editNameEnabled);
@@ -53,6 +66,7 @@ export class MarkdownEditorComponent implements OnInit {
     this.syncContent();
   }
 
+  @Input() allowHide: boolean;
   @Input() data: ContentText;
   @Input() id: string;
   @Input() rows: number;
@@ -64,18 +78,23 @@ export class MarkdownEditorComponent implements OnInit {
   @Input() initialView: View;
   @Input() description: string;
   @Output() saved: EventEmitter<ContentText> = new EventEmitter();
-  private editNameEnabled: boolean;
+  private show = true;
+  public editNameEnabled: boolean;
   private initialised: boolean;
   faSpinner = faSpinner;
   faPencil = faPencil;
   faCircleCheck = faCircleCheck;
   faRemove = faRemove;
   faEraser = faEraser;
+  faAngleUp = faAngleUp;
+  faAngleDown = faAngleDown;
 
   constructor(private memberLoginService: MemberLoginService,
+              private uiActionsService: UiActionsService,
               private broadcastService: BroadcastService<ContentText>,
               private contentTextService: ContentTextService,
               private markdownEditorFocusService: MarkdownEditorFocusService,
+              public stringUtilsService: StringUtilsService,
               public siteEditService: SiteEditService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(MarkdownEditorComponent, NgxLoggerLevel.OFF);
@@ -84,6 +103,7 @@ export class MarkdownEditorComponent implements OnInit {
 
   ngOnInit() {
     this.logger.info("ngOnInit:name", this.name, "data:", this.data, "description:", this.description);
+    this.hideParameterName = this.stringUtilsService.kebabCase(StoredValue.MARKDOWN_FIELD_HIDDEN, this.name);
     this.editorState = {
       view: this.initialView || View.VIEW,
       dataAction: DataAction.NONE
@@ -92,7 +112,7 @@ export class MarkdownEditorComponent implements OnInit {
       const existingData: boolean = !!this.data.id;
       this.content = this.data;
       this.saveEnabled = true;
-      this.logger.debug("editing:", this.content, "existingData:", existingData, "editorState:", this.editorState, "rows:", this.rows);
+      this.logger.info("editing:", this.content, "existingData:", existingData, "editorState:", this.editorState, "rows:", this.rows);
       this.originalContent = cloneDeep(this.content);
       this.setDescription();
     } else if (this.text) {
@@ -109,6 +129,10 @@ export class MarkdownEditorComponent implements OnInit {
       this.editorState.view = item.data ? View.EDIT : View.VIEW;
     });
     this.initialised = true;
+    if (this.allowHide) {
+      const currentlyHidden = this.uiActionsService.initialBooleanValueFor(this.hideParameterName, false);
+      this.show = !currentlyHidden;
+    }
   }
 
   private setDescription() {
@@ -142,6 +166,10 @@ export class MarkdownEditorComponent implements OnInit {
 
   private apply(content: ContentText): ContentText {
     if (isEmpty(content)) {
+      if (this.siteEditService.active()) {
+        this.logger.info("content is empty for", this.description, "assumed to be new content so going into edit mode");
+        // this.toggleToEdit();
+      }
       this.syncContent();
     } else {
       this.content = content;
@@ -228,6 +256,7 @@ export class MarkdownEditorComponent implements OnInit {
 
   private setFocus() {
     if (this.buttonsAvailableOnlyOnFocus) {
+      this.logger.info("setFocus:", this.description);
       this.markdownEditorFocusService.setFocusTo(this);
     }
   }
@@ -248,6 +277,19 @@ export class MarkdownEditorComponent implements OnInit {
 
   saving(): boolean {
     return this.editorState.dataAction === DataAction.SAVE;
+  }
+
+  showing(): boolean {
+    return this.show;
+  }
+
+  toggleShowHide(): void {
+    this.show = !this.show;
+    this.uiActionsService.saveValueFor(this.hideParameterName, !this.show);
+  }
+
+  showHideCaption(): string {
+    return `${this.show ? "Hide " : "Show "}${this.description}`;
   }
 
   querying(): boolean {

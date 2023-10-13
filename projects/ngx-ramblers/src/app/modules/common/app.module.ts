@@ -3,7 +3,6 @@ import { ApplicationRef, DoBootstrap, NgModule } from "@angular/core";
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AppRoutingModule } from "../../app-routing.module";
-import { CarouselStoryNavigatorComponent } from "../../carousel-story-navigator/carousel-story-navigator.component";
 import { ContainerComponent } from "../../container/container";
 import { FooterComponent } from "../../footer/footer";
 import { FooterIconsComponent } from "../../footer/icons/footer-icons";
@@ -55,7 +54,6 @@ import { NavbarComponent } from "./navbar/navbar";
     BannerTitleOutputComponent,
     BannerTitlePartConfigComponent,
     CardContainerComponent,
-    CarouselStoryNavigatorComponent,
     ChangedItemsPipe,
     ContainerComponent,
     FacebookComponent,

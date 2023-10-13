@@ -44,7 +44,7 @@ export class PageService {
     if (this.urlService.pathContainsMongoId()) {
       return null;
     } else {
-      return this.stringUtils.asTitle(this.urlService.lastPathSegment());
+      return this.stringUtils.asTitle(this.stringUtils.asWords(this.urlService.lastPathSegment()));
     }
   }
 

@@ -65,7 +65,7 @@
       </div>
     </div>
   </div>
-  <app-dynamic-content [anchor]="'committee-years'"></app-dynamic-content>
+  <app-dynamic-content [anchor]="'committee-years'" [contentPathReadOnly]="true"></app-dynamic-content>
 </ng-template>
 <app-page *ngIf="!committeeYear?.latestYear" [pageTitle]="committeeYearTitle">
   <ng-container *ngTemplateOutlet="committeeYearTemplate"></ng-container>

@@ -1,0 +1,22 @@
+<div *ngIf="allow.edit && contentMetadataItems">
+  <div class="row">
+    <div class="col-sm-12 mb-2 mt-2">
+      <h6>Edit images from</h6>
+      <div class="form-inline">
+        <select [(ngModel)]="contentMetadata"
+                class="form-control input-sm flex-grow-1 mr-2">
+          <option *ngFor="let contentMetadata of contentMetadataItems"
+                  [ngValue]="contentMetadata">
+            {{contentMetadataService.contentMetadataName(contentMetadata)}}
+            ({{stringUtils.pluraliseWithCount(contentMetadata.files.length, "image")}})
+          </option>
+        </select>
+        <app-badge-button [disabled]="!contentMetadata"
+                          caption="View images"
+                          (click)="navigateTo(contentMetadata.name)"
+                          [icon]="faEye">
+        </app-badge-button>
+      </div>
+    </div>
+  </div>
+</div>

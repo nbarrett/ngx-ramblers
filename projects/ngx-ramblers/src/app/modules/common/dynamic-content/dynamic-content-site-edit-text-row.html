@@ -1,9 +1,9 @@
 <ng-container *ngIf="actions.isTextRow(row)">
   <div [class]="actions.rowClasses(row)">
     <ng-container *ngFor="let column of row?.columns; let columnIndex = index;">
-      <div [class]="'col-sm-' + column.columns">
+      <div [class]="'col-sm-' + (column.columns||12)">
         <!-- beginning of row content editing-->
-        <div *ngIf="!column.rows" class="img-thumbnail thumbnail-walk-edit">
+        <div *ngIf="!column.rows" class="thumbnail-site-edit h-100">
           <div class="thumbnail-heading">Col {{columnIndex + 1}}</div>
           <app-markdown-editor (saved)="actions.saveContentTextId($event, rowIndex, column, pageContent)"
                                [buttonsAvailableOnlyOnFocus]="true"
@@ -17,7 +17,7 @@
             <ng-container prepend>
               <div class="form-group">
                 <label
-                  [for]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'access-level-' + contentPath)">Access:</label>
+                  [for]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'access-level-' + contentPath)">Access</label>
                 <select [(ngModel)]="column.accessLevel"
                         [id]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'access-level-' + contentPath)"
                         class="form-control input-sm">
@@ -28,7 +28,7 @@
               </div>
               <div class="form-group">
                 <label
-                  [for]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'column-width-' + contentPath)">Width:</label>
+                  [for]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'column-width-' + contentPath)">Width</label>
                 <input #input (input)="actions.changeColumnWidthFor(input, column)"
                        [id]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'column-width-' + contentPath)"
                        [value]="column.columns"
@@ -65,15 +65,15 @@
             </app-card-image>
             <div class="row mt-2">
               <div [class]="imagePropertyColumnClasses(column)">
-                <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-source')">
-                  Image Source:</label>
+                <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'name')">
+                  Image Source</label>
                 <input [(ngModel)]="column.imageSource"
-                       [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-source')"
+                       [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'name')"
                        type="text" class="form-control">
               </div>
               <div [class]="imagePropertyColumnClasses(column)">
                 <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')">
-                  Border Radius:</label>
+                  Border Radius</label>
                 <input [(ngModel)]="column.imageBorderRadius"
                        [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')"
                        type="number" class="form-control">
@@ -83,7 +83,7 @@
         </div>
         <!-- end of row content editing-->
         <!-- start of column nested rows-->
-        <div *ngIf="column.rows" class="img-thumbnail thumbnail-walk-edit">
+        <div *ngIf="column.rows" class="thumbnail-site-edit">
           <div class="thumbnail-heading">Row {{rowIndex + 1}} column {{columnIndex + 1}}
             ({{stringUtils.pluraliseWithCount(column.rows?.length, 'nested row')}})
           </div>
@@ -91,7 +91,7 @@
                                 [columnIndex]="columnIndex"
                                 [column]="column">
           </app-actions-dropdown>
-          <div class="img-thumbnail thumbnail-walk-edit mt-3"
+          <div class="thumbnail-site-edit mt-3"
                *ngFor="let row of column.rows; let nestedRowIndex = index;">
             <div class="thumbnail-heading">Row {{rowIndex + 1}} (nested row {{nestedRowIndex + 1}}
               column {{columnIndex + 1}}

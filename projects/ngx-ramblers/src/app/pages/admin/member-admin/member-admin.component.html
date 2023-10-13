@@ -1,45 +1,46 @@
 <app-page>
   <div class="row">
-  <div class="admin-frame rounded" *ngIf="memberFilter">
-    <div class="admin-header-background rounded">
-      <div class="admin-header-container">
-        <div class="form-inline" role="form">
-          <div class="form-group">
-            <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
+    <div class="col-sm-12">
+      <div class="admin-frame rounded" *ngIf="memberFilter">
+        <div class="admin-header-background rounded">
+          <div class="admin-header-container">
+            <div class="form-inline" role="form">
+              <div class="form-group">
+                <div class="input-group">
+                  <div class="input-group-prepend">
+                    <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
+                  </div>
+                  <input id="quick-search" [(ngModel)]="quickSearch"
+                         (ngModelChange)="onSearchChange($event)"
+                         name="quickSearch"
+                         class="form-control input-sm rounded"
+                         type="text" placeholder="Quick Search">
+                </div>
               </div>
-              <input id="quick-search" [(ngModel)]="quickSearch"
-                     (ngModelChange)="onSearchChange($event)"
-                     name="quickSearch"
-                     class="form-control input-sm rounded"
-                     type="text" placeholder="Quick Search">
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="spaced-label mr-2" for="filter-members">Filter:</label>
-            <select [disabled]="confirm.bulkDeleteOutstanding()" class="form-control input-sm"
-                    [(ngModel)]="memberFilter.selectedFilter"
-                    (ngModelChange)="refreshMembers($event)"
-                    id="filter-members">
-              <option *ngFor="let tableFilterItem of memberFilter?.availableFilters"
-                      [ngValue]="tableFilterItem"
-                      [textContent]="tableFilterItem.title">
-              </option>
-            </select>
-          </div>
-          <div class="form-group">
-            <p class="search-results rounded">Showing {{memberFilter.results.length}} member(s)</p>
-          </div>
-          <div class="form-group admin-header-buttons">
-            <ng-container *ngIf="!confirm.bulkDeleteOutstanding()">
-              <input [disabled]="notifyTarget.busy" type="submit" value="Add New Member"
-                     (click)="addMember()" title="Add New Member"
-                     [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
-              <input [disabled]="notifyTarget.busy" type="submit" value="Send Emails"
-                     (click)="showSendEmailsDialog()" title="Send Emails"
-                     [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
-              <input [disabled]="notifyTarget.busy || noMailchimpListsConfigured" type="submit"
+              <div class="form-group">
+                <label class="spaced-label mr-2" for="filter-members">Filter:</label>
+                <select [disabled]="confirm.bulkDeleteOutstanding()" class="form-control input-sm"
+                        [(ngModel)]="memberFilter.selectedFilter"
+                        (ngModelChange)="refreshMembers($event)"
+                        id="filter-members">
+                  <option *ngFor="let tableFilterItem of memberFilter?.availableFilters"
+                          [ngValue]="tableFilterItem"
+                          [textContent]="tableFilterItem.title">
+                  </option>
+                </select>
+              </div>
+              <div class="form-group">
+                <p class="search-results rounded">Showing {{memberFilter.results.length}} member(s)</p>
+              </div>
+              <div class="form-group admin-header-buttons">
+                <ng-container *ngIf="!confirm.bulkDeleteOutstanding()">
+                  <input [disabled]="notifyTarget.busy" type="submit" value="Add New Member"
+                         (click)="addMember()" title="Add New Member"
+                         [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
+                  <input [disabled]="notifyTarget.busy" type="submit" value="Send Emails"
+                         (click)="showSendEmailsDialog()" title="Send Emails"
+                         [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
+                  <input [disabled]="notifyTarget.busy || noMailchimpListsConfigured" type="submit"
                      value="Update Mailchimp Lists"
                      (click)="updateMailchimpLists()" title="Update Mailchimp Lists"
                      [ngClass]="notifyTarget.busy || noMailchimpListsConfigured ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
@@ -184,7 +185,8 @@
         </tbody>
         </table>
       </div>
+        </div>
+      </div>
     </div>
-  </div>
   </div>
 </app-page>

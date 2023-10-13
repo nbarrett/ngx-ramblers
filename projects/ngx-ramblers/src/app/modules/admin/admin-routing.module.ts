@@ -20,6 +20,7 @@ import { hasDynamicPath } from "../../services/path-matchers";
 import { DynamicContentPageComponent } from "../common/dynamic-content-page/dynamic-content-page";
 import { AdminModule } from "./admin.module";
 import { AreaExistsGuard } from "../../guards/area-exists-guard.service";
+import { ImageListEditPageComponent } from "../../carousel/edit/image-list-page/image-list-edit-page";
 
 @NgModule({
   imports: [AdminModule, RouterModule.forChild([
@@ -39,6 +40,8 @@ import { AreaExistsGuard } from "../../guards/area-exists-guard.service";
     {path: "mailchimp-settings", component: MailchimpSettingsComponent, canActivate: [AdminAuthGuard]},
     {path: "committee-settings", component: CommitteeSettingsComponent, canActivate: [AdminAuthGuard]},
     {path: "banners", component: BannerComponent},
+    {path: "carousel-editor/:name", component: ImageListEditPageComponent},
+    {path: "carousel-editor", component: ImageListEditPageComponent},
     {matcher: hasDynamicPath, component: DynamicContentPageComponent},
   ])]
 })

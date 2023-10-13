@@ -7,6 +7,7 @@
       </li>
       <li class="breadcrumb-item d-none d-md-inline active">{{suppliedOrDefaultPageTitle()}}</li>
     </ul>
+    <h1 *ngIf="pageTitle">{{pageTitle}}</h1>
     <ng-content></ng-content>
   </div>
 </main>

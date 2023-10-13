@@ -1,7 +1,10 @@
-const express = require("express");
-const authConfig = require("../../auth/auth-config");
-const pageContent = require("../models/page-content");
-const controller = require("../controllers/crud-controller").create(pageContent, false);
+import express = require("express");
+
+import * as authConfig from "../../auth/auth-config";
+import { pageContent } from "../models/page-content";
+import * as crudController from "../controllers/crud-controller";
+
+const controller = crudController.create(pageContent, true);
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);
@@ -11,4 +14,4 @@ router.put("/:id", authConfig.authenticate(), controller.update);
 router.get("/:id", controller.findById);
 router.delete("/:id", authConfig.authenticate(), controller.delete);
 
-module.exports = router;
+export const pageContentRoutes = router;

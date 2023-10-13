@@ -3,9 +3,9 @@
     <div class="row">
       <div class="col-sm-12" *ngIf="editActive">
         <app-image-cropper
-          [selectAspectRatio]="aspectRatio"
-          [rootFolder]="rootFolder"
-          [preloadImage]="item?.image"
+          [selectAspectRatio]="contentMetadata?.aspectRatio"
+          [rootFolder]="contentMetadataService.rootFolderAndName(contentMetadata?.rootFolder, contentMetadata?.name)"
+          [preloadImage]="imageSourceOrPreview()"
           (imageChange)="imageChanged($event)"
           (error)="imageCroppingError($event)"
           (cropError)="imageCroppingError($event)"
@@ -28,27 +28,21 @@
           </div>
         </div>
         <div class="form-group">
-          <input type="button" value="Delete" (click)="callDelete()" title="Delete this image"
-                 class="button-form"/>
-          <input type="button" value="Insert" (click)="callInsert()"
-                 title="Insert new image before this one" class="button-form"/>
-          <input [disabled]="!canMoveUp" type="button" value="Move up"
-                 (click)="callMoveUp()"
-                 title="move this image up in the sequence"
-                 [ngClass]="canMoveUp ? 'button-form': 'disabled-button-form'"/>
-          <input [disabled]="!canMoveDown" type="button"
-                 value="Move down" (click)="callMoveDown()"
-                 title="move this image down in the sequence"
-                 [ngClass]="canMoveDown ? 'button-form': 'disabled-button-form'"/>
-          <input [disabled]="editActive" type="button"
-                 value="Edit image" (click)="editImage()"
-                 [ngClass]="editActive ? 'disabled-button-form':'button-form'"/>
+          <app-badge-button [icon]="faRemove" caption="Delete" (click)="callDelete()"></app-badge-button>
+          <app-badge-button [icon]="faAdd" caption="Insert" (click)="callInsert()"></app-badge-button>
+          <app-badge-button [disabled]="!canMoveUp" [icon]="faAngleUp" caption="Move up"
+                            (click)="callMoveUp()"></app-badge-button>
+          <app-badge-button [disabled]="!canMoveDown" [icon]="faAngleDown" caption="Move down"
+                            (click)="callMoveDown()"></app-badge-button>
+          <app-badge-button [disabled]="editActive" [icon]="faPencil" caption="Edit image"
+                            (click)="editImage()"></app-badge-button>
         </div>
         <div class="form-group">
-          <label [for]="'image-source-' + index">Image Source</label>
+          <label [for]="'name-' + index">Image Source (in {{contentMetadata?.rootFolder}}/{{contentMetadata?.name}})</label>
           <input [(ngModel)]="item.image" type="text"
-                    class="form-control input-sm"
-                 [id]="'image-source-' + index" placeholder="Image source - updated automatically"/>
+                 class="form-control input-sm"
+                 [id]="'name-' + index" placeholder="Image source - updated automatically"/>
+          <div *ngIf="item.originalFileName" class="mt-2">Original Name: {{item.originalFileName}}</div>
         </div>
       </div>
       <div class="col-sm-5">
@@ -61,7 +55,7 @@
         <div class="row">
           <div class="col-sm-5">
             <div class="form-group">
-              <label [for]="stringUtils.kebabCase('date-source', index)">Date Source:</label>
+              <label [for]="stringUtils.kebabCase('date-source', index)">Date Source</label>
               <select [(ngModel)]="item.dateSource" [id]="stringUtils.kebabCase('date-source', index)" class="form-control"
                       (ngModelChange)="filterEventsBySourceAndDate($event, item?.date)">
                 <option *ngFor="let dateSource of dateSources"
@@ -80,7 +74,8 @@
           </div>
         </div>
         <div class="form-group">
-          <app-tag-editor [tags]="item?.tags"
+          <app-tag-editor [tagsForImage]="item?.tags"
+                          [contentMetadataImageTags]="contentMetadataImageTags"
                           [text]="item?.text"
                           (tagsChange)="tagsChange($event)"></app-tag-editor>
         </div>

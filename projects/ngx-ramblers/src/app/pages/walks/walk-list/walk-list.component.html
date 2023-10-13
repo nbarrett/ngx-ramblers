@@ -1,7 +1,7 @@
 <app-page>
+  <app-dynamic-content [anchor]="'page-header'" [contentPathReadOnly]="true"></app-dynamic-content>
   <div class="row mb-n3">
     <div class="mb-3 col-sm-12">
-      <h4 class="card-title">Walks Programme</h4>
       <app-walks-search [filterParameters]="filterParameters" [notifyTarget]="notifyTarget">
         <pagination class="pagination rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="maxSize()"
                     [totalItems]="walks?.length" [(ngModel)]="pageNumber"
@@ -89,5 +89,5 @@
       </div>
     </div>
   </div>
-  <app-dynamic-content [anchor]="'action-buttons'"></app-dynamic-content>
+  <app-dynamic-content [anchor]="'action-buttons'" [contentPathReadOnly]="true"></app-dynamic-content>
 </app-page>

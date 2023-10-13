@@ -52,8 +52,8 @@ import { LinkComponent } from "./link/link";
 import { PageComponent } from "./page/page.component";
 import { LinkEditComponent } from "./modules/common/link-edit/link-edit";
 import { LinksEditComponent } from "./modules/common/links-edit/links-edit";
-import { ImageEditComponent } from "./pages/image-editor/image-edit/image-edit.component";
-import { ImageListComponent } from "./pages/image-editor/image-list/image-list.component";
+import { ImageEditComponent } from "./carousel/edit/image-edit/image-edit";
+import { ImageListEditComponent } from "./carousel/edit/image-list-edit/image-list-edit";
 import { TagEditorComponent } from "./pages/tag/tag-editor.component";
 import { RelatedLinkComponent } from "./modules/common/related-link/related-link.component";
 import { TagManagerComponent } from "./pages/tag/tag-manager.component";
@@ -99,6 +99,13 @@ import { PageContentService } from "./services/page-content.service";
 import { RouterHistoryService } from "./services/router-history.service";
 import { SiteEditService } from "./site-edit/site-edit.service";
 import { AreaExistsGuard } from "./guards/area-exists-guard.service";
+import { CarouselSelectorComponent } from "./carousel/edit/carousel-selector/carousel-selector";
+import { CarouselComponent } from "./carousel/view/carousel";
+import { CarouselStoryNavigatorComponent } from "./carousel/view/carousel-story-navigator/carousel-story-navigator.component";
+import { AspectRatioSelectorComponent } from "./carousel/edit/aspect-ratio-selector/aspect-ratio-selector";
+import { ImageListEditPageComponent } from "./carousel/edit/image-list-page/image-list-edit-page";
+import { BadgeButtonComponent } from "./modules/common/badge-button/badge-button";
+import { DynamicContentViewCarouselComponent } from "./modules/common/dynamic-content/dynamic-content-view-carousel";
 
 @NgModule({
   imports: [
@@ -130,9 +137,16 @@ import { AreaExistsGuard } from "./guards/area-exists-guard.service";
   ],
   declarations: [
     ActionButtonsComponent,
+    ActionButtonsSettingsComponent,
     ActionsDropdownComponent,
+    AspectRatioSelectorComponent,
+    BadgeButtonComponent,
+    BulkActionSelectorComponent,
     CardEditorComponent,
     CardImageComponent,
+    CarouselComponent,
+    CarouselSelectorComponent,
+    CarouselStoryNavigatorComponent,
     ContactUsComponent,
     CopyIconComponent,
     CreatedAuditPipe,
@@ -145,6 +159,7 @@ import { AreaExistsGuard } from "./guards/area-exists-guard.service";
     DynamicContentPageComponent,
     DynamicContentSiteEditComponent,
     DynamicContentSiteEditTextRowComponent,
+    DynamicContentViewCarouselComponent,
     DynamicContentViewComponent,
     DynamicContentViewTextRowComponent,
     EventNotePipe,
@@ -156,7 +171,8 @@ import { AreaExistsGuard } from "./guards/area-exists-guard.service";
     IconExamplesComponent,
     ImageCropperAndResizerComponent,
     ImageEditComponent,
-    ImageListComponent,
+    ImageListEditComponent,
+    ImageListEditPageComponent,
     KebabCasePipe,
     LastConfirmedDateDisplayed,
     LineFeedsToBreaksPipe,
@@ -164,8 +180,6 @@ import { AreaExistsGuard } from "./guards/area-exists-guard.service";
     LinkEditComponent,
     LinksEditComponent,
     LoginRequiredComponent,
-    ActionButtonsSettingsComponent,
-    BulkActionSelectorComponent,
     MarginSelectComponent,
     MarkdownEditorComponent,
     MeetupEventSummaryPipe,
@@ -190,11 +204,15 @@ import { AreaExistsGuard } from "./guards/area-exists-guard.service";
     ActionsDropdownComponent,
     AlertModule,
     Angular2CsvModule,
+    AspectRatioSelectorComponent,
     BsDatepickerModule,
     BsDropdownModule,
     CardEditorComponent,
     CardImageComponent,
+    CarouselComponent,
+    CarouselSelectorComponent,
     CarouselModule,
+    CarouselStoryNavigatorComponent,
     CollapseModule,
     CommonModule,
     ContactUsComponent,
@@ -221,6 +239,7 @@ import { AreaExistsGuard } from "./guards/area-exists-guard.service";
     KebabCasePipe,
     LastConfirmedDateDisplayed,
     LineFeedsToBreaksPipe,
+    LinkComponent,
     LinkEditComponent,
     LinksEditComponent,
     LoggerModule,
@@ -228,13 +247,12 @@ import { AreaExistsGuard } from "./guards/area-exists-guard.service";
     MarkdownEditorComponent,
     MarkdownModule,
     MeetupEventSummaryPipe,
-    MemberIdsToFullNamesPipe,
     MemberIdToFirstNamePipe,
     MemberIdToFullNamePipe,
+    MemberIdsToFullNamesPipe,
     ModalModule,
     MoneyPipe,
     NgSelectModule,
-    LinkComponent,
     PageComponent,
     PaginationModule,
     PanelExpanderComponent,

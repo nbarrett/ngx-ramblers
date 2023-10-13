@@ -6,7 +6,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { AlertMessage, AlertTarget } from "../../../../models/alert-target.model";
 import { AwsFileData } from "../../../../models/aws-object.model";
 import { NamedEvent, NamedEventType } from "../../../../models/broadcast.model";
-import { BannerImageType, Image, Images } from "../../../../models/system.model";
+import { RootFolder, Image, Images } from "../../../../models/system.model";
 import { BroadcastService } from "../../../../services/broadcast-service";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { FileUploadService } from "../../../../services/file-upload.service";
@@ -52,16 +52,16 @@ export class SystemImageEditComponent implements OnInit {
   }
 
   @Input() headerLogoDefault: boolean;
-  @Input() imageType: BannerImageType;
+  @Input() rootFolder: RootFolder;
   @Input() images: Images;
   @Input() image: Image;
   @Output() imageChanged: EventEmitter<Image> = new EventEmitter();
 
   ngOnInit() {
-    this.logger.info("constructed with imageType:", this.imageType, "image:", this.image);
+    this.logger.info("constructed with imageType:", this.rootFolder, "image:", this.image);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.logoEditActive = !this.image.awsFileName;
-    this.logoMode = this.imageType === BannerImageType.logos;
+    this.logoMode = this.rootFolder === RootFolder.logos;
   }
 
   throwOrNotifyError(message: AlertMessage) {

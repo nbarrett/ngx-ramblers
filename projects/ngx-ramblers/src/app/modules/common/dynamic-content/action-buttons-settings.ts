@@ -12,7 +12,7 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
     <ng-container *ngIf="actions.isActionButtons(row)">
       <div class="row align-items-end">
         <div class="col">
-          <label [for]="id +'max-cols'">Max Columns:</label>
+          <label [for]="id +'max-cols'">Max Columns</label>
           <input [id]="id +'max-cols'" [(ngModel)]="row.maxColumns"
                  autocomplete="columns"
                  class="form-control input-sm column-input" placeholder="Enter number of viewable columns (1-4)"

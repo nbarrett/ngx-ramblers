@@ -10,7 +10,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
 @Component({
   selector: "app-margin-select",
   template: `
-    <label [for]="id">{{label}}:</label>
+    <label [for]="id">{{label}}</label>
     <select class="form-control input-sm"
             [id]="id"
             (ngModelChange)="changeMargin($event)"

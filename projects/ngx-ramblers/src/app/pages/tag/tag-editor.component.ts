@@ -27,12 +27,21 @@ import { StringUtilsService } from "../../services/string-utils.service";
 })
 
 export class TagEditorComponent implements OnInit, OnDestroy {
+
   @Input() text: string;
-  @Input() tags: number[];
+  @Input() tagsForImage: number[];
+
+  @Input("contentMetadataImageTags") set acceptContentMetadataChangesFrom(contentMetadataImageTags: ImageTag[]) {
+    this.logger.info("contentMetadataImageTags change:", contentMetadataImageTags);
+    this.contentMetadataImageTags = contentMetadataImageTags;
+    this.populateData(this.contentMetadataImageTags);
+  }
+
   @Output() tagsChange: EventEmitter<ImageTag[]> = new EventEmitter();
 
-  editableTags: TagData[] = [];
-  settings: TagifySettings = {
+  public contentMetadataImageTags: ImageTag[];
+  public editableTags: TagData[] = [];
+  public settings: TagifySettings = {
     placeholder: "Click to select",
     blacklist: [],
     dropdown: {
@@ -47,8 +56,8 @@ export class TagEditorComponent implements OnInit, OnDestroy {
       }
     }
   };
-  tagLookups: BehaviorSubject<TagData[]> = new BehaviorSubject<TagData[]>([]);
-  readonly = false;
+  public tagLookups: BehaviorSubject<TagData[]> = new BehaviorSubject<TagData[]>([]);
+  public readonly = false;
   private logger: Logger;
   public id: string;
   private subscriptions: Subscription[] = [];
@@ -60,12 +69,11 @@ export class TagEditorComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    if (!this.tags) {
-      this.tags = [];
+    if (!this.tagsForImage) {
+      this.tagsForImage = [];
     }
     this.id = this.stringUtils.kebabCase("image-tags", this.text);
-    this.logger.info("ngOnInit:tags for:", this.text, "->", this.tags, "id ->", this.id);
-    this.subscriptions.push(this.imageTagDataService.imageTags().subscribe(data => this.populateData(data)));
+    this.logger.info("ngOnInit:tags for:", this.text, "->", this.tagsForImage, "id ->", this.id);
   }
 
   ngOnDestroy(): void {
@@ -73,36 +81,37 @@ export class TagEditorComponent implements OnInit, OnDestroy {
   }
 
   private populateData(imageTags: ImageTag[]) {
-    const tagData: TagData[] = imageTags.map(item => ({key: item.key, value: item.subject}));
-    this.logger.debug("refreshed tag lookups with:", imageTags, "transformed to tagData:", tagData);
-    this.tagLookups.next(tagData);
-    this.editableTags = this?.tags?.map(tag => ({value: this.imageTagDataService.findTag(tag)?.subject}));
+    if (imageTags) {
+      const tagData: TagData[] = imageTags.map(item => ({key: item.key, value: item.subject}));
+      this.logger.debug("refreshed tag lookups with:", imageTags, "transformed to tagData:", tagData);
+      this.tagLookups.next(tagData);
+      this.editableTags = this?.tagsForImage?.map(tag => ({value: this.imageTagDataService.findTag(imageTags, tag)?.subject}));
+    }
   }
 
-  onAdd(data) {
+  onAdd(data: TagData) {
     this.logger.info("onAdd:data:", data);
     const tagData: TagData = data.added;
-    const preAddTags: number[] = cloneDeep(this.tags);
+    const preAddTags: number[] = cloneDeep(this.tagsForImage);
     if (!tagData.key) {
-      const newImage: ImageTag = this.imageTagDataService.addTag(tagData.value);
-      this.tags.push(newImage.key);
+      const newImage: ImageTag = this.imageTagDataService.addTag(this.contentMetadataImageTags, tagData.value);
       this.logger.debug("adding new Image tag", newImage);
-    } else if (!this.tags.includes(tagData.key)) {
-      this.tags.push(tagData.key);
+      this.tagsForImage.push(newImage.key);
+    } else if (!this.tagsForImage.includes(tagData.key)) {
+      this.tagsForImage.push(tagData.key);
       this.logger.debug("adding existing Image tag", tagData);
     }
-
-    if (isEqual(preAddTags, this.tags)) {
+    if (isEqual(preAddTags, this.tagsForImage)) {
       this.logger.debug("onAdd:", this.text, "no change to tags", tagData);
     } else {
-      const emitValue = this.imageTagDataService.asImageTags(this.tags);
-      this.logger.debug("onAdd:", this.text, "preAddTags:", preAddTags, "postAddTags:", this.tags, "emitting:", emitValue);
-      this.tagsChange.emit(emitValue);
+      const emittedImageTags = this.imageTagDataService.asImageTags(this.contentMetadataImageTags, this.tagsForImage);
+      this.logger.debug("onAdd:", this.text, "preAddTags:", preAddTags, "postAddTags:", this.tagsForImage, "emitting:", emittedImageTags);
+      this.tagsChange.emit(emittedImageTags);
     }
   }
 
   onRemove(data: TagData[]) {
-    const stories = this.imageTagDataService.asImageTags(data.map(item => item.key));
+    const stories = this.imageTagDataService.asImageTags(this.contentMetadataImageTags, data.map(item => item.key));
     this.logger.debug("onRemove tag data", data, "stories", stories);
     this.tagsChange.emit(stories);
   }

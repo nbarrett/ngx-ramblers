@@ -30,11 +30,13 @@ export interface PageContentRow {
   columns: PageContentColumn[];
   marginTop?: number;
   marginBottom?: number;
+  carousel?: CarouselData;
 }
 
 export interface PageContentColumn extends Link, HasPageContentRows {
   columns?: number;
   contentTextId?: string;
+  contentText?: string;
   imageSource?: string;
   imageBorderRadius?: number;
   icon?: string;
@@ -49,9 +51,14 @@ export interface PageContentEditEvent {
   editActive?: boolean;
 }
 
+export interface CarouselData {
+  name: string;
+}
+
 export enum PageContentType {
   TEXT = "text",
   ACTION_BUTTONS = "action-buttons",
+  CAROUSEL = "carousel",
 }
 
 export enum ImageType {

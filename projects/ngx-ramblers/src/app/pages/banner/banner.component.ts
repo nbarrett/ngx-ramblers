@@ -12,7 +12,7 @@ import {
   TitleLine
 } from "../../models/banner-configuration.model";
 import { Member } from "../../models/member.model";
-import { BannerImageType, colourSelectors, Image, SystemConfig } from "../../models/system.model";
+import { RootFolder, colourSelectors, Image, SystemConfig } from "../../models/system.model";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
 import { sortBy } from "../../services/arrays";
 import { BannerConfigService } from "../../services/banner-config.service";
@@ -184,13 +184,13 @@ import { faTableCells } from "@fortawesome/free-solid-svg-icons";
 
 export class BannerComponent implements OnInit, OnDestroy {
   private logger: Logger;
-  public bannerPhotos: BannerImageType = BannerImageType.bannerPhotos;
+  public bannerPhotos: RootFolder = RootFolder.bannerPhotos;
   public allowContentEdits: boolean;
   public showIcon = true;
   public config: SystemConfig;
-  public logos: BannerImageType = BannerImageType.logos;
+  public logos: RootFolder = RootFolder.logos;
   public bannerTypes: KeyValue<string>[] = enumKeyValues(BannerType);
-  public backgrounds: BannerImageType = BannerImageType.backgrounds;
+  public backgrounds: RootFolder = RootFolder.backgrounds;
   public banners: BannerConfig[];
   public editableBanner: BannerConfig;
   public isCollapsed = true;
@@ -311,12 +311,12 @@ export class BannerComponent implements OnInit, OnDestroy {
   defaultPaperCut(): PapercutBackgroundBanner {
     return {
       photo: {
-        bannerImageType: BannerImageType.bannerPhotos,
+        bannerImageType: RootFolder.bannerPhotos,
         show: true,
         image: {originalFileName: null, padding: 0, width: 300}
       },
-      logo: {bannerImageType: BannerImageType.logos, show: true, image: {padding: 0, width: 100}},
-      background: {bannerImageType: BannerImageType.backgrounds, show: true, image: {padding: 0, width: 100}},
+      logo: {bannerImageType: RootFolder.logos, show: true, image: {padding: 0, width: 100}},
+      background: {bannerImageType: RootFolder.backgrounds, show: true, image: {padding: 0, width: 100}},
       text: {show: true, value: "", padding: 0, fontSize: 15, class: null}
     };
   };
@@ -344,7 +344,7 @@ export class BannerComponent implements OnInit, OnDestroy {
   private defaultLogoAndTextLines(): LogoAndTextLinesBanner {
     const groupWords: string[] = this.config.group.longName.split(" ");
     return {
-      logo: {columns: 2, bannerImageType: BannerImageType.logos, show: true, image: {padding: 0, width: 100}},
+      logo: {columns: 2, bannerImageType: RootFolder.logos, show: true, image: {padding: 0, width: 100}},
       line1: {
         fontSize: 33,
         include: true,

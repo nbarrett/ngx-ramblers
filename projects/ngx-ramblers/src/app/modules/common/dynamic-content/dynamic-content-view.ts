@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { PageContent, PageContentColumn, PageContentRow } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -7,13 +7,15 @@ import { AlertInstance } from "../../../services/notifier.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { UrlService } from "../../../services/url.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
+import { Subscription } from "rxjs";
 
 @Component({
   selector: "app-dynamic-content-view",
   templateUrl: "./dynamic-content-view.html",
   styleUrls: ["./dynamic-content.sass"],
 })
-export class DynamicContentViewComponent implements OnInit {
+export class DynamicContentViewComponent implements OnInit, OnDestroy {
+  private pageContentRawData: PageContent;
 
   @Input("pageContent") set acceptChangesFrom(pageContent: PageContent) {
     this.filterAndSet(pageContent);
@@ -28,21 +30,33 @@ export class DynamicContentViewComponent implements OnInit {
   private logger: Logger;
   public area: string;
   public viewablePageContent: PageContent;
-
+  private subscriptions: Subscription[] = [];
   constructor(
-    public siteEditService: SiteEditService,
     private memberResourcesReferenceData: MemberResourcesReferenceDataService,
     private urlService: UrlService,
     public actions: PageContentActionsService,
+    public siteEditService: SiteEditService,
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(DynamicContentViewComponent, NgxLoggerLevel.OFF);
   }
 
   ngOnInit() {
     this.area = this.urlService.area();
+    this.logger.info("ngOnInit called for", this.area);
+    this.subscriptions.push(this.siteEditService.events.subscribe(event => {
+      this.logger.info("site edit toggled to", event.data);
+      if (!event.data) {
+        this.filterAndSet(this.pageContentRawData);
+      }
+    }));
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   private filterAndSet(pageContent: PageContent) {
+    this.pageContentRawData = pageContent;
     this.viewablePageContent = this.pageContentFilteredForAccessLevel(pageContent);
     this.logger.info("pageContent:", pageContent, "filteredPageContent:", this.viewablePageContent);
   }

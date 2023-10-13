@@ -151,6 +151,13 @@ export class AdminComponent implements OnInit, OnDestroy, OnDestroy {
               href: "admin/banners",
               contentTextId: null
             },
+            {
+              accessLevel: AccessLevel.committee,
+              title: "Edit Carousel Images",
+              icon: "faImages",
+              href: "admin/carousel-editor",
+              contentTextId: null
+            },
           ]
         }]
     };
