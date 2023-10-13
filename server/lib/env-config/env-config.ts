@@ -13,7 +13,7 @@ function validatedEnvironmentVariable(variableName: string, prefixed?: boolean):
 const env = validatedEnvironmentVariable("NODE_ENV");
 
 function logNamespace(moduleName: string) {
-  return `ekwg:${env}:${moduleName || ""}`;
+  return `ngx-ramblers:${env}:${moduleName || ""}`;
 }
 export const envConfig = {
   production: env === "production",

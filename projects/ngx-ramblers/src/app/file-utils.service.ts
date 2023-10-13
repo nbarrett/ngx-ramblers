@@ -58,16 +58,6 @@ export class FileUtilsService {
     return container ? resource[container].fileNameData : resource.fileNameData;
   }
 
-  resourceUrl(resource, container, metaDataPathSegment) {
-    const fileNameData = this.getFileNameData(resource, container);
-    return resource && fileNameData ? this.urlService.baseUrl() + this.contentMetadataService.baseUrl(metaDataPathSegment) + "/" + fileNameData.awsFileName : "";
-  }
-
-  resourceTitle(resource) {
-    this.logger.debug("resourceTitle:resource =>", resource);
-    return resource ? (this.dateUtils.asString(resource.resourceDate, undefined, this.dateUtils.formats.displayDateTh) + " - " + (resource.data ? resource.data.fileNameData.title : "")) : "";
-  }
-
   fileExtensionIs(fileName, extensions: string[]) {
     return extensions.includes(this.fileExtension(fileName));
   }

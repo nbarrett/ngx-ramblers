@@ -44,7 +44,7 @@ export class ImageDuplicatesService {
   }
 
   populateFrom(contentMetadata: ContentMetadata, filteredFiles: ContentMetadataItem[]) {
-    if (contentMetadata && filteredFiles) {
+    if (contentMetadata?.files && filteredFiles) {
       this.contentMetadata = contentMetadata;
       this.filteredFiles = filteredFiles;
       this.logger.debug("populateFrom total number:", contentMetadata.files.length, "filtered number:", filteredFiles.length);

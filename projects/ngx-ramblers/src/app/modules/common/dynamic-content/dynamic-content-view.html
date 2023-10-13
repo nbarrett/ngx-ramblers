@@ -11,6 +11,9 @@
                                        [contentPath]="contentPath"
                                        [contentDescription]="contentDescription">
     </app-dynamic-content-view-text-row>
+    <app-dynamic-content-view-carousel *ngIf="actions.isCarousel(row)"
+                                       [row]="row"
+                                       [index]="actions.carouselIndex(row, viewablePageContent)"></app-dynamic-content-view-carousel>
   </ng-container>
   <ng-container *ngIf="!actions.pageContentFound(viewablePageContent, !!viewablePageContent?.id)">
     <div *ngIf="notify.alertTarget.showAlert" class="col-12 alert {{notify.alertTarget.alertClass}} mt-3">

@@ -1,124 +1,104 @@
 import { Injectable } from "@angular/core";
-import { ActivatedRoute, Router } from "@angular/router";
+import { Router } from "@angular/router";
 import max from "lodash-es/max";
 import { NgxLoggerLevel } from "ngx-logger";
-import { BehaviorSubject, Observable } from "rxjs";
 import { ALL_PHOTOS, ImageTag, RECENT_PHOTOS } from "../models/content-metadata.model";
 import { sortBy } from "./arrays";
 import { Logger, LoggerFactory } from "./logger-factory.service";
+import kebabCase from "lodash-es/kebabCase";
+import { StoredValue } from "../models/ui-actions";
+import { StringUtilsService } from "./string-utils.service";
 
 @Injectable({
   providedIn: "root"
 })
 export class ImageTagDataService {
   private logger: Logger;
-  private tagSubjects = new BehaviorSubject<ImageTag[]>([]);
-  private imageTagData: ImageTag[] = [];
-  private selectedSubject = new BehaviorSubject<ImageTag>(null);
-  public activeTag: ImageTag;
-  private story: string;
 
   constructor(private router: Router,
-              private activatedRoute: ActivatedRoute,
+              private stringUtils: StringUtilsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ImageTagDataService, NgxLoggerLevel.OFF);
-    this.activatedRoute.queryParams.subscribe(params => {
-      this.story = params["story"];
-      this.syncTagWithStory();
-    });
+    this.logger = loggerFactory.createLogger("ImageTagDataService", NgxLoggerLevel.OFF);
   }
 
-  private syncTagWithStory() {
-    const tag = this.findTag(this.story);
-    this.logger.debug("received story parameter:", this.story, "setting activeTag to:", tag);
-    this.activeTag = tag;
-    if (tag) {
-      this.publishTag(tag);
+  recentPhotosPlusImageTagsPlusAll(imageTags: ImageTag[]): ImageTag[] {
+    return [RECENT_PHOTOS].concat(this.imageTagsSorted(imageTags)).concat(ALL_PHOTOS);
+  }
+
+  addTag(imageTags: ImageTag[], subject: string): ImageTag {
+    const existingMatchingTag: ImageTag = imageTags.find(item => item.subject?.toLowerCase() === subject?.toLowerCase());
+    if (existingMatchingTag) {
+      this.logger.info("tag already exists:", existingMatchingTag, "for:", subject);
+      return existingMatchingTag;
+    } else {
+      const key = this.nextKey(imageTags);
+      const imageTag: ImageTag = {key, subject};
+      imageTags.push(imageTag);
+      this.logger.info("given new subject:", subject, "imageTags now contain:", imageTags);
+      return imageTag;
     }
   }
 
-  populateFrom(imageTagData: ImageTag[]) {
-    this.logger.debug("populateFrom", imageTagData);
-    this.imageTagData = imageTagData;
-    this.syncTagWithStory();
-    this.publishChanges();
-  }
-
-  imageTags(): Observable<ImageTag[]> {
-    return this.tagSubjects.asObservable();
-  }
-
-  imageTagsPlusRecentAndAll(): ImageTag[] {
-    return [RECENT_PHOTOS].concat(this.imageTagsSorted()).concat(ALL_PHOTOS);
-  }
-
-  private publishChanges() {
-    this.logger.info("publishChanges:", this.imageTagData);
-    this.tagSubjects.next(this.imageTagData);
-  }
-
-  addTag(subject: string): ImageTag {
-    const key = this.nextKey();
-    const imageTag: ImageTag = {key, subject};
-    this.imageTagData.push(imageTag);
-    this.publishChanges();
-    return imageTag;
-  }
-
-  private nextKey(): number {
-    const maxKey = max(this.imageTagData.map(item => item.key));
+  private nextKey(imageTags: ImageTag[]): number {
+    const maxKey = max(imageTags.map(item => item.key));
     return (isNaN(maxKey) ? 0 : maxKey) + 1;
   }
 
-  asImageTags(keys: number[]): ImageTag[] {
-    return this.imageTagsSorted().filter(tag => keys.includes(tag.key));
+  asImageTags(imageTags: ImageTag[], keys: number[]): ImageTag[] {
+    return this.imageTagsSorted(imageTags).filter(tag => keys.includes(tag.key));
   }
 
-  findTag(value: ImageTag | number | string): ImageTag {
-    if (typeof value === "object") {
-      return this.findTag(value.key);
+  findTag(imageTags: ImageTag[], value: ImageTag | number | string): ImageTag {
+    if (!value) {
+      this.logger.info("findTag:can't search for:", value);
+    } else if (typeof value === "object") {
+      return this.findTag(imageTags, value.key);
     } else {
-      return this.imageTagsPlusRecentAndAll().find(item => item.key === +value || item.subject.toLowerCase() === value?.toString()?.toLowerCase());
+      return this.recentPhotosPlusImageTagsPlusAll(imageTags).find(item => item.key === +value || kebabCase(item.subject) === kebabCase(value.toString()));
     }
   }
 
-  public imageTagsSorted(): ImageTag[] {
-    const sorted = this.imageTagData.sort(sortBy("sortIndex", "subject"));
-    this.logger.debug("imageTagsSorted:", sorted);
-    return sorted;
+  public imageTagsSorted(imageTags: ImageTag[]): ImageTag[] {
+    this.logger.info("imageTagsSorted:imageTags:", imageTags);
+    if (imageTags) {
+      const sorted: ImageTag[] = imageTags.sort(sortBy("sortIndex", "subject"));
+      this.logger.debug("imageTagsSorted:", sorted);
+      return sorted;
+    } else {
+      return [];
+    }
   }
 
-  isActive(tag: ImageTag): boolean {
-    const active = (this.activeTag?.key === tag?.key) || (!this.activeTag && tag === RECENT_PHOTOS);
-    this.logger.debug("activeTag:", this.activeTag, "supplied tag", tag, "-> active:", active);
+  isActive(tag: ImageTag, activeTag: ImageTag): boolean {
+    const active = (activeTag?.key === tag?.key) || (!activeTag && tag === RECENT_PHOTOS);
+    this.logger.debug("activeTag:", activeTag, "supplied tag", tag, "-> active:", active);
     return active;
   }
 
   isImageTag(tagOrValue: ImageTag | number | string): tagOrValue is ImageTag {
-    return (tagOrValue as ImageTag).key !== undefined;
+    return (tagOrValue as ImageTag)?.key !== undefined;
   }
 
-  select(tagOrValue: ImageTag | number | string) {
+  select(imageTags: ImageTag[], tagOrValue: ImageTag | number | string) {
     this.logger.debug("selecting tagOrValue", tagOrValue);
     if (this.isImageTag(tagOrValue)) {
-      this.publishTag(tagOrValue);
+      this.updateUrlWith(tagOrValue);
     } else {
-      const tag = this.findTag(tagOrValue);
+      const tag = this.findTag(imageTags, tagOrValue);
       if (tag) {
-        this.publishTag(tag);
+        this.updateUrlWith(tag);
       }
     }
   }
 
-  private publishTag(tag: ImageTag) {
-    this.selectedSubject.next(tag);
+  public updateUrlWith(tag: ImageTag, index?: number) {
     this.router.navigate([], {
-      queryParams: {story: tag.subject.toLowerCase()}, queryParamsHandling: "merge"
+      queryParams: {[this.storyParameterName(index)]: kebabCase(tag.subject)},
+      queryParamsHandling: "merge"
     });
   }
 
-  selectedTag(): Observable<ImageTag> {
-    return this.selectedSubject.asObservable();
+  public storyParameterName(index: number): string {
+    return this.stringUtils.kebabCase(StoredValue.STORY, index > 0 ? index : null);
   }
-
 }

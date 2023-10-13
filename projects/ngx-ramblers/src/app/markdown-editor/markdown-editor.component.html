@@ -1,39 +1,27 @@
 <div class="row" *ngIf="siteEditService.active()">
   <div class="col-12">
-    <div *ngIf="buttonsAvailableOnlyOnFocus" class="badge-button"
-         (click)="componentHasFocus()? toggleToView() : toggleToEdit()" delay=500
-         [tooltip]="(componentHasFocus()? 'Exit edit' : 'Edit')  + ' content for ' + description">
-      <fa-icon [icon]="faPencil"></fa-icon>
-      <span>{{componentHasFocus() ? 'exit edit' : 'edit'}}</span>
-    </div>
+    <app-badge-button *ngIf="buttonsAvailableOnlyOnFocus"
+                      (click)="componentHasFocus() ? toggleToView() : toggleToEdit()" delay=500
+                      [tooltip]="(componentHasFocus()? 'Exit edit' : 'Edit') + ' content for ' + description"
+                      [icon]="faPencil" [caption]="componentHasFocus() ? 'Exit edit' : 'Edit'">
+    </app-badge-button>
     <ng-container *ngIf="!buttonsAvailableOnlyOnFocus || componentHasFocus()">
       <ng-content select="[prepend]"></ng-content>
-      <div *ngIf="editorState.view"
-           (click)="toggleEdit()"
-           delay=500 [tooltip]="tooltip()" class="badge-button">
-        <fa-icon [icon]="icon()"></fa-icon>
-        <span>{{nextActionCaption()}}</span>
-      </div>
-      <div *ngIf="dirty() && canSave()" class="badge-button"
-           (click)="save()" [tooltip]="'Save content for ' + description">
-        <fa-icon [icon]="saving() ? faSpinner: faCircleCheck"></fa-icon>
-        <span>save</span>
-      </div>
-      <div *ngIf="dirty() && !saving()" class="badge-button" (click)="revert()"
-           delay=500 [tooltip]="'Revert content for ' + description">
-        <fa-icon [icon]="reverting() ? faSpinner: faRemove"></fa-icon>
-        <span>revert</span>
-      </div>
-      <div *ngIf="canDelete() && !saving()" class="badge-button"
-           (click)="delete()" delay=500 [tooltip]="'Delete content for ' + description">
-        <fa-icon [icon]="reverting() ? faSpinner: faEraser"></fa-icon>
-        <span>delete</span>
-      </div>
-      <div *ngIf="canClear()" class="badge-button"
-           (click)="clear()" delay=500 [tooltip]="'Clear content for ' + description">
-        <fa-icon [icon]="reverting() ? faSpinner: faEraser"></fa-icon>
-        <span>clear</span>
-      </div>
+      <app-badge-button *ngIf="editorState.view" (click)="toggleEdit()" delay=500 [tooltip]="tooltip()" [icon]="icon()"
+                        [caption]="nextActionCaption()"></app-badge-button>
+      <app-badge-button *ngIf="dirty() && canSave()" (click)="save()" [tooltip]="'Save content for ' + description"
+                        delay=500 [icon]="saving() ? faSpinner: faCircleCheck"
+                        [caption]="'save'"></app-badge-button>
+      <app-badge-button *ngIf="dirty() && !saving()" (click)="revert()"
+                        delay=500 [tooltip]="'Revert content for ' + description"
+                        [icon]="reverting() ? faSpinner: faRemove" caption="revert"></app-badge-button>
+      <app-badge-button *ngIf="canDelete() && !saving()" (click)="delete()" delay=500
+                        [tooltip]="'Delete content for ' + description" [icon]="reverting() ? faSpinner: faEraser"
+                        caption="delete">
+      </app-badge-button>
+      <app-badge-button *ngIf="canClear()" (click)="clear()" delay=500 [tooltip]="'Clear content for ' + description"
+                        [icon]="reverting() ? faSpinner: faEraser" caption="clear">
+      </app-badge-button>
       <ng-content select=":not([prepend])"></ng-content>
     </ng-container>
   </div>
@@ -46,9 +34,14 @@
     <label class="mt-2 mt-3" [for]="content.name">Content for {{content.name}}</label>
   </div>
 </div>
-<span *ngIf="editorState.view==='view'"
+<span *ngIf="showing() && editorState.view==='view'"
       (click)="toggleEdit()" markdown ngPreserveWhitespaces [data]="content.text">
 </span>
+<div *ngIf="allowHide && editorState.view==='view'" class="badge-button"
+     (click)="toggleShowHide()" [tooltip]="showHideCaption()">
+  <fa-icon [icon]="showing() ? faAngleUp:faAngleDown"></fa-icon>
+  <span>{{showHideCaption()}}</span>
+</div>
 <textarea *ngIf="editorState.view==='edit'"
           [(ngModel)]="content.text"
           (ngModelChange)="changeText($event)"

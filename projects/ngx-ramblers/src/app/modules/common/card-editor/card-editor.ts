@@ -2,7 +2,13 @@ import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
 import { faPencil } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AwsFileData } from "../../../models/aws-object.model";
-import { ImageType, PageContent, PageContentColumn, PageContentEditEvent, PageContentRow } from "../../../models/content-text.model";
+import {
+  ImageType,
+  PageContent,
+  PageContentColumn,
+  PageContentEditEvent,
+  PageContentRow
+} from "../../../models/content-text.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { IconService } from "../../../services/icon-service/icon-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -48,7 +54,7 @@ export class CardEditorComponent implements OnInit {
     public actions: PageContentActionsService,
     private broadcastService: BroadcastService<PageContent>,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(CardEditorComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(CardEditorComponent, NgxLoggerLevel.INFO);
   }
 
   ngOnInit() {
@@ -110,6 +116,11 @@ export class CardEditorComponent implements OnInit {
     } else {
       this.column.imageSource = null;
     }
+  }
+
+  reformatHref($event: any) {
+    this.logger.info("reformat:", $event, "this.column.href", this.column.href);
+    this.column.href = this.urlService.reformatHref(this.column.href);
   }
 }
 

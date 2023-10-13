@@ -112,14 +112,9 @@
       </div>
       <div class="row">
         <div class="col-12 mb-2">
-          <label for="aspect-ratio">Aspect Ratio:</label>
-          <select class="form-control input-sm"
-                  [(ngModel)]="dimension"
-                  (change)="changeAspectRatioSettingsAndCrop($event)"
-                  id="aspect-ratio">
-            <option *ngFor="let aspectRatio of dimensions"
-                    [ngValue]="aspectRatio">{{formatAspectRatio(aspectRatio)}}</option>
-          </select>
+          <app-aspect-ratio-selector [dimensionsDescription]="selectAspectRatio"
+                                     (initialised)="changeAspectRatioSettings($event)"
+                                     (dimensionsChanged)="changeAspectRatioSettingsAndCrop($event)"></app-aspect-ratio-selector>
         </div>
         <div class="col-12 mb-2">
           <label for="compression">Compress to size ({{imageQuality}}%):</label>

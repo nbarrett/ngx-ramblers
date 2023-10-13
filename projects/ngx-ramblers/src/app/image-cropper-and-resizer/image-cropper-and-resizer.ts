@@ -43,6 +43,7 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../services/notifier.service";
 import { NumberUtilsService } from "../services/number-utils.service";
 import { UrlService } from "../services/url.service";
+import { RootFolder } from "../models/system.model";
 
 @Component({
   selector: "app-image-cropper",
@@ -85,17 +86,6 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
   private existingTitle: string;
   public uploader: FileUploader;
   public aspectRatio: number;
-  public dimensions: DescribedDimensions[] = [
-    {width: 1, height: 1, description: "Square"},
-    {width: 3, height: 2, description: "Classic 35mm still"},
-    {width: 4, height: 3, description: "Default"},
-    {width: 1.6180, height: 1, description: "The golden ratio"},
-    {width: 5, height: 7, description: "Portrait"},
-    {width: 16, height: 10, description: "A common computer screen ratio"},
-    {width: 16, height: 9, description: "HD video standard"},
-    {width: 940, height: 300, description: "Home page"},
-    {width: 1116, height: 470, description: "Ramblers Landing page"},
-  ];
 
   faClose = faClose;
   faSave = faSave;
@@ -133,7 +123,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
   ngOnInit(): void {
     this.logger.debug("constructed with fileNameData", this.fileNameData);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
-    const rootFolder = this.rootFolder || "site-content";
+    const rootFolder = this.rootFolder || RootFolder.siteContent;
     this.uploader = this.fileUploadService.createUploaderFor(rootFolder, false);
     this.subscriptions.push(this.uploader.response.subscribe((response: string | HttpErrorResponse) => {
       this.logger.debug("response", response, "type", typeof response);
@@ -161,12 +151,6 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
         .then((file: File) => this.processSingleFile(file))
         .catch(error => this.throwOrNotifyError({title: "Unexpected Error", message: error}));
     }
-    if (this.selectAspectRatio) {
-      this.dimension = this.dimensions.find(item => item.description.toLowerCase() === this.selectAspectRatio.toLowerCase()) || this.dimensions[0];
-    } else {
-      this.dimension = this.dimensions[0];
-    }
-    this.changeAspectRatioSettings();
   }
 
   ngOnDestroy(): void {
@@ -349,13 +333,14 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     return this.notifyTarget.busy || this.notifyTarget.showAlert;
   }
 
-  changeAspectRatioSettingsAndCrop(event: any) {
-    this.changeAspectRatioSettings();
+  changeAspectRatioSettingsAndCrop(dimension: DescribedDimensions) {
+    this.changeAspectRatioSettings(dimension);
     this.logger.info("changeAspectRatio:dimension:", this.dimension, "aspectRatio ->", this.aspectRatio, "event:", event);
     this.imageCropperComponent.crop();
   }
 
-  private changeAspectRatioSettings() {
+  public changeAspectRatioSettings(dimension: DescribedDimensions) {
+    this.dimension = dimension;
     this.aspectRatio = this.dimension.width / this.dimension.height;
     this.maintainAspectRatio = !this.aspectRatioMaintained(this.dimension);
   }
@@ -404,11 +389,6 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
 
   progress() {
     return this.uploader.progress;
-  }
-
-  formatAspectRatio(dimensions: DescribedDimensions): string {
-    return this.aspectRatioMaintained(dimensions) ? "Free selection" : `${dimensions.width} x ${dimensions.height} ${dimensions.description ?
-      " (" + dimensions.description + ")" : ""}`;
   }
 
   private aspectRatioMaintained(dimensions: Dimensions): boolean {

@@ -3,7 +3,7 @@ import { faAdd, faRemove, faSortAlphaAsc } from "@fortawesome/free-solid-svg-ico
 import { FileUploader } from "ng2-file-upload";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertMessage, AlertTarget } from "../../../../models/alert-target.model";
-import { BannerImageType, Image, Images, SystemConfig } from "../../../../models/system.model";
+import { RootFolder, Image, Images, SystemConfig } from "../../../../models/system.model";
 import { sortBy } from "../../../../services/arrays";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
@@ -42,7 +42,7 @@ export class ImageCollectionSettingsComponent implements OnInit {
     this.logger = loggerFactory.createLogger(ImageCollectionSettingsComponent, NgxLoggerLevel.OFF);
   }
 
-  @Input() imageType: BannerImageType;
+  @Input() imageType: RootFolder;
   @Input() images: Images;
   @Input() config: SystemConfig;
 

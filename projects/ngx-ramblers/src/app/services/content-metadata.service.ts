@@ -7,6 +7,7 @@ import { DataQueryOptions } from "../models/api-request.model";
 import {
   ContentMetadata,
   ContentMetadataApiResponse,
+  ContentMetadataApiResponses,
   ContentMetadataItem,
   ImageFilterType,
   ImageTag,
@@ -23,6 +24,8 @@ import { DateUtilsService } from "./date-utils.service";
 import { ImageDuplicatesService } from "./image-duplicates-service";
 import { ImageTagDataService } from "./image-tag-data-service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
+import { RootFolder } from "../models/system.model";
+import { StringUtilsService } from "./string-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -30,17 +33,19 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 
 export class ContentMetadataService {
   private BASE_URL = "api/database/content-metadata";
-  private logger: Logger;
+  private readonly logger: Logger;
   private contentMetadataSubject = new Subject<ContentMetadataApiResponse>();
+  private contentMetadataSubjects = new Subject<ContentMetadataApiResponses>();
   private s3MetadataSubject = new Subject<S3MetadataApiResponse>();
 
   constructor(private http: HttpClient,
               private dateUtils: DateUtilsService,
+              private stringUtils: StringUtilsService,
               private searchFilterPipe: SearchFilterPipe,
               public imageTagDataService: ImageTagDataService,
               private imageDuplicatesService: ImageDuplicatesService,
               private commonDataService: CommonDataService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ContentMetadataService, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("ContentMetadataService", NgxLoggerLevel.OFF);
   }
 
   contentMetadataNotifications(): Observable<MemberApiResponse> {
@@ -55,14 +60,39 @@ export class ContentMetadataService {
     return `${S3_BASE_URL}/${rootFolder}`;
   }
 
-  transformFiles(contentMetaData: ContentMetadataApiResponse, contentMetaDataType: string): ContentMetadata {
-    return {
-      ...contentMetaData?.response, files: contentMetaData?.response?.files
-        .filter(file => file?.image)
-        .map(file => ({
-          ...file, image: `${S3_BASE_URL}/${contentMetaDataType}/${last(file?.image?.split("/"))}`
-        }))
-    };
+  optionallyMigrate(contentMetaData: ContentMetadata, rootFolder: RootFolder, name: string): ContentMetadata {
+    return contentMetaData?.rootFolder ?
+      {
+        ...contentMetaData,
+        files: this.transformFileNames(contentMetaData),
+      } :
+      {
+        ...contentMetaData,
+        files: this.transformFileNames(contentMetaData),
+        rootFolder,
+        name,
+        contentMetaDataType: null,
+        baseUrl: null,
+      };
+  }
+
+  private transformFileNames(contentMetadataApiResponse: ContentMetadata) {
+    return contentMetadataApiResponse?.files
+      .filter(item => item?.image)
+      .map(item => ({
+        ...item, image: this.truncatePathFromName(item.image)
+      }));
+  }
+
+  public truncatePathFromName(imagePath: string) {
+    const fileName = last(imagePath?.split("/"));
+    if (fileName !== imagePath) {
+      this.logger.debug("truncated fileName:item:", imagePath, "to:", fileName);
+      return fileName;
+    } else {
+      this.logger.debug("fileName already truncated:", imagePath);
+      return imagePath;
+    }
   }
 
   async create(contentMetaData: ContentMetadata): Promise<ContentMetadata> {
@@ -87,21 +117,28 @@ export class ContentMetadataService {
     }
   }
 
-  async items(contentMetaDataType: string): Promise<ContentMetadata> {
-    const options: DataQueryOptions = {criteria: {contentMetaDataType}};
+  async all(dataQueryOptions?: DataQueryOptions): Promise<ContentMetadata[]> {
+    const params = this.commonDataService.toHttpParams(dataQueryOptions);
+    this.logger.debug("all:dataQueryOptions", dataQueryOptions, "params", params.toString());
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<ContentMetadataApiResponses>(`${this.BASE_URL}/all`, {params}), this.contentMetadataSubjects);
+    return apiResponse.response.map(item => this.optionallyMigrate(item, item.rootFolder || RootFolder.carousels, item.name || item.contentMetaDataType)) as ContentMetadata[];
+  }
+
+  async items(rootFolder: RootFolder, name: string): Promise<ContentMetadata> {
+    const options: DataQueryOptions = {criteria: {$or: [{name}, {contentMetaDataType: name}]}};
     const params = this.commonDataService.toHttpParams(options);
     this.logger.debug("items:criteria:params", params.toString());
     const apiResponse: ContentMetadataApiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<ContentMetadataApiResponse>(this.BASE_URL, {params}), this.contentMetadataSubject);
-    const response = this.transformFiles(apiResponse, contentMetaDataType);
+    const response = this.optionallyMigrate(apiResponse.response, rootFolder, name);
     this.logger.info("items:transformed apiResponse", response);
     return response;
   }
 
   async listMetaData(prefix: string): Promise<S3Metadata[]> {
-    const url = `${S3_METADATA_URL}/${prefix}`;
-    this.logger.debug("listMetaData:prefix", prefix, "url:", url);
+    const url = `${S3_METADATA_URL}?prefix=${prefix}`;
+    this.logger.info("listMetaData:prefix", prefix, "url:", url);
     const apiResponse: S3MetadataApiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<S3MetadataApiResponse>(url), this.s3MetadataSubject);
-    this.logger.debug("listMetaData:prefix", prefix, "returning", apiResponse, "S3Metadata items");
+    this.logger.info("listMetaData:prefix", prefix, "returning S3MetadataApiResponse:", apiResponse);
     return apiResponse.response;
   }
 
@@ -112,14 +149,14 @@ export class ContentMetadataService {
     return this.searchFilterPipe.transform(filtered, filterText);
   }
 
-  filterSlides(allSlides: ContentMetadataItem[], filterType: ImageFilterType, tag?: ImageTag, showDuplicates?: boolean, filterText?: string): ContentMetadataItem[] {
+  filterSlides(imageTags: ImageTag[], allSlides: ContentMetadataItem[], filterType: ImageFilterType, tag?: ImageTag, showDuplicates?: boolean, filterText?: string): ContentMetadataItem[] {
     this.logger.debug("filterSlides:allSlides count", allSlides?.length, "tag:", tag, "showDuplicates:", showDuplicates);
     if (filterType === ImageFilterType.ALL) {
       const filteredSlides: ContentMetadataItem[] = this.filterAndSort(showDuplicates, allSlides, filterText);
       this.logger.debug(filteredSlides?.length, "slides selected from", tag?.subject, "showDuplicates:", showDuplicates);
       return filteredSlides;
     } else if (filterType === ImageFilterType.RECENT) {
-      const excludeFromRecentKeys: number[] = this.imageTagDataService.imageTagsSorted().filter(tag => tag.excludeFromRecent).map(tag => tag.key);
+      const excludeFromRecentKeys: number[] = this.imageTagDataService.imageTagsSorted(imageTags).filter(tag => tag.excludeFromRecent).map(tag => tag.key);
       const sinceDate = this.dateUtils.momentNow().add(-6, "months");
       const filteredSlides = this.filterAndSort(showDuplicates, allSlides?.filter(file => file.date >= sinceDate.valueOf() && !(file.tags.find(tag => excludeFromRecentKeys.includes(tag)))), filterText);
       this.logger.debug(filteredSlides?.length, "slides selected from", tag?.subject, "since", this.dateUtils.displayDate(sinceDate), "excludeFromRecentKeys:", excludeFromRecentKeys.join(", "), "showDuplicates:", showDuplicates);
@@ -165,4 +202,19 @@ export class ContentMetadataService {
     return value;
   }
 
+  qualifiedFileNameWithRoot(rootFolder: RootFolder, contentMetaDataName: string, filename: string): string {
+    return filename ? rootFolder + "/" + contentMetaDataName + "/" + filename : null;
+  }
+
+  qualifiedFileNameMinusRoot(contentMetaDataName: string, filename: string): string {
+    return contentMetaDataName + "/" + filename;
+  }
+
+  rootFolderAndName(rootFolder: RootFolder, name: string): string {
+    return rootFolder + "/" + name;
+  }
+
+  contentMetadataName(contentMetadata: ContentMetadata): string {
+    return this.stringUtils.asTitle(this.stringUtils.asWords(contentMetadata?.name));
+  }
 }

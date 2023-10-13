@@ -57,8 +57,8 @@
         <div class="row mt-2 align-items-end mb-3">
           <div [ngClass]="pageContentRowService.rowsSelected()? 'col-md-10' : 'col'">
             <form>
-              <label class="mr-2" for="path">Content Path:</label>
-              <input autocomplete="nope" [typeahead]="pageContentService.siteLinks"
+              <label class="mr-2" for="path">Content Path <span>{{contentPathReadOnly? "(not editable as this content is part of internal page)":""}}</span></label>
+              <input [disabled]="contentPathReadOnly" autocomplete="nope" [typeahead]="pageContentService.siteLinks"
                      [typeaheadMinLength]="0" id="path"
                      [(ngModel)]="pageContent.path"
                      name="path"
@@ -68,7 +68,7 @@
           </div>
           <ng-container *ngIf="pageContentRowService.rowsSelected()">
             <div class="col-sm-4  col-md-2">
-              <label for="action">Action:</label>
+              <label for="action">Action</label>
               <select class="form-control input-sm"
                       [(ngModel)]="action"
                       id="action">
@@ -80,7 +80,7 @@
               <form>
                 <label class="mr-2" for="move-or-copy-to-path">
                   {{action}}
-                  {{stringUtils.pluraliseWithCount(pageContentRowService.selectedRowCount(), "row")}} to:</label>
+                  {{stringUtils.pluraliseWithCount(pageContentRowService.selectedRowCount(), "row")}} to</label>
                 <input id="move-or-copy-to-path"
                        [typeahead]="pageContentService.siteLinks"
                        name="destinationPath"
@@ -93,7 +93,7 @@
               </form>
             </div>
             <div class="col-sm-4 col-md-2 mt-3">
-              <label for="before-after">Position:</label>
+              <label for="before-after">Position</label>
               <select class="form-control input-sm"
                       [(ngModel)]="destinationPathInsertBeforeAfterIndex"
                       id="before-after">
@@ -102,7 +102,7 @@
               </select>
             </div>
             <div class="col-md-10 mt-3">
-              <label for="insert-at-row">Row:</label>
+              <label for="insert-at-row">Row</label>
               <select class="form-control input-sm"
                       [(ngModel)]="destinationPathInsertionRowIndex"
                       (ngModelChange)="destinationPathInsertionRowIndexChange($event)"
@@ -123,21 +123,35 @@
             </div>
           </ng-container>
         </div>
-        <div class="img-thumbnail thumbnail-walk-edit mt-2"
+        <div class="thumbnail-site-edit-top-bottom-margins"
              *ngFor="let row of pageContent?.rows; let rowIndex = index;">
           <div class="thumbnail-heading">Row {{rowIndex + 1}}
             ({{stringUtils.pluraliseWithCount(row?.columns.length, 'column')}})
           </div>
           <div class="row align-items-end mb-3">
             <div class="col-sm-2">
-              <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-type')">Row Type:</label>
+              <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-type')">Row Type</label>
               <select class="form-control input-sm"
                       [(ngModel)]="row.type"
-                      (ngModelChange)="changeType($event)"
+                      (ngModelChange)="changePageContentRowType($event, row)"
                       [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-type')">
                 <option *ngFor="let type of enumKeyValuesForPageContentType"
                         [ngValue]="type.value">{{stringUtils.asTitle(type.value)}}</option>
               </select>
+            </div>
+            <div *ngIf="actions.isCarousel(row) && row?.carousel" class="col">
+              <form>
+                <label class="mr-2"
+                       [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-carousel-name')">Carousel
+                  Name</label>
+                <input autocomplete="new-password" [typeahead]="pageContentService.carousels"
+                       [typeaheadMinLength]="0"
+                       [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-carousel-name')"
+                       [(ngModel)]="row.carousel.name"
+                       name="new-password"
+                       [ngModelOptions]="{standalone: true}"
+                       type="text" class="form-control">
+              </form>
             </div>
             <div class="col">
               <app-margin-select label="Margin Top"
@@ -158,12 +172,20 @@
                                     [row]="row">
               </app-actions-dropdown>
             </div>
-            <app-bulk-action-selector [row]="row"></app-bulk-action-selector>
+            <div class="col mr-3">
+              <app-bulk-action-selector [row]="row"></app-bulk-action-selector>
+            </div>
           </div>
           <app-action-buttons *ngIf="actions.isActionButtons(row)"
                               [pageContent]="pageContent"
                               [rowIndex]="rowIndex">
           </app-action-buttons>
+          <ng-container *ngIf="actions.isCarousel(row)">
+            <app-badge-button *ngIf="!editActive(rowIndex)" [icon]="faPencil" (click)="toggleEditMode(rowIndex)"
+                              [caption]="'Edit'"></app-badge-button>
+            <app-image-list-edit *ngIf="editActive(rowIndex)" [name]="row.carousel.name"
+                                 (exit)="toggleEditMode(rowIndex)"></app-image-list-edit>
+          </ng-container>
           <app-dynamic-content-site-edit-text-row
             [row]="row"
             [rowIndex]="rowIndex"

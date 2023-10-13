@@ -1,0 +1,43 @@
+<div class="carousel-wrapper">
+  <div class="slider-container">
+    <div class="sc-inner">
+      <carousel [noPause]="false" [isAnimated]="true"
+                [interval]="slideInterval"
+                [showIndicators]="showIndicators"
+                [(activeSlide)]="activeSlideIndex"
+                (activeSlideChange)="activeSlideChange(false, $event)">
+        <app-carousel-story-navigator [imageTags]="contentMetadata?.imageTags"
+                                      [index]="index"
+                                      (tagChanged)="tagChanged($event)"></app-carousel-story-navigator>
+        <slide *ngFor="let slide of viewableSlides; let index = index;">
+          <img class="img-fluid" loading="lazy" *ngIf="slide" [src]="imageSourceFor(slide.image)" [alt]="slide.text"
+               style="display: block; width: 100%;">
+          <div class="carousel-caption">
+            <h4>{{slide.text}}</h4>
+            <div>
+              <a delay="500" class="badge event-date"
+                 *ngIf="showIndicators && slide.eventId" [tooltip]="eventTooltip(slide)"
+                 [placement]="'right'" [href]="eventUrl(slide)">
+                on {{slide.date | displayDate}}  </a>
+              <a delay="500" class="badge event-date"
+                 *ngIf="!showIndicators && slide.eventId" [tooltip]="eventTooltip(slide)"
+                 [placement]="'bottom'" [href]="eventUrl(slide)">
+                on {{slide.date | displayDate}}  </a>
+            </div>
+          </div>
+        </slide>
+      </carousel>
+    </div>
+  </div>
+</div>
+<div *ngIf="showEdit" class="row pt-2 pb-2">
+  <div class="col-sm-12">
+    <app-badge-button
+      *ngIf="allowEdits()"
+      caption="edit images for {{contentMetadataService.contentMetadataName(contentMetadata)}}"
+      [routerLink]="'/admin/carousel-editor/' + carouselData"
+      [queryParams]="{story: activeTag?.key}"
+      [icon]="faPencil">
+    </app-badge-button>
+  </div>
+</div>

@@ -9,7 +9,32 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
 
 @Component({
   selector: "app-dynamic-content-view-text-row",
-  templateUrl: "./dynamic-content-view-text-row.html",
+  template: `
+      <ng-container *ngIf="actions.isTextRow(row)">
+          <div [class]="actions.rowClasses(row)">
+              <div *ngFor="let column of row?.columns; let columnIndex = index;"
+                   [class]="'col-sm-' + (column.columns||12)">
+                  <ng-container *ngFor="let row of column.rows; let rowIndex = index;">
+                      <app-dynamic-content-view-text-row *ngIf="actions.isTextRow(row)"
+                                                         [row]="row"
+                                                         [rowIndex]="rowIndex"
+                                                         [contentPath]="contentPath"
+                                                         [contentDescription]="contentDescription">
+                      </app-dynamic-content-view-text-row>
+                  </ng-container>
+                  <ng-container *ngIf="!column.rows">
+                      <app-markdown-editor [id]="column?.contentTextId"
+                                           [queryOnlyById]="true">
+                      </app-markdown-editor>
+                      <app-card-image *ngIf="column?.imageSource"
+                                      [borderRadius]="column?.imageBorderRadius"
+                                      [unconstrainedHeight]="true"
+                                      [imageSource]="column?.imageSource">
+                      </app-card-image>
+                  </ng-container>
+              </div>
+          </div>
+      </ng-container>`,
   styleUrls: ["./dynamic-content.sass"],
 })
 export class DynamicContentViewTextRowComponent implements OnInit {

@@ -84,6 +84,8 @@ export interface ImageData {
   size: Dimensions;
 }
 
+export const DIMENSIONS_DEFAULT = "Default";
+
 export interface DescribedDimensions extends Dimensions {
   description?: string;
 }

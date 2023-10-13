@@ -5,7 +5,7 @@ import { shareReplay } from "rxjs/operators";
 import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
 import { ConfigKey } from "../../models/config.model";
 import {
-  BannerImageType,
+  RootFolder,
   Images,
   Organisation,
   Ramblers,
@@ -48,7 +48,7 @@ export class SystemConfigService {
     return await this.config.queryConfig<SystemConfig>(ConfigKey.SYSTEM, this.default());
   }
 
-  imageTypeDescription(imageType: BannerImageType) {
+  imageTypeDescription(imageType: RootFolder) {
     return this.stringUtils.asTitle(imageType);
   }
 
@@ -78,15 +78,15 @@ export class SystemConfigService {
     return this.state[key];
   }
 
-  public defaultImages(imageType: BannerImageType): Images {
+  public defaultImages(imageType: RootFolder): Images {
     return {rootFolder: imageType, images: []};
   }
 
   default(): SystemConfig {
     return {
-      backgrounds: this.defaultImages(BannerImageType.backgrounds),
-      icons: this.defaultImages(BannerImageType.icons),
-      logos: this.defaultImages(BannerImageType.logos),
+      backgrounds: this.defaultImages(RootFolder.backgrounds),
+      icons: this.defaultImages(RootFolder.icons),
+      logos: this.defaultImages(RootFolder.logos),
       externalSystems: {
         facebook: {appId: null, pagesUrl: null, groupUrl: null},
         meetup: null,

@@ -21,9 +21,11 @@ export enum EditMode {
 }
 
 export enum StoredValue {
-  SOCIAL_QUICK_SEARCH = "social-quick-search",
+  MARKDOWN_FIELD_HIDDEN = "markdown-field-hidden",
   SOCIAL_DATE_CRITERIA = "social-date-criteria",
-  SOCIAL_DATE_SORT = "social-date-sort"
+  SOCIAL_DATE_SORT = "social-date-sort",
+  SOCIAL_QUICK_SEARCH = "social-quick-search",
+  STORY = "story",
 }
 
 export class Actions {

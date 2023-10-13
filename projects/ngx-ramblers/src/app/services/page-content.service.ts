@@ -8,6 +8,8 @@ import { PageContent } from "../models/content-text.model";
 import { CommonDataService } from "./common-data-service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { MemberLoginService } from "./member/member-login.service";
+import { ContentMetadataService } from "./content-metadata.service";
+import { RootFolder } from "../models/system.model";
 
 @Injectable({
   providedIn: "root"
@@ -16,14 +18,16 @@ export class PageContentService {
   private logger: Logger;
   private BASE_URL = "/api/database/page-content";
   public siteLinks: string[] = [];
+  carousels: string[] = [];
 
   constructor(private http: HttpClient,
               private commonDataService: CommonDataService,
               private authService: AuthService,
+              private contentMetadataService: ContentMetadataService,
               public memberLoginService: MemberLoginService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(PageContentService, NgxLoggerLevel.OFF);
-    this.refreshSiteLinks();
+    this.refreshLookups();
   }
 
   async all(): Promise<PageContent[]> {
@@ -76,8 +80,12 @@ export class PageContentService {
     return apiResponse.response;
   }
 
-  refreshSiteLinks() {
+  refreshLookups() {
     if (this.memberLoginService.allowContentEdits()) {
+      this.contentMetadataService.all().then(items => {
+        this.carousels = items.filter(content => content.rootFolder === RootFolder.carousels)
+          .map(content => content.name).sort();
+      });
       this.all().then(response => {
         this.siteLinks = uniq(response.map(item => item.path)).sort();
         this.logger.info("siteLinks:", this.siteLinks);

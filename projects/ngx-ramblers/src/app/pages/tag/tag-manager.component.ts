@@ -72,7 +72,7 @@ export class TagManagerComponent implements OnInit {
   }
 
   onRemove(data: TagData[]) {
-    const stories: ImageTag[] = this.imageTagDataService.asImageTags(data.map(item => item.key));
+    const stories: ImageTag[] = this.imageTagDataService.asImageTags(this.contentMetadata.imageTags, data.map(item => item.key));
     this.logger.debug("onRemove tag data", data, "stories", stories, "contentMetadata:", this.contentMetadata);
   }
 

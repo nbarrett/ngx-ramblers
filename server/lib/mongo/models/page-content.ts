@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose = require("mongoose");
 
 const PageContentColumn = mongoose.Schema({
   href: {type: String},
@@ -19,6 +19,7 @@ const PageContentRow = mongoose.Schema({
   columns: [PageContentColumn],
   marginTop: {type: Number},
   marginBottom: {type: Number},
+  carousel: {type: Object},
 }, { _id : false });
 
 const pageContentSchema = mongoose.Schema({
@@ -26,4 +27,4 @@ const pageContentSchema = mongoose.Schema({
   rows: [PageContentRow]
 }, {collection: "pageContent"});
 
-module.exports = mongoose.model("page-content", pageContentSchema);
+export const pageContent = mongoose.model("page-content", pageContentSchema);

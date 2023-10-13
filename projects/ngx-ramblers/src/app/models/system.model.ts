@@ -80,15 +80,17 @@ export interface Image {
   padding: number;
 }
 
-export enum BannerImageType {
+export enum RootFolder {
   backgrounds = "backgrounds",
   bannerPhotos = "banner-photos",
+  carousels = "carousels",
   icons = "icons",
-  logos = "logos"
+  logos = "logos",
+  siteContent = "site-content"
 }
 
 export interface Images {
-  rootFolder: BannerImageType;
+  rootFolder: RootFolder;
   images: Image[];
 }
 

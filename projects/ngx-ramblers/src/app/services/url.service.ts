@@ -12,6 +12,7 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 import { isMongoId } from "./mongo-utils";
 import isEmpty from "lodash-es/isEmpty";
 import { isNumericRamblersId } from "./path-matchers";
+import { StringUtilsService } from "./string-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -22,6 +23,7 @@ export class UrlService {
 
   constructor(@Inject(DOCUMENT) private document: Document,
               private router: Router,
+              private stringUtils: StringUtilsService,
               private location: Location,
               private siteEdit: SiteEditService,
               private loggerFactory: LoggerFactory,
@@ -76,8 +78,8 @@ export class UrlService {
     return "/" + this.urlPath(optionalUrl);
   }
 
-  urlPath(optionalUrl?: string) {
-    return new URL(optionalUrl || this.absoluteUrl()).pathname.substring(1);
+  urlPath(optionalUrl?: string): string {
+    return decodeURIComponent(new URL(optionalUrl || this.absoluteUrl()).pathname.substring(1));
   }
 
   area(): string {
@@ -140,11 +142,11 @@ export class UrlService {
 
   routerLinkUrl(url: string): string {
     if (!url) {
-      this.logger.info("routerLinkUrl:url:", url, "not returning routerLinkUrl as url not present");
+      this.logger.debug("routerLinkUrl:url:", url, "not returning routerLinkUrl as url not present");
       return null;
     } else {
       const routerLinkUrl = this.isRemoteUrl(url) ? null : "/" + url;
-      this.logger.info("routerLinkUrl:url:", url, "routerLinkUrl:", routerLinkUrl);
+      this.logger.debug("routerLinkUrl:url:", url, "routerLinkUrl:", routerLinkUrl);
       return routerLinkUrl;
     }
   }
@@ -155,14 +157,14 @@ export class UrlService {
 
   imageSource(url: string, absolute?: boolean): string {
     if (this.isRemoteUrl(url)) {
-      this.logger.info("imageSourceUrl:isRemoteUrl:returning", url);
+      this.logger.debug("imageSourceUrl:isRemoteUrl:returning", url);
       return url;
     } else if (this.isBase64Image(url)) {
-      this.logger.info("imageSourceUrl:isBase64Image:returning", url);
+      this.logger.debug("imageSourceUrl:isBase64Image:returning", url);
       return url;
     } else {
       const imageSource = absolute ? this.absolutePathForAWSFileName(url) : this.resourceRelativePathForAWSFileName(url);
-      this.logger.info("imageSource:url", url, "absolute:", absolute, "returning", imageSource);
+      this.logger.debug("imageSource:url", url, "absolute:", absolute, "returning", imageSource);
       return imageSource;
     }
   }
@@ -203,4 +205,15 @@ export class UrlService {
   private isBase64Image(url: string): boolean {
     return url?.startsWith(BASE64_PREFIX_JPEG) || url?.startsWith(BASE64_PREFIX_PNG);
   }
+
+  reformatHref(url: string): string {
+    if (!url || (url.startsWith("http") || url.startsWith("www") || url.includes("://"))) {
+      return url;
+    } else {
+      const reformatted: string = url.split("/").map(item => this.stringUtils.kebabCase(item)).join("/");
+      this.logger.info("received", url, "reformatted to:", reformatted);
+      return reformatted;
+    }
+  }
+
 }

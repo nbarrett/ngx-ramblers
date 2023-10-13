@@ -9,18 +9,15 @@ import { PageContentActionsService } from "../../../services/page-content-action
 @Component({
   selector: "app-bulk-action-selector",
   template: `
-    <div class="col mr-2">
-      <div class="custom-control custom-checkbox">
-        <input name="showSwiper" (click)="pageContentRowService.toggleSelection(row)"
-               [checked]="pageContentRowService.isSelected(row)"
-               type="checkbox" class="custom-control-input"
-               [id]="id">
-        <label class="custom-control-label"
-               [for]="id">Select Row
-        </label>
-      </div>
-    </div>
-  `
+      <div class="custom-control custom-checkbox float-right">
+          <input name="showSwiper" (click)="pageContentRowService.toggleSelection(row)"
+                 [checked]="pageContentRowService.isSelected(row)"
+                 type="checkbox" class="custom-control-input"
+                 [id]="id">
+          <label class="custom-control-label"
+                 [for]="id">Select Row
+          </label>
+      </div>`
 })
 
 export class BulkActionSelectorComponent implements OnInit {

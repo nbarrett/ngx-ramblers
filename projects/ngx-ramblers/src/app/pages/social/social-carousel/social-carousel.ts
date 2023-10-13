@@ -6,6 +6,7 @@ import { ContentMetadataService } from "../../../services/content-metadata.servi
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { UrlService } from "../../../services/url.service";
+import { RootFolder } from "../../../models/system.model";
 
 @Component({
   selector: "app-social-carousel",
@@ -58,8 +59,8 @@ export class SocialCarouselComponent implements OnInit {
 
   refreshImages() {
     this.logger.debug("slides:", this.slides);
-    this.contentMetadataService.items("imagesSocialEvents")
-      .then((contentMetaData) => {
+    this.contentMetadataService.items(RootFolder.carousels, "imagesSocialEvents")
+        .then((contentMetaData) => {
         this.slides = contentMetaData.files;
         this.logger.debug("found", contentMetaData.files.length, "slides");
         this.nextSlide();

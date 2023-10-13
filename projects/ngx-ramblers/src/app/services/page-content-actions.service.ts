@@ -3,13 +3,23 @@ import first from "lodash-es/first";
 import kebabCase from "lodash-es/kebabCase";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
-import { ColumnInsertData, ContentText, HasPageContentRows, PageContent, PageContentColumn, PageContentRow, PageContentType, View } from "../models/content-text.model";
+import {
+  ColumnInsertData,
+  ContentText,
+  HasPageContentRows,
+  PageContent,
+  PageContentColumn,
+  PageContentRow,
+  PageContentType,
+  View
+} from "../models/content-text.model";
 import { AccessLevel } from "../models/member-resource.model";
 import { move } from "./arrays";
 import { BroadcastService } from "./broadcast-service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { NumberUtilsService } from "./number-utils.service";
 import { StringUtilsService } from "./string-utils.service";
+import { KeyValue } from "./enums";
 
 @Injectable({
   providedIn: "root"
@@ -51,7 +61,9 @@ export class PageContentActionsService {
   }
 
   rowClasses(row: PageContentRow): string {
-    return "row" + (row.marginTop ? (" mt-" + row.marginTop) : "") + (row.marginBottom ? (" mb-" + row.marginBottom) : "");
+    const rowClasses = "row" + (row.marginTop ? (" mt-" + row.marginTop) : "") + (row.marginBottom ? (" mb-" + row.marginBottom) : "");
+    this.logger.debug("rowClasses:", rowClasses, "for row:", row);
+    return rowClasses;
   }
 
   defaultRowFor(type: PageContentType | string): PageContentRow {
@@ -59,7 +71,8 @@ export class PageContentActionsService {
       maxColumns: 1,
       showSwiper: false,
       type: type as PageContentType,
-      columns: [this.columnFor(type)]
+      columns: [this.columnFor(type)],
+      carousel: {name: null}
     };
   };
 
@@ -191,6 +204,10 @@ export class PageContentActionsService {
     return row.type === PageContentType.TEXT;
   }
 
+  public isCarousel(row: PageContentRow) {
+    return row.type === PageContentType.CAROUSEL;
+  }
+
   public pageContentFound(pageContent: PageContent, queryCompleted: boolean) {
     const hasRows = pageContent?.rows?.length > 0;
     this.logger.debug("pageContentFound:hasRows:", hasRows, "queryCompleted:", queryCompleted);
@@ -230,5 +247,14 @@ export class PageContentActionsService {
 
   public indexOfHref(pageContent: PageContent, href: string): number {
     return this.firstRowHrefs(pageContent).indexOf(href);
+  }
+
+  carouselIndex(row: PageContentRow, viewablePageContent: PageContent): number {
+    const carouselNameIndexes: KeyValue<number>[] = viewablePageContent.rows
+      .filter(item => this.isCarousel(item))
+      .map((row, index) => ({key: row.carousel.name, value: index}));
+    const numberKeyValue: KeyValue<number> = carouselNameIndexes.find(item => item.key === row.carousel.name);
+    this.logger.info("carouselIndex:for:", row.carousel.name, "given:", carouselNameIndexes, "returned:", numberKeyValue?.value);
+    return numberKeyValue?.value;
   }
 }

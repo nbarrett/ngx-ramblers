@@ -1,0 +1,8 @@
+<label [for]="id">{{label || 'Aspect Ratio'}}</label>
+<select class="form-control input-sm"
+        [(ngModel)]="dimension"
+        (ngModelChange)="changeAspectRatioSettings($event)"
+        [id]="id">
+  <option *ngFor="let aspectRatio of dimensions"
+          [ngValue]="aspectRatio">{{formatAspectRatio(aspectRatio)}}</option>
+</select>

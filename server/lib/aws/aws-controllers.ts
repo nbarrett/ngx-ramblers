@@ -9,9 +9,13 @@ import * as https from "https";
 import { omit } from "lodash";
 import moment from "moment-timezone";
 import * as path from "path";
-import { S3Metadata } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
+import {
+  S3Metadata,
+  S3MetadataApiResponse
+} from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
 import { envConfig } from "../env-config/env-config";
 import { AwsInfo, AwsUploadErrorResponse } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
+import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
 
 const logObject = false;
 const s3Config = {
@@ -27,10 +31,10 @@ debugLog("configured with", s3Config, "Proxying S3 requests to", envConfig.aws.u
 export function listObjects(req: Request, res: Response) {
   const bucketParams = {
     Bucket: envConfig.aws.bucket,
-    Prefix: req.params.prefix,
+    Prefix: req.query.prefix.toString(),
     MaxKeys: 20000
   };
-  debugLog("listObjects:bucketParams:", bucketParams);
+  debugLog("listObjects:request:bucketParams:", bucketParams);
   s3.listObjects(bucketParams)
     .then((data: ListObjectsCommandOutput) => {
       const response: S3Metadata[] = data.Contents?.map(item => ({
@@ -38,8 +42,9 @@ export function listObjects(req: Request, res: Response) {
         lastModified: moment(item.LastModified).tz("Europe/London").valueOf(),
         size: item.Size
       })) || [];
-      debugLog("returned data for:bucketParams:", bucketParams, "returned:", response.length, "items");
-      res.status(200).send(response);
+      debugLog("listObjects:response data for:bucketParams:", bucketParams, "returned:", response.length, "items");
+      const apiResponse: S3MetadataApiResponse = {request: bucketParams, response, action: ApiAction.QUERY};
+      res.status(200).send(apiResponse);
     })
     .catch(err => {
       debugLog("listObjects:error occurred:bucketParams:", bucketParams, "error:", err);

@@ -32,6 +32,7 @@
         <input [(ngModel)]="column.href"
                name="href"
                autocomplete="nope"
+               (blur)="reformatHref($event)"
                [typeahead]="pageContentService.siteLinks"
                [id]="idFor('href')"
                class="form-control input-sm" placeholder="Enter href value">

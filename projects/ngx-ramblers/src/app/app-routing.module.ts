@@ -8,10 +8,9 @@ import { DynamicContentPageComponent } from "./modules/common/dynamic-content-pa
 import { HomeComponent } from "./pages/home/home.component";
 import { PrivacyPolicyComponent } from "./pages/home/privacy-policy.component";
 import { HowToSubjectListingComponent } from "./pages/how-to/subject-listing/subject-listing";
-import { ImageListComponent } from "./pages/image-editor/image-list/image-list.component";
 import { JoinUsComponent } from "./pages/join-us/join-us.component";
 import { Logger, LoggerFactory } from "./services/logger-factory.service";
-import { hasDynamicPath, hasMongoId } from "./services/path-matchers";
+import { hasDynamicPath } from "./services/path-matchers";
 
 const routes: Routes = [
   {path: "", component: HomeComponent},
@@ -22,7 +21,6 @@ const routes: Routes = [
   {path: "forgot-password", component: ForgotPasswordComponent},
   {path: "home", component: HomeComponent},
   {path: "how-to/committee/email-archives/:subject", component: HowToSubjectListingComponent},
-  {path: "image-editor/:image-source", component: ImageListComponent},
   {path: "join-us", component: JoinUsComponent},
   {path: "login", component: LoginComponent},
   {path: "logout", component: LogoutComponent},

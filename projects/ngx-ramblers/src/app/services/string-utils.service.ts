@@ -7,6 +7,7 @@ import isObject from "lodash-es/isObject";
 import map from "lodash-es/map";
 import startCase from "lodash-es/startCase";
 import toLower from "lodash-es/toLower";
+import words from "lodash-es/words";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertMessage } from "../models/alert-target.model";
 import { DateUtilsService } from "./date-utils.service";
@@ -113,12 +114,21 @@ export class StringUtilsService {
     return startCase(toLower(str));
   }
 
+  asWords(str: string) {
+    return words(str).join(" ");
+  }
+
   pluraliseWithCount(count: number, singular: string, plural?: string) {
-    return `${count} ${count === 1 ? singular : plural || (singular + "s")}`;
+    return `${count} ${this.pluralise(count, singular, plural)}`;
+  }
+
+  pluralise(count: number, singular: string, plural?: string) {
+    return `${count === 1 ? singular : plural || (singular + "s")}`;
   }
 
   kebabCase(...strings: any[]): string {
     const returnValue = strings
+      .filter(item => item)
       .map(item => this.asTitle(item))
       .map(item => this.replaceAll(" ", "-", item).toString().toLowerCase())
       .join("-");

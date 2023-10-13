@@ -1,8 +1,8 @@
 import { ApiResponse } from "./api-response.model";
-import { BannerImageType, Image } from "./system.model";
+import { RootFolder, Image } from "./system.model";
 
 export interface BannerImageItem {
-  bannerImageType: BannerImageType;
+  bannerImageType: RootFolder;
   columns?: number;
   fontSize?: number;
   image: Image,

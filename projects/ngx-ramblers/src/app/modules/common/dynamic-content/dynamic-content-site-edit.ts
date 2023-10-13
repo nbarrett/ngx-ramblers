@@ -4,6 +4,7 @@ import { faAdd, faPencil, faRemove, faSave, faUndo } from "@fortawesome/free-sol
 import cloneDeep from "lodash-es/cloneDeep";
 import first from "lodash-es/first";
 import isEmpty from "lodash-es/isEmpty";
+import remove from "lodash-es/remove";
 import { BsDropdownConfig } from "ngx-bootstrap/dropdown";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
@@ -45,6 +46,8 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   @Input()
+  contentPathReadOnly: boolean;
+  @Input()
   public pageContent: PageContent;
   @Input()
   public queryCompleted: boolean;
@@ -56,6 +59,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   public contentPath: string;
   private insertableContent: ColumnInsertData[] = [];
   private defaultPageContent: PageContent;
+  private rowsInEdit: number[] = [];
 
   @Input("defaultPageContent") set acceptChangesFrom(defaultPageContent: PageContent) {
     this.logger.info("defaultPageContent:", defaultPageContent);
@@ -72,7 +76,6 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   faAdd = faAdd;
   faSave = faSave;
   faUndo = faUndo;
-  public area: string;
   providers: [{ provide: BsDropdownConfig, useValue: { isAnimated: true, autoClose: true } }];
   enumKeyValuesForPageContentType: KeyValue<string>[] = enumKeyValues(PageContentType);
   public unsavedMarkdownComponents: MarkdownEditorComponent[] = [];
@@ -111,6 +114,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    this.logger.info("ngOnInit");
     if (this.siteEditService.active()) {
       this.runInitCode();
     }
@@ -240,8 +244,14 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     this.urlService.navigateUnconditionallyTo(this.destinationPath);
   }
 
-  public changeType($event: any) {
-    this.logger.info("changeType:", $event);
+  public changePageContentRowType(pageContentType: PageContentType, row: PageContentRow) {
+    this.logger.info("pageContentType:", pageContentType, "row:", row);
+    if (row.type === PageContentType.CAROUSEL && !row.carousel) {
+      this.logger.info("initialising carousel data");
+      row.carousel = {name: null};
+    } else {
+      this.logger.info("not initialising data for ", row.type);
+    }
   }
 
   public savePageContent(): Promise<boolean> {
@@ -367,4 +377,19 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     this.destinationPathLookup.next(value);
     this.destinationPath = value;
   }
+
+  toggleEditMode(rowIndex: number) {
+    if (this.editActive(rowIndex)) {
+      remove(this.rowsInEdit, (item) => item === rowIndex);
+      this.logger.info("removing", rowIndex, "from edit mode -> now:", this.rowsInEdit);
+    } else {
+      this.rowsInEdit.push(rowIndex);
+      this.logger.info("adding", rowIndex, "to edit mode -> now:", this.rowsInEdit);
+    }
+  }
+
+  public editActive(rowIndex: number) {
+    return this.rowsInEdit.includes(rowIndex);
+  }
+
 }

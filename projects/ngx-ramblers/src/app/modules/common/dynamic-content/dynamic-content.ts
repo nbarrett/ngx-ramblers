@@ -19,6 +19,8 @@ import { UrlService } from "../../../services/url.service";
 })
 export class DynamicContentComponent implements OnInit, OnDestroy {
   @Input()
+  contentPathReadOnly: boolean;
+  @Input()
   public anchor: string;
   @Input()
   public notifier: AlertInstance;
