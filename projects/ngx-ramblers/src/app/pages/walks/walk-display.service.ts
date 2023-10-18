@@ -270,7 +270,7 @@ export class WalkDisplayService {
 
   closeEditView(walk: Walk) {
     if (this.urlService.pathContains("edit")) {
-      this.urlService.navigateTo("walks");
+      this.urlService.navigateTo(["walks"]);
     }
     this.toggleExpandedViewFor(walk, WalkViewMode.VIEW);
   }

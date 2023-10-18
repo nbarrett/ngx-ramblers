@@ -2,11 +2,12 @@
   <div class="slider-container">
     <div class="sc-inner">
       <carousel [noPause]="false" [isAnimated]="true"
-                [interval]="slideInterval"
-                [showIndicators]="showIndicators"
+                [interval]="carouselData.slideInterval || 5000"
+                [showIndicators]="carouselData.showIndicators"
                 [(activeSlide)]="activeSlideIndex"
                 (activeSlideChange)="activeSlideChange(false, $event)">
-        <app-carousel-story-navigator [imageTags]="contentMetadata?.imageTags"
+        <app-carousel-story-navigator *ngIf="!hideStoryNavigator && carouselData.showStoryNavigator"
+                                      [imageTags]="contentMetadata?.imageTags"
                                       [index]="index"
                                       (tagChanged)="tagChanged($event)"></app-carousel-story-navigator>
         <slide *ngFor="let slide of viewableSlides; let index = index;">
@@ -28,16 +29,5 @@
         </slide>
       </carousel>
     </div>
-  </div>
-</div>
-<div *ngIf="showEdit" class="row pt-2 pb-2">
-  <div class="col-sm-12">
-    <app-badge-button
-      *ngIf="allowEdits()"
-      caption="edit images for {{contentMetadataService.contentMetadataName(contentMetadata)}}"
-      [routerLink]="'/admin/carousel-editor/' + carouselData"
-      [queryParams]="{story: activeTag?.key}"
-      [icon]="faPencil">
-    </app-badge-button>
   </div>
 </div>

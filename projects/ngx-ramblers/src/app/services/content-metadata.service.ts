@@ -5,6 +5,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../models/api-request.model";
 import {
+  AllAndSelectedContentMetaData,
   ContentMetadata,
   ContentMetadataApiResponse,
   ContentMetadataApiResponses,
@@ -16,7 +17,6 @@ import {
   S3Metadata,
   S3MetadataApiResponse
 } from "../models/content-metadata.model";
-import { MemberApiResponse } from "../models/member.model";
 import { SearchFilterPipe } from "../pipes/search-filter.pipe";
 import { sortBy } from "./arrays";
 import { CommonDataService } from "./common-data-service";
@@ -26,6 +26,8 @@ import { ImageTagDataService } from "./image-tag-data-service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { RootFolder } from "../models/system.model";
 import { StringUtilsService } from "./string-utils.service";
+import first from "lodash-es/first";
+import { MemberLoginService } from "./member/member-login.service";
 
 @Injectable({
   providedIn: "root"
@@ -37,10 +39,12 @@ export class ContentMetadataService {
   private contentMetadataSubject = new Subject<ContentMetadataApiResponse>();
   private contentMetadataSubjects = new Subject<ContentMetadataApiResponses>();
   private s3MetadataSubject = new Subject<S3MetadataApiResponse>();
+  public carousels: string[];
 
   constructor(private http: HttpClient,
               private dateUtils: DateUtilsService,
               private stringUtils: StringUtilsService,
+              public memberLoginService: MemberLoginService,
               private searchFilterPipe: SearchFilterPipe,
               public imageTagDataService: ImageTagDataService,
               private imageDuplicatesService: ImageDuplicatesService,
@@ -48,8 +52,12 @@ export class ContentMetadataService {
     this.logger = loggerFactory.createLogger("ContentMetadataService", NgxLoggerLevel.OFF);
   }
 
-  contentMetadataNotifications(): Observable<MemberApiResponse> {
+  contentMetadataNotification(): Observable<ContentMetadataApiResponse> {
     return this.contentMetadataSubject.asObservable();
+  }
+
+  contentMetadataNotifications(): Observable<ContentMetadataApiResponses> {
+    return this.contentMetadataSubjects.asObservable();
   }
 
   s3Notifications(): Observable<S3MetadataApiResponse> {
@@ -217,4 +225,30 @@ export class ContentMetadataService {
   contentMetadataName(contentMetadata: ContentMetadata): string {
     return this.stringUtils.asTitle(this.stringUtils.asWords(contentMetadata?.name));
   }
+
+  refreshLookups() {
+    if (this.memberLoginService.allowContentEdits()) {
+      return this.all().then(items => {
+        this.carousels = items.filter(content => content.rootFolder === RootFolder.carousels)
+          .map(content => content.name).sort();
+      });
+    } else {
+      return Promise.resolve();
+    }
+  }
+
+  public selectMetadataBasedOn(name: string, item: ContentMetadataApiResponses): AllAndSelectedContentMetaData {
+    this.logger.debug("contentMetaDataItems:", item.response, "name:", name);
+    const contentMetadataItems = item.response;
+    let contentMetadata;
+    if (name) {
+      contentMetadata = contentMetadataItems.find(item => item.name === name);
+      this.logger.debug(contentMetadata?.name, "chosen based on name:", name);
+    } else {
+      contentMetadata = first(contentMetadataItems);
+      this.logger.debug(contentMetadata?.name, "chosen based on it being first as no name supplied");
+    }
+    return {contentMetadataItems, contentMetadata};
+  }
+
 }

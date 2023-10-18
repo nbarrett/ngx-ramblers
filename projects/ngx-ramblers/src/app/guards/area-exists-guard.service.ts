@@ -22,7 +22,7 @@ export class AreaExistsGuard implements CanActivate {
   canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean | Observable<boolean> | Promise<boolean> {
     const areaExists = this.pageService.areaExistsFor(state.url);
     const allowed: boolean = !this.configLoaded || areaExists;
-    this.logger.info("route:", route, "root.url", route.root.url, "state.url:", state.url, "configLoaded:", this.configLoaded, "areaExists:", areaExists, "allowed:", allowed);
+    this.logger.info("root.url", route.root.url, "state.url:", state.url, "configLoaded:", this.configLoaded, "areaExists:", areaExists, "allowed:", allowed);
     if (!allowed) {
       this.router.navigate(["/"]);
     }

@@ -51,13 +51,13 @@ export class ProfileService  {
         logger.debug("authService:subscription - member logged in", this.memberLoginService.loggedInMember());
       } else {
         logger.debug("authService:subscription - member not logged in - navigating back", this.memberLoginService.loggedInMember());
-        this.urlService.navigateTo("admin");
+        this.urlService.navigateTo(["admin"]);
       }
     });
   }
 
   backToAdmin() {
-    this.urlService.navigateTo("admin");
+    this.urlService.navigateTo(["admin"]);
   }
 
   queryMember(notify: AlertInstance, profileUpdateType: ProfileUpdateType): Promise<Member> {

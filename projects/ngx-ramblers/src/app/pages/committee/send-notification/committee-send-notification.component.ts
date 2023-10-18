@@ -535,7 +535,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     if (!this.notification.cancelled) {
       this.notify.success("Sending of " + campaignName + " was successful.", false);
       this.display.confirm.clear();
-      this.urlService.navigateTo("committee");
+      this.urlService.navigateTo(["committee"]);
     }
   }
 
@@ -583,7 +583,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     } else {
       this.logger.debug("calling cancelSendNotification");
       this.display.confirm.clear();
-      this.urlService.navigateTo("committee");
+      this.urlService.navigateTo(["committee"]);
     }
   }
 

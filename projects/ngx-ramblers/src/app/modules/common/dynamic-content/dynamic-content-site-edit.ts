@@ -110,7 +110,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     public actions: PageContentActionsService,
     private broadcastService: BroadcastService<any>,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(DynamicContentSiteEditComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.OFF);
   }
 
   ngOnInit() {
@@ -241,17 +241,23 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   goToOtherPage() {
-    this.urlService.navigateUnconditionallyTo(this.destinationPath);
+    this.urlService.navigateUnconditionallyTo([this.destinationPath]);
   }
 
   public changePageContentRowType(pageContentType: PageContentType, row: PageContentRow) {
     this.logger.info("pageContentType:", pageContentType, "row:", row);
-    if (row.type === PageContentType.CAROUSEL && !row.carousel) {
-      this.logger.info("initialising carousel data");
-      row.carousel = {name: null};
+    if (row.type === PageContentType.CAROUSEL && !row.carousel?.name) {
+      const carousel = this.actions.defaultCarousel(this.contentPathWithIndex(row));
+      this.logger.info("initialising carousel data:", carousel);
+      row.carousel = carousel;
     } else {
       this.logger.info("not initialising data for ", row.type);
     }
+  }
+
+  public contentPathWithIndex(row: PageContentRow): string {
+    const index = this.actions.carouselIndex(row, this.pageContent);
+    return this.pageContent.path + (index > 0 ? "-" + index : "");
   }
 
   public savePageContent(): Promise<boolean> {
@@ -264,7 +270,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
           if (this.pageContent.path !== this.urlService.urlPath()) {
             const navigateToPath = this.urlService.pathMinusAnchorForUrl(this.pageContent.path);
             this.logger.info("need to move to:", navigateToPath);
-            return this.urlService.navigateUnconditionallyTo(navigateToPath);
+            return this.urlService.navigateUnconditionallyTo([navigateToPath]);
           } else {
             return true;
           }
@@ -283,7 +289,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   public deletePageContent() {
     if (!this.deletePagContentDisabled()) {
       this.pageContentService.delete(this.pageContent)
-        .then(() => this.urlService.navigateUnconditionallyTo(this.urlService.area()));
+        .then(() => this.urlService.navigateUnconditionallyTo([this.urlService.area()]));
     }
   }
 
@@ -392,4 +398,8 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     return this.rowsInEdit.includes(rowIndex);
   }
 
+  carouselData(row: PageContentRow) {
+    this.logger.off("carouselData:", row.carousel);
+    return row.carousel;
+  }
 }

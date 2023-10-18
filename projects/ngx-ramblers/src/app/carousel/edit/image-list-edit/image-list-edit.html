@@ -12,9 +12,9 @@
                         (click)="sortByDate()"></app-badge-button>
       <app-badge-button *ngIf="imagesExist()" [icon]="faSortNumericUp" caption="Reverse sort order"
                         (click)="reverseSortOrder()"></app-badge-button>
-      <app-badge-button *ngIf="imagesExist()" [icon]="faEraser" caption="Clear Images"
+      <app-badge-button *ngIf="imagesExist()" [icon]="faEraser" caption="Clear images"
                         (click)="clearImages()"></app-badge-button>
-      <app-badge-button [icon]="faAdd" *ngIf="!imagesExist()" [caption]="'Create First Image'"
+      <app-badge-button [icon]="faAdd" *ngIf="!imagesExist()" caption="Create First Image"
                         (click)="insertToEmptyList()"></app-badge-button>
       <app-badge-button *ngIf="contentMetadata?.imageTags?.length>0"
                         [icon]="faTags"
@@ -114,7 +114,7 @@
   <div class="card mb-3">
     <div class="card-body">
       <div class="row">
-        <div class="col-sm-6">
+        <div class="col-auto">
           <div class="form-group">
             <label for="name">Carousel Name</label>
             <input [delay]="1000"
@@ -123,7 +123,7 @@
                    class="form-control">
           </div>
         </div>
-        <div class="col-sm-6">
+        <div class="col-auto">
           <app-aspect-ratio-selector [label]="'Default Aspect Ratio'"
                                      [dimensionsDescription]="contentMetadata.aspectRatio"
                                      (dimensionsChanged)="dimensionsChanged($event)"></app-aspect-ratio-selector>

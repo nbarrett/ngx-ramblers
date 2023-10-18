@@ -283,7 +283,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
     this.actions.clearEditMode();
     this.logger.info("close:this.actions", this.actions, "this.display.confirm", this.display.confirm);
     if (this.display.inNewEventMode()) {
-      this.urlService.navigateTo("social");
+      this.urlService.navigateTo(["social"]);
     }
   }
 

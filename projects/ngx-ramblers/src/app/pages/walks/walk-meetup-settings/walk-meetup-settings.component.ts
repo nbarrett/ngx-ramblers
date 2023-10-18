@@ -64,7 +64,7 @@ export class WalkMeetupSettingsComponent implements OnInit {
   }
 
   backToWalks() {
-    this.urlService.navigateTo("walks");
+    this.urlService.navigateTo(["walks"]);
   }
 
   private replaceContent(contentText: ContentText) {

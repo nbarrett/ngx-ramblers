@@ -101,7 +101,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse) => {
       this.logger.debug("loginResponse", loginResponse);
-      this.urlService.navigateTo("admin");
+      this.urlService.navigateTo(["admin"]);
     }));
     this.logger.info("subscribing to systemConfigService events");
     this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));

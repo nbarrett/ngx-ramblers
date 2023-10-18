@@ -128,12 +128,12 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   save() {
     this.logger.debug("saving config", this.config);
     this.systemConfigService.saveConfig(this.config)
-      .then(() => this.urlService.navigateTo("admin"))
+      .then(() => this.urlService.navigateTo(["admin"]))
       .catch((error) => this.notify.error({title: "Error saving system config", message: error}));
   }
 
   cancel() {
-    this.urlService.navigateTo("admin");
+    this.urlService.navigateTo(["admin"]);
   }
 
   headerLogoChanged(logo: string) {

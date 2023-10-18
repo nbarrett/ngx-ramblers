@@ -8,7 +8,7 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 
 @Component({
-  selector: "app-margin-select",
+  selector: "[app-margin-select]",
   template: `
     <label [for]="id">{{label}}</label>
     <select class="form-control input-sm"

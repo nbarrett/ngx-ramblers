@@ -4,6 +4,7 @@ import kebabCase from "lodash-es/kebabCase";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
 import {
+  CarouselData,
   ColumnInsertData,
   ContentText,
   HasPageContentRows,
@@ -72,12 +73,19 @@ export class PageContentActionsService {
       showSwiper: false,
       type: type as PageContentType,
       columns: [this.columnFor(type)],
-      carousel: {name: null}
+      carousel: this.defaultCarousel(null)
     };
   };
 
+  public defaultCarousel(name: string): CarouselData {
+    return {name, showStoryNavigator: true, showIndicators: true, slideInterval: 5000};
+  }
+
   private columnFor(type: PageContentType | string): PageContentColumn {
-    return type === PageContentType.TEXT ? {columns: 12, accessLevel: AccessLevel.public} : {accessLevel: AccessLevel.public};
+    return type === PageContentType.TEXT ? {
+      columns: 12,
+      accessLevel: AccessLevel.public
+    } : {accessLevel: AccessLevel.public};
   }
 
   addNestedRows(column: PageContentColumn) {
@@ -128,12 +136,19 @@ export class PageContentActionsService {
   }
 
   changeColumnWidthFor(inputElement: HTMLInputElement, column: PageContentColumn) {
+    column.columns = this.constrainInput(inputElement, 1, 12);
+  }
+
+  changeMaxColumnsFor(inputElement: HTMLInputElement, row: PageContentRow) {
+    row.maxColumns = this.constrainInput(inputElement, 1, 4);
+  }
+
+  public constrainInput(inputElement: HTMLInputElement, minValue: number, maxValue: number) {
     const inputValue = +inputElement.value;
-    const columnWidth: number = inputValue > 12 ? 12 : inputValue < 1 ? 1 : +inputElement.value;
-    inputElement.value = columnWidth.toString();
-    this.logger.debug("inputElement.value:", inputElement.value, "columnWidth:", columnWidth,);
-    column.columns = columnWidth;
-    this.logger.debug("changeColumnsFor:", column, columnWidth,);
+    const constrainedValue: number = inputValue > maxValue ? maxValue : inputValue < minValue ? minValue : +inputElement.value;
+    inputElement.value = constrainedValue.toString();
+    this.logger.debug("inputElement.value:", inputElement.value, "constrainedValue:", constrainedValue,);
+    return constrainedValue;
   }
 
   rowColFor(rowIndex: number, columnIndex: number): string {

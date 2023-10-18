@@ -9,7 +9,6 @@ import { CommonDataService } from "./common-data-service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { MemberLoginService } from "./member/member-login.service";
 import { ContentMetadataService } from "./content-metadata.service";
-import { RootFolder } from "../models/system.model";
 
 @Injectable({
   providedIn: "root"
@@ -18,7 +17,6 @@ export class PageContentService {
   private logger: Logger;
   private BASE_URL = "/api/database/page-content";
   public siteLinks: string[] = [];
-  carousels: string[] = [];
 
   constructor(private http: HttpClient,
               private commonDataService: CommonDataService,
@@ -82,14 +80,13 @@ export class PageContentService {
 
   refreshLookups() {
     if (this.memberLoginService.allowContentEdits()) {
-      this.contentMetadataService.all().then(items => {
-        this.carousels = items.filter(content => content.rootFolder === RootFolder.carousels)
-          .map(content => content.name).sort();
-      });
-      this.all().then(response => {
+      return this.all().then(response => {
         this.siteLinks = uniq(response.map(item => item.path)).sort();
         this.logger.info("siteLinks:", this.siteLinks);
       });
+    } else {
+      return Promise.resolve();
     }
   }
+
 }

@@ -40,15 +40,15 @@ export class RouterHistoryService {
       });
     this.logger.debug("event:pageHistory", this.pageHistory, "lastPage ->", lastPage);
     if (unconditionally) {
-      this.urlService.navigateUnconditionallyTo(lastPage);
+      this.urlService.navigateUnconditionallyTo([lastPage]);
     } else {
-      this.urlService.navigateTo(lastPage);
+      this.urlService.navigateTo([lastPage]);
     }
 
   }
 
   setRoot() {
-    return this.urlService.navigateTo();
+    return this.urlService.navigateTo([]);
   }
 
 }

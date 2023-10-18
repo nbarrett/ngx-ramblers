@@ -42,7 +42,7 @@ export class SocialCarouselComponent implements OnInit {
   }
 
   private nextSlide() {
-    if (this.slides.length > 0) {
+    if (this.slides?.length > 0) {
       if (this.activeSlideIndex < this.slides.length - 1) {
         this.activeSlideIndex = this.activeSlideIndex + 1;
       } else if (this.activeSlideIndex > this.slides.length) {
@@ -59,11 +59,11 @@ export class SocialCarouselComponent implements OnInit {
 
   refreshImages() {
     this.logger.debug("slides:", this.slides);
-    this.contentMetadataService.items(RootFolder.carousels, "imagesSocialEvents")
+    this.contentMetadataService.items(RootFolder.carousels, "images-social-events")
         .then((contentMetaData) => {
-        this.slides = contentMetaData.files;
-        this.logger.debug("found", contentMetaData.files.length, "slides");
-        this.nextSlide();
+          this.slides = contentMetaData.files;
+          this.logger.debug("found", contentMetaData?.files?.length || 0, "slides");
+          this.nextSlide();
       });
   }
 

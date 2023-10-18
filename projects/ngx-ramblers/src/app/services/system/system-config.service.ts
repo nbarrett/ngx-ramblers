@@ -1,17 +1,10 @@
 import { Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { BehaviorSubject, Observable } from "rxjs";
+import { Observable, ReplaySubject } from "rxjs";
 import { shareReplay } from "rxjs/operators";
 import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
 import { ConfigKey } from "../../models/config.model";
-import {
-  RootFolder,
-  Images,
-  Organisation,
-  Ramblers,
-  SystemConfig,
-  WalkPopulation
-} from "../../models/system.model";
+import { Images, Organisation, Ramblers, RootFolder, SystemConfig, WalkPopulation } from "../../models/system.model";
 import { BroadcastService } from "../broadcast-service";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -23,9 +16,8 @@ import { StringUtilsService } from "../string-utils.service";
 })
 export class SystemConfigService {
 
-  private subject = new BehaviorSubject<SystemConfig>(this.default());
+  private subject = new ReplaySubject<SystemConfig>();
   private logger: Logger;
-  private state: { [key: string]: boolean } = {};
 
   constructor(private config: ConfigService,
               private broadcastService: BroadcastService<SystemConfig>,
@@ -68,14 +60,6 @@ export class SystemConfigService {
       shortName: null,
       walkPopulation: WalkPopulation.WALKS_MANAGER
     };
-  }
-
-  public setAppState(key: string, state: boolean): void {
-    this.state[key] = state;
-  }
-
-  public queryAppState(key: string): boolean {
-    return this.state[key];
   }
 
   public defaultImages(imageType: RootFolder): Images {

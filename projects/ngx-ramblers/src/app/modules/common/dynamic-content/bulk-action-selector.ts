@@ -10,7 +10,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
   selector: "app-bulk-action-selector",
   template: `
       <div class="custom-control custom-checkbox float-right">
-          <input name="showSwiper" (click)="pageContentRowService.toggleSelection(row)"
+          <input (click)="pageContentRowService.toggleSelection(row)"
                  [checked]="pageContentRowService.isSelected(row)"
                  type="checkbox" class="custom-control-input"
                  [id]="id">
