@@ -53,6 +53,9 @@ export interface PageContentEditEvent {
 
 export interface CarouselData {
   name: string;
+  slideInterval: number;
+  showIndicators: boolean;
+  showStoryNavigator: boolean;
 }
 
 export enum PageContentType {

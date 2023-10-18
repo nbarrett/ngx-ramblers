@@ -55,12 +55,12 @@ export class CommitteeSettingsComponent implements OnInit {
     this.logger.debug("saving config", this.committeeConfig);
     this.committeeConfig.fileTypes = this.committeeConfig.fileTypes.sort(sortBy("description"));
     this.committeeConfigService.saveConfig(this.committeeConfig)
-      .then(() => this.urlService.navigateTo("admin"))
+      .then(() => this.urlService.navigateTo(["admin"]))
       .catch((error) => this.notify.error(error));
   }
 
   cancel() {
-    this.urlService.navigateTo("admin");
+    this.urlService.navigateTo(["admin"]);
   }
 
   notReady() {

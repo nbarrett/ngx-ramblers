@@ -16,6 +16,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
       </ng-container>`,
 })
 export class DynamicContentViewCarouselComponent implements OnInit {
+
   @Input()
   public row: PageContentRow;
 

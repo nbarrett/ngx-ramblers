@@ -46,14 +46,14 @@ export class WalkAdminComponent implements OnInit, OnDestroy {
   }
 
   selectWalksForExport() {
-    this.urlService.navigateTo("walks", "admin", "export");
+    this.urlService.navigateTo(["walks", "admin", "export"]);
   }
 
   addWalkSlots() {
-    this.urlService.navigateTo("walks", "admin", "add-walk-slots");
+    this.urlService.navigateTo(["walks", "admin", "add-walk-slots"]);
   }
 
   meetupSettings() {
-    this.urlService.navigateTo("walks", "admin", "meetup-settings");
+    this.urlService.navigateTo(["walks", "admin", "meetup-settings"]);
   }
 }

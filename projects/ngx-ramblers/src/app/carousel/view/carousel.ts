@@ -1,4 +1,4 @@
-import { Component, HostListener, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, HostListener, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { UrlService } from "../../services/url.service";
@@ -28,18 +28,16 @@ import { CarouselData } from "../../models/content-text.model";
   styleUrls: ["./carousel.sass"]
 
 })
-export class CarouselComponent implements OnInit, OnDestroy {
-  public showEdit = false;
+export class CarouselComponent implements OnInit, OnDestroy, OnChanges {
   private logger: Logger;
   public viewableSlides: ContentMetadataItem[] = [];
   public activeSlideIndex = 0;
   public showIndicators: boolean;
-  public slideInterval = 5000;
   public contentMetadata: ContentMetadata;
   public selectedSlides: ContentMetadataItem[] = [];
   private subscriptions: Subscription[] = [];
   public faPencil = faPencil;
-  public carouselData: CarouselData;
+  public carouselData: CarouselData = null;
   public activeTag: ImageTag;
 
 
@@ -49,6 +47,9 @@ export class CarouselComponent implements OnInit, OnDestroy {
 
   @Input()
   public index: number;
+
+  @Input()
+  public hideStoryNavigator: boolean;
 
   @HostListener("window:resize", ["$event"])
   onResize(event) {
@@ -66,8 +67,7 @@ export class CarouselComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.logger.debug("ngOnInit");
-    this.logger.debug("subscribing to systemConfigService events");
+    this.logger.debug("ngOnInit:subscribing to systemConfigService events");
     this.contentMetadataService.items(RootFolder.carousels, this.carouselData?.name)
       .then(contentMetadata => {
         this.contentMetadata = contentMetadata;
@@ -78,8 +78,21 @@ export class CarouselComponent implements OnInit, OnDestroy {
       });
   }
 
+  ngOnChanges(changes: SimpleChanges) {
+    this.logger.info("ngOnChanges:", changes);
+    this.setValue(changes?.value?.currentValue);
+  }
+
+  private setValue(value: any) {
+    if (typeof value === "number") {
+      // this.dateValue = this.dateUtils.asDateValue(this.value);
+    } else {
+      // this.dateValue = value;
+    }
+  }
+
   private carouselDataInput(carouselData: CarouselData) {
-    this.logger.debug("carouselDataInput:", carouselData);
+    this.logger.info("carouselDataInput:", carouselData);
     this.carouselData = carouselData;
   }
 

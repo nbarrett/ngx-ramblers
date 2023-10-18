@@ -9,14 +9,41 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { UrlService } from "../../../services/url.service";
 import { MemberResourcesPermissions } from "../../../models/member-resource.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import first from "lodash-es/first";
-import { faEye, faStreetView } from "@fortawesome/free-solid-svg-icons";
+import { faEye } from "@fortawesome/free-solid-svg-icons";
+import { PageContentService } from "../../../services/page-content.service";
+import { StoredValue } from "../../../models/ui-actions";
 
 @Component({
   selector: "app-carousel-selector",
-  templateUrl: "./carousel-selector.html"
+  template: `
+    <div *ngIf="allow.edit && contentMetadataItems">
+      <div class="row">
+        <div class="col-sm-12 mb-2 mt-2">
+          <h6>Edit images from</h6>
+          <div class="form-inline">
+            <app-carousel-select [name]="name" (metadataChange)="metadataChange($event)"></app-carousel-select>
+            <app-badge-button [disabled]="!contentMetadata"
+                              caption="View images"
+                              (click)="navigateTo(contentMetadata.name)"
+                              [icon]="faEye">
+            </app-badge-button>
+          </div>
+        </div>
+      </div>
+    </div>`
 })
 export class CarouselSelectorComponent implements OnInit {
+
+  constructor(
+    public contentMetadataService: ContentMetadataService,
+    private notifierService: NotifierService,
+    public pageContentService: PageContentService,
+    public stringUtils: StringUtilsService,
+    private memberLoginService: MemberLoginService,
+    private urlService: UrlService, loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.createLogger("CarouselEditorComponent", NgxLoggerLevel.OFF);
+  }
+
   private logger: Logger;
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
@@ -27,14 +54,7 @@ export class CarouselSelectorComponent implements OnInit {
   @Input()
   public name: string;
 
-  constructor(
-    public contentMetadataService: ContentMetadataService,
-    private notifierService: NotifierService,
-    public stringUtils: StringUtilsService,
-    private memberLoginService: MemberLoginService,
-    private urlService: UrlService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("CarouselEditorComponent", NgxLoggerLevel.OFF);
-  }
+  protected readonly faEye = faEye;
 
   ngOnInit() {
     this.logger.debug("ngOnInit:imageSource", this.name);
@@ -50,24 +70,21 @@ export class CarouselSelectorComponent implements OnInit {
 
   refreshImageMetaData() {
     this.notify.setBusy();
-    this.contentMetadataService.all()
-      .then((contentMetaDataItems: ContentMetadata[]) => {
-        this.logger.debug("contentMetaDataItems:", contentMetaDataItems);
-        this.contentMetadataItems = contentMetaDataItems;
-        this.contentMetadata = this.contentMetadataItems.find(item => item.name === this.name) || first(this.contentMetadataItems);
-        this.notify.clearBusy();
-      })
+    this.contentMetadataService.refreshLookups()
       .catch(response => this.notify.error({title: "Failed to refresh content metadata", message: response}));
+    this.contentMetadataService.contentMetadataNotifications().subscribe(item => {
+      const allAndSelectedContentMetaData = this.contentMetadataService.selectMetadataBasedOn(this.name, item);
+      this.contentMetadataItems = allAndSelectedContentMetaData.contentMetadataItems;
+      this.contentMetadata = allAndSelectedContentMetaData.contentMetadata;
+      this.notify.clearBusy();
+    });
   }
 
-  navigateTo(imageSource: string) {
-    this.urlService.navigateUnconditionallyTo("admin", "carousel-editor", imageSource);
+  navigateTo(carouselName: string) {
+    this.urlService.navigateUnconditionallyTo(["admin", "carousel-editor"], {[StoredValue.CAROUSEL]: carouselName});
   }
 
-  hideHelp() {
-
+  metadataChange(contentMetadata: ContentMetadata) {
+    this.contentMetadata = contentMetadata;
   }
-
-  protected readonly faStreetView = faStreetView;
-  protected readonly faEye = faEye;
 }

@@ -57,7 +57,7 @@ export class SocialListCardsComponent implements OnInit {
   }
 
   addSocialEvent() {
-    this.urlService.navigateTo("social", "new");
+    this.urlService.navigateTo(["social", "new"]);
   }
 
   @Input()

@@ -37,14 +37,14 @@ import { CardEditorComponent } from "./modules/common/card-editor/card-editor";
 import { CardImageComponent } from "./modules/common/card/image/card-image";
 import { CopyIconComponent } from "./modules/common/copy-icon/copy-icon";
 import { DynamicContentPageComponent } from "./modules/common/dynamic-content-page/dynamic-content-page";
-import { ActionButtonsSettingsComponent } from "./modules/common/dynamic-content/action-buttons-settings";
+import { RowSettingsActionButtonsComponent } from "./modules/common/dynamic-content/dynamic-content-row-settings-action-buttons";
 import { BulkActionSelectorComponent } from "./modules/common/dynamic-content/bulk-action-selector";
 import { DynamicContentComponent } from "./modules/common/dynamic-content/dynamic-content";
 import { DynamicContentSiteEditComponent } from "./modules/common/dynamic-content/dynamic-content-site-edit";
 import { DynamicContentSiteEditTextRowComponent } from "./modules/common/dynamic-content/dynamic-content-site-edit-text-row";
 import { DynamicContentViewComponent } from "./modules/common/dynamic-content/dynamic-content-view";
 import { DynamicContentViewTextRowComponent } from "./modules/common/dynamic-content/dynamic-content-view-text-row";
-import { MarginSelectComponent } from "./modules/common/dynamic-content/margin-select";
+import { MarginSelectComponent } from "./modules/common/dynamic-content/dynamic-content-margin-select";
 import { IconExamplesComponent } from "./modules/common/icon-examples/icon-examples";
 import { LoginRequiredComponent } from "./modules/common/login-required/login-required";
 import { SvgComponent } from "./modules/common/svg/svg";
@@ -106,6 +106,10 @@ import { AspectRatioSelectorComponent } from "./carousel/edit/aspect-ratio-selec
 import { ImageListEditPageComponent } from "./carousel/edit/image-list-page/image-list-edit-page";
 import { BadgeButtonComponent } from "./modules/common/badge-button/badge-button";
 import { DynamicContentViewCarouselComponent } from "./modules/common/dynamic-content/dynamic-content-view-carousel";
+import { CarouselSelectComponent } from "./carousel/edit/carousel-selector/carousel-select";
+import {
+  RowSettingsCarouselComponent
+} from "./modules/common/dynamic-content/dynamic-content-site-edit-carousel-row";
 
 @NgModule({
   imports: [
@@ -137,7 +141,7 @@ import { DynamicContentViewCarouselComponent } from "./modules/common/dynamic-co
   ],
   declarations: [
     ActionButtonsComponent,
-    ActionButtonsSettingsComponent,
+    RowSettingsActionButtonsComponent,
     ActionsDropdownComponent,
     AspectRatioSelectorComponent,
     BadgeButtonComponent,
@@ -146,6 +150,7 @@ import { DynamicContentViewCarouselComponent } from "./modules/common/dynamic-co
     CardImageComponent,
     CarouselComponent,
     CarouselSelectorComponent,
+    CarouselSelectComponent,
     CarouselStoryNavigatorComponent,
     ContactUsComponent,
     CopyIconComponent,
@@ -159,6 +164,7 @@ import { DynamicContentViewCarouselComponent } from "./modules/common/dynamic-co
     DynamicContentPageComponent,
     DynamicContentSiteEditComponent,
     DynamicContentSiteEditTextRowComponent,
+    RowSettingsCarouselComponent,
     DynamicContentViewCarouselComponent,
     DynamicContentViewComponent,
     DynamicContentViewTextRowComponent,

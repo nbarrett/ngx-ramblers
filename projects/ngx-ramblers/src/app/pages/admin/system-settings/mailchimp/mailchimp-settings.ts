@@ -150,12 +150,12 @@ export class MailchimpSettingsComponent implements OnInit, OnDestroy {
   save() {
     this.logger.debug("saving config", this.mailchimpConfig);
     this.mailchimpConfigService.saveConfig(this.mailchimpConfig)
-      .then(() => this.urlService.navigateTo("admin"))
+      .then(() => this.urlService.navigateTo(["admin"]))
       .catch((error) => this.notify.error(error));
   }
 
   cancel() {
-    this.urlService.navigateTo("admin");
+    this.urlService.navigateTo(["admin"]);
   }
 
 }

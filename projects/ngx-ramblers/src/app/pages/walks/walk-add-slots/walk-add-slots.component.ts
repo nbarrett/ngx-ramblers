@@ -198,7 +198,7 @@ export class WalkAddSlotsComponent implements OnInit {
   }
 
   backToWalks() {
-    this.urlService.navigateTo("walks");
+    this.urlService.navigateTo(["walks"]);
   }
 
   onUntilDateChange(date: DateValue) {

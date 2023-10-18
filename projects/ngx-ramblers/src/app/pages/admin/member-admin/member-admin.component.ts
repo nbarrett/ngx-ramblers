@@ -232,7 +232,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   }
 
   showArea(area) {
-    this.urlService.navigateTo("admin", area);
+    this.urlService.navigateTo(["admin", area]);
   }
 
   showSendEmailsDialog() {

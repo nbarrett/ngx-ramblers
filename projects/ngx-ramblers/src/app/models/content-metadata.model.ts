@@ -54,6 +54,11 @@ export interface ContentMetadataApiResponses extends ApiResponse {
   response?: ContentMetadata[];
 }
 
+export interface AllAndSelectedContentMetaData {
+  contentMetadataItems: ContentMetadata[];
+  contentMetadata: ContentMetadata;
+}
+
 export interface ImageTag {
   key?: number;
   sortIndex?: number;

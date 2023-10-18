@@ -133,7 +133,7 @@ export class CommitteeYearComponent implements OnInit, OnDestroy {
   }
 
   sendNotification(committeeFile: CommitteeFile) {
-    this.urlService.navigateTo("committee", "send-notification", committeeFile.id);
+    this.urlService.navigateTo(["committee", "send-notification", committeeFile.id]);
   }
 
   notLast(committeeFile): boolean {

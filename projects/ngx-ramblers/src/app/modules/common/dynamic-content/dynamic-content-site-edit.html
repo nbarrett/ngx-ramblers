@@ -129,7 +129,7 @@
             ({{stringUtils.pluraliseWithCount(row?.columns.length, 'column')}})
           </div>
           <div class="row align-items-end mb-3">
-            <div class="col-sm-2">
+            <div class="col-auto">
               <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-type')">Row Type</label>
               <select class="form-control input-sm"
                       [(ngModel)]="row.type"
@@ -139,41 +139,31 @@
                         [ngValue]="type.value">{{stringUtils.asTitle(type.value)}}</option>
               </select>
             </div>
-            <div *ngIf="actions.isCarousel(row) && row?.carousel" class="col">
-              <form>
-                <label class="mr-2"
-                       [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-carousel-name')">Carousel
-                  Name</label>
-                <input autocomplete="new-password" [typeahead]="pageContentService.carousels"
-                       [typeaheadMinLength]="0"
-                       [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-carousel-name')"
-                       [(ngModel)]="row.carousel.name"
-                       name="new-password"
-                       [ngModelOptions]="{standalone: true}"
-                       type="text" class="form-control">
-              </form>
+            <div class="col-auto" app-row-settings-carousel
+                 *ngIf="actions.isCarousel(row)" [row]="row">
             </div>
-            <div class="col">
-              <app-margin-select label="Margin Top"
-                                 [data]="row"
-                                 field="marginTop">
-              </app-margin-select>
+            <div class="col-auto" app-row-settings-action-buttons
+                 *ngIf="actions.isActionButtons(row)" [row]="row"></div>
+            <div class="col-auto">
+              <div class="form-inline">
+                <div app-margin-select label="Margin Top"
+                     [data]="row"
+                     field="marginTop" class="mr-4">
+                </div>
+                <div app-margin-select label="Margin Bottom"
+                     [data]="row"
+                     field="marginBottom">
+                </div>
+              </div>
             </div>
-            <div class="col">
-              <app-margin-select label="Margin Bottom"
-                                 [data]="row"
-                                 field="marginBottom">
-              </app-margin-select>
-            </div>
-            <app-action-buttons-settings [row]="row"></app-action-buttons-settings>
-            <div class="col">
-              <app-actions-dropdown [rowIndex]="rowIndex"
-                                    [pageContent]="pageContent"
-                                    [row]="row">
-              </app-actions-dropdown>
-            </div>
-            <div class="col mr-3">
-              <app-bulk-action-selector [row]="row"></app-bulk-action-selector>
+            <div class="col-auto">
+              <div class="form-inline float-right">
+                <app-actions-dropdown [rowIndex]="rowIndex"
+                                      [pageContent]="pageContent"
+                                      [row]="row">
+                </app-actions-dropdown>
+                <app-bulk-action-selector [row]="row"></app-bulk-action-selector>
+              </div>
             </div>
           </div>
           <app-action-buttons *ngIf="actions.isActionButtons(row)"
@@ -181,8 +171,41 @@
                               [rowIndex]="rowIndex">
           </app-action-buttons>
           <ng-container *ngIf="actions.isCarousel(row)">
-            <app-badge-button *ngIf="!editActive(rowIndex)" [icon]="faPencil" (click)="toggleEditMode(rowIndex)"
-                              [caption]="'Edit'"></app-badge-button>
+            <div *ngIf="!editActive(rowIndex)" class="row">
+              <div class="col-sm-6">
+                <app-carousel *ngIf="actions.isCarousel(row)" [carouselData]="carouselData(row)"
+                              [hideStoryNavigator]="true"
+                              [index]="actions.carouselIndex(row, pageContent)"></app-carousel>
+              </div>
+              <div class="col-sm-6">
+                <div class="custom-control custom-checkbox">
+                  <input [(ngModel)]="row.carousel.showStoryNavigator"
+                         type="checkbox" class="custom-control-input" id="show-story-navigator">
+                  <label class="custom-control-label"
+                         for="show-story-navigator">Show Story Navigator
+                  </label>
+                </div>
+                <div class="custom-control custom-checkbox">
+                  <input [(ngModel)]="row.carousel.showIndicators"
+                         type="checkbox" class="custom-control-input" id="show-story-indicators">
+                  <label class="custom-control-label"
+                         for="show-story-indicators">Show Indicators
+                  </label>
+                </div>
+                <div class="form-inline">
+                <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-slide-interval')">Slide
+                  interval in seconds</label>
+                <input [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-slide-interval')" #input
+                       (input)="row.carousel.slideInterval=actions.constrainInput(input, 0,30) * 1000"
+                       [value]="row.carousel.slideInterval/1000"
+                       autocomplete="columns"
+                       class="form-control input-sm column-input ml-2" placeholder="Enter slide interval in seconds"
+                       type="number">
+                </div>
+                <app-badge-button [icon]="faPencil" (click)="toggleEditMode(rowIndex)"
+                                  [caption]="'Edit'"></app-badge-button>
+              </div>
+            </div>
             <app-image-list-edit *ngIf="editActive(rowIndex)" [name]="row.carousel.name"
                                  (exit)="toggleEditMode(rowIndex)"></app-image-list-edit>
           </ng-container>

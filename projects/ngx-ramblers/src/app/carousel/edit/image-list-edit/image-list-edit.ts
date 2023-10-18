@@ -134,7 +134,6 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.filterType = ImageFilterType.RECENT;
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.contentMetadataService.s3Notifications().subscribe(data => this.logger.debug("contentMetadataService.notifications.s3:", data)));
-    this.subscriptions.push(this.contentMetadataService.contentMetadataNotifications().subscribe(data => this.logger.debug("contentMetadataService.notifications.contentMetadataNotifications:", data)));
     this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
       this.story = params[StoredValue.STORY];
       this.logger.info("activatedRoute.queryParams:", this.story);

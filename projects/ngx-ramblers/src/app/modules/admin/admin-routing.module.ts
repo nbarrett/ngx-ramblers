@@ -40,7 +40,6 @@ import { ImageListEditPageComponent } from "../../carousel/edit/image-list-page/
     {path: "mailchimp-settings", component: MailchimpSettingsComponent, canActivate: [AdminAuthGuard]},
     {path: "committee-settings", component: CommitteeSettingsComponent, canActivate: [AdminAuthGuard]},
     {path: "banners", component: BannerComponent},
-    {path: "carousel-editor/:name", component: ImageListEditPageComponent},
     {path: "carousel-editor", component: ImageListEditPageComponent},
     {matcher: hasDynamicPath, component: DynamicContentPageComponent},
   ])]

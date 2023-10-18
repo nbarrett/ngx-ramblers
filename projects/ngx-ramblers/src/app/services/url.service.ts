@@ -1,6 +1,6 @@
 import { DOCUMENT, Location } from "@angular/common";
 import { Inject, Injectable } from "@angular/core";
-import { ActivatedRoute, Router } from "@angular/router";
+import { ActivatedRoute, Params, QueryParamsHandling, Router } from "@angular/router";
 import first from "lodash-es/first";
 import last from "lodash-es/last";
 import tail from "lodash-es/tail";
@@ -35,19 +35,23 @@ export class UrlService {
     return this.location.path().includes(path);
   }
 
-  navigateTo(...pathSegments: string[]): Promise<boolean> {
+  navigateTo(pathSegments: string[], params?: Params, queryParamsHandling?: QueryParamsHandling): Promise<boolean> {
     if (this.siteEdit.active()) {
       return Promise.resolve(false);
     } else {
-      return this.navigateUnconditionallyTo(...pathSegments);
+      return this.navigateUnconditionallyTo(pathSegments, params, queryParamsHandling);
     }
   }
 
-  navigateUnconditionallyTo(...pathSegments: string[]): Promise<boolean> {
+  navigateUnconditionallyTo(pathSegments: string[], params?: Params, queryParamsHandling?: QueryParamsHandling): Promise<boolean> {
     const url = `${this.pageUrl(pathSegments.filter(item => item).join("/"))}`;
-    this.logger.debug("navigating to pathSegments:", pathSegments, "->", url);
-    return this.router.navigate([url], {relativeTo: this.route, queryParamsHandling: "merge"}).then((activated: boolean) => {
-      this.logger.debug("activated:", activated, "area is now:", this.area());
+    this.logger.info("navigating to pathSegments:", pathSegments, "->", url, "params:", params, "queryParamsHandling:", queryParamsHandling);
+    return this.router.navigate([url], {
+      relativeTo: this.route,
+      queryParams: params,
+      queryParamsHandling: queryParamsHandling || "merge"
+    }).then((activated: boolean) => {
+      this.logger.info("activated:", activated, "area is now:", this.area());
       return activated;
     });
   }

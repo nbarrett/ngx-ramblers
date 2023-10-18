@@ -114,7 +114,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.notify.setBusy();
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse) => {
-      this.urlService.navigateTo("admin");
+      this.urlService.navigateTo(["admin"]);
     }));
     this.subscriptions.push(this.expenseClaimService.notifications().subscribe(apiResponse => {
       if (apiResponse.error) {
@@ -231,7 +231,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   }
 
   showArea(area) {
-    this.urlService.navigateTo("admin", area);
+    this.urlService.navigateTo(["admin", area]);
   }
 
   activeEvents(optionalEvents?: ExpenseEvent[]) {
@@ -286,7 +286,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
 
   showAllExpenseClaims() {
     this.dataError = false;
-    this.urlService.navigateTo("admin", "expenses");
+    this.urlService.navigateTo(["admin", "expenses"]);
   }
 
   addExpenseClaim() {
@@ -499,7 +499,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   }
 
   backToAdmin() {
-    this.urlService.navigateTo("admin");
+    this.urlService.navigateTo(["admin"]);
   }
 
   expand() {

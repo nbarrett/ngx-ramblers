@@ -154,7 +154,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   }
 
   navigateBackToWalks() {
-    this.urlService.navigateTo("walks");
+    this.urlService.navigateTo(["walks"]);
   }
 
   populateWalkExport(walksForExport: WalkExport[]) {

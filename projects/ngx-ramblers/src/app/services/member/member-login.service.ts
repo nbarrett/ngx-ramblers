@@ -62,7 +62,7 @@ export class MemberLoginService {
 
   showLoginPromptWithRouteParameter(routeParameter) {
     if (this.urlService.hasRouteParameter(routeParameter) && !this.memberLoggedIn()) {
-      this.urlService.navigateTo("login");
+      this.urlService.navigateTo(["login"]);
     }
   }
 
