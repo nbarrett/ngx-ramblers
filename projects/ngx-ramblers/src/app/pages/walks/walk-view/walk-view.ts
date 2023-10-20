@@ -6,7 +6,7 @@ import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { LoginResponse } from "../../../models/member.model";
-import { DisplayedWalk, MapDisplay, Walk } from "../../../models/walk.model";
+import { DisplayedWalk, GoogleMapsConfig, MapDisplay, Walk } from "../../../models/walk.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -18,6 +18,7 @@ import { WalksService } from "../../../services/walks/walks.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { SystemConfig } from "../../../models/system.model";
+import { BroadcastService } from "../../../services/broadcast-service";
 
 @Component({
   selector: "app-walk-view",
@@ -49,6 +50,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
 
   constructor(
     private route: ActivatedRoute,
+    private broadcastService: BroadcastService<GoogleMapsConfig>,
     private walksService: WalksService,
     public googleMapsService: GoogleMapsService,
     private authService: AuthService,
@@ -85,6 +87,10 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       this.refreshHomePostcode();
       this.updateGoogleMap();
     }));
+    this.googleMapsService.events().subscribe(config => {
+      this.logger.info("event received:", config);
+      this.updateGoogleMap();
+    });
     this.notify.success({
       title: "Single walk showing",
       message: " - "

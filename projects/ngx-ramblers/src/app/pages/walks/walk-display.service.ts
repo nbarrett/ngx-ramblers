@@ -61,7 +61,6 @@ export class WalkDisplayService {
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(WalkDisplayService, NgxLoggerLevel.OFF);
     this.applyConfig();
-    this.refreshGoogleMapsService();
     this.refreshCachedData();
     this.logger.debug("this.memberLoginService", this.memberLoginService.loggedInMember());
   }
@@ -94,12 +93,6 @@ export class WalkDisplayService {
     return expandedWalk && expandedWalk.mode === WalkViewMode.EDIT;
   }
 
-  refreshGoogleMapsService() {
-    this.googleMapsService.getConfig().then(config => {
-      this.googleMapsConfig = {zoomLevel: 12, apiKey: config.apiKey};
-    });
-  }
-
   googleMapsUrl(showDrivingDirections: boolean, fromPostcode: string, toPostcode: string): SafeResourceUrl {
     this.logger.info("googleMapsUrl:showDrivingDirections:", showDrivingDirections, "fromPostcode:", fromPostcode, "toPostcode:", toPostcode);
     if (this.googleMapsConfig?.apiKey && this.googleMapsConfig?.zoomLevel) {
@@ -109,7 +102,7 @@ export class WalkDisplayService {
       this.logger.debug("given showDrivingDirections:", showDrivingDirections, "googleMapsUrl set to:", googleMapsUrl);
       return googleMapsUrl;
     } else {
-      this.logger.debug("cant set googleMapsUrl as apiKey:", this.googleMapsConfig?.apiKey, "zoomLevel:", this.googleMapsConfig?.zoomLevel);
+      this.logger.warn("can't set googleMapsUrl as apiKey:", this.googleMapsConfig?.apiKey, "zoomLevel:", this.googleMapsConfig?.zoomLevel);
     }
   }
 
@@ -121,7 +114,9 @@ export class WalkDisplayService {
   }
 
   public shouldShowFullDetails(displayedWalk: DisplayedWalk): boolean {
-    return this.walkPopulationWalksManager() || !!(displayedWalk?.walkAccessMode?.walkWritable && displayedWalk?.walk?.postcode) || displayedWalk?.latestEventType?.showDetails;
+    return this.walkPopulationWalksManager()
+      || !!(displayedWalk?.walkAccessMode?.walkWritable && displayedWalk?.walk?.postcode)
+      || displayedWalk?.latestEventType?.showDetails;
   }
 
   public walkPopulationWalksManager(): boolean {
@@ -280,6 +275,10 @@ export class WalkDisplayService {
     this.systemConfigService.events().subscribe(item => {
       this.group = item.group;
       this.logger.info("group:", this.group);
+    });
+    this.googleMapsService.events().subscribe(config => {
+      this.googleMapsConfig = {zoomLevel: 12, apiKey: config.apiKey};
+      this.logger.info("googleMapsConfig:", this.googleMapsConfig);
     });
   }
 }
