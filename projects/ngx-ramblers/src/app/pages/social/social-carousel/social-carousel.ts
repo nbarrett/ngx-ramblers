@@ -1,7 +1,7 @@
 import { Component, ElementRef, Input, OnInit, ViewChild } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { ContentMetadataItem } from "../../../models/content-metadata.model";
+import { ContentMetadata, ContentMetadataItem } from "../../../models/content-metadata.model";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -22,7 +22,7 @@ export class SocialCarouselComponent implements OnInit {
   public slideInterval = 5000;
   public activeSlideIndex = -1;
   public image: any;
-  public imageWidth = "80%";
+  private contentMetadata: ContentMetadata;
 
   constructor(private contentMetadataService: ContentMetadataService,
               private urlService: UrlService,
@@ -60,10 +60,11 @@ export class SocialCarouselComponent implements OnInit {
   refreshImages() {
     this.logger.debug("slides:", this.slides);
     this.contentMetadataService.items(RootFolder.carousels, "images-social-events")
-        .then((contentMetaData) => {
-          this.slides = contentMetaData.files;
-          this.logger.debug("found", contentMetaData?.files?.length || 0, "slides");
-          this.nextSlide();
+      .then((contentMetadata) => {
+        this.slides = contentMetadata.files;
+        this.contentMetadata = contentMetadata;
+        this.logger.debug("found", contentMetadata?.files?.length || 0, "slides");
+        this.nextSlide();
       });
   }
 
@@ -80,4 +81,9 @@ export class SocialCarouselComponent implements OnInit {
     this.logger.debug("papercutHeight:", clientHeight);
     return clientHeight;
   }
+
+  imageSourceFor(file: string): string {
+    return this.urlService.imageSource(this.contentMetadataService.qualifiedFileNameWithRoot(this.contentMetadata?.rootFolder, this.contentMetadata?.name, file));
+  }
+
 }
