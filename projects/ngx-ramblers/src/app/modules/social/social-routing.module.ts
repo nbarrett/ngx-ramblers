@@ -5,7 +5,7 @@ import { SocialViewPageComponent } from "../../pages/social/social-view-page/soc
 import { hasDynamicPath, hasMongoId } from "../../services/path-matchers";
 import { DynamicContentPageComponent } from "../common/dynamic-content-page/dynamic-content-page";
 import { SocialModule } from "./social.module";
-import { AreaExistsGuard } from "../../guards/area-exists-guard.service";
+import { AreaExistsGuard } from "../../guards/area-exists-guard";
 
 @NgModule({
   imports: [SocialModule, RouterModule.forChild([

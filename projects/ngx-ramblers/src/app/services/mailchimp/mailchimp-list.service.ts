@@ -2,7 +2,7 @@ import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject } from "rxjs";
-import { MailchimpListCreateRequest } from "../../../../../../server/lib/shared/server-models";
+import { MailchimpListCreateRequest } from "../../models/server-models";
 import { ApiResponse } from "../../models/api-response.model";
 import {
   MailchimpBatchSubscriptionResponse,

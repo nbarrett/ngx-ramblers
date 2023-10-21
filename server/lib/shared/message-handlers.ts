@@ -3,7 +3,7 @@ import https = require("https");
 import isEmpty = require("lodash/isEmpty");
 import querystring = require("querystring");
 import { envConfig } from "../env-config/env-config";
-import { MessageHandlerOptions } from "./server-models";
+import { MessageHandlerOptions } from "../../../projects/ngx-ramblers/src/app/models/server-models";
 
 function createRequestAudit(options: MessageHandlerOptions) {
   const requestAudit = {

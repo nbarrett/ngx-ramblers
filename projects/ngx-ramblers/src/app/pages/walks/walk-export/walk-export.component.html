@@ -1,6 +1,11 @@
 <app-page>
   <tabset class="custom-tabset">
     <tab active="true" [heading]="'Walk upload selection'">
+      <app-csv-export hidden #csvComponent
+                      [data]="walksDownloadFileContents()"
+                      [filename]="walksDownloadFileName()"
+                      [options]="options()">
+      </app-csv-export>
       <div class="img-thumbnail thumbnail-admin-edit">
         <div class="form-group">
           <div *ngIf="walkExportTarget.showAlert" class="alert {{walkExportTarget.alertClass}}">
@@ -15,9 +20,6 @@
                    value="Upload {{walksDownloadFileContents().length}} walk(s) directly to Ramblers"
                    (click)="uploadToRamblers()"
                    [ngClass]="exportInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
-            <angular2csv hidden #csvComponent [data]="walksDownloadFileContents()"
-                         [filename]="walksDownloadFileName()"
-                         [options]="options()"></angular2csv>
             <input *ngIf="walksDownloadFileContents().length > 0" type="submit"
                    (click)="csvComponent.generateCsv();"
                    value="Export {{walksDownloadFileContents().length}} walk(s) file as CSV format"

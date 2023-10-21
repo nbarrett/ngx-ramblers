@@ -28,7 +28,7 @@
                tooltip="Click to email {{displayedWalk?.walk?.displayName}}">
               {{displayedWalk?.walk?.displayName}}
             </a>
-            <span (click)="display.login()" *ngIf="!loggedIn" class="tooltip-link span-margin"
+            <span (click)="login()" *ngIf="!loggedIn" class="tooltip-link span-margin"
                   trigger="mouseenter"
                   tooltip="Login as an {{group?.shortName}} member and send an email to {{displayedWalk?.walk?.displayName}}">
           {{displayedWalk?.walk?.displayName}}</span></div>

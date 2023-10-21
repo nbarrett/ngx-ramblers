@@ -77,8 +77,6 @@ import { AddressQueryService } from "../../services/walks/address-query.service"
 import { WalkNotificationService } from "../../services/walks/walk-notification.service";
 import { WalksService } from "../../services/walks/walks.service";
 import { SharedModule } from "../../shared-module";
-import { WalksAuthGuard } from "../../guards/walks-auth-guard.service";
-import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-guard.service";
 
 @NgModule({
   declarations: [
@@ -135,8 +133,6 @@ import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-g
     WalkNotificationService,
     WalkSummaryPipe,
     WalkValidationsListPipe,
-    WalksAuthGuard,
-    WalksPopulationLocalGuard,
     WalksService,
   ]
 })

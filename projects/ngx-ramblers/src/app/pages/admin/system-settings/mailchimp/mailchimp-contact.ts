@@ -1,6 +1,6 @@
 import { Component, Input } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { MailchimpContact } from "../../../../../../../../server/lib/shared/server-models";
+import { MailchimpContact } from "../../../../models/server-models";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 
 @Component({

@@ -1,7 +1,6 @@
 import { DOCUMENT } from "@angular/common";
 import { Component, Inject, OnDestroy, OnInit } from "@angular/core";
 import { faCircleInfo, faEye, faRemove } from "@fortawesome/free-solid-svg-icons";
-import { Options } from "angular2-csv";
 import find from "lodash-es/find";
 import map from "lodash-es/map";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -24,6 +23,7 @@ import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-
 import { WalksQueryService } from "../../../services/walks/walks-query.service";
 import { WalksService } from "../../../services/walks/walks.service";
 import { WalkDisplayService } from "../walk-display.service";
+import { CsvOptions } from "../../../csv-export/csv-export";
 
 @Component({
   selector: "app-walk-export",
@@ -90,9 +90,9 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.stopPolling();
   }
 
-  public options(): Options {
+  public options(): CsvOptions {
     return {
-      decimalseparator: "",
+      decimalSeparator: "",
       filename: "",
       showLabels: false,
       title: "",

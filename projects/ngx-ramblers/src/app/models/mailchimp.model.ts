@@ -1,4 +1,4 @@
-import { MailchimpContact } from "../../../../../server/lib/shared/server-models";
+import { MailchimpContact } from "./server-models";
 import { ApiResponse } from "./api-response.model";
 import { AuditStatus } from "./audit";
 

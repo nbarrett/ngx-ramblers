@@ -6,6 +6,7 @@ import { LoggerTestingModule } from "ngx-logger/testing";
 import { FileUtilsService } from "./file-utils.service";
 import { SearchFilterPipe } from "./pipes/search-filter.pipe";
 import { ContentMetadataService } from "./services/content-metadata.service";
+import { FullNamePipe } from "./pipes/full-name.pipe";
 
 describe("FileUtilsService", () => {
   beforeEach(() => TestBed.configureTestingModule({
@@ -15,7 +16,7 @@ describe("FileUtilsService", () => {
       RouterTestingModule,
     ],
     providers: [
-      ContentMetadataService, SearchFilterPipe
+      ContentMetadataService, SearchFilterPipe, FullNamePipe
     ],
   }));
 

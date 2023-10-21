@@ -5,7 +5,7 @@ import { MailchimpConfig } from "../../../projects/ngx-ramblers/src/app/models/m
 import { envConfig } from "../env-config/env-config";
 import * as config from "../mongo/controllers/config";
 import * as transforms from "../mongo/controllers/transforms";
-import { MailchimpConfigData } from "../shared/server-models";
+import { MailchimpConfigData } from "../../../projects/ngx-ramblers/src/app/models/server-models";
 
 const debugLog = debug(envConfig.logNamespace("mailchimp-config"));
 

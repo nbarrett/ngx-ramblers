@@ -1,5 +1,5 @@
 import { Request } from "express";
-import { UploadedFile } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
+import { UploadedFile } from "./aws-object.model";
 import {
   BatchListMembersBody,
   BatchListMembersOpts,
@@ -21,7 +21,7 @@ import {
   MailchimpSetContentResponse,
   MergeField,
   MergeFieldAddResponse
-} from "../../../projects/ngx-ramblers/src/app/models/mailchimp.model";
+} from "./mailchimp.model";
 
 export interface MessageHandlerOptions {
   req: any;

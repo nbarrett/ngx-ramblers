@@ -7,9 +7,9 @@
   </h5>
   <div class="card-text">
     <iframe class="text-center" *ngIf="pluginUrl"
-            [src]="pluginUrl"
             [width]="width"
             [height]="height"
-              frameborder="0"></iframe>
+            [src]="pluginUrl">
+    </iframe>
   </div>
 </app-card-container>

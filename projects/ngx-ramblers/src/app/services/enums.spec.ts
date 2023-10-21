@@ -88,7 +88,7 @@ describe("when using enumKeyValues", () => {
 
   it("should return an array of strings given an enum with no values", () => {
     expect(enumKeyValues(TestEnumNoValues)).toEqual([
-      {key: "undefined", value: 0},
+      {key: "undefined", value: 0 as any},
       {key: "Request", value: 1},
       {key: "Backlog", value: 2},
       {key: "In Due Course", value: 3},
