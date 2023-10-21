@@ -26,7 +26,7 @@ export class MemberService {
               private dbUtils: DbUtilsService,
               private commonDataService: CommonDataService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MemberService, {level: NgxLoggerLevel.OFF, serverLogLevel: NgxLoggerLevel.OFF});
+    this.logger = loggerFactory.createLogger(MemberService, NgxLoggerLevel.OFF);
   }
 
   filterFor = {

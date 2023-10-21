@@ -13,11 +13,11 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { PageService } from "../../services/page.service";
 import { hasDynamicPath, hasMongoId, hasRamblersIdOrUrl } from "../../services/path-matchers";
 import { StringUtilsService } from "../../services/string-utils.service";
-import { WalksAuthGuard } from "../../guards/walks-auth-guard.service";
+import { WalksAuthGuard } from "../../guards/walks-auth-guard";
 import { ActionButtonsComponent } from "../common/action-buttons/action-buttons";
 import { DynamicContentPageComponent } from "../common/dynamic-content-page/dynamic-content-page";
 import { WalksModule } from "./walks.module";
-import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-guard.service";
+import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-guard";
 
 @NgModule({
   imports: [WalksModule, RouterModule.forChild([

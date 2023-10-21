@@ -1,6 +1,5 @@
 import { Injectable } from "@angular/core";
-import { CustomNGXLoggerService, LoggerConfig, NGXLogger, NgxLoggerLevel } from "ngx-logger";
-import { isLoggerConfig } from "./type-guards";
+import { CustomNGXLoggerService, INGXLoggerConfig, NGXLogger, NgxLoggerLevel } from "ngx-logger";
 
 export class Logger {
   constructor(private logger: NGXLogger, private className: string) {
@@ -44,8 +43,8 @@ export class LoggerFactory {
   constructor(private customLogger: CustomNGXLoggerService) {
   }
 
-  createLogger<T extends InstanceType<any>>(classRef: T | string, loggerConfig: NgxLoggerLevel | LoggerConfig): Logger {
-    const config: LoggerConfig = isLoggerConfig(loggerConfig) ? {...loggerConfig, ...{serverLoggingUrl: "api/logs"}} : {level: loggerConfig};
+  createLogger<T extends InstanceType<any>>(classRef: T | string, loggerConfig: NgxLoggerLevel): Logger {
+    const config: INGXLoggerConfig = {level: loggerConfig};
     return new Logger(this.customLogger.create(config), typeof classRef === "string" ? classRef : classRef["name"]);
   }
 

@@ -6,7 +6,6 @@ import { FormsModule } from "@angular/forms";
 import { RouterModule } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgSelectModule } from "@ng-select/ng-select";
-import { Angular2CsvModule } from "angular2-csv";
 import { FileUploadModule } from "ng2-file-upload";
 import { AccordionModule } from "ngx-bootstrap/accordion";
 import { AlertModule } from "ngx-bootstrap/alert";
@@ -25,7 +24,6 @@ import { CustomNGXLoggerService, LoggerModule, NgxLoggerLevel } from "ngx-logger
 import { MarkdownModule } from "ngx-markdown";
 import { TagifyModule } from "ngx-tagify";
 import { UiSwitchModule } from "ngx-ui-switch";
-import { LoggedInGuard } from "./guards/admin-login-guard.service";
 import { AuthInterceptor } from "./auth/auth.interceptor";
 import { ContactUsComponent } from "./contact-us/contact-us-directive.component";
 import { DatePickerComponent } from "./date-picker/date-picker.component";
@@ -37,11 +35,15 @@ import { CardEditorComponent } from "./modules/common/card-editor/card-editor";
 import { CardImageComponent } from "./modules/common/card/image/card-image";
 import { CopyIconComponent } from "./modules/common/copy-icon/copy-icon";
 import { DynamicContentPageComponent } from "./modules/common/dynamic-content-page/dynamic-content-page";
-import { RowSettingsActionButtonsComponent } from "./modules/common/dynamic-content/dynamic-content-row-settings-action-buttons";
+import {
+  RowSettingsActionButtonsComponent
+} from "./modules/common/dynamic-content/dynamic-content-row-settings-action-buttons";
 import { BulkActionSelectorComponent } from "./modules/common/dynamic-content/bulk-action-selector";
 import { DynamicContentComponent } from "./modules/common/dynamic-content/dynamic-content";
 import { DynamicContentSiteEditComponent } from "./modules/common/dynamic-content/dynamic-content-site-edit";
-import { DynamicContentSiteEditTextRowComponent } from "./modules/common/dynamic-content/dynamic-content-site-edit-text-row";
+import {
+  DynamicContentSiteEditTextRowComponent
+} from "./modules/common/dynamic-content/dynamic-content-site-edit-text-row";
 import { DynamicContentViewComponent } from "./modules/common/dynamic-content/dynamic-content-view";
 import { DynamicContentViewTextRowComponent } from "./modules/common/dynamic-content/dynamic-content-view-text-row";
 import { MarginSelectComponent } from "./modules/common/dynamic-content/dynamic-content-margin-select";
@@ -98,23 +100,22 @@ import { NotifierService } from "./services/notifier.service";
 import { PageContentService } from "./services/page-content.service";
 import { RouterHistoryService } from "./services/router-history.service";
 import { SiteEditService } from "./site-edit/site-edit.service";
-import { AreaExistsGuard } from "./guards/area-exists-guard.service";
 import { CarouselSelectorComponent } from "./carousel/edit/carousel-selector/carousel-selector";
 import { CarouselComponent } from "./carousel/view/carousel";
-import { CarouselStoryNavigatorComponent } from "./carousel/view/carousel-story-navigator/carousel-story-navigator.component";
+import {
+  CarouselStoryNavigatorComponent
+} from "./carousel/view/carousel-story-navigator/carousel-story-navigator.component";
 import { AspectRatioSelectorComponent } from "./carousel/edit/aspect-ratio-selector/aspect-ratio-selector";
 import { ImageListEditPageComponent } from "./carousel/edit/image-list-page/image-list-edit-page";
 import { BadgeButtonComponent } from "./modules/common/badge-button/badge-button";
 import { DynamicContentViewCarouselComponent } from "./modules/common/dynamic-content/dynamic-content-view-carousel";
 import { CarouselSelectComponent } from "./carousel/edit/carousel-selector/carousel-select";
-import {
-  RowSettingsCarouselComponent
-} from "./modules/common/dynamic-content/dynamic-content-site-edit-carousel-row";
+import { RowSettingsCarouselComponent } from "./modules/common/dynamic-content/dynamic-content-site-edit-carousel-row";
+import { CsvExportComponent } from "./csv-export/csv-export";
 
 @NgModule({
   imports: [
     AlertModule.forRoot(),
-    Angular2CsvModule,
     BsDatepickerModule.forRoot(),
     BsDropdownModule.forRoot(),
     CarouselModule.forRoot(),
@@ -143,6 +144,7 @@ import {
     ActionButtonsComponent,
     RowSettingsActionButtonsComponent,
     ActionsDropdownComponent,
+    CsvExportComponent,
     AspectRatioSelectorComponent,
     BadgeButtonComponent,
     BulkActionSelectorComponent,
@@ -209,7 +211,6 @@ import {
     ActionButtonsComponent,
     ActionsDropdownComponent,
     AlertModule,
-    Angular2CsvModule,
     AspectRatioSelectorComponent,
     BsDatepickerModule,
     BsDropdownModule,
@@ -273,6 +274,7 @@ import {
     UiSwitchModule,
     UpdatedAuditPipe,
     ValueOrDefaultPipe,
+    CsvExportComponent,
   ]
 })
 export class SharedModule {
@@ -302,8 +304,6 @@ export class SharedModule {
         KebabCasePipe,
         LastConfirmedDateDisplayed,
         LineFeedsToBreaksPipe,
-        LoggedInGuard,
-        AreaExistsGuard,
         MailchimpConfigService,
         MailchimpListSubscriptionService,
         MarkdownEditorFocusService,

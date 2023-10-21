@@ -16,7 +16,7 @@ export class CommonDataService {
   private logger: Logger;
 
   constructor(loggerFactory: LoggerFactory, private stringUtils: StringUtilsService) {
-    this.logger = loggerFactory.createLogger("CommonDataService", {level: NgxLoggerLevel.OFF});
+    this.logger = loggerFactory.createLogger("CommonDataService", NgxLoggerLevel.OFF);
   }
 
   public async responseFrom<T extends ApiResponse>(logger: Logger, observable: Observable<T>, notifications: Subject<T>, rejectOnError?: boolean): Promise<T> {

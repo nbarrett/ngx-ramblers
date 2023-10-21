@@ -49,6 +49,8 @@ describe("ContentMetadataService", () => {
 
   const output: ContentMetadata = {
     id: "53729e3fb1e8b51319e3a2ec",
+    contentMetaDataType: null,
+    baseUrl: null,
     rootFolder: RootFolder.carousels,
     name: "imagesHome",
     imageTags: [],

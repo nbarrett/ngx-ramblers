@@ -104,9 +104,11 @@
     <div class="col-sm-12 col-lg-6 rounded" *ngIf="display.shouldShowFullDetails(displayedWalk)">
       <div class="row">
         <div class="col-sm-12">
-          <iframe *ngIf="display.mapViewReady(googleMapsUrl)" class="map-thumbnail-image"
+          <iframe *ngIf="display.mapViewReady(googleMapsUrl)"
+                  allowfullscreen
+                  class="map-thumbnail-image"
                   style="border:0;border-radius: 10px;"
-                  [src]="googleMapsUrl" allowfullscreen></iframe>
+                  [src]="googleMapsUrl"></iframe>
         </div>
       </div>
       <form class="rounded img-thumbnail map-radio-frame">

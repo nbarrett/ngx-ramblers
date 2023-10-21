@@ -63,6 +63,7 @@
                   "with": "projects/ngx-ramblers/src/environments/environment.production.ts"
                 }
               ],
+              "optimization": {"styles": {"inlineCritical": false }},
               "outputHashing": "all"
             },
             "development": {

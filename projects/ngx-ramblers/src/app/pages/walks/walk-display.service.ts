@@ -4,7 +4,6 @@ import { ActivatedRoute, Router } from "@angular/router";
 import find from "lodash-es/find";
 import isEmpty from "lodash-es/isEmpty";
 import isNumber from "lodash-es/isNumber";
-import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Member } from "../../models/member.model";
 import { Organisation, WalkPopulation } from "../../models/system.model";
@@ -23,7 +22,6 @@ import { UrlService } from "../../services/url.service";
 import { WalkEventService } from "../../services/walks/walk-event.service";
 import { WalksQueryService } from "../../services/walks/walks-query.service";
 import { WalksReferenceService } from "../../services/walks/walks-reference-data.service";
-import { LoginModalComponent } from "../login/login-modal/login-modal.component";
 
 @Injectable({
   providedIn: "root"
@@ -39,10 +37,6 @@ export class WalkDisplayService {
   public members: Member[] = [];
   public googleMapsConfig: GoogleMapsConfig;
   public group: Organisation;
-  public config: ModalOptions = {
-    animated: false,
-    initialState: {}
-  };
 
   constructor(
     private systemConfigService: SystemConfigService,
@@ -50,7 +44,6 @@ export class WalkDisplayService {
     private memberService: MemberService,
     private memberLoginService: MemberLoginService,
     private router: Router,
-    private modalService: BsModalService,
     private urlService: UrlService,
     private route: ActivatedRoute,
     private sanitiser: DomSanitizer,
@@ -63,10 +56,6 @@ export class WalkDisplayService {
     this.applyConfig();
     this.refreshCachedData();
     this.logger.debug("this.memberLoginService", this.memberLoginService.loggedInMember());
-  }
-
-  login() {
-    this.modalService.show(LoginModalComponent, this.config);
   }
 
   loggedIn(): boolean {

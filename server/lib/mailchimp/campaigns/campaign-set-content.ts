@@ -2,7 +2,7 @@ import debug from "debug";
 import { Request, Response } from "express";
 import { MailchimpApiError, MailchimpCampaignContentUpdateRequest, MailchimpSetContentResponse } from "../../../../projects/ngx-ramblers/src/app/models/mailchimp.model";
 import { envConfig } from "../../env-config/env-config";
-import { MailchimpConfigData } from "../../shared/server-models";
+import { MailchimpConfigData } from "../../../../projects/ngx-ramblers/src/app/models/server-models";
 import { configuredMailchimp } from "../mailchimp-config";
 import * as messageProcessing from "../mailchimp-message-processing";
 

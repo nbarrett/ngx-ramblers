@@ -1,7 +1,7 @@
 import { Component, Input, OnInit } from "@angular/core";
 import isEmpty from "lodash-es/isEmpty";
 import { NgxLoggerLevel } from "ngx-logger";
-import { MailchimpListCreateRequest } from "../../../../../../../../server/lib/shared/server-models";
+import { MailchimpListCreateRequest } from "../../../../models/server-models";
 import { NamedEvent, NamedEventType } from "../../../../models/broadcast.model";
 import { CustomMergeFieldTag, MailchimpConfig, MailchimpListingResponse, MergeFieldAddResponse } from "../../../../models/mailchimp.model";
 import { Confirm } from "../../../../models/ui-actions";

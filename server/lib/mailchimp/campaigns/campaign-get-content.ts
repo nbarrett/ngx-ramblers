@@ -1,11 +1,17 @@
 import { Request, Response } from "express";
-import { MailchimpApiError, MailchimpCampaignGetContentResponse } from "../../../../projects/ngx-ramblers/src/app/models/mailchimp.model";
 import { envConfig } from "../../env-config/env-config";
-import { MailchimpCampaignSearchRequestOptions, MailchimpConfigData } from "../../shared/server-models";
 import { asBoolean } from "../../shared/string-utils";
 import { configuredMailchimp } from "../mailchimp-config";
 import * as messageProcessing from "../mailchimp-message-processing";
 import debug from "debug";
+import {
+  MailchimpCampaignSearchRequestOptions,
+  MailchimpConfigData
+} from "../../../../projects/ngx-ramblers/src/app/models/server-models";
+import {
+  MailchimpApiError,
+  MailchimpCampaignGetContentResponse
+} from "../../../../projects/ngx-ramblers/src/app/models/mailchimp.model";
 
 const messageType = "mailchimp:campaigns:get-content";
 const debugLog = debug(envConfig.logNamespace(messageType));
