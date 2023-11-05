@@ -3,7 +3,7 @@
     <div class="sc-inner">
       <carousel [noPause]="false" [isAnimated]="true"
                 [interval]="carouselData.slideInterval || 5000"
-                [showIndicators]="carouselData.showIndicators"
+                [showIndicators]="carouselData.showIndicators && showIndicators"
                 [(activeSlide)]="activeSlideIndex"
                 (activeSlideChange)="activeSlideChange(false, $event)">
         <app-carousel-story-navigator *ngIf="!hideStoryNavigator && carouselData.showStoryNavigator"

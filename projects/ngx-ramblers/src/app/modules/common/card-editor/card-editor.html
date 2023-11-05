@@ -10,13 +10,13 @@
       <a class="rams-text-decoration-pink" [href]="column.href"
          target="_self">{{column.title}}</a>
     </h4>
-    <app-image-cropper
+    <app-image-cropper-and-resizer
       *ngIf="pageContentEdit.editActive"
       [preloadImage]="column?.imageSource"
       (imageChange)="imageChanged($event)"
       (quit)="exitImageEdit()"
       (save)="imagedSaved($event)">
-    </app-image-cropper>
+    </app-image-cropper-and-resizer>
     <ng-container *ngIf="siteEditService.active()">
       <div class="form-group">
         <label class="form-label"

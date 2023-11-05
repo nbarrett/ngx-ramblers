@@ -84,8 +84,13 @@ export interface ImageData {
   size: Dimensions;
 }
 
-export const DIMENSIONS_DEFAULT = "Default";
+export const SQUARE = "Square";
 
 export interface DescribedDimensions extends Dimensions {
   description?: string;
+}
+
+export interface SelectedDescribedDimensions {
+  describedDimensions: DescribedDimensions;
+  preselected: boolean;
 }

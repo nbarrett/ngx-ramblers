@@ -51,13 +51,13 @@
           </app-markdown-editor>
           <div *ngIf="imageSource(rowIndex, columnIndex, column?.imageSource) || editActive(rowIndex, columnIndex)"
                class="mt-2 mb-3">
-            <app-image-cropper
+            <app-image-cropper-and-resizer
               *ngIf="editActive(rowIndex, columnIndex)"
               [preloadImage]="column?.imageSource"
               (imageChange)="imageChanged(rowIndex, columnIndex, $event)"
               (quit)="exitImageEdit(rowIndex, columnIndex)"
               (save)="imagedSaved(rowIndex, columnIndex, column, $event)">
-            </app-image-cropper>
+            </app-image-cropper-and-resizer>
             <app-card-image
               [borderRadius]="column?.imageBorderRadius"
               [unconstrainedHeight]="true"

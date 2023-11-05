@@ -20,6 +20,9 @@
         "build": {
           "builder": "@angular-devkit/build-angular:browser",
           "options": {
+            "allowedCommonJsDependencies": [
+              "lodash"
+            ],
             "outputPath": "dist/ngx-ramblers",
             "index": "projects/ngx-ramblers/src/index.html",
             "main": "projects/ngx-ramblers/src/main.ts",
@@ -49,12 +52,12 @@
                 {
                   "type": "initial",
                   "maximumWarning": "500kb",
-                  "maximumError": "5mb"
+                  "maximumError": "6mb"
                 },
                 {
                   "type": "anyComponentStyle",
                   "maximumWarning": "2kb",
-                  "maximumError": "5mb"
+                  "maximumError": "6mb"
                 }
               ],
               "fileReplacements": [

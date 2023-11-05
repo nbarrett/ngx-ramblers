@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FileUtilsService } from "../../../file-utils.service";
-import { DescribedDimensions, DIMENSIONS_DEFAULT } from "../../../models/aws-object.model";
+import { DescribedDimensions, SelectedDescribedDimensions, SQUARE } from "../../../models/aws-object.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { FileUploadService } from "../../../services/file-upload.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -9,6 +9,7 @@ import { NotifierService } from "../../../services/notifier.service";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { UrlService } from "../../../services/url.service";
 import { Dimensions } from "ngx-image-cropper";
+
 
 @Component({
   selector: "app-aspect-ratio-selector",
@@ -33,13 +34,13 @@ export class AspectRatioSelectorComponent implements OnInit {
   @Input()
   public label: string;
   @Output() dimensionsChanged: EventEmitter<DescribedDimensions> = new EventEmitter();
-  @Output() initialised: EventEmitter<DescribedDimensions> = new EventEmitter();
+  @Output() initialised: EventEmitter<SelectedDescribedDimensions> = new EventEmitter();
 
   public dimension: DescribedDimensions;
   public dimensions: DescribedDimensions[] = [
-    {width: 1, height: 1, description: "Square"},
+    {width: 1, height: 1, description: SQUARE},
     {width: 3, height: 2, description: "Classic 35mm still"},
-    {width: 4, height: 3, description: DIMENSIONS_DEFAULT},
+    {width: 4, height: 3, description: "Default"},
     {width: 1.6180, height: 1, description: "The golden ratio"},
     {width: 5, height: 7, description: "Portrait"},
     {width: 16, height: 10, description: "A common computer screen ratio"},
@@ -52,8 +53,8 @@ export class AspectRatioSelectorComponent implements OnInit {
 
   ngOnInit(): void {
     this.id = this.numberUtils.generateUid();
-    this.dimension = this.dimensions.find(item => item.description === (this.dimensionsDescription || DIMENSIONS_DEFAULT));
-    this.initialised.emit(this.dimension);
+    this.dimension = this.dimensions.find(item => item.description === (this.dimensionsDescription || SQUARE));
+    this.initialised.emit({describedDimensions: this.dimension, preselected: !!this.dimensionsDescription});
     this.logger.debug("constructed with dimensionsDescription", this.dimensionsDescription, "dimension:", this.dimension);
   }
 

@@ -3,7 +3,7 @@ import { faAdd, faRemove, faSortAlphaAsc } from "@fortawesome/free-solid-svg-ico
 import { FileUploader } from "ng2-file-upload";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertMessage, AlertTarget } from "../../../../models/alert-target.model";
-import { RootFolder, Image, Images, SystemConfig } from "../../../../models/system.model";
+import { Image, Images, RootFolder, SystemConfig } from "../../../../models/system.model";
 import { sortBy } from "../../../../services/arrays";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
@@ -47,7 +47,7 @@ export class ImageCollectionSettingsComponent implements OnInit {
   @Input() config: SystemConfig;
 
   ngOnInit() {
-    this.logger.info("constructed with:", this.images, "image:", this.images);
+    this.logger.info("constructed with:imageType:", this.imageType, "images:", this.images);
     this.imageTypeDescription = this.stringUtils.asTitle(this.imageType);
     if (!this.images) {
       this.images = this.systemConfigService.defaultImages(this.imageType);

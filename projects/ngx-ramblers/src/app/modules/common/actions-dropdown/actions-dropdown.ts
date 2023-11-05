@@ -34,6 +34,7 @@ export class ActionsDropdownComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.logger.info("row:", this.row, "column:", this.column)
   }
 
   rows(): PageContentRow[] {

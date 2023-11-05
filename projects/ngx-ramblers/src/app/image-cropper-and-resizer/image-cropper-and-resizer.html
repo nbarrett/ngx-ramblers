@@ -11,82 +11,33 @@
         </div>
       </div>
       <div class="row">
-        <div class="col-12">
-          <input type="submit" [disabled]="notifyTarget.busy"
-                 value="Choose File"
-                 (click)="browseToFile(fileElement)"
-                 [ngClass]="{'disabled-button-form': notifyTarget.busy}">
-          <input #fileElement class="d-none" type="file" ng2FileSelect (onFileSelected)="onFileSelect($event)"
-                 [uploader]="uploader">
+        <ng-container *ngIf="false">
+          <div class="col">
+            <label for="rotation">Rotation:</label>
+          </div>
+          <div class="col">
+            <input id="rotation" [(ngModel)]="rotation" placeholder="Rotation" type="number"
+                   (keyup)="updateRotation()"
+                   class="form-control input-sm flex-grow-1"/>
+          </div>
+        </ng-container>
+        <input #fileElement class="d-none" type="file" ng2FileSelect (onFileSelected)="onFileSelect($event)"
+               [uploader]="uploader">
+        <div class="col-6">
+          <app-badge-button fullWidth [disabled]="notifyTarget.busy"
+                            [icon]="faFile"
+                            caption="Choose File"
+                            (click)="browseToFile(fileElement)"/>
         </div>
-        <div class="col-12">
+        <div class="col-sm-6 align-self-center">
           <div ng2FileDrop [ngClass]="{'file-over': hasFileOver}"
                (fileOver)="fileOver($event)"
                (onFileDrop)="onFileDropped($event)"
                [uploader]="uploader"
-               class="drop-zone flex-grow-1 mb-2">Or drop file here
+               class="badge-drop-zone flex-grow-1 mb-2">Or drop file here
           </div>
         </div>
       </div>
-    <div class="row">
-      <div class="col-6">
-        <div [ngClass]="buttonClass(action)" (click)="rotateLeft()"
-             delay=500 tooltip="Rotate left">
-          <fa-icon [icon]="faRotateLeft"></fa-icon>
-          <span>left</span>
-        </div>
-      </div>
-      <div class="col-6">
-        <div [ngClass]="buttonClass(action)" (click)="rotateRight()"
-             delay=500 tooltip="Rotate right">
-          <fa-icon [icon]="faRotateRight"></fa-icon>
-          <span>right</span>
-        </div>
-      </div>
-      <div class="col-6">
-        <div [ngClass]="buttonClass(action)" (click)="flipHorizontal()"
-             delay=500 tooltip="Flip horizontal">
-          <fa-icon [icon]="faArrowRightArrowLeft"></fa-icon>
-          <span>flip</span>
-        </div>
-      </div>
-      <div class="col-6">
-        <div [ngClass]="buttonClass(action)" (click)="flipVertical()"
-             delay=500 tooltip="Flip vertical">
-          <fa-icon [icon]="faUpDown"></fa-icon>
-          <span>flip</span>
-        </div>
-      </div>
-      <div class="col-6">
-        <div [ngClass]="buttonClass(action)" (click)="zoomIn()"
-             delay=500 tooltip="Zoom in">
-          <fa-icon [icon]="faMagnifyingGlassPlus"></fa-icon>
-          <span>zoom</span>
-        </div>
-      </div>
-      <div class="col-6">
-        <div [ngClass]="buttonClass(action)" (click)="zoomOut()"
-             delay=500 tooltip="Zoom out">
-          <fa-icon [icon]="faMagnifyingGlassMinus"></fa-icon>
-          <span>zoom</span>
-        </div>
-      </div>
-      <div class="col-6">
-        <div [ngClass]="buttonClass(action)" (click)="resetImage()"
-             delay=500 tooltip="Reset image">
-          <fa-icon [icon]="faRedoAlt"></fa-icon>
-          <span>reset</span>
-        </div>
-      </div>
-      <div class="col-6">
-        <div (click)="toggleContainWithinAspectRatio()"
-             delay=500 [tooltip]="containWithinAspectRatio? 'fill aspect ratio' : 'contain within aspect ratio'"
-             [ngClass]="buttonClass(action)">
-          <fa-icon [icon]="containWithinAspectRatio? faCompress: faExpand"></fa-icon>
-          <span>{{containWithinAspectRatio ? 'fill' : 'contain'}}</span>
-        </div>
-      </div>
-    </div>
       <div class="row mt-2 mb-2">
         <div class="col-sm-12 img-fluid w-100">
           <image-cropper
@@ -110,13 +61,18 @@
           </image-cropper>
         </div>
       </div>
+      <div class="row justify-content-between">
+        <div class="col-sm-12">
+
+        </div>
+      </div>
       <div class="row">
-        <div class="col-12 mb-2">
+        <div class="col-sm-6 mb-2">
           <app-aspect-ratio-selector [dimensionsDescription]="selectAspectRatio"
-                                     (initialised)="changeAspectRatioSettings($event)"
+                                     (initialised)="initialiseAspectRatioSettings($event)"
                                      (dimensionsChanged)="changeAspectRatioSettingsAndCrop($event)"></app-aspect-ratio-selector>
         </div>
-        <div class="col-12 mb-2">
+        <div class="col-sm-6 mb-2">
           <label for="compression">Compress to size ({{imageQuality}}%):</label>
           <input type="range" min="1" max="100" value="90" step="1" class="custom-range" id="compression"
                  (change)="changeRange($event, true)" (input)="changeRange($event, false)">
@@ -130,7 +86,7 @@
           Cropped Size: {{croppedSize()}}
         </div>
       </div>
-      <div class="row" *ngIf="action">
+      <div class="row" *ngIf="busy()">
         <div class="col-sm-12 mb-2 mt-2">
           <div class="progress">
             <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': progress() + '%' }">
@@ -140,39 +96,53 @@
         </div>
       </div>
       <div class="row mb-2">
-        <div class="col-6">
-          <div (click)="quit.next()"
-               delay=500 tooltip="quit without saving" [ngClass]="buttonClass(action)">
-            <fa-icon [icon]="faClose"></fa-icon>
-            <span>quit</span>
-          </div>
+        <div class="col-sm-8">
+          <app-badge-button [disabled]="busy()" (click)="rotateLeft()"
+                            delay=500 tooltip="Rotate left"
+                            [icon]="faRotateLeft" caption="left"/>
+          <app-badge-button [disabled]="busy()" (click)="rotateRight()"
+                            delay=500 tooltip="Rotate right"
+                            [icon]="faRotateRight" caption="right"/>
+          <app-badge-button [disabled]="busy()" (click)="flipHorizontal()"
+                            delay=500 tooltip="Flip horizontal"
+                            [icon]="faArrowRightArrowLeft" caption="flip"/>
+          <app-badge-button [disabled]="busy()" (click)="flipVertical()"
+                            delay=500 tooltip="Flip vertical"
+                            [icon]="faUpDown" caption="flip"/>
+          <app-badge-button [disabled]="busy()" (click)="zoomIn()"
+                            delay=500 tooltip="Zoom in"
+                            [icon]="faMagnifyingGlassPlus"
+                            caption="zoom"/>
+          <app-badge-button [disabled]="busy()" (click)="zoomOut()"
+                            delay=500 tooltip="Zoom out"
+                            [icon]="faMagnifyingGlassMinus"
+                            caption="zoom"/>
+          <app-badge-button [disabled]="busy()" (click)="resetImage()"
+                            delay=500 tooltip="Reset image"
+                            [icon]="faRedoAlt"
+                            caption="reset"/>
+          <app-badge-button (click)="toggleContainWithinAspectRatio()"
+                            delay=500
+                            [tooltip]="containWithinAspectRatio? 'fill aspect ratio' : 'contain within aspect ratio'"
+                            [disabled]="busy()"
+                            [icon]="containWithinAspectRatio? faCompress: faExpand"
+                            [caption]="containWithinAspectRatio ? 'fill' : 'contain'"/>
         </div>
-        <div class="col-6">
-          <div (click)="saveImage()"
-               delay=500 tooltip="save changes" [ngClass]="buttonClass(action)">
-            <fa-icon [icon]="faSave"></fa-icon>
-            <span>save</span>
-          </div>
+        <div class="col-sm-2">
+          <app-badge-button fullWidth (click)="quit.next()"
+                            delay=500 tooltip="quit without saving" [disabled]="busy()"
+                            [icon]="faClose"
+                            caption="quit">
+          </app-badge-button>
+        </div>
+        <div class="col-sm-2">
+          <app-badge-button fullWidth (click)="saveImage()"
+                            delay=500 tooltip="save changes" [disabled]="busy()"
+                            [icon]="faSave"
+                            caption="save">
+          </app-badge-button>
         </div>
       </div>
     </div>
   </div>
 </div>
-<ng-container *ngIf="false">
-  <div class="col">
-    <label for="resizeToWidth">Resize to width:</label>
-  </div>
-  <div class="col">
-    <input id="resizeToWidth" (ngModelChange)="resizeToWidthChanged($event)"
-           placeholder="Resize to width" type="number"
-           class="form-control input-sm flex-grow-1"/>
-  </div>
-  <div class="col">
-    <label for="rotation">Rotation:</label>
-  </div>
-  <div class="col">
-    <input id="rotation" [(ngModel)]="rotation" placeholder="Rotation" type="number"
-           (keyup)="updateRotation()"
-           class="form-control input-sm flex-grow-1"/>
-  </div>
-</ng-container>

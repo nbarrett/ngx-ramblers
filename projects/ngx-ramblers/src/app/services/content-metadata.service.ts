@@ -79,8 +79,6 @@ export class ContentMetadataService {
         files: this.transformFileNames(contentMetaData),
         rootFolder,
         name,
-        contentMetaDataType: null,
-        baseUrl: null,
       };
   }
 
@@ -129,7 +127,7 @@ export class ContentMetadataService {
     const params = this.commonDataService.toHttpParams(dataQueryOptions);
     this.logger.debug("all:dataQueryOptions", dataQueryOptions, "params", params.toString());
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<ContentMetadataApiResponses>(`${this.BASE_URL}/all`, {params}), this.contentMetadataSubjects);
-    return apiResponse.response.map(item => this.optionallyMigrate(item, item.rootFolder || RootFolder.carousels, item.name || item.contentMetaDataType)) as ContentMetadata[];
+    return apiResponse.response.map(item => this.optionallyMigrate(item, item.rootFolder || RootFolder.carousels, item.name)) as ContentMetadata[];
   }
 
   async items(rootFolder: RootFolder, name: string): Promise<ContentMetadata> {
@@ -137,7 +135,7 @@ export class ContentMetadataService {
     const params = this.commonDataService.toHttpParams(options);
     this.logger.debug("items:criteria:params", params.toString());
     const apiResponse: ContentMetadataApiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<ContentMetadataApiResponse>(this.BASE_URL, {params}), this.contentMetadataSubject);
-    const response = this.optionallyMigrate(apiResponse.response, rootFolder, name);
+    const response = this.optionallyMigrate(apiResponse.response, rootFolder || RootFolder.carousels, name);
     this.logger.info("items:transformed apiResponse", response);
     return response;
   }

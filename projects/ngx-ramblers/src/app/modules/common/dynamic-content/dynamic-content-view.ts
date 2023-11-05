@@ -37,7 +37,7 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
     public actions: PageContentActionsService,
     public siteEditService: SiteEditService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(DynamicContentViewComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("DynamicContentViewComponent", NgxLoggerLevel.OFF);
   }
 
   ngOnInit() {

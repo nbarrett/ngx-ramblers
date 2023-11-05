@@ -4,7 +4,8 @@ import kebabCase from "lodash-es/kebabCase";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
 import {
-  CarouselData,
+  AlbumData,
+  AlbumView,
   ColumnInsertData,
   ContentText,
   HasPageContentRows,
@@ -73,12 +74,24 @@ export class PageContentActionsService {
       showSwiper: false,
       type: type as PageContentType,
       columns: [this.columnFor(type)],
-      carousel: this.defaultCarousel(null)
+      carousel: this.defaultAlbum(null)
     };
   };
 
-  public defaultCarousel(name: string): CarouselData {
-    return {name, showStoryNavigator: true, showIndicators: true, slideInterval: 5000};
+  public defaultAlbum(name: string): AlbumData {
+    return {
+      name,
+      albumView: AlbumView.GRID,
+      allowSwitchView: false,
+      createdAt: null,
+      createdBy: null,
+      eventId: null,
+      eventType: "walks",
+      title: "",
+      showStoryNavigator: true,
+      showIndicators: true,
+      slideInterval: 5000
+    };
   }
 
   private columnFor(type: PageContentType | string): PageContentColumn {
@@ -112,7 +125,7 @@ export class PageContentActionsService {
   }
 
   addColumn(row: PageContentRow, columnIndex: number, pageContent: PageContent) {
-    const columnData: PageContentColumn = row.type === PageContentType.TEXT ?
+    const columnData: PageContentColumn = row?.type === PageContentType.TEXT ?
       {columns: this.calculateColumnsFor(row, 1), accessLevel: AccessLevel.public} :
       {href: null, imageSource: null, title: null, accessLevel: AccessLevel.hidden};
     row.maxColumns = row.maxColumns + 1;
@@ -216,11 +229,23 @@ export class PageContentActionsService {
   }
 
   public isTextRow(row: PageContentRow) {
-    return row.type === PageContentType.TEXT;
+    return row?.type === PageContentType.TEXT;
+  }
+
+  public isAlbum(row: PageContentRow) {
+    return row?.type === PageContentType.ALBUM;
+  }
+
+  isCarouselOrAlbum(row: PageContentRow) {
+    return this.isAlbum(row) || this.isCarousel(row);
+  }
+
+  public isAlbumIndex(row: PageContentRow) {
+    return row?.type === PageContentType.ALBUM_INDEX;
   }
 
   public isCarousel(row: PageContentRow) {
-    return row.type === PageContentType.CAROUSEL;
+    return row?.type === PageContentType.CAROUSEL;
   }
 
   public pageContentFound(pageContent: PageContent, queryCompleted: boolean) {
@@ -242,34 +267,37 @@ export class PageContentActionsService {
   }
 
   public calculateInsertableContent(existingData: PageContent, defaultData: PageContent): ColumnInsertData[] {
-    const responseHrefs = this.firstRowHrefs(existingData);
-    this.logger.info("existingData hrefs:", responseHrefs);
-    const defaultDataHrefs = this.firstRowHrefs(defaultData);
+    const pageContentType: PageContentType = first(defaultData?.rows).type;
+    this.logger.info("defaultData:", defaultData, "with pageContentType:", pageContentType, "existingData:", existingData);
+    const defaultDataHrefs = this.firstRowOfTypeHrefs(defaultData, pageContentType);
     this.logger.info("default data hrefs:", defaultDataHrefs);
-    return defaultDataHrefs?.filter(item => !responseHrefs.includes(item))?.map(href => {
-      const index = this.indexOfHref(defaultData, href);
-      return {index, data: this.firstRowColumns(defaultData)[index]};
+    const responseHrefs = this.firstRowOfTypeHrefs(existingData, pageContentType);
+    this.logger.info("existingData hrefs:", responseHrefs);
+    return defaultDataHrefs?.filter(item => !responseHrefs?.includes(item))?.map(href => {
+      const index = this.indexOfHref(defaultData, href, pageContentType);
+      return {index, data: this.firstRowColumns(defaultData, pageContentType)[index]};
     });
   }
 
-  public firstRowHrefs(pageContent: PageContent): string[] {
-    return this.firstRowColumns(pageContent)?.map(column => column.href);
+  public firstRowOfTypeHrefs(pageContent: PageContent, pageContentType: PageContentType): string[] {
+    return this.firstRowColumns(pageContent, pageContentType)?.map(column => column.href);
   }
 
-  public firstRowColumns(pageContent: PageContent): PageContentColumn[] {
-    return first(pageContent?.rows)?.columns;
+  public firstRowColumns(pageContent: PageContent, pageContentType: PageContentType): PageContentColumn[] {
+    return pageContent?.rows.find(row => row.type === pageContentType)?.columns;
   }
 
-  public indexOfHref(pageContent: PageContent, href: string): number {
-    return this.firstRowHrefs(pageContent).indexOf(href);
+  public indexOfHref(pageContent: PageContent, href: string, pageContentType: PageContentType): number {
+    return this.firstRowOfTypeHrefs(pageContent, pageContentType).indexOf(href);
   }
 
-  carouselIndex(row: PageContentRow, viewablePageContent: PageContent): number {
+  carouselOrAlbumIndex(row: PageContentRow, viewablePageContent: PageContent): number {
     const carouselNameIndexes: KeyValue<number>[] = viewablePageContent.rows
-      .filter(item => this.isCarousel(item))
+      .filter(item => this.isCarouselOrAlbum(item))
       .map((row, index) => ({key: row.carousel.name, value: index}));
     const numberKeyValue: KeyValue<number> = carouselNameIndexes.find(item => item.key === row.carousel.name);
     this.logger.info("carouselIndex:for:", row.carousel.name, "given:", carouselNameIndexes, "returned:", numberKeyValue?.value);
     return numberKeyValue?.value;
   }
+
 }

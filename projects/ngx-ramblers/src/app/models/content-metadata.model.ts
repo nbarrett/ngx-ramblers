@@ -12,8 +12,6 @@ export interface ContentMetadata {
   id: string;
   rootFolder?: RootFolder;
   name?: string;
-  contentMetaDataType?: string;
-  baseUrl?: string;
   files: ContentMetadataItem[];
   imageTags: ImageTag[];
   aspectRatio?: string;

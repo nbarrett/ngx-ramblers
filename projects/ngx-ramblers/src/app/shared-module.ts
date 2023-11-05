@@ -1,5 +1,5 @@
 import { ScrollingModule } from "@angular/cdk/scrolling";
-import { CommonModule } from "@angular/common";
+import { AsyncPipe, CommonModule, NgFor } from "@angular/common";
 import { HTTP_INTERCEPTORS } from "@angular/common/http";
 import { ModuleWithProviders, NgModule } from "@angular/core";
 import { FormsModule } from "@angular/forms";
@@ -112,6 +112,10 @@ import { DynamicContentViewCarouselComponent } from "./modules/common/dynamic-co
 import { CarouselSelectComponent } from "./carousel/edit/carousel-selector/carousel-select";
 import { RowSettingsCarouselComponent } from "./modules/common/dynamic-content/dynamic-content-site-edit-carousel-row";
 import { CsvExportComponent } from "./csv-export/csv-export";
+import { GALLERY_CONFIG, GalleryConfig, GalleryModule } from "ng-gallery";
+import { LIGHTBOX_CONFIG, LightboxConfig, LightboxModule } from "ng-gallery/lightbox";
+import { DynamicContentViewAlbumComponent } from "./modules/common/dynamic-content/dynamic-content-view-album";
+import { AlbumComponent } from "./album/view/album";
 
 @NgModule({
   imports: [
@@ -139,24 +143,28 @@ import { CsvExportComponent } from "./csv-export/csv-export";
     TooltipModule.forRoot(),
     TypeaheadModule.forRoot(),
     UiSwitchModule,
+    GalleryModule,
+    LightboxModule,
+    NgFor,
+    AsyncPipe,
   ],
   declarations: [
     ActionButtonsComponent,
-    RowSettingsActionButtonsComponent,
     ActionsDropdownComponent,
-    CsvExportComponent,
     AspectRatioSelectorComponent,
     BadgeButtonComponent,
     BulkActionSelectorComponent,
+    AlbumComponent,
     CardEditorComponent,
     CardImageComponent,
     CarouselComponent,
-    CarouselSelectorComponent,
     CarouselSelectComponent,
+    CarouselSelectorComponent,
     CarouselStoryNavigatorComponent,
     ContactUsComponent,
     CopyIconComponent,
     CreatedAuditPipe,
+    CsvExportComponent,
     DatePickerComponent,
     DisplayDateAndTimePipe,
     DisplayDatePipe,
@@ -166,7 +174,7 @@ import { CsvExportComponent } from "./csv-export/csv-export";
     DynamicContentPageComponent,
     DynamicContentSiteEditComponent,
     DynamicContentSiteEditTextRowComponent,
-    RowSettingsCarouselComponent,
+    DynamicContentViewAlbumComponent,
     DynamicContentViewCarouselComponent,
     DynamicContentViewComponent,
     DynamicContentViewTextRowComponent,
@@ -198,6 +206,8 @@ import { CsvExportComponent } from "./csv-export/csv-export";
     PageComponent,
     PanelExpanderComponent,
     RelatedLinkComponent,
+    RowSettingsActionButtonsComponent,
+    RowSettingsCarouselComponent,
     SearchFilterPipe,
     SnakeCasePipe,
     SvgComponent,
@@ -212,19 +222,21 @@ import { CsvExportComponent } from "./csv-export/csv-export";
     ActionsDropdownComponent,
     AlertModule,
     AspectRatioSelectorComponent,
+    BadgeButtonComponent,
     BsDatepickerModule,
     BsDropdownModule,
     CardEditorComponent,
     CardImageComponent,
     CarouselComponent,
-    CarouselSelectorComponent,
     CarouselModule,
+    CarouselSelectorComponent,
     CarouselStoryNavigatorComponent,
     CollapseModule,
     CommonModule,
     ContactUsComponent,
     CopyIconComponent,
     CreatedAuditPipe,
+    CsvExportComponent,
     DatePickerComponent,
     DisplayDateAndTimePipe,
     DisplayDatePipe,
@@ -274,7 +286,6 @@ import { CsvExportComponent } from "./csv-export/csv-export";
     UiSwitchModule,
     UpdatedAuditPipe,
     ValueOrDefaultPipe,
-    CsvExportComponent,
   ]
 })
 export class SharedModule {
@@ -320,6 +331,20 @@ export class SharedModule {
         UpdatedAuditPipe,
         ValueOrDefaultPipe,
         {provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true},
+        {
+          provide: GALLERY_CONFIG,
+          useValue: {
+            autoHeight: true,
+            imageSize: "cover"
+          } as GalleryConfig
+        },
+        {
+          provide: LIGHTBOX_CONFIG,
+          useValue: {
+            keyboardShortcuts: false,
+            exitAnimationTime: 1000
+          } as LightboxConfig
+        }
       ]
     };
   }

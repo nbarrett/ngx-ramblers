@@ -24,11 +24,12 @@
 @import "./cursors"
 @import "./notifications"
 @import "./cards"
+@import "@angular/cdk/overlay-prebuilt.css"
 
 // media breakpoints
-// col-sm for larger mobile phones (devices with resolutions ≥ 576px);
-// col-md for tablets (≥768px);
-// col-lg for laptops (≥992px);
+// col-sm for larger mobile phones (devices with resolutions ≥ 576px)
+// col-md for tablets (≥768px)
+// col-lg for laptops (≥992px)
 // col-xl for desktops (≥1200px)
 
 .tagify__tag
@@ -41,6 +42,15 @@
   text-align: center
   height: 47px
   margin-top: 6px
+  cursor: grabbing
+
+.badge-drop-zone
+  border: dotted 3px lightgray
+  border-radius: 6px
+  padding: 0px
+  text-align: center
+  height: 30px
+  margin-top: 0px
   cursor: grabbing
 
 .file-over
