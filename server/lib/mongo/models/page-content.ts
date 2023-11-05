@@ -19,6 +19,7 @@ const PageContentRow = mongoose.Schema({
   columns: [PageContentColumn],
   marginTop: {type: Number},
   marginBottom: {type: Number},
+  album: {type: Object},
   carousel: {type: Object},
 }, { _id : false });
 

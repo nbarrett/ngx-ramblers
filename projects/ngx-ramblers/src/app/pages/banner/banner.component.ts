@@ -158,14 +158,14 @@ import { faTableCells } from "@fortawesome/free-solid-svg-icons";
                                       </app-colour-selector>
                                   </div>
                                   <div class="col-sm-12 mt-4">
-                                      <app-image-cropper
+                                      <app-image-cropper-and-resizer
                                               *ngIf="bannerPhotoEditActive"
                                               [rootFolder]="bannerPhotos"
                                               [preloadImage]="preLoadImage()"
                                               (imageChange)="imageChange($event)"
                                               (quit)="exitImageEdit()"
                                               (save)="imagedSaved($event)">
-                                      </app-image-cropper>
+                                      </app-image-cropper-and-resizer>
                                   </div>
                               </div>
                           </ng-container>

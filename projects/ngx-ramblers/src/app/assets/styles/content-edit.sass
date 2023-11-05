@@ -12,9 +12,26 @@
     background-color: $ramblers-colour-sunrise
   &.disabled
     background-color: $ramblers-colour-grey
+
+.inline-button
+  cursor: pointer
+  color: $ramblers-colour-cloudy
+  background: $ramblers-colour-mintcake
+  padding: 8px
+  margin-right: 8px
+  margin-bottom: 3px
+  span
+    margin-left: 8px
+  &.focus, &:hover
+    background-color: $ramblers-colour-sunrise
+  &.disabled
+    background-color: $ramblers-colour-grey
+
   fa-icon
     color: $ramblers-colour-cloudy
     display: inline-block
     text-align: center
 
-
+.badge-button-active
+  @extend .badge-button
+  background-color: $ramblers-colour-sunrise

@@ -13,16 +13,16 @@ import { StringUtilsService } from "../../services/string-utils.service";
   selector: "app-tag-editor",
   styleUrls: ["./tag-editor.component.sass"],
   template: `
-    <label [for]="id">Image Tags</label>
-    <tagify [ngModel]="editableTags"
-            inputClass="round"
-            [id]="id"
-            [settings]="settings"
-            [whitelist]="tagLookups"
-            [readonly]="readonly"
-            (add)="onAdd($event)"
-            (remove)="onRemove($event)">
-    </tagify>
+      <label [for]="id">Image Tags</label>
+      <tagify [ngModel]="editableTags"
+              inputClass="round w-100"
+              [id]="id"
+              [settings]="settings"
+              [whitelist]="tagLookups"
+              [readonly]="readonly"
+              (add)="onAdd($event)"
+              (remove)="onRemove($event)">
+      </tagify>
   `
 })
 

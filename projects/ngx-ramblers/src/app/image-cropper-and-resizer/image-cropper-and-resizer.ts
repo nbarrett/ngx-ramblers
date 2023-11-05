@@ -5,6 +5,7 @@ import {
   faClose,
   faCompress,
   faExpand,
+  faFile,
   faMagnifyingGlassMinus,
   faMagnifyingGlassPlus,
   faRedoAlt,
@@ -34,7 +35,8 @@ import {
   AwsUploadErrorResponse,
   DescribedDimensions,
   FileNameData,
-  ImageData
+  ImageData,
+  SelectedDescribedDimensions
 } from "../models/aws-object.model";
 import { DateValue } from "../models/date.model";
 import { BroadcastService } from "../services/broadcast-service";
@@ -46,7 +48,7 @@ import { UrlService } from "../services/url.service";
 import { RootFolder } from "../models/system.model";
 
 @Component({
-  selector: "app-image-cropper",
+  selector: "app-image-cropper-and-resizer",
   templateUrl: "./image-cropper-and-resizer.html",
   styleUrls: ["./image-cropper-and-resizer.sass"]
 })
@@ -77,7 +79,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
   canvasRotation = 0;
   rotation = 0;
   scale = 1;
-  containWithinAspectRatio = false;
+  containWithinAspectRatio = true;
   transform: ImageTransform = {};
   private logger: Logger;
   public fileNameData: FileNameData;
@@ -98,6 +100,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
   faUpDown = faUpDown;
   faCompress = faCompress;
   faExpand = faExpand;
+  faFile = faFile;
   action: string;
   maintainAspectRatio: boolean;
   imageQuality = 80;
@@ -105,6 +108,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
   public originalFile: File;
   public croppedFile: AwsFileData;
   public originalImageData: ImageData;
+
 
   static isAwsUploadResponse(response: AwsFileUploadResponse | AwsUploadErrorResponse): response is AwsFileUploadResponse {
     return (response as AwsFileUploadResponse)?.response !== undefined;
@@ -121,7 +125,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
   }
 
   ngOnInit(): void {
-    this.logger.debug("constructed with fileNameData", this.fileNameData);
+    this.logger.debug("constructed with fileNameData", this.fileNameData, "selectAspectRatio:", this.selectAspectRatio);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     const rootFolder = this.rootFolder || RootFolder.siteContent;
     this.uploader = this.fileUploadService.createUploaderFor(rootFolder, false);
@@ -276,6 +280,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
   }
 
   toggleContainWithinAspectRatio() {
+    this.logger.info("toggleContainWithinAspectRatio from:", this.containWithinAspectRatio, "to", !this.containWithinAspectRatio);
     this.containWithinAspectRatio = !this.containWithinAspectRatio;
   }
 
@@ -288,11 +293,6 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
 
   resized($event: UIEvent) {
     this.logger.debug("resized:", $event);
-  }
-
-  resizeToWidthChanged($event: any) {
-    this.logger.debug("resizeToWidthChanged:", $event);
-    this.imageCropperComponent.crop();
   }
 
   browseToFile(fileElement: HTMLInputElement) {
@@ -335,14 +335,24 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
 
   changeAspectRatioSettingsAndCrop(dimension: DescribedDimensions) {
     this.changeAspectRatioSettings(dimension);
-    this.logger.info("changeAspectRatio:dimension:", this.dimension, "aspectRatio ->", this.aspectRatio, "event:", event);
+    this.logger.info("changeAspectRatio:dimension:", this.dimension, "aspectRatio ->", this.aspectRatio);
     this.imageCropperComponent.crop();
   }
 
+  public initialiseAspectRatioSettings(selectedDescribedDimensions: SelectedDescribedDimensions) {
+    this.logger.info("changeAspectRatioSettings:selectedDescribedDimensions:", selectedDescribedDimensions);
+    this.changeAspectRatioSettings(selectedDescribedDimensions.describedDimensions);
+    if (!selectedDescribedDimensions.preselected) {
+      this.containWithinAspectRatio = false;
+    }
+  }
+
   public changeAspectRatioSettings(dimension: DescribedDimensions) {
+    this.logger.info("changeAspectRatioSettings:dimension:", dimension);
     this.dimension = dimension;
     this.aspectRatio = this.dimension.width / this.dimension.height;
     this.maintainAspectRatio = !this.aspectRatioMaintained(this.dimension);
+    ;
   }
 
   manuallySubmitCrop() {
@@ -391,6 +401,10 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     return this.uploader.progress;
   }
 
+  busy() {
+    return !!this.action;
+  }
+
   private aspectRatioMaintained(dimensions: Dimensions): boolean {
     return dimensions.width === 1 && dimensions.height === 1;
   }
@@ -407,52 +421,4 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     }
   }
 
-  buttonClass(disabledAction: any) {
-    return !!disabledAction ? "badge-button disabled w-100" : "badge-button w-100";
-  }
-
-  loadMime(file: File, callback: (message: string) => any) {
-
-    // List of known mimes
-    const mimes = [
-      {
-        mime: "image/jpeg",
-        pattern: [0xFF, 0xD8, 0xFF],
-        mask: [0xFF, 0xFF, 0xFF],
-      },
-      {
-        mime: "image/png",
-        pattern: [0x89, 0x50, 0x4E, 0x47],
-        mask: [0xFF, 0xFF, 0xFF, 0xFF],
-      }
-      // you can expand this list @see https://mimesniff.spec.whatwg.org/#matching-an-image-type-pattern
-    ];
-
-    function check(bytes, mime) {
-      for (let i = 0, l = mime.mask.length; i < l; ++i) {
-        if ((bytes[i] & mime.mask[i]) - mime.pattern[i] !== 0) {
-          return false;
-        }
-      }
-      return true;
-    }
-
-    const blob = file.slice(0, 4); // read the first 4 bytes of the file
-
-    const reader = new FileReader();
-    reader.onloadend = (e: any) => {
-      if (e.target.readyState === FileReader.DONE) {
-        const bytes = new Uint8Array(e.target.result);
-
-        for (let i = 0, l = mimes.length; i < l; ++i) {
-          if (check(bytes, mimes[i])) {
-            return callback("Mime: " + mimes[i].mime + " <br> Browser:" + file.type);
-          }
-        }
-
-        return callback("Mime: unknown <br> Browser:" + file.type);
-      }
-    };
-    reader.readAsArrayBuffer(blob);
-  }
 }

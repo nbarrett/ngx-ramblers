@@ -20,7 +20,7 @@ import { SiteEditService } from "../../site-edit/site-edit.service";
 import { faPencil } from "@fortawesome/free-solid-svg-icons";
 import { Subscription } from "rxjs";
 import { RootFolder } from "../../models/system.model";
-import { CarouselData } from "../../models/content-text.model";
+import { AlbumData } from "../../models/content-text.model";
 
 @Component({
   selector: "app-carousel",
@@ -37,11 +37,11 @@ export class CarouselComponent implements OnInit, OnDestroy, OnChanges {
   public selectedSlides: ContentMetadataItem[] = [];
   private subscriptions: Subscription[] = [];
   public faPencil = faPencil;
-  public carouselData: CarouselData = null;
+  public carouselData: AlbumData = null;
   public activeTag: ImageTag;
 
 
-  @Input("carouselData") set acceptChangesFrom(carouselData: CarouselData) {
+  @Input("carouselData") set acceptChangesFrom(carouselData: AlbumData) {
     this.carouselDataInput(carouselData);
   }
 
@@ -84,14 +84,10 @@ export class CarouselComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   private setValue(value: any) {
-    if (typeof value === "number") {
-      // this.dateValue = this.dateUtils.asDateValue(this.value);
-    } else {
-      // this.dateValue = value;
-    }
+
   }
 
-  private carouselDataInput(carouselData: CarouselData) {
+  private carouselDataInput(carouselData: AlbumData) {
     this.logger.info("carouselDataInput:", carouselData);
     this.carouselData = carouselData;
   }

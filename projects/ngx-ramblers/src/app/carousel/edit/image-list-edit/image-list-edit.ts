@@ -390,7 +390,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   public exitBackWithoutSaving() {
-    this.exit.next();
+    this.exit.emit();
   }
 
   public undoChanges() {

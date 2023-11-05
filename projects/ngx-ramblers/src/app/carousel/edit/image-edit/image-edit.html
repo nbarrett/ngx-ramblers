@@ -2,7 +2,7 @@
   <div class="card-body">
     <div class="row">
       <div class="col-sm-12" *ngIf="editActive">
-        <app-image-cropper
+        <app-image-cropper-and-resizer
           [selectAspectRatio]="contentMetadata?.aspectRatio"
           [rootFolder]="contentMetadataService.rootFolderAndName(contentMetadata?.rootFolder, contentMetadata?.name)"
           [preloadImage]="imageSourceOrPreview()"
@@ -11,7 +11,7 @@
           (cropError)="imageCroppingError($event)"
           (quit)="exitImageEdit()"
           (save)="imagedSaved($event)">
-        </app-image-cropper>
+        </app-image-cropper-and-resizer>
       </div>
       <div class="col-sm-7">
         <div class="form-group">

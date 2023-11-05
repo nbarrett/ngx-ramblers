@@ -127,7 +127,7 @@
               <ng-container *ngTemplateOutlet="linkAndThumbnail"></ng-container>
             </div>
             <div class="col-sm-6" *ngIf="editActive">
-              <app-image-cropper
+              <app-image-cropper-and-resizer
                 [rootFolder]="'imagesSocialEvents'"
                 [preloadImage]="socialEvent.thumbnail"
                 (imageChange)="imageChanged($event)"
@@ -135,7 +135,7 @@
                 (cropError)="imageCroppingError($event)"
                 (quit)="exitImageEdit()"
                 (save)="imagedSaved($event)">
-              </app-image-cropper>
+              </app-image-cropper-and-resizer>
             </div>
             <div class="col-sm-6">
               <div class="position-relative">

@@ -30,7 +30,7 @@ export interface PageContentRow {
   columns: PageContentColumn[];
   marginTop?: number;
   marginBottom?: number;
-  carousel?: CarouselData;
+  carousel?: AlbumData;
 }
 
 export interface PageContentColumn extends Link, HasPageContentRows {
@@ -51,17 +51,26 @@ export interface PageContentEditEvent {
   editActive?: boolean;
 }
 
-export interface CarouselData {
+export interface AlbumData {
+  title: string;
   name: string;
+  albumView: AlbumView;
+  allowSwitchView: boolean;
+  eventId: string;
+  eventType: string;
+  createdAt: number;
+  createdBy: string;
   slideInterval: number;
   showIndicators: boolean;
   showStoryNavigator: boolean;
 }
 
 export enum PageContentType {
-  TEXT = "text",
   ACTION_BUTTONS = "action-buttons",
+  ALBUM = "album",
+  ALBUM_INDEX = "album-index",
   CAROUSEL = "carousel",
+  TEXT = "text",
 }
 
 export enum ImageType {
@@ -101,6 +110,17 @@ export interface InsertionRow {
 export enum Action {
   MOVE = "Move",
   COPY = "Copy"
+}
+
+export enum AlbumView {
+  CAROUSEL = "carousel",
+  GALLERY = "gallery",
+  GRID = "grid",
+}
+
+export interface GridViewOptions {
+  showTitles: boolean;
+  showDates: boolean;
 }
 
 export enum InsertionPosition {

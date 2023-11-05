@@ -14,6 +14,8 @@ import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-edito
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import {
   Action,
+  AlbumData,
+  AlbumView,
   ColumnInsertData,
   ContentText,
   InsertionPosition,
@@ -45,53 +47,12 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
   styleUrls: ["./dynamic-content.sass"],
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
-  @Input()
-  contentPathReadOnly: boolean;
-  @Input()
-  public pageContent: PageContent;
-  @Input()
-  public queryCompleted: boolean;
-  @Input()
-  public notify: AlertInstance;
-  @Input()
-  public contentDescription: string;
-  @Input()
-  public contentPath: string;
-  private insertableContent: ColumnInsertData[] = [];
-  private defaultPageContent: PageContent;
-  private rowsInEdit: number[] = [];
 
   @Input("defaultPageContent") set acceptChangesFrom(defaultPageContent: PageContent) {
     this.logger.info("defaultPageContent:", defaultPageContent);
     this.defaultPageContent = defaultPageContent;
     this.deriveInsertableData();
   }
-
-  private destinationPageContent: PageContent;
-  private logger: Logger;
-  public relativePath: string;
-  public pageTitle: string;
-  faPencil = faPencil;
-  faRemove = faRemove;
-  faAdd = faAdd;
-  faSave = faSave;
-  faUndo = faUndo;
-  providers: [{ provide: BsDropdownConfig, useValue: { isAnimated: true, autoClose: true } }];
-  enumKeyValuesForPageContentType: KeyValue<string>[] = enumKeyValues(PageContentType);
-  public unsavedMarkdownComponents: MarkdownEditorComponent[] = [];
-  public destinationPath: string;
-  public destinationPathLookup: Subject<string> = new Subject<string>();
-  destinationPathInsertionRowIndex = 0;
-  destinationPathInsertBeforeAfterIndex = 0;
-  insertionRowLookup: InsertionRow[] = [];
-  contentActions: string[] = [Action.MOVE, Action.COPY];
-  action: string = this.contentActions[0];
-  insertionRowPosition: InsertionRow[] = [{index: 0, description: InsertionPosition.BEFORE}, {index: 1, description: InsertionPosition.AFTER}];
-  public referringPages: PageContent[] = [];
-  private error: any = null;
-  private pageHrefs: string[];
-  private copyOrMoveActionComplete: boolean;
-  private subscriptions: Subscription[] = [];
 
   constructor(
     private systemConfigService: SystemConfigService,
@@ -112,6 +73,51 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.OFF);
   }
+
+  @Input()
+  contentPathReadOnly: boolean;
+  @Input()
+  public pageContent: PageContent;
+  @Input()
+  public queryCompleted: boolean;
+  @Input()
+  public notify: AlertInstance;
+  @Input()
+  public contentDescription: string;
+  @Input()
+  public contentPath: string;
+  private insertableContent: ColumnInsertData[] = [];
+  private defaultPageContent: PageContent;
+  private rowsInEdit: number[] = [];
+
+  private destinationPageContent: PageContent;
+  private logger: Logger;
+  public relativePath: string;
+  public pageTitle: string;
+  faPencil = faPencil;
+  faRemove = faRemove;
+  faAdd = faAdd;
+  faSave = faSave;
+  faUndo = faUndo;
+  providers: [{ provide: BsDropdownConfig, useValue: { isAnimated: true, autoClose: true } }];
+  enumKeyValuesForPageContentType: KeyValue<string>[] = enumKeyValues(PageContentType);
+  enumKeyValuesForAlbumView: KeyValue<string>[] = enumKeyValues(AlbumView);
+  public unsavedMarkdownComponents: MarkdownEditorComponent[] = [];
+  public destinationPath: string;
+  public destinationPathLookup: Subject<string> = new Subject<string>();
+  destinationPathInsertionRowIndex = 0;
+  destinationPathInsertBeforeAfterIndex = 0;
+  insertionRowLookup: InsertionRow[] = [];
+  contentActions: string[] = [Action.MOVE, Action.COPY];
+  action: string = this.contentActions[0];
+  insertionRowPosition: InsertionRow[] = [{index: 0, description: InsertionPosition.BEFORE}, {index: 1, description: InsertionPosition.AFTER}];
+  public referringPages: PageContent[] = [];
+  private error: any = null;
+  private pageHrefs: string[];
+  private copyOrMoveActionComplete: boolean;
+  private subscriptions: Subscription[] = [];
+
+  protected readonly AlbumView = AlbumView;
 
   ngOnInit() {
     this.logger.info("ngOnInit");
@@ -139,7 +145,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   insertData() {
-    const pageContentColumns: PageContentColumn[] = this.actions.firstRowColumns(this.pageContent);
+    const pageContentColumns: PageContentColumn[] = this.actions.firstRowColumns(this.pageContent, first(this.pageContent.rows)?.type || PageContentType.TEXT);
     this.insertableContent.forEach(item => {
       pageContentColumns.splice(item.index, 0, item.data);
     });
@@ -246,17 +252,23 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   public changePageContentRowType(pageContentType: PageContentType, row: PageContentRow) {
     this.logger.info("pageContentType:", pageContentType, "row:", row);
-    if (row.type === PageContentType.CAROUSEL && !row.carousel?.name) {
-      const carousel = this.actions.defaultCarousel(this.contentPathWithIndex(row));
-      this.logger.info("initialising carousel data:", carousel);
-      row.carousel = carousel;
+    if (this.actions.isCarouselOrAlbum(row)) {
+      const defaultAlbum = this.actions.defaultAlbum(this.contentPathWithIndex(row));
+      if (!row.carousel?.name) {
+        const carousel = defaultAlbum;
+        this.logger.info("initialising carousel data:", carousel);
+        row.carousel = carousel;
+      } else if (!row.carousel.albumView) {
+        row.carousel.albumView = defaultAlbum.albumView;
+        row.carousel.eventType = defaultAlbum.eventType;
+      }
     } else {
       this.logger.info("not initialising data for ", row.type);
     }
   }
 
   public contentPathWithIndex(row: PageContentRow): string {
-    const index = this.actions.carouselIndex(row, this.pageContent);
+    const index = this.actions.carouselOrAlbumIndex(row, this.pageContent);
     return this.pageContent.path + (index > 0 ? "-" + index : "");
   }
 
@@ -312,7 +324,9 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   public allReferringPages(): string[] {
-    return this.referringPages.map(pageContent => first(pageContent.path.split("?"))).concat(this.mainPagesReferred());
+    const allReferringPages = this.referringPages.map(pageContent => first(pageContent.path.split("?"))).concat(this.mainPagesReferred());
+    this.logger.debug("allReferringPages:", allReferringPages);
+    return allReferringPages;
   }
 
   public deletePagContentDisabled(): boolean {
@@ -398,8 +412,8 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     return this.rowsInEdit.includes(rowIndex);
   }
 
-  carouselData(row: PageContentRow) {
+  albumData(row: PageContentRow): AlbumData {
     this.logger.off("carouselData:", row.carousel);
-    return row.carousel;
+    return row?.carousel;
   }
 }

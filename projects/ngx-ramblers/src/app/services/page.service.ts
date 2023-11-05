@@ -99,10 +99,10 @@ export class PageService {
     }
   }
 
-  areaExistsFor(url: string) {
-    this.logger.info("areaExistsFor:url", url, "pages:", this.group.pages);
+  areaExistsFor(url: string): boolean {
+    this.logger.info("areaExistsFor:url", url, "pages:", this.group?.pages, "this.group", this.group);
     const area = this.urlService.pageUrl(first(this.urlService.pathSegmentsForUrl(url)));
-    return !!this.group.pages.find(page => {
+    return !this.group || !!this.group?.pages?.find(page => {
       const pageUrl = this.urlService.pageUrl(page.href);
       this.logger.info("area:", area, "pageUrl:", pageUrl);
       return !isEmpty(page.href) && area === pageUrl;
