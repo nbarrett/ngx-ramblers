@@ -116,6 +116,14 @@ import { GALLERY_CONFIG, GalleryConfig, GalleryModule } from "ng-gallery";
 import { LIGHTBOX_CONFIG, LightboxConfig, LightboxModule } from "ng-gallery/lightbox";
 import { DynamicContentViewAlbumComponent } from "./modules/common/dynamic-content/dynamic-content-view-album";
 import { AlbumComponent } from "./album/view/album";
+import {
+  DynamicContentViewAlbumIndexComponent
+} from "./modules/common/dynamic-content/dynamic-content-view-album-index";
+import { AlbumGridComponent } from "./album/view/album-grid";
+import { AlbumGalleryComponent } from "./album/view/album-gallery";
+import { GroupEventSelectorComponent } from "./group-events-selector/group-event-selector";
+import { GroupEventTypeSelectorComponent } from "./group-events-selector/group-event-type-selector";
+import { DynamicContentSiteEditAlbumComponent } from "./modules/common/dynamic-content/dynamic-content-site-edit-album";
 
 @NgModule({
   imports: [
@@ -155,6 +163,8 @@ import { AlbumComponent } from "./album/view/album";
     BadgeButtonComponent,
     BulkActionSelectorComponent,
     AlbumComponent,
+    AlbumGalleryComponent,
+    AlbumGridComponent,
     CardEditorComponent,
     CardImageComponent,
     CarouselComponent,
@@ -174,7 +184,9 @@ import { AlbumComponent } from "./album/view/album";
     DynamicContentPageComponent,
     DynamicContentSiteEditComponent,
     DynamicContentSiteEditTextRowComponent,
+    DynamicContentSiteEditAlbumComponent,
     DynamicContentViewAlbumComponent,
+    DynamicContentViewAlbumIndexComponent,
     DynamicContentViewCarouselComponent,
     DynamicContentViewComponent,
     DynamicContentViewTextRowComponent,
@@ -187,6 +199,8 @@ import { AlbumComponent } from "./album/view/album";
     IconExamplesComponent,
     ImageCropperAndResizerComponent,
     ImageEditComponent,
+    GroupEventSelectorComponent,
+    GroupEventTypeSelectorComponent,
     ImageListEditComponent,
     ImageListEditPageComponent,
     KebabCasePipe,

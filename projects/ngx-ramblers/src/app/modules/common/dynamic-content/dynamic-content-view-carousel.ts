@@ -10,7 +10,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
       <ng-container *ngIf="actions.isCarousel(row)">
           <div [class]="actions.rowClasses(row)">
               <div class="col-sm-12">
-                  <app-carousel [carouselData]="row.carousel" [index]="index"></app-carousel>
+                  <app-carousel [album]="row.carousel" [index]="index"></app-carousel>
               </div>
           </div>
       </ng-container>`,

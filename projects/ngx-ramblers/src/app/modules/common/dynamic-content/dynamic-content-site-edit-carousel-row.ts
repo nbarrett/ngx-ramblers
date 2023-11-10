@@ -18,11 +18,11 @@ import { ContentMetadataService } from "../../../services/content-metadata.servi
     <form>
       <label class="mr-2"
              [for]="id">Carousel Name</label>
-      <app-carousel-select *ngIf="!nameInput" [id]="id" [showNewButton]="true" [name]="row.carousel.name"
+      <app-carousel-select *ngIf="!nameInput" [id]="id" [showNewButton]="true" [name]="row?.carousel?.name"
                            (metadataChange)="metadataChange(row, $event)"
                            (nameEditToggle)="toggleNameEdit($event)"></app-carousel-select>
       <div class="form-inline" *ngIf="nameInput">
-        <input autocomplete="new-password" [typeahead]="contentMetadataService.carousels"
+        <input autocomplete="new-password" [typeahead]="contentMetadataService?.carousels"
                [typeaheadMinLength]="0"
                [id]="id"
                [(ngModel)]="row.carousel.name"
@@ -44,7 +44,7 @@ export class RowSettingsCarouselComponent implements OnInit {
     private numberUtils: NumberUtilsService,
     public actions: PageContentActionsService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("RowSettingsCarouselComponent", NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("RowSettingsCarouselComponent", NgxLoggerLevel.INFO);
   }
 
   @Input()
@@ -63,7 +63,10 @@ export class RowSettingsCarouselComponent implements OnInit {
     this.contentMetadataService.contentMetadataNotifications().subscribe(item => {
       const allAndSelectedContentMetaData = this.contentMetadataService.selectMetadataBasedOn(this.row?.carousel?.name, item);
       const allContentMetadata: ContentMetadata[] = allAndSelectedContentMetaData.contentMetadataItems;
-      this.nameInput = isEmpty(this.row?.carousel?.name) || !allContentMetadata.find(item => item.name === this.row?.carousel?.name);
+      // this.nameInput = isEmpty(this.row?.carousel?.name) || !allContentMetadata.find(item => item.name === this.row?.carousel?.name);
+      if (!this.row?.carousel?.name) {
+        this.row.carousel.name = "";
+      }
     });
   }
 

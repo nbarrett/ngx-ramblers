@@ -13,8 +13,10 @@ export interface ContentMetadata {
   rootFolder?: RootFolder;
   name?: string;
   files: ContentMetadataItem[];
+  coverImage: string;
   imageTags: ImageTag[];
   aspectRatio?: string;
+  defaultImage?: string;
 }
 
 export interface S3Metadata {
@@ -73,4 +75,11 @@ export enum ImageFilterType {
 export enum SlideInitialisation {
   COMPONENT_INIT = "component-init",
   TAG_CHANGE = "tag-change"
+}
+
+export interface LazyLoadingMetadata {
+  contentMetadata: ContentMetadata;
+  availableSlides: ContentMetadataItem[];
+  selectedSlides: ContentMetadataItem[];
+  activeSlideIndex: number;
 }

@@ -1,4 +1,4 @@
-<div class="card mb-3" (mouseenter)="refreshGroupEventsIfRequired()">
+<div class="card mb-3">
   <div class="card-body">
     <div class="row">
       <div class="col-sm-12" *ngIf="editActive">
@@ -10,35 +10,53 @@
           (error)="imageCroppingError($event)"
           (cropError)="imageCroppingError($event)"
           (quit)="exitImageEdit()"
-          (save)="imagedSaved($event)">
-        </app-image-cropper-and-resizer>
+          (save)="imagedSaved($event)"/>
       </div>
       <div class="col-sm-7">
         <div class="form-group">
           <label [for]="'image-' + index">Image {{index + 1}} of {{filteredFiles?.length}}</label>
           <img *ngIf="!imageLoadText" (load)="imageLoaded($event)" (error)="imageError($event)" loading="lazy"
-               [id]="'image-' + index" class="img-fluid" [src]="imageSourceOrPreview()"
+               [id]="'image-' + index" class="img-fluid w-100" [src]="imageSourceOrPreview()"
                [alt]="item.text"/>
           <div *ngIf="imageLoadText" class="row no-image"
                [ngClass]="{'small-icon-container': true}">
             <div class="col align-self-center text-center">
-              <fa-icon [icon]="faImage" class="fa-icon fa-3x"></fa-icon>
+              <fa-icon [icon]="faImage" class="fa-icon fa-3x"/>
               <div>{{imageLoadText}}</div>
             </div>
           </div>
         </div>
-        <div class="form-group">
-          <app-badge-button [icon]="faRemove" caption="Delete" (click)="callDelete()"></app-badge-button>
-          <app-badge-button [icon]="faAdd" caption="Insert" (click)="callInsert()"></app-badge-button>
-          <app-badge-button [disabled]="!canMoveUp" [icon]="faAngleUp" caption="Move up"
-                            (click)="callMoveUp()"></app-badge-button>
-          <app-badge-button [disabled]="!canMoveDown" [icon]="faAngleDown" caption="Move down"
-                            (click)="callMoveDown()"></app-badge-button>
-          <app-badge-button [disabled]="editActive" [icon]="faPencil" caption="Edit image"
-                            (click)="editImage()"></app-badge-button>
+        <div class="row no-gutters">
+          <div class="col pr-1">
+            <app-badge-button fullWidth [icon]="faRemove" caption="Delete" (click)="callDelete()"/>
+          </div>
+          <div class="col pr-1">
+            <app-badge-button fullWidth [icon]="faAdd" caption="Insert" (click)="callInsert()"/>
+          </div>
+          <div class="col">
+            <app-badge-button fullWidth [disabled]="editActive" [icon]="faPencil" caption="Edit image"
+                              (click)="editImage()"/>
+          </div>
+        </div>
+        <div class="row no-gutters mb-2">
+          <div class="col pr-1">
+            <app-badge-button fullWidth [disabled]="!canMoveUp" [icon]="faAngleUp" caption="Move up"
+                              (click)="callMoveUp()"/>
+          </div>
+          <div class="col pr-1">
+            <app-badge-button fullWidth [disabled]="!canMoveDown" [icon]="faAngleDown" caption="Move down"
+                              (click)="callMoveDown()"/>
+          </div>
+          <div class="col">
+            <app-badge-button fullWidth [disabled]="editActive" [icon]="faBook"
+                              [caption]="item.image===contentMetadata.coverImage? 'Clear Cover image':'Cover Image'"
+                              [active]="item.image===contentMetadata.coverImage"
+                              (click)="coverImageSet()"/>
+          </div>
         </div>
         <div class="form-group">
-          <label [for]="'name-' + index">Image Source (in {{contentMetadata?.rootFolder}}/{{contentMetadata?.name}})</label>
+          <label [for]="'name-' + index">Image Source (in {{contentMetadata?.rootFolder}}/{{contentMetadata?.name}}
+            )</label>
           <input [(ngModel)]="item.image" type="text"
                  class="form-control input-sm"
                  [id]="'name-' + index" placeholder="Image source - updated automatically"/>
@@ -54,22 +72,16 @@
         </div>
         <div class="row">
           <div class="col-sm-5">
-            <div class="form-group">
-              <label [for]="stringUtils.kebabCase('date-source', index)">Date Source</label>
-              <select [(ngModel)]="item.dateSource" [id]="stringUtils.kebabCase('date-source', index)" class="form-control"
-                      (ngModelChange)="filterEventsBySourceAndDate($event, item?.date)">
-                <option *ngFor="let dateSource of dateSources"
-                        [ngValue]="dateSource.area">{{dateSource.description}}</option>
-              </select>
-            </div>
+            <app-group-event-type-selector [dataSource]="item.dateSource" label="Date Source" includeUpload
+                                           (eventChange)="eventTypeChange($event)"
+                                           (initialValue)="groupEventType=$event"/>
           </div>
           <div class="col-sm-7 no-left-padding">
             <div class="form-group no-left-padding">
               <app-date-picker [label]="'Image Date'"
                                [size]="'md'"
-                               (dateChange)="onImageDateChange($event)"
-                               [value]="item?.date">
-              </app-date-picker>
+                               (dateChange)="dateChange($event)"
+                               [value]="item?.date"/>
             </div>
           </div>
         </div>
@@ -77,34 +89,23 @@
           <app-tag-editor [tagsForImage]="item?.tags"
                           [contentMetadataImageTags]="contentMetadataImageTags"
                           [text]="item?.text"
-                          (tagsChange)="tagsChange($event)"></app-tag-editor>
+                          (tagsChange)="tagsChange($event)"/>
         </div>
       </div>
     </div>
     <div class="row" *ngIf="item?.dateSource!=='upload'">
       <div class="col-sm-12">
-        <label>Link to {{item?.dateSource}} event</label>
-        <ng-select #select [items]="groupEvents"
-                   bindLabel="description"
-                   bindValue="id"
-                   [placeholder]="'Select a ' + item?.dateSource"
-                   [dropdownPosition]="'bottom'"
-                   [closeOnSelect]="true"
-                   [(ngModel)]="item.eventId"
-                   (focus)="refreshGroupEvents()"
-                   (change)="onChange()"
-                   (click)="selectClick(select)">
-          <ng-template ng-optgroup-tmp let-item="item">
-            <span class="group-header">{{item?.name}} {{item?.dateSource}} </span>
-            <span class="ml-1 badge badge-secondary badge-group"> {{item?.total}} </span>
-          </ng-template>
-        </ng-select>
+        <app-group-event-selector [label]="'Link to ' + groupEventType?.description"
+                                  [eventId]="item.eventId"
+                                  [dataSource]="groupEventType?.area"
+                                  (eventCleared)="item.eventId=null"
+                                  (eventChange)="eventChange($event)"/>
       </div>
     </div>
     <div class="row" *ngIf="notifyTarget.showAlert">
       <div class="col-sm-12">
         <div class="alert {{notifyTarget.alertClass}} table-pointer">
-          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+          <fa-icon [icon]="notifyTarget.alert.icon"/>
           <strong *ngIf="notifyTarget.alertTitle">
             {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
         </div>

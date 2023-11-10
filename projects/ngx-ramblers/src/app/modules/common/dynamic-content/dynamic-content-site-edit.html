@@ -20,8 +20,9 @@
           class="text-muted">{{stringUtils.pluraliseWithCount(pageContent?.rows.length, 'row')}}</small>)</h4>
         <ng-template #saveButtonsAndPath>
           <div class="form-inline">
-            <app-badge-button (click)="savePageContent()"
-                              delay=500 [tooltip]="'Save page changes'"
+            <app-badge-button [disabled]="actions.rowsInEdit.length>0" (click)="savePageContent()"
+                              delay=500
+                              [tooltip]="actions.rowsInEdit.length>0?'Finish current row edit before saving':'Save page changes'"
                               [icon]="faSave"
                               caption="Save page changes">
             </app-badge-button>
@@ -65,7 +66,7 @@
             </form>
           </div>
           <ng-container *ngIf="pageContentRowService.rowsSelected()">
-            <div class="col-sm-4  col-md-2">
+            <div class="col-sm-4 col-md-2">
               <label for="action">Action</label>
               <select class="form-control input-sm"
                       [(ngModel)]="action"
@@ -168,83 +169,8 @@
                               [pageContent]="pageContent"
                               [rowIndex]="rowIndex">
           </app-action-buttons>
-          <ng-container *ngIf="actions.isCarouselOrAlbum(row)">
-            <div *ngIf="!editActive(rowIndex)" class="row">
-              <div class="col-sm-6">
-                <app-carousel *ngIf="actions.isCarousel(row)"
-                              [carouselData]="albumData(row)"
-                              [hideStoryNavigator]="true"
-                              [index]="actions.carouselOrAlbumIndex(row, pageContent)"></app-carousel>
-                <app-album preview *ngIf="actions.isAlbum(row)"
-                              [album]="albumData(row)"
-                              [index]="actions.carouselOrAlbumIndex(row, pageContent)"></app-album>
-              </div>
-              <div class="col-sm-6">
-                <div class="row">
-                  <div class="col-auto">
-                    <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="row.carousel.showStoryNavigator"
-                             type="checkbox" class="custom-control-input"
-                             [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-show-story-navigator')">
-                      <label class="custom-control-label"
-                             [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-show-story-navigator')">Show
-                        Story Navigator</label>
-                    </div>
-                  </div>
-                  <div class="col-auto">
-                    <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="row.carousel.showIndicators"
-                             type="checkbox" class="custom-control-input"
-                             [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-show-story-indicators')">
-                      <label class="custom-control-label"
-                             [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-show-story-indicators')">
-                        Show Indicators</label>
-                    </div>
-                  </div>
-                  <div class="col-auto">
-                    <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="row.carousel.allowSwitchView"
-                             type="checkbox" class="custom-control-input"
-                             [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-allow-switch-view')">
-                      <label class="custom-control-label"
-                             [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-allow-switch-view')">
-                        Allow Switch View</label>
-                    </div>
-                  </div>
-                </div>
-                <div class="row">
-                  <div class="col-auto">
-                    <div class="form-group">
-                      <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-album-view')">
-                        Album View</label>
-                      <select class="form-control input-sm"
-                              [(ngModel)]="row.carousel.albumView"
-                              [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-album-view')">
-                        <option *ngFor="let type of enumKeyValuesForAlbumView"
-                                [ngValue]="type.value">{{stringUtils.asTitle(type.value)}}</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="col-auto">
-                    <div class="form-group">
-                      <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-slide-interval')">
-                        Slide interval in seconds</label>
-                      <input [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-slide-interval')"
-                             #input (input)="row.carousel.slideInterval=actions.constrainInput(input, 0,30) * 1000"
-                             [value]="row.carousel.slideInterval/1000"
-                             autocomplete="columns"
-                             class="form-control interval-input"
-                             type="number">
-                    </div>
-                  </div>
-                </div>
-                <app-badge-button [icon]="faPencil" (click)="toggleEditMode(rowIndex)"
-                                  [caption]="'Edit'"></app-badge-button>
-              </div>
-            </div>
-            <app-image-list-edit *ngIf="editActive(rowIndex)" [name]="row.carousel.name"
-                                 (exit)="toggleEditMode(rowIndex)"></app-image-list-edit>
-          </ng-container>
+          <app-dynamic-content-site-edit-album *ngIf="actions.isCarouselOrAlbum(row)"
+                                               [row]="row" [rowIndex]="rowIndex" [pageContent]="pageContent"/>
           <app-dynamic-content-site-edit-text-row
             [row]="row"
             [rowIndex]="rowIndex"

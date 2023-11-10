@@ -15,7 +15,7 @@
     </div>
     <div class="col-sm-12" *ngFor="let image of images?.images; let imageIndex = index;">
       <app-system-image-edit
-        [rootFolder]="imageType"
+        [rootFolder]="rootFolder"
         [headerLogoDefault]="headerLogoDefault(image)"
         [images]="images"
         [image]="image"

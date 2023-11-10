@@ -26,6 +26,7 @@ const contentMetadataSchema = mongoose.Schema({
   aspectRatio: {type: String},
   contentMetaDataType: {type: String},
   files: [contentMetadataItem],
+  coverImage:  {type: String},
   imageTags: [imageTag]
 }, {collection: "contentMetaData"});
 

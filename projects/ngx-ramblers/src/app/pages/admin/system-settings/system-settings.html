@@ -56,17 +56,17 @@
           </div>
         </tab>
         <tab app-image-collection-settings [heading]="systemConfigService.imageTypeDescription(backgrounds)"
-             [imageType]="backgrounds"
+             [rootFolder]="backgrounds"
              [config]="config"
              [images]="config.backgrounds">
         </tab>
         <tab app-image-collection-settings [heading]="systemConfigService.imageTypeDescription(icons)"
-             [imageType]="icons"
+             [rootFolder]="icons"
              [config]="config"
              [images]="config.icons">
         </tab>
         <tab app-image-collection-settings [heading]="systemConfigService.imageTypeDescription(logos)"
-             [imageType]="logos"
+             [rootFolder]="logos"
              [config]="config"
              [images]="config.logos">
         </tab>

@@ -202,6 +202,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
       },
       groupEvents: [],
       groupEventsFilter: {
+        search: null,
         selectAll: true,
         fromDate: this.dateUtils.asDateValue(this.dateUtils.momentNowNoTime().valueOf()),
         toDate: this.dateUtils.asDateValue(this.dateUtils.momentNowNoTime().add(2, "weeks").valueOf()),

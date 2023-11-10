@@ -1,8 +1,7 @@
 import { Component, Input, OnInit } from "@angular/core";
 import { faAdd, faRemove, faSortAlphaAsc } from "@fortawesome/free-solid-svg-icons";
-import { FileUploader } from "ng2-file-upload";
 import { NgxLoggerLevel } from "ngx-logger";
-import { AlertMessage, AlertTarget } from "../../../../models/alert-target.model";
+import { AlertTarget } from "../../../../models/alert-target.model";
 import { Image, Images, RootFolder, SystemConfig } from "../../../../models/system.model";
 import { sortBy } from "../../../../services/arrays";
 import { DateUtilsService } from "../../../../services/date-utils.service";
@@ -26,8 +25,6 @@ export class ImageCollectionSettingsComponent implements OnInit {
   faAdd = faAdd;
   faSortAlphaAsc = faSortAlphaAsc;
   faRemove = faRemove;
-  public imageEditActive: boolean;
-  public uploader: FileUploader;
   public imageTypeDescription: string;
 
   constructor(private systemConfigService: SystemConfigService,
@@ -42,15 +39,15 @@ export class ImageCollectionSettingsComponent implements OnInit {
     this.logger = loggerFactory.createLogger(ImageCollectionSettingsComponent, NgxLoggerLevel.OFF);
   }
 
-  @Input() imageType: RootFolder;
+  @Input() rootFolder: RootFolder;
   @Input() images: Images;
   @Input() config: SystemConfig;
 
   ngOnInit() {
-    this.logger.info("constructed with:imageType:", this.imageType, "images:", this.images);
-    this.imageTypeDescription = this.stringUtils.asTitle(this.imageType);
+    this.logger.info("constructed with:imageType:", this.rootFolder, "images:", this.images);
+    this.imageTypeDescription = this.stringUtils.asTitle(this.rootFolder);
     if (!this.images) {
-      this.images = this.systemConfigService.defaultImages(this.imageType);
+      this.images = this.systemConfigService.defaultImages(this.rootFolder);
     }
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
   }
@@ -63,23 +60,15 @@ export class ImageCollectionSettingsComponent implements OnInit {
     this.images.images = this.images.images.sort(sortBy("originalFileName"));
   }
 
-  throwOrNotifyError(message: AlertMessage) {
-    this.logger.error("throwOrNotifyError:", message);
-    this.notify.error(message);
-  }
 
   headerLogoDefault(image: Image): boolean {
     return this.config.header.selectedLogo === image.originalFileName;
   }
 
-  toggleImageEditor() {
-    this.imageEditActive = true;
-  }
-
   imageChanged(imageFileData: Image, imageIndex: number) {
     this.logger.info("imageChanged:imageFileData:", imageFileData, "for imageIndex:", imageIndex, "images (before change):", this.images.images);
     this.images.images = this.images.images.map((item, index) => index === imageIndex ? imageFileData : item);
-    this.config[this.imageType] = this.images;
+    this.config[this.rootFolder] = this.images;
     this.logger.info("imageChanged:imageFileData:", imageFileData, "for imageIndex:", imageIndex, "images (after change):", this.images.images);
   }
 }
