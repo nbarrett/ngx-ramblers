@@ -24,6 +24,7 @@ import {
 } from "../../models/ramblers-walks-manager";
 import { Ramblers } from "../../models/system.model";
 import {
+  MongoIdsSupplied,
   Walk,
   WalkAscent,
   WalkDateAscending,
@@ -95,6 +96,10 @@ export class RamblersWalksAndEventsService {
 
   }
 
+  static areMongoIdsSupplied(response: any): response is MongoIdsSupplied {
+    return (response as MongoIdsSupplied)?._id?.$in !== undefined;
+  }
+
   static isWalkDateGreaterThanOrEqualTo(response: any): response is WalkDateGreaterThanOrEqualTo {
     return (response as WalkDateGreaterThanOrEqualTo)?.walkDate?.$gte !== undefined;
   }
@@ -147,7 +152,8 @@ export class RamblersWalksAndEventsService {
     const sort = isEqual(dataQueryOptions?.sort, WalkDateDescending) || isEqual(dataQueryOptions?.sort, WalkDateAscending) ? "date" : "date";
     const date = this.createStartDate(dataQueryOptions?.criteria);
     const dateEnd = this.createEndDate(dataQueryOptions?.criteria);
-    const body: WalkListRequest = {date, dateEnd, order, sort, rawData: true, limit: 200, ids};
+    const walkIdsFromCriteria = this.extractWalkIds(dataQueryOptions?.criteria);
+    const body: WalkListRequest = {date, dateEnd, order, sort, rawData: true, limit: 200, ids: ids || walkIdsFromCriteria};
     this.logger.info("listRamblersWalksRawData:dataQueryOptions:", dataQueryOptions, "body:", body);
     const rawData = await this.commonDataService.responseFrom(this.logger, this.http.post<RamblersWalksRawApiResponseApiResponse>(`${this.BASE_URL}/list-walks`, body), this.rawWalksSubject);
     return rawData.response;
@@ -156,10 +162,18 @@ export class RamblersWalksAndEventsService {
   private createStartDate(criteria: object): string {
     if (RamblersWalksAndEventsService.isWalkDateGreaterThanOrEqualTo(criteria)) {
       return this.dateUtils.asMoment(criteria?.walkDate.$gte).format(this.WALKS_MANAGER_API_DATE_FORMAT);
-    } else if(RamblersWalksAndEventsService.isWalkDateLessThan(criteria) || isEmpty(criteria)) {
+    } else if (RamblersWalksAndEventsService.isWalkDateLessThan(criteria) || isEmpty(criteria)) {
       return this.dateUtils.asMoment().subtract(2, "year").format(this.WALKS_MANAGER_API_DATE_FORMAT);
     } else {
       return this.dateUtils.asMoment().format(this.WALKS_MANAGER_API_DATE_FORMAT);
+    }
+  }
+
+  private extractWalkIds(criteria: object): string[] {
+    if (RamblersWalksAndEventsService.areMongoIdsSupplied(criteria)) {
+      return criteria?._id.$in.map(item => item.toString());
+    } else if (RamblersWalksAndEventsService.isWalkDateLessThan(criteria) || isEmpty(criteria)) {
+      return [];
     }
   }
 

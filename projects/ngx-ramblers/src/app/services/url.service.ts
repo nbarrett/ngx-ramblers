@@ -5,7 +5,13 @@ import first from "lodash-es/first";
 import last from "lodash-es/last";
 import tail from "lodash-es/tail";
 import { NgxLoggerLevel } from "ngx-logger";
-import { BASE64_PREFIX_JPEG, BASE64_PREFIX_PNG, S3_BASE_URL } from "../models/content-metadata.model";
+import {
+  BASE64_PREFIX_JPEG,
+  BASE64_PREFIX_PNG,
+  ContentMetadata,
+  ContentMetadataItem,
+  S3_BASE_URL
+} from "../models/content-metadata.model";
 import { AWSLinkConfig, LinkConfig } from "../models/link.model";
 import { SiteEditService } from "../site-edit/site-edit.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
@@ -13,6 +19,7 @@ import { isMongoId } from "./mongo-utils";
 import isEmpty from "lodash-es/isEmpty";
 import { isNumericRamblersId } from "./path-matchers";
 import { StringUtilsService } from "./string-utils.service";
+import { RootFolder } from "../models/system.model";
 
 @Injectable({
   providedIn: "root"
@@ -157,6 +164,25 @@ export class UrlService {
 
   public isRemoteUrl(url: string): boolean {
     return url?.startsWith("http");
+  }
+
+  eventUrl(slide: ContentMetadataItem) {
+    return this.linkUrl({
+      area: slide.dateSource,
+      id: slide.eventId
+    });
+  }
+
+  imageSourceFor(file: string, contentMetadata: ContentMetadata): string {
+    return this.imageSource(this.qualifiedFileNameWithRoot(contentMetadata?.rootFolder, contentMetadata?.name, file));
+  }
+
+  qualifiedFileNameWithRoot(rootFolder: RootFolder, contentMetaDataName: string, filename: string): string {
+    return filename ? rootFolder + "/" + contentMetaDataName + "/" + filename : null;
+  }
+
+  qualifiedFileNameMinusRoot(contentMetaDataName: string, filename: string): string {
+    return contentMetaDataName + "/" + filename;
   }
 
   imageSource(url: string, absolute?: boolean): string {

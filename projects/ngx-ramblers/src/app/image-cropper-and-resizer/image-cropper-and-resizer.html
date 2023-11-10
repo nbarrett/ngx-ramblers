@@ -95,47 +95,61 @@
           </div>
         </div>
       </div>
-      <div class="row mb-2">
-        <div class="col-sm-8">
-          <app-badge-button [disabled]="busy()" (click)="rotateLeft()"
+      <div class="row no-gutters">
+        <div class="col pr-1">
+          <app-badge-button fullWidth [disabled]="busy()" (click)="rotateLeft()"
                             delay=500 tooltip="Rotate left"
                             [icon]="faRotateLeft" caption="left"/>
-          <app-badge-button [disabled]="busy()" (click)="rotateRight()"
+        </div>
+        <div class="col pr-1">
+          <app-badge-button fullWidth [disabled]="busy()" (click)="rotateRight()"
                             delay=500 tooltip="Rotate right"
                             [icon]="faRotateRight" caption="right"/>
-          <app-badge-button [disabled]="busy()" (click)="flipHorizontal()"
+        </div>
+        <div class="col pr-1">
+          <app-badge-button fullWidth [disabled]="busy()" (click)="flipHorizontal()"
                             delay=500 tooltip="Flip horizontal"
                             [icon]="faArrowRightArrowLeft" caption="flip"/>
-          <app-badge-button [disabled]="busy()" (click)="flipVertical()"
+        </div>
+        <div class="col pr-1">
+          <app-badge-button fullWidth [disabled]="busy()" (click)="flipVertical()"
                             delay=500 tooltip="Flip vertical"
                             [icon]="faUpDown" caption="flip"/>
-          <app-badge-button [disabled]="busy()" (click)="zoomIn()"
+        </div>
+        <div class="col pr-1">
+          <app-badge-button fullWidth [disabled]="busy()" (click)="zoomIn()"
                             delay=500 tooltip="Zoom in"
                             [icon]="faMagnifyingGlassPlus"
                             caption="zoom"/>
-          <app-badge-button [disabled]="busy()" (click)="zoomOut()"
+        </div>
+        <div class="col pr-1">
+          <app-badge-button fullWidth [disabled]="busy()" (click)="zoomOut()"
                             delay=500 tooltip="Zoom out"
                             [icon]="faMagnifyingGlassMinus"
                             caption="zoom"/>
-          <app-badge-button [disabled]="busy()" (click)="resetImage()"
+        </div>
+        <div class="col pr-1">
+          <app-badge-button fullWidth [disabled]="busy()" (click)="resetImage()"
                             delay=500 tooltip="Reset image"
                             [icon]="faRedoAlt"
                             caption="reset"/>
-          <app-badge-button (click)="toggleContainWithinAspectRatio()"
+        </div>
+        <div class="col pr-1">
+          <app-badge-button fullWidth (click)="toggleContainWithinAspectRatio()"
                             delay=500
                             [tooltip]="containWithinAspectRatio? 'fill aspect ratio' : 'contain within aspect ratio'"
                             [disabled]="busy()"
                             [icon]="containWithinAspectRatio? faCompress: faExpand"
                             [caption]="containWithinAspectRatio ? 'fill' : 'contain'"/>
         </div>
-        <div class="col-sm-2">
+        <div class="col pr-1">
           <app-badge-button fullWidth (click)="quit.next()"
                             delay=500 tooltip="quit without saving" [disabled]="busy()"
                             [icon]="faClose"
                             caption="quit">
           </app-badge-button>
         </div>
-        <div class="col-sm-2">
+        <div class="col pr-1">
           <app-badge-button fullWidth (click)="saveImage()"
                             delay=500 tooltip="save changes" [disabled]="busy()"
                             [icon]="faSave"

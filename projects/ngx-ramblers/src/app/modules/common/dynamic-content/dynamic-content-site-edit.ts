@@ -4,7 +4,6 @@ import { faAdd, faPencil, faRemove, faSave, faUndo } from "@fortawesome/free-sol
 import cloneDeep from "lodash-es/cloneDeep";
 import first from "lodash-es/first";
 import isEmpty from "lodash-es/isEmpty";
-import remove from "lodash-es/remove";
 import { BsDropdownConfig } from "ngx-bootstrap/dropdown";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
@@ -14,8 +13,6 @@ import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-edito
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import {
   Action,
-  AlbumData,
-  AlbumView,
   ColumnInsertData,
   ContentText,
   InsertionPosition,
@@ -71,7 +68,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     public actions: PageContentActionsService,
     private broadcastService: BroadcastService<any>,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.INFO);
   }
 
   @Input()
@@ -86,10 +83,8 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   public contentDescription: string;
   @Input()
   public contentPath: string;
-  private insertableContent: ColumnInsertData[] = [];
+  public insertableContent: ColumnInsertData[] = [];
   private defaultPageContent: PageContent;
-  private rowsInEdit: number[] = [];
-
   private destinationPageContent: PageContent;
   private logger: Logger;
   public relativePath: string;
@@ -101,7 +96,6 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   faUndo = faUndo;
   providers: [{ provide: BsDropdownConfig, useValue: { isAnimated: true, autoClose: true } }];
   enumKeyValuesForPageContentType: KeyValue<string>[] = enumKeyValues(PageContentType);
-  enumKeyValuesForAlbumView: KeyValue<string>[] = enumKeyValues(AlbumView);
   public unsavedMarkdownComponents: MarkdownEditorComponent[] = [];
   public destinationPath: string;
   public destinationPathLookup: Subject<string> = new Subject<string>();
@@ -117,7 +111,6 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   private copyOrMoveActionComplete: boolean;
   private subscriptions: Subscription[] = [];
 
-  protected readonly AlbumView = AlbumView;
 
   ngOnInit() {
     this.logger.info("ngOnInit");
@@ -273,24 +266,28 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   public savePageContent(): Promise<boolean> {
-    this.logger.info("saving", this.unsavedMarkdownComponents.length, "markdown components before saving page content");
-    return Promise.all(this.unsavedMarkdownComponents.map(component => component.save())).then(() => {
-      return this.pageContentService.createOrUpdate(this.pageContent)
-        .then(pageContent => {
-          this.pageContent = pageContent;
-          this.logger.info("this.pageContent.path:", this.pageContent.path, "urlPath:", this.urlService.urlPath());
-          if (this.pageContent.path !== this.urlService.urlPath()) {
-            const navigateToPath = this.urlService.pathMinusAnchorForUrl(this.pageContent.path);
-            this.logger.info("need to move to:", navigateToPath);
-            return this.urlService.navigateUnconditionallyTo([navigateToPath]);
-          } else {
-            return true;
-          }
-        });
-    });
+    if (this.actions.rowsInEdit.length === 0) {
+      this.logger.info("saving", this.unsavedMarkdownComponents.length, "markdown components before saving page content");
+      return Promise.all(this.unsavedMarkdownComponents.map(component => component.save())).then(() => {
+        return this.pageContentService.createOrUpdate(this.pageContent)
+          .then(pageContent => {
+            this.pageContent = pageContent;
+            this.logger.info("this.pageContent.path:", this.pageContent.path, "urlPath:", this.urlService.urlPath());
+            if (this.pageContent.path !== this.urlService.urlPath()) {
+              const navigateToPath = this.urlService.pathMinusAnchorForUrl(this.pageContent.path);
+              this.logger.info("need to move to:", navigateToPath);
+              return this.urlService.navigateUnconditionallyTo([navigateToPath]);
+            } else {
+              return true;
+            }
+          });
+      });
+    } else {
+    }
   }
 
   public revertPageContent() {
+    this.actions.rowsInEdit = [];
     this.pageContentService.findByPath(this.pageContent.path)
       .then(pageContent => {
         this.pageContent = pageContent;
@@ -311,10 +308,6 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   public allReferringPageCount(): number {
     return this.allReferringPages().length;
-  }
-
-  public isMainPageContent() {
-    return this.mainPagesReferred().length > 0;
   }
 
   private mainPagesReferred(): string[] {
@@ -398,22 +391,5 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     this.destinationPath = value;
   }
 
-  toggleEditMode(rowIndex: number) {
-    if (this.editActive(rowIndex)) {
-      remove(this.rowsInEdit, (item) => item === rowIndex);
-      this.logger.info("removing", rowIndex, "from edit mode -> now:", this.rowsInEdit);
-    } else {
-      this.rowsInEdit.push(rowIndex);
-      this.logger.info("adding", rowIndex, "to edit mode -> now:", this.rowsInEdit);
-    }
-  }
 
-  public editActive(rowIndex: number) {
-    return this.rowsInEdit.includes(rowIndex);
-  }
-
-  albumData(row: PageContentRow): AlbumData {
-    this.logger.off("carouselData:", row.carousel);
-    return row?.carousel;
-  }
 }

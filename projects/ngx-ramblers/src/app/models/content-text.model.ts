@@ -31,6 +31,7 @@ export interface PageContentRow {
   marginTop?: number;
   marginBottom?: number;
   carousel?: AlbumData;
+  albumIndex?: AlbumIndex;
 }
 
 export interface PageContentColumn extends Link, HasPageContentRows {
@@ -53,16 +54,24 @@ export interface PageContentEditEvent {
 
 export interface AlbumData {
   title: string;
+  subtitle: any;
+  showTitle: boolean;
   name: string;
   albumView: AlbumView;
   allowSwitchView: boolean;
   eventId: string;
+  eventDate: number;
   eventType: string;
   createdAt: number;
   createdBy: string;
   slideInterval: number;
   showIndicators: boolean;
   showStoryNavigator: boolean;
+}
+
+export interface AlbumIndex {
+  albums: string[];
+  columns?: number;
 }
 
 export enum PageContentType {

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { MeetupConfig } from "./meetup-config.model";
 import { FilterParametersSearch } from "./member-resource.model";
@@ -145,6 +146,10 @@ export enum WalkViewMode {
 
 export const WalkDateAscending = {walkDate: 1};
 export const WalkDateDescending = {walkDate: -1};
+
+export interface MongoIdsSupplied {
+  _id: { $in: mongoose.Types.ObjectId[] };
+}
 
 export interface WalkDateGreaterThanOrEqualTo {
   walkDate: { $gte: number };

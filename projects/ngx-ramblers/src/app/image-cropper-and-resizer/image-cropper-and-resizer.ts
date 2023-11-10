@@ -8,7 +8,7 @@ import {
   faFile,
   faMagnifyingGlassMinus,
   faMagnifyingGlassPlus,
-  faRedoAlt,
+  faRedoAlt, faRemove,
   faRotateLeft,
   faRotateRight,
   faSave,
@@ -108,6 +108,8 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
   public originalFile: File;
   public croppedFile: AwsFileData;
   public originalImageData: ImageData;
+
+  protected readonly faRemove = faRemove;
 
 
   static isAwsUploadResponse(response: AwsFileUploadResponse | AwsUploadErrorResponse): response is AwsFileUploadResponse {
@@ -420,5 +422,4 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
       this.manuallySubmitCrop();
     }
   }
-
 }

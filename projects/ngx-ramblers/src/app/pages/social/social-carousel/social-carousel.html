@@ -2,7 +2,7 @@
   <div class="mb-4">
     <div class="d-flex flex-column flex-md-row position-relative">
       <div class="wrapper w-100 position-relative">
-        <img *ngIf="contentMetadataItem" class="crop" [src]="imageSourceFor(contentMetadataItem?.image)"
+        <img *ngIf="contentMetadataItem" class="crop" [src]="urlService.imageSourceFor(contentMetadataItem?.image, contentMetadata)"
              [ngStyle]="{'height.px': paperCutImageHeight(), 'width.px': paperCutWidth}"/><img/>
         <img class="h-100 position-absolute" #paperCutImage
              src="/assets/images/ramblers/papercut-paths/home-page.png">
@@ -11,7 +11,7 @@
         <div class="ml-md-4 ml-lg-6 col-md-6 col-xl-6">
           <h1 class="display-3 font-weight-bold colour-cloudy">Social Events</h1>
           <app-markdown-editor class="body-text colour-cloudy" category="social" name="introduction"
-                               description="Introduction"></app-markdown-editor>
+                               description="Introduction"/>
           <div class="body-text mt-5 w-auto">{{contentMetadataItem?.text}}</div>
         </div>
       </div>

@@ -28,6 +28,8 @@ import { RootFolder } from "../models/system.model";
 import { StringUtilsService } from "./string-utils.service";
 import first from "lodash-es/first";
 import { MemberLoginService } from "./member/member-login.service";
+import { UrlService } from "./url.service";
+import take from "lodash-es/take";
 
 @Injectable({
   providedIn: "root"
@@ -44,12 +46,13 @@ export class ContentMetadataService {
   constructor(private http: HttpClient,
               private dateUtils: DateUtilsService,
               private stringUtils: StringUtilsService,
+              private urlService: UrlService,
               public memberLoginService: MemberLoginService,
               private searchFilterPipe: SearchFilterPipe,
               public imageTagDataService: ImageTagDataService,
               private imageDuplicatesService: ImageDuplicatesService,
               private commonDataService: CommonDataService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("ContentMetadataService", NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("ContentMetadataService", NgxLoggerLevel.DEBUG);
   }
 
   contentMetadataNotification(): Observable<ContentMetadataApiResponse> {
@@ -162,16 +165,32 @@ export class ContentMetadataService {
       this.logger.debug(filteredSlides?.length, "slides selected from", tag?.subject, "showDuplicates:", showDuplicates);
       return filteredSlides;
     } else if (filterType === ImageFilterType.RECENT) {
-      const excludeFromRecentKeys: number[] = this.imageTagDataService.imageTagsSorted(imageTags).filter(tag => tag.excludeFromRecent).map(tag => tag.key);
-      const sinceDate = this.dateUtils.momentNow().add(-6, "months");
-      const filteredSlides = this.filterAndSort(showDuplicates, allSlides?.filter(file => file.date >= sinceDate.valueOf() && !(file.tags.find(tag => excludeFromRecentKeys.includes(tag)))), filterText);
-      this.logger.debug(filteredSlides?.length, "slides selected from", tag?.subject, "since", this.dateUtils.displayDate(sinceDate), "excludeFromRecentKeys:", excludeFromRecentKeys.join(", "), "showDuplicates:", showDuplicates);
-      return filteredSlides;
+      const items = this.filterForLastMonths(6, imageTags, showDuplicates, allSlides, filterText, tag);
+      return items.length === 0 ? this.filterForLastItems(20, imageTags, showDuplicates, allSlides, filterText, tag) : items;
     } else if (tag) {
       const filteredSlides = this.filterAndSort(showDuplicates, allSlides?.filter(file => file?.tags?.includes(tag.key)), filterText);
       this.logger.debug(filteredSlides?.length, "slides selected from tag:", tag?.subject, "showDuplicates:", showDuplicates);
       return filteredSlides || [];
     }
+  }
+
+  private filterForLastMonths(months: number, imageTags: ImageTag[], showDuplicates: boolean, allSlides: ContentMetadataItem[], filterText: string, tag: ImageTag) {
+    const excludingKeys = this.excludeFromRecentKeys(imageTags);
+    const sinceDate = this.dateUtils.momentNow().subtract(months, "months");
+    const filteredSlides = this.filterAndSort(showDuplicates, allSlides?.filter(file => file.date >= sinceDate.valueOf() && !(file.tags.find(tag => excludingKeys.includes(tag)))), filterText);
+    this.logger.debug(filteredSlides?.length, "slides selected from", tag?.subject, "since", this.dateUtils.displayDate(sinceDate), "excludingKeys:", excludingKeys.join(", "), "showDuplicates:", showDuplicates);
+    return filteredSlides;
+  }
+
+  private excludeFromRecentKeys(imageTags: ImageTag[]): number[] {
+    return this.imageTagDataService.imageTagsSorted(imageTags).filter(tag => tag.excludeFromRecent).map(tag => tag.key);
+  }
+
+  private filterForLastItems(itemCount: number, imageTags: ImageTag[], showDuplicates: boolean, allSlides: ContentMetadataItem[], filterText: string, tag: ImageTag) {
+    const excludingKeys = this.excludeFromRecentKeys(imageTags);
+    const filteredSlides = take(this.filterAndSort(showDuplicates, allSlides?.filter(file => !file.tags.find(tag => excludingKeys.includes(tag))), filterText), itemCount);
+    this.logger.debug(filteredSlides?.length, "slides selected from", tag?.subject, "for last", itemCount, "excludingKeys:", excludingKeys.join(", "), "showDuplicates:", showDuplicates);
+    return filteredSlides;
   }
 
   findIndex(allSlides: ContentMetadataItem[], item: ContentMetadataItem): number {
@@ -208,20 +227,12 @@ export class ContentMetadataService {
     return value;
   }
 
-  qualifiedFileNameWithRoot(rootFolder: RootFolder, contentMetaDataName: string, filename: string): string {
-    return filename ? rootFolder + "/" + contentMetaDataName + "/" + filename : null;
-  }
-
-  qualifiedFileNameMinusRoot(contentMetaDataName: string, filename: string): string {
-    return contentMetaDataName + "/" + filename;
-  }
-
   rootFolderAndName(rootFolder: RootFolder, name: string): string {
     return rootFolder + "/" + name;
   }
 
   contentMetadataName(contentMetadata: ContentMetadata): string {
-    return this.stringUtils.asTitle(this.stringUtils.asWords(contentMetadata?.name));
+    return this.stringUtils.asTitle(this.stringUtils.asWords(last(this.urlService.pathSegmentsForUrl(contentMetadata?.name))));
   }
 
   refreshLookups() {

@@ -89,6 +89,8 @@ export interface CommitteeConfig {
 
 export interface GroupEventsFilter {
   selectAll: boolean;
+  eventIds?: string[];
+  search: string;
   fromDate: DateValue;
   toDate: DateValue;
   includeContact: boolean;

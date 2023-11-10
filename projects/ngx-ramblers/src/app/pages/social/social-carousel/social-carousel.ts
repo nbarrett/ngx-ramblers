@@ -22,7 +22,7 @@ export class SocialCarouselComponent implements OnInit {
   public slideInterval = 5000;
   public activeSlideIndex = -1;
   public image: any;
-  private contentMetadata: ContentMetadata;
+  public contentMetadata: ContentMetadata;
 
   constructor(private contentMetadataService: ContentMetadataService,
               private urlService: UrlService,
@@ -82,8 +82,5 @@ export class SocialCarouselComponent implements OnInit {
     return clientHeight;
   }
 
-  imageSourceFor(file: string): string {
-    return this.urlService.imageSource(this.contentMetadataService.qualifiedFileNameWithRoot(this.contentMetadata?.rootFolder, this.contentMetadata?.name, file));
-  }
 
 }

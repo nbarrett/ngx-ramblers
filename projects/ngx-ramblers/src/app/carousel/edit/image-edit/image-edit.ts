@@ -1,22 +1,14 @@
 import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
-import { NgSelectComponent } from "@ng-select/ng-select";
 import isArray from "lodash-es/isArray";
 import map from "lodash-es/map";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { AwsFileData } from "../../../models/aws-object.model";
-import {
-  GroupEvent,
-  GroupEventsFilter,
-  GroupEventType,
-  groupEventTypeFor,
-  GroupEventTypes
-} from "../../../models/committee.model";
+import { GroupEvent, GroupEventType, GroupEventTypes } from "../../../models/committee.model";
 import { ContentMetadata, ContentMetadataItem, ImageTag } from "../../../models/content-metadata.model";
 import { DateValue } from "../../../models/date.model";
-import { CommitteeQueryService } from "../../../services/committee/committee-query.service";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { FileUploadService } from "../../../services/file-upload.service";
@@ -28,8 +20,10 @@ import { RouterHistoryService } from "../../../services/router-history.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
 import { ImageMessage } from "../../../models/images.model";
-import { faAdd, faAngleDown, faAngleUp, faImage, faPencil, faRemove } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faAngleDown, faAngleUp, faBook, faImage, faPencil, faRemove } from "@fortawesome/free-solid-svg-icons";
 import isEmpty from "lodash-es/isEmpty";
+import { BroadcastService } from "../../../services/broadcast-service";
+import { KeyValue } from "../../../services/enums";
 
 @Component({
   selector: "app-image-edit",
@@ -68,6 +62,22 @@ export class ImageEditComponent implements OnInit {
   @Output() imageInsert: EventEmitter<ContentMetadataItem> = new EventEmitter();
   @Output() imageEdit: EventEmitter<ContentMetadataItem> = new EventEmitter();
 
+  constructor(public stringUtils: StringUtilsService,
+              public imageDuplicatesService: ImageDuplicatesService,
+              public broadcastService: BroadcastService<KeyValue<boolean>>,
+              public contentMetadataService: ContentMetadataService,
+              private authService: AuthService,
+              private notifierService: NotifierService,
+              private fileUploadService: FileUploadService,
+              private route: ActivatedRoute,
+              private memberLoginService: MemberLoginService,
+              public dateUtils: DateUtilsService,
+              private routerHistoryService: RouterHistoryService,
+              private urlService: UrlService, loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.createLogger("ImageEditComponent", NgxLoggerLevel.OFF);
+  }
+
+  public groupEventType: GroupEventType;
   public contentMetadataImageTags: ImageTag[];
   private logger: Logger;
   public groupEvents: GroupEvent[] = [];
@@ -89,22 +99,7 @@ export class ImageEditComponent implements OnInit {
   protected readonly faAngleUp = faAngleUp;
   protected readonly faPencil = faPencil;
   protected readonly faAngleDown = faAngleDown;
-
-  constructor(public stringUtils: StringUtilsService,
-              public imageDuplicatesService: ImageDuplicatesService,
-              private committeeQueryService: CommitteeQueryService,
-              public contentMetadataService: ContentMetadataService,
-              private authService: AuthService,
-              private notifierService: NotifierService,
-              private fileUploadService: FileUploadService,
-              private route: ActivatedRoute,
-              private memberLoginService: MemberLoginService,
-              public dateUtils: DateUtilsService,
-              private routerHistoryService: RouterHistoryService,
-              private urlService: UrlService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("ImageEditComponent", NgxLoggerLevel.OFF);
-  }
-
+  protected readonly faBook = faBook;
 
   ngOnInit() {
     this.editActive = !this.item.image;
@@ -117,11 +112,10 @@ export class ImageEditComponent implements OnInit {
     }].concat(map(GroupEventTypes, (item) => item));
   }
 
-  onImageDateChange(dateValue: DateValue) {
+  dateChange(dateValue: DateValue) {
     if (dateValue) {
       this.logger.debug("date changed from:", this.dateUtils.displayDateAndTime(this.item.date), "to", this.dateUtils.displayDateAndTime(dateValue.date));
       this.item.date = dateValue.value;
-      this.filterEventsBySourceAndDate(this.item.dateSource, this.item.date);
     }
   }
 
@@ -167,61 +161,6 @@ export class ImageEditComponent implements OnInit {
     }
   }
 
-  filterEventsBySourceAndDate(dateSource: string, date: number) {
-    this.logger.debug("eventsFilteredFrom:", dateSource, "date:", date);
-    const groupEventsFilter: GroupEventsFilter = {
-      selectAll: true,
-      fromDate: this.dateUtils.asDateValue(this.dateUtils.asMoment(date).add(-520, "weeks").valueOf()),
-      toDate: this.dateUtils.asDateValue(this.dateUtils.asMoment(date).add(2, "day")),
-      includeContact: true,
-      includeDescription: true,
-      includeLocation: true,
-      includeWalks: dateSource === GroupEventTypes.WALK.area,
-      includeSocialEvents: dateSource === GroupEventTypes.SOCIAL.area,
-      includeCommitteeEvents: dateSource === GroupEventTypes.COMMITTEE.area,
-      sortBy: "-eventDate"
-    };
-
-    this.committeeQueryService.groupEvents(groupEventsFilter)
-      .then(events => {
-        this.groupEvents = events.map(event => ({
-          ...event,
-          description: this.dateUtils.displayDate(event.eventDate) + ", " + event.contactName + ", " + event.title
-        }));
-        this.logger.debug("groupEvents", events);
-        return events;
-      });
-  }
-
-  selectClick(select: NgSelectComponent) {
-    this.logger.debug("select", select, "imageMetaDataItem:", this.item);
-  }
-
-  onChange() {
-    const event = this.groupEvents.find(event => event.id === this.item.eventId);
-    if (event) {
-      this.item.date = event.eventDate;
-      this.logger.debug("onChange:imageMetaDataItem.date", this.dateUtils.displayDate(this.item.date), "imageMetaDataItem:", this.item);
-    } else {
-      this.logger.debug("onChange:not event found from", this.item);
-    }
-    this.imageChange.emit(this.item);
-  }
-
-  refreshGroupEventsIfRequired() {
-    const groupEventType = groupEventTypeFor(this.item.dateSource);
-    if (groupEventType) {
-      this.logger.debug("filterEventsBySourceAndDate as group event type is", groupEventType);
-      this.filterEventsBySourceAndDate(this.item.dateSource, this.item.date);
-    } else {
-      this.logger.debug("not refreshing as group event type is", groupEventType);
-    }
-  }
-
-  refreshGroupEvents() {
-    this.filterEventsBySourceAndDate(this.item.dateSource, this.item.date);
-  }
-
   imageChanged(awsFileData: AwsFileData) {
     this.logger.info("imageChanged:", awsFileData);
     this.awsFileData = awsFileData;
@@ -261,7 +200,7 @@ export class ImageEditComponent implements OnInit {
   }
 
   imageSourceOrPreview(): string {
-    const qualifiedFileNameWithRoot = this.contentMetadataService.qualifiedFileNameWithRoot(this.contentMetadata?.rootFolder, this.contentMetadata?.name, this.item.image);
+    const qualifiedFileNameWithRoot = this.urlService.qualifiedFileNameWithRoot(this.contentMetadata?.rootFolder, this.contentMetadata?.name, this.item.image);
     this.logger.off("imageSourceOrPreview:qualifiedFileNameWithRoot", qualifiedFileNameWithRoot, "awsFileData?.image:", this.awsFileData?.image);
     return this.urlService.imageSource(this.awsFileData?.image || qualifiedFileNameWithRoot);
   }
@@ -281,4 +220,23 @@ export class ImageEditComponent implements OnInit {
     this.imageLoadText = null;
   }
 
+  eventTypeChange(groupEventType: GroupEventType) {
+    this.groupEventType = groupEventType;
+    this.item.dateSource = groupEventType.area;
+  }
+
+  eventChange(groupEvent: GroupEvent) {
+    this.item.date = groupEvent.eventDate;
+    this.item.text = groupEvent.title;
+    this.item.eventId = groupEvent.id;
+  }
+
+  coverImageSet() {
+    const currentlySet: boolean = this.item.image === this.contentMetadata.coverImage;
+    if (currentlySet) {
+      this.contentMetadata.coverImage = null;
+    } else {
+      this.contentMetadata.coverImage = this.item.image;
+    }
+  }
 }

@@ -34,7 +34,6 @@ export class ActionButtonsComponent implements OnInit {
   public maxViewableSlideCount: number;
   public actualViewableSlideCount: number;
   public row: PageContentRow;
-  public activeEditColumnIndex: number;
   public faPencil = faPencil;
   public pageContentEditEvents: PageContentEditEvent[] = [];
   private id: string;

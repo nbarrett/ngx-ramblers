@@ -22,12 +22,14 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 import { NumberUtilsService } from "./number-utils.service";
 import { StringUtilsService } from "./string-utils.service";
 import { KeyValue } from "./enums";
+import remove from "lodash-es/remove";
 
 @Injectable({
   providedIn: "root"
 })
 export class PageContentActionsService {
   private logger: Logger;
+  public rowsInEdit: number[] = [];
 
   constructor(private stringUtils: StringUtilsService,
               private broadcastService: BroadcastService<PageContent>,
@@ -85,9 +87,12 @@ export class PageContentActionsService {
       allowSwitchView: false,
       createdAt: null,
       createdBy: null,
+      eventDate: null,
       eventId: null,
       eventType: "walks",
-      title: "",
+      title: null,
+      subtitle: null,
+      showTitle: true,
       showStoryNavigator: true,
       showIndicators: true,
       slideInterval: 5000
@@ -292,12 +297,28 @@ export class PageContentActionsService {
   }
 
   carouselOrAlbumIndex(row: PageContentRow, viewablePageContent: PageContent): number {
+    this.logger.info("carouselOrAlbumIndex:for:", row);
     const carouselNameIndexes: KeyValue<number>[] = viewablePageContent.rows
       .filter(item => this.isCarouselOrAlbum(item))
-      .map((row, index) => ({key: row.carousel.name, value: index}));
-    const numberKeyValue: KeyValue<number> = carouselNameIndexes.find(item => item.key === row.carousel.name);
-    this.logger.info("carouselIndex:for:", row.carousel.name, "given:", carouselNameIndexes, "returned:", numberKeyValue?.value);
+      .map((row, index) => ({key: row?.carousel?.name, value: index}));
+    const numberKeyValue: KeyValue<number> = carouselNameIndexes.find(item => item.key === row.carousel?.name);
+    this.logger.info("carouselIndex:for:", row?.carousel?.name, "given:", carouselNameIndexes, "returned:", numberKeyValue?.value);
     return numberKeyValue?.value;
   }
+
+  public editActive(rowIndex: number) {
+    return this.rowsInEdit.includes(rowIndex);
+  }
+
+  toggleEditMode(rowIndex: number) {
+    if (this.editActive(rowIndex)) {
+      remove(this.rowsInEdit, (item) => item === rowIndex);
+      this.logger.info("removing", rowIndex, "from edit mode -> now:", this.rowsInEdit);
+    } else {
+      this.rowsInEdit.push(rowIndex);
+      this.logger.info("adding", rowIndex, "to edit mode -> now:", this.rowsInEdit);
+    }
+  }
+
 
 }

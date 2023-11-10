@@ -25,6 +25,8 @@ import { WalksService } from "../walks/walks.service";
 import { CommitteeConfigService } from "./commitee-config.service";
 import { CommitteeFileService } from "./committee-file.service";
 import { CommitteeReferenceData } from "./committee-reference-data";
+import { toMongoIds } from "../mongo-utils";
+import { SocialEvent } from "../../models/social-events.model";
 
 @Injectable({
   providedIn: "root"
@@ -62,9 +64,23 @@ export class CommitteeQueryService {
     const events: GroupEvent[] = [];
     const promises = [];
     const committeeContactDetails: CommitteeMember = this.committeeReferenceData?.committeeMembersForRole("secretary")[0];
+    const idBasedCriteria = groupEventsFilter.eventIds?.length > 0 ? {_id: {$in: toMongoIds(groupEventsFilter.eventIds)}} : null;
+    const regex = {
+      $regex: groupEventsFilter.search,
+      $options: "i"
+    };
+
     if (groupEventsFilter.includeWalks) {
+      const textBasedCriteria = groupEventsFilter.search?.length > 0 ? {briefDescriptionAndStartPoint: regex} : null;
       promises.push(
-        this.walksService.all({criteria: {walkDate: {$gte: fromDate, $lte: toDate}}})
+        this.walksService.all({
+          criteria: textBasedCriteria || idBasedCriteria || {
+            walkDate: {
+              $gte: fromDate,
+              $lte: toDate
+            }
+          }
+        })
           .then(walks => this.walksQueryService.activeWalks(walks))
           .then(walks => walks.forEach(walk => events.push({
             id: walk.id,
@@ -82,8 +98,16 @@ export class CommitteeQueryService {
           }))));
     }
     if (groupEventsFilter.includeCommitteeEvents) {
+      const textBasedCriteria = groupEventsFilter.search?.length > 0 ? {"fileNameData.title": regex} : null;
       promises.push(
-        this.committeeFileService.all({criteria: {eventDate: {$gte: fromDate, $lte: toDate}}})
+        this.committeeFileService.all({
+          criteria: textBasedCriteria || idBasedCriteria || {
+            eventDate: {
+              $gte: fromDate,
+              $lte: toDate
+            }
+          }
+        })
           .then(committeeFiles => committeeFiles.forEach(committeeFile => events.push({
             id: committeeFile.id,
             selected: true,
@@ -97,9 +121,17 @@ export class CommitteeQueryService {
           }))));
     }
     if (groupEventsFilter.includeSocialEvents) {
+      const textBasedCriteria = groupEventsFilter.search?.length > 0 ? {briefDescription: regex} : null;
       promises.push(
-        this.socialEventsService.all({criteria: {eventDate: {$gte: fromDate, $lte: toDate}}})
-          .then(socialEvents => socialEvents.forEach(socialEvent => events.push({
+        this.socialEventsService.all({
+          criteria: textBasedCriteria || idBasedCriteria || {
+            eventDate: {
+              $gte: fromDate,
+              $lte: toDate
+            }
+          }
+        })
+          .then((socialEvents: SocialEvent[]) => socialEvents.forEach(socialEvent => events.push({
             id: socialEvent.id,
             selected: true,
             eventType: GroupEventTypes.SOCIAL,
