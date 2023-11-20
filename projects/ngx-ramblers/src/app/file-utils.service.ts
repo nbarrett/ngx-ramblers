@@ -7,6 +7,9 @@ import { ContentMetadataService } from "./services/content-metadata.service";
 import { DateUtilsService } from "./services/date-utils.service";
 import { Logger, LoggerFactory } from "./services/logger-factory.service";
 import { UrlService } from "./services/url.service";
+import { Base64File, ContentMetadataItem } from "./models/content-metadata.model";
+import { AwsFileData } from "./models/aws-object.model";
+import { base64ToFile } from "ngx-image-cropper";
 
 @Injectable({
   providedIn: "root"
@@ -33,6 +36,71 @@ export class FileUtilsService {
     }
 
     return new File([u8arr], filename, {type: mime});
+  }
+
+  async localUrlToBlob(url: string): Promise<Blob> {
+    const urlPath = this.urlService.resourceRelativePathForAWSFileName(url);
+    const blob = await (await fetch(urlPath)).blob();
+    this.logger.info("localUrlToBlob:url:", url, "urlPath:", urlPath, "blob:", blob);
+    return blob;
+  }
+
+  public async loadBase64ImageFromUrl(url: string): Promise<string> {
+    const blob = await this.localUrlToBlob(url);
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = () => {
+        const base64data = reader.result;
+        resolve(base64data as string);
+      };
+    });
+  }
+
+  public async fileListToBase64Files(fileList: any): Promise<Base64File[]> {
+    const files: File[] = Array.from(fileList as FileList);
+    const firstFile: File = first(files);
+    this.logger.info("filesDropped:", fileList, "firstFile:", firstFile);
+    const base64Files = await Promise.all(files.map(file => {
+      this.logger.info("file:", file);
+      return this.loadBase64ImageFromFile(file);
+    }));
+    this.logger.info("processed:", base64Files);
+    return base64Files;
+  }
+
+  public async loadBase64ImageFromFile(file: File): Promise<Base64File> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64File: Base64File = {file, base64Content: reader.result as string};
+        this.logger.info("loadBase64ImageFromFile:", file, "base64File:", base64File);
+        resolve(base64File);
+      };
+      reader.onerror = (error: ProgressEvent<FileReader>) => {
+        reject(error);
+      };
+    });
+  }
+
+  public contentMetadataItemFromBase64File(base64File: Base64File): ContentMetadataItem {
+    return {
+      eventId: null,
+      dateSource: "upload",
+      date: this.dateUtils.asMoment(base64File.file.lastModified).valueOf(),
+      base64Content: base64File.base64Content,
+      originalFileName: base64File.file.name,
+      tags: []
+    };
+  }
+
+  public awsFileData(awsFileName: string, croppedImage: string, originalFile: File): AwsFileData {
+    return {
+      awsFileName,
+      image: croppedImage,
+      file: new File([base64ToFile(croppedImage)], originalFile.name, {lastModified: originalFile.lastModified, type: originalFile.type})
+    };
   }
 
   basename(path) {

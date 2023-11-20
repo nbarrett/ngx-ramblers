@@ -1,17 +1,17 @@
 <div class="carousel-wrapper">
   <div class="slider-container">
-    <div class="sc-inner" *ngIf="lazyLoadingMetadata">
-      <carousel [noPause]="false" [isAnimated]="true"
+    <div class="sc-inner">
+      <app-carousel-story-navigator *ngIf="preview? false: !hideStoryNavigator && album.showStoryNavigator"
+                                    [imageTags]="lazyLoadingMetadata?.contentMetadata?.imageTags"
+                                    [index]="index"
+                                    (tagChanged)="tagChanged($event)"/>
+      <carousel *ngIf="lazyLoadingMetadata" [noPause]="false" [isAnimated]="true"
                 [interval]="album.slideInterval || 5000"
                 [showIndicators]="album.showIndicators && showIndicators"
                 [(activeSlide)]="lazyLoadingMetadata.activeSlideIndex"
                 (activeSlideChange)="activeSlideChange(false, $event)">
-        <app-carousel-story-navigator *ngIf="!hideStoryNavigator && album.showStoryNavigator"
-                                      [imageTags]="lazyLoadingMetadata.contentMetadata?.imageTags"
-                                      [index]="index"
-                                      (tagChanged)="tagChanged($event)"></app-carousel-story-navigator>
-        <slide *ngFor="let slide of lazyLoadingMetadata.selectedSlides; let index = index;">
-          <img class="img-fluid w-100" loading="lazy" *ngIf="slide" [src]="imageSourceFor(slide.image)"
+        <slide *ngFor="let slide of lazyLoadingMetadata?.selectedSlides">
+          <img class="img-fluid w-100" loading="lazy" *ngIf="slide" [src]="imageSourceFor(slide)"
                [alt]="slide.text">
           <div class="carousel-caption">
             <h4>{{slide.text}}</h4>

@@ -173,16 +173,12 @@ export class UrlService {
     });
   }
 
-  imageSourceFor(file: string, contentMetadata: ContentMetadata): string {
-    return this.imageSource(this.qualifiedFileNameWithRoot(contentMetadata?.rootFolder, contentMetadata?.name, file));
+  imageSourceFor(item: ContentMetadataItem, contentMetadata: ContentMetadata): string {
+    return this.imageSource(this.qualifiedFileNameWithRoot(contentMetadata?.rootFolder, contentMetadata?.name, item));
   }
 
-  qualifiedFileNameWithRoot(rootFolder: RootFolder, contentMetaDataName: string, filename: string): string {
-    return filename ? rootFolder + "/" + contentMetaDataName + "/" + filename : null;
-  }
-
-  qualifiedFileNameMinusRoot(contentMetaDataName: string, filename: string): string {
-    return contentMetaDataName + "/" + filename;
+  qualifiedFileNameWithRoot(rootFolder: RootFolder, contentMetaDataName: string, item: ContentMetadataItem): string {
+    return item.base64Content ? item.base64Content : (item.image && !this.isRemoteUrl(item.image)) ? `${rootFolder}/${contentMetaDataName}/${item.image}` : null;
   }
 
   imageSource(url: string, absolute?: boolean): string {
@@ -232,7 +228,7 @@ export class UrlService {
     return tail(this.pathSegmentsForUrl(new URL(this.absoluteUrl()).pathname.substring(1))).join("/");
   }
 
-  private isBase64Image(url: string): boolean {
+  isBase64Image(url: string): boolean {
     return url?.startsWith(BASE64_PREFIX_JPEG) || url?.startsWith(BASE64_PREFIX_PNG);
   }
 

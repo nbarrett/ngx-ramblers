@@ -1,9 +1,11 @@
-import { Component, HostListener, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
+import { Component, HostListener, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { UrlService } from "../../services/url.service";
 import {
+  ALL_PHOTOS,
   ContentMetadataItem,
+  DuplicateImages,
   ImageTag,
   LazyLoadingMetadata,
   SlideInitialisation
@@ -19,6 +21,8 @@ import { Subscription } from "rxjs";
 import { RootFolder } from "../../models/system.model";
 import { AlbumData } from "../../models/content-text.model";
 import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata.service";
+import { ImageDuplicatesService } from "../../services/image-duplicates-service";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-carousel",
@@ -26,17 +30,23 @@ import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata
   styleUrls: ["./carousel.sass"]
 
 })
-export class CarouselComponent implements OnInit, OnDestroy, OnChanges {
+export class CarouselComponent implements OnInit, OnDestroy {
   private logger: Logger;
   public lazyLoadingMetadata: LazyLoadingMetadata;
   public showIndicators: boolean;
   private subscriptions: Subscription[] = [];
   public faPencil = faPencil;
   public album: AlbumData;
-  public activeTag: ImageTag;
+  private duplicateImages: DuplicateImages;
+  public preview: boolean;
 
-  @Input("album") set acceptChangesFrom(carouselData: AlbumData) {
-    this.carouselDataInput(carouselData);
+  @Input("preview") set previewValue(value: boolean) {
+    this.preview = coerceBooleanProperty(value);
+    this.logger.info("preview:", this.preview);
+  }
+
+  @Input("album") set acceptChangesFrom(albumData: AlbumData) {
+    this.carouselDataInput(albumData);
   }
 
   @Input()
@@ -54,27 +64,23 @@ export class CarouselComponent implements OnInit, OnDestroy, OnChanges {
     public pageService: PageService,
     private memberLoginService: MemberLoginService,
     private lazyLoadingMetadataService: LazyLoadingMetadataService,
+    private imageDuplicatesService: ImageDuplicatesService,
     private systemConfigService: SystemConfigService,
     public contentMetadataService: ContentMetadataService,
     private siteEditService: SiteEditService,
     public urlService: UrlService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("CarouselComponent", NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger("CarouselComponent", NgxLoggerLevel.OFF);
   }
 
   ngOnInit() {
     this.logger.info("ngOnInit:querying metadata service with root folder", RootFolder.carousels, "album name:", this.album?.name);
     this.contentMetadataService.items(RootFolder.carousels, this.album?.name)
       .then(contentMetadata => {
+        this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata, contentMetadata.files);
         this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
-        this.logger.info("initialised with", this?.lazyLoadingMetadata.contentMetadata?.files?.length, "slides in total", "lazyLoadingMetadata:", this.lazyLoadingMetadata, "activeTag:", this.activeTag);
-        if (!this.activeTag) {
-          this.lazyLoadingMetadataService.initialiseSlidesForTag(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT);
-        }
+        this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS);
+        this.logger.info("initialised with", this?.lazyLoadingMetadata?.contentMetadata?.files?.length, "slides in total", "lazyLoadingMetadata:", this.lazyLoadingMetadata, "duplicateImages:", this.duplicateImages);
       });
-  }
-
-  ngOnChanges(changes: SimpleChanges) {
-    this.logger.info("ngOnChanges:", changes);
   }
 
   private carouselDataInput(album: AlbumData) {
@@ -93,24 +99,24 @@ export class CarouselComponent implements OnInit, OnDestroy, OnChanges {
 
   activeSlideChange(force: boolean, $event: number) {
     this.logger.debug("activeSlideChange:force", force, "$event:", $event, "activeSlideIndex:", this.lazyLoadingMetadata?.activeSlideIndex || 0);
-    this.lazyLoadingMetadataService.add(this.lazyLoadingMetadata);
+    this.lazyLoadingMetadataService.add(this.lazyLoadingMetadata, 1, "active slide change");
     this.configureShowIndicators(window.innerWidth);
   }
 
   private configureShowIndicators(width: number) {
     this.logger.debug("configureShowIndicators:window.innerWidth", window.innerWidth, "provided width:", width, "setting:");
-    this.showIndicators = width > 768 && this.lazyLoadingMetadata.availableSlides.length <= 20;
+    this.showIndicators = width > 768 && this.lazyLoadingMetadata?.selectedSlides?.length <= 20;
   }
 
   allowEdits() {
     return this.memberLoginService.allowContentEdits();
   }
 
-  imageSourceFor(file: string): string {
-    return this.urlService.imageSource(this.urlService.qualifiedFileNameWithRoot(this.lazyLoadingMetadata.contentMetadata?.rootFolder, this.lazyLoadingMetadata.contentMetadata?.name, file));
+  imageSourceFor(item: ContentMetadataItem): string {
+    return this.urlService.imageSource(this.urlService.qualifiedFileNameWithRoot(this.lazyLoadingMetadata?.contentMetadata?.rootFolder, this.lazyLoadingMetadata?.contentMetadata?.name, item));
   }
 
   tagChanged(imageTag: ImageTag) {
-    this.lazyLoadingMetadataService.initialiseSlidesForTag(this.lazyLoadingMetadata, SlideInitialisation.TAG_CHANGE, imageTag);
+    this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.TAG_CHANGE, this.duplicateImages, imageTag);
   }
 }

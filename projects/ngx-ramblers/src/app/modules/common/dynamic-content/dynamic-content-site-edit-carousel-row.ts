@@ -1,7 +1,7 @@
 import { Component, Input, OnInit } from "@angular/core";
 import { faAdd, faPencil, faPlus, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { PageContentRow } from "../../../models/content-text.model";
+import { DEFAULT_GRID_OPTIONS, PageContentRow } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
@@ -9,16 +9,17 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { ContentMetadata } from "../../../models/content-metadata.model";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageContentService } from "../../../services/page-content.service";
-import isEmpty from "lodash-es/isEmpty";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
 
 @Component({
   selector: "[app-row-settings-carousel]",
+  styleUrls: ["./dynamic-content.sass"],
   template: `
     <form>
       <label class="mr-2"
              [for]="id">Carousel Name</label>
-      <app-carousel-select *ngIf="!nameInput" [id]="id" [showNewButton]="true" [name]="row?.carousel?.name"
+      <app-carousel-select [maxWidth]="290" *ngIf="!nameInput" [id]="id" [showNewButton]="true"
+                           [name]="row?.carousel?.name"
                            (metadataChange)="metadataChange(row, $event)"
                            (nameEditToggle)="toggleNameEdit($event)"></app-carousel-select>
       <div class="form-inline" *ngIf="nameInput">
@@ -28,7 +29,7 @@ import { ContentMetadataService } from "../../../services/content-metadata.servi
                [(ngModel)]="row.carousel.name"
                name="new-password"
                [ngModelOptions]="{standalone: true}"
-               type="text" class="form-control flex-grow-1 mr-2">
+               type="text" class="form-control flex-grow-1 mr-2 ellipsis-right">
         <app-badge-button [icon]="faSearch" [caption]="'existing'"
                           (click)="toggleNameEdit(false)"></app-badge-button>
       </div>
@@ -60,17 +61,27 @@ export class RowSettingsCarouselComponent implements OnInit {
 
   ngOnInit() {
     this.id = this.numberUtils.generateUid();
-    this.contentMetadataService.contentMetadataNotifications().subscribe(item => {
-      const allAndSelectedContentMetaData = this.contentMetadataService.selectMetadataBasedOn(this.row?.carousel?.name, item);
-      const allContentMetadata: ContentMetadata[] = allAndSelectedContentMetaData.contentMetadataItems;
-      // this.nameInput = isEmpty(this.row?.carousel?.name) || !allContentMetadata.find(item => item.name === this.row?.carousel?.name);
-      if (!this.row?.carousel?.name) {
-        this.row.carousel.name = "";
-      }
+    this.initialiseMissingAlbumData();
+    this.contentMetadataService.contentMetadataNotifications().subscribe(metadataResponses => {
+      const allAndSelectedContentMetaData = this.contentMetadataService.selectMetadataBasedOn(this.row?.carousel?.name, metadataResponses);
+      this.nameInput = !allAndSelectedContentMetaData.contentMetadata;
+      this.logger.info("given name:", this.row?.carousel?.name, "allAndSelectedContentMetaData:", allAndSelectedContentMetaData);
+      this.initialiseMissingAlbumData();
     });
   }
 
+  private initialiseMissingAlbumData() {
+    this.logger.info("initialiseMissingAlbumData:carousel name:", this.row?.carousel?.name);
+    if (!this.row?.carousel?.name) {
+      this.row.carousel.name = "";
+    }
+    if (!this.row?.carousel?.gridViewOptions) {
+      this.row.carousel.gridViewOptions = DEFAULT_GRID_OPTIONS;
+    }
+  }
+
   metadataChange(row: PageContentRow, contentMetadata: ContentMetadata) {
+    this.logger.info("metadataChange:carousel name:", row.carousel.name, "->", contentMetadata.name, "contentMetadata:", contentMetadata);
     row.carousel.name = contentMetadata.name;
   }
 

@@ -44,3 +44,5 @@ export interface SocialEventsPermissions {
   copy?: boolean;
   contentEdits?: boolean;
 }
+
+export const HARD_CODED_SOCIAL_FOLDER = "images-social-events";

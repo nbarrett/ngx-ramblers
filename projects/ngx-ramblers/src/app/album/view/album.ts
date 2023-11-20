@@ -3,6 +3,7 @@ import { LoggerFactory } from "../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import take from "lodash-es/take";
 import {
+  faCircleInfo,
   faImage,
   faImages,
   faPhotoFilm,
@@ -12,11 +13,12 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { AlbumData, AlbumView, GridViewOptions } from "../../models/content-text.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { ContentMetadataService } from "../../services/content-metadata.service";
 
 @Component({
   selector: "app-album",
   template: `
-    <div class="row">
+    <div class="row h-100">
       <div *ngIf="album.allowSwitchView" class="col-sm-12">
         <div class="float-right mb-1">
           <app-badge-button [tooltip]="'view as carousel'" [active]="albumView===AlbumView.CAROUSEL"
@@ -30,13 +32,18 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
                             [noRightMargin]="albumView!==AlbumView.GRID"
                             (click)="switchToView(AlbumView.GRID)" caption="grid"/>
           <app-badge-button *ngIf="albumView===AlbumView.GRID" [tooltip]="'show titles'"
-                            [active]="gridViewOptions.showTitles" [icon]="faRectangleAd"
+                            [active]="gridViewOptions?.showTitles" [icon]="faRectangleAd"
                             noRightMargin
                             (click)="toggleShowTitles()"
-                            [caption]="gridViewOptions.showTitles? 'hide titles':'show titles'"/>
+                            [caption]="gridViewOptions?.showTitles? 'hide titles':'show titles'"/>
         </div>
       </div>
-      <div class="col-sm-12">
+      <div class="col-sm-12  my-auto">
+        <div class="alert alert-warning" *ngIf="noImages">
+          <fa-icon [icon]="faCircleInfo"/>
+          <strong class="ml-1">No images exist in this album</strong>
+          <div>Click the <strong>Edit images in album</strong> button on the left to create new images in the {{album.name}} album</div>
+        </div>
         <app-album-gallery *ngIf="albumView===AlbumView.GALLERY"
                            [album]="album"
                            [preview]="preview">
@@ -47,6 +54,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
                         [gridViewOptions]="gridViewOptions">
         </app-album-grid>
         <app-carousel *ngIf="albumView===AlbumView.CAROUSEL"
+                      [preview]="preview"
                       [album]="album"
                       [index]="index"></app-carousel>
       </div>
@@ -54,8 +62,11 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
   `
 })
 export class AlbumComponent implements OnInit {
+
+  public contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger = this.loggerFactory.createLogger("AlbumComponent", NgxLoggerLevel.INFO);
+  private logger = this.loggerFactory.createLogger("AlbumComponent", NgxLoggerLevel.OFF);
+  public noImages: boolean;
 
   @Input("preview") set previewValue(value: boolean) {
     this.preview = coerceBooleanProperty(value);
@@ -76,12 +87,19 @@ export class AlbumComponent implements OnInit {
   protected readonly faRectangleAd = faRectangleAd;
   protected readonly faTableCells = faTableCells;
   protected readonly faSearch = faSearch;
-  public gridViewOptions: GridViewOptions = {showTitles: true, showDates: true};
+  public gridViewOptions: GridViewOptions;
   protected readonly AlbumView = AlbumView;
+  protected readonly faCircleInfo = faCircleInfo;
 
   ngOnInit() {
     this.logger.info("ngOnInit:album:", this.album);
+    this.gridViewOptions = this.album.gridViewOptions || {showTitles: true, showDates: true};
     this.switchToView(this.album.albumView || AlbumView.GRID);
+    this.contentMetadataService.contentMetadataNotifications().subscribe(metadataResponses => {
+      const allAndSelectedContentMetaData = this.contentMetadataService.selectMetadataBasedOn(this.album?.name, metadataResponses);
+      this.noImages = !allAndSelectedContentMetaData.contentMetadata;
+    });
+
   }
 
   switchToView(albumView: AlbumView) {
@@ -92,5 +110,4 @@ export class AlbumComponent implements OnInit {
   toggleShowTitles() {
     this.gridViewOptions.showTitles = !this.gridViewOptions.showTitles;
   }
-
 }

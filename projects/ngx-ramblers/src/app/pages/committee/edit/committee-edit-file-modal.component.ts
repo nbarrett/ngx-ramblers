@@ -27,6 +27,7 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
 import { CommitteeDisplayService } from "../committee-display.service";
+import { AwsFileUploadResponseData } from "../../../models/aws-object.model";
 
 @Component({
   selector: "app-committee-edit-file-modal",
@@ -79,22 +80,11 @@ export class CommitteeEditFileModalComponent implements OnInit, OnDestroy {
     this.notify.hide();
     this.uploader = this.fileUploadService.createUploaderFor("committeeFiles");
     this.subscriptions.push(this.uploader.response.subscribe((response: string | HttpErrorResponse) => {
-        this.logger.debug("response", response, "type", typeof response);
-        this.notify.clearBusy();
-        if (response instanceof HttpErrorResponse) {
-          this.notify.error({title: "Upload failed", message: response.error});
-        } else if (response === "Unauthorized") {
-          this.notify.error({title: "Upload failed", message: response + " - try logging out and logging back in again and trying this again."});
-        } else {
-          const uploadResponse = JSON.parse(response);
-          this.committeeFile.fileNameData = uploadResponse.response.fileNameData;
-          this.committeeFile.fileNameData.title = this.existingTitle;
-          this.logger.debug("JSON response:", uploadResponse, "committeeFile:", this.committeeFile);
-          this.notify.clearBusy();
-          this.notify.success({title: "New file added", message: this.committeeFile.fileNameData.title});
-        }
-      }
-    ));
+      const awsFileUploadResponseData: AwsFileUploadResponseData = this.fileUploadService.handleSingleResponseDataItem(response, this.notify, this.logger);
+      this.committeeFile.fileNameData = awsFileUploadResponseData.fileNameData;
+      this.committeeFile.fileNameData.title = this.existingTitle;
+      this.notify.success({title: "New file added", message: this.committeeFile.fileNameData.title});
+    }));
   }
 
   ngOnDestroy(): void {

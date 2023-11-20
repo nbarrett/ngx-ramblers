@@ -18,7 +18,6 @@ import { Logger, LoggerFactory } from "../../../../services/logger-factory.servi
 import { MailchimpConfigService } from "../../../../services/mailchimp-config.service";
 import { MailchimpCampaignService } from "../../../../services/mailchimp/mailchimp-campaign.service";
 import { MailchimpLinkService } from "../../../../services/mailchimp/mailchimp-link.service";
-import { MailchimpListService } from "../../../../services/mailchimp/mailchimp-list.service";
 import { MailchimpSegmentService } from "../../../../services/mailchimp/mailchimp-segment.service";
 import { MemberLoginService } from "../../../../services/member/member-login.service";
 import { MemberService } from "../../../../services/member/member.service";
@@ -28,6 +27,7 @@ import { UrlService } from "../../../../services/url.service";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { Organisation } from "../../../../models/system.model";
 import { Subscription } from "rxjs";
+import { MailchimpListService } from "../../../../services/mailchimp/mailchimp-list.service";
 
 @Component({
   selector: "app-mailchimp-settings",
@@ -91,7 +91,36 @@ export class MailchimpSettingsComponent implements OnInit, OnDestroy {
           this.mailchimpConfig.segments = {general: this.mailchimpConfigService.SegmentDefaults};
         }
         this.logger.info("retrieved mailchimpConfig (post-validation)", this.mailchimpConfig);
-      }).catch(error => this.notify.error({title: "Failed to query Mailchimp config", message: error}));
+        if (this.mailchimpConfig?.mailchimpEnabled) {
+          this.refreshMailchimpCampaigns();
+          this.refreshMailchimpLists();
+        } else {
+          this.notifyMailchimpIntegrationNotEnabled();
+        }
+      })
+      .catch(error => this.notify.error({title: "Failed to query Mailchimp config", message: error}));
+    this.broadcastService.on(NamedEventType.MAILCHIMP_LISTS_CHANGED, () => {
+      this.logger.info("event received:", NamedEventType.MAILCHIMP_LISTS_CHANGED);
+      if (this.mailchimpConfig?.mailchimpEnabled) {
+        this.refreshMailchimpLists().then(() => this.notify.hide());
+      } else {
+        this.notifyMailchimpIntegrationNotEnabled();
+      }
+    });
+    this.broadcastService.on(NamedEventType.ERROR, (error) => {
+      this.logger.info("event received:", NamedEventType.ERROR);
+      this.notify.error({title: "Unexpected Error Occurred", message: error});
+    });
+  }
+
+  private notifyMailchimpIntegrationNotEnabled() {
+    this.notify.warning({
+      title: "Mailchimp Integration not enabled",
+      message: "List and campaign dropdowns will not be populated"
+    });
+  }
+
+  private refreshMailchimpCampaigns() {
     this.mailchimpCampaignService.list({
       concise: true,
       limit: 1000,
@@ -107,15 +136,6 @@ export class MailchimpSettingsComponent implements OnInit, OnDestroy {
       });
       this.notify.clearBusy();
     }).catch(error => this.notify.error({title: "Failed to query Mailchimp config", message: error}));
-    this.refreshMailchimpLists();
-    this.broadcastService.on(NamedEventType.MAILCHIMP_LISTS_CHANGED, () => {
-      this.logger.info("event received:", NamedEventType.MAILCHIMP_LISTS_CHANGED);
-      this.refreshMailchimpLists().then(() => this.notify.hide());
-    });
-    this.broadcastService.on(NamedEventType.ERROR, (error) => {
-      this.logger.info("event received:", NamedEventType.ERROR);
-      this.notify.error({title: "Unexpected Error Occurred", message: error});
-    });
   }
 
   ngOnDestroy(): void {
@@ -130,20 +150,28 @@ export class MailchimpSettingsComponent implements OnInit, OnDestroy {
   }
 
   notReady() {
-    return !this.mailchimpCampaignListResponse;
+    if (this.mailchimpConfig && !this.mailchimpConfig.mailchimpEnabled) {
+      return false;
+    } else {
+      return !this.mailchimpCampaignListResponse;
+    }
   }
 
   editCampaign(campaignId) {
-    if (!campaignId) {
-      this.notify.error({
-        title: "Edit Mailchimp Campaign",
-        message: "Please select a campaign from the drop-down before choosing edit"
-      });
+    if (this.mailchimpConfig?.mailchimpEnabled) {
+      if (!campaignId) {
+        this.notify.error({
+          title: "Edit Mailchimp Campaign",
+          message: "Please select a campaign from the drop-down before choosing edit"
+        });
+      } else {
+        this.notify.hide();
+        const webId = this.mailchimpCampaignListResponse.campaigns.find(campaign => campaign.id === campaignId).web_id;
+        this.logger.debug("editCampaign:campaignId", campaignId, "web_id", webId);
+        return window.open(`${this.mailchimpLinkService.campaignEdit(webId)}`, "_blank");
+      }
     } else {
-      this.notify.hide();
-      const webId = this.mailchimpCampaignListResponse.campaigns.find(campaign => campaign.id === campaignId).web_id;
-      this.logger.debug("editCampaign:campaignId", campaignId, "web_id", webId);
-      return window.open(`${this.mailchimpLinkService.campaignEdit(webId)}`, "_blank");
+      this.notifyMailchimpIntegrationNotEnabled();
     }
   }
 

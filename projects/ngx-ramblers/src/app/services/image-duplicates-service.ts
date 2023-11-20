@@ -13,49 +13,47 @@ import { StringUtilsService } from "./string-utils.service";
 })
 export class ImageDuplicatesService {
   private logger: Logger;
-  private duplicateImages: DuplicateImages = {};
-  private contentMetadata: ContentMetadata;
-  private filteredFiles: ContentMetadataItem[];
 
   constructor(private stringUtils: StringUtilsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ImageDuplicatesService, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(ImageDuplicatesService, NgxLoggerLevel.INFO);
   }
 
-  duplicateCount(item: ContentMetadataItem): string {
-    const count = this.duplicatedContentMetadataItems(item)?.length || 0;
+  duplicateCount(item: ContentMetadataItem, duplicateImages: DuplicateImages): string {
+    const count = this.duplicatedContentMetadataItems(item, duplicateImages)?.length || 0;
     return count > 0 ? `${this.stringUtils.pluraliseWithCount(count, "duplicate")}:` : "No duplicates";
   }
 
-  public duplicatedContentMetadataItems(item: ContentMetadataItem): ContentMetadataItem[] {
-    const duplicates = this.duplicateImages[item.image];
+  public duplicatedContentMetadataItems(item: ContentMetadataItem, duplicateImages: DuplicateImages): ContentMetadataItem[] {
+    const duplicates = duplicateImages[item.image || item.base64Content];
     const items = duplicates?.filter(file => isEqual(file, item)) || [];
-    this.logger.debug("duplicates for image:", item.image, "duplicates:", duplicates, "items:", items);
+    this.logger.info("duplicates for image:", item.image, "duplicates:", duplicates, "items:", items);
     return items;
   }
 
-  duplicates(item: ContentMetadataItem): string {
-    return (this.duplicatedContentMetadataItems(item) || []).map(item => `${item.text} (image ${(this.imageNumber(item))})`).join(", ");
+  duplicates(item: ContentMetadataItem, duplicateImages: DuplicateImages, filteredFiles: ContentMetadataItem[]): string {
+    return (this.duplicatedContentMetadataItems(item, duplicateImages) || []).map(item => `${item.text} (image ${(this.imageNumber(item, filteredFiles))})`).join(", ");
   }
 
-  private imageNumber(item: ContentMetadataItem) {
-    const indexOf = this.filteredFiles.indexOf(item);
-    return (indexOf === -1 ? this.filteredFiles.indexOf(this.filteredFiles.find(file => isEqual(file, item))) : indexOf) + 1;
+  private imageNumber(item: ContentMetadataItem, filteredFiles: ContentMetadataItem[]) {
+    const indexOf = filteredFiles.indexOf(item);
+    return (indexOf === -1 ? filteredFiles.indexOf(filteredFiles.find(file => isEqual(file, item))) : indexOf) + 1;
   }
 
-  populateFrom(contentMetadata: ContentMetadata, filteredFiles: ContentMetadataItem[]) {
+  populateFrom(contentMetadata: ContentMetadata, filteredFiles: ContentMetadataItem[]): DuplicateImages {
     if (contentMetadata?.files && filteredFiles) {
-      this.contentMetadata = contentMetadata;
-      this.filteredFiles = filteredFiles;
-      this.logger.debug("populateFrom total number:", contentMetadata.files.length, "filtered number:", filteredFiles.length);
-      this.duplicateImages = groupBy(this.contentMetadata.files, "image");
-      this.logger.debug("duplicateImages pre-clean:", cloneDeep(this.duplicateImages));
-      each(this.duplicateImages, (items, image) => {
+      this.logger.info("populateFrom total number:", contentMetadata.files.length, "filtered number:", filteredFiles.length);
+      const duplicateImages = groupBy(contentMetadata.files, item => item.image || item.base64Content);
+      this.logger.info("duplicateImages pre-clean:", cloneDeep(duplicateImages));
+      each(duplicateImages, (items, image) => {
         if (items.length === 1) {
-          delete this.duplicateImages[image];
+          delete duplicateImages[image];
         }
       });
-      this.logger.debug("duplicateImages post-clean:", this.duplicateImages);
+      this.logger.info("duplicateImages post-clean:", duplicateImages);
+      return duplicateImages;
+    } else {
+      return {};
     }
   }
 }

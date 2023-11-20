@@ -2,12 +2,20 @@ import { Component, Input, OnInit } from "@angular/core";
 import { faAdd, faPencil } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AwsFileData } from "../../../models/aws-object.model";
-import { PageContent, PageContentColumn, PageContentEditEvent, PageContentRow } from "../../../models/content-text.model";
+import {
+  EditorInstanceState,
+  PageContent,
+  PageContentColumn,
+  PageContentEditEvent,
+  PageContentRow,
+  View
+} from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { PageContentEditService } from "../../../services/page-content-edit.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { MarkdownEditorFocusService } from "../../../services/markdown-editor-focus-service";
 
 @Component({
   selector: "app-dynamic-content-site-edit-text-row",
@@ -31,9 +39,11 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   faPencil = faPencil;
   faAdd = faAdd;
   public pageContentEditEvents: PageContentEditEvent[] = [];
+  private lastFocussedMarkdownEditor: object;
 
   constructor(
     public pageContentEditService: PageContentEditService,
+    private markdownEditorFocusService: MarkdownEditorFocusService,
     public memberResourcesReferenceData: MemberResourcesReferenceDataService,
     public stringUtils: StringUtilsService,
     public actions: PageContentActionsService,
@@ -77,10 +87,26 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   imagedSaved(rowIndex: number, columnIndex: number, column: PageContentColumn, awsFileData: AwsFileData) {
     this.logger.info("imagedSaved:", awsFileData, "setting imageSource for column", column, "to", awsFileData.awsFileName);
     column.imageSource = awsFileData.awsFileName;
-    this.pageContentEditEvents = this.pageContentEditService.handleEvent({path: this.pageContent.path, rowIndex, columnIndex, editActive: false}, this.pageContentEditEvents);
+    this.pageContentEditEvents = this.pageContentEditService.handleEvent({
+      path: this.pageContent.path,
+      rowIndex,
+      columnIndex,
+      editActive: false
+    }, this.pageContentEditEvents);
   }
 
   imagePropertyColumnClasses(column: PageContentColumn) {
     return column.columns <= 6 ? "col-sm-12" : "col-sm-12 col-xl-6";
+  }
+
+  focusSensitiveColumns(pageContentColumn: PageContentColumn) {
+    const hasFocus = this.markdownEditorFocusService.hasFocus(this.lastFocussedMarkdownEditor);
+    this.logger.debug("focusSensitiveColumns:hasFocus:", hasFocus, "pageContentColumn:", pageContentColumn);
+    return hasFocus ? 12 : (pageContentColumn?.columns || 12);
+  }
+
+  markdownEditorFocusChange(editorInstanceState: EditorInstanceState) {
+    this.logger.info("markdownEditorFocusChange:editorInstanceState:", editorInstanceState);
+    this.lastFocussedMarkdownEditor = editorInstanceState.view === View.VIEW ? null : editorInstanceState.instance;
   }
 }

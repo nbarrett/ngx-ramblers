@@ -1,7 +1,6 @@
 import { DOCUMENT } from "@angular/common";
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, Inject, OnDestroy, OnInit } from "@angular/core";
-import { faCalendar } from "@fortawesome/free-solid-svg-icons";
 import first from "lodash-es/first";
 import { BsModalRef, BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -19,6 +18,7 @@ import { Logger, LoggerFactory } from "../../../../services/logger-factory.servi
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { NumberUtilsService } from "../../../../services/number-utils.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
+import { AwsFileUploadResponseData } from "../../../../models/aws-object.model";
 
 @Component({
   selector: "app-expense-detail-modal",
@@ -68,20 +68,13 @@ export class ExpenseDetailModalComponent implements OnInit, OnDestroy {
     this.logger.debug("constructed:editMode", this.editMode, "expenseItem:", this.expenseItem, "expenseClaim:", this.expenseClaim);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.uploader.response.subscribe((response: string | HttpErrorResponse) => {
-        this.logger.debug("response", response, "type", typeof response);
-        this.notify.clearBusy();
-        if (response instanceof HttpErrorResponse) {
-          this.notify.error({title: "Upload failed", message: response.error});
-        } else if (response === "Unauthorized") {
-          this.notify.error({title: "Upload failed", message: response + " - try logging out and logging back in again and trying this again."});
-        } else {
-          const uploadResponse = JSON.parse(response);
-          this.expenseItem.receipt = uploadResponse.response.fileNameData;
-          this.expenseItem.receipt.title = this.expenseItem.receipt.originalFileName;
-          this.logger.debug("JSON response:", uploadResponse, "receipt:", this.expenseItem.receipt);
-          this.notify.clearBusy();
-          this.notify.success({title: "New receipt added", message: this.expenseItem.receipt.title});
-        }
+        const awsFileUploadResponseData: AwsFileUploadResponseData = this.fileUploadService.handleSingleResponseDataItem(response, this.notify, this.logger);
+        this.expenseItem.receipt = {
+          title: this.expenseItem.receipt.originalFileName,
+          awsFileName: awsFileUploadResponseData.fileNameData.awsFileName,
+          originalFileName: awsFileUploadResponseData.uploadedFile.originalname
+        };
+        this.notify.success({title: "New receipt added", message: this.expenseItem.receipt.title});
       }
     ));
   }

@@ -8,10 +8,10 @@ import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { AwsFileData } from "../../../models/aws-object.model";
+import { AwsFileData, AwsFileUploadResponse, AwsFileUploadResponseData } from "../../../models/aws-object.model";
 import { DateValue } from "../../../models/date.model";
 import { MemberFilterSelection } from "../../../models/member.model";
-import { SocialEvent } from "../../../models/social-events.model";
+import { HARD_CODED_SOCIAL_FOLDER, SocialEvent } from "../../../models/social-events.model";
 import { Actions, ConfirmType } from "../../../models/ui-actions";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { LineFeedsToBreaksPipe } from "../../../pipes/line-feeds-to-breaks.pipe";
@@ -40,6 +40,29 @@ import { SocialDisplayService } from "../social-display.service";
   styleUrls: ["social-edit.component.sass"]
 })
 export class SocialEditComponent implements OnInit, OnDestroy {
+
+  constructor(private contentMetadataService: ContentMetadataService,
+              private fileUploadService: FileUploadService,
+              private mailchimpSegmentService: MailchimpSegmentService,
+              private mailchimpListService: MailchimpListService,
+              public display: SocialDisplayService,
+              private mailchimpCampaignService: MailchimpCampaignService,
+              private mailchimpConfigService: MailchimpConfigService,
+              private notifierService: NotifierService,
+              private stringUtils: StringUtilsService,
+              private memberService: MemberService,
+              private fullNameWithAlias: FullNameWithAliasPipe,
+              private lineFeedsToBreaks: LineFeedsToBreaksPipe,
+              private modalService: BsModalService,
+              public googleMapsService: GoogleMapsService,
+              private mailchimpLinkService: MailchimpLinkService,
+              private socialEventsService: SocialEventsService,
+              private memberLoginService: MemberLoginService,
+              private urlService: UrlService,
+              protected dateUtils: DateUtilsService,
+              loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.createLogger(SocialEditComponent, NgxLoggerLevel.INFO);
+  }
   @Input()
   public actions: Actions;
   public socialEvent: SocialEvent;
@@ -62,28 +85,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
   public awsFileData: AwsFileData;
   private subscriptions: Subscription[] = [];
 
-  constructor(private contentMetadataService: ContentMetadataService,
-              private fileUploadService: FileUploadService,
-              private mailchimpSegmentService: MailchimpSegmentService,
-              private mailchimpListService: MailchimpListService,
-              public display: SocialDisplayService,
-              private mailchimpCampaignService: MailchimpCampaignService,
-              private mailchimpConfigService: MailchimpConfigService,
-              private notifierService: NotifierService,
-              private stringUtils: StringUtilsService,
-              private memberService: MemberService,
-              private fullNameWithAlias: FullNameWithAliasPipe,
-              private lineFeedsToBreaks: LineFeedsToBreaksPipe,
-              private modalService: BsModalService,
-              public googleMapsService: GoogleMapsService,
-              private mailchimpLinkService: MailchimpLinkService,
-              private socialEventsService: SocialEventsService,
-              private memberLoginService: MemberLoginService,
-              private urlService: UrlService,
-              protected dateUtils: DateUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SocialEditComponent, NgxLoggerLevel.OFF);
-  }
+  protected readonly HARD_CODED_SOCIAL_FOLDER = HARD_CODED_SOCIAL_FOLDER;
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -110,20 +112,12 @@ export class SocialEditComponent implements OnInit, OnDestroy {
     }
     this.uploader = this.fileUploadService.createUploaderFor("socialEvents");
     this.subscriptions.push(this.uploader.response.subscribe((response: string | HttpErrorResponse) => {
-        this.logger.debug("response", response, "type", typeof response);
-        this.notify.clearBusy();
-        if (response instanceof HttpErrorResponse) {
-          this.notify.error({title: "Upload failed", message: response.error});
-        } else if (response === "Unauthorized") {
-          this.notify.error({title: "Upload failed", message: response + " - try logging out and logging back in again and trying this again."});
-        } else {
-          const uploadResponse = JSON.parse(response);
-          this.socialEvent.attachment = uploadResponse.response.fileNameData;
+      const awsFileUploadResponseData: AwsFileUploadResponseData = this.fileUploadService.handleSingleResponseDataItem(response, this.notify, this.logger);
+          this.socialEvent.attachment = awsFileUploadResponseData.fileNameData;
           this.socialEvent.attachment.title = this.existingTitle;
-          this.logger.debug("JSON response:", uploadResponse, "socialEvent:", this.socialEvent);
+          this.logger.debug("JSON response:", awsFileUploadResponseData, "socialEvent:", this.socialEvent);
           this.notify.clearBusy();
           this.notify.success({title: "New file added", message: this.socialEvent.attachment.title});
-        }
       }
     ));
   }
@@ -346,12 +340,11 @@ export class SocialEditComponent implements OnInit, OnDestroy {
     const thumbnail = awsFileData.awsFileName;
     this.logger.info("imagedSaved:", awsFileData, "setting thumbnail to", thumbnail);
     this.socialEvent.thumbnail = thumbnail;
-    this.awsFileData = null;
+    this.exitImageEdit();
   }
 
   editImage() {
     this.editActive = true;
   }
-
 }
 

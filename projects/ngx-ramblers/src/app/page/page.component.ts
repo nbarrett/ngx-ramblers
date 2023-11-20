@@ -5,6 +5,7 @@ import { PageService } from "../services/page.service";
 import { StringUtilsService } from "../services/string-utils.service";
 import { SystemConfigService } from "../services/system/system-config.service";
 import isEmpty from "lodash-es/isEmpty";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-page",
@@ -14,6 +15,12 @@ import isEmpty from "lodash-es/isEmpty";
 export class PageComponent implements OnInit {
 
   public pageTitle: string;
+
+  public autoTitle: boolean;
+
+  @Input("autoTitle") set autoTitleValue(value: boolean) {
+    this.autoTitle = coerceBooleanProperty(value);
+  }
 
   @Input("pageTitle") set acceptPageTitleChange(pageTitle: string) {
     this.logger.info("Input:pageTitle:", pageTitle);
@@ -33,6 +40,9 @@ export class PageComponent implements OnInit {
   ngOnInit() {
     this.logger.info("ngOnInit:pageTitle:", this.pageTitle, "this.relativePages", this.pageService.relativePages(), "suppliedOrDefaultPageTitle:", this.suppliedOrDefaultPageTitle());
     this.pageService.setTitle(...this.pageService.relativePages().filter(item => !isEmpty(item?.href)).map(item => item?.title).concat(this.suppliedOrDefaultPageTitle()));
+    if (this.autoTitle) {
+      this.pageTitle = this.suppliedOrDefaultPageTitle();
+    }
   }
 
 

@@ -10,6 +10,7 @@ import {
   ContentMetadataApiResponse,
   ContentMetadataApiResponses,
   ContentMetadataItem,
+  DuplicateImages,
   ImageFilterType,
   ImageTag,
   S3_BASE_URL,
@@ -52,11 +53,7 @@ export class ContentMetadataService {
               public imageTagDataService: ImageTagDataService,
               private imageDuplicatesService: ImageDuplicatesService,
               private commonDataService: CommonDataService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("ContentMetadataService", NgxLoggerLevel.DEBUG);
-  }
-
-  contentMetadataNotification(): Observable<ContentMetadataApiResponse> {
-    return this.contentMetadataSubject.asObservable();
+    this.logger = loggerFactory.createLogger("ContentMetadataService", NgxLoggerLevel.INFO);
   }
 
   contentMetadataNotifications(): Observable<ContentMetadataApiResponses> {
@@ -145,39 +142,42 @@ export class ContentMetadataService {
 
   async listMetaData(prefix: string): Promise<S3Metadata[]> {
     const url = `${S3_METADATA_URL}?prefix=${prefix}`;
-    this.logger.info("listMetaData:prefix", prefix, "url:", url);
+    this.logger.debug("listMetaData:prefix", prefix, "url:", url);
     const apiResponse: S3MetadataApiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<S3MetadataApiResponse>(url), this.s3MetadataSubject);
-    this.logger.info("listMetaData:prefix", prefix, "returning S3MetadataApiResponse:", apiResponse);
+    this.logger.debug("listMetaData:prefix", prefix, "returning S3MetadataApiResponse:", apiResponse);
     return apiResponse.response;
   }
 
-  filterAndSort(showDuplicates: boolean, prefiltered: ContentMetadataItem[], filterText: string): ContentMetadataItem[] {
+  filterAndSort(showDuplicates: boolean, prefiltered: ContentMetadataItem[], filterText: string, duplicateImages: DuplicateImages): ContentMetadataItem[] {
     const filtered: ContentMetadataItem[] = showDuplicates ? prefiltered
-      ?.filter(item => this.imageDuplicatesService.duplicatedContentMetadataItems(item).length > 0)
+      ?.filter(item => this.imageDuplicatesService.duplicatedContentMetadataItems(item, duplicateImages).length > 0)
       .sort(sortBy(showDuplicates ? "image" : "-date")) : prefiltered;
     return this.searchFilterPipe.transform(filtered, filterText);
   }
 
-  filterSlides(imageTags: ImageTag[], allSlides: ContentMetadataItem[], filterType: ImageFilterType, tag?: ImageTag, showDuplicates?: boolean, filterText?: string): ContentMetadataItem[] {
-    this.logger.debug("filterSlides:allSlides count", allSlides?.length, "tag:", tag, "showDuplicates:", showDuplicates);
+  filterSlides(imageTags: ImageTag[], allSlides: ContentMetadataItem[], duplicateImages: DuplicateImages, filterType: ImageFilterType, tag?: ImageTag, showDuplicates?: boolean, filterText?: string): ContentMetadataItem[] {
+    this.logger.info("filterSlides:allSlides count", allSlides?.length, "tag:", tag, "showDuplicates:", showDuplicates);
     if (filterType === ImageFilterType.ALL) {
-      const filteredSlides: ContentMetadataItem[] = this.filterAndSort(showDuplicates, allSlides, filterText);
+      const filteredSlides: ContentMetadataItem[] = this.filterAndSort(showDuplicates, allSlides, filterText, duplicateImages);
       this.logger.debug(filteredSlides?.length, "slides selected from", tag?.subject, "showDuplicates:", showDuplicates);
       return filteredSlides;
     } else if (filterType === ImageFilterType.RECENT) {
-      const items = this.filterForLastMonths(6, imageTags, showDuplicates, allSlides, filterText, tag);
-      return items.length === 0 ? this.filterForLastItems(20, imageTags, showDuplicates, allSlides, filterText, tag) : items;
+      const months = 6;
+      const lastItems = 20;
+      const items = this.filterForLastMonths(months, imageTags, showDuplicates, allSlides, filterText, tag, duplicateImages);
+      this.logger.info(this.stringUtils.pluraliseWithCount(items?.length, "slide"), "returned for last", months, "months");
+      return items.length === 0 ? this.filterForLastItems(lastItems, imageTags, showDuplicates, allSlides, filterText, tag, duplicateImages) : items;
     } else if (tag) {
-      const filteredSlides = this.filterAndSort(showDuplicates, allSlides?.filter(file => file?.tags?.includes(tag.key)), filterText);
+      const filteredSlides = this.filterAndSort(showDuplicates, allSlides?.filter(file => file?.tags?.includes(tag.key)), filterText, duplicateImages);
       this.logger.debug(filteredSlides?.length, "slides selected from tag:", tag?.subject, "showDuplicates:", showDuplicates);
       return filteredSlides || [];
     }
   }
 
-  private filterForLastMonths(months: number, imageTags: ImageTag[], showDuplicates: boolean, allSlides: ContentMetadataItem[], filterText: string, tag: ImageTag) {
+  private filterForLastMonths(months: number, imageTags: ImageTag[], showDuplicates: boolean, allSlides: ContentMetadataItem[], filterText: string, tag: ImageTag, duplicateImages: DuplicateImages) {
     const excludingKeys = this.excludeFromRecentKeys(imageTags);
     const sinceDate = this.dateUtils.momentNow().subtract(months, "months");
-    const filteredSlides = this.filterAndSort(showDuplicates, allSlides?.filter(file => file.date >= sinceDate.valueOf() && !(file.tags.find(tag => excludingKeys.includes(tag)))), filterText);
+    const filteredSlides = this.filterAndSort(showDuplicates, allSlides?.filter(file => file.date >= sinceDate.valueOf() && !(file.tags.find(tag => excludingKeys.includes(tag)))), filterText, duplicateImages);
     this.logger.debug(filteredSlides?.length, "slides selected from", tag?.subject, "since", this.dateUtils.displayDate(sinceDate), "excludingKeys:", excludingKeys.join(", "), "showDuplicates:", showDuplicates);
     return filteredSlides;
   }
@@ -186,10 +186,10 @@ export class ContentMetadataService {
     return this.imageTagDataService.imageTagsSorted(imageTags).filter(tag => tag.excludeFromRecent).map(tag => tag.key);
   }
 
-  private filterForLastItems(itemCount: number, imageTags: ImageTag[], showDuplicates: boolean, allSlides: ContentMetadataItem[], filterText: string, tag: ImageTag) {
+  private filterForLastItems(itemCount: number, imageTags: ImageTag[], showDuplicates: boolean, allSlides: ContentMetadataItem[], filterText: string, tag: ImageTag, duplicateImages: DuplicateImages) {
     const excludingKeys = this.excludeFromRecentKeys(imageTags);
-    const filteredSlides = take(this.filterAndSort(showDuplicates, allSlides?.filter(file => !file.tags.find(tag => excludingKeys.includes(tag))), filterText), itemCount);
-    this.logger.debug(filteredSlides?.length, "slides selected from", tag?.subject, "for last", itemCount, "excludingKeys:", excludingKeys.join(", "), "showDuplicates:", showDuplicates);
+    const filteredSlides = take(this.filterAndSort(showDuplicates, allSlides?.filter(file => !file.tags.find(tag => excludingKeys.includes(tag))), filterText, duplicateImages), itemCount);
+    this.logger.info(filteredSlides?.length, "slides selected from", tag?.subject, "for last", itemCount, "excludingKeys:", excludingKeys.join(", "), "showDuplicates:", showDuplicates);
     return filteredSlides;
   }
 
@@ -232,7 +232,7 @@ export class ContentMetadataService {
   }
 
   contentMetadataName(contentMetadata: ContentMetadata): string {
-    return this.stringUtils.asTitle(this.stringUtils.asWords(last(this.urlService.pathSegmentsForUrl(contentMetadata?.name))));
+    return this.stringUtils.asTitle(this.stringUtils.asWords(contentMetadata?.name));
   }
 
   refreshLookups() {
@@ -247,17 +247,13 @@ export class ContentMetadataService {
   }
 
   public selectMetadataBasedOn(name: string, item: ContentMetadataApiResponses): AllAndSelectedContentMetaData {
-    this.logger.debug("contentMetaDataItems:", item.response, "name:", name);
-    const contentMetadataItems = item.response;
-    let contentMetadata;
-    if (name) {
-      contentMetadata = contentMetadataItems.find(item => item.name === name);
-      this.logger.debug(contentMetadata?.name, "chosen based on name:", name);
-    } else {
-      contentMetadata = first(contentMetadataItems);
-      this.logger.debug(contentMetadata?.name, "chosen based on it being first as no name supplied");
-    }
-    return {contentMetadataItems, contentMetadata};
+    this.logger.info("contentMetaDataItems:", item.response, "name:", name);
+    const contentMetadataItems: ContentMetadata[] = item.response;
+    const selection = name ? ("chosen based on name:" + name) : "chosen based on it being first as no name supplied";
+    const contentMetadata: ContentMetadata = name ? contentMetadataItems.find(item => item.name === name) : first(contentMetadataItems);
+    const response = {contentMetadataItems, contentMetadata};
+    this.logger.info("returning:", response, selection);
+    return response;
   }
 
 }

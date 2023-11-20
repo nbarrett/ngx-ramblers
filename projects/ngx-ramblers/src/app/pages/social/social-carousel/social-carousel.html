@@ -2,7 +2,8 @@
   <div class="mb-4">
     <div class="d-flex flex-column flex-md-row position-relative">
       <div class="wrapper w-100 position-relative">
-        <img *ngIf="contentMetadataItem" class="crop" [src]="urlService.imageSourceFor(contentMetadataItem?.image, contentMetadata)"
+        <img *ngIf="contentMetadataItem" class="crop"
+             [src]="urlService.imageSourceFor(contentMetadataItem, contentMetadata)"
              [ngStyle]="{'height.px': paperCutImageHeight(), 'width.px': paperCutWidth}"/><img/>
         <img class="h-100 position-absolute" #paperCutImage
              src="/assets/images/ramblers/papercut-paths/home-page.png">

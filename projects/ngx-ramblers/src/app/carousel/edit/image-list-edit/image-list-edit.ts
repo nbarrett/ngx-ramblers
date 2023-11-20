@@ -1,8 +1,6 @@
-import { Location } from "@angular/common";
 import { HttpErrorResponse } from "@angular/common/http";
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from "@angular/core";
-import { ActivatedRoute, ParamMap, Router } from "@angular/router";
-import first from "lodash-es/first";
+import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
+import { ActivatedRoute, ParamMap } from "@angular/router";
 import min from "lodash-es/min";
 import range from "lodash-es/range";
 import { FileUploader } from "ng2-file-upload";
@@ -10,11 +8,11 @@ import { PageChangedEvent } from "ngx-bootstrap/pagination";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
-import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import {
   faAdd,
   faEraser,
+  faFile,
   faPencil,
   faRemove,
   faSave,
@@ -26,8 +24,10 @@ import {
 
 import {
   ALL_PHOTOS,
+  Base64File,
   ContentMetadata,
   ContentMetadataItem,
+  DuplicateImages,
   ImageFilterType,
   ImageTag,
   RECENT_PHOTOS,
@@ -36,22 +36,25 @@ import {
 import { MemberResourcesPermissions } from "../../../models/member-resource.model";
 import { Confirm, StoredValue } from "../../../models/ui-actions";
 import { move, sortBy } from "../../../services/arrays";
-import { CommitteeQueryService } from "../../../services/committee/committee-query.service";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { FileUploadService } from "../../../services/file-upload.service";
 import { ImageDuplicatesService } from "../../../services/image-duplicates-service";
 import { ImageTagDataService } from "../../../services/image-tag-data-service";
-import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
+import { LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { NumberUtilsService } from "../../../services/number-utils.service";
-import { RouterHistoryService } from "../../../services/router-history.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
-import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { RootFolder } from "../../../models/system.model";
-import { DescribedDimensions } from "../../../models/aws-object.model";
+import {
+  AwsFileUploadResponse,
+  AwsFileUploadResponseData,
+  DescribedDimensions
+} from "../../../models/aws-object.model";
+import { FileUtilsService } from "../../../file-utils.service";
+import { base64ToFile } from "ngx-image-cropper";
 
 @Component({
   selector: "app-image-list-edit",
@@ -60,13 +63,30 @@ import { DescribedDimensions } from "../../../models/aws-object.model";
 })
 export class ImageListEditComponent implements OnInit, OnDestroy {
 
+  public stringUtils: StringUtilsService = inject(StringUtilsService);
+  public imageTagDataService: ImageTagDataService = inject(ImageTagDataService);
+  public numberUtils: NumberUtilsService = inject(NumberUtilsService);
+  public fileUtils: FileUtilsService = inject(FileUtilsService);
+  private imageDuplicatesService: ImageDuplicatesService = inject(ImageDuplicatesService);
+  private contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
+  private route: ActivatedRoute = inject(ActivatedRoute);
+  private notifierService: NotifierService = inject(NotifierService);
+  private fileUploadService: FileUploadService = inject(FileUploadService);
+  private memberLoginService: MemberLoginService = inject(MemberLoginService);
+  public dateUtils: DateUtilsService = inject(DateUtilsService);
+  private urlService: UrlService = inject(UrlService);
+  private loggerFactory: LoggerFactory = inject(LoggerFactory);
+  private logger = this.loggerFactory.createLogger("ImageListEditComponent", NgxLoggerLevel.OFF);
+
   @Input()
   name: string;
   @Output() exit: EventEmitter<ContentMetadata> = new EventEmitter();
 
+  private queuedFileCount = 0;
+  public duplicateImages: DuplicateImages;
+  public base64Files: Base64File[] = [];
   public activeTag: ImageTag;
   private story: string;
-  private logger: Logger;
   public notify: AlertInstance;
   public warnings: AlertInstance;
   public notifyTarget: AlertTarget = {};
@@ -84,6 +104,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   public showDuplicates = false;
   public filterText: string;
   public hasFileOver = false;
+  public exitAfterSave = false;
   public currentImageIndex: number;
   private searchChangeObservable = new Subject<string>();
   public pageNumber = 1;
@@ -102,27 +123,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   protected readonly faSortNumericUp = faSortNumericUp;
   protected readonly faAdd = faAdd;
   protected readonly faTags = faTags;
-
-  constructor(private stringUtils: StringUtilsService,
-              public imageTagDataService: ImageTagDataService,
-              public numberUtils: NumberUtilsService,
-              private router: Router,
-              private imageDuplicatesService: ImageDuplicatesService,
-              private committeeQueryService: CommitteeQueryService,
-              private contentMetadataService: ContentMetadataService,
-              private siteEditService: SiteEditService,
-              private activatedRoute: ActivatedRoute,
-              private authService: AuthService,
-              private location: Location,
-              private notifierService: NotifierService,
-              private fileUploadService: FileUploadService,
-              private route: ActivatedRoute,
-              private memberLoginService: MemberLoginService,
-              public dateUtils: DateUtilsService,
-              private routerHistoryService: RouterHistoryService,
-              private urlService: UrlService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("ImageListEditComponent", NgxLoggerLevel.OFF);
-  }
+  protected readonly faFile = faFile;
 
 
   ngOnInit() {
@@ -131,12 +132,11 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.notify.setBusy();
     this.warnings = this.notifierService.createAlertInstance(this.warningTarget);
     this.destinationType = "";
-    this.filterType = ImageFilterType.RECENT;
-    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.filterType = ImageFilterType.ALL;
     this.subscriptions.push(this.contentMetadataService.s3Notifications().subscribe(data => this.logger.debug("contentMetadataService.notifications.s3:", data)));
-    this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
+    this.subscriptions.push(this.route.queryParams.subscribe(params => {
       this.story = params[StoredValue.STORY];
-      this.logger.info("activatedRoute.queryParams:", this.story);
+      this.logger.info("route.queryParams:", this.story);
       this.syncTagWithStory();
     }));
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
@@ -182,26 +182,69 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   private initialiseImageList() {
     this.logger.debug("name from route params:", this.name);
     this.refreshImageMetaData(this.name);
-    this.uploader = this.fileUploadService.createUploaderFor(this.name);
+    this.uploader = this.fileUploadService.createUploaderFor(RootFolder.carousels + "/" + this.name, false);
     this.uploader.response.subscribe((response: string | HttpErrorResponse) => {
-        this.logger.info("response", response, "type", typeof response);
-        this.notify.clearBusy();
-        if (response instanceof HttpErrorResponse) {
-          this.notify.error({title: "Upload failed", message: response.error});
-        } else if (response === "Unauthorized") {
-          this.notify.error({
-            title: "Upload failed",
-            message: response + " - try logging out and logging back in again and trying this again."
-          });
+        const awsFileUploadResponse: AwsFileUploadResponse = this.fileUploadService.handleAwsFileUploadResponse(response, this.notify, this.logger);
+        this.logger.info("received awsFileUploadResponse:", awsFileUploadResponse);
+        if (awsFileUploadResponse.errors.length > 0) {
+          this.notify.error({title: "File upload failed", message: awsFileUploadResponse.errors});
         } else {
-          const uploadResponse = JSON.parse(response);
-          const contentMetadataItem: ContentMetadataItem = this.contentMetadata.files[this.currentImageIndex];
-          this.logger.debug("image path prior to upload:", contentMetadataItem?.image);
-          contentMetadataItem.image = this.contentMetadataService.baseUrl(this.name) + "/" + uploadResponse.response.fileNameData.awsFileName;
-          this.logger.debug("JSON response:", uploadResponse, "current contentMetadataItem[" + this.currentImageIndex + "]:", contentMetadataItem);
-          this.logger.debug("image path at index position", this.currentImageIndex, "after upload:", contentMetadataItem?.image);
-          this.notify.clearBusy();
-          this.notify.success({title: "New file added", message: uploadResponse.response.fileNameData.title});
+          const responses: AwsFileUploadResponseData[] = awsFileUploadResponse.responses;
+          if (responses.length > 0) {
+            this.notify.success({
+              title: "File upload success",
+              message: `${this.stringUtils.pluraliseWithCount(responses.length, "file")} ${this.stringUtils.pluraliseWithCount(responses.length, "was", "were")} uploaded`
+            });
+            const matches = responses.map(response => {
+              const metadataItem: ContentMetadataItem = this.contentMetadata.files.find(item => item.originalFileName === response.uploadedFile.originalname);
+              if (metadataItem) {
+                metadataItem.image = response.fileNameData.awsFileName;
+                delete metadataItem.base64Content;
+                this.logger.info("matched image :", metadataItem?.originalFileName, "with aws file", response.fileNameData.awsFileName);
+                return metadataItem;
+              } else {
+                this.logger.warn("could not find match in metadata items for:", response);
+                return null;
+              }
+            }).filter(item => item);
+            if (matches.length === responses.length) {
+              if (this.uploader.progress < 100) {
+                this.logger.info("uploader is still uploading with", this.stringUtils.pluraliseWithCount(this.uploader.queue.length, "queued item"), "remaining");
+                this.alertWarnings();
+              } else {
+                const message = this.stringUtils.pluraliseWithCount(responses.length, "saved file") + " were matched to currently viewed images that have been uploaded";
+                const title = "File upload success";
+                this.logger.info(title, message);
+                this.notify.success({
+                  title,
+                  message
+                });
+                this.clearUpload();
+                if (this.readyToSaveMetadata()) {
+                  if (this.exitAfterSave) {
+                    this.saveChangeAndExit();
+                  } else {
+                    this.saveChanges();
+                  }
+                } else {
+                  this.notify.warning({
+                    title: "File upload",
+                    message: `Save cannot take place as out of the ${this.stringUtils.pluraliseWithCount(this.queuedFileCount, "saved file")}), ${this.unsavedImages().length} appear to not have been saved`
+                  });
+                }
+              }
+            } else {
+              this.notify.warning({
+                title: "File upload matching failed",
+                message: `${this.stringUtils.pluraliseWithCount(matches.length, "viewed file")} of ${this.stringUtils.pluraliseWithCount(responses.length, "saved file")} were matched to images that have been uploaded`
+              });
+            }
+          } else {
+            this.notify.warning({
+              title: "File upload",
+              message: "no files were uploaded"
+            });
+          }
         }
       }, (error) => {
         this.notify.error({title: "Upload failed", message: error});
@@ -209,8 +252,13 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     );
   }
 
+  private clearUpload() {
+    this.uploader.clearQueue();
+    this.uploader.isUploading = false;
+  }
+
   imagesExist() {
-    return this.contentMetadata?.files?.length > 0;
+    return this.contentMetadata?.files?.filter(item => item.image)?.length > 0;
   }
 
   dimensionsChanged(dimensions: DescribedDimensions): void {
@@ -260,22 +308,6 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     }
   }
 
-  onFileSelect($file: File[]) {
-    if ($file) {
-      this.notify.setBusy();
-      this.notify.progress({title: "Image upload", message: `uploading ${first($file).name} - please wait...`});
-    }
-  }
-
-  public fileOver(): void {
-    this.hasFileOver = true;
-    this.logger.debug("hasFileOver:", this.hasFileOver);
-  }
-
-  fileDropped($event: File[]) {
-    this.logger.debug("fileDropped:", $event);
-  }
-
   onSearchChange(searchEntry: string) {
     this.logger.debug("received searchEntry:" + searchEntry);
     this.searchChangeObservable.next(searchEntry);
@@ -292,12 +324,12 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.filterFiles();
     this.pageCount = this.calculatePageCount();
     this.applyPagination();
-    this.imageDuplicatesService.populateFrom(this.contentMetadata, this.filteredFiles);
+    this.duplicateImages = this.imageDuplicatesService.populateFrom(this.contentMetadata, this.filteredFiles);
     this.alertWarnings();
   }
 
   private filterFiles() {
-    this.filteredFiles = this.contentMetadataService.filterSlides(this.contentMetadata?.imageTags, this.contentMetadata?.files, this.filterType, this.activeTag, this.showDuplicates, this.filterText) || [];
+    this.filteredFiles = this.contentMetadataService.filterSlides(this.contentMetadata?.imageTags, this.contentMetadata?.files, this.duplicateImages, this.filterType, this.activeTag, this.showDuplicates, this.filterText) || [];
   }
 
   refreshImageMetaData(name: string) {
@@ -339,7 +371,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
       this.logger.info("no data exists for:", this.name);
     }
     this.logger.debug("refreshImageMetaData:name", this.name, "returning", this.contentMetadata?.files?.length, "ContentMetadataItem items");
-    this.changedItems = [];
+    this.base64Files = [];
     this.applyFilter();
     this.notify.clearBusy();
   }
@@ -360,12 +392,31 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   clearImages() {
     this.contentMetadata.files = [];
+    this.base64Files = [];
     this.applyFilter();
   }
 
   sortByDate() {
     this.contentMetadata.files = this.contentMetadata.files.sort(sortBy("-date"));
     this.applyFilter();
+  }
+
+  requestSaveChangesAndExit() {
+    if (this.readyToSaveMetadata()) {
+      this.saveChangeAndExit();
+    } else {
+      this.exitAfterSave = true;
+      this.prepareFilesAndPerformUpload();
+    }
+  }
+
+  requestSaveChanges(): void {
+    if (this.readyToSaveMetadata()) {
+      this.saveChanges();
+    } else {
+      this.exitAfterSave = false;
+      this.prepareFilesAndPerformUpload();
+    }
   }
 
   saveChangeAndExit() {
@@ -394,6 +445,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   public undoChanges() {
+    this.clearUpload();
     return this.refreshImageMetaData(this.name)
       .catch(response => this.notify.error({title: "Failed to undo changes", message: response}));
   }
@@ -453,7 +505,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   delete(item: ContentMetadataItem): number {
     this.removeFromChangedItems(item);
-    this.logger.debug("delete:before count", this.contentMetadata?.files?.length, "item:", item);
+    this.logger.info("delete:before count", this.contentMetadata?.files?.length, "item:", item);
     const index = this.contentMetadataService.findIndex(this.contentMetadata.files, item);
     if (index >= 0) {
       this.contentMetadata.files.splice(index, 1);
@@ -469,20 +521,20 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.addToChangedItems(item);
   }
 
-  imageInsert(item: ContentMetadataItem) {
-    this.logger.debug("insert:new item", item, "before:", this.contentMetadata.files);
+  imageInsert(...items: ContentMetadataItem[]) {
+    this.logger.debug("insert:new items", items, "before:", this.contentMetadata.files);
     if (this.contentMetadata.files) {
-      this.contentMetadata.files.splice(0, 0, item);
+      this.contentMetadata.files.splice(0, 0, ...items);
     } else {
-      this.contentMetadata.files = [item];
+      this.contentMetadata.files = items;
     }
 
-    this.logger.debug("insert:new item", item, "after:", this.contentMetadata.files);
-    this.addToChangedItems(item);
+    this.logger.debug("insert:new items", items, "after:", this.contentMetadata.files);
+    this.addToChangedItems(...items);
   }
 
   alertWarnings() {
-    if (this.changedItems?.length > 0) {
+    if (this.unsavedImages().length > 0) {
       this.warnings.warning({title: "Unsaved Changes", message: this.alertText()});
     } else {
       this.warnings.hide();
@@ -514,10 +566,11 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     return Math.ceil(this.filteredFiles?.length / this.pageSize);
   }
 
-  private addToChangedItems(item: ContentMetadataItem) {
-    if (!this.changedItems.includes(item)) {
-      this.logger.debug("addToChangedItems:", item);
-      this.changedItems.push(item);
+  private addToChangedItems(...items: ContentMetadataItem[]) {
+    const netChangedItems: ContentMetadataItem[] = this.changedItems.filter(item => !items.includes(item));
+    if (netChangedItems.length > 0) {
+      this.logger.debug("addToChangedItems:", netChangedItems);
+      this.changedItems.push(...netChangedItems);
     }
     this.applyFilter();
   }
@@ -531,10 +584,69 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   alertText() {
-    return `Save or quit ${this.stringUtils.pluraliseWithCount(this.changedItems?.length, "image")} before saving`;
+    return `You have ${this.stringUtils.pluraliseWithCount(this.unsavedImages()?.length, "unsaved image")}`;
   }
 
   toggleManageTags() {
     this.manageTags = !this.manageTags;
+  }
+
+  browseToFile(fileElement: HTMLInputElement) {
+    if (!this.uploader.isUploading) {
+      fileElement.click();
+    }
+  }
+
+  async onFileDropped(fileList: any) {
+    if (!this.uploader.isUploading) {
+      this.notify.success({
+        title: "Uploading Files",
+        message: "Processing " + this.stringUtils.pluraliseWithCount(fileList?.length, "image")
+      });
+      this.base64Files = await this.fileUtils.fileListToBase64Files(fileList);
+      this.logger.info("filesDropped:", fileList);
+      this.notify.setBusy();
+      this.imageInsert(...this.base64Files.map(item => this.fileUtils.contentMetadataItemFromBase64File(item)));
+      this.notify.clearBusy();
+    }
+  }
+
+  public fileOver(e: any): void {
+    if (!this.uploader.isUploading) {
+      this.hasFileOver = e;
+    }
+  }
+
+  onFileSelect(fileList: any) {
+    this.logger.info("onFileSelect:files:", fileList);
+    this.onFileDropped(fileList);
+  }
+
+  private prepareFilesAndPerformUpload() {
+    const queuedFiles: File[] = this.unsavedImages()
+      .map(item => this.fileUtils.awsFileData(item.originalFileName, item.base64Content, this.fileForBase64Content(item)))
+      .map(item => item.file);
+    this.queuedFileCount = queuedFiles.length;
+    this.uploader.clearQueue();
+    this.uploader.addToQueue(queuedFiles);
+    this.logger.info("addedToQueue:", queuedFiles);
+    this.uploader.uploadAll();
+  }
+
+  private unsavedImages(): ContentMetadataItem[] {
+    return (this.contentMetadata?.files && this.contentMetadata.files.filter(item => this.urlService.isBase64Image(item.base64Content))) || [];
+  }
+
+  private fileForBase64Content(item: ContentMetadataItem): File {
+    const file = this.base64Files.find(file => file.base64Content === item.base64Content)?.file;
+    const fileFromContentMetadata = new File([base64ToFile(item.base64Content)], item.originalFileName, {
+      lastModified: item.date,
+      type: this.fileUtils.fileExtension(item.originalFileName)
+    });
+    return file || fileFromContentMetadata;
+  }
+
+  readyToSaveMetadata() {
+    return this.unsavedImages().length === 0;
   }
 }

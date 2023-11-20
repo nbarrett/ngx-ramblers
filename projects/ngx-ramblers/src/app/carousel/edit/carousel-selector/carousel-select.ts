@@ -16,7 +16,7 @@ import { faPencil, faPlus } from "@fortawesome/free-solid-svg-icons";
       <select [(ngModel)]="selectedContentMetadata"
               [id]="id"
               (ngModelChange)="metadataChange.emit(($event))"
-              class="form-control mr-2 select">
+              class="form-control mr-2" [ngStyle]="{'max-width.px': maxWidth}">
         <option *ngFor="let contentMetadata of allContentMetadata"
                 [ngValue]="contentMetadata">
           {{contentMetadataService.contentMetadataName(contentMetadata)}}
@@ -34,6 +34,9 @@ export class CarouselSelectComponent implements OnInit {
 
   @Input()
   public id: string;
+
+  @Input()
+  public maxWidth: number;
 
   @Input()
   public showNewButton: boolean;

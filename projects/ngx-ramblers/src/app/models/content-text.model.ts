@@ -1,6 +1,7 @@
 import { ApiResponse } from "./api-response.model";
 import { AccessLevel } from "./member-resource.model";
 import { Link } from "./page.model";
+import { BezierEasingOptions } from "ng-gallery/lib/smooth-scroll";
 
 export interface ContentText {
   id?: string;
@@ -58,6 +59,8 @@ export interface AlbumData {
   showTitle: boolean;
   name: string;
   albumView: AlbumView;
+  gridViewOptions: GridViewOptions;
+  galleryViewOptions: GalleryViewOptions;
   allowSwitchView: boolean;
   eventId: string;
   eventDate: number;
@@ -99,6 +102,11 @@ export interface EditorState {
   dataAction: DataAction;
 }
 
+export interface EditorInstanceState {
+  view: View;
+  instance: object;
+}
+
 export enum DataAction {
   QUERY = "query",
   SAVE = "save",
@@ -132,6 +140,43 @@ export interface GridViewOptions {
   showDates: boolean;
 }
 
+export interface GalleryViewOptions {
+  nav?: boolean;
+  dots?: boolean;
+  loop?: boolean;
+  debug?: boolean;
+  thumb?: boolean;
+  counter?: boolean;
+  dotsSize?: number;
+  autoPlay?: boolean;
+  thumbWidth?: number;
+  thumbHeight?: number;
+  disableThumb?: boolean;
+  scrollBehavior?: ScrollBehavior;
+  navScrollBehavior?: ScrollBehavior;
+  slidingDisabled?: boolean;
+  thumbSlidingDisabled?: boolean;
+  mouseSlidingDisabled?: boolean;
+  thumbMouseSlidingDisabled?: boolean;
+  playerInterval?: number;
+  slidingDuration?: number;
+  slidingEase?: BezierEasingOptions;
+  resizeDebounceTime?: number;
+  imageSize?: "cover" | "contain";
+  thumbImageSize?: "cover" | "contain";
+  dotsPosition?: "top" | "bottom";
+  counterPosition?: "top" | "bottom";
+  slidingDirection?: "horizontal" | "vertical";
+  loadingAttr?: "eager" | "lazy";
+  loadingStrategy?: "preload" | "lazy" | "default";
+  thumbPosition?: "top" | "left" | "right" | "bottom";
+  thumbView?: "default" | "contain";
+  thumbDetached?: boolean;
+  thumbAutosize?: boolean;
+  itemAutosize?: boolean;
+  autoHeight?: boolean;
+}
+
 export enum InsertionPosition {
   BEFORE = "Before",
   AFTER = "After"
@@ -141,3 +186,13 @@ export interface ColumnInsertData {
   data: PageContentColumn;
   index: number;
 }
+
+export const DEFAULT_GALLERY_OPTIONS: GalleryViewOptions = {
+  thumbPosition: "left",
+  imageSize: "cover",
+  thumbImageSize: "cover",
+  loadingStrategy: "lazy",
+  dotsPosition: "bottom"
+};
+
+export const DEFAULT_GRID_OPTIONS = {showTitles: true, showDates: true};

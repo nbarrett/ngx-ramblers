@@ -1,4 +1,4 @@
-import { HttpClient } from "@angular/common/http";
+import { HttpClient, HttpErrorResponse } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import isUndefined from "lodash-es/isUndefined";
 import { FileUploader } from "ng2-file-upload";
@@ -10,6 +10,12 @@ import { ContentMetadataService } from "./content-metadata.service";
 import { DateUtilsService } from "./date-utils.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { UrlService } from "./url.service";
+import { FileUtilsService } from "../file-utils.service";
+import { AwsFileUploadResponse, AwsFileUploadResponseData, AwsUploadErrorResponse } from "../models/aws-object.model";
+import first from "lodash-es/first";
+import { AlertInstance } from "./notifier.service";
+import { StringUtilsService } from "./string-utils.service";
+import { AlertMessage } from "../models/alert-target.model";
 
 @Injectable({
   providedIn: "root"
@@ -22,7 +28,9 @@ export class FileUploadService {
   constructor(private http: HttpClient,
               private authService: AuthService, protected dateUtils: DateUtilsService,
               private commonDataService: CommonDataService,
+              private stringUtils: StringUtilsService,
               private contentMetadataService: ContentMetadataService,
+              private fileUtilsService: FileUtilsService,
               private urlService: UrlService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(FileUploadService, NgxLoggerLevel.OFF);
@@ -56,20 +64,8 @@ export class FileUploadService {
     if (this.urlService.isRemoteUrl(url)) {
       return this.remoteUrlToBlob(url);
     } else {
-      return this.localUrlToBlob(url);
+      return this.fileUtilsService.localUrlToBlob(url);
     }
-  }
-
-  public async loadBase64Image(url: string): Promise<string> {
-    const blob = await this.localUrlToBlob(url);
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = () => {
-        const base64data = reader.result;
-        resolve(base64data as string);
-      };
-    });
   }
 
   async remoteUrlToBlob(url: string): Promise<Blob> {
@@ -80,11 +76,67 @@ export class FileUploadService {
     return apiResponse;
   }
 
-  private async localUrlToBlob(url: string): Promise<Blob> {
-    const urlPath = this.urlService.resourceRelativePathForAWSFileName(url);
-    const blob = await (await fetch(urlPath)).blob();
-    this.logger.info("localUrlToBlob:url:", url, "urlPath:", urlPath, "blob:", blob);
-    return blob;
+  handleAwsFileUploadResponse(response: string | HttpErrorResponse, notify: AlertInstance, logger: Logger): AwsFileUploadResponse {
+    this.logger.debug("response", response, "type", typeof response);
+    notify.clearBusy();
+    const uploadResponse: AwsFileUploadResponse = this.validateAndParse(response, logger, notify);
+    const responses: AwsFileUploadResponseData[] = uploadResponse.responses;
+    const errors: AwsUploadErrorResponse[] = uploadResponse.errors;
+    if (responses.length > 0) {
+      notify.clearBusy();
+      logger.debug("JSON response:", uploadResponse);
+      return uploadResponse;
+    } else if (errors.length > 0) {
+      notify.error({title: "File upload failed", message: errors});
+    }
   }
 
+  handleSingleResponseDataItem(response: string | HttpErrorResponse, notify: AlertInstance, logger: Logger): AwsFileUploadResponseData {
+    this.logger.debug("response", response, "type", typeof response);
+    notify.clearBusy();
+    const uploadResponse: AwsFileUploadResponse = this.validateAndParse(response, logger, notify);
+    const responses: AwsFileUploadResponseData[] = uploadResponse.responses;
+    const errors: AwsUploadErrorResponse[] = uploadResponse.errors;
+    if (responses.length > 0) {
+      const firstResponse: AwsFileUploadResponseData = first(responses);
+      if (responses.length === 1) {
+        notify.success({
+          title: "File upload success",
+          message: `${this.stringUtils.pluraliseWithCount(responses.length, "file")} ${this.stringUtils.pluraliseWithCount(responses.length, "was", "were")} uploaded`
+        });
+      } else if (responses.length > 1) {
+        notify.warning({
+          title: "More than one file uploaded",
+          message: `${this.stringUtils.pluraliseWithCount(responses.length, "file")} ${this.stringUtils.pluraliseWithCount(responses.length, "was", "were")} uploaded but only the first will be processed`
+        });
+      }
+      notify.clearBusy();
+      logger.debug("JSON response:", uploadResponse, "firstResponse:", firstResponse);
+      return firstResponse;
+    } else if (errors.length > 0) {
+      notify.error({title: "File upload failed", message: errors});
+    }
+  }
+
+  private validateAndParse(response: string | HttpErrorResponse, logger: Logger, notify: AlertInstance): AwsFileUploadResponse {
+    if (response instanceof HttpErrorResponse) {
+      this.throwOrNotifyError({
+        title: "Upload failed",
+        message: response.error
+      }, logger, notify);
+    } else if (response === "Unauthorized") {
+      this.throwOrNotifyError({
+        title: "Upload failed",
+        message: response + " - try logging out and logging back in again and trying this again."
+      }, logger, notify);
+    } else {
+      return JSON.parse(response);
+    }
+  }
+
+
+  private throwOrNotifyError(message: AlertMessage, logger: Logger, notify: AlertInstance) {
+    logger.error(message);
+    notify.error(message);
+  }
 }

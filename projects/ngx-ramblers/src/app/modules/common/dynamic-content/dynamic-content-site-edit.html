@@ -35,6 +35,10 @@
                               delay=500 [tooltip]="'Insert missing data'"
                               [icon]="faAdd" caption="Insert data">
             </app-badge-button>
+            <app-badge-button *ngIf="pageContent.rows?.length === 0" (click)="createContent()"
+                              delay=500 [tooltip]="'Add first row'"
+                              [icon]="faAdd" caption="Add first row">
+            </app-badge-button>
             <app-badge-button (click)="deletePageContent()"
                               [icon]="faRemove"
                               delay=500 caption="Delete page"

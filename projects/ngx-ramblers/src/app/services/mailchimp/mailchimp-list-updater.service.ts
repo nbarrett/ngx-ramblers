@@ -27,12 +27,16 @@ export class MailchimpListUpdaterService {
   updateMailchimpLists(notify: AlertInstance, members: Member[]): Promise<any> {
     this.logger.info("updateMailchimpLists:members:", members);
     return this.mailchimpConfigService.getConfig().then((config: MailchimpConfig) => {
-      const listTypes: string[] = keys(config.lists);
-      notify.success(`Sending updates to Mailchimp lists ${listTypes.join(", ")}`, true);
-      return Promise.all(listTypes.map((listType: string) => this.mailchimpListSubscriptionService.createBatchSubscriptionForList(listType, members)))
-        .then(() => Promise.all(listTypes.map((listType: string) => this.mailchimpListService.batchUnsubscribeMembers(listType, members, notify))))
-        .then(() => this.notifyUpdatesComplete(notify))
-        .catch((error) => this.mailchimpError(error, notify));
+      if (config.mailchimpEnabled) {
+        const listTypes: string[] = keys(config.lists);
+        notify.success(`Sending updates to Mailchimp lists ${listTypes.join(", ")}`, true);
+        return Promise.all(listTypes.map((listType: string) => this.mailchimpListSubscriptionService.createBatchSubscriptionForList(listType, members)))
+          .then(() => Promise.all(listTypes.map((listType: string) => this.mailchimpListService.batchUnsubscribeMembers(listType, members, notify))))
+          .then(() => this.notifyUpdatesComplete(notify))
+          .catch((error) => this.mailchimpError(error, notify));
+      } else {
+        return Promise.resolve(this.notifyMailchimpIntegrationNotEnabled(notify));
+      }
     });
   }
 
@@ -47,6 +51,15 @@ export class MailchimpListUpdaterService {
 
   private notifyUpdatesComplete(notify: AlertInstance) {
     notify.success({title: "Mailchimp updates", message: "Mailchimp lists were updated successfully"});
+    notify.clearBusy();
+    return true;
+  }
+
+  private notifyMailchimpIntegrationNotEnabled(notify: AlertInstance) {
+    notify.warning({
+      title: "Mailchimp updates",
+      message: "Mailchimp Integration is not enabled so list updates have been skipped"
+    });
     notify.clearBusy();
     return true;
   }

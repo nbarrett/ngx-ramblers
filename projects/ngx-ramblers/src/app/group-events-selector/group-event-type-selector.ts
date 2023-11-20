@@ -47,7 +47,7 @@ export class GroupEventTypeSelectorComponent implements OnInit {
               private committeeQueryService: CommitteeQueryService,
               public dateUtils: DateUtilsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("GroupEventTypeSelectorComponent", NgxLoggerLevel.DEBUG);
+    this.logger = loggerFactory.createLogger("GroupEventTypeSelectorComponent", NgxLoggerLevel.OFF);
   }
 
 

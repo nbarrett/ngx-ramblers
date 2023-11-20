@@ -35,6 +35,7 @@ export interface ContentMetadataItem extends WithMongoId {
   dateSource?: string;
   date?: number;
   image?: string;
+  base64Content?: string;
   originalFileName?: string;
   text?: string;
   tags?: number[];
@@ -75,6 +76,11 @@ export enum ImageFilterType {
 export enum SlideInitialisation {
   COMPONENT_INIT = "component-init",
   TAG_CHANGE = "tag-change"
+}
+
+export interface Base64File {
+  file: File
+  base64Content: string;
 }
 
 export interface LazyLoadingMetadata {

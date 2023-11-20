@@ -52,6 +52,7 @@ export class CarouselStoryNavigatorComponent implements OnInit {
       const parameterName = this.imageTagDataService.storyParameterName(this.index);
       this.story = params[parameterName];
       this.logger.info("received story value of:", this.story, "from parameter:", parameterName, "activeTag:", this.activeTag);
+      this.selectActiveTag();
     }));
   }
 
