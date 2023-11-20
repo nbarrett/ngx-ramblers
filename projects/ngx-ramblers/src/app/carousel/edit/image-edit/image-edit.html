@@ -1,21 +1,21 @@
 <div class="card mb-3">
   <div class="card-body">
     <div class="row">
-      <div class="col-sm-12" *ngIf="editActive">
-        <app-image-cropper-and-resizer
-          [selectAspectRatio]="contentMetadata?.aspectRatio"
-          [rootFolder]="contentMetadataService.rootFolderAndName(contentMetadata?.rootFolder, contentMetadata?.name)"
-          [preloadImage]="imageSourceOrPreview()"
-          (imageChange)="imageChanged($event)"
-          (error)="imageCroppingError($event)"
-          (cropError)="imageCroppingError($event)"
-          (quit)="exitImageEdit()"
-          (save)="imagedSaved($event)"/>
+      <div class="col-sm-12 mb-3" *ngIf="editActive">
+        <app-image-cropper-and-resizer noImageSave
+                                       [selectAspectRatio]="contentMetadata?.aspectRatio"
+                                       [rootFolder]="contentMetadataService.rootFolderAndName(contentMetadata?.rootFolder, contentMetadata?.name)"
+                                       [preloadImage]="imageSourceOrPreview()"
+                                       (imageChange)="imageChanged($event)"
+                                       (error)="imageCroppingError($event)"
+                                       (cropError)="imageCroppingError($event)"
+                                       (quit)="imageEditQuit()"
+                                       (save)="imagedSaved($event)"/>
       </div>
       <div class="col-sm-7">
         <div class="form-group">
           <label [for]="'image-' + index">Image {{index + 1}} of {{filteredFiles?.length}}</label>
-          <img *ngIf="!imageLoadText" (load)="imageLoaded($event)" (error)="imageError($event)" loading="lazy"
+          <img *ngIf="!imageLoadText" (load)="imageLoaded($event)" (error)="imageError(item, $event)" loading="lazy"
                [id]="'image-' + index" class="img-fluid w-100" [src]="imageSourceOrPreview()"
                [alt]="item.text"/>
           <div *ngIf="imageLoadText" class="row no-image"
@@ -28,10 +28,11 @@
         </div>
         <div class="row no-gutters">
           <div class="col pr-1">
-            <app-badge-button fullWidth [icon]="faRemove" caption="Delete" (click)="callDelete()"/>
+            <app-badge-button fullWidth [disabled]="editActive" [icon]="faRemove" caption="Delete"
+                              (click)="callDelete()"/>
           </div>
           <div class="col pr-1">
-            <app-badge-button fullWidth [icon]="faAdd" caption="Insert" (click)="callInsert()"/>
+            <app-badge-button fullWidth [disabled]="editActive" [icon]="faAdd" caption="Insert" (click)="callInsert()"/>
           </div>
           <div class="col">
             <app-badge-button fullWidth [disabled]="editActive" [icon]="faPencil" caption="Edit image"
@@ -40,27 +41,19 @@
         </div>
         <div class="row no-gutters mb-2">
           <div class="col pr-1">
-            <app-badge-button fullWidth [disabled]="!canMoveUp" [icon]="faAngleUp" caption="Move up"
+            <app-badge-button fullWidth [disabled]="editActive|| !canMoveUp" [icon]="faAngleUp" caption="Move up"
                               (click)="callMoveUp()"/>
           </div>
           <div class="col pr-1">
-            <app-badge-button fullWidth [disabled]="!canMoveDown" [icon]="faAngleDown" caption="Move down"
+            <app-badge-button fullWidth [disabled]="editActive|| !canMoveDown" [icon]="faAngleDown" caption="Move down"
                               (click)="callMoveDown()"/>
           </div>
           <div class="col">
             <app-badge-button fullWidth [disabled]="editActive" [icon]="faBook"
-                              [caption]="item.image===contentMetadata.coverImage? 'Clear Cover image':'Cover Image'"
-                              [active]="item.image===contentMetadata.coverImage"
+                              [caption]="item.image && item.image===contentMetadata.coverImage? 'Clear Cover image':'Cover Image'"
+                              [active]="item.image && item.image===contentMetadata.coverImage"
                               (click)="coverImageSet()"/>
           </div>
-        </div>
-        <div class="form-group">
-          <label [for]="'name-' + index">Image Source (in {{contentMetadata?.rootFolder}}/{{contentMetadata?.name}}
-            )</label>
-          <input [(ngModel)]="item.image" type="text"
-                 class="form-control input-sm"
-                 [id]="'name-' + index" placeholder="Image source - updated automatically"/>
-          <div *ngIf="item.originalFileName" class="mt-2">Original Name: {{item.originalFileName}}</div>
         </div>
       </div>
       <div class="col-sm-5">
@@ -91,8 +84,18 @@
                           [text]="item?.text"
                           (tagsChange)="tagsChange($event)"/>
         </div>
+        <div class="form-group">
+          <label [for]="'name-' + index">Image Source {{imageUnsaved(item)}}</label>
+          <input *ngIf="!item.base64Content" [(ngModel)]="item.image" type="text"
+                 class="form-control input-sm"
+                 [id]="'name-' + index" placeholder="Image source - updated automatically"/>
+        </div>
+        <div *ngIf="item.originalFileName" class="form-group">
+          <label [for]="'original-name-' + index">Original Name</label>
+          <input class="form-control input-sm"
+                 [value]="item.originalFileName" disabled [id]="'original-name-' + index"/>
+        </div>
       </div>
-    </div>
     <div class="row" *ngIf="item?.dateSource!=='upload'">
       <div class="col-sm-12">
         <app-group-event-selector [label]="'Link to ' + groupEventType?.description"

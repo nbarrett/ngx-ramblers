@@ -7,16 +7,16 @@ import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
-  selector: "app-badge-button",
+  selector: "app-badge-button,[app-badge-button]",
   template: `
-    <div
-      [ngClass]="{'badge-button': !inline, 'inline-button':inline, 'disabled' : disabled, 'mr-0': noRightMargin, 'badge-button-active': active, 'w-100': fullWidth}"
-      delay=500 tooltip="{{tooltip? null: caption}}">
-      <fa-icon *ngIf="!iconPositionRight" [icon]="icon"></fa-icon>
-      <span>{{caption}}</span>
-      <ng-content/>
-      <fa-icon class="ml-2" *ngIf="iconPositionRight" [icon]="icon"></fa-icon>
-    </div>`
+      <div [ngClass]="{'badge-button': !inline, 'inline-button':inline, 'disabled' : disabled,
+              'mr-0': noRightMargin, 'badge-button-active': active, 'w-100': fullWidth, 'float-right': alignRight}"
+              delay=500 tooltip="{{tooltip? null: caption}}">
+          <fa-icon *ngIf="!iconPositionRight" [icon]="icon"></fa-icon>
+          <span>{{caption}}</span>
+          <ng-content/>
+          <fa-icon class="ml-2" *ngIf="iconPositionRight" [icon]="icon"></fa-icon>
+      </div>`
 })
 
 export class BadgeButtonComponent {
@@ -26,6 +26,10 @@ export class BadgeButtonComponent {
 
   @Input("iconPositionRight") set iconPositionRightValue(value: boolean) {
     this.iconPositionRight = coerceBooleanProperty(value);
+  }
+
+  @Input("alignRight") set alignRightValue(value: boolean) {
+    this.alignRight = coerceBooleanProperty(value);
   }
 
   @Input("disabled") set disabledValue(value: boolean) {
@@ -50,6 +54,7 @@ export class BadgeButtonComponent {
 
   @Input() public icon: IconDefinition;
 
+  public alignRight: boolean;
   public disabled: boolean;
   public active: boolean;
   public noRightMargin: boolean;

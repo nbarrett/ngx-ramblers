@@ -217,6 +217,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   }
 
   showMemberDialog(member: Member, editMode: EditMode) {
+    this.notify.hide();
     this.logger.off("showMemberDialog:", editMode, member);
     this.modalService.show(MemberAdminModalComponent, {
       class: "modal-xl",
@@ -236,6 +237,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   }
 
   showSendEmailsDialog() {
+    this.notify.hide();
     this.modalService.show(SendEmailsModalComponent, this.createModalOptions());
   }
 

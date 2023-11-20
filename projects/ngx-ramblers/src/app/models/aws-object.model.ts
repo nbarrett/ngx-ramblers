@@ -54,8 +54,8 @@ export interface AwsFileUploadResponseData {
 }
 
 export interface AwsFileUploadResponse {
-  response: AwsFileUploadResponseData;
-  error?: any // get rid of this and return error object instead
+  responses: AwsFileUploadResponseData[];
+  errors: AwsUploadErrorResponse[];
 }
 
 export interface AwsUploadErrorResponse {

@@ -1,162 +1,170 @@
-<div class="card mb-2">
-  <div class="card-body">
-    <div class="card-text">
-      <div *ngIf="showAlertMessage()" class="row">
-        <div class="col-md-12 mb-2">
-          <div class="alert {{notifyTarget.alert.class}}">
-            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-            <strong *ngIf="notifyTarget.alertTitle">
-              {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
-          </div>
-        </div>
-      </div>
-      <div class="row">
-        <ng-container *ngIf="false">
-          <div class="col">
-            <label for="rotation">Rotation:</label>
-          </div>
-          <div class="col">
-            <input id="rotation" [(ngModel)]="rotation" placeholder="Rotation" type="number"
-                   (keyup)="updateRotation()"
-                   class="form-control input-sm flex-grow-1"/>
-          </div>
-        </ng-container>
-        <input #fileElement class="d-none" type="file" ng2FileSelect (onFileSelected)="onFileSelect($event)"
-               [uploader]="uploader">
-        <div class="col-6">
-          <app-badge-button fullWidth [disabled]="notifyTarget.busy"
-                            [icon]="faFile"
-                            caption="Choose File"
-                            (click)="browseToFile(fileElement)"/>
-        </div>
-        <div class="col-sm-6 align-self-center">
-          <div ng2FileDrop [ngClass]="{'file-over': hasFileOver}"
-               (fileOver)="fileOver($event)"
-               (onFileDrop)="onFileDropped($event)"
-               [uploader]="uploader"
-               class="badge-drop-zone flex-grow-1 mb-2">Or drop file here
-          </div>
-        </div>
-      </div>
-      <div class="row mt-2 mb-2">
-        <div class="col-sm-12 img-fluid w-100">
-          <image-cropper
-            [allowMoveImage]="true"
-            [imageFile]="originalFile"
-            [maintainAspectRatio]="maintainAspectRatio"
-            [containWithinAspectRatio]="containWithinAspectRatio"
-            [aspectRatio]="aspectRatio"
-            [canvasRotation]="canvasRotation"
-            [transform]="transform"
-            (resize)="resized($event)"
-            [alignImage]="'left'"
-            [format]="format()"
-            [imageQuality]="imageQuality"
-            (transformChange)="transformChanged($event)"
-            (imageCropped)="imageCropped($event)"
-            (imageLoaded)="imageLoaded($event)"
-            (cropperReady)="cropperReady($event)"
-            (loadImageFailed)="loadImageFailed($event)"
-            (error)="error($event)">
-          </image-cropper>
-        </div>
-      </div>
-      <div class="row justify-content-between">
-        <div class="col-sm-12">
+<div *ngIf="showAlertMessage()" class="row">
+  <div class="col-md-12 mb-2">
+    <div class="alert {{notifyTarget.alert.class}}">
+      <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+      <strong *ngIf="notifyTarget.alertTitle">
+        {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
+    </div>
+  </div>
+</div>
+<div class="row">
+  <ng-container *ngIf="false">
+    <div class="col">
+      <label for="rotation">Rotation:</label>
+    </div>
+    <div class="col">
+      <input id="rotation" [(ngModel)]="rotation" placeholder="Rotation" type="number"
+             (keyup)="updateRotation()"
+             class="form-control input-sm flex-grow-1"/>
+    </div>
+  </ng-container>
+  <input #fileElement class="d-none" type="file" ng2FileSelect multiple (onFileSelected)="onFileSelect($event)"
+         [uploader]="uploader">
+  <div class="col-6">
+    <app-badge-button fullWidth [disabled]="notifyTarget.busy"
+                      [icon]="faFile"
+                      caption="Choose File"
+                      (click)="browseToFile(fileElement)"/>
+  </div>
+  <div class="col-sm-6 align-self-center">
+    <div ng2FileDrop [ngClass]="{'file-over': hasFileOver}"
+         (fileOver)="fileOver($event)"
+         (onFileDrop)="onFileDropped($event)"
+         [uploader]="uploader"
+         class="badge-drop-zone-single-height mb-2">Or drop file here
+    </div>
+  </div>
+</div>
+<div class="row mt-2 mb-2">
+  <div class="col-sm-12 img-fluid w-100">
+    <image-cropper
+      [allowMoveImage]="true"
+      [imageFile]="originalFile"
+      [maintainAspectRatio]="maintainAspectRatio"
+      [containWithinAspectRatio]="containWithinAspectRatio"
+      [aspectRatio]="aspectRatio"
+      [canvasRotation]="canvasRotation"
+      [transform]="transform"
+      (resize)="resized($event)"
+      [alignImage]="'left'"
+      [format]="format()"
+      [imageQuality]="imageQuality"
+      (transformChange)="transformChanged($event)"
+      (imageCropped)="imageCropped($event)"
+      (imageLoaded)="imageLoaded($event)"
+      (cropperReady)="cropperReady($event)"
+      (loadImageFailed)="loadImageFailed($event)"
+      (error)="error($event)">
+    </image-cropper>
+  </div>
+</div>
+<div class="row justify-content-between">
+  <div class="col-sm-12">
 
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-sm-6 mb-2">
-          <app-aspect-ratio-selector [dimensionsDescription]="selectAspectRatio"
-                                     (initialised)="initialiseAspectRatioSettings($event)"
-                                     (dimensionsChanged)="changeAspectRatioSettingsAndCrop($event)"></app-aspect-ratio-selector>
-        </div>
-        <div class="col-sm-6 mb-2">
-          <label for="compression">Compress to size ({{imageQuality}}%):</label>
-          <input type="range" min="1" max="100" value="90" step="1" class="custom-range" id="compression"
-                 (change)="changeRange($event, true)" (input)="changeRange($event, false)">
-        </div>
-      </div>
-      <div class="row mb-2" *ngIf="imagePresent()">
-        <div class="col-sm-6">
-          Original Size: {{originalSize()}}
-        </div>
-        <div class="col-sm-6">
-          Cropped Size: {{croppedSize()}}
-        </div>
-      </div>
-      <div class="row" *ngIf="busy()">
-        <div class="col-sm-12 mb-2 mt-2">
-          <div class="progress">
-            <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': progress() + '%' }">
-              {{action}} {{uploader.progress}}%
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="row no-gutters">
-        <div class="col pr-1">
-          <app-badge-button fullWidth [disabled]="busy()" (click)="rotateLeft()"
-                            delay=500 tooltip="Rotate left"
-                            [icon]="faRotateLeft" caption="left"/>
-        </div>
-        <div class="col pr-1">
-          <app-badge-button fullWidth [disabled]="busy()" (click)="rotateRight()"
-                            delay=500 tooltip="Rotate right"
-                            [icon]="faRotateRight" caption="right"/>
-        </div>
-        <div class="col pr-1">
-          <app-badge-button fullWidth [disabled]="busy()" (click)="flipHorizontal()"
-                            delay=500 tooltip="Flip horizontal"
-                            [icon]="faArrowRightArrowLeft" caption="flip"/>
-        </div>
-        <div class="col pr-1">
-          <app-badge-button fullWidth [disabled]="busy()" (click)="flipVertical()"
-                            delay=500 tooltip="Flip vertical"
-                            [icon]="faUpDown" caption="flip"/>
-        </div>
-        <div class="col pr-1">
-          <app-badge-button fullWidth [disabled]="busy()" (click)="zoomIn()"
-                            delay=500 tooltip="Zoom in"
-                            [icon]="faMagnifyingGlassPlus"
-                            caption="zoom"/>
-        </div>
-        <div class="col pr-1">
-          <app-badge-button fullWidth [disabled]="busy()" (click)="zoomOut()"
-                            delay=500 tooltip="Zoom out"
-                            [icon]="faMagnifyingGlassMinus"
-                            caption="zoom"/>
-        </div>
-        <div class="col pr-1">
-          <app-badge-button fullWidth [disabled]="busy()" (click)="resetImage()"
-                            delay=500 tooltip="Reset image"
-                            [icon]="faRedoAlt"
-                            caption="reset"/>
-        </div>
-        <div class="col pr-1">
-          <app-badge-button fullWidth (click)="toggleContainWithinAspectRatio()"
-                            delay=500
-                            [tooltip]="containWithinAspectRatio? 'fill aspect ratio' : 'contain within aspect ratio'"
-                            [disabled]="busy()"
-                            [icon]="containWithinAspectRatio? faCompress: faExpand"
-                            [caption]="containWithinAspectRatio ? 'fill' : 'contain'"/>
-        </div>
-        <div class="col pr-1">
-          <app-badge-button fullWidth (click)="quit.next()"
-                            delay=500 tooltip="quit without saving" [disabled]="busy()"
-                            [icon]="faClose"
-                            caption="quit">
-          </app-badge-button>
-        </div>
-        <div class="col pr-1">
-          <app-badge-button fullWidth (click)="saveImage()"
-                            delay=500 tooltip="save changes" [disabled]="busy()"
-                            [icon]="faSave"
-                            caption="save">
-          </app-badge-button>
-        </div>
+  </div>
+</div>
+<div class="row">
+  <div class="col-sm-6 mb-2">
+    <app-aspect-ratio-selector [dimensionsDescription]="selectAspectRatio"
+                               (initialised)="initialiseAspectRatioSettings($event)"
+                               (dimensionsChanged)="changeAspectRatioSettingsAndCrop($event)"></app-aspect-ratio-selector>
+  </div>
+  <div class="col-sm-6 mb-2">
+    <label for="compression">Compress to size ({{imageQuality}}%):</label>
+    <input type="range" min="1" max="100" value="90" step="1" class="custom-range" id="compression"
+           (change)="changeRange($event, true)" (input)="changeRange($event, false)">
+  </div>
+</div>
+<div class="row mb-2" *ngIf="imagePresent()">
+  <div class="col-sm-6">
+    Original Size: {{originalSize()}}
+  </div>
+  <div class="col-sm-6">
+    Cropped Size: {{croppedSize()}}
+  </div>
+</div>
+<div class="row" *ngIf="uploader.progress">
+  <div class="col-sm-12 mb-2 mt-2">
+    <div class="progress">
+      <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': uploader.progress + '%' }">
+        {{action}} {{uploader.progress}}%
       </div>
     </div>
   </div>
 </div>
+<ng-template #buttonSet1>
+  <div class="col pr-1">
+    <app-badge-button fullWidth [disabled]="actionDisabled" (click)="rotateLeft()"
+                      delay=500 tooltip="Rotate left"
+                      [icon]="faRotateLeft" caption="left"/>
+  </div>
+  <div class="col pr-1">
+    <app-badge-button fullWidth [disabled]="actionDisabled" (click)="rotateRight()"
+                      delay=500 tooltip="Rotate right"
+                      [icon]="faRotateRight" caption="right"/>
+  </div>
+  <div class="col pr-1">
+    <app-badge-button fullWidth [disabled]="actionDisabled" (click)="flipHorizontal()"
+                      delay=500 tooltip="Flip horizontal"
+                      [icon]="faArrowRightArrowLeft" caption="flip"/>
+  </div>
+  <div class="col pr-1">
+    <app-badge-button fullWidth [disabled]="actionDisabled" (click)="flipVertical()"
+                      delay=500 tooltip="Flip vertical"
+                      [icon]="faUpDown" caption="flip"/>
+  </div>
+  <div class="col" [ngClass]="{'pr-1': !wrapButtons}">
+    <app-badge-button fullWidth [disabled]="actionDisabled" (click)="zoomIn()"
+                      delay=500 tooltip="Zoom in"
+                      [icon]="faMagnifyingGlassPlus"
+                      caption="zoom"/>
+  </div>
+</ng-template>
+<ng-template #buttonSet2>
+  <div class="col pr-1">
+    <app-badge-button fullWidth [disabled]="actionDisabled" (click)="zoomOut()"
+                      delay=500 tooltip="Zoom out"
+                      [icon]="faMagnifyingGlassMinus"
+                      caption="zoom"/>
+  </div>
+  <div class="col pr-1">
+    <app-badge-button fullWidth [disabled]="actionDisabled" (click)="resetImage()"
+                      delay=500 tooltip="Reset image"
+                      [icon]="faRedoAlt"
+                      caption="reset"/>
+  </div>
+  <div class="col pr-1">
+    <app-badge-button fullWidth (click)="toggleContainWithinAspectRatio()"
+                      delay=500
+                      [tooltip]="containWithinAspectRatio? 'fill aspect ratio' : 'contain within aspect ratio'"
+                      [disabled]="actionDisabled"
+                      [icon]="containWithinAspectRatio? faCompress: faExpand"
+                      [caption]="containWithinAspectRatio ? 'fill' : 'contain'"/>
+  </div>
+  <div class="col pr-1">
+    <app-badge-button fullWidth (click)="quit.next()"
+                      delay=500 tooltip="quit without saving"
+                      [icon]="faClose"
+                      caption="quit">
+    </app-badge-button>
+  </div>
+  <div class="col">
+    <app-badge-button fullWidth (click)="saveImage()"
+                      delay=500 tooltip="save changes" [disabled]="actionDisabled"
+                      [icon]="faSave"
+                      caption="save">
+    </app-badge-button>
+  </div>
+</ng-template>
+<div *ngIf="!wrapButtons" class="row no-gutters">
+  <ng-container *ngTemplateOutlet="buttonSet1"></ng-container>
+  <ng-container *ngTemplateOutlet="buttonSet2"></ng-container>
+</div>
+<ng-container *ngIf="wrapButtons">
+  <div class="row no-gutters">
+    <ng-container *ngTemplateOutlet="buttonSet1"></ng-container>
+  </div>
+  <div class="row no-gutters">
+    <ng-container *ngTemplateOutlet="buttonSet2"></ng-container>
+  </div>
+</ng-container>

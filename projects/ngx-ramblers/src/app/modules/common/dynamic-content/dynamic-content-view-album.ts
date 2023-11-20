@@ -10,11 +10,11 @@ import { UrlService } from "../../../services/url.service";
   template: `
       <ng-container *ngIf="actions.isAlbum(row)">
           <div [class]="actions.rowClasses(row)">
-              <div *ngIf="row.carousel.showTitle" class="col-sm-12">
+              <div *ngIf="row.carousel.showTitle && row.carousel.title" class="col-sm-12">
                   <h1>{{row.carousel.title}}</h1>
-                  <h2><a *ngIf="row.carousel.eventId" delay="500"
+                  <h2>{{row.carousel.eventDate | displayDate}} - <a *ngIf="row.carousel.eventId" delay="500"
                          [href]="urlService.linkUrl({area: row.carousel.eventType, id: row.carousel.eventId })">
-                        {{row.carousel.subtitle}} - {{row.carousel.eventDate | displayDate}}</a>
+                        {{row.carousel.subtitle}}</a>
                   </h2>
               </div>
               <div class="col-sm-12">

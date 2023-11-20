@@ -11,6 +11,8 @@ import { PageContentService } from "../../../services/page-content.service";
 import { PageService } from "../../../services/page.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
+import { NamedEventType } from "../../../models/broadcast.model";
+import { BroadcastService } from "../../../services/broadcast-service";
 
 @Component({
   selector: "app-dynamic-content",
@@ -44,6 +46,7 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
     public stringUtils: StringUtilsService,
     private pageContentService: PageContentService,
     private pageService: PageService,
+    private broadcastService: BroadcastService<PageContent>,
     private authService: AuthService,
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger("DynamicContentComponent", NgxLoggerLevel.OFF);
@@ -60,6 +63,10 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
       this.logger.debug("Finding page content for " + this.contentPath);
       this.refreshPageContent();
       this.authService.authResponse().subscribe(() => this.refreshPageContent());
+      this.broadcastService.on(NamedEventType.PAGE_CONTENT_CHANGED, (pageContentData) => {
+        this.logger.info("received:", pageContentData);
+        this.pageContent = pageContentData.data;
+      });
     }));
   }
 
@@ -75,7 +82,7 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
           this.logger.info("findByPath", this.contentPath, "returned:", pageContent);
           this.pageContentReceived(pageContent);
         } else {
-          this.pageContentService.findByPath(`${this.urlService.firstPathSegment()}#${this.anchor}`)
+          this.pageContentService.findByPath(`${this.urlService.firstPathSegment()}${this.anchor ? `#${this.anchor}` : ""}`)
             .then(pageContent => {
               if (pageContent) {
                 this.pageContentReceived(pageContent);

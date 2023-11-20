@@ -16,7 +16,7 @@ import isEqual from "lodash-es/isEqual";
 import pick from "lodash-es/pick";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
-import { ContentText, DataAction, EditorState, View } from "../models/content-text.model";
+import { ContentText, DataAction, EditorInstanceState, EditorState, View } from "../models/content-text.model";
 import { BroadcastService } from "../services/broadcast-service";
 import { ContentTextService } from "../services/content-text.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
@@ -78,6 +78,7 @@ export class MarkdownEditorComponent implements OnInit {
   @Input() initialView: View;
   @Input() description: string;
   @Output() saved: EventEmitter<ContentText> = new EventEmitter();
+  @Output() focusChange: EventEmitter<EditorInstanceState> = new EventEmitter();
   private show = true;
   public editNameEnabled: boolean;
   private initialised: boolean;
@@ -168,7 +169,6 @@ export class MarkdownEditorComponent implements OnInit {
     if (isEmpty(content)) {
       if (this.siteEditService.active()) {
         this.logger.info("content is empty for", this.description, "assumed to be new content so going into edit mode");
-        // this.toggleToEdit();
       }
       this.syncContent();
     } else {
@@ -246,11 +246,13 @@ export class MarkdownEditorComponent implements OnInit {
 
   toggleToView() {
     this.editorState.view = View.VIEW;
+    this.focusChange.emit({view: this.editorState.view, instance: this});
     this.clearFocus();
   }
 
   toggleToEdit() {
     this.editorState.view = View.EDIT;
+    this.focusChange.emit({view: this.editorState.view, instance: this});
     this.setFocus();
   }
 

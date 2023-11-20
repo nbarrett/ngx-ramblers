@@ -1,7 +1,18 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
-import { faBan, faCircleCheck, faCircleInfo, faCirclePlus, faEnvelopesBulk, faPencil, faRemove, faSearch, faSpinner, faThumbsUp } from "@fortawesome/free-solid-svg-icons";
+import {
+  faBan,
+  faCircleCheck,
+  faCircleInfo,
+  faCirclePlus,
+  faEnvelopesBulk,
+  faPencil,
+  faRemove,
+  faSearch,
+  faSpinner,
+  faThumbsUp
+} from "@fortawesome/free-solid-svg-icons";
 import cloneDeep from "lodash-es/cloneDeep";
 import first from "lodash-es/first";
 import groupBy from "lodash-es/groupBy";
@@ -16,9 +27,20 @@ import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { FontAwesomeIcon } from "../../../models/images.model";
-import { Member, MemberBulkLoadAudit, MemberBulkLoadAuditApiResponse, MemberUpdateAudit, SessionStatus } from "../../../models/member.model";
+import {
+  Member,
+  MemberBulkLoadAudit,
+  MemberBulkLoadAuditApiResponse,
+  MemberUpdateAudit,
+  SessionStatus
+} from "../../../models/member.model";
 import { Organisation } from "../../../models/system.model";
-import { ASCENDING, DESCENDING, MemberTableFilter, MemberUpdateAuditTableFilter } from "../../../models/table-filtering.model";
+import {
+  ASCENDING,
+  DESCENDING,
+  MemberTableFilter,
+  MemberUpdateAuditTableFilter
+} from "../../../models/table-filtering.model";
 import { EditMode } from "../../../models/ui-actions";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { ContentMetadataService } from "../../../services/content-metadata.service";

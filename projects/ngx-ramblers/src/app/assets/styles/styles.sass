@@ -47,11 +47,16 @@
 .badge-drop-zone
   border: dotted 3px lightgray
   border-radius: 6px
-  padding: 0px
   text-align: center
-  height: 30px
+  height: 60px
   margin-top: 0px
   cursor: grabbing
+  padding-top: 14px
+
+.badge-drop-zone-single-height
+  @extend .badge-drop-zone
+  height: 30px
+  padding-top: 0px
 
 .file-over
   border: dotted 3px green

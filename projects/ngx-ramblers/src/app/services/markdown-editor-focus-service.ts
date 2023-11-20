@@ -17,6 +17,7 @@ export class MarkdownEditorFocusService {
 
   setFocusTo(editorInstance: object) {
     if (!this.hasFocus(editorInstance)) {
+      this.logger.info("setting focus on:", editorInstance);
       this.focussedEditorInstance.push(editorInstance);
     }
 
@@ -27,6 +28,7 @@ export class MarkdownEditorFocusService {
   }
 
   clearFocus(editorInstance: object) {
+    this.logger.info("clearing focus on:", editorInstance);
     this.focussedEditorInstance = this.focussedEditorInstance.filter(item => item !== editorInstance);
   }
 }

@@ -27,6 +27,7 @@ import { MemberService } from "../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../services/notifier.service";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { UrlService } from "../../services/url.service";
+import { AwsFileUploadResponseData } from "../../models/aws-object.model";
 
 @Component({
   selector: "app-how-to-modal",
@@ -79,22 +80,11 @@ export class HowToModalComponent implements OnInit, AfterViewInit, OnDestroy {
     this.notify.hide();
     this.uploader = this.fileUploadService.createUploaderFor("memberResources");
     this.subscriptions.push(this.uploader.response.subscribe((response: string | HttpErrorResponse) => {
-        this.logger.debug("response", response, "type", typeof response);
-        this.notify.clearBusy();
-        if (response instanceof HttpErrorResponse) {
-          this.notify.error({title: "Upload failed", message: response.error});
-        } else if (response === "Unauthorized") {
-          this.notify.error({title: "Upload failed", message: response + " - try logging out and logging back in again and trying this again."});
-        } else {
-          const uploadResponse = JSON.parse(response);
-          this.memberResource.data.fileNameData = uploadResponse.response.fileNameData;
-          this.memberResource.data.fileNameData.title = this.existingTitle;
-          this.logger.debug("JSON response:", uploadResponse, "memberResource:", this.memberResource);
-          this.notify.clearBusy();
-          this.notify.success({title: "New file added", message: this.memberResource.data.fileNameData.title});
-        }
-      }
-    ));
+      const awsFileUploadResponseData: AwsFileUploadResponseData = this.fileUploadService.handleSingleResponseDataItem(response, this.notify, this.logger);
+      this.memberResource.data.fileNameData = awsFileUploadResponseData.fileNameData;
+      this.memberResource.data.fileNameData.title = this.existingTitle;
+      this.notify.success({title: "New file added", message: this.memberResource.data.fileNameData.title});
+    }));
     this.editMode = this.memberResource.id ? "Edit existing" : "Create new";
     this.resourceDate = this.dateUtils.asDateValue(this.memberResource.resourceDate);
   }

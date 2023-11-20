@@ -6,6 +6,7 @@ import {
   ALL_PHOTOS,
   ContentMetadata,
   ContentMetadataItem,
+  DuplicateImages,
   ImageFilterType,
   ImageTag,
   LazyLoadingMetadata,
@@ -13,6 +14,7 @@ import {
   SlideInitialisation
 } from "../models/content-metadata.model";
 import range from "lodash-es/range";
+import { StringUtilsService } from "./string-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -21,51 +23,56 @@ export class LazyLoadingMetadataService {
   private logger: Logger;
 
   constructor(private contentMetadataService: ContentMetadataService,
+              private stringUtils: StringUtilsService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger("LazyLoadingMetadataService", NgxLoggerLevel.INFO);
   }
 
-  initialise(contentMetadata: ContentMetadata, slideCount?: number): LazyLoadingMetadata {
-    return {
+  initialise(contentMetadata: ContentMetadata): LazyLoadingMetadata {
+    const initialisedData = {
       contentMetadata,
       activeSlideIndex: 0,
-      availableSlides: contentMetadata.files,
-      selectedSlides: slideCount > 0 ? contentMetadata.files.slice(0, slideCount) : []
+      availableSlides: [],
+      selectedSlides: []
     };
+    this.logger.info("initialise for:", contentMetadata.name, "availableSlides:", initialisedData.availableSlides.length, "selectedSlides:", initialisedData.selectedSlides.length, "contentMetadata.files:", contentMetadata?.files?.length || 0);
+    return initialisedData;
   }
 
-  public initialiseSlidesForTag(lazyLoadingMetadata: LazyLoadingMetadata, reason: SlideInitialisation, tag?: ImageTag) {
-    this.logger.info(lazyLoadingMetadata.contentMetadata.name, "initialiseSlidesForTag:", tag, "reason:", reason);
-    lazyLoadingMetadata.availableSlides = [];
+  public initialiseAvailableSlides(lazyLoadingMetadata: LazyLoadingMetadata, reason: SlideInitialisation, duplicateImages: DuplicateImages, tag?: ImageTag, slideCount?: number): void {
+    this.logger.info(lazyLoadingMetadata?.contentMetadata.name, "initialiseAvailableSlides:tag:", tag, "reason:", reason);
     lazyLoadingMetadata.activeSlideIndex = 0;
-    const files: ContentMetadataItem[] = lazyLoadingMetadata.contentMetadata?.files;
-    const imageTags: ImageTag[] = lazyLoadingMetadata.contentMetadata?.imageTags;
+    lazyLoadingMetadata.selectedSlides = [];
+    const files: ContentMetadataItem[] = lazyLoadingMetadata?.contentMetadata?.files;
+    const imageTags: ImageTag[] = lazyLoadingMetadata?.contentMetadata?.imageTags;
     if (tag === ALL_PHOTOS) {
-      this.logger.info(lazyLoadingMetadata.contentMetadata.name, "initialiseSlidesForTag:all photos tag selected");
-      lazyLoadingMetadata.selectedSlides = this.contentMetadataService.filterSlides(imageTags, files, ImageFilterType.ALL);
+      lazyLoadingMetadata.availableSlides = this.contentMetadataService.filterSlides(imageTags, files, duplicateImages, ImageFilterType.ALL);
+      this.logger.info(lazyLoadingMetadata?.contentMetadata.name, "initialiseAvailableSlides:", ALL_PHOTOS, "selected:", this.stringUtils.pluraliseWithCount(lazyLoadingMetadata?.availableSlides.length, "image"));
     } else if (tag === RECENT_PHOTOS) {
-      this.logger.info(lazyLoadingMetadata.contentMetadata.name, "initialiseSlidesForTag:recent photos tag selected");
-      lazyLoadingMetadata.selectedSlides = this.contentMetadataService.filterSlides(imageTags, files, ImageFilterType.RECENT);
+      lazyLoadingMetadata.availableSlides = this.contentMetadataService.filterSlides(imageTags, files, duplicateImages, ImageFilterType.RECENT);
+      this.logger.info(lazyLoadingMetadata?.contentMetadata.name, "initialiseAvailableSlides:", RECENT_PHOTOS, "selected:", this.stringUtils.pluraliseWithCount(lazyLoadingMetadata?.availableSlides.length, "image"));
     } else if (tag) {
-      this.logger.info(lazyLoadingMetadata.contentMetadata.name, "initialiseSlidesForTag:", tag, "selected");
-      lazyLoadingMetadata.selectedSlides = this.contentMetadataService.filterSlides(imageTags, files, ImageFilterType.TAG, tag);
-    } else if (reason === SlideInitialisation.COMPONENT_INIT) {
-      this.logger.info(lazyLoadingMetadata.contentMetadata.name, "initialiseSlidesForTag:no tag selected - selecting recent");
-      lazyLoadingMetadata.selectedSlides = this.contentMetadataService.filterSlides(imageTags, files, ImageFilterType.RECENT);
+      lazyLoadingMetadata.availableSlides = this.contentMetadataService.filterSlides(imageTags, files, duplicateImages, ImageFilterType.TAG, tag);
+      this.logger.info(lazyLoadingMetadata?.contentMetadata.name, "initialiseAvailableSlides:", tag.subject, "selected:", this.stringUtils.pluraliseWithCount(lazyLoadingMetadata?.availableSlides.length, "image"));
+    } else {
+      lazyLoadingMetadata.availableSlides = this.contentMetadataService.filterSlides(imageTags, files, duplicateImages, ImageFilterType.RECENT);
+      this.logger.info(lazyLoadingMetadata?.contentMetadata.name, "initialiseAvailableSlides:", reason, "selected:", this.stringUtils.pluraliseWithCount(lazyLoadingMetadata?.availableSlides.length, "image"));
     }
-    this.add(lazyLoadingMetadata);
+    this.add(lazyLoadingMetadata, slideCount, "add inside initialiseAvailableSlides");
   }
 
-  public add(lazyLoadingMetadata: LazyLoadingMetadata, slideCount?: number): void {
-    range(0, slideCount || 1).forEach(slideNumber => {
-      const slide = lazyLoadingMetadata.availableSlides[lazyLoadingMetadata.selectedSlides.length];
+  public add(lazyLoadingMetadata: LazyLoadingMetadata, slideCount?: number, reason?: string): ContentMetadataItem[] {
+    const upperRange = slideCount || 1;
+    return range(0, upperRange).map(slideNumber => {
+      const slide = lazyLoadingMetadata?.availableSlides[lazyLoadingMetadata?.selectedSlides.length];
       if (slide) {
-        this.logger.info("addNewSlide:adding slide", slideNumber, lazyLoadingMetadata.selectedSlides.length + 1, "of", lazyLoadingMetadata.selectedSlides.length, slide.text, slide.image);
-        lazyLoadingMetadata.selectedSlides.push(slide);
+        lazyLoadingMetadata?.selectedSlides.push(slide);
+        this.logger.info(reason || "direct add", "addNewSlide:added slide", slideNumber + 1, "of", upperRange, "to", this.stringUtils.pluraliseWithCount(lazyLoadingMetadata?.selectedSlides.length, "selected image"), "of", this.stringUtils.pluraliseWithCount(lazyLoadingMetadata?.availableSlides.length, "available image"), "activeSlideIndex:", lazyLoadingMetadata?.activeSlideIndex, "slide:", slide.text, slide.image);
+        return slide;
       } else {
-        this.logger.info("addNewSlide:no slides selected from", lazyLoadingMetadata.selectedSlides.length, "available");
+        this.logger.info(reason || "direct add", "addNewSlide:could not select slide", slideNumber + 1, "from", this.stringUtils.pluraliseWithCount(lazyLoadingMetadata?.selectedSlides.length, "selected image"), "of", this.stringUtils.pluraliseWithCount(lazyLoadingMetadata?.availableSlides.length, "available image"), "activeSlideIndex:", lazyLoadingMetadata?.activeSlideIndex);
       }
-    });
+    }).filter(item => item);
   }
 
 }

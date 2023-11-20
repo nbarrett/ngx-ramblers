@@ -3,6 +3,7 @@ export enum NamedEventType {
     DEFAULT_LOGO_CHANGED = "default-logo-changed",
     EDIT_SITE = "editSite",
     ERROR = "error",
+    FILES_DROPPED = "files-dropped",
     MAILCHIMP_LISTS_CHANGED = "mailchimp-lists-changed",
     MARKDOWN_CONTENT_CHANGED = "markdownContentChanged",
     MARKDOWN_CONTENT_DELETED = "markdownContentDeleted",

@@ -7,6 +7,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { UrlService } from "../../../services/url.service";
 import { RootFolder } from "../../../models/system.model";
+import { HARD_CODED_SOCIAL_FOLDER } from "../../../models/social-events.model";
 
 @Component({
   selector: "app-social-carousel",
@@ -25,7 +26,7 @@ export class SocialCarouselComponent implements OnInit {
   public contentMetadata: ContentMetadata;
 
   constructor(private contentMetadataService: ContentMetadataService,
-              private urlService: UrlService,
+              public urlService: UrlService,
               protected dateUtils: DateUtilsService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(SocialCarouselComponent, NgxLoggerLevel.OFF);
@@ -59,7 +60,7 @@ export class SocialCarouselComponent implements OnInit {
 
   refreshImages() {
     this.logger.debug("slides:", this.slides);
-    this.contentMetadataService.items(RootFolder.carousels, "images-social-events")
+    this.contentMetadataService.items(RootFolder.carousels, HARD_CODED_SOCIAL_FOLDER)
       .then((contentMetadata) => {
         this.slides = contentMetadata.files;
         this.contentMetadata = contentMetadata;

@@ -128,7 +128,8 @@
             </div>
             <div class="col-sm-6" *ngIf="editActive">
               <app-image-cropper-and-resizer
-                [rootFolder]="'imagesSocialEvents'"
+                wrapButtons
+                [rootFolder]="HARD_CODED_SOCIAL_FOLDER"
                 [preloadImage]="socialEvent.thumbnail"
                 (imageChange)="imageChanged($event)"
                 (error)="imageCroppingError($event)"

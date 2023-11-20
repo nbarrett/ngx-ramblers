@@ -40,7 +40,6 @@ export class SystemImageEditComponent implements OnInit {
   constructor(private systemConfigService: SystemConfigService,
               private notifierService: NotifierService,
               private numberUtils: NumberUtilsService,
-              private fileUploadService: FileUploadService,
               private stringUtils: StringUtilsService,
               private memberService: MemberService,
               private memberLoginService: MemberLoginService,

@@ -51,6 +51,12 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     this.deriveInsertableData();
   }
 
+  @Input("pageContent") set acceptPageContentChanges(pageContent: PageContent) {
+    this.logger.info("pageContentChanges:", pageContent);
+    this.pageContent = pageContent;
+    this.clearAlert(pageContent);
+  }
+
   constructor(
     private systemConfigService: SystemConfigService,
     public pageContentRowService: PageContentRowService,
@@ -68,13 +74,11 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     public actions: PageContentActionsService,
     private broadcastService: BroadcastService<any>,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.OFF);
   }
 
   @Input()
   contentPathReadOnly: boolean;
-  @Input()
-  public pageContent: PageContent;
   @Input()
   public queryCompleted: boolean;
   @Input()
@@ -83,6 +87,8 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   public contentDescription: string;
   @Input()
   public contentPath: string;
+
+  public pageContent: PageContent;
   public insertableContent: ColumnInsertData[] = [];
   private defaultPageContent: PageContent;
   private destinationPageContent: PageContent;
@@ -151,7 +157,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   private runInitCode() {
-    this.logger.info("ngOnInit:subscribing to systemConfigService events");
+    this.logger.info("ngOnInit:runInitCode:pageContent:", this.pageContent, "path:", this.urlService.urlPath());
     this.systemConfigService.events().subscribe(item => {
       const pageHrefs: string[] = item.group.pages.map(link => link.href).filter(item => item);
       this.logger.info("pageHrefs received as:", pageHrefs);
@@ -161,13 +167,13 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     });
     this.pageContentService.allReferringPages(this.contentPath)
       .then(referringPages => {
-        const referringPagesFilteredForExactPath = referringPages.filter(pageContent => this.actions.allPageHrefs(pageContent).includes(this.pageContent.path));
+        const referringPagesFilteredForExactPath = referringPages.filter(pageContent => this.actions.allPageHrefs(pageContent).includes(this.urlService.urlPath()));
         this.logger.info("referringPages for:", this.contentPath, "referringPages:", referringPages, "referringPagesFilteredForExactPath:", referringPagesFilteredForExactPath);
         this.referringPages = referringPagesFilteredForExactPath;
-      }).catch(response => {
-      this.notify.error({title: "Failed to query referring pages:", message: response.error});
+      }).catch(error => {
+      this.notify.error({title: "Failed to query referring pages:", message: error});
       this.queryCompleted = true;
-      this.error = response.error;
+      this.error = error;
     });
     this.broadcastService.on(NamedEventType.SAVE_PAGE_CONTENT, (namedEvent: NamedEvent<PageContent>) => {
       this.logger.info("event received:", namedEvent);
@@ -237,6 +243,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     };
     this.logger.info("this.pageContent:", this.pageContent);
     this.queryCompleted = true;
+    this.actions.notifyPageContentChanges(this.pageContent);
   }
 
   goToOtherPage() {
@@ -291,6 +298,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     this.pageContentService.findByPath(this.pageContent.path)
       .then(pageContent => {
         this.pageContent = pageContent;
+        this.actions.notifyPageContentChanges(pageContent);
         this.deriveInsertableData();
       });
   }
@@ -392,4 +400,9 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
 
+  private clearAlert(pageContent: PageContent) {
+    if (pageContent) {
+      this.notify.hide();
+    }
+  }
 }

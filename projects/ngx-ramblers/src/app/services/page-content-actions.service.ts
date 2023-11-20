@@ -7,7 +7,7 @@ import {
   AlbumData,
   AlbumView,
   ColumnInsertData,
-  ContentText,
+  ContentText, DEFAULT_GALLERY_OPTIONS, DEFAULT_GRID_OPTIONS,
   HasPageContentRows,
   PageContent,
   PageContentColumn,
@@ -84,6 +84,8 @@ export class PageContentActionsService {
     return {
       name,
       albumView: AlbumView.GRID,
+      gridViewOptions: DEFAULT_GRID_OPTIONS,
+      galleryViewOptions: DEFAULT_GALLERY_OPTIONS,
       allowSwitchView: false,
       createdAt: null,
       createdBy: null,
@@ -225,7 +227,7 @@ export class PageContentActionsService {
     return this.stringUtils.replaceAll("-", " ", relativePath);
   }
 
-  private notifyPageContentChanges(pageContent: PageContent) {
+  public notifyPageContentChanges(pageContent: PageContent) {
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.PAGE_CONTENT_CHANGED, pageContent));
   }
 

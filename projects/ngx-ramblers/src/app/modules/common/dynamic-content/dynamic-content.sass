@@ -11,3 +11,23 @@
   padding: 1rem
   border: 1px solid #dee2e6
   border-radius: .25rem
+
+.rtl
+  text-align: left
+  direction: rtl
+
+.ltr
+  text-align: right
+
+.ellipsis
+  overflow: hidden
+  white-space: nowrap
+  text-overflow: ellipsis
+
+.ellipsis-right
+  @extend .ellipsis
+  @extend .rtl
+
+.ellipsis-left
+  @extend .ellipsis
+  @extend .ltr
