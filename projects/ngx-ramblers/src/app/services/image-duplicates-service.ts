@@ -16,7 +16,7 @@ export class ImageDuplicatesService {
 
   constructor(private stringUtils: StringUtilsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ImageDuplicatesService, NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger(ImageDuplicatesService, NgxLoggerLevel.OFF);
   }
 
   duplicateCount(item: ContentMetadataItem, duplicateImages: DuplicateImages): string {

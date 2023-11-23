@@ -61,7 +61,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
               private urlService: UrlService,
               protected dateUtils: DateUtilsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SocialEditComponent, NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger(SocialEditComponent, NgxLoggerLevel.OFF);
   }
   @Input()
   public actions: Actions;

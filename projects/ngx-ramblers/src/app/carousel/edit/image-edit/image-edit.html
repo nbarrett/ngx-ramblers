@@ -96,17 +96,14 @@
                  [value]="item.originalFileName" disabled [id]="'original-name-' + index"/>
         </div>
       </div>
-    <div class="row" *ngIf="item?.dateSource!=='upload'">
-      <div class="col-sm-12">
+      <div *ngIf="item?.dateSource!=='upload'" class="col-sm-12">
         <app-group-event-selector [label]="'Link to ' + groupEventType?.description"
                                   [eventId]="item.eventId"
                                   [dataSource]="groupEventType?.area"
                                   (eventCleared)="item.eventId=null"
                                   (eventChange)="eventChange($event)"/>
       </div>
-    </div>
-    <div class="row" *ngIf="notifyTarget.showAlert">
-      <div class="col-sm-12">
+      <div *ngIf="notifyTarget.showAlert" class="col-sm-12">
         <div class="alert {{notifyTarget.alertClass}} table-pointer">
           <fa-icon [icon]="notifyTarget.alert.icon"/>
           <strong *ngIf="notifyTarget.alertTitle">

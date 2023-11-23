@@ -47,7 +47,7 @@ import { ImageDuplicatesService } from "../../services/image-duplicates-service"
 })
 export class AlbumGridComponent implements OnInit {
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger = this.loggerFactory.createLogger("AlbumGridComponent", NgxLoggerLevel.DEBUG);
+  private logger = this.loggerFactory.createLogger("AlbumGridComponent", NgxLoggerLevel.OFF);
   public preview: boolean;
 
   @Input("preview") set previewValue(value: boolean) {

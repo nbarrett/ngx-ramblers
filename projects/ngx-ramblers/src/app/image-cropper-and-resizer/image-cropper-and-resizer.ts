@@ -66,7 +66,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
               private notifierService: NotifierService,
               private fileUtils: FileUtilsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ImageCropperAndResizerComponent, NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger(ImageCropperAndResizerComponent, NgxLoggerLevel.OFF);
   }
 
   @ViewChild(ImageCropperComponent) imageCropperComponent: ImageCropperComponent;
