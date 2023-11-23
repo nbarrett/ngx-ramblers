@@ -25,7 +25,7 @@ export class LazyLoadingMetadataService {
   constructor(private contentMetadataService: ContentMetadataService,
               private stringUtils: StringUtilsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("LazyLoadingMetadataService", NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger("LazyLoadingMetadataService", NgxLoggerLevel.OFF);
   }
 
   initialise(contentMetadata: ContentMetadata): LazyLoadingMetadata {

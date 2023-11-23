@@ -183,7 +183,7 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
     public stringUtils: StringUtilsService,
     public actions: PageContentActionsService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("DynamicContentSiteEditAlbumComponent", NgxLoggerLevel.DEBUG);
+    this.logger = loggerFactory.createLogger("DynamicContentSiteEditAlbumComponent", NgxLoggerLevel.OFF);
   }
 
   @Input()

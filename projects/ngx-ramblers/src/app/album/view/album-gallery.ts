@@ -28,16 +28,16 @@ import { StringUtilsService } from "../../services/string-utils.service";
   template: `
     <gallery class="gallery-customise"
              [id]="galleryId"
-             [autoPlay]="album.slideInterval>0"
-             [playerInterval]="album.slideInterval"
+             [autoPlay]="album?.slideInterval>0"
+             [playerInterval]="album?.slideInterval"
              [imageSize]="'cover'"
              [thumbPosition]="album.galleryViewOptions?.thumbPosition ||'left'"
              [thumbView]="'default'"
              [thumbImageSize]="album.galleryViewOptions?.thumbImageSize || 'cover'"
              [loadingStrategy]="album.galleryViewOptions?.loadingStrategy || 'lazy'"
-             [dots]="album.galleryViewOptions.dots||true"
+             [dots]="album?.galleryViewOptions?.dots||true"
              (indexChange)="indexChange($event)"
-             [dotsPosition]="album.galleryViewOptions?.dotsPosition ||'bottom'">
+             [dotsPosition]="album?.galleryViewOptions?.dotsPosition ||'bottom'">
       <ng-container *galleryImageDef="let item; let active = active">
         <div *ngIf="active" class="item-panel-heading">
           <div>{{item?.alt}}</div>
@@ -48,7 +48,7 @@ import { StringUtilsService } from "../../services/string-utils.service";
 
 export class AlbumGalleryComponent implements OnInit {
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger = this.loggerFactory.createLogger("AlbumGalleryComponent", NgxLoggerLevel.INFO);
+  private logger = this.loggerFactory.createLogger("AlbumGalleryComponent", NgxLoggerLevel.OFF);
   public preview: boolean;
   private duplicateImages: DuplicateImages;
   private lazyLoadingMetadata: LazyLoadingMetadata;

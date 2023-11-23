@@ -45,7 +45,7 @@ export class RowSettingsCarouselComponent implements OnInit {
     private numberUtils: NumberUtilsService,
     public actions: PageContentActionsService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("RowSettingsCarouselComponent", NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger("RowSettingsCarouselComponent", NgxLoggerLevel.OFF);
   }
 
   @Input()
