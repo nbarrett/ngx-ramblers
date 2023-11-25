@@ -163,9 +163,9 @@
       <div class="row">
         <div class="col-sm-6">
           <div class="form-group">
-            <label for="name">Carousel Name</label>
+            <label for="name">Album Name</label>
             <input [delay]="1000"
-                   [tooltip]="imagesExist()? 'Carousel name cannot be changed after images have been created in it':''"
+                   [tooltip]="imagesExist()? 'Album name cannot be changed after images have been created in it':''"
                    [disabled]="imagesExist()" type="text" [(ngModel)]="contentMetadata.name" id="name"
                    class="form-control">
           </div>

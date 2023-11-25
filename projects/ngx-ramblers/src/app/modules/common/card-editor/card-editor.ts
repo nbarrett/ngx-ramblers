@@ -98,6 +98,8 @@ export class CardEditorComponent implements OnInit {
     const imageSource = awsFileData.awsFileName;
     this.logger.info("imagedSaved:", awsFileData, "setting imageSource for column", this.column, "to", imageSource);
     this.column.imageSource = imageSource;
+    this.imageType = ImageType.IMAGE;
+    this.exitImageEdit();
   }
 
   changeToImageType() {

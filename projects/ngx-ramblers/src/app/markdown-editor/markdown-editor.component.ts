@@ -8,7 +8,8 @@ import {
   faMagnifyingGlass,
   faPencil,
   faRemove,
-  faSpinner
+  faSpinner,
+  faUnlink
 } from "@fortawesome/free-solid-svg-icons";
 import cloneDeep from "lodash-es/cloneDeep";
 import isEmpty from "lodash-es/isEmpty";
@@ -26,6 +27,7 @@ import { SiteEditService } from "../site-edit/site-edit.service";
 import { UiActionsService } from "../services/ui-actions.service";
 import { StoredValue } from "../models/ui-actions";
 import { StringUtilsService } from "../services/string-utils.service";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-markdown-editor",
@@ -33,15 +35,7 @@ import { StringUtilsService } from "../services/string-utils.service";
   styleUrls: ["./markdown-editor.component.sass"]
 })
 export class MarkdownEditorComponent implements OnInit {
-  private logger: Logger;
-  private originalContent: ContentText;
-  public editorState: EditorState;
-  public content: ContentText = {};
-  private saveEnabled = false;
-  public name: string;
-  public text: string;
-  public category: string;
-  private hideParameterName: string;
+
 
   @Input("editNameEnabled") set acceptEditNameEnabledChangesFrom(editNameEnabled: boolean) {
     this.logger.debug("editNameEnabled:", editNameEnabled);
@@ -66,6 +60,12 @@ export class MarkdownEditorComponent implements OnInit {
     this.syncContent();
   }
 
+  @Input("noSave") set noImageSaveValue(noSave: boolean) {
+    this.noSave = coerceBooleanProperty(noSave);
+  }
+
+
+  @Input() allowSave: boolean;
   @Input() allowHide: boolean;
   @Input() data: ContentText;
   @Input() id: string;
@@ -73,10 +73,11 @@ export class MarkdownEditorComponent implements OnInit {
   @Input() actionCaptionSuffix: string;
   @Input() buttonsAvailableOnlyOnFocus: boolean;
   @Input() deleteEnabled: boolean;
-  @Input() clearEnabled: boolean;
+  @Input() unlinkEnabled: boolean;
   @Input() queryOnlyById: boolean;
   @Input() initialView: View;
   @Input() description: string;
+  @Output() changed: EventEmitter<ContentText> = new EventEmitter();
   @Output() saved: EventEmitter<ContentText> = new EventEmitter();
   @Output() focusChange: EventEmitter<EditorInstanceState> = new EventEmitter();
   private show = true;
@@ -90,6 +91,8 @@ export class MarkdownEditorComponent implements OnInit {
   faAngleUp = faAngleUp;
   faAngleDown = faAngleDown;
 
+  protected readonly faUnlink = faUnlink;
+
   constructor(private memberLoginService: MemberLoginService,
               private uiActionsService: UiActionsService,
               private broadcastService: BroadcastService<ContentText>,
@@ -100,6 +103,17 @@ export class MarkdownEditorComponent implements OnInit {
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(MarkdownEditorComponent, NgxLoggerLevel.OFF);
   }
+
+  private noSave: boolean;
+  private logger: Logger;
+  private originalContent: ContentText;
+  public editorState: EditorState;
+  public content: ContentText = {};
+  private saveEnabled = false;
+  public name: string;
+  public text: string;
+  public category: string;
+  private hideParameterName: string;
 
 
   ngOnInit() {
@@ -112,7 +126,9 @@ export class MarkdownEditorComponent implements OnInit {
     if (this.data) {
       const existingData: boolean = !!this.data.id;
       this.content = this.data;
-      this.saveEnabled = true;
+      if (!this.noSave) {
+        this.saveEnabled = true;
+      }
       this.logger.info("editing:", this.content, "existingData:", existingData, "editorState:", this.editorState, "rows:", this.rows);
       this.originalContent = cloneDeep(this.content);
       this.setDescription();
@@ -193,6 +209,7 @@ export class MarkdownEditorComponent implements OnInit {
     this.logger.debug("reverting " + this.name, "content");
     this.content = cloneDeep(this.originalContent);
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_CONTENT_SYNCED, this));
+    this.changed.emit(this.content)
   }
 
   dirty(): boolean {
@@ -311,7 +328,7 @@ export class MarkdownEditorComponent implements OnInit {
     return this.editorState.dataAction === DataAction.REVERT;
   }
 
-  clear() {
+  unlink() {
     delete this.content.id;
   }
 
@@ -325,8 +342,8 @@ export class MarkdownEditorComponent implements OnInit {
     return this.deleteEnabled && this.content.id;
   }
 
-  canClear() {
-    return this.clearEnabled && this.content.id;
+  canUnlink() {
+    return this.unlinkEnabled && this.content.id;
   }
 
   canSave() {
@@ -337,6 +354,7 @@ export class MarkdownEditorComponent implements OnInit {
     this.logger.debug("name:", this.name, "content name:", this.content.name, "changeText:", $event);
     this.renameIfRequired();
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_CONTENT_CHANGED, this.content));
+    this.changed.emit(this.content);
     this.publishUnsavedChanges();
   }
 

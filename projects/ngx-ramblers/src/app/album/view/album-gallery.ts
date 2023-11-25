@@ -1,14 +1,6 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { Gallery, GalleryRef, GalleryState, ImageItem } from "ng-gallery";
-import { RootFolder } from "../../models/system.model";
-import {
-  ALL_PHOTOS,
-  ContentMetadata,
-  ContentMetadataItem,
-  DuplicateImages,
-  LazyLoadingMetadata,
-  SlideInitialisation
-} from "../../models/content-metadata.model";
+import { ContentMetadata, ContentMetadataItem, LazyLoadingMetadata } from "../../models/content-metadata.model";
 import { PageService } from "../../services/page.service";
 import { ContentMetadataService } from "../../services/content-metadata.service";
 import { UrlService } from "../../services/url.service";
@@ -19,39 +11,36 @@ import { faImages, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { AlbumData, AlbumView } from "../../models/content-text.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata.service";
-import { ImageDuplicatesService } from "../../services/image-duplicates-service";
 import { StringUtilsService } from "../../services/string-utils.service";
 
 @Component({
   selector: "app-album-gallery",
   styleUrls: ["./album-gallery.sass"],
   template: `
-    <gallery class="gallery-customise"
-             [id]="galleryId"
-             [autoPlay]="album?.slideInterval>0"
-             [playerInterval]="album?.slideInterval"
-             [imageSize]="'cover'"
-             [thumbPosition]="album.galleryViewOptions?.thumbPosition ||'left'"
-             [thumbView]="'default'"
-             [thumbImageSize]="album.galleryViewOptions?.thumbImageSize || 'cover'"
-             [loadingStrategy]="album.galleryViewOptions?.loadingStrategy || 'lazy'"
-             [dots]="album?.galleryViewOptions?.dots||true"
-             (indexChange)="indexChange($event)"
-             [dotsPosition]="album?.galleryViewOptions?.dotsPosition ||'bottom'">
-      <ng-container *galleryImageDef="let item; let active = active">
-        <div *ngIf="active" class="item-panel-heading">
-          <div>{{item?.alt}}</div>
-        </div>
-      </ng-container>
-    </gallery>`
+      <gallery *ngIf="galleryId" class="gallery-customise"
+               [id]="galleryId"
+               [autoPlay]="album?.slideInterval>0"
+               [playerInterval]="album?.slideInterval"
+               imageSize="contain"
+               [thumbPosition]="album.galleryViewOptions?.thumbPosition ||'left'"
+               [thumbView]="'default'"
+               [thumbImageSize]="album.galleryViewOptions?.thumbImageSize || 'cover'"
+               [loadingStrategy]="album.galleryViewOptions?.loadingStrategy || 'lazy'"
+               [dots]="album?.galleryViewOptions?.dots||true"
+               (indexChange)="indexChange($event)"
+               [dotsPosition]="album?.galleryViewOptions?.dotsPosition ||'bottom'">
+          <ng-container *galleryImageDef="let item; let active = active">
+              <div *ngIf="active" class="item-panel-heading">
+                  <div>{{item?.alt}}</div>
+              </div>
+          </ng-container>
+      </gallery>`
 })
 
 export class AlbumGalleryComponent implements OnInit {
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("AlbumGalleryComponent", NgxLoggerLevel.OFF);
   public preview: boolean;
-  private duplicateImages: DuplicateImages;
-  private lazyLoadingMetadata: LazyLoadingMetadata;
   private galleryRef: GalleryRef;
 
   @Input("preview") set previewValue(value: boolean) {
@@ -59,18 +48,28 @@ export class AlbumGalleryComponent implements OnInit {
     this.logger.info("preview:", this.preview);
   }
 
+  @Input("lazyLoadingMetadata") set lazyLoadingMetadataValue(lazyLoadingMetadata: LazyLoadingMetadata) {
+    this.lazyLoadingMetadata = lazyLoadingMetadata;
+    this.initialiseMetadata();
+  }
+
+  @Input("album") set albumDataValue(album: AlbumData) {
+    this.album = album;
+    this.initialiseMetadata();
+  }
+
   @Input()
   public index: number;
-  @Input()
-  album: AlbumData;
+
+  public lazyLoadingMetadata: LazyLoadingMetadata;
+  public album: AlbumData;
   public gallery: Gallery = inject(Gallery);
   public stringUtils: StringUtilsService = inject(StringUtilsService);
   public pageService: PageService = inject(PageService);
   public dateUtils: DateUtilsService = inject(DateUtilsService);
   public contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
   private urlService: UrlService = inject(UrlService);
-  public lazyLoadingMetadataService: LazyLoadingMetadataService = inject(LazyLoadingMetadataService);
-  public imageDuplicatesService: ImageDuplicatesService = inject(ImageDuplicatesService);
+  private lazyLoadingMetadataService: LazyLoadingMetadataService = inject(LazyLoadingMetadataService);
   public contentMetadata: ContentMetadata;
   public galleryId: string;
   public albumView: AlbumView = AlbumView.GRID;
@@ -78,21 +77,22 @@ export class AlbumGalleryComponent implements OnInit {
   protected readonly faSearch = faSearch;
 
   ngOnInit() {
-    this.galleryId = this.stringUtils.kebabCase(this.album.name);
-    this.galleryRef = this.gallery.ref(this.galleryId);
-
     this.logger.info("ngOnInit:album:", this.album, "with galleryId:", this.galleryId);
-    if (this.album.albumView) {
-      this.albumView = this.album.albumView;
+  }
+
+  private initialiseMetadata() {
+    if (this.lazyLoadingMetadata?.selectedSlides && this.album) {
+      if (this.album.albumView) {
+        this.albumView = this.album.albumView;
+      }
+      this.galleryId = this.stringUtils.kebabCase(this.album.name);
+      this.galleryRef = this.gallery.ref(this.galleryId);
+      const images = this.lazyLoadingMetadata.selectedSlides.map(item => this.toImage(item));
+      this.logger.info("lazyLoadingMetadata:", this.lazyLoadingMetadata, "loading images:", images);
+      this.galleryRef.load(images);
+    } else {
+      this.logger.info("lazyLoadingMetadata not initialised yet:");
     }
-    this.contentMetadataService.items(RootFolder.carousels, this.album?.name)
-      .then(contentMetadata => {
-        this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata, contentMetadata.files);
-        this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
-        this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS, 10);
-        this.galleryRef.load(this.lazyLoadingMetadata.selectedSlides.map(item => this.toImage(item)));
-        this.logger.info("initialised with", this?.lazyLoadingMetadata?.contentMetadata?.files?.length, "slides in total", "lazyLoadingMetadata:", this.lazyLoadingMetadata, "duplicateImages:", this.duplicateImages);
-      });
   }
 
   private toImage(item: ContentMetadataItem) {
@@ -104,9 +104,9 @@ export class AlbumGalleryComponent implements OnInit {
   }
 
   indexChange(galleryState: GalleryState) {
-    this.logger.info("itemsChange:", galleryState);
+    this.logger.debug("itemsChange:", galleryState, "selectedSlides:", this.lazyLoadingMetadata?.selectedSlides);
     const slideNumber = galleryState.currIndex + 1;
-    if (slideNumber >= this.lazyLoadingMetadata.selectedSlides.length - 2) {
+    if (slideNumber >= this.lazyLoadingMetadata?.selectedSlides?.length - 2) {
       this.lazyLoadingMetadataService.add(this.lazyLoadingMetadata, 1, "active slide change").map(item => this.galleryRef.add(this.toImage(item)));
     } else {
       this.logger.info("Not adding new item as slide number is", slideNumber, "selectedSlide count:", this.lazyLoadingMetadata.selectedSlides.length);
