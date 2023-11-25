@@ -15,11 +15,11 @@ import { UrlService } from "../../../../services/url.service";
 export class CardImageComponent implements OnInit {
   private logger: Logger;
   faImage = faImage;
-  public height: any;
+  public constrainedHeight: number;
 
   constructor(public urlService: UrlService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(CardImageComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("CardImageComponent", NgxLoggerLevel.OFF);
   }
   public imageText = null;
   public imageSource: string;
@@ -34,6 +34,11 @@ export class CardImageComponent implements OnInit {
     }
   }
 
+  @Input("height") set acceptHeightChangesFrom(height: number) {
+    this.height = height;
+    this.handleHeightChange();
+  }
+
   @Input()
   public imageType: ImageType;
   @Input()
@@ -46,6 +51,7 @@ export class CardImageComponent implements OnInit {
   public smallIconContainer: boolean;
   @Input()
   public borderRadius: number;
+  public height: number;
 
   faSearch = faSearch;
 
@@ -67,11 +73,16 @@ export class CardImageComponent implements OnInit {
 
   ngOnInit() {
     this.logger.info("ngOnInit:imageSource", this.imageSource, "imageLink:", this.imageLink, "icon:", this.icon);
+    this.handleHeightChange();
+  }
+
+  private handleHeightChange() {
     if (this.unconstrainedHeight) {
-      this.height = null;
+      this.constrainedHeight = null;
     } else {
-      this.height = 200;
+      this.constrainedHeight = this.height || 200;
     }
+    this.logger.info("unconstrainedHeight:", this.unconstrainedHeight, "constrainedHeight:", this.constrainedHeight, "height:", this.height);
   }
 
   imageError(errorEvent: ErrorEvent) {

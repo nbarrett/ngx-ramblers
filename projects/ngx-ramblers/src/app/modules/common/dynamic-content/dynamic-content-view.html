@@ -18,8 +18,8 @@
                                        [row]="row"
                                        [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"></app-dynamic-content-view-album-index>
     <app-dynamic-content-view-album *ngIf="actions.isAlbum(row)"
-                                       [row]="row"
-                                       [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"></app-dynamic-content-view-album>
+                                    [row]="row"
+                                    [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"></app-dynamic-content-view-album>
   </ng-container>
   <ng-container *ngIf="!actions.pageContentFound(viewablePageContent, !!viewablePageContent?.id)">
     <div *ngIf="notify.alertTarget.showAlert" class="col-12 alert {{notify.alertTarget.alertClass}} mt-3">

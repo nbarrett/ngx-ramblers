@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { LoggerFactory } from "../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import take from "lodash-es/take";
@@ -14,6 +14,15 @@ import {
 import { AlbumData, AlbumView, GridViewOptions } from "../../models/content-text.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { ContentMetadataService } from "../../services/content-metadata.service";
+import { RootFolder } from "../../models/system.model";
+import {
+  ALL_PHOTOS,
+  DuplicateImages,
+  LazyLoadingMetadata,
+  SlideInitialisation
+} from "../../models/content-metadata.model";
+import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata.service";
+import { ImageDuplicatesService } from "../../services/image-duplicates-service";
 
 @Component({
   selector: "app-album",
@@ -42,18 +51,24 @@ import { ContentMetadataService } from "../../services/content-metadata.service"
         <div class="alert alert-warning" *ngIf="noImages">
           <fa-icon [icon]="faCircleInfo"/>
           <strong class="ml-1">No images exist in this album</strong>
-          <div>Click the <strong>Edit images in album</strong> button on the left to create new images in the {{album.name}} album</div>
+          <div>Click the <strong>Edit images in album</strong> button on the left to create new images in
+            the {{album.name}} album
+          </div>
         </div>
         <app-album-gallery *ngIf="albumView===AlbumView.GALLERY"
+                           [lazyLoadingMetadata]="lazyLoadingMetadata"
                            [album]="album"
                            [preview]="preview">
         </app-album-gallery>
         <app-album-grid *ngIf="albumView===AlbumView.GRID"
+                        [lazyLoadingMetadata]="lazyLoadingMetadata"
                         [album]="album"
                         [preview]="preview"
                         [gridViewOptions]="gridViewOptions">
         </app-album-grid>
         <app-carousel *ngIf="albumView===AlbumView.CAROUSEL"
+                      [lazyLoadingMetadata]="lazyLoadingMetadata"
+                      [duplicateImages]="duplicateImages"
                       [preview]="preview"
                       [album]="album"
                       [index]="index"></app-carousel>
@@ -64,9 +79,13 @@ import { ContentMetadataService } from "../../services/content-metadata.service"
 export class AlbumComponent implements OnInit {
 
   public contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
+  public lazyLoadingMetadataService: LazyLoadingMetadataService = inject(LazyLoadingMetadataService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
+  private imageDuplicatesService: ImageDuplicatesService = inject(ImageDuplicatesService);
   private logger = this.loggerFactory.createLogger("AlbumComponent", NgxLoggerLevel.OFF);
   public noImages: boolean;
+  public lazyLoadingMetadata: LazyLoadingMetadata;
+  public duplicateImages: DuplicateImages;
 
   @Input("preview") set previewValue(value: boolean) {
     this.preview = coerceBooleanProperty(value);
@@ -77,7 +96,7 @@ export class AlbumComponent implements OnInit {
   public index: number;
   @Input()
   album: AlbumData;
-
+  @Output() lazyLoadingMetadataChange: EventEmitter<LazyLoadingMetadata> = new EventEmitter();
   public preview: boolean;
   public albumView: AlbumView;
   protected readonly take = take;
@@ -95,9 +114,21 @@ export class AlbumComponent implements OnInit {
     this.logger.info("ngOnInit:album:", this.album);
     this.gridViewOptions = this.album.gridViewOptions || {showTitles: true, showDates: true};
     this.switchToView(this.album.albumView || AlbumView.GRID);
+    this.logger.info("ngOnInit:querying metadata service with root folder", RootFolder.carousels, "album name:", this.album?.name);
+    this.contentMetadataService.items(RootFolder.carousels, this.album?.name)
+      .then(contentMetadata => {
+        this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata, contentMetadata.files);
+        this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
+        this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS, 10);
+        this.noImages = !contentMetadata;
+        this.lazyLoadingMetadataChange.emit(this.lazyLoadingMetadata);
+        this.logger.info("initialised with", this?.lazyLoadingMetadata?.contentMetadata?.files?.length, "slides in total", "lazyLoadingMetadata:", this.lazyLoadingMetadata, "duplicateImages:", this.duplicateImages);
+      });
+
     this.contentMetadataService.contentMetadataNotifications().subscribe(metadataResponses => {
       const allAndSelectedContentMetaData = this.contentMetadataService.selectMetadataBasedOn(this.album?.name, metadataResponses);
       this.noImages = !allAndSelectedContentMetaData.contentMetadata;
+      this.logger.info("in subscribe:album:", this.album, "allAndSelectedContentMetaData:", allAndSelectedContentMetaData);
     });
 
   }

@@ -54,10 +54,15 @@ export interface PageContentEditEvent {
 }
 
 export interface AlbumData {
+  name: string;
   title: string;
   subtitle: any;
   showTitle: boolean;
-  name: string;
+  showCoverImageAndText: boolean;
+  introductoryText: string;
+  coverImageHeight: number;
+  coverImageBorderRadius: number;
+  preAlbumText: string;
   albumView: AlbumView;
   gridViewOptions: GridViewOptions;
   galleryViewOptions: GalleryViewOptions;

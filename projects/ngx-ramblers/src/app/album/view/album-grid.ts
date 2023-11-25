@@ -1,12 +1,6 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { Gallery } from "ng-gallery";
-import { RootFolder } from "../../models/system.model";
-import {
-  ALL_PHOTOS,
-  ContentMetadataItem,
-  LazyLoadingMetadata,
-  SlideInitialisation
-} from "../../models/content-metadata.model";
+import { ContentMetadataItem, LazyLoadingMetadata } from "../../models/content-metadata.model";
 import { PageService } from "../../services/page.service";
 import { ContentMetadataService } from "../../services/content-metadata.service";
 import { UrlService } from "../../services/url.service";
@@ -18,7 +12,6 @@ import { faImages, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { AlbumData, GridViewOptions } from "../../models/content-text.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata.service";
-import { ImageDuplicatesService } from "../../services/image-duplicates-service";
 
 @Component({
   selector: "app-album-grid",
@@ -56,32 +49,22 @@ export class AlbumGridComponent implements OnInit {
   }
 
   @Input()
+  public lazyLoadingMetadata: LazyLoadingMetadata;
+  @Input()
   album: AlbumData;
   @Input()
   gridViewOptions: GridViewOptions;
   public lazyLoadingMetadataService: LazyLoadingMetadataService = inject(LazyLoadingMetadataService);
-  public lazyLoadingMetadata: LazyLoadingMetadata;
   public gallery: Gallery = inject(Gallery);
   public pageService: PageService = inject(PageService);
   public dateUtils: DateUtilsService = inject(DateUtilsService);
   public contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
   public urlService: UrlService = inject(UrlService);
-  private imageDuplicatesService: ImageDuplicatesService = inject(ImageDuplicatesService);
-  public galleryId: string;
   protected readonly take = take;
   protected readonly faImages = faImages;
   protected readonly faSearch = faSearch;
 
   ngOnInit() {
-    this.galleryId = "myLightbox";
-    this.logger.info("ngOnInit:album:", this.album);
-    this.contentMetadataService.items(RootFolder.carousels, this.album.name)
-      .then(contentMetadata => {
-        this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
-        const duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata, contentMetadata.files);
-        this.logger.info("initialised lazyLoadingMetadata:", this?.lazyLoadingMetadata);
-        this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, duplicateImages, ALL_PHOTOS, this.preview ? 2 : 10);
-      });
   }
 
   viewMoreImages() {

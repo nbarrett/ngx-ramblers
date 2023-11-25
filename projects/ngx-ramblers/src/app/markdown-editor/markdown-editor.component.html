@@ -19,8 +19,8 @@
                         [tooltip]="'Delete content for ' + description" [icon]="reverting() ? faSpinner: faEraser"
                         caption="delete">
       </app-badge-button>
-      <app-badge-button *ngIf="canClear()" (click)="clear()" delay=500 [tooltip]="'Clear content for ' + description"
-                        [icon]="reverting() ? faSpinner: faEraser" caption="clear">
+      <app-badge-button *ngIf="canUnlink()" (click)="unlink()" delay=500 [tooltip]="'Unlink and save as new content for ' + description"
+                        [icon]="reverting() ? faSpinner: faUnlink" caption="unlink">
       </app-badge-button>
       <ng-content select=":not([prepend])"></ng-content>
     </ng-container>

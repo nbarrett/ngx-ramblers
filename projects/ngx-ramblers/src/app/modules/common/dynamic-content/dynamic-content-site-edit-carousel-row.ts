@@ -17,7 +17,7 @@ import { ContentMetadataService } from "../../../services/content-metadata.servi
   template: `
     <form>
       <label class="mr-2"
-             [for]="id">Carousel Name</label>
+             [for]="id">Album Name</label>
       <app-carousel-select [maxWidth]="290" *ngIf="!nameInput" [id]="id" [showNewButton]="true"
                            [name]="row?.carousel?.name"
                            (metadataChange)="metadataChange(row, $event)"
@@ -29,7 +29,7 @@ import { ContentMetadataService } from "../../../services/content-metadata.servi
                [(ngModel)]="row.carousel.name"
                name="new-password"
                [ngModelOptions]="{standalone: true}"
-               type="text" class="form-control flex-grow-1 mr-2 ellipsis-right">
+               type="text" class="form-control flex-grow-1 mr-2">
         <app-badge-button [icon]="faSearch" [caption]="'existing'"
                           (click)="toggleNameEdit(false)"></app-badge-button>
       </div>
