@@ -92,7 +92,7 @@
     <app-markdown-editor class="card-text"
                          (saved)="actions.saveContentTextId($event, rowIndex, column, pageContent)"
                          [actionCaptionSuffix]="'text'"
-                         [unlinkEnabled]="true"
+                         unlinkEnabled
                          [category]="pageContent.path"
                          [description]="idFor(pageContent.path)"
                          [id]="column?.contentTextId"

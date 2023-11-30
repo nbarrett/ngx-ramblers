@@ -73,14 +73,18 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     this.refreshHomePostcode();
     this.pathContainsWalkId = this.urlService.pathContainsWalkId();
     this.walkIdOrPath = this.urlService.lastPathSegment();
-    this.logger.debug("initialised with walk", this.displayedWalk, "pathContainsMongoId:", this.pathContainsWalkId, "walkIdOrPath:", this.walkIdOrPath);
-    this.queryIfRequired();
+    this.logger.info("initialised with walk", this.displayedWalk, "pathContainsWalkId:", this.pathContainsWalkId, "walkIdOrPath:", this.walkIdOrPath);
+    if (this.systemConfigService.systemConfig()) {
+      this.queryIfRequired();
+    } else {
+      this.logger.info("not querying as systemConfig not yet cached");
+    }
     this.systemConfigService.events().subscribe((systemConfig: SystemConfig) => {
-      this.logger.debug("systemConfigService returned systemConfig:", systemConfig);
+      this.logger.info("systemConfigService returned systemConfig:", systemConfig);
       this.queryIfRequired();
     });
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => {
-      this.logger.debug("loginResponseObservable:", loginResponse);
+      this.logger.info("loginResponseObservable:", loginResponse);
       this.display.refreshCachedData();
       this.loggedIn = loginResponse.memberLoggedIn;
       this.allowWalkAdminEdits = this.memberLoginService.allowWalkAdminEdits();
@@ -173,7 +177,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   refreshView() {
-    this.logger.debug("refreshing view");
+    this.logger.info("refreshing view");
     this.updateGoogleMap();
   }
 

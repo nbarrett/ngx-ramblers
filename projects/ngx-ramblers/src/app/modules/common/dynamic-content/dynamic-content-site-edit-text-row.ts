@@ -1,5 +1,5 @@
 import { Component, Input, OnInit } from "@angular/core";
-import { faAdd, faPencil } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faCaretDown, faCaretUp, faPencil } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AwsFileData } from "../../../models/aws-object.model";
 import {
@@ -7,8 +7,7 @@ import {
   PageContent,
   PageContentColumn,
   PageContentEditEvent,
-  PageContentRow,
-  View
+  PageContentRow
 } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
@@ -23,6 +22,18 @@ import { MarkdownEditorFocusService } from "../../../services/markdown-editor-fo
   styleUrls: ["./dynamic-content.sass"],
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
+  private expanded: boolean;
+
+  constructor(
+    public pageContentEditService: PageContentEditService,
+    private markdownEditorFocusService: MarkdownEditorFocusService,
+    public memberResourcesReferenceData: MemberResourcesReferenceDataService,
+    public stringUtils: StringUtilsService,
+    public actions: PageContentActionsService,
+    loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.createLogger(DynamicContentSiteEditTextRowComponent, NgxLoggerLevel.OFF);
+  }
+
   @Input()
   public row: PageContentRow;
   @Input()
@@ -39,27 +50,25 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   faPencil = faPencil;
   faAdd = faAdd;
   public pageContentEditEvents: PageContentEditEvent[] = [];
-  private lastFocussedMarkdownEditor: object;
-
-  constructor(
-    public pageContentEditService: PageContentEditService,
-    private markdownEditorFocusService: MarkdownEditorFocusService,
-    public memberResourcesReferenceData: MemberResourcesReferenceDataService,
-    public stringUtils: StringUtilsService,
-    public actions: PageContentActionsService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(DynamicContentSiteEditTextRowComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
   }
 
   imageSource(rowIndex: number, columnIndex: number, imageSource: string) {
-    return this.pageContentEditService.eventMatching(this.pageContentEditEvents, {path: this.pageContent.path, rowIndex, columnIndex})?.image || imageSource;
+    return this.pageContentEditService.eventMatching(this.pageContentEditEvents, {
+      path: this.pageContent.path,
+      rowIndex,
+      columnIndex
+    })?.image || imageSource;
   }
 
   editImage(rowIndex: number, columnIndex: number) {
-    this.pageContentEditEvents = this.pageContentEditService.handleEvent({path: this.pageContent.path, rowIndex, columnIndex, editActive: true}, this.pageContentEditEvents);
+    this.pageContentEditEvents = this.pageContentEditService.handleEvent({
+      path: this.pageContent.path,
+      rowIndex,
+      columnIndex,
+      editActive: true
+    }, this.pageContentEditEvents);
   }
 
   imageChanged(rowIndex: number, columnIndex: number, awsFileData: AwsFileData) {
@@ -100,13 +109,11 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   }
 
   focusSensitiveColumns(pageContentColumn: PageContentColumn) {
-    const hasFocus = this.markdownEditorFocusService.hasFocus(this.lastFocussedMarkdownEditor);
-    this.logger.debug("focusSensitiveColumns:hasFocus:", hasFocus, "pageContentColumn:", pageContentColumn);
-    return hasFocus ? 12 : (pageContentColumn?.columns || 12);
+    return this.expanded ? 12 : (pageContentColumn?.columns || 12);
   }
 
   markdownEditorFocusChange(editorInstanceState: EditorInstanceState) {
     this.logger.info("markdownEditorFocusChange:editorInstanceState:", editorInstanceState);
-    this.lastFocussedMarkdownEditor = editorInstanceState.view === View.VIEW ? null : editorInstanceState.instance;
   }
+
 }

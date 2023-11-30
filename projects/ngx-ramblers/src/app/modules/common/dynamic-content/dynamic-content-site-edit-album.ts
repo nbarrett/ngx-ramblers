@@ -46,7 +46,7 @@ import { UrlService } from "../../../services/url.service";
                                  [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-titles')">
                           <label class="custom-control-label"
                                  [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-titles')">
-                              Show Title on this page</label>
+                              Show Titles on this page</label>
                       </div>
                   </div>
               </div>
@@ -71,7 +71,8 @@ import { UrlService } from "../../../services/url.service";
                       <div class="form-group">
                           <label>Link Preview</label>
                           <div>
-                              <a [href]="urlService.linkUrl({area: row.carousel.eventType, id: row.carousel.eventId })">{{row.carousel.eventDate | displayDay}} - {{row.carousel.subtitle}}</a>
+                              <a [href]="urlService.linkUrl({area: row.carousel.eventType, id: row.carousel.eventId })">{{row.carousel.eventDate | displayDay}}
+                                  - {{row.carousel.subtitle}}</a>
                           </div>
                       </div>
                   </div>
@@ -96,8 +97,7 @@ import { UrlService } from "../../../services/url.service";
                       <app-markdown-editor noSave [data]="{text: row.carousel.introductoryText}"
                                            [name]="'pre cover text'"
                                            [initialView]="initialViewFor(row.carousel.introductoryText)"
-                                           (changed)="row.carousel.introductoryText=$event.text"
-                                           [rows]="6">
+                                           (changed)="row.carousel.introductoryText=$event.text">
                       </app-markdown-editor>
                   </div>
               </div>
@@ -135,14 +135,24 @@ import { UrlService } from "../../../services/url.service";
                                   [imageSource]="urlService.imageSourceFor({image:lazyLoadingMetadata.contentMetadata.coverImage},
                                   lazyLoadingMetadata.contentMetadata)"/>
               </ng-container>
+              <hr>
               <div class="row mt-2">
+                  <div class="col-sm-12">
+                      <div class="custom-control custom-checkbox">
+                          <input [(ngModel)]="row.carousel.showPreAlbumText"
+                                 type="checkbox" class="custom-control-input"
+                                 [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-pre-album-text')">
+                          <label class="custom-control-label"
+                                 [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-pre-album-text')">
+                              Show pre-album text on this page</label>
+                      </div>
+                  </div>
                   <div class="col-sm-12">
                       <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-pre-album-text')">
                           Pre Album Text</label>
                       <app-markdown-editor noSave [data]="{text: row.carousel.preAlbumText, name:'cover image text'}"
                                            [initialView]="initialViewFor(row.carousel.preAlbumText)"
-                                           (changed)="row.carousel.preAlbumText=$event.text"
-                                           [rows]="3">
+                                           (changed)="row.carousel.preAlbumText=$event.text">
                       </app-markdown-editor>
                   </div>
               </div>

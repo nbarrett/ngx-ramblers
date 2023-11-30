@@ -6,6 +6,7 @@ import { ImageType } from "../../../../models/content-text.model";
 import { ImageMessage } from "../../../../models/images.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { UrlService } from "../../../../services/url.service";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-card-image",
@@ -39,19 +40,22 @@ export class CardImageComponent implements OnInit {
     this.handleHeightChange();
   }
 
-  @Input()
-  public imageType: ImageType;
-  @Input()
-  public imageLink: string;
-  @Input()
-  public icon: IconProp;
-  @Input()
-  public unconstrainedHeight: boolean;
-  @Input()
-  public smallIconContainer: boolean;
-  @Input()
-  public borderRadius: number;
+  @Input("unconstrainedHeight") set unconstrainedHeightValue(unconstrainedHeight: boolean) {
+    this.unconstrainedHeight = coerceBooleanProperty(unconstrainedHeight);
+  }
+
+  @Input("smallIconContainer") set smallIconContainerValue(smallIconContainer: boolean) {
+    this.smallIconContainer = coerceBooleanProperty(smallIconContainer);
+  }
+
+  @Input() public imageType: ImageType;
+  @Input() public imageLink: string;
+  @Input() public icon: IconProp;
+  @Input() public borderRadius: number;
+
   public height: number;
+  public unconstrainedHeight: boolean;
+  public smallIconContainer: boolean;
 
   faSearch = faSearch;
 

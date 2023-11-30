@@ -65,21 +65,53 @@ export class MarkdownEditorComponent implements OnInit {
   }
 
 
-  @Input() allowSave: boolean;
-  @Input() allowHide: boolean;
   @Input() data: ContentText;
   @Input() id: string;
   @Input() rows: number;
   @Input() actionCaptionSuffix: string;
-  @Input() buttonsAvailableOnlyOnFocus: boolean;
-  @Input() deleteEnabled: boolean;
-  @Input() unlinkEnabled: boolean;
-  @Input() queryOnlyById: boolean;
+
+
+  @Input("allowMaximise") set allowMaximiseValue(allowMaximise: boolean) {
+    this.allowMaximise = coerceBooleanProperty(allowMaximise);
+  }
+
+  @Input("allowSave") set allowSaveValue(allowSave: boolean) {
+    this.allowSave = coerceBooleanProperty(allowSave);
+  }
+
+  @Input("allowHide") set allowHideValue(allowHide: boolean) {
+    this.allowHide = coerceBooleanProperty(allowHide);
+  }
+
+  @Input("buttonsAvailableOnlyOnFocus") set buttonsAvailableOnlyOnFocusValue(buttonsAvailableOnlyOnFocus: boolean) {
+    this.buttonsAvailableOnlyOnFocus = coerceBooleanProperty(buttonsAvailableOnlyOnFocus);
+  }
+
+  @Input("deleteEnabled") set deleteEnabledValue(deleteEnabled: boolean) {
+    this.deleteEnabled = coerceBooleanProperty(deleteEnabled);
+  }
+
+  @Input("unlinkEnabled") set unlinkEnabledValue(unlinkEnabled: boolean) {
+    this.unlinkEnabled = coerceBooleanProperty(unlinkEnabled);
+  }
+
+  @Input("queryOnlyById") set queryOnlyByIdValue(queryOnlyById: boolean) {
+    this.queryOnlyById = coerceBooleanProperty(queryOnlyById);
+  }
+
+
   @Input() initialView: View;
   @Input() description: string;
   @Output() changed: EventEmitter<ContentText> = new EventEmitter();
   @Output() saved: EventEmitter<ContentText> = new EventEmitter();
   @Output() focusChange: EventEmitter<EditorInstanceState> = new EventEmitter();
+  public allowMaximise: boolean;
+  public allowSave: boolean;
+  public buttonsAvailableOnlyOnFocus: boolean;
+  public allowHide: boolean;
+  public deleteEnabled: boolean;
+  public unlinkEnabled: boolean;
+  public queryOnlyById: boolean;
   private show = true;
   public editNameEnabled: boolean;
   private initialised: boolean;
@@ -132,6 +164,7 @@ export class MarkdownEditorComponent implements OnInit {
       this.logger.info("editing:", this.content, "existingData:", existingData, "editorState:", this.editorState, "rows:", this.rows);
       this.originalContent = cloneDeep(this.content);
       this.setDescription();
+      this.calculateRowsIfNotSupplied();
     } else if (this.text) {
       this.content = {name: this.name, text: this.text, category: this.category};
       this.originalContent = cloneDeep(this.content);
@@ -193,11 +226,15 @@ export class MarkdownEditorComponent implements OnInit {
     this.saveEnabled = true;
     this.originalContent = cloneDeep(this.content);
     this.editorState.dataAction = DataAction.NONE;
+    this.calculateRowsIfNotSupplied();
+    this.logger.info("retrieved content:", this.content, "editor state:", this.editorState);
+    return this.content;
+  }
+
+  private calculateRowsIfNotSupplied() {
     if (!this.rows) {
       this.rows = this.calculateRowsFrom(this.content);
     }
-    this.logger.info("retrieved content:", this.content, "editor state:", this.editorState);
-    return this.content;
   }
 
   private syncContent() {
@@ -240,8 +277,9 @@ export class MarkdownEditorComponent implements OnInit {
   calculateRowsFrom(data: ContentText): number {
     const text = data?.text;
     const rows = text ? text?.split(/\r*\n/).length + 1 : 1;
-    this.logger.debug("number of rows in text ", text, "->", rows);
-    return Math.max(rows, 10);
+    const calculatedRows = Math.min(rows, 10);
+    this.logger.info("number of rows in text ", text, "->", rows, "calculatedRows:", calculatedRows);
+    return calculatedRows;
   }
 
   preview(): void {

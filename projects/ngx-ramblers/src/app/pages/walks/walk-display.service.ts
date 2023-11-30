@@ -67,7 +67,7 @@ export class WalkDisplayService {
   }
 
   walkMode(walk: Walk): WalkViewMode {
-    const expandedWalk = find(this.expandedWalks, {walkId: walk.id}) as ExpandedWalk;
+    const expandedWalk = find(this.expandedWalks, {walkId: walk?.id}) as ExpandedWalk;
     const walkViewMode = expandedWalk ? expandedWalk.mode : this.urlService.pathContainsWalkId() ? WalkViewMode.VIEW_SINGLE : this.urlService.pathContains("edit") ? WalkViewMode.EDIT_FULL_SCREEN : WalkViewMode.LIST;
     this.logger.debug("walkMode:", walkViewMode, "expandedWalk:", expandedWalk);
     return walkViewMode;

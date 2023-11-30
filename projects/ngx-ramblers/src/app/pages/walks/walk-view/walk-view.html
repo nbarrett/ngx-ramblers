@@ -1,7 +1,7 @@
 <div *ngIf="displayedWalk" class="img-thumbnail event-thumbnail">
-  <app-panel-expander [walk]="displayedWalk.walk" [expandable]="allowWalkAdminEdits"
+  <app-walk-panel-expander [walk]="displayedWalk.walk" [expandable]="allowWalkAdminEdits"
                       [collapsable]="true" [collapseAction]="'collapse'">
-  </app-panel-expander>
+  </app-walk-panel-expander>
   <div class="row">
     <div [ngClass]="display.shouldShowFullDetails(displayedWalk)?'col-sm-12 col-lg-6':'col-sm-12'" class="rounded">
       <h1 *ngIf="display.shouldShowFullDetails(displayedWalk)"

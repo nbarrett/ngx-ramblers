@@ -11,9 +11,9 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
   template: `
       <div [ngClass]="{'badge-button': !inline, 'inline-button':inline, 'disabled' : disabled,
               'mr-0': noRightMargin, 'badge-button-active': active, 'w-100': fullWidth, 'float-right': alignRight}"
-              delay=500 tooltip="{{tooltip? null: caption}}">
+              delay=500 tooltip="{{tooltip? null: caption}}" [ngStyle]="{'height.px': height}">
           <fa-icon *ngIf="!iconPositionRight" [icon]="icon"></fa-icon>
-          <span>{{caption}}</span>
+          <span *ngIf="caption">{{caption}}</span>
           <ng-content/>
           <fa-icon class="ml-2" *ngIf="iconPositionRight" [icon]="icon"></fa-icon>
       </div>`
@@ -23,6 +23,7 @@ export class BadgeButtonComponent {
 
   @Input() public tooltip: string;
   @Input() public caption: string;
+  @Input() public height: number;
 
   @Input("iconPositionRight") set iconPositionRightValue(value: boolean) {
     this.iconPositionRight = coerceBooleanProperty(value);

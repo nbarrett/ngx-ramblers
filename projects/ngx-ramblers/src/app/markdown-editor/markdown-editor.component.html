@@ -45,6 +45,6 @@
 <textarea *ngIf="editorState.view==='edit'"
           [(ngModel)]="content.text"
           (ngModelChange)="changeText($event)"
-          class="form-control markdown-textarea" rows="{{rows}}"
+          class="form-control markdown-textarea" [rows]="rows"
           placeholder="Enter {{description}} text here">
 </textarea>

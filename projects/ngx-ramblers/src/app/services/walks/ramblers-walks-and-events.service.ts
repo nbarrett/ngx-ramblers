@@ -18,7 +18,7 @@ import {
   RamblersWalksRawApiResponse,
   RamblersWalksRawApiResponseApiResponse,
   RamblersWalksUploadRequest,
-  WalkListRequest,
+  WalkListRequest, WALKS_MANAGER_API_DATE_FORMAT, WALKS_MANAGER_CSV_DATE_FORMAT,
   WalkUploadColumnHeading,
   WalkUploadRow
 } from "../../models/ramblers-walks-manager";
@@ -67,8 +67,6 @@ export class RamblersWalksAndEventsService {
   private groupsSubject = new ReplaySubject<RamblersGroupsApiResponseApiResponse>();
   private committeeReferenceData: CommitteeReferenceData;
   private ramblers: Ramblers;
-  private WALKS_MANAGER_CSV_DATE_FORMAT = "DD/MM/YYYY";
-  private WALKS_MANAGER_API_DATE_FORMAT = "YYYY-MM-DD";
   private BASE_URL = "/api/ramblers/walks-manager";
   private NEAREST_TOWN_PREFIX = "Nearest Town is ";
 
@@ -148,43 +146,46 @@ export class RamblersWalksAndEventsService {
   }
 
   async listRamblersWalksRawData(dataQueryOptions: DataQueryOptions, ids?: string[]): Promise<RamblersWalksRawApiResponse> {
+    const walkIdsFromCriteria = this.extractWalkIds(dataQueryOptions?.criteria);
+    const usedIds = ids || walkIdsFromCriteria;
     const order = isEqual(dataQueryOptions?.sort, WalkDateDescending) ? "desc" : "asc";
     const sort = isEqual(dataQueryOptions?.sort, WalkDateDescending) || isEqual(dataQueryOptions?.sort, WalkDateAscending) ? "date" : "date";
-    const date = this.createStartDate(dataQueryOptions?.criteria);
-    const dateEnd = this.createEndDate(dataQueryOptions?.criteria);
-    const walkIdsFromCriteria = this.extractWalkIds(dataQueryOptions?.criteria);
-    const body: WalkListRequest = {date, dateEnd, order, sort, rawData: true, limit: 200, ids: ids || walkIdsFromCriteria};
-    this.logger.info("listRamblersWalksRawData:dataQueryOptions:", dataQueryOptions, "body:", body);
+    const date = usedIds.length > 0 ? null : this.createStartDate(dataQueryOptions?.criteria);
+    const dateEnd = usedIds.length > 0 ? null : this.createEndDate(dataQueryOptions?.criteria);
+    const body: WalkListRequest = {date, dateEnd, order, sort, rawData: true, limit: 200, ids: usedIds};
+    this.logger.info("listRamblersWalksRawData:dataQueryOptions:", dataQueryOptions, "ids:", ids, "usedIds:", usedIds, "body:", body);
     const rawData = await this.commonDataService.responseFrom(this.logger, this.http.post<RamblersWalksRawApiResponseApiResponse>(`${this.BASE_URL}/list-walks`, body), this.rawWalksSubject);
     return rawData.response;
   }
 
   private createStartDate(criteria: object): string {
     if (RamblersWalksAndEventsService.isWalkDateGreaterThanOrEqualTo(criteria)) {
-      return this.dateUtils.asMoment(criteria?.walkDate.$gte).format(this.WALKS_MANAGER_API_DATE_FORMAT);
+      return this.dateUtils.asMoment(criteria?.walkDate.$gte).format(WALKS_MANAGER_API_DATE_FORMAT);
     } else if (RamblersWalksAndEventsService.isWalkDateLessThan(criteria) || isEmpty(criteria)) {
-      return this.dateUtils.asMoment().subtract(2, "year").format(this.WALKS_MANAGER_API_DATE_FORMAT);
+      return this.dateUtils.asMoment().subtract(2, "year").format(WALKS_MANAGER_API_DATE_FORMAT);
     } else {
-      return this.dateUtils.asMoment().format(this.WALKS_MANAGER_API_DATE_FORMAT);
+      return this.dateUtils.asMoment().format(WALKS_MANAGER_API_DATE_FORMAT);
     }
   }
 
   private extractWalkIds(criteria: object): string[] {
     if (RamblersWalksAndEventsService.areMongoIdsSupplied(criteria)) {
-      return criteria?._id.$in.map(item => item.toString());
+      return criteria?._id.$in.map(item => item.toString()) || [];
     } else if (RamblersWalksAndEventsService.isWalkDateLessThan(criteria) || isEmpty(criteria)) {
+      return [];
+    } else {
       return [];
     }
   }
 
   private createEndDate(criteria: any): string {
-    this.logger.info("createEndDate.criteria:", criteria, "walkDate value:", criteria?.walkDate, "walkDate formatted:", this.dateUtils.asMoment(criteria?.walkDate).format(this.WALKS_MANAGER_API_DATE_FORMAT));
+    this.logger.info("createEndDate.criteria:", criteria, "walkDate value:", criteria?.walkDate, "walkDate formatted:", this.dateUtils.asMoment(criteria?.walkDate).format(WALKS_MANAGER_API_DATE_FORMAT));
     if (RamblersWalksAndEventsService.isWalkDateLessThan(criteria)) {
-      return this.dateUtils.asMoment(criteria?.walkDate?.$lt).subtract(1, "day").format(this.WALKS_MANAGER_API_DATE_FORMAT);
+      return this.dateUtils.asMoment(criteria?.walkDate?.$lt).subtract(1, "day").format(WALKS_MANAGER_API_DATE_FORMAT);
     } else if (RamblersWalksAndEventsService.isWalkDateLessThanOrEqualTo(criteria)) {
-      return this.dateUtils.asMoment(criteria?.walkDate?.$lte).format(this.WALKS_MANAGER_API_DATE_FORMAT);
+      return this.dateUtils.asMoment(criteria?.walkDate?.$lte).format(WALKS_MANAGER_API_DATE_FORMAT);
     } else {
-      return this.dateUtils.asMoment().add(2, "year").format(this.WALKS_MANAGER_API_DATE_FORMAT);
+      return this.dateUtils.asMoment().add(2, "year").format(WALKS_MANAGER_API_DATE_FORMAT);
     }
   }
 
@@ -257,8 +258,8 @@ export class RamblersWalksAndEventsService {
   }
 
   collectExistingRamblersUrlsFrom(walks: Walk[]): string[] {
-    return walks.filter(walk => walk.ramblersWalkUrl)
-      .map(walk => walk.ramblersWalkUrl);
+    return walks?.filter(walk => walk.ramblersWalkUrl)
+      ?.map(walk => walk.ramblersWalkUrl);
   }
 
   returnWalksExport(walks: Walk[]): WalkExport[] {
@@ -517,7 +518,7 @@ export class RamblersWalksAndEventsService {
     this.logger.debug("walkDistance:", walkDistance);
     const walkAscent: WalkAscent = this.ascentValidationService.parse(walk);
     this.logger.debug("walkAscent:", walkAscent);
-    csvRecord[WalkUploadColumnHeading.DATE] = this.walkDate(walk, this.WALKS_MANAGER_CSV_DATE_FORMAT);
+    csvRecord[WalkUploadColumnHeading.DATE] = this.walkDate(walk, WALKS_MANAGER_CSV_DATE_FORMAT);
     csvRecord[WalkUploadColumnHeading.TITLE] = this.walkTitle(walk);
     csvRecord[WalkUploadColumnHeading.DESCRIPTION] = this.walkDescription(walk);
     csvRecord[WalkUploadColumnHeading.ADDITIONAL_DETAILS] = "";

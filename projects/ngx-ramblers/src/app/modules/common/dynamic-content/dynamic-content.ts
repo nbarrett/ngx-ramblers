@@ -16,7 +16,20 @@ import { BroadcastService } from "../../../services/broadcast-service";
 
 @Component({
   selector: "app-dynamic-content",
-  templateUrl: "./dynamic-content.html",
+  template: `
+    <app-dynamic-content-site-edit [pageContent]="pageContent"
+                                   [contentPathReadOnly]="contentPathReadOnly"
+                                   [notify]="notify"
+                                   [queryCompleted]="queryCompleted"
+                                   [contentPath]="contentPath"
+                                   [contentDescription]="contentDescription"
+                                   [defaultPageContent]="defaultPageContent">
+    </app-dynamic-content-site-edit>
+    <app-dynamic-content-view [pageContent]="pageContent"
+                              [notify]="notify"
+                              [contentPath]="contentPath"
+                              [contentDescription]="contentDescription">
+    </app-dynamic-content-view>`,
   styleUrls: ["./dynamic-content.sass"],
 })
 export class DynamicContentComponent implements OnInit, OnDestroy {
@@ -58,9 +71,9 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
       this.relativePath = paramMap.get("relativePath");
       this.contentPath = this.pageService.contentPath(this.anchor);
       this.contentDescription = this.pageService.contentDescription(this.anchor);
-      this.logger.debug("initialised with relativePath:", this.relativePath, "contentPath:", this.contentPath);
+      this.logger.info("initialised with relativePath:", this.relativePath, "contentPath:", this.contentPath);
       this.pageTitle = this.pageService.pageSubtitle();
-      this.logger.debug("Finding page content for " + this.contentPath);
+      this.logger.info("Finding page content for " + this.contentPath);
       this.refreshPageContent();
       this.authService.authResponse().subscribe(() => this.refreshPageContent());
       this.broadcastService.on(NamedEventType.PAGE_CONTENT_CHANGED, (pageContentData) => {
@@ -75,34 +88,27 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
   }
 
   private refreshPageContent() {
-    this.logger.info("refreshPageContent for", this.contentPath);
-    this.pageContentService.findByPath(this.contentPath)
+    const anchorPath = `${this.urlService.firstPathSegment()}${this.anchor ? `#${this.anchor}` : ""}`;
+    const queryPath = this.contentPath || anchorPath;
+    this.logger.info("refreshPageContent for", this.contentPath, "anchorPath:", anchorPath, "queryPath:", queryPath);
+    this.pageContentService.findByPath(queryPath)
       .then(pageContent => {
         if (pageContent) {
-          this.logger.info("findByPath", this.contentPath, "returned:", pageContent);
+          this.logger.info("findByPath", queryPath, "returned:", pageContent);
           this.pageContentReceived(pageContent);
         } else {
-          this.pageContentService.findByPath(`${this.urlService.firstPathSegment()}${this.anchor ? `#${this.anchor}` : ""}`)
-            .then(pageContent => {
-              if (pageContent) {
-                this.pageContentReceived(pageContent);
-              } else {
-                this.notify.warning({
-                  title: `Page not found`,
-                  message: `The ${this.contentPath} page content was not found`
-                });
-              }
-            });
+          this.notify.warning({
+            title: `Page not found`,
+            message: `The ${queryPath} page content was not found`
+          });
         }
       }).catch(error => {
-      this.logger.info("Page content error found for", this.contentPath, error);
-      this.queryCompleted = true;
-    });
+      this.logger.info("Page content error found for", queryPath, error);
+    }).finally(() => this.queryCompleted = true);
   }
 
   private pageContentReceived(pageContent: PageContent) {
     this.pageContent = pageContent;
-    this.queryCompleted = true;
     if (pageContent) {
       this.logger.info("Page content found for", this.contentPath, "as:", pageContent);
       this.notify.hide();

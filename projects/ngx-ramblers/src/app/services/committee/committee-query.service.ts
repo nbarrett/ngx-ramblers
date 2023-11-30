@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Injectable } from "@angular/core";
 import first from "lodash-es/first";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -27,6 +28,7 @@ import { CommitteeFileService } from "./committee-file.service";
 import { CommitteeReferenceData } from "./committee-reference-data";
 import { toMongoIds } from "../mongo-utils";
 import { SocialEvent } from "../../models/social-events.model";
+import { isNumericRamblersId } from "../path-matchers";
 
 @Injectable({
   providedIn: "root"
@@ -57,14 +59,15 @@ export class CommitteeQueryService {
   }
 
   groupEvents(groupEventsFilter: GroupEventsFilter): Promise<GroupEvent[]> {
-    this.logger.debug("groupEventsFilter", groupEventsFilter);
+    this.logger.info("groupEventsFilter", groupEventsFilter);
     const fromDate = groupEventsFilter.fromDate.value;
     const toDate = groupEventsFilter.toDate.value;
-    this.logger.debug("groupEventsFilter:fromDate", this.displayDatePipe.transform(fromDate), "toDate", this.displayDatePipe.transform(toDate));
+    this.logger.info("groupEventsFilter:fromDate", this.displayDatePipe.transform(fromDate), "toDate", this.displayDatePipe.transform(toDate));
     const events: GroupEvent[] = [];
     const promises = [];
     const committeeContactDetails: CommitteeMember = this.committeeReferenceData?.committeeMembersForRole("secretary")[0];
-    const idBasedCriteria = groupEventsFilter.eventIds?.length > 0 ? {_id: {$in: toMongoIds(groupEventsFilter.eventIds)}} : null;
+    const mongoIds = this.mongoOrRawIdsFrom(groupEventsFilter);
+    const idBasedCriteria = mongoIds?.length > 0 ? {_id: {$in: mongoIds}} : null;
     const regex = {
       $regex: groupEventsFilter.search,
       $options: "i"
@@ -82,7 +85,7 @@ export class CommitteeQueryService {
           }
         })
           .then(walks => this.walksQueryService.activeWalks(walks))
-          .then(walks => walks.forEach(walk => events.push({
+          .then(walks => walks?.forEach(walk => events.push({
             id: walk.id,
             selected: true,
             eventType: GroupEventTypes.WALK,
@@ -147,9 +150,22 @@ export class CommitteeQueryService {
     }
 
     return Promise.all(promises).then(() => {
-      this.logger.debug("performed total of", promises.length, "events types containing total of", events.length, "events:", events);
+      this.logger.info("queried total of", promises.length, "events types containing total of", events.length, "events:", events);
       return events.sort(sortBy(groupEventsFilter.sortBy || "eventDate"));
     });
+  }
+
+  private mongoOrRawIdsFrom(groupEventsFilter: GroupEventsFilter): string[] | mongoose.Types.ObjectId[] {
+    const idsWithoutNumericsRamblersValues: string[] = groupEventsFilter.eventIds.filter(item => !isNumericRamblersId(item));
+    this.logger.info("mongoOrRawIdsFrom:groupEventsFilter.eventIds:", groupEventsFilter.eventIds, "idsWithoutNumericsRamblersValues:", idsWithoutNumericsRamblersValues);
+    if (groupEventsFilter?.eventIds?.length > 0 && idsWithoutNumericsRamblersValues?.length === 0) {
+      this.logger.info("mongoOrRawIdsFrom:returning raw eventIds:", idsWithoutNumericsRamblersValues);
+      return groupEventsFilter?.eventIds || [];
+    } else {
+      const objectIds = toMongoIds(groupEventsFilter.eventIds);
+      this.logger.info("mongoOrRawIdsFrom:returning mongo ids:", objectIds);
+      return objectIds;
+    }
   }
 
   queryAllFiles(): Promise<void> {
@@ -169,7 +185,7 @@ export class CommitteeQueryService {
   }
 
   queryFiles(committeeFileId?: string): Promise<void> {
-    this.logger.debug("queryFiles:committeeFileId:", committeeFileId);
+    this.logger.info("queryFiles:committeeFileId:", committeeFileId);
     if (committeeFileId) {
       return this.committeeFileService.getById(committeeFileId).then(response => this.applyFiles([response]));
     } else {
@@ -181,7 +197,7 @@ export class CommitteeQueryService {
     this.committeeFiles = files
       .filter(file => this.display?.committeeReferenceData?.isPublic(file.fileType) || this.memberLoginService.allowCommittee() || this.memberLoginService.allowFileAdmin())
       .sort(sortBy("-fileDate"));
-    this.logger.debug("applyFiles:committee file count:", this.committeeFiles.length);
+    this.logger.info("applyFiles:committee file count:", this.committeeFiles.length);
   }
 
   committeeFilesLatestFirst() {
@@ -214,7 +230,7 @@ export class CommitteeQueryService {
 
   committeeFileYears(): CommitteeYear[] {
     const latestYearValue = this.latestYear();
-    this.logger.debug("latestYearValue", latestYearValue);
+    this.logger.info("latestYearValue", latestYearValue);
     const years = chain(this.committeeFiles)
       .map(file => this.extractYear(file))
       .filter(year => !isNaN(year))
@@ -222,7 +238,7 @@ export class CommitteeQueryService {
       .map(item => this.addLatestYearFlag(item, latestYearValue))
       .value()
       .sort(descending());
-    this.logger.debug("committeeFileYears", years);
+    this.logger.info("committeeFileYears", years);
     return years.length === 0 ? [{year: this.latestYear(), latestYear: true}] : years;
   }
 

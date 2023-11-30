@@ -24,11 +24,11 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
                   </ng-container>
                   <ng-container *ngIf="!column.rows">
                       <app-markdown-editor [id]="column?.contentTextId"
-                                           [queryOnlyById]="true">
+                                           queryOnlyById>
                       </app-markdown-editor>
                       <app-card-image *ngIf="column?.imageSource"
                                       [borderRadius]="column?.imageBorderRadius"
-                                      [unconstrainedHeight]="true"
+                                      unconstrainedHeight
                                       [imageSource]="column?.imageSource">
                       </app-card-image>
                   </ng-container>

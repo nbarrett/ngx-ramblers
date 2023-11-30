@@ -1,5 +1,9 @@
 import { ApiResponse } from "./api-response.model";
 
+export const WALKS_MANAGER_CSV_DATE_FORMAT = "DD/MM/YYYY";
+export const WALKS_MANAGER_API_DATE_FORMAT = "YYYY-MM-DD";
+export const WALKS_MANAGER_GO_LIVE_DATE = "2023-04-01";
+
 export interface RamblersWalksUploadRequest {
   fileName: string;
   walkIdDeletionList: string[];

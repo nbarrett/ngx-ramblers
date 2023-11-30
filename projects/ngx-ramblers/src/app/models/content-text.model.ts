@@ -62,6 +62,7 @@ export interface AlbumData {
   introductoryText: string;
   coverImageHeight: number;
   coverImageBorderRadius: number;
+  showPreAlbumText: boolean;
   preAlbumText: string;
   albumView: AlbumView;
   gridViewOptions: GridViewOptions;

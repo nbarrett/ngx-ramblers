@@ -31,16 +31,16 @@ export class WalksQueryService {
   }
 
   activeWalks(walks: Walk[]) {
-    return walks.filter(walk => this.activeWalk(walk));
+    return walks?.filter(walk => this.activeWalk(walk));
   }
 
   deletedWalks(walks: Walk[]) {
-    return walks.filter(walk => this.deletedWalk(walk));
+    return walks?.filter(walk => this.deletedWalk(walk));
   }
 
   nextWalkId(walks: Walk[]): string {
     const today = this.dateUtils.momentNowNoTime().valueOf();
-    const nextWalk: Walk = first(cloneDeep(walks).filter((walk: Walk) => walk.walkDate >= today).sort(sortBy("walkDate")));
+    const nextWalk: Walk = first(cloneDeep(walks)?.filter((walk: Walk) => walk.walkDate >= today)?.sort(sortBy("walkDate")));
     this.logger.info("nextWalk:", nextWalk);
     return nextWalk?.id;
   }

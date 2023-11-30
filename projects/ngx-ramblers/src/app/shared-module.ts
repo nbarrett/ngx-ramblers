@@ -59,7 +59,7 @@ import { ImageListEditComponent } from "./carousel/edit/image-list-edit/image-li
 import { TagEditorComponent } from "./pages/tag/tag-editor.component";
 import { RelatedLinkComponent } from "./modules/common/related-link/related-link.component";
 import { TagManagerComponent } from "./pages/tag/tag-manager.component";
-import { PanelExpanderComponent } from "./panel-expander/panel-expander.component";
+import { WalkPanelExpanderComponent } from "./panel-expander/walk-panel-expander";
 import { AuditDeltaChangedItemsPipePipe } from "./pipes/audit-delta-changed-items.pipe";
 import { AuditDeltaValuePipe } from "./pipes/audit-delta-value.pipe";
 import { ChangedItemsPipe } from "./pipes/changed-items.pipe";
@@ -124,6 +124,7 @@ import { AlbumGalleryComponent } from "./album/view/album-gallery";
 import { GroupEventSelectorComponent } from "./group-events-selector/group-event-selector";
 import { GroupEventTypeSelectorComponent } from "./group-events-selector/group-event-type-selector";
 import { DynamicContentSiteEditAlbumComponent } from "./modules/common/dynamic-content/dynamic-content-site-edit-album";
+import { ColumnWidthComponent } from "./modules/common/dynamic-content/column-width";
 
 @NgModule({
   imports: [
@@ -162,6 +163,7 @@ import { DynamicContentSiteEditAlbumComponent } from "./modules/common/dynamic-c
     AspectRatioSelectorComponent,
     BadgeButtonComponent,
     BulkActionSelectorComponent,
+    ColumnWidthComponent,
     AlbumComponent,
     AlbumGalleryComponent,
     AlbumGridComponent,
@@ -218,7 +220,7 @@ import { DynamicContentSiteEditAlbumComponent } from "./modules/common/dynamic-c
     MemberIdsToFullNamesPipe,
     MoneyPipe,
     PageComponent,
-    PanelExpanderComponent,
+    WalkPanelExpanderComponent,
     RelatedLinkComponent,
     RowSettingsActionButtonsComponent,
     RowSettingsCarouselComponent,
@@ -288,7 +290,7 @@ import { DynamicContentSiteEditAlbumComponent } from "./modules/common/dynamic-c
     NgSelectModule,
     PageComponent,
     PaginationModule,
-    PanelExpanderComponent,
+    WalkPanelExpanderComponent,
     PopoverModule,
     RelatedLinkComponent,
     RouterModule,

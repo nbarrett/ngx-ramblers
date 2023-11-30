@@ -17,7 +17,7 @@
                   (ngModelChange)="applyFilterToMemberResources()" name="filter"
                   class="form-control input-md rounded ml-2">
             <option
-              *ngFor="let accessLevel of memberResourcesReferenceData.accessLevelViewTypes() trackBy accessLevelTracker"
+              *ngFor="let accessLevel of memberResourcesReferenceData.accessLevelViewTypes()"
               [textContent]="'View As ' + accessLevel.description"
               [ngValue]="accessLevel">
           </select>
