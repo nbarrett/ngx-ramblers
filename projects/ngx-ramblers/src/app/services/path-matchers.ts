@@ -24,10 +24,7 @@ export function hasMongoId(urlSegments: UrlSegment[]): UrlMatchResult {
 }
 
 export function isNumericRamblersId(value: string) {
-  const asNumber = +value;
-  const isGreater = asNumber > 100000000;
-  console.log("isNumericRamblersId:value:", value, "asNumber:", asNumber,"isNumericRamblersId:", isGreater);
-  return isGreater;
+  return +value > 100000000;
 }
 
 export function hasRamblersIdOrUrl(urlSegments: UrlSegment[]): UrlMatchResult {

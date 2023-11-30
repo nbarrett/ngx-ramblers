@@ -45,6 +45,7 @@ export function create(model: any, data: any) {
 
 export function connect() {
   return mongoose.connect(envConfig.mongo.uri, {
+    useUnifiedTopology: true,
     keepAlive: true,
     useNewUrlParser: true,
   }).then(response => {
