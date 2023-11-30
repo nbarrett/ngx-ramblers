@@ -18,6 +18,7 @@ export class SystemConfigService {
 
   private subject = new ReplaySubject<SystemConfig>();
   private logger: Logger;
+  private cachedSystemConfig: SystemConfig;
 
   constructor(private config: ConfigService,
               private broadcastService: BroadcastService<SystemConfig>,
@@ -29,11 +30,11 @@ export class SystemConfigService {
   }
 
   async refresh() {
-      this.logger.info("systemConfig query:started");
-      const systemConfig = await this.getConfig();
-      this.logger.info("notifying systemConfig subscribers with:", systemConfig);
-      this.subject.next(systemConfig);
-      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SYSTEM_CONFIG_LOADED, systemConfig));
+      this.logger.info("cachedSystemConfig query:started");
+      this.cachedSystemConfig = await this.getConfig();
+      this.logger.info("notifying cachedSystemConfig subscribers with:", this.cachedSystemConfig);
+      this.subject.next(this.cachedSystemConfig);
+      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SYSTEM_CONFIG_LOADED, this.cachedSystemConfig));
   }
 
   private async getConfig(): Promise<SystemConfig> {
@@ -48,6 +49,9 @@ export class SystemConfigService {
     return this.config.saveConfig<SystemConfig>(ConfigKey.SYSTEM, config).then(() => this.refresh());
   }
 
+  public systemConfig(): SystemConfig {
+    return this.cachedSystemConfig;
+  }
   public events(): Observable<SystemConfig> {
     return this.subject.pipe(shareReplay());
   }

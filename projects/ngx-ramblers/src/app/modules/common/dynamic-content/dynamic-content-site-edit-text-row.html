@@ -7,14 +7,12 @@
           <div class="thumbnail-heading">Col {{columnIndex + 1}}</div>
           <app-markdown-editor (saved)="actions.saveContentTextId($event, rowIndex, column, pageContent)"
                                (focusChange)="markdownEditorFocusChange($event)"
-                               [buttonsAvailableOnlyOnFocus]="true"
-                               [category]="contentPath"
-                               [queryOnlyById]="true"
-                               [unlinkEnabled]="true"
+                               buttonsAvailableOnlyOnFocus queryOnlyById allowMaximise unlinkEnabled
                                [description]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentDescription)"
                                [id]="column?.contentTextId"
                                [initialView]="actions.view()"
-                               [name]="actions.parentRowColFor(parentRowIndex, rowIndex, columnIndex)">
+                               [name]="actions.parentRowColFor(parentRowIndex, rowIndex, columnIndex)"
+                               [category]="contentPath">
             <ng-container prepend>
               <div class="form-group">
                 <label
@@ -28,18 +26,11 @@
                 </select>
               </div>
               <div class="form-group">
-                <label
-                  [for]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'column-width-' + contentPath)">Width</label>
-                <input #input (input)="actions.changeColumnWidthFor(input, column)"
-                       [id]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'column-width-' + contentPath)"
-                       [value]="column.columns"
-                       autocomplete="columns"
-                       class="form-control input-sm" placeholder="Enter number of columns (1-12)"
-                       type="number">
+                <app-column-width [column]="column" (expandToggle)="expanded=$event"/>
               </div>
               <app-badge-button (click)="editImage(rowIndex, columnIndex)"
                                 [icon]="column.imageSource? faPencil : faAdd"
-                                [caption]="column?.imageSource ? 'edit' : 'add' + ' image'">
+                                [caption]="(column?.imageSource ? 'edit' : 'add') + ' image'">
               </app-badge-button>
               <app-actions-dropdown
                 [columnIndex]="columnIndex"
@@ -49,21 +40,22 @@
               </app-actions-dropdown>
             </ng-container>
           </app-markdown-editor>
-          <div class="mt-2 mb-3">
-            <ng-container *ngIf="editActive(rowIndex, columnIndex)">
-              <div class="mb-2">
-                <app-image-cropper-and-resizer
-                  [preloadImage]="column?.imageSource"
-                  (imageChange)="imageChanged(rowIndex, columnIndex, $event)"
-                  (quit)="exitImageEdit(rowIndex, columnIndex)"
-                  (save)="imagedSaved(rowIndex, columnIndex, column, $event)">
-                </app-image-cropper-and-resizer>
-              </div>
-              <app-card-image [borderRadius]="column?.imageBorderRadius"
-                              [unconstrainedHeight]="true"
-                              [imageSource]="imageSource(rowIndex, columnIndex, column?.imageSource)">
-              </app-card-image>
-            </ng-container>
+          <div *ngIf="imageSource(rowIndex, columnIndex, column?.imageSource) || editActive(rowIndex, columnIndex)"
+               class="mt-2 mb-3">
+            <div class="mb-2">
+              <app-image-cropper-and-resizer
+                *ngIf="editActive(rowIndex, columnIndex)"
+                [preloadImage]="column?.imageSource"
+                (imageChange)="imageChanged(rowIndex, columnIndex, $event)"
+                (quit)="exitImageEdit(rowIndex, columnIndex)"
+                (save)="imagedSaved(rowIndex, columnIndex, column, $event)">
+              </app-image-cropper-and-resizer>
+            </div>
+            <app-card-image
+              [borderRadius]="column?.imageBorderRadius"
+              unconstrainedHeight
+              [imageSource]="imageSource(rowIndex, columnIndex, column?.imageSource)">
+            </app-card-image>
             <div class="row mt-2">
               <div [class]="imagePropertyColumnClasses(column)">
                 <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'name')">
@@ -99,19 +91,22 @@
               ({{stringUtils.pluraliseWithCount(row?.columns.length, 'column')}}))
             </div>
             <div class="row align-items-end mb-3">
-              <div class="col-sm-4">
+              <div class="col">
                 <app-margin-select label="Margin Top"
                                    [data]="row"
                                    field="marginTop">
                 </app-margin-select>
               </div>
-              <div class="col-sm-4">
+              <div class="col">
                 <app-margin-select label="Margin Bottom"
                                    [data]="row"
                                    field="marginBottom">
                 </app-margin-select>
               </div>
-              <div class="col-sm-4">
+              <div class="col">
+                <app-column-width [column]="column" (expandToggle)="expanded=$event"></app-column-width>
+              </div>
+              <div class="col">
                 <app-actions-dropdown [rowIndex]="nestedRowIndex"
                                       [pageContent]="pageContent"
                                       [rowIsNested]="true"
@@ -119,6 +114,7 @@
                                       [row]="row">
                 </app-actions-dropdown>
               </div>
+
             </div>
             <app-dynamic-content-site-edit-text-row
               [row]="row"

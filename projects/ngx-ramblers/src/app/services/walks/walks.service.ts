@@ -44,8 +44,8 @@ export class WalksService {
   }
 
   async all(dataQueryOptions?: DataQueryOptions): Promise<Walk[]> {
-    this.logger.info("all called with walkPopulation:", this.group.walkPopulation);
-    switch (this.group.walkPopulation) {
+    this.logger.info("all called with walkPopulation:", this.group?.walkPopulation);
+    switch (this.group?.walkPopulation) {
       case WalkPopulation.WALKS_MANAGER:
         return this.ramblersWalksAndEventsService.all(dataQueryOptions);
       case WalkPopulation.LOCAL:
@@ -66,7 +66,7 @@ export class WalksService {
   }
 
   async getByIdIfPossible(walkId: string): Promise<Walk | null> {
-    switch (this.group.walkPopulation) {
+    switch (this?.group?.walkPopulation) {
       case WalkPopulation.WALKS_MANAGER:
         return this.ramblersWalksAndEventsService.getByIdIfPossible(walkId);
       case WalkPopulation.LOCAL:

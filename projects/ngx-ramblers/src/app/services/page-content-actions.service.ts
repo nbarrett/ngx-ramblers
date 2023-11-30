@@ -97,6 +97,7 @@ export class PageContentActionsService {
       coverImageHeight: 400,
       coverImageBorderRadius: 6,
       showCoverImageAndText: true,
+      showPreAlbumText: true,
       preAlbumText: null,
       albumView: AlbumView.GRID,
       gridViewOptions: DEFAULT_GRID_OPTIONS,

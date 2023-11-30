@@ -31,8 +31,8 @@ import { LazyLoadingMetadata } from "../../../models/content-metadata.model";
                           [imageSource]="urlService.imageSourceFor({image:lazyLoadingMetadata.contentMetadata?.coverImage},
                                   lazyLoadingMetadata.contentMetadata)">
           </app-card-image>
-          <div markdown [data]="row.carousel.preAlbumText" class="mt-2"></div>
         </div>
+        <div *ngIf="row.carousel?.showPreAlbumText" markdown [data]="row.carousel.preAlbumText" class="col-sm-12 mt-2"></div>
         <div class="col-sm-12">
           <app-album (lazyLoadingMetadataChange)="lazyLoadingMetadata=$event" [album]="row.carousel"
                      [index]="index"></app-album>
