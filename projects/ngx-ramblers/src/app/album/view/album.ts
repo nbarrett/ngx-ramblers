@@ -117,7 +117,7 @@ export class AlbumComponent implements OnInit {
     this.logger.info("ngOnInit:querying metadata service with root folder", RootFolder.carousels, "album name:", this.album?.name);
     this.contentMetadataService.items(RootFolder.carousels, this.album?.name)
       .then(contentMetadata => {
-        this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata, contentMetadata.files);
+        this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata);
         this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
         this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS, 10);
         this.noImages = !contentMetadata;

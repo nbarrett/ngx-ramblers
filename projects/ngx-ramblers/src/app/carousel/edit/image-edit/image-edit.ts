@@ -45,6 +45,7 @@ export class ImageEditComponent implements OnInit {
 
   @Input("duplicateImages") set acceptDuplicateImagesFrom(duplicateImages: DuplicateImages) {
     this.duplicateImages = duplicateImages;
+    this.logger.info("duplicateImages received for", this.item, duplicateImages);
   }
 
   @Input("contentMetadataImageTags") set acceptImageTagChangesFrom(imageTags: ImageTag[]) {
@@ -153,8 +154,11 @@ export class ImageEditComponent implements OnInit {
     if (this.imageDuplicatesService.duplicatedContentMetadataItems(item, this.duplicateImages).length > 0) {
       this.notify.error({
         title: this.imageDuplicatesService.duplicateCount(item, this.duplicateImages),
-        message: this.imageDuplicatesService.duplicates(item, this.duplicateImages, this.filteredFiles)
+        message: this.imageDuplicatesService.duplicates(item, this.duplicateImages, this.filteredFiles),
+        continue: true
       });
+    } else {
+      this.notify.hide();
     }
   }
 
@@ -173,7 +177,8 @@ export class ImageEditComponent implements OnInit {
     this.logger.debug("errorEvent:", errorEvent);
     this.notify.error({
       title: "Image cropping error occurred",
-      message: (errorEvent ? (". Error was: " + JSON.stringify(errorEvent)) : "")
+      message: (errorEvent ? (". Error was: " + JSON.stringify(errorEvent)) : ""),
+      continue: true
     });
     this.notify.clearBusy();
   }

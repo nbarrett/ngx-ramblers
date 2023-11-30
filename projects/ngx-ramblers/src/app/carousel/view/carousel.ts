@@ -83,7 +83,7 @@ export class CarouselComponent implements OnInit, OnDestroy {
     } else {
       this.contentMetadataService.items(RootFolder.carousels, this.album?.name)
         .then(contentMetadata => {
-          this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata, contentMetadata.files);
+          this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata);
           this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
           this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS);
           this.logger.info("internally initialised with", this?.lazyLoadingMetadata?.contentMetadata?.files?.length, "slides in total", "lazyLoadingMetadata:", this.lazyLoadingMetadata, "duplicateImages:", this.duplicateImages);

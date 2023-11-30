@@ -55,6 +55,8 @@ import {
 } from "../../../models/aws-object.model";
 import { FileUtilsService } from "../../../file-utils.service";
 import { base64ToFile } from "ngx-image-cropper";
+import keys from "lodash-es/keys";
+import isEmpty from "lodash-es/isEmpty";
 
 @Component({
   selector: "app-image-list-edit",
@@ -324,8 +326,12 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.filterFiles();
     this.pageCount = this.calculatePageCount();
     this.applyPagination();
-    this.duplicateImages = this.imageDuplicatesService.populateFrom(this.contentMetadata, this.filteredFiles);
+    this.detectDuplicates();
     this.alertWarnings();
+  }
+
+  private detectDuplicates() {
+    this.duplicateImages = this.imageDuplicatesService.populateFrom(this.contentMetadata);
   }
 
   private filterFiles() {
@@ -511,6 +517,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
       this.contentMetadata.files.splice(index, 1);
       this.logger.debug("delete:after count", this.contentMetadata?.files?.length);
       this.applyFilter();
+      this.detectDuplicates();
     } else {
       this.logger.warn("cant delete", item);
     }
@@ -531,11 +538,16 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
     this.logger.debug("insert:new items", items, "after:", this.contentMetadata.files);
     this.addToChangedItems(...items);
+    this.detectDuplicates();
   }
 
   alertWarnings() {
     if (this.unsavedImages().length > 0) {
-      this.warnings.warning({title: "Unsaved Changes", message: this.alertText()});
+      if (isEmpty(this.duplicateMessage())) {
+        this.warnings.warning({title: "Unsaved Changes", message: this.alertText()});
+      } else {
+        this.warnings.error({title: "Unsaved Changes", message: this.alertText(), continue: true});
+      }
     } else {
       this.warnings.hide();
     }
@@ -584,7 +596,13 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   alertText() {
-    return `You have ${this.stringUtils.pluraliseWithCount(this.unsavedImages()?.length, "unsaved image")}`;
+    const duplicateMessage = this.duplicateMessage();
+    return `You have ${this.stringUtils.pluraliseWithCount(this.unsavedImages()?.length, "unsaved image")}${duplicateMessage}`;
+  }
+
+  private duplicateMessage(): string {
+    const duplicatedImages: string[] = keys(this.duplicateImages);
+    return duplicatedImages.length > 0 ? ` and ${this.stringUtils.pluralise(duplicatedImages.length, "a duplicate", "duplicates")} on ${this.stringUtils.pluraliseWithCount(duplicatedImages.length, "image")} will need to be resolved before you can save this album` : "";
   }
 
   toggleManageTags() {

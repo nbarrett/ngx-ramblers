@@ -21,18 +21,18 @@ export class ImageDuplicatesService {
 
   duplicateCount(item: ContentMetadataItem, duplicateImages: DuplicateImages): string {
     const count = this.duplicatedContentMetadataItems(item, duplicateImages)?.length || 0;
-    return count > 0 ? `${this.stringUtils.pluraliseWithCount(count, "duplicate")}:` : "No duplicates";
+    return count > 0 ? `${this.stringUtils.pluraliseWithCount(count, "duplicate")}` : "No duplicates";
   }
 
   public duplicatedContentMetadataItems(item: ContentMetadataItem, duplicateImages: DuplicateImages): ContentMetadataItem[] {
     const duplicates = duplicateImages[item.image || item.base64Content];
     const items = duplicates?.filter(file => isEqual(file, item)) || [];
-    this.logger.info("duplicates for image:", item.image, "duplicates:", duplicates, "items:", items);
+    this.logger.info("duplicates for image:", item.image || item.originalFileName, "duplicates:", duplicates, "items:", items);
     return items;
   }
 
   duplicates(item: ContentMetadataItem, duplicateImages: DuplicateImages, filteredFiles: ContentMetadataItem[]): string {
-    return (this.duplicatedContentMetadataItems(item, duplicateImages) || []).map(item => `${item.text} (image ${(this.imageNumber(item, filteredFiles))})`).join(", ");
+    return (this.duplicatedContentMetadataItems(item, duplicateImages) || []).map(item => `${item.text || item.originalFileName} (image ${(this.imageNumber(item, filteredFiles))})`).join(", ");
   }
 
   private imageNumber(item: ContentMetadataItem, filteredFiles: ContentMetadataItem[]) {
@@ -40,9 +40,9 @@ export class ImageDuplicatesService {
     return (indexOf === -1 ? filteredFiles.indexOf(filteredFiles.find(file => isEqual(file, item))) : indexOf) + 1;
   }
 
-  populateFrom(contentMetadata: ContentMetadata, filteredFiles: ContentMetadataItem[]): DuplicateImages {
-    if (contentMetadata?.files && filteredFiles) {
-      this.logger.info("populateFrom total number:", contentMetadata.files.length, "filtered number:", filteredFiles.length);
+  populateFrom(contentMetadata: ContentMetadata): DuplicateImages {
+    if (contentMetadata?.files) {
+      this.logger.info("populateFrom total number:", contentMetadata.files.length);
       const duplicateImages = groupBy(contentMetadata.files, item => item.image || item.base64Content);
       this.logger.info("duplicateImages pre-clean:", cloneDeep(duplicateImages));
       each(duplicateImages, (items, image) => {
