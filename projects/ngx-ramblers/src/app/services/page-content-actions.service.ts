@@ -105,7 +105,8 @@ export class PageContentActionsService {
       allowSwitchView: false,
       showStoryNavigator: true,
       showIndicators: true,
-      slideInterval: 5000
+      slideInterval: 5000,
+      height: null
     };
   }
 

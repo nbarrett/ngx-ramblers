@@ -14,7 +14,14 @@ import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { MailchimpConfig } from "../../../models/mailchimp.model";
 import { DeletedMember, DuplicateMember, Member } from "../../../models/member.model";
-import { ASCENDING, DESCENDING, MEMBER_SORT, MemberTableFilter, NOT_RECEIVED_IN_LAST_RAMBLERS_BULK_LOAD, SELECT_ALL } from "../../../models/table-filtering.model";
+import {
+  ASCENDING,
+  DESCENDING,
+  MEMBER_SORT,
+  MemberTableFilter,
+  NOT_RECEIVED_IN_LAST_RAMBLERS_BULK_LOAD,
+  SELECT_ALL
+} from "../../../models/table-filtering.model";
 import { Confirm, ConfirmType, EditMode } from "../../../models/ui-actions";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { ApiResponseProcessor } from "../../../services/api-response-processor.service";
@@ -34,6 +41,8 @@ import { UrlService } from "../../../services/url.service";
 import { MemberAdminModalComponent } from "../member-admin-modal/member-admin-modal.component";
 import { ProfileService } from "../profile/profile.service";
 import { SendEmailsModalComponent } from "../send-emails/send-emails-modal.component";
+import { WalksService } from "../../../services/walks/walks.service";
+import { SystemConfigService } from "../../../services/system/system-config.service";
 
 @Component({
   selector: "app-member-admin",
@@ -61,6 +70,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   faUserXmark = faUserXmark;
   public mailchimpConfig: MailchimpConfig;
   public noMailchimpListsConfigured: boolean;
+  private walkLeaders: string[];
 
   constructor(private mailchimpConfigService: MailchimpConfigService,
               private memberService: MemberService,
@@ -69,7 +79,9 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
               private searchFilterPipe: SearchFilterPipe,
               private modalService: BsModalService,
               private notifierService: NotifierService,
+              private systemConfigService: SystemConfigService,
               private deletedMemberService: DeletedMemberService,
+              private walksService: WalksService,
               private dateUtils: DateUtilsService,
               private urlService: UrlService,
               private mailchimpListService: MailchimpListService,
@@ -85,7 +97,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     this.searchChangeObservable = new Subject<string>();
   }
 
-  ngOnInit() {
+  async ngOnInit() {
     this.mailchimpConfigService.getConfig().then((mailchimpConfig: MailchimpConfig) => {
       this.mailchimpConfig = mailchimpConfig;
       this.noMailchimpListsConfigured = keys(mailchimpConfig.lists).length === 0;
@@ -111,7 +123,9 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
             filter: member => !member.membershipExpiryDate || (member.membershipExpiryDate >= this.today)
           },
           {
-            title: "Membership Date Expired", group: "From Ramblers Supplied Data", filter: member => member.membershipExpiryDate < this.today
+            title: "Membership Date Expired",
+            group: "From Ramblers Supplied Data",
+            filter: member => member.membershipExpiryDate < this.today
           },
           {
             title: NOT_RECEIVED_IN_LAST_RAMBLERS_BULK_LOAD,
@@ -130,7 +144,9 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
             title: "Walk Admin", group: "Administrators", filter: member => member.walkAdmin
           },
           {
-            title: "Walk Change Notifications", group: "Administrators", filter: member => member.walkChangeNotifications
+            title: "Walk Change Notifications",
+            group: "Administrators",
+            filter: member => member.walkChangeNotifications
           },
           {
             title: "Social Admin", group: "Administrators", filter: member => member.socialAdmin
@@ -153,6 +169,9 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
           {
             title: "Committee Member", group: "Administrators", filter: member => member.committee
           },
+          {
+            title: "Walk Leader", group: "Administrators", filter: member => this.isWalkLeader(member)
+          },
           this.mailchimpConfig?.lists?.general ? {
             title: "Subscribed to the General emails list",
             group: "Email Subscriptions",
@@ -174,6 +193,11 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       this.logger.info("mailchimpConfig:", mailchimpConfig, "this.noMailchimpListsConfigured", this.noMailchimpListsConfigured);
       this.refreshMembers();
     });
+    this.logger.info("subscribing to systemConfigService events");
+    this.subscriptions.push(this.systemConfigService.events().subscribe(async item => {
+      this.walkLeaders = await this.walksService.queryPreviousWalkLeaderIds();
+      this.logger.info("walkLeaders:", this.walkLeaders);
+    }));
     this.subscriptions.push(this.profileService.subscribeToLogout(this.logger));
     this.logger.off("ngOnInit");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -184,7 +208,6 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       .pipe(distinctUntilChanged())
       .subscribe(searchTerm => this.applyFilterToMembers(searchTerm)));
     this.memberLoginService.showLoginPromptWithRouteParameter("expenseId");
-    ;
     this.logger.off("this.memberFilter:", this.memberFilter);
     this.subscriptions.push(this.memberService.notifications().subscribe(apiResponse => {
       if (apiResponse.error) {
@@ -200,20 +223,26 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
+  isWalkLeader(member: Member): boolean {
+    return this.walkLeaders.includes(member.id) || this.walkLeaders.includes(member.displayName);
+  }
+
   onSearchChange(searchEntry: string) {
     this.logger.off("received searchEntry:" + searchEntry);
     this.searchChangeObservable.next(searchEntry);
   }
 
   applyFilterToMembers(searchTerm?: string) {
-    this.notify.setBusy();
-    const filter = this.memberFilter.selectedFilter.filter;
-    const sort = this.memberFilter.sortFunction;
-    this.logger.off("applyFilterToMembers:filter:", filter, "sort:", sort, "reverseSort:", this.memberFilter.reverseSort);
-    const members = sortBy(this.searchFilterPipe.transform(this.members.filter(filter), this.quickSearch), sort);
-    this.memberFilter.results = this.memberFilter.reverseSort ? members.reverse() : members;
-    this.logger.off("applyFilterToMembers:searchTerm:", searchTerm, "filterParameters.quickSearch:", this.quickSearch, "filtered", this.members.length, "members ->", this.memberFilter.results.length, "sort", sort, "this.memberFilter.reverseSort", this.memberFilter.reverseSort);
-    this.notify.clearBusy();
+    if (this.memberFilter) {
+      this.notify.setBusy();
+      const filter = this.memberFilter?.selectedFilter?.filter;
+      const sort = this.memberFilter.sortFunction;
+      this.logger.off("applyFilterToMembers:filter:", filter, "sort:", sort, "reverseSort:", this.memberFilter.reverseSort);
+      const members = sortBy(this.searchFilterPipe.transform(this.members.filter(filter), this.quickSearch), sort);
+      this.memberFilter.results = this.memberFilter.reverseSort ? members.reverse() : members;
+      this.logger.off("applyFilterToMembers:searchTerm:", searchTerm, "filterParameters.quickSearch:", this.quickSearch, "filtered", this.members.length, "members ->", this.memberFilter.results.length, "sort", sort, "this.memberFilter.reverseSort", this.memberFilter.reverseSort);
+      this.notify.clearBusy();
+    }
   }
 
   showMemberDialog(member: Member, editMode: EditMode) {

@@ -11,8 +11,12 @@
                 [(activeSlide)]="lazyLoadingMetadata.activeSlideIndex"
                 (activeSlideChange)="activeSlideChange(false, $event)">
         <slide *ngFor="let slide of lazyLoadingMetadata?.selectedSlides">
-          <img class="img-fluid w-100" loading="lazy" *ngIf="slide" [src]="imageSourceFor(slide)"
-               [alt]="slide.text">
+          <img loading="lazy" *ngIf="slide" [src]="imageSourceFor(slide)"
+               [alt]="slide.text" [ngStyle]="{'height.px': album.height,
+                'min-width': '100%',
+                 'max-width': '100%',
+                 'object-fit': 'cover',
+                 'object-position': 'center'}">
           <div class="carousel-caption">
             <h4>{{slide.text}}</h4>
             <div *ngIf="slide.eventId">

@@ -7,6 +7,7 @@ import { WalkAccessMode } from "./walk-edit-mode.model";
 import { WalkEventType } from "./walk-event-type.model";
 import { WalkEvent } from "./walk-event.model";
 import { WalkVenue } from "./walk-venue.model";
+import { WalkLeader } from "./ramblers-walks-manager";
 
 export interface GoogleMapsConfig {
   apiKey: string;
@@ -103,6 +104,11 @@ export interface WalkApiResponse extends ApiResponse {
 export interface WalkLeaderIdsApiResponse extends ApiResponse {
   request: any;
   response?: string[];
+}
+
+export interface WalkLeadersApiResponse extends ApiResponse {
+  request: any;
+  response?: WalkLeader[];
 }
 
 export enum WalkType {

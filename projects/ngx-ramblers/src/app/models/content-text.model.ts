@@ -76,6 +76,7 @@ export interface AlbumData {
   slideInterval: number;
   showIndicators: boolean;
   showStoryNavigator: boolean;
+  height: number;
 }
 
 export interface AlbumIndex {

@@ -18,7 +18,11 @@ import {
   RamblersWalksRawApiResponse,
   RamblersWalksRawApiResponseApiResponse,
   RamblersWalksUploadRequest,
-  WalkListRequest, WALKS_MANAGER_API_DATE_FORMAT, WALKS_MANAGER_CSV_DATE_FORMAT,
+  WalkLeader,
+  WalkListRequest,
+  WALKS_MANAGER_API_DATE_FORMAT,
+  WALKS_MANAGER_CSV_DATE_FORMAT,
+  WALKS_MANAGER_GO_LIVE_DATE,
   WalkUploadColumnHeading,
   WalkUploadRow
 } from "../../models/ramblers-walks-manager";
@@ -34,6 +38,7 @@ import {
   WalkDateLessThanOrEqualTo,
   WalkDistance,
   WalkExport,
+  WalkLeadersApiResponse,
   WalkType
 } from "../../models/walk.model";
 import { WalkDisplayService } from "../../pages/walks/walk-display.service";
@@ -62,6 +67,7 @@ import { isNumericRamblersId } from "../path-matchers";
 export class RamblersWalksAndEventsService {
   private readonly logger: Logger;
   private auditSubject = new ReplaySubject<RamblersUploadAuditApiResponse>();
+  private walkLeadersSubject = new ReplaySubject<WalkLeadersApiResponse>();
   private walksSubject = new ReplaySubject<RamblersWalksApiResponse>();
   private rawWalksSubject = new ReplaySubject<RamblersWalksRawApiResponseApiResponse>();
   private groupsSubject = new ReplaySubject<RamblersGroupsApiResponseApiResponse>();
@@ -120,6 +126,16 @@ export class RamblersWalksAndEventsService {
 
   uploadRamblersWalks(data: RamblersWalksUploadRequest): Promise<ApiResponse> {
     return this.commonDataService.responseFrom(this.logger, this.http.post<RamblersUploadAuditApiResponse>(`${this.BASE_URL}/upload-walks`, data), this.auditSubject);
+  }
+
+  async queryPreviousWalkLeaderIds(): Promise<WalkLeader[]> {
+    this.logger.debug("queryPreviousWalkLeaderIds:");
+    const date = WALKS_MANAGER_GO_LIVE_DATE;
+    const dateEnd = this.dateUtils.asMoment().add(2, "month").format(WALKS_MANAGER_API_DATE_FORMAT);
+    const body: WalkListRequest = {date, dateEnd, limit: 2000};
+    this.logger.info("queryPreviousWalkLeaderIds:body:", body);
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<WalkLeadersApiResponse>(`${this.BASE_URL}/walk-leader-ids`, body), this.walkLeadersSubject);
+    return apiResponse.response;
   }
 
   async getByIdIfPossible(walkId: string): Promise<Walk> {

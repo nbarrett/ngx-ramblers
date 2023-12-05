@@ -27,53 +27,56 @@ import { ImageDuplicatesService } from "../../services/image-duplicates-service"
 @Component({
   selector: "app-album",
   template: `
-    <div class="row h-100">
-      <div *ngIf="album.allowSwitchView" class="col-sm-12">
-        <div class="float-right mb-1">
-          <app-badge-button [tooltip]="'view as carousel'" [active]="albumView===AlbumView.CAROUSEL"
-                            [icon]="faImage"
-                            (click)="switchToView(AlbumView.CAROUSEL)" caption="carousel"/>
-          <app-badge-button [tooltip]="'view as gallery'" [active]="albumView===AlbumView.GALLERY"
-                            [icon]="faPhotoFilm"
-                            (click)="switchToView(AlbumView.GALLERY)" caption="gallery"/>
-          <app-badge-button [tooltip]="'view as grid'" [active]="albumView===AlbumView.GRID"
-                            [icon]="faTableCells"
-                            [noRightMargin]="albumView!==AlbumView.GRID"
-                            (click)="switchToView(AlbumView.GRID)" caption="grid"/>
-          <app-badge-button *ngIf="albumView===AlbumView.GRID" [tooltip]="'show titles'"
-                            [active]="gridViewOptions?.showTitles" [icon]="faRectangleAd"
-                            noRightMargin
-                            (click)="toggleShowTitles()"
-                            [caption]="gridViewOptions?.showTitles? 'hide titles':'show titles'"/>
-        </div>
-      </div>
-      <div class="col-sm-12  my-auto">
-        <div class="alert alert-warning" *ngIf="noImages">
-          <fa-icon [icon]="faCircleInfo"/>
-          <strong class="ml-1">No images exist in this album</strong>
-          <div>Click the <strong>Edit images in album</strong> button on the left to create new images in
-            the {{album.name}} album
+      <div class="row h-100">
+          <div class="col-sm-12">
+              <div class="float-right mb-1">
+                  <ng-content/>
+                  <ng-container *ngIf="album.allowSwitchView">
+                      <app-badge-button [tooltip]="'view as carousel'" [active]="albumView===AlbumView.CAROUSEL"
+                                        [icon]="faImage"
+                                        (click)="switchToView(AlbumView.CAROUSEL)" caption="carousel"/>
+                      <app-badge-button [tooltip]="'view as gallery'" [active]="albumView===AlbumView.GALLERY"
+                                        [icon]="faPhotoFilm"
+                                        (click)="switchToView(AlbumView.GALLERY)" caption="gallery"/>
+                      <app-badge-button [tooltip]="'view as grid'" [active]="albumView===AlbumView.GRID"
+                                        [icon]="faTableCells"
+                                        [noRightMargin]="albumView!==AlbumView.GRID"
+                                        (click)="switchToView(AlbumView.GRID)" caption="grid"/>
+                      <app-badge-button *ngIf="albumView===AlbumView.GRID" [tooltip]="'show titles'"
+                                        [active]="gridViewOptions?.showTitles" [icon]="faRectangleAd"
+                                        noRightMargin
+                                        (click)="toggleShowTitles()"
+                                        [caption]="gridViewOptions?.showTitles? 'hide titles':'show titles'"/>
+                  </ng-container>
+              </div>
           </div>
-        </div>
-        <app-album-gallery *ngIf="albumView===AlbumView.GALLERY"
-                           [lazyLoadingMetadata]="lazyLoadingMetadata"
-                           [album]="album"
-                           [preview]="preview">
-        </app-album-gallery>
-        <app-album-grid *ngIf="albumView===AlbumView.GRID"
-                        [lazyLoadingMetadata]="lazyLoadingMetadata"
-                        [album]="album"
-                        [preview]="preview"
-                        [gridViewOptions]="gridViewOptions">
-        </app-album-grid>
-        <app-carousel *ngIf="albumView===AlbumView.CAROUSEL"
-                      [lazyLoadingMetadata]="lazyLoadingMetadata"
-                      [duplicateImages]="duplicateImages"
-                      [preview]="preview"
-                      [album]="album"
-                      [index]="index"></app-carousel>
+          <div class="col-sm-12  my-auto">
+              <div class="alert alert-warning" *ngIf="noImages">
+                  <fa-icon [icon]="faCircleInfo"/>
+                  <strong class="ml-1">No images exist in this album</strong>
+                  <div>Click the <strong>Edit images in album</strong> button on the left to create new images in
+                      the {{album.name}} album
+                  </div>
+              </div>
+              <app-album-gallery *ngIf="albumView===AlbumView.GALLERY"
+                                 [lazyLoadingMetadata]="lazyLoadingMetadata"
+                                 [album]="album"
+                                 [preview]="preview">
+              </app-album-gallery>
+              <app-album-grid *ngIf="albumView===AlbumView.GRID"
+                              [lazyLoadingMetadata]="lazyLoadingMetadata"
+                              [album]="album"
+                              [preview]="preview"
+                              [gridViewOptions]="gridViewOptions">
+              </app-album-grid>
+              <app-carousel *ngIf="albumView===AlbumView.CAROUSEL"
+                            [lazyLoadingMetadata]="lazyLoadingMetadata"
+                            [duplicateImages]="duplicateImages"
+                            [preview]="preview"
+                            [album]="album"
+                            [index]="index"></app-carousel>
+          </div>
       </div>
-    </div>
   `
 })
 export class AlbumComponent implements OnInit {
@@ -92,11 +95,22 @@ export class AlbumComponent implements OnInit {
     this.logger.info("preview:", this.preview);
   }
 
+  @Input("album") set albumValue(album: AlbumData) {
+    this.album = album;
+    this.logger.info("album:", album);
+    this.switchToView(this.album.albumView || AlbumView.GRID);
+  }
+
+  @Input("albumView") set albumViewValue(albumView: AlbumView) {
+    this.albumView = albumView;
+  }
+
   @Input()
   public index: number;
-  @Input()
-  album: AlbumData;
+
   @Output() lazyLoadingMetadataChange: EventEmitter<LazyLoadingMetadata> = new EventEmitter();
+
+  public album: AlbumData;
   public preview: boolean;
   public albumView: AlbumView;
   protected readonly take = take;
@@ -113,7 +127,6 @@ export class AlbumComponent implements OnInit {
   ngOnInit() {
     this.logger.info("ngOnInit:album:", this.album);
     this.gridViewOptions = this.album.gridViewOptions || {showTitles: true, showDates: true};
-    this.switchToView(this.album.albumView || AlbumView.GRID);
     this.logger.info("ngOnInit:querying metadata service with root folder", RootFolder.carousels, "album name:", this.album?.name);
     this.contentMetadataService.items(RootFolder.carousels, this.album?.name)
       .then(contentMetadata => {

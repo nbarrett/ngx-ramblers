@@ -64,8 +64,12 @@ export class MarkdownEditorComponent implements OnInit {
     this.noSave = coerceBooleanProperty(noSave);
   }
 
+  @Input("data") set dataValue(data: ContentText) {
+    this.data = data;
+    this.setDataAttributes();
+  }
 
-  @Input() data: ContentText;
+
   @Input() id: string;
   @Input() rows: number;
   @Input() actionCaptionSuffix: string;
@@ -99,12 +103,12 @@ export class MarkdownEditorComponent implements OnInit {
     this.queryOnlyById = coerceBooleanProperty(queryOnlyById);
   }
 
-
   @Input() initialView: View;
   @Input() description: string;
   @Output() changed: EventEmitter<ContentText> = new EventEmitter();
   @Output() saved: EventEmitter<ContentText> = new EventEmitter();
   @Output() focusChange: EventEmitter<EditorInstanceState> = new EventEmitter();
+  public data: ContentText;
   public allowMaximise: boolean;
   public allowSave: boolean;
   public buttonsAvailableOnlyOnFocus: boolean;
@@ -156,15 +160,7 @@ export class MarkdownEditorComponent implements OnInit {
       dataAction: DataAction.NONE
     };
     if (this.data) {
-      const existingData: boolean = !!this.data.id;
-      this.content = this.data;
-      if (!this.noSave) {
-        this.saveEnabled = true;
-      }
-      this.logger.info("editing:", this.content, "existingData:", existingData, "editorState:", this.editorState, "rows:", this.rows);
-      this.originalContent = cloneDeep(this.content);
-      this.setDescription();
-      this.calculateRowsIfNotSupplied();
+      this.setDataAttributes();
     } else if (this.text) {
       this.content = {name: this.name, text: this.text, category: this.category};
       this.originalContent = cloneDeep(this.content);
@@ -183,6 +179,19 @@ export class MarkdownEditorComponent implements OnInit {
       const currentlyHidden = this.uiActionsService.initialBooleanValueFor(this.hideParameterName, false);
       this.show = !currentlyHidden;
     }
+  }
+
+  private setDataAttributes() {
+    this.logger.info("setDataAttributes:data:", this.data);
+    const existingData: boolean = !!this.data.id;
+    this.content = this.data;
+    if (!this.noSave) {
+      this.saveEnabled = true;
+    }
+    this.logger.info("editing:", this.content, "existingData:", existingData, "editorState:", this.editorState, "rows:", this.rows);
+    this.originalContent = cloneDeep(this.content);
+    this.setDescription();
+    this.calculateRows();
   }
 
   private setDescription() {
@@ -226,15 +235,13 @@ export class MarkdownEditorComponent implements OnInit {
     this.saveEnabled = true;
     this.originalContent = cloneDeep(this.content);
     this.editorState.dataAction = DataAction.NONE;
-    this.calculateRowsIfNotSupplied();
+    this.calculateRows();
     this.logger.info("retrieved content:", this.content, "editor state:", this.editorState);
     return this.content;
   }
 
-  private calculateRowsIfNotSupplied() {
-    if (!this.rows) {
+  private calculateRows() {
       this.rows = this.calculateRowsFrom(this.content);
-    }
   }
 
   private syncContent() {
