@@ -70,6 +70,15 @@ export interface MetadataDescription {
 export interface Metadata extends MetadataCode, MetadataDescription {
 }
 
+export interface WalkLeader {
+  id: string;
+  name: string;
+  telephone: string;
+  has_email: true;
+  email_form?: string;
+  is_overridden: false;
+}
+
 export interface GroupWalk {
   item_type: WalkType;
   id: string;
@@ -119,13 +128,7 @@ export interface GroupWalk {
   };
   shape: string;
   duration: number;
-  walk_leader: {
-    name: string;
-    telephone: string;
-    has_email: true;
-    email_form: string;
-    is_overridden: false
-  };
+  walk_leader: WalkLeader;
   url: string;
   external_url: string;
   status: WalkStatus;
@@ -151,12 +154,12 @@ export interface GroupListRequest {
 
 export interface WalkListRequest {
   ids?: string[];
-  rawData: boolean;
-  limit: number;
-  sort: "date" | "distance";
-  order: "asc" | "desc";
-  date: string;
-  dateEnd: string;
+  rawData?: boolean;
+  limit?: number;
+  sort?: "date" | "distance";
+  order?: "asc" | "desc";
+  date?: string;
+  dateEnd?: string;
 }
 
 export interface RamblersGroupsApiResponseApiResponse extends ApiResponse {

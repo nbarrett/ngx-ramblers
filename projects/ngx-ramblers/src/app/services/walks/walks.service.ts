@@ -3,7 +3,7 @@ import { Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
-import { Walk, WalkApiResponse, WalkLeaderIdsApiResponse } from "../../models/walk.model";
+import { Walk, WalkApiResponse } from "../../models/walk.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { UrlService } from "../url.service";
@@ -54,7 +54,15 @@ export class WalksService {
   }
 
   async queryPreviousWalkLeaderIds(): Promise<string[]> {
-    return this.walksLocalService.queryPreviousWalkLeaderIds();
+    this.logger.info("queryPreviousWalkLeaderIds:walkPopulation:", this?.group?.walkPopulation);
+    switch (this?.group?.walkPopulation) {
+      case WalkPopulation.WALKS_MANAGER:
+        const walkLeaders = await this.ramblersWalksAndEventsService.queryPreviousWalkLeaderIds();
+        this.logger.info("queryPreviousWalkLeaderIds:", walkLeaders);
+        return walkLeaders.map(item => item.name);
+      case WalkPopulation.LOCAL:
+        return this.walksLocalService.queryPreviousWalkLeaderIds();
+    }
   }
 
   async createOrUpdate(walk: Walk): Promise<Walk> {

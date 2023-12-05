@@ -1,11 +1,14 @@
 import debug from "debug";
-import { isEmpty } from "lodash";
+import first from "lodash/first";
+import isEmpty from "lodash/isEmpty";
 import moment from "moment-timezone";
 import { ConfigDocument, ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import {
+  GroupWalk,
   RamblersWalkResponse,
   RamblersWalksRawApiResponse,
   RamblersWalksRawApiResponseApiResponse,
+  WalkLeader,
   WalkListRequest,
   WALKS_MANAGER_API_DATE_FORMAT,
   WALKS_MANAGER_GO_LIVE_DATE
@@ -15,11 +18,62 @@ import { envConfig } from "../env-config/env-config";
 import * as config from "../mongo/controllers/config";
 import { httpRequest } from "../shared/message-handlers";
 import * as requestDefaults from "./request-defaults";
+import groupBy from "lodash/groupBy";
+import map from "lodash/map";
+import omit from "lodash/omit";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
 noopDebugLog.enabled = false;
 debugLog.enabled = true;
+
+export function walkLeaderIds(req, res): void {
+  const body: WalkListRequest = req.body;
+  debugLog("listWalks:body:", body);
+  config.queryKey(ConfigKey.SYSTEM)
+    .then((configDocument: ConfigDocument) => {
+      const systemConfig: SystemConfig = configDocument.value;
+      const limit = body.limit;
+      const date = dateParameter(body);
+      const dateEnd = dateEndParameter(body);
+      const defaultOptions = requestDefaults.createApiRequestOptions(systemConfig);
+      debugLog("listWalks:defaultOptions:", defaultOptions);
+      const optionalParameters = [
+        optionalParameter("groups", systemConfig?.group?.groupCode),
+        optionalParameter("limit", limit),
+        optionalParameter("date", date),
+        optionalParameter("date_end", dateEnd)]
+        .filter(item => !isEmpty(item))
+        .join("&");
+      debugLog("optionalParameters:", optionalParameters);
+      return httpRequest({
+        apiRequest: {
+          hostname: defaultOptions.hostname,
+          protocol: defaultOptions.protocol,
+          headers: defaultOptions.headers,
+          method: "get",
+          path: `/api/volunteers/walksevents?api-key=${systemConfig?.national?.walksManager?.apiKey}&types=group-walk&${optionalParameters}`
+        },
+        debug: noopDebugLog,
+        res,
+        req,
+        mapper: (response: RamblersWalksRawApiResponse): WalkLeader[] => {
+          debugLog("transformListWalksResponse:", response);
+          const filteredWalkLeaders: WalkLeader[] = response.data.map((walk: GroupWalk) => omit(walk.walk_leader, ["email_form"])).filter(item => !isEmpty(item.name));
+          const groupedWalkLeaders = groupBy(filteredWalkLeaders, (walkLeader => walkLeader.id || walkLeader.name));
+          debugLog("groupedWalkLeaders:", groupedWalkLeaders);
+          return map(groupedWalkLeaders, (items, key) => first(items));
+        }
+      });
+    })
+    .then(response => {
+      const rawResponse = response as WalkLeader[];
+      debugLog("returned:", rawResponse.length, "walk leaders");
+      return response;
+    })
+    .then(response => res.json(response))
+    .catch(error => res.json(error));
+}
 
 export function listWalks(req, res): void {
   const body: WalkListRequest = req.body;
@@ -119,3 +173,4 @@ function transformListWalksResponse(systemConfig: SystemConfig) {
     });
   };
 }
+
