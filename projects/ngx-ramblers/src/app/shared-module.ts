@@ -125,6 +125,7 @@ import { GroupEventSelectorComponent } from "./group-events-selector/group-event
 import { GroupEventTypeSelectorComponent } from "./group-events-selector/group-event-type-selector";
 import { DynamicContentSiteEditAlbumComponent } from "./modules/common/dynamic-content/dynamic-content-site-edit-album";
 import { ColumnWidthComponent } from "./modules/common/dynamic-content/column-width";
+import { DisplayDatesAndTimesPipe } from "./pipes/display-dates-and-times.pipe";
 
 @NgModule({
   imports: [
@@ -181,6 +182,7 @@ import { ColumnWidthComponent } from "./modules/common/dynamic-content/column-wi
     DisplayDateAndTimePipe,
     DisplayDatePipe,
     DisplayDatesPipe,
+    DisplayDatesAndTimesPipe,
     DisplayDayPipe,
     DynamicContentComponent,
     DynamicContentPageComponent,
@@ -257,6 +259,7 @@ import { ColumnWidthComponent } from "./modules/common/dynamic-content/column-wi
     DisplayDateAndTimePipe,
     DisplayDatePipe,
     DisplayDatesPipe,
+    DisplayDatesAndTimesPipe,
     DisplayDayPipe,
     DynamicContentComponent,
     DynamicContentPageComponent,
@@ -319,6 +322,7 @@ export class SharedModule {
         DisplayDateAndTimePipe,
         DisplayDatePipe,
         DisplayDatesPipe,
+        DisplayDatesAndTimesPipe,
         DisplayDayPipe,
         EventNotePipe,
         FullNamePipe,

@@ -8,7 +8,8 @@
       <div class="col-sm-6">
         <div class="form-group">
           <label [for]="'expense-date'">Expense Date</label>
-          <app-date-picker [disabled]="!editable"
+          <app-date-picker startOfDay
+                           [disabled]="!editable"
                            [value]="expenseItem.expenseDate"
                            id="expense-date" size="sm"
                            (dateChange)="onExpenseDateChange($event)">

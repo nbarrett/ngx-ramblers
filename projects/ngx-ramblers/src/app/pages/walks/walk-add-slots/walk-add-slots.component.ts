@@ -1,6 +1,5 @@
 import { Component, OnInit } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
-import { faCalendar } from "@fortawesome/free-solid-svg-icons";
 import difference from "lodash-es/difference";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertMessage, AlertTarget } from "../../../models/alert-target.model";
@@ -9,7 +8,6 @@ import { DateValue } from "../../../models/date.model";
 import { Walk } from "../../../models/walk.model";
 import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
-import { DisplayDatesPipe } from "../../../pipes/display-dates.pipe";
 import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { BroadcastService } from "../../../services/broadcast-service";
@@ -24,6 +22,10 @@ import { WalksQueryService } from "../../../services/walks/walks-query.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { WalksService } from "../../../services/walks/walks.service";
 import { WalkDisplayService } from "../walk-display.service";
+import { DisplayDatesAndTimesPipe } from "../../../pipes/display-dates-and-times.pipe";
+import { StringUtilsService } from "../../../services/string-utils.service";
+import uniq from "lodash-es/uniq";
+import { DisplayDatesPipe } from "../../../pipes/display-dates.pipe";
 
 @Component({
   selector: "app-walk-add-slots",
@@ -41,8 +43,7 @@ export class WalkAddSlotsComponent implements OnInit {
   public bulk: true;
   public notifyTarget: AlertTarget = {};
   public selectionMade: string;
-
-  faCalendar = faCalendar;
+  private displaySlotTimes = false;
 
   constructor(
     private walksService: WalksService,
@@ -51,7 +52,9 @@ export class WalkAddSlotsComponent implements OnInit {
     private display: WalkDisplayService,
     private displayDay: DisplayDayPipe,
     private displayDate: DisplayDatePipe,
+    private stringUtilsService: StringUtilsService,
     private displayDates: DisplayDatesPipe,
+    private displayDatesAndTimes: DisplayDatesAndTimesPipe,
     private searchFilterPipe: SearchFilterPipe,
     private displayDateAndTime: DisplayDateAndTimePipe,
     private route: ActivatedRoute,
@@ -117,14 +120,14 @@ export class WalkAddSlotsComponent implements OnInit {
         const until = this.dateUtils.asMoment(this.untilDate).startOf("day");
         const allGeneratedSlots = this.dateUtils.inclusiveDayRange(sunday.valueOf(), until.valueOf())
           .filter(item => this.dateUtils.asMoment(item).day() === 0).filter((date) => {
-          return this.dateUtils.asString(date, undefined, "DD-MMM") !== "25-Dec";
-        });
+            return this.dateUtils.asString(date, undefined, "DD-MMM") !== "25-Dec";
+          });
         const existingDates: number[] = this.walksQueryService.activeWalks(walks).map(walk => walk.walkDate);
         this.logger.debug("sunday", sunday, "until", until);
         this.logger.debug("existingDatesAsStrings", existingDates.map(date => this.displayDate.transform(date)));
         this.logger.debug("allGeneratedSlotsAsStrings", allGeneratedSlots.map(date => this.displayDate.transform(date)));
-        const requiredSlots = difference(allGeneratedSlots, existingDates);
-        const requiredDates: string = this.displayDates.transform(requiredSlots);
+        const requiredSlots = uniq(difference(allGeneratedSlots, existingDates));
+        const requiredDates: string = this.displaySlotTimes ? this.displayDatesAndTimes.transform(requiredSlots) : this.displayDates.transform(requiredSlots);
         this.createSlots(requiredSlots, {
           title: "Add walk slots",
           message: " - You are about to add " + requiredSlots.length + " walk slots up to "
@@ -188,8 +191,8 @@ export class WalkAddSlotsComponent implements OnInit {
       title: "Add walk slots - ", message: "now creating " + this.requiredWalkSlots.length
         + " empty walk slots up to " + this.displayDate.transform(this.untilDate)
     });
-    Promise.all(this.requiredWalkSlots.map((slot: Walk) => {
-      return this.walksService.createOrUpdate(slot);
+    Promise.all(this.requiredWalkSlots.map((walk: Walk) => {
+      return this.walksService.createOrUpdate(walk);
     })).then((walkSlots) => {
       this.notify.success({title: "Done!", message: "Choose Back to walks to see your newly created slots"});
       delete this.confirmAction;
@@ -199,6 +202,10 @@ export class WalkAddSlotsComponent implements OnInit {
 
   backToWalks() {
     this.urlService.navigateTo(["walks"]);
+  }
+
+  fixWalkDates() {
+    this.walksService.fixIncorrectWalkDates();
   }
 
   onUntilDateChange(date: DateValue) {

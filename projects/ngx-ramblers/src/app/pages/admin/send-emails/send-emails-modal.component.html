@@ -48,7 +48,7 @@
                     (click)="populateMembers('recently-added')">
                   <label class="custom-control-label" for="recently-added" class="form-inline">Added in last
                     {{emailType.monthsInPast}} month(s) on/after:
-                    <app-date-picker *ngIf="memberSelectorName==='recently-added'"
+                    <app-date-picker startOfDay *ngIf="memberSelectorName==='recently-added'"
                                      class="input-group calendar-in-label"
                                      (dateChange)="onMemberFilterDateChange($event)"
                                      [value]="memberFilterDate">
@@ -69,7 +69,7 @@
                       (click)="populateMembers('expired-members')">
                     <label class="custom-control-label form-inline" for="expired-members">
                       {{emailType.monthsInPast}} months past expiry date:
-                      <app-date-picker *ngIf="memberSelectorName==='expired-members'"
+                      <app-date-picker startOfDay *ngIf="memberSelectorName==='expired-members'"
                                        class="calendar-in-label"
                                        (dateChange)="onMemberFilterDateChange($event)"
                                        [value]="memberFilterDate">

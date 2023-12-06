@@ -11,6 +11,8 @@ import { WalksLocalService } from "./walks-local.service";
 import { RamblersWalksAndEventsService } from "./ramblers-walks-and-events.service";
 import { Organisation, WalkPopulation } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
+import { DateUtilsService } from "../date-utils.service";
+import { StringUtilsService } from "../string-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -22,6 +24,8 @@ export class WalksService {
 
   constructor(private http: HttpClient,
               private systemConfigService: SystemConfigService,
+              private dateUtilsService: DateUtilsService,
+              private stringUtilsService: StringUtilsService,
               private commonDataService: CommonDataService,
               private urlService: UrlService,
               private walksLocalService: WalksLocalService,
@@ -82,4 +86,7 @@ export class WalksService {
     }
   }
 
+  fixIncorrectWalkDates() {
+    return this.walksLocalService.fixIncorrectWalkDates();
+  }
 }

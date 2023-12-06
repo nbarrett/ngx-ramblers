@@ -1,4 +1,4 @@
-<app-page>
+<app-page autoTitle>
   <div class="row">
     <div class="col-sm-12">
       <tabset class="custom-tabset" *ngIf="committeeConfig">
@@ -9,26 +9,19 @@
                                    description="Committee roles help"></app-markdown-editor>
             </div>
             <div class="col-sm-12">
-              <app-committee-member [members]="members"
-                                    [committeeMember]="committeeConfig.contactUs.chairman">
+              <app-committee-member [committeeMember]="committeeConfig.contactUs.chairman">
               </app-committee-member>
-              <app-committee-member [members]="members"
-                                    [committeeMember]="committeeConfig.contactUs.membership">
+              <app-committee-member [committeeMember]="committeeConfig.contactUs.membership">
               </app-committee-member>
-              <app-committee-member [members]="members"
-                                    [committeeMember]="committeeConfig.contactUs.treasurer">
+              <app-committee-member [committeeMember]="committeeConfig.contactUs.treasurer">
               </app-committee-member>
-              <app-committee-member [members]="members"
-                                    [committeeMember]="committeeConfig.contactUs.secretary">
+              <app-committee-member [committeeMember]="committeeConfig.contactUs.secretary">
               </app-committee-member>
-              <app-committee-member [members]="members"
-                                    [committeeMember]="committeeConfig.contactUs.social">
+              <app-committee-member [committeeMember]="committeeConfig.contactUs.social">
               </app-committee-member>
-              <app-committee-member [members]="members"
-                                    [committeeMember]="committeeConfig.contactUs.support">
+              <app-committee-member [committeeMember]="committeeConfig.contactUs.support">
               </app-committee-member>
-              <app-committee-member [members]="members"
-                                    [committeeMember]="committeeConfig.contactUs.walks">
+              <app-committee-member [committeeMember]="committeeConfig.contactUs.walks">
               </app-committee-member>
             </div>
           </div>

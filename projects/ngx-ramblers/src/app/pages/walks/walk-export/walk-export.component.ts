@@ -24,6 +24,7 @@ import { WalksQueryService } from "../../../services/walks/walks-query.service";
 import { WalksService } from "../../../services/walks/walks.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { CsvOptions } from "../../../csv-export/csv-export";
+import { SystemConfigService } from "../../../services/system/system-config.service";
 
 @Component({
   selector: "app-walk-export",
@@ -60,6 +61,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
               private notifierService: NotifierService,
               private displayDateAndTime: DisplayDateAndTimePipe,
               private displayDate: DisplayDatePipe,
+              private systemConfigService: SystemConfigService,
               private walksQueryService: WalksQueryService,
               public display: WalkDisplayService,
               private dateUtils: DateUtilsService,
@@ -73,17 +75,19 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.ramblersUploadAuditData = [];
     this.walkExportNotifier = this.notifierService.createAlertInstance(this.walkExportTarget);
     this.auditNotifier = this.notifierService.createAlertInstance(this.auditTarget);
-    if (this.display.walkPopulationWalksManager()) {
-      const message = {
-        title: "Walks Export Initialisation",
-        message: "Walks cannot be exported from this view when the walk population is set to " + this.display?.group?.walkPopulation
-      };
-      this.walkExportNotifier.warning(message);
-      this.auditNotifier.warning(message);
-    } else {
-      this.showAvailableWalkExports();
-      this.showAllAudits();
-    }
+    this.systemConfigService.events().subscribe(item => {
+      if (this.display.walkPopulationWalksManager()) {
+        const message = {
+          title: "Walks Export Initialisation",
+          message: "Walks cannot be exported from this view when the walk population is set to " + this.display?.group?.walkPopulation
+        };
+        this.walkExportNotifier.warning(message);
+        this.auditNotifier.warning(message);
+      } else {
+        this.showAvailableWalkExports();
+        this.showAllAudits();
+      }
+    });
   }
 
   ngOnDestroy(): void {

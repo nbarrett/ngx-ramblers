@@ -12,7 +12,7 @@ import { ApiAction, ApiResponse } from "../../../models/api-response.model";
 import { DateValue } from "../../../models/date.model";
 import { Member, MemberAuthAudit } from "../../../models/member.model";
 import { ASCENDING, DESCENDING, MEMBER_SORT, MemberAuthAuditTableFilter } from "../../../models/table-filtering.model";
-import { Confirm } from "../../../models/ui-actions";
+import { Confirm, ConfirmType } from "../../../models/ui-actions";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -30,19 +30,6 @@ import { ProfileService } from "../profile/profile.service";
   templateUrl: "./member-login-audit.component.html"
 })
 export class MemberLoginAuditComponent implements OnInit, OnDestroy {
-  private notify: AlertInstance;
-  public notifyTarget: AlertTarget = {};
-  private logger: Logger;
-  private members: Member[] = [];
-  public quickSearch = "";
-  private searchChangeObservable: Subject<string>;
-  public auditFilter: MemberAuthAuditTableFilter;
-  private memberFilterUploaded: any;
-  private subscriptions: Subscription[] = [];
-  private memberAudits: MemberAuthAudit[] = [];
-  public confirm = new Confirm();
-  filterDateValue: DateValue;
-  faSearch = faSearch;
 
   constructor(private memberService: MemberService,
               private contentMetadata: ContentMetadataService,
@@ -60,6 +47,21 @@ export class MemberLoginAuditComponent implements OnInit, OnDestroy {
     this.logger = loggerFactory.createLogger(MemberLoginAuditComponent, NgxLoggerLevel.OFF);
     this.searchChangeObservable = new Subject<string>();
   }
+  private notify: AlertInstance;
+  public notifyTarget: AlertTarget = {};
+  private logger: Logger;
+  private members: Member[] = [];
+  public quickSearch = "";
+  private searchChangeObservable: Subject<string>;
+  public auditFilter: MemberAuthAuditTableFilter;
+  private memberFilterUploaded: any;
+  private subscriptions: Subscription[] = [];
+  private memberAudits: MemberAuthAudit[] = [];
+  public confirm = new Confirm();
+  filterDateValue: DateValue;
+  faSearch = faSearch;
+
+  protected readonly ConfirmType = ConfirmType;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
