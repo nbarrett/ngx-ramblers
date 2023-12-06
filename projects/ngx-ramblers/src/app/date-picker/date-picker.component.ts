@@ -5,6 +5,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { DateValue } from "../models/date.model";
 import { DateUtilsService } from "../services/date-utils.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 let id = 0;
 
@@ -23,7 +24,13 @@ export class DatePickerComponent implements OnInit, OnChanges {
   @Input() id: string;
   @Input() disabled;
   @Input() prependLabel;
+
+  @Input("startOfDay") set previewValue(startOfDay: boolean) {
+    this.startOfDay = coerceBooleanProperty(startOfDay);
+  }
+
   @Output() dateChange: EventEmitter<DateValue> = new EventEmitter();
+  public startOfDay: boolean;
   private logger: Logger;
   faCalendar = faCalendar;
 
@@ -33,23 +40,26 @@ export class DatePickerComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    this.logger.debug("changes were", changes);
-    this.setValue(changes?.value?.currentValue);
+    this.setValue(changes?.value?.currentValue, changes);
   }
 
   ngOnInit() {
     if (!this.id) {
       this.id = `${kebabCase(this.label || "date-picker")}-${id++}`;
     }
-    this.logger.debug("ngOnInit", typeof this.value, this.value);
-    this.setValue(this.value);
+    this.logger.info("ngOnInit", typeof this.value, this.value);
+    this.setValue(this.value, null);
   }
 
-  private setValue(value: DateValue | number) {
-    if (typeof value === "number") {
-      this.dateValue = this.dateUtils.asDateValue(this.value);
+  private setValue(value: DateValue | number, changes: SimpleChanges) {
+    const displayDateAndTimeUncorrected = this.dateUtils.displayDateAndTime(this.dateUtils.asMoment(value));
+    const usedValue = this.startOfDay ? this.dateUtils.asValueNoTime(value) : value;
+    const displayDateAndTimeCorrected = this.dateUtils.displayDateAndTime(usedValue);
+    this.logger.info("startOfDay:", this.startOfDay, "changes were:", changes || "ngOnInit", "displayDateAndTimeUncorrected:", displayDateAndTimeUncorrected, "displayDateAndTimeCorrected:", displayDateAndTimeCorrected);
+    if (typeof usedValue === "number") {
+      this.dateValue = this.dateUtils.asDateValue(usedValue);
     } else {
-      this.dateValue = value;
+      this.dateValue = usedValue;
     }
   }
 

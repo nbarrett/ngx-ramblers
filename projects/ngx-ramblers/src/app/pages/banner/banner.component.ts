@@ -30,9 +30,8 @@ import { faTableCells } from "@fortawesome/free-solid-svg-icons";
   selector: "app-banner",
   styleUrls: ["./banner.component.sass"],
   template: `
-      <app-page>
+      <app-page autoTitle>
           <div class="fixed-height">
-              <h3 class="card-title ml-3 mb-4">Configure Banners</h3>
               <div class="col-12">
                   <label for="banner-lookup">Existing Banners ({{banners?.length}}):</label>
                   <select class="form-control input-sm"

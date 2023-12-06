@@ -8,7 +8,7 @@
     <div class="row">
       <div class="col-md-6">
         <div class="form-group">
-          <app-date-picker [label]="'File or Event Date'"
+          <app-date-picker startOfDay [label]="'File or Event Date'"
                            [size]="'md'"
                            (dateChange)="eventDateChanged($event)"
                            [value]="eventDate">

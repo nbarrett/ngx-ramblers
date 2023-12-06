@@ -269,7 +269,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   public contentPathWithIndex(row: PageContentRow): string {
     const index = this.actions.carouselOrAlbumIndex(row, this.pageContent);
-    return this.pageContent.path + (index > 0 ? "-" + index : "");
+    return `${this.pageContent.path.replace("#", "")}${index > 0 ? "-" + index : ""}`;
   }
 
   public savePageContent(): Promise<boolean> {

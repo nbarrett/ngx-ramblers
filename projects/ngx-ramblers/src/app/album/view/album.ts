@@ -54,7 +54,7 @@ import { ImageDuplicatesService } from "../../services/image-duplicates-service"
               <div class="alert alert-warning" *ngIf="noImages">
                   <fa-icon [icon]="faCircleInfo"/>
                   <strong class="ml-1">No images exist in this album</strong>
-                  <div>Click the <strong>Edit images in album</strong> button on the left to create new images in
+                  <div>Click the <strong>Edit images in album</strong> button to create new images in
                       the {{album.name}} album
                   </div>
               </div>

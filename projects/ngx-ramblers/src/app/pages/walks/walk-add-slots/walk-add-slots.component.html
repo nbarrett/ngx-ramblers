@@ -1,8 +1,6 @@
-<app-page>
+<app-page autoTitle>
   <div class="row">
     <div class="col-sm-12">
-      <div class="dimg-thumbnail">
-        <h3>Add slots to walks programme</h3>
         <div class="mb-2">
           <p>This facility allows you to add any number of walk slots to the programme that
             will then entice walk leaders to come forward and lead. Please choose how you would like to create the
@@ -40,7 +38,7 @@
 
             <div class="form-inline">
               <label for="add-slots-until">Add available slots until:</label>
-              <app-date-picker id="add-slots-until"
+              <app-date-picker startOfDay id="add-slots-until"
                                [size]="'md'"
                                (dateChange)="onUntilDateChange($event)"
                                [value]="untilDate">
@@ -53,7 +51,7 @@
             </ul>
             <div class="form-inline">
               <label for="add-single-slot">Add a slot on:</label>
-              <app-date-picker id="add-single-slot"
+              <app-date-picker startOfDay id="add-single-slot"
                                [size]="'md'"
                                (dateChange)="onSingleDateChange($event)"
                                [value]="singleDate">
@@ -90,8 +88,9 @@
           </span>
           <input *ngIf="selectionMade" type="submit" value="Back to walks" (click)="backToWalks()" title="Back to walks"
                  class="button-form">
+          <input *ngIf="false" type="submit" value="Fix Walk Dates" (click)="fixWalkDates()"
+                 class="button-form">
         </div>
-      </div>
     </div>
   </div>
 </app-page>

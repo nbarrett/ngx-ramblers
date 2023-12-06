@@ -1,8 +1,8 @@
-<app-page>
+<app-page autoTitle>
   <div class="row">
     <div [ngClass]="{'busy': notifyTarget.busy}" class="admin-frame rounded" *ngIf="auditFilter">
       <div class="admin-header-background rounded">
-        <div class="admin-header-container pb-6">
+        <div class="admin-header-container">
           <div class="form-inline">
             <div class="form-group">
               <div class="input-group">
@@ -17,7 +17,7 @@
               </div>
             </div>
             <div class="form-group">
-              <app-date-picker id="filter-audit" size="md"
+              <app-date-picker startOfDay id="filter-audit" size="md"
                                label="Filter logins since"
                                prependLabel="true"
                                (dateChange)="onFilterDateChange($event)"

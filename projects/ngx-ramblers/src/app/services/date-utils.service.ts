@@ -45,7 +45,7 @@ export class DateUtilsService {
     return value && this.asMoment(value).toDate();
   }
 
-  asMoment(dateValue?: any, inputFormat?: string) {
+  asMoment(dateValue?: any, inputFormat?: string): moment {
     if (isDateValue(dateValue)) {
       return moment(dateValue.value, inputFormat).tz("Europe/London");
     } else {
@@ -53,7 +53,7 @@ export class DateUtilsService {
     }
   }
 
-  momentNow() {
+  momentNow(): moment {
     return this.asMoment();
   }
 
@@ -61,7 +61,7 @@ export class DateUtilsService {
     return dateValue ? this.asMoment(dateValue, inputFormat).format(outputFormat) : undefined;
   }
 
-  asValue(dateValue: any, inputFormat?: string) {
+  asValue(dateValue: any, inputFormat?: string): number {
     return this.asMoment(dateValue, inputFormat).valueOf();
   }
 
@@ -101,7 +101,7 @@ export class DateUtilsService {
     return this.asString(this.momentNowNoTime().startOf("month"), undefined, this.formats.yyyymmdd);
   }
 
-  momentNowNoTime() {
+  momentNowNoTime(): moment {
     return this.asMoment().startOf("day");
   }
 
@@ -145,11 +145,14 @@ export class DateUtilsService {
 
   startTime(walk: Walk): number {
     const startTime: Time = this.parseTime(walk.startTime);
-    return this.asMoment(walk.walkDate).add(startTime.hours, "hours").add(startTime.minutes, "minutes").valueOf();
+    const walkDateMoment = this.asMoment(walk.walkDate);
+    const walkDateAndTime: number = walkDateMoment.clone().add(startTime.hours, "hours").add(startTime.minutes, "minutes").valueOf();
+    this.logger.off("text based startTime:", walk.startTime, "startTime:", startTime, "walkDateMoment+DateAndTime:", this.displayDateAndTime(walkDateMoment), "walkDateAndTime+DateAndTime:", this.displayDateAndTime(walkDateAndTime));
+    return walkDateAndTime;
   }
 
   inclusiveDayRange(fromDate: number, toDate: number): number[] {
-    return range(fromDate, toDate + 1, this.MILLISECONDS_IN_ONE_DAY);
+    return range(fromDate, toDate + 1, this.MILLISECONDS_IN_ONE_DAY).map(item => this.asValueNoTime(item));
   }
 
   currentYear(): number {

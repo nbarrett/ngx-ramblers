@@ -7,6 +7,8 @@ import { Walk, WalkApiResponse, WalkLeaderIdsApiResponse } from "../../models/wa
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { UrlService } from "../url.service";
+import { StringUtilsService } from "../string-utils.service";
+import { DateUtilsService } from "../date-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -19,6 +21,8 @@ export class WalksLocalService {
   private walkLeaderIdNotifications = new Subject<WalkLeaderIdsApiResponse>();
 
   constructor(private http: HttpClient,
+              private stringUtilsService: StringUtilsService,
+              private dateUtils: DateUtilsService,
               private commonDataService: CommonDataService,
               private urlService: UrlService,
               loggerFactory: LoggerFactory) {
@@ -87,4 +91,18 @@ export class WalksLocalService {
     return apiResponse.response as Walk;
   }
 
+  async fixIncorrectWalkDates(): Promise<Walk[]> {
+    const walks = await this.all();
+    const walksWithIncorrectDate: Walk[] = walks.filter(walk => walk.walkDate !== this.dateUtils.asValueNoTime(walk.walkDate));
+    this.logger.info("given", this.stringUtilsService.pluraliseWithCount(walks.length, "queried walk"), "there are", this.stringUtilsService.pluraliseWithCount(walksWithIncorrectDate.length, "incorrectly dated walk"), walksWithIncorrectDate.map(walk => this.dateUtils.displayDateAndTime(walk.walkDate)).join("\n"));
+    const walksWithFixedDate: Walk[] = walksWithIncorrectDate.map(walk => ({
+      ...walk,
+      walkDate: this.dateUtils.asValueNoTime(walk.walkDate)
+    }));
+    const filteredFixedDates = walksWithFixedDate.filter(walk => walk.walkDate !== this.dateUtils.asValueNoTime(walk.walkDate));
+    this.logger.info("given", this.stringUtilsService.pluraliseWithCount(walks.length, "queried walk"), "there are", this.stringUtilsService.pluraliseWithCount(filteredFixedDates.length, "remaining incorrectly dated walk"), filteredFixedDates.map(walk => this.dateUtils.displayDateAndTime(walk.walkDate)).join("\n"));
+    this.logger.info("walksWithFixedDate raw:", walksWithFixedDate);
+    Promise.all(walksWithFixedDate.map(walk => this.update(walk))).then((updated) => this.logger.info("update complete with", this.stringUtilsService.pluraliseWithCount(updated.length, "updated walk"), updated));
+    return walksWithFixedDate;
+  }
 }

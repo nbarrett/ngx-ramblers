@@ -71,7 +71,7 @@
           </div>
           <div class="col-sm-7 no-left-padding">
             <div class="form-group no-left-padding">
-              <app-date-picker [label]="'Image Date'"
+              <app-date-picker startOfDay [label]="'Image Date'"
                                [size]="'md'"
                                (dateChange)="dateChange($event)"
                                [value]="item?.date"/>

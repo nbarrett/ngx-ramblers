@@ -22,7 +22,8 @@ import { StringUtilsService } from "../services/string-utils.service";
       <div class="col">
         <div class="form-group">
           <label for="from-date">{{groupEventType.description}}s From:</label>
-          <app-date-picker id="from-date"
+          <app-date-picker startOfDay
+                           id="from-date"
                            [size]="'md round'"
                            (dateChange)="fromDate=$event.value;queryGroupEvents()"
                            [value]="fromDate">
@@ -32,7 +33,8 @@ import { StringUtilsService } from "../services/string-utils.service";
       <div class="col">
         <div class="form-group">
           <label for="to-date">{{groupEventType.description}}s To:</label>
-          <app-date-picker id="to-date"
+          <app-date-picker startOfDay
+                           id="to-date"
                            [size]="'md round'"
                            (dateChange)="toDate=$event.value;queryGroupEvents()"
                            [value]="toDate">

@@ -1,13 +1,32 @@
-<app-page>
-  <div class="row img-thumbnail mt-2">
+<app-page autoTitle>
+  <div class="row">
     <div class="col-sm-3">
       <div class="item-panel-heading">
         <fa-icon [icon]="faIdCard" class="fa-5x ramblers"></fa-icon>
-        <h5>Contact details</h5>
       </div>
     </div>
     <div class="col col-sm-9">
       <div class="row" *ngIf="member">
+        <div class="col col-sm-6">
+          <div class="form-group">
+            <label for="membershipNumber">Ramblers Membership Number</label>
+            <input disabled [ngModel]="member.membershipNumber" type="text"
+                   class="form-control input-sm"
+                   name="firstName"
+                   id="membershipNumber"
+                   placeholder="No Membership Number held">
+          </div>
+        </div>
+        <div class="col col-sm-6">
+          <div class="form-group">
+            <label for="membershipExpiryDate">Ramblers Membership Expiry Date</label>
+            <input disabled [ngModel]="member.membershipExpiryDate | displayDate" type="text"
+                   class="form-control input-sm"
+                   name="firstName"
+                   id="membershipExpiryDate"
+                   placeholder="No Membership Expiry Date held">
+          </div>
+        </div>
         <div class="col col-sm-12">
           <div class="form-group">
             <label for="prof-first-name">First Name</label>
