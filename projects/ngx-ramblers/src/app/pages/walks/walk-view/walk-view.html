@@ -100,10 +100,12 @@
                                            class="rams-text-decoration-pink">Switch to Walks Programme</a>
         </div>
       </div>
-      <div *ngIf="display.walkLeaderOrAdmin(displayedWalk.walk) && display.shouldShowFullDetails(displayedWalk) && !walksQueryService.approvedWalk(displayedWalk.walk)">
+      <div *ngIf="display.walkLeaderOrAdmin(displayedWalk.walk)
+      && display.shouldShowFullDetails(displayedWalk)
+      && (display.walkPopulationLocal() && !walksQueryService.approvedWalk(displayedWalk.walk))">
         <div *ngIf="notifyTarget.showAlert" class="col-12 alert {{ALERT_WARNING.class}} mt-3">
           <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
-          <strong class="ml-2">This Walk is not yet publicly viewable</strong> - it first needs to be approved by {{display.walksCoordinatorName()}}
+          <strong class="ml-2">This walk is not yet publicly viewable</strong> - it first needs to be approved by {{display.walksCoordinatorName()}}
         </div>
       </div>
     </div>
