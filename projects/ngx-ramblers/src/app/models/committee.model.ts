@@ -10,7 +10,7 @@ export interface GroupEventType {
   area: string;
   description: string;
 }
-
+export const DEFAULT_COST_PER_MILE = 0.28;
 export const GroupEventTypes: { [image: string]: GroupEventType } = {
   WALK: {
     area: "walks",
@@ -74,17 +74,22 @@ export interface CommitteeFileType {
   public?: boolean;
 }
 
+export interface ExpensesConfig {
+  costPerMile: number;
+}
+
 export interface CommitteeConfig {
-    contactUs: {
-      chairman: CommitteeMember;
-      secretary: CommitteeMember;
-      treasurer: CommitteeMember;
-      membership: CommitteeMember;
-      social: CommitteeMember;
-      walks: CommitteeMember;
-      support: CommitteeMember;
-    };
-    fileTypes: CommitteeFileType [];
+  contactUs: {
+    chairman: CommitteeMember;
+    secretary: CommitteeMember;
+    treasurer: CommitteeMember;
+    membership: CommitteeMember;
+    social: CommitteeMember;
+    walks: CommitteeMember;
+    support: CommitteeMember;
+  };
+  fileTypes: CommitteeFileType [];
+  expenses: ExpensesConfig;
 }
 
 export interface GroupEventsFilter {

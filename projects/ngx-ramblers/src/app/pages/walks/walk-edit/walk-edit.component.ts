@@ -22,7 +22,7 @@ import { ConfigKey } from "../../../models/config.model";
 import { DateValue } from "../../../models/date.model";
 import { MailchimpConfig } from "../../../models/mailchimp.model";
 import { MeetupConfig } from "../../../models/meetup-config.model";
-import { Member } from "../../../models/member.model";
+import { DisplayMember, Member } from "../../../models/member.model";
 import { ConfirmType } from "../../../models/ui-actions";
 import { DisplayedEvent } from "../../../models/walk-displayed-event.model";
 import { WalkEventType } from "../../../models/walk-event-type.model";
@@ -59,16 +59,7 @@ import { WalksReferenceService } from "../../../services/walks/walks-reference-d
 import { WalksService } from "../../../services/walks/walks.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { WalkDisplayService } from "../walk-display.service";
-
-interface DisplayMember {
-  memberId: string;
-  name: string;
-  displayName: string;
-  contactId: string;
-  firstName: string;
-  lastName: string;
-  membershipNumber: string;
-}
+import { StringUtilsService } from "../../../services/string-utils.service";
 
 @Component({
   selector: "app-walk-edit",
@@ -99,8 +90,12 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   public longerDescriptionPreview: boolean;
   public meetupConfig: MeetupConfig;
   private committeeReferenceData: CommitteeReferenceData;
-  faPencil = faPencil;
-  faMagnifyingGlass = faMagnifyingGlass;
+  public faPencil = faPencil;
+  public faMagnifyingGlass = faMagnifyingGlass;
+  public copySource = "copy-selected-walk-leader";
+  public copySourceFromWalkLeaderMemberId: string;
+  public copyFrom: any = {};
+  public showOnlyWalkLeaders = true;
   private subscriptions: Subscription[] = [];
 
   constructor(
@@ -124,20 +119,17 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     private changedItemsPipe: ChangedItemsPipe,
     protected dateUtils: DateUtilsService,
     public display: WalkDisplayService,
+    public stringUtils: StringUtilsService,
     private displayDate: DisplayDatePipe,
     protected notifierService: NotifierService,
     private configService: ConfigService,
     private broadcastService: BroadcastService<Walk>,
     private siteEditService: SiteEditService,
     private changeDetectorRef: ChangeDetectorRef,
-    private committeeConfig: CommitteeConfigService,
-    loggerFactory: LoggerFactory) {
+    private committeeConfig: CommitteeConfigService, loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(WalkEditComponent, NgxLoggerLevel.OFF);
   }
 
-  copySource = "copy-selected-walk-leader";
-  copySourceFromWalkLeaderMemberId: string;
-  public copyFrom: any = {};
 
   async ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -147,10 +139,10 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       this.logger.info("mailchimpConfig:", this.mailchimpConfig);
       if (this.mailchimpConfig?.allowSendCampaign) {
         this.sendNotifications = true;
-      } else if (this.memberLoginService.memberLoggedIn()) {
+      } else if (this.memberLoginService.memberLoggedIn() && this.personToNotify()) {
         this.notify.warning({
           title: "Mailchimp notifications",
-          message: "Mailchimp notifications have been temporarily disabled, so any changes to this walk will not be sent."
+          message: this.notificationsDisabledWarning()
         });
 
       }
@@ -169,6 +161,21 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
+  private notificationsDisabledWarning() {
+    return `Mailchimp notifications are not enabled, so ${this.personToNotify()} won't be automatically notified of changes you make.`;
+  }
+
+  private confirmChangesMessage() {
+    return {
+      title: "Confirm walk details complete",
+      message: this.mailchimpConfig?.allowSendCampaign ? this.confirmAndChangesWillBePublished() : this.notificationsDisabledWarning()
+    };
+  }
+
+  private confirmAndChangesWillBePublished() {
+    return `If you confirm this, your walk details will be emailed to ${this.display.walksCoordinatorName()} and they will publish these to the site.`;
+  }
+
   notificationRequired() {
     const walkDataAudit = this.walkEventService.walkDataAuditFor(this.displayedWalk.walk, this.status(), true);
     const notificationRequired = walkDataAudit.notificationRequired;
@@ -176,13 +183,17 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     return notificationRequired;
   }
 
-  allowEdits() {
-    return this.confirmAction === ConfirmType.NONE && !this.saveInProgress && (this.allowAdminEdits() ||
+  inputDisabled() {
+    return !this.inputEnabled();
+  }
+
+  inputEnabled() {
+    return this.confirmAction === ConfirmType.NONE && !this.saveInProgress && (this.display.allowAdminEdits() ||
       this.display.loggedInMemberIsLeadingWalk(this.displayedWalk.walk));
   }
 
   allowSave() {
-    return this.allowEdits() && this.notificationRequired();
+    return this.inputEnabled() && this.notificationRequired();
   }
 
   allowClose() {
@@ -190,7 +201,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   allowCancel() {
-    return !this.saveInProgress && this.allowEdits() && this.notificationRequired();
+    return !this.saveInProgress && this.inputEnabled() && this.notificationRequired();
   }
 
   status(): EventType {
@@ -204,10 +215,6 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   allowNotifyConfirmation() {
     return this.mailchimpConfig?.mailchimpEnabled && (this.allowSave() || this.confirmAction === ConfirmType.DELETE) && this.displayedWalk.walk.walkLeaderMemberId;
-  }
-
-  allowHistoryView() {
-    return this.display.loggedInMemberIsLeadingWalk(this.displayedWalk.walk) || this.allowAdminEdits();
   }
 
   allowDetailView() {
@@ -226,10 +233,6 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   allowRequestApproval() {
     return this.confirmAction === ConfirmType.NONE && this.ownedAndAwaitingWalkDetails();
-  }
-
-  allowAdminEdits() {
-    return this.memberLoginService.allowWalkAdminEdits();
   }
 
   pendingCancel() {
@@ -369,13 +372,16 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   previousWalkLeadersWithAliasOrMe(): DisplayMember[] {
     const displayMembers = this.membersWithAliasOrMe()
       .filter(member => this.previousWalkLeaderIds?.includes(member.memberId));
-    this.logger.debug("this.membersWithAliasOrMe:", "\n" + displayMembers.map(item => item.membershipNumber + "," + item.contactId + "," + item.displayName).join("\n"));
+
+    this.logger.off("previousWalkLeadersWithAliasOrMe:", displayMembers);
     return displayMembers;
   }
 
   populateCurrentWalkFromTemplate() {
     const walkTemplate = cloneDeep(this.copyFrom.walkTemplate) as Walk;
     if (walkTemplate) {
+      const relatedMember: Member = this.display.members.find(member => member.id === walkTemplate.walkLeaderMemberId);
+      const contactId = relatedMember?.contactId;
       const templateDate = this.displayDate.transform(walkTemplate.walkDate);
       delete walkTemplate.id;
       delete walkTemplate.events;
@@ -390,13 +396,19 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       delete walkTemplate.meetupPublish;
       delete walkTemplate.meetupEventTitle;
       walkTemplate.riskAssessment = [];
+      if (contactId) {
+        this.logger.info("updating contactId from", walkTemplate.contactId, "to", contactId);
+        walkTemplate.contactId = contactId;
+      } else {
+        this.logger.info("cannot find contact Id to overwrite copy ied walk contact Id of", walkTemplate.contactId);
+      }
       Object.assign(this.displayedWalk.walk, walkTemplate);
       const event = this.walkEventService.createEventIfRequired(this.displayedWalk.walk,
         EventType.WALK_DETAILS_COPIED, "Copied from previous walk on " + templateDate);
       this.setStatus(EventType.AWAITING_WALK_DETAILS);
       this.walkEventService.writeEventIfRequired(this.displayedWalk.walk, event);
       this.notify.success({
-        title: "Walk details were copied from " + templateDate,
+        title: "Walk details were copied from previous walk on " + templateDate,
         message: "Make any further changes here and save when you are done."
       });
     }
@@ -600,20 +612,13 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.logger.debug("requestApproval called with current status:", this.status());
     if (this.isWalkReadyForStatusChangeTo(this.walksReferenceService.toWalkEventType(EventType.AWAITING_APPROVAL))) {
       this.confirmAction = ConfirmType.REQUEST_APPROVAL;
-      this.notify.warning({
-        title: "Confirm walk details complete",
-        message: "If you confirm this, your walk details will be emailed to " + this.walksCoordinatorName() +
-          " and they will publish these to the site."
-      });
+      this.notify.warning(this.confirmChangesMessage());
     }
   }
 
+
   contactOther() {
-    this.notify.warning({
-      title: "Confirm walk details complete",
-      message: "If you confirm this, your walk details will be emailed to " + this.walksCoordinatorName() +
-        " and they will publish these to the site."
-    });
+    this.notify.warning(this.confirmChangesMessage());
   }
 
   walkStatusChange() {
@@ -651,9 +656,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     const validationMessages = this.validateWalk().validationMessages;
     if (validationMessages.length > 0) {
       this.notify.warning({
-        title: "This walk still has the following " + validationMessages.length + " field(s) that need attention",
-        message: validationMessages.join(", ") +
-          ". You'll have to get the rest of these details completed before you mark the walk as approved."
+        title: `This walk still has the following ${this.stringUtils.pluraliseWithCount(validationMessages.length, "area")} that ${this.stringUtils.pluralise(validationMessages.length, "needs", "need")} attention`,
+        message: validationMessages.join(", ") + ". You'll have to get the rest of these details completed before you mark the walk as approved."
       });
     } else {
       this.notify.success({
@@ -701,12 +705,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   personToNotify() {
     return this.display.loggedInMemberIsLeadingWalk(this.displayedWalk.walk) ?
-      this.walksCoordinatorName() :
+      this.display.walksCoordinatorName() :
       this.displayedWalk.walk && this.displayedWalk.walk.displayName;
-  }
-
-  walksCoordinatorName() {
-    return this.committeeReferenceData.contactUsField("walks", "fullName");
   }
 
   populateWalkTemplates(injectedMemberId?: string) {
@@ -787,5 +787,10 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   viewGridReference(gridReference: string) {
     return window.open(this.display.gridReferenceLink(gridReference));
+  }
+
+  memberLookup() {
+    this.logger.off("memberLookup:showOnlyWalkLeaders:", this.showOnlyWalkLeaders);
+    return this.showOnlyWalkLeaders ? this.previousWalkLeadersWithAliasOrMe() : this.membersWithAliasOrMe();
   }
 }

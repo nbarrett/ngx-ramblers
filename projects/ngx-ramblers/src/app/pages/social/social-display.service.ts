@@ -52,7 +52,7 @@ export class SocialDisplayService {
     private memberIdToFullNamePipe: MemberIdToFullNamePipe,
     private dateUtils: DateUtilsService,
     private clipboardService: ClipboardService,
-    private committeeConfig: CommitteeConfigService,
+    private committeeConfigService: CommitteeConfigService,
     private contentMetadataService: ContentMetadataService,
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(SocialDisplayService, NgxLoggerLevel.OFF);
@@ -60,7 +60,7 @@ export class SocialDisplayService {
   }
 
   private configureEventSubscriptions() {
-    this.committeeConfig.events().subscribe(data => this.committeeReferenceData = data);
+    this.committeeConfigService.events().subscribe(data => this.committeeReferenceData = data);
     this.authService.authResponse().subscribe(() => this.applyAllows());
     this.authService.authResponse().subscribe(() => this.authChanges());
     this.siteEditService.events.subscribe(() => this.applyAllows());

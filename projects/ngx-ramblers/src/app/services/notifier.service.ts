@@ -5,10 +5,10 @@ import { AlertMessage, AlertTarget, AlertType } from "../models/alert-target.mod
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { StringUtilsService } from "./string-utils.service";
 
-const ALERT_ERROR: AlertType = {class: "alert-danger", icon: faCircleExclamation, failure: true};
-const ALERT_WARNING: AlertType = {class: "alert-warning", icon: faCircleCheck};
-const ALERT_INFO: AlertType = {class: "alert-success", icon: faCircleInfo};
-const ALERT_SUCCESS: AlertType = {class: "alert-success", icon: faCircleCheck};
+export const ALERT_ERROR: AlertType = {class: "alert-danger", icon: faCircleExclamation, failure: true};
+export const ALERT_WARNING: AlertType = {class: "alert-warning", icon: faCircleCheck};
+export const ALERT_INFO: AlertType = {class: "alert-success", icon: faCircleInfo};
+export const ALERT_SUCCESS: AlertType = {class: "alert-success", icon: faCircleCheck};
 
 export class AlertInstance {
   private logger: Logger;

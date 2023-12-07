@@ -2,7 +2,7 @@ import { Component, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { DisplayedWalk, RiskAssessmentRecord, Walk } from "../../../models/walk.model";
+import { DisplayedWalk, Walk } from "../../../models/walk.model";
 import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -12,6 +12,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { WalkChangesService } from "../../../services/walks/walk-changes.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { WalkDisplayService } from "../walk-display.service";
+import { RiskAssessmentService } from "../../../services/walks/risk-assessment.service";
 
 @Component({
   selector: "app-walk-risk-assessment",
@@ -31,6 +32,7 @@ export class WalkRiskAssessmentComponent implements OnInit, OnDestroy {
               public display: WalkDisplayService,
               private walksReferenceService: WalksReferenceService,
               private dateUtilsService: DateUtilsService,
+              private riskAssessmentService: RiskAssessmentService,
               private notifierService: NotifierService,
               private stringUtilsService: StringUtilsService,
               private walkChangesService: WalkChangesService,
@@ -51,18 +53,10 @@ export class WalkRiskAssessmentComponent implements OnInit, OnDestroy {
 
   private updateCompletionStatus(walk: Walk) {
     this.logger.debug("updateCompletionStatus:", walk);
-    const unconfirmedRiskAssessments: RiskAssessmentRecord[] = walk.riskAssessment.filter(record => !record.confirmed);
-    if (unconfirmedRiskAssessments.length > 0) {
-      const sections = unconfirmedRiskAssessments.map(item => item.riskAssessmentSection).join(", ");
-      this.notify.warning({
-        title: "Risk Assessment not yet complete",
-        message: `Please complete the following ${this.stringUtilsService.pluraliseWithCount(unconfirmedRiskAssessments.length, "section")}: ${sections}`
-      });
+    if (this.riskAssessmentService.unconfirmedRiskAssessmentsExist(walk.riskAssessment)) {
+      this.notify.warning(this.riskAssessmentService.warningMessage(walk.riskAssessment));
     } else {
-      this.notify.success({
-        title: "Risk Assessment complete",
-        message: `All ${this.stringUtilsService.pluraliseWithCount(walk.riskAssessment.length, "section")} have been confirmed`
-      });
+      this.notify.success(this.riskAssessmentService.successMessage(walk.riskAssessment));
     }
   };
 }

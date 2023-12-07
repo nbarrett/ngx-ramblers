@@ -1,5 +1,4 @@
 import { ApiResponse, Identifiable } from "./api-response.model";
-import { BannerConfig } from "./banner-configuration.model";
 import { MailchimpSubscription } from "./mailchimp.model";
 
 export enum ProfileUpdateType {
@@ -238,4 +237,14 @@ export interface DeletedMember {
 export interface DeletedMemberApiResponse extends ApiResponse {
   request: any;
   response?: DeletedMember | DeletedMember[];
+}
+
+export interface DisplayMember {
+    memberId: string;
+    name: string;
+    displayName: string;
+    contactId: string;
+    firstName: string;
+    lastName: string;
+    membershipNumber: string;
 }

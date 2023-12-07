@@ -11,7 +11,7 @@
       <div class="row">
         <div class="col-sm-12">
           <div class="form-group">
-                <textarea [disabled]="!allowEdits()"
+                <textarea [disabled]="!display.allowEdits(displayedWalk.walk)"
                           #input (input)="confirmParameterText(input.value)"
                           [value]="riskAssessmentConfirmationText()" type="text"
                           class="form-control input-sm" rows="2"
