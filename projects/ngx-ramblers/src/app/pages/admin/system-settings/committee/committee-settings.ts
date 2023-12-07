@@ -2,7 +2,12 @@ import { Component, OnInit } from "@angular/core";
 import { faAdd, faClose } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../../models/alert-target.model";
-import { CommitteeConfig, CommitteeFileType, Notification } from "../../../../models/committee.model";
+import {
+  CommitteeConfig,
+  CommitteeFileType,
+  DEFAULT_COST_PER_MILE,
+  Notification
+} from "../../../../models/committee.model";
 import { sortBy } from "../../../../services/arrays";
 import { CommitteeConfigService } from "../../../../services/committee-config.service";
 import { CommitteeQueryService } from "../../../../services/committee/committee-query.service";
@@ -46,6 +51,9 @@ export class CommitteeSettingsComponent implements OnInit {
     this.committeeConfigService.getConfig()
       .then(committeeConfig => {
         this.committeeConfig = committeeConfig;
+        if (!this.committeeConfig?.expenses) {
+          this.committeeConfig.expenses = {costPerMile: DEFAULT_COST_PER_MILE};
+        }
         this.logger.info("retrieved committeeConfig", committeeConfig);
       }).catch(error => this.notify.error({title: "Failed to query Committee config", message: error}));
 

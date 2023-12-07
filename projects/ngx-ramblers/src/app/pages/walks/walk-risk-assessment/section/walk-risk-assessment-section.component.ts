@@ -84,10 +84,6 @@ export class WalkRiskAssessmentSectionComponent implements OnInit {
     this.walkChangesService.notifyChange(this.displayedWalk.walk);
   }
 
-  allowEdits() {
-    return this.display.loggedInMemberIsLeadingWalk(this.displayedWalk.walk) || this.memberLoginService.allowWalkAdminEdits();
-  }
-
   riskAssessmentConfirmed(): boolean {
     return this.findOrCreateRiskAssessmentRecord().confirmed;
   }

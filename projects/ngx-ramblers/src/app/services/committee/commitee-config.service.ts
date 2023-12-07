@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
-import { CommitteeConfig, CommitteeMember } from "../../models/committee.model";
+import { CommitteeConfig, CommitteeMember, DEFAULT_COST_PER_MILE } from "../../models/committee.model";
 import { ConfigKey } from "../../models/config.model";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -42,7 +42,8 @@ export class CommitteeConfigService {
         walks: emptyCommitteeMember,
         support: emptyCommitteeMember
       },
-      fileTypes: []
+      fileTypes: [],
+      expenses: {costPerMile: DEFAULT_COST_PER_MILE}
     }).then((committeeConfig: CommitteeConfig) => {
       this.logger.info("notifying subscribers with committeeConfig:", committeeConfig);
       this.subject.next(CommitteeReferenceData.create(committeeConfig, this.memberLoginService));

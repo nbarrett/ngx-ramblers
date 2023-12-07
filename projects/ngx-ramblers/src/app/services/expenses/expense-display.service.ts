@@ -7,7 +7,13 @@ import last from "lodash-es/last";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Member } from "../../models/member.model";
 import { Confirm, EditMode } from "../../models/ui-actions";
-import { ExpenseClaim, ExpenseEvent, ExpenseEventType, ExpenseItem, ExpenseType } from "../../notifications/expenses/expense.model";
+import {
+  ExpenseClaim,
+  ExpenseEvent,
+  ExpenseEventType,
+  ExpenseItem,
+  ExpenseType
+} from "../../notifications/expenses/expense.model";
 import { ContentMetadataService } from "../content-metadata.service";
 import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -17,6 +23,9 @@ import { AlertInstance } from "../notifier.service";
 import { NumberUtilsService } from "../number-utils.service";
 import { UrlService } from "../url.service";
 import { ExpenseClaimService } from "./expense-claim.service";
+import { CommitteeConfigService } from "../committee/commitee-config.service";
+import { CommitteeReferenceData } from "../committee/committee-reference-data";
+import { DEFAULT_COST_PER_MILE } from "../../models/committee.model";
 
 @Injectable({
   providedIn: "root"
@@ -47,10 +56,12 @@ export class ExpenseDisplayService {
   };
 
   private receiptBaseUrl: string;
+  private committeeReferenceData: CommitteeReferenceData;
 
   constructor(
     private contentMetadata: ContentMetadataService,
     private memberService: MemberService,
+    private committeeConfigService: CommitteeConfigService,
     private memberLoginService: MemberLoginService,
     private expenseClaimService: ExpenseClaimService,
     private router: Router,
@@ -61,7 +72,7 @@ export class ExpenseDisplayService {
     loggerFactory: LoggerFactory) {
     this.receiptBaseUrl = this.contentMetadata.baseUrl("expenseClaims");
     this.logger = loggerFactory.createLogger(ExpenseDisplayService, NgxLoggerLevel.OFF);
-    this.refreshMembers();
+    this.populateData();
   }
 
   createEvent(expenseClaim: ExpenseClaim, eventType: ExpenseEventType, reason?: string) {
@@ -116,7 +127,7 @@ export class ExpenseDisplayService {
       expenseDate: this.dateUtils.asValueNoTime(),
       cost: 0,
       travel: {
-        costPerMile: 0.28,
+        costPerMile: this?.committeeReferenceData?.expensesConfig()?.costPerMile || DEFAULT_COST_PER_MILE,
         miles: 0,
         from: "",
         to: "",
@@ -140,11 +151,12 @@ export class ExpenseDisplayService {
     return this.numberUtils.asNumber(cost, 2);
   }
 
-  refreshMembers() {
+  populateData() {
     this.memberService.publicFields(this.memberService.filterFor.GROUP_MEMBERS)
       .then((members) => {
         this.members = members;
       });
+    this.committeeConfigService.events().subscribe(data => this.committeeReferenceData = data);
   }
 
   showExpenseEmailErrorAlert(notify: AlertInstance, message: string) {

@@ -1,5 +1,5 @@
 import map from "lodash-es/map";
-import { CommitteeConfig, CommitteeMember } from "../../models/committee.model";
+import { CommitteeConfig, CommitteeMember, ExpensesConfig } from "../../models/committee.model";
 import { MemberLoginService } from "../member/member-login.service";
 import { FileType } from "./committee-file-type.model";
 
@@ -7,11 +7,12 @@ export class CommitteeReferenceData {
 
   constructor(private injectedCommitteeMembers: CommitteeMember[] = [],
               private injectedFileTypes: FileType[],
+              private expenses: ExpensesConfig,
               private memberLoginService: MemberLoginService) {
   }
 
   static create(committeeConfig: CommitteeConfig, memberLoginService: MemberLoginService) {
-    return new CommitteeReferenceData(CommitteeReferenceData.toCommitteeMembers(committeeConfig), committeeConfig.fileTypes, memberLoginService);
+    return new CommitteeReferenceData(CommitteeReferenceData.toCommitteeMembers(committeeConfig), committeeConfig.fileTypes, committeeConfig.expenses, memberLoginService);
   }
 
   public static toCommitteeMembers(committeeConfig: CommitteeConfig): CommitteeMember[] {
@@ -26,7 +27,7 @@ export class CommitteeReferenceData {
   }
 
   createFrom(injectedCommitteeMembers: CommitteeMember[]) {
-    return new CommitteeReferenceData(injectedCommitteeMembers, this.injectedFileTypes, this.memberLoginService);
+    return new CommitteeReferenceData(injectedCommitteeMembers, this.injectedFileTypes, this.expenses, this.memberLoginService);
   }
 
   committeeMembers(): CommitteeMember[] {
@@ -42,6 +43,10 @@ export class CommitteeReferenceData {
 
   fileTypes(): FileType[] {
     return this.injectedFileTypes;
+  }
+
+  expensesConfig(): ExpensesConfig {
+    return this.expenses;
   }
 
   committeeMembersForRole(role): CommitteeMember[] {

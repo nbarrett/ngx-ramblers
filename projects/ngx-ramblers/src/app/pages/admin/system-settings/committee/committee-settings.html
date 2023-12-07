@@ -68,6 +68,24 @@
             </div>
           </div>
         </tab>
+        <tab heading="Expenses">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="row">
+              <div class="col-sm-12 mt-2 mb-2">
+                <app-markdown-editor category="admin" name="committee-expenses-help"
+                                     description="Committee file expenses help"></app-markdown-editor>
+              </div>
+            </div>
+            <div class="col-sm-12">
+              <div class="form-group">
+                <label for="cost-per-mile">Cost Per Mile</label>
+                <input *ngIf="committeeConfig?.expenses" [(ngModel)]="committeeConfig.expenses.costPerMile" type="text"
+                       class="form-control input-sm" id="cost-per-mile"
+                       placeholder="Enter cost per mile for travel expenses here">
+              </div>
+            </div>
+          </div>
+        </tab>
       </tabset>
       <div *ngIf="notifyTarget.showAlert" class="row">
         <div class="col-sm-12 mb-10">

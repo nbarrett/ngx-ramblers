@@ -60,6 +60,8 @@ import { WalksLocalService } from "./walks-local.service";
 import { DataQueryOptions } from "../../models/api-request.model";
 import isEqual from "lodash-es/isEqual";
 import { isNumericRamblersId } from "../path-matchers";
+import { RiskAssessmentService } from "./risk-assessment.service";
+import { AlertMessage } from "../../models/alert-target.model";
 
 @Injectable({
   providedIn: "root"
@@ -77,6 +79,7 @@ export class RamblersWalksAndEventsService {
   private NEAREST_TOWN_PREFIX = "Nearest Town is ";
 
   constructor(private http: HttpClient,
+              private riskAssessmentService: RiskAssessmentService,
               private systemConfigService: SystemConfigService,
               private walksService: WalksLocalService,
               private urlService: UrlService,
@@ -391,6 +394,10 @@ export class RamblersWalksAndEventsService {
 
       if (walk.walkType === WalkType.CIRCULAR && !isEmpty(walk.postcodeFinish) && walk.postcodeFinish !== walk.postcode) {
         validationMessages.push(`Walk is ${WalkType.CIRCULAR} but the finish postcode ${walk.postcodeFinish} does not match the start postcode ${walk.postcode} in the Walk Details tab`);
+      }
+      if (this.riskAssessmentService.unconfirmedRiskAssessmentsExist(walk.riskAssessment)) {
+        const alertMessage: AlertMessage = this.riskAssessmentService.warningMessage(walk.riskAssessment);
+        validationMessages.push(`${alertMessage.title}. ${alertMessage.message}`);
       }
     }
     return {

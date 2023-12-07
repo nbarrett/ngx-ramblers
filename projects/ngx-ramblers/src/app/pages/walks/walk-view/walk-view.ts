@@ -12,13 +12,14 @@ import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MeetupService } from "../../../services/meetup.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
-import { AlertInstance, NotifierService } from "../../../services/notifier.service";
+import { ALERT_WARNING, AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { UrlService } from "../../../services/url.service";
 import { WalksService } from "../../../services/walks/walks.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { SystemConfig } from "../../../models/system.model";
 import { BroadcastService } from "../../../services/broadcast-service";
+import { WalksQueryService } from "../../../services/walks/walks-query.service";
 
 @Component({
   selector: "app-walk-view",
@@ -51,6 +52,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   constructor(
     private route: ActivatedRoute,
     private broadcastService: BroadcastService<GoogleMapsConfig>,
+    public walksQueryService: WalksQueryService,
     private walksService: WalksService,
     public googleMapsService: GoogleMapsService,
     private authService: AuthService,
@@ -194,4 +196,5 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     this.updateGoogleMap();
   }
 
+  protected readonly ALERT_WARNING = ALERT_WARNING;
 }

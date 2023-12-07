@@ -22,6 +22,8 @@ import { UrlService } from "../../services/url.service";
 import { WalkEventService } from "../../services/walks/walk-event.service";
 import { WalksQueryService } from "../../services/walks/walks-query.service";
 import { WalksReferenceService } from "../../services/walks/walks-reference-data.service";
+import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
+import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 
 @Injectable({
   providedIn: "root"
@@ -37,6 +39,7 @@ export class WalkDisplayService {
   public members: Member[] = [];
   public googleMapsConfig: GoogleMapsConfig;
   public group: Organisation;
+  private committeeReferenceData: CommitteeReferenceData;
 
   constructor(
     private systemConfigService: SystemConfigService,
@@ -51,6 +54,7 @@ export class WalkDisplayService {
     private walkEventService: WalkEventService,
     private walksReferenceService: WalksReferenceService,
     private walksQueryService: WalksQueryService,
+    private committeeConfig: CommitteeConfigService,
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(WalkDisplayService, NgxLoggerLevel.OFF);
     this.applyConfig();
@@ -118,6 +122,10 @@ export class WalkDisplayService {
     const result = this.group?.walkPopulation === WalkPopulation.LOCAL;
     this.logger.debug("walkPopulationWalksManager:walkPopulation:", this.group?.walkPopulation, "result:", result);
     return result;
+  }
+
+  walkLeaderOrAdmin(walk: Walk) {
+    return this.loggedInMemberIsLeadingWalk(walk) || this.allowAdminEdits();
   }
 
   loggedInMemberIsLeadingWalk(walk: Walk) {
@@ -259,8 +267,13 @@ export class WalkDisplayService {
     this.toggleExpandedViewFor(walk, WalkViewMode.VIEW);
   }
 
+  public walksCoordinatorName() {
+    return this.committeeReferenceData.contactUsField("walks", "fullName");
+  }
+
   private applyConfig() {
     this.logger.info("applyConfig called");
+    this.committeeConfig.events().subscribe(committeeReferenceData => this.committeeReferenceData = committeeReferenceData);
     this.systemConfigService.events().subscribe(item => {
       this.group = item.group;
       this.logger.info("group:", this.group);
@@ -269,5 +282,13 @@ export class WalkDisplayService {
       this.googleMapsConfig = {zoomLevel: 12, apiKey: config.apiKey};
       this.logger.info("googleMapsConfig:", this.googleMapsConfig);
     });
+  }
+
+  allowEdits(walk: Walk) {
+    return this.loggedInMemberIsLeadingWalk(walk) || this.allowAdminEdits();
+  }
+
+  allowAdminEdits() {
+    return this.memberLoginService.allowWalkAdminEdits();
   }
 }

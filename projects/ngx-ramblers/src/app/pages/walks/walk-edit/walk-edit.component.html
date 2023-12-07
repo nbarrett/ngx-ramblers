@@ -6,7 +6,7 @@
     <ng-template app-walk-notification-template></ng-template>
   </div>
   <tabset class="custom-tabset" *ngIf="displayedWalk.walk">
-    <tab [heading]="'Main details'">
+    <tab heading="Main Details">
       <div class="img-thumbnail thumbnail-admin-edit">
         <div class="row">
           <div class="col-sm-6">
@@ -14,7 +14,7 @@
               <label for="walk-date">Walk Date</label>
               <app-date-picker startOfDay id="walk-date" size="md"
                                placeholder="enter date of walk"
-                               [disabled]="!allowAdminEdits() || !allowEdits()"
+                               [disabled]="!display.allowAdminEdits() || inputDisabled()"
                                class="w-100"
                                (dateChange)="onDateChange($event)"
                                [value]="displayedWalk.walk.walkDate">
@@ -24,7 +24,7 @@
           <div class="col-sm-6">
             <div class="form-group">
               <label for="start-time">Start Time</label>
-              <input [disabled]="!allowEdits()" [(ngModel)]="displayedWalk.walk.startTime"
+              <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.startTime"
                      type="text" class="form-control input-sm" id="start-time"
                      placeholder="Enter Start time here">
             </div>
@@ -34,7 +34,7 @@
           <div class="col-sm-12">
             <div class="form-group">
               <label for="brief-description-and-start-point">Walk Title</label>
-              <textarea [disabled]="!allowEdits()"
+              <textarea [disabled]="inputDisabled()"
                         [(ngModel)]="displayedWalk.walk.briefDescriptionAndStartPoint" type="text"
                         class="form-control input-sm" rows="3"
                         id="brief-description-and-start-point"
@@ -59,7 +59,7 @@
                  markdown [data]="displayedWalk.walk.longerDescription" type="text"
                  id="longer-description-formatted"></p>
               <textarea *ngIf="!longerDescriptionPreview"
-                        [disabled]="!allowEdits()"
+                        [disabled]="inputDisabled()"
                         [(ngModel)]="displayedWalk.walk.longerDescription" type="text"
                         class="form-control input-sm" rows="5" id="longer-description"
                         placeholder="Enter Longer Description here"></textarea>
@@ -68,10 +68,10 @@
         </div>
       </div>
     </tab>
-    <tab *ngIf="allowEdits()" [heading]="'Risk Assessment'">
+    <tab *ngIf="display.allowEdits(displayedWalk.walk)" heading="Risk Assessment">
       <app-walk-risk-assessment [displayedWalk]="displayedWalk"></app-walk-risk-assessment>
     </tab>
-    <tab [heading]="' Related links'">
+    <tab heading="Related Links">
       <div class="img-thumbnail thumbnail-admin-edit">
         <div class="row">
           <div class="col-sm-12">
@@ -101,9 +101,9 @@
                 </div>
               </div>
               <div class="row">
-                <div class="col-sm-6" *ngIf="allowEdits()">
+                <div class="col-sm-6" *ngIf="display.allowEdits(displayedWalk.walk)">
                   <div class="custom-control custom-checkbox">
-                    <input [disabled]="!allowEdits() || saveInProgress"
+                    <input [disabled]="inputDisabled() || saveInProgress"
                            [(ngModel)]="displayedWalk.walk.ramblersPublish"
                            type="checkbox" class="custom-control-input" id="publish-ramblers">
                     <label class="custom-control-label" for="publish-ramblers">Publish to Ramblers
@@ -140,7 +140,7 @@
                   <div class="form-group">
                     <label for="os-maps-route">Url</label>
                     <input [(ngModel)]="displayedWalk.walk.osMapsRoute"
-                           [disabled]="!allowEdits()"
+                           [disabled]="inputDisabled()"
                            type="text" value="" class="form-control input-sm"
                            id="os-maps-route"
                            placeholder="Enter URL to OS Maps Route">
@@ -150,7 +150,7 @@
                   <div class="form-group">
                     <label for="related-links-title">Title</label>
                     <input [(ngModel)]="displayedWalk.walk.osMapsTitle"
-                           [disabled]="!allowEdits()"
+                           [disabled]="inputDisabled()"
                            type="text" value="" class="form-control input-sm"
                            id="related-links-title"
                            placeholder="Enter optional title for OS Maps link">
@@ -171,7 +171,7 @@
                     <input type="submit" value="Unlink"
                            (click)="unlinkOSMapsFromCurrentWalk()"
                            title="Remove link between this walk and OS Maps"
-                           [disabled]="!canUnlinkOSMaps()|| !allowEdits()"
+                           [disabled]="!canUnlinkOSMaps()|| inputDisabled()"
                            [ngClass]="canUnlinkOSMaps() ? 'button-form': 'button-form disabled-button-form'"
                            class="ml-2">
                   </div>
@@ -182,13 +182,30 @@
         </div>
       </div>
     </tab>
-    <tab [heading]="'Walk leader'">
+    <tab heading="Walk Leader">
       <div class="img-thumbnail thumbnail-admin-edit">
-        <div *ngIf="allowAdminEdits()" class="row">
+        <div *ngIf="display.allowAdminEdits()" class="row">
+          <div class="col-sm-12">
+            <div class="form-group">
+              <div class="custom-control custom-radio custom-control-inline">
+                <input id="showOnlyWalkLeadersTrue" type="radio" class="custom-control-input" name="showOnlyWalkLeaders"
+                       [(ngModel)]="showOnlyWalkLeaders" [value]="true">
+                <label class="custom-control-label" for="showOnlyWalkLeadersTrue">
+                  Show Only Walk Leaders ({{previousWalkLeadersWithAliasOrMe().length}})</label>
+              </div>
+              <div class="custom-control custom-radio custom-control-inline">
+                <input id="showOnlyWalkLeadersFalse" type="radio" class="custom-control-input"
+                       name="showOnlyWalkLeaders"
+                       [(ngModel)]="showOnlyWalkLeaders" [value]="false">
+                <label class="custom-control-label" for="showOnlyWalkLeadersFalse">
+                  Show All Walk Leaders ({{membersWithAliasOrMe().length}})</label>
+              </div>
+            </div>
+          </div>
           <div class="col-sm-12">
             <div class="form-group">
               <label for="walk-status">Walk Status</label>
-              <select [disabled]="!allowAdminEdits()"
+              <select [disabled]="!display.allowAdminEdits()"
                       [(ngModel)]="displayedWalk.status"
                       (change)="walkStatusChange()"
                       class="form-control input-sm" id="walk-status">
@@ -200,20 +217,17 @@
             </div>
           </div>
         </div>
-        <div *ngIf="allowAdminEdits()" class="row">
+        <div *ngIf="display.allowAdminEdits()" class="row">
           <div class="col-sm-11">
             <div class="form-group">
               <label for="contact-member">Walk Leader</label>
-              <select *ngIf="allowDetailView()" [disabled]="!allowAdminEdits()"
+              <select *ngIf="allowDetailView()" [disabled]="!display.allowAdminEdits()"
                       (change)="walkLeaderMemberIdChanged()"
-                      class="form-control"
                       [(ngModel)]="displayedWalk.walk.walkLeaderMemberId"
                       class="form-control" id="contact-member">
                 <option value="">(no walk leader selected)</option>
-                <option *ngFor="let member of membersWithAliasOrMe()"
-                        [ngValue]="member.memberId"
-                        [textContent]="member.name">
-                </option>
+                <option *ngFor="let member of memberLookup()"
+                        [ngValue]="member.memberId">{{member.name}}</option>
               </select>
             </div>
           </div>
@@ -225,7 +239,7 @@
             </div>
           </div>
         </div>
-        <div *ngIf="allowAdminEdits()" class="row">
+        <div *ngIf="display.allowAdminEdits()" class="row">
           <div class="col-sm-6">
             <div class="form-group">
               <label for="display-name">Display Name (how it will be published on this walk)</label>
@@ -238,7 +252,7 @@
           <div class="col-sm-6">
             <div class="form-group">
               <label for="walk-leader-contact-id">Ramblers Assemble Name</label>
-              <input [disabled]="!allowAdminEdits()" [(ngModel)]="displayedWalk.walk.contactId"
+              <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.contactId"
                      type="text"
                      class="form-control input-sm" id="walk-leader-contact-id"
                      placeholder="Name that matches the User Details in Assemble. This will be sent in Ramblers in CSV export file">
@@ -249,7 +263,7 @@
           <div class="col-sm-12">
             <div class="form-group">
               <label for="contact-phone">Contact Phone</label>
-              <input [disabled]="!allowEdits()" [(ngModel)]="displayedWalk.walk.contactPhone"
+              <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.contactPhone"
                      type="text" class="form-control input-sm" id="contact-phone"
                      placeholder="Enter contact phone here">
             </div>
@@ -259,7 +273,7 @@
           <div class="col-sm-12">
             <div class="form-group">
               <label for="contact-email">Contact Email</label>
-              <input *ngIf="allowDetailView()" [disabled]="!allowEdits()"
+              <input [disabled]="inputDisabled()" *ngIf="allowDetailView()"
                      [(ngModel)]="displayedWalk.walk.contactEmail" type="text"
                      class="form-control input-sm" id="contact-email"
                      placeholder="Enter contact email here">
@@ -272,7 +286,7 @@
         </div>
       </div>
     </tab>
-    <tab [heading]="'Walk details'">
+    <tab heading="Walk Details">
       <div class="img-thumbnail thumbnail-admin-edit">
         <div class="row">
           <div class="col-sm-6">
@@ -281,7 +295,7 @@
               <div class="col-sm-6">
                 <div class="form-group">
                   <label for="distance">Distance</label>
-                  <input [disabled]="!allowEdits()" [(ngModel)]="displayedWalk.walk.distance"
+                  <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.distance"
                          type="text" class="form-control input-sm" id="distance"
                          placeholder="Enter Distance here">
                 </div>
@@ -289,7 +303,7 @@
               <div class="col-sm-6">
                 <div class="form-group">
                   <label for="nearest-town">Nearest Town</label>
-                  <input [disabled]="!allowEdits()" [(ngModel)]="displayedWalk.walk.nearestTown"
+                  <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.nearestTown"
                          type="text" class="form-control input-sm"
                          id="nearest-town"
                          placeholder="Enter nearest town here">
@@ -298,9 +312,7 @@
               <div class="col-sm-6">
                 <div class="form-group">
                   <label for="walkType">Walk Type</label>
-                  <select *ngIf="allowDetailView()" [disabled]="!allowEdits()"
-                          class="form-control input-sm"
-                          placeholder="Enter walk type here"
+                  <select *ngIf="allowDetailView()" [disabled]="inputDisabled()"
                           [(ngModel)]="displayedWalk.walk.walkType"
                           class="form-control input-sm" id="walkType">
                     <option *ngFor="let type of display.walkTypes" [ngValue]="type"
@@ -312,23 +324,19 @@
               <div class="col-sm-6">
                 <div class="form-group">
                   <label for="grade">Grade</label>
-                  <select *ngIf="allowDetailView()" [disabled]="!allowEdits()"
-                          class="form-control input-sm"
+                  <select *ngIf="allowDetailView()" [disabled]="inputDisabled()"
                           placeholder="Enter Grade here"
                           [(ngModel)]="displayedWalk.walk.grade"
                           class="form-control input-sm" id="grade">
                     <option *ngFor="let grade of display.grades"
-                            [ngValue]="grade"
-                            [textContent]="grade"
-                            [attr.selected]="grade == display.walkTypes[0]">{{grade}}
-                    </option>
+                            [ngValue]="grade">{{grade}}</option>
                   </select>
                 </div>
               </div>
               <div class="col-sm-6">
                 <div class="form-group">
                   <label for="post-code">Start Postcode</label>
-                  <input [disabled]="!allowEdits()" [(ngModel)]="displayedWalk.walk.postcode"
+                  <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.postcode"
                          (ngModelChange)="postcodeChange()"
                          type="text" class="form-control input-sm" id="post-code"
                          placeholder="Enter Postcode here">
@@ -338,7 +346,7 @@
                 <div class="form-group">
                   <label for="grid-reference">Start Grid Reference</label>
                   <div class="input-group">
-                    <input [disabled]="!allowEdits()" [(ngModel)]="displayedWalk.walk.gridReference"
+                    <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.gridReference"
                            type="text" class="form-control input-sm" id="grid-reference"
                            placeholder="Enter start grid Reference here">
                     <div class="input-group-append">
@@ -356,7 +364,7 @@
                 <div class="col-sm-6">
                   <div class="form-group">
                     <label for="finish-post-code">Finish Postcode</label>
-                    <input [disabled]="!allowEdits()" [(ngModel)]="displayedWalk.walk.postcodeFinish"
+                    <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.postcodeFinish"
                            (ngModelChange)="postcodeFinishChange()"
                            type="text" class="form-control input-sm" id="finish-post-code"
                            placeholder="Enter finish postcode here">
@@ -366,7 +374,7 @@
                   <div class="form-group">
                     <label for="grid-reference-end">Finish Grid Reference</label>
                     <div class="input-group">
-                      <input [disabled]="!allowEdits()" [(ngModel)]="displayedWalk.walk.gridReferenceFinish"
+                      <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.gridReferenceFinish"
                              type="text" class="form-control input-sm" id="grid-reference-end"
                              placeholder="Enter Finish Grid Reference here">
                       <div class="input-group-append">
@@ -385,7 +393,7 @@
               <div class="col-sm-6">
                 <div class="form-group">
                   <label for="ascent">Ascent</label>
-                  <input [disabled]="!allowEdits()" [(ngModel)]="displayedWalk.walk.ascent"
+                  <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.ascent"
                          type="text" class="form-control input-sm" id="ascent"
                          placeholder="Enter Ascent here">
                 </div>
@@ -407,7 +415,7 @@
         </div>
       </div>
     </tab>
-    <tab *ngIf="allowHistoryView()" heading="History">
+    <tab *ngIf="display.walkLeaderOrAdmin(displayedWalk.walk)" heading="History">
       <div class="img-thumbnail thumbnail-admin-edit">
         <div class="form-group">
           <table
@@ -436,9 +444,9 @@
         </div>
       </div>
     </tab>
-    <tab *ngIf="displayedWalk.walk.walkLeaderMemberId" heading="Copy from...">
+    <tab *ngIf="displayedWalk.walk.walkLeaderMemberId" heading="Copy From...">
       <div class="img-thumbnail thumbnail-admin-edit"
-           *ngIf="allowEdits() && displayedWalk.walk && displayedWalk.walk.walkLeaderMemberId">
+           *ngIf="display.allowEdits(displayedWalk.walk) && displayedWalk?.walk?.walkLeaderMemberId">
         <div class="row">
           <div class="col-sm-12">
             <div class="img-thumbnail thumbnail-walk-edit">
@@ -461,8 +469,7 @@
                         id="copy-member-walks">
                         <option value="">(no walk leader selected)</option>
                         <option *ngFor="let member of previousWalkLeadersWithAliasOrMe()"
-                                [ngValue]="member.memberId">{{member.name}}
-                        </option>
+                                [ngValue]="member.memberId">{{member.name}}</option>
                       </select>
                       </label>
                     </div>
@@ -483,14 +490,13 @@
                   <div class="col-sm-12 mt-2">
                     <label for="copy-walks-list">
                       Copy from {{copyFrom?.walkTemplates?.length || 0}} available walk(s): </label>
-                    <select [disabled]="!allowEdits()" class="form-control input-sm"
+                    <select [disabled]="inputDisabled()" class="form-control input-sm"
                             [(ngModel)]="copyFrom.walkTemplate"
                             (change)="populateCurrentWalkFromTemplate()"
                             id="copy-walks-list">
                       <option value="">(none selected)</option>
                       <option *ngFor="let walkTemplate of copyFrom.walkTemplates"
-                              [ngValue]="walkTemplate"
-                              [textContent]="walkTemplate | walkSummary"></option>
+                              [ngValue]="walkTemplate">{{walkTemplate | walkSummary}}</option>
                     </select>
                   </div>
                 </div>
@@ -569,7 +575,7 @@
            class="button-form amber-confirm"
            [ngClass]="{'disabled':saveInProgress}">
     <div *ngIf="allowNotifyConfirmation() && !saveInProgress" class="custom-control custom-checkbox custom-control">
-      <input [disabled]="!allowAdminEdits() ||saveInProgress "
+      <input [disabled]="!display.allowAdminEdits() ||saveInProgress "
              [(ngModel)]="sendNotifications"
              type="checkbox" class="custom-control-input" id="send-notification">
       <label class="custom-control-label ml-2"
