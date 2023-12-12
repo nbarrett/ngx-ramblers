@@ -13,6 +13,6 @@ export function toMongoId(id: string): mongoose.Types.ObjectId {
 }
 
 export function toMongoIds(ids: string[]): mongoose.Types.ObjectId[] {
-  return ids.map(id => toMongoId(id));
+  return ids?.map(id => toMongoId(id));
 }
 

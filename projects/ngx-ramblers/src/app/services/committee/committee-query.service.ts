@@ -156,8 +156,8 @@ export class CommitteeQueryService {
   }
 
   private mongoOrRawIdsFrom(groupEventsFilter: GroupEventsFilter): string[] | mongoose.Types.ObjectId[] {
-    const idsWithoutNumericsRamblersValues: string[] = groupEventsFilter.eventIds.filter(item => !isNumericRamblersId(item));
-    this.logger.info("mongoOrRawIdsFrom:groupEventsFilter.eventIds:", groupEventsFilter.eventIds, "idsWithoutNumericsRamblersValues:", idsWithoutNumericsRamblersValues);
+    const idsWithoutNumericsRamblersValues: string[] = groupEventsFilter?.eventIds?.filter(item => !isNumericRamblersId(item));
+    this.logger.info("mongoOrRawIdsFrom:groupEventsFilter.eventIds:", groupEventsFilter?.eventIds, "idsWithoutNumericsRamblersValues:", idsWithoutNumericsRamblersValues);
     if (groupEventsFilter?.eventIds?.length > 0 && idsWithoutNumericsRamblersValues?.length === 0) {
       this.logger.info("mongoOrRawIdsFrom:returning raw eventIds:", idsWithoutNumericsRamblersValues);
       return groupEventsFilter?.eventIds || [];
