@@ -1,33 +1,32 @@
-<ng-template #committeeYearTemplate>
-  <app-markdown-editor category="committee" [name]="'introduction'"
-                       description="Introduction"></app-markdown-editor>
-  <div class="card mb-3">
-    <div class="wrapper w-100 position-relative">
-      <img *ngIf="imageSource" class="h-100 w-100 position-absolute"
-           role="presentation"
-           [src]="urlService.imageSource(imageSource)">
-    </div>
-    <div class="card-body">
+<app-markdown-editor category="committee" [name]="'introduction'"
+                     description="Introduction"></app-markdown-editor>
+<div class="card mb-3">
+  <div class="wrapper w-100 position-relative">
+    <img *ngIf="imageSource" class="h-100 w-100 position-absolute"
+         role="presentation"
+         [src]="urlService.imageSource(imageSource)">
+  </div>
+  <div class="card-body">
       <div class="card-title mb-4"><h4>Committee events for {{committeeYear?.year}}</h4></div>
-      <input (click)="addCommitteeFile()"
-             *ngIf="display.allowAddCommitteeFile() && filesForYear?.length===0"
-             class="button-form" title="Add new File" type="submit"
-             value="Add File">
-      <div *ngFor="let committeeFile of filesForYear" class="file-item"
-           (mouseover)="selectCommitteeFile(committeeFile)">
-        <div *ngIf="committeeFile.fileNameData" class="file-download">
-          <img [alt]="display.iconFile(committeeFile)"
-               [src]="'assets/images/ramblers/' + display.iconFile(committeeFile)"
-               class="icon"/>
-          <a [href]="display.fileUrl(committeeFile)" [title]="display.fileTitle(committeeFile)" class="morelink"
-             target='_blank'>Download</a>
-        </div>
-        <div class="file-detail">
-          <h6>{{committeeFile.fileType}}</h6>
-          <p>{{display.fileTitle(committeeFile)}}</p>
-          <div *ngIf="memberLoginService.allowCommittee() &&  isActive(committeeFile)" class="row">
-            <div class="col-sm-12">
-              <div class="action-button-group">
+    <input (click)="addCommitteeFile()"
+           *ngIf="display.allowAddCommitteeFile() && filesForYear?.length===0"
+           class="button-form" title="Add new File" type="submit"
+           value="Add File">
+    <div *ngFor="let committeeFile of filesForYear" class="file-item"
+         (mouseover)="selectCommitteeFile(committeeFile)">
+      <div *ngIf="committeeFile.fileNameData" class="file-download">
+        <img [alt]="display.iconFile(committeeFile)"
+             [src]="'assets/images/ramblers/' + display.iconFile(committeeFile)"
+             class="icon"/>
+        <a [href]="display.fileUrl(committeeFile)" [title]="display.fileTitle(committeeFile)" class="morelink"
+           target='_blank'>Download</a>
+      </div>
+      <div class="file-detail">
+        <h6>{{committeeFile.fileType}}</h6>
+        <p>{{display.fileTitle(committeeFile)}}</p>
+        <div *ngIf="memberLoginService.allowCommittee() &&  isActive(committeeFile)" class="row">
+          <div class="col-sm-12">
+            <div class="action-button-group">
                         <span *ngIf="!display.confirm.deleteConfirmOutstanding()">
                           <input *ngIf="display.allowAddCommitteeFile()" type="submit"
                                  value="Add File" (click)="addCommitteeFile()"
@@ -64,11 +63,3 @@
       </div>
     </div>
   </div>
-  <app-dynamic-content [anchor]="'committee-years'" [contentPathReadOnly]="true"></app-dynamic-content>
-</ng-template>
-<app-page *ngIf="!committeeYear?.latestYear" [pageTitle]="committeeYearTitle">
-  <ng-container *ngTemplateOutlet="committeeYearTemplate"></ng-container>
-</app-page>
-<ng-container *ngIf="committeeYear?.latestYear">
-  <ng-container *ngTemplateOutlet="committeeYearTemplate"></ng-container>
-</ng-container>

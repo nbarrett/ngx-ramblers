@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from "@angular/core";
-import { ActivatedRoute, ParamMap } from "@angular/router";
+import { ActivatedRoute, NavigationEnd, ParamMap, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
@@ -20,6 +20,7 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { PageContentService } from "../../../services/page-content.service";
 import { PageService } from "../../../services/page.service";
 import { UrlService } from "../../../services/url.service";
+import { filter } from "rxjs/operators";
 
 @Component({
   selector: "app-committee-home",
@@ -38,11 +39,13 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
   public confirm = new Confirm();
   public committeeYear: CommitteeYear;
   private committeeFileId: string;
+  public pageTitle: string;
 
   constructor(private pageService: PageService,
               private memberLoginService: MemberLoginService,
               private memberService: MemberService,
               private notifierService: NotifierService,
+              private router: Router,
               private route: ActivatedRoute,
               private authService: AuthService,
               private urlService: UrlService,
@@ -58,6 +61,7 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
+    this.committeeYearChange("ngOnInit");
     this.pageService.setTitle();
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => this.setPrivileges(loginResponse)));
     this.destinationType = "";
@@ -66,10 +70,15 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
     };
     this.refreshAll();
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
+      this.committeeYearChange("route change");
       this.committeeFileId = paramMap.get("relativePath");
       this.logger.info("committeeFileId from route params:", paramMap, this.committeeFileId);
       this.notify.setReady();
       this.refreshCommitteeFiles();
+    }));
+    this.subscriptions.push(this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe((val) => {
+      this.logger.info("router event:", val);
+      this.committeeYearChange("route event");
     }));
   }
 
@@ -77,14 +86,23 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
+  private committeeYearChange(reason: string) {
+    const year = this.urlService.lastPathSegmentNumeric() ? +this.urlService.lastPathSegment() : this.committeeQueryService.latestYear();
+    const committeeYear = {year, latestYear: this.committeeQueryService.latestYear() === year};
+    this.logger.info("overridden committeeYear:", committeeYear);
+    this.committeeYear = committeeYear;
+    this.pageTitle = committeeYear.latestYear ? this.pageTitle = "Committee" : "Committee Year " + committeeYear.year;
+    this.logger.info("reason:", reason, "lastPathSegment:", this.urlService.lastPathSegment(), year, "pageTitle:", this.pageTitle);
+  }
+
   private refreshCommitteeFiles() {
     this.committeeQueryService.queryFiles(this.committeeFileId)
-      .then(() => {
-        this.committeeYear = this.committeeQueryService.thisCommitteeYear();
-        this.logger.info("refreshCommitteeFiles:committeeYear:", this.committeeYear);
-        this.generateActionButtons();
-        this.confirm.clear();
-      });
+        .then(() => {
+          this.committeeYear = this.committeeQueryService.thisCommitteeYear();
+          this.logger.info("refreshCommitteeFiles:committeeYear:", this.committeeYear);
+          this.generateActionButtons();
+          this.confirm.clear();
+        });
   }
 
   private setPrivileges(loginResponse?: LoginResponse) {
@@ -130,7 +148,7 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
                 accessLevel: AccessLevel.public,
                 title: year.year.toString(),
                 icon: "faCalendarAlt",
-                href: `committee/year/${year.year}`,
+                href: `committee/${year.year}`,
                 contentTextId
               };
               return column;

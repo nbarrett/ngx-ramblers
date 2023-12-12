@@ -18,7 +18,7 @@ import { ContentMetadataService } from "../../../services/content-metadata.servi
     <form>
       <label class="mr-2"
              [for]="id">Album Name</label>
-      <app-carousel-select [maxWidth]="290" *ngIf="!nameInput" [id]="id" [showNewButton]="true"
+      <app-carousel-select [maxWidth]="290" *ngIf="!nameInput" [id]="id" showNewButton
                            [name]="row?.carousel?.name"
                            (metadataChange)="metadataChange(row, $event)"
                            (nameEditToggle)="toggleNameEdit($event)"></app-carousel-select>

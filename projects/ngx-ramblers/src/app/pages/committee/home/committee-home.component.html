@@ -1,6 +1,7 @@
-<app-page [pageTitle]="'Committee'">
-  <app-committee-year [committeeYear]="committeeYear"  [notify]="notify"></app-committee-year>
-  <app-dynamic-content [anchor]="'action-buttons'" [contentPathReadOnly]="true"></app-dynamic-content>
+<app-page [pageTitle]="pageTitle">
+  <app-committee-year [committeeYear]="committeeYear" [notify]="notify"></app-committee-year>
+  <app-dynamic-content [anchor]="'committee-years'" areaAsContentPath contentPathReadOnly></app-dynamic-content>
+  <app-dynamic-content [anchor]="'action-buttons'" areaAsContentPath contentPathReadOnly></app-dynamic-content>
   <div class="row">
     <div class="col-sm-12">
       <div *ngIf="showAlertMessage()" class="row">

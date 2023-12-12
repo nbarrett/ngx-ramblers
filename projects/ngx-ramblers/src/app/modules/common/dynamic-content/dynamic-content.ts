@@ -13,6 +13,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
 import { NamedEventType } from "../../../models/broadcast.model";
 import { BroadcastService } from "../../../services/broadcast-service";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-dynamic-content",
@@ -33,17 +34,24 @@ import { BroadcastService } from "../../../services/broadcast-service";
   styleUrls: ["./dynamic-content.sass"],
 })
 export class DynamicContentComponent implements OnInit, OnDestroy {
-  @Input()
-  contentPathReadOnly: boolean;
+
+  @Input("areaAsContentPath") set areaAsContentPathValue(areaAsContentPath: boolean) {
+    this.areaAsContentPath = coerceBooleanProperty(areaAsContentPath);
+  }
+
+  @Input("contentPathReadOnly") set contentPathReadOnlyValue(contentPathReadOnly: boolean) {
+    this.contentPathReadOnly = coerceBooleanProperty(contentPathReadOnly);
+  }
+
+  public contentPath: string;
   @Input()
   public anchor: string;
   @Input()
   public notifier: AlertInstance;
-  @Input()
+  private areaAsContentPath: boolean;
+  contentPathReadOnly: boolean;
   public defaultPageContent: PageContent;
   private logger: Logger;
-  public relativePath: string;
-  public contentPath: string;
   public pageContent: PageContent;
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
@@ -68,10 +76,13 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.notify = this.notifier || this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
-      this.relativePath = paramMap.get("relativePath");
-      this.contentPath = this.pageService.contentPath(this.anchor);
+      if (this.areaAsContentPath) {
+        this.contentPath = this.urlService.area() + this.pageService.anchorWithSuffix(this.anchor);
+      } else {
+        this.contentPath = this.pageService.contentPath(this.anchor);
+      }
       this.contentDescription = this.pageService.contentDescription(this.anchor);
-      this.logger.info("initialised with relativePath:", this.relativePath, "contentPath:", this.contentPath);
+      this.logger.info("areaAsContentPath:", this.areaAsContentPath, "initialised with contentPath:", this.contentPath);
       this.pageTitle = this.pageService.pageSubtitle();
       this.logger.info("Finding page content for " + this.contentPath);
       this.refreshPageContent();

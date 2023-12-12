@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy, OnInit } from "@angular/core";
-import { ActivatedRoute, ParamMap } from "@angular/router";
+import { ActivatedRoute } from "@angular/router";
 import last from "lodash-es/last";
 import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -67,27 +67,18 @@ export class CommitteeYearComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.logger.debug("ngOnInit:committeeYear", this.committeeYear);
+    this.logger.info("ngOnInit:committeeYear", this.committeeYear);
     this.committeeQueryService.queryAllFiles().then(() => this.setupDataForYear());
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => {
       this.committeeQueryService.queryAllFiles();
     }));
     this.subscriptions.push(this.committeeFileService.notifications().subscribe(apiResponse => {
+      this.logger.info("received apiResponse:", apiResponse);
       if (apiResponse.error) {
         this.logger.warn("received error:", apiResponse.error);
       } else {
         this.filesForYear = this.apiResponseProcessor.processResponse(this.logger, this.filesForYear, apiResponse);
       }
-    }));
-    this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
-      const year = paramMap.get("year");
-      this.logger.debug("year from route params:", paramMap, year);
-      if (year) {
-        const committeeYear = {year: +year, latestYear: false};
-        this.logger.debug("committeeYear:", committeeYear);
-        this.committeeYear = committeeYear;
-      }
-      this.setupDataForYear();
     }));
   }
 
@@ -99,14 +90,15 @@ export class CommitteeYearComponent implements OnInit, OnDestroy {
     this.logger.info("committeeYear:", this.committeeYear, "committeeYearTitle:", this.committeeYearTitle);
     this.committeeYearTitle = this.committeeYear?.year ? `${this.committeeYear?.year} Committee` : "";
     this.filesForYear = this.committeeQueryService.committeeFilesForYear(this.committeeYear?.year);
+    this.logger.info("committeeYear:", this.committeeYear, "filesForYear:", this.filesForYear);
     const pageContent: PageContent = await this.pageContentService.findByPath(committeeYearsPath);
     this.imageSource = this.imageSourceForRelativePath(pageContent);
   }
 
   private imageSourceForRelativePath(pageContent: PageContent) {
     const pageContentRow: PageContentRow = pageContent.rows.find(row => this.actions.isActionButtons(row));
-    const relativeUrl = this.committeeYear?.latestYear ? `${this.urlService.relativeUrl()}/year/${this.committeeQueryService?.latestYear()}` : this.urlService.relativeUrl();
-    this.logger.debug("pageContentRow:", pageContentRow, "relativeUrl:", relativeUrl, "committeeYear:", this.committeeYear);
+    const relativeUrl = this.committeeYear?.latestYear && !this.urlService.lastPathSegmentNumeric() ? `${this.urlService.relativeUrl()}/${this.committeeQueryService?.latestYear()}` : this.urlService.relativeUrl();
+    this.logger.info("pageContentRow:", pageContentRow, "relativeUrl:", relativeUrl, "committeeYear:", this.committeeYear);
     const pageContentColumn: PageContentColumn = pageContentRow?.columns.find(column => relativeUrl.endsWith(column.href));
     return this.urlService.imageSource(pageContentColumn?.imageSource);
   }
@@ -124,7 +116,7 @@ export class CommitteeYearComponent implements OnInit, OnDestroy {
   addCommitteeFile() {
     this.display.confirm.as(ConfirmType.CREATE_NEW);
     this.committeeFile = this.display.defaultCommitteeFile();
-    this.logger.debug("addCommitteeFile:", this.committeeFile, "of", this.committeeQueryService.committeeFiles.length, "files");
+    this.logger.info("addCommitteeFile:", this.committeeFile, "of", this.committeeQueryService.committeeFiles.length, "files");
     this.editCommitteeFile(this.committeeFile);
   }
 

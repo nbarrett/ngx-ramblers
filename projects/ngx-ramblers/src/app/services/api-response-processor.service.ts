@@ -10,11 +10,11 @@ import { Logger } from "./logger-factory.service";
 export class ApiResponseProcessor {
 
   processResponse<T extends Identifiable>(logger: Logger, existingItems: T[], apiResponse: ApiResponse): T[] {
-    let tempItems: T[] = cloneDeep(existingItems);
+    let tempItems: T[] = cloneDeep(existingItems) || [];
     const responseItems: T[] = isArray(apiResponse.response) ? apiResponse.response : [apiResponse.response];
     logger.info("Received", responseItems.length, "item", apiResponse.action, "notification(s) - applying response to", tempItems.length, "existing items");
     if (apiResponse.action === ApiAction.QUERY) {
-      logger.info("replacing ", tempItems.length, "items with", responseItems.length, apiResponse.action, "items");
+      logger.info("replacing ", tempItems?.length, "items with", responseItems?.length, apiResponse.action, "items");
       tempItems = responseItems;
     } else {
       responseItems.forEach(notifiedItem => {

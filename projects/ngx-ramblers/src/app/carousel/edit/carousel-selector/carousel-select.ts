@@ -7,6 +7,7 @@ import { UrlService } from "../../../services/url.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { PageContentService } from "../../../services/page-content.service";
 import { faPencil, faPlus } from "@fortawesome/free-solid-svg-icons";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-carousel-select",
@@ -38,7 +39,10 @@ export class CarouselSelectComponent implements OnInit {
   @Input()
   public maxWidth: number;
 
-  @Input()
+  @Input("showNewButton") set showNewButtonValue(showNewButton: boolean) {
+    this.showNewButton = coerceBooleanProperty(showNewButton);
+  }
+
   public showNewButton: boolean;
 
   @Output() metadataChange: EventEmitter<ContentMetadata> = new EventEmitter();
