@@ -113,6 +113,10 @@ export class UrlService {
     return last(this.pathSegments());
   }
 
+  lastPathSegmentNumeric() {
+    return !isNaN(+this.lastPathSegment())
+  }
+
   pathSegments(): string[] {
     const pathSegments = this.router.parseUrl(this.router.url)?.root?.children?.primary?.segments?.map(item => item.path) || [];
     this.logger.debug("pathSegments:", pathSegments);
@@ -153,11 +157,11 @@ export class UrlService {
 
   routerLinkUrl(url: string): string {
     if (!url) {
-      this.logger.debug("routerLinkUrl:url:", url, "not returning routerLinkUrl as url not present");
+      this.logger.info("routerLinkUrl:url:", url, "not returning routerLinkUrl as url not present");
       return null;
     } else {
       const routerLinkUrl = this.isRemoteUrl(url) ? null : "/" + url;
-      this.logger.debug("routerLinkUrl:url:", url, "routerLinkUrl:", routerLinkUrl);
+      this.logger.info("routerLinkUrl:url:", url, "routerLinkUrl:", routerLinkUrl);
       return routerLinkUrl;
     }
   }

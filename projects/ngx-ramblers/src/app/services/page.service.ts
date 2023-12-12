@@ -53,11 +53,15 @@ export class PageService {
   }
 
   contentPath(anchor?: string): string {
-    const anchorSuffixWithSuffix = anchor ? "#" + anchor : "";
+    const anchorSuffixWithSuffix = this.anchorWithSuffix(anchor);
     const path = this.pathSegments().join("/");
     const contentPath = `${path}${anchorSuffixWithSuffix}`;
     this.logger.debug("contentPath:anchor:", anchor, "path:", path, "contentPath:", contentPath);
     return contentPath;
+  }
+
+  public anchorWithSuffix(anchor: string) {
+    return anchor ? "#" + anchor : "";
   }
 
   pathSegments(): string[] {

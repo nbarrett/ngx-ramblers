@@ -42,11 +42,12 @@ export class CardEditorComponent implements OnInit {
   public faPencil = faPencil;
   public imageType: ImageType;
   public columnIndex: number;
+  public routerLink: string;
 
   constructor(
     public memberResourcesReferenceData: MemberResourcesReferenceDataService,
     public iconService: IconService,
-    private urlService: UrlService,
+    public urlService: UrlService,
     private pageService: PageService,
     private stringUtils: StringUtilsService,
     public siteEditService: SiteEditService,
@@ -61,7 +62,13 @@ export class CardEditorComponent implements OnInit {
     this.row = this.pageContent.rows[this.rowIndex];
     this.columnIndex = this.row.columns.indexOf(this.column);
     this.imageType = this.column.imageSource ? ImageType.IMAGE : ImageType.ICON;
-    this.pageContentEdit = {path: this.pageContent.path, columnIndex: this.columnIndex, rowIndex: this.rowIndex, editActive: false};
+    this.pageContentEdit = {
+      path: this.pageContent.path,
+      columnIndex: this.columnIndex,
+      rowIndex: this.rowIndex,
+      editActive: false
+    };
+    this.routerLink = this.urlService.routerLinkUrl(this.column.href);
     this.logger.debug("ngOnInit:column", this.column, "this.row:", this.row, "this.imageType:", this.imageType, "pageContentEdit:", this.pageContentEdit, "content path:", this.pageContent.path);
   }
 
