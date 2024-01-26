@@ -87,6 +87,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   private queuedFileCount = 0;
   public duplicateImages: DuplicateImages;
   public base64Files: Base64File[] = [];
+  public nonImageFiles: Base64File[] = [];
   public activeTag: ImageTag;
   private story: string;
   public notify: AlertInstance;
@@ -452,6 +453,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   public undoChanges() {
     this.clearUpload();
+    this.nonImageFiles = [];
     return this.refreshImageMetaData(this.name)
       .catch(response => this.notify.error({title: "Failed to undo changes", message: response}));
   }
@@ -486,22 +488,21 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     }
   }
 
-  imagedSavedOrReverted(item: ContentMetadataItem) {
-    this.logger.debug("imagedSavedOrReverted:item.image", item.image);
-    this.removeFromChangedItems(item);
-    if (!item.image) {
-      this.contentMetadata.files = this.contentMetadata.files.filter(changedItem => changedItem !== item);
+  imagedSavedOrReverted(changedItem: ContentMetadataItem) {
+    this.logger.info("imagedSavedOrReverted:changedItem.image", changedItem.image);
+    this.removeFromChangedItems(changedItem);
+    if (!changedItem.image) {
       this.applyFilter();
     }
   }
 
   imageChange(item: ContentMetadataItem) {
     if (!item) {
-      this.logger.debug("change:no item");
+      this.logger.info("change:no item");
     } else {
       this.currentImageIndex = this.contentMetadataService.findIndex(this.contentMetadata.files, item);
       if (this.currentImageIndex >= 0) {
-        this.logger.debug("change:existing item", item, "at index", this.currentImageIndex);
+        this.logger.info("change:existing item", item, "at index", this.currentImageIndex);
         this.contentMetadata.files[this.currentImageIndex] = item;
       } else {
         this.logger.warn("change:appears to be a new item", item, "at index", this.currentImageIndex);
@@ -542,7 +543,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   alertWarnings() {
-    if (this.unsavedImages().length > 0) {
+    if (this.unsavedImages().length > 0 || !isEmpty(this.nonImageMessage()) || !isEmpty(this.duplicateMessage())) {
       if (isEmpty(this.duplicateMessage())) {
         this.warnings.warning({title: "Unsaved Changes", message: this.alertText()});
       } else {
@@ -597,12 +598,17 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   alertText() {
     const duplicateMessage = this.duplicateMessage();
-    return `You have ${this.stringUtils.pluraliseWithCount(this.unsavedImages()?.length, "unsaved image")}${duplicateMessage}`;
+    const nonImageMessage = this.nonImageMessage();
+    return `You have ${this.stringUtils.pluraliseWithCount(this.unsavedImages()?.length, "unsaved image")}${duplicateMessage}${nonImageMessage}`;
   }
 
   private duplicateMessage(): string {
     const duplicatedImages: string[] = keys(this.duplicateImages);
     return duplicatedImages.length > 0 ? ` and ${this.stringUtils.pluralise(duplicatedImages.length, "a duplicate", "duplicates")} on ${this.stringUtils.pluraliseWithCount(duplicatedImages.length, "image")} will need to be resolved before you can save this album` : "";
+  }
+
+  private nonImageMessage(): string {
+    return this.nonImageFiles.length > 0 ? ` and ${this.stringUtils.pluraliseWithCount(this.nonImageFiles.length, "non-image")} that ${this.stringUtils.pluralise(this.nonImageFiles.length, "was", "were")} skipped` : "";
   }
 
   toggleManageTags() {
@@ -615,14 +621,22 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     }
   }
 
-  async onFileDropped(fileList: any) {
+  async onFileSelectOrDropped(fileList: any) {
     if (!this.uploader.isUploading) {
+      this.logger.info("onFileSelectOrDropped:", fileList);
       this.notify.success({
         title: "Uploading Files",
-        message: "Processing " + this.stringUtils.pluraliseWithCount(fileList?.length, "image")
+        message: "Processing " + this.stringUtils.pluraliseWithCount(fileList?.length, "file")
       });
-      this.base64Files = await this.fileUtils.fileListToBase64Files(fileList);
-      this.logger.info("filesDropped:", fileList);
+      const allBase64Files = await this.fileUtils.fileListToBase64Files(fileList);
+      const checkedResults = allBase64Files.map(file => ({
+        file,
+        isImage: this.urlService.isBase64Image(file.base64Content)
+      }));
+      this.logger.info("checkedResults:", checkedResults);
+      this.base64Files = checkedResults.filter(result => result.isImage).map(result => result.file);
+      this.nonImageFiles = checkedResults.filter(result => !result.isImage).map(result => result.file);
+      this.logger.info("there are", this.stringUtils.pluraliseWithCount(this.base64Files.length, "image"), "and", this.stringUtils.pluraliseWithCount(this.nonImageFiles.length, "non-image"));
       this.notify.setBusy();
       this.imageInsert(...this.base64Files.map(item => this.fileUtils.contentMetadataItemFromBase64File(item)));
       this.notify.clearBusy();
@@ -633,11 +647,6 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     if (!this.uploader.isUploading) {
       this.hasFileOver = e;
     }
-  }
-
-  onFileSelect(fileList: any) {
-    this.logger.info("onFileSelect:files:", fileList);
-    this.onFileDropped(fileList);
   }
 
   private prepareFilesAndPerformUpload() {

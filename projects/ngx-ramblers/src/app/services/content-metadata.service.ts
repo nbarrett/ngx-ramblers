@@ -196,20 +196,21 @@ export class ContentMetadataService {
   findIndex(allSlides: ContentMetadataItem[], item: ContentMetadataItem): number {
     const direct: number = allSlides.indexOf(item);
     if (direct > -1) {
-      this.logger.debug("findIndex:direct:", direct, "for", item.image);
+      this.logger.info("findIndex:direct:", direct, "for item:", item);
       return direct;
     } else {
       const indexByMongoId = allSlides.indexOf(allSlides.find(file => file._id === item._id));
       if (indexByMongoId > 0) {
-        this.logger.debug("findIndex:indexByMongoId:", indexByMongoId, "for", item.image);
+        this.logger.info("findIndex:indexByMongoId:", indexByMongoId, "for", item.image);
         return indexByMongoId;
       } else {
         const indexByImage = allSlides.indexOf(allSlides.find(file => file.image === item.image));
         if (indexByImage === -1) {
-          this.logger.debug("findIndex:indexByImage failed:", indexByMongoId, "for", item.image);
+          this.logger.info("findIndex:indexByImage failed:", indexByMongoId, "for", item.image);
         } else {
-          this.logger.debug("findIndex:indexByImage:", indexByMongoId, "for", item.image);
+          this.logger.info("findIndex:indexByImage:", indexByMongoId, "for", item.image);
         }
+        this.logger.info("findIndex:returning failed:", indexByImage, "for", item.image);
         return indexByImage;
       }
     }

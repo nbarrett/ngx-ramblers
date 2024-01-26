@@ -1,5 +1,5 @@
 <ng-container *ngIf="allow.edit && contentMetadata">
-  <input #fileElement class="d-none" type="file" ng2FileSelect multiple (onFileSelected)="onFileSelect($event)"
+  <input #fileElement class="d-none" type="file" ng2FileSelect multiple (onFileSelected)="onFileSelectOrDropped($event)"
          [uploader]="uploader">
   <div class="row no-gutters">
     <div class="col pr-1">
@@ -58,7 +58,7 @@
     <div class="col-sm-12">
       <div ng2FileDrop [ngClass]="{'file-over': !uploader.isUploading && hasFileOver}"
            (fileOver)="fileOver($event)"
-           (onFileDrop)="onFileDropped($event)"
+           (onFileDrop)="onFileSelectOrDropped($event)"
            [uploader]="uploader"
            class="badge-drop-zone">Drop new files here to add them
       </div>
