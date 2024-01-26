@@ -21,6 +21,7 @@ export enum EditMode {
 }
 
 export enum StoredValue {
+  ALBUM_TAB = "album-tab",
   CAROUSEL="carousel",
   MARKDOWN_FIELD_HIDDEN = "markdown-field-hidden",
   SOCIAL_DATE_CRITERIA = "social-date-criteria",

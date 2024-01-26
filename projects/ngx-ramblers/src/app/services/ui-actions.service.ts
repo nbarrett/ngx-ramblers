@@ -10,8 +10,7 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 export class UiActionsService {
   private logger: Logger;
 
-  constructor(private dateUtils: DateUtilsService,
-              loggerFactory: LoggerFactory) {
+  constructor(loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(UiActionsService, NgxLoggerLevel.OFF);
   }
 
@@ -34,7 +33,7 @@ export class UiActionsService {
 
   saveValueFor(parameter: string, value?: any) {
     if (parameter) {
-      const storedValue: string = typeof value === "object" ? JSON.stringify(value) : value.toString();
+      const storedValue: string = typeof value === "object" ? JSON.stringify(value) : value?.toString();
       this.logger.debug("saving value for:", parameter, "as:", storedValue);
       localStorage.setItem(parameter, storedValue);
     } else {

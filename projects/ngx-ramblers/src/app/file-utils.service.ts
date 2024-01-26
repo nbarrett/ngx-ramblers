@@ -59,8 +59,7 @@ export class FileUtilsService {
 
   public async fileListToBase64Files(fileList: any): Promise<Base64File[]> {
     const files: File[] = Array.from(fileList as FileList);
-    const firstFile: File = first(files);
-    this.logger.info("filesDropped:", fileList, "firstFile:", firstFile);
+    this.logger.info("fileList:", fileList);
     const base64Files = await Promise.all(files.map(file => {
       this.logger.info("file:", file);
       return this.loadBase64ImageFromFile(file);

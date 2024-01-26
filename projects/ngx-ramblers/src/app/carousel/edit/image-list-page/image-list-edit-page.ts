@@ -40,6 +40,6 @@ export class ImageListEditPageComponent implements OnInit, OnDestroy {
   }
 
   backToEditorHome() {
-    this.urlService.navigateTo(["admin", "carousel-editor"], {[StoredValue.CAROUSEL]: null});
+    this.urlService.navigateUnconditionallyTo(["admin", "carousel-editor"], {[StoredValue.CAROUSEL]: null});
   }
 }
