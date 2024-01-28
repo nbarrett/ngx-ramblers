@@ -41,6 +41,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   toggleNavBar() {
+    this.logger.info("navbarExpanded to:", !this.navbarExpanded);
     this.navbarExpanded = !this.navbarExpanded;
   }
 

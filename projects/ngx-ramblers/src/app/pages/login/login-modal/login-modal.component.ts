@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { BsModalRef, BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -20,7 +20,8 @@ import { Organisation } from "../../../models/system.model";
   templateUrl: "./login-modal.component.html",
   styleUrls: ["./login-modal.component.sass"]
 })
-export class LoginModalComponent implements OnInit, OnDestroy {
+export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
+  @ViewChild("loginButton", { static: false }) loginButton: ElementRef;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   private logger: Logger;
@@ -84,6 +85,10 @@ export class LoginModalComponent implements OnInit, OnDestroy {
         });
       }
     }));
+  }
+
+  ngAfterViewInit(): void {
+    this.loginButton.nativeElement.focus();
   }
 
   ngOnDestroy(): void {
