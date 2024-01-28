@@ -10,13 +10,13 @@
         <div class="col col-sm-12">
           <div class="form-group">
             <label for="user-name">User Name</label>
-            <input [(ngModel)]="userName" type="text"
+            <input [(ngModel)]="userName" type="text" (keyup.enter)="login()"
                    class="form-control input-sm" id="user-name" autocomplete="user-name" name="user-name"
                    placeholder="Enter username">
           </div>
           <div class="form-group">
             <label for="password">Password</label>
-            <input [(ngModel)]="password" type="password"
+            <input [(ngModel)]="password" type="password" (keyup.enter)="login()"
                    class="form-control input-sm" id="password" autocomplete="current-password" name="password"
                    placeholder="Enter password">
           </div>
@@ -39,7 +39,7 @@
   </div>
   <div class="modal-footer">
     <div class="row col-sm-12">
-      <input type="submit" [disabled]="notifyTarget.busy || !submittable()" value="Login" (click)="login()"
+      <input type="submit" #loginButton [disabled]="notifyTarget.busy || !submittable()" value="Login" (click)="login()"
              title="Login"
              [ngClass]="!notifyTarget.busy && submittable() ? 'button-form button-form-left': 'disabled-button-form button-form-left'">
       <input type="reset" value="Cancel" (click)="close()" title="Cancel and don't login"
