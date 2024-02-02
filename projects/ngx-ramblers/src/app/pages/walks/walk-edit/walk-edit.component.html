@@ -1,5 +1,5 @@
 <app-walk-panel-expander [walk]="displayedWalk.walk" [collapsable]="true" [collapseAction]="'exit edit'"
-                    [expandAction]="'edit walk full-screen'" [expandable]="isExpandable()">
+                         [expandAction]="'edit walk full-screen'" [expandable]="isExpandable()">
 </app-walk-panel-expander>
 <div [ngClass]="{'busy': notifyTarget.busy}">
   <div class="hidden">
@@ -81,10 +81,10 @@
                 <p *ngIf="!insufficientDataToUploadToRamblers() && !ramblersWalkExists()">
                   This walk has not been
                   uploaded to Ramblers yet - check back when date is closer to
-                  <b>{{displayedWalk.walk.walkDate | displayDate}}</b>.
+                  <b>{{ displayedWalk.walk.walkDate | displayDate }}</b>.
                 </p>
                 <p *ngIf="insufficientDataToUploadToRamblers()">
-                  {{walkValidations()}}
+                  {{ walkValidations() }}
                 </p>
                 <div *ngIf="canUnlinkRamblers()">
                   <div class="row">
@@ -166,7 +166,7 @@
                        class="ml-2"
                        [href]="displayedWalk.walk.osMapsRoute"
                        tooltip="Click to view the route for this walk on Ordnance Survey Maps">
-                      {{ displayedWalk.walk.osMapsTitle || displayedWalk.walk.briefDescriptionAndStartPoint}}
+                      {{ displayedWalk.walk.osMapsTitle || displayedWalk.walk.briefDescriptionAndStartPoint }}
                     </a>
                     <input type="submit" value="Unlink"
                            (click)="unlinkOSMapsFromCurrentWalk()"
@@ -191,14 +191,14 @@
                 <input id="showOnlyWalkLeadersTrue" type="radio" class="custom-control-input" name="showOnlyWalkLeaders"
                        [(ngModel)]="showOnlyWalkLeaders" [value]="true">
                 <label class="custom-control-label" for="showOnlyWalkLeadersTrue">
-                  Show Only Walk Leaders ({{previousWalkLeadersWithAliasOrMe().length}})</label>
+                  Show Only Walk Leaders ({{ previousWalkLeadersWithAliasOrMe().length }})</label>
               </div>
               <div class="custom-control custom-radio custom-control-inline">
                 <input id="showOnlyWalkLeadersFalse" type="radio" class="custom-control-input"
                        name="showOnlyWalkLeaders"
                        [(ngModel)]="showOnlyWalkLeaders" [value]="false">
                 <label class="custom-control-label" for="showOnlyWalkLeadersFalse">
-                  Show All Walk Leaders ({{membersWithAliasOrMe().length}})</label>
+                  Show All Walk Leaders ({{ membersWithAliasOrMe().length }})</label>
               </div>
             </div>
           </div>
@@ -227,14 +227,14 @@
                       class="form-control" id="contact-member">
                 <option value="">(no walk leader selected)</option>
                 <option *ngFor="let member of memberLookup()"
-                        [ngValue]="member.memberId">{{member.name}}</option>
+                        [ngValue]="member.memberId">{{ member.name }}
+                </option>
               </select>
             </div>
           </div>
           <div class="col-sm-1">
             <div class="form-group">
               <input type="submit" value="Me" (click)="setWalkLeaderToMe()"
-                     title="Set walk leader to me"
                      [ngClass]="saveInProgress ? 'button-form disabled-button-form button-bottom-aligned': 'button-form button-bottom-aligned'">
             </div>
           </div>
@@ -250,14 +250,21 @@
             </div>
           </div>
           <div class="col-sm-6">
-            <div class="form-group">
-              <label for="walk-leader-contact-id">Ramblers Assemble Name</label>
-              <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.contactId"
-                     type="text"
-                     class="form-control input-sm" id="walk-leader-contact-id"
-                     placeholder="Name that matches the User Details in Assemble. This will be sent in Ramblers in CSV export file">
+            <div class="row">
+              <div class="col-sm-10">
+                <label for="walk-leader-contact-id">Ramblers Assemble Name</label>
+                <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.contactId"
+                       type="text"
+                       class="form-control input-sm flex-grow-1 mr-2" id="walk-leader-contact-id"
+                       placeholder="Name that matches the User Details in Assemble. This will be sent in Ramblers in CSV export file">
+              </div>
+              <div class="col-sm-1">
+                <input type="submit" [value]="toggleRamblersAssembleNameCaption()"
+                       (click)="toggleRamblersAssembleName()"
+                       [ngClass]="saveInProgress ? 'button-form disabled-button-form button-bottom-aligned': 'button-form button-bottom-aligned'">
+              </div>
+            </div>
           </div>
-        </div>
         </div>
         <div class="row">
           <div class="col-sm-12">
@@ -316,7 +323,7 @@
                           [(ngModel)]="displayedWalk.walk.walkType"
                           class="form-control input-sm" id="walkType">
                     <option *ngFor="let type of display.walkTypes" [ngValue]="type"
-                            [attr.selected]="type == display.walkTypes[0]">{{type}}
+                            [attr.selected]="type == display.walkTypes[0]">{{ type }}
                     </option>
                   </select>
                 </div>
@@ -329,7 +336,8 @@
                           [(ngModel)]="displayedWalk.walk.grade"
                           class="form-control input-sm" id="grade">
                     <option *ngFor="let grade of display.grades"
-                            [ngValue]="grade">{{grade}}</option>
+                            [ngValue]="grade">{{ grade }}
+                    </option>
                   </select>
                 </div>
               </div>
@@ -402,7 +410,8 @@
           </div>
           <div class="col-sm-6 rounded">
             <h5>Google Maps</h5>
-            <p>The map below is a preview of where postcode <strong>{{displayedWalk.walk.postcode}}</strong> will appear on
+            <p>The map below is a preview of where postcode <strong>{{ displayedWalk.walk.postcode }}</strong> will
+              appear on
               Google Maps. This map will be displayed in the detail view of the walk.</p>
             <input type="number" min="1" max="20" *ngIf="false"
                    [(ngModel)]="display.googleMapsConfig.zoomLevel">
@@ -436,7 +445,7 @@
               <td style="width: 20%"
                   [textContent]="event.eventType"></td>
               <td style="width: 40%"><span
-                tooltip="Details: {{event.changedItems}}">{{event.notes}}</span>
+                tooltip="Details: {{event.changedItems}}">{{ event.notes }}</span>
               </td>
             </tr>
             </tbody>
@@ -450,7 +459,7 @@
         <div class="row">
           <div class="col-sm-12">
             <div class="img-thumbnail thumbnail-walk-edit">
-              <div class="thumbnail-heading">Create {{myOrWalkLeader()}} walk based on an existing one</div>
+              <div class="thumbnail-heading">Create {{ myOrWalkLeader() }} walk based on an existing one</div>
               <ng-container>
                 <div class="row">
                   <div class="col-sm-12">
@@ -469,7 +478,8 @@
                         id="copy-member-walks">
                         <option value="">(no walk leader selected)</option>
                         <option *ngFor="let member of previousWalkLeadersWithAliasOrMe()"
-                                [ngValue]="member.memberId">{{member.name}}</option>
+                                [ngValue]="member.memberId">{{ member.name }}
+                        </option>
                       </select>
                       </label>
                     </div>
@@ -489,14 +499,15 @@
                 <div class="row">
                   <div class="col-sm-12 mt-2">
                     <label for="copy-walks-list">
-                      Copy from {{copyFrom?.walkTemplates?.length || 0}} available walk(s): </label>
+                      Copy from {{ copyFrom?.walkTemplates?.length || 0 }} available walk(s): </label>
                     <select [disabled]="inputDisabled()" class="form-control input-sm"
                             [(ngModel)]="copyFrom.walkTemplate"
                             (change)="populateCurrentWalkFromTemplate()"
                             id="copy-walks-list">
                       <option value="">(none selected)</option>
                       <option *ngFor="let walkTemplate of copyFrom.walkTemplates"
-                              [ngValue]="walkTemplate">{{walkTemplate | walkSummary}}</option>
+                              [ngValue]="walkTemplate">{{ walkTemplate | walkSummary }}
+                      </option>
                     </select>
                   </div>
                 </div>
@@ -510,8 +521,8 @@
   <div class="form-group">
     <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
       <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-      <strong> {{notifyTarget.alertTitle}}: </strong>
-      {{notifyTarget.alertMessage}}
+      <strong> {{ notifyTarget.alertTitle }}: </strong>
+      {{ notifyTarget.alertMessage }}
     </div>
   </div>
   <div *ngIf="displayedWalk.walk" class="form-inline mb-4 align-middle">
@@ -579,7 +590,7 @@
              [(ngModel)]="sendNotifications"
              type="checkbox" class="custom-control-input" id="send-notification">
       <label class="custom-control-label ml-2"
-             for="send-notification">Notify {{personToNotify()}} about this change
+             for="send-notification">Notify {{ personToNotify() }} about this change
       </label>
     </div>
   </div>

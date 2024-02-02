@@ -1,12 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  Input,
-  OnDestroy,
-  OnInit,
-  ViewChild
-} from "@angular/core";
+import { ChangeDetectionStrategy, Component, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute } from "@angular/router";
 import { faMagnifyingGlass, faPencil } from "@fortawesome/free-solid-svg-icons";
@@ -36,18 +28,14 @@ import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pip
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { EventNotePipe } from "../../../pipes/event-note.pipe";
 import { FullNameWithAliasOrMePipe } from "../../../pipes/full-name-with-alias-or-me.pipe";
-import { FullNamePipe } from "../../../pipes/full-name.pipe";
 import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pipe";
 import { sortBy } from "../../../services/arrays";
 import { BroadcastService } from "../../../services/broadcast-service";
-import { CommitteeConfigService } from "../../../services/committee/commitee-config.service";
-import { CommitteeReferenceData } from "../../../services/committee/committee-reference-data";
 import { ConfigService } from "../../../services/config.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
-import { MeetupService } from "../../../services/meetup.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
@@ -89,7 +77,6 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   public sendNotifications = false;
   public longerDescriptionPreview: boolean;
   public meetupConfig: MeetupConfig;
-  private committeeReferenceData: CommitteeReferenceData;
   public faPencil = faPencil;
   public faMagnifyingGlass = faMagnifyingGlass;
   public copySource = "copy-selected-walk-leader";
@@ -97,6 +84,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   public copyFrom: any = {};
   public showOnlyWalkLeaders = true;
   private subscriptions: Subscription[] = [];
+  private walkLeadContactId: string;
+  private myContactId: string;
 
   constructor(
     private mailchimpConfigService: MailchimpConfigService,
@@ -107,13 +96,11 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     private memberLoginService: MemberLoginService,
     public route: ActivatedRoute,
     private walksQueryService: WalksQueryService,
-    private meetupService: MeetupService,
     private walkNotificationService: WalkNotificationService,
     private walkEventService: WalkEventService,
     private walksReferenceService: WalksReferenceService,
     private memberIdToFullNamePipe: MemberIdToFullNamePipe,
     private displayDateAndTime: DisplayDateAndTimePipe,
-    private fullNamePipe: FullNamePipe,
     private fullNameWithAliasOrMePipe: FullNameWithAliasOrMePipe,
     private eventNotePipe: EventNotePipe,
     private changedItemsPipe: ChangedItemsPipe,
@@ -125,15 +112,13 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     private configService: ConfigService,
     private broadcastService: BroadcastService<Walk>,
     private siteEditService: SiteEditService,
-    private changeDetectorRef: ChangeDetectorRef,
-    private committeeConfig: CommitteeConfigService, loggerFactory: LoggerFactory) {
+    loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(WalkEditComponent, NgxLoggerLevel.OFF);
   }
 
 
   async ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
-    this.subscriptions.push(this.committeeConfig.events().subscribe(committeeReferenceData => this.committeeReferenceData = committeeReferenceData));
     this.mailchimpConfigService.getConfig().then(response => {
       this.mailchimpConfig = response;
       this.logger.info("mailchimpConfig:", this.mailchimpConfig);
@@ -148,6 +133,9 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       }
     });
     this.previousWalkLeaderIds = await this.walksService.queryPreviousWalkLeaderIds();
+    this.display.memberEvents().subscribe(members => {
+      this.refreshAssembleNames();
+    });
     this.logger.info("previousWalkLeaderIds:", this.previousWalkLeaderIds);
     this.copyFrom = {walkTemplate: {}, walkTemplates: [] as Walk[]};
     this.configService.queryConfig<MeetupConfig>(ConfigKey.MEETUP).then(meetupConfig => this.meetupConfig = meetupConfig);
@@ -159,6 +147,12 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  private refreshAssembleNames() {
+    this.myContactId = this.display.members.find(member => member.id === this.memberLoginService.loggedInMember().memberId)?.contactId;
+    this.walkLeadContactId = this.display.members.find(member => member.id === this.displayedWalk?.walk?.walkLeaderMemberId)?.contactId;
+    this.logger.info("refreshAssembleNames:myContactId:", this.myContactId, "walkLeadContactId:", this.walkLeadContactId);
   }
 
   private notificationsDisabledWarning() {
@@ -264,6 +258,27 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.walkLeaderMemberIdChanged();
   }
 
+  toggleRamblersAssembleName() {
+    const contactId = this.displayedWalk.walk.contactId === this.myContactId ? this.walkLeadContactId : this.myContactId;
+    const targetOverride = this.displayedWalk.walk.contactId === this.myContactId ? "walk leader" : "you";
+    if (contactId) {
+      this.displayedWalk.walk.contactId = contactId;
+      this.notify.success({
+        title: "Walk Leader Overridden",
+        message: "Walk Leader will be sent to Ramblers using walk leader as " + contactId
+      });
+    } else {
+      this.notify.warning({
+        title: "Walk Leader Override failed",
+        message: "Could not Ramblers Assemble name for " + targetOverride
+      });
+    }
+  }
+
+  toggleRamblersAssembleNameCaption(): string {
+    return this.displayedWalk.walk.contactId === this.myContactId ? "leader" : "me";
+  }
+
   walkLeaderMemberIdChanged() {
     this.notify.hide();
     this.populateCopySourceFromWalkLeaderMemberId();
@@ -288,6 +303,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         this.populateWalkTemplates(memberId);
       }
     }
+    this.refreshAssembleNames();
   }
 
   showWalk(displayedWalk: DisplayedWalk) {
@@ -631,6 +647,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         case EventType.AWAITING_LEADER: {
           const walkDate = this.displayedWalk.walk.walkDate;
           this.displayedWalk.walk = pick(this.displayedWalk.walk, ["id", "events", "walkDate"]);
+          this.displayedWalk.walk.riskAssessment = [];
           return this.notify.success({
             title: "Walk details reset for " + this.displayDate.transform(walkDate),
             message: "Status is now " + this.walksReferenceService.toWalkEventType(EventType.AWAITING_LEADER).description
