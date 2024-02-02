@@ -53,7 +53,6 @@ import { MemberLoginService } from "../member/member-login.service";
 import { MemberNamingService } from "../member/member-naming.service";
 import { StringUtilsService } from "../string-utils.service";
 import { SystemConfigService } from "../system/system-config.service";
-import { UrlService } from "../url.service";
 import { AscentValidationService } from "./ascent-validation.service";
 import { DistanceValidationService } from "./distance-validation.service";
 import { WalksLocalService } from "./walks-local.service";
@@ -82,7 +81,6 @@ export class RamblersWalksAndEventsService {
               private riskAssessmentService: RiskAssessmentService,
               private systemConfigService: SystemConfigService,
               private walksService: WalksLocalService,
-              private urlService: UrlService,
               private memberNamingService: MemberNamingService,
               private distanceValidationService: DistanceValidationService,
               private ascentValidationService: AscentValidationService,
@@ -117,10 +115,6 @@ export class RamblersWalksAndEventsService {
 
   static isWalkDateLessThanOrEqualTo(response: any): response is WalkDateLessThanOrEqualTo {
     return (response as WalkDateLessThanOrEqualTo)?.walkDate?.$lte !== undefined;
-  }
-
-  auditNotifications(): Observable<RamblersUploadAuditApiResponse> {
-    return this.auditSubject.asObservable();
   }
 
   groupNotifications(): Observable<RamblersGroupsApiResponseApiResponse> {
@@ -395,6 +389,7 @@ export class RamblersWalksAndEventsService {
       if (walk.walkType === WalkType.CIRCULAR && !isEmpty(walk.postcodeFinish) && walk.postcodeFinish !== walk.postcode) {
         validationMessages.push(`Walk is ${WalkType.CIRCULAR} but the finish postcode ${walk.postcodeFinish} does not match the start postcode ${walk.postcode} in the Walk Details tab`);
       }
+
       if (this.riskAssessmentService.unconfirmedRiskAssessmentsExist(walk.riskAssessment)) {
         const alertMessage: AlertMessage = this.riskAssessmentService.warningMessage(walk.riskAssessment);
         validationMessages.push(`${alertMessage.title}. ${alertMessage.message}`);

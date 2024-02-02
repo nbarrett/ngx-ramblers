@@ -11,7 +11,6 @@ import { WalkAccessMode } from "../../models/walk-edit-mode.model";
 import { WalkEventType } from "../../models/walk-event-type.model";
 import { ExpandedWalk } from "../../models/walk-expanded-view.model";
 import { DisplayedWalk, EventType, GoogleMapsConfig, Walk, WalkType, WalkViewMode } from "../../models/walk.model";
-import { DateUtilsService } from "../../services/date-utils.service";
 import { enumValues } from "../../services/enums";
 import { GoogleMapsService } from "../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
@@ -24,12 +23,14 @@ import { WalksQueryService } from "../../services/walks/walks-query.service";
 import { WalksReferenceService } from "../../services/walks/walks-reference-data.service";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
+import { Observable, ReplaySubject } from "rxjs";
 
 @Injectable({
   providedIn: "root"
 })
 
 export class WalkDisplayService {
+  private subject = new ReplaySubject<Member[]>();
   public relatedLinksMediaWidth = 22;
   public expandedWalks: ExpandedWalk [] = [];
   private logger: Logger;
@@ -50,7 +51,6 @@ export class WalkDisplayService {
     private urlService: UrlService,
     private route: ActivatedRoute,
     private sanitiser: DomSanitizer,
-    private dateUtils: DateUtilsService,
     private walkEventService: WalkEventService,
     private walksReferenceService: WalksReferenceService,
     private walksQueryService: WalksQueryService,
@@ -60,6 +60,10 @@ export class WalkDisplayService {
     this.applyConfig();
     this.refreshCachedData();
     this.logger.debug("this.memberLoginService", this.memberLoginService.loggedInMember());
+  }
+
+  public memberEvents(): Observable<Member[]> {
+    return this.subject.asObservable();
   }
 
   loggedIn(): boolean {
@@ -139,6 +143,7 @@ export class WalkDisplayService {
       } else {
         this.members = await this.memberService.publicFields(this.memberService.filterFor.GROUP_MEMBERS);
       }
+      this.subject.next(this.members);
     }
   }
 

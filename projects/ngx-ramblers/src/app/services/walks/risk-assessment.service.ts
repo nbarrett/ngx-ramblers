@@ -11,7 +11,7 @@ export class RiskAssessmentService {
   private stringUtilsService: StringUtilsService = inject(StringUtilsService);
 
   public unconfirmedRiskAssessments(riskAssessment: RiskAssessmentRecord[]): RiskAssessmentRecord[] {
-    return riskAssessment.filter(record => !record.confirmed);
+    return riskAssessment?.filter(record => !record?.confirmed) || [];
   };
 
   public unconfirmedRiskAssessmentsExist(riskAssessment: RiskAssessmentRecord[]): boolean {

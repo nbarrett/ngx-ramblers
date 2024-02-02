@@ -28,15 +28,10 @@ export class WalkRiskAssessmentComponent implements OnInit, OnDestroy {
   private logger: Logger;
   private subscriptions: Subscription[] = [];
 
-  constructor(private memberLoginService: MemberLoginService,
-              public display: WalkDisplayService,
-              private walksReferenceService: WalksReferenceService,
-              private dateUtilsService: DateUtilsService,
+  constructor(public display: WalkDisplayService,
               private riskAssessmentService: RiskAssessmentService,
               private notifierService: NotifierService,
-              private stringUtilsService: StringUtilsService,
               private walkChangesService: WalkChangesService,
-              private memberIdToFullNamePipe: MemberIdToFullNamePipe,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(WalkRiskAssessmentComponent, NgxLoggerLevel.OFF);
   }
@@ -52,7 +47,7 @@ export class WalkRiskAssessmentComponent implements OnInit, OnDestroy {
   }
 
   private updateCompletionStatus(walk: Walk) {
-    this.logger.debug("updateCompletionStatus:", walk);
+    this.logger.debug("updateCompletionStatus:walk:", walk);
     if (this.riskAssessmentService.unconfirmedRiskAssessmentsExist(walk.riskAssessment)) {
       this.notify.warning(this.riskAssessmentService.warningMessage(walk.riskAssessment));
     } else {
