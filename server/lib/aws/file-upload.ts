@@ -15,7 +15,7 @@ import debug from "debug";
 import { isAwsUploadErrorResponse } from "./aws-utils";
 import path = require("path");
 
-const debugLog = debug(envConfig.logNamespace("s3-file-upload"));
+const debugLog: debug.Debugger = debug(envConfig.logNamespace("s3-file-upload"));
 debugLog.enabled = true;
 export { uploadFile };
 

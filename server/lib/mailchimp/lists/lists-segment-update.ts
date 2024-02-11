@@ -22,7 +22,7 @@ export function listsSegmentUpdate(req: Request, res: Response): Promise<void> {
       clientRequest.static_segment = [];
     }
 
-    debug("listId:", listId, "segmentId:", segmentId, "bodyParameters:", JSON.stringify(clientRequest));
+    debugLog("listId:", listId, "segmentId:", segmentId, "bodyParameters:", JSON.stringify(clientRequest));
 
     return mailchimpConfigData.client.lists.updateSegment(listId, segmentId, clientRequest)
       .then((responseData: MailchimpSegmentUpdateResponse) => {

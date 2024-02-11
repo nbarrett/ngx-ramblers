@@ -241,7 +241,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
 
   private replaceWalkInList(walk: Walk) {
     this.logger.debug("Received updated walk", walk);
-    const existingWalk: Walk = this.walks.find(listedWalk => listedWalk.id === walk.id);
+    const existingWalk: Walk = this.walks?.find(listedWalk => listedWalk?.id === walk?.id);
     if (existingWalk) {
       this.walks[(this.walks.indexOf(existingWalk))] = walk;
       this.applyFilterToWalks();

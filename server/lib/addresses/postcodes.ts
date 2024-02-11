@@ -1,12 +1,15 @@
 import { padStart } from "lodash";
-import { PostcodeLookupResponse, PostcodeLookupServiceResponse } from "../../../projects/ngx-ramblers/src/app/models/address-model";
+import {
+  PostcodeLookupResponse,
+  PostcodeLookupServiceResponse
+} from "../../../projects/ngx-ramblers/src/app/models/address-model";
 import { envConfig } from "../env-config/env-config";
 import debug from "debug";
+import * as messageHandlers from "../shared/message-handlers";
 import querystring = require("querystring");
 import url = require("url");
-import * as messageHandlers from "../shared/message-handlers";
 
-const debugLog = debug(envConfig.logNamespace("postcodes"));
+const debugLog: debug.Debugger = debug(envConfig.logNamespace("postcodes"));
 
 export const postcodes = {postcodeLookup};
 
@@ -19,7 +22,7 @@ function mapper(response: PostcodeLookupServiceResponse) {
     debugLog("result exists - returning ", returnedResponse);
     return returnedResponse;
   } else {
-    debugLog("result doesnt exist - returning entire response", response);
+    debugLog("result doesn't exist - returning entire response", response);
     return response;
   }
 }
