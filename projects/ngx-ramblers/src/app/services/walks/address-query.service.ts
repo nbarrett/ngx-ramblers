@@ -14,6 +14,7 @@ export class AddressQueryService {
   private BASE_URL = "/api/addresses";
   private postcodeNotifications = new Subject<PostcodeLookupApiResponse>();
   private logger: Logger;
+  private gridReferenceDigits = 5;
   private gridCodes: string[][] = [
     ["SV", "SQ", "SL", "SF", "SA", "NV", "NQ", "NL", "NF", "NA", "HV", "HQ", "HL"],
     ["SW", "SR", "SM", "SG", "SB", "NW", "NR", "NM", "NG", "NB", "HW", "HR", "HM"],
@@ -31,7 +32,7 @@ export class AddressQueryService {
   }
 
   gridReferenceFrom(eastings: string, northings: string): string {
-    return `${this.gridCodeFrom(eastings, northings)} ${eastings.substring(1, 4)}${northings.substring(1, 4)}`;
+    return `${this.gridCodeFrom(eastings, northings)} ${eastings.substring(1, 1 + this.gridReferenceDigits)} ${northings.substring(1, 1 + this.gridReferenceDigits)}`;
   }
 
   gridCodeFrom(eastings: string, northings: string): string {
@@ -48,6 +49,7 @@ export class AddressQueryService {
     return this.postcodeLookup(postcode)
       .then(postcodeLookupApiResponse => {
         const gridReference = postcodeLookupApiResponse.response.error ? undefined : this.gridReferenceFrom(postcodeLookupApiResponse?.response?.eastings, postcodeLookupApiResponse?.response?.northings);
+        this.logger.debug("gridReferenceLookup:postcode", postcode, this.gridReferenceDigits, "digit gridReference:", gridReference);
         return {gridReference, error: postcodeLookupApiResponse.response.error, postcode};
       });
   }

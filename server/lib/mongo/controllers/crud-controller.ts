@@ -3,22 +3,23 @@ import { isNumber } from "lodash";
 import { DataQueryOptions } from "../../../../projects/ngx-ramblers/src/app/models/api-request.model";
 import { envConfig } from "../../env-config/env-config";
 import * as transforms from "./transforms";
+import debug from "debug";
 
 export function create(model, debugEnabled?: boolean) {
-  const debug = require("debug")(envConfig.logNamespace(`database:${model.modelName}`));
-  debug.enabled = debugEnabled;
+  const debugLog: debug.Debugger = debug(envConfig.logNamespace(`database:${model.modelName}`));
+  debugLog.enabled = debugEnabled;
 
   function findOne(req: Request, res: Response, parameters: DataQueryOptions): void {
     return model.findOne(parameters.criteria).select(parameters.select)
       .then(result => {
-        debug(req.query, "findByConditions:parameters", parameters, result, "documents");
+        debugLog(req.query, "findByConditions:parameters", parameters, result, "documents");
         return res.status(200).json({
           action: "query",
           response: transforms.toObjectWithId(result)
         });
       })
       .catch(error => {
-        debug(`findByConditions: ${model.modelName} error: ${error}`);
+        debugLog(`findByConditions: ${model.modelName} error: ${error}`);
         res.status(500).json({
           message: `${model.modelName} query failed`,
           request: req.query,
@@ -30,7 +31,7 @@ export function create(model, debugEnabled?: boolean) {
   return {
     create: (req: Request, res: Response) => {
       const document = transforms.createDocumentRequest(req);
-      debug("create:body:", req.body, "document:", document);
+      debugLog("create:body:", req.body, "document:", document);
       new model(document).save()
         .then(result => {
           res.status(201).json({
@@ -46,10 +47,10 @@ export function create(model, debugEnabled?: boolean) {
     },
     update: (req: Request, res: Response) => {
       const {criteria, document} = transforms.criteriaAndDocument(req);
-      debug("pre-update:body:", req.body, "criteria:", criteria, "document:", document);
+      debugLog("pre-update:body:", req.body, "criteria:", criteria, "document:", document);
       model.findOneAndUpdate(criteria, document, {useFindAndModify: false, new: true})
         .then(result => {
-          debug("post-update:document:", document, "result:", result);
+          debugLog("post-update:document:", document, "result:", result);
           res.status(200).json({
             action: "update",
             response: transforms.toObjectWithId(result)
@@ -65,10 +66,10 @@ export function create(model, debugEnabled?: boolean) {
     },
     delete: (req: Request, res: Response) => {
       const criteria = transforms.criteria(req);
-      debug("delete:", criteria);
+      debugLog("delete:", criteria);
       model.deleteOne(criteria)
         .then(result => {
-          debug("deletedCount", result.deletedCount, "result:", result);
+          debugLog("deletedCount", result.deletedCount, "result:", result);
           res.status(200).json({
             action: "delete",
             response: {id: req.params.id}
@@ -89,14 +90,14 @@ export function create(model, debugEnabled?: boolean) {
       }
       query
         .then(results => {
-          debug(req.query, "find - criteria:found", results.length, "documents");
+          debugLog(req.query, "find - criteria:found", results.length, "documents");
           return res.status(200).json({
             action: "query",
             response: results.map(result => transforms.toObjectWithId(result))
           });
         })
         .catch(error => {
-          debug("all:query", req.query, "error");
+          debugLog("all:query", req.query, "error");
           res.status(500).json({
             message: `${model.modelName} query failed`,
             request: req.query,
@@ -105,7 +106,7 @@ export function create(model, debugEnabled?: boolean) {
         });
     },
     findById: (req: Request, res: Response) => {
-      debug("find - id:", req.params.id);
+      debugLog("find - id:", req.params.id);
       model.findById(req.params.id)
         .then(result => {
           if (result) {

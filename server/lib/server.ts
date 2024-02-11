@@ -40,9 +40,11 @@ import { walksRoutes } from "./mongo/routes/walk";
 import { contentMetadataRoutes } from "./mongo/routes/content-metadata";
 install();
 const debugLog = debug(envConfig.logNamespace("server"));
-const distFolder = path.resolve(__dirname, "../../../../dist/ngx-ramblers");
+debugLog.enabled = true;
+const folderNavigationsUp = process.env.NODE_ENV === "production" ? "../../" : "";
+const distFolder = path.resolve(__dirname, folderNavigationsUp, "../../dist/ngx-ramblers");
 const currentDir = path.resolve(__dirname);
-debugLog("currentDir:", currentDir, "distFolder:", distFolder);
+debugLog("currentDir:", currentDir, "distFolder:", distFolder, "NODE_ENV:", process.env.NODE_ENV);
 const app = express();
 app.use(compression());
 app.set("port", envConfig.server.listenPort);
@@ -88,7 +90,7 @@ app.use((req, res, next) => {
 if (app.get("env") === "dev") {
   app.use(errorHandler());
 }
-mongooseClient.connect();
+mongooseClient.connect(debugLog);
 app.listen(app.get("port"), function () {
   debugLog("listening on port " + envConfig.server.listenPort);
 });

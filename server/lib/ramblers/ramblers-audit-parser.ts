@@ -15,13 +15,13 @@ export function anyMatch(value: string, tokens: string[]) {
 }
 
 export function trimTokensFrom(input: string, tokens: string[]) {
-  debug("trimTokensFrom:input:", input, "tokens:", tokens);
+  debugLog("trimTokensFrom:input:", input, "tokens:", tokens);
   let returnValue = input.trim();
   tokens.forEach(token => {
     returnValue = returnValue.replace(token, "").trim();
-    debug("trimTokensFrom:token:", token, "returnValue:", returnValue);
+    debugLog("trimTokensFrom:token:", token, "returnValue:", returnValue);
   });
-  debug("trimTokensFrom:returnValue:", returnValue.trim());
+  debugLog("trimTokensFrom:returnValue:", returnValue.trim());
   return returnValue.trim();
 }
 
@@ -44,9 +44,9 @@ export function toStatusFromIcon(auditMessageItem: string): string {
 }
 
 export function parseStandardOut(auditMessage: string) {
-  debug("parseStandardOut:auditMessage:", auditMessage);
+  debugLog("parseStandardOut:auditMessage:", auditMessage);
   return auditMessage.split(") ").map(auditMessageItem => {
-    debug("parseStandardOut:auditMessageItem:", auditMessageItem);
+    debugLog("parseStandardOut:auditMessageItem:", auditMessageItem);
     if (auditMessageItem === "\n"
       || isEmpty(auditMessageItem)
       || isUndefined(auditMessageItem)
@@ -82,7 +82,7 @@ export function parseStandardOut(auditMessage: string) {
 }
 
 export function parseStandardError(auditMessage: string) {
-  debug("parseStandardError:auditMessage", auditMessage);
+  debugLog("parseStandardError:auditMessage", auditMessage);
   if (isEmpty(auditMessage)
     || auditMessage.includes(envConfig.logNamespace(logNamespace))
     || includes(["\n", "", "npm"], auditMessage.trim())) {
@@ -101,7 +101,7 @@ export function parseStandardError(auditMessage: string) {
       const messageAndResult = auditMessage.split("ActivityFinished: ")[1].split(" (result: ");
       const status = messageAndResult[1].replace(")", "").toLowerCase().split("\n")[0].trim();
       const message = extractMessage(messageAndResult[0]);
-      debug("messageAndResult ->", messageAndResult, "status ->", status, "message ->", message);
+      debugLog("messageAndResult ->", messageAndResult, "status ->", status, "message ->", message);
       return [{
         audit: true,
         type: "step",
@@ -120,7 +120,7 @@ export function parseStandardError(auditMessage: string) {
 }
 
 export function parseExit(auditMessage: string) {
-  debug("parseExit:auditMessage", auditMessage);
+  debugLog("parseExit:auditMessage", auditMessage);
   return [{
     audit: true,
     type: "step",

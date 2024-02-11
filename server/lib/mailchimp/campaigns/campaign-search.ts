@@ -7,8 +7,8 @@ import { configuredMailchimp } from "../mailchimp-config";
 import * as messageProcessing from "../mailchimp-message-processing";
 import debug from "debug";
 
-const debugLog = debug(envConfig.logNamespace("mailchimp:campaigns:search"));
-debugLog.debug = false;
+const debugLog: debug.Debugger = debug(envConfig.logNamespace("mailchimp:campaigns:search"));
+debugLog.enabled = false;
 export function campaignSearch(req: Request, res: Response): Promise<void> {
   const messageType = "campaign search";
   return configuredMailchimp().then((mailchimpConfigData: MailchimpConfigData) => {

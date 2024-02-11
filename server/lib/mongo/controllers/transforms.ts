@@ -3,7 +3,7 @@ import debug from "debug";
 import { DataQueryOptions, MongoId } from "../../../../projects/ngx-ramblers/src/app/models/api-request.model";
 import { envConfig } from "../../env-config/env-config";
 
-const debugLog = debug(envConfig.logNamespace("transforms"));
+const debugLog: debug.Debugger = debug(envConfig.logNamespace("transforms"));
 debugLog.enabled = false;
 
 export function toObjectWithId(document) {
@@ -22,16 +22,16 @@ export function setUnSetDocument(document: object, parent?: string, parentRespon
     }
     const fullPath = parentPath + field;
     if (includes([null, "", undefined], value)) {
-      debug("removing field:", fullPath, "[" + typeof (value) + "]", "value:", value);
+      debugLog("removing field:", fullPath, "[" + typeof (value) + "]", "value:", value);
       set(localResponse, ["$unset", fullPath], 1);
     } else if (isArray(value)) {
-      debug("setting array:", fullPath, "[" + typeof (value) + "]", "value:", value);
+      debugLog("setting array:", fullPath, "[" + typeof (value) + "]", "value:", value);
       set(localResponse, ["$set", fullPath], value);
     } else if (typeof (value) === "object") {
-      debug("setting nested field:", fullPath, "[" + typeof (value) + "]", "value:", value);
+      debugLog("setting nested field:", fullPath, "[" + typeof (value) + "]", "value:", value);
       setUnSetDocument(value, fullPath, localResponse);
     } else {
-      debug("setting field:", fullPath, "[" + typeof (value) + "]", "value:", value);
+      debugLog("setting field:", fullPath, "[" + typeof (value) + "]", "value:", value);
       set(localResponse, ["$set", fullPath], value);
     }
   });
@@ -87,13 +87,13 @@ export function criteriaAndDocument(req): { criteria: { _id: string }; document:
 
 export function parseError(error) {
   if (error instanceof Error) {
-    debug("parseError:returning Error:", error.toString());
+    debugLog("parseError:returning Error:", error.toString());
     return error.toString();
   } else if (error.errmsg) {
-    debug("parseError:returning errmsg:", error.errmsg);
+    debugLog("parseError:returning errmsg:", error.errmsg);
     return error.errmsg;
   } else {
-    debug("parseError:returning errmsg:", typeof error, error);
+    debugLog("parseError:returning errmsg:", typeof error, error);
     return error;
   }
 }

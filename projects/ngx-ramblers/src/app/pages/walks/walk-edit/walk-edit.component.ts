@@ -605,7 +605,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   private updateGridReferenceIfRequired() {
     this.logger.info("walk:", this.displayedWalk.walk);
-    if (this.displayedWalk.walk.postcode && (!this.displayedWalk.walk.gridReference || this.displayedWalk.walk.gridReference.length < 8)) {
+    if (this.displayedWalk.walk.postcode && (!this.displayedWalk.walk.gridReference || this.displayedWalk.walk.gridReference.length < 14)) {
       return this.postcodeChange();
     } else {
       return Promise.resolve();

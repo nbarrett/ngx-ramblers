@@ -5,20 +5,21 @@ import transforms = require("./controllers/transforms");
 
 let connected = false;
 
-function createDebugFor(model: any): any {
+function createDebugFor(model: any): debug.Debugger {
   return debug(envConfig.logNamespace(`local-database:${model.modelName}`));
 }
 
 export function execute(mongoFunction: () => any): Promise<any> {
   if (!connected) {
-    return connect().then(() => mongoFunction());
+    const debug: debug.Debugger = createDebugFor({model: "unknown"});
+    return connect(debug).then(() => mongoFunction());
   } else {
     return mongoFunction();
   }
 }
 
 export function create(model: any, data: any) {
-  const debugCreate = createDebugFor(model);
+  const debugCreate: debug.Debugger = createDebugFor(model);
   debugCreate.enabled = true;
   const performCreate = () => {
     const document = transforms.createDocumentRequest({body: data});
@@ -37,13 +38,13 @@ export function create(model: any, data: any) {
   };
   if (!connected) {
     debugCreate("establishing database connection");
-    return connect().then(() => performCreate());
+    return connect(debugCreate).then(() => performCreate());
   } else {
     return performCreate();
   }
 }
 
-export function connect() {
+export function connect(debug: debug.Debugger) {
   return mongoose.connect(envConfig.mongo.uri, {
     useUnifiedTopology: true,
     keepAlive: true,

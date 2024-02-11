@@ -457,7 +457,7 @@ export class RamblersWalksAndEventsService {
   }
 
   walkStartPostcode(walk) {
-    return walk.gridReference ? "" : walk.postcode || "";
+    return walk.postcode || "";
   }
 
   walkFinishGridReference(walk) {
