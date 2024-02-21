@@ -64,7 +64,7 @@ export function create(model, debugEnabled?: boolean) {
           });
         });
     },
-    delete: (req: Request, res: Response) => {
+    deleteOne: (req: Request, res: Response) => {
       const criteria = transforms.criteria(req);
       debugLog("delete:", criteria);
       model.deleteOne(criteria)

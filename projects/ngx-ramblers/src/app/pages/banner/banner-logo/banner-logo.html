@@ -1,3 +1,3 @@
 <img [src]="urlService.imageSource(image?.awsFileName)" [alt]="image?.originalFileName"
      class="img-fluid"
-     [style]="'padding: '+ image?.padding +'px'">
+     [ngStyle]="{'padding.px': image?.padding}">

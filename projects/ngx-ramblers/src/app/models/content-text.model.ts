@@ -190,6 +190,7 @@ export enum InsertionPosition {
 }
 
 export interface ColumnInsertData {
+  type: PageContentType;
   data: PageContentColumn;
   index: number;
 }

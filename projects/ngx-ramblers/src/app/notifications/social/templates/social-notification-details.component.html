@@ -77,5 +77,5 @@
   <app-contact-us *ngIf="socialEvent.notification.content.signoffAs.include"
                   [committeeReferenceDataOverride]="committeeReferenceDataSource()"
                   [format]="'list'"
-                  [role]="signoffAs()?.type"></app-contact-us>
+                  [roles]="signoffAs()?.type"></app-contact-us>
 </div>

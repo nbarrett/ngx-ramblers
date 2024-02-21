@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit } from "@angular/core";
-import { faSearch, faUserXmark } from "@fortawesome/free-solid-svg-icons";
+import { faSearch, faToggleOff, faToggleOn, faUserXmark } from "@fortawesome/free-solid-svg-icons";
 import cloneDeep from "lodash-es/cloneDeep";
 import extend from "lodash-es/extend";
 import groupBy from "lodash-es/groupBy";
@@ -10,7 +10,6 @@ import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
-import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { MailchimpConfig } from "../../../models/mailchimp.model";
 import { DeletedMember, DuplicateMember, Member } from "../../../models/member.model";
@@ -25,7 +24,6 @@ import {
 import { Confirm, ConfirmType, EditMode } from "../../../models/ui-actions";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { ApiResponseProcessor } from "../../../services/api-response-processor.service";
-import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
@@ -36,8 +34,6 @@ import { DeletedMemberService } from "../../../services/member/deleted-member.se
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
-import { StringUtilsService } from "../../../services/string-utils.service";
-import { UrlService } from "../../../services/url.service";
 import { MemberAdminModalComponent } from "../member-admin-modal/member-admin-modal.component";
 import { ProfileService } from "../profile/profile.service";
 import { SendEmailsModalComponent } from "../send-emails/send-emails-modal.component";
@@ -50,11 +46,31 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
   styleUrls: ["./member-admin.component.sass"]
 })
 export class MemberAdminComponent implements OnInit, OnDestroy {
+
+  constructor(private mailchimpConfigService: MailchimpConfigService,
+              private memberService: MemberService,
+              private apiResponseProcessor: ApiResponseProcessor,
+              private searchFilterPipe: SearchFilterPipe,
+              private modalService: BsModalService,
+              private notifierService: NotifierService,
+              private systemConfigService: SystemConfigService,
+              private deletedMemberService: DeletedMemberService,
+              private walksService: WalksService,
+              private dateUtils: DateUtilsService,
+              private mailchimpListService: MailchimpListService,
+              private mailchimpListSubscriptionService: MailchimpListSubscriptionService,
+              private mailchimpListUpdaterService: MailchimpListUpdaterService,
+              private profileService: ProfileService,
+              private memberLoginService: MemberLoginService,
+              loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.createLogger(MemberAdminComponent, NgxLoggerLevel.OFF);
+    this.apiResponseProcessorlogger = loggerFactory.createLogger(MemberAdminComponent, NgxLoggerLevel.OFF);
+    this.searchChangeObservable = new Subject<string>();
+  }
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   private logger: Logger;
   private apiResponseProcessorlogger: Logger;
-  private memberAdminBaseUrl: string;
   private today: number;
   public members: Member[] = [];
   public bulkDeleteMarkedMemberIds: string[] = [];
@@ -72,30 +88,8 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   public noMailchimpListsConfigured: boolean;
   private walkLeaders: string[];
 
-  constructor(private mailchimpConfigService: MailchimpConfigService,
-              private memberService: MemberService,
-              private contentMetadata: ContentMetadataService,
-              private apiResponseProcessor: ApiResponseProcessor,
-              private searchFilterPipe: SearchFilterPipe,
-              private modalService: BsModalService,
-              private notifierService: NotifierService,
-              private systemConfigService: SystemConfigService,
-              private deletedMemberService: DeletedMemberService,
-              private walksService: WalksService,
-              private dateUtils: DateUtilsService,
-              private urlService: UrlService,
-              private mailchimpListService: MailchimpListService,
-              private mailchimpListSubscriptionService: MailchimpListSubscriptionService,
-              private mailchimpListUpdaterService: MailchimpListUpdaterService,
-              private stringUtils: StringUtilsService,
-              private authService: AuthService,
-              private profileService: ProfileService,
-              private memberLoginService: MemberLoginService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MemberAdminComponent, NgxLoggerLevel.OFF);
-    this.apiResponseProcessorlogger = loggerFactory.createLogger(MemberAdminComponent, NgxLoggerLevel.OFF);
-    this.searchChangeObservable = new Subject<string>();
-  }
+  protected readonly faToggleOff = faToggleOff;
+  protected readonly faToggleOn = faToggleOn;
 
   async ngOnInit() {
     this.mailchimpConfigService.getConfig().then((mailchimpConfig: MailchimpConfig) => {
@@ -202,7 +196,6 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     this.logger.off("ngOnInit");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.notify.setBusy();
-    this.memberAdminBaseUrl = this.contentMetadata.baseUrl("memberAdmin");
     this.today = this.dateUtils.momentNowNoTime().valueOf();
     this.subscriptions.push(this.searchChangeObservable.pipe(debounceTime(250))
       .pipe(distinctUntilChanged())
@@ -261,10 +254,6 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     });
   }
 
-  showArea(area) {
-    this.urlService.navigateTo(["admin", area]);
-  }
-
   showSendEmailsDialog() {
     this.notify.hide();
     this.modalService.show(SendEmailsModalComponent, this.createModalOptions());
@@ -285,10 +274,10 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     };
   }
 
-  applySortTo(field, filterSource) {
+  applySortTo(field: string, filterSource: MemberTableFilter) {
     this.logger.off("sorting by field", field, "current value of filterSource", filterSource);
     filterSource.sortField = field;
-    filterSource.sortFunction = field === "memberName" ? MEMBER_SORT : field;
+    filterSource.sortFunction = field === "memberName" ? MEMBER_SORT : field === "markedForDelete" ? (member) => this.markedForDelete(member.id) : field;
     filterSource.reverseSort = !filterSource.reverseSort;
     filterSource.sortDirection = filterSource.reverseSort ? DESCENDING : ASCENDING;
     this.logger.off("sorting by field", field, "new value of filterSource", filterSource);
@@ -299,7 +288,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     this.applySortTo(field, this.memberFilterUploaded);
   }
 
-  sortMembersBy(field) {
+  sortMembersBy(field: string) {
     this.applySortTo(field, this.memberFilter);
   }
 
@@ -315,7 +304,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     this.showMemberDialog(member, EditMode.ADD_NEW);
   }
 
-  editMember(member) {
+  editMember(member: Member) {
     this.showMemberDialog(member, EditMode.EDIT);
   }
 
@@ -415,10 +404,6 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     this.logger.info("markNoneForBulkDelete");
     this.bulkDeleteMarkedMemberIds = [];
     this.notifyDeletionInstructions();
-  }
-
-  notReceivedInLastBulkLoadSelected(): boolean {
-    return this.memberFilter.selectedFilter.title === NOT_RECEIVED_IN_LAST_RAMBLERS_BULK_LOAD;
   }
 
   markedForDelete(memberId: string): boolean {

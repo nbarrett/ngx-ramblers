@@ -25,7 +25,7 @@ import { MarkdownModule } from "ngx-markdown";
 import { TagifyModule } from "ngx-tagify";
 import { UiSwitchModule } from "ngx-ui-switch";
 import { AuthInterceptor } from "./auth/auth.interceptor";
-import { ContactUsComponent } from "./contact-us/contact-us-directive.component";
+import { ContactUsComponent } from "./committee/contact-us/contact-us";
 import { DatePickerComponent } from "./date-picker/date-picker.component";
 import { ImageCropperAndResizerComponent } from "./image-cropper-and-resizer/image-cropper-and-resizer";
 import { MarkdownEditorComponent } from "./markdown-editor/markdown-editor.component";
@@ -126,12 +126,17 @@ import { GroupEventTypeSelectorComponent } from "./group-events-selector/group-e
 import { DynamicContentSiteEditAlbumComponent } from "./modules/common/dynamic-content/dynamic-content-site-edit-album";
 import { ColumnWidthComponent } from "./modules/common/dynamic-content/column-width";
 import { DisplayDatesAndTimesPipe } from "./pipes/display-dates-and-times.pipe";
+import { CommitteeRoleMultiSelectComponent } from "./committee/role-multi-select/committee-role-multi-select";
+import { NgxCaptureModule } from "ngx-capture";
+import { ButtonsModule } from "ngx-bootstrap/buttons";
 
 @NgModule({
   imports: [
     AlertModule.forRoot(),
+    AsyncPipe,
     BsDatepickerModule.forRoot(),
     BsDropdownModule.forRoot(),
+    ButtonsModule,
     CarouselModule.forRoot(),
     CollapseModule.forRoot(),
     CommonModule,
@@ -139,11 +144,15 @@ import { DisplayDatesAndTimesPipe } from "./pipes/display-dates-and-times.pipe";
     FontAwesomeModule,
     FormsModule,
     FormsModule,
+    GalleryModule,
     ImageCropperModule,
+    LightboxModule,
     LoggerModule.forRoot({serverLoggingUrl: "api/logs", level: NgxLoggerLevel.OFF, serverLogLevel: NgxLoggerLevel.OFF}),
     MarkdownModule.forRoot(),
     ModalModule.forRoot(),
+    NgFor,
     NgSelectModule,
+    NgxCaptureModule,
     PaginationModule.forRoot(),
     PopoverModule.forRoot(),
     RouterModule,
@@ -153,27 +162,24 @@ import { DisplayDatesAndTimesPipe } from "./pipes/display-dates-and-times.pipe";
     TooltipModule.forRoot(),
     TypeaheadModule.forRoot(),
     UiSwitchModule,
-    GalleryModule,
-    LightboxModule,
-    NgFor,
-    AsyncPipe,
   ],
   declarations: [
     ActionButtonsComponent,
     ActionsDropdownComponent,
-    AspectRatioSelectorComponent,
-    BadgeButtonComponent,
-    BulkActionSelectorComponent,
-    ColumnWidthComponent,
     AlbumComponent,
     AlbumGalleryComponent,
     AlbumGridComponent,
+    AspectRatioSelectorComponent,
+    BadgeButtonComponent,
+    BulkActionSelectorComponent,
     CardEditorComponent,
     CardImageComponent,
     CarouselComponent,
     CarouselSelectComponent,
     CarouselSelectorComponent,
     CarouselStoryNavigatorComponent,
+    ColumnWidthComponent,
+    CommitteeRoleMultiSelectComponent,
     ContactUsComponent,
     CopyIconComponent,
     CreatedAuditPipe,
@@ -181,14 +187,14 @@ import { DisplayDatesAndTimesPipe } from "./pipes/display-dates-and-times.pipe";
     DatePickerComponent,
     DisplayDateAndTimePipe,
     DisplayDatePipe,
-    DisplayDatesPipe,
     DisplayDatesAndTimesPipe,
+    DisplayDatesPipe,
     DisplayDayPipe,
     DynamicContentComponent,
     DynamicContentPageComponent,
+    DynamicContentSiteEditAlbumComponent,
     DynamicContentSiteEditComponent,
     DynamicContentSiteEditTextRowComponent,
-    DynamicContentSiteEditAlbumComponent,
     DynamicContentViewAlbumComponent,
     DynamicContentViewAlbumIndexComponent,
     DynamicContentViewCarouselComponent,
@@ -199,12 +205,12 @@ import { DisplayDatesAndTimesPipe } from "./pipes/display-dates-and-times.pipe";
     FullNamePipe,
     FullNameWithAliasOrMePipe,
     FullNameWithAliasPipe,
+    GroupEventSelectorComponent,
+    GroupEventTypeSelectorComponent,
     HumanisePipe,
     IconExamplesComponent,
     ImageCropperAndResizerComponent,
     ImageEditComponent,
-    GroupEventSelectorComponent,
-    GroupEventTypeSelectorComponent,
     ImageListEditComponent,
     ImageListEditPageComponent,
     KebabCasePipe,
@@ -222,7 +228,6 @@ import { DisplayDatesAndTimesPipe } from "./pipes/display-dates-and-times.pipe";
     MemberIdsToFullNamesPipe,
     MoneyPipe,
     PageComponent,
-    WalkPanelExpanderComponent,
     RelatedLinkComponent,
     RowSettingsActionButtonsComponent,
     RowSettingsCarouselComponent,
@@ -233,6 +238,7 @@ import { DisplayDatesAndTimesPipe } from "./pipes/display-dates-and-times.pipe";
     TagManagerComponent,
     UpdatedAuditPipe,
     ValueOrDefaultPipe,
+    WalkPanelExpanderComponent,
   ],
   exports: [
     AccordionModule,
@@ -243,6 +249,7 @@ import { DisplayDatesAndTimesPipe } from "./pipes/display-dates-and-times.pipe";
     BadgeButtonComponent,
     BsDatepickerModule,
     BsDropdownModule,
+    ButtonsModule,
     CardEditorComponent,
     CardImageComponent,
     CarouselComponent,
@@ -250,6 +257,7 @@ import { DisplayDatesAndTimesPipe } from "./pipes/display-dates-and-times.pipe";
     CarouselSelectorComponent,
     CarouselStoryNavigatorComponent,
     CollapseModule,
+    CommitteeRoleMultiSelectComponent,
     CommonModule,
     ContactUsComponent,
     CopyIconComponent,
@@ -258,8 +266,8 @@ import { DisplayDatesAndTimesPipe } from "./pipes/display-dates-and-times.pipe";
     DatePickerComponent,
     DisplayDateAndTimePipe,
     DisplayDatePipe,
-    DisplayDatesPipe,
     DisplayDatesAndTimesPipe,
+    DisplayDatesPipe,
     DisplayDayPipe,
     DynamicContentComponent,
     DynamicContentPageComponent,
@@ -293,7 +301,6 @@ import { DisplayDatesAndTimesPipe } from "./pipes/display-dates-and-times.pipe";
     NgSelectModule,
     PageComponent,
     PaginationModule,
-    WalkPanelExpanderComponent,
     PopoverModule,
     RelatedLinkComponent,
     RouterModule,
@@ -305,6 +312,7 @@ import { DisplayDatesAndTimesPipe } from "./pipes/display-dates-and-times.pipe";
     UiSwitchModule,
     UpdatedAuditPipe,
     ValueOrDefaultPipe,
+    WalkPanelExpanderComponent,
   ]
 })
 export class SharedModule {

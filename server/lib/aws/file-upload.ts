@@ -16,7 +16,7 @@ import { isAwsUploadErrorResponse } from "./aws-utils";
 import path = require("path");
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("s3-file-upload"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 export { uploadFile };
 
 function uploadFile(req, res) {
@@ -71,7 +71,7 @@ function uploadFile(req, res) {
 
   function determineExtension(name: string): string {
     const extension = path.extname(name);
-    return extension.length <= 5 ? extension : ".jpeg";
+    return extension.length <= 5 && name.includes(".") ? extension : ".jpeg";
   }
 
   function generateFileNameData(uploadedFile: UploadedFile): ServerFileNameData {

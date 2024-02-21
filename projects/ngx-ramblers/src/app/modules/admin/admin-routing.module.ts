@@ -21,6 +21,7 @@ import { AdminModule } from "./admin.module";
 import { AreaExistsGuard } from "../../guards/area-exists-guard";
 import { ImageListEditPageComponent } from "../../carousel/edit/image-list-page/image-list-edit-page";
 import { AdminAuthGuard } from "../../guards/admin-auth-guard";
+import { MailSettingsComponent } from "../../pages/admin/system-settings/mail/mail-settings";
 
 @NgModule({
   imports: [AdminModule, RouterModule.forChild([
@@ -38,6 +39,7 @@ import { AdminAuthGuard } from "../../guards/admin-auth-guard";
     {path: "system-settings", component: SystemSettingsComponent, canActivate: [AdminAuthGuard]},
     {path: "set-password/:password-reset-id", component: SetPasswordComponent},
     {path: "mailchimp-settings", component: MailchimpSettingsComponent, canActivate: [AdminAuthGuard]},
+    {path: "mail-settings", component: MailSettingsComponent, canActivate: [AdminAuthGuard]},
     {path: "committee-settings", component: CommitteeSettingsComponent, canActivate: [AdminAuthGuard]},
     {path: "banners", component: BannerComponent},
     {path: "carousel-editor", component: ImageListEditPageComponent},

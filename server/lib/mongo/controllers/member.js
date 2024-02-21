@@ -9,7 +9,7 @@ const crudController = require("./crud-controller").create(member);
 
 exports.update = crudController.update
 exports.all = crudController.all
-exports.delete = crudController.delete
+exports.deleteOne = crudController.deleteOne
 exports.findById = crudController.findById
 
 exports.update = (req, res) => {

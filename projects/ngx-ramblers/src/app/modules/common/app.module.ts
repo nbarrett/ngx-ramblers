@@ -16,7 +16,7 @@ import { LogoutComponent } from "../../logout/logout.component";
 import { MeetupDescriptionComponent } from "../../notifications/walks/templates/meetup/meetup-description.component";
 import { PageNavigatorComponent } from "../../page-navigator/page-navigator.component";
 import { BannerImageSelectorComponent } from "../../pages/banner/banner-image-selector.component";
-import { BannerLogoAndTextLinesOutputComponent } from "../../pages/banner/banner-logo-and-text-lines-output.component";
+import { BannerLogoAndTextLinesOutputComponent } from "../../pages/banner/banner-logo-and-text-lines-output";
 import { BannerHeadLogoComponent } from "../../pages/banner/banner-logo/banner-logo";
 import { BannerPapercutOutputComponent } from "../../pages/banner/banner-papercut-output.component";
 import { BannerTitleConfigComponent } from "../../pages/banner/banner-title-config.component";
@@ -79,12 +79,12 @@ import { NavbarComponent } from "./navbar/navbar";
     SetPasswordComponent,
     SiteEditComponent,
   ],
-  imports: [
-    AppRoutingModule,
-    BrowserAnimationsModule,
-    HttpClientModule,
-    SharedModule.forRoot(),
-  ]
+    imports: [
+        AppRoutingModule,
+        BrowserAnimationsModule,
+        HttpClientModule,
+        SharedModule.forRoot(),
+    ]
 })
 
 export class AppModule implements DoBootstrap {

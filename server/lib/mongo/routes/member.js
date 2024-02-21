@@ -9,7 +9,7 @@ router.get("/find-one", authConfig.authenticate(), member.findOne);
 router.get("/all", authConfig.authenticate(), member.all);
 router.put("/:id", authConfig.authenticate(), member.update);
 router.put("/:id/email-subscription", member.updateEmailSubscription);
-router.delete("/:id", authConfig.authenticate(), member.delete);
+router.delete("/:id", authConfig.authenticate(), member.deleteOne);
 router.get("/:id", authConfig.authenticate(), member.findById);
 router.get("/password-reset-id/:id", member.findByPasswordResetId);
 

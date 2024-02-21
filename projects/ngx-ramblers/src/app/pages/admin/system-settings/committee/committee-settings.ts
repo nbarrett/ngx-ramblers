@@ -10,13 +10,9 @@ import {
 } from "../../../../models/committee.model";
 import { sortBy } from "../../../../services/arrays";
 import { CommitteeConfigService } from "../../../../services/committee-config.service";
-import { CommitteeQueryService } from "../../../../services/committee/committee-query.service";
-import { ContentMetadataService } from "../../../../services/content-metadata.service";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
-import { MemberLoginService } from "../../../../services/member/member-login.service";
-import { MemberService } from "../../../../services/member/member.service";
-import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
+import { AlertInstance } from "../../../../services/notifier.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { UrlService } from "../../../../services/url.service";
 
@@ -26,13 +22,8 @@ import { UrlService } from "../../../../services/url.service";
 })
 export class CommitteeSettingsComponent implements OnInit {
 
-  constructor(private contentMetadataService: ContentMetadataService,
-              private committeeQueryService: CommitteeQueryService,
-              private notifierService: NotifierService,
-              public stringUtils: StringUtilsService,
+  constructor(public stringUtils: StringUtilsService,
               private urlService: UrlService,
-              private memberService: MemberService,
-              private memberLoginService: MemberLoginService,
               private committeeConfigService: CommitteeConfigService,
               protected dateUtils: DateUtilsService,
               loggerFactory: LoggerFactory) {

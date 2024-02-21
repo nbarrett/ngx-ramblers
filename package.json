@@ -1,6 +1,6 @@
 {
   "name": "ngx-ramblers",
-  "description": "client application supporting ramblers group website example: https://www.example.co.uk",
+  "description": "Ramblers groups website framework: https://www.ngx-ramblers.org.uk",
   "version": "2.0.0",
   "license": "ISC",
   "private": true,
@@ -59,6 +59,7 @@
     "ng-gallery": "11.0.0",
     "ng2-file-upload": "5.0.0",
     "ngx-bootstrap": "11.0.2",
+    "ngx-capture": "0.13.0",
     "ngx-image-cropper": "6.2.2",
     "ngx-logger": "5.0.12",
     "ngx-markdown": "16.0.0",

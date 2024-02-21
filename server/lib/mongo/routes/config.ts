@@ -4,8 +4,8 @@ import * as config from "./../controllers/config";
 
 const router = express.Router();
 
-router.post("", authConfig.authenticate(), config.update);
+router.post("", authConfig.authenticate(), config.createOrUpdate);
 router.get("", config.handleQuery);
-router.delete("/:id", authConfig.authenticate(), config.deleteKey);
+router.delete("/:id", authConfig.authenticate(), config.deleteOne);
 
 export const configRoutes = router;

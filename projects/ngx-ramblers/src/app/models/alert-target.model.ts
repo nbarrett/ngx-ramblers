@@ -1,4 +1,5 @@
 import { FontAwesomeIcon } from "./images.model";
+import { faCircleCheck, faCircleExclamation, faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 
 export interface AlertTarget {
   alertMessage?: string;
@@ -16,8 +17,26 @@ export interface AlertType extends FontAwesomeIcon {
   failure?: boolean;
 }
 
+export interface AlertMessageAndType {
+  message: AlertMessage;
+  type: AlertLevel;
+}
+
 export interface AlertMessage {
   title: string;
   message: any;
   continue?: boolean;
+}
+
+export const ALERT_ERROR: AlertType = {class: "alert-danger", icon: faCircleExclamation, failure: true};
+export const ALERT_WARNING: AlertType = {class: "alert-warning", icon: faCircleCheck};
+export const ALERT_INFO: AlertType = {class: "alert-success", icon: faCircleInfo};
+export const ALERT_SUCCESS: AlertType = {class: "alert-success", icon: faCircleCheck};
+
+export enum AlertLevel {
+  ALERT_ERROR = "ALERT_ERROR",
+  ALERT_WARNING = "ALERT_WARNING",
+  ALERT_INFO = "ALERT_INFO",
+  ALERT_SUCCESS = "ALERT_SUCCESS"
+
 }

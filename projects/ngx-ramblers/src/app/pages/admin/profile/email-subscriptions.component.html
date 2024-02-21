@@ -36,7 +36,7 @@
             </label>
           </div>
           <p>If you have any other queries about your mailing preferences, please email our
-            <app-contact-us role="membership"
+            <app-contact-us roles="membership"
                               text="Membership Secretary"></app-contact-us>
             </p>
           </div>
@@ -58,7 +58,7 @@
           <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon><strong *ngIf="notifyTarget.alertTitle">
           {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
           <div *ngIf="notifyTarget.showContactUs"> contact our
-            <app-contact-us class="alert-link" role="membership"
+            <app-contact-us class="alert-link" roles="membership"
                             text="Membership Administrator"></app-contact-us>.
           </div>
         </div>

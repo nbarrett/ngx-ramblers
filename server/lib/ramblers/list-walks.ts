@@ -25,7 +25,7 @@ import omit from "lodash/omit";
 const debugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
 noopDebugLog.enabled = false;
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export function walkLeaderIds(req, res): void {
   const body: WalkListRequest = req.body;

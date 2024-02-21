@@ -67,6 +67,12 @@ export interface CommitteeMember {
   memberId?: string;
   nameAndDescription?: string;
   type: string;
+  vacant?: boolean;
+}
+
+export interface CommitteeRolesChangeEvent {
+  committeeMember: CommitteeMember;
+  roles: string[];
 }
 
 export interface CommitteeFileType {

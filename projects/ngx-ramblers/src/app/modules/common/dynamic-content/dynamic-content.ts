@@ -43,6 +43,10 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
     this.contentPathReadOnly = coerceBooleanProperty(contentPathReadOnly);
   }
 
+  @Input("defaultPageContent") set acceptChangesFrom(defaultPageContent: PageContent) {
+    this.logger.info("acceptChangesFrom:defaultPageContent:", defaultPageContent);
+    this.defaultPageContent = defaultPageContent;
+  }
   public contentPath: string;
   @Input()
   public anchor: string;

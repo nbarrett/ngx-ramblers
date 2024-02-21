@@ -3,6 +3,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { PapercutBackgroundBanner } from "../../models/banner-configuration.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { UrlService } from "../../services/url.service";
+import { ServerFileNameData } from "../../models/aws-object.model";
 
 @Component({
   selector: "app-papercut-output",
@@ -11,7 +12,8 @@ import { UrlService } from "../../services/url.service";
     <div class="d-flex flex-column flex-md-row position-relative">
       <div class="wrapper w-100 position-relative">
         <img class="crop"
-             [src]="urlService.imageSource(this.tempImage || banner?.photo?.image?.awsFileName)" (load)="setPaperCutImageHeight()"
+             [src]="urlService.imageSource(this.tempImage || banner?.photo?.image?.awsFileName)"
+             (load)="setPaperCutImageHeight()"
              [ngStyle]="{'height.px': paperCutImageHeight, 'width.px': banner.background.image.width}"/><img/>
         <img class="h-100 position-absolute" #paperCutImage
              [src]="urlService.resourceRelativePathForAWSFileName(banner?.background?.image?.awsFileName)">
@@ -23,7 +25,8 @@ import { UrlService } from "../../services/url.service";
                  [src]="urlService.resourceRelativePathForAWSFileName(banner.logo?.image?.awsFileName)"
                  [alt]="banner.logo?.image.originalFileName" [width]="banner.logo?.image?.width"
                  [style.padding.px]="banner?.logo?.image?.padding"></a>
-          <h1 markdown ngPreserveWhitespaces [data]="banner.text.value" [class]="'display-4 font-weight-bold mt-5 ' + banner.text.class"></h1>
+          <h1 markdown ngPreserveWhitespaces [data]="banner.text.value"
+              [class]="'display-4 font-weight-bold mt-5 ' + banner.text.class"></h1>
         </div>
       </div>
     </div>
@@ -32,6 +35,7 @@ import { UrlService } from "../../services/url.service";
 
 export class BannerPapercutOutputComponent implements OnInit {
   public banner: PapercutBackgroundBanner;
+  public fileNameData: ServerFileNameData;
 
   @Input("banner") set acceptChangesFrom(banner: PapercutBackgroundBanner) {
     this.logger.debug("banner:input:", banner);

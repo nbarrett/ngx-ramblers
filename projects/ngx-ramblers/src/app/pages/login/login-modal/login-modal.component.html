@@ -1,6 +1,6 @@
 <div class="modal-content">
   <div class="modal-header">
-    <h4 class="modal-title" id="modal-title-heading">Login to <em>{{group?.shortName}}</em> site</h4>
+    <h4 class="modal-title" id="modal-title-heading">Login to <em>{{ group?.shortName }}</em> site</h4>
     <button type="button" class="close" data-dismiss="modal" (click)="bsModalRef.hide()" aria-hidden="true">&times;
     </button>
   </div>
@@ -27,9 +27,9 @@
           <div class="alert {{notifyTarget.alertClass}}">
             <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
             <strong *ngIf="notifyTarget.alertTitle">
-              {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
+              {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
             <span *ngIf="notifyTarget.showContactUs"> contact our <app-contact-us class="alert-link"
-                                                                                  role="membership"
+                                                                                  roles="membership"
                                                                                   text="Membership Administrator"></app-contact-us>.
         </span>
           </div>

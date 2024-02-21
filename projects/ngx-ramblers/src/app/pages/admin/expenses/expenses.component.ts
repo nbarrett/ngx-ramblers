@@ -19,7 +19,7 @@ import { AlertTarget } from "../../../models/alert-target.model";
 import { ApiAction, ApiResponse } from "../../../models/api-response.model";
 import { Member } from "../../../models/member.model";
 import { Confirm, ConfirmType } from "../../../models/ui-actions";
-import { ExpenseNotificationDirective } from "../../../notifications/expenses/expense-notification.directive";
+import { NotificationDirective } from "../../../notifications/common/notification.directive";
 import { ExpenseClaim, ExpenseEvent, ExpenseFilter, ExpenseItem, ExpenseNotificationRequest } from "../../../notifications/expenses/expense.model";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
@@ -78,7 +78,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   public confirm = new Confirm();
   public filters: ExpenseFilter[];
   private subscriptions: Subscription[] = [];
-  @ViewChild(ExpenseNotificationDirective) notificationDirective: ExpenseNotificationDirective;
+  @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   expandable: boolean;
   showOrHide = "hide";
 

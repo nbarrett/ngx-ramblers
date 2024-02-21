@@ -1,14 +1,18 @@
 import { Injectable } from "@angular/core";
-import { faPencil, faExclamation, faCircleInfo, faCircleCheck, faCircleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faPencil } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { AlertMessage, AlertTarget, AlertType } from "../models/alert-target.model";
+import {
+  ALERT_ERROR,
+  ALERT_INFO,
+  ALERT_SUCCESS,
+  ALERT_WARNING,
+  AlertMessage,
+  AlertTarget,
+  AlertType
+} from "../models/alert-target.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { StringUtilsService } from "./string-utils.service";
 
-export const ALERT_ERROR: AlertType = {class: "alert-danger", icon: faCircleExclamation, failure: true};
-export const ALERT_WARNING: AlertType = {class: "alert-warning", icon: faCircleCheck};
-export const ALERT_INFO: AlertType = {class: "alert-success", icon: faCircleInfo};
-export const ALERT_SUCCESS: AlertType = {class: "alert-success", icon: faCircleCheck};
 
 export class AlertInstance {
   private logger: Logger;

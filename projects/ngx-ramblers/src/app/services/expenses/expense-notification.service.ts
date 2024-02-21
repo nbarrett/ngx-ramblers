@@ -1,33 +1,58 @@
-import { ComponentFactoryResolver, Injectable } from "@angular/core";
+import { Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { MailchimpExpenseOtherContent, SaveSegmentResponse } from "../../models/mailchimp.model";
-import { ExpenseNotificationComponentAndData } from "../../notifications/expenses/expense-notification.directive";
-import { ExpenseEventType, ExpenseNotificationMapping, ExpenseNotificationRequest } from "../../notifications/expenses/expense.model";
-import { ExpenseNotificationApproverFirstApprovalComponent } from "../../notifications/expenses/templates/approver/expense-notification-approver-first-approval.component";
-import { ExpenseNotificationApproverPaidComponent } from "../../notifications/expenses/templates/approver/expense-notification-approver-paid.component";
-import { ExpenseNotificationApproverReturnedComponent } from "../../notifications/expenses/templates/approver/expense-notification-approver-returned.component";
-import { ExpenseNotificationApproverSecondApprovalComponent } from "../../notifications/expenses/templates/approver/expense-notification-approver-second-approval.component";
-import { ExpenseNotificationApproverSubmittedComponent } from "../../notifications/expenses/templates/approver/expense-notification-approver-submitted.component";
-import { ExpenseNotificationCreatorPaidComponent } from "../../notifications/expenses/templates/creator/expense-notification-creator-paid.component";
-import { ExpenseNotificationCreatorReturnedComponent } from "../../notifications/expenses/templates/creator/expense-notification-creator-returned.component";
-import { ExpenseNotificationCreatorSecondApprovalComponent } from "../../notifications/expenses/templates/creator/expense-notification-creator-second-approval.component";
-import { ExpenseNotificationCreatorSubmittedComponent } from "../../notifications/expenses/templates/creator/expense-notification-creator-submitted.component";
-import { ExpenseNotificationTreasurerPaidComponent } from "../../notifications/expenses/templates/treasurer/expense-notification-treasurer-paid.component";
-import { ExpenseNotificationTreasurerSecondApprovalComponent } from "../../notifications/expenses/templates/treasurer/expense-notification-treasurer-second-approval.component";
-import { AuditDeltaValuePipe } from "../../pipes/audit-delta-value.pipe";
-import { DisplayDatePipe } from "../../pipes/display-date.pipe";
+import {
+  ExpenseEventType,
+  ExpenseNotificationMapping,
+  ExpenseNotificationRequest
+} from "../../notifications/expenses/expense.model";
+import {
+  ExpenseNotificationApproverFirstApprovalComponent
+} from "../../notifications/expenses/templates/approver/expense-notification-approver-first-approval.component";
+import {
+  ExpenseNotificationApproverPaidComponent
+} from "../../notifications/expenses/templates/approver/expense-notification-approver-paid.component";
+import {
+  ExpenseNotificationApproverReturnedComponent
+} from "../../notifications/expenses/templates/approver/expense-notification-approver-returned.component";
+import {
+  ExpenseNotificationApproverSecondApprovalComponent
+} from "../../notifications/expenses/templates/approver/expense-notification-approver-second-approval.component";
+import {
+  ExpenseNotificationApproverSubmittedComponent
+} from "../../notifications/expenses/templates/approver/expense-notification-approver-submitted.component";
+import {
+  ExpenseNotificationCreatorPaidComponent
+} from "../../notifications/expenses/templates/creator/expense-notification-creator-paid.component";
+import {
+  ExpenseNotificationCreatorReturnedComponent
+} from "../../notifications/expenses/templates/creator/expense-notification-creator-returned.component";
+import {
+  ExpenseNotificationCreatorSecondApprovalComponent
+} from "../../notifications/expenses/templates/creator/expense-notification-creator-second-approval.component";
+import {
+  ExpenseNotificationCreatorSubmittedComponent
+} from "../../notifications/expenses/templates/creator/expense-notification-creator-submitted.component";
+import {
+  ExpenseNotificationTreasurerPaidComponent
+} from "../../notifications/expenses/templates/treasurer/expense-notification-treasurer-paid.component";
+import {
+  ExpenseNotificationTreasurerSecondApprovalComponent
+} from "../../notifications/expenses/templates/treasurer/expense-notification-treasurer-second-approval.component";
 import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
-import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailchimpConfigService } from "../mailchimp-config.service";
 import { MailchimpCampaignService } from "../mailchimp/mailchimp-campaign.service";
 import { MailchimpSegmentService } from "../mailchimp/mailchimp-segment.service";
-import { MemberLoginService } from "../member/member-login.service";
 import { MemberService } from "../member/member.service";
-import { AlertInstance, NotifierService } from "../notifier.service";
+import { AlertInstance } from "../notifier.service";
 import { UrlService } from "../url.service";
 import { ExpenseClaimService } from "./expense-claim.service";
 import { ExpenseDisplayService } from "./expense-display.service";
+import { NotificationComponent } from "../../notifications/common/notification.component";
+import {
+  ExpenseNotificationDetailsComponent
+} from "../../notifications/expenses/templates/common/expense-notification-details.component";
 
 @Injectable({
   providedIn: "root"
@@ -43,14 +68,9 @@ export class ExpenseNotificationService {
     protected memberService: MemberService,
     private urlService: UrlService,
     private expenseClaimService: ExpenseClaimService,
-    private memberLoginService: MemberLoginService,
-    private componentFactoryResolver: ComponentFactoryResolver,
-    private notifierService: NotifierService,
     private fullNameWithAliasPipe: FullNameWithAliasPipe,
-    private auditDeltaValuePipe: AuditDeltaValuePipe,
-    private displayDatePipe: DisplayDatePipe,
     public display: ExpenseDisplayService,
-    private dateUtils: DateUtilsService, loggerFactory: LoggerFactory) {
+    loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(ExpenseNotificationService, NgxLoggerLevel.OFF);
   }
 
@@ -87,12 +107,10 @@ export class ExpenseNotificationService {
   }
 
   public generateNotificationHTML(request: ExpenseNotificationRequest): string {
-    const componentAndData = new ExpenseNotificationComponentAndData(request.component, request.expenseClaim);
-    const componentFactory = this.componentFactoryResolver.resolveComponentFactory(componentAndData.component);
-    const viewContainerRef = request.notificationDirective.viewContainerRef;
-    viewContainerRef.clear();
-    const componentRef = viewContainerRef.createComponent(componentFactory);
-    componentRef.instance.expenseClaim = componentAndData.data;
+    const componentAndData = new NotificationComponent<ExpenseNotificationDetailsComponent>(request.component);
+    request.notificationDirective.viewContainerRef.clear();
+    const componentRef = request.notificationDirective.viewContainerRef.createComponent(componentAndData.component);
+    componentRef.instance.expenseClaim = request.expenseClaim;
     componentRef.changeDetectorRef.detectChanges();
     const html = componentRef.location.nativeElement.innerHTML;
     this.logger.debug("notification html ->", html);

@@ -1,5 +1,6 @@
 import { ApiResponse } from "./api-response.model";
-import { RootFolder, Image } from "./system.model";
+import { Image, RootFolder } from "./system.model";
+import { ServerFileNameData } from "./aws-object.model";
 
 export interface BannerImageItem {
   bannerImageType: RootFolder;
@@ -59,6 +60,7 @@ export interface BannerConfig {
   createdBy?: string;
   updatedAt?: number;
   updatedBy?: string;
+  fileNameData?: ServerFileNameData;
 }
 
 export interface BannerConfigApiResponse extends ApiResponse {

@@ -2,8 +2,6 @@ import { Component, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { PageService } from "../services/page.service";
-import { StringUtilsService } from "../services/string-utils.service";
-import { SystemConfigService } from "../services/system/system-config.service";
 import isEmpty from "lodash-es/isEmpty";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
@@ -31,8 +29,6 @@ export class PageComponent implements OnInit {
   private logger: Logger;
 
   constructor(public pageService: PageService,
-              private stringUtils: StringUtilsService,
-              private systemConfigService: SystemConfigService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger("PageComponent", NgxLoggerLevel.OFF);
   }

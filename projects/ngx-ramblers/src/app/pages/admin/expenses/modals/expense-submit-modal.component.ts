@@ -4,7 +4,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../../models/alert-target.model";
 import { ExpenseClaim } from "../../../../notifications/expenses/expense.model";
 import { Member } from "../../../../models/member.model";
-import { ExpenseNotificationDirective } from "../../../../notifications/expenses/expense-notification.directive";
+import { NotificationDirective } from "../../../../notifications/common/notification.directive";
 import { ExpenseDisplayService } from "../../../../services/expenses/expense-display.service";
 import { ExpenseNotificationService } from "../../../../services/expenses/expense-notification.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
@@ -22,7 +22,7 @@ export class ExpenseSubmitModalComponent implements OnInit {
   public members: Member[];
   public resubmit: boolean;
   public expenseClaim: ExpenseClaim;
-  private notificationDirective: ExpenseNotificationDirective;
+  private notificationDirective: NotificationDirective;
   supplyBankDetailsChoice: string;
 
   constructor(public bsModalRef: BsModalRef,

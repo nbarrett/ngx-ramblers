@@ -7,6 +7,6 @@ const router = express.Router();
 router.post("", authConfig.authenticate(), audit.create);
 router.get("/member/:id", authConfig.authenticate(), audit.all);
 router.get("/all", authConfig.authenticate(), audit.all);
-router.delete("/:id", authConfig.authenticate(), audit.delete);
+router.delete("/:id", authConfig.authenticate(), audit.deleteOne);
 
 module.exports = router;

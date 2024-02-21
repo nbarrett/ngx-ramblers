@@ -1,6 +1,7 @@
 import { MailchimpContact } from "./server-models";
 import { ApiResponse } from "./api-response.model";
 import { AuditStatus } from "./audit";
+import { MergeFields } from "./mail.model";
 
 type EmailType = "text"|"html";
 
@@ -102,15 +103,6 @@ export enum CustomMergeFieldTag {
   MEMBER_EXP = "MEMBER_EXP",
   USERNAME = "USERNAME",
   PW_RESET = "PW_RESET",
-}
-export interface MergeFields {
-  EMAIL: string;
-  FNAME: string;
-  LNAME: string;
-  MEMBER_NUM: string;
-  USERNAME: string;
-  PW_RESET: string;
-  MEMBER_EXP: string;
 }
 
 export interface MergeVariablesRequest {

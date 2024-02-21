@@ -46,7 +46,6 @@ import { NumberUtilsService } from "../services/number-utils.service";
 import { UrlService } from "../services/url.service";
 import { RootFolder } from "../models/system.model";
 import { Base64File } from "../models/content-metadata.model";
-import { StringUtilsService } from "../services/string-utils.service";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
@@ -62,7 +61,6 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
               private numberUtils: NumberUtilsService,
               private fileUploadService: FileUploadService,
               private urlService: UrlService,
-              private stringUtilsService: StringUtilsService,
               private notifierService: NotifierService,
               private fileUtils: FileUtilsService,
               loggerFactory: LoggerFactory) {

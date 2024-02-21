@@ -1,28 +1,30 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { faQuestion } from "@fortawesome/free-solid-svg-icons";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import map from "lodash-es/map";
-import { BsModalRef, BsModalService } from "ngx-bootstrap/modal";
-import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { DateValue } from "../../../models/date.model";
-import { MailchimpCampaignSendRequest, SaveSegmentResponse } from "../../../models/mailchimp.model";
-import { Member, MemberEmailType, MemberFilterSelection, MemberSelector } from "../../../models/member.model";
+import { HelpInfo, Member, MemberEmailConfig, MemberFilterSelection } from "../../../models/member.model";
 import { Organisation } from "../../../models/system.model";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
-import { MailchimpCampaignService } from "../../../services/mailchimp/mailchimp-campaign.service";
-import { MailchimpListSubscriptionService } from "../../../services/mailchimp/mailchimp-list-subscription.service";
-import { MailchimpListService } from "../../../services/mailchimp/mailchimp-list.service";
-import { MailchimpSegmentService } from "../../../services/mailchimp/mailchimp-segment.service";
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
+import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
+import { MailMessagingConfig, MemberSelection, MemberSelector, WorkflowAction } from "../../../models/mail.model";
+import { NotificationDirective } from "../../../notifications/common/notification.directive";
+import { MailService } from "../../../services/mail/mail.service";
+import { MemberLoginService } from "../../../services/member/member-login.service";
+import { CommitteeRolesChangeEvent } from "../../../models/committee.model";
+import { MailLinkService } from "../../../services/mail/mail-link.service";
+import first from "lodash-es/first";
+import { BannerConfig } from "../../../models/banner-configuration.model";
 
 @Component({
   selector: "app-member-admin-send-emails-modal",
@@ -31,35 +33,14 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 })
 
 export class SendEmailsModalComponent implements OnInit, OnDestroy {
-  tooltips: TooltipDirective[] = [];
-  private notify: AlertInstance;
-  public notifyTarget: AlertTarget = {};
-  private logger: Logger;
-  public showHelp: false;
-  members: Member[] = [];
-  public selectableMembers: MemberFilterSelection[] = [];
-  public selectedMemberIds: string[] = [];
-  memberSelectorName = "recently-added";
-  private alertTypeResetPassword: boolean;
-  memberFilterDate: DateValue;
-  public emailTypes: MemberEmailType[] = [];
-  public emailType: MemberEmailType;
-  public helpInfo: { monthsInPast: number; showHelp: boolean };
-  faQuestion = faQuestion;
-  private group: Organisation;
-  private subscriptions: Subscription[] = [];
 
-  constructor(private mailchimpSegmentService: MailchimpSegmentService,
-              private mailchimpCampaignService: MailchimpCampaignService,
-              private mailchimpConfig: MailchimpConfigService,
+  constructor(protected mailMessagingService: MailMessagingService,
+              private mailService: MailService,
               private notifierService: NotifierService,
-              private stringUtils: StringUtilsService,
+              protected stringUtils: StringUtilsService,
               private memberService: MemberService,
+              protected memberLoginService: MemberLoginService,
               private fullNameWithAliasPipe: FullNameWithAliasPipe,
-              private modalService: BsModalService,
-              private mailchimpConfigService: MailchimpConfigService,
-              private mailchimpListSubscriptionService: MailchimpListSubscriptionService,
-              private mailchimpListService: MailchimpListService,
               private systemConfigService: SystemConfigService,
               protected dateUtils: DateUtilsService,
               public bsModalRef: BsModalRef,
@@ -67,71 +48,82 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
     this.logger = loggerFactory.createLogger("SendEmailsModalComponent", NgxLoggerLevel.OFF);
   }
 
+  private mailLinkService: MailLinkService = inject(MailLinkService);
+  @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
+  private notify: AlertInstance;
+  public notifyTarget: AlertTarget = {};
+  private logger: Logger;
+  members: Member[] = [];
+  public selectableMembers: MemberFilterSelection[] = [];
+  public selectedMemberIds: string[] = [];
+  currentMemberSelection: MemberSelection = MemberSelection.RECENTLY_ADDED;
+  memberFilterDate: DateValue;
+  public emailConfigs: MemberEmailConfig[] = [];
+  public mailMessagingConfig: MailMessagingConfig;
+  public helpInfo: HelpInfo = {showHelp: false, monthsInPast: 1};
+  faQuestion = faQuestion;
+  private group: Organisation;
+  private subscriptions: Subscription[] = [];
+  public emailConfig: MemberEmailConfig;
+
+  protected readonly MemberSelection = MemberSelection;
+
+  protected readonly first = first;
+
   ngOnInit() {
-    this.logger.debug("constructed with members", this.members.length, "members");
+    this.logger.info("constructed with", this.stringUtils.pluraliseWithCount(this.members.length, "member"));
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
-    this.logger.info("subscribing to systemConfigService events");
     this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));
     this.memberFilterDate = this.dateUtils.asDateValue(this.dateUtils.momentNowNoTime().valueOf());
-    this.mailchimpConfig.getConfig()
-      .then(config => {
-        this.emailTypes = [
-          {
-            preSend: () => this.addPasswordResetIdToMembers(),
-            name: config.campaigns.welcome.name,
-            monthsInPast: config.campaigns.welcome.monthsInPast,
-            campaignId: config.campaigns.welcome.campaignId,
-            segmentId: config.segments.general.welcomeSegmentId,
-            memberSelectorName: "recently-added",
-            label: `Added in last ${config.campaigns.welcome.monthsInPast} month(s)`,
-            dateTooltip: `All members created in the last ${config.campaigns.welcome.monthsInPast} month are displayed as a default, as these are most likely to need a welcome email sent`
-          },
-          {
-            preSend: () => this.addPasswordResetIdToMembers(),
-            name: config.campaigns.passwordReset.name,
-            monthsInPast: config.campaigns.passwordReset.monthsInPast,
-            campaignId: config.campaigns.passwordReset.campaignId,
-            segmentId: config.segments.general.passwordResetSegmentId,
-            memberSelectorName: "recently-added",
-            dateTooltip: `All members created in the last ${config.campaigns.passwordReset.monthsInPast} month are displayed as a default`
-          },
-          {
-            preSend: () => this.includeInNextMailchimpListUpdate(),
-            name: config.campaigns.expiredMembersWarning.name,
-            monthsInPast: config.campaigns.expiredMembersWarning.monthsInPast,
-            campaignId: config.campaigns.expiredMembersWarning.campaignId,
-            segmentId: config.segments.general.expiredMembersWarningSegmentId,
-            memberSelectorName: "expired-members",
-            dateTooltip: `Using the expiry date field, you can choose which members will automatically be included. A date ${config.campaigns.expiredMembersWarning.monthsInPast} months in the past has been pre-selected, to avoid including members whose membership renewal is still progress`
-          },
-          {
-            preSend: () => this.includeInNextMailchimpListUpdate(),
-            name: config.campaigns.expiredMembers.name,
-            monthsInPast: config.campaigns.expiredMembers.monthsInPast,
-            campaignId: config.campaigns.expiredMembers.campaignId,
-            segmentId: config.segments.general.expiredMembersSegmentId,
-            memberSelectorName: "expired-members",
-            postSend: () => this.removeExpiredMembersFromGroup(),
-            dateTooltip: "Using the expiry date field, you can choose which members will automatically be included. " +
-              "A date 3 months in the past has been pre-selected, to avoid including members whose membership renewal is still progress"
-          }
-        ];
-        this.emailType = this.emailTypes[0];
-        this.populateSelectedMembers();
-        this.populateMembers("recently-added");
-        this.helpInfo = {
-          showHelp: false,
-          monthsInPast: 1,
-        };
-      });
+    this.mailMessagingService.events().subscribe((config: MailMessagingConfig) => {
+      this.logger.info("mailMessagingConfig:", config);
+      this.mailMessagingConfig = config;
+      this.emailConfigs = config.notificationConfigs
+        .filter(item => item.id !== config.mailConfig.forgotPasswordNotificationConfigId)
+        .map(notificationConfig => {
+          return {
+            notificationConfig,
+            preSend: () => notificationConfig.preSendActions.includes(WorkflowAction.GENERATE_GROUP_MEMBER_PASSWORD_RESET_ID) ? this.addPasswordResetIdToMembers() : null,
+            postSend: () => notificationConfig.preSendActions.includes(WorkflowAction.DISABLE_GROUP_MEMBER) ? this.removeExpiredMembersFromGroup() : null,
+          };
+        });
+      this.emailConfig = this.emailConfigs[0];
+      this.logger.info("emailConfigs:", this.emailConfigs, "selecting first one:", this.emailConfig);
+      this.populateMembers(this.emailConfig.notificationConfig.defaultMemberSelection);
+    });
   }
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
+  populateMembers(memberSelection: MemberSelection) {
+    if (memberSelection) {
+      this.currentMemberSelection = memberSelection;
+    } else {
+      this.notify.warning({
+        title: "Member selection",
+        message: `No member selection has been setup for ${this.emailConfig.notificationConfig.subject} - this can be done in the mail settings`
+      });
+    }
+    this.logger.info("populateMembers:memberSelectorName:", this.currentMemberSelection, "memberSelection:", memberSelection);
+    this.calculateMemberFilterDate();
+    this.populateSelectedMembers();
+    this.notify.clearBusy();
+  }
+
   selectClick(select: NgSelectComponent) {
     this.logger.debug("selectClick:select.isOpen", select.isOpen);
+  }
+
+  toBannerInformation(bannerConfig: BannerConfig) {
+    return `${bannerConfig.name || "Unnamed"} (${this.stringUtils.asTitle(bannerConfig.bannerType)})`;
+  }
+
+  editTemplate(templateId: number) {
+    const templateUrl = this.mailLinkService.templateEdit(templateId);
+    this.logger.info("editing template:", templateUrl);
+    window.open(templateUrl, "_blank");
   }
 
   onChange(event?: any) {
@@ -149,63 +141,59 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
     return ({name: children[0].memberGrouping, total: children.length});
   }
 
-  emailTypeChanged(memberEmailType: MemberEmailType) {
-    this.populateMembers(memberEmailType.memberSelectorName);
-    this.tooltips.forEach(tooltip => tooltip.hide());
-    this.helpInfo.showHelp = false;
+  emailConfigChanged(memberEmailConfig: MemberEmailConfig) {
+    this.populateMembers(memberEmailConfig.notificationConfig.defaultMemberSelection);
   }
 
-  memberSelectorNamed(name: string): MemberSelector {
+  memberSelectorNamed(name: MemberSelection): MemberSelector {
     return this.memberSelectors().find(item => item.name === name);
   }
 
   memberSelectors(): MemberSelector[] {
     return [
       {
-        name: "recently-added",
+        name: MemberSelection.RECENTLY_ADDED,
         memberMapper: (member) => this.renderCreatedInformation(member),
         memberFilter: (member) => this.recentlyAddedMembers(member)
       },
       {
-        name: "expired-members",
+        name: MemberSelection.EXPIRED_MEMBERS,
         memberMapper: (member) => this.renderExpiryInformation(member),
         memberFilter: (member) => this.expiredMembers(member)
       },
       {
-        name: "missing-from-bulk-load-members",
+        name: MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS,
         memberMapper: (member) => this.renderExpiryInformation(member),
         memberFilter: (member) => this.missingFromBulkLoad(member)
       }];
   }
 
   passwordResetCaption() {
-    return `About to send a ${this.emailType.name} to ${this.selectedMemberIds.length} member${this.selectedMemberIds.length === 1 ? "" : "s"}`;
+    return `About to send a ${this.emailConfig.notificationConfig.subject.text} to ${this.selectedMemberIds.length} member${this.selectedMemberIds.length === 1 ? "" : "s"}`;
   }
 
   helpMembers() {
-    return `In the member selection field, choose the members that you want to send a ${this.emailType.name} email to. You can type in  part of their name to find them more quickly. Repeat this step as many times as required to build up an list of members`;
+    return `In the member selection field, choose the members that you want to send a ${this.emailConfig.notificationConfig.subject.text} email to. You can type in  part of their name to find them more quickly. Repeat this step as many times as required to build up a list of members`;
   }
 
-  toggleHelp(show: boolean, tooltips: TooltipDirective[]) {
-    this.logger.debug("tooltip:", show, "tooltips:", tooltips);
-    tooltips.forEach(tooltip => show ? tooltip.show() : tooltip.hide());
+  toggleHelp(show: boolean) {
+    this.logger.debug("tooltip:", show);
     this.helpInfo.showHelp = show;
-    this.tooltips = tooltips;
   }
 
   cancel() {
+    this.logger.info("hiding modal");
     this.bsModalRef.hide();
   }
 
   populateSelectedMembers(): void {
-    const memberSelector = this.memberSelectorNamed(this.memberSelectorName);
+    const memberSelector: MemberSelector = this.memberSelectorNamed(this.currentMemberSelection);
     this.selectableMembers = this.members
-      .filter(member => this.mailchimpListService.includeMemberInEmailList("general", member))
       .map(member => memberSelector.memberMapper(member));
     this.selectedMemberIds = this.selectableMembers
       .filter(member => memberSelector.memberFilter(member.member))
       .map(member => member.member.id);
-    this.logger.debug("populateSelectableMembers:based on", this.memberSelectorName, "filtered", this.members.length, "members -> ", this.selectableMembers.length, "email enabled members ->", this.selectedMemberIds.length, "selected members");
+    this.logger.debug("populateSelectableMembers:based on", this.currentMemberSelection, "filtered", this.members.length, "members -> ", this.selectableMembers.length, "email enabled members ->", this.selectedMemberIds.length, "selected members");
     this.notify.warning({
       title: "Member selection",
       message: `${this.selectedMemberIds.length} members were added to selection based on ${memberSelector.name}`
@@ -213,9 +201,9 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   }
 
   calculateMemberFilterDate() {
-    const dateFilter = this.dateUtils.momentNowNoTime().subtract(this.helpInfo && this.emailType.monthsInPast, "months");
+    const dateFilter = this.dateUtils.momentNowNoTime().subtract(this.emailConfig.notificationConfig.monthsInPast, "months");
     this.memberFilterDate = this.dateUtils.asDateValue(dateFilter);
-    this.logger.debug("calculateMemberFilterDate:", this.memberFilterDate);
+    this.logger.info("calculateMemberFilterDate:for this.emailConfig:", this.emailConfig, "memberFilterDate:", this.memberFilterDate);
   }
 
   clearSelectedMembers() {
@@ -251,13 +239,6 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
     this.populateSelectedMembers();
   }
 
-  populateMembers(value: string) {
-    this.memberSelectorName = value;
-    this.logger.debug("populateMembers:memberSelectorName:", this.memberSelectorName, "value:", value);
-    this.calculateMemberFilterDate();
-    this.populateSelectedMembers();
-  }
-
   recentlyAddedMembers(member: Member): boolean {
     const selected = !!(member.groupMember && (member.createdDate >= this.memberFilterDate.value));
     this.logger.off("populateMembersBasedOnFilter:selected", selected, "member:", member);
@@ -283,22 +264,9 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
     const saveMemberPromises = [];
     map(this.selectedMembersWithEmails(), member => {
       this.memberService.setPasswordResetId(member);
-      this.mailchimpListService.resetUpdateStatusForMember(member);
       saveMemberPromises.push(this.memberService.createOrUpdate(member));
     });
-
     return Promise.all(saveMemberPromises).then(() => this.notifySuccess(`Password reset prepared for ${saveMemberPromises.length} member(s)`));
-
-  }
-
-  includeInNextMailchimpListUpdate() {
-
-    const saveMemberPromises = this.selectedMembersWithEmails().map(member => {
-      this.mailchimpListService.resetUpdateStatusForMember(member);
-      return this.memberService.createOrUpdate(member);
-    });
-
-    return Promise.all(saveMemberPromises).then(() => this.notifySuccess(`Member expiration prepared for ${saveMemberPromises.length} member(s)`));
 
   }
 
@@ -314,7 +282,6 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
       })
       .forEach(member => {
         member.groupMember = false;
-        this.mailchimpListService.resetUpdateStatusForMember(member);
         saveMemberPromises.push(this.memberService.createOrUpdate(member));
       });
 
@@ -331,17 +298,11 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   }
 
   sendEmails() {
-    this.alertTypeResetPassword = true;
     this.notify.setBusy();
-    Promise.resolve(this.notifySuccess(`Preparing to email ${this.selectedMemberIds.length} member${this.selectedMemberIds.length === 1 ? "" : "s"}`))
-      .then(() => this.invokeIfDefined(this.emailType.preSend))
-      .then(() => this.updateGeneralList())
-      .then(() => this.createOrSaveMailchimpSegment())
-      .then(segmentResponse => this.saveSegmentDataToMailchimpConfig(segmentResponse))
-      .then(segmentId => this.sendEmailCampaign(segmentId))
-      .then(() => this.invokeIfDefined(this.emailType.postSend))
-      .then(() => this.notify.clearBusy())
-      .then(() => this.cancel())
+    Promise.resolve(this.notifySuccess(`Preparing to email ${this.stringUtils.pluraliseWithCount(this.selectedMemberIds.length, "member")}`))
+      .then(() => this.invokeIfDefined(this.emailConfig.preSend))
+      .then(() => this.sendEmailsToMembers())
+      .then(() => this.invokeIfDefined(this.emailConfig.postSend))
       .then(() => this.resetSendFlags())
       .catch((error) => this.handleSendError(error));
   }
@@ -351,48 +312,27 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
     this.notify.clearBusy();
   }
 
-  updateGeneralList() {
-    return this.mailchimpListSubscriptionService.createBatchSubscriptionForList("general", this.members).then(updatedMembers => {
-      this.members = updatedMembers;
-    });
+
+  sendEmailsToMembers() {
+    const members = `${this.stringUtils.pluraliseWithCount(this.selectedMemberIds.length, "member")}`;
+    Promise.all(this.selectableMembers
+      .filter(item => this.selectedMemberIds.includes(item.id))
+      .map(member => this.mailMessagingService.createEmailRequest(member.member, this.emailConfig.notificationConfig, this.notificationDirective))
+      .map(emailRequest => this.mailService.sendTransactionalMessage(emailRequest)))
+      .then((response) => {
+        this.logger.info("response:", response);
+        this.notifySuccess(`Sending of ${this.emailConfig.notificationConfig.subject.text} to ${members} was successful`);
+      })
+      .then(() => this.notify.clearBusy())
+      .catch((error) => this.handleSendError(error));
   }
 
-  createOrSaveMailchimpSegment(): Promise<SaveSegmentResponse> {
-    return this.mailchimpSegmentService.saveSegment("general", {segmentId: this.emailType.segmentId}, this.selectedMemberIds, this.emailType.name, this.members);
-  }
-
-  saveSegmentDataToMailchimpConfig(segmentResponse: SaveSegmentResponse) {
-    this.logger.debug("saveSegmentDataToMailchimpConfig:segmentResponse", segmentResponse);
-    return this.mailchimpConfig.getConfig()
-      .then(config => {
-        config.segments.general[`${this.emailType.name}SegmentId`] = segmentResponse.segment.id;
-        return this.mailchimpConfig.saveConfig(config)
-          .then(() => {
-            this.logger.debug("saveSegmentDataToMailchimpConfig:returning segment id", segmentResponse.segment.id);
-            return segmentResponse.segment.id;
-          });
-      });
-  }
-
-  sendEmailCampaign(segmentId) {
-    const members = `${this.selectedMemberIds.length} member(s)`;
-    this.notifySuccess(`Sending ${this.emailType.name} email to ${members}`);
-    this.logger.debug("about to sendEmailCampaign:", this.emailType.name, "campaign Id", this.emailType.campaignId, "segmentId", segmentId, "campaignName", this.emailType.name);
-    const campaignRequest: MailchimpCampaignSendRequest = {
-      campaignId: this.emailType.campaignId,
-      campaignName: this.emailType.name,
-      segmentId
-    };
-    return this.mailchimpCampaignService.replicateAndSendWithOptions(campaignRequest).then(() => {
-      this.notifySuccess(`Sending of ${this.emailType.name} to ${members} was successful`);
-    });
-  }
-
-  handleSendError(errorResponse) {
+  handleSendError(errorResponse: any) {
+    this.logger.error("handleSendError:", errorResponse);
     this.notify.clearBusy();
     this.notify.error({
       title: "Your notification could not be sent",
-      message: `${errorResponse.message || errorResponse}${errorResponse.error ? (`. Error was: ${this.stringUtils.stringify(errorResponse.error)}`) : ""}`
+      message: `${errorResponse.message || errorResponse}${errorResponse.error ? (`. Error was: ${this.stringUtils.stringify(errorResponse.error)}`) : ""}`,
     });
     this.notify.clearBusy();
   }
@@ -410,4 +350,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
     }
   }
 
+  assignRolesTo(rolesChangeEvent: CommitteeRolesChangeEvent) {
+    this.emailConfig.notificationConfig.signOffRoles = rolesChangeEvent.roles;
+  }
 }

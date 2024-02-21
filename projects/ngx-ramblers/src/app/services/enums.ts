@@ -33,3 +33,6 @@ export interface KeyValue<T> {
   key: string;
   value: T;
 }
+
+export const KEY_NULL_VALUE_NONE: KeyValue<any> = {value: "(none)", key: null};
+export const KEY_NULL_VALUE_NA: KeyValue<any> = {value: "(not applicable)", key: null};

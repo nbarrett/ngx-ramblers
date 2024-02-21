@@ -1,4 +1,4 @@
-import { ComponentFactoryResolver, Injectable } from "@angular/core";
+import { Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { MailchimpGenericOtherContent } from "../../models/mailchimp.model";
 import { Member } from "../../models/member.model";
@@ -6,33 +6,55 @@ import { WalkCampaignConfiguration } from "../../models/walk-campaign-configurat
 import { WalkEventNotificationMapping, WalkEventType } from "../../models/walk-event-type.model";
 import { WalkNotification } from "../../models/walk-notification.model";
 import { DisplayedWalk, EventType } from "../../models/walk.model";
-import { WalkNotificationDetailsComponent } from "../../notifications/walks/templates/common/walk-notification-details.component";
-import { WalkNotificationCoordinatorApprovedComponent } from "../../notifications/walks/templates/coordinator/walk-notification-coordinator-approved.component";
-import { WalkNotificationCoordinatorAwaitingApprovalComponent } from "../../notifications/walks/templates/coordinator/walk-notification-coordinator-awaiting-approval.component";
+import {
+  WalkNotificationDetailsComponent
+} from "../../notifications/walks/templates/common/walk-notification-details.component";
+import {
+  WalkNotificationCoordinatorApprovedComponent
+} from "../../notifications/walks/templates/coordinator/walk-notification-coordinator-approved.component";
+import {
+  WalkNotificationCoordinatorAwaitingApprovalComponent
+} from "../../notifications/walks/templates/coordinator/walk-notification-coordinator-awaiting-approval.component";
 import {
   WalkNotificationCoordinatorAwaitingWalkDetailsComponent
 } from "../../notifications/walks/templates/coordinator/walk-notification-coordinator-awaiting-walk-details.component";
-import { WalkNotificationCoordinatorDeletedComponent } from "../../notifications/walks/templates/coordinator/walk-notification-coordinator-deleted.component";
-import { WalkNotificationCoordinatorRequestedComponent } from "../../notifications/walks/templates/coordinator/walk-notification-coordinator-requested.component";
-import { WalkNotificationCoordinatorUpdatedComponent } from "../../notifications/walks/templates/coordinator/walk-notification-coordinator-updated.component";
-import { WalkNotificationLeaderApprovedComponent } from "../../notifications/walks/templates/leader/walk-notification-leader-approved.component";
-import { WalkNotificationLeaderAwaitingApprovalComponent } from "../../notifications/walks/templates/leader/walk-notification-leader-awaiting-approval.component";
-import { WalkNotificationLeaderAwaitingWalkDetailsComponent } from "../../notifications/walks/templates/leader/walk-notification-leader-awaiting-walk-details.component";
-import { WalkNotificationLeaderRequestedComponent } from "../../notifications/walks/templates/leader/walk-notification-leader-requested.component";
-import { WalkNotificationLeaderUpdatedComponent } from "../../notifications/walks/templates/leader/walk-notification-leader-updated.component";
-import { WalkNotificationComponentAndData, WalkNotificationDirective } from "../../notifications/walks/walk-notification.directive";
+import {
+  WalkNotificationCoordinatorDeletedComponent
+} from "../../notifications/walks/templates/coordinator/walk-notification-coordinator-deleted.component";
+import {
+  WalkNotificationCoordinatorRequestedComponent
+} from "../../notifications/walks/templates/coordinator/walk-notification-coordinator-requested.component";
+import {
+  WalkNotificationCoordinatorUpdatedComponent
+} from "../../notifications/walks/templates/coordinator/walk-notification-coordinator-updated.component";
+import {
+  WalkNotificationLeaderApprovedComponent
+} from "../../notifications/walks/templates/leader/walk-notification-leader-approved.component";
+import {
+  WalkNotificationLeaderAwaitingApprovalComponent
+} from "../../notifications/walks/templates/leader/walk-notification-leader-awaiting-approval.component";
+import {
+  WalkNotificationLeaderAwaitingWalkDetailsComponent
+} from "../../notifications/walks/templates/leader/walk-notification-leader-awaiting-walk-details.component";
+import {
+  WalkNotificationLeaderRequestedComponent
+} from "../../notifications/walks/templates/leader/walk-notification-leader-requested.component";
+import {
+  WalkNotificationLeaderUpdatedComponent
+} from "../../notifications/walks/templates/leader/walk-notification-leader-updated.component";
+import {
+  WalkNotificationComponentAndData,
+  WalkNotificationDirective
+} from "../../notifications/walks/walk-notification.directive";
 import { WalkDisplayService } from "../../pages/walks/walk-display.service";
-import { AuditDeltaValuePipe } from "../../pipes/audit-delta-value.pipe";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
 import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
-import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailchimpConfigService } from "../mailchimp-config.service";
 import { MailchimpCampaignService } from "../mailchimp/mailchimp-campaign.service";
 import { MailchimpSegmentService } from "../mailchimp/mailchimp-segment.service";
-import { MemberLoginService } from "../member/member-login.service";
 import { MemberService } from "../member/member.service";
-import { AlertInstance, NotifierService } from "../notifier.service";
+import { AlertInstance } from "../notifier.service";
 import { RamblersWalksAndEventsService } from "./ramblers-walks-and-events.service";
 import { WalkEventService } from "./walk-event.service";
 import { WalksReferenceService } from "./walks-reference-data.service";
@@ -51,17 +73,13 @@ export class WalkNotificationService {
     private ramblersWalksAndEventsService: RamblersWalksAndEventsService,
     private mailchimpConfig: MailchimpConfigService,
     protected memberService: MemberService,
-    private memberLoginService: MemberLoginService,
     private display: WalkDisplayService,
     private walkEventService: WalkEventService,
-    private componentFactoryResolver: ComponentFactoryResolver,
     private walksReferenceService: WalksReferenceService,
     private walksService: WalksService,
-    private notifierService: NotifierService,
     private fullNameWithAliasPipe: FullNameWithAliasPipe,
-    private auditDeltaValuePipe: AuditDeltaValuePipe,
     private displayDatePipe: DisplayDatePipe,
-    private dateUtils: DateUtilsService, loggerFactory: LoggerFactory) {
+    loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(WalkNotificationService, NgxLoggerLevel.ERROR);
   }
 
@@ -130,10 +148,9 @@ export class WalkNotificationService {
 
   public generateNotificationHTML(walkNotification: WalkNotification, notificationDirective: WalkNotificationDirective, component): string {
     const componentAndData = new WalkNotificationComponentAndData(component, walkNotification);
-    const componentFactory = this.componentFactoryResolver.resolveComponentFactory(componentAndData.component);
     const viewContainerRef = notificationDirective.viewContainerRef;
     viewContainerRef.clear();
-    const componentRef = viewContainerRef.createComponent(componentFactory);
+    const componentRef = viewContainerRef.createComponent(componentAndData.component);
     componentRef.instance.data = componentAndData.data;
     componentRef.changeDetectorRef.detectChanges();
     const html = componentRef.location.nativeElement.innerHTML;

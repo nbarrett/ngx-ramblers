@@ -20,7 +20,7 @@ export function execute(mongoFunction: () => any): Promise<any> {
 
 export function create(model: any, data: any) {
   const debugCreate: debug.Debugger = createDebugFor(model);
-  debugCreate.enabled = true;
+  debugCreate.enabled = false;
   const performCreate = () => {
     const document = transforms.createDocumentRequest({body: data});
     debugCreate("create:data:", data, "document:", document);
