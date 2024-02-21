@@ -12,7 +12,8 @@
                           id="existing-campaigns"
                           class="form-control input-sm"
                           (ngModelChange)="campaignIdChanged()">
-                    <option *ngFor="let campaign of draftMailchimpCampaignListResponse?.campaigns" [ngValue]="campaign.id"
+                    <option *ngFor="let campaign of draftMailchimpCampaignListResponse?.campaigns"
+                            [ngValue]="campaign.id"
                             [textContent]="campaign.settings.title"></option>
                   </select>
                 </div>
@@ -130,7 +131,7 @@
               <div class="col-sm-12">
                 <div class="form-group" triggers="" #tooltip2="bs-tooltip" placement="bottom"
                      [tooltip]="helpMembers()">
-                  <ng-select #select [items]="selectableRecipients"
+                  <ng-select  #select [items]="selectableRecipients"
                              bindLabel="memberInformation"
                              name="member-selector"
                              bindValue="id"
@@ -377,14 +378,8 @@
                            for="include-signoff-as">Signoff as:
                     </label>
                   </div>
-                  <select [(ngModel)]="notification.content.signoffAs.value"
-                          id="signoff-as"
-                          [disabled]="!notification.content.signoffAs.include"
-                          class="form-control input-sm">
-                    <option *ngFor="let role of roles.signoff"
-                            [ngValue]="role.type"
-                            [textContent]="role.nameAndDescription"></option>
-                  </select>
+                  <app-committee-role-multi-select [roles]="notification.content.signoffAs.value"
+                                                   (rolesChange)="setSignOffValue($event)"/>
                 </div>
               </div>
             </div>
@@ -393,11 +388,12 @@
         <tab heading="Preview">
           <div class="img-thumbnail thumbnail-admin-edit">
             <div id="preview" class="print-preview">
-              <ng-template app-committee-notification-template></ng-template>
               <h2 class="mb-3">{{notification.content.title.value}}</h2>
-              <app-committee-notification-details [committeeFile]="committeeFile" [members]="members"
+              <div #notificationContent>
+                <app-committee-notification-details [committeeFile]="committeeFile" [members]="members"
                                                   [notification]="notification">
               </app-committee-notification-details>
+              </div>
             </div>
           </div>
         </tab>

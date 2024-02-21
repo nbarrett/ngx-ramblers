@@ -1,5 +1,5 @@
 import { NgModule } from "@angular/core";
-import { ExpenseNotificationDirective } from "../../notifications/expenses/expense-notification.directive";
+import { NotificationDirective } from "../../notifications/common/notification.directive";
 import {
   ExpenseNotificationApproverFirstApprovalComponent
 } from "../../notifications/expenses/templates/approver/expense-notification-approver-first-approval.component";
@@ -70,6 +70,14 @@ import { MailingPreferencesModalComponent } from "../../pages/mailing-preference
 import { FormatAuditPipe } from "../../pipes/format-audit-pipe";
 import { SharedModule } from "../../shared-module";
 import { MailchimpSegmentEditorComponent } from "../../pages/admin/system-settings/mailchimp/mailchimp-segment-editor";
+import { MailSettingsComponent } from "../../pages/admin/system-settings/mail/mail-settings";
+import {
+  MailNotificationTemplateMappingComponent
+} from "../../pages/admin/system-settings/mail/mail-notification-template-editor";
+import { SwitchIconComponent } from "../../pages/admin/system-settings/committee/switch-icon";
+import {
+  ForgotPasswordNotificationDetailsComponent
+} from "../../notifications/admin/templates/forgot-password-notification-details";
 
 @NgModule({
   declarations: [
@@ -91,7 +99,6 @@ import { MailchimpSegmentEditorComponent } from "../../pages/admin/system-settin
     ExpenseNotificationCreatorSecondApprovalComponent,
     ExpenseNotificationCreatorSubmittedComponent,
     ExpenseNotificationDetailsComponent,
-    ExpenseNotificationDirective,
     ExpenseNotificationTreasurerPaidComponent,
     ExpenseNotificationTreasurerSecondApprovalComponent,
     ExpensePaidModalComponent,
@@ -99,19 +106,24 @@ import { MailchimpSegmentEditorComponent } from "../../pages/admin/system-settin
     ExpenseSubmitModalComponent,
     ExpensesComponent,
     ForgotPasswordModalComponent,
+    ForgotPasswordNotificationDetailsComponent,
     ImageCollectionSettingsComponent,
+    MailNotificationTemplateMappingComponent,
+    MailSettingsComponent,
     MailchimpCampaignDefaultsComponent,
     MailchimpContactComponent,
     MailchimpListSettingsComponent,
-    MailchimpSettingsComponent,
     MailchimpSegmentEditorComponent,
+    MailchimpSettingsComponent,
     MailingPreferencesModalComponent,
     MemberAdminComponent,
     MemberAdminModalComponent,
     MemberBulkLoadComponent,
     MemberLoginAuditComponent,
+    NotificationDirective,
     ResetPasswordModalComponent,
     SendEmailsModalComponent,
+    SwitchIconComponent,
     SystemImageEditComponent,
     SystemSettingsComponent,
   ],

@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, Input, OnInit } from "@angular/core";
+import { Component, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { CommitteeMember } from "../../../models/committee.model";
@@ -15,7 +15,7 @@ import { UrlService } from "../../../services/url.service";
   selector: "app-social-notification-details",
   templateUrl: "./social-notification-details.component.html"
 })
-export class SocialNotificationDetailsComponent implements OnInit {
+export class SocialNotificationDetailsComponent implements OnInit, OnDestroy {
 
   @Input()
   public members: Member[];
@@ -29,20 +29,23 @@ export class SocialNotificationDetailsComponent implements OnInit {
   constructor(
     public urlService: UrlService,
     public googleMapsService: GoogleMapsService,
-    private changeDetectorRef: ChangeDetectorRef,
     private committeeConfig: CommitteeConfigService,
     public display: SocialDisplayService,
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(SocialNotificationDetailsComponent, NgxLoggerLevel.OFF);
   }
 
-  memberFilterSelections(): MemberFilterSelection[] {
-    return this.members.map(member => this.display.toMemberFilterSelection(member));
-  }
-
   ngOnInit() {
     this.dataSub = this.committeeConfig.events().subscribe(data => this.committeeReferenceData = data);
     this.logger.debug("ngOnInit:app-social-notification-details members:", this.members, "socialEvent:", this.socialEvent);
+  }
+
+  ngOnDestroy(): void {
+    this.dataSub.unsubscribe();
+  }
+
+  memberFilterSelections(): MemberFilterSelection[] {
+    return this.members.map(member => this.display.toMemberFilterSelection(member));
   }
 
   replyTo(): CommitteeMember {

@@ -3,7 +3,6 @@ import first from "lodash-es/first";
 import isEmpty from "lodash-es/isEmpty";
 import last from "lodash-es/last";
 import { NgxLoggerLevel } from "ngx-logger";
-import { ContentMetadataService } from "./services/content-metadata.service";
 import { DateUtilsService } from "./services/date-utils.service";
 import { Logger, LoggerFactory } from "./services/logger-factory.service";
 import { UrlService } from "./services/url.service";
@@ -18,7 +17,6 @@ export class FileUtilsService {
   private logger: Logger;
 
   constructor(protected dateUtils: DateUtilsService,
-              private contentMetadataService: ContentMetadataService,
               private urlService: UrlService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(FileUtilsService, NgxLoggerLevel.OFF);
@@ -94,11 +92,11 @@ export class FileUtilsService {
     };
   }
 
-  public awsFileData(awsFileName: string, croppedImage: string, originalFile: File): AwsFileData {
+  public awsFileData(awsFileName: string, image: string, originalFile: File): AwsFileData {
     return {
       awsFileName,
-      image: croppedImage,
-      file: new File([base64ToFile(croppedImage)], originalFile.name, {lastModified: originalFile.lastModified, type: originalFile.type})
+      image,
+      file: new File([base64ToFile(image)], originalFile?.name, {lastModified: originalFile?.lastModified, type: originalFile?.type})
     };
   }
 

@@ -7,19 +7,16 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
   selector: "app-banner-logo-and-text-lines-output",
   styleUrls: ["./banner.component.sass"],
   template: `
-    <div class="row mt-3" *ngIf="banner">
-      <header>
-        <div class="row d-flex align-items-center text-center">
-          <div [class]="columnsLogo()" *ngIf="banner?.logo?.show">
-            <app-banner-image [image]="banner?.logo?.image"></app-banner-image>
-          </div>
-          <div [class]="columnsHeading()">
-            <app-banner-title-output [titleLine]="banner.line1"></app-banner-title-output>
-            <app-banner-title-output [titleLine]="banner.line2"></app-banner-title-output>
-          </div>
-        </div>
-      </header>
-    </div>`
+    <div *ngIf="banner" class="d-flex align-items-center text-center header-panel">
+      <div [class]="columnsLogo()" *ngIf="banner?.logo?.show">
+        <app-banner-image [image]="banner?.logo?.image"></app-banner-image>
+      </div>
+      <div [class]="columnsHeading()">
+        <app-banner-title-output [titleLine]="banner.line1"></app-banner-title-output>
+        <app-banner-title-output [titleLine]="banner.line2"></app-banner-title-output>
+      </div>
+    </div>
+  `
 })
 
 export class BannerLogoAndTextLinesOutputComponent implements OnInit {
@@ -33,11 +30,11 @@ export class BannerLogoAndTextLinesOutputComponent implements OnInit {
   }
 
   columnsLogo(): string {
-    return "col-sm-" + this.banner?.logo?.columns;
+    return `col-sm-${this.banner?.logo?.columns} px-0`
   }
 
   columnsHeading(): string {
-    return `col-sm-${12 - this.banner?.logo?.columns}`;
+    return `col-sm-${12 - this.banner?.logo?.columns} px-0`;
   }
 
   ngOnInit() {

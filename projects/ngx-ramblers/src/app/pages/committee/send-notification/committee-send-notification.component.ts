@@ -1,4 +1,4 @@
-import { Component, ComponentFactoryResolver, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import extend from "lodash-es/extend";
 import keys from "lodash-es/keys";
@@ -6,7 +6,13 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { chain } from "../../../functions/chain";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { CommitteeFile, CommitteeMember, GroupEvent, Notification } from "../../../models/committee.model";
+import {
+  CommitteeFile,
+  CommitteeMember,
+  CommitteeRolesChangeEvent,
+  GroupEvent,
+  Notification
+} from "../../../models/committee.model";
 import { DateValue } from "../../../models/date.model";
 import {
   CampaignConfig,
@@ -20,15 +26,7 @@ import {
 import { Member, MemberFilterSelection } from "../../../models/member.model";
 import { Organisation } from "../../../models/system.model";
 import { ConfirmType } from "../../../models/ui-actions";
-import {
-  CommitteeNotificationComponentAndData,
-  CommitteeNotificationDirective
-} from "../../../notifications/committee/committee-notification.directive";
-import {
-  CommitteeNotificationDetailsComponent
-} from "../../../notifications/committee/templates/committee-notification-details.component";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
-import { LineFeedsToBreaksPipe } from "../../../pipes/line-feeds-to-breaks.pipe";
 import { sortBy } from "../../../services/arrays";
 import { CommitteeQueryService } from "../../../services/committee/committee-query.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -37,7 +35,6 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
 import { MailchimpCampaignService } from "../../../services/mailchimp/mailchimp-campaign.service";
 import { MailchimpLinkService } from "../../../services/mailchimp/mailchimp-link.service";
-import { MailchimpListService } from "../../../services/mailchimp/mailchimp-list.service";
 import { MailchimpSegmentService } from "../../../services/mailchimp/mailchimp-segment.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
@@ -56,7 +53,7 @@ const SORT_BY_NAME = sortBy("order", "member.lastName", "member.firstName");
   styleUrls: ["./committee-send-notification.component.sass"]
 })
 export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
-  @ViewChild(CommitteeNotificationDirective) notificationDirective: CommitteeNotificationDirective;
+  @ViewChild("notificationContent") notificationContent: ElementRef;
   public committeeFile: CommitteeFile;
   public members: Member[] = [];
   private notify: AlertInstance;
@@ -77,7 +74,6 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   constructor(
     private route: ActivatedRoute,
     private pageService: PageService,
-    private componentFactoryResolver: ComponentFactoryResolver,
     private mailchimpSegmentService: MailchimpSegmentService,
     private committeeQueryService: CommitteeQueryService,
     private mailchimpCampaignService: MailchimpCampaignService,
@@ -88,10 +84,8 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     public googleMapsService: GoogleMapsService,
     private memberService: MemberService,
     private fullNameWithAlias: FullNameWithAliasPipe,
-    private lineFeedsToBreaks: LineFeedsToBreaksPipe,
     private mailchimpLinkService: MailchimpLinkService,
     private memberLoginService: MemberLoginService,
-    private mailchimpListService: MailchimpListService,
     private systemConfigService: SystemConfigService,
     private urlService: UrlService,
     protected dateUtils: DateUtilsService,
@@ -100,11 +94,11 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.logger.debug("constructed with", this.members.length, "members");
+    this.logger.info("ngOnInit with", this.members.length, "members");
     this.display.confirm.as(ConfirmType.SEND_NOTIFICATION);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget, NgxLoggerLevel.OFF);
     this.notify.setBusy();
-    this.logger.info("subscribing to systemConfigService events");
+    this.logger.debug("subscribing to systemConfigService events");
     this.mailchimpConfigService.getConfig().then(config => this.mailchimpConfig = config);
     this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));
     this.subscriptions.push(this.display.configEvents().subscribe(() => {
@@ -114,15 +108,15 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
       this.logger.debug("initialised on open: notification ->", this.notification);
       this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
         this.committeeEventId = paramMap.get("committee-event-id");
-        this.logger.info("initialised with committee-event-id:", this.committeeEventId);
+        this.logger.debug("initialised with committee-event-id:", this.committeeEventId);
         if (this.committeeEventId) {
           this.committeeQueryService.queryFiles(this.committeeEventId)
             .then(() => {
-              this.logger.info("this.committeeQueryService.committeeFiles:", this.committeeQueryService.committeeFiles);
+              this.logger.debug("this.committeeQueryService.committeeFiles:", this.committeeQueryService.committeeFiles);
               if (this.committeeQueryService.committeeFiles?.length > 0) {
                 const committeeFile = this.committeeQueryService.committeeFiles[0];
                 this.committeeFile = committeeFile;
-                this.logger.info("committeeFile:", committeeFile);
+                this.logger.debug("committeeFile:", committeeFile);
                 this.pageService.setTitle(committeeFile.fileType);
                 this.pageTitle = committeeFile.fileType;
                 this.generateNotification();
@@ -174,7 +168,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
         this.logger.debug("performed total of", tasksCompleted.length, "preparatory steps");
         this.notify.clearBusy();
       }).catch(error => {
-        this.logger.info("Error caught:", error);
+        this.logger.error("Error caught:", error);
         this.notify.error({title: "Failed to initialise message sending", message: error});
       });
     }));
@@ -542,27 +536,17 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
 
   confirmSendNotification(dontSend?: boolean) {
     const campaignName = this.notification.content.title.value;
-    this.logger.debug("campaignName", campaignName, "based on this.notification.content.campaignId", this.notification.content.campaignId);
+    this.logger.info("campaignName", campaignName, "based on this.notification.content.campaignId", this.notification.content.campaignId);
     this.notify.setBusy();
-    return Promise.resolve(this.generateNotificationHTML(this.notificationDirective, this.committeeFile, this.notification, this.members))
+    return Promise.resolve(this.generateNotificationHTML())
       .then(notificationText => this.sendEmailCampaign(notificationText, campaignName, dontSend))
       .then(() => this.notifyEmailSendComplete(campaignName))
       .catch((error) => this.handleNotificationError(error));
   }
 
-  generateNotificationHTML(notificationDirective: CommitteeNotificationDirective, committeeFile: CommitteeFile, notification: Notification, members: Member[]): string {
-    const componentAndData = new CommitteeNotificationComponentAndData(CommitteeNotificationDetailsComponent);
-    const componentFactory = this.componentFactoryResolver.resolveComponentFactory(componentAndData.component);
-    const viewContainerRef = notificationDirective.viewContainerRef;
-    viewContainerRef.clear();
-    const componentRef = viewContainerRef.createComponent(componentFactory);
-    componentRef.instance.committeeFile = committeeFile;
-    componentRef.instance.notification = notification;
-    componentRef.instance.members = members;
-    componentRef.instance.notification = notification;
-    componentRef.changeDetectorRef.detectChanges();
-    const html = componentRef.location.nativeElement.innerHTML;
-    this.logger.debug("notification html ->", html);
+  generateNotificationHTML(): string {
+    const html = this.notificationContent?.nativeElement?.innerHTML;
+    this.logger.info("this.generateNotificationHTML html ->", html);
     return html;
   }
 
@@ -634,11 +618,17 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   }
 
   toggleEvent(groupEvent: GroupEvent) {
-    this.logger.info("toggleEvent:", groupEvent);
+    this.logger.debug("toggleEvent:", groupEvent);
     groupEvent.selected = !groupEvent.selected;
   }
 
   selectedCount() {
     return this.notification.groupEvents.filter(item => item.selected).length;
   }
+
+  setSignOffValue(rolesChangeEvent: CommitteeRolesChangeEvent) {
+    this.logger.debug("rolesChangeEvent:", rolesChangeEvent);
+    this.notification.content.signoffAs.value = rolesChangeEvent.roles.join(",");
+  }
+
 }

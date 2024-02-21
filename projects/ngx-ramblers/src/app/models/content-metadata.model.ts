@@ -6,6 +6,7 @@ export const ALL_PHOTOS: ImageTag = {key: -1, sortIndex: -1, subject: "All Photo
 export const S3_BASE_URL = "api/aws/s3";
 export const S3_METADATA_URL = "api/aws/metadata/list-objects";
 export const BASE64_PREFIX_JPEG = "data:image/jpeg;base64";
+export const IMAGE_JPEG = "image/jpeg";
 export const BASE64_PREFIX_PNG = "data:image/png;base64";
 
 export interface ContentMetadata {
@@ -13,7 +14,7 @@ export interface ContentMetadata {
   rootFolder?: RootFolder;
   name?: string;
   files: ContentMetadataItem[];
-  coverImage: string;
+  coverImage?: string;
   imageTags: ImageTag[];
   aspectRatio?: string;
   defaultImage?: string;

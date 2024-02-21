@@ -1,8 +1,8 @@
-import { Component, ComponentFactoryResolver, OnInit, ViewChild } from "@angular/core";
+import { Component, OnInit, ViewChild } from "@angular/core";
 import get from "lodash-es/get";
 import isUndefined from "lodash-es/isUndefined";
 import set from "lodash-es/set";
-import { BsModalRef, BsModalService } from "ngx-bootstrap/modal";
+import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { Identifiable } from "../../../models/api-response.model";
@@ -17,24 +17,22 @@ import {
 import { Member, MemberFilterSelection } from "../../../models/member.model";
 import { SocialEvent } from "../../../models/social-events.model";
 import { ConfirmType } from "../../../models/ui-actions";
-import { SocialNotificationComponentAndData, SocialNotificationDirective } from "../../../notifications/social/social-notification.directive";
-import { SocialNotificationDetailsComponent } from "../../../notifications/social/templates/social-notification-details.component";
-import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
-import { LineFeedsToBreaksPipe } from "../../../pipes/line-feeds-to-breaks.pipe";
-import { CommitteeConfigService } from "../../../services/committee/commitee-config.service";
+import {
+  SocialNotificationComponentAndData,
+  SocialNotificationDirective
+} from "../../../notifications/social/social-notification.directive";
+import {
+  SocialNotificationDetailsComponent
+} from "../../../notifications/social/templates/social-notification-details.component";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
 import { MailchimpCampaignService } from "../../../services/mailchimp/mailchimp-campaign.service";
 import { MailchimpLinkService } from "../../../services/mailchimp/mailchimp-link.service";
-import { MailchimpListService } from "../../../services/mailchimp/mailchimp-list.service";
 import { MailchimpSegmentService } from "../../../services/mailchimp/mailchimp-segment.service";
-import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { SocialEventsService } from "../../../services/social-events/social-events.service";
-import { StringUtilsService } from "../../../services/string-utils.service";
-import { UrlService } from "../../../services/url.service";
 import { SocialDisplayService } from "../social-display.service";
 
 @Component({
@@ -58,25 +56,16 @@ export class SocialSendNotificationModalComponent implements OnInit {
   committeeFiles = [];
   public mailchimpConfig: MailchimpConfig;
 
-  constructor(private componentFactoryResolver: ComponentFactoryResolver,
-              private mailchimpSegmentService: MailchimpSegmentService,
+  constructor(private mailchimpSegmentService: MailchimpSegmentService,
               private mailchimpCampaignService: MailchimpCampaignService,
               private mailchimpConfigService: MailchimpConfigService,
               private notifierService: NotifierService,
-              private stringUtils: StringUtilsService,
               private memberService: MemberService,
-              private fullNameWithAlias: FullNameWithAliasPipe,
-              private lineFeedsToBreaks: LineFeedsToBreaksPipe,
-              private modalService: BsModalService,
               private mailchimpLinkService: MailchimpLinkService,
               public display: SocialDisplayService,
               private socialEventsService: SocialEventsService,
-              private memberLoginService: MemberLoginService,
-              private mailchimpListService: MailchimpListService,
-              private urlService: UrlService,
               protected dateUtils: DateUtilsService,
               public bsModalRef: BsModalRef,
-              private committeeConfig: CommitteeConfigService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(SocialSendNotificationModalComponent, NgxLoggerLevel.OFF);
   }
@@ -113,10 +102,8 @@ export class SocialSendNotificationModalComponent implements OnInit {
 
   generateNotificationHTML(notificationDirective: SocialNotificationDirective, members: Member[]): string {
     const componentAndData = new SocialNotificationComponentAndData(SocialNotificationDetailsComponent);
-    const componentFactory = this.componentFactoryResolver.resolveComponentFactory(componentAndData.component);
-    const viewContainerRef = notificationDirective.viewContainerRef;
-    viewContainerRef.clear();
-    const componentRef = viewContainerRef.createComponent(componentFactory);
+    notificationDirective.viewContainerRef.clear();
+    const componentRef = notificationDirective.viewContainerRef.createComponent(componentAndData.component);
     componentRef.instance.socialEvent = this.socialEvent;
     componentRef.instance.members = members;
     componentRef.changeDetectorRef.detectChanges();

@@ -2,7 +2,7 @@
                          [expandAction]="'edit walk full-screen'" [expandable]="isExpandable()">
 </app-walk-panel-expander>
 <div [ngClass]="{'busy': notifyTarget.busy}">
-  <div class="hidden">
+  <div class="d-none">
     <ng-template app-walk-notification-template></ng-template>
   </div>
   <tabset class="custom-tabset" *ngIf="displayedWalk.walk">

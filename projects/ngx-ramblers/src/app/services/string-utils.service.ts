@@ -16,7 +16,8 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 @Injectable({
   providedIn: "root"
 })
-export class StringUtilsService {
+export class
+StringUtilsService {
   private logger: Logger;
 
   constructor(private dateUtils: DateUtilsService,

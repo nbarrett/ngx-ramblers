@@ -5,7 +5,12 @@ import max from "lodash-es/max";
 import min from "lodash-es/min";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEventType } from "../../../models/broadcast.model";
-import { PageContent, PageContentColumn, PageContentEditEvent, PageContentRow } from "../../../models/content-text.model";
+import {
+  PageContent,
+  PageContentColumn,
+  PageContentEditEvent,
+  PageContentRow
+} from "../../../models/content-text.model";
 import { DeviceSize } from "../../../models/page.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { CARD_MARGIN_BOTTOM, cardClasses } from "../../../services/card-utils";
@@ -13,9 +18,6 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { PageContentEditService } from "../../../services/page-content-edit.service";
-import { PageService } from "../../../services/page.service";
-import { StringUtilsService } from "../../../services/string-utils.service";
-import { UrlService } from "../../../services/url.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 
 @Component({
@@ -41,9 +43,6 @@ export class ActionButtonsComponent implements OnInit {
     private numberUtils: NumberUtilsService,
     public siteEditService: SiteEditService,
     public pageContentEditService: PageContentEditService,
-    private urlService: UrlService,
-    private pageService: PageService,
-    private stringUtils: StringUtilsService,
     public actions: PageContentActionsService,
     private broadcastService: BroadcastService<PageContent>,
     loggerFactory: LoggerFactory) {

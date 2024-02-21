@@ -26,6 +26,7 @@
   "include": [
     "serenity-js/**/*.ts",
     "lib/**/*.*",
-    "../projects/ngx-ramblers/src/app/models/**/*.*"
+    "../projects/ngx-ramblers/src/app/models/**/*.*",
+    "../projects/ngx-ramblers/src/app/common/**/*.*"
   ]
 }

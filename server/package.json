@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.180.0",
+    "@getbrevo/brevo": "2.0.0-beta.4",
     "@mailchimp/mailchimp_marketing": "3.0.80",
     "@serenity-js/assertions": "2.14.0",
     "@serenity-js/console-reporter": "2.14.0",
@@ -67,7 +68,7 @@
     "json2csv": "3.11.5",
     "jsonwebtoken": "8.5.1",
     "lodash": "4.17.20",
-    "lodash-es": "4.17.15",
+    "lodash-es": "4.17.21",
     "matchdep": "0.3.0",
     "mkdirpsync": "^0.1.0",
     "mocha": "8.0.1",

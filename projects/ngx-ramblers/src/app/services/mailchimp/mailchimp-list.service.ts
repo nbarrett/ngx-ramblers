@@ -18,8 +18,9 @@ import {
   MailchimpMemberIdentifiers,
   MailchimpSegmentUpdateResponse,
   MailchimpSubscriptionMember,
-  MailchimpUpdateSegmentRequest, MergeField, MergeFieldAddResponse,
-  MergeFields,
+  MailchimpUpdateSegmentRequest,
+  MergeField,
+  MergeFieldAddResponse,
   SubscriptionRequest,
   SubscriptionStatus
 } from "../../models/mailchimp.model";
@@ -30,6 +31,7 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberService } from "../member/member.service";
 import { AlertInstance } from "../notifier.service";
 import { StringUtilsService } from "../string-utils.service";
+import { MergeFields } from "../../models/mail.model";
 
 @Injectable({
   providedIn: "root"

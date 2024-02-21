@@ -2,7 +2,7 @@ import { Type } from "@angular/core";
 import { ApiResponse } from "../../models/api-response.model";
 import { Member } from "../../models/member.model";
 import { AlertInstance } from "../../services/notifier.service";
-import { ExpenseNotificationDirective } from "./expense-notification.directive";
+import { NotificationDirective } from "../common/notification.directive";
 import { ExpenseNotificationDetailsComponent } from "./templates/common/expense-notification-details.component";
 
 export interface ExpenseFilter {
@@ -53,7 +53,7 @@ export interface ExpenseNotificationRequest {
   notify: AlertInstance;
   members: Member[];
   eventType: ExpenseEventType;
-  notificationDirective: ExpenseNotificationDirective;
+  notificationDirective: NotificationDirective;
   expenseClaimCreatedEvent?: ExpenseEvent;
   member?: Member;
   memberIds?: string[];

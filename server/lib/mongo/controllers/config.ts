@@ -6,14 +6,14 @@ import { config } from "../models/config";
 import * as crudController from "./crud-controller";
 import * as transforms from "./transforms";
 import { createDocumentRequest, parseError, toObjectWithId } from "./transforms";
+import { enumForKey, enumValues } from "../../../../projects/ngx-ramblers/src/app/services/enums";
 
 const debugLog = debug(envConfig.logNamespace("config"));
 debugLog.enabled = false;
 const controller = crudController.create(config);
-
 export const create = controller.create;
 export const all = controller.all;
-export const deleteKey = controller.delete;
+export const deleteOne = controller.deleteOne;
 
 function criteriaForKey(configKey: ConfigKey) {
   const criteria = {key: {$eq: configKey}};
@@ -28,7 +28,14 @@ function configCriteriaFromBody(req: Request) {
 }
 
 function configKeyFromQuerystring(req: Request): ConfigKey {
-  return req.query.key as ConfigKey;
+  const keyAsString = req.query.key as string;
+  const key = enumForKey(ConfigKey, keyAsString);
+  if (key) {
+    return key;
+  } else {
+    const message = keyAsString ? `invalid key ${keyAsString}` : `no key`;
+    throw new Error(`${message} supplied in querystring - must be one of ${enumValues(ConfigKey).join(", ")}`);
+  }
 }
 
 function configCriteriaFromQuerystring(req: Request) {
@@ -36,12 +43,12 @@ function configCriteriaFromQuerystring(req: Request) {
   return criteriaForKey(configKey);
 }
 
-export function update(req: Request, res: Response) {
+export function createOrUpdate(req: Request, res: Response) {
   const {document} = transforms.criteriaAndDocument(req);
   const criteria = configCriteriaFromBody(req);
   debugLog("pre-update:body:", req.body, "criteria:", criteria, "document:", document);
   const documentRequest = createDocumentRequest(req);
-  config.findOneAndUpdate(criteria, documentRequest, {new: true, useFindAndModify: false})
+  config.findOneAndUpdate(criteria, documentRequest, {upsert: true, new: true, useFindAndModify: false})
     .then(result => {
       debugLog("post-update:document:", documentRequest, "result:", result);
       res.status(200).json({
@@ -64,22 +71,32 @@ export function queryKey(configKey: ConfigKey): Promise<ConfigDocument> {
 }
 
 export function handleQuery(req: Request, res: Response): Promise<void> {
-  const criteria = configCriteriaFromQuerystring(req);
-  return config.findOne(criteria)
-    .then(response => {
-      const configDocument: ConfigDocument = toObjectWithId(response);
-      debugLog(req.query, "findByConditions:criteria", criteria, "configDocument:", configDocument);
-      return res.status(200).json({
-        action: "query",
-        response: configDocument.value
+  try {
+    const criteria = configCriteriaFromQuerystring(req);
+    return config.findOne(criteria)
+      .then(response => {
+        const configDocument: ConfigDocument = toObjectWithId(response);
+        debugLog(req.query, "findByConditions:criteria", criteria, "configDocument:", configDocument);
+        return res.status(200).json({
+          action: "query",
+          response: configDocument?.value
+        });
+      })
+      .catch(error => {
+        debugLog(`findByConditions: ${config.modelName} error: ${error}`);
+        res.status(500).json({
+          message: `${config.modelName} query failed`,
+          request: req.query,
+          error: parseError(error),
+          stack: error.stack
+        });
       });
-    })
-    .catch(error => {
-      debugLog(`findByConditions: ${config.modelName} error: ${error}`);
-      res.status(500).json({
-        message: `${config.modelName} query failed`,
-        request: req.query,
-        error: parseError(error)
-      });
+  } catch (e) {
+    debugLog("findByConditions:catch", e);
+    res.status(500).json({
+      message: `query of config key failed`,
+      request: req.query,
+      error: parseError(e)
     });
+  }
 }

@@ -1,10 +1,16 @@
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { MailchimpSubscription } from "./mailchimp.model";
+import { NotificationConfig } from "./mail.model";
 
 export enum ProfileUpdateType {
   LOGIN_DETAILS = "login details",
   PERSONAL_DETAILS = "personal details",
   CONTACT_PREFERENCES = "contact preferences"
+}
+
+export interface HelpInfo {
+  monthsInPast: number;
+  showHelp: boolean;
 }
 
 export interface MemberFilterSelection {
@@ -19,25 +25,14 @@ export interface MemberFilterSelection {
 
 export type IdentifiableOrId = Identifiable | string ;
 
-export interface MemberEmailType extends MailchimpSegmentId {
-  name: string;
-  label?: string;
-  monthsInPast: number;
-  dateTooltip: string;
+export interface MemberEmailConfig {
+  notificationConfig: NotificationConfig;
   preSend?: () => Promise<void>;
-  memberSelectorName: string;
-  campaignId: string;
   postSend?: () => Promise<void>;
 }
 
 export interface MailchimpSegmentId {
   segmentId: number;
-}
-
-export interface MemberSelector {
-  name: string;
-  memberMapper: (member: Member) => MemberFilterSelection;
-  memberFilter: (member: Member) => boolean;
 }
 
 export interface EnteredMemberCredentials {

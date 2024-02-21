@@ -65,7 +65,7 @@ export class CommitteeQueryService {
     this.logger.info("groupEventsFilter:fromDate", this.displayDatePipe.transform(fromDate), "toDate", this.displayDatePipe.transform(toDate));
     const events: GroupEvent[] = [];
     const promises = [];
-    const committeeContactDetails: CommitteeMember = this.committeeReferenceData?.committeeMembersForRole("secretary")[0];
+    const committeeContactDetails: CommitteeMember = first(this.committeeReferenceData?.committeeMembersForRole("secretary"));
     const mongoIds = this.mongoOrRawIdsFrom(groupEventsFilter);
     const idBasedCriteria = mongoIds?.length > 0 ? {_id: {$in: mongoIds}} : null;
     const regex = {
@@ -119,8 +119,8 @@ export class CommitteeQueryService {
             postcode: committeeFile.postcode,
             description: committeeFile.fileType,
             title: this.committeeDisplayService.fileTitle(committeeFile),
-            contactName: committeeContactDetails.fullName,
-            contactEmail: committeeContactDetails.email
+            contactName: committeeContactDetails?.fullName,
+            contactEmail: committeeContactDetails?.email
           }))));
     }
     if (groupEventsFilter.includeSocialEvents) {

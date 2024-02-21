@@ -1,5 +1,13 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from "@angular/core";
-import { faBook, faCashRegister, faEnvelopeOpenText, faIdCard, faMailBulk, faUnlockAlt, faUsersCog } from "@fortawesome/free-solid-svg-icons";
+import {
+  faBook,
+  faCashRegister,
+  faEnvelopeOpenText,
+  faIdCard,
+  faMailBulk,
+  faUnlockAlt,
+  faUsersCog
+} from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
@@ -12,8 +20,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { PageContentService } from "../../../services/page-content.service";
-import { PageService } from "../../../services/page.service";
-import { UrlService } from "../../../services/url.service";
+import { SiteEditService } from "../../../site-edit/site-edit.service";
 
 @Component({
   selector: "app-admin",
@@ -37,13 +44,12 @@ export class AdminComponent implements OnInit, OnDestroy, OnDestroy {
   public allowAdminEdits: boolean;
   public defaultPageContent: PageContent;
 
-  constructor(private pageService: PageService,
-              private memberLoginService: MemberLoginService,
+  constructor(private memberLoginService: MemberLoginService,
               private notifierService: NotifierService,
               public pageContentService: PageContentService,
+              private siteEditService: SiteEditService,
               public contentTextService: ContentTextService,
               private authService: AuthService,
-              private urlService: UrlService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(AdminComponent, NgxLoggerLevel.OFF);
   }
@@ -53,8 +59,16 @@ export class AdminComponent implements OnInit, OnDestroy, OnDestroy {
   }
 
   ngOnInit() {
-    this.generateActionButtons();
     this.setPrivileges();
+    if (this.siteEditService.active()) {
+      this.generateDefaultPageContent();
+    } else {
+      this.subscriptions.push(this.siteEditService.events.subscribe(event => {
+        if (event.data) {
+          this.generateDefaultPageContent();
+        }
+      }));
+    }
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => this.setPrivileges(loginResponse)));
   }
@@ -65,7 +79,7 @@ export class AdminComponent implements OnInit, OnDestroy, OnDestroy {
     this.logger.debug(loginResponse, "setPrivileges:allowAdminEdits", this.allowAdminEdits, "this.loggedIn", this.loggedIn);
   }
 
-  private async generateActionButtons() {
+  private async generateDefaultPageContent() {
     const ADMIN_ACTION_BUTTONS = "admin#action-buttons";
     this.defaultPageContent = {
       path: ADMIN_ACTION_BUTTONS, rows: [
@@ -146,6 +160,13 @@ export class AdminComponent implements OnInit, OnDestroy, OnDestroy {
             },
             {
               accessLevel: AccessLevel.committee,
+              title: "Mail Settings",
+              icon: "faMailBulk",
+              href: "admin/mail-settings",
+              contentTextId: (await this.contentTextService.findOrCreateByNameAndCategory("mail-settings-help", "admin", "This page allows you to configure the email settings for the site"))?.id
+            },
+            {
+              accessLevel: AccessLevel.committee,
               title: "Configure Banners",
               icon: "faImages",
               href: "admin/banners",
@@ -163,7 +184,7 @@ export class AdminComponent implements OnInit, OnDestroy, OnDestroy {
     };
     this.pageContentService.findByPath(ADMIN_ACTION_BUTTONS)
       .then((response: PageContent) => {
-        this.logger.debug("found existing page content", response);
+        this.logger.info("found existing page content", response);
       })
       .catch(error => {
         this.logger.debug("error:", error);

@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import cloneDeep from "lodash-es/cloneDeep";
 import last from "lodash-es/last";
-import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
+import { ModalOptions } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable } from "rxjs";
 import { CommitteeFile } from "../../models/committee.model";
@@ -14,7 +14,6 @@ import { ContentMetadataService } from "../../services/content-metadata.service"
 import { DateUtilsService } from "../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
-import { MemberService } from "../../services/member/member.service";
 import { AlertInstance } from "../../services/notifier.service";
 import { UrlService } from "../../services/url.service";
 
@@ -29,8 +28,6 @@ export class CommitteeDisplayService {
   public confirm: Confirm = new Confirm();
 
   constructor(
-    private memberService: MemberService,
-    private modalService: BsModalService,
     private memberLoginService: MemberLoginService,
     private urlService: UrlService,
     private valueOrDefault: ValueOrDefaultPipe,

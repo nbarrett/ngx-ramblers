@@ -291,15 +291,15 @@ export class PageContentActionsService {
     this.logger.info("existingData hrefs:", responseHrefs);
     return defaultDataHrefs?.filter(item => !responseHrefs?.includes(item))?.map(href => {
       const index = this.indexOfHref(defaultData, href, pageContentType);
-      return {index, data: this.firstRowColumns(defaultData, pageContentType)[index]};
+      return {type: pageContentType, index, data: this.findPageContentColumnsOfType(defaultData, pageContentType)[index]};
     });
   }
 
   public firstRowOfTypeHrefs(pageContent: PageContent, pageContentType: PageContentType): string[] {
-    return this.firstRowColumns(pageContent, pageContentType)?.map(column => column.href);
+    return this.findPageContentColumnsOfType(pageContent, pageContentType)?.map(column => column.href);
   }
 
-  public firstRowColumns(pageContent: PageContent, pageContentType: PageContentType): PageContentColumn[] {
+  public findPageContentColumnsOfType(pageContent: PageContent, pageContentType: PageContentType): PageContentColumn[] {
     return pageContent?.rows.find(row => row.type === pageContentType)?.columns;
   }
 
@@ -308,12 +308,12 @@ export class PageContentActionsService {
   }
 
   carouselOrAlbumIndex(row: PageContentRow, viewablePageContent: PageContent): number {
-    this.logger.info("carouselOrAlbumIndex:for:", row);
+    this.logger.debug("carouselOrAlbumIndex:for:", row);
     const carouselNameIndexes: KeyValue<number>[] = viewablePageContent.rows
       .filter(item => this.isCarouselOrAlbum(item))
       .map((row, index) => ({key: row?.carousel?.name, value: index}));
     const numberKeyValue: KeyValue<number> = carouselNameIndexes.find(item => item.key === row.carousel?.name);
-    this.logger.info("carouselIndex:for:", row?.carousel?.name, "given:", carouselNameIndexes, "returned:", numberKeyValue?.value);
+    this.logger.debug("carouselIndex:for:", row?.carousel?.name, "given:", carouselNameIndexes, "returned:", numberKeyValue?.value);
     return numberKeyValue?.value;
   }
 
@@ -324,10 +324,10 @@ export class PageContentActionsService {
   toggleEditMode(rowIndex: number) {
     if (this.editActive(rowIndex)) {
       remove(this.rowsInEdit, (item) => item === rowIndex);
-      this.logger.info("removing", rowIndex, "from edit mode -> now:", this.rowsInEdit);
+      this.logger.debug("removing", rowIndex, "from edit mode -> now:", this.rowsInEdit);
     } else {
       this.rowsInEdit.push(rowIndex);
-      this.logger.info("adding", rowIndex, "to edit mode -> now:", this.rowsInEdit);
+      this.logger.debug("adding", rowIndex, "to edit mode -> now:", this.rowsInEdit);
     }
   }
 

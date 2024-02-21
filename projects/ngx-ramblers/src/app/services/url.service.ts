@@ -33,7 +33,7 @@ export class UrlService {
               private stringUtils: StringUtilsService,
               private location: Location,
               private siteEdit: SiteEditService,
-              private loggerFactory: LoggerFactory,
+              loggerFactory: LoggerFactory,
               private route: ActivatedRoute) {
     this.logger = loggerFactory.createLogger(UrlService, NgxLoggerLevel.OFF);
   }

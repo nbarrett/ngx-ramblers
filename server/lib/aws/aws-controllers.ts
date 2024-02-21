@@ -25,7 +25,7 @@ const s3Config = {
 };
 const s3: S3 = new AWS.S3(s3Config);
 const debugLog = debug(envConfig.logNamespace("aws"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 debugLog("configured with", s3Config, "Proxying S3 requests to", envConfig.aws.uploadUrl, "http.globalAgent.maxSockets:", https.globalAgent.maxSockets);
 
 export function listObjects(req: Request, res: Response) {

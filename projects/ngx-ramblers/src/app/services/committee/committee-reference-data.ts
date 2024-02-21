@@ -2,6 +2,7 @@ import map from "lodash-es/map";
 import { CommitteeConfig, CommitteeMember, ExpensesConfig } from "../../models/committee.model";
 import { MemberLoginService } from "../member/member-login.service";
 import { FileType } from "./committee-file-type.model";
+import isArray from "lodash-es/isArray";
 
 export class CommitteeReferenceData {
 
@@ -22,8 +23,9 @@ export class CommitteeReferenceData {
       memberId: data.memberId,
       nameAndDescription: data.description + " (" + data.fullName + ")",
       description: data.description,
-      email: data.email
-    })) || [];
+      email: data.email,
+      vacant: data.vacant
+    })).filter(item => !item.vacant) || [];
   }
 
   createFrom(injectedCommitteeMembers: CommitteeMember[]) {
@@ -49,33 +51,41 @@ export class CommitteeReferenceData {
     return this.expenses;
   }
 
-  committeeMembersForRole(role): CommitteeMember[] {
-    const roles = role.split(",").map(value => value.trim());
+  committeeMembersForRole(role: string[] | string): CommitteeMember[] {
+    const roles = this.toRoles(role);
     return this.committeeMembers().filter(member => roles.includes(member.type));
   }
 
-  contactUsField(role, field): string {
-    const committeeMember = this.committeeMembers().find(member => member.type === role);
+  public toRoles(role: string[] | string) {
+    return isArray(role) ? role : role?.split(",").map(item => item.trim());
+  }
+
+  committeeMemberForRole(role: string): CommitteeMember {
+    return this.committeeMembers().find(member => member.type === role);
+  }
+
+  contactUsField(role: string, field: string): string {
+    const committeeMember = this.committeeMemberForRole(role);
     return committeeMember && committeeMember[field];
   }
 
-  memberId(role): string {
+  memberId(role: string): string {
     return this.contactUsField(role, "memberId");
   }
 
-  email(role): string {
+  email(role: string): string {
     return this.contactUsField(role, "email");
   }
 
-  description(role): string {
+  description(role: string): string {
     return this.contactUsField(role, "description");
   }
 
-  fullName(role): string {
+  fullName(role: string): string {
     return this.contactUsField(role, "fullName");
   }
 
-  isPublic(fileTypeDescription): boolean {
+  isPublic(fileTypeDescription: string): boolean {
     const found = this.fileTypes()?.find(fileType => fileType.description === fileTypeDescription);
     return found && found.public;
   }

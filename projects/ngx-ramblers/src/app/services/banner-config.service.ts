@@ -10,7 +10,7 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
   providedIn: "root"
 })
 export class BannerConfigService {
-  private logger: Logger;
+  private readonly logger: Logger;
   private BASE_URL = "/api/database/banners";
   private notificationsInternal = new Subject<BannerConfigApiResponse>();
 
@@ -34,20 +34,6 @@ export class BannerConfigService {
     this.logger.debug("getById:", bannerConfigId);
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<BannerConfigApiResponse>(`${this.BASE_URL}/${bannerConfigId}`), this.notificationsInternal);
     return apiResponse.response as BannerConfig;
-  }
-
-  async findByNameAndCategory(name: string, category: string): Promise<BannerConfig> {
-    const params = this.commonDataService.toHttpParams(category ? {criteria: {name: {$eq: name}, category: {$eq: category}}} : {criteria: {name: {$eq: name}}});
-    const apiResponse = await this.http.get<{ response: BannerConfig }>(this.BASE_URL, {params}).toPromise();
-    this.logger.debug("forName", name, "- received", apiResponse);
-    return apiResponse.response;
-  }
-
-  async filterByCategory(category): Promise<BannerConfig[]> {
-    const params = this.commonDataService.toHttpParams({criteria: {category: {$eq: category}}});
-    const apiResponse = await this.http.get<{ response: BannerConfig[] }>(`${this.BASE_URL}/all`, {params}).toPromise();
-    this.logger.debug("forName", category, "- received", apiResponse);
-    return apiResponse.response;
   }
 
   async create(bannerConfig: BannerConfig): Promise<BannerConfig> {

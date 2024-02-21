@@ -13,6 +13,7 @@ export enum NamedEventType {
     MEMBER_LOGIN_COMPLETE = "memberLoginComplete",
     MEMBER_LOGOUT_COMPLETE = "memberLogoutComplete",
     MENU_TOGGLE = "menu-toggle",
+    NOTIFY_MESSAGE = "notify-message",
     PAGE_CONTENT_CHANGED = "page-content-changed",
     REFRESH = "refresh",
     SAVE_PAGE_CONTENT = "save-page-content",

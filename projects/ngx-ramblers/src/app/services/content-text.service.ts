@@ -39,8 +39,17 @@ export class ContentTextService {
   async findByNameAndCategory(name: string, category: string): Promise<ContentText> {
     const params = this.commonDataService.toHttpParams(category ? {criteria: {name: {$eq: name}, category: {$eq: category}}} : {criteria: {name: {$eq: name}}});
     const apiResponse = await this.http.get<{ response: ContentText }>(this.BASE_URL, {params}).toPromise();
-    this.logger.debug("forName", name, "- received", apiResponse);
+    this.logger.info("forName", name, "- received", apiResponse);
     return apiResponse.response;
+  }
+
+  async findOrCreateByNameAndCategory(name: string, category: string, textOnNotFound: string): Promise<ContentText> {
+    const data: ContentText = await this.findByNameAndCategory(name, category);
+    if (data) {
+      return data;
+    } else {
+      return this.create({name, category, text: textOnNotFound});
+    }
   }
 
   async filterByCategory(category): Promise<ContentText[]> {
@@ -51,9 +60,9 @@ export class ContentTextService {
   }
 
   async create(contentText: ContentText): Promise<ContentText> {
-    this.logger.debug("creating", contentText);
+    this.logger.info("creating", contentText);
     const apiResponse = await this.http.post<{ response: ContentText }>(this.BASE_URL, contentText).toPromise();
-    this.logger.debug("created", contentText, "- received", apiResponse);
+    this.logger.info("created", contentText, "- received", apiResponse);
     return apiResponse.response;
   }
 
@@ -77,5 +86,6 @@ export class ContentTextService {
     this.logger.debug("delete", contentText, "- received", apiResponse);
     return apiResponse.response;
   }
+
 
 }

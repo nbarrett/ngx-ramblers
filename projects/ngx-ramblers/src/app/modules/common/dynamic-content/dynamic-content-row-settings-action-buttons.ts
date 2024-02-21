@@ -39,7 +39,7 @@ export class RowSettingsActionButtonsComponent implements OnInit {
   private logger: Logger;
   @Input()
   public row: PageContentRow;
-  private id: string;
+  protected id: string;
 
   constructor(loggerFactory: LoggerFactory,
               public siteEditService: SiteEditService,
