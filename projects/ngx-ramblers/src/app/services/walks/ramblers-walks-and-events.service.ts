@@ -61,6 +61,7 @@ import isEqual from "lodash-es/isEqual";
 import { isNumericRamblersId } from "../path-matchers";
 import { RiskAssessmentService } from "./risk-assessment.service";
 import { AlertMessage } from "../../models/alert-target.model";
+import { sortBy } from "../arrays";
 
 @Injectable({
   providedIn: "root"
@@ -524,7 +525,9 @@ export class RamblersWalksAndEventsService {
       group: {
         groupCode: groupWalk.group_code,
         longName: groupWalk.group_name
-      }
+      },
+      features: (groupWalk.facilities || []).concat(groupWalk.transport || []).sort(sortBy("description")),
+      startLocation: groupWalk.start_location.description
     };
     this.logger.debug("groupWalk:", groupWalk, "walk:", walk, "contactName:", contactName, "displayName:", displayName);
     return walk;

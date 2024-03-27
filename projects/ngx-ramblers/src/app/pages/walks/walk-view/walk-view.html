@@ -23,7 +23,8 @@
       <div *ngIf="display.shouldShowFullDetails(displayedWalk)" class="event-description">
         <p markdown [data]="displayedWalk?.walk?.longerDescription"></p>
       </div>
-      <app-walk-leader [displayedWalk]="displayedWalk"></app-walk-leader>
+      <app-walk-leader [displayedWalk]="displayedWalk"/>
+      <app-walk-features *ngIf="displayedWalk.walk?.features?.length>0" [features]="displayedWalk.walk?.features"/>
       <div *ngIf="display.shouldShowFullDetails(displayedWalk) && displayLinks"
            class="event-panel rounded event-panel-inner">
         <h1>Related Links</h1>

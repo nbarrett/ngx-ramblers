@@ -1,12 +1,11 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, Component, Input, OnDestroy, OnInit } from "@angular/core";
 import { SafeResourceUrl } from "@angular/platform-browser";
-import { ActivatedRoute } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
 import { ALERT_WARNING, AlertTarget } from "../../../models/alert-target.model";
 import { LoginResponse } from "../../../models/member.model";
-import { DisplayedWalk, GoogleMapsConfig, MapDisplay, Walk } from "../../../models/walk.model";
+import { DisplayedWalk, MapDisplay, Walk } from "../../../models/walk.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -18,7 +17,6 @@ import { WalksService } from "../../../services/walks/walks.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { SystemConfig } from "../../../models/system.model";
-import { BroadcastService } from "../../../services/broadcast-service";
 import { WalksQueryService } from "../../../services/walks/walks-query.service";
 
 @Component({
@@ -30,9 +28,24 @@ import { WalksQueryService } from "../../../services/walks/walks-query.service";
 
 export class WalkViewComponent implements OnInit, OnDestroy {
 
-  @Input("displayedWalk")
-  set init(displayedWalk: DisplayedWalk) {
+  @Input("displayedWalk") set init(displayedWalk: DisplayedWalk) {
     this.applyWalk(displayedWalk);
+  }
+
+  constructor(
+    public walksQueryService: WalksQueryService,
+    private walksService: WalksService,
+    public googleMapsService: GoogleMapsService,
+    private authService: AuthService,
+    private memberLoginService: MemberLoginService,
+    public display: WalkDisplayService,
+    private dateUtils: DateUtilsService,
+    public meetupService: MeetupService,
+    private urlService: UrlService,
+    private systemConfigService: SystemConfigService,
+    private notifierService: NotifierService,
+    loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.createLogger("WalkViewComponent", NgxLoggerLevel.OFF);
   }
 
   public walkIdOrPath: string;
@@ -49,24 +62,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
 
-  constructor(
-    private route: ActivatedRoute,
-    private broadcastService: BroadcastService<GoogleMapsConfig>,
-    public walksQueryService: WalksQueryService,
-    private walksService: WalksService,
-    public googleMapsService: GoogleMapsService,
-    private authService: AuthService,
-    private memberLoginService: MemberLoginService,
-    public display: WalkDisplayService,
-    private dateUtils: DateUtilsService,
-    public meetupService: MeetupService,
-    private urlService: UrlService,
-    private systemConfigService: SystemConfigService,
-    private notifierService: NotifierService,
-    private changeDetectorRef: ChangeDetectorRef,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkViewComponent", NgxLoggerLevel.OFF);
-  }
+  protected readonly ALERT_WARNING = ALERT_WARNING;
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -178,11 +174,6 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       : (this.dateUtils.asMoment(walk.walkDate).fromNow());
   }
 
-  refreshView() {
-    this.logger.info("refreshing view");
-    this.updateGoogleMap();
-  }
-
   changeMapView(newValue: MapDisplay) {
     this.logger.info("changeShowDrivingDirections:", newValue);
     this.mapDisplay = newValue;
@@ -195,6 +186,4 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     this.autoSelectMapDisplay();
     this.updateGoogleMap();
   }
-
-  protected readonly ALERT_WARNING = ALERT_WARNING;
 }

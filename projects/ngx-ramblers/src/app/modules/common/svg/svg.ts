@@ -4,22 +4,24 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 
 @Component({
   selector: "app-svg",
-  templateUrl: "./svg.html",
-  styleUrls: ["./svg.sass"]
+  template: `
+    <svg [ngStyle]="{'height.px': height, 'width.px': width, 'path.fill':'rgb(155, 200, 171)'}"
+         xmlns="http://www.w3.org/2000/svg">
+      <use [attr.xlink:href]="href" [attr.fill]="this.colour"/>
+    </svg>`
 })
 export class SvgComponent implements OnInit {
-
   @Input("icon") set iconValue(icon: string) {
     this.icon = icon;
     this.setHfRef();
   }
-
+  public disabled: boolean;
   public icon: string;
   @Input() width: number;
   @Input() height: number;
   @Input() colour: string;
-  @Input() set disabled(disabled: boolean) {
-    this.style = {width: this.width, height: this.height, color: disabled ? "rgb(153, 153, 153)" : null};
+  @Input("disabled") set disabledValue(disabled: boolean) {
+    this.disabled = disabled;
   }
 
   private logger: Logger;
@@ -36,7 +38,7 @@ export class SvgComponent implements OnInit {
 
   private setHfRef() {
     const href = "/assets/images/local/svg-icons.svg#" + this.icon;
-    this.logger.info("setting svg href to:", href);
+    this.logger.info("setting svg href to:", href,"colour:", this.colour);
     this.href = href;
   }
 }
