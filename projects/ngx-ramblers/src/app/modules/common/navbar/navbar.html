@@ -7,12 +7,11 @@
           <a class="navbar-brand" [href]="urlService.baseUrl()" aria-current="page" target="_self">
             <img *ngIf="logo?.awsFileName" [src]="urlService.resourceRelativePathForAWSFileName(logo?.awsFileName)"
                  [alt]="systemConfig?.group?.shortName" [width]="logo?.width"></a>
-          <button [tooltip]="this.navbarExpanded? 'collapse menu':'expand menu'" type="button" aria-label="Toggle navigation"
+          <button type="button" aria-label="Toggle navigation"
                   class="navbar-toggler border-0 rounded-0 collapsed"
                   data-toggle="collapse" data-target="#nav-collapse" aria-controls="nav-collapse"
                   aria-expanded="false">
-            <app-svg class="text-dark icon"
-                     [height]="27"
+            <app-svg [height]="27"
                      [width]="27"
                      [icon]="icon()"
                      (click)="toggleNavBar()">

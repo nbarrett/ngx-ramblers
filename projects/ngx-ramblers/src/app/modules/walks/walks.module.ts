@@ -77,6 +77,8 @@ import { AddressQueryService } from "../../services/walks/address-query.service"
 import { WalkNotificationService } from "../../services/walks/walk-notification.service";
 import { WalksService } from "../../services/walks/walks.service";
 import { SharedModule } from "../../shared-module";
+import { WalkFeaturesComponent } from "../../pages/walks/walk-view/walk-features";
+import { WalkFeatureComponent } from "../../pages/walks/walk-view/walk-feature";
 
 @NgModule({
   declarations: [
@@ -86,6 +88,8 @@ import { SharedModule } from "../../shared-module";
     WalkAddSlotsComponent,
     WalkAdminComponent,
     WalkDetailsComponent,
+    WalkFeaturesComponent,
+    WalkFeatureComponent,
     WalkEditComponent,
     WalkEditFullPageComponent,
     WalkEventTypePipe,
