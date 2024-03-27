@@ -4,10 +4,7 @@
     <li *ngIf="externalSystems?.facebook" class="mb-0" placement="top"
         [tooltip]="'View our Facebook page (opens a new browser tab)'"><a [href]="externalSystems?.facebook?.groupUrl" target="_blank"
                                                                           class="d-block p-1">
-      <svg xmlns="http://www.w3.org/2000/svg" class="icon d-flex icon">
-        <use href="/assets/images/local/svg-icons.svg#i-facebook"
-             xlink:href="/assets/images/local/svg-icons.svg#i-facebook"></use>
-      </svg>
+      <app-svg icon="i-facebook" width="24" height="24" colour="rgb(255, 255, 255)"/>
       <span class="sr-only">
         Visit our Facebook page (opens a new browser tag)
       </span>
@@ -16,10 +13,7 @@
     <li *ngIf="externalSystems?.twitter" class="mb-0" placement="top"
         [tooltip]="'View our Twitter page (opens a new browser tab)'"><a [href]="externalSystems?.twitter" target="_blank"
                                                                          class="d-block p-1">
-      <svg xmlns="http://www.w3.org/2000/svg" class="icon d-flex icon">
-        <use href="/assets/images/local/svg-icons.svg#i-twitter"
-             xlink:href="/assets/images/local/svg-icons.svg#i-twitter"></use>
-      </svg>
+      <app-svg icon="i-twitter" width="24" height="24" colour="rgb(255, 255, 255)"/>
       <span class="sr-only">
         Visit our Twitter page (opens a new browser tag)
       </span>
@@ -28,10 +22,7 @@
         [tooltip]="'View our Linked in page (opens a new browser tab)'"><a [href]="externalSystems?.linkedIn"
                                                                           target="_blank"
                                                                           class="d-block p-1">
-      <svg xmlns="http://www.w3.org/2000/svg" class="icon d-flex icon">
-        <use href="/assets/images/local/svg-icons.svg#i-linkedin-in"
-             xlink:href="/assets/images/local/svg-icons.svg#i-linkedin-in"></use>
-      </svg>
+      <app-svg icon="i-linkedin-in" width="24" height="24" colour="rgb(255, 255, 255)"/>
       <span class="sr-only">
         Visit our Linkedin page (opens a new browser tag)
       </span>
@@ -39,10 +30,7 @@
     <li *ngIf="externalSystems?.youtube" class="mb-0" placement="top"
         [tooltip]="'View our Youtube page (opens a new browser tab)'"><a [href]="externalSystems?.youtube"
                                                                           target="_blank" class="d-block p-1">
-      <svg xmlns="http://www.w3.org/2000/svg" class="icon d-flex icon">
-        <use href="/assets/images/local/svg-icons.svg#i-youtube"
-             xlink:href="/assets/images/local/svg-icons.svg#i-youtube"></use>
-      </svg>
+      <app-svg icon="i-youtube" width="24" height="24" colour="rgb(255, 255, 255)"/>
       <span class="sr-only">
         Visit our Youtube page (opens a new browser tag)
       </span>
@@ -50,10 +38,7 @@
     <li *ngIf="externalSystems?.instagram" class="mb-0" placement="top"
         [tooltip]="'View our Instagram page (opens a new browser tab)'"><a [href]="externalSystems?.instagram?.groupUrl" target="_blank"
                                                                            class="d-block p-1">
-      <svg xmlns="http://www.w3.org/2000/svg" class="icon d-flex icon">
-        <use href="/assets/images/local/svg-icons.svg#i-instagram"
-             xlink:href="/assets/images/local/svg-icons.svg#i-instagram"></use>
-      </svg>
+      <app-svg icon="i-instagram" width="24" height="24" colour="rgb(255, 255, 255)"/>
       <span class="sr-only">
         Visit our Instagram page (opens a new browser tag)
       </span>
@@ -61,12 +46,9 @@
     <li *ngIf="externalSystems?.meetup" class="mb-0" placement="top"
         [tooltip]="'View the '+ externalSystems?.meetup?.groupName + ' Meetup page (opens a new browser tab)'"><a [href]="externalSystems.meetup.groupUrl+'/'+externalSystems.meetup.groupName" target="_blank"
                                                                         class="d-block p-1">
-      <svg xmlns="http://www.w3.org/2000/svg" class="icon d-flex icon">
-        <use href="/assets/images/local/svg-icons.svg#i-meetup"
-             xlink:href="/assets/images/local/svg-icons.svg#i-meetup"></use>
-      </svg>
+      <app-svg icon="i-meetup" width="24" height="24" colour="rgb(255, 255, 255)"/>
       <span class="sr-only">
-        Visit our Meetup page (opens a new browser tag)
+        Visit our {{externalSystems?.meetup?.groupName}} Meetup page (opens a new browser tag)
       </span>
     </a></li>
   </ul>

@@ -107,7 +107,7 @@
                   <div class="col-sm-12">
                     <div class="form-inline">
                       <div class="custom-control custom-radio custom-control-inline">
-                        <input type=" radio" class="custom-control-input" value="recently-added"
+                        <input type="radio" class="custom-control-input" [value]="MemberSelection.RECENTLY_ADDED"
                                [ngModel]="emailConfig.notificationConfig.defaultMemberSelection"
                                [disabled]="notifyTarget.busy" id="recently-added"
                                (click)="populateMembers(MemberSelection.RECENTLY_ADDED)">
@@ -130,7 +130,7 @@
                     <div class="form-inline">
                       <div class="custom-control custom-radio custom-control-inline">
                         <input type="radio" class="custom-control-input"
-                               value="expired-members"
+                               [value]="MemberSelection.EXPIRED_MEMBERS"
                                [ngModel]="emailConfig.notificationConfig.defaultMemberSelection"
                                [disabled]="notifyTarget.busy"
                                id="expired-members"
@@ -154,7 +154,7 @@
                       <input
                         type="radio"
                         class="custom-control-input"
-                        value="missing-from-bulk-load-members"
+                        [value]="MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS"
                         [ngModel]="emailConfig.notificationConfig.monthsInPast"
                         [disabled]="notifyTarget.busy"
                         id="missing-from-bulk-load-members"
