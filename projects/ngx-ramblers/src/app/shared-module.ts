@@ -129,6 +129,7 @@ import { DisplayDatesAndTimesPipe } from "./pipes/display-dates-and-times.pipe";
 import { CommitteeRoleMultiSelectComponent } from "./committee/role-multi-select/committee-role-multi-select";
 import { NgxCaptureModule } from "ngx-capture";
 import { ButtonsModule } from "ngx-bootstrap/buttons";
+import { NotificationDirective } from "./notifications/common/notification.directive";
 
 @NgModule({
   imports: [
@@ -227,6 +228,7 @@ import { ButtonsModule } from "ngx-bootstrap/buttons";
     MemberIdToFullNamePipe,
     MemberIdsToFullNamesPipe,
     MoneyPipe,
+    NotificationDirective,
     PageComponent,
     RelatedLinkComponent,
     RowSettingsActionButtonsComponent,
@@ -293,12 +295,13 @@ import { ButtonsModule } from "ngx-bootstrap/buttons";
     MarkdownEditorComponent,
     MarkdownModule,
     MeetupEventSummaryPipe,
+    MemberIdsToFullNamesPipe,
     MemberIdToFirstNamePipe,
     MemberIdToFullNamePipe,
-    MemberIdsToFullNamesPipe,
     ModalModule,
     MoneyPipe,
     NgSelectModule,
+    NotificationDirective,
     PageComponent,
     PaginationModule,
     PopoverModule,

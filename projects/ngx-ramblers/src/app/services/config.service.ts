@@ -16,7 +16,7 @@ export class ConfigService {
 
   constructor(private http: HttpClient,
               private commonDataService: CommonDataService,
-              private stringUtilsService: StringUtilsService, loggerFactory: LoggerFactory) {
+              loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger("ConfigService", NgxLoggerLevel.OFF);
   }
 

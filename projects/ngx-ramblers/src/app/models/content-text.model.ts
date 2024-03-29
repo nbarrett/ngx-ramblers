@@ -3,6 +3,10 @@ import { AccessLevel } from "./member-resource.model";
 import { Link } from "./page.model";
 import { BezierEasingOptions } from "ng-gallery/lib/smooth-scroll";
 
+export enum ContentTextCategory {
+  MEETUP_DESCRIPTION_PREFIX = "meetup-description-prefix"
+}
+
 export interface ContentText {
   id?: string;
   category?: string;

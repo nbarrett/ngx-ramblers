@@ -1,29 +1,27 @@
-import { ChangeDetectorRef, Component, Input, OnChanges, OnInit, SimpleChanges } from "@angular/core";
+import { ChangeDetectorRef, Component, Input, OnInit } from "@angular/core";
 import has from "lodash-es/has";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
-import { ContentText, View } from "../../../models/content-text.model";
+import { ContentText, ContentTextCategory, View } from "../../../models/content-text.model";
 import { MeetupConfig } from "../../../models/meetup-config.model";
 import { WalkNotification } from "../../../models/walk-notification.model";
 import { DisplayedWalk } from "../../../models/walk.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { ContentTextService } from "../../../services/content-text.service";
-import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { meetupDescriptionPrefix, MeetupService } from "../../../services/meetup.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { WalkNotificationService } from "../../../services/walks/walk-notification.service";
-import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { WalkDisplayService } from "../walk-display.service";
+import { MeetupService } from "../../../services/meetup.service";
 
 @Component({
   selector: "app-walk-meetup",
   templateUrl: "./walk-meetup.component.html",
   styleUrls: ["./walk-meetup.component.sass"]
 })
-export class WalkMeetupComponent implements OnInit, OnChanges {
+export class WalkMeetupComponent implements OnInit {
 
   @Input()
   public displayedWalk: DisplayedWalk;
@@ -38,35 +36,28 @@ export class WalkMeetupComponent implements OnInit, OnChanges {
   public walkNotificationData: WalkNotification;
   public config: MeetupConfig;
   meetupEventDescription: string;
-  public CONTENT_CATEGORY = meetupDescriptionPrefix;
   public view: View = View.VIEW;
 
   constructor(private memberLoginService: MemberLoginService,
               private broadcastService: BroadcastService<ContentText>,
               private changeDetectorRef: ChangeDetectorRef,
               private contentTextService: ContentTextService,
-              private dateUtils: DateUtilsService,
               private notifierService: NotifierService,
               private walkNotificationService: WalkNotificationService,
-              private walksReferenceService: WalksReferenceService,
               public display: WalkDisplayService,
               public meetupService: MeetupService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(WalkMeetupComponent, NgxLoggerLevel.OFF);
   }
 
-  ngOnChanges(changes: SimpleChanges) {
-    this.logger.debug("changes were", changes);
-  }
-
   ngOnInit() {
-    this.logger.debug("ngOnInit:saveInProgress", typeof this.saveInProgress, this.saveInProgress);
+    this.logger.info("ngOnInit:saveInProgress", typeof this.saveInProgress, this.saveInProgress);
     this.meetupService.getConfig().then(config => this.config = config);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.walkNotificationData = this.walkNotificationService.toWalkNotification(this.displayedWalk, this.display.members);
     this.meetupEventDescription = this.displayedWalk.walk.meetupEventDescription;
-    this.contentTextService.filterByCategory(this.CONTENT_CATEGORY).then(contentTextItems => {
-      this.logger.debug("forCategory", this.CONTENT_CATEGORY + ":", contentTextItems);
+    this.contentTextService.filterByCategory(ContentTextCategory.MEETUP_DESCRIPTION_PREFIX).then(contentTextItems => {
+      this.logger.debug("forCategory", ContentTextCategory.MEETUP_DESCRIPTION_PREFIX + ":", contentTextItems);
       this.contentTextItems = contentTextItems;
     });
     this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_CHANGED, (event: NamedEvent<ContentText>) => this.changeContent(event.data));
@@ -74,8 +65,8 @@ export class WalkMeetupComponent implements OnInit, OnChanges {
   }
 
   private changeContent(contentText: ContentText) {
-    if (contentText.category === this.CONTENT_CATEGORY) {
-      this.logger.debug("Received changed content", contentText);
+    if (contentText.category === ContentTextCategory.MEETUP_DESCRIPTION_PREFIX) {
+      this.logger.info("Received changed content", contentText);
       this.displayedWalk.walk.meetupEventDescription = contentText.text;
     } else {
       this.logger.debug("Ignoring changed content as category", contentText.category, "not correct");
@@ -115,4 +106,6 @@ export class WalkMeetupComponent implements OnInit, OnChanges {
     this.logger.debug("meetupEventDescription:", this.meetupEventDescription);
     this.changeDetectorRef.detectChanges();
   }
+
+  protected readonly ContentTextCategory = ContentTextCategory;
 }

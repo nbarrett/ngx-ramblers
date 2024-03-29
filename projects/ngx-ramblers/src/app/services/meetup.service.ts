@@ -10,7 +10,7 @@ import { mergeMap } from "rxjs/operators";
 import { ApiResponse } from "../models/api-response.model";
 import { ConfigKey } from "../models/config.model";
 import { NumericIdentifier } from "../models/generic-response.model";
-import { MeetupConfig } from "../models/meetup-config.model";
+import { MeetupConfig, MeetupStatus } from "../models/meetup-config.model";
 import { MeetupErrorResponse } from "../models/meetup-error-response.model";
 import { MeetupEventDetailedResponse } from "../models/meetup-event-detailed-response.model";
 import { MeetupEventRequest } from "../models/meetup-event-request.model";
@@ -25,16 +25,6 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 import { AlertInstance } from "./notifier.service";
 import { StringUtilsService } from "./string-utils.service";
 
-export const meetupDescriptionPrefix = "meetup-description-prefix";
-
-export enum MeetupStatus {
-  PAST = "past",
-  UPCOMING = "upcoming",
-  DRAFT = "draft",
-  PUBLISHED = "published",
-  PROPOSED = "proposed",
-  SUGGESTED = "suggested"
-}
 
 @Injectable({
   providedIn: "root"

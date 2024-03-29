@@ -79,7 +79,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
       this.logger.info("mailMessagingConfig:", config);
       this.mailMessagingConfig = config;
       this.emailConfigs = config.notificationConfigs
-        .filter(item => item.id !== config.mailConfig.forgotPasswordNotificationConfigId)
+        .filter(item => ![config.mailConfig.forgotPasswordNotificationConfigId, config.mailConfig.walkNotificationConfigId].includes(item.id))
         .map(notificationConfig => {
           return {
             notificationConfig,
@@ -317,7 +317,13 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
     const members = `${this.stringUtils.pluraliseWithCount(this.selectedMemberIds.length, "member")}`;
     Promise.all(this.selectableMembers
       .filter(item => this.selectedMemberIds.includes(item.id))
-      .map(member => this.mailMessagingService.createEmailRequest(member.member, this.emailConfig.notificationConfig, this.notificationDirective))
+      .map(member => {
+        return this.mailMessagingService.createEmailRequest({
+          member: member.member,
+          notificationConfig: this.emailConfig.notificationConfig,
+          notificationDirective: this.notificationDirective
+        });
+      })
       .map(emailRequest => this.mailService.sendTransactionalMessage(emailRequest)))
       .then((response) => {
         this.logger.info("response:", response);
