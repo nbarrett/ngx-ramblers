@@ -22,7 +22,6 @@ import { BroadcastService } from "../services/broadcast-service";
 import { ContentTextService } from "../services/content-text.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { MarkdownEditorFocusService } from "../services/markdown-editor-focus-service";
-import { MemberLoginService } from "../services/member/member-login.service";
 import { SiteEditService } from "../site-edit/site-edit.service";
 import { UiActionsService } from "../services/ui-actions.service";
 import { StoredValue } from "../models/ui-actions";
@@ -129,8 +128,7 @@ export class MarkdownEditorComponent implements OnInit {
 
   protected readonly faUnlink = faUnlink;
 
-  constructor(private memberLoginService: MemberLoginService,
-              private uiActionsService: UiActionsService,
+  constructor(private uiActionsService: UiActionsService,
               private broadcastService: BroadcastService<ContentText>,
               private contentTextService: ContentTextService,
               private markdownEditorFocusService: MarkdownEditorFocusService,

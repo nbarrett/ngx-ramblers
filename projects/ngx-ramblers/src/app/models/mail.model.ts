@@ -3,6 +3,7 @@ import { Organisation } from "./system.model";
 import { CommitteeReferenceData } from "../services/committee/committee-reference-data";
 import { BannerConfig } from "./banner-configuration.model";
 import { Auditable, Member, MemberFilterSelection } from "./member.model";
+import { NotificationDirective } from "../notifications/common/notification.directive";
 
 export interface NotificationSubject {
   prefixParameter: string;
@@ -58,6 +59,14 @@ export interface EmailAddress {
   name: string;
 }
 
+export interface CreateSendSmtpEmailRequest {
+  member: Member;
+  notificationConfig: NotificationConfig;
+  notificationDirective: NotificationDirective;
+  bodyContent?: string;
+  emailSubject?: string;
+}
+
 export interface SendSmtpEmailRequest {
   sender: EmailAddress;
   subject: string;
@@ -80,6 +89,7 @@ export interface MessageMergeFields {
   subject: string;
   SIGNOFF_NAMES: string;
   BANNER_IMAGE_SOURCE: string;
+  BODY_CONTENT?: string;
 }
 
 export interface SystemMergeFields {
@@ -102,13 +112,17 @@ export interface MergeFields {
   MEMBER_EXP: string;
 }
 
-export interface MailConfig {
+export interface MailConfig extends BuiltInProcessMappings {
   apiKey: string;
   baseUrl: string;
   allowUpdateLists: boolean;
   allowSendCampaign: boolean;
   allowSendTransactional: boolean;
+}
+
+export interface BuiltInProcessMappings {
   forgotPasswordNotificationConfigId: string;
+  walkNotificationConfigId: string;
 }
 
 export interface NotificationConfigurationApiResponse extends ApiResponse {
@@ -293,6 +307,21 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     senderRole: "membership",
     replyToRole: "membership",
     signOffRoles: ["membership"],
+    bannerId: null
+  },
+  {
+    subject: {
+      prefixParameter: null,
+      text: "Walk Change Notification",
+      suffixParameter: null
+    },
+    preSendActions: [],
+    postSendActions: [],
+    defaultMemberSelection: null,
+    templateId: null,
+    senderRole: "walks",
+    replyToRole: "walks",
+    signOffRoles: ["walks"],
     bannerId: null
   }
 ];

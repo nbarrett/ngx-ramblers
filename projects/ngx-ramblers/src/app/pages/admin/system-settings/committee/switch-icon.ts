@@ -5,8 +5,7 @@ import { faToggleOff, faToggleOn } from "@fortawesome/free-solid-svg-icons";
   selector: "app-switch-icon",
   styleUrls: ["./switch-icon.sass"],
   template: `
-    <fa-icon class="switch" [icon]="on? faToggleOff:faToggleOn"></fa-icon>
-  `
+    <fa-icon class="switch" [icon]="on? faToggleOn:faToggleOff"></fa-icon>`
 })
 export class SwitchIconComponent {
 

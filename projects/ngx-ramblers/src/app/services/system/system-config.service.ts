@@ -22,9 +22,8 @@ export class SystemConfigService {
 
   constructor(private config: ConfigService,
               private broadcastService: BroadcastService<SystemConfig>,
-              private memberLoginService: MemberLoginService,
               public stringUtils: StringUtilsService,
-              private loggerFactory: LoggerFactory) {
+              loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger("SystemConfigService", NgxLoggerLevel.OFF);
     this.refresh();
   }

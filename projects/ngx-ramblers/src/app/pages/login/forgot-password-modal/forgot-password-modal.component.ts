@@ -159,7 +159,11 @@ export class ForgotPasswordModalComponent implements OnInit, OnDestroy {
 
   sendForgottenPasswordEmailToMember() {
     this.mailSendInitiated = true;
-    this.emailRequest = this.mailMessagingService.createEmailRequest(this.forgottenPasswordMember, this.notificationConfig, this.notificationDirective);
+    this.emailRequest = this.mailMessagingService.createEmailRequest({
+      member: this.forgottenPasswordMember,
+      notificationConfig: this.notificationConfig,
+      notificationDirective: this.notificationDirective
+    });
     this.logger.info("sendForgottenPasswordEmailToMember:emailRequest:", this.emailRequest);
     return Promise.resolve(this.notify.success("Sending forgotten password email"))
       .then(() => this.mailService.sendTransactionalMessage(this.emailRequest))

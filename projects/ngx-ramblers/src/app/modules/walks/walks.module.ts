@@ -44,7 +44,6 @@ import {
 import {
   WalkNotificationLeaderUpdatedComponent
 } from "../../notifications/walks/templates/leader/walk-notification-leader-updated.component";
-import { WalkNotificationDirective } from "../../notifications/walks/walk-notification.directive";
 import { WalkAddSlotsComponent } from "../../pages/walks/walk-add-slots/walk-add-slots.component";
 import { WalkAdminComponent } from "../../pages/walks/walk-admin/walk-admin.component";
 import { WalkDisplayService } from "../../pages/walks/walk-display.service";
@@ -108,7 +107,6 @@ import { WalkFeatureComponent } from "../../pages/walks/walk-view/walk-feature";
     WalkNotificationCoordinatorRequestedComponent,
     WalkNotificationCoordinatorUpdatedComponent,
     WalkNotificationDetailsComponent,
-    WalkNotificationDirective,
     WalkNotificationFooterComponent,
     WalkNotificationLeaderApprovedComponent,
     WalkNotificationLeaderAwaitingApprovalComponent,

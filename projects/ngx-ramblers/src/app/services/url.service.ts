@@ -19,7 +19,8 @@ import { isMongoId } from "./mongo-utils";
 import isEmpty from "lodash-es/isEmpty";
 import { isNumericRamblersId } from "./path-matchers";
 import { StringUtilsService } from "./string-utils.service";
-import { RootFolder } from "../models/system.model";
+import { Organisation, RootFolder } from "../models/system.model";
+import { SystemConfigService } from "./system/system-config.service";
 
 @Injectable({
   providedIn: "root"
@@ -27,14 +28,17 @@ import { RootFolder } from "../models/system.model";
 
 export class UrlService {
   private logger: Logger;
+  private group: Organisation;
 
   constructor(@Inject(DOCUMENT) private document: Document,
               private router: Router,
               private stringUtils: StringUtilsService,
+              private systemConfigService: SystemConfigService,
               private location: Location,
               private siteEdit: SiteEditService,
               loggerFactory: LoggerFactory,
               private route: ActivatedRoute) {
+    this.systemConfigService.events().subscribe(item => this.group = item.group);
     this.logger = loggerFactory.createLogger(UrlService, NgxLoggerLevel.OFF);
   }
 
@@ -81,8 +85,12 @@ export class UrlService {
   }
 
   baseUrl(): string {
-    const url = new URL(this.absoluteUrl());
-    return `${url.protocol}//${url.host}`;
+    if (this.group?.href) {
+      return this.group.href;
+    } else {
+      const url = new URL(this.absoluteUrl());
+      return `${url.protocol}//${url.host}`;
+    }
   }
 
   relativeUrl(optionalUrl?: string): string {

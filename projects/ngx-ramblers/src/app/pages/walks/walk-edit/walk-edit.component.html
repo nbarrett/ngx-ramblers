@@ -3,7 +3,7 @@
 </app-walk-panel-expander>
 <div [ngClass]="{'busy': notifyTarget.busy}">
   <div class="d-none">
-    <ng-template app-walk-notification-template></ng-template>
+    <ng-template app-notification-directive></ng-template>
   </div>
   <tabset class="custom-tabset" *ngIf="displayedWalk.walk">
     <tab heading="Main Details">

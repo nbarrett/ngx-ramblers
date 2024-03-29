@@ -2,7 +2,7 @@
   <div class="row img-thumbnail thumbnail-walk-edit">
     <div class="thumbnail-heading">Meetup</div>
     <div class="d-none">
-      <ng-template app-walk-notification-template></ng-template>
+      <ng-template app-notification-directive></ng-template>
     </div>
     <div class="row">
       <div class="col-sm-12">
@@ -36,7 +36,7 @@
           <app-markdown-editor *ngIf="meetupConfigExists()"
                                [initialView]="view"
                                [name]="'meetup-event-description'"
-                               [category]="CONTENT_CATEGORY"
+                               [category]="ContentTextCategory.MEETUP_DESCRIPTION_PREFIX"
                                [text]="meetupEventDescription"
                                [rows]="7"
                                [description]="'Meetup event description'">

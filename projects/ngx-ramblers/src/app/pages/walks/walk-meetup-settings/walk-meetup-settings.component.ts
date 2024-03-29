@@ -7,14 +7,14 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
-import { ContentText, View } from "../../../models/content-text.model";
+import { ContentText, ContentTextCategory, View } from "../../../models/content-text.model";
 import { MeetupConfig } from "../../../models/meetup-config.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { ContentTextService } from "../../../services/content-text.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { meetupDescriptionPrefix, MeetupService } from "../../../services/meetup.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { UrlService } from "../../../services/url.service";
+import { MeetupService } from "../../../services/meetup.service";
 
 @Component({
   selector: "app-walk-meetup-settings",
@@ -50,8 +50,8 @@ export class WalkMeetupSettingsComponent implements OnInit {
     this.publishStatuses = this.meetupService.publishStatuses();
     this.guestLimits = range(1, 11);
     this.meetupService.getConfig().then(config => this.config = config);
-    this.contentTextService.filterByCategory(meetupDescriptionPrefix).then(contentTextItems => {
-      this.logger.debug("forCategory", meetupDescriptionPrefix + ":", contentTextItems);
+    this.contentTextService.filterByCategory(ContentTextCategory.MEETUP_DESCRIPTION_PREFIX).then(contentTextItems => {
+      this.logger.debug("forCategory", ContentTextCategory.MEETUP_DESCRIPTION_PREFIX + ":", contentTextItems);
       this.contentTextItems = contentTextItems;
       this.onChange(first(this.contentTextItems));
     });
@@ -68,7 +68,7 @@ export class WalkMeetupSettingsComponent implements OnInit {
   }
 
   private replaceContent(contentText: ContentText) {
-    if (contentText.category === meetupDescriptionPrefix) {
+    if (contentText.category === ContentTextCategory.MEETUP_DESCRIPTION_PREFIX) {
       this.logger.debug("Received updated content", contentText);
       const existingContent: ContentText = this.contentTextItems.find(item => !item.name || (item.name === contentText.name));
       if (existingContent) {
@@ -82,7 +82,7 @@ export class WalkMeetupSettingsComponent implements OnInit {
   }
 
   private removeContent(contentText: ContentText) {
-    if (contentText.category === meetupDescriptionPrefix) {
+    if (contentText.category === ContentTextCategory.MEETUP_DESCRIPTION_PREFIX) {
       this.logger.debug("Received deleted content", contentText);
       this.contentTextItems = this.contentTextItems.filter(item => item.id !== contentText.id);
     }
@@ -90,7 +90,7 @@ export class WalkMeetupSettingsComponent implements OnInit {
 
   addNewContent() {
     this.addNew = true;
-    const newContent = {category: meetupDescriptionPrefix, text: "", name: ""};
+    const newContent = {category: ContentTextCategory.MEETUP_DESCRIPTION_PREFIX, text: "Replace with text that will be used as a prefix for the walk description", name: "Enter name of Content"};
     this.logger.debug("adding new content", newContent);
     this.selectedContent = newContent;
     this.contentTextItems.push(newContent);

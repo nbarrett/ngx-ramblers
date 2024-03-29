@@ -1,8 +1,8 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable, Type } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { MailchimpGenericOtherContent } from "../../models/mailchimp.model";
 import { Member } from "../../models/member.model";
-import { WalkCampaignConfiguration } from "../../models/walk-campaign-configuration.model";
+import { WalkMailMessageConfiguration } from "../../models/walk-campaign-configuration.model";
 import { WalkEventNotificationMapping, WalkEventType } from "../../models/walk-event-type.model";
 import { WalkNotification } from "../../models/walk-notification.model";
 import { DisplayedWalk, EventType } from "../../models/walk.model";
@@ -42,61 +42,70 @@ import {
 import {
   WalkNotificationLeaderUpdatedComponent
 } from "../../notifications/walks/templates/leader/walk-notification-leader-updated.component";
-import {
-  WalkNotificationComponentAndData,
-  WalkNotificationDirective
-} from "../../notifications/walks/walk-notification.directive";
 import { WalkDisplayService } from "../../pages/walks/walk-display.service";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
 import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { MailchimpConfigService } from "../mailchimp-config.service";
-import { MailchimpCampaignService } from "../mailchimp/mailchimp-campaign.service";
-import { MailchimpSegmentService } from "../mailchimp/mailchimp-segment.service";
 import { MemberService } from "../member/member.service";
 import { AlertInstance } from "../notifier.service";
 import { RamblersWalksAndEventsService } from "./ramblers-walks-and-events.service";
 import { WalkEventService } from "./walk-event.service";
 import { WalksReferenceService } from "./walks-reference-data.service";
 import { WalksService } from "./walks.service";
+import { NotificationComponent } from "../../notifications/common/notification.component";
+import { NotificationDirective } from "../../notifications/common/notification.directive";
+import { MailMessagingService } from "../mail/mail-messaging.service";
+import { MailMessagingConfig, NotificationConfig } from "../../models/mail.model";
+import { MailService } from "../mail/mail.service";
 
 @Injectable({
   providedIn: "root"
 })
 
 export class WalkNotificationService {
-  private logger: Logger;
+  private ramblersWalksAndEventsService: RamblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
+  private mailMessagingService: MailMessagingService = inject(MailMessagingService);
+  private mailService: MailService = inject(MailService);
+  protected memberService: MemberService = inject(MemberService);
+  private display: WalkDisplayService = inject(WalkDisplayService);
+  private walkEventService: WalkEventService = inject(WalkEventService);
+  private walksReferenceService: WalksReferenceService = inject(WalksReferenceService);
+  private walksService: WalksService = inject(WalksService);
+  private fullNameWithAliasPipe: FullNameWithAliasPipe = inject(FullNameWithAliasPipe);
+  private displayDatePipe: DisplayDatePipe = inject(DisplayDatePipe);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkNotificationService", NgxLoggerLevel.OFF);
+  private mailMessagingConfig: MailMessagingConfig;
 
-  constructor(
-    private mailchimpSegmentService: MailchimpSegmentService,
-    private mailchimpCampaignService: MailchimpCampaignService,
-    private ramblersWalksAndEventsService: RamblersWalksAndEventsService,
-    private mailchimpConfig: MailchimpConfigService,
-    protected memberService: MemberService,
-    private display: WalkDisplayService,
-    private walkEventService: WalkEventService,
-    private walksReferenceService: WalksReferenceService,
-    private walksService: WalksService,
-    private fullNameWithAliasPipe: FullNameWithAliasPipe,
-    private displayDatePipe: DisplayDatePipe,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkNotificationService, NgxLoggerLevel.ERROR);
+  constructor() {
+    this.mailMessagingService.events().subscribe(mailMessagingConfig => {
+      this.mailMessagingConfig = mailMessagingConfig;
+    });
   }
 
-  public async createEventAndSendNotifications(notify: AlertInstance, members: Member[], notificationDirective: WalkNotificationDirective,
+  public async createEventAndSendNotifications(notify: AlertInstance, members: Member[], notificationDirective: NotificationDirective,
                                                displayedWalk: DisplayedWalk, sendNotification: boolean, reason?: string): Promise<boolean> {
     notify.setBusy();
     const event = this.walkEventService.createEventIfRequired(displayedWalk.walk, displayedWalk.status, reason);
     if (event && sendNotification) {
-      const walkEventType = this.walksReferenceService.toWalkEventType(event.eventType);
-      this.logger.debug("walkEventType", walkEventType, "from event:", event);
-      this.walkEventService.writeEventIfRequired(displayedWalk.walk, event);
-      displayedWalk.walk = await this.walksService.createOrUpdate(displayedWalk.walk);
-      this.display.refreshDisplayedWalk(displayedWalk);
-      await this.sendNotificationsToAllRoles(members, notificationDirective, displayedWalk, walkEventType, notify);
-      return true;
+      const notificationConfig = this.mailMessagingConfig.notificationConfigs.find(item => item.id === this.mailMessagingConfig.mailConfig.walkNotificationConfigId);
+      if (notificationConfig) {
+        const walkEventType = this.walksReferenceService.toWalkEventType(event.eventType);
+        this.logger.info("walkEventType", walkEventType, "from event:", event);
+        this.walkEventService.writeEventIfRequired(displayedWalk.walk, event);
+        displayedWalk.walk = await this.walksService.createOrUpdate(displayedWalk.walk);
+        this.display.refreshDisplayedWalk(displayedWalk);
+        await this.sendNotificationsToAllRoles(notificationConfig, members, notificationDirective, displayedWalk, walkEventType, notify);
+        return true;
+      } else {
+        notify.error({
+          title: "Notification Error",
+          message: "Unable to send notifications as the notification configuration is missing",
+          continue: true
+        });
+        return false;
+      }
     } else {
-      this.logger.debug("Not sending notification sendNotification:", sendNotification, "event:", event);
+      this.logger.info("Not sending notification sendNotification:", sendNotification, "event:", event);
       await Promise.resolve(this.walkEventService.writeEventIfRequired(displayedWalk.walk, event));
       return false;
     }
@@ -142,130 +151,106 @@ export class WalkNotificationService {
       validationMessages: this.ramblersWalksAndEventsService.validateWalk(displayedWalk.walk).validationMessages,
       reason
     };
-    this.logger.debug("toWalkNotification ->", data);
+    this.logger.info("toWalkNotification ->", data);
     return data;
   }
 
-  public generateNotificationHTML(walkNotification: WalkNotification, notificationDirective: WalkNotificationDirective, component): string {
-    const componentAndData = new WalkNotificationComponentAndData(component, walkNotification);
+  public generateNotificationHTML(walkNotification: WalkNotification, notificationDirective: NotificationDirective, component: Type<WalkNotificationDetailsComponent>): string {
+    const componentAndData = new NotificationComponent<WalkNotificationDetailsComponent>(component);
     const viewContainerRef = notificationDirective.viewContainerRef;
     viewContainerRef.clear();
     const componentRef = viewContainerRef.createComponent(componentAndData.component);
-    componentRef.instance.data = componentAndData.data;
+    componentRef.instance.data = walkNotification;
     componentRef.changeDetectorRef.detectChanges();
     const html = componentRef.location.nativeElement.innerHTML;
-    this.logger.debug("notification html ->", html);
+    this.logger.info("notification html ->", html);
     return html;
   }
 
-  private async sendNotificationsToAllRoles(members: Member[], notificationDirective: WalkNotificationDirective, displayedWalk: DisplayedWalk, walkEventType: WalkEventType, notify: AlertInstance): Promise<void> {
+  private async sendNotificationsToAllRoles(notificationConfig: NotificationConfig, members: Member[], notificationDirective: NotificationDirective, displayedWalk: DisplayedWalk, walkEventType: WalkEventType, notify: AlertInstance): Promise<void> {
     const walkNotification: WalkNotification = this.toWalkNotification(displayedWalk, members);
     const member = await this.memberService.getById(displayedWalk.walk.walkLeaderMemberId);
-    this.logger.debug("sendNotification:", "memberId", displayedWalk.walk.walkLeaderMemberId, "member", member);
+    this.logger.info("sendNotification:", "memberId", displayedWalk.walk.walkLeaderMemberId, "member", member);
     const walkLeaderName = this.fullNameWithAliasPipe.transform(member);
     const walkDate = this.displayDatePipe.transform(displayedWalk.walk.walkDate);
-    await this.sendLeaderNotifications(notify, member, members, notificationDirective, walkNotification, walkEventType, walkLeaderName, walkDate);
-    return await this.sendCoordinatorNotifications(notify, member, members, notificationDirective, walkNotification, walkEventType, walkLeaderName, walkDate);
+    await this.sendLeaderNotifications(notificationConfig, notify, member, members, notificationDirective, walkNotification, walkEventType, walkDate);
+    return await this.sendCoordinatorNotifications(notificationConfig, notify, member, members, notificationDirective, walkNotification, walkEventType, walkLeaderName, walkDate);
   }
 
-  private sendLeaderNotifications(notify: AlertInstance, member: Member, members: Member[], notificationDirective: WalkNotificationDirective,
-                                  walkNotification: WalkNotification, walkEventType: WalkEventType, walkLeaderName: string, walkDate: string): Promise<any> {
+  private sendLeaderNotifications(notificationConfig: NotificationConfig, notify: AlertInstance, member: Member, members: Member[],
+                                  notificationDirective: NotificationDirective, walkNotification: WalkNotification, walkEventType: WalkEventType, walkDate: string): Promise<any> {
     if (walkEventType.notifyLeader) {
-      const leaderHTML = this.generateNotificationHTML(walkNotification, notificationDirective, this.walkEventNotificationMappingsFor(walkEventType.eventType).notifyLeader as WalkNotificationDetailsComponent);
-      return this.sendNotificationsTo(notify, member, members, walkEventType, {
+      const leaderHTML = this.generateNotificationHTML(walkNotification, notificationDirective, this.walkEventNotificationMappingsFor(walkEventType.eventType).notifyLeader);
+      return this.sendNotificationsTo(notificationDirective, notify, member, members, walkEventType, {
+        notificationConfig,
         memberIds: [walkNotification.walk.walkLeaderMemberId],
         notificationText: leaderHTML,
-        segmentType: "walkLeader",
-        segmentName: this.mailchimpSegmentService.formatSegmentName("Walk leader notifications for " + walkLeaderName),
         emailSubject: "Your walk on " + walkDate,
         destination: "walk leader"
       });
     }
-    this.logger.debug("not sending leader notification");
+    this.logger.info("not sending leader notification");
   }
 
-  private sendCoordinatorNotifications(notify: AlertInstance, member: Member, members: Member[], notificationDirective: WalkNotificationDirective,
-                                       displayedWalk: WalkNotification, walkEventType: WalkEventType, walkLeaderName: string, walkDate: string): Promise<any> {
+  private sendCoordinatorNotifications(notificationConfig: NotificationConfig, notify: AlertInstance, member: Member, members: Member[],
+                                       notificationDirective: NotificationDirective, displayedWalk: WalkNotification, walkEventType: WalkEventType, walkLeaderName: string, walkDate: string): Promise<any> {
     if (walkEventType.notifyCoordinator) {
-      const coordinatorHTML = this.generateNotificationHTML(displayedWalk, notificationDirective, this.walkEventNotificationMappingsFor(walkEventType.eventType).notifyCoordinator as WalkNotificationDetailsComponent);
+      const coordinatorHTML = this.generateNotificationHTML(displayedWalk, notificationDirective, this.walkEventNotificationMappingsFor(walkEventType.eventType).notifyCoordinator);
       const memberIds = this.memberService.allMemberIdsWithPrivilege("walkChangeNotifications", members);
       if (memberIds.length > 0) {
-        return this.sendNotificationsTo(notify, member, members, walkEventType, {
+        return this.sendNotificationsTo(notificationDirective, notify, member, members, walkEventType, {
+          notificationConfig,
           memberIds,
           notificationText: coordinatorHTML,
-          segmentType: "walkCoordinator",
-          segmentName: this.mailchimpSegmentService.formatSegmentName("Walk co-ordinator notifications for " + walkLeaderName),
           emailSubject: walkLeaderName + "'s walk on " + walkDate,
           destination: "walk co-ordinators"
         });
       } else {
-        this.logger.debug("not sending coordinator notifications as none are configured with walkChangeNotifications");
+        this.logger.info("not sending coordinator notifications as none are configured with walkChangeNotifications");
       }
     } else {
-      this.logger.debug("not sending coordinator notifications as event type is", walkEventType.eventType);
+      this.logger.info("not sending coordinator notifications as event type is", walkEventType.eventType);
     }
   }
 
-  private sendNotificationsTo(notify: AlertInstance, member: Member, members: Member[], walkEventType: WalkEventType, walkCampaignConfiguration: WalkCampaignConfiguration) {
-    if (walkCampaignConfiguration.memberIds.length === 0) {
-      return Promise.reject("No members have been configured as " + walkCampaignConfiguration.destination
+  private sendNotificationsTo(notificationDirective: NotificationDirective, notify: AlertInstance, member: Member, members: Member[], walkEventType: WalkEventType, walkMailMessageConfiguration: WalkMailMessageConfiguration) {
+    if (walkMailMessageConfiguration.memberIds.length === 0) {
+      return Promise.reject("No members have been configured as " + walkMailMessageConfiguration.destination
         + " therefore notifications cannot be sent");
     }
-    this.logger.debug("sendNotificationsTo:", walkCampaignConfiguration);
-    const campaignName = walkCampaignConfiguration.emailSubject + " (" + walkEventType.description + ")";
-    const segmentName = walkCampaignConfiguration.segmentName;
+    this.logger.info("sendNotificationsTo:", walkMailMessageConfiguration);
+    const qualifiedSubject = walkMailMessageConfiguration.emailSubject + " (" + walkEventType.description + ")";
     const contentSections: MailchimpGenericOtherContent = {
       sections: {
-        notification_text: walkCampaignConfiguration.notificationText
+        notification_text: walkMailMessageConfiguration.notificationText
       }
     };
 
-    this.logger.debug("contentSections -> ", contentSections);
-    return this.createOrSaveMailchimpSegment(member, members, walkCampaignConfiguration, segmentName)
-      .then((segmentResponse) => this.saveSegmentDataToMember(segmentResponse, member, walkCampaignConfiguration))
-      .then(() => this.sendEmailCampaign(notify, member, campaignName, contentSections, walkCampaignConfiguration))
-      .then(() => this.notifyEmailSendComplete(notify, campaignName));
+    return this.sendEmailMessage(notificationDirective, notify, member, qualifiedSubject, walkMailMessageConfiguration)
+      .then(() => this.notifyEmailSendComplete(notify, qualifiedSubject));
   }
 
-  private createOrSaveMailchimpSegment(member, members, walkCampaignConfiguration: WalkCampaignConfiguration, segmentName) {
-    return this.mailchimpSegmentService.saveSegment("walks", {
-      segmentId:
-        this.mailchimpSegmentService.getMemberSegmentId(member, walkCampaignConfiguration.segmentType)
-    }, walkCampaignConfiguration.memberIds, segmentName, members);
-  }
-
-  private saveSegmentDataToMember(segmentResponse, member: Member, walkCampaignConfiguration: WalkCampaignConfiguration) {
-    this.mailchimpSegmentService.setMemberSegmentId(member, walkCampaignConfiguration.segmentType, segmentResponse.segment.id);
-    this.memberService.update(member);
-  }
-
-  private sendEmailCampaign(notify: AlertInstance, member: Member, campaignName: string, contentSections: MailchimpGenericOtherContent, walkCampaignConfiguration: WalkCampaignConfiguration) {
+  private sendEmailMessage(notificationDirective: NotificationDirective, notify: AlertInstance, member: Member, qualifiedSubject: string, walkMailMessageConfiguration: WalkMailMessageConfiguration): Promise<void> {
     notify.progress({
-      title: "Sending Notifications", message: "Sending " + campaignName
+      title: "Sending Notifications", message: "Sending " + qualifiedSubject
     });
-    return this.mailchimpConfig.getConfig()
-      .then((config) => {
-        const campaignId = config.campaigns.walkNotification.campaignId;
-        const segmentId = this.mailchimpSegmentService.getMemberSegmentId(member, walkCampaignConfiguration.segmentType);
-        this.logger.debug("about to send campaign", campaignName, "campaign Id", campaignId, "segmentId", segmentId);
-        return this.mailchimpCampaignService.replicateAndSendWithOptions({
-          campaignId,
-          campaignName,
-          contentSections,
-          segmentId
-        });
-      })
-      .then(() => {
+    return this.mailService.sendTransactionalMessage(this.mailMessagingService.createEmailRequest({
+      member,
+      notificationConfig: walkMailMessageConfiguration.notificationConfig,
+      notificationDirective,
+      bodyContent: walkMailMessageConfiguration.notificationText,
+      emailSubject: qualifiedSubject
+    })).then(() => {
         notify.progress({
-          title: "Sending Notifications", message: "Sending of " + campaignName + " was successful"
+          title: "Sending Notifications", message: "Sending of " + qualifiedSubject + " was successful"
         }, true);
       });
   }
 
-  private notifyEmailSendComplete(notify: AlertInstance, campaignName: string) {
+  private notifyEmailSendComplete(notify: AlertInstance, qualifiedSubject: string) {
     notify.success({
       title: "Sending Notifications",
-      message: "Sending of " + campaignName + " was successful. Check your inbox for details."
+      message: "Sending of " + qualifiedSubject + " was successful. Check your inbox for details."
     });
     return true;
   }

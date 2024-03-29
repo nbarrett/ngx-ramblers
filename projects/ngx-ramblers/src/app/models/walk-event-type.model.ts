@@ -1,4 +1,8 @@
 import { EventType } from "./walk.model";
+import { Type } from "@angular/core";
+import {
+  WalkNotificationDetailsComponent
+} from "../notifications/walks/templates/common/walk-notification-details.component";
 
 export interface WalkEventType {
   eventType: EventType;
@@ -14,6 +18,6 @@ export interface WalkEventType {
 
 export interface WalkEventNotificationMapping {
   eventType: EventType;
-  notifyLeader?: object;
-  notifyCoordinator?: object;
+  notifyLeader?: Type<WalkNotificationDetailsComponent>;
+  notifyCoordinator?: Type<WalkNotificationDetailsComponent>;
 }

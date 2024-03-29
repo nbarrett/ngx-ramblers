@@ -78,6 +78,9 @@ import { SwitchIconComponent } from "../../pages/admin/system-settings/committee
 import {
   ForgotPasswordNotificationDetailsComponent
 } from "../../notifications/admin/templates/forgot-password-notification-details";
+import {
+  NotificationConfigToProcessMappingComponent
+} from "../../pages/admin/system-settings/mail/notification-config-to-process-mappings";
 
 @NgModule({
   declarations: [
@@ -110,6 +113,7 @@ import {
     ImageCollectionSettingsComponent,
     MailNotificationTemplateMappingComponent,
     MailSettingsComponent,
+    NotificationConfigToProcessMappingComponent,
     MailchimpCampaignDefaultsComponent,
     MailchimpContactComponent,
     MailchimpListSettingsComponent,
@@ -120,7 +124,6 @@ import {
     MemberAdminModalComponent,
     MemberBulkLoadComponent,
     MemberLoginAuditComponent,
-    NotificationDirective,
     ResetPasswordModalComponent,
     SendEmailsModalComponent,
     SwitchIconComponent,

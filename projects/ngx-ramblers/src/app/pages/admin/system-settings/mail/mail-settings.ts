@@ -19,16 +19,27 @@ import { MailService } from "../../../../services/mail/mail.service";
       <div class="row">
         <div class="col-sm-12">
           <tabset class="custom-tabset" *ngIf="mailMessagingConfig?.mailConfig">
-            <tab [heading]="'Email Configurations'">
+            <tab heading="Email Configurations">
               <div class="img-thumbnail thumbnail-admin-edit">
                 <app-mail-notification-template-mapping-editor [notificationConfig]="notificationConfig"
                                                                (configDeleted)="deletedConfigs.push($event)"/>
+              </div>
+            </tab>
+            <tab heading="Built-in Process Mappings">
+              <div class="img-thumbnail thumbnail-admin-edit">
+                <app-notification-config-to-process-mapping/>
               </div>
             </tab>
             <tab heading="Mail API Settings">
               <div class="img-thumbnail thumbnail-admin-edit">
                 <div class="img-thumbnail thumbnail-2">
                   <div class="thumbnail-heading">Global Settings</div>
+                  <div class="row">
+                    <div class="col-sm-12 mt-2 mb-2">
+                      <app-markdown-editor category="admin" name="mail-settings-global-help"
+                                           description="Mail Settings Global Configuration Help"></app-markdown-editor>
+                    </div>
+                  </div>
                   <div class="col-sm-12">
                     <div class="custom-control custom-checkbox">
                       <input [(ngModel)]="mailMessagingConfig.mailConfig.allowSendTransactional"
@@ -62,6 +73,12 @@ import { MailService } from "../../../../services/mail/mail.service";
                 </div>
                 <div *ngIf=account class="img-thumbnail thumbnail-2">
                   <div class="thumbnail-heading">Account Settings</div>
+                  <div class="row">
+                    <div class="col-sm-12 mt-2 mb-2">
+                      <app-markdown-editor category="admin" name="mail-settings-account-help"
+                                           description="Mail Settings Account Help"></app-markdown-editor>
+                    </div>
+                  </div>
                   <div class="col-sm-12">
                     <div class="form-group">
                       <label for="email">Email</label>

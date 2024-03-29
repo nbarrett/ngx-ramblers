@@ -43,6 +43,13 @@ import first from "lodash-es/first";
           </select>
         </div>
       </div>
+      <div class="row">
+        <div class="col-sm-12 mt-2 mb-2">
+          <app-markdown-editor category="admin" name="mail-settings-email-configurations-help"
+                               description="Mail Settings Email Configuration Help"
+                               text="* Once Brevo has been initialised and connected to your website, little if anything ever needs to be done on this tab again.\n* In this section, are settings such as the URL to the Brevo system, that you might have to visit if you want to edit email templates, along with configuration checkboxes that turn on/off the ability to send emails, and the API key which is used by the website to authenticate to Brevo when messages are sent and received."></app-markdown-editor>
+        </div>
+      </div>
       <div class="col-sm-12">
         <div class="row">
           <div class="col pr-1">
@@ -52,11 +59,6 @@ import first from "lodash-es/first";
           <div class="col pr-1">
             <app-badge-button fullWidth [icon]="faForward" caption="Next" (click)="nextConfig()"
                               [disabled]="nextConfigDisabled()"/>
-          </div>
-          <div class="col pr-1">
-            <app-badge-button fullWidth [icon]="faMailBulk" [disabled]="!notificationConfig?.id"
-                              [active]="notificationConfig?.id === mailMessagingConfig?.mailConfig?.forgotPasswordNotificationConfigId"
-                              caption="Used In Forgot Password Workflow" (click)="makeThisTheForgotPasswordConfig()"/>
           </div>
           <div class="col pr-1">
             <app-badge-button fullWidth="true" [icon]="faCopy" caption="Duplicate" (click)="duplicateConfig()"/>
@@ -123,7 +125,7 @@ import first from "lodash-es/first";
             </div>
             <div *ngIf="notificationConfig?.bannerId" class="col-sm-12 mb-2">
               <img class="card-img"
-                   [src]="mailMessagingService.bannerImageSource(notificationConfig)">
+                   [src]="mailMessagingService.bannerImageSource(notificationConfig, false)">
             </div>
           </ng-container>
           <div class="col-sm-12">
@@ -360,10 +362,6 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
     clone.subject.text = `Copy of ${clone.subject.text}`;
     this.addToNotificationConfigs(clone);
     this.notificationConfig = clone;
-  }
-
-  makeThisTheForgotPasswordConfig() {
-    this.mailMessagingConfig.mailConfig.forgotPasswordNotificationConfigId = this.notificationConfig.id;
   }
 
   private addToNotificationConfigs(notificationConfig: NotificationConfig) {

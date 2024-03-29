@@ -21,7 +21,7 @@ import { WalkDisplayService } from "../walk-display.service";
       <h1>
         <fa-icon [icon]="displayedWalk.showEndpoint? faPersonWalkingDashedLineArrowRight: faPersonWalkingArrowLoopLeft"
                  class="fa-icon mr-2"></fa-icon>
-        {{ displayedWalk.walk.walkType }} Walk Details
+        {{ displayedWalk.walk.walkType }} Walk Starting Point & Details
       </h1>
       <ng-container *ngIf="!display.shouldShowFullDetails(displayedWalk)">
         <div class="col-sm-12">

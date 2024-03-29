@@ -4,6 +4,7 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailConfigService } from "./mail-config.service";
 import { Member } from "../../models/member.model";
 import {
+  CreateSendSmtpEmailRequest,
   DEFAULT_MAIL_MESSAGING_CONFIG,
   EmailAddress,
   MailMessagingConfig,
@@ -44,6 +45,7 @@ import { MailService } from "./mail.service";
   providedIn: "root"
 })
 export class MailMessagingService {
+
   private subject = new ReplaySubject<MailMessagingConfig>();
   private mailMessagingConfig: MailMessagingConfig = DEFAULT_MAIL_MESSAGING_CONFIG();
   private broadcastService: BroadcastService<any> = inject(BroadcastService);
@@ -71,7 +73,7 @@ export class MailMessagingService {
         message: "Getting Mail Settings"
       }, type: AlertLevel.ALERT_SUCCESS
     }));
-    this.logger.info("initialising data:");
+    this.logger.off("initialising data:");
     this.committeeConfig.events().subscribe(data => {
       this.mailMessagingConfig.committeeReferenceData = data;
       this.optionallyEmit();
@@ -81,7 +83,7 @@ export class MailMessagingService {
       this.optionallyEmit();
     });
     this.mailConfigService.getConfig().then(config => {
-      this.logger.info("config:", config);
+      this.logger.off("config:", config);
       this.mailMessagingConfig.mailConfig = config;
       if (!config.allowSendTransactional) {
         this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
@@ -94,12 +96,12 @@ export class MailMessagingService {
       this.optionallyEmit();
     });
     this.bannerConfigService.all().then((banners) => {
-      this.logger.info("retrieved banners:", banners);
+      this.logger.off("retrieved banners:", banners);
       this.mailMessagingConfig.banners = banners.filter(item => item.fileNameData).sort(sortBy("name"));
       this.optionallyEmit();
     });
     this.notificationConfigService.all().then((notificationConfigs) => {
-      this.logger.info("retrieved notificationConfigs:", notificationConfigs);
+      this.logger.off("retrieved notificationConfigs:", notificationConfigs);
       this.mailMessagingConfig.notificationConfigs = notificationConfigs.sort(sortBy("subject.text"));
       this.optionallyEmit();
     });
@@ -109,7 +111,7 @@ export class MailMessagingService {
   private optionallyEmit() {
     if (this.mailMessagingConfig.committeeReferenceData && this.mailMessagingConfig.group && this.mailMessagingConfig.mailConfig && this.mailMessagingConfig.banners && this.mailMessagingConfig.notificationConfigs) {
       this.migrateTemplateMappings();
-      this.logger.info("emitting mailMessagingConfig:", this.mailMessagingConfig);
+      this.logger.off("emitting mailMessagingConfig:", this.mailMessagingConfig);
       this.subject.next(this.mailMessagingConfig);
     } else {
     }
@@ -118,7 +120,7 @@ export class MailMessagingService {
   private migrateTemplateMappings() {
     const processToTemplateMappings: ProcessToTemplateMappings = this.mailMessagingConfig.mailConfig["templateMappings"] as ProcessToTemplateMappings;
     const migratedNotificationConfigs: NotificationConfig[] = notificationMappings(processToTemplateMappings);
-    this.logger.info("templateMappings:", processToTemplateMappings, "migratedNotificationConfigs:", migratedNotificationConfigs);
+    this.logger.off("templateMappings:", processToTemplateMappings, "migratedNotificationConfigs:", migratedNotificationConfigs);
     if (this.mailMessagingConfig.notificationConfigs.length === 0 && processToTemplateMappings) {
       this.mailMessagingConfig.notificationConfigs = migratedNotificationConfigs;
       this.mailMessagingConfig.mailConfig["templateMappings"] = null;
@@ -135,7 +137,7 @@ export class MailMessagingService {
   private refreshTemplates() {
     this.mailService.queryTemplates().then((mailTemplates: MailTemplates) => {
       this.mailMessagingConfig.mailTemplates = mailTemplates;
-      this.logger.info("refreshTemplates response:", mailTemplates);
+      this.logger.off("refreshTemplates response:", mailTemplates);
       this.optionallyEmit();
       this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
         message: {
@@ -163,11 +165,12 @@ export class MailMessagingService {
     const prefix = subject?.prefixParameter ? keyValues.find(item => item.key === subject?.prefixParameter)?.value : null;
     const suffix = subject?.suffixParameter ? keyValues.find(item => item.key === subject?.suffixParameter)?.value : null;
     const returnedSubject = [prefix, subject?.text, suffix].filter(item => item).join(" - ");
-    this.logger.info("keyValues ->", keyValues, "subject ->", subject, "returnedSubject:", returnedSubject);
+    this.logger.off("keyValues ->", keyValues, "subject ->", subject, "returnedSubject:", returnedSubject);
     return returnedSubject;
   }
 
-  createEmailRequest(member: Member, notificationConfig: NotificationConfig, notificationDirective: NotificationDirective): SendSmtpEmailRequest {
+  createEmailRequest(createSendSmtpEmailRequest: CreateSendSmtpEmailRequest): SendSmtpEmailRequest {
+    const {member, notificationConfig, notificationDirective, bodyContent} = createSendSmtpEmailRequest;
     const fullName = this.fullNamePipe.transform(member);
     const emailRequest: SendSmtpEmailRequest = {
       subject: null,
@@ -179,17 +182,18 @@ export class MailMessagingService {
         messageMergeFields: {
           subject: null,
           SIGNOFF_NAMES: this.signoffNames(notificationConfig, notificationDirective),
-          BANNER_IMAGE_SOURCE: this.bannerImageSource(notificationConfig)
+          BANNER_IMAGE_SOURCE: this.bannerImageSource(notificationConfig, true),
+          BODY_CONTENT: bodyContent,
         },
         memberMergeFields: this.toMemberMergeVariables(member),
         systemMergeFields: this.toSystemMergeFields(member),
       },
       templateId: notificationConfig.templateId,
     };
-    const subject = this.toSubject(notificationConfig.subject, emailRequest);
+    const subject = createSendSmtpEmailRequest.emailSubject || this.toSubject(notificationConfig.subject, emailRequest);
     emailRequest.subject = subject;
     emailRequest.params.messageMergeFields.subject = subject;
-    this.logger.info("createEmailRequest ->", emailRequest);
+    this.logger.off("createEmailRequest ->", emailRequest);
     return emailRequest;
   }
 
@@ -203,10 +207,10 @@ export class MailMessagingService {
       componentRef.instance.format = "list";
       componentRef.changeDetectorRef.detectChanges();
       const html = componentRef.location.nativeElement.innerHTML;
-      this.logger.info("signoffNames ->", html);
+      this.logger.off("signoffNames ->", html);
       return html;
     } else {
-      this.logger.info("signoffNames -> null due to null notificationDirective");
+      this.logger.off("signoffNames -> null due to null notificationDirective");
     }
   }
 
@@ -249,15 +253,15 @@ export class MailMessagingService {
     };
   }
 
-  bannerImageSource(notificationConfig: NotificationConfig) {
+  bannerImageSource(notificationConfig: NotificationConfig, absolute: boolean) {
     const selectedBanner = this.mailMessagingConfig?.banners?.find(item => item.id === notificationConfig?.bannerId);
-    const bannerSource = this.urlService.imageSource(`${selectedBanner?.fileNameData.rootFolder}/${selectedBanner?.fileNameData.awsFileName}`, true);
-    this.logger.off("notificationConfig.bannerId:", notificationConfig?.bannerId, "bannerSource:", bannerSource);
+    const bannerSource = this.urlService.imageSource(`${selectedBanner?.fileNameData.rootFolder}/${selectedBanner?.fileNameData.awsFileName}`, absolute);
+    this.logger.info("notificationConfig.bannerId:", notificationConfig?.bannerId, "bannerSource:", bannerSource);
     return bannerSource;
   }
 
   saveConfig(mailMessagingConfig: MailMessagingConfig, deletedConfigIds: string[]): Promise<any> {
-    this.logger.info("saveConfig.mailMessagingConfig:", mailMessagingConfig, "deletedConfigIds:", deletedConfigIds);
+    this.logger.off("saveConfig.mailMessagingConfig:", mailMessagingConfig, "deletedConfigIds:", deletedConfigIds);
     return Promise.all([this.mailConfigService.saveConfig(mailMessagingConfig.mailConfig), this.notificationConfigService.saveAndDelete(mailMessagingConfig.notificationConfigs, deletedConfigIds)]);
   }
 
