@@ -161,13 +161,13 @@ export class MemberService {
     return members.find(member => this.extractMemberId(member) === memberId);
   }
 
-  allMemberMembersWithPrivilege(privilege, members: Member[]) {
+  allMemberMembersWithPrivilege(privilege: keyof Member, members: Member[]): Member[] {
     const filteredMembers = members.filter(member => member.groupMember && member[privilege]);
     this.logger.debug("allMemberMembersWithPrivilege:privilege", privilege, "filtered from", members.length, "->", filteredMembers.length, "members ->", filteredMembers);
     return filteredMembers;
   }
 
-  allMemberIdsWithPrivilege(privilege, members: Member[]) {
+  allMemberIdsWithPrivilege(privilege: keyof Member, members: Member[]): string[] {
     return this.allMemberMembersWithPrivilege(privilege, members).map(member => member.id);
   }
 

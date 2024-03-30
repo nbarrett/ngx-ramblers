@@ -5,9 +5,9 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 @Component({
   selector: "app-svg",
   template: `
-    <svg [ngStyle]="{'height.px': height, 'width.px': width, 'path.fill':'rgb(155, 200, 171)'}"
+    <svg [ngStyle]="{'height.px': height, 'width.px': width}"
          xmlns="http://www.w3.org/2000/svg">
-      <use [attr.xlink:href]="href" [attr.fill]="this.colour"/>
+      <use [attr.xlink:href]="href" [attr.fill]="disabled ? 'rgb(153, 153, 153)' : colour"/>
     </svg>`
 })
 export class SvgComponent implements OnInit {

@@ -1,10 +1,8 @@
 import { inject, Injectable, Type } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { MailchimpGenericOtherContent } from "../../models/mailchimp.model";
 import { Member } from "../../models/member.model";
-import { WalkMailMessageConfiguration } from "../../models/walk-campaign-configuration.model";
 import { WalkEventNotificationMapping, WalkEventType } from "../../models/walk-event-type.model";
-import { WalkNotification } from "../../models/walk-notification.model";
+import { WalkMailMessageConfiguration, WalkNotification } from "../../models/walk-notification.model";
 import { DisplayedWalk, EventType } from "../../models/walk.model";
 import {
   WalkNotificationDetailsComponent
@@ -173,15 +171,19 @@ export class WalkNotificationService {
     this.logger.info("sendNotification:", "memberId", displayedWalk.walk.walkLeaderMemberId, "member", member);
     const walkLeaderName = this.fullNameWithAliasPipe.transform(member);
     const walkDate = this.displayDatePipe.transform(displayedWalk.walk.walkDate);
-    await this.sendLeaderNotifications(notificationConfig, notify, member, members, notificationDirective, walkNotification, walkEventType, walkDate);
+    await this.sendLeaderNotifications(notificationConfig, notify, member, notificationDirective, walkNotification, walkEventType, walkDate);
     return await this.sendCoordinatorNotifications(notificationConfig, notify, member, members, notificationDirective, walkNotification, walkEventType, walkLeaderName, walkDate);
   }
 
-  private sendLeaderNotifications(notificationConfig: NotificationConfig, notify: AlertInstance, member: Member, members: Member[],
+  private sendLeaderNotifications(notificationConfig: NotificationConfig, notify: AlertInstance, member: Member,
                                   notificationDirective: NotificationDirective, walkNotification: WalkNotification, walkEventType: WalkEventType, walkDate: string): Promise<any> {
     if (walkEventType.notifyLeader) {
       const leaderHTML = this.generateNotificationHTML(walkNotification, notificationDirective, this.walkEventNotificationMappingsFor(walkEventType.eventType).notifyLeader);
-      return this.sendNotificationsTo(notificationDirective, notify, member, members, walkEventType, {
+      return this.sendNotificationsTo({
+        notificationDirective,
+        notify,
+        member,
+        walkEventType,
         notificationConfig,
         memberIds: [walkNotification.walk.walkLeaderMemberId],
         notificationText: leaderHTML,
@@ -198,7 +200,11 @@ export class WalkNotificationService {
       const coordinatorHTML = this.generateNotificationHTML(displayedWalk, notificationDirective, this.walkEventNotificationMappingsFor(walkEventType.eventType).notifyCoordinator);
       const memberIds = this.memberService.allMemberIdsWithPrivilege("walkChangeNotifications", members);
       if (memberIds.length > 0) {
-        return this.sendNotificationsTo(notificationDirective, notify, member, members, walkEventType, {
+        return this.sendNotificationsTo({
+          notificationDirective,
+          notify,
+          member,
+          walkEventType,
           notificationConfig,
           memberIds,
           notificationText: coordinatorHTML,
@@ -213,19 +219,14 @@ export class WalkNotificationService {
     }
   }
 
-  private sendNotificationsTo(notificationDirective: NotificationDirective, notify: AlertInstance, member: Member, members: Member[], walkEventType: WalkEventType, walkMailMessageConfiguration: WalkMailMessageConfiguration) {
+  private sendNotificationsTo(walkMailMessageConfiguration: WalkMailMessageConfiguration) {
+    const {member, walkEventType, notify, notificationDirective} = walkMailMessageConfiguration;
     if (walkMailMessageConfiguration.memberIds.length === 0) {
       return Promise.reject("No members have been configured as " + walkMailMessageConfiguration.destination
         + " therefore notifications cannot be sent");
     }
     this.logger.info("sendNotificationsTo:", walkMailMessageConfiguration);
     const qualifiedSubject = walkMailMessageConfiguration.emailSubject + " (" + walkEventType.description + ")";
-    const contentSections: MailchimpGenericOtherContent = {
-      sections: {
-        notification_text: walkMailMessageConfiguration.notificationText
-      }
-    };
-
     return this.sendEmailMessage(notificationDirective, notify, member, qualifiedSubject, walkMailMessageConfiguration)
       .then(() => this.notifyEmailSendComplete(notify, qualifiedSubject));
   }
