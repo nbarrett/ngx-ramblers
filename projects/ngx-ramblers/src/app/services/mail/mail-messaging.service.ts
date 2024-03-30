@@ -170,7 +170,7 @@ export class MailMessagingService {
   }
 
   createEmailRequest(createSendSmtpEmailRequest: CreateSendSmtpEmailRequest): SendSmtpEmailRequest {
-    const {member, notificationConfig, notificationDirective, bodyContent} = createSendSmtpEmailRequest;
+    const {member, notificationConfig, notificationDirective, bodyContent}: CreateSendSmtpEmailRequest = createSendSmtpEmailRequest;
     const fullName = this.fullNamePipe.transform(member);
     const emailRequest: SendSmtpEmailRequest = {
       subject: null,
