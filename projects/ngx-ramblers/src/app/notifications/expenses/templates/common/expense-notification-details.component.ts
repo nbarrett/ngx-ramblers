@@ -7,10 +7,39 @@ import { ExpenseDisplayService } from "../../../../services/expenses/expense-dis
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { ExpenseClaim } from "../../expense.model";
+import { UrlService } from "../../../../services/url.service";
+import { StringUtilsService } from "../../../../services/string-utils.service";
 
 @Component({
   selector: "app-expense-notification-details",
-  templateUrl: "./expense-notification-details.component.html"
+  template: `
+    <table style="cellpadding:10; border:1px solid lightgrey;border-collapse:collapse;width: 100%;border-spacing: 5px;">
+      <thead>
+      <tr>
+        <th style="border:1px solid lightgrey; font-weight: bold; padding: 6px">Expense Date</th>
+        <th style="border:1px solid lightgrey; font-weight: bold; padding: 6px">Item Description</th>
+        <th style="border:1px solid lightgrey; font-weight: bold; padding: 6px; text-align:right">Cost</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr *ngFor="let expenseItem of expenseClaim.expenseItems">
+        <td style="border:1px solid lightgrey; padding: 6px" [textContent]="expenseItem.expenseDate | displayDate"></td>
+        <td style="border:1px solid lightgrey; padding: 6px">
+          <div [textContent]="display.prefixedExpenseItemDescription(expenseItem)"></div>
+          <div *ngIf="expenseItem.receipt"> receipt: <a target="_blank" [href]="display.receiptUrl(expenseItem)"
+                                                        [textContent]="display.receiptTitle(expenseItem)"></a></div>
+        </td>
+        <td style="border:1px solid lightgrey; padding: 6px;text-align:right"
+            [textContent]="expenseItem.cost | asMoney"></td>
+      </tr>
+      <tr>
+        <td colspan="2" style="border:1px solid lightgrey; font-weight: bold; padding: 6px"
+            [textContent]="expenseClaim.expenseItems.length + ' item(s)'"></td>
+        <td style="border:1px solid lightgrey; font-weight: bold; padding: 6px; text-align:right"
+            [textContent]="expenseClaim.cost | asMoney"></td>
+      </tr>
+      </tbody>
+    </table>`
 })
 export class ExpenseNotificationDetailsComponent implements OnInit, AfterViewInit, OnDestroy {
 
@@ -23,6 +52,8 @@ export class ExpenseNotificationDetailsComponent implements OnInit, AfterViewIni
 
   constructor(
     public display: ExpenseDisplayService,
+    public urlService: UrlService,
+    public stringUtilsService: StringUtilsService,
     private systemConfigService: SystemConfigService,
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger("ExpenseNotificationDetailsComponent", NgxLoggerLevel.OFF);

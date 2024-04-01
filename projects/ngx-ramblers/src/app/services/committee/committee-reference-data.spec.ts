@@ -20,6 +20,7 @@ const EXPECTED_NIC: CommitteeMember = {
 };
 
 const mockData: CommitteeConfig = {
+  expenses: undefined,
   contactUs: {
       chairman: {
         type: "chairman",

@@ -36,6 +36,19 @@ import { KEY_NULL_VALUE_NONE } from "../../../../services/enums";
           </select>
         </div>
       </div>
+      <div class="col-sm-12">
+        <div class="form-group">
+          <label for="process-mapping-walk-notification">Expense Notifications Use Email Configuration</label>
+          <select [(ngModel)]="mailMessagingConfig.mailConfig.expenseNotificationConfigId"
+                  id="process-mapping-walk-notification"
+                  class="form-control input-sm">
+            <option
+              *ngFor="let mapping of notificationConfigsPlusNone"
+              [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
+            </option>
+          </select>
+        </div>
+      </div>
     </div>
   `
 })

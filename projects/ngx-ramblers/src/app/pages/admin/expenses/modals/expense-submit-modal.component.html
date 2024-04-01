@@ -83,7 +83,7 @@
     <input type="submit" value="Confirm Submit" [disabled]="!supplyBankDetailsChoice || notifyTarget.busy"
            (click)="confirmSubmitExpenseClaim()"
            title="Confirm submission of this Expense Claim (you won't be able to make any more changes to it after this)"
-           [ngClass]="!supplyBankDetailsChoice || notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
+           [ngClass]="!notificationConfig ||!supplyBankDetailsChoice || notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
     <input type="submit" value="Cancel Submit" [disabled]="notifyTarget.busy"
            (click)="cancelSubmitExpenseClaim()"
            title="Cancel submission of this Expense Claim (maybe you want to make some final changes to it?)"

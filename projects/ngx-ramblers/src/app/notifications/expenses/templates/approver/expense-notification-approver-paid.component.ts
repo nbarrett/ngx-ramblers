@@ -3,7 +3,13 @@ import { ExpenseNotificationDetailsComponent } from "../common/expense-notificat
 
 @Component({
   selector: "app-expense-notification-approver-paid",
-  templateUrl: "./expense-notification-approver-paid.component.html"
+  template: `
+    <p>This email is to notify you as an Expense Approver, that <strong
+      [textContent]="display.expenseClaimLatestEvent(expenseClaim).memberId | memberIdToFullName : members"></strong>
+      has just paid <strong
+        [textContent]="(display.expenseClaimCreatedEvent(expenseClaim).memberId | memberIdToFullName : members) + '\\'s'"></strong>
+      {{ group?.shortName }} expense claim.</p>
+    <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`
 })
 export class ExpenseNotificationApproverPaidComponent extends ExpenseNotificationDetailsComponent {
 

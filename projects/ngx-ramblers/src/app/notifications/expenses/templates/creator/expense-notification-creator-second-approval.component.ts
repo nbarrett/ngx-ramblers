@@ -3,7 +3,21 @@ import { ExpenseNotificationDetailsComponent } from "../common/expense-notificat
 
 @Component({
   selector: "app-expense-notification-creator-second-approval",
-  templateUrl: "./expense-notification-creator-second-approval.component.html"
+  template: `
+    <p>This email is to notify you that <strong
+      [textContent]="display.expenseClaimLatestEvent(expenseClaim).memberId | memberIdToFullName : members"></strong>
+      has just updated the expense claim you created on created on <span
+        [textContent]="display.expenseClaimCreatedEvent(expenseClaim).date | displayDate" ></span>
+      to a status of <strong
+        [textContent]="display.expenseClaimLatestEvent(expenseClaim).eventType.description"></strong>.
+      For reference, the claim contains the following <span [textContent]="expenseClaim.expenseItems.length"></span>
+      item(s):
+    </p>
+    <app-expense-notification-details [expenseClaim]="expenseClaim"></app-expense-notification-details>
+    <p>Our Treasurer {{ display.committeeReferenceData.contactUsField("treasurer", "fullName") }} has also been
+      notified about this, so should now be able to process the payment, and you'll
+      hear from them next via email.</p>
+    <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`
 })
 export class ExpenseNotificationCreatorSecondApprovalComponent extends ExpenseNotificationDetailsComponent {
 
