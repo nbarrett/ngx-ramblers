@@ -1,23 +1,19 @@
-import { DOCUMENT } from "@angular/common";
 import { HttpErrorResponse } from "@angular/common/http";
-import { Component, Inject, OnDestroy, OnInit } from "@angular/core";
+import { Component, OnDestroy, OnInit } from "@angular/core";
 import first from "lodash-es/first";
-import { BsModalRef, BsModalService } from "ngx-bootstrap/modal";
+import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { AuthService } from "../../../../auth/auth.service";
 import { AlertTarget } from "../../../../models/alert-target.model";
 import { DateValue } from "../../../../models/date.model";
 import { Confirm, EditMode } from "../../../../models/ui-actions";
 import { ExpenseClaim, ExpenseItem, ExpenseType } from "../../../../notifications/expenses/expense.model";
 import { DateUtilsService } from "../../../../services/date-utils.service";
-import { ExpenseClaimService } from "../../../../services/expenses/expense-claim.service";
 import { ExpenseDisplayService } from "../../../../services/expenses/expense-display.service";
 import { FileUploadService } from "../../../../services/file-upload.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { NumberUtilsService } from "../../../../services/number-utils.service";
-import { StringUtilsService } from "../../../../services/string-utils.service";
 import { AwsFileUploadResponseData } from "../../../../models/aws-object.model";
 
 @Component({
@@ -27,25 +23,20 @@ import { AwsFileUploadResponseData } from "../../../../models/aws-object.model";
 })
 export class ExpenseDetailModalComponent implements OnInit, OnDestroy {
 
-  constructor(@Inject(DOCUMENT) private document: Document,
-              private fileUploadService: FileUploadService,
+  constructor(private fileUploadService: FileUploadService,
               public bsModalRef: BsModalRef,
-              private authService: AuthService,
               private notifierService: NotifierService,
-              private expenseClaimService: ExpenseClaimService,
-              private stringUtils: StringUtilsService,
-              private modalService: BsModalService,
               public display: ExpenseDisplayService,
               protected dateUtils: DateUtilsService,
               private numberUtils: NumberUtilsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ExpenseDetailModalComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("ExpenseDetailModalComponent", NgxLoggerLevel.OFF);
   }
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public expenseItem: ExpenseItem;
   public editable: boolean;
-  private logger: Logger;
+  private readonly logger: Logger;
   public expenseClaim: ExpenseClaim;
   public editMode: EditMode;
   public confirm = new Confirm();
@@ -65,12 +56,12 @@ export class ExpenseDetailModalComponent implements OnInit, OnDestroy {
       this.uploader.options.allowedMimeType = [];
     }
     this.editMode = this.expenseItemIndex === -1 ? EditMode.ADD_NEW : EditMode.EDIT;
-    this.logger.debug("constructed:editMode", this.editMode, "expenseItem:", this.expenseItem, "expenseClaim:", this.expenseClaim);
+    this.logger.info("constructed:editMode", this.editMode, "expenseItem:", this.expenseItem, "expenseClaim:", this.expenseClaim);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.uploader.response.subscribe((response: string | HttpErrorResponse) => {
         const awsFileUploadResponseData: AwsFileUploadResponseData = this.fileUploadService.handleSingleResponseDataItem(response, this.notify, this.logger);
         this.expenseItem.receipt = {
-          title: this.expenseItem.receipt.originalFileName,
+          title: awsFileUploadResponseData.fileNameData.originalFileName,
           awsFileName: awsFileUploadResponseData.fileNameData.awsFileName,
           originalFileName: awsFileUploadResponseData.uploadedFile.originalname
         };

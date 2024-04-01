@@ -1,7 +1,0 @@
-<div style="font-size:12px">
-    <p>This email is just to confirm that the {{group?.shortName}} expense claim you created on <span [textContent]="display.expenseClaimCreatedEvent(expenseClaim).date | displayDate" class="nowrap"></span> with the
-        <span [textContent]="expenseClaim.expenseItems.length"></span> item(s) listed below has been paid by <strong [textContent]="display.expenseClaimLatestEvent(expenseClaim).memberId | memberIdToFullName : members"></strong>:
-    </p>
-    <app-expense-notification-details [expenseClaim]="expenseClaim"></app-expense-notification-details>
-    <p>You should see funds arriving of your bank account within the next 3 days.</p>
-</div>

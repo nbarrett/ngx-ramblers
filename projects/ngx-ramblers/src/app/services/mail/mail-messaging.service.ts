@@ -4,6 +4,7 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailConfigService } from "./mail-config.service";
 import { Member } from "../../models/member.model";
 import {
+  BuiltInProcessMappings,
   CreateSendSmtpEmailRequest,
   DEFAULT_MAIL_MESSAGING_CONFIG,
   EmailAddress,
@@ -39,6 +40,7 @@ import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
 import { AlertLevel } from "../../models/alert-target.model";
 import { BroadcastService } from "../broadcast-service";
 import { MailService } from "./mail.service";
+import { AlertInstance } from "../notifier.service";
 
 
 @Injectable({
@@ -267,5 +269,17 @@ export class MailMessagingService {
 
   refresh() {
     this.initialise();
+  }
+
+  queryNotificationConfig(notify: AlertInstance, mailMessagingConfig: MailMessagingConfig, configKey: keyof BuiltInProcessMappings): NotificationConfig {
+    const notificationConfig = mailMessagingConfig?.notificationConfigs?.find(item => item.id === mailMessagingConfig.mailConfig[configKey]);
+    if (!notificationConfig) {
+      notify.error({
+        title: "Email Notification Configuration Error",
+        message: "Unable to send notifications as the Process Mapping for " + this.stringUtilsService.asTitle(configKey) + " has not been configured",
+      });
+    } else {
+      return notificationConfig;
+    }
   }
 }

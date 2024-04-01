@@ -4,6 +4,7 @@ import { Member } from "../../models/member.model";
 import { AlertInstance } from "../../services/notifier.service";
 import { NotificationDirective } from "../common/notification.directive";
 import { ExpenseNotificationDetailsComponent } from "./templates/common/expense-notification-details.component";
+import { NotificationConfig } from "../../models/mail.model";
 
 export interface ExpenseFilter {
   filter: (arg?: any) => boolean;
@@ -50,6 +51,7 @@ export interface ExpenseItem {
 
 export interface ExpenseNotificationRequest {
   expenseClaim: ExpenseClaim;
+  notificationConfig: NotificationConfig;
   notify: AlertInstance;
   members: Member[];
   eventType: ExpenseEventType;
@@ -58,12 +60,11 @@ export interface ExpenseNotificationRequest {
   member?: Member;
   memberIds?: string[];
   component?: Type<ExpenseNotificationDetailsComponent>;
-  segmentType?: string;
-  segmentNameSuffix?: string;
+  notificationType?: string;
+  notificationTypeSuffix?: string;
   memberFullName?: string;
-  campaignName?: string;
-  campaignNameAndMember?: string;
-  segmentName?: string;
+  qualifiedSubject?: string;
+  qualifiedSubjectAndMember?: string;
   destination?: string;
   reason?: string;
 }
@@ -93,7 +94,7 @@ export interface ExpenseClaimApiResponse extends ApiResponse {
 
 export interface ExpenseNotificationMapping {
   expenseEventType: ExpenseEventType;
-  notifyCreator?: any;
-  notifyApprover?: any;
-  notifyTreasurer?: any;
+  notifyCreator?: Type<ExpenseNotificationDetailsComponent>;
+  notifyApprover?: Type<ExpenseNotificationDetailsComponent>;
+  notifyTreasurer?: Type<ExpenseNotificationDetailsComponent>;
 }

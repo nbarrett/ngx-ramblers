@@ -1,7 +1,7 @@
-import { Component, OnInit } from "@angular/core";
+import { Component, OnDestroy, OnInit } from "@angular/core";
 import { faPaste } from "@fortawesome/free-solid-svg-icons";
 import omit from "lodash-es/omit";
-import { BsModalRef, BsModalService } from "ngx-bootstrap/modal";
+import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -14,10 +14,8 @@ import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe"
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { DbUtilsService } from "../../../services/db-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { MailchimpCampaignService } from "../../../services/mailchimp/mailchimp-campaign.service";
 import { MailchimpLinkService } from "../../../services/mailchimp/mailchimp-link.service";
 import { MailchimpListService } from "../../../services/mailchimp/mailchimp-list.service";
-import { MailchimpSegmentService } from "../../../services/mailchimp/mailchimp-segment.service";
 import { MemberAuthAuditService } from "../../../services/member/member-auth-audit.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberNamingService } from "../../../services/member/member-naming.service";
@@ -33,18 +31,15 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
   templateUrl: "./member-admin-modal.component.html",
   styleUrls: ["./member-admin-modal.component.sass"]
 })
-export class MemberAdminModalComponent implements OnInit {
+export class MemberAdminModalComponent implements OnInit, OnDestroy {
 
   constructor(public systemConfigService: SystemConfigService,
-              private mailchimpSegmentService: MailchimpSegmentService,
-              private mailchimpCampaignService: MailchimpCampaignService,
               private notifierService: NotifierService,
               private memberUpdateAuditService: MemberUpdateAuditService,
               private memberAuthAuditService: MemberAuthAuditService,
               private memberNamingService: MemberNamingService,
               private stringUtils: StringUtilsService,
               private memberService: MemberService,
-              private modalService: BsModalService,
               private mailchimpLinkService: MailchimpLinkService,
               private fullNameWithAliasPipe: FullNameWithAliasPipe,
               private memberLoginService: MemberLoginService,
@@ -67,7 +62,6 @@ export class MemberAdminModalComponent implements OnInit {
   public allowCopy: boolean;
   public allowConfirmDelete = false;
   public saveInProgress: boolean;
-  private duplicate: boolean;
   public member: Member;
   public editMode: EditMode;
   public members: Member[] = [];
@@ -105,6 +99,10 @@ export class MemberAdminModalComponent implements OnInit {
     } else {
       this.logger.debug("new member with default values", this.member);
     }
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   deleteMemberDetails() {
@@ -175,7 +173,6 @@ export class MemberAdminModalComponent implements OnInit {
       notifyMessage = `You've entered duplicate data: ${this.dbUtils.duplicateErrorFields(message)}.
        A member record must have a unique Email Address, Display Name, Ramblers Membership Number and combination of First Name,
         Last Name and Alias. Please amend the current details and try again.`;
-      this.duplicate = true;
     } else {
       notifyMessage = errorResponse;
     }

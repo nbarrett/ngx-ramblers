@@ -1,5 +1,4 @@
 import { Injectable } from "@angular/core";
-import { ActivatedRoute, Router } from "@angular/router";
 import cloneDeep from "lodash-es/clone";
 import find from "lodash-es/find";
 import isEmpty from "lodash-es/isEmpty";
@@ -56,7 +55,7 @@ export class ExpenseDisplayService {
   };
 
   private receiptBaseUrl: string;
-  private committeeReferenceData: CommitteeReferenceData;
+  public committeeReferenceData: CommitteeReferenceData;
 
   constructor(
     private contentMetadata: ContentMetadataService,
@@ -64,10 +63,8 @@ export class ExpenseDisplayService {
     private committeeConfigService: CommitteeConfigService,
     private memberLoginService: MemberLoginService,
     private expenseClaimService: ExpenseClaimService,
-    private router: Router,
     private urlService: UrlService,
     private numberUtils: NumberUtilsService,
-    private route: ActivatedRoute,
     private dateUtils: DateUtilsService,
     loggerFactory: LoggerFactory) {
     this.receiptBaseUrl = this.contentMetadata.baseUrl("expenseClaims");

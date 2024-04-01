@@ -4,7 +4,6 @@ import { faCaretDown, faCaretUp, faCashRegister } from "@fortawesome/free-solid-
 import cloneDeep from "lodash-es/cloneDeep";
 import extend from "lodash-es/extend";
 import filter from "lodash-es/filter";
-import find from "lodash-es/find";
 import first from "lodash-es/first";
 import isArray from "lodash-es/isArray";
 import isEmpty from "lodash-es/isEmpty";
@@ -20,32 +19,27 @@ import { ApiAction, ApiResponse } from "../../../models/api-response.model";
 import { Member } from "../../../models/member.model";
 import { Confirm, ConfirmType } from "../../../models/ui-actions";
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
-import { ExpenseClaim, ExpenseEvent, ExpenseFilter, ExpenseItem, ExpenseNotificationRequest } from "../../../notifications/expenses/expense.model";
-import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
-import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
-import { ContentMetadataService } from "../../../services/content-metadata.service";
-import { DateUtilsService } from "../../../services/date-utils.service";
+import {
+  ExpenseClaim,
+  ExpenseEvent,
+  ExpenseFilter,
+  ExpenseItem,
+  ExpenseNotificationRequest
+} from "../../../notifications/expenses/expense.model";
 import { ExpenseClaimService } from "../../../services/expenses/expense-claim.service";
 import { ExpenseDisplayService } from "../../../services/expenses/expense-display.service";
 import { ExpenseNotificationService } from "../../../services/expenses/expense-notification.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
-import { MailchimpCampaignService } from "../../../services/mailchimp/mailchimp-campaign.service";
-import { MailchimpListSubscriptionService } from "../../../services/mailchimp/mailchimp-list-subscription.service";
-import { MailchimpListUpdaterService } from "../../../services/mailchimp/mailchimp-list-updater.service";
-import { MailchimpListService } from "../../../services/mailchimp/mailchimp-list.service";
-import { MailchimpSegmentService } from "../../../services/mailchimp/mailchimp-segment.service";
-import { MemberBulkLoadService } from "../../../services/member/member-bulk-load.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
-import { NumberUtilsService } from "../../../services/number-utils.service";
-import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
 import { ExpenseDetailModalComponent } from "./modals/expense-detail-modal.component";
 import { ExpensePaidModalComponent } from "./modals/expense-paid-modal.component";
 import { ExpenseReturnModalComponent } from "./modals/expense-return-modal.component";
 import { ExpenseSubmitModalComponent } from "./modals/expense-submit-modal.component";
+import { NotificationConfig } from "../../../models/mail.model";
+import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 
 const SELECTED_EXPENSE = "Expense from last email link";
 
@@ -74,34 +68,22 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   private notifyConfirm: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public notifyConfirmTarget: AlertTarget = {};
-  private uploadedFile: string;
   public confirm = new Confirm();
   public filters: ExpenseFilter[];
   private subscriptions: Subscription[] = [];
+  private notificationConfig: NotificationConfig;
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   expandable: boolean;
   showOrHide = "hide";
 
   constructor(private authService: AuthService,
-              private contentMetadata: ContentMetadataService,
-              private dateUtils: DateUtilsService,
               private expenseClaimService: ExpenseClaimService,
-              private fullNameWithAliasPipe: FullNameWithAliasPipe,
-              private mailchimpCampaignService: MailchimpCampaignService,
-              private mailchimpConfig: MailchimpConfigService,
-              private mailchimpListService: MailchimpListService,
-              private mailchimpListSubscriptionService: MailchimpListSubscriptionService,
-              private mailchimpListUpdaterService: MailchimpListUpdaterService,
-              private mailchimpSegmentService: MailchimpSegmentService,
-              private memberBulkUploadService: MemberBulkLoadService,
               private memberLoginService: MemberLoginService,
               private memberService: MemberService,
               private modalService: BsModalService,
               private notifierService: NotifierService,
-              private numberUtils: NumberUtilsService,
+              private mailMessagingService: MailMessagingService,
               private route: ActivatedRoute,
-              private searchFilterPipe: SearchFilterPipe,
-              private stringUtils: StringUtilsService,
               private urlService: UrlService,
               public display: ExpenseDisplayService,
               public notifications: ExpenseNotificationService,
@@ -112,6 +94,9 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    this.mailMessagingService.events().subscribe(mailMessagingConfig => {
+      this.notificationConfig = this.notificationConfig = this.mailMessagingService.queryNotificationConfig(this.notify, mailMessagingConfig, "expenseNotificationConfigId");;
+    });
     this.notify.setBusy();
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse) => {
       this.urlService.navigateTo(["admin"]);
@@ -230,16 +215,6 @@ export class ExpensesComponent implements OnInit, OnDestroy {
     });
   }
 
-  showArea(area) {
-    this.urlService.navigateTo(["admin", area]);
-  }
-
-  activeEvents(optionalEvents?: ExpenseEvent[]) {
-    const events = optionalEvents || this.selected.expenseClaim.expenseEvents;
-    const latestReturnedEvent = find(events.reverse(), event => isEqual(event.eventType, this.display.expenseClaimStatus(this.selected.expenseClaim).returned));
-    return latestReturnedEvent ? events.slice(events.indexOf(latestReturnedEvent) + 1) : events;
-  }
-
   allowApproveExpenseClaim() {
     return this.approvalEvents().length === 0 && !this.display.expenseClaimHasEventType(this.selected.expenseClaim, this.display.eventTypes.paid);
   }
@@ -272,11 +247,12 @@ export class ExpensesComponent implements OnInit, OnDestroy {
     this.notifyConfirm.hide();
     if (approvals.length <= 1) {
       const request: ExpenseNotificationRequest = {
+        notificationConfig: this.notificationConfig,
         notify: this.notify,
         notificationDirective: this.notificationDirective,
         expenseClaim: this.selected.expenseClaim,
         members: this.members,
-        eventType: approvals.length === 0 ? this.display.eventTypes["first-approval"] : this.display.eventTypes["second-approval"],
+        eventType: approvals.length === 0 ? this.display.eventTypes["first-approval"] : this.display.eventTypes["second-approval"]
       };
       this.notifications.createEventAndSendNotifications(request);
     } else {
@@ -319,7 +295,6 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   editExpenseItem(expenseItem: ExpenseItem) {
     this.confirm.clear();
     this.selectExpenseItem(expenseItem);
-    this.uploadedFile = undefined;
     const expenseItemIndex = this.selected.expenseClaim.expenseItems.indexOf(this.selected.expenseItem);
     this.modalService.show(ExpenseDetailModalComponent, this.createModalOptions({
       expenseItemIndex,
@@ -365,10 +340,6 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   allowPaidExpenseClaim() {
     return this.memberLoginService.allowTreasuryAdmin() && [this.display.eventTypes["first-approval"].description]
       .includes(this.display.expenseClaimLatestEvent(this.selected.expenseClaim).eventType.description);
-  }
-
-  deleteExpenseClaim() {
-    this.confirm.as(ConfirmType.DELETE);
   }
 
   eventTracker(index: number, event: ExpenseEvent) {

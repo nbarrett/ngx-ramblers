@@ -1,7 +1,0 @@
-<div style="font-size:12px">
-    <p>This email is just to confirm that the {{group?.shortName}} expense claim you created on <span [textContent]="display.expenseClaimCreatedEvent(expenseClaim).date | displayDate" class="nowrap"></span> with the
-        <span [textContent]="expenseClaim.expenseItems.length"></span> item(s) listed below has been submitted for approval:
-    </p>
-    <app-expense-notification-details [expenseClaim]="expenseClaim"></app-expense-notification-details>
-    <p>Once your claim has been approved it will be paid. Please note that this can take a week or so to arrange as payments have to be approved by more than one committee member so please be patient with us!</p>
-</div>

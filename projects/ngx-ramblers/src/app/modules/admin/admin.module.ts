@@ -1,5 +1,4 @@
 import { NgModule } from "@angular/core";
-import { NotificationDirective } from "../../notifications/common/notification.directive";
 import {
   ExpenseNotificationApproverFirstApprovalComponent
 } from "../../notifications/expenses/templates/approver/expense-notification-approver-first-approval.component";
@@ -81,6 +80,9 @@ import {
 import {
   NotificationConfigToProcessMappingComponent
 } from "../../pages/admin/system-settings/mail/notification-config-to-process-mappings";
+import {
+  ExpenseNotificationFooterComponent
+} from "../../notifications/expenses/templates/common/expense-notification-footer-component";
 
 @NgModule({
   declarations: [
@@ -102,6 +104,7 @@ import {
     ExpenseNotificationCreatorSecondApprovalComponent,
     ExpenseNotificationCreatorSubmittedComponent,
     ExpenseNotificationDetailsComponent,
+    ExpenseNotificationFooterComponent,
     ExpenseNotificationTreasurerPaidComponent,
     ExpenseNotificationTreasurerSecondApprovalComponent,
     ExpensePaidModalComponent,

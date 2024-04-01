@@ -33,9 +33,9 @@
     </div>
   </div>
   <div class="modal-footer">
-    <input type="submit" value="Confirm Return" [disabled]="notifyTarget.busy"
+    <input type="submit" value="Confirm Return" [disabled]="disabled()"
            (click)="confirmReturnExpenseClaim(returnReason)" title="Confirm return of this Expense Claim"
-           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form amber-confirm button-form-left'">
+           [ngClass]="disabled() ? 'disabled-button-form button-form-left': 'button-form amber-confirm button-form-left'">
     <input type="submit" value="Cancel Return" [disabled]="notifyTarget.busy" (click)="cancelReturnExpenseClaim()"
            title="Don't return this Expense Claim, just close this form"
            [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form green-confirm button-form-left'">

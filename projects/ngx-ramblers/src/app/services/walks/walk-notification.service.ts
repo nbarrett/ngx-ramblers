@@ -63,6 +63,7 @@ import { MailService } from "../mail/mail.service";
 export class WalkNotificationService {
   private ramblersWalksAndEventsService: RamblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private mailMessagingService: MailMessagingService = inject(MailMessagingService);
+  private mailMessagingConfig: MailMessagingConfig;
   private mailService: MailService = inject(MailService);
   protected memberService: MemberService = inject(MemberService);
   private display: WalkDisplayService = inject(WalkDisplayService);
@@ -72,7 +73,6 @@ export class WalkNotificationService {
   private fullNameWithAliasPipe: FullNameWithAliasPipe = inject(FullNameWithAliasPipe);
   private displayDatePipe: DisplayDatePipe = inject(DisplayDatePipe);
   private logger: Logger = inject(LoggerFactory).createLogger("WalkNotificationService", NgxLoggerLevel.OFF);
-  private mailMessagingConfig: MailMessagingConfig;
 
   constructor() {
     this.mailMessagingService.events().subscribe(mailMessagingConfig => {
@@ -85,8 +85,7 @@ export class WalkNotificationService {
     notify.setBusy();
     const event = this.walkEventService.createEventIfRequired(displayedWalk.walk, displayedWalk.status, reason);
     if (event && sendNotification) {
-      const notificationConfig = this.mailMessagingConfig.notificationConfigs.find(item => item.id === this.mailMessagingConfig.mailConfig.walkNotificationConfigId);
-      if (notificationConfig) {
+      const notificationConfig = this.mailMessagingService.queryNotificationConfig(notify, this.mailMessagingConfig, "walkNotificationConfigId");
         const walkEventType = this.walksReferenceService.toWalkEventType(event.eventType);
         this.logger.info("walkEventType", walkEventType, "from event:", event);
         this.walkEventService.writeEventIfRequired(displayedWalk.walk, event);
@@ -94,14 +93,6 @@ export class WalkNotificationService {
         this.display.refreshDisplayedWalk(displayedWalk);
         await this.sendNotificationsToAllRoles(notificationConfig, members, notificationDirective, displayedWalk, walkEventType, notify);
         return true;
-      } else {
-        notify.error({
-          title: "Notification Error",
-          message: "Unable to send notifications as the notification configuration is missing",
-          continue: true
-        });
-        return false;
-      }
     } else {
       this.logger.info("Not sending notification sendNotification:", sendNotification, "event:", event);
       await Promise.resolve(this.walkEventService.writeEventIfRequired(displayedWalk.walk, event));

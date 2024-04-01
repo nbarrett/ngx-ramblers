@@ -121,6 +121,7 @@ export interface MailConfig extends BuiltInProcessMappings {
 }
 
 export interface BuiltInProcessMappings {
+  expenseNotificationConfigId: string;
   forgotPasswordNotificationConfigId: string;
   walkNotificationConfigId: string;
 }

@@ -1,7 +1,0 @@
-<div style="font-size:12px">
-    <p>This email is to notify you as an Expense Approver, that <strong [textContent]="display.expenseClaimCreatedEvent(expenseClaim).memberId | memberIdToFullName : members" class="nowrap"></strong>
-        has just submitted a new {{group?.shortName}} expense claim. For reference, the claim was originally created on <span [textContent]="display.expenseClaimCreatedEvent(expenseClaim).date | displayDate" class="nowrap"></span>
-        and contains the following <span [textContent]="expenseClaim.expenseItems.length"></span> item(s):</p>
-    <app-expense-notification-details [expenseClaim]="expenseClaim"></app-expense-notification-details>
-    <br>
-</div>

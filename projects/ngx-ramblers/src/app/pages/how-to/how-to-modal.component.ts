@@ -2,7 +2,7 @@ import { HttpErrorResponse } from "@angular/common/http";
 import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import first from "lodash-es/first";
 import { FileUploader } from "ng2-file-upload";
-import { BsModalRef, BsModalService } from "ngx-bootstrap/modal";
+import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { FileUtilsService } from "../../file-utils.service";
@@ -12,21 +12,14 @@ import { MailchimpCampaign, MailchimpCampaignSearchRequest } from "../../models/
 import { MailchimpCampaignMixedVersion, MemberResource } from "../../models/member-resource.model";
 import { Confirm } from "../../models/ui-actions";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
-import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
-import { LineFeedsToBreaksPipe } from "../../pipes/line-feeds-to-breaks.pipe";
-import { ContentMetadataService } from "../../services/content-metadata.service";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { FileUploadService } from "../../services/file-upload.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
-import { MailchimpConfigService } from "../../services/mailchimp-config.service";
 import { MailchimpCampaignService } from "../../services/mailchimp/mailchimp-campaign.service";
 import { MemberResourcesService } from "../../services/member-resources/member-resources.service";
-import { MemberLoginService } from "../../services/member/member-login.service";
 import { MemberResourcesReferenceDataService } from "../../services/member/member-resources-reference-data.service";
-import { MemberService } from "../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../services/notifier.service";
 import { StringUtilsService } from "../../services/string-utils.service";
-import { UrlService } from "../../services/url.service";
 import { AwsFileUploadResponseData } from "../../models/aws-object.model";
 
 @Component({
@@ -50,21 +43,13 @@ export class HowToModalComponent implements OnInit, AfterViewInit, OnDestroy {
   public campaigns: MailchimpCampaign[] = [];
   private subscriptions: Subscription[] = [];
 
-  constructor(private contentMetadataService: ContentMetadataService,
-              private fileUploadService: FileUploadService,
+  constructor(private fileUploadService: FileUploadService,
               private mailchimpCampaignService: MailchimpCampaignService,
-              private mailchimpConfig: MailchimpConfigService,
               private notifierService: NotifierService,
               public stringUtils: StringUtilsService,
-              private memberService: MemberService,
               private displayDate: DisplayDatePipe,
               public memberResourcesReferenceData: MemberResourcesReferenceDataService,
-              private fullNameWithAlias: FullNameWithAliasPipe,
-              private lineFeedsToBreaks: LineFeedsToBreaksPipe,
-              private modalService: BsModalService,
               private memberResourcesService: MemberResourcesService,
-              private memberLoginService: MemberLoginService,
-              private urlService: UrlService,
               public fileUtils: FileUtilsService,
               protected dateUtils: DateUtilsService,
               public bsModalRef: BsModalRef,
@@ -96,10 +81,6 @@ export class HowToModalComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
-  }
-
-  campaignTracker(index: number, item: MailchimpCampaign) {
-    return item.web_id;
   }
 
   browseToFile(fileElement: HTMLInputElement) {
@@ -223,4 +204,3 @@ export class HowToModalComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
 }
-

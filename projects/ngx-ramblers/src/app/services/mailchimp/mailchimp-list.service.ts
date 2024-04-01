@@ -41,8 +41,7 @@ export class MailchimpListService {
   private BASE_URL = "api/mailchimp/lists";
   private notifications = new Subject<ApiResponse>();
 
-  constructor(private stringUtils: StringUtilsService,
-              private http: HttpClient,
+  constructor(private http: HttpClient,
               private dateUtils: DateUtilsService,
               private commonDataService: CommonDataService,
               private memberService: MemberService,
@@ -173,7 +172,7 @@ export class MailchimpListService {
   }
 
   resetUpdateStatusForMember(member): void {
-    // updated == false means not up to date with mail e.g. next list update will send this data to mailchimo
+    // updated == false means not up to date with mail e.g. next list update will send this data to mailchimp
     member.mailchimpLists.walks.updated = false;
     member.mailchimpLists.socialEvents.updated = false;
     member.mailchimpLists.general.updated = false;
