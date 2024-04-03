@@ -198,7 +198,7 @@
                        name="showOnlyWalkLeaders"
                        [(ngModel)]="showOnlyWalkLeaders" [value]="false">
                 <label class="custom-control-label" for="showOnlyWalkLeadersFalse">
-                  Show All Walk Leaders ({{ membersWithAliasOrMe().length }})</label>
+                  Show All Members ({{ membersWithAliasOrMe().length }})</label>
               </div>
             </div>
           </div>
@@ -585,7 +585,7 @@
            title="Cancel this action"
            class="button-form amber-confirm"
            [ngClass]="{'disabled':saveInProgress}">
-    <div *ngIf="allowNotifyConfirmation() && !saveInProgress" class="custom-control custom-checkbox custom-control">
+    <div *ngIf="allowNotifyConfirmation() && !saveInProgress" class="custom-control custom-checkbox">
       <input [disabled]="!display.allowAdminEdits() ||saveInProgress "
              [(ngModel)]="sendNotifications"
              type="checkbox" class="custom-control-input" id="send-notification">
