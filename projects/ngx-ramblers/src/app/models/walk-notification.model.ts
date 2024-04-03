@@ -24,7 +24,6 @@ export interface CurrentPreviousData {
 export interface WalkMailMessageConfiguration {
   notificationDirective: NotificationDirective;
   notify: AlertInstance;
-  member: Member;
   walkEventType: WalkEventType;
   memberIds: string[];
   notificationText: string;

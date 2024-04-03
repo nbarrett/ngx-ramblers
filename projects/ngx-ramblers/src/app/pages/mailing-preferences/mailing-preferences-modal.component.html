@@ -11,7 +11,7 @@
           <b>Confirm these changes</b> below.
           If you click <b>Continue without confirming</b>, you'll get prompted each time you login.</p>
 
-        <div class="well well-subscriptions-confirmation">
+        <div class="well-subscriptions-confirmation">
           <p class="well-heading">Please select how you want to be <b>emailed</b> by us using the following
             subscription checkboxes below:</p>
 
@@ -21,12 +21,16 @@
             <label class="custom-control-label"
                    for="prefs-subscribe-walks-emails">Walks emails
             </label>
+          </div>
+          <div class="custom-control custom-checkbox">
             <input [(ngModel)]="member.mailchimpLists.socialEvents.subscribed" type="checkbox"
                    class="custom-control-input"
                    id="prefs-subscribe-social-events-emails">
             <label class="custom-control-label"
                    for="prefs-subscribe-social-events-emails">Social events emails
             </label>
+          </div>
+          <div class="custom-control custom-checkbox">
             <input [(ngModel)]="member.mailchimpLists.general.subscribed" type="checkbox" class="custom-control-input"
                    id="prefs-subscribe-general-emails">
             <label class="custom-control-label"

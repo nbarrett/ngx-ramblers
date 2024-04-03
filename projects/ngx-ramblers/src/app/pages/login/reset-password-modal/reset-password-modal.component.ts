@@ -9,7 +9,6 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { UrlService } from "../../../services/url.service";
 import { MailingPreferencesModalComponent } from "../../mailing-preferences/mailing-preferences-modal.component";
-import { ForgotPasswordModalComponent } from "../forgot-password-modal/forgot-password-modal.component";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { Organisation } from "../../../models/system.model";
 
@@ -100,11 +99,9 @@ export class ResetPasswordModalComponent implements OnInit, OnDestroy {
     return !this.notifyTarget.busy && passwordPopulated && userNamePopulated && !this.invalidPasswordLink;
   }
 
-  forgotPassword() {
+  restartForgotPassword() {
     this.bsModalRef.hide();
-    this.modalService.show(ForgotPasswordModalComponent, {
-      animated: false
-    });
+    this.urlService.navigateTo([]).then(() => this.urlService.navigateTo(["/forgot-password"]));
   }
 
   close() {
