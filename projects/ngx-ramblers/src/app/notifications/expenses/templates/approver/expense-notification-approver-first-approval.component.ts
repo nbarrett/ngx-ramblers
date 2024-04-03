@@ -14,10 +14,8 @@ import { ExpenseNotificationDetailsComponent } from "../common/expense-notificat
   </p>
   <app-expense-notification-details [expenseClaim]="expenseClaim"></app-expense-notification-details>
   <p>Because an {{ group?.shortName }} expense claim needs 2 stages of approval, it will now need to be approved by a
-    different person
-    (e.g. not <span
-      [textContent]="display.expenseClaimLatestEvent(expenseClaim).memberId | memberIdToFirstName : members"></span>).
-    Then the Treasurer will be automatically notified to organise the payment.</p>
+    different person (e.g. not {{display.expenseClaimLatestEvent(expenseClaim).memberId | memberIdToFirstName : members}}).
+    Then {{ display.committeeReferenceData.contactUsField("treasurer", "fullName") }} will be automatically notified to organise the payment.</p>
   <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>
   `
 })

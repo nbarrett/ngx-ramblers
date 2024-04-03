@@ -50,6 +50,7 @@ import {
 } from "../../notifications/expenses/templates/common/expense-notification-details.component";
 import { MailMessagingService } from "../mail/mail-messaging.service";
 import { MailService } from "../mail/mail.service";
+import { Member } from "../../models/member.model";
 
 @Injectable({
   providedIn: "root"
@@ -104,7 +105,7 @@ export class ExpenseNotificationService {
     componentRef.instance.expenseClaim = request.expenseClaim;
     componentRef.changeDetectorRef.detectChanges();
     const html = componentRef.location.nativeElement.innerHTML;
-    this.logger.debug("notification html ->", html);
+    this.logger.info("notification html ->", html);
     return html;
   }
 
@@ -132,7 +133,7 @@ export class ExpenseNotificationService {
     return Promise.resolve(false);
   }
 
-  sendTreasurerNotifications(request: ExpenseNotificationRequest): Promise<any> {
+  async sendTreasurerNotifications(request: ExpenseNotificationRequest): Promise<any> {
     request.component = this.expenseEventNotificationMappingsFor(request.eventType).notifyTreasurer;
     if (request.eventType.notifyTreasurer) {
       request.memberIds = this.memberService.allMemberIdsWithPrivilege("treasuryAdmin", request.members);
@@ -144,43 +145,41 @@ export class ExpenseNotificationService {
     return Promise.resolve(false);
   }
 
-  sendEmailMessage(request: ExpenseNotificationRequest) {
-    this.display.showExpenseProgressAlert(request.notify, `Sending ${request.qualifiedSubjectAndMember}`);
-    return this.mailService.sendTransactionalMessage(this.mailMessagingService.createEmailRequest({
-      member: request.member,
-      notificationConfig: request.notificationConfig,
-      notificationDirective: request.notificationDirective,
-      bodyContent: this.generateNotificationHTML(request),
-      emailSubject: request.qualifiedSubject
-    })).then(() => {
-      this.display.showExpenseProgressAlert(request.notify, `Sending of ${request.qualifiedSubjectAndMember} was successful`, true);
-      });
+  async sendEmailMessage(request: ExpenseNotificationRequest) {
+    const members: Member[] = await Promise.all(request.memberIds.map(memberId => this.memberService.getById(memberId)));
+    this.logger.info("about to send sendEmailMessage for expense requester:", request.member, "to :", members.length, "members:", members);
+    return Promise.all(members.map(member => {
+      return this.mailService.sendTransactionalMessage(this.mailMessagingService.createEmailRequest({
+        member,
+        notificationConfig: request.notificationConfig,
+        notificationDirective: request.notificationDirective,
+        bodyContent: this.generateNotificationHTML(request),
+        emailSubject: request.qualifiedSubject
+      }));
+    })).then(() => this.display.showExpenseProgressAlert(request.notify, `Sending of ${request.qualifiedSubjectAndMember} was successful`, true));
   }
 
   notifyEmailSendComplete(notify: AlertInstance, qualifiedSubject: string) {
     this.display.showExpenseSuccessAlert(notify, `Sending of ${qualifiedSubject} was successful. Check your inbox for progress.`);
   }
 
-  sendNotification(expenseNotificationRequest: ExpenseNotificationRequest) {
-    return this.sendEmailMessage(expenseNotificationRequest)
-      .then(() => this.notifyEmailSendComplete(expenseNotificationRequest.notify, expenseNotificationRequest.qualifiedSubject));
-
-  }
-
-  sendNotificationsTo(request: ExpenseNotificationRequest) {
-    this.logger.debug("sendNotificationsTo:", request);
+  async sendNotificationsTo(request: ExpenseNotificationRequest) {
     request.qualifiedSubject = `Expense ${request.eventType.description} notification (to ${request.destination})`;
     request.qualifiedSubjectAndMember = `${request.qualifiedSubject} (${request.memberFullName})`;
+    this.display.showExpenseProgressAlert(request.notify, `Sending ${request.qualifiedSubjectAndMember}`);
+    this.logger.info("sendNotificationsTo:", request, "qualifiedSubject:", request.qualifiedSubject);
     if (request.memberIds.length === 0) {
-      return Promise.reject(`No members have been configured as ${request.destination} therefore notifications for this step will fail!!`);
+      return this.logger.info(`No members have been configured for ${request.destination} - skipping this step`);
+    } else {
+      return this.sendEmailMessage(request)
+        .then(() => this.notifyEmailSendComplete(request.notify, request.qualifiedSubject));
     }
-    return this.sendNotification(request);
   }
 
   sendNotificationsToAllRoles(request: ExpenseNotificationRequest) {
     return this.memberService.getById(request.expenseClaimCreatedEvent.memberId)
       .then(member => {
-        this.logger.debug("sendNotification:", "memberId", request.expenseClaimCreatedEvent.memberId, "member", member);
+        this.logger.info("sendNotification:", "memberId", request.expenseClaimCreatedEvent.memberId, "member", member);
         request.member = member;
         request.memberFullName = this.fullNameWithAliasPipe.transform(member);
         return Promise.resolve(this.display.showExpenseProgressAlert(request.notify, `Preparing to email ${request.memberFullName}`))

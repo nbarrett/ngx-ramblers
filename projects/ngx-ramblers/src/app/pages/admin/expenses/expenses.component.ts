@@ -216,7 +216,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   }
 
   allowApproveExpenseClaim() {
-    return this.approvalEvents().length === 0 && !this.display.expenseClaimHasEventType(this.selected.expenseClaim, this.display.eventTypes.paid);
+    return this.memberLoginService.allowCommittee() && (this.approvalEvents().length === 0 && !this.display.expenseClaimHasEventType(this.selected.expenseClaim, this.display.eventTypes.paid));
   }
 
   lastApprovedByMe() {

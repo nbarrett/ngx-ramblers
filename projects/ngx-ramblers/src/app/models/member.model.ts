@@ -75,10 +75,9 @@ export interface MailchimpSegmentIds {
   walkCoordinator?: number;
 }
 
-export interface Member extends Auditable, Identifiable {
+export interface Member extends MemberPrivileges, Auditable, Identifiable {
   hideSurname?: boolean;
   expiredPassword?: boolean;
-  groupMember?: boolean;
   password?: string;
   nameAlias?: string;
   email?: string;
@@ -87,35 +86,39 @@ export interface Member extends Auditable, Identifiable {
   contactId?: string;
   firstName?: string;
   lastName?: string;
-  memberAdmin?: boolean;
   membershipExpiryDate?: number;
   membershipNumber?: string;
   postcode?: string;
-  socialAdmin?: boolean;
-  socialMember?: boolean;
-  userAdmin?: boolean;
   userName?: string;
-  walkAdmin?: boolean;
-  revoked?: boolean;
   mailchimpLists?: {
     walks?: MailchimpSubscription;
     socialEvents?: MailchimpSubscription;
     general?: MailchimpSubscription;
   };
-  contentAdmin?: boolean;
   passwordResetId?: string;
-  financeAdmin?: boolean;
   mailchimpSegmentIds?: MailchimpSegmentIds;
-  treasuryAdmin?: boolean;
-  fileAdmin?: boolean;
-  committee?: boolean;
   profileSettingsConfirmed?: boolean;
   profileSettingsConfirmedAt?: number;
   profileSettingsConfirmedBy?: string;
-  walkChangeNotifications?: boolean;
-  receivedInLastBulkLoad?: boolean;
   lastBulkLoadDate?: number;
   assembleId?: number;
+}
+
+export interface MemberPrivileges {
+  groupMember?: boolean;
+  memberAdmin?: boolean;
+  socialAdmin?: boolean;
+  socialMember?: boolean;
+  userAdmin?: boolean;
+  walkAdmin?: boolean;
+  revoked?: boolean;
+  contentAdmin?: boolean;
+  financeAdmin?: boolean;
+  treasuryAdmin?: boolean;
+  fileAdmin?: boolean;
+  committee?: boolean;
+  walkChangeNotifications?: boolean;
+  receivedInLastBulkLoad?: boolean;
 }
 
 export interface StatusMessage {
