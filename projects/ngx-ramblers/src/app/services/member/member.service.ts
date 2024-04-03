@@ -6,7 +6,7 @@ import { chain } from "../../functions/chain";
 import { DataQueryOptions } from "../../models/api-request.model";
 import { Identifiable } from "../../models/api-response.model";
 import { MailchimpSubscription } from "../../models/mailchimp.model";
-import { Member, MemberApiResponse, MemberFilterSelection } from "../../models/member.model";
+import { Member, MemberApiResponse, MemberFilterSelection, MemberPrivileges } from "../../models/member.model";
 import { CommonDataService } from "../common-data-service";
 import { DbUtilsService } from "../db-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -161,13 +161,13 @@ export class MemberService {
     return members.find(member => this.extractMemberId(member) === memberId);
   }
 
-  allMemberMembersWithPrivilege(privilege: keyof Member, members: Member[]): Member[] {
+  allMemberMembersWithPrivilege(privilege: keyof MemberPrivileges, members: Member[]): Member[] {
     const filteredMembers = members.filter(member => member.groupMember && member[privilege]);
     this.logger.debug("allMemberMembersWithPrivilege:privilege", privilege, "filtered from", members.length, "->", filteredMembers.length, "members ->", filteredMembers);
     return filteredMembers;
   }
 
-  allMemberIdsWithPrivilege(privilege: keyof Member, members: Member[]): string[] {
+  allMemberIdsWithPrivilege(privilege: keyof MemberPrivileges, members: Member[]): string[] {
     return this.allMemberMembersWithPrivilege(privilege, members).map(member => member.id);
   }
 
