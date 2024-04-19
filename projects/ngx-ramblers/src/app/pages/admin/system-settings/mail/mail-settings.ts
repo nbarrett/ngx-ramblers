@@ -7,10 +7,17 @@ import { DateUtilsService } from "../../../../services/date-utils.service";
 import { LoggerFactory } from "../../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { UrlService } from "../../../../services/url.service";
-import { Account, MailMessagingConfig, NotificationConfig } from "../../../../models/mail.model";
+import {
+  Account,
+  FoldersListResponse,
+  ListsResponse,
+  MailMessagingConfig,
+  NotificationConfig
+} from "../../../../models/mail.model";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { Subscription } from "rxjs";
 import { MailService } from "../../../../services/mail/mail.service";
+import { MailLinkService } from "../../../../services/mail/mail-link.service";
 
 @Component({
   selector: "app-mail-settings",
@@ -57,10 +64,29 @@ import { MailService } from "../../../../services/mail/mail.service";
                     </div>
                     <div class="form-group">
                       <label for="base-url">Base Url</label>
-                      <input [(ngModel)]="mailMessagingConfig.mailConfig.baseUrl" type="text"
-                             class="form-control input-sm"
-                             id="base-url"
-                             placeholder="The Base Url for the Mail Application">
+                      <div class="form-inline">
+                        <input [(ngModel)]="mailMessagingConfig.mailConfig.baseUrl" type="text"
+                               class="form-control input-sm flex-grow-1 mr-2"
+                               id="base-url"
+                               placeholder="The Base Url for the Mail Application">
+                        <input type="submit" value="View"
+                               (click)="mailLinkService.openUrl(mailLinkService.appUrl())"
+                               [disabled]="!mailMessagingConfig.mailConfig.baseUrl"
+                               [ngClass]="!mailMessagingConfig.mailConfig.baseUrl ? 'disabled-button-form button-bottom-aligned': 'button-form blue-confirm button-bottom-aligned'">
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label for="base-url">My Base Url</label>
+                      <div class="form-inline">
+                        <input [(ngModel)]="mailMessagingConfig.mailConfig.myBaseUrl" type="text"
+                               class="form-control input-sm flex-grow-1 mr-2"
+                               id="base-url"
+                               placeholder="The Base Url for My Mail Application">
+                        <input type="submit" value="View"
+                               (click)="mailLinkService.openUrl(mailLinkService.myBaseUrl())"
+                               [disabled]="!mailMessagingConfig.mailConfig.myBaseUrl"
+                               [ngClass]="!mailMessagingConfig.mailConfig.myBaseUrl ? 'disabled-button-form button-bottom-aligned': 'button-form blue-confirm button-bottom-aligned'">
+                      </div>
                     </div>
                     <div class="form-group">
                       <label for="api-key">API Key</label>
@@ -138,6 +164,37 @@ import { MailService } from "../../../../services/mail/mail.service";
                 </div>
               </div>
             </tab>
+            <tab heading="Mail List Settings">
+              <div class="img-thumbnail thumbnail-admin-edit">
+                <div class="img-thumbnail thumbnail-2">
+                  <div class="thumbnail-heading">List Settings</div>
+                  <app-mail-list-settings label="General"
+                                          [listsResponse]="listsResponse"
+                                          [foldersResponse]="foldersResponse"
+                                          [notify]="notify"
+                                          [notReady]="notReady()"
+                                          [mailConfig]="mailMessagingConfig.mailConfig"
+                                          [listType]="'general'">
+                  </app-mail-list-settings>
+                  <app-mail-list-settings label="Walks"
+                                          [listsResponse]="listsResponse"
+                                          [foldersResponse]="foldersResponse"
+                                          [notify]="notify"
+                                          [notReady]="notReady()"
+                                          [mailConfig]="mailMessagingConfig.mailConfig"
+                                          [listType]="'walks'">
+                  </app-mail-list-settings>
+                  <app-mail-list-settings label="Social Events"
+                                          [listsResponse]="listsResponse"
+                                          [foldersResponse]="foldersResponse"
+                                          [notify]="notify"
+                                          [notReady]="notReady()"
+                                          [mailConfig]="mailMessagingConfig.mailConfig"
+                                          [listType]="'socialEvents'">
+                  </app-mail-list-settings>
+                </div>
+              </div>
+            </tab>
           </tabset>
           <div *ngIf="notifyTarget.showAlert" class="row">
             <div class="col-sm-12 mb-10">
@@ -170,6 +227,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   private mailService: MailService = inject(MailService);
   public mailMessagingConfig: MailMessagingConfig;
   private notifierService: NotifierService = inject(NotifierService);
+  public mailLinkService: MailLinkService = inject(MailLinkService);
   private broadcastService: BroadcastService<any> = inject(BroadcastService);
   private urlService: UrlService = inject(UrlService);
   public mailMessagingService: MailMessagingService = inject(MailMessagingService);
@@ -177,8 +235,11 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   protected dateUtils: DateUtilsService = inject(DateUtilsService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger = this.loggerFactory.createLogger("MailSettingsComponent", NgxLoggerLevel.OFF);
+  private logger = this.loggerFactory.createLogger("MailSettingsComponent", NgxLoggerLevel.INFO);
   public notificationConfig: NotificationConfig;
+  public listsResponse: ListsResponse;
+  public foldersResponse: FoldersListResponse;
+  private error: any;
 
   ngOnInit() {
     this.logger.debug("constructed");
@@ -186,11 +247,16 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
     this.notify.setBusy();
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
       this.mailMessagingConfig = mailMessagingConfig;
-      this.mailService.queryAccount().then(account => this.account = account);
     }));
+    this.refreshListsAndFolders();
+    this.broadcastService.on(NamedEventType.MAIL_LISTS_CHANGED, () => {
+      this.logger.info("event received:", NamedEventType.MAIL_LISTS_CHANGED);
+      this.refreshListsAndFolders();
+    });
     this.broadcastService.on(NamedEventType.NOTIFY_MESSAGE, (namedEvent: NamedEvent<AlertMessageAndType>) => {
       this.logger.info("event received:", namedEvent);
-      switch (namedEvent.data.type) {
+      if (!this.error) {
+        switch (namedEvent.data.type) {
         case AlertLevel.ALERT_ERROR:
           this.notify.error(namedEvent.data.message);
           break;
@@ -203,11 +269,25 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
         case AlertLevel.ALERT_SUCCESS:
           this.notify.success(namedEvent.data.message);
           break;
+        }
       }
     });
     this.broadcastService.on(NamedEventType.ERROR, (error) => {
-      this.logger.info("event received:", NamedEventType.ERROR);
-      this.notify.error({title: "Unexpected Error Occurred", message: error});
+      this.logger.error("event received:", error);
+      this.notify.error({title: "Unexpected Error Occurred", message: error.data});
+    });
+  }
+
+  private refreshListsAndFolders() {
+    this.error = null;
+    Promise.all([this.mailService.queryAccount().then(account => this.account = account),
+      this.mailService.queryLists().then(listsResponse => this.listsResponse = listsResponse),
+      this.mailService.queryFolders().then(foldersResponse => this.foldersResponse = foldersResponse)])
+      .then((all) => {
+        this.logger.info("all received:", all);
+      }).catch((error) => {
+      this.error = error;
+      this.notify.error(error);
     });
   }
 

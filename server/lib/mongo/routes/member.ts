@@ -1,7 +1,6 @@
-const express = require("express");
-const member = require("../controllers/member");
-const authConfig = require("../../auth/auth-config");
-
+import express = require("express");
+import * as authConfig from "../../auth/auth-config";
+import * as member from "../controllers/member";
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), member.create);
@@ -13,4 +12,4 @@ router.delete("/:id", authConfig.authenticate(), member.deleteOne);
 router.get("/:id", authConfig.authenticate(), member.findById);
 router.get("/password-reset-id/:id", member.findByPasswordResetId);
 
-module.exports = router;
+export const memberRoutes = router;

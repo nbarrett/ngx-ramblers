@@ -6,20 +6,40 @@ import { Image, Images, RootFolder, SystemConfig } from "../../../../models/syst
 import { sortBy } from "../../../../services/arrays";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
-import { MemberLoginService } from "../../../../services/member/member-login.service";
-import { MemberService } from "../../../../services/member/member.service";
-import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
-import { NumberUtilsService } from "../../../../services/number-utils.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
-import { UrlService } from "../../../../services/url.service";
 
 @Component({
   selector: "[app-image-collection-settings]",
-  templateUrl: "./image-collection-settings.html"
+  template: `
+    <div class="img-thumbnail thumbnail-admin-edit">
+      <div class="row img-thumbnail thumbnail-2">
+        <div class="thumbnail-heading">{{ imageTypeDescription }} ({{ images?.images?.length || 0 }})</div>
+        <div class="col-sm-12">
+          <div class="badge-button mb-2" (click)="createNewImage()"
+               delay=500 tooltip="Add new link">
+            <fa-icon [icon]="faAdd"></fa-icon>
+            <span>Add to {{ imageTypeDescription }}</span>
+          </div>
+          <div class="badge-button mb-2" (click)="sortImages()"
+               delay=500 tooltip="Add new link">
+            <fa-icon [icon]="faSortAlphaAsc"></fa-icon>
+            <span>Sort {{ imageTypeDescription }}</span>
+          </div>
+        </div>
+        <div class="col-sm-12" *ngFor="let image of images?.images; let imageIndex = index;">
+          <app-system-image-edit
+            [rootFolder]="rootFolder"
+            [headerLogoDefault]="headerLogoDefault(image)"
+            [images]="images"
+            [image]="image"
+            (imageChanged)="imageChanged($event, imageIndex)">
+          </app-system-image-edit>
+        </div>
+      </div>
+    </div>`
 })
 export class ImageCollectionSettingsComponent implements OnInit {
-  private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   private logger: Logger;
   faAdd = faAdd;
@@ -28,12 +48,7 @@ export class ImageCollectionSettingsComponent implements OnInit {
   public imageTypeDescription: string;
 
   constructor(private systemConfigService: SystemConfigService,
-              private notifierService: NotifierService,
-              private numberUtils: NumberUtilsService,
               public stringUtils: StringUtilsService,
-              private memberService: MemberService,
-              private memberLoginService: MemberLoginService,
-              private urlService: UrlService,
               protected dateUtils: DateUtilsService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(ImageCollectionSettingsComponent, NgxLoggerLevel.OFF);
@@ -49,7 +64,6 @@ export class ImageCollectionSettingsComponent implements OnInit {
     if (!this.images) {
       this.images = this.systemConfigService.defaultImages(this.rootFolder);
     }
-    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
   }
 
   createNewImage() {

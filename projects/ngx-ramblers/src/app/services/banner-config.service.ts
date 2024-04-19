@@ -25,9 +25,9 @@ export class BannerConfigService {
   }
 
   async all(): Promise<BannerConfig[]> {
-    const apiResponse = await this.http.get<{ response: BannerConfig[] }>(this.BASE_URL + "/all").toPromise();
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<BannerConfigApiResponse>(this.BASE_URL + "/all"));
     this.logger.debug("all - received", apiResponse);
-    return apiResponse.response;
+    return apiResponse.response as BannerConfig[];
   }
 
   async getById(bannerConfigId: string): Promise<BannerConfig> {

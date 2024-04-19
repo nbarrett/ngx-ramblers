@@ -14,6 +14,7 @@ export class MailConfigService {
 
   async getConfig(): Promise<MailConfig> {
     return await this.config.queryConfig<MailConfig>(ConfigKey.BREVO, {
+      lists: {general: null, walks: null, socialEvents: null},
       expenseNotificationConfigId: null,
       forgotPasswordNotificationConfigId: null,
       walkNotificationConfigId: null,
@@ -21,7 +22,8 @@ export class MailConfigService {
       apiKey: null,
       allowSendCampaign: true,
       allowSendTransactional: true,
-      baseUrl: "https://my.brevo.com"
+      baseUrl: "https://app.brevo.com",
+      myBaseUrl: "https://my.brevo.com"
     });
   }
 

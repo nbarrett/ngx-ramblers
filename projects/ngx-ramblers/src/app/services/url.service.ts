@@ -248,7 +248,7 @@ export class UrlService {
     if (!url || (url.startsWith("http") || url.startsWith("www") || url.includes("://"))) {
       return url;
     } else {
-      const reformatted: string = url.split("/").map(item => this.stringUtils.kebabCase(item)).join("/");
+      const reformatted: string = url.split("/").map(item => item.includes(" ") ? this.stringUtils.kebabCase(item) : item).join("/");
       this.logger.info("received", url, "reformatted to:", reformatted);
       return reformatted;
     }

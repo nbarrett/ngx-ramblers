@@ -54,7 +54,7 @@ export async function sendTransactionalMail(req: Request, res: Response, next: N
     body: CreateSmtpEmail
   }) => {
     debugLog("API called successfully. Returned data: " + JSON.stringify(data));
-    successfulResponse(req, res, data, messageType, debugLog);
+    successfulResponse({req, res, response: data, messageType, debugLog});
   }).catch((error: any) => {
     handleError(req, res, messageType, debugLog, error);
   });

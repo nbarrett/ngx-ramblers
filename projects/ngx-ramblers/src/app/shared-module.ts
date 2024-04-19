@@ -130,6 +130,7 @@ import { CommitteeRoleMultiSelectComponent } from "./committee/role-multi-select
 import { NgxCaptureModule } from "ngx-capture";
 import { ButtonsModule } from "ngx-bootstrap/buttons";
 import { NotificationDirective } from "./notifications/common/notification.directive";
+import { BrevoButtonComponent } from "./modules/common/third-parties/brevo-button";
 
 @NgModule({
   imports: [
@@ -172,6 +173,7 @@ import { NotificationDirective } from "./notifications/common/notification.direc
     AlbumGridComponent,
     AspectRatioSelectorComponent,
     BadgeButtonComponent,
+    BrevoButtonComponent,
     BulkActionSelectorComponent,
     CardEditorComponent,
     CardImageComponent,
@@ -249,6 +251,7 @@ import { NotificationDirective } from "./notifications/common/notification.direc
     AlertModule,
     AspectRatioSelectorComponent,
     BadgeButtonComponent,
+    BrevoButtonComponent,
     BsDatepickerModule,
     BsDropdownModule,
     ButtonsModule,
@@ -295,9 +298,9 @@ import { NotificationDirective } from "./notifications/common/notification.direc
     MarkdownEditorComponent,
     MarkdownModule,
     MeetupEventSummaryPipe,
-    MemberIdsToFullNamesPipe,
     MemberIdToFirstNamePipe,
     MemberIdToFullNamePipe,
+    MemberIdsToFullNamesPipe,
     ModalModule,
     MoneyPipe,
     NgSelectModule,

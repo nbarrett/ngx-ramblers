@@ -19,14 +19,15 @@ export class CommonDataService {
     this.logger = loggerFactory.createLogger("CommonDataService", NgxLoggerLevel.OFF);
   }
 
-  public async responseFrom<T extends ApiResponse>(logger: Logger, observable: Observable<T>, notifications: Subject<T>, rejectOnError?: boolean): Promise<T> {
+  public async responseFrom<T extends ApiResponse>(logger: Logger, observable: Observable<T>, notifications?: Subject<T>, rejectOnError?: boolean): Promise<T> {
+    const notificationSubject = notifications || new Subject<T>();
     const shared = observable.pipe(share());
     shared.subscribe((apiResponse: T) => {
       logger.debug("api response:", apiResponse);
-      notifications.next(apiResponse);
+      notificationSubject.next(apiResponse);
     }, (httpErrorResponse: HttpErrorResponse) => {
       logger.error("http error response", httpErrorResponse);
-      notifications.next(httpErrorResponse.error);
+      notificationSubject.next(httpErrorResponse.error);
     });
     const apiResponse = await shared.toPromise();
     return rejectOnError && apiResponse.error ? Promise.reject("Update failed due to error: " + this.stringUtils.stringifyObject(apiResponse.error)) : apiResponse;

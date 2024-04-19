@@ -8,7 +8,7 @@ import { configuredBrevo } from "../brevo-config";
 import { Account } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const messageType = "brevo:account";
-const debugLog = debug(envConfig.logNamespace(messageType));
+const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = false;
 
 export async function queryAccount(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -18,7 +18,7 @@ export async function queryAccount(req: Request, res: Response, next: NextFuncti
     apiInstance.setApiKey(SibApiV3Sdk.AccountApiApiKeys.apiKey, brevoConfig.apiKey);
     const accountResponse: AccountResponse = await apiInstance.getAccount();
     const account: Account = accountResponse.body;
-    successfulResponse(req, res, account, messageType, debugLog);
+    successfulResponse({req, res, response: account, messageType, debugLog});
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);
   }

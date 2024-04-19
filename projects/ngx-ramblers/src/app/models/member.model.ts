@@ -1,5 +1,6 @@
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { MailchimpSubscription } from "./mailchimp.model";
+import { MailIdentifiers, MailSubscription, NotificationConfig } from "./mail.model";
 
 export enum ProfileUpdateType {
   LOGIN_DETAILS = "login details",

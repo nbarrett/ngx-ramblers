@@ -1,36 +1,40 @@
-const _ = require("lodash")
-const {envConfig} = require("../../env-config/env-config");
-const authConfig = require("../../auth/auth-config");
-const debug = require("debug")(envConfig.logNamespace("database:member"));
-const member = require("../models/member");
-const transforms = require("./transforms");
-const querystring = require("querystring");
-const crudController = require("./crud-controller").create(member);
+import debug from "debug";
+import { Request, Response } from "express";
+import { envConfig } from "../../env-config/env-config";
+import { member } from "../models/member";
+import * as crudController from "./crud-controller";
+import * as transforms from "./transforms";
+import * as querystring from "querystring";
+import * as authConfig from "../../auth/auth-config";
+import { extend } from "lodash";
 
-exports.update = crudController.update
-exports.all = crudController.all
-exports.deleteOne = crudController.deleteOne
-exports.findById = crudController.findById
+const debugLog = debug(envConfig.logNamespace("member"));
+debugLog.enabled = true;
 
-exports.update = (req, res) => {
+const controller = crudController.create(member, true);
+export const all = controller.all;
+export const deleteOne = controller.deleteOne;
+export const findById = controller.findById;
+
+export function update(req: Request, res: Response) {
   const password = req.body.password;
   if (password && password.length < 60) {
     authConfig.hashValue(req.body.password).then(hash => {
-      debug("non-encrypted password found:", password, "- encrypted to:", hash)
+      debugLog("non-encrypted password found:", password, "- encrypted to:", hash);
       req.body.password = hash;
-      crudController.update(req, res)
+      controller.update(req, res);
     })
   } else {
-    crudController.update(req, res)
+    controller.update(req, res);
   }
 }
 
-exports.updateEmailSubscription = (req, res) => {
+export function updateEmailSubscription(req: Request, res: Response) {
   const {criteria, document} = transforms.criteriaAndDocument(req);
-  debug("updateEmailSubscription:", req.body, "conditions:", criteria, "request document:", document);
+  debugLog("updateEmailSubscription:", req.body, "conditions:", criteria, "request document:", document);
   member.findOneAndUpdate(criteria, document, {new: true})
     .then(result => {
-      debug("update result:", result, "request document:", document);
+      debugLog("update result:", result, "request document:", document);
       res.status(200).json({
         body: req.body,
         document,
@@ -45,11 +49,11 @@ exports.updateEmailSubscription = (req, res) => {
         error: transforms.parseError(error)
       });
     });
-};
+}
 
 
-function findByConditions(conditions, fields, res, req) {
-  debug("findByConditions - conditions:", conditions, "fields:", fields)
+function findByConditions(conditions: any, fields: any, res: Response, req: Request) {
+  debugLog("findByConditions - conditions:", conditions, "fields:", fields);
   member.findOne(conditions, fields)
     .then(member => {
       if (member) {
@@ -73,19 +77,19 @@ function findByConditions(conditions, fields, res, req) {
     });
 }
 
-exports.findByPasswordResetId = (req, res) => {
-  debug("find - password-reset-id:", req.params.id)
+export function findByPasswordResetId(req: Request, res: Response) {
+  debugLog("find - password-reset-id:", req.params.id);
   const conditions = {passwordResetId: req.params.id};
   findByConditions(conditions, "userName", res, req);
-};
+}
 
-exports.findOne = (req, res) => {
-  const conditions = querystring.parse(req.query);
-  debug("find - by conditions", req.query, "conditions:", conditions)
+export function findOne(req: Request, res: Response) {
+  const conditions = querystring.parse(req.query as any);
+  debugLog("find - by conditions", req.query, "conditions:", conditions);
   findByConditions(req.query, undefined, res, req);
-};
+}
 
-exports.create = (req, res, next) => {
+export function create(req: Request, res: Response) {
   const document = transforms.createDocumentRequest(req);
   const returnError = (error, context) => {
     res.status(500).json({
@@ -94,7 +98,7 @@ exports.create = (req, res, next) => {
       request: req.body,
     });
   };
-  const createMember = (memberObject) => new member(memberObject).save()
+  const createMember = memberObject => new member(memberObject).save()
     .then(result => {
       res.status(201).json({action: "create", response: transforms.toObjectWithId(result)});
     }).catch(error => returnError(error, "saving member"));
@@ -102,7 +106,7 @@ exports.create = (req, res, next) => {
   if (req.body.password) {
     authConfig.hashValue(req.body.password)
       .then(password => {
-        const documentWithPasswordEncrypted = _.extend({}, document, {password});
+        const documentWithPasswordEncrypted = extend({}, document, {password});
         createMember(documentWithPasswordEncrypted);
       }).catch(error => returnError(error, "encrypting password for member"));
   } else {

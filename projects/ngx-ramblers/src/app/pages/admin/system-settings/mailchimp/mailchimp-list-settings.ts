@@ -3,7 +3,12 @@ import isEmpty from "lodash-es/isEmpty";
 import { NgxLoggerLevel } from "ngx-logger";
 import { MailchimpListCreateRequest } from "../../../../models/server-models";
 import { NamedEvent, NamedEventType } from "../../../../models/broadcast.model";
-import { CustomMergeFieldTag, MailchimpConfig, MailchimpListingResponse, MergeFieldAddResponse } from "../../../../models/mailchimp.model";
+import {
+  CustomMergeFieldTag,
+  MailchimpConfig,
+  MailchimpListingResponse,
+  MergeFieldAddResponse
+} from "../../../../models/mailchimp.model";
 import { Confirm } from "../../../../models/ui-actions";
 import { BroadcastService } from "../../../../services/broadcast-service";
 import { enumValues } from "../../../../services/enums";
@@ -16,7 +21,121 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
 
 @Component({
   selector: "app-mailchimp-list-settings",
-  templateUrl: "./mailchimp-list-settings.html",
+  template: `
+    <div *ngIf="mailchimpListingResponse?.lists" class="col-sm-12">
+      <div class="form-group">
+        <label for="{{listType}}-list">{{ label }}</label>
+        <div class="col-sm-12">
+          <div class="form-inline">
+            <form>
+              <div class="custom-control custom-radio custom-control-inline">
+                <input id="{{listType}}-existing-list"
+                       type="radio"
+                       class="custom-control-input"
+                       [(ngModel)]="listConfigType"
+                       name="existing-list"
+                       (change)="selectListConfigType()"
+                       value="existing-list"/>
+                <label class="custom-control-label" for="{{listType}}-existing-list">Existing List:
+                </label>
+              </div>
+              <select id="{{listType}}-list"
+                      [(ngModel)]="mailchimpConfig.lists[listType]"
+                      name="listId"
+                      (ngModelChange)="listChange($event)"
+                      class="form-control input-sm flex-grow-1 mr-2">
+                <option *ngFor="let list of mailchimpListingResponse.lists"
+                        [ngValue]="list.id">{{ list.name }}
+                </option>
+              </select>
+              <input type="submit" value="View"
+                     (click)="viewList(currentListId())"
+                     [disabled]="listEditOrDeleteDisabled()"
+                     [ngClass]="listEditOrDeleteDisabled() ? 'disabled-button-form button-bottom-aligned': 'button-form blue-confirm button-bottom-aligned'">
+              <input *ngIf="confirm.noneOutstanding()" type="submit" value="Delete"
+                     (click)="deleteList(currentListId())"
+                     [disabled]="listEditOrDeleteDisabled()"
+                     [ngClass]="listEditOrDeleteDisabled() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm button-bottom-aligned'">
+              <ng-container *ngIf="confirm.deleteConfirmOutstanding()">
+                <input type="submit" value="Confirm Delete"
+                       (click)="confirmDeleteList(currentListId())"
+                       [disabled]="listEditOrDeleteDisabled()"
+                       [ngClass]="listEditOrDeleteDisabled() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm button-bottom-aligned'">
+                <input type="submit" value="Cancel Delete"
+                       (click)="confirm.clear()"
+                       [disabled]="listEditOrDeleteDisabled()"
+                       [ngClass]="listEditOrDeleteDisabled() ? 'disabled-button-form button-bottom-aligned': 'button-form amber-confirm button-bottom-aligned'">
+              </ng-container>
+              <div class="custom-control custom-radio custom-control-inline ml-2">
+                <input id="{{listType}}-no-list"
+                       type="radio"
+                       class="custom-control-input"
+                       [(ngModel)]="listConfigType"
+                       (change)="selectListConfigType()"
+                       name="no-list"
+                       value="no-list"/>
+                <label class="custom-control-label" for="{{listType}}-no-list">
+                  No List</label>
+              </div>
+              <div class="custom-control custom-radio custom-control-inline">
+                <input id="{{listType}}-new-list"
+                       type="radio"
+                       class="custom-control-input"
+                       [(ngModel)]="listConfigType"
+                       (change)="selectListConfigType()"
+                       name="new-list"
+                       value="new-list"/>
+                <label class="custom-control-label" for="{{listType}}-new-list">
+                  Create new List</label>
+              </div>
+            </form>
+          </div>
+        </div>
+        <div class="col-sm-12" *ngIf="listConfigType==='new-list'">
+          <div class="form-group">
+            <label for="list-name">List Name</label>
+            <input [(ngModel)]="listCreateRequest.name" type="text" class="form-control input-sm"
+                   id="list-name"
+                   placeholder="The Name of the list to create">
+          </div>
+          <div class="form-group">
+            <label for="permission-reminder">Permission Reminder</label>
+            <input [(ngModel)]="listCreateRequest.permission_reminder" type="text" class="form-control input-sm"
+                   id="permission-reminder"
+                   placeholder="This text tells list subscribers how they were added to the list">
+            <small class="form-text text-muted">This text tells list subscribers how they were added to the list</small>
+          </div>
+          <div class="custom-control custom-checkbox">
+            <input [(ngModel)]="listCreateRequest.email_type_option"
+                   type="checkbox" class="custom-control-input" id="email-type-option">
+            <label class="custom-control-label"
+                   for="email-type-option">Allow Different Email Types
+            </label>
+            <small class="form-text text-muted">Whether the list supports multiple formats for emails. When set to true,
+              subscribers can choose whether they want to receive HTML or plain-text emails. When set to false,
+              subscribers
+              will receive HTML emails, with a plain-text alternative backup.</small>
+          </div>
+          <div class="custom-control custom-checkbox">
+            <input [(ngModel)]="listCreateRequest.double_optin"
+                   type="checkbox" class="custom-control-input" id="double-opt-in">
+            <label class="custom-control-label"
+                   for="double-opt-in">Require Double Opt-in
+            </label>
+            <small class="form-text text-muted">Whether or not to require the subscriber to confirm subscription via
+              email</small>
+          </div>
+          <app-mailchimp-campaign-defaults [campaignDefaults]="listCreateRequest.campaign_defaults">
+          </app-mailchimp-campaign-defaults>
+          <div class="form-group">
+            <input type="submit" value="Create List"
+                   (click)="createList()"
+                   [disabled]="listCreateDisabled()"
+                   [ngClass]="listCreateDisabled() ? 'disabled-button-form button-bottom-aligned': 'button-form blue-confirm button-bottom-aligned'">
+          </div>
+        </div>
+      </div>
+    </div>`
 })
 export class MailchimpListSettingsComponent implements OnInit {
   private logger: Logger;
