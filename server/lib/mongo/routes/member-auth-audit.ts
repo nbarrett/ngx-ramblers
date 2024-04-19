@@ -1,8 +1,9 @@
-const express = require("express");
-const authConfig = require("../../auth/auth-config");
-const memberAuthAudit = require("../models/member-auth-audit");
-const controller = require("../controllers/crud-controller").create(memberAuthAudit);
+import express = require("express");
+import * as authConfig from "../../auth/auth-config";
+import { memberAuthAudit } from "../models/member-auth-audit";
+import * as crudController from "../controllers/crud-controller";
 
+const controller = crudController.create(memberAuthAudit);
 const router = express.Router();
 
 router.post("", controller.create);
@@ -12,4 +13,4 @@ router.put("/:id", authConfig.authenticate(), controller.update);
 router.get("/:id", controller.findById);
 router.delete("/:id", authConfig.authenticate(), controller.deleteOne);
 
-module.exports = router;
+export const memberAuthAuditRoutes = router;

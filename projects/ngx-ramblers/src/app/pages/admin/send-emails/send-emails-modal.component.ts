@@ -137,7 +137,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   editTemplate(templateId: number) {
     const templateUrl = this.mailLinkService.templateEdit(templateId);
     this.logger.info("editing template:", templateUrl);
-    window.open(templateUrl, "_blank");
+    this.mailLinkService.openUrl(templateUrl);
   }
 
   onChange(event?: any) {

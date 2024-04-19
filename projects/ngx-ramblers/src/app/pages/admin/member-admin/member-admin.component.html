@@ -44,6 +44,10 @@
                      value="Update Mailchimp Lists"
                      (click)="updateMailchimpLists()" title="Update Mailchimp Lists"
                      [ngClass]="notifyTarget.busy || noMailchimpListsConfigured ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
+                  <input [disabled]="notifyTarget.busy || noMailchimpListsConfigured" type="submit"
+                         value="Update Brevo Lists"
+                         (click)="updateBrevoLists()" title="Update Brevo Lists"
+                         [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
             </ng-container>
                 <ng-container>
               <input *ngIf="!confirm.bulkDeleteOutstanding()" [disabled]="notifyTarget.busy" type="submit"

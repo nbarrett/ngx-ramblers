@@ -18,7 +18,6 @@ export class MailchimpListAuditService {
   private authNotifications = new Subject<MailchimpListAuditApiResponse>();
 
   constructor(private http: HttpClient,
-              private numberUtils: NumberUtilsService,
               private commonDataService: CommonDataService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(MailchimpListAuditService, NgxLoggerLevel.OFF);

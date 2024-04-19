@@ -30,6 +30,7 @@ import { MailchimpConfigService } from "../../../services/mailchimp-config.servi
 import { MailchimpListSubscriptionService } from "../../../services/mailchimp/mailchimp-list-subscription.service";
 import { MailchimpListUpdaterService } from "../../../services/mailchimp/mailchimp-list-updater.service";
 import { MailchimpListService } from "../../../services/mailchimp/mailchimp-list.service";
+import { DeletedMemberService } from "../../../services/member/deleted-member.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
@@ -39,6 +40,8 @@ import { SendEmailsModalComponent } from "../send-emails/send-emails-modal.compo
 import { WalksService } from "../../../services/walks/walks.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MemberBulkDeleteService } from "../../../services/member/member-bulk-delete.service";
+import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
+import { MailListService } from "../../../services/mail/mail-list.service";
 
 @Component({
   selector: "app-member-admin",
@@ -57,6 +60,8 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
               private memberBulkDeleteService: MemberBulkDeleteService,
               private walksService: WalksService,
               private dateUtils: DateUtilsService,
+              private mailListUpdaterService: MailListUpdaterService,
+              private mailListService: MailListService,
               private mailchimpListService: MailchimpListService,
               private mailchimpListSubscriptionService: MailchimpListSubscriptionService,
               private mailchimpListUpdaterService: MailchimpListUpdaterService,
@@ -339,6 +344,10 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
 
   updateMailchimpLists() {
     this.mailchimpListUpdaterService.updateMailchimpLists(this.notify, this.members);
+  }
+
+  updateBrevoLists() {
+    this.mailListUpdaterService.updateMailLists(this.notify, this.members);
   }
 
   beginBulkMemberDelete() {

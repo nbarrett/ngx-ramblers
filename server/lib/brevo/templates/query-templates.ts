@@ -49,7 +49,7 @@ export async function queryTemplates(req: Request, res: Response, next: NextFunc
       count: response.body.count,
       templates
     };
-    successfulResponse(req, res, mailTemplatesResponse, messageType, debugLog);
+    successfulResponse({req, res, response: mailTemplatesResponse, messageType, debugLog});
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);
   }

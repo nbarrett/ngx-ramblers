@@ -50,7 +50,7 @@ StringUtilsService {
       returnValue = extractedMessage.toString();
     } else if (extractedMessage instanceof HttpErrorResponse) {
       const messageToStringify = {message: extractedMessage.message, error: extractedMessage.error};
-      this.logger.info("is instanceof HttpErrorResponse:messageToStringify:", messageToStringify);
+      this.logger.error("error is instanceof HttpErrorResponse:extractedMessage:", extractedMessage, "messageToStringify:", messageToStringify);
       returnValue = extractedMessage.statusText + " - " + this.stringifyObject(messageToStringify);
     } else if (has(extractedMessage, ["error", "message"])) {
       returnValue = extractedMessage.error.message + (extractedMessage.error.error ? " - " + extractedMessage.error.error : "");

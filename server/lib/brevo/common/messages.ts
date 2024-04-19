@@ -1,9 +1,13 @@
 import { Request, Response } from "express";
 import { HttpError } from "@getbrevo/brevo";
+import debug from "debug";
 
-export function successfulResponse(req: Request, res: Response, response: any, messageType: string, debug: any) {
-  debug("successfulResponse:", JSON.stringify(response));
-  res.json({request: {messageType}, response});
+export function successfulResponse(successfulResponse: SuccessfulResponse) {
+  successfulResponse.debugLog("successfulResponse:", JSON.stringify(successfulResponse.response));
+  successfulResponse.res.status(successfulResponse.status || 200).json({
+    request: {messageType: successfulResponse.messageType},
+    response: successfulResponse.response
+  });
 }
 
 export function handleError(req: Request, res: Response, messageType: string, debugLog: any, error: HttpError) {
@@ -13,4 +17,13 @@ export function handleError(req: Request, res: Response, messageType: string, de
   } else {
     res.status(500).json({request: {messageType}, error});
   }
+}
+
+export interface SuccessfulResponse {
+  req?: Request,
+  res?: Response,
+  response: any,
+  messageType?: string,
+  debugLog: debug.Debugger
+  status?: number;
 }
