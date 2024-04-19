@@ -25,6 +25,8 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { ProfileConfirmationService } from "../../../services/profile-confirmation.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
+import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
+import { MailConfig, MailMessagingConfig } from "../../../models/mail.model";
 
 @Component({
   selector: "app-member-admin-modal",
@@ -33,6 +35,7 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 })
 export class MemberAdminModalComponent implements OnInit, OnDestroy {
 
+
   constructor(public systemConfigService: SystemConfigService,
               private notifierService: NotifierService,
               private memberUpdateAuditService: MemberUpdateAuditService,
@@ -40,18 +43,19 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
               private memberNamingService: MemberNamingService,
               private stringUtils: StringUtilsService,
               private memberService: MemberService,
-              private mailchimpLinkService: MailchimpLinkService,
               private fullNameWithAliasPipe: FullNameWithAliasPipe,
               private memberLoginService: MemberLoginService,
               private profileConfirmationService: ProfileConfirmationService,
               private mailchimpListService: MailchimpListService,
+              private mailMessagingService: MailMessagingService,
               private dbUtils: DbUtilsService,
               protected dateUtils: DateUtilsService,
               public bsModalRef: BsModalRef,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MemberAdminModalComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(MemberAdminModalComponent, NgxLoggerLevel.INFO);
   }
 
+  public mailConfig: MailConfig;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   lastLoggedIn: number;
@@ -74,7 +78,12 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.systemConfigService.events()
       .subscribe((config: SystemConfig) => {
         this.config = config;
-        this.logger.info("retrieved config", config);
+        this.logger.info("received SystemConfig event:", config);
+      }));
+    this.subscriptions.push(this.mailMessagingService.events()
+      .subscribe((config: MailMessagingConfig) => {
+        this.mailConfig = config.mailConfig;
+        this.logger.info("retrieved MailMessagingConfig event:", config.mailConfig);
       }));
     this.logger.debug("constructed with member", this.member, this.members.length, "members");
     this.allowEdits = this.memberLoginService.allowMemberAdminEdits();
@@ -123,9 +132,6 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     this.memberService.delete(this.member).then(() => this.bsModalRef.hide());
   }
 
-  viewMailchimpListEntry(webId: number) {
-    return window.open(`${this.mailchimpLinkService.listView(webId)}`);
-  }
 
   profileSettingsConfirmedChecked(profileSettingsConfirmed: boolean) {
     this.profileConfirmationService.processMember(this.member, profileSettingsConfirmed);
@@ -214,18 +220,6 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     this.notify.success("Existing Member copied! Make changes here and save to create new member.");
   }
 
-  changeSubscribed(listType: string) {
-    const mailchimpSubscription: MailchimpSubscription = this.member.mailchimpLists[listType];
-    this.logger.info("listType", listType, "subscribed:", mailchimpSubscription.subscribed);
-    if (!mailchimpSubscription.subscribed) {
-      mailchimpSubscription.leid = null;
-      mailchimpSubscription.unique_email_id = null;
-      mailchimpSubscription.email = null;
-      mailchimpSubscription.web_id = null;
-      mailchimpSubscription.updated = false;
-      this.logger.info("listType", listType, "mailchimpSubscription now:", mailchimpSubscription);
-    }
-  }
 
   defaultAssembleName() {
     this.member.contactId = this.fullNameWithAliasPipe.transform(this.member);

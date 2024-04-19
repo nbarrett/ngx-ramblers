@@ -4,6 +4,7 @@ export enum NamedEventType {
     EDIT_SITE = "editSite",
     ERROR = "error",
     FILES_DROPPED = "files-dropped",
+    MAIL_LISTS_CHANGED = "mail-lists-changed",
     MAILCHIMP_LISTS_CHANGED = "mailchimp-lists-changed",
     MARKDOWN_CONTENT_CHANGED = "markdownContentChanged",
     MARKDOWN_CONTENT_DELETED = "markdownContentDeleted",

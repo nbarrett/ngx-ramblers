@@ -4,6 +4,7 @@ import { CommitteeReferenceData } from "../services/committee/committee-referenc
 import { BannerConfig } from "./banner-configuration.model";
 import { Auditable, Member, MemberFilterSelection } from "./member.model";
 import { NotificationDirective } from "../notifications/common/notification.directive";
+import { AuditStatus } from "./audit";
 
 export interface NotificationSubject {
   prefixParameter: string;
@@ -112,12 +113,20 @@ export interface MergeFields {
   MEMBER_EXP: string;
 }
 
+export interface ListIds {
+  walks?: number;
+  socialEvents?: number;
+  general?: number;
+}
+
 export interface MailConfig extends BuiltInProcessMappings {
   apiKey: string;
   baseUrl: string;
+  myBaseUrl: string;
   allowUpdateLists: boolean;
   allowSendCampaign: boolean;
   allowSendTransactional: boolean;
+  lists: ListIds;
 }
 
 export interface BuiltInProcessMappings {
@@ -326,3 +335,149 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
     bannerId: null
   }
 ];
+
+export interface ListCreateRequest {
+  name: string;
+  folderId?: number;
+}
+
+export interface ListCreateResponse {
+  id: number;
+}
+
+export interface ListInfo {
+  totalBlacklisted: number;
+  name: string;
+  id: number;
+  totalSubscribers: number;
+  uniqueSubscribers: number;
+  folderId: number;
+}
+
+export interface ListsResponse {
+  lists: ListInfo[];
+  count: number;
+}
+
+export interface ContactOptions {
+  limit?: number,
+  offset?: number,
+  sort?: "asc" | "desc",
+  options?: {
+    headers: {
+      [name: string]: string;
+    };
+  }
+}
+
+export interface CreateContactRequest {
+  email?: string;
+  extId?: string;
+  emailBlacklisted?: boolean;
+  smsBlacklisted?: boolean;
+  listIds?: number[];
+  updateEnabled?: boolean;
+  smtpBlacklistSender?: string[];
+}
+
+export interface CreateContactRequestWithAttributes extends CreateContactRequest {
+  attributes?: Attributes;
+}
+
+export interface CreateContactRequestWithObjectAttributes extends CreateContactRequest {
+  attributes?: ObjectAttributes;
+}
+
+export interface Attributes extends NamedAttributes {
+  [key: string]: string;
+}
+
+export interface NamedAttributes {
+  EMAIL?: string;
+  BLACKLIST?: string;
+  CLICKERS?: string;
+  FIRSTNAME?: string;
+  LASTNAME?: string;
+  READERS?: string;
+  SMS?: string;
+  WHATSAPP?: string;
+}
+
+export interface ObjectAttributes extends NamedObjectAttributes {
+  [key: string]: object;
+}
+
+export interface NamedObjectAttributes {
+  EMAIL?: object;
+  BLACKLIST?: object;
+  CLICKERS?: object;
+  FIRSTNAME?: object;
+  LASTNAME?: object;
+  READERS?: object;
+  SMS?: object;
+  WHATSAPP?: object;
+}
+
+export interface Contact extends MailIdentifiers {
+  createdAt: string;
+  listIds: any[];
+  smsBlacklisted: boolean;
+  listUnsubscribed: null;
+  modifiedAt: string;
+  emailBlacklisted: boolean;
+  attributes: Attributes;
+}
+
+export interface ContactsListResponse {
+  contacts: Contact[];
+  count: number;
+}
+
+export interface FoldersListResponse {
+  folders: ListInfo[];
+  count: number;
+}
+
+export interface MailListAuditApiResponse extends ApiResponse {
+  request: any;
+  response?: MailListAudit | MailListAudit[];
+}
+
+export interface MailListAudit extends HasListType {
+  id?: string;
+  memberId: string;
+  timestamp: number;
+  status: AuditStatus;
+  audit: any;
+}
+
+export interface ContactsAddOrRemoveFromListRequest extends HasListType {
+  ids: number[];
+}
+
+export interface HasListType {
+  listType: string;
+}
+export interface HasListId {
+  listId: number;
+}
+
+export interface ContactAddOrRemoveFromListResponse {
+  success: number[];
+  failure: number[];
+}
+
+export interface MailSubscription {
+  subscribed?: boolean;
+  syncRequired?: boolean;
+  lastUpdated?: number;
+}
+
+export interface MailIdentifiers {
+  email: string;
+  id: number;
+}
+
+export interface ContactCreatedResponse {
+  id: number;
+}

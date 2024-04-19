@@ -1,5 +1,5 @@
-const mongoose = require("mongoose");
-const member = require("./member");
+import mongoose = require("mongoose");
+import * as memberModel from "./member";
 
 const memberUpdateAuditSchema = mongoose.Schema({
   uploadSessionId: {type: String},
@@ -9,9 +9,9 @@ const memberUpdateAuditSchema = mongoose.Schema({
   changes: {type: Number},
   auditMessage: {type: String},
   memberId: {type: String},
-  member: member.schema,
+  member: memberModel.member.schema,
   auditErrorMessage: {type: Object}
 }, {collection: "memberUpdateAudit"});
 
-module.exports = mongoose.model("member-update-audit", memberUpdateAuditSchema);
 
+export const memberUpdateAudit = mongoose.model("member-update-audit", memberUpdateAuditSchema);

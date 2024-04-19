@@ -78,11 +78,11 @@ export class MailMessagingService {
     this.logger.off("initialising data:");
     this.committeeConfig.events().subscribe(data => {
       this.mailMessagingConfig.committeeReferenceData = data;
-      this.optionallyEmit();
+      this.optionallyEmit("committeeConfig");
     });
     this.systemConfigService.events().subscribe(item => {
       this.mailMessagingConfig.group = item.group;
-      this.optionallyEmit();
+      this.optionallyEmit("systemConfigService:group");
     });
     this.mailConfigService.getConfig().then(config => {
       this.logger.off("config:", config);
@@ -95,27 +95,28 @@ export class MailMessagingService {
           }, type: AlertLevel.ALERT_WARNING
         }));
       }
-      this.optionallyEmit();
+      this.optionallyEmit("mailConfigService");
     });
     this.bannerConfigService.all().then((banners) => {
       this.logger.off("retrieved banners:", banners);
       this.mailMessagingConfig.banners = banners.filter(item => item.fileNameData).sort(sortBy("name"));
-      this.optionallyEmit();
+      this.optionallyEmit("banners");
     });
     this.notificationConfigService.all().then((notificationConfigs) => {
       this.logger.off("retrieved notificationConfigs:", notificationConfigs);
       this.mailMessagingConfig.notificationConfigs = notificationConfigs.sort(sortBy("subject.text"));
-      this.optionallyEmit();
+      this.optionallyEmit("notificationConfigs");
     });
     this.refreshTemplates();
   }
 
-  private optionallyEmit() {
-    if (this.mailMessagingConfig.committeeReferenceData && this.mailMessagingConfig.group && this.mailMessagingConfig.mailConfig && this.mailMessagingConfig.banners && this.mailMessagingConfig.notificationConfigs) {
+  private optionallyEmit(reason: string) {
+    if (this.mailMessagingConfig.mailTemplates && this.mailMessagingConfig.committeeReferenceData && this.mailMessagingConfig.group && this.mailMessagingConfig.mailConfig && this.mailMessagingConfig.banners && this.mailMessagingConfig.notificationConfigs) {
       this.migrateTemplateMappings();
-      this.logger.off("emitting mailMessagingConfig:", this.mailMessagingConfig);
+      this.logger.info("received", reason, "emitting mailMessagingConfig:", this.mailMessagingConfig);
       this.subject.next(this.mailMessagingConfig);
     } else {
+      this.logger.info("received", reason, "not emitting mailMessagingConfig:", this.mailMessagingConfig);
     }
   }
 
@@ -140,7 +141,7 @@ export class MailMessagingService {
     this.mailService.queryTemplates().then((mailTemplates: MailTemplates) => {
       this.mailMessagingConfig.mailTemplates = mailTemplates;
       this.logger.off("refreshTemplates response:", mailTemplates);
-      this.optionallyEmit();
+      this.optionallyEmit("mailTemplates");
       this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
         message: {
           title: "Mail Templates",

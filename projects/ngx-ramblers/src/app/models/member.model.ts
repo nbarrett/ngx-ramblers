@@ -1,6 +1,6 @@
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { MailchimpSubscription } from "./mailchimp.model";
-import { NotificationConfig } from "./mail.model";
+import { MailIdentifiers, MailSubscription, NotificationConfig } from "./mail.model";
 
 export enum ProfileUpdateType {
   LOGIN_DETAILS = "login details",
@@ -95,6 +95,12 @@ export interface Member extends MemberPrivileges, Auditable, Identifiable {
     socialEvents?: MailchimpSubscription;
     general?: MailchimpSubscription;
   };
+  mailLists?: {
+    walks?: MailSubscription;
+    socialEvents?: MailSubscription;
+    general?: MailSubscription;
+  };
+  mailContactIdentifiers?: MailIdentifiers;
   passwordResetId?: string;
   mailchimpSegmentIds?: MailchimpSegmentIds;
   profileSettingsConfirmed?: boolean;

@@ -15,7 +15,6 @@ import {
 import { Member } from "../../models/member.model";
 import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { MailchimpErrorParserService } from "../mailchimp-error-parser.service";
 import { MemberLoginService } from "../member/member-login.service";
 import { MemberService } from "../member/member.service";
 import { AlertInstance } from "../notifier.service";
@@ -33,7 +32,6 @@ export class MailchimpListSubscriptionService {
               private mailchimpListAuditService: MailchimpListAuditService,
               private mailchimpListService: MailchimpListService,
               private memberLoginService: MemberLoginService,
-              private mailchimpErrorParserService: MailchimpErrorParserService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(MailchimpListSubscriptionService, NgxLoggerLevel.OFF);
   }

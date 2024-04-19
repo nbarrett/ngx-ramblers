@@ -8,7 +8,9 @@ import {
   MailchimpCampaignListRequest,
   MailchimpCampaignListResponse,
   MailchimpCampaignReplicateIdentifiersResponse,
-  MailchimpCampaignReplicateResponse, MailchimpCampaignSearchRequest, MailchimpCampaignSearchResponse,
+  MailchimpCampaignReplicateResponse,
+  MailchimpCampaignSearchRequest,
+  MailchimpCampaignSearchResponse,
   MailchimpCampaignSendRequest,
   MailchimpCampaignSendResponse,
   MailchimpCampaignUpdateRequest,
@@ -18,13 +20,9 @@ import {
   MailchimpSetContentResponse
 } from "../../models/mailchimp.model";
 import { CommonDataService } from "../common-data-service";
-import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailchimpConfigService } from "../mailchimp-config.service";
-import { MemberService } from "../member/member.service";
 import { StringUtilsService } from "../string-utils.service";
-import { MailchimpListSubscriptionService } from "./mailchimp-list-subscription.service";
-import { MailchimpListService } from "./mailchimp-list.service";
 
 @Injectable({
   providedIn: "root"
@@ -38,11 +36,7 @@ export class MailchimpCampaignService {
   constructor(private stringUtils: StringUtilsService,
               private http: HttpClient,
               private mailchimpConfigService: MailchimpConfigService,
-              private dateUtils: DateUtilsService,
-              private memberService: MemberService,
               private commonDataService: CommonDataService,
-              private mailchimpListSubscriptionService: MailchimpListSubscriptionService,
-              private mailchimpListService: MailchimpListService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(MailchimpCampaignService, NgxLoggerLevel.OFF);
     this.mailchimpConfigService.getConfig().then(response => this.mailchimpConfig = response);

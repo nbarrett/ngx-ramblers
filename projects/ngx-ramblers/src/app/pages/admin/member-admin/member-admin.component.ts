@@ -27,9 +27,6 @@ import { ApiResponseProcessor } from "../../../services/api-response-processor.s
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
-import { MailchimpListSubscriptionService } from "../../../services/mailchimp/mailchimp-list-subscription.service";
-import { MailchimpListUpdaterService } from "../../../services/mailchimp/mailchimp-list-updater.service";
-import { MailchimpListService } from "../../../services/mailchimp/mailchimp-list.service";
 import { DeletedMemberService } from "../../../services/member/deleted-member.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
@@ -39,6 +36,11 @@ import { ProfileService } from "../profile/profile.service";
 import { SendEmailsModalComponent } from "../send-emails/send-emails-modal.component";
 import { WalksService } from "../../../services/walks/walks.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
+import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
+import { MailListService } from "../../../services/mail/mail-list.service";
+import { MailchimpListUpdaterService } from "../../../services/mailchimp/mailchimp-list-updater.service";
+import { MailchimpListSubscriptionService } from "../../../services/mailchimp/mailchimp-list-subscription.service";
+import { MailchimpListService } from "../../../services/mailchimp/mailchimp-list.service";
 
 @Component({
   selector: "app-member-admin",
@@ -57,6 +59,8 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
               private deletedMemberService: DeletedMemberService,
               private walksService: WalksService,
               private dateUtils: DateUtilsService,
+              private mailListUpdaterService: MailListUpdaterService,
+              private mailListService: MailListService,
               private mailchimpListService: MailchimpListService,
               private mailchimpListSubscriptionService: MailchimpListSubscriptionService,
               private mailchimpListUpdaterService: MailchimpListUpdaterService,
@@ -339,6 +343,10 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
 
   updateMailchimpLists() {
     this.mailchimpListUpdaterService.updateMailchimpLists(this.notify, this.members);
+  }
+
+  updateBrevoLists() {
+    this.mailListUpdaterService.updateMailLists(this.notify, this.members);
   }
 
   beginBulkMemberDelete() {

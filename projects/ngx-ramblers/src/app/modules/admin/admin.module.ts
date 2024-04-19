@@ -83,6 +83,12 @@ import {
 import {
   ExpenseNotificationFooterComponent
 } from "../../notifications/expenses/templates/common/expense-notification-footer-component";
+import { MailSubscriptionSettingsComponent } from "../../pages/admin/member-admin-modal/mail-subscription-settings";
+import { MailListSettingsComponent } from "../../pages/admin/system-settings/mail/mail-list-settings";
+import {
+  MailChimpSubscriptionSettingsComponent
+} from "../../pages/admin/member-admin-modal/mailchimp-subscription-settings";
+import { MailSubscriptionSettingComponent } from "../../pages/admin/member-admin-modal/mail-subscription-setting";
 
 @NgModule({
   declarations: [
@@ -114,9 +120,12 @@ import {
     ForgotPasswordModalComponent,
     ForgotPasswordNotificationDetailsComponent,
     ImageCollectionSettingsComponent,
+    MailListSettingsComponent,
     MailNotificationTemplateMappingComponent,
     MailSettingsComponent,
-    NotificationConfigToProcessMappingComponent,
+    MailSubscriptionSettingsComponent,
+    MailSubscriptionSettingComponent,
+    MailChimpSubscriptionSettingsComponent,
     MailchimpCampaignDefaultsComponent,
     MailchimpContactComponent,
     MailchimpListSettingsComponent,
@@ -127,6 +136,7 @@ import {
     MemberAdminModalComponent,
     MemberBulkLoadComponent,
     MemberLoginAuditComponent,
+    NotificationConfigToProcessMappingComponent,
     ResetPasswordModalComponent,
     SendEmailsModalComponent,
     SwitchIconComponent,
