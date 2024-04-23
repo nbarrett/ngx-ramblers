@@ -21,7 +21,7 @@ import { StringUtilsService } from "../../services/string-utils.service";
                [id]="galleryId"
                [autoPlay]="album?.slideInterval>0"
                [playerInterval]="album?.slideInterval"
-               imageSize="contain"
+               imageSize="cover"
                [thumbPosition]="album.galleryViewOptions?.thumbPosition ||'left'"
                [thumbView]="'default'"
                [thumbImageSize]="album.galleryViewOptions?.thumbImageSize || 'cover'"
@@ -60,7 +60,6 @@ export class AlbumGalleryComponent implements OnInit {
 
   @Input()
   public index: number;
-
   public lazyLoadingMetadata: LazyLoadingMetadata;
   public album: AlbumData;
   public gallery: Gallery = inject(Gallery);
