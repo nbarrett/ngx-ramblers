@@ -365,7 +365,6 @@ export class SharedModule {
         {
           provide: GALLERY_CONFIG,
           useValue: {
-            autoHeight: true,
             imageSize: "cover"
           } as GalleryConfig
         },
