@@ -22,6 +22,7 @@ export async function lists(req: Request, res: Response, next: NextFunction): Pr
     apiInstance.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
     const createList = new SibApiV3Sdk.CreateList();
     const listCreateRequest: ListCreateRequest = req.body;
+    debugLog("received listCreateRequest:", listCreateRequest);
     createList.name = listCreateRequest.name || req.query.name?.toString();
     createList.folderId = +(listCreateRequest.folderId || req.query.folderId?.toString());
     const opts: ContactOptions = {limit: 10, offset: 0};
@@ -29,7 +30,11 @@ export async function lists(req: Request, res: Response, next: NextFunction): Pr
       response: http.IncomingMessage,
       body: any
     } = await apiInstance.getLists(opts.limit, opts.offset, opts.sort);
-    const listsResponse: ListsResponse = response.body;
+    const listsResponse: ListsResponse = {
+      lists: response?.body?.lists || [],
+      count: response?.body?.count || 0
+    };
+    debugLog("returning listsResponse:", listsResponse);
     successfulResponse({req, res, response: listsResponse, messageType, debugLog});
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);

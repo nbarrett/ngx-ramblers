@@ -64,36 +64,52 @@ import { MailLinkService } from "../../../../services/mail/mail-link.service";
                     </div>
                     <div class="form-group">
                       <label for="base-url">Base Url</label>
-                      <div class="form-inline">
+                      <div class="input-group">
                         <input [(ngModel)]="mailMessagingConfig.mailConfig.baseUrl" type="text"
-                               class="form-control input-sm flex-grow-1 mr-2"
+                               class="form-control input-sm"
                                id="base-url"
                                placeholder="The Base Url for the Mail Application">
-                        <input type="submit" value="View"
-                               (click)="mailLinkService.openUrl(mailLinkService.appUrl())"
-                               [disabled]="!mailMessagingConfig.mailConfig.baseUrl"
-                               [ngClass]="!mailMessagingConfig.mailConfig.baseUrl ? 'disabled-button-form button-bottom-aligned': 'button-form blue-confirm button-bottom-aligned'">
+                        <div class="input-group-append">
+                          <div class="input-group-text">
+                            <app-brevo-button [disabled]="!mailMessagingConfig.mailConfig.baseUrl"
+                                              (click)="mailLinkService.openUrl(mailLinkService.appUrl())"
+                                              [title]="'View'"/>
+                          </div>
+                        </div>
                       </div>
                     </div>
                     <div class="form-group">
-                      <label for="base-url">My Base Url</label>
-                      <div class="form-inline">
+                      <label for="my-base-url">My Base Url</label>
+                      <div class="input-group">
                         <input [(ngModel)]="mailMessagingConfig.mailConfig.myBaseUrl" type="text"
-                               class="form-control input-sm flex-grow-1 mr-2"
-                               id="base-url"
+                               class="form-control input-sm"
+                               id="my-base-url"
                                placeholder="The Base Url for My Mail Application">
-                        <input type="submit" value="View"
-                               (click)="mailLinkService.openUrl(mailLinkService.myBaseUrl())"
-                               [disabled]="!mailMessagingConfig.mailConfig.myBaseUrl"
-                               [ngClass]="!mailMessagingConfig.mailConfig.myBaseUrl ? 'disabled-button-form button-bottom-aligned': 'button-form blue-confirm button-bottom-aligned'">
+                        <div class="input-group-append">
+                          <div class="input-group-text">
+                            <app-brevo-button [disabled]="!mailMessagingConfig.mailConfig.myBaseUrl"
+                                              (click)="mailLinkService.openUrl(mailLinkService.myBaseUrl())"
+                                              [title]="'View'"/>
+
+                          </div>
+                        </div>
                       </div>
                     </div>
                     <div class="form-group">
                       <label for="api-key">API Key</label>
-                      <input [(ngModel)]="mailMessagingConfig.mailConfig.apiKey" type="text"
-                             class="form-control input-sm"
-                             id="api-key"
-                             placeholder="The API key for the mail api">
+                      <div class="input-group">
+                        <input [(ngModel)]="mailMessagingConfig.mailConfig.apiKey" type="text"
+                               class="form-control input-sm"
+                               id="api-key"
+                               placeholder="The API key for the mail api">
+                        <div class="input-group-append">
+                          <div class="input-group-text">
+                            <app-brevo-button [disabled]="!mailMessagingConfig.mailConfig.baseUrl"
+                                              (click)="mailLinkService.openUrl(mailLinkService.apiKeysView())"
+                                              [title]="'View'"/>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

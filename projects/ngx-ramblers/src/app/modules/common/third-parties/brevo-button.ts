@@ -6,28 +6,35 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 @Component({
   selector: "app-brevo-button",
   template: `
-    <div class="form-inline">
+    <app-button-wrapper [disabled]="disabled" [button]="button" [showTooltip]="showTooltip" [title]="title">
       <img title class="related-links-image"
            src="/assets/images/local/brevo.ico"
            alt="{{title}}"/>
-      <a *ngIf="!disabled" tooltip="Click to {{title}}"
-         target="_blank"
-         class="ml-2"
-         [href]="href">
-        {{ title }}
-      </a>
-      <div *ngIf="disabled" class="disabled ml-2">{{title}}</div>
-    </div>`
+    </app-button-wrapper>`
 })
 
 export class BrevoButtonComponent implements OnInit {
 
   private logger: Logger;
   public disabled: boolean;
-  @Input() href: string;
-  @Input() title: string;
+  public button: boolean;
+  public showTooltip: boolean;
+  public title: string;
+
+  @Input("title") set titleValue(value: string) {
+    this.title = value;
+  }
+
   @Input("disabled") set disabledValue(value: boolean) {
     this.disabled = coerceBooleanProperty(value);
+  }
+
+  @Input("button") set buttonValue(value: boolean) {
+    this.button = coerceBooleanProperty(value);
+  }
+
+  @Input("showTooltip") set showTooltipValue(value: boolean) {
+    this.showTooltip = coerceBooleanProperty(value);
   }
 
   constructor(
@@ -36,6 +43,6 @@ export class BrevoButtonComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.logger.info("initialised with href", this.href, "title:", this.title, "disabled:", this.disabled);
+    this.logger.info("initialised with title:", this.title, "disabled:", this.disabled, "showTooltip:", this.showTooltip, "button:", this.button);
   }
 }

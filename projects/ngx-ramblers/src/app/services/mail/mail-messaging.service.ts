@@ -62,7 +62,7 @@ export class MailMessagingService {
   private stringUtilsService: StringUtilsService = inject(StringUtilsService);
   private memberLoginService: MemberLoginService = inject(MemberLoginService);
   private fullNamePipe: FullNamePipe = inject(FullNamePipe);
-  private logger: Logger = inject(LoggerFactory).createLogger("MailMessagingService", NgxLoggerLevel.OFF);
+  private logger: Logger = inject(LoggerFactory).createLogger("MailMessagingService", NgxLoggerLevel.INFO);
 
   constructor() {
     this.initialise();
@@ -140,7 +140,7 @@ export class MailMessagingService {
   private refreshTemplates() {
     this.mailService.queryTemplates().then((mailTemplates: MailTemplates) => {
       this.mailMessagingConfig.mailTemplates = mailTemplates;
-      this.logger.off("refreshTemplates response:", mailTemplates);
+      this.logger.info("refreshTemplates response:", mailTemplates);
       this.optionallyEmit("mailTemplates");
       this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
         message: {
@@ -259,7 +259,7 @@ export class MailMessagingService {
   bannerImageSource(notificationConfig: NotificationConfig, absolute: boolean) {
     const selectedBanner = this.mailMessagingConfig?.banners?.find(item => item.id === notificationConfig?.bannerId);
     const bannerSource = this.urlService.imageSource(`${selectedBanner?.fileNameData.rootFolder}/${selectedBanner?.fileNameData.awsFileName}`, absolute);
-    this.logger.info("notificationConfig.bannerId:", notificationConfig?.bannerId, "bannerSource:", bannerSource);
+    this.logger.debug("notificationConfig.bannerId:", notificationConfig?.bannerId, "bannerSource:", bannerSource);
     return bannerSource;
   }
 

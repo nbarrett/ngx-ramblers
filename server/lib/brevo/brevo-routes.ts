@@ -14,12 +14,14 @@ import { contactsAddToList } from "./contacts/contacts-add-to-list";
 import { folders } from "./folders/folders";
 import { listDelete } from "./lists/list-delete";
 import { contactsBatchUpdate } from "./contacts/contacts-batch-update";
+import { contactsDelete } from "./contacts/contact-delete";
 
 const router = express.Router();
 
 router.get("/folders", folders);
 router.get("/contacts", contacts);
 router.get("/contacts-in-list", contactsInList);
+router.post("/contacts/delete", contactsDelete);
 router.post("/contacts/create", contactsCreate);
 router.post("/contacts/batch-update", contactsBatchUpdate);
 router.post("/contacts/add-to-list", contactsAddToList);

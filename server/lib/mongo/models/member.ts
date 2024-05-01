@@ -11,15 +11,10 @@ const MailchimpSubscription = {
   email: {type: String}
 }
 
-const MailSubscription = {
+const MailSubscription = mongoose.Schema({
   subscribed: {type: Boolean},
-  updated: {type: Boolean},
-  leid: {type: String},
-  web_id: {type: Number},
-  unique_email_id: {type: String},
-  lastUpdated: {type: Number},
-  email: {type: String}
-}
+  id: {type: Number}
+}, {_id: false});
 
 const memberSchema = mongoose.Schema({
   userName: {type: String, required: true, unique: true},
@@ -46,10 +41,10 @@ const memberSchema = mongoose.Schema({
     socialEvents: MailchimpSubscription,
     general: MailchimpSubscription,
   },
-  mailLists: {
-    walks: MailSubscription,
-    socialEvents: MailSubscription,
-    general: MailSubscription,
+  mail: {
+    subscriptions: [MailSubscription],
+    email: {type: String},
+    id: {type: Number},
   },
   contentAdmin: {type: Boolean},
   passwordResetId: {type: String},

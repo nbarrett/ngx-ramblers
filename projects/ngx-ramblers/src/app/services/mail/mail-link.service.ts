@@ -56,6 +56,14 @@ export class MailLinkService {
     return `${this.config.baseUrl}/contact/list/id/${webId}`;
   }
 
+  public contactView(webId: number) {
+    return `${this.config.baseUrl}/contact/index/${webId}`;
+  }
+
+  public apiKeysView() {
+    return `${this.config.baseUrl}/settings/keys/api`;
+  }
+
   public openUrl(url: string, target?: string): void {
     window.open(url, target || "_blank");
   }

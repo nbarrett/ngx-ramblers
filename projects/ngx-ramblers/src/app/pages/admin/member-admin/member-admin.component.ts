@@ -30,7 +30,6 @@ import { MailchimpConfigService } from "../../../services/mailchimp-config.servi
 import { MailchimpListSubscriptionService } from "../../../services/mailchimp/mailchimp-list-subscription.service";
 import { MailchimpListUpdaterService } from "../../../services/mailchimp/mailchimp-list-updater.service";
 import { MailchimpListService } from "../../../services/mailchimp/mailchimp-list.service";
-import { DeletedMemberService } from "../../../services/member/deleted-member.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
@@ -41,7 +40,10 @@ import { WalksService } from "../../../services/walks/walks.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MemberBulkDeleteService } from "../../../services/member/member-bulk-delete.service";
 import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
-import { MailListService } from "../../../services/mail/mail-list.service";
+import { MailProvider, SystemConfig } from "../../../models/system.model";
+import { MailConfig, MailMessagingConfig } from "../../../models/mail.model";
+import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
+import { KeyValue } from "../../../services/enums";
 
 @Component({
   selector: "app-member-admin",
@@ -55,13 +57,13 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
               private apiResponseProcessor: ApiResponseProcessor,
               private searchFilterPipe: SearchFilterPipe,
               private modalService: BsModalService,
+              private mailMessagingService: MailMessagingService,
               private notifierService: NotifierService,
               private systemConfigService: SystemConfigService,
               private memberBulkDeleteService: MemberBulkDeleteService,
               private walksService: WalksService,
               private dateUtils: DateUtilsService,
-              private mailListUpdaterService: MailListUpdaterService,
-              private mailListService: MailListService,
+              public mailListUpdaterService: MailListUpdaterService,
               private mailchimpListService: MailchimpListService,
               private mailchimpListSubscriptionService: MailchimpListSubscriptionService,
               private mailchimpListUpdaterService: MailchimpListUpdaterService,
@@ -72,6 +74,8 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     this.apiResponseProcessorlogger = loggerFactory.createLogger(MemberAdminComponent, NgxLoggerLevel.OFF);
     this.searchChangeObservable = new Subject<string>();
   }
+
+  public listsAsKeyValues: KeyValue<number>[];
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   private logger: Logger;
@@ -82,6 +86,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   public quickSearch = "";
   private searchChangeObservable: Subject<string>;
   public memberFilter: MemberTableFilter;
+  public mailConfig: MailConfig;
 
   private memberFilterUploaded: any;
   filters: any;
@@ -92,9 +97,11 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   public mailchimpConfig: MailchimpConfig;
   public noMailchimpListsConfigured: boolean;
   private walkLeaders: string[];
-
+  public config: SystemConfig;
   protected readonly faToggleOff = faToggleOff;
   protected readonly faToggleOn = faToggleOn;
+
+  protected readonly MailProvider = MailProvider;
 
   async ngOnInit() {
     this.mailchimpConfigService.getConfig().then((mailchimpConfig: MailchimpConfig) => {
@@ -193,7 +200,9 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       this.refreshMembers();
     });
     this.logger.info("subscribing to systemConfigService events");
-    this.subscriptions.push(this.systemConfigService.events().subscribe(async item => {
+    this.subscriptions.push(this.systemConfigService.events().subscribe(async (config: SystemConfig) => {
+      this.config = config;
+      this.logger.debug("retrieved config", config);
       this.walkLeaders = await this.walksService.queryPreviousWalkLeaderIds();
       this.logger.info("walkLeaders:", this.walkLeaders);
     }));
@@ -215,6 +224,12 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
         this.applyFilterToMembers();
       }
     }));
+    this.subscriptions.push(this.mailMessagingService.events()
+      .subscribe((mailMessagingConfig: MailMessagingConfig) => {
+        this.mailConfig = mailMessagingConfig.mailConfig;
+        this.listsAsKeyValues = this.mailListUpdaterService.mapToKeyValues(mailMessagingConfig?.mailConfig?.lists);
+        this.logger.info("retrieved MailMessagingConfig event:", mailMessagingConfig.mailConfig);
+      }));
   }
 
   ngOnDestroy(): void {
@@ -282,22 +297,30 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   applySortTo(field: string, filterSource: MemberTableFilter) {
     this.logger.off("sorting by field", field, "current value of filterSource", filterSource);
     filterSource.sortField = field;
-    filterSource.sortFunction = field === "memberName" ? MEMBER_SORT : field === "markedForDelete" ? (member) => this.markedForDelete(member.id) : field;
+    filterSource.sortFunction = this.deriveSortFunction(field);
     filterSource.reverseSort = !filterSource.reverseSort;
     filterSource.sortDirection = filterSource.reverseSort ? DESCENDING : ASCENDING;
     this.logger.off("sorting by field", field, "new value of filterSource", filterSource);
     this.applyFilterToMembers();
   }
 
-  sortMembersUploadedBy(field) {
-    this.applySortTo(field, this.memberFilterUploaded);
+  private deriveSortFunction(field: string) {
+    if (field === "memberName") {
+      return MEMBER_SORT;
+    } else if (field === "markedForDelete") {
+      return (member: Member) => this.markedForDelete(member.id);
+    } else if (this.listsAsKeyValues.map(item => item.key).includes(field)) {
+      return (member: Member) => member.mail?.subscriptions?.find(sub => sub.id === this.listsAsKeyValues.find(item => item.key === field)?.value)?.subscribed;
+    } else {
+      return field;
+    }
   }
 
   sortMembersBy(field: string) {
     this.applySortTo(field, this.memberFilter);
   }
 
-  showMembersColumn(field) {
+  showMembersColumn(field: string) {
     return this.memberFilter.sortField === field;
   }
 
@@ -347,7 +370,8 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   }
 
   updateBrevoLists() {
-    this.mailListUpdaterService.updateMailLists(this.notify, this.members);
+    this.mailListUpdaterService.updateMailLists(this.notify, this.members)
+      .catch(error => this.notify.error({title: "Error updating Brevo lists", message: error}));
   }
 
   beginBulkMemberDelete() {
@@ -409,5 +433,9 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       this.bulkDeleteMarkedMemberIds.push(memberId);
     }
     this.notifyDeletionInstructions();
+  }
+
+  subscriptionFor(member: Member, keyValue: KeyValue<number>): boolean {
+    return member?.mail?.subscriptions?.find(sub => sub.id === keyValue.value)?.subscribed;
   }
 }

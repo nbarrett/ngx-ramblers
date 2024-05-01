@@ -3,6 +3,7 @@ import uniqueValidator = require("mongoose-unique-validator");
 
 const schema = mongoose.Schema({
   memberId: {type: String},
+  createdBy: {type: String},
   listType: {type: String},
   timestamp: {type: Number},
   status: {type: String},

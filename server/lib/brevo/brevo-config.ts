@@ -6,7 +6,7 @@ import * as config from "../mongo/controllers/config";
 import { MailConfig } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const debugLog = debug(envConfig.logNamespace("brevo-config"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export function configuredBrevo(): Promise<MailConfig> {
   return config.queryKey(ConfigKey.BREVO)

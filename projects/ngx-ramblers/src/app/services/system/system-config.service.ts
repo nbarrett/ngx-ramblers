@@ -4,11 +4,18 @@ import { Observable, ReplaySubject } from "rxjs";
 import { shareReplay } from "rxjs/operators";
 import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
 import { ConfigKey } from "../../models/config.model";
-import { Images, Organisation, Ramblers, RootFolder, SystemConfig, WalkPopulation } from "../../models/system.model";
+import {
+  Images,
+  MailProvider,
+  Organisation,
+  Ramblers,
+  RootFolder,
+  SystemConfig,
+  WalkPopulation
+} from "../../models/system.model";
 import { BroadcastService } from "../broadcast-service";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { MemberLoginService } from "../member/member-login.service";
 import { StringUtilsService } from "../string-utils.service";
 
 @Injectable({
@@ -71,6 +78,7 @@ export class SystemConfigService {
 
   default(): SystemConfig {
     return {
+      mailDefaults: this.mailDefaults(),
       backgrounds: this.defaultImages(RootFolder.backgrounds),
       icons: this.defaultImages(RootFolder.icons),
       logos: this.defaultImages(RootFolder.logos),
@@ -85,6 +93,13 @@ export class SystemConfigService {
       footer: {appDownloads: {apple: undefined, google: undefined}, legals: [], pages: [], quickLinks: []}
     };
   };
+
+  public mailDefaults() {
+    return {
+      mailProvider: MailProvider.NONE,
+      autoSubscribeNewMembers: false
+    };
+  }
 
   public defaultRamblersConfig(): Ramblers {
     return {

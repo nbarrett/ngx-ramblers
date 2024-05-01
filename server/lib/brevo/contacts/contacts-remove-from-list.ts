@@ -6,8 +6,8 @@ import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
 import http from "http";
 import {
-  ContactAddOrRemoveFromListResponse,
-  ContactsAddOrRemoveFromListRequest
+  ContactAddOrRemoveResponse,
+  ContactsAddOrRemoveRequest
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const messageType = "brevo:contacts-remove-from-list";
@@ -19,17 +19,21 @@ export async function contactsRemoveFromList(req: Request, res: Response, next: 
     const brevoConfig = await configuredBrevo();
     const apiInstance = new SibApiV3Sdk.ContactsApi();
     apiInstance.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const request: ContactsAddOrRemoveFromListRequest = req.body;
-    const listType = request.listType;
-    const listId: number = brevoConfig.lists[listType];
-    const contactEmails = new SibApiV3Sdk.RemoveContactFromList();
-    contactEmails.ids = request.ids;
-    const response: {
-      response: http.IncomingMessage,
-      body: any
-    } = await apiInstance.removeContactFromList(listId, contactEmails);
-    const contactRemoveFromListResponse: ContactAddOrRemoveFromListResponse = response.body;
-    successfulResponse({req, res, response: contactRemoveFromListResponse, messageType, debugLog});
+    const requests: ContactsAddOrRemoveRequest[] = req.body;
+    debugLog("received", requests.length, "requests:", requests);
+    const contactRemoveFromListResponses: ContactAddOrRemoveResponse[] = await Promise.all(requests.map(async (request: ContactsAddOrRemoveRequest) => {
+      const listId: number = request.listId;
+      const contactEmails = new SibApiV3Sdk.RemoveContactFromList();
+      contactEmails.ids = request.ids;
+      const response: {
+        response: http.IncomingMessage,
+        body: any
+      } = await apiInstance.removeContactFromList(listId, contactEmails);
+      const contactRemoveFromListResponse: ContactAddOrRemoveResponse = response.body;
+      return contactRemoveFromListResponse;
+    }));
+    debugLog("contactRemoveFromListResponses:", contactRemoveFromListResponses);
+    successfulResponse({req, res, response: contactRemoveFromListResponses, messageType, debugLog});
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);
   }

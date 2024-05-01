@@ -131,6 +131,9 @@ import { NgxCaptureModule } from "ngx-capture";
 import { ButtonsModule } from "ngx-bootstrap/buttons";
 import { NotificationDirective } from "./notifications/common/notification.directive";
 import { BrevoButtonComponent } from "./modules/common/third-parties/brevo-button";
+import { MailchimpButtonComponent } from "./modules/common/third-parties/mailchimp-button";
+import { ButtonWrapperComponent } from "./modules/common/third-parties/button-wrapper";
+import { MailProviderSettingsComponent } from "./pages/admin/system-settings/mail-provider/mail-provider-settings";
 
 @NgModule({
   imports: [
@@ -174,6 +177,9 @@ import { BrevoButtonComponent } from "./modules/common/third-parties/brevo-butto
     AspectRatioSelectorComponent,
     BadgeButtonComponent,
     BrevoButtonComponent,
+    MailchimpButtonComponent,
+    ButtonWrapperComponent,
+    MailProviderSettingsComponent,
     BulkActionSelectorComponent,
     CardEditorComponent,
     CardImageComponent,
@@ -252,6 +258,9 @@ import { BrevoButtonComponent } from "./modules/common/third-parties/brevo-butto
     AspectRatioSelectorComponent,
     BadgeButtonComponent,
     BrevoButtonComponent,
+    MailchimpButtonComponent,
+    ButtonWrapperComponent,
+    MailProviderSettingsComponent,
     BsDatepickerModule,
     BsDropdownModule,
     ButtonsModule,

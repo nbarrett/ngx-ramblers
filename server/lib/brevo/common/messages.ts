@@ -1,6 +1,31 @@
 import { Request, Response } from "express";
 import { HttpError } from "@getbrevo/brevo";
 import debug from "debug";
+import http from "http";
+import {
+  StatusMappedResponseMultipleInputs,
+  StatusMappedResponseSingleInput
+} from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+
+export function mapStatusMappedResponseSingleInput(id: any, response: BrevoResponse, ...expectedHttpResponseCodes: number[]): StatusMappedResponseSingleInput {
+  return {
+    id,
+    success: expectedHttpResponseCodes.includes(response.response.statusCode) ,
+    status: response.response.statusCode,
+    message: response.response.statusMessage,
+    responseBody: response.body
+  };
+}
+
+export function mapStatusMappedResponseMultipleInputs(ids: any[], response: BrevoResponse, ...expectedHttpResponseCodes: number[]): StatusMappedResponseMultipleInputs {
+  return {
+    ids,
+    success: expectedHttpResponseCodes.includes(response.response.statusCode) ,
+    status: response.response.statusCode,
+    message: response.response.statusMessage,
+    responseBody: response.body
+  };
+}
 
 export function successfulResponse(successfulResponse: SuccessfulResponse) {
   successfulResponse.debugLog("successfulResponse:", JSON.stringify(successfulResponse.response));
@@ -27,3 +52,9 @@ export interface SuccessfulResponse {
   debugLog: debug.Debugger
   status?: number;
 }
+
+export interface BrevoResponse {
+  response: http.IncomingMessage;
+  body?: any;
+}
+

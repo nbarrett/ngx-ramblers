@@ -420,9 +420,9 @@ export interface NamedObjectAttributes {
 
 export interface Contact extends MailIdentifiers {
   createdAt: string;
-  listIds: any[];
+  listIds: number[];
   smsBlacklisted: boolean;
-  listUnsubscribed: null;
+  listUnsubscribed: boolean;
   modifiedAt: string;
   emailBlacklisted: boolean;
   attributes: Attributes;
@@ -446,12 +446,19 @@ export interface MailListAuditApiResponse extends ApiResponse {
 export interface MailListAudit extends HasListType {
   id?: string;
   memberId: string;
+  createdBy: string;
   timestamp: number;
   status: AuditStatus;
   audit: any;
 }
 
-export interface ContactsAddOrRemoveFromListRequest extends HasListType {
+export type NumberOrString = number | string;
+
+export interface ContactsDeleteRequest {
+  ids: NumberOrString[];
+}
+
+export interface ContactsAddOrRemoveRequest extends HasListId {
   ids: number[];
 }
 
@@ -462,15 +469,14 @@ export interface HasListId {
   listId: number;
 }
 
-export interface ContactAddOrRemoveFromListResponse {
+export interface ContactAddOrRemoveResponse {
   success: number[];
   failure: number[];
 }
 
 export interface MailSubscription {
   subscribed?: boolean;
-  syncRequired?: boolean;
-  lastUpdated?: number;
+  id?: number;
 }
 
 export interface MailIdentifiers {
@@ -478,6 +484,34 @@ export interface MailIdentifiers {
   id: number;
 }
 
-export interface ContactCreatedResponse {
-  id: number;
+export interface ContactCreatedResponse extends StatusMappedResponseSingleInput {
+  responseBody: { id: number };
+}
+
+export interface ContactToMember {
+  contact: Contact;
+  member: Member;
+  memberUpdateRequired?: boolean;
+  listIdsToRemoveFromContact?: number[];
+}
+
+export interface ContactIdToListId {
+  contactId: number;
+  listId: number;
+}
+
+export interface StatusMappedResponseSingleInput extends StatusMappedResponse {
+  id: any;
+}
+
+export interface StatusMappedResponseMultipleInputs extends StatusMappedResponse {
+  ids: any[];
+}
+
+export interface StatusMappedResponse {
+  responseBody: any;
+  success: boolean;
+  id?: any;
+  message: string;
+  status: number;
 }

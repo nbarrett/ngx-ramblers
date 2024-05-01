@@ -5,6 +5,12 @@ export enum WalkPopulation {
   LOCAL = "local"
 }
 
+export enum MailProvider {
+  BREVO = "brevo",
+  MAILCHIMP = "mailchimp",
+  NONE = "none",
+}
+
 export interface Group {
   longName?: string;
   groupCode?: string;
@@ -104,6 +110,10 @@ export interface SystemConfig {
   area: Organisation;
   national: Ramblers;
   externalSystems: ExternalSystems
+  mailDefaults: {
+    mailProvider: MailProvider;
+    autoSubscribeNewMembers: boolean;
+  }
 }
 
 export interface ColourSelector {
@@ -121,3 +131,12 @@ export const colourSelectors: ColourSelector[] = [
   {class: "colour-sunrise", badgeClass: "badge badge-sunrise", name: "Sunrise"},
   {class: "colour-sunset", badgeClass: "badge badge-sunset", name: "Sunset"},
 ];
+
+
+export interface MailProviderStats {
+  hasNoMailSubscription: number;
+  validIds: number;
+  pendingIds: number;
+  hasMailSubscription: number;
+  invalidIds: number;
+}

@@ -163,18 +163,21 @@ import first from "lodash-es/first";
           <div class="col-sm-12">
             <div class="form-group">
               <label for="template">Brevo Template</label>
-              <div class="form-inline">
+              <div class="input-group">
                 <select [(ngModel)]="notificationConfig.templateId"
                         id="template"
-                        class="form-control input-sm flex-grow-1 mr-2">
+                        class="form-control input-sm">
                   <option *ngFor="let template of mailMessagingConfig?.mailTemplates?.templates"
                           [ngValue]="template.id">{{ template.name }}
                   </option>
                 </select>
-                <input type="submit" value="Edit"
-                       (click)="editTemplate(notificationConfig.templateId)"
-                       title="Edit"
-                       [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                <div class="input-group-append">
+                  <div class="input-group-text">
+                    <app-brevo-button [disabled]="notReady()"
+                                      (click)="editTemplate(notificationConfig.templateId)"
+                                      [title]="'View'"/>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -308,26 +311,28 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   }
 
   editTemplate(templateId: number) {
-    if (this.mailMessagingConfig.mailConfig?.allowSendTransactional) {
-      if (!templateId) {
+    if (!this.notReady()) {
+      if (this.mailMessagingConfig.mailConfig?.allowSendTransactional) {
+        if (!templateId) {
+          this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
+            message: {
+              title: "Edit Mail Template",
+              message: "Please select a template from the drop-down before choosing edit"
+            }, type: AlertLevel.ALERT_ERROR
+          }));
+        } else {
+          const templateUrl = this.mailLinkService.templateEdit(templateId);
+          this.logger.info("editing template:", templateUrl);
+          return window.open(templateUrl, "_blank");
+        }
+      } else {
         this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
           message: {
-            title: "Edit Mail Template",
-            message: "Please select a template from the drop-down before choosing edit"
-          }, type: AlertLevel.ALERT_ERROR
+            title: "Mail Integration not enabled",
+            message: "List and campaign dropdowns will not be populated"
+          }, type: AlertLevel.ALERT_WARNING
         }));
-      } else {
-        const templateUrl = this.mailLinkService.templateEdit(templateId);
-        this.logger.info("editing template:", templateUrl);
-        return window.open(templateUrl, "_blank");
       }
-    } else {
-      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
-        message: {
-          title: "Mail Integration not enabled",
-          message: "List and campaign dropdowns will not be populated"
-        }, type: AlertLevel.ALERT_WARNING
-      }));
     }
   }
 
