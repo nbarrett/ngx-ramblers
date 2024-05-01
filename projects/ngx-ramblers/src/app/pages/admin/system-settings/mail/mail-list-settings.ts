@@ -45,23 +45,19 @@ import isEmpty from "lodash-es/isEmpty";
                         [ngValue]="list.id">{{ list.name }}
                 </option>
               </select>
-              <input type="submit" value="View"
-                     (click)="viewList(currentListId())"
-                     [disabled]="listEditOrDeleteDisabled()"
-                     [ngClass]="listEditOrDeleteDisabled() ? 'disabled-button-form button-bottom-aligned': 'button-form blue-confirm button-bottom-aligned'">
-              <input *ngIf="confirm.noneOutstanding()" type="submit" value="Delete"
-                     (click)="deleteList(currentListId())"
-                     [disabled]="listEditOrDeleteDisabled()"
-                     [ngClass]="listEditOrDeleteDisabled() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm button-bottom-aligned'">
+              <app-brevo-button button [title]="'View'" *ngIf="confirm.noneOutstanding()"
+                                (click)="viewList(currentListId())"
+                                [disabled]="listEditOrDeleteDisabled()"/>
+              <app-brevo-button class="ml-2" button [title]="'Delete'" *ngIf="confirm.noneOutstanding()"
+                                (click)="deleteList(currentListId())"
+                                [disabled]="listEditOrDeleteDisabled()"/>
               <ng-container *ngIf="confirm.deleteConfirmOutstanding()">
-                <input type="submit" value="Confirm Delete"
-                       (click)="confirmDeleteList(currentListId())"
-                       [disabled]="listEditOrDeleteDisabled()"
-                       [ngClass]="listEditOrDeleteDisabled() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm button-bottom-aligned'">
-                <input type="submit" value="Cancel Delete"
-                       (click)="confirm.clear()"
-                       [disabled]="listEditOrDeleteDisabled()"
-                       [ngClass]="listEditOrDeleteDisabled() ? 'disabled-button-form button-bottom-aligned': 'button-form amber-confirm button-bottom-aligned'">
+                <app-brevo-button class="ml-2" button [title]="'Confirm Delete'"
+                                  (click)="confirmDeleteList(currentListId())"
+                                  [disabled]="listEditOrDeleteDisabled()"/>
+                <app-brevo-button class="ml-2" button [title]="'Cancel Delete'"
+                                  (click)="confirm.clear()"
+                                  [disabled]="listEditOrDeleteDisabled()"/>
               </ng-container>
               <div class="custom-control custom-radio custom-control-inline ml-2">
                 <input id="{{listType}}-no-list"
@@ -157,30 +153,35 @@ export class MailListSettingsComponent implements OnInit {
   }
 
   viewList(id: number) {
-    if (!id) {
-      this.notify.error({
-        title: "View Mail List",
-        message: "Please select a list from the drop-down before choosing view"
-      });
-    } else {
-      this.notify.hide();
-      this.logger.info("viewList:id", id, "id", id);
-      return window.open(this.mailLinkService.listView(id), "_blank");
+    if (!this.listEditOrDeleteDisabled()) {
+      if (!id) {
+        this.notify.error({
+          title: "View Mail List",
+          message: "Please select a list from the drop-down before choosing view"
+        });
+      } else {
+        this.notify.hide();
+        this.logger.info("viewList:id", id, "id", id);
+        return window.open(this.mailLinkService.listView(id), "_blank");
+      }
     }
   }
 
   deleteList(id: number) {
-    if (!id) {
+    if (!this.listEditOrDeleteDisabled()) {
+      if (!id) {
       this.notify.error({
         title: "Delete Mail List",
         message: "Please select a list from the drop-down before choosing delete"
       });
     } else {
       this.confirm.toggleOnDeleteConfirm();
+      }
     }
   }
 
   confirmDeleteList(id: number) {
+    if (!this.listEditOrDeleteDisabled()) {
     this.notify.hide();
     this.mailService.deleteList(id)
       .then(response => {
@@ -188,6 +189,7 @@ export class MailListSettingsComponent implements OnInit {
         this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MAIL_LISTS_CHANGED, response));
       }).catch(error => this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.ERROR, error)))
       .finally(() => this.confirm.clear());
+    }
   }
 
   listChange(listId: number) {

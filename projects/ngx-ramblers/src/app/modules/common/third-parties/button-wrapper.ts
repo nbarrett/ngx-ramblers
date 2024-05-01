@@ -4,16 +4,19 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
-  selector: "app-brevo-button",
+  selector: "app-button-wrapper",
   template: `
-    <app-button-wrapper [disabled]="disabled" [button]="button" [showTooltip]="showTooltip" [title]="title">
-      <img title class="related-links-image"
-           src="/assets/images/local/brevo.ico"
-           alt="{{title}}"/>
-    </app-button-wrapper>`
+    <div [tooltip]="showTooltip? (disabled ? 'Not available to ' : 'Click to ') + title : null" placement="auto"
+         [ngClass]="{'btn btn-primary px-2 py-2': button, 'not-allowed disabled': disabled, 'pointer': !disabled}">
+      <div class="form-inline">
+        <ng-content/>
+        <div [ngClass]="{'disabled': disabled}" class="ml-2">{{ title }}
+        </div>
+      </div>
+    </div>`
 })
 
-export class BrevoButtonComponent implements OnInit {
+export class ButtonWrapperComponent implements OnInit {
 
   private logger: Logger;
   public disabled: boolean;
@@ -24,6 +27,7 @@ export class BrevoButtonComponent implements OnInit {
   @Input("title") set titleValue(value: string) {
     this.title = value;
   }
+
 
   @Input("disabled") set disabledValue(value: boolean) {
     this.disabled = coerceBooleanProperty(value);
@@ -39,10 +43,10 @@ export class BrevoButtonComponent implements OnInit {
 
   constructor(
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(BrevoButtonComponent, NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger("ButtonWrapperComponent", NgxLoggerLevel.INFO);
   }
 
   ngOnInit(): void {
-    this.logger.info("initialised with title:", this.title, "disabled:", this.disabled, "showTooltip:", this.showTooltip, "button:", this.button);
+    this.logger.info("initialised with title:", this.title, "disabled:", this.disabled,"showTooltip:", this.showTooltip, "button:", this.button);
   }
 }

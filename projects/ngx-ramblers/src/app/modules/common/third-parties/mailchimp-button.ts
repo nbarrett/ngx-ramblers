@@ -4,26 +4,26 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
-  selector: "app-brevo-button",
+  selector: "app-mailchimp-button",
+  styles: [`
+    .mailchimp-image
+      width: 20px
+      border-radius: 25px`],
   template: `
     <app-button-wrapper [disabled]="disabled" [button]="button" [showTooltip]="showTooltip" [title]="title">
-      <img title class="related-links-image"
-           src="/assets/images/local/brevo.ico"
+      <img title class="mailchimp-image"
+           src="/assets/images/local/mailchimp.jpeg"
            alt="{{title}}"/>
     </app-button-wrapper>`
 })
 
-export class BrevoButtonComponent implements OnInit {
+export class MailchimpButtonComponent implements OnInit {
 
   private logger: Logger;
   public disabled: boolean;
   public button: boolean;
   public showTooltip: boolean;
-  public title: string;
-
-  @Input("title") set titleValue(value: string) {
-    this.title = value;
-  }
+  @Input() title: string;
 
   @Input("disabled") set disabledValue(value: boolean) {
     this.disabled = coerceBooleanProperty(value);
@@ -39,10 +39,10 @@ export class BrevoButtonComponent implements OnInit {
 
   constructor(
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(BrevoButtonComponent, NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger("MailchimpButtonComponent", NgxLoggerLevel.INFO);
   }
 
   ngOnInit(): void {
-    this.logger.info("initialised with title:", this.title, "disabled:", this.disabled, "showTooltip:", this.showTooltip, "button:", this.button);
+    this.logger.info("initialised with title:", this.title, "disabled:", this.disabled);
   }
 }

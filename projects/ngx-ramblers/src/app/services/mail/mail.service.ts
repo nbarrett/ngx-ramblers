@@ -6,21 +6,24 @@ import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import {
   Account,
-  ContactsAddOrRemoveFromListRequest,
+  ContactAddOrRemoveResponse,
+  ContactCreatedResponse,
+  ContactsAddOrRemoveRequest,
+  ContactsDeleteRequest,
   ContactsListResponse,
+  CreateContactRequest,
+  CreateContactRequestWithObjectAttributes,
+  FoldersListResponse,
   ListCreateRequest,
+  ListCreateResponse,
   ListsResponse,
   MailIdentifiers,
   MailTemplates,
   SendSmtpEmailRequest,
-  TemplateOptions,
-  ContactAddOrRemoveFromListResponse,
-  CreateContactRequest,
-  ContactCreatedResponse,
-  FoldersListResponse,
-  ListCreateResponse
+  StatusMappedResponseMultipleInputs,
+  StatusMappedResponseSingleInput,
+  TemplateOptions
 } from "../../models/mail.model";
-import { AlertInstance } from "../notifier.service";
 
 @Injectable({
   providedIn: "root"
@@ -75,26 +78,24 @@ export class MailService {
     return (await this.commonDataService.responseFrom(this.logger, this.http.delete<ApiResponse>(`${this.BASE_URL}/${listType}/segmentDel/${segmentId}`))).response;
   }
 
-  async contactsInList(listType: string, notify: AlertInstance): Promise<ContactsListResponse> {
-    const params = this.commonDataService.toHttpParams({listType});
-    notify.success({title: "Mail Lists", message: `Querying Mail for current ${listType} subscribers`});
-    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/contacts-in-list`, {params}))).response;
+  async queryContacts(): Promise<ContactsListResponse> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/contacts`))).response;
   }
 
   async createContacts(createContactRequests: CreateContactRequest[]): Promise<ContactCreatedResponse[]> {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/contacts/create`, createContactRequests))).response;
   }
 
-  async contactsAddToList(listType: string, createContactRequests: CreateContactRequest[]): Promise<any> {
-    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/contacts/add-to-list`, createContactRequests))).response;
-  }
-
-  async contactsBatchUpdate(listType: string, createContactRequests: CreateContactRequest[]): Promise<any> {
+  async contactsBatchUpdate(createContactRequests: CreateContactRequestWithObjectAttributes[]): Promise<StatusMappedResponseMultipleInputs> {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/contacts/batch-update`, createContactRequests))).response;
   }
 
-  async contactsRemoveFromList(contactRemoveFromListRequest: ContactsAddOrRemoveFromListRequest): Promise<ContactAddOrRemoveFromListResponse> {
+  async contactsRemoveFromList(contactRemoveFromListRequest: ContactsAddOrRemoveRequest[]): Promise<ContactAddOrRemoveResponse> {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/contacts/remove-from-list`, contactRemoveFromListRequest))).response;
+  }
+
+  async deleteContacts(contactRemoveFromListRequest: ContactsDeleteRequest): Promise<StatusMappedResponseSingleInput[]> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/contacts/delete`, contactRemoveFromListRequest))).response;
   }
 
   async queryFolders(): Promise<FoldersListResponse> {

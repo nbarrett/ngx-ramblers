@@ -6,7 +6,7 @@
     </button>
   </div>
   <div class="modal-body">
-    <tabset class="custom-tabset">
+    <tabset *ngIf="config" class="custom-tabset">
       <tab active="true" heading="Contact">
         <div class="img-thumbnail thumbnail-admin-edit">
           <div class="row">
@@ -132,6 +132,10 @@
           </div>
         </form>
       </tab>
+      <tab app-mailchimp-subscription-settings heading="Mailchimp" [member]="member" [mailchimpConfig]="mailchimpConfig"
+           *ngIf="config?.mailDefaults?.mailProvider=== MailProvider.MAILCHIMP"/>
+      <tab app-mail-subscription-settings heading="Brevo" [member]="member" [mailConfig]="mailConfig"
+           *ngIf="config?.mailDefaults?.mailProvider=== MailProvider.BREVO"/>
       <tab heading="Privileges">
         <div class="img-thumbnail thumbnail-admin-edit">
           <div class="row">
@@ -274,8 +278,6 @@
           </div>
         </div>
       </tab>
-      <tab app-mailchimp-subscription-settings heading="Mailchimp" [member]="member" [mailchimpConfig]="mailchimpConfig"/>
-      <tab app-mail-subscription-settings heading="Brevo" [member]="member" [mailConfig]="mailConfig"/>
       <tab heading="Membership">
         <div class="img-thumbnail thumbnail-admin-edit">
           <div class="row">

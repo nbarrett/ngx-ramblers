@@ -70,6 +70,10 @@ export interface MailchimpSegmentIds {
   walkCoordinator?: number;
 }
 
+interface MailSettings extends MailIdentifiers {
+  subscriptions: MailSubscription[];
+}
+
 export interface Member extends MemberPrivileges, Auditable, Identifiable {
   hideSurname?: boolean;
   expiredPassword?: boolean;
@@ -90,6 +94,7 @@ export interface Member extends MemberPrivileges, Auditable, Identifiable {
     socialEvents?: MailchimpSubscription;
     general?: MailchimpSubscription;
   };
+  mail?: MailSettings;
   passwordResetId?: string;
   mailchimpSegmentIds?: MailchimpSegmentIds;
   profileSettingsConfirmed?: boolean;

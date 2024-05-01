@@ -8,7 +8,7 @@ import { AlertTarget } from "../../../models/alert-target.model";
 import { DateValue } from "../../../models/date.model";
 import { MailchimpConfig, MailchimpSubscription } from "../../../models/mailchimp.model";
 import { Member, MemberUpdateAudit } from "../../../models/member.model";
-import { SystemConfig } from "../../../models/system.model";
+import { MailProvider, SystemConfig } from "../../../models/system.model";
 import { EditMode } from "../../../models/ui-actions";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -225,4 +225,5 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     this.member.contactId = this.fullNameWithAliasPipe.transform(this.member);
   }
 
+    protected readonly MailProvider = MailProvider;
 }
