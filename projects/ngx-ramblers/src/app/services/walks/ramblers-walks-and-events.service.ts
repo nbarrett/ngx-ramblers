@@ -327,7 +327,7 @@ export class RamblersWalksAndEventsService {
   }
 
   private transformUrl(walk: Walk) {
-    const transformed = walk.ramblersWalkUrl.replace(this.ramblers?.mainSite?.href, this.ramblers?.walksManager?.href);
+    const transformed = walk.ramblersWalkUrl?.replace(this.ramblers?.mainSite?.href, this.ramblers?.walksManager?.href);
     this.logger.off("transformUrl:ramblersWalkUrl:", walk.ramblersWalkUrl, "from:", this.ramblers?.mainSite?.href, "to:", this.ramblers?.walksManager?.href, "transformed:", transformed);
     return transformed;
   }
@@ -435,14 +435,14 @@ export class RamblersWalksAndEventsService {
 
   replaceSpecialCharacters(value) {
     return value ? value
-      .replace("’", "")
-      .replace("é", "e")
-      .replace("â€™", "")
-      .replace("â€¦", "…")
-      .replace("â€“", "–")
-      .replace("â€™", "’")
-      .replace("â€œ", "“")
-      .replace(/(\r\n|\n|\r)/gm, " ") : "";
+      ?.replace("’", "")
+      ?.replace("é", "e")
+      ?.replace("â€™", "")
+      ?.replace("â€¦", "…")
+      ?.replace("â€“", "–")
+      ?.replace("â€™", "’")
+      ?.replace("â€œ", "“")
+      ?.replace(/(\r\n|\n|\r)/gm, " ") : "";
   }
 
 
@@ -508,7 +508,7 @@ export class RamblersWalksAndEventsService {
       meetupEventTitle: null,
       meetupEventUrl: null,
       meetupPublish: false,
-      nearestTown: groupWalk.start_location.description.replace(this.NEAREST_TOWN_PREFIX, ""),
+      nearestTown: groupWalk.start_location.description?.replace(this.NEAREST_TOWN_PREFIX, ""),
       osMapsRoute: null,
       osMapsTitle: null,
       postcode: groupWalk.start_location?.postcode,
