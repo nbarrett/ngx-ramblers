@@ -132,12 +132,12 @@ export function uploadRamblersData(req, res) {
               debugAndError("No files could be unzipped from " + userZipFileName);
               returnResponse();
             } else {
-              extractFromFile(unzipPath, extractedFiles, BULK_LOAD_SUFFIX, res).then(response => {
+              extractFromFile(extractedFiles, BULK_LOAD_SUFFIX, res).then(response => {
                 if (response.error) {
                   debugAndError(response.error);
                   returnResponse();
                 } else if (!response) {
-                  extractFromFile(unzipPath, extractedFiles, NEW_MEMBER_SUFFIX, res).then(response => {
+                  extractFromFile(extractedFiles, NEW_MEMBER_SUFFIX, res).then(response => {
                     if (!response) {
                       debugAndError(`No bulk load or new member file could be found in zip ${userZipFileName}.${extractedFiles.length} ignored files were: ${extractedFiles.join(", ")}`);
                       returnResponse();
@@ -180,7 +180,11 @@ export function uploadRamblersData(req, res) {
       });
   }
 
-  function extractFromFile(unzipPath, extractedFiles, fileNameSuffix, res) {
+  function membershipSecratariesInsightHubFormat(dataRow) {
+    return dataRow["Mem No."];
+  }
+
+  function extractFromFile(extractedFiles, fileNameSuffix, res) {
     const memberDataFileName = find(extractedFiles, file => file.endsWith(fileNameSuffix));
     if (memberDataFileName) {
       debugAndInfo(memberDataFileName, "matched", fileNameSuffix);
@@ -225,14 +229,14 @@ export function uploadRamblersData(req, res) {
             lastName: trim(dataRow["Surname"]),
             postcode: trim(dataRow["PostCode"])
           };
-        } else if (dataRow["Mem No."]) {
+        } else if (membershipSecratariesInsightHubFormat(dataRow)) {
           return {
             membershipExpiryDate: trim(dataRow["Expiry date"]),
             membershipNumber: trim(dataRow["Mem No."]),
             mobileNumber: trim(dataRow["Mobile Telephone"]),
             email: trim(dataRow["Email Address"]),
             firstName: trim(dataRow["Forenames"] || dataRow["Initials"]),
-            lastName: trim(dataRow["Surname"]),
+            lastName: trim(dataRow["Surname"] || dataRow["Last Name"]),
             postcode: trim(dataRow["Postcode"])
           };
         } else {
@@ -250,7 +254,7 @@ export function uploadRamblersData(req, res) {
     }
   }
 
-  async function extractCsvToJson(localFileName, userFileName) {
+  async function extractCsvToJson(localFileName: string, userFileName: string) {
     debugAndInfo("Extracting member data from", userFileName);
     bulkUploadResponse.files.data = `${uploadSessionFolder}/${userFileName}`;
     const content = fs.readFileSync(localFileName);

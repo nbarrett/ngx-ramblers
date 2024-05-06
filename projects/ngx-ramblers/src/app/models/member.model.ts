@@ -1,6 +1,5 @@
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { MailchimpSubscription } from "./mailchimp.model";
-import { NotificationConfig } from "./mail.model";
 
 export enum ProfileUpdateType {
   LOGIN_DETAILS = "login details",
@@ -25,11 +24,6 @@ export interface MemberFilterSelection {
 
 export type IdentifiableOrId = Identifiable | string ;
 
-export interface MemberEmailConfig {
-  notificationConfig: NotificationConfig;
-  preSend?: () => Promise<void>;
-  postSend?: () => Promise<void>;
-}
 
 export interface MailchimpSegmentId {
   segmentId: number;

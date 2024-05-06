@@ -12,7 +12,7 @@ import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { MailchimpConfig } from "../../../models/mailchimp.model";
-import { DeletedMember, DuplicateMember, Member } from "../../../models/member.model";
+import { DuplicateMember, Member } from "../../../models/member.model";
 import {
   ASCENDING,
   DESCENDING,
@@ -30,7 +30,6 @@ import { MailchimpConfigService } from "../../../services/mailchimp-config.servi
 import { MailchimpListSubscriptionService } from "../../../services/mailchimp/mailchimp-list-subscription.service";
 import { MailchimpListUpdaterService } from "../../../services/mailchimp/mailchimp-list-updater.service";
 import { MailchimpListService } from "../../../services/mailchimp/mailchimp-list.service";
-import { DeletedMemberService } from "../../../services/member/deleted-member.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
@@ -39,6 +38,7 @@ import { ProfileService } from "../profile/profile.service";
 import { SendEmailsModalComponent } from "../send-emails/send-emails-modal.component";
 import { WalksService } from "../../../services/walks/walks.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
+import { MemberBulkDeleteService } from "../../../services/member/member-bulk-delete.service";
 
 @Component({
   selector: "app-member-admin",
@@ -54,7 +54,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
               private modalService: BsModalService,
               private notifierService: NotifierService,
               private systemConfigService: SystemConfigService,
-              private deletedMemberService: DeletedMemberService,
+              private memberBulkDeleteService: MemberBulkDeleteService,
               private walksService: WalksService,
               private dateUtils: DateUtilsService,
               private mailchimpListService: MailchimpListService,
@@ -373,25 +373,8 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   }
 
   confirmBulkDelete() {
-    const deletedAt: number = this.dateUtils.momentNowNoTime().valueOf();
-    const deletedBy: string = this.memberLoginService.loggedInMember().memberId;
-    const deletedMembers: DeletedMember[] = this.bulkDeleteMarkedMemberIds.map(memberId => ({
-      deletedAt,
-      deletedBy,
-      memberId,
-      membershipNumber: this.members.find(member => member.id === memberId)?.membershipNumber
-    }));
-    this.logger.info("confirmBulkDelete:deletedMembers:", deletedMembers);
-    Promise.all(deletedMembers.map(deletedMember => {
-      const memberToDelete: Member = this.members.find(member => member.id === deletedMember.memberId);
-      if (memberToDelete) {
-        this.logger.info("deleting:deletedMember:", deletedMember, "memberToDelete:", memberToDelete);
-        return this.memberService.delete(memberToDelete).then(() => this.deletedMemberService.create(deletedMember));
-      } else {
-        this.logger.warn("cant delete:deletedMember:", deletedMember, "as member cant be found");
-        return false;
-      }
-    })).then(() => this.cancelBulkDelete());
+    this.memberBulkDeleteService.performBulkDelete(this.members, this.bulkDeleteMarkedMemberIds)
+      .then(() => this.cancelBulkDelete());
   }
 
   markAllForBulkDelete() {
