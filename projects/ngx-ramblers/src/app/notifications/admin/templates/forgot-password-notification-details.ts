@@ -8,7 +8,7 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
     <div>
       <div *ngIf="notificationConfig?.bannerId" class="row w-100 mx-0 mt-2">
         <img class="card-img"
-             [src]="mailMessagingService.bannerImageSource(notificationConfig)">
+             [src]="mailMessagingService.bannerImageSource(notificationConfig, true)">
       </div>
       <h1>{{ params?.systemMergeFields?.APP_SHORTNAME }} {{ notificationConfig.subject }}</h1>
       <p>Hi {{ params?.memberMergeFields?.FNAME }},</p>

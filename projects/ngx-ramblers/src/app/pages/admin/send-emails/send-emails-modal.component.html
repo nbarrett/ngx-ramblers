@@ -1,4 +1,4 @@
-<div *ngIf="emailConfigs.length>0 && emailConfig" class="modal-content">
+<div *ngIf="notificationConfigs.length>0 && selectedNotificationConfig" class="modal-content">
   <div class="modal-header">
     <h4 class="modal-title">Send <em>Emails</em> to Members</h4>
     <button type="button" class="close" aria-label="Close" (click)="bsModalRef.hide()">&times;</button>
@@ -13,12 +13,12 @@
                 <label for="contact-member">Email Type</label>
                 <select class="form-control input-sm"
                         [disabled]="notifyTarget.busy"
-                        [(ngModel)]="emailConfig"
+                        [(ngModel)]="selectedNotificationConfig"
                         (ngModelChange)="emailConfigChanged($event)">
-                  <option *ngFor="let emailConfig of emailConfigs"
+                  <option *ngFor="let emailConfig of notificationConfigs"
                           [ngValue]="emailConfig"
                           class="form-control"
-                          id="contact-member">{{ emailConfig?.notificationConfig?.subject?.text }}
+                          id="contact-member">{{ emailConfig?.subject?.text }}
                   </option>
                 </select>
               </div>
@@ -38,7 +38,7 @@
               <div markdown>
                 <ul>
                   <li>{{ helpMembers() }}</li>
-                  <li *ngIf="emailConfig?.notificationConfig?.help">{{ emailConfig?.notificationConfig?.help }}</li>
+                  <li *ngIf="selectedNotificationConfig?.help">{{ selectedNotificationConfig?.help }}</li>
                 </ul>
               </div>
             </div>
@@ -49,22 +49,22 @@
                 <label for="banner-lookup">Banner Image</label>
                 <select class="form-control input-sm"
                         id="banner-lookup"
-                        [(ngModel)]="emailConfig.notificationConfig.bannerId">
+                        [(ngModel)]="selectedNotificationConfig.bannerId">
                   <option *ngFor="let banner of mailMessagingConfig.banners"
                           [ngValue]="banner.id">{{ toBannerInformation(banner) }}
                   </option>
                 </select>
               </div>
             </div>
-            <div *ngIf="emailConfig.notificationConfig?.bannerId" class="col-sm-12 mb-2">
+            <div *ngIf="selectedNotificationConfig?.bannerId" class="col-sm-12 mb-2">
               <img class="card-img"
-                   [src]="mailMessagingService.bannerImageSource(emailConfig.notificationConfig)">
+                   [src]="mailMessagingService.bannerImageSource(selectedNotificationConfig)">
             </div>
             <div class="col-sm-12">
               <div class="form-group">
                 <label for="template">Brevo Template</label>
                 <div class="form-inline">
-                  <select [disabled]="true" [(ngModel)]="emailConfig.notificationConfig.templateId"
+                  <select [disabled]="true" [(ngModel)]="selectedNotificationConfig.templateId"
                           id="template"
                           class="form-control input-sm flex-grow-1 mr-2">
                     <option *ngFor="let template of mailMessagingConfig?.mailTemplates?.templates"
@@ -72,7 +72,7 @@
                     </option>
                   </select>
                   <input type="submit" value="Edit"
-                         (click)="editTemplate(emailConfig.notificationConfig.templateId)"
+                         (click)="editTemplate(selectedNotificationConfig.templateId)"
                          title="Edit"
                          [ngClass]="notifyTarget.busy ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
                 </div>
@@ -84,14 +84,14 @@
               <div class="form-group">
                 <label>
                   Pre-Send
-                  Action: {{ stringUtils.asTitle(first(emailConfig.notificationConfig.preSendActions)) || '(none)' }}</label>
+                  Action: {{ stringUtils.asTitle(first(selectedNotificationConfig.preSendActions)) || '(none)' }}</label>
               </div>
             </div>
             <div class="col-sm-6">
               <div class="form-group">
                 <label>
                   Post-Send
-                  Action: {{ stringUtils.asTitle(first(emailConfig.notificationConfig.postSendActions)) || '(none)' }}</label>
+                  Action: {{ stringUtils.asTitle(first(selectedNotificationConfig.postSendActions)) || '(none)' }}</label>
               </div>
             </div>
           </div>
@@ -108,12 +108,12 @@
                     <div class="form-inline">
                       <div class="custom-control custom-radio custom-control-inline">
                         <input type="radio" class="custom-control-input" [value]="MemberSelection.RECENTLY_ADDED"
-                               [ngModel]="emailConfig.notificationConfig.defaultMemberSelection"
+                               [ngModel]="selectedNotificationConfig.defaultMemberSelection"
                                [disabled]="notifyTarget.busy" id="recently-added"
-                               (click)="populateMembers(MemberSelection.RECENTLY_ADDED)">
+                               (click)="populateMembersBasedOn(MemberSelection.RECENTLY_ADDED)">
                         <label class="custom-control-label text-nowrap" for="recently-added">
                           Added in the
-                          last {{ stringUtils.pluraliseWithCount(emailConfig.notificationConfig.monthsInPast, "month") }}
+                          last {{ stringUtils.pluraliseWithCount(selectedNotificationConfig.monthsInPast, "month") }}
                           on/after:
                         </label>
                         <app-date-picker startOfDay *ngIf="currentMemberSelection === MemberSelection.RECENTLY_ADDED"
@@ -131,12 +131,12 @@
                       <div class="custom-control custom-radio custom-control-inline">
                         <input type="radio" class="custom-control-input"
                                [value]="MemberSelection.EXPIRED_MEMBERS"
-                               [ngModel]="emailConfig.notificationConfig.defaultMemberSelection"
+                               [ngModel]="selectedNotificationConfig.defaultMemberSelection"
                                [disabled]="notifyTarget.busy"
                                id="expired-members"
-                               (click)="populateMembers(MemberSelection.EXPIRED_MEMBERS)">
+                               (click)="populateMembersBasedOn(MemberSelection.EXPIRED_MEMBERS)">
                         <label class="custom-control-label text-nowrap" for="expired-members">
-                          {{ emailConfig.notificationConfig.monthsInPast }} months past expiry date:
+                          {{ selectedNotificationConfig.monthsInPast }} months past expiry date:
                         </label>
                         <app-date-picker startOfDay
                                          *ngIf="currentMemberSelection === MemberSelection.EXPIRED_MEMBERS"
@@ -155,10 +155,10 @@
                         type="radio"
                         class="custom-control-input"
                         [value]="MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS"
-                        [ngModel]="emailConfig.notificationConfig.monthsInPast"
+                        [ngModel]="selectedNotificationConfig.monthsInPast"
                         [disabled]="notifyTarget.busy"
                         id="missing-from-bulk-load-members"
-                        (click)="populateMembers(MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS)">
+                        (click)="populateMembersBasedOn(MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS)">
                       <label class="custom-control-label" for="missing-from-bulk-load-members">Missing from last bulk
                         load</label>
                     </div>
@@ -168,7 +168,7 @@
                         class="custom-control-input"
                         [disabled]="notifyTarget.busy"
                         value="Clear all"
-                        [ngModel]="emailConfig.notificationConfig.monthsInPast"
+                        [ngModel]="selectedNotificationConfig.monthsInPast"
                         id="clear-members"
                         (click)="clearSelectedMembers()"
                         title="Clear current selection">
@@ -211,7 +211,7 @@
             <div class="col-sm-12">
               <div class="form-group">
                 <label for="sender">Sender</label>
-                <select [(ngModel)]="emailConfig.notificationConfig.senderRole"
+                <select [(ngModel)]="selectedNotificationConfig.senderRole"
                         id="sender"
                         class="form-control input-sm">
                   <option *ngFor="let role of mailMessagingConfig.committeeReferenceData.committeeMembers()"
@@ -223,7 +223,7 @@
             <div class="col-sm-12">
               <div class="form-group">
                 <label for="reply-to">Reply To</label>
-                <select [(ngModel)]="emailConfig.notificationConfig.replyToRole"
+                <select [(ngModel)]="selectedNotificationConfig.replyToRole"
                         id="reply-to"
                         class="form-control input-sm">
                   <option *ngFor="let role of mailMessagingConfig.committeeReferenceData.committeeMembers()"
@@ -236,7 +236,7 @@
               <div class="form-group">
                 <app-committee-role-multi-select [showRoleSelectionAs]="'description'"
                                                  [label]="'Sign Off Email With Roles'"
-                                                 [roles]="emailConfig.notificationConfig.signOffRoles"
+                                                 [roles]="selectedNotificationConfig.signOffRoles"
                                                  (rolesChange)="assignRolesTo($event)"/>
               </div>
             </div>
@@ -255,9 +255,9 @@
   </div>
   <div class="modal-footer">
     <input type="submit" [disabled]="notifyTarget.busy || sendEmailsDisabled()"
-           value="Send {{emailConfig?.notificationConfig?.subject?.text}} email"
+           value="Send {{selectedNotificationConfig?.subject?.text}} email"
            (click)="sendEmails()"
-           title="Send {{emailConfig?.notificationConfig?.subject?.text}} email to the {{stringUtils.pluraliseWithCount(selectedMemberIds.length,'member')}}"
+           title="Send {{selectedNotificationConfig?.subject?.text}} email to the {{stringUtils.pluraliseWithCount(selectedMemberIds.length,'member')}}"
            [ngClass]="notifyTarget.busy || sendEmailsDisabled()? 'disabled-button-form button-form-left': 'button-form button-form-left'">
     <input type="submit" [disabled]="notifyTarget.busy" value="Cancel"
            (click)="cancelSendEmails()" title="Close this dialog"
