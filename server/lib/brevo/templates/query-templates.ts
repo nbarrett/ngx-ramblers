@@ -15,7 +15,7 @@ import * as http from "http";
 
 const messageType = "brevo:query-templates";
 const debugLog = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function queryTemplates(req: Request, res: Response, next: NextFunction): Promise<void> {
 

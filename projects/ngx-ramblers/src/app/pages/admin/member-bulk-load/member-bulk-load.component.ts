@@ -8,12 +8,11 @@ import {
   faCirclePlus,
   faEnvelopesBulk,
   faPencil,
-  faRemove,
+  faRemove, faSadTear,
   faSearch,
   faSpinner,
   faThumbsUp
 } from "@fortawesome/free-solid-svg-icons";
-import cloneDeep from "lodash-es/cloneDeep";
 import first from "lodash-es/first";
 import groupBy from "lodash-es/groupBy";
 import map from "lodash-es/map";
@@ -34,7 +33,7 @@ import {
   MemberUpdateAudit,
   SessionStatus
 } from "../../../models/member.model";
-import { Organisation } from "../../../models/system.model";
+import { MailProvider, SystemConfig } from "../../../models/system.model";
 import {
   ASCENDING,
   DESCENDING,
@@ -43,22 +42,22 @@ import {
 } from "../../../models/table-filtering.model";
 import { EditMode } from "../../../models/ui-actions";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
-import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { MailchimpListSubscriptionService } from "../../../services/mailchimp/mailchimp-list-subscription.service";
 import { MailchimpListUpdaterService } from "../../../services/mailchimp/mailchimp-list-updater.service";
-import { MailchimpListService } from "../../../services/mailchimp/mailchimp-list.service";
 import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk-load-audit.service";
 import { MemberBulkLoadService } from "../../../services/member/member-bulk-load.service";
-import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberUpdateAuditService } from "../../../services/member/member-update-audit.service";
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
-import { StringUtilsService } from "../../../services/string-utils.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
 import { MemberAdminModalComponent } from "../member-admin-modal/member-admin-modal.component";
+import { MailMessagingConfig } from "../../../models/mail.model";
+import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
+import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
+import cloneDeep from "lodash-es/cloneDeep";
+import { StringUtilsService } from "../../../services/string-utils.service";
 
 @Component({
   selector: "app-bulk-load",
@@ -66,10 +65,29 @@ import { MemberAdminModalComponent } from "../member-admin-modal/member-admin-mo
   styleUrls: ["./member-bulk-load.component.sass", "../admin/admin.component.sass"]
 })
 export class MemberBulkLoadComponent implements OnInit, OnDestroy {
+
+  constructor(private mailchimpListUpdaterService: MailchimpListUpdaterService,
+              public mailMessagingService: MailMessagingService,
+              private mailListUpdaterService: MailListUpdaterService,
+              private memberBulkLoadService: MemberBulkLoadService,
+              private memberService: MemberService,
+              private searchFilterPipe: SearchFilterPipe,
+              private memberUpdateAuditService: MemberUpdateAuditService,
+              private memberBulkLoadAuditService: MemberBulkLoadAuditService,
+              private systemConfigService: SystemConfigService,
+              private notifierService: NotifierService,
+              private modalService: BsModalService,
+              private stringUtils: StringUtilsService,
+              private dateUtils: DateUtilsService,
+              private urlService: UrlService,
+              private authService: AuthService,
+              private route: ActivatedRoute,
+              loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.createLogger("MemberBulkLoadComponent", NgxLoggerLevel.OFF);
+  }
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   private logger: Logger;
-  private memberAdminBaseUrl: string;
   private searchChangeObservable: Subject<string>;
   public uploadSessionStatuses: SessionStatus[];
   public uploadSession: MemberBulkLoadAudit;
@@ -85,6 +103,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     authToken: `Bearer ${this.authService.authToken()}`,
     formatDataFunctionIsAsync: false,
   });
+  private mailMessagingConfig: MailMessagingConfig;
   public memberBulkLoadAudits: MemberBulkLoadAudit[] = [];
   public memberUpdateAudits: MemberUpdateAudit[] = [];
   public members: Member[] = [];
@@ -92,41 +111,27 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   public quickSearch = "";
   public memberTabHeading: string;
   public auditTabHeading: string;
-  public group: Organisation;
+  public systemConfig: SystemConfig;
   private subscriptions: Subscription[] = [];
   faEnvelopesBulk = faEnvelopesBulk;
   faSpinner = faSpinner;
   faSearch = faSearch;
 
-  constructor(private mailchimpListService: MailchimpListService,
-              private contentMetadata: ContentMetadataService,
-              private memberBulkUploadService: MemberBulkLoadService,
-              private memberService: MemberService,
-              private searchFilterPipe: SearchFilterPipe,
-              private memberUpdateAuditService: MemberUpdateAuditService,
-              private memberBulkLoadAuditService: MemberBulkLoadAuditService,
-              private systemConfigService: SystemConfigService,
-              private notifierService: NotifierService,
-              private modalService: BsModalService,
-              private dateUtils: DateUtilsService,
-              private mailchimpListUpdaterService: MailchimpListUpdaterService,
-              private urlService: UrlService,
-              private mailchimpListSubscriptionService: MailchimpListSubscriptionService,
-              private stringUtils: StringUtilsService,
-              private authService: AuthService,
-              private memberLoginService: MemberLoginService,
-              private route: ActivatedRoute,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MemberBulkLoadComponent", NgxLoggerLevel.OFF);
-  }
+  protected readonly faSadTear = faSadTear;
 
   ngOnInit() {
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse) => {
       this.logger.debug("loginResponse", loginResponse);
       this.urlService.navigateTo(["admin"]);
     }));
-    this.logger.info("subscribing to systemConfigService events");
-    this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));
+    this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
+      this.logger.info("subscribing to mailMessagingService events:", mailMessagingConfig);
+      this.mailMessagingConfig = mailMessagingConfig;
+    }));
+    this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
+      this.logger.info("subscribing to systemConfigService events:", systemConfig);
+      this.systemConfig = systemConfig;
+    }));
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       const tab = paramMap.get("tab");
       this.logger.debug("tab is", tab);
@@ -137,7 +142,6 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
       .pipe(distinctUntilChanged())
       .subscribe(() => this.filterLists()));
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
-    this.memberAdminBaseUrl = this.contentMetadata.baseUrl("memberAdmin");
     this.subscriptions.push(this.fileUploader.response.subscribe((response: string | HttpErrorResponse) => {
       this.logger.debug("response", response, "type", typeof response);
       if (response instanceof HttpErrorResponse) {
@@ -147,11 +151,12 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
       } else {
         const memberBulkLoadAuditApiResponse: MemberBulkLoadAuditApiResponse = JSON.parse(response);
         this.logger.debug("received response", memberBulkLoadAuditApiResponse);
-        this.memberBulkUploadService.processResponse(memberBulkLoadAuditApiResponse, this.members, this.notify)
+        this.memberBulkLoadService.processResponse(this.mailMessagingConfig, this.systemConfig, memberBulkLoadAuditApiResponse, this.members, this.notify)
           .then(() => this.refreshMemberBulkLoadAudit())
           .then(() => this.refreshMemberUpdateAudit())
-          .then(() => this.validateBulkUploadProcessingBeforeMailchimpUpdates(memberBulkLoadAuditApiResponse))
-          .catch((error) => this.resetSendFlagsAndNotifyError(error));
+          .then(() => this.validateBulkUploadProcessing(memberBulkLoadAuditApiResponse))
+          .then((validationSuccessful) => this.sendSubscriptionUpdates(validationSuccessful))
+          .finally(() => this.clearBusy());
 
       }
     }));
@@ -222,10 +227,8 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     this.searchChangeObservable.next(searchEntry);
   }
 
-  createMemberFromAudit(memberFromAudit) {
-    const member = cloneDeep(memberFromAudit);
-    this.mailchimpListService.defaultMailchimpSettings(member, true);
-    member.groupMember = true;
+  createMemberFromAudit(memberFromAudit: Member) {
+    const member = this.memberBulkLoadService.applyDefaultMailSettingsToMember(cloneDeep(memberFromAudit), this.systemConfig, this.mailMessagingConfig);
     this.modalService.show(MemberAdminModalComponent, {
       class: "modal-xl",
       show: true,
@@ -241,15 +244,15 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     });
   }
 
-  showMemberUpdateAuditColumn(field) {
+  showMemberUpdateAuditColumn(field: string) {
     return this.filters.memberUpdateAudit.sortField.startsWith(field);
   }
 
-  showMembersUploadedColumn(field) {
+  showMembersUploadedColumn(field: string) {
     return this.filters.membersUploaded.sortField === field;
   }
 
-  sortMemberUpdateAuditBy(field) {
+  sortMemberUpdateAuditBy(field: string) {
     this.applySortTo(field, this.filters.memberUpdateAudit, this.memberUpdateAudits);
   }
 
@@ -257,7 +260,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     return this.auditSummaryFormatted(this.auditSummary());
   }
 
-  toFontAwesomeIcon(status): FontAwesomeIcon {
+  toFontAwesomeIcon(status: string): FontAwesomeIcon {
     if (status === "cancelled") {
       return {icon: faBan, class: "red-icon"};
     }
@@ -284,7 +287,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     }
   }
 
-  applySortTo(field, filterSource: MemberTableFilter, unfilteredList: any[]) {
+  applySortTo(field: string, filterSource: MemberTableFilter | MemberUpdateAuditTableFilter, unfilteredList: any[]) {
     this.logger.debug("sorting by field", field, "current value of filterSource", filterSource);
     filterSource.sortField = field;
     filterSource.sortFunction = field;
@@ -294,25 +297,11 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     this.applyFilterToList(filterSource, unfilteredList);
   }
 
-  applyFilterToList(filter: MemberTableFilter, unfilteredList: any[]) {
+  applyFilterToList(filter: MemberTableFilter | MemberUpdateAuditTableFilter, unfilteredList: any[]) {
     this.notify.setBusy();
     const filteredResults = sortBy(this.searchFilterPipe.transform(unfilteredList, this.quickSearch), filter.sortField);
     filter.results = filter.reverseSort ? filteredResults.reverse() : filteredResults;
     this.notify.clearBusy();
-  }
-
-  deleteMemberUpdateAudit(filteredMemberUpdateAudit) {
-    this.removeAllRecordsAndRefresh(filteredMemberUpdateAudit, this.refreshMemberUpdateAudit, "member update audit");
-  }
-
-  removeAllRecordsAndRefresh(records, refreshFunction, type) {
-    this.notify.success("Deleting " + records.length + " " + type + " record(s)");
-    const removePromises = records.map(record => this.memberService.delete(record));
-
-    Promise.all(removePromises).then(() => {
-      this.notify.success("Deleted " + records.length + " " + type + " record(s)");
-      refreshFunction.apply();
-    });
   }
 
   refreshMemberUpdateAudit(): Promise<MemberUpdateAudit[]> {
@@ -344,7 +333,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   uploadSessionChanged() {
     this.notify.setBusy();
     this.notify.hide();
-    this.logger.debug("upload session:", this.uploadSession);
+    this.logger.info("upload session:", this.uploadSession);
     this.refreshMemberUpdateAudit().then(() => this.notify.clearBusy());
   }
 
@@ -369,18 +358,16 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   }
 
   auditSummaryFormatted(auditSummary) {
-
     const total = reduce(auditSummary, (memo, value) => memo + value.length, 0);
-
     const summary = map(auditSummary, (items, key) => `${items.length}:${key}`).join(", ");
-
     return `${total} Member audits ${total ? `(${summary})` : ""}`;
   }
 
-  validateBulkUploadProcessingBeforeMailchimpUpdates(apiResponse: MemberBulkLoadAuditApiResponse) {
+  async validateBulkUploadProcessing(apiResponse: MemberBulkLoadAuditApiResponse): Promise<boolean> {
     this.logger.debug("validateBulkUploadProcessing:this.uploadSession", apiResponse);
     if (apiResponse.error) {
-      this.notify.error({title: "Bulk upload failed", message: apiResponse.error});
+      this.notify.error({title: "Bulk upload failed", message: apiResponse.error, continue: true});
+      return false;
     } else {
       const summary = this.auditSummary();
       const summaryFormatted = this.auditSummaryFormatted(summary);
@@ -388,25 +375,39 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
       if (summary.error) {
         this.notify.error({
           title: "Bulk upload was not successful",
-          message: "One or more errors occurred - " + summaryFormatted
+          message: `One or more errors occurred - ${summaryFormatted}. To see the details of these errors, click on the 'Upload History' tab, Choose Status 'Error' where you will be able to view the members that could not be imported`,
+          continue: true
         });
         return false;
       } else {
-        return this.mailchimpListUpdaterService.updateMailchimpLists(this.notify, this.members);
+        return true;
       }
     }
   }
 
-  resetSendFlagsAndNotifyError(error) {
+  async sendSubscriptionUpdates(validationSuccessful: boolean) {
+    if (validationSuccessful) {
+      const groupMembers = (await this.memberService.all()).filter(this.memberService.filterFor.GROUP_MEMBERS);
+      this.logger.info("about to update", this.systemConfig?.mailDefaults?.mailProvider, "mail lists for", this.stringUtils.pluraliseWithCount(groupMembers.length, "member"));
+      switch (this.systemConfig?.mailDefaults?.mailProvider) {
+        case MailProvider.BREVO:
+          return this.mailListUpdaterService.updateMailLists(this.notify, groupMembers);
+        case MailProvider.MAILCHIMP:
+          return this.mailchimpListUpdaterService.updateMailchimpLists(this.notify, groupMembers);
+        default:
+          return Promise.resolve();
+      }
+    } else {
+      return Promise.resolve();
+    }
+
+  }
+
+  clearBusy() {
     this.notify.clearBusy();
   }
 
-  bulkUploadRamblersResponse(memberBulkLoadServerResponse) {
-    return this.memberBulkUploadService.processResponse(memberBulkLoadServerResponse, this.members, this.notify);
-  }
-
   bulkUploadRamblersDataStart(fileElement: HTMLInputElement) {
-    this.logger.info("bulkUploadRamblersDataStart:fileElement", fileElement);
     fileElement.click();
   }
 }

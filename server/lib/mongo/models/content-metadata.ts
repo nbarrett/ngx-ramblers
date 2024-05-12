@@ -1,7 +1,7 @@
-import mongoose = require("mongoose");
-import uniqueValidator = require("mongoose-unique-validator");
+import mongoose from "mongoose";
+import uniqueValidator from "mongoose-unique-validator";
 
-const contentMetadataItem = mongoose.Schema({
+const contentMetadataItem = new mongoose.Schema({
   eventId: {type: String},
   dateSource: {type: String},
   date: {type: Number},
@@ -11,7 +11,7 @@ const contentMetadataItem = mongoose.Schema({
   tags: [{type: Number}]
 });
 
-const imageTag = mongoose.Schema({
+const imageTag = new mongoose.Schema({
   key: {type: Number},
   sortIndex: {type: Number},
   subject: {type: String},
@@ -19,7 +19,7 @@ const imageTag = mongoose.Schema({
 }, {_id: false});
 
 
-const contentMetadataSchema = mongoose.Schema({
+const contentMetadataSchema = new mongoose.Schema({
   rootFolder: {type: String, required: true},
   name: {type: String, required: true},
   baseUrl: {type: String},
@@ -32,4 +32,4 @@ const contentMetadataSchema = mongoose.Schema({
 
 contentMetadataSchema.plugin(uniqueValidator);
 
-export const contentMetadata = mongoose.model("content-metadata", contentMetadataSchema);
+export const contentMetadata: mongoose.Model<mongoose.Document> = mongoose.model("content-metadata", contentMetadataSchema);

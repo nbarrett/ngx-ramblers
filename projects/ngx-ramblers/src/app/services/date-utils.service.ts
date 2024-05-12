@@ -28,6 +28,7 @@ export class DateUtilsService {
     displayDateAndTime: "ddd DD-MMM-YYYY, h:mm:ss a",
     displayDateTh: "MMMM Do YYYY",
     displayDate: "ddd DD-MMM-YYYY",
+    displayDateNoDay: "DD-MMM-YYYY",
     displayDay: "dddd MMMM D, YYYY",
     ddmmyyyyWithSlashes: "DD/MM/YYYY",
     yyyymmdd: "YYYYMMDD"
@@ -39,10 +40,6 @@ export class DateUtilsService {
 
   isDate(value) {
     return value && this.asMoment(value).isValid();
-  }
-
-  asDate(value): Date {
-    return value && this.asMoment(value).toDate();
   }
 
   asMoment(dateValue?: any, inputFormat?: string): moment {
@@ -69,19 +66,19 @@ export class DateUtilsService {
     return this.asMoment(undefined, undefined).valueOf();
   }
 
-  mailchimpDate(dateValue): string {
-    return this.asString(dateValue, undefined, this.formats.ddmmyyyyWithSlashes);
-  }
-
-  displayDateAndTime(dateValue): string {
+  displayDateAndTime(dateValue: any): string {
     return this.asString(dateValue, undefined, this.formats.displayDateAndTime);
   }
 
-  displayDate(dateValue): string {
+  displayDate(dateValue: any): string {
     return this.asString(dateValue, undefined, this.formats.displayDate);
   }
 
-  displayDay(dateValue): string {
+  displayDateNoDay(dateValue: any): string {
+    return this.asString(dateValue, undefined, this.formats.displayDateNoDay);
+  }
+
+  displayDay(dateValue: any): string {
     return this.asString(dateValue, undefined, this.formats.displayDay);
   }
 
@@ -111,12 +108,11 @@ export class DateUtilsService {
     return object;
   }
 
-  convertDateField(inputValue) {
+  convertDateField(inputValue: any) {
     if (inputValue) {
       const dateValue = this.asValueNoTime(inputValue);
       if (dateValue !== inputValue) {
-        this.logger.debug("Converting date from", inputValue, "(" + this.displayDateAndTime(inputValue) + ") to",
-          dateValue, "(" + this.displayDateAndTime(dateValue) + ")");
+        this.logger.debug("Converting date from", inputValue, "(" + this.displayDateAndTime(inputValue) + ") to", dateValue, "(" + this.displayDateAndTime(dateValue) + ")");
         return dateValue;
       } else {
         this.logger.debug(inputValue, inputValue, "is already in correct format");

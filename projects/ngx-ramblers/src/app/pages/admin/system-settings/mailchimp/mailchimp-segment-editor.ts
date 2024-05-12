@@ -7,7 +7,22 @@ import { faEraser } from "@fortawesome/free-solid-svg-icons";
 
 @Component({
   selector: "app-mailchimp-segment-editor",
-  templateUrl: "./mailchimp-segment-editor.html",
+  template: `
+    <div *ngIf="showTitle" class="mb-2 mt-2 font-weight-bold">Mailchimp Segments ({{ editableSegments.length }})</div>
+    <div class="row" *ngFor="let segment of editableSegments">
+      <div class="col-sm-6">
+        {{ segment.key }}:
+      </div>
+      <div class="col-sm-3">
+        {{ segment.value }}
+      </div>
+      <div class="col-sm-3">
+        <div *ngIf="segment.value" class="badge-button" (click)="clearSegment(segment.key)">
+          <fa-icon [icon]="faEraser"></fa-icon>
+          <span>delete</span>
+        </div>
+      </div>
+    </div>`,
 })
 export class MailchimpSegmentEditorComponent implements OnInit {
   @Input()

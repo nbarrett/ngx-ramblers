@@ -44,7 +44,12 @@ export class SystemConfigService {
   }
 
   private async getConfig(): Promise<SystemConfig> {
-    return await this.config.queryConfig<SystemConfig>(ConfigKey.SYSTEM, this.default());
+    const config = await this.config.queryConfig<SystemConfig>(ConfigKey.SYSTEM, this.default());
+    if (!config?.mailDefaults?.mailProvider) {
+      config.mailDefaults = this.mailDefaults();
+    }
+
+    return config;
   }
 
   imageTypeDescription(imageType: RootFolder) {

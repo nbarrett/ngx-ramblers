@@ -11,10 +11,13 @@ import {
   StatusMappedResponseSingleInput
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { isString } from "lodash";
+import { createBottleneckWithRatePerSecond } from "../common/rate-limiting";
 
 const messageType = "brevo:contacts-delete";
 const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = true;
+
+const limiter = createBottleneckWithRatePerSecond(10);
 
 export async function contactsDelete(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -27,7 +30,7 @@ export async function contactsDelete(req: Request, res: Response, next: NextFunc
       const response: {
         response: http.IncomingMessage,
         body?: any
-      } = await apiInstance.deleteContact(identifier);
+      } = await limiter.schedule(() => apiInstance.deleteContact(identifier));
       return mapStatusMappedResponseSingleInput(id, response, 204);
     })).then((statusOnlyResponses: StatusMappedResponseSingleInput[]) => {
       debugLog("statusOnlyResponses:", statusOnlyResponses);
@@ -38,3 +41,4 @@ export async function contactsDelete(req: Request, res: Response, next: NextFunc
     handleError(req, res, messageType, debugLog, error);
   }
 }
+

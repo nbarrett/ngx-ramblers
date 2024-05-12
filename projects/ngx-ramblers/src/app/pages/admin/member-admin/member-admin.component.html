@@ -37,19 +37,15 @@
                   <input [disabled]="notifyTarget.busy" type="submit" value="Add New Member"
                          (click)="addMember()" title="Add New Member"
                          [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
+                  <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider!== MailProvider.NONE">
                   <input [disabled]="notifyTarget.busy" type="submit" value="Send Emails"
                          (click)="showSendEmailsDialog()" title="Send Emails"
                          [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
-                  <input *ngIf="config?.mailDefaults?.mailProvider=== MailProvider.MAILCHIMP"
-                         [disabled]="notifyTarget.busy || noMailchimpListsConfigured" type="submit"
-                     value="Update Mailchimp Lists"
-                     (click)="updateMailchimpLists()" title="Update Mailchimp Lists"
-                     [ngClass]="notifyTarget.busy || noMailchimpListsConfigured ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
-                  <input *ngIf="config?.mailDefaults?.mailProvider=== MailProvider.BREVO"
-                         [disabled]="notifyTarget.busy || noMailchimpListsConfigured" type="submit"
-                         value="Update Brevo Lists"
-                         (click)="updateBrevoLists()" title="Update Brevo Lists"
+                    <input [disabled]="notifyTarget.busy || noMailchimpListsConfigured" type="submit"
+                           value="Update {{systemConfig?.mailDefaults?.mailProvider| titlecase}} Mailing Lists"
+                           (click)="updateLists()"
                          [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
+                  </ng-container>
                 </ng-container>
                 <ng-container>
                   <input *ngIf="!confirm.bulkDeleteOutstanding()" [disabled]="notifyTarget.busy" type="submit"
@@ -65,32 +61,16 @@
                       [disabled]="notifyTarget.busy || bulkDeleteMarkedMemberIds.length === memberFilter.results.length"
                       type="submit"
                       [value]="'Select All ' + memberFilter.results.length + ' members'"
-                      (click)="markAllForBulkDelete()"
+                      (click)="selectAllForBulkDelete()"
                       [ngClass]="notifyTarget.busy  || bulkDeleteMarkedMemberIds.length === memberFilter.results.length? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
                     <input [disabled]="notifyTarget.busy || bulkDeleteMarkedMemberIds.length===0" type="submit"
                            [value]="'Deselect All ' + memberFilter.results.length + ' members'"
-                           (click)="markNoneForBulkDelete()"
+                           (click)="deselectAllForBulkDelete()"
                            [ngClass]="notifyTarget.busy|| bulkDeleteMarkedMemberIds.length===0 ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
                     <input [disabled]="notifyTarget.busy || bulkDeleteMarkedMemberIds.length === 0" type="submit"
                            [value]="'Confirm Deletion of ' + bulkDeleteMarkedMemberIds.length + ' members'"
                            (click)="confirmBulkDelete()"
                            [ngClass]="notifyTarget.busy  || bulkDeleteMarkedMemberIds.length === 0 ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab button-confirm'">
-                  </ng-container>
-                </ng-container>
-                <ng-container *ngIf="false">
-                  <input [disabled]="notifyTarget.busy" type="submit"
-                         [value]="'Bulk Unsubscribe ' + memberFilter.results.length + ' members'"
-                         (click)="bulkUnsubscribe()"
-                         [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
-                  <ng-container *ngIf="confirm.bulkActionOutstanding()">
-                    <input [disabled]="notifyTarget.busy" type="submit"
-                           [value]="'Cancel Bulk Unsubscribe'"
-                           (click)="clearOutstandingAction()"
-                           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab green-confirm'">
-                    <input [disabled]="notifyTarget.busy" type="submit"
-                           [value]="'Confirm Bulk Unsubscribe'"
-                           (click)="confirmBulkUnsubscribe()"
-                           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab button-confirm'">
                   </ng-container>
                 </ng-container>
               </div>
@@ -112,6 +92,10 @@
             <th>Action</th>
             <th (click)="sortMembersBy('memberName')">Member Name
               <span class="sorting-header" *ngIf="showMembersColumn('memberName')">
+                {{ memberFilter.sortDirection }}</span>
+            </th>
+            <th (click)="sortMembersBy('email')">Email
+              <span class="sorting-header" *ngIf="showMembersColumn('email')">
                 {{ memberFilter.sortDirection }}</span>
             </th>
             <th (click)="sortMembersBy('mobileNumber')">Mobile Number
@@ -138,7 +122,7 @@
               <span class="sorting-header" *ngIf="showMembersColumn('socialMember')">
                 {{ memberFilter.sortDirection }}</span>
             </th>
-            <ng-container *ngIf="config.mailDefaults.mailProvider==MailProvider.MAILCHIMP">
+            <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider==MailProvider.MAILCHIMP">
               <th *ngIf="mailchimpConfig?.lists?.walks" (click)="sortMembersBy('mailchimpLists.walks.subscribed')">
                 Walks emails
                 <div class="sorting-header" *ngIf="showMembersColumn('mailchimpLists.walks.subscribed')">
@@ -159,7 +143,7 @@
                 </div>
               </th>
             </ng-container>
-            <ng-container *ngIf="config.mailDefaults.mailProvider==MailProvider.BREVO">
+            <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider==MailProvider.BREVO">
               <th *ngFor="let keyValue of listsAsKeyValues" (click)="sortMembersBy(keyValue.key)">
                 {{keyValue.key | titlecase}} emails
                 <span class="sorting-header" *ngIf="showMembersColumn(keyValue.key)">
@@ -177,19 +161,18 @@
                    [disabled]="notifyTarget.busy"
                    [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
           </td>
-          <td><a [href]="'mailto:' + member.email">
-                        <span placement="right"
-                              tooltip="Click to email {{member | fullNameWithAlias}} at {{member.email}}">{{member | fullNameWithAlias}}</span></a>
-          </td>
+          <td>{{ member | fullNameWithAlias }}</td>
+          <td><a class="small" *ngIf="member.email" [href]="'mailto:' + member.email" placement="right"
+                 tooltip="Click to email {{member | fullNameWithAlias}} at {{member.email}}">{{ member.email }}</a></td>
           <td>
             <a [href]="'tel: ' + member.mobileNumber">
                                             <span placement="right"
                                                   tooltip="Click to ring {{member | fullNameWithAlias}} on {{member.mobileNumber}} (mobile devices only)">{{member.mobileNumber}}</span></a>
           </td>
-          <td class="nowrap">{{member.createdDate | displayDate}}</td>
-          <td class="nowrap">{{member.membershipExpiryDate | displayDate}}</td>
+          <td class="nowrap">{{ member.createdDate | displayDateNoDay }}</td>
+          <td class="nowrap">{{ member.membershipExpiryDate | displayDateNoDay }}</td>
           <td>
-            <app-switch-icon [on]="member.receivedInLastBulkLoad"/>
+            <app-switch-icon [on]="receivedInLastBulkLoad(member)"/>
           </td>
           <td>
             <app-switch-icon [on]="member.groupMember"/>
@@ -197,7 +180,7 @@
           <td>
             <app-switch-icon [on]="member.socialMember"/>
           </td>
-          <ng-container *ngIf="config.mailDefaults.mailProvider==MailProvider.MAILCHIMP">
+          <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider==MailProvider.MAILCHIMP">
             <td *ngIf="mailchimpConfig?.lists?.walks">
               <app-switch-icon [on]="member.mailchimpLists?.walks?.subscribed"/>
             </td>
@@ -208,7 +191,7 @@
               <app-switch-icon [on]="member.mailchimpLists?.general?.subscribed"/>
             </td>
           </ng-container>
-          <ng-container *ngIf="config.mailDefaults.mailProvider==MailProvider.BREVO">
+          <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider==MailProvider.BREVO">
             <td *ngFor="let keyValue of mailListUpdaterService.mapToKeyValues(mailConfig?.lists)">
               <app-switch-icon [on]="subscriptionFor(member, keyValue)"/>
             </td>

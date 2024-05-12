@@ -1,7 +1,7 @@
-import mongoose = require("mongoose");
+import mongoose from "mongoose";
 import * as memberModel from "./member";
 
-const memberUpdateAuditSchema = mongoose.Schema({
+const memberUpdateAuditSchema = new mongoose.Schema({
   uploadSessionId: {type: String},
   updateTime: {type: Number},
   memberAction: {type: String},
@@ -14,4 +14,4 @@ const memberUpdateAuditSchema = mongoose.Schema({
 }, {collection: "memberUpdateAudit"});
 
 
-export const memberUpdateAudit = mongoose.model("member-update-audit", memberUpdateAuditSchema);
+export const memberUpdateAudit: mongoose.Model<mongoose.Document> = mongoose.model("member-update-audit", memberUpdateAuditSchema);

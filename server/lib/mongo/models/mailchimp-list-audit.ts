@@ -1,7 +1,7 @@
-import mongoose = require("mongoose");
-import uniqueValidator = require("mongoose-unique-validator");
+import mongoose from "mongoose";
+import uniqueValidator from "mongoose-unique-validator";
 
-const schema = mongoose.Schema({
+const schema = new mongoose.Schema({
   memberId: {type: String},
   listType: {type: String},
   timestamp: {type: Number},
@@ -11,4 +11,4 @@ const schema = mongoose.Schema({
 
 schema.plugin(uniqueValidator);
 
-export const mailchimpListAudit = mongoose.model("mailchimp-list-audit", schema);
+export const mailchimpListAudit: mongoose.Model<mongoose.Document> = mongoose.model("mailchimp-list-audit", schema);

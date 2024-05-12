@@ -89,6 +89,9 @@ import {
   MailChimpSubscriptionSettingsComponent
 } from "../../pages/admin/member-admin-modal/mailchimp-subscription-settings";
 import { MailSubscriptionSettingComponent } from "../../pages/admin/member-admin-modal/mail-subscription-setting";
+import {
+  EmailSubscriptionsMailchimpComponent
+} from "../../pages/admin/profile/email-subscriptions-mailchimp.component";
 
 @NgModule({
   declarations: [
@@ -99,6 +102,7 @@ import { MailSubscriptionSettingComponent } from "../../pages/admin/member-admin
     CommitteeSettingsComponent,
     ContactDetailsComponent,
     EmailSubscriptionsComponent,
+    EmailSubscriptionsMailchimpComponent,
     ExpenseDetailModalComponent,
     ExpenseNotificationApproverFirstApprovalComponent,
     ExpenseNotificationApproverPaidComponent,

@@ -17,6 +17,7 @@ import {
   MailchimpListsMembersResponse,
   MailchimpMemberIdentifiers,
   MailchimpSegmentUpdateResponse,
+  MailchimpSubscription,
   MailchimpSubscriptionMember,
   MailchimpUpdateSegmentRequest,
   MergeField,
@@ -30,8 +31,10 @@ import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberService } from "../member/member.service";
 import { AlertInstance } from "../notifier.service";
-import { StringUtilsService } from "../string-utils.service";
 import { MergeFields } from "../../models/mail.model";
+import { MailProviderStats } from "../../models/system.model";
+import { KeyValue } from "../enums";
+import map from "lodash-es/map";
 
 @Injectable({
   providedIn: "root"
@@ -171,11 +174,54 @@ export class MailchimpListService {
     });
   }
 
-  resetUpdateStatusForMember(member): void {
+  resetUpdateStatusForMember(member: Member): void {
     // updated == false means not up to date with mail e.g. next list update will send this data to mailchimp
     member.mailchimpLists.walks.updated = false;
     member.mailchimpLists.socialEvents.updated = false;
     member.mailchimpLists.general.updated = false;
+  }
+
+  public initialiseSubscription(member: Member, listType: string, subscribed: boolean) {
+    const mailchimpSubscription = this.queryOrCreateSubscriptionFor(member, listType, subscribed);
+    if (!subscribed) {
+      mailchimpSubscription.subscribed = false;
+      mailchimpSubscription.unique_email_id = null;
+      mailchimpSubscription.email = null;
+      mailchimpSubscription.web_id = null;
+      mailchimpSubscription.updated = false;
+    }
+    this.logger.info("listType", listType, "mailchimpSubscription now:", mailchimpSubscription);
+  }
+
+  public mailProviderStats(groupMembers: Member[], listType: string): MailProviderStats {
+    const hasMailSubscription: Member[] = groupMembers.filter(member => this.memberSubscribed(member, listType));
+    const pendingIds: number = hasMailSubscription.map((member: Member) => this.existingMemberSubscription(member, listType)).filter((subscription) => !subscription?.unique_email_id)?.length;
+    const validIds: number = hasMailSubscription.map((member: Member) => this.existingMemberSubscription(member, listType)).filter((subscription) => subscription?.unique_email_id)?.length;
+    const invalidIds: number = hasMailSubscription.length - validIds - pendingIds;
+    const hasNoMailSubscription = groupMembers.length - hasMailSubscription.length;
+    return {
+      hasMailSubscription: hasMailSubscription.length,
+      pendingIds,
+      validIds,
+      invalidIds,
+      hasNoMailSubscription
+    };
+  }
+
+  private queryOrCreateSubscriptionFor(member: Member, listType: string, subscribed: boolean): MailchimpSubscription {
+    const mailchimpSubscription: MailchimpSubscription = member?.mailchimpLists?.[listType] || {
+      email: {
+        email: member.email,
+        subscribed
+      }
+    };
+    if (!member?.mailchimpLists?.[listType]) {
+      if (!member?.mailchimpLists) {
+        member.mailchimpLists = {};
+        member.mailchimpLists[listType] = mailchimpSubscription;
+      }
+    }
+    return mailchimpSubscription;
   }
 
   findMemberAndMarkAsUpdated(listType: string, batchedMembers: Member[], mailchimpMember: MailchimpListMember): Member {
@@ -270,4 +316,30 @@ export class MailchimpListService {
       }
     })).then(() => mailchimpListResponse);
   }
+
+  public memberSubscribedToAnyList(member: Member): boolean {
+    const subscriptionCount = this.mapMailchimpListsToSubscriptionKeyValues(member)?.filter((mailSubscription: KeyValue<boolean>) => mailSubscription?.value)?.length;
+    this.logger.off("memberSubscribed:member.groupMember", member?.groupMember, "member:", member, "subscriptionCount:", subscriptionCount);
+    return member?.groupMember && subscriptionCount > 0;
+  }
+
+  public memberSubscribed(member: Member, listType: string): boolean {
+    const subscription = this.existingMemberSubscription(member, listType);
+    this.logger.off("memberSubscribed:member.groupMember", member?.groupMember, "member:", member, "subscription:", subscription);
+    return member?.groupMember && subscription?.subscribed;
+  }
+
+  private existingMemberSubscription(member: Member, listType: string) {
+    const subscription: MailchimpSubscription = member?.mailchimpLists?.[listType];
+    return subscription;
+  }
+
+  public mapMailchimpListsToSubscriptionKeyValues(member: Member): KeyValue<boolean>[] {
+    return map(member.mailchimpLists, (value, key) => ({key, value: value?.subscribed}));
+  }
+
+  public mapMailchimpListsToIdValues(member: Member): KeyValue<string>[] {
+    return map(member.mailchimpLists, (value, key) => ({key, value: value?.unique_email_id}));
+  }
+
 }

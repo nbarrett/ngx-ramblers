@@ -7,6 +7,7 @@ import * as crudController from "./crud-controller";
 import * as transforms from "./transforms";
 import { createDocumentRequest, parseError, toObjectWithId } from "./transforms";
 import { enumForKey, enumValues } from "../../../../projects/ngx-ramblers/src/app/services/enums";
+import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 
 const debugLog = debug(envConfig.logNamespace("config"));
 debugLog.enabled = false;
@@ -43,7 +44,7 @@ function configCriteriaFromQuerystring(req: Request) {
   return criteriaForKey(configKey);
 }
 
-export function createOrUpdate(req: Request, res: Response) {
+export async function createOrUpdate(req: Request, res: Response) {
   const {document} = transforms.criteriaAndDocument(req);
   const criteria = configCriteriaFromBody(req);
   debugLog("pre-update:body:", req.body, "criteria:", criteria, "document:", document);
@@ -52,12 +53,12 @@ export function createOrUpdate(req: Request, res: Response) {
     .then(result => {
       debugLog("post-update:document:", documentRequest, "result:", result);
       res.status(200).json({
-        action: "update",
+        action: ApiAction.UPDATE,
         response: toObjectWithId(result)
       });
     })
     .catch(error => {
-      res.status(500).json({
+      return res.status(500).json({
         message: `Update of ${config.modelName} failed`,
         request: document,
         error: parseError(error)
@@ -70,7 +71,7 @@ export function queryKey(configKey: ConfigKey): Promise<ConfigDocument> {
     .then(response => toObjectWithId(response));
 }
 
-export function handleQuery(req: Request, res: Response): Promise<void> {
+export function handleQuery(req: Request, res: Response): Promise<any> {
   try {
     const criteria = configCriteriaFromQuerystring(req);
     return config.findOne(criteria)
@@ -78,7 +79,7 @@ export function handleQuery(req: Request, res: Response): Promise<void> {
         const configDocument: ConfigDocument = toObjectWithId(response);
         debugLog(req.query, "findByConditions:criteria", criteria, "configDocument:", configDocument);
         return res.status(200).json({
-          action: "query",
+          action: ApiAction.QUERY,
           response: configDocument?.value
         });
       })

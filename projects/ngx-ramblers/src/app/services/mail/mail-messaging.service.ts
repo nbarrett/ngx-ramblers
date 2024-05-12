@@ -62,7 +62,7 @@ export class MailMessagingService {
   private stringUtilsService: StringUtilsService = inject(StringUtilsService);
   private memberLoginService: MemberLoginService = inject(MemberLoginService);
   private fullNamePipe: FullNamePipe = inject(FullNamePipe);
-  private logger: Logger = inject(LoggerFactory).createLogger("MailMessagingService", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("MailMessagingService", NgxLoggerLevel.OFF);
 
   constructor() {
     this.initialise();
@@ -84,7 +84,7 @@ export class MailMessagingService {
       this.mailMessagingConfig.group = item.group;
       this.optionallyEmit("systemConfigService:group");
     });
-    this.mailConfigService.getConfig().then(config => {
+    this.mailConfigService.queryConfig().then(config => {
       this.logger.off("config:", config);
       this.mailMessagingConfig.mailConfig = config;
       if (!config.allowSendTransactional) {

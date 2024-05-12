@@ -44,16 +44,16 @@
                   </div>
                   <div class="custom-control custom-radio" *ngIf="mailchimpConfig?.lists?.general">
                     <input (click)="clearRecipientsForCampaignOfType('general')" id="send-to-general"
-                           [disabled]="allGeneralSubscribedList().length===0"
+                           [disabled]="subscribedToCampaignEmails().length===0"
                            name="send-to"
                            type="radio"
                            class="custom-control-input"
                            [(ngModel)]="notification.content.destinationType"
                            value="general"/>
-                    <label class="custom-control-label" for="send-to-general">{{allGeneralSubscribedList().length}}
+                    <label class="custom-control-label" for="send-to-general">{{subscribedToCampaignEmails().length}}
                       General List
                       Members </label>
-                    <a class="ml-1" *ngIf="allGeneralSubscribedList().length>0"
+                    <a class="ml-1" *ngIf="subscribedToCampaignEmails().length>0"
                        (click)="editAllGroupRecipients()">(edit)</a>
                   </div>
                   <div class="custom-control custom-radio" *ngIf="mailchimpConfig?.lists?.walks">

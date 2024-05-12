@@ -1,5 +1,5 @@
-import mongoose = require("mongoose");
-import uniqueValidator = require("mongoose-unique-validator");
+import mongoose from "mongoose";
+import uniqueValidator from "mongoose-unique-validator";
 
 const MailchimpSubscription = {
   subscribed: {type: Boolean},
@@ -11,12 +11,12 @@ const MailchimpSubscription = {
   email: {type: String}
 }
 
-const MailSubscription = mongoose.Schema({
+const MailSubscription = new mongoose.Schema({
   subscribed: {type: Boolean},
   id: {type: Number}
 }, {_id: false});
 
-const memberSchema = mongoose.Schema({
+const memberSchema = new mongoose.Schema({
   userName: {type: String, required: true, unique: true},
   expiredPassword: {type: Boolean},
   groupMember: {type: Boolean},
@@ -66,8 +66,6 @@ const memberSchema = mongoose.Schema({
   profileSettingsConfirmedAt: {type: Number},
   profileSettingsConfirmedBy: {type: String},
   walkChangeNotifications: {type: Boolean},
-  receivedInLastBulkLoad: {type: Boolean},
-  lastBulkLoadDate: {type: Number},
   createdDate: {type: Number},
   createdBy: {type: String},
   updatedDate: {type: Number},
@@ -77,4 +75,4 @@ const memberSchema = mongoose.Schema({
 
 memberSchema.plugin(uniqueValidator);
 
-export const member = mongoose.model("member", memberSchema);
+export const member: mongoose.Model<mongoose.Document> = mongoose.model("member", memberSchema);

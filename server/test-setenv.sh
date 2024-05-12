@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 export NODE_ENV=dev
+export MONGODB_URI=123
+export AWS_REGION=123
+export AWS_BUCKET=123
+export AUTH_SECRET=123
 export AWS_ACCESS_KEY_ID=123
 export AWS_SECRET_ACCESS_KEY=123
 export GOOGLE_MAPS_APIKEY=123

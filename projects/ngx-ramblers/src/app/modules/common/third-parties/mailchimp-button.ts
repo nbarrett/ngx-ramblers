@@ -39,7 +39,7 @@ export class MailchimpButtonComponent implements OnInit {
 
   constructor(
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MailchimpButtonComponent", NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger("MailchimpButtonComponent", NgxLoggerLevel.OFF);
   }
 
   ngOnInit(): void {

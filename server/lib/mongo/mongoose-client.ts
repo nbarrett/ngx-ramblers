@@ -1,6 +1,6 @@
 import { envConfig } from "../env-config/env-config";
 import debug from "debug";
-import mongoose = require("mongoose");
+import mongoose from "mongoose";
 import transforms = require("./controllers/transforms");
 
 let connected = false;
@@ -18,11 +18,11 @@ export function execute(mongoFunction: () => any): Promise<any> {
   }
 }
 
-export function create(model: any, data: any) {
+export function create<T>(model: mongoose.Model<mongoose.Document>, data: T) {
   const debugCreate: debug.Debugger = createDebugFor(model);
   debugCreate.enabled = false;
   const performCreate = () => {
-    const document = transforms.createDocumentRequest({body: data});
+    const document = transforms.createDocumentRequest<T>(data);
     debugCreate("create:data:", data, "document:", document);
     return new model(document).save()
       .then(result => {
@@ -47,7 +47,6 @@ export function create(model: any, data: any) {
 export function connect(debug: debug.Debugger) {
   return mongoose.connect(envConfig.mongo.uri, {
     useUnifiedTopology: true,
-    keepAlive: true,
     useNewUrlParser: true,
   }).then(response => {
     debug("Connected to database:", envConfig.mongo.uri, "configured models:", response.models);

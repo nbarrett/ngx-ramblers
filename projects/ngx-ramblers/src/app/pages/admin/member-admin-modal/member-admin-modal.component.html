@@ -6,7 +6,7 @@
     </button>
   </div>
   <div class="modal-body">
-    <tabset *ngIf="config" class="custom-tabset">
+    <tabset *ngIf="systemConfig" class="custom-tabset">
       <tab active="true" heading="Contact">
         <div class="img-thumbnail thumbnail-admin-edit">
           <div class="row">
@@ -132,10 +132,6 @@
           </div>
         </form>
       </tab>
-      <tab app-mailchimp-subscription-settings heading="Mailchimp" [member]="member" [mailchimpConfig]="mailchimpConfig"
-           *ngIf="config?.mailDefaults?.mailProvider=== MailProvider.MAILCHIMP"/>
-      <tab app-mail-subscription-settings heading="Brevo" [member]="member" [mailConfig]="mailConfig"
-           *ngIf="config?.mailDefaults?.mailProvider=== MailProvider.BREVO"/>
       <tab heading="Privileges">
         <div class="img-thumbnail thumbnail-admin-edit">
           <div class="row">
@@ -312,7 +308,7 @@
           <div class="row">
             <div class="col-sm-12">
               <p class="title-in-thumbnail">The following section allows data to be managed for
-                <a target="_blank" [href]="config.national.walksManager.href">Ramblers Walks and Events Manager</a>
+                <a target="_blank" [href]="systemConfig.national.walksManager.href">Ramblers Walks and Events Manager</a>
                 and <a target="_blank" href="https://volunteer.ramblers.org.uk">Assemble</a>
             </div>
             <div class="col-sm-12 mt-2 mb-2">
@@ -365,32 +361,39 @@
           </div>
         </div>
       </tab>
+      <tab app-mailchimp-subscription-settings heading="Mailchimp" [member]="member" [mailchimpConfig]="mailchimpConfig"
+           *ngIf="systemConfig?.mailDefaults?.mailProvider=== MailProvider.MAILCHIMP"/>
+      <tab app-mail-subscription-settings heading="Brevo" [member]="member" [members]="members" [mailConfig]="mailConfig" [systemConfig]="systemConfig" [mailListAudits]="mailListAudits"
+           *ngIf="systemConfig?.mailDefaults?.mailProvider=== MailProvider.BREVO"/>
       <tab heading="Audit">
         <div class="img-thumbnail thumbnail-admin-edit">
           <div class="row">
-            <div class="col-sm-12">
+            <div class="col-sm-6">
               <dl class="dl-horizontal input-sm">
                 <dt>Member Created</dt>
                 <dd [textContent]="member | createdAudit : members"></dd>
+              </dl>
+            </div>
+            <div class="col-sm-6">
+              <dl class="dl-horizontal input-sm">
                 <dt>Member Updated</dt>
                 <dd [textContent]="member | updatedAudit : members"></dd>
               </dl>
             </div>
           </div>
           <div class="row">
-            <div class="col-sm-8">
+            <div class="col-sm-6">
               <dl class="dl-horizontal input-sm">
                 <dt>Last Bulk Load Date</dt>
-                <dd [textContent]="member.lastBulkLoadDate | displayDateAndTime">
+                <dd [textContent]="lastBulkLoadDate | displayDateAndTime">
                 </dd>
               </dl>
             </div>
-            <div class="col-sm-4 custom-control custom-checkbox">
-              <input disabled [checked]="member.receivedInLastBulkLoad"
-                     type="checkbox" class="custom-control-input" id="received-in-last-bulkload">
-              <label class="custom-control-label"
-                     for="received-in-last-bulkload">Received In Last Bulk Load
-              </label>
+            <div class="col-sm-6">
+              <dl class="dl-horizontal input-sm">
+                <dt>Received In Last Bulk Load</dt>
+                <dd><app-switch-icon [on]="receivedInLastBulkLoad"/></dd>
+              </dl>
             </div>
           </div>
           <div class="row">

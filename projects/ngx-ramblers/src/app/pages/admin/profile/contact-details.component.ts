@@ -1,24 +1,11 @@
 import { Component, OnDestroy, OnInit } from "@angular/core";
-import { faUnlockAlt, faIdCard } from "@fortawesome/free-solid-svg-icons";
-import { BsModalService } from "ngx-bootstrap/modal";
+import { faIdCard } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { Member, ProfileUpdateType } from "../../../models/member.model";
-import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
-import { ContentMetadataService } from "../../../services/content-metadata.service";
-import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { MailchimpListSubscriptionService } from "../../../services/mailchimp/mailchimp-list-subscription.service";
-import { MailchimpListUpdaterService } from "../../../services/mailchimp/mailchimp-list-updater.service";
-import { MemberLoginService } from "../../../services/member/member-login.service";
-import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
-import { ProfileConfirmationService } from "../../../services/profile-confirmation.service";
-import { RouterHistoryService } from "../../../services/router-history.service";
-import { StringUtilsService } from "../../../services/string-utils.service";
-import { UrlService } from "../../../services/url.service";
 import { ProfileService } from "./profile.service";
 
 @Component({
@@ -28,24 +15,10 @@ import { ProfileService } from "./profile.service";
 })
 export class ContactDetailsComponent implements OnInit, OnDestroy {
   public member: Member;
-  faUnlockAlt = faUnlockAlt;
   faIdCard = faIdCard;
   private subscriptions: Subscription[] = [];
 
-  constructor(private authService: AuthService,
-              private contentMetadata: ContentMetadataService,
-              private dateUtils: DateUtilsService,
-              private mailchimpListSubscriptionService: MailchimpListSubscriptionService,
-              private mailchimpListUpdaterService: MailchimpListUpdaterService,
-              private memberLoginService: MemberLoginService,
-              private memberService: MemberService,
-              private modalService: BsModalService,
-              private notifierService: NotifierService,
-              private profileConfirmationService: ProfileConfirmationService,
-              private routerHistoryService: RouterHistoryService,
-              private searchFilterPipe: SearchFilterPipe,
-              private stringUtils: StringUtilsService,
-              private urlService: UrlService,
+  constructor(private notifierService: NotifierService,
               public profileService: ProfileService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(ContactDetailsComponent, NgxLoggerLevel.OFF);

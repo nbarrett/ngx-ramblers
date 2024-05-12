@@ -1,5 +1,6 @@
-import { ApiResponse, WithMongoId } from "./api-response.model";
+import { ApiResponse } from "./api-response.model";
 import { RootFolder } from "./system.model";
+import { WithMongoId } from "./mongo-models";
 
 export const RECENT_PHOTOS: ImageTag = {key: 0, sortIndex: 0, subject: "Recent Photos"};
 export const ALL_PHOTOS: ImageTag = {key: -1, sortIndex: -1, subject: "All Photos"};

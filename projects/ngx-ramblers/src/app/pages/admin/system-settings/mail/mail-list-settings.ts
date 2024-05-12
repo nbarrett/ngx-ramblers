@@ -140,7 +140,7 @@ export class MailListSettingsComponent implements OnInit {
     private mailLinkService: MailLinkService,
     private mailService: MailService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MailListSettingsComponent", NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger("MailListSettingsComponent", NgxLoggerLevel.OFF);
   }
 
   ngOnInit() {
@@ -256,24 +256,5 @@ export class MailListSettingsComponent implements OnInit {
         this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MAIL_LISTS_CHANGED, response));
       })
       .catch(error => this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.ERROR, error)));
-    // this.listChange(this.newListResponse.id);
-    // this.mailchimpListService.create(this.newListResponse)
-    //   .then(listAddResponse => {
-    //     this.listChange(listAddResponse.id);
-    //     this.setListConfigType();
-    //     return this.mailConfigService.saveConfig(this.mailConfig).then(response => {
-    //       return Promise.all(enumValues(CustomMergeFieldTag).map(tag => this.mailchimpListService.addMergeField(this.listType, {
-    //         tag,
-    //         public: false,
-    //         required: false,
-    //         name: this.stringUtils.asTitle(tag),
-    //         type: "text"
-    //       })))
-    //         .then((mergeFieldAddResponses: MergeFieldAddResponse[]) => {
-    //           this.logger.info("mergeFieldAddResponses:", mergeFieldAddResponses);
-    //           this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MAILCHIMP_LISTS_CHANGED, listAddResponse.id));
-    //         });
-    //     });
-    //   }).catch(error => this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.ERROR, error)));
   }
 }

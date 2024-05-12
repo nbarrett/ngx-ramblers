@@ -3,16 +3,17 @@ import { Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
 import { walk } from "../models/walk";
 import { parseError } from "./transforms";
+import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 
 const debugLog = debug(envConfig.logNamespace("walk"));
 debugLog.enabled = false;
 
-export function queryWalkLeaderMemberIds(req: Request, res: Response): Promise<void> {
+export function queryWalkLeaderMemberIds(req: Request, res: Response): Promise<any> {
   return walk.distinct("walkLeaderMemberId")
     .then((response: string[]) => {
       debugLog(req.query, "queryWalkLeaderMemberIds:response", response);
       return res.status(200).json({
-        action: "query",
+        action: ApiAction.QUERY,
         response
       });
     })

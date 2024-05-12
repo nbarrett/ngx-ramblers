@@ -21,25 +21,19 @@ export class MemberBulkDeleteService {
     this.logger = loggerFactory.createLogger("MemberBulkDeleteService", NgxLoggerLevel.OFF);
   }
 
-  performBulkDelete(members: Member[], memberIds: string[]) {
+  async performBulkDelete(members: Member[], memberIds: string[]) {
     const deletedAt: number = this.dateUtils.momentNowNoTime().valueOf();
     const deletedBy: string = this.memberLoginService.loggedInMember().memberId;
-    const deletedMembers: DeletedMember[] = memberIds.map(memberId => ({
-      deletedAt,
-      deletedBy,
-      memberId,
-      membershipNumber: members.find(member => member.id === memberId)?.membershipNumber
+    const membersToDelete: Member[] = members.filter(member => memberIds.includes(member.id));
+    const deletedMemberResponses = await this.memberService.deleteAll(membersToDelete);
+    const deletedMemberRequests: DeletedMember[] = deletedMemberResponses
+      .filter(item => item.deleted)
+      .map(deletionResponse => ({
+        deletedAt, deletedBy, memberId: deletionResponse.id,
+        membershipNumber: members.find(member => member.id === deletionResponse.id)?.membershipNumber
     }));
-    this.logger.info("confirmBulkDelete:deletedMembers:", deletedMembers);
-    return Promise.all(deletedMembers.map(deletedMember => {
-      const memberToDelete: Member = members.find(member => member.id === deletedMember.memberId);
-      if (memberToDelete) {
-        this.logger.info("deleting:deletedMember:", deletedMember, "memberToDelete:", memberToDelete);
-        return this.memberService.delete(memberToDelete).then(() => this.deletedMemberService.create(deletedMember));
-      } else {
-        this.logger.warn("cant delete:deletedMember:", deletedMember, "as member cant be found");
-        return false;
-      }
-    }));
+    const deletedMembers = await this.deletedMemberService.createOrUpdateAll(deletedMemberRequests);
+    this.logger.info("confirmBulkDelete:deletedMemberRequests:", deletedMemberRequests, "deletedMembers:", deletedMembers);
+    return deletedMembers;
   }
 }

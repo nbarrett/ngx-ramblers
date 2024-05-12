@@ -252,7 +252,6 @@ export interface MailchimpList {
 export interface MailchimpSubscription {
   subscribed?: boolean;
   updated?: boolean;
-  leid?: number;   // will be deleted
   unique_email_id?: string;
   web_id?: number;
   lastUpdated?: number;
@@ -262,7 +261,6 @@ export interface MailchimpSubscription {
 export interface SubscriberIdentifiers {
   email: string;
   euid?: string;
-  leid?: number;
 }
 
 export interface MailchimpSubscriptionMember {

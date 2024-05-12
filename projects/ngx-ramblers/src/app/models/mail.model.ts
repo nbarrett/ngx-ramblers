@@ -443,7 +443,7 @@ export interface MailListAuditApiResponse extends ApiResponse {
   response?: MailListAudit | MailListAudit[];
 }
 
-export interface MailListAudit extends HasListType {
+export interface MailListAudit extends HasListId {
   id?: string;
   memberId: string;
   createdBy: string;

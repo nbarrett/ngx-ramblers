@@ -12,7 +12,7 @@ export class MailConfigService {
   constructor(private config: ConfigService) {
   }
 
-  async getConfig(): Promise<MailConfig> {
+  async queryConfig(): Promise<MailConfig> {
     return await this.config.queryConfig<MailConfig>(ConfigKey.BREVO, {
       lists: {general: null, walks: null, socialEvents: null},
       expenseNotificationConfigId: null,
