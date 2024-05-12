@@ -16,13 +16,13 @@
                   <div class="col-sm-9">
                     <ul class="list-arrows">
                       The following data formats are supported:
-                      <li>{{group?.shortName}} member data can be loaded into the site 'in bulk' from the monthly update files that up
+                      <li>{{systemConfig?.group?.shortName}} member data can be loaded into the site 'in bulk' from the monthly update files that up
                         until September 2020 were emailed to
                         Membership Secretaries by Ramblers. This data was supplied in CSV format and was zipped. You
                         can tell if it's the right format as it should
-                        have a filename of <b>{{group?.groupCode}}_MemberList.csv, {{group?.groupCode}}
-                          _new.zip, {{group?.groupCode}}_new.csv</b> or
-                        <b>{{group?.groupCode}}_reports_{{currentMemberBulkLoadDisplayDate()}}.zip</b>.
+                        have a filename of <b>{{systemConfig?.group?.groupCode}}_MemberList.csv, {{systemConfig?.group?.groupCode}}
+                          _new.zip, {{systemConfig?.group?.groupCode}}_new.csv</b> or
+                        <b>{{systemConfig?.group?.groupCode}}_reports_{{currentMemberBulkLoadDisplayDate()}}.zip</b>.
                       </li>
                       <li>Since September 2020, Ramblers have now switched to Using <a
                         href="https://insight.ramblers.org.uk">InsightHub</a> for providing member data to Membership
@@ -54,13 +54,13 @@
               </div>
             </div>
           </tab>
-          <tab active [heading]="'New upload'">
+          <tab active heading="New Upload">
             <div class="admin-frame round-except-top-left">
               <div class="admin-header-white-background rounded">
                 <div class="row">
                   <div class="col-md-3">
                     <input type="submit" [disabled]="notifyTarget.busy"
-                           value="Browse for monthly reports file"
+                           value="Browse for member import file"
                            (click)="bulkUploadRamblersDataStart(fileElement)"
                            class="button-form mb-10 w-100"
                            [ngClass]="{'disabled-button-form': notifyTarget.busy }">
@@ -123,15 +123,13 @@
               </div>
             </div>
           </tab>
-          <tab [heading]="'Upload history'">
+          <tab heading="Upload History">
             <div class="admin-frame round-except-top-left">
               <div class="admin-header-background rounded">
                 <div class="admin-header-container-with-tabs">
-                  <div *ngIf="!uploadSession" class="admin-session-loading">
+                  <div *ngIf="memberBulkLoadAudits.length==0" class="admin-session-loading">
                     <div class="col-sm-12 text-center mt-3">
-                      <h3>Finding upload sessions
-                        <fa-icon [icon]="faSpinner" style="font-size:24px">></fa-icon>
-                      </h3>
+                      <h3>No Upload History Exists</h3>
                     </div>
                   </div>
                   <div *ngIf="uploadSession" class="form-inline quick-search">
@@ -185,14 +183,13 @@
                           <td>Zip file:</td>
                           <td>
                             <app-link
-                              name="{{uploadSession.files.archive}}"></app-link>
+                              name="{{uploadSession.files.archive}}"/>
                           </td>
                         </tr>
                         <tr *ngIf="uploadSession.files && uploadSession.files.data">
                           <td>Data file:</td>
                           <td>
-                            <app-link name="{{uploadSession.files.data}}"
-                                      id="data-file"></app-link>
+                            <app-link [name]="uploadSession?.files?.data"/>
                           </td>
                         </tr>
                         <tr>

@@ -37,10 +37,6 @@ import { MailchimpConfig, MailchimpSubscription } from "../../../models/mailchim
                   src="/assets/images/mailchimp/freddie_wink.svg"
                   alt="View general list entry In Mailchimp"></button>
             </div>
-            <div class="col-sm-12">
-              <app-mailchimp-segment-editor [showTitle]="true"
-                                            [segments]="member?.mailchimpSegmentIds"></app-mailchimp-segment-editor>
-            </div>
           </div>
           <div *ngIf="mailchimpConfig?.lists?.walks" class="row">
             <div class="col-sm-5">
@@ -84,6 +80,10 @@ import { MailchimpConfig, MailchimpSubscription } from "../../../models/mailchim
                   alt="View social list entry In Mailchimp"></button>
             </div>
           </div>
+          <div class="col-sm-12">
+            <app-mailchimp-segment-editor [showTitle]="true"
+                                          [segments]="member?.mailchimpSegmentIds"></app-mailchimp-segment-editor>
+          </div>
         </div>
       </div>
     </div>`
@@ -106,7 +106,7 @@ export class MailChimpSubscriptionSettingsComponent implements OnInit {
               private mailchimpLinkService: MailchimpLinkService,
               protected dateUtils: DateUtilsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MailChimpSubscriptionSettingsComponent", NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger("MailChimpSubscriptionSettingsComponent", NgxLoggerLevel.OFF);
   }
 
 
@@ -115,15 +115,15 @@ export class MailChimpSubscriptionSettingsComponent implements OnInit {
 
   mailchimpChangeSubscribed(listType: string) {
     const mailchimpSubscription: MailchimpSubscription = this.member.mailchimpLists[listType];
-    this.logger.info("listType", listType, "subscribed:", mailchimpSubscription.subscribed);
-    if (!mailchimpSubscription.subscribed) {
-      mailchimpSubscription.leid = null;
+    const subscribed = mailchimpSubscription.subscribed;
+    this.logger.info("listType", listType, "subscribed:", subscribed);
+    if (!subscribed) {
       mailchimpSubscription.unique_email_id = null;
       mailchimpSubscription.email = null;
       mailchimpSubscription.web_id = null;
       mailchimpSubscription.updated = false;
-      this.logger.info("listType", listType, "mailchimpSubscription now:", mailchimpSubscription);
     }
+    this.logger.info("listType", listType, "mailchimpSubscription now:", mailchimpSubscription);
   }
 
   viewMailchimpListEntry(webId: number) {

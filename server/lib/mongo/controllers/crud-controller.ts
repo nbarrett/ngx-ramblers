@@ -4,17 +4,41 @@ import { DataQueryOptions } from "../../../../projects/ngx-ramblers/src/app/mode
 import { envConfig } from "../../env-config/env-config";
 import * as transforms from "./transforms";
 import debug from "debug";
+import * as mongoose from "mongoose";
+import { ControllerRequest, DeletionResponse } from "../../../../projects/ngx-ramblers/src/app/models/mongo-models";
+import { ApiAction, Identifiable } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
+import { pluraliseWithCount } from "../../../serenity-js/screenplay/util/util";
+import { DeleteDocumentsRequest } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 
-export function create(model, debugEnabled?: boolean) {
+export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Document>, debugEnabled?: boolean) {
   const debugLog: debug.Debugger = debug(envConfig.logNamespace(`database:${model.modelName}`));
   debugLog.enabled = debugEnabled;
 
-  function findOne(req: Request, res: Response, parameters: DataQueryOptions): void {
+  async function createOrUpdateAll(req: Request, res: Response) {
+    const documents: T[] = req.body;
+    const message = `Create or update of ${pluraliseWithCount(documents.length, model.modelName)}`;
+    createOrUpdateAllDocuments(req).then((response: T[]) => {
+      res.status(200).json({
+        action: ApiAction.UPSERT,
+        message,
+        response
+      });
+    }).catch(error => {
+      debugLog(`createOrUpdateAll: ${message} error: ${error}`);
+      res.status(500).json({
+        message,
+        request: message,
+        error: transforms.parseError(error)
+      });
+    });
+  }
+
+  function findOne(req: Request, res: Response, parameters: DataQueryOptions) {
     return model.findOne(parameters.criteria).select(parameters.select)
       .then(result => {
         debugLog(req.query, "findByConditions:parameters", parameters, result, "documents");
         return res.status(200).json({
-          action: "query",
+          action: ApiAction.QUERY,
           response: transforms.toObjectWithId(result)
         });
       })
@@ -28,51 +52,96 @@ export function create(model, debugEnabled?: boolean) {
       });
   }
 
+  async function createOrUpdateAllDocuments(req: Request): Promise<T[]> {
+    const documents: T[] = req.body;
+    const message = `Create or update of ${pluraliseWithCount(documents.length, model.modelName)}`;
+    debugLog("createOrUpdateAll:received request for", message);
+    const response = await Promise.all(documents.map(member => {
+      if (member.id) {
+        return updateDocument({body: member});
+      } else {
+        return createDocument({body: member});
+      }
+    }));
+    debugLog("createOrUpdateAll:received request for", message, "returned:", pluraliseWithCount(response.length, model.modelName), response);
+    return response;
+  }
+
+  async function deleteAllDocuments(req: Request): Promise<DeletionResponse[]> {
+    const deleteDocumentsRequest: DeleteDocumentsRequest = req.body;
+    const message = `Deletion of ${pluraliseWithCount(deleteDocumentsRequest.ids.length, model.modelName)}`;
+    debugLog("deleteAllDocuments:received request for", message);
+    const response = await Promise.all(deleteDocumentsRequest.ids.map(id => {
+      return deleteDocument({body: {id}});
+    }));
+    debugLog("deleteAllDocuments:received request for", message, "returned:", pluraliseWithCount(response.length, model.modelName), response);
+    return response;
+  }
+
+  async function updateDocument(requestDocument: ControllerRequest): Promise<T> {
+    const {criteria, document} = transforms.criteriaAndDocument<T>(requestDocument);
+    debugLog("pre-update:criteria:", criteria, "document:", document);
+    const result = await model.findOneAndUpdate(criteria, document, {
+      useFindAndModify: false,
+      new: true
+    });
+    const updatedDocument = transforms.toObjectWithId(result);
+    debugLog("post-update:updatedDocument:", updatedDocument);
+    return updatedDocument;
+  }
+
+  async function createDocument(requestDocument: ControllerRequest): Promise<T> {
+    const document = transforms.createDocumentRequest(requestDocument);
+    debugLog("pre-create:document:", document);
+    const result = await new model(document).save();
+    const createdDocument = transforms.toObjectWithId(result);
+    debugLog("post-update:createdDocument:", createdDocument);
+    return createdDocument;
+  }
+
+  async function deleteDocument(requestDocument: ControllerRequest): Promise<DeletionResponse> {
+    const criteria = transforms.mongoIdCriteria(requestDocument);
+    debugLog("pre-delete:params:", requestDocument.params, "criteria:", criteria);
+    const result = await model.deleteOne(criteria);
+    const response: DeletionResponse = {id: criteria._id, deleted: result.deletedCount === 1};
+    debugLog("post-update:deletedCount", result.deletedCount, "result:", result, "response:", response);
+    return response;
+  }
+
   return {
-    create: (req: Request, res: Response) => {
-      const document = transforms.createDocumentRequest(req);
-      debugLog("create:body:", req.body, "document:", document);
-      new model(document).save()
-        .then(result => {
+    create: (req: ControllerRequest, res: Response) => {
+      createDocument(req)
+        .then(response => {
           res.status(201).json({
-            action: "create",
-            response: transforms.toObjectWithId(result)
+            action: ApiAction.CREATE,
+            response
           });
         })
         .catch(error => res.status(500).json({
           message: `Creation of ${model.modelName} failed`,
           error: transforms.parseError(error),
-          request: req.body,
         }));
     },
-    update: (req: Request, res: Response) => {
-      const {criteria, document} = transforms.criteriaAndDocument(req);
-      debugLog("pre-update:body:", req.body, "criteria:", criteria, "document:", document);
-      model.findOneAndUpdate(criteria, document, {useFindAndModify: false, new: true})
-        .then(result => {
-          debugLog("post-update:document:", document, "result:", result);
+    update: (req: ControllerRequest, res: Response) => {
+      updateDocument(req)
+        .then(response => {
           res.status(200).json({
-            action: "update",
-            response: transforms.toObjectWithId(result)
+            action: ApiAction.UPDATE,
+            response
           });
-        })
-        .catch(error => {
+        }).catch(error => {
           res.status(500).json({
             message: `Update of ${model.modelName} failed`,
-            request: document,
             error: transforms.parseError(error)
           });
         });
     },
     deleteOne: (req: Request, res: Response) => {
-      const criteria = transforms.criteria(req);
-      debugLog("delete:", criteria);
-      model.deleteOne(criteria)
-        .then(result => {
-          debugLog("deletedCount", result.deletedCount, "result:", result);
+      deleteDocument(req)
+        .then(response => {
           res.status(200).json({
-            action: "delete",
-            response: {id: req.params.id}
+            action: ApiAction.DELETE,
+            response
           });
         })
         .catch(error => {
@@ -81,6 +150,23 @@ export function create(model, debugEnabled?: boolean) {
             error: transforms.parseError(error)
           });
         });
+    },
+    deleteAll: (req: Request, res: Response) => {
+      const deleteDocumentsRequest: DeleteDocumentsRequest = req.body;
+      const message = `Deletion of ${pluraliseWithCount(deleteDocumentsRequest.ids.length, model.modelName)}`;
+      deleteAllDocuments(req).then(response => {
+        res.status(200).json({
+          action: message,
+          response
+        });
+      }).catch(error => {
+        debugLog(`deleteAll: ${message} error: ${error}`);
+        res.status(500).json({
+          message,
+          request: message,
+          error: transforms.parseError(error)
+        });
+      });
     },
     all: (req: Request, res: Response) => {
       const parameters: DataQueryOptions = transforms.parseQueryStringParameters(req);
@@ -92,7 +178,7 @@ export function create(model, debugEnabled?: boolean) {
         .then(results => {
           debugLog(req.query, "find - criteria:found", results.length, "documents");
           return res.status(200).json({
-            action: "query",
+            action: ApiAction.QUERY,
             response: results.map(result => transforms.toObjectWithId(result))
           });
         })
@@ -100,7 +186,6 @@ export function create(model, debugEnabled?: boolean) {
           debugLog("all:query", req.query, "error");
           res.status(500).json({
             message: `${model.modelName} query failed`,
-            request: req.query,
             error: transforms.parseError(error)
           });
         });
@@ -111,7 +196,7 @@ export function create(model, debugEnabled?: boolean) {
         .then(result => {
           if (result) {
             res.status(200).json({
-              action: "query",
+              action: ApiAction.QUERY,
               response: transforms.toObjectWithId(result)
             });
           } else {
@@ -133,7 +218,11 @@ export function create(model, debugEnabled?: boolean) {
       const parameters: DataQueryOptions = transforms.parseQueryStringParameters(req);
       findOne(req, res, parameters);
     },
-    findOne
+    findOne,
+    deleteDocument,
+    createOrUpdateAll,
+    updateDocument,
+    createDocument,
   };
 }
 

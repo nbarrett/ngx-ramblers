@@ -39,7 +39,7 @@ export class BrevoButtonComponent implements OnInit {
 
   constructor(
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(BrevoButtonComponent, NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger(BrevoButtonComponent, NgxLoggerLevel.OFF);
   }
 
   ngOnInit(): void {

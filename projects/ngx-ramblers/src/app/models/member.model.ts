@@ -1,6 +1,6 @@
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { MailchimpSubscription } from "./mailchimp.model";
-import { MailIdentifiers, MailSubscription, NotificationConfig } from "./mail.model";
+import { MailIdentifiers, MailSubscription } from "./mail.model";
 
 export enum ProfileUpdateType {
   LOGIN_DETAILS = "login details",
@@ -74,7 +74,7 @@ interface MailSettings extends MailIdentifiers {
   subscriptions: MailSubscription[];
 }
 
-export interface Member extends MemberPrivileges, Auditable, Identifiable {
+export interface Member extends HasFirstAndLastName, MemberPrivileges, Auditable, Identifiable {
   hideSurname?: boolean;
   expiredPassword?: boolean;
   password?: string;
@@ -83,8 +83,6 @@ export interface Member extends MemberPrivileges, Auditable, Identifiable {
   mobileNumber?: string;
   displayName?: string;
   contactId?: string;
-  firstName?: string;
-  lastName?: string;
   membershipExpiryDate?: number;
   membershipNumber?: string;
   postcode?: string;
@@ -100,7 +98,6 @@ export interface Member extends MemberPrivileges, Auditable, Identifiable {
   profileSettingsConfirmed?: boolean;
   profileSettingsConfirmedAt?: number;
   profileSettingsConfirmedBy?: string;
-  lastBulkLoadDate?: number;
   assembleId?: number;
 }
 
@@ -118,7 +115,6 @@ export interface MemberPrivileges {
   fileAdmin?: boolean;
   committee?: boolean;
   walkChangeNotifications?: boolean;
-  receivedInLastBulkLoad?: boolean;
 }
 
 export interface StatusMessage {
@@ -126,14 +122,17 @@ export interface StatusMessage {
   message: string;
 }
 
-export interface RamblersMember {
+export interface HasFirstAndLastName {
+  firstName: string;
+  lastName: string;
+}
+
+export interface RamblersMember extends HasFirstAndLastName {
   groupMember?: boolean;
   membershipExpiryDate?: string | number;
   membershipNumber: string;
   mobileNumber: string;
   email: string;
-  firstName: string;
-  lastName: string;
   postcode: string;
 }
 
@@ -219,10 +218,8 @@ export interface MemberBulkLoadAuditApiResponse extends ApiResponse {
   response?: MemberBulkLoadAudit | MemberBulkLoadAudit[];
 }
 
-export interface DuplicateMember {
-  fieldName: string;
-  fieldValue: string;
-  duplicates: Member[];
+export interface DeleteDocumentsRequest {
+  ids: string[];
 }
 
 export interface DeletedMember {

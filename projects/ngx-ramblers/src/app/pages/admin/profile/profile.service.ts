@@ -1,21 +1,14 @@
 import { Injectable } from "@angular/core";
 import { isEmpty } from "lodash-es";
-import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
 import { LoginResponse, Member, ProfileUpdateType } from "../../../models/member.model";
-import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
-import { ContentMetadataService } from "../../../services/content-metadata.service";
-import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { MailchimpListUpdaterService } from "../../../services/mailchimp/mailchimp-list-updater.service";
 import { MailchimpListService } from "../../../services/mailchimp/mailchimp-list.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
-import { AlertInstance, NotifierService } from "../../../services/notifier.service";
-import { ProfileConfirmationService } from "../../../services/profile-confirmation.service";
-import { StringUtilsService } from "../../../services/string-utils.service";
+import { AlertInstance } from "../../../services/notifier.service";
 import { UrlService } from "../../../services/url.service";
 
 @Injectable({
@@ -25,16 +18,8 @@ import { UrlService } from "../../../services/url.service";
 export class ProfileService  {
 
   constructor(private memberService: MemberService,
-              private contentMetadata: ContentMetadataService,
-              private searchFilterPipe: SearchFilterPipe,
-              private modalService: BsModalService,
-              private notifierService: NotifierService,
-              private dateUtils: DateUtilsService,
               private urlService: UrlService,
-              private profileConfirmationService: ProfileConfirmationService,
               private mailchimpListService: MailchimpListService,
-              private mailchimpListUpdaterService: MailchimpListUpdaterService,
-              private stringUtils: StringUtilsService,
               private authService: AuthService,
               private memberLoginService: MemberLoginService,
               loggerFactory: LoggerFactory) {
@@ -64,7 +49,7 @@ export class ProfileService  {
     return this.memberService.getById(this.memberLoginService.loggedInMember().memberId)
       .catch(error => {
         notify.error({title: `Error querying ${profileUpdateType}`, message: error});
-        return {};
+        return {} as Member;
       });
   }
 

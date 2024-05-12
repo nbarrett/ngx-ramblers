@@ -37,4 +37,11 @@ export class DeletedMemberService {
     return apiResponse.response;
   }
 
+  async createOrUpdateAll(deletedMembers: DeletedMember[]): Promise<DeletedMember[]> {
+    this.logger.info("createOrUpdateAll", deletedMembers);
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<DeletedMemberApiResponse>(`${this.BASE_URL}/all`, deletedMembers));
+    this.logger.info("created", deletedMembers, "- received", apiResponse);
+    return apiResponse.response as DeletedMember[];
+  }
+
 }

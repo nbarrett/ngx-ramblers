@@ -134,6 +134,7 @@ import { BrevoButtonComponent } from "./modules/common/third-parties/brevo-butto
 import { MailchimpButtonComponent } from "./modules/common/third-parties/mailchimp-button";
 import { ButtonWrapperComponent } from "./modules/common/third-parties/button-wrapper";
 import { MailProviderSettingsComponent } from "./pages/admin/system-settings/mail-provider/mail-provider-settings";
+import { DisplayDateNoDayPipe } from "./pipes/display-date-no-day.pipe";
 
 @NgModule({
   imports: [
@@ -177,10 +178,8 @@ import { MailProviderSettingsComponent } from "./pages/admin/system-settings/mai
     AspectRatioSelectorComponent,
     BadgeButtonComponent,
     BrevoButtonComponent,
-    MailchimpButtonComponent,
-    ButtonWrapperComponent,
-    MailProviderSettingsComponent,
     BulkActionSelectorComponent,
+    ButtonWrapperComponent,
     CardEditorComponent,
     CardImageComponent,
     CarouselComponent,
@@ -195,6 +194,7 @@ import { MailProviderSettingsComponent } from "./pages/admin/system-settings/mai
     CsvExportComponent,
     DatePickerComponent,
     DisplayDateAndTimePipe,
+    DisplayDateNoDayPipe,
     DisplayDatePipe,
     DisplayDatesAndTimesPipe,
     DisplayDatesPipe,
@@ -229,6 +229,8 @@ import { MailProviderSettingsComponent } from "./pages/admin/system-settings/mai
     LinkEditComponent,
     LinksEditComponent,
     LoginRequiredComponent,
+    MailProviderSettingsComponent,
+    MailchimpButtonComponent,
     MarginSelectComponent,
     MarkdownEditorComponent,
     MeetupEventSummaryPipe,
@@ -258,11 +260,9 @@ import { MailProviderSettingsComponent } from "./pages/admin/system-settings/mai
     AspectRatioSelectorComponent,
     BadgeButtonComponent,
     BrevoButtonComponent,
-    MailchimpButtonComponent,
-    ButtonWrapperComponent,
-    MailProviderSettingsComponent,
     BsDatepickerModule,
     BsDropdownModule,
+    ButtonWrapperComponent,
     ButtonsModule,
     CardEditorComponent,
     CardImageComponent,
@@ -279,6 +279,7 @@ import { MailProviderSettingsComponent } from "./pages/admin/system-settings/mai
     CsvExportComponent,
     DatePickerComponent,
     DisplayDateAndTimePipe,
+    DisplayDateNoDayPipe,
     DisplayDatePipe,
     DisplayDatesAndTimesPipe,
     DisplayDatesPipe,
@@ -304,6 +305,8 @@ import { MailProviderSettingsComponent } from "./pages/admin/system-settings/mai
     LinksEditComponent,
     LoggerModule,
     LoginRequiredComponent,
+    MailProviderSettingsComponent,
+    MailchimpButtonComponent,
     MarkdownEditorComponent,
     MarkdownModule,
     MeetupEventSummaryPipe,
@@ -343,9 +346,10 @@ export class SharedModule {
         CommitteeConfigService,
         CustomNGXLoggerService,
         DisplayDateAndTimePipe,
+        DisplayDateNoDayPipe,
         DisplayDatePipe,
-        DisplayDatesPipe,
         DisplayDatesAndTimesPipe,
+        DisplayDatesPipe,
         DisplayDayPipe,
         EventNotePipe,
         FullNamePipe,

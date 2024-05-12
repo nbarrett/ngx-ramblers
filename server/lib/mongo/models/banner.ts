@@ -1,7 +1,7 @@
-import mongoose = require("mongoose");
-import uniqueValidator = require("mongoose-unique-validator");
+import mongoose from "mongoose";
+import uniqueValidator from "mongoose-unique-validator";
 
-const fileNameData = mongoose.Schema({
+const fileNameData = new mongoose.Schema({
     rootFolder: {type: String},
     originalFileName: {type: String},
     awsFileName: {type: String},
@@ -9,7 +9,7 @@ const fileNameData = mongoose.Schema({
 }, {_id: false});
 
 
-const bannerConfigSchema = mongoose.Schema({
+const bannerConfigSchema = new mongoose.Schema({
   name: {type: String},
   bannerType: {type: String},
   banner: {type: Object},
@@ -22,7 +22,4 @@ const bannerConfigSchema = mongoose.Schema({
 
 bannerConfigSchema.plugin(uniqueValidator);
 
-export const banner = mongoose.model("banner", bannerConfigSchema);
-
-
-
+export const banner: mongoose.Model<mongoose.Document> = mongoose.model("banner", bannerConfigSchema);

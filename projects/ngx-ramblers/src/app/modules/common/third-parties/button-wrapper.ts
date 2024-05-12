@@ -43,7 +43,7 @@ export class ButtonWrapperComponent implements OnInit {
 
   constructor(
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("ButtonWrapperComponent", NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger("ButtonWrapperComponent", NgxLoggerLevel.OFF);
   }
 
   ngOnInit(): void {

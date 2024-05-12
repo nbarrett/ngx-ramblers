@@ -227,24 +227,10 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     groupEvent.selected = !groupEvent.selected;
   }
 
-  allGeneralSubscribedList(): MemberFilterSelection[] {
+  subscribedToCampaignEmails(): MemberFilterSelection[] {
     return this.members
       .filter(this.memberService.filterFor.GENERAL_MEMBERS_SUBSCRIBED)
       .map(member => this.toMemberFilterSelection(member))
-      .sort(SORT_BY_NAME);
-  }
-
-  allWalksSubscribedList(): MemberFilterSelection[] {
-    return this.members
-      .filter(member => this.memberService.filterFor.WALKS_MEMBERS_SUBSCRIBED(member))
-      .map(member => this.toSelectWalksMember(member))
-      .sort(SORT_BY_NAME);
-  }
-
-  allSocialSubscribedList(): MemberFilterSelection[] {
-    return this.members
-      .filter(member => this.memberService.filterFor.SOCIAL_MEMBERS_SUBSCRIBED(member))
-      .map(member => this.toSelectSocialMember(member))
       .sort(SORT_BY_NAME);
   }
 
@@ -284,55 +270,6 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     };
   }
 
-  toSelectWalksMember(member: Member): MemberFilterSelection {
-    let memberGrouping;
-    let order;
-    if (member.groupMember && member.mailchimpLists?.walks?.subscribed) {
-      memberGrouping = "Subscribed to walks emails";
-      order = 0;
-    } else if (member.groupMember && !member.mailchimpLists?.walks?.subscribed) {
-      memberGrouping = "Not subscribed to walks emails";
-      order = 1;
-    } else if (!member.groupMember) {
-      memberGrouping = "Not a group member";
-      order = 2;
-    } else {
-      memberGrouping = "Unexpected state";
-      order = 3;
-    }
-    return {
-      id: this.memberService.extractMemberId(member),
-      order,
-      memberGrouping,
-      member,
-      memberInformation: this.fullNameWithAlias.transform(member)
-    };
-  }
-
-  toSelectSocialMember(member: Member): MemberFilterSelection {
-    let memberGrouping;
-    let order;
-    if (member.groupMember && member.mailchimpLists?.socialEvents?.subscribed) {
-      memberGrouping = "Subscribed to social emails";
-      order = 0;
-    } else if (member.groupMember && !member.mailchimpLists?.socialEvents?.subscribed) {
-      memberGrouping = "Not subscribed to social emails";
-      order = 1;
-    } else if (!member.groupMember) {
-      memberGrouping = "Not a group member";
-      order = 2;
-    } else {
-      memberGrouping = "Unexpected state";
-      order = 3;
-    }
-    return {
-      id: this.memberService.extractMemberId(member),
-      order,
-      memberGrouping,
-      member,
-      memberInformation: this.fullNameWithAlias.transform(member)
-    };
-  }
 
   private showSelectedMemberIds() {
     this.onChange();
@@ -344,27 +281,9 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     this.notification.content.destinationType = "custom";
     this.notification.content.campaignId = this.campaignIdFor("general");
     this.notification.content.list = "general";
-    this.notification.content.selectedMemberIds = this.allGeneralSubscribedList().map(item => this.memberService.toIdString(item));
+    this.notification.content.selectedMemberIds = this.subscribedToCampaignEmails().map(item => this.memberService.toIdString(item));
     this.showSelectedMemberIds();
 
-  }
-
-  editAllWalksRecipients() {
-    this.logger.debug("editAllWalksRecipients");
-    this.notification.content.destinationType = "custom";
-    this.notification.content.campaignId = this.campaignIdFor("walks");
-    this.notification.content.list = "walks";
-    this.notification.content.selectedMemberIds = this.allWalksSubscribedList().map(item => this.memberService.toIdString(item));
-    this.showSelectedMemberIds();
-  }
-
-  editAllSocialRecipients() {
-    this.logger.debug("editAllSocialRecipients");
-    this.notification.content.destinationType = "custom";
-    this.notification.content.campaignId = this.campaignIdFor("socialEvents");
-    this.notification.content.list = "socialEvents";
-    this.notification.content.selectedMemberIds = this.allSocialSubscribedList().map(item => this.memberService.toIdString(item));
-    this.showSelectedMemberIds();
   }
 
   editCommitteeRecipients() {

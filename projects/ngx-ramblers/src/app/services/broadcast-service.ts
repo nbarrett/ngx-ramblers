@@ -24,7 +24,7 @@ export class BroadcastService<T> {
   }
 
   on(eventName: NamedEventType, callback: (data?: NamedEvent<T>) => void) {
-    this.subject.asObservable().pipe(
+    return this.subject.asObservable().pipe(
       filter((event: NamedEvent<T>) => {
         const found = event.name === eventName;
         if (found) {

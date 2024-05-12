@@ -3,11 +3,11 @@ import { Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
-import { MemberBulkLoadAudit, MemberBulkLoadAuditApiResponse } from "../../models/member.model";
+import { Member, MemberBulkLoadAudit, MemberBulkLoadAuditApiResponse } from "../../models/member.model";
 import { CommonDataService } from "../common-data-service";
 import { DbUtilsService } from "../db-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { NumberUtilsService } from "../number-utils.service";
+import first from "lodash-es/first";
 
 @Injectable({
   providedIn: "root"
@@ -19,7 +19,6 @@ export class MemberBulkLoadAuditService {
   private bulkLoadNotifications = new Subject<MemberBulkLoadAuditApiResponse>();
 
   constructor(private http: HttpClient,
-              private numberUtils: NumberUtilsService,
               private dbUtils: DbUtilsService,
               private commonDataService: CommonDataService,
               loggerFactory: LoggerFactory) {
@@ -32,10 +31,10 @@ export class MemberBulkLoadAuditService {
 
   async all(criteria?: DataQueryOptions): Promise<MemberBulkLoadAudit[]> {
     const params = this.commonDataService.toHttpParams(criteria);
-    this.logger.debug("all:params", params.toString());
+    this.logger.info("all:criteria:", criteria, "params:", params.toString());
     const response = await this.commonDataService.responseFrom(this.logger, this.http.get<MemberBulkLoadAuditApiResponse>(`${this.BASE_URL}/all`, {params}), this.bulkLoadNotifications);
     const responses = response.response as MemberBulkLoadAudit[];
-    this.logger.debug("all:params", params.toString(), "received", responses.length, "audits");
+    this.logger.info("all:params", params.toString(), "received", responses.length, "audits");
     return responses;
   }
 
@@ -53,4 +52,14 @@ export class MemberBulkLoadAuditService {
     return apiResponse.response as MemberBulkLoadAudit;
   }
 
+  public async findLatestBulkLoadAudit() {
+    const audits: MemberBulkLoadAudit[] = await this.all({limit: 1, sort: {createdDate: -1}});
+    const latestMemberBulkLoadAudit = first(audits);
+    this.logger.info("findLatestBulkLoadAudit:audits:", audits, "latestMemberBulkLoadAudit:", latestMemberBulkLoadAudit);
+    return latestMemberBulkLoadAudit;
+  }
+
+  public receivedInBulkLoad(member: Member, received: boolean, bulkLoadAudit: MemberBulkLoadAudit) {
+    return bulkLoadAudit?.members?.find(memberInAudit => memberInAudit.membershipNumber === member.membershipNumber) ? received : !received;
+  }
 }

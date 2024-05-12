@@ -1,5 +1,4 @@
 import { Injectable } from "@angular/core";
-import keys from "lodash-es/keys";
 import { NgxLoggerLevel } from "ngx-logger";
 import { MailchimpConfig } from "../../models/mailchimp.model";
 import { Member } from "../../models/member.model";
@@ -28,7 +27,7 @@ export class MailchimpListUpdaterService {
     this.logger.info("updateMailchimpLists:members:", members);
     return this.mailchimpConfigService.getConfig().then((config: MailchimpConfig) => {
       if (config.mailchimpEnabled) {
-        const listTypes: string[] = keys(config.lists);
+        const listTypes: string[] = this.mailchimpConfigService.configuredListTypes(config)?.filter(item => item.value)?.map(item => item.key);
         notify.success(`Sending updates to Mailchimp lists ${listTypes.join(", ")}`, true);
         return Promise.all(listTypes.map((listType: string) => this.mailchimpListSubscriptionService.createBatchSubscriptionForList(listType, members)))
           .then(() => Promise.all(listTypes.map((listType: string) => this.mailchimpListService.batchUnsubscribeMembers(listType, members, notify))))

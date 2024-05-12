@@ -2,19 +2,25 @@ import { Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
 import debug from "debug";
 import { configuredBrevo } from "../brevo-config";
-import { CreateContactRequestWithObjectAttributes } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import {
+  CreateContactRequestWithObjectAttributes,
+  MailConfig
+} from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import * as SibApiV3Sdk from "@getbrevo/brevo";
 import http from "http";
 import { handleError, mapStatusMappedResponseSingleInput, successfulResponse } from "../common/messages";
+import { createBottleneckWithRatePerSecond } from "../common/rate-limiting";
+import { ContactsApi } from "@getbrevo/brevo";
 
 const messageType = "brevo:contacts:create";
 const debugLog = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = true;
 
+const limiter = createBottleneckWithRatePerSecond(10);
 export async function contactsCreate(req: Request, res: Response): Promise<any> {
   try {
-    const brevoConfig = await configuredBrevo();
-    const apiInstance = new SibApiV3Sdk.ContactsApi();
+    const brevoConfig: MailConfig = await configuredBrevo();
+    const apiInstance: ContactsApi = new SibApiV3Sdk.ContactsApi();
     apiInstance.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
     const createContactRequests: CreateContactRequestWithObjectAttributes[] = req.body;
     debugLog("received", createContactRequests.length, "createContactRequests:", createContactRequests);
@@ -28,7 +34,10 @@ export async function contactsCreate(req: Request, res: Response): Promise<any> 
       const response: {
         response: http.IncomingMessage,
         body?: any
-      } = await apiInstance.createContact(createContact);
+      } = await limiter.schedule(() => {
+        debugLog("creating contact:", createContact);
+        return apiInstance.createContact(createContact);
+      });
       return mapStatusMappedResponseSingleInput(createContactRequest.email, response, 201, 204);
     }));
     debugLog("createContactRequests:", createContactRequests, "responses:", responses);

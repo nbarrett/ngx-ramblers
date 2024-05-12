@@ -61,11 +61,8 @@ export class MailchimpListSubscriptionService {
     }
   }
 
-  addMailchimpIdentifiersToRequest(member: Member, listType, mergeVariablesRequest?: MergeVariablesRequest): SubscriptionRequest {
+  addMailchimpIdentifiersToRequest(member: Member, listType: string, mergeVariablesRequest?: MergeVariablesRequest): SubscriptionRequest {
     const mailchimpIdentifiers: MailchimpSubscription = {email: {email: member.email}};
-    if (member.mailchimpLists[listType].leid) {
-      mailchimpIdentifiers.email.leid = member.mailchimpLists[listType].leid;
-    }
     if (mergeVariablesRequest) {
       return {...mergeVariablesRequest, ...mailchimpIdentifiers};
     } else {
@@ -129,7 +126,7 @@ export class MailchimpListSubscriptionService {
     });
   }
 
-  processErrorResponses(listType, errorResponses: MailchimpEmailWithError[], batchedMembers, savePromises) {
+  processErrorResponses(listType: string, errorResponses: MailchimpEmailWithError[], batchedMembers: Member[], savePromises: any[]) {
     errorResponses.forEach((mailchimpEmailWithError: MailchimpEmailWithError) => {
       const member: Member = this.mailchimpListService.findMemberAndMarkAsUpdatedFromError(listType, batchedMembers, mailchimpEmailWithError);
       if (member) {

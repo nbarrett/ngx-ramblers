@@ -1,73 +1,123 @@
 import { Component, OnDestroy, OnInit } from "@angular/core";
-import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { MailchimpConfig } from "../../../models/mailchimp.model";
 import { Member, ProfileUpdateType } from "../../../models/member.model";
-import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
-import { ContentMetadataService } from "../../../services/content-metadata.service";
-import { DateUtilsService } from "../../../services/date-utils.service";
-import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
-import { MailchimpListSubscriptionService } from "../../../services/mailchimp/mailchimp-list-subscription.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { MailchimpListUpdaterService } from "../../../services/mailchimp/mailchimp-list-updater.service";
-import { MemberLoginService } from "../../../services/member/member-login.service";
-import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { ProfileConfirmationService } from "../../../services/profile-confirmation.service";
-import { RouterHistoryService } from "../../../services/router-history.service";
-import { StringUtilsService } from "../../../services/string-utils.service";
-import { UrlService } from "../../../services/url.service";
 import { ProfileService } from "./profile.service";
-import { faEnvelopeOpenText, faCaretUp, faCashRegister } from "@fortawesome/free-solid-svg-icons";
+import { faEnvelopeOpenText } from "@fortawesome/free-solid-svg-icons";
+import { SystemConfigService } from "../../../services/system/system-config.service";
+import { MailProvider, SystemConfig } from "../../../models/system.model";
+import { MailListAudit } from "../../../models/mail.model";
+import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
+import { BroadcastService } from "../../../services/broadcast-service";
+import { MailListAuditService } from "../../../services/mail/mail-list-audit.service";
 
 @Component({
   selector: "app-email-subscriptions",
-  templateUrl: "./email-subscriptions.component.html",
+  template: `
+    <app-page autoTitle>
+      <div class="row" *ngIf="member">
+        <div class="col-sm-3">
+          <div class="item-panel-heading">
+            <fa-icon [icon]="faEnvelopeOpenText" class="fa-5x ramblers"></fa-icon>
+          </div>
+        </div>
+        <div class="col col-sm-9">
+          <div class="row">
+            <div class="col col-sm-12 mt-2">
+              <p>You can change your emailing preferences at any time using the subscription checkboxes
+                below:</p>
+              <app-email-subscriptions-mailchimp [member]="member"
+                                                 *ngIf="systemConfig?.mailDefaults?.mailProvider=== MailProvider.MAILCHIMP"/>
+              <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider=== MailProvider.BREVO">
+                <div class="col-sm-12" *ngFor="let subscription of member.mail.subscriptions">
+                  <app-mail-subscription-setting [member]="member" [subscription]="subscription"/>
+                </div>
+              </ng-container>
+              <p>If you have any other queries about your mailing preferences, please email our
+                <app-contact-us roles="membership"
+                                text="Membership Secretary"></app-contact-us>
+              </p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col col-sm-12">
+              <input type="submit" [disabled]="false" value="Back to admin" (click)="profileService.backToAdmin()"
+                     class="button-form button-form-left">
+              <input type="submit" [disabled]="!member || notifyTarget.busy" value="Save Changes"
+                     (click)="saveContactPreferences()"
+                     [ngClass]="member && !notifyTarget.busy? 'button-form button-form-left': 'disabled-button-form button-form-left'">
+              <input type="submit" [disabled]="!member || notifyTarget.busy" value="Undo Changes"
+                     (click)="undoContactPreferences()"
+                     [ngClass]="member && !notifyTarget.busy? 'button-form button-form-left': 'disabled-button-form button-form-left'">
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col col-sm-12">
+            <div class="alert {{notifyTarget.alertClass}} mt-3" *ngIf="notifyTarget.showAlert">
+              <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+              <strong *ngIf="notifyTarget.alertTitle">
+                {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
+              <div *ngIf="notifyTarget.showContactUs"> contact our
+                <app-contact-us class="alert-link" roles="membership"
+                                text="Membership Administrator"></app-contact-us>
+                .
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </app-page>`,
   styleUrls: ["../admin/admin.component.sass"],
 })
 export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
-  public member: Member;
-  private subscriptions: Subscription[] = [];
-  faEnvelopeOpenText = faEnvelopeOpenText;
 
-  constructor(private memberService: MemberService,
-              private contentMetadata: ContentMetadataService,
-              private searchFilterPipe: SearchFilterPipe,
-              private modalService: BsModalService,
-              private notifierService: NotifierService,
-              private dateUtils: DateUtilsService,
-              private urlService: UrlService,
+  constructor(private notifierService: NotifierService,
               private profileConfirmationService: ProfileConfirmationService,
-              private mailchimpListSubscriptionService: MailchimpListSubscriptionService,
-              private mailchimpListUpdaterService: MailchimpListUpdaterService,
-              private stringUtils: StringUtilsService,
+              private broadcastService: BroadcastService<MailListAudit>,
+              private systemConfigService: SystemConfigService,
+              private mailListAuditService: MailListAuditService,
               public profileService: ProfileService,
-              private authService: AuthService,
-              private mailchimpConfigService: MailchimpConfigService,
-              private memberLoginService: MemberLoginService,
-              private routerHistoryService: RouterHistoryService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(EmailSubscriptionsComponent, NgxLoggerLevel.OFF);
   }
+
+  public pendingMailListAudits: MailListAudit[] = [];
+  public member: Member;
+  private subscriptions: Subscription[] = [];
+  faEnvelopeOpenText = faEnvelopeOpenText;
+  public systemConfig: SystemConfig;
 
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   private logger: Logger;
   public mailchimpConfig: MailchimpConfig;
 
+  protected readonly MailProvider = MailProvider;
+
   ngOnInit() {
     this.logger.debug("ngOnInit");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.notify.setBusy();
     this.subscriptions.push(this.profileService.subscribeToLogout(this.logger));
-    this.mailchimpConfigService.getConfig().then(config => this.mailchimpConfig = config);
+    this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
+      this.logger.info("subscribing to systemConfigService events:", systemConfig);
+      this.systemConfig = systemConfig;
+    }));
     this.profileService.queryMember(this.notify, ProfileUpdateType.CONTACT_PREFERENCES).then(member => {
       this.member = member;
       this.notify.clearBusy();
     });
+    this.subscriptions.push(
+      this.broadcastService.on(NamedEventType.MAIL_SUBSCRIPTION_CHANGED, (namedEvent: NamedEvent<MailListAudit>) => {
+        this.pendingMailListAudits = this.pendingMailListAudits.filter(item => item.listId !== namedEvent.data.listId).concat(namedEvent.data);
+        this.logger.info("event received:", namedEvent, "pendingMailListAudits:", this.pendingMailListAudits);
+      }));
   }
 
   undoContactPreferences() {
@@ -78,11 +128,12 @@ export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
 
   saveContactPreferences() {
     this.profileConfirmationService.confirmProfile(this.member);
-    this.profileService.saveMemberDetails(this.notify, ProfileUpdateType.CONTACT_PREFERENCES, this.member);
+    this.profileService.saveMemberDetails(this.notify, ProfileUpdateType.CONTACT_PREFERENCES, this.member).then(member => {
+      this.mailListAuditService.createOrUpdateAll(this.pendingMailListAudits);
+    });
   }
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
-
 }

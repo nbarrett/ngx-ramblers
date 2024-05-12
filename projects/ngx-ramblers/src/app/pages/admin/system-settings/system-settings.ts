@@ -122,11 +122,13 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   }
 
   savePendingMembers() {
-    this.logger.info("saving", this.stringUtils.pluraliseWithCount(this.membersPendingSave.length, "member"), "pending save");
-    return Promise.all(this.membersPendingSave.map(member => this.memberService.update(member))).catch((error) => this.notify.error({
-      title: "Error saving pending members",
-      message: error
-    }));
+    if (this.membersPendingSave.length > 0) {
+      this.logger.info("saving", this.stringUtils.pluraliseWithCount(this.membersPendingSave.length, "member"), "pending save");
+      return this.memberService.createOrUpdateAll(this.membersPendingSave).catch((error) => this.notify.error({
+        title: "Error saving changed members",
+        message: error
+      }));
+    }
   }
 
   async save() {

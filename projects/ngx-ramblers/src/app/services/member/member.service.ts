@@ -6,11 +6,18 @@ import { chain } from "../../functions/chain";
 import { DataQueryOptions } from "../../models/api-request.model";
 import { Identifiable } from "../../models/api-response.model";
 import { MailchimpSubscription } from "../../models/mailchimp.model";
-import { Member, MemberApiResponse, MemberFilterSelection, MemberPrivileges } from "../../models/member.model";
+import {
+  DeleteDocumentsRequest,
+  Member,
+  MemberApiResponse,
+  MemberFilterSelection,
+  MemberPrivileges
+} from "../../models/member.model";
 import { CommonDataService } from "../common-data-service";
 import { DbUtilsService } from "../db-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { NumberUtilsService } from "../number-utils.service";
+import { DeletionResponse, DeletionResponseApiResponse } from "../../models/mongo-models";
 
 @Injectable({
   providedIn: "root"
@@ -19,7 +26,8 @@ export class MemberService {
 
   private BASE_URL = "/api/database/member";
   private logger: Logger;
-  private memberNotifications = new Subject<MemberApiResponse>();
+  private memberChanges = new Subject<MemberApiResponse>();
+  private memberDeletions = new Subject<DeletionResponseApiResponse>();
 
   constructor(private http: HttpClient,
               private numberUtils: NumberUtilsService,
@@ -30,12 +38,11 @@ export class MemberService {
   }
 
   filterFor = {
-    SOCIAL_MEMBERS_SUBSCRIBED: member => member.groupMember && member.socialMember && member.mailchimpLists.socialEvents.subscribed,
-    WALKS_MEMBERS_SUBSCRIBED: member => member.groupMember && member.mailchimpLists.walks.subscribed,
-    GENERAL_MEMBERS_SUBSCRIBED: member => member.groupMember && member.mailchimpLists.general.subscribed,
-    GROUP_MEMBERS: member => member.groupMember,
-    COMMITTEE_MEMBERS: member => member.groupMember && member.committee,
-    SOCIAL_MEMBERS: member => member.groupMember && member.socialMember,
+    SOCIAL_MEMBERS_SUBSCRIBED: (member: Member) => member.groupMember && member.socialMember && member.mailchimpLists?.socialEvents?.subscribed,
+    GENERAL_MEMBERS_SUBSCRIBED: (member: Member) => member.groupMember && member.mailchimpLists?.general?.subscribed,
+    GROUP_MEMBERS: (member: Member) => member.groupMember,
+    COMMITTEE_MEMBERS: (member: Member) => member.groupMember && member.committee,
+    SOCIAL_MEMBERS: (member: Member) => member.groupMember && member.socialMember,
   };
 
   publicFieldsDataQueryOptions: DataQueryOptions = {
@@ -59,8 +66,12 @@ export class MemberService {
     }
   };
 
-  notifications(): Observable<MemberApiResponse> {
-    return this.memberNotifications.asObservable();
+  changeNotifications(): Observable<MemberApiResponse> {
+    return this.memberChanges.asObservable();
+  }
+
+  deletionNotifications(): Observable<DeletionResponseApiResponse> {
+    return this.memberDeletions.asObservable();
   }
 
   getMemberForUserName(userName: string): Promise<Member> {
@@ -70,7 +81,7 @@ export class MemberService {
   async query(dataQueryOptions?: DataQueryOptions): Promise<Member> {
     const params = this.commonDataService.toHttpParams(dataQueryOptions);
     this.logger.debug("find-one:criteria", dataQueryOptions, "params", params.toString());
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<MemberApiResponse>(`${this.BASE_URL}/find-one`, {params}), this.memberNotifications);
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<MemberApiResponse>(`${this.BASE_URL}/find-one`, {params}), this.memberChanges);
     this.logger.debug("find-one:received", apiResponse);
     return apiResponse.response as Member;
   }
@@ -78,7 +89,7 @@ export class MemberService {
   async all(dataQueryOptions?: DataQueryOptions): Promise<Member[]> {
     const params = this.commonDataService.toHttpParams(dataQueryOptions);
     this.logger.debug("all:params", params.toString());
-    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<MemberApiResponse>(`${this.BASE_URL}/all`, {params}), this.memberNotifications);
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<MemberApiResponse>(`${this.BASE_URL}/all`, {params}), this.memberChanges);
     const responses = response.response as Member[];
     this.logger.debug("all:params", params.toString(), "received", responses.length, "members");
     return responses;
@@ -86,28 +97,28 @@ export class MemberService {
 
   async getById(memberId: string): Promise<Member> {
     this.logger.debug("getById:", memberId);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<MemberApiResponse>(`${this.BASE_URL}/${memberId}`), this.memberNotifications);
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<MemberApiResponse>(`${this.BASE_URL}/${memberId}`), this.memberChanges);
     this.logger.debug("getById - received", apiResponse);
     return apiResponse.response as Member;
   }
 
   async getMemberByPasswordResetId(passwordResetId): Promise<Member> {
     this.logger.debug("getMemberByPasswordResetId:", passwordResetId);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<MemberApiResponse>(`${this.BASE_URL}/password-reset-id/${passwordResetId}`), this.memberNotifications);
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<MemberApiResponse>(`${this.BASE_URL}/password-reset-id/${passwordResetId}`), this.memberChanges);
     this.logger.debug("getMemberByPasswordResetId - received", apiResponse);
     return apiResponse.response as Member;
   }
 
   async create(member: Member): Promise<Member> {
-    this.logger.debug("creating", member);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<MemberApiResponse>(this.BASE_URL, this.dbUtils.performAudit(member)), this.memberNotifications);
-    this.logger.debug("created", member, "- received", apiResponse);
+    this.logger.debug("create:requested:", member);
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<MemberApiResponse>(this.BASE_URL, this.dbUtils.performAudit(member)), this.memberChanges);
+    this.logger.debug("created:received:", apiResponse);
     return apiResponse.response as Member;
   }
 
   async update(member: Member): Promise<Member> {
     this.logger.debug("updating", member);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.put<MemberApiResponse>(this.BASE_URL + "/" + member.id, this.dbUtils.performAudit(member)), this.memberNotifications);
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.put<MemberApiResponse>(this.BASE_URL + "/" + member.id, this.dbUtils.performAudit(member)), this.memberChanges);
     this.logger.debug("updated", member, "- received", apiResponse);
     return apiResponse.response as Member;
   }
@@ -116,26 +127,30 @@ export class MemberService {
     const body: any = {mailchimpLists: {}};
     body.mailchimpLists[listType] = subscription;
     this.logger.debug("updating member id", memberId, listType, "subscription:", body);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.put<MemberApiResponse>(`${this.BASE_URL}/${memberId}/email-subscription`, body), this.memberNotifications);
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.put<MemberApiResponse>(`${this.BASE_URL}/${memberId}/email-subscription`, body), this.memberChanges);
     this.logger.debug("updated member id", memberId, listType, "subscription:", body, "response:", apiResponse);
     return apiResponse.response as Member;
   }
 
-  async delete(member: Member): Promise<Member> {
+  async delete(member: Member): Promise<DeletionResponse> {
     this.logger.debug("deleting", member);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.delete<MemberApiResponse>(this.BASE_URL + "/" + member.id), this.memberNotifications);
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.delete<DeletionResponseApiResponse>(this.BASE_URL + "/" + member.id), this.memberDeletions);
     this.logger.debug("deleted", member, "- received", apiResponse);
-    return apiResponse.response as Member;
+    return apiResponse.response as DeletionResponse;
+  }
+
+  async deleteAll(members: Member[]): Promise<DeletionResponse[]> {
+    this.logger.debug("deleteAll:requested:", members);
+    const deleteMembersRequest: DeleteDocumentsRequest = {ids: members.map((member: Member) => member.id)};
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<DeletionResponseApiResponse>(this.BASE_URL + "/delete-all", deleteMembersRequest), this.memberDeletions);
+    this.logger.debug("deleteAll:received:", apiResponse);
+    return apiResponse.response as DeletionResponse[];
   }
 
   setPasswordResetId(member: Member) {
     member.passwordResetId = this.numberUtils.generateUid();
     this.logger.debug("member.userName", member.userName, "member.passwordResetId", member.passwordResetId);
     return member;
-  }
-
-  memberUrl(member: Member) {
-    return member && (member.id) && this.BASE_URL + "/" + member.id;
   }
 
   async createOrUpdate(member: Member): Promise<Member> {
@@ -146,6 +161,14 @@ export class MemberService {
     }
   }
 
+  async createOrUpdateAll(members: Member[]): Promise<Member[]> {
+    const auditedMembers: Member[] = members.map((member: Member) => this.dbUtils.performAudit(member));
+    this.logger.info("createOrUpdateAll:requested", members);
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<MemberApiResponse>(`${this.BASE_URL}/all`, auditedMembers), this.memberChanges);
+    this.logger.info("createOrUpdateAll:received", apiResponse);
+    return apiResponse.response as Member[];
+  }
+
   extractMemberId(memberIdOrObject: any): string {
     return memberIdOrObject?.id ?? memberIdOrObject;
   }
@@ -153,22 +176,22 @@ export class MemberService {
   publicFields(filterFunction?: (value?: any) => boolean): Promise<Member[]> {
     return this.all(this.publicFieldsDataQueryOptions).then(members => chain(members)
       .filter(filterFunction || (() => true))
-      .sortBy(member => member.firstName + member.lastName).value());
+      .sortBy((member: Member) => member.firstName + member.lastName).value());
   }
 
   toMember(memberIdOrObject: any, members: Member[]): Member {
     const memberId = this.extractMemberId(memberIdOrObject);
-    return members.find(member => this.extractMemberId(member) === memberId);
+    return members?.find((member: Member) => this.extractMemberId(member) === memberId);
   }
 
   allMemberMembersWithPrivilege(privilege: keyof MemberPrivileges, members: Member[]): Member[] {
-    const filteredMembers = members.filter(member => member.groupMember && member[privilege]);
+    const filteredMembers = members.filter((member: Member) => member.groupMember && member[privilege]);
     this.logger.debug("allMemberMembersWithPrivilege:privilege", privilege, "filtered from", members.length, "->", filteredMembers.length, "members ->", filteredMembers);
     return filteredMembers;
   }
 
   allMemberIdsWithPrivilege(privilege: keyof MemberPrivileges, members: Member[]): string[] {
-    return this.allMemberMembersWithPrivilege(privilege, members).map(member => member.id);
+    return this.allMemberMembersWithPrivilege(privilege, members).map((member: Member) => member.id);
   }
 
   toIdentifiable(member: MemberFilterSelection | Member | string): Identifiable {

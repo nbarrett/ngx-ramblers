@@ -1,10 +1,11 @@
 <div class="modal-content">
   <div class="modal-header">
-    <h4 class="modal-title" id="mailing-preferences-modal-title-heading">Your <em>{{group?.shortName}}</em> profile</h4>
+    <h4 class="modal-title" id="mailing-preferences-modal-title-heading">Your
+      <em>{{ systemConfig.group?.shortName }}</em> profile</h4>
     <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
   </div>
-  <div *ngIf="member" class="modal-body">
-    <div class="row">
+  <div class="modal-body">
+    <div *ngIf="member" class="row">
       <div class="col col-sm-12">
         <p>In order to comply with the EU General Data Protection Regulation (GDPR), we need to confirm some details
           with you. Please make any changes you need and then click
@@ -14,29 +15,13 @@
         <div class="well-subscriptions-confirmation">
           <p class="well-heading">Please select how you want to be <b>emailed</b> by us using the following
             subscription checkboxes below:</p>
-
-          <div class="custom-control custom-checkbox">
-            <input [(ngModel)]="member.mailchimpLists.walks.subscribed" type="checkbox" class="custom-control-input"
-                   id="prefs-subscribe-walks-emails">
-            <label class="custom-control-label"
-                   for="prefs-subscribe-walks-emails">Walks emails
-            </label>
-          </div>
-          <div class="custom-control custom-checkbox">
-            <input [(ngModel)]="member.mailchimpLists.socialEvents.subscribed" type="checkbox"
-                   class="custom-control-input"
-                   id="prefs-subscribe-social-events-emails">
-            <label class="custom-control-label"
-                   for="prefs-subscribe-social-events-emails">Social events emails
-            </label>
-          </div>
-          <div class="custom-control custom-checkbox">
-            <input [(ngModel)]="member.mailchimpLists.general.subscribed" type="checkbox" class="custom-control-input"
-                   id="prefs-subscribe-general-emails">
-            <label class="custom-control-label"
-                   for="prefs-subscribe-general-emails">General emails
-            </label>
-          </div>
+          <app-email-subscriptions-mailchimp [member]="member"
+                                             *ngIf="systemConfig?.mailDefaults?.mailProvider=== MailProvider.MAILCHIMP"/>
+          <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider=== MailProvider.BREVO">
+            <div class="col-sm-12" *ngFor="let subscription of member.mail.subscriptions">
+              <app-mail-subscription-setting [member]="member" [subscription]="subscription"/>
+            </div>
+          </ng-container>
         </div>
       </div>
       <div class="col col-sm-12">
@@ -79,18 +64,18 @@
             </div>
           </div>
         </div>
-        <div *ngIf="notifyTarget.showAlert" class="row mb-2">
-          <div class="col col-sm-12">
-            <div class="alert {{notifyTarget.alertClass}}">
-              <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-              <strong *ngIf="notifyTarget.alertTitle">
-                {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
-              <span *ngIf="notifyTarget.showContactUs"> or contact our
+      </div>
+    </div>
+    <div *ngIf="notifyTarget.showAlert" class="row mb-2">
+      <div class="col col-sm-12">
+        <div class="alert {{notifyTarget.alertClass}}">
+          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+          <strong *ngIf="notifyTarget.alertTitle">
+            {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
+          <span *ngIf="notifyTarget.showContactUs"> or contact our
                                                   <app-contact-us class="alert-link" roles="membership"
                                                                   text="Membership Administrator"></app-contact-us>.
                                               </span>
-            </div>
-          </div>
         </div>
       </div>
     </div>

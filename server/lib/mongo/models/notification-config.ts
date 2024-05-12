@@ -1,7 +1,7 @@
-import mongoose = require("mongoose");
-import uniqueValidator = require("mongoose-unique-validator");
+import mongoose from "mongoose";
+import uniqueValidator from "mongoose-unique-validator";
 
-const notificationConfigSchema = mongoose.Schema({
+const notificationConfigSchema = new mongoose.Schema({
   subject: {
     prefixParameter: {type: String},
     text: {type: String},
@@ -26,4 +26,4 @@ const notificationConfigSchema = mongoose.Schema({
 
 notificationConfigSchema.plugin(uniqueValidator);
 
-export const notificationConfig = mongoose.model("notification-config", notificationConfigSchema);
+export const notificationConfig: mongoose.Model<mongoose.Document> = mongoose.model("notification-config", notificationConfigSchema);

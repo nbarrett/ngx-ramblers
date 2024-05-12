@@ -1,11 +1,11 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
-const StatusMessageSchema = mongoose.Schema({
+const StatusMessageSchema = new mongoose.Schema({
   status: {type: String},
   message: {type: String}
-});
+}, {_id: false});
 
-const RamblersMemberSchema = mongoose.Schema({
+const RamblersMemberSchema = new mongoose.Schema({
   membershipExpiryDate: {type: String},
   membershipNumber: {type: String},
   mobileNumber: {type: String},
@@ -13,9 +13,9 @@ const RamblersMemberSchema = mongoose.Schema({
   firstName: {type: String},
   lastName: {type: String},
   postcode: {type: String},
-});
+}, {_id: false});
 
-const MemberBulkLoadAuditSchema = mongoose.Schema({
+const MemberBulkLoadAuditSchema = new mongoose.Schema({
   createdDate: {type: Number},
   createdBy: {type: String},
   files: {
@@ -26,4 +26,4 @@ const MemberBulkLoadAuditSchema = mongoose.Schema({
   members: [RamblersMemberSchema]
 }, {collection: "memberBulkLoadAudit"});
 
-module.exports = mongoose.model("member-bulk-load-audit", MemberBulkLoadAuditSchema);
+export const memberBulkLoadAudit: mongoose.Model<mongoose.Document> = mongoose.model("member-bulk-load-audit", MemberBulkLoadAuditSchema);

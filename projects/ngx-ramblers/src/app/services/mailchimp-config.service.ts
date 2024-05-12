@@ -3,6 +3,8 @@ import { MailchimpContact, MailchimpListCreateRequest } from "../models/server-m
 import { ConfigKey } from "../models/config.model";
 import { MailchimpCampaignDefaults, MailchimpConfig } from "../models/mailchimp.model";
 import { ConfigService } from "./config.service";
+import { KeyValue } from "./enums";
+import map from "lodash-es/map";
 
 @Injectable({
   providedIn: "root"
@@ -82,4 +84,9 @@ export class MailchimpConfigService {
       use_archive_bar: false,
     };
   }
+
+  public configuredListTypes(config: MailchimpConfig): KeyValue<string>[] {
+    return map(config.lists, (value, key) => ({key, value}));
+  }
+
 }

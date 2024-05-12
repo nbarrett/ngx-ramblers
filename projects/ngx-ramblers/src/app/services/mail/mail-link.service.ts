@@ -13,12 +13,12 @@ export class MailLinkService {
 
   constructor(private mailConfigService: MailConfigService, loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger("MailLinkService", NgxLoggerLevel.OFF);
-    this.queryData();
+    this.queryConfig();
   }
 
-  queryData(): void {
+  queryConfig(): void {
     this.logger.info("queryData:");
-    this.mailConfigService.getConfig().then(config => {
+    this.mailConfigService.queryConfig().then(config => {
       this.logger.info("config:", config);
       this.config = config;
     });
@@ -52,12 +52,12 @@ export class MailLinkService {
     return `${this.config.myBaseUrl}/camp/template/${templateId}/message-setup`;
   }
 
-  public listView(webId: number) {
-    return `${this.config.baseUrl}/contact/list/id/${webId}`;
+  public listView(listId: number) {
+    return `${this.config.baseUrl}/contact/list/id/${listId}`;
   }
 
-  public contactView(webId: number) {
-    return `${this.config.baseUrl}/contact/index/${webId}`;
+  public contactView(contactId: number) {
+    return `${this.config.baseUrl}/contact/index/${contactId}`;
   }
 
   public apiKeysView() {

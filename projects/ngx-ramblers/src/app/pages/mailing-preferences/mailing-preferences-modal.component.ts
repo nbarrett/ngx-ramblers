@@ -1,21 +1,15 @@
 import { Component, OnDestroy, OnInit } from "@angular/core";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
-import { AuthService } from "../../auth/auth.service";
 import { AlertTarget } from "../../models/alert-target.model";
 import { Member } from "../../models/member.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
-import { MailchimpListSubscriptionService } from "../../services/mailchimp/mailchimp-list-subscription.service";
-import { MailchimpSegmentService } from "../../services/mailchimp/mailchimp-segment.service";
-import { MemberLoginService } from "../../services/member/member-login.service";
 import { MemberService } from "../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../services/notifier.service";
 import { ProfileConfirmationService } from "../../services/profile-confirmation.service";
 import { RouterHistoryService } from "../../services/router-history.service";
-import { StringUtilsService } from "../../services/string-utils.service";
-import { UrlService } from "../../services/url.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
-import { Organisation } from "../../models/system.model";
+import { MailProvider, SystemConfig } from "../../models/system.model";
 import { Subscription } from "rxjs";
 
 @Component({
@@ -28,20 +22,14 @@ export class MailingPreferencesModalComponent implements OnInit, OnDestroy {
   private logger: Logger;
   public memberId: string;
   public member: Member;
-  public group: Organisation;
   private subscriptions: Subscription[] = [];
+  public systemConfig: SystemConfig;
 
-  constructor(private authService: AuthService,
-              private memberService: MemberService,
+  constructor(private memberService: MemberService,
               private systemConfigService: SystemConfigService,
               private profileConfirmationService: ProfileConfirmationService,
-              private mailchimpListSubscriptionService: MailchimpListSubscriptionService,
-              private mailchimpSegmentService: MailchimpSegmentService,
-              private memberLoginService: MemberLoginService,
               private notifierService: NotifierService,
-              private stringUtils: StringUtilsService,
               private routerHistoryService: RouterHistoryService,
-              private urlService: UrlService,
               public bsModalRef: BsModalRef,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(MailingPreferencesModalComponent, NgxLoggerLevel.OFF);
@@ -50,13 +38,16 @@ export class MailingPreferencesModalComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.logger.debug("constructed");
-    this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));
-    this.memberService.getById(this.memberId)
-      .then(member => {
-        this.logger.debug("memberId ->", this.memberId, "member ->", member);
-        this.member = member;
-      });
-
+    this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => this.systemConfig = systemConfig));
+    if (this.memberId) {
+      this.memberService.getById(this.memberId)
+        .then(member => {
+          this.logger.debug("memberId ->", this.memberId, "member ->", member);
+          this.member = member;
+        });
+    } else {
+      this.notify.error({title: "Error retrieving member preferences", message: "No member found"});
+    }
   }
 
   ngOnDestroy(): void {
@@ -83,4 +74,6 @@ export class MailingPreferencesModalComponent implements OnInit, OnDestroy {
     this.routerHistoryService.navigateBackToLastMainPage();
     this.bsModalRef.hide();
   }
+
+  protected readonly MailProvider = MailProvider;
 }

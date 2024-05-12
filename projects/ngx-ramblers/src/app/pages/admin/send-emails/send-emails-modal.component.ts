@@ -7,7 +7,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { DateValue } from "../../../models/date.model";
-import { HelpInfo, Member, MemberFilterSelection } from "../../../models/member.model";
+import { HelpInfo, Member, MemberBulkLoadAudit, MemberFilterSelection } from "../../../models/member.model";
 import { Organisation } from "../../../models/system.model";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -33,6 +33,7 @@ import first from "lodash-es/first";
 import { BannerConfig } from "../../../models/banner-configuration.model";
 import { KEY_NULL_VALUE_NONE } from "../../../services/enums";
 import { MemberBulkDeleteService } from "../../../services/member/member-bulk-delete.service";
+import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk-load-audit.service";
 
 @Component({
   selector: "app-member-admin-send-emails-modal",
@@ -48,6 +49,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
               protected stringUtils: StringUtilsService,
               private memberService: MemberService,
               private memberBulkDeleteService: MemberBulkDeleteService,
+              private memberBulkLoadAuditService: MemberBulkLoadAuditService,
               protected memberLoginService: MemberLoginService,
               private fullNameWithAliasPipe: FullNameWithAliasPipe,
               private systemConfigService: SystemConfigService,
@@ -58,6 +60,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   }
 
   private mailLinkService: MailLinkService = inject(MailLinkService);
+  private latestMemberBulkLoadAudit: MemberBulkLoadAudit;
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
@@ -234,7 +237,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   renderExpiryInformation(member: Member): MemberFilterSelection {
     const today = this.dateUtils.momentNowNoTime().valueOf();
     const expiredActive = member.membershipExpiryDate < today ? "expired" : "active";
-    const memberGrouping = member.receivedInLastBulkLoad ? expiredActive : "missing from last bulk load";
+    const memberGrouping = this.memberBulkLoadAuditService.receivedInBulkLoad(member, true, this.latestMemberBulkLoadAudit) ? expiredActive : "missing from last bulk load";
     const datePrefix = memberGrouping === "expired" ? ": " : ", " + (member.membershipExpiryDate < today ? "expired" : "expiry") + ": ";
     const memberInformation = `${this.fullNameWithAliasPipe.transform(member)} (${memberGrouping}${datePrefix}${this.dateUtils.displayDate(member.membershipExpiryDate) || "not known"})`;
     return {id: member.id, member, memberInformation, memberGrouping};
@@ -269,7 +272,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   }
 
   missingFromBulkLoad(member: Member): boolean {
-    return member.groupMember && member.membershipExpiryDate && !member.receivedInLastBulkLoad;
+    return member.groupMember && member.membershipExpiryDate && this.memberBulkLoadAuditService.receivedInBulkLoad(member, false, this.latestMemberBulkLoadAudit);
   }
 
   selectedMembersWithEmails() {

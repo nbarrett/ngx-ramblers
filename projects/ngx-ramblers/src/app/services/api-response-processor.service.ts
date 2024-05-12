@@ -1,20 +1,23 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import cloneDeep from "lodash-es/cloneDeep";
 import isArray from "lodash-es/isArray";
 import { ApiAction, ApiResponse, Identifiable } from "../models/api-response.model";
 import { Logger } from "./logger-factory.service";
+import { StringUtilsService } from "./string-utils.service";
 
 @Injectable({
   providedIn: "root"
 })
 export class ApiResponseProcessor {
 
+  public stringUtils: StringUtilsService = inject(StringUtilsService);
+
   processResponse<T extends Identifiable>(logger: Logger, existingItems: T[], apiResponse: ApiResponse): T[] {
     let tempItems: T[] = cloneDeep(existingItems) || [];
     const responseItems: T[] = isArray(apiResponse.response) ? apiResponse.response : [apiResponse.response];
-    logger.info("Received", responseItems.length, "item", apiResponse.action, "notification(s) - applying response to", tempItems.length, "existing items");
+    logger.info("Received", this.stringUtils.pluraliseWithCount(responseItems.length, apiResponse.action + " notification"), "- applying response to", this.stringUtils.pluraliseWithCount(tempItems.length, "existing item"), responseItems);
     if (apiResponse.action === ApiAction.QUERY) {
-      logger.info("replacing ", tempItems?.length, "items with", responseItems?.length, apiResponse.action, "items");
+      logger.info("replacing", this.stringUtils.pluraliseWithCount(tempItems?.length, "item"), "with", this.stringUtils.pluraliseWithCount(responseItems?.length, apiResponse.action + " item"));
       tempItems = responseItems;
     } else {
       responseItems.forEach(notifiedItem => {

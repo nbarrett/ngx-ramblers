@@ -251,7 +251,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   protected dateUtils: DateUtilsService = inject(DateUtilsService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger = this.loggerFactory.createLogger("MailSettingsComponent", NgxLoggerLevel.INFO);
+  private logger = this.loggerFactory.createLogger("MailSettingsComponent", NgxLoggerLevel.OFF);
   public notificationConfig: NotificationConfig;
   public listsResponse: ListsResponse;
   public foldersResponse: FoldersListResponse;
