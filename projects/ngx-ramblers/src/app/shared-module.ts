@@ -135,6 +135,7 @@ import { MailchimpButtonComponent } from "./modules/common/third-parties/mailchi
 import { ButtonWrapperComponent } from "./modules/common/third-parties/button-wrapper";
 import { MailProviderSettingsComponent } from "./pages/admin/system-settings/mail-provider/mail-provider-settings";
 import { DisplayDateNoDayPipe } from "./pipes/display-date-no-day.pipe";
+import { NotificationConfigSelectorComponent } from "./pages/admin/system-settings/mail/notification-config-selector";
 
 @NgModule({
   imports: [
@@ -229,15 +230,16 @@ import { DisplayDateNoDayPipe } from "./pipes/display-date-no-day.pipe";
     LinkEditComponent,
     LinksEditComponent,
     LoginRequiredComponent,
-    MailProviderSettingsComponent,
     MailchimpButtonComponent,
+    MailProviderSettingsComponent,
     MarginSelectComponent,
     MarkdownEditorComponent,
     MeetupEventSummaryPipe,
+    MemberIdsToFullNamesPipe,
     MemberIdToFirstNamePipe,
     MemberIdToFullNamePipe,
-    MemberIdsToFullNamesPipe,
     MoneyPipe,
+    NotificationConfigSelectorComponent,
     NotificationDirective,
     PageComponent,
     RelatedLinkComponent,
@@ -317,6 +319,7 @@ import { DisplayDateNoDayPipe } from "./pipes/display-date-no-day.pipe";
     MoneyPipe,
     NgSelectModule,
     NotificationDirective,
+    NotificationConfigSelectorComponent,
     PageComponent,
     PaginationModule,
     PopoverModule,

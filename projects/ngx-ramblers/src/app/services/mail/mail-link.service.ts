@@ -2,7 +2,10 @@ import { Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailConfigService } from "./mail-config.service";
-import { MailConfig } from "../../models/mail.model";
+import { MailConfig, MailMessagingConfig } from "../../models/mail.model";
+import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
+import { AlertLevel, AlertMessageAndType } from "../../models/alert-target.model";
+import { BroadcastService } from "../broadcast-service";
 
 @Injectable({
   providedIn: "root"
@@ -11,7 +14,8 @@ export class MailLinkService {
   private logger: Logger;
   private config: MailConfig;
 
-  constructor(private mailConfigService: MailConfigService, loggerFactory: LoggerFactory) {
+  constructor(private broadcastService: BroadcastService<AlertMessageAndType>,
+              private mailConfigService: MailConfigService, loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger("MailLinkService", NgxLoggerLevel.OFF);
     this.queryConfig();
   }
@@ -32,20 +36,24 @@ export class MailLinkService {
     return this.config.myBaseUrl;
   }
 
+  public editorUrl() {
+    return this.config.editorUrl;
+  }
+
   public appUrl() {
     return this.config.baseUrl;
   }
 
-  public campaignPreview(webId: number) {
-    return `${this.config.baseUrl}/campaigns/preview-content-html?id=${webId}`;
+  public campaignEdit(campaignId: number) {
+    return `${this.config.myBaseUrl}/camp/preview/id/${campaignId}`;
   }
 
-  public completeInMail(webId: number) {
-    return `${this.config.baseUrl}/campaigns/wizard/neapolitan?id=${webId}`;
+  public campaignEditRichText(campaignId: number) {
+    return `${this.config.editorUrl}/editor/classic/html/${campaignId}?editor=rich-text`;
   }
 
-  public campaignEdit(webId: number) {
-    return `${this.config.baseUrl}/campaigns/edit?id=${webId}`;
+  public campaignEditHtml(campaignId: number) {
+    return `${this.config.editorUrl}/editor/classic/html/${campaignId}?editor=html`;
   }
 
   public templateEdit(templateId: number) {
@@ -68,4 +76,29 @@ export class MailLinkService {
     window.open(url, target || "_blank");
   }
 
+  editTemplateWithNotifications(templateId: number, notReady: boolean, mailMessagingConfig: MailMessagingConfig) {
+    if (!notReady) {
+      if (mailMessagingConfig.mailConfig?.allowSendTransactional) {
+        if (!templateId) {
+          this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
+            message: {
+              title: "Edit Mail Template",
+              message: "Please select a template from the drop-down before choosing edit"
+            }, type: AlertLevel.ALERT_ERROR
+          }));
+        } else {
+          const templateUrl = this.templateEdit(templateId);
+          this.logger.info("editing template:", templateUrl);
+          return window.open(templateUrl, "_blank");
+        }
+      } else {
+        this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
+          message: {
+            title: "Mail Integration not enabled",
+            message: "List and campaign dropdowns will not be populated"
+          }, type: AlertLevel.ALERT_WARNING
+        }));
+      }
+    }
+  }
 }

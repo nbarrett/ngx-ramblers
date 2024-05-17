@@ -327,9 +327,9 @@
            [disabled]="notReady()"
            class="button-form green-confirm button-form-left"
            [ngClass]="{'disabled-button-form': notReady()}">
-    <input type="submit" value="Complete in Mailchimp" (click)="completeInMailchimp()"
+    <input type="submit" value="Complete in {{systemConfig?.mailDefaults?.mailProvider| titlecase}}" (click)="completeInMailSystem()"
            [disabled]="notReady()"
-           title="Complete editing and sending of Mailchimp"
+           title="Complete editing and sending of {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"
            class="button-form blue-confirm button-form-left"
            [ngClass]="{'disabled-button-form': notReady()}">
     <input type="submit" value="Save and Send Later" (click)="saveAndSendLater()"

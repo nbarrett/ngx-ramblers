@@ -6,7 +6,7 @@ import { envConfig } from "../../env-config/env-config";
 import { configuredBrevo } from "../brevo-config";
 import http from "http";
 import {
-  ContactOptions,
+  OptionalRequestOptions,
   ListCreateRequest,
   ListsResponse
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
@@ -25,7 +25,7 @@ export async function lists(req: Request, res: Response, next: NextFunction): Pr
     debugLog("received listCreateRequest:", listCreateRequest);
     createList.name = listCreateRequest.name || req.query.name?.toString();
     createList.folderId = +(listCreateRequest.folderId || req.query.folderId?.toString());
-    const opts: ContactOptions = {limit: 10, offset: 0};
+    const opts: OptionalRequestOptions = {limit: 10, offset: 0};
     const response: {
       response: http.IncomingMessage,
       body: any

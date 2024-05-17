@@ -1,4 +1,4 @@
-<div *ngIf="notificationConfigs.length>0 && selectedNotificationConfig" class="modal-content">
+<div *ngIf="selectedNotificationConfig" class="modal-content">
   <div class="modal-header">
     <h4 class="modal-title">Send <em>Emails</em> to Members</h4>
     <button type="button" class="close" aria-label="Close" (click)="bsModalRef.hide()">&times;</button>
@@ -7,91 +7,29 @@
     <tabset class="custom-tabset" *ngIf="mailMessagingConfig?.mailConfig">
       <tab heading="Email Type, Banner & Template">
         <div class="img-thumbnail thumbnail-admin-edit">
-          <div class="row align-items-center">
-            <div class="col-sm-12">
-              <div class="form-group">
-                <label for="contact-member">Email Type</label>
-                <select class="form-control input-sm"
-                        [disabled]="notifyTarget.busy"
-                        [(ngModel)]="selectedNotificationConfig"
-                        (ngModelChange)="emailConfigChanged($event)">
-                  <option *ngFor="let emailConfig of notificationConfigs"
-                          [ngValue]="emailConfig"
-                          class="form-control"
-                          id="contact-member">{{ emailConfig?.subject?.text }}
-                  </option>
-                </select>
-              </div>
-            </div>
-            <div *ngIf="false" class="col-sm-3 panel-toggle">
-              <a *ngIf="!helpInfo.showHelp"
-                 (click)="toggleHelp(true)" [href]="">
-                <fa-icon [icon]="faQuestion" class="markdown-preview-icon"></fa-icon>
-                show help</a>
-              <a *ngIf="helpInfo.showHelp" (click)="toggleHelp(false)" [href]="">
-                <fa-icon [icon]="faQuestion" class="markdown-preview-icon"></fa-icon>
-                hide help</a>
-            </div>
-          </div>
-          <div *ngIf="helpInfo.showHelp" class="row">
-            <div class="col-sm-12  p-4">
-              <div markdown>
-                <ul>
-                  <li>{{ helpMembers() }}</li>
-                  <li *ngIf="selectedNotificationConfig?.help">{{ selectedNotificationConfig?.help }}</li>
-                </ul>
-              </div>
-            </div>
-          </div>
+          <app-notification-config-selector (emailConfigChanged)="emailConfigChanged($event)"
+                                            [notificationConfig]="selectedNotificationConfig"
+                                            [notificationConfigListing]="notificationConfigListing" [busy]="notifyTarget.busy"/>
           <div class="row">
             <div class="col-sm-12">
-              <div class="form-group">
-                <label for="banner-lookup">Banner Image</label>
-                <select class="form-control input-sm"
-                        id="banner-lookup"
-                        [(ngModel)]="selectedNotificationConfig.bannerId">
-                  <option *ngFor="let banner of mailMessagingConfig.banners"
-                          [ngValue]="banner.id">{{ toBannerInformation(banner) }}
-                  </option>
-                </select>
-              </div>
-            </div>
-            <div *ngIf="selectedNotificationConfig?.bannerId" class="col-sm-12 mb-2">
-              <img class="card-img"
-                   [src]="mailMessagingService.bannerImageSource(selectedNotificationConfig)">
-            </div>
-            <div class="col-sm-12">
-              <div class="form-group">
-                <label for="template">Brevo Template</label>
-                <div class="form-inline">
-                  <select [disabled]="true" [(ngModel)]="selectedNotificationConfig.templateId"
-                          id="template"
-                          class="form-control input-sm flex-grow-1 mr-2">
-                    <option *ngFor="let template of mailMessagingConfig?.mailTemplates?.templates"
-                            [ngValue]="template.id">{{ template.name }}
-                    </option>
-                  </select>
-                  <input type="submit" value="Edit"
-                         (click)="editTemplate(selectedNotificationConfig.templateId)"
-                         title="Edit"
-                         [ngClass]="notifyTarget.busy ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col-sm-6">
-              <div class="form-group">
-                <label>
-                  Pre-Send
-                  Action: {{ stringUtils.asTitle(first(selectedNotificationConfig.preSendActions)) || '(none)' }}</label>
-              </div>
+              <label>Email Configuration Workflow</label>
             </div>
             <div class="col-sm-6">
               <div class="form-group">
                 <label>
-                  Post-Send
-                  Action: {{ stringUtils.asTitle(first(selectedNotificationConfig.postSendActions)) || '(none)' }}</label>
+                  Member Selection: {{ memberSelectionFor(selectedNotificationConfig) }}</label>
+              </div>
+            </div>
+            <div class="col-sm-3">
+              <div class="form-group">
+                <label>
+                  Pre-Send Action: {{ actionFor(selectedNotificationConfig.preSendActions) }}</label>
+              </div>
+            </div>
+            <div class="col-sm-3">
+              <div class="form-group">
+                <label>
+                  Post-Send Action: {{ actionFor(selectedNotificationConfig.postSendActions) }}</label>
               </div>
             </div>
           </div>
@@ -244,25 +182,25 @@
         </div>
       </tab>
     </tabset>
-      <div class="form-group">
-        <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
-          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-          <strong *ngIf="notifyTarget.alertTitle">
-            {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
-        </div>
+    <div class="form-group">
+      <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
+        <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+        <strong *ngIf="notifyTarget.alertTitle">
+          {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
       </div>
     </div>
   </div>
-  <div class="modal-footer">
-    <input type="submit" [disabled]="notifyTarget.busy || sendEmailsDisabled()"
-           value="Send {{selectedNotificationConfig?.subject?.text}} email"
-           (click)="sendEmails()"
-           title="Send {{selectedNotificationConfig?.subject?.text}} email to the {{stringUtils.pluraliseWithCount(selectedMemberIds.length,'member')}}"
-           [ngClass]="notifyTarget.busy || sendEmailsDisabled()? 'disabled-button-form button-form-left': 'button-form button-form-left'">
-    <input type="submit" [disabled]="notifyTarget.busy" value="Cancel"
-           (click)="cancelSendEmails()" title="Close this dialog"
-           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
-  </div>
-  <div class="d-none">
-    <ng-template app-notification-directive/>
-  </div>
+</div>
+<div class="modal-footer">
+  <input type="submit" [disabled]="notifyTarget.busy || sendEmailsDisabled()"
+         value="Send {{selectedNotificationConfig?.subject?.text}} email"
+         (click)="sendEmails()"
+         title="Send {{selectedNotificationConfig?.subject?.text}} email to the {{stringUtils.pluraliseWithCount(selectedMemberIds.length,'member')}}"
+         [ngClass]="notifyTarget.busy || sendEmailsDisabled()? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+  <input type="submit" [disabled]="notifyTarget.busy" value="Cancel"
+         (click)="cancelSendEmails()" title="Close this dialog"
+         [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+</div>
+<div class="d-none">
+  <ng-template app-notification-directive/>
+</div>

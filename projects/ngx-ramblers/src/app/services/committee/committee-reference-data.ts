@@ -66,7 +66,7 @@ export class CommitteeReferenceData {
 
   contactUsField(role: string, field: string): string {
     const committeeMember = this.committeeMemberForRole(role);
-    return committeeMember && committeeMember[field];
+    return committeeMember?.[field];
   }
 
   memberId(role: string): string {

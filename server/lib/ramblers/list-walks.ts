@@ -2,7 +2,6 @@ import debug from "debug";
 import first from "lodash/first";
 import isEmpty from "lodash/isEmpty";
 import moment from "moment-timezone";
-import { ConfigDocument, ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import {
   GroupWalk,
   RamblersWalkResponse,
@@ -15,12 +14,12 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { envConfig } from "../env-config/env-config";
-import * as config from "../mongo/controllers/config";
 import { httpRequest } from "../shared/message-handlers";
 import * as requestDefaults from "./request-defaults";
 import groupBy from "lodash/groupBy";
 import map from "lodash/map";
 import omit from "lodash/omit";
+import { systemConfig } from "../config/system-config";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
@@ -30,9 +29,8 @@ debugLog.enabled = false;
 export function walkLeaderIds(req, res): void {
   const body: WalkListRequest = req.body;
   debugLog("listWalks:body:", body);
-  config.queryKey(ConfigKey.SYSTEM)
-    .then((configDocument: ConfigDocument) => {
-      const systemConfig: SystemConfig = configDocument.value;
+  systemConfig()
+    .then((systemConfig: SystemConfig) => {
       const limit = body.limit;
       const date = dateParameter(body);
       const dateEnd = dateEndParameter(body);
@@ -79,9 +77,8 @@ export function listWalks(req, res): void {
   const body: WalkListRequest = req.body;
   const rawData: boolean = body.rawData;
   debugLog("listWalks:body:", body);
-  config.queryKey(ConfigKey.SYSTEM)
-    .then((configDocument: ConfigDocument) => {
-      const systemConfig: SystemConfig = configDocument.value;
+  systemConfig()
+    .then((systemConfig: SystemConfig) => {
       const limit = body.limit;
       const ids = body.ids?.join(",");
       const sort = body.sort;

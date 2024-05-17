@@ -1,19 +1,17 @@
 import debug from "debug";
-import { ConfigDocument, ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { GroupListRequest } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { envConfig } from "../env-config/env-config";
-import * as config from "../mongo/controllers/config";
 import { httpRequest } from "../shared/message-handlers";
 import * as requestDefaults from "./request-defaults";
+import { systemConfig } from "../config/system-config";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:groups"));
 debugLog.enabled = false;
 
 export function listGroups(req, res): void {
-  config.queryKey(ConfigKey.SYSTEM)
-    .then((configDocument: ConfigDocument) => {
-      const systemConfig: SystemConfig = configDocument.value;
+  systemConfig()
+    .then((systemConfig: SystemConfig) => {
       const body: GroupListRequest = req.body;
       const limit = body.limit;
       const groups = body.groups.join(",");

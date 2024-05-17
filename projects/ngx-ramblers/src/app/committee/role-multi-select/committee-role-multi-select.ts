@@ -90,7 +90,7 @@ export class CommitteeRoleMultiSelectComponent implements OnInit, OnDestroy {
   @Input() public id: string;
 
   @Input("roles") set rolesValue(roles: string[] | string) {
-    this.roles = roles ? isArray(roles) ? roles : roles.split(",").map(item => item.trim()) : [];
+    this.roles = this.stringUtils.arrayFromDelimitedData(roles);
   }
 
   @Output() rolesChange: EventEmitter<CommitteeRolesChangeEvent> = new EventEmitter();

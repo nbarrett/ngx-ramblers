@@ -34,6 +34,9 @@ import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { SocialEventsService } from "../../../services/social-events/social-events.service";
 import { SocialDisplayService } from "../social-display.service";
+import { SystemConfigService } from "../../../services/system/system-config.service";
+import { SystemConfig } from "../../../models/system.model";
+import { Subscription } from "rxjs";
 
 @Component({
   selector: "app-social-send-notification-modal",
@@ -55,6 +58,8 @@ export class SocialSendNotificationModalComponent implements OnInit {
   destinationType = "";
   committeeFiles = [];
   public mailchimpConfig: MailchimpConfig;
+  private subscriptions: Subscription[] = [];
+  public systemConfig: SystemConfig;
 
   constructor(private mailchimpSegmentService: MailchimpSegmentService,
               private mailchimpCampaignService: MailchimpCampaignService,
@@ -62,6 +67,7 @@ export class SocialSendNotificationModalComponent implements OnInit {
               private notifierService: NotifierService,
               private memberService: MemberService,
               private mailchimpLinkService: MailchimpLinkService,
+              private systemConfigService: SystemConfigService,
               public display: SocialDisplayService,
               private socialEventsService: SocialEventsService,
               protected dateUtils: DateUtilsService,
@@ -78,6 +84,11 @@ export class SocialSendNotificationModalComponent implements OnInit {
       this.initialiseRoles(members);
       this.initialiseNotification();
     });
+    this.subscriptions.push(this.systemConfigService.events().subscribe(async (systemConfig: SystemConfig) => {
+      this.systemConfig = systemConfig;
+      this.logger.debug("retrieved systemConfig", systemConfig);
+    }));
+
     this.display.confirm.as(ConfirmType.SEND_NOTIFICATION);
   }
 
@@ -114,7 +125,7 @@ export class SocialSendNotificationModalComponent implements OnInit {
 
   defaultNotificationField(path: string[], value: any) {
     if (!this.socialEvent?.notification?.content) {
-      this.socialEvent.notification.content = {};
+      this.socialEvent.notification.content = {notificationConfig: null};
       this.logger.debug("creating notification content");
     }
     const target = get(this.socialEvent?.notification?.content, path);
@@ -177,7 +188,7 @@ export class SocialSendNotificationModalComponent implements OnInit {
     this.socialEventsService.update(this.socialEvent).then(() => this.bsModalRef.hide());
   }
 
-  completeInMailchimp() {
+  completeInMailSystem() {
     this.notify.warning({
       title: "Complete in Mailchimp",
       message: "You can close this dialog now as the message was presumably completed and sent in Mailchimp"
@@ -299,7 +310,7 @@ export class SocialSendNotificationModalComponent implements OnInit {
   openInMailchimpIf(replicateCampaignResponse: MailchimpCampaignReplicateIdentifiersResponse, dontSend) {
     this.logger.debug("openInMailchimpIf:replicateCampaignResponse", replicateCampaignResponse, "dontSend", dontSend);
     if (dontSend) {
-      return window.open(`${this.mailchimpLinkService.completeInMailchimp(replicateCampaignResponse.web_id)}`, "_blank");
+      return window.open(`${this.mailchimpLinkService.completeInMailSystem(replicateCampaignResponse.web_id)}`, "_blank");
     } else {
       return true;
     }

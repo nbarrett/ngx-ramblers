@@ -4,18 +4,15 @@ import debug from "debug";
 import { configuredBrevo } from "../brevo-config";
 import * as SibApiV3Sdk from "@getbrevo/brevo";
 import { CreateSmtpEmail, SendSmtpEmail } from "@getbrevo/brevo";
-import { handleError, successfulResponse } from "../common/messages";
+import { handleError, performTemplateSubstitution, successfulResponse } from "../common/messages";
 import * as http from "http";
-import { SendSmtpEmailRequest, TemplateResponse } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
-import { queryTemplateContent } from "./query-template-content";
-import { KeyValue } from "../../../../projects/ngx-ramblers/src/app/services/enums";
-import { replaceAll } from "../../shared/string-utils";
-import { extractParametersFrom } from "../../../../projects/ngx-ramblers/src/app/common/mail-parameters";
+import { SendSmtpEmailRequest } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const messageType = "brevo:send-transactional-mail";
-const debugLog = debug(envConfig.logNamespace(messageType));
+const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
 
 debugLog.enabled = true;
+
 
 export async function sendTransactionalMail(req: Request, res: Response, next: NextFunction): Promise<void> {
 
@@ -30,24 +27,7 @@ export async function sendTransactionalMail(req: Request, res: Response, next: N
   sendSmtpEmail.replyTo = emailRequest.replyTo;
   sendSmtpEmail.headers = emailRequest.headers;
   sendSmtpEmail.params = emailRequest.params;
-  if (emailRequest.templateId) {
-    debugLog("performing template substitution in email content for templateId", emailRequest.templateId);
-    const templateResponse: TemplateResponse = await queryTemplateContent(emailRequest.templateId);
-    const parametersAndValues: KeyValue<any>[] = extractParametersFrom(emailRequest.params, true);
-    debugLog("parametersAndValues:", parametersAndValues);
-    const htmlContent: string = parametersAndValues.reduce(
-      (templateContent, keyValue) => {
-        debugLog(`Replacing ${keyValue.key} with ${keyValue.value} in ${templateContent}`);
-        return replaceAll(keyValue.key, keyValue.value, templateContent) as string;
-      },
-      templateResponse.htmlContent,
-    );
-    debugLog(`Setting final htmlContent to ${htmlContent}`);
-    sendSmtpEmail.htmlContent = htmlContent;
-  } else {
-    debugLog(`Using supplied htmlContent ${emailRequest.htmlContent}`);
-    sendSmtpEmail.htmlContent = emailRequest.htmlContent;
-  }
+  await performTemplateSubstitution(emailRequest, sendSmtpEmail, debugLog);
   debugLog(`About to send mail with  supplied htmlContent ${sendSmtpEmail}`);
   apiInstance.sendTransacEmail(sendSmtpEmail).then((data: {
     response: http.IncomingMessage;

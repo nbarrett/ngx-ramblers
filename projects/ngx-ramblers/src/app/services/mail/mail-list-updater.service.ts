@@ -6,7 +6,7 @@ import { AlertInstance } from "../notifier.service";
 import { StringUtilsService } from "../string-utils.service";
 import { MailConfigService } from "./mail-config.service";
 import {
-  Contact,
+  Contact, ContactCreatedResponse,
   ContactIdToListId,
   ContactsAddOrRemoveRequest,
   ContactsListResponse,
@@ -144,7 +144,7 @@ export class MailListUpdaterService {
   public memberSubscribed(member: Member): boolean {
     const subscriptionCount = member?.mail?.subscriptions?.filter((mailSubscription) => mailSubscription.subscribed)?.length;
     const subscribed = member?.groupMember && !!(member?.email) && subscriptionCount > 0;
-    this.logger.off("memberSubscribed:member.groupMember", member?.groupMember, "email", member?.email, "name:", this.fullNamePipe.transform(member), "member:", member, "subscriptionCount:", subscriptionCount, "subscribed:", subscribed);
+    this.logger.info("memberSubscribed:member.groupMember", member?.groupMember, "email", member?.email, "name:", this.fullNamePipe.transform(member), "member:", member, "subscriptionCount:", subscriptionCount, "subscribed:", subscribed);
     return subscribed;
   }
 
@@ -175,9 +175,13 @@ export class MailListUpdaterService {
     if (updateContactRequests.length > 0) {
       const updateContactResponse = await this.mailService.contactsBatchUpdate(updateContactRequests);
       this.logger.info("updateContactResponse:", updateContactResponse);
-      const mailListAudits = updateContactRequests.map((contactRequest) => this.mailListAuditService.createMailListAudit("Contact Updated in Brevo: " + this.stringUtils.stringifyObject(omit(contactRequest, "extId")), AuditStatus.info, contactRequest.extId, first(contactRequest.listIds)));
+      const mailListAudits = updateContactRequests.map((contactRequest) => this.mailListAuditService.createMailListAudit(`Contact Updated in Brevo: ${this.contactDetails(contactRequest)}`, AuditStatus.info, contactRequest.extId, first(contactRequest.listIds)));
       this.pendingMailListAudits.push(...mailListAudits);
     }
+  }
+
+  private contactDetails(contactRequest: CreateContactRequestWithObjectAttributes) {
+    return this.stringUtils.stringifyObject(omit(contactRequest, "extId"));
   }
 
   private async processDeleteContactsRequests(deleteContactIds: NumberOrString[], members: Member[], notify: AlertInstance) {
@@ -212,7 +216,7 @@ export class MailListUpdaterService {
       const createContactResponse = await this.mailService.createContacts(createContactRequests);
       this.logger.info("createContactResponse:", createContactResponse);
       if (createContactResponse?.length > 0) {
-        const updatedMembers = createContactResponse.map((contactCreatedResponse) => {
+        const updatedMembers = createContactResponse.map((contactCreatedResponse: ContactCreatedResponse) => {
           const member = members.find((member) => this.cleanEmail(member?.email) === this.cleanEmail(contactCreatedResponse?.id));
           if (member && contactCreatedResponse?.responseBody?.id) {
             member.mail.id = contactCreatedResponse.responseBody.id;

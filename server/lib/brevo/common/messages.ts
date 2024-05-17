@@ -1,11 +1,46 @@
 import { Request, Response } from "express";
-import { HttpError } from "@getbrevo/brevo";
+import { CreateEmailCampaign, HttpError, SendSmtpEmail } from "@getbrevo/brevo";
 import debug from "debug";
 import http from "http";
 import {
+  CreateCampaignRequest,
+  SendSmtpEmailRequest,
   StatusMappedResponseMultipleInputs,
-  StatusMappedResponseSingleInput
+  StatusMappedResponseSingleInput,
+  TemplateResponse
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { queryTemplateContent } from "../transactional-mail/query-template-content";
+import { KeyValue } from "../../../../projects/ngx-ramblers/src/app/services/enums";
+import { extractParametersFrom } from "../../../../projects/ngx-ramblers/src/app/common/mail-parameters";
+import { replaceAll } from "../../shared/string-utils";
+
+export async function performTemplateSubstitution(emailRequest: SendSmtpEmailRequest | CreateCampaignRequest,
+                                                  sendSmtpEmail: SendSmtpEmail | CreateEmailCampaign,
+                                                  debugLog: debug.Debugger): Promise<SendSmtpEmail | CreateEmailCampaign> {
+  const priorDebugValue = debugLog.enabled;
+  debugLog.enabled = false;
+
+  if (emailRequest.templateId) {
+    debugLog("performing template substitution in email content for templateId", emailRequest.templateId);
+    const templateResponse: TemplateResponse = await queryTemplateContent(emailRequest.templateId);
+    const parametersAndValues: KeyValue<any>[] = extractParametersFrom(emailRequest.params, true);
+    debugLog("parametersAndValues:", parametersAndValues);
+    const htmlContent: string = parametersAndValues.reduce(
+      (templateContent, keyValue) => {
+        debugLog(`Replacing ${keyValue.key} with ${keyValue.value} in ${templateContent}`);
+        return replaceAll(keyValue.key, keyValue.value, templateContent) as string;
+      },
+      templateResponse.htmlContent,
+    );
+    debugLog(`Setting final htmlContent to ${htmlContent}`);
+    sendSmtpEmail.htmlContent = htmlContent;
+  } else {
+    debugLog(`Using supplied htmlContent`, emailRequest.htmlContent);
+    sendSmtpEmail.htmlContent = emailRequest.htmlContent;
+  }
+  debugLog.enabled = priorDebugValue;
+  return sendSmtpEmail;
+}
 
 export function mapStatusMappedResponseSingleInput(id: any, response: BrevoResponse, ...expectedHttpResponseCodes: number[]): StatusMappedResponseSingleInput {
   return {

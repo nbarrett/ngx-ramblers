@@ -2,6 +2,7 @@ import map from "lodash-es/map";
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { FileNameData } from "./aws-object.model";
 import { DateValue } from "./date.model";
+import { NotificationConfig } from "./mail.model";
 
 export const committeeYearsPath = "committee#committee-years";
 
@@ -113,23 +114,28 @@ export interface GroupEventsFilter {
   sortBy?: string;
 }
 
+export interface IncludedStringValue {
+  include?: boolean;
+  value?: string;
+}
+
 export interface NotificationContent {
+  notificationConfig: NotificationConfig;
   addresseeType?: string;
-  attachment?: { include?: boolean; value?: string; };
-  campaignId?: string;
+  attachment?: IncludedStringValue;
   customCampaignType?: string;
-  description?: { include: boolean; value?: string; };
+  description?: IncludedStringValue;
   destinationType?: string;
   includeDownloadInformation?: boolean;
   list?: string;
   attendees?: { include?: boolean };
-  eventDetails?: { include?: boolean; value: string };
-  replyTo?: { include?: boolean; value: string; };
+  eventDetails?: IncludedStringValue;
+  replyTo?: IncludedStringValue;
   selectedMemberIds?: string[];
-  signoffAs?: { include?: boolean; value?: string; };
-  signoffText?: { include?: boolean; value?: string; };
-  text?: { include?: boolean; value?: string; };
-  title?: { include?: boolean; value?: string; };
+  signoffAs?: IncludedStringValue;
+  signoffText?: IncludedStringValue;
+  text?: IncludedStringValue;
+  title?: IncludedStringValue;
 }
 
 export interface Notification {

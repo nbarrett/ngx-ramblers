@@ -18,11 +18,11 @@ import {
   ListCreateResponse,
   ListsResponse,
   MailIdentifiers,
-  MailTemplates,
+  MailTemplates, CreateCampaignRequest,
   SendSmtpEmailRequest,
   StatusMappedResponseMultipleInputs,
   StatusMappedResponseSingleInput,
-  TemplateOptions
+  TemplateOptions, SendCampaignRequest
 } from "../../models/mail.model";
 
 @Injectable({
@@ -111,6 +111,16 @@ export class MailService {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/transactional/send`, emailRequest))).response;
   }
 
+  async sendCampaign(createCampaignRequest: SendCampaignRequest): Promise<StatusMappedResponseSingleInput> {
+    this.logger.info("sendCampaignMessage createCampaignRequest:", createCampaignRequest);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/campaign/send`, createCampaignRequest))).response;
+  }
+
+  async createCampaign(createCampaignRequest: CreateCampaignRequest): Promise<StatusMappedResponseSingleInput> {
+    this.logger.info("sendCampaignMessage createCampaignRequest:", createCampaignRequest);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/campaign/create`, createCampaignRequest))).response;
+  }
+
   async queryAccount(): Promise<Account> {
     this.logger.info("queryAccount");
     return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/account`))).response;
@@ -119,6 +129,11 @@ export class MailService {
   async queryTemplates(templateOptions?: TemplateOptions): Promise<MailTemplates> {
     this.logger.info("template list templateOptions:", templateOptions);
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/templates`, templateOptions))).response;
+  }
+
+  async querySegments(): Promise<MailTemplates> {
+    this.logger.info("querySegments");
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/templates`))).response;
   }
 
 }

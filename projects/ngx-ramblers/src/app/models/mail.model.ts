@@ -12,6 +12,13 @@ export interface NotificationSubject {
   suffixParameter: string;
 }
 
+export interface NotificationConfigListing {
+  mailMessagingConfig: MailMessagingConfig;
+  includeWorkflowRelatedConfigs?: boolean;
+  includeMemberSelections?: MemberSelection[];
+  excludeMemberSelections?: MemberSelection[];
+}
+
 export interface NotificationConfig extends Auditable, Identifiable {
   subject: NotificationSubject;
   bannerId: string;
@@ -28,9 +35,10 @@ export interface NotificationConfig extends Auditable, Identifiable {
 }
 
 export enum MemberSelection {
-  RECENTLY_ADDED = "recently-added",
   EXPIRED_MEMBERS = "expired-members",
+  MAILING_LIST = "mailing-list",
   MISSING_FROM_BULK_LOAD_MEMBERS = "missing-from-bulk-load-members",
+  RECENTLY_ADDED = "recently-added",
 }
 
 export enum WorkflowAction {
@@ -68,16 +76,41 @@ export interface CreateSendSmtpEmailRequest {
   emailSubject?: string;
 }
 
-export interface SendSmtpEmailRequest {
+export interface EmailRequest {
+  sender: EmailAddress;
+  subject: string;
+  headers?: object;
+  params: SendSmtpEmailParams;
+  templateId?: number;
+  htmlContent?: string;
+}
+
+export interface SendSmtpEmailRequest extends EmailRequest {
   sender: EmailAddress;
   subject: string;
   to?: EmailAddress[];
   cc?: EmailAddress[];
   replyTo?: EmailAddress;
-  headers?: object;
-  params: SendSmtpEmailParams;
-  templateId?: number;
-  htmlContent?: string;
+}
+
+export interface SendCampaignRequest {
+  campaignId: number;
+}
+
+export interface CreateCampaignRequest extends EmailRequest {
+  createAsDraft: boolean;
+  tag?: string;
+  name: string;
+  scheduledAt?: Date;
+  replyTo: string;
+  toField?: string;
+  recipients: { segmentIds?: number[], exclusionListIds?: number[]; listIds?: number[] };
+  attachmentUrl?: string;
+  inlineImageActivation?: boolean;
+  mirrorActive: boolean;
+  header?: string;
+  footer?: string;
+  utmCampaign?: string;
 }
 
 export interface SendSmtpEmailParams {
@@ -90,6 +123,7 @@ export interface MessageMergeFields {
   subject: string;
   SIGNOFF_NAMES: string;
   BANNER_IMAGE_SOURCE: string;
+  ADDRESS_LINE: string;
   BODY_CONTENT?: string;
 }
 
@@ -123,6 +157,7 @@ export interface MailConfig extends BuiltInProcessMappings {
   apiKey: string;
   baseUrl: string;
   myBaseUrl: string;
+  editorUrl: string;
   allowUpdateLists: boolean;
   allowSendCampaign: boolean;
   allowSendTransactional: boolean;
@@ -161,13 +196,11 @@ export interface MailTemplates {
   templates: MailTemplate[];
 }
 
-export interface MailTemplatesApiResponse extends ApiResponse {
-  request: any;
-  response: MailTemplates;
+export interface TemplateOptions extends OptionalRequestOptions {
+  templateStatus: boolean;
 }
 
-export interface TemplateOptions {
-  templateStatus: boolean,
+export interface OptionalRequestOptions {
   limit?: number,
   offset?: number,
   sort?: "asc" | "desc",
@@ -178,10 +211,14 @@ export interface TemplateOptions {
   }
 }
 
-export const DEFAULT_TEMPLATE_OPTIONS: TemplateOptions = {
-  templateStatus: true,
+export const DEFAULT_REQUEST_OPTIONS: OptionalRequestOptions = {
   limit: 50,
   offset: 0
+};
+
+export const DEFAULT_TEMPLATE_OPTIONS: TemplateOptions = {
+  ...DEFAULT_REQUEST_OPTIONS,
+  templateStatus: true,
 };
 
 export interface TemplateResponse {
@@ -354,20 +391,21 @@ export interface ListInfo {
   folderId: number;
 }
 
+export interface SegmentInfo {
+  id: number;
+  segmentName: string;
+  categoryName: string;
+  updatedAt: string;
+}
+
 export interface ListsResponse {
   lists: ListInfo[];
   count: number;
 }
 
-export interface ContactOptions {
-  limit?: number,
-  offset?: number,
-  sort?: "asc" | "desc",
-  options?: {
-    headers: {
-      [name: string]: string;
-    };
-  }
+export interface SegmentsResponse {
+  segments: SegmentInfo[];
+  count: number;
 }
 
 export interface CreateContactRequest {
@@ -511,7 +549,6 @@ export interface StatusMappedResponseMultipleInputs extends StatusMappedResponse
 export interface StatusMappedResponse {
   responseBody: any;
   success: boolean;
-  id?: any;
   message: string;
   status: number;
 }
