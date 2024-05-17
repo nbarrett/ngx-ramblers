@@ -2,36 +2,16 @@
   <div class="row">
     <div class="col-sm-12">
       <tabset class="custom-tabset" *ngIf="notification">
-        <tab *ngIf="false" heading="Existing Draft Campaigns">
-          <div class="img-thumbnail thumbnail-admin-edit">
-            <div class="row">
-              <div class="col-sm-12">
-                <div class="form-group">
-                  <label for="existing-campaigns">Campaigns:</label>
-                  <select *ngIf="mailchimpCampaignListResponse" [(ngModel)]="draftCampaignId"
-                          id="existing-campaigns"
-                          class="form-control input-sm"
-                          (ngModelChange)="campaignIdChanged()">
-                    <option *ngFor="let campaign of draftMailchimpCampaignListResponse?.campaigns"
-                            [ngValue]="campaign.id"
-                            [textContent]="campaign.settings.title"></option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-        </tab>
         <tab heading="Recipients & Addressing">
           <div class="img-thumbnail thumbnail-admin-edit">
             <div class="row">
               <div class="col-sm-7"><label>Send to:</label>
                 <div class="form-group">
                   <div class="custom-control custom-radio">
-                    <input
-                      (click)="clearRecipientsForCampaignOfType('committee')"
+                    <input (click)="clearRecipientsForCampaignOfType('committee')"
                       name="send-to"
                       id="send-to-committee"
-                      [disabled]="allCommitteeList()?.length===0"
+                           [disabled]="true || allCommitteeList()?.length===0"
                       type="radio"
                       class="custom-control-input"
                       [(ngModel)]="notification.content.destinationType"
@@ -42,41 +22,27 @@
                     <a class="ml-1" *ngIf="allCommitteeList()?.length>0"
                        (click)="editCommitteeRecipients()">(edit)</a>
                   </div>
-                  <div class="custom-control custom-radio" *ngIf="mailchimpConfig?.lists?.general">
-                    <input (click)="clearRecipientsForCampaignOfType('general')" id="send-to-general"
+                  <div class="custom-control custom-radio">
+                    <input (click)="clearRecipientsForCampaignOfType('general')"
+                           id="send-to-general"
                            [disabled]="subscribedToCampaignEmails().length===0"
                            name="send-to"
                            type="radio"
+                           [checked]="true"
                            class="custom-control-input"
                            [(ngModel)]="notification.content.destinationType"
-                           value="general"/>
+                           [value]="notification.content.destinationType"/>
                     <label class="custom-control-label" for="send-to-general">{{subscribedToCampaignEmails().length}}
                       General List
                       Members </label>
-                    <a class="ml-1" *ngIf="subscribedToCampaignEmails().length>0"
+                    <a class="ml-1 disabled" *ngIf="subscribedToCampaignEmails().length>0"
                        (click)="editAllGroupRecipients()">(edit)</a>
                   </div>
-                  <div class="custom-control custom-radio" *ngIf="mailchimpConfig?.lists?.walks">
-                    <input (click)="clearRecipientsForCampaignOfType('walks')"
-                           name="send-to"
-                           id="send-to-walks"
-                           [disabled]="allWalksSubscribedList().length===0"
-                           type="radio"
-                           class="custom-control-input"
-                           [(ngModel)]="notification.content.destinationType"
-                           value="walks"/>
-                    <label class="custom-control-label" for="send-to-walks">{{allWalksSubscribedList().length}} Walks
-                      List
-                      Members
-                    </label>
-                    <a class="ml-1" *ngIf="allWalksSubscribedList().length>0"
-                       (click)="editAllWalksRecipients()">(edit)</a>
-                  </div>
-                  <div class="custom-control custom-radio" *ngIf="mailchimpConfig?.lists?.socialEvents">
+                  <div class="custom-control custom-radio">
                     <input (click)="clearRecipientsForCampaignOfType('socialEvents')"
                            name="send-to"
                            id="send-to-social"
-                           [disabled]="allSocialSubscribedList().length===0"
+                           [disabled]="true || allSocialSubscribedList().length===0"
                            type="radio"
                            class="custom-control-input"
                            [(ngModel)]="notification.content.destinationType"
@@ -92,6 +58,7 @@
                            type="radio"
                            class="custom-control-input"
                            name="send-to"
+                           [disabled]="true"
                            [(ngModel)]="notification.content.destinationType"
                            value="custom"/>
                     <label class="custom-control-label" for="custom">
@@ -112,7 +79,7 @@
                            type="radio"
                            class="custom-control-input"
                            name="address-as"
-                           [(ngModel)]="notification.content.addresseeType" value="Hi *|FNAME|*,"/>
+                           [(ngModel)]="notification.content.addresseeType" [value]="'Hi {{contact.FIRSTNAME}},'"/>
                     <label class="custom-control-label" for="addressee-first-name">Hi <i>first name</i> </label>
                   </div>
                   <div class="custom-control custom-radio">
@@ -122,14 +89,14 @@
                            name="address-as"
                            [(ngModel)]="notification.content.addresseeType"
                            value="Hi all,"/>
-                    <label class="custom-control-label" for="addressee-all">Hi all</label>
+                    <label class="custom-control-label" for="addressee-all">Hi all,</label>
                   </div>
                 </div>
               </div>
             </div>
             <div class="row" *ngIf="notification.content.destinationType==='custom'">
               <div class="col-sm-12">
-                <div class="form-group" triggers="" #tooltip2="bs-tooltip" placement="bottom"
+                <div class="form-group" triggers="" placement="bottom"
                      [tooltip]="helpMembers()">
                   <ng-select  #select [items]="selectableRecipients"
                              bindLabel="memberInformation"
@@ -154,22 +121,11 @@
             </div>
           </div>
         </tab>
-        <tab heading="Edit Content">
+        <tab heading="Email Configuration & Content">
           <div class="img-thumbnail thumbnail-admin-edit">
-            <div class="row">
-              <div class="col-sm-12">
-                <div class="form-group">
-                  <label for="campaign">Replicate Based On:</label>
-                  <select *ngIf="mailchimpCampaignListResponse" [(ngModel)]="notification.content.campaignId"
-                          id="campaign"
-                          class="form-control input-sm"
-                          (ngModelChange)="campaignIdChanged()">
-                    <option *ngFor="let campaign of mailchimpCampaignListResponse.campaigns" [ngValue]="campaign.id"
-                            [textContent]="campaign.settings.title"></option>
-                  </select>
-                </div>
-              </div>
-            </div>
+            <app-notification-config-selector (emailConfigChanged)="emailConfigChanged($event)"
+                                              [notificationConfig]="notification?.content?.notificationConfig"
+                                              [notificationConfigListing]="notificationConfigListing"/>
             <div class="row">
               <div class="col-sm-12">
                 <div class="form-group">
@@ -387,8 +343,13 @@
         </tab>
         <tab heading="Preview">
           <div class="img-thumbnail thumbnail-admin-edit">
-            <div id="preview" class="print-preview">
-              <h2 class="mb-3">{{notification.content.title.value}}</h2>
+            <div class="print-preview">
+              <div *ngIf="notification?.content?.notificationConfig?.bannerId" class="mb-2">
+                <img class="card-img"
+                     [src]="mailMessagingService.bannerImageSource(notification?.content?.notificationConfig, false)">
+              </div>
+              <h2 class="mb-3">{{ notification.content.title.value }}</h2>
+              <p *ngIf="false">{{ notification?.content.addresseeType }}</p>
               <div #notificationContent>
                 <app-committee-notification-details [committeeFile]="committeeFile" [members]="members"
                                                   [notification]="notification">
@@ -407,18 +368,16 @@
           </div>
         </div>
       </div>
-      <input type="submit" value="Confirm Send" (click)="confirmSendNotification()"
-             [disabled]="notReady()"
-             title="Confirm sending of notification email"
-             [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
-      <input type="submit" value="Complete in Mailchimp" (click)="completeInMailchimp()"
-             [disabled]="notReady()"
-             title="Complete editing and sending of Mailchimp"
-             [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm blue-confirm button-form-left'">
-      <input type="submit" value="Cancel Send" (click)="cancelSendNotification()"
-             title="Cancel sending of notification email"
-             class="button-form button-confirm button-form-left">
+      <app-brevo-button button [disabled]="notReady()" (click)="runCampaignCreationAndSendWorkflow()"
+                        title="Send Now via {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"></app-brevo-button>
+      <app-brevo-button class="ml-2" button [disabled]="notReady()" (click)="completeInMailSystem()"
+                        title="Complete in {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"></app-brevo-button>
+      <input type="submit" value="Back" (click)="backToCommittee()"
+             class="ml-2 btn btn-primary px-2 py-2">
     </div>
+  </div>
+  <div class="d-none">
+    <ng-template app-notification-directive/>
   </div>
 </app-page>
 

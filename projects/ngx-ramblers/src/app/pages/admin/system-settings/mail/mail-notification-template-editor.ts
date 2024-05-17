@@ -9,8 +9,7 @@ import {
 import { CommitteeRolesChangeEvent } from "../../../../models/committee.model";
 import { MailLinkService } from "../../../../services/mail/mail-link.service";
 import { BroadcastService } from "../../../../services/broadcast-service";
-import { NamedEvent, NamedEventType } from "../../../../models/broadcast.model";
-import { AlertLevel, AlertMessageAndType } from "../../../../models/alert-target.model";
+import { AlertMessageAndType } from "../../../../models/alert-target.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { BannerConfig } from "../../../../models/banner-configuration.model";
@@ -174,8 +173,7 @@ import first from "lodash-es/first";
                 <div class="input-group-append">
                   <div class="input-group-text">
                     <app-brevo-button [disabled]="notReady()"
-                                      (click)="editTemplate(notificationConfig.templateId)"
-                                      [title]="'View'"/>
+                                      (click)="mailLinkService.editTemplateWithNotifications(notificationConfig.templateId, this.notReady(), mailMessagingConfig)"/>
                   </div>
                 </div>
               </div>
@@ -187,8 +185,7 @@ import first from "lodash-es/first";
           <div class="row">
             <div class="col-sm-6">
               <div class="form-group">
-                <label for="member-selection">
-                  Default Member Selection</label>
+                <label for="member-selection">Member Selection</label>
                 <select class="form-control input-sm"
                         [(ngModel)]="notificationConfig.defaultMemberSelection"
                         id="member-selection">
@@ -201,7 +198,8 @@ import first from "lodash-es/first";
             <div class="col-sm-6">
               <div class="form-group">
                 <label for="campaign-months-in-past-filter">Months In Past</label>
-                <input [(ngModel)]="notificationConfig.monthsInPast"
+                <input [disabled]="notificationConfig.defaultMemberSelection ===MemberSelection.MAILING_LIST"
+                       [(ngModel)]="notificationConfig.monthsInPast"
                        type="number" id="campaign-months-in-past-filter"
                        class="form-control input-sm">
               </div>
@@ -210,7 +208,7 @@ import first from "lodash-es/first";
               <div class="form-group">
                 <label for="member-selection">
                   Pre-Send Action</label>
-                <select [compareWith]="arrayComparer" class="form-control input-sm"
+                <select [disabled]="notificationConfig.defaultMemberSelection ===MemberSelection.MAILING_LIST" [compareWith]="arrayComparer" class="form-control input-sm"
                         [(ngModel)]="notificationConfig.preSendActions"
                         id="member-selection">
                   <option *ngFor="let type of workflowActions"
@@ -223,7 +221,7 @@ import first from "lodash-es/first";
               <div class="form-group">
                 <label for="member-selection">
                   Post-Send Action</label>
-                <select [compareWith]="arrayComparer" class="form-control input-sm"
+                <select [disabled]="notificationConfig.defaultMemberSelection ===MemberSelection.MAILING_LIST" [compareWith]="arrayComparer" class="form-control input-sm"
                         [(ngModel)]="notificationConfig.postSendActions"
                         id="member-selection">
                   <option *ngFor="let type of workflowActions"
@@ -263,7 +261,7 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   private logger: Logger = this.loggerFactory.createLogger("MailNotificationTemplateMappingComponent", NgxLoggerLevel.OFF);
   public stringUtils: StringUtilsService = inject(StringUtilsService);
   private broadcastService: BroadcastService<AlertMessageAndType> = inject(BroadcastService);
-  private mailLinkService: MailLinkService = inject(MailLinkService);
+  public  mailLinkService: MailLinkService = inject(MailLinkService);
   public urlService: UrlService = inject(UrlService);
   public mailMessagingService: MailMessagingService = inject(MailMessagingService);
   public mailMessagingConfig: MailMessagingConfig;
@@ -278,6 +276,8 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   protected readonly faMailBulk = faMailBulk;
   protected readonly faForward = faForward;
   protected readonly faBackward = faBackward;
+
+  protected readonly MemberSelection = MemberSelection;
 
   async ngOnInit() {
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
@@ -308,32 +308,6 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
 
   toBannerInformation(bannerConfig: BannerConfig) {
     return `${bannerConfig.name || "Unnamed"} (${this.stringUtils.asTitle(bannerConfig.bannerType)})`;
-  }
-
-  editTemplate(templateId: number) {
-    if (!this.notReady()) {
-      if (this.mailMessagingConfig.mailConfig?.allowSendTransactional) {
-        if (!templateId) {
-          this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
-            message: {
-              title: "Edit Mail Template",
-              message: "Please select a template from the drop-down before choosing edit"
-            }, type: AlertLevel.ALERT_ERROR
-          }));
-        } else {
-          const templateUrl = this.mailLinkService.templateEdit(templateId);
-          this.logger.info("editing template:", templateUrl);
-          return window.open(templateUrl, "_blank");
-        }
-      } else {
-        this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
-          message: {
-            title: "Mail Integration not enabled",
-            message: "List and campaign dropdowns will not be populated"
-          }, type: AlertLevel.ALERT_WARNING
-        }));
-      }
-    }
   }
 
   assignRolesTo(rolesChangeEvent: CommitteeRolesChangeEvent) {

@@ -31,7 +31,7 @@ export class MailchimpLinkService {
     return `${this.mailchimpApiUrl}/campaigns/preview-content-html?id=${webId}`;
   }
 
-  public completeInMailchimp(webId: number) {
+  public completeInMailSystem(webId: number) {
     return `${this.mailchimpApiUrl}/campaigns/wizard/neapolitan?id=${webId}`;
   }
 

@@ -96,6 +96,23 @@ import { MailLinkService } from "../../../../services/mail/mail-link.service";
                       </div>
                     </div>
                     <div class="form-group">
+                      <label for="editor-url">Editor Url</label>
+                      <div class="input-group">
+                        <input [(ngModel)]="mailMessagingConfig.mailConfig.editorUrl" type="text"
+                               class="form-control input-sm"
+                               id="editor-url"
+                               placeholder="The Base Url for editor of The Mail Application">
+                        <div class="input-group-append">
+                          <div class="input-group-text">
+                            <app-brevo-button [disabled]="!mailMessagingConfig.mailConfig.editorUrl"
+                                              (click)="mailLinkService.openUrl(mailLinkService.editorUrl())"
+                                              [title]="'View'"/>
+
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="form-group">
                       <label for="api-key">API Key</label>
                       <div class="input-group">
                         <input [(ngModel)]="mailMessagingConfig.mailConfig.apiKey" type="text"

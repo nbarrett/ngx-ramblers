@@ -22,6 +22,7 @@ export class MailConfigService {
       apiKey: null,
       allowSendCampaign: true,
       allowSendTransactional: true,
+      editorUrl: "https://editor-app.brevo.com",
       baseUrl: "https://app.brevo.com",
       myBaseUrl: "https://my.brevo.com"
     });

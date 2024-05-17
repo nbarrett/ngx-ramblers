@@ -1,10 +1,7 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
-import extend from "lodash-es/extend";
-import keys from "lodash-es/keys";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { chain } from "../../../functions/chain";
 import { AlertTarget } from "../../../models/alert-target.model";
 import {
   CommitteeFile,
@@ -14,17 +11,8 @@ import {
   Notification
 } from "../../../models/committee.model";
 import { DateValue } from "../../../models/date.model";
-import {
-  CampaignConfig,
-  MailchimpCampaignListResponse,
-  MailchimpCampaignReplicateIdentifiersResponse,
-  MailchimpConfig,
-  MailchimpGenericOtherContent,
-  OtherOptions,
-  SaveSegmentResponse
-} from "../../../models/mailchimp.model";
 import { Member, MemberFilterSelection } from "../../../models/member.model";
-import { Organisation } from "../../../models/system.model";
+import { SystemConfig } from "../../../models/system.model";
 import { ConfirmType } from "../../../models/ui-actions";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { sortBy } from "../../../services/arrays";
@@ -32,11 +20,6 @@ import { CommitteeQueryService } from "../../../services/committee/committee-que
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
-import { MailchimpCampaignService } from "../../../services/mailchimp/mailchimp-campaign.service";
-import { MailchimpLinkService } from "../../../services/mailchimp/mailchimp-link.service";
-import { MailchimpSegmentService } from "../../../services/mailchimp/mailchimp-segment.service";
-import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { PageService } from "../../../services/page.service";
@@ -44,6 +27,21 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
 import { CommitteeDisplayService } from "../committee-display.service";
+import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
+import { MailLinkService } from "../../../services/mail/mail-link.service";
+import {
+  CreateCampaignRequest,
+  MailMessagingConfig,
+  MemberSelection,
+  NotificationConfig,
+  NotificationConfigListing,
+  StatusMappedResponseSingleInput
+} from "../../../models/mail.model";
+import { MailService } from "../../../services/mail/mail.service";
+import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
+import { NotificationDirective } from "../../../notifications/common/notification.directive";
+import { KeyValue } from "../../../services/enums";
+import { MemberLoginService } from "../../../services/member/member-login.service";
 
 const SORT_BY_NAME = sortBy("order", "member.lastName", "member.firstName");
 
@@ -54,6 +52,8 @@ const SORT_BY_NAME = sortBy("order", "member.lastName", "member.firstName");
 })
 export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   @ViewChild("notificationContent") notificationContent: ElementRef;
+  @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
+  public segmentEditingSupported = false;
   public committeeFile: CommitteeFile;
   public members: Member[] = [];
   private notify: AlertInstance;
@@ -63,29 +63,27 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   public roles: { replyTo: any[]; signoff: CommitteeMember[] };
   public selectableRecipients: MemberFilterSelection[];
-  public mailchimpConfig: MailchimpConfig;
-  public mailchimpCampaignListResponse: MailchimpCampaignListResponse;
-  public draftMailchimpCampaignListResponse: MailchimpCampaignListResponse;
+  public mailMessagingConfig: MailMessagingConfig;
   public committeeEventId: string;
-  private group: Organisation;
+  public systemConfig: SystemConfig;
   public pageTitle: string;
-  public draftCampaignId: string;
+  public notificationConfigListing: NotificationConfigListing;
 
   constructor(
     private route: ActivatedRoute,
     private pageService: PageService,
-    private mailchimpSegmentService: MailchimpSegmentService,
+    private memberLoginService: MemberLoginService,
     private committeeQueryService: CommitteeQueryService,
-    private mailchimpCampaignService: MailchimpCampaignService,
-    private mailchimpConfigService: MailchimpConfigService,
+    private mailService: MailService,
+    protected mailMessagingService: MailMessagingService,
     private notifierService: NotifierService,
     public display: CommitteeDisplayService,
     public stringUtils: StringUtilsService,
     public googleMapsService: GoogleMapsService,
     private memberService: MemberService,
     private fullNameWithAlias: FullNameWithAliasPipe,
-    private mailchimpLinkService: MailchimpLinkService,
-    private memberLoginService: MemberLoginService,
+    public mailLinkService: MailLinkService,
+    private mailListUpdaterService: MailListUpdaterService,
     private systemConfigService: SystemConfigService,
     private urlService: UrlService,
     protected dateUtils: DateUtilsService,
@@ -98,127 +96,116 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     this.display.confirm.as(ConfirmType.SEND_NOTIFICATION);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget, NgxLoggerLevel.OFF);
     this.notify.setBusy();
-    this.logger.debug("subscribing to systemConfigService events");
-    this.mailchimpConfigService.getConfig().then(config => this.mailchimpConfig = config);
-    this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));
+    this.logger.info("subscribing to systemConfigService events");
+    this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
+      this.mailMessagingConfig = mailMessagingConfig;
+      this.notificationConfigListing = {mailMessagingConfig, includeMemberSelections: [MemberSelection.MAILING_LIST]};
+      this.generateNotificationDefaults("mailMessagingService");
+    }));
+    this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => this.systemConfig = systemConfig));
     this.subscriptions.push(this.display.configEvents().subscribe(() => {
       this.roles = {signoff: this.display.committeeReferenceData.committeeMembers(), replyTo: []};
-      this.generateNotification();
-      this.logger.debug("initialised on open: committeeFile", this.committeeFile, ", roles", this.roles);
-      this.logger.debug("initialised on open: notification ->", this.notification);
+      this.generateNotificationDefaults("committeeReferenceData");
+      this.logger.info("initialised on open: committeeFile", this.committeeFile, ", roles", this.roles);
+      this.logger.info("initialised on open: notification ->", this.notification);
       this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
         this.committeeEventId = paramMap.get("committee-event-id");
-        this.logger.debug("initialised with committee-event-id:", this.committeeEventId);
+        this.logger.info("initialised with committee-event-id:", this.committeeEventId);
         if (this.committeeEventId) {
           this.committeeQueryService.queryFiles(this.committeeEventId)
             .then(() => {
-              this.logger.debug("this.committeeQueryService.committeeFiles:", this.committeeQueryService.committeeFiles);
+              this.logger.info("this.committeeQueryService.committeeFiles:", this.committeeQueryService.committeeFiles);
               if (this.committeeQueryService.committeeFiles?.length > 0) {
                 const committeeFile = this.committeeQueryService.committeeFiles[0];
                 this.committeeFile = committeeFile;
-                this.logger.debug("committeeFile:", committeeFile);
+                this.logger.info("committeeFile:", committeeFile);
                 this.pageService.setTitle(committeeFile.fileType);
                 this.pageTitle = committeeFile.fileType;
-                this.generateNotification();
+                this.generateNotificationDefaults("committeeQueryService.queryFiles");
               }
             });
         }
       }));
-
-      const masterSearchTeam = "Master";
-      Promise.all([
-        this.memberService.publicFields(this.memberService.filterFor.GROUP_MEMBERS).then(members => {
-          this.members = members;
-          this.logger.debug("refreshMembers -> populated ->", this.members.length, "members");
-          this.selectableRecipients = members
-            .map(member => this.toMemberFilterSelection(member))
-            .sort(SORT_BY_NAME);
-          this.logger.debug("refreshMembers -> populated ->", this.selectableRecipients.length, "selectableRecipients:", this.selectableRecipients);
-        }),
-        this.mailchimpConfigService.getConfig()
-          .then(config => {
-            this.mailchimpConfig = config;
-            this.logger.debug("retrieved mailchimpConfig", this.mailchimpConfig);
-            this.clearRecipientsForCampaignOfType("committee");
-          }),
-        this.mailchimpCampaignService.list({
-          concise: true,
-          limit: 1000,
-          start: 0,
-          status: "save",
-          query: masterSearchTeam
-        }).then((mailchimpCampaignListResponse: MailchimpCampaignListResponse) => {
-          this.mailchimpCampaignListResponse = mailchimpCampaignListResponse;
-          this.logger.debug("mailchimpCampaignListResponse.campaigns", mailchimpCampaignListResponse.campaigns);
-        }),
-        this.mailchimpCampaignService.list({
-          concise: true,
-          limit: 1000,
-          start: 0,
-          status: "save",
-        }).then((mailchimpCampaignListResponse: MailchimpCampaignListResponse) => {
-          this.draftMailchimpCampaignListResponse = {
-            ...mailchimpCampaignListResponse,
-            campaigns: mailchimpCampaignListResponse.campaigns.filter(item => !keys(this.mailchimpConfig.campaigns).map(key => this.mailchimpConfig.campaigns[key].campaignId).includes(item.id))
-          };
-          this.logger.debug("draftMailchimpCampaignListResponse.campaigns", mailchimpCampaignListResponse.campaigns);
-        }),
-        this.committeeFile ? Promise.resolve() : this.populateGroupEvents()
-      ]).then((tasksCompleted) => {
-        this.logger.debug("performed total of", tasksCompleted.length, "preparatory steps");
-        this.notify.clearBusy();
-      }).catch(error => {
-        this.logger.error("Error caught:", error);
-        this.notify.error({title: "Failed to initialise message sending", message: error});
-      });
     }));
+  }
+
+  private initialiseMembersAndGroupEvents() {
+    return Promise.all([
+      this.memberService.publicFields(this.memberService.filterFor.GROUP_MEMBERS).then(members => {
+        this.members = members;
+        this.logger.info("refreshMembers -> populated ->", this.members.length, "members");
+        this.selectableRecipients = members
+          .map(member => this.toMemberFilterSelection(member))
+          .sort(SORT_BY_NAME);
+        this.logger.info("refreshMembers -> populated ->", this.selectableRecipients.length, "selectableRecipients:", this.selectableRecipients);
+      }),
+      this.committeeFile ? Promise.resolve() : this.populateGroupEvents()
+    ]).then((tasksCompleted) => {
+      this.logger.info("performed total of", tasksCompleted.length, "preparatory steps");
+      this.notify.clearBusy();
+    }).catch(error => {
+      this.logger.error("Error caught:", error);
+      this.notify.error({title: "Failed to initialise message sending", message: error});
+    });
   }
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
-  private generateNotification() {
-    this.notification = {
-      cancelled: false,
-      content: {
-        text: {value: "", include: true},
-        signoffText: {value: "If you have any questions about the above, please don't hesitate to contact me.\n\nBest regards,", include: true},
-        includeDownloadInformation: !!this.committeeFile,
-        destinationType: "committee",
-        addresseeType: "Hi *|FNAME|*,",
-        selectedMemberIds: [],
-        signoffAs: {
-          include: true,
-          value: this.display.committeeReferenceData.loggedOnRole()?.type || "secretary"
+  private generateNotificationDefaults(reason: string) {
+    const ready = !!(this.mailMessagingConfig && this.display.committeeReferenceData);
+    this.logger.info("generateNotificationDefaults due to:", reason, "ready:", ready);
+    if (ready) {
+      const notificationConfig = this.mailMessagingService.notificationConfigs(this.notificationConfigListing)?.[0];
+      this.notification = {
+        cancelled: false,
+        content: {
+          notificationConfig,
+          text: {value: "", include: true},
+          signoffText: {
+            value: "If you have any questions about the above, please don't hesitate to contact me.\n\nBest regards,",
+            include: true
+          },
+          includeDownloadInformation: !!this.committeeFile,
+          destinationType: "send-to-general",
+          addresseeType: "Hi {{contact.FIRSTNAME}},",
+          selectedMemberIds: [],
+          signoffAs: {
+            include: true,
+            value: this.display.committeeReferenceData.loggedOnRole()?.type || "secretary"
+          },
+          title: {value: "Committee Notification", include: true}
         },
-        title: {value: "Committee Notification", include: true}
-      },
-      groupEvents: [],
-      groupEventsFilter: {
-        search: null,
-        selectAll: true,
-        fromDate: this.dateUtils.asDateValue(this.dateUtils.momentNowNoTime().valueOf()),
-        toDate: this.dateUtils.asDateValue(this.dateUtils.momentNowNoTime().add(2, "weeks").valueOf()),
-        includeContact: true,
-        includeDescription: true,
-        includeLocation: true,
-        includeWalks: true,
-        includeSocialEvents: true,
-        includeCommitteeEvents: true
-      },
-    };
-    if (this.committeeFile) {
-      this.notification.content.title.value = this.committeeFile.fileType;
-      this.notification.content.text.value = `This is just a quick note to let you know in case you are interested, that I've uploaded a new file to the ${this?.group?.shortName} website. The file information is as follows:`;
+        groupEvents: [],
+        groupEventsFilter: {
+          search: null,
+          selectAll: true,
+          fromDate: this.dateUtils.asDateValue(this.dateUtils.momentNowNoTime().valueOf()),
+          toDate: this.dateUtils.asDateValue(this.dateUtils.momentNowNoTime().add(2, "weeks").valueOf()),
+          includeContact: true,
+          includeDescription: true,
+          includeLocation: true,
+          includeWalks: true,
+          includeSocialEvents: true,
+          includeCommitteeEvents: true
+        },
+      };
+      this.logger.info("generateNotificationDefaults:notification:", this.notification);
+      this.emailConfigChanged(notificationConfig);
+      if (this.committeeFile) {
+        this.notification.content.title.value = this.committeeFile.fileType;
+        this.notification.content.text.value = `This is just a quick note to let you know in case you are interested, that I've uploaded a new file to the ${this?.systemConfig?.group?.shortName} website. The file information is as follows:`;
+      }
+      this.initialiseMembersAndGroupEvents().then(() => this.clearRecipientsForCampaignOfType("general"));
     }
   }
 
   populateGroupEvents(): Promise<GroupEvent[]> {
-    return this.committeeQueryService.groupEvents(this.notification.groupEventsFilter)
+    return this.committeeQueryService.groupEvents(this.notification?.groupEventsFilter)
       .then(events => {
         this.notification.groupEvents = events;
-        this.logger.debug("groupEvents", events);
+        this.logger.info("groupEvents", events);
         return events;
       });
   }
@@ -231,6 +218,13 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     return this.members
       .filter(this.memberService.filterFor.GENERAL_MEMBERS_SUBSCRIBED)
       .map(member => this.toMemberFilterSelection(member))
+      .sort(SORT_BY_NAME);
+  }
+
+  allSocialSubscribedList(): MemberFilterSelection[] {
+    return this.members
+      .filter(member => this.memberService.filterFor.SOCIAL_MEMBERS_SUBSCRIBED(member))
+      .map(member => this.toSelectSocialMember(member))
       .sort(SORT_BY_NAME);
   }
 
@@ -248,10 +242,10 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   toMemberFilterSelection(member: Member): MemberFilterSelection {
     let memberGrouping;
     let order;
-    if (member.groupMember && member.mailchimpLists?.general?.subscribed) {
+    if (member.groupMember && this.subscribedToCampaigns(member)) {
       memberGrouping = "Subscribed to general emails";
       order = 0;
-    } else if (member.groupMember && !member.mailchimpLists?.general?.subscribed) {
+    } else if (member.groupMember && !this.subscribedToCampaigns(member)) {
       memberGrouping = "Not subscribed to general emails";
       order = 1;
     } else if (!member.groupMember) {
@@ -262,7 +256,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
       order = 3;
     }
     return {
-      id: this.memberService.extractMemberId(member),
+      id: member.id,
       order,
       memberGrouping,
       member,
@@ -270,70 +264,71 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     };
   }
 
+  toSelectSocialMember(member: Member): MemberFilterSelection {
+    let memberGrouping;
+    let order;
+    if (member.groupMember && this.subscribedToSocial(member)) {
+      memberGrouping = "Subscribed to social emails";
+      order = 0;
+    } else if (member.groupMember && !this.subscribedToSocial(member)) {
+      memberGrouping = "Not subscribed to social emails";
+      order = 1;
+    } else if (!member.groupMember) {
+      memberGrouping = "Not a group member";
+      order = 2;
+    } else {
+      memberGrouping = "Unexpected state";
+      order = 3;
+    }
+    return {
+      id: member.id,
+      order,
+      memberGrouping,
+      member,
+      memberInformation: this.fullNameWithAlias.transform(member)
+    };
+  }
 
   private showSelectedMemberIds() {
     this.onChange();
-    this.campaignIdChanged();
-    this.logger.debug("notification.content.destinationType", this.notification.content.destinationType, "notification.content.addresseeType", this.notification.content.addresseeType);
+    this.logger.info("notification.content.destinationType", this.notification.content.destinationType, "notification.content.addresseeType", this.notification.content.addresseeType);
   }
 
   editAllGroupRecipients() {
-    this.notification.content.destinationType = "custom";
-    this.notification.content.campaignId = this.campaignIdFor("general");
-    this.notification.content.list = "general";
-    this.notification.content.selectedMemberIds = this.subscribedToCampaignEmails().map(item => this.memberService.toIdString(item));
-    this.showSelectedMemberIds();
+    if (this.segmentEditingSupported) {
+      this.notification.content.destinationType = "custom";
+      this.notification.content.list = "general";
+      this.notification.content.selectedMemberIds = this.subscribedToCampaignEmails().map(item => this.memberService.toIdString(item));
+      this.showSelectedMemberIds();
+    }
+  }
 
+  editAllSocialRecipients() {
+    if (this.segmentEditingSupported) {
+      this.logger.info("editAllSocialRecipients");
+      this.notification.content.destinationType = "custom";
+      this.notification.content.list = "socialEvents";
+      this.notification.content.selectedMemberIds = this.allSocialSubscribedList().map(item => this.memberService.toIdString(item));
+      this.showSelectedMemberIds();
+    }
   }
 
   editCommitteeRecipients() {
-    this.logger.debug("editCommitteeRecipients");
-    this.notification.content.destinationType = "custom";
-    this.notification.content.campaignId = this.campaignIdFor("committee");
-    this.notification.content.list = "general";
-    this.notification.content.selectedMemberIds = this.allCommitteeList().map(item => this.memberService.toIdString(item));
-    this.showSelectedMemberIds();
+    if (this.segmentEditingSupported) {
+      this.logger.info("editCommitteeRecipients");
+      this.notification.content.destinationType = "custom";
+      this.notification.content.list = "general";
+      this.notification.content.selectedMemberIds = this.allCommitteeList().map(item => this.memberService.toIdString(item));
+      this.showSelectedMemberIds();
+    }
   }
 
   clearRecipientsForCampaignOfType(campaignType?: string) {
+    this.logger.info("clearRecipientsForCampaignOfType:", campaignType);
     this.notification.content.customCampaignType = campaignType;
-    this.notification.content.campaignId = this.campaignIdFor(campaignType);
     this.notification.content.list = "general";
     this.notification.content.selectedMemberIds = [];
     this.showSelectedMemberIds();
-  }
-
-  campaignIdFor(campaignType: string): string {
-    switch (campaignType) {
-      case "committee":
-        return this.mailchimpConfig.campaigns?.committee?.campaignId;
-      case "general":
-        return this.mailchimpConfig.campaigns?.newsletter?.campaignId;
-      case "socialEvents":
-        return this.mailchimpConfig.campaigns?.socialEvents?.campaignId;
-      case "walks":
-        return this.mailchimpConfig.campaigns?.walkNotification?.campaignId;
-      default:
-        return this.mailchimpConfig.campaigns?.committee?.campaignId;
-    }
-  }
-
-  campaignInfoForCampaign(campaignId: string): CampaignConfig {
-    return chain(this.mailchimpConfig.campaigns)
-      .map((data, campaignType) => {
-        const campaignData = extend({campaignType}, data);
-        this.logger.off("campaignData for", campaignType, "->", campaignData);
-        return campaignData;
-      }).find({campaignId})
-      .value();
-  }
-
-  campaignIdChanged() {
-    const infoForCampaign = this.campaignInfoForCampaign(this.notification.content.campaignId);
-    this.logger.debug("for campaignId", this.notification.content.campaignId, "infoForCampaign", infoForCampaign);
-    if (infoForCampaign) {
-      this.notification.content.title.value = infoForCampaign.name;
-    }
   }
 
   handleNotificationError(errorResponse) {
@@ -344,148 +339,98 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     });
   }
 
-  populateContentSections(notificationText: string): MailchimpGenericOtherContent {
-    this.logger.debug("populateContentSections -> notificationText", notificationText);
-    return {
-      sections: {
-        notification_text: notificationText
+  async createThenEditOrSendEmailCampaign(bodyContent: string, campaignName: string, createAsDraft: boolean) {
+    this.notify.progress(createAsDraft ? (`Preparing to complete ${campaignName} in ${this.stringUtils.asTitle(this.systemConfig?.mailDefaults?.mailProvider)}`) : ("Sending " + campaignName));
+    const lists: KeyValue<number>[] = this.mailListUpdaterService.mapToKeyValues(this.mailMessagingConfig.mailConfig.lists);
+    const role: string = this.notification.content.signoffAs.value || "secretary";
+    this.logger.info("role", role);
+    const senderEmail = this.display.committeeReferenceData.contactUsField(role, "email");
+    const member: Member = await this.memberService.getById(this.memberLoginService.loggedInMember().memberId);
+    const createCampaignRequest: CreateCampaignRequest = {
+      createAsDraft,
+      templateId: this.notification.content.notificationConfig.templateId,
+      htmlContent: bodyContent,
+      inlineImageActivation: false,
+      mirrorActive: false,
+      name: campaignName,
+      params: this.mailMessagingService.createSendSmtpEmailParams([role], this.notificationDirective, member, this.notification.content.notificationConfig, bodyContent, this.notification.content.title.value, this.notification.content.addresseeType),
+      recipients: {listIds: lists.map(list => list.value)},
+      replyTo: senderEmail,
+      sender: {
+        email: senderEmail,
+        name: this.display.committeeReferenceData.contactUsField(role, "fullName")
+      },
+      subject: campaignName
+    };
+    this.logger.info("sendEmailCampaign:notification:", this.notification);
+    this.logger.info("sendEmailCampaign:createCampaignRequest:", createCampaignRequest);
+    if (lists.length > 0) {
+      this.logger.info("about to replicateAndSendWithOptions to lists", lists, "with campaignName:", campaignName, "createAsDraft:", createAsDraft);
+      const createCampaignResponse: StatusMappedResponseSingleInput = await this.mailService.createCampaign(createCampaignRequest);
+      const campaignId: number = createCampaignResponse?.responseBody?.id;
+      this.logger.info("sendEmailCampaign:createCampaignResponse:", createCampaignResponse, "createAsDraft:", createAsDraft, "campaignId:", campaignId);
+      if (createAsDraft) {
+        window.open(`${this.mailLinkService.campaignEditRichText(campaignId)}`, "_blank");
+      } else {
+        const sendCampaignResponse: StatusMappedResponseSingleInput = await this.mailService.sendCampaign({campaignId});
+        this.logger.info("sendCampaignResponse:", sendCampaignResponse);
       }
-    };
-  }
-
-  saveSegmentDataToMember(saveSegmentResponse: SaveSegmentResponse, member: Member, segmentType: string): Promise<SaveSegmentResponse> {
-    this.mailchimpSegmentService.setMemberSegmentId(member, segmentType, saveSegmentResponse.segment.id);
-    return this.memberService.update(member)
-      .then(() => saveSegmentResponse);
-  }
-
-  sendEmailCampaign(notificationText: string, campaignName: string, dontSend: boolean) {
-    const contentSections = this.populateContentSections(notificationText);
-    this.notify.progress(dontSend ? ("Preparing to complete " + campaignName + " in Mailchimp") : ("Sending " + campaignName));
-
-    const validateExistenceOf = (list: string, fieldName: string) => {
-      return Promise.reject("Cannot send email from " + list + " list as there is no mailchimp " + fieldName + " configured. Check Committee Notification settings and make sure all fields are complete.");
-    };
-    return this.memberService.getById(this.memberLoginService.loggedInMember().memberId)
-      .then(currentMember => {
-        return this.mailchimpConfigService.getConfig()
-          .then((config) => {
-            const replyToRole = this.notification.content.signoffAs.value || "secretary";
-            this.logger.debug("replyToRole", replyToRole);
-
-            let members: MemberFilterSelection[];
-            const list = this.notification.content.list;
-            const otherOptions: OtherOptions = {
-              from_name: this.display.committeeReferenceData.contactUsField(replyToRole, "fullName"),
-              from_email: this.display.committeeReferenceData.contactUsField(replyToRole, "email"),
-              list_id: config.lists[list]
-            };
-            this.logger.debug("Sending", campaignName, "with otherOptions", otherOptions, "config", config);
-            const segmentId = this.mailchimpSegmentService.getMemberSegmentId(currentMember, list);
-            const campaignId = this.notification.content?.campaignId;
-
-            if (!campaignId) {
-              return validateExistenceOf(list, "campaign id");
-            }
-
-            this.logger.debug("Sending", campaignId, "segmentId", segmentId, "for member", currentMember);
-
-            switch (this.notification.content.destinationType) {
-              case "custom":
-                members = this.notification.content.selectedMemberIds.filter(item => this.notification.content.selectedMemberIds.includes(item))
-                  .map(item => this.toMemberFilterSelection(this.members.find(member => member.id === item)));
-                break;
-              case "committee":
-                members = this.allCommitteeList();
-                break;
-              default:
-                members = [];
-                break;
-            }
-
-            this.logger.debug("sendCommitteeNotification:notification->", this.notification);
-
-            if (members.length === 0) {
-              this.logger.debug("about to replicateAndSendWithOptions to", list, "list with campaignName", campaignName, "campaign Id", campaignId, "dontSend", dontSend);
-              return this.mailchimpCampaignService.replicateAndSendWithOptions({
-                campaignId,
-                campaignName,
-                contentSections,
-                otherOptions,
-                dontSend
-              }).then((replicateCampaignResponse) => this.openInMailchimpIf(replicateCampaignResponse, dontSend));
-            } else {
-              const segmentPrefix = "Committee Notification Recipients";
-              return this.mailchimpSegmentService.saveSegment(list, {segmentId}, members, segmentPrefix, this.members)
-                .then((segmentResponse: SaveSegmentResponse) => this.saveSegmentDataToMember(segmentResponse, currentMember, list))
-                .then((segmentResponse: SaveSegmentResponse) => {
-                  this.logger.debug("segmentResponse following save segment of segmentPrefix:", segmentPrefix, "->", segmentResponse);
-                  this.logger.debug("about to replicateAndSendWithOptions to committee with campaignName", campaignName, "campaign Id", campaignId, "segmentId", segmentResponse.segment.id);
-                  return this.mailchimpCampaignService.replicateAndSendWithOptions({
-                    campaignId,
-                    campaignName,
-                    contentSections,
-                    segmentId: segmentResponse.segment.id,
-                    otherOptions,
-                    dontSend
-                  }).then((replicateCampaignResponse) => this.openInMailchimpIf(replicateCampaignResponse, dontSend));
-                });
-            }
-          });
-      });
-  }
-
-  openInMailchimpIf(replicateCampaignResponse: MailchimpCampaignReplicateIdentifiersResponse, dontSend) {
-    this.logger.debug("openInMailchimpIf:replicateCampaignResponse", replicateCampaignResponse, "dontSend", dontSend);
-    if (dontSend) {
-      return window.open(`${this.mailchimpLinkService.completeInMailchimp(replicateCampaignResponse.web_id)}`, "_blank");
+      this.notifyEmailSendComplete(campaignName, createAsDraft);
     } else {
-      return true;
+      this.notify.error({
+        title: "Send Committee notification",
+        message: `${this.creationOrSending(createAsDraft)} of ${campaignName} was not successful as no lists were found to send to`
+      });
     }
   }
 
-  notifyEmailSendComplete(campaignName: string) {
+  notifyEmailSendComplete(campaignName: string, dontSend: boolean) {
     this.notify.clearBusy();
     if (!this.notification.cancelled) {
-      this.notify.success("Sending of " + campaignName + " was successful.", false);
+      this.notify.success({
+        title: "Send Committee notification",
+        message: `${this.creationOrSending(dontSend)} of ${campaignName} was successful`
+      });
       this.display.confirm.clear();
-      this.urlService.navigateTo(["committee"]);
     }
   }
 
-  confirmSendNotification(dontSend?: boolean) {
+  creationOrSending(dontSend: boolean): string {
+    return dontSend ? "Creation" : "Sending";
+  }
+
+  runCampaignCreationAndSendWorkflow(createAsDraft?: boolean) {
     const campaignName = this.notification.content.title.value;
-    this.logger.info("campaignName", campaignName, "based on this.notification.content.campaignId", this.notification.content.campaignId);
+    this.logger.info("campaignName", campaignName);
     this.notify.setBusy();
     return Promise.resolve(this.generateNotificationHTML())
-      .then(notificationText => this.sendEmailCampaign(notificationText, campaignName, dontSend))
-      .then(() => this.notifyEmailSendComplete(campaignName))
+      .then(bodyContent => this.createThenEditOrSendEmailCampaign(bodyContent, campaignName, createAsDraft))
       .catch((error) => this.handleNotificationError(error));
   }
 
   generateNotificationHTML(): string {
-    const html = this.notificationContent?.nativeElement?.innerHTML;
-    this.logger.info("this.generateNotificationHTML html ->", html);
-    return html;
+    const bodyContent = this.notificationContent?.nativeElement?.innerHTML;
+    this.logger.info("this.generateNotificationHTML bodyContent ->", bodyContent);
+    return bodyContent;
   }
 
-  completeInMailchimp() {
+  completeInMailSystem() {
     this.notify.warning({
-      title: "Complete in Mailchimp",
-      message: "You can close this dialog now as the message was presumably completed and sent in Mailchimp"
+      title: `Complete in ${this.stringUtils.asTitle(this.systemConfig?.mailDefaults?.mailProvider)}`,
+      message: `You can close this dialog now as the message was presumably completed and sent in ${this.stringUtils.asTitle(this.systemConfig?.mailDefaults?.mailProvider)}`
     });
-    this.confirmSendNotification(true);
+    this.runCampaignCreationAndSendWorkflow(true);
   }
 
-  cancelSendNotification() {
+  backToCommittee() {
     if (this.notifyTarget.busy) {
       this.notification.cancelled = true;
       this.notify.error({
         title: "Cancelling during send",
-        message: "Because notification sending was already in progress when you cancelled, campaign may have already been sent - check in Mailchimp if in doubt."
+        message: `Because notification sending was already in progress when you cancelled, campaign may have already been sent - check in ${this.stringUtils.asTitle(this.systemConfig?.mailDefaults?.mailProvider)} if in doubt.`
       });
     } else {
-      this.logger.debug("calling cancelSendNotification");
+      this.logger.info("calling cancelSendNotification");
       this.display.confirm.clear();
       this.urlService.navigateTo(["committee"]);
     }
@@ -526,7 +471,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
 
   selectAllGroupEvents() {
     this.notification.groupEventsFilter.selectAll = !this.notification.groupEventsFilter.selectAll;
-    this.logger.debug("select all=", this.notification.groupEventsFilter.selectAll);
+    this.logger.info("select all=", this.notification.groupEventsFilter.selectAll);
     this.notification.groupEvents.forEach(event => event.selected = this.notification.groupEventsFilter.selectAll);
   }
 
@@ -537,7 +482,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   }
 
   toggleEvent(groupEvent: GroupEvent) {
-    this.logger.debug("toggleEvent:", groupEvent);
+    this.logger.info("toggleEvent:", groupEvent);
     groupEvent.selected = !groupEvent.selected;
   }
 
@@ -546,8 +491,19 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   }
 
   setSignOffValue(rolesChangeEvent: CommitteeRolesChangeEvent) {
-    this.logger.debug("rolesChangeEvent:", rolesChangeEvent);
+    this.logger.info("rolesChangeEvent:", rolesChangeEvent);
     this.notification.content.signoffAs.value = rolesChangeEvent.roles.join(",");
   }
 
+  private subscribedToCampaigns(member: Member): boolean {
+    return this.mailListUpdaterService.memberSubscribed(member);
+  }
+
+  private subscribedToSocial(member: Member) {
+    return member.socialMember && this.mailListUpdaterService.memberSubscribed(member);
+  }
+
+  emailConfigChanged(notificationConfig: NotificationConfig) {
+    this.notification.content.title.value = notificationConfig.subject.text;
+  }
 }

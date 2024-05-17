@@ -5,9 +5,13 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-brevo-button",
+  styles:[`
+    .image
+      width: 17px
+  `],
   template: `
     <app-button-wrapper [disabled]="disabled" [button]="button" [showTooltip]="showTooltip" [title]="title">
-      <img title class="related-links-image"
+      <img title class="image"
            src="/assets/images/local/brevo.ico"
            alt="{{title}}"/>
     </app-button-wrapper>`

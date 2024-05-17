@@ -15,6 +15,9 @@ import { folders } from "./folders/folders";
 import { listDelete } from "./lists/list-delete";
 import { contactsBatchUpdate } from "./contacts/contacts-batch-update";
 import { contactsDelete } from "./contacts/contact-delete";
+import { sendCampaign } from "./campaigns/send-campaign";
+import { createCampaign } from "./campaigns/create-campaign";
+import { querySegments } from "./segments/query-segements";
 
 const router = express.Router();
 
@@ -29,10 +32,12 @@ router.post("/contacts/remove-from-list", contactsRemoveFromList);
 router.get("/contacts/update", contactUpdate);
 router.get("/contacts/attributes", attributes);
 router.post("/transactional/send", sendTransactionalMail);
+router.post("/campaign/create", createCampaign);
+router.post("/campaign/send", sendCampaign);
+router.get("/segments", querySegments);
 router.post("/templates", queryTemplates);
 router.get("/lists", lists);
 router.delete("/lists/delete", listDelete);
 router.post("/lists/create", listCreate);
 router.get("/account", queryAccount);
-
 export const brevoRoutes = router;

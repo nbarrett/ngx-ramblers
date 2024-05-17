@@ -1,5 +1,4 @@
-import { Component, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
-import { faQuestion } from "@fortawesome/free-solid-svg-icons";
+import { Component, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import map from "lodash-es/map";
 import { BsModalRef } from "ngx-bootstrap/modal";
@@ -22,15 +21,14 @@ import {
   MemberSelection,
   MemberSelector,
   NotificationConfig,
+  NotificationConfigListing,
   WorkflowAction
 } from "../../../models/mail.model";
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
 import { MailService } from "../../../services/mail/mail.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { CommitteeRolesChangeEvent } from "../../../models/committee.model";
-import { MailLinkService } from "../../../services/mail/mail-link.service";
 import first from "lodash-es/first";
-import { BannerConfig } from "../../../models/banner-configuration.model";
 import { KEY_NULL_VALUE_NONE } from "../../../services/enums";
 import { MemberBulkDeleteService } from "../../../services/member/member-bulk-delete.service";
 import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk-load-audit.service";
@@ -59,7 +57,6 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
     this.logger = loggerFactory.createLogger("SendEmailsModalComponent", NgxLoggerLevel.OFF);
   }
 
-  private mailLinkService: MailLinkService = inject(MailLinkService);
   private latestMemberBulkLoadAudit: MemberBulkLoadAudit;
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   private notify: AlertInstance;
@@ -73,13 +70,11 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   public notificationConfigs: NotificationConfig[] = [];
   public mailMessagingConfig: MailMessagingConfig;
   public helpInfo: HelpInfo = {showHelp: false, monthsInPast: 1};
-  faQuestion = faQuestion;
   private group: Organisation;
   private subscriptions: Subscription[] = [];
   public selectedNotificationConfig: NotificationConfig;
-
+  public notificationConfigListing: NotificationConfigListing;
   protected readonly MemberSelection = MemberSelection;
-
   protected readonly first = first;
 
   ngOnInit() {
@@ -87,14 +82,18 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));
     this.memberFilterDate = this.dateUtils.asDateValue(this.dateUtils.momentNowNoTime().valueOf());
-    this.mailMessagingService.events().subscribe((config: MailMessagingConfig) => {
-      this.logger.info("mailMessagingConfig:", config);
-      this.mailMessagingConfig = config;
-      this.notificationConfigs = config.notificationConfigs
-        .filter(item => ![config.mailConfig.forgotPasswordNotificationConfigId, config.mailConfig.walkNotificationConfigId, config.mailConfig.expenseNotificationConfigId].includes(item.id));
+    this.mailMessagingService.events().subscribe((mailMessagingConfig: MailMessagingConfig) => {
+      this.logger.info("mailMessagingConfig:", mailMessagingConfig);
+      this.mailMessagingConfig = mailMessagingConfig;
+      this.notificationConfigListing = {
+        includeWorkflowRelatedConfigs: false,
+        excludeMemberSelections: [MemberSelection.MAILING_LIST],
+        mailMessagingConfig
+      };
+      this.notificationConfigs = this.mailMessagingService.notificationConfigs(this.notificationConfigListing);
       this.selectedNotificationConfig = this.notificationConfigs[0];
       this.logger.info("emailConfigs:", this.notificationConfigs, "selecting first one:", this.selectedNotificationConfig);
-      this.populateMembersBasedOn(this.selectedNotificationConfig.defaultMemberSelection);
+      this.populateMembersBasedOn(this.selectedNotificationConfig?.defaultMemberSelection);
     });
   }
 
@@ -133,16 +132,6 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
     this.logger.debug("selectClick:select.isOpen", select.isOpen);
   }
 
-  toBannerInformation(bannerConfig: BannerConfig) {
-    return `${bannerConfig.name || "Unnamed"} (${this.stringUtils.asTitle(bannerConfig.bannerType)})`;
-  }
-
-  editTemplate(templateId: number) {
-    const templateUrl = this.mailLinkService.templateEdit(templateId);
-    this.logger.info("editing template:", templateUrl);
-    this.mailLinkService.openUrl(templateUrl);
-  }
-
   onChange(event?: any) {
     this.notify.warning({
       title: "Member selection",
@@ -158,8 +147,9 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
     return ({name: children[0].memberGrouping, total: children.length});
   }
 
-  emailConfigChanged(memberEmailConfig: NotificationConfig) {
-    this.populateMembersBasedOn(memberEmailConfig.defaultMemberSelection);
+  emailConfigChanged(notificationConfig: NotificationConfig) {
+    this.selectedNotificationConfig = notificationConfig;
+    this.populateMembersBasedOn(notificationConfig.defaultMemberSelection);
   }
 
   memberSelectorNamed(suppliedMemberSelection: MemberSelection): MemberSelector {
@@ -190,15 +180,6 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
 
   passwordResetCaption() {
     return `About to send a ${this.selectedNotificationConfig.subject.text} to ${this.selectedMemberIds.length} member${this.selectedMemberIds.length === 1 ? "" : "s"}`;
-  }
-
-  helpMembers() {
-    return `In the member selection field, choose the members that you want to send a ${this.selectedNotificationConfig.subject.text} email to. You can type in  part of their name to find them more quickly. Repeat this step as many times as required to build up a list of members`;
-  }
-
-  toggleHelp(show: boolean) {
-    this.logger.debug("tooltip:", show);
-    this.helpInfo.showHelp = show;
   }
 
   cancel() {
@@ -295,7 +276,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
     const saveMemberPromises = [];
 
     this.selectedMemberIds
-      .map(memberId => this.members.find(member => this.memberService.extractMemberId(member) === memberId))
+      .map(memberId => this.members.find(member => member.id === memberId))
       .filter(member => {
         this.logger.debug("in memberIds:", this.selectedMemberIds, "member exists:", member);
         return !!member;
@@ -376,5 +357,13 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
 
   assignRolesTo(rolesChangeEvent: CommitteeRolesChangeEvent) {
     this.selectedNotificationConfig.signOffRoles = rolesChangeEvent.roles;
+  }
+
+  actionFor(workflowActions: WorkflowAction[]): string {
+    return workflowActions?.map(item => this.stringUtils.asTitle(item)).join(", ") || "(none)";
+  }
+
+  memberSelectionFor(selectedNotificationConfig: NotificationConfig) {
+    return selectedNotificationConfig.monthsInPast > 0 ? `${this.stringUtils.asTitle(selectedNotificationConfig.defaultMemberSelection)} in the last ${this.stringUtils.pluraliseWithCount(selectedNotificationConfig.monthsInPast, "month")}` : this.stringUtils.asTitle(selectedNotificationConfig.defaultMemberSelection);
   }
 }

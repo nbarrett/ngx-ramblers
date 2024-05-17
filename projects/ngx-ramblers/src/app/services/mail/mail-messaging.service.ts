@@ -13,6 +13,7 @@ import {
   MemberMergeFields,
   NOTIFICATION_CONFIG_DEFAULTS,
   NotificationConfig,
+  NotificationConfigListing,
   NotificationSubject,
   ProcessToTemplateMappings,
   SendSmtpEmailParams,
@@ -78,11 +79,11 @@ export class MailMessagingService {
     this.logger.off("initialising data:");
     this.committeeConfig.events().subscribe(data => {
       this.mailMessagingConfig.committeeReferenceData = data;
-      this.optionallyEmit("committeeConfig");
+      this.emitConfigWhenReadyGiven("committeeConfig");
     });
     this.systemConfigService.events().subscribe(item => {
       this.mailMessagingConfig.group = item.group;
-      this.optionallyEmit("systemConfigService:group");
+      this.emitConfigWhenReadyGiven("systemConfigService:group");
     });
     this.mailConfigService.queryConfig().then(config => {
       this.logger.off("config:", config);
@@ -95,22 +96,33 @@ export class MailMessagingService {
           }, type: AlertLevel.ALERT_WARNING
         }));
       }
-      this.optionallyEmit("mailConfigService");
+      this.emitConfigWhenReadyGiven("mailConfigService");
     });
     this.bannerConfigService.all().then((banners) => {
       this.logger.off("retrieved banners:", banners);
       this.mailMessagingConfig.banners = banners.filter(item => item.fileNameData).sort(sortBy("name"));
-      this.optionallyEmit("banners");
+      this.emitConfigWhenReadyGiven("banners");
     });
     this.notificationConfigService.all().then((notificationConfigs) => {
       this.logger.off("retrieved notificationConfigs:", notificationConfigs);
       this.mailMessagingConfig.notificationConfigs = notificationConfigs.sort(sortBy("subject.text"));
-      this.optionallyEmit("notificationConfigs");
+      this.emitConfigWhenReadyGiven("notificationConfigs");
     });
     this.refreshTemplates();
   }
 
-  private optionallyEmit(reason: string) {
+  notificationConfigs(configListing: NotificationConfigListing): NotificationConfig[] {
+    const mailConfig = configListing.mailMessagingConfig.mailConfig;
+    const workflowIds: string[] = [mailConfig.forgotPasswordNotificationConfigId, mailConfig.walkNotificationConfigId, mailConfig.expenseNotificationConfigId];
+    const notificationConfigs = this.mailMessagingConfig.notificationConfigs
+      .filter(item => (configListing.includeWorkflowRelatedConfigs || !workflowIds.includes(item.id)))
+      .filter(item => !configListing.includeMemberSelections || configListing.includeMemberSelections.length === 0 || configListing.includeMemberSelections.includes(item.defaultMemberSelection))
+      .filter(item => !configListing.excludeMemberSelections || configListing.excludeMemberSelections.length === 0 || !configListing.excludeMemberSelections.includes(item.defaultMemberSelection));
+    this.logger.off("workflowIds:", workflowIds, "mailConfig:", mailConfig, "includeWorkflowRelatedConfigs:", configListing.includeWorkflowRelatedConfigs, "-> notificationConfigs:", notificationConfigs,);
+    return notificationConfigs;
+  }
+
+  private emitConfigWhenReadyGiven(reason: string) {
     if (this.mailMessagingConfig.mailTemplates && this.mailMessagingConfig.committeeReferenceData && this.mailMessagingConfig.group && this.mailMessagingConfig.mailConfig && this.mailMessagingConfig.banners && this.mailMessagingConfig.notificationConfigs) {
       this.migrateTemplateMappings();
       this.logger.info("received", reason, "emitting mailMessagingConfig:", this.mailMessagingConfig);
@@ -141,7 +153,7 @@ export class MailMessagingService {
     this.mailService.queryTemplates().then((mailTemplates: MailTemplates) => {
       this.mailMessagingConfig.mailTemplates = mailTemplates;
       this.logger.info("refreshTemplates response:", mailTemplates);
-      this.optionallyEmit("mailTemplates");
+      this.emitConfigWhenReadyGiven("mailTemplates");
       this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
         message: {
           title: "Mail Templates",
@@ -157,13 +169,13 @@ export class MailMessagingService {
     });
   }
 
-  initialiseSubject(notificationConfig: NotificationConfig) {
+  public initialiseSubject(notificationConfig: NotificationConfig) {
     if (notificationConfig && !notificationConfig?.subject?.text) {
       notificationConfig.subject = {suffixParameter: null, prefixParameter: null, text: ""};
     }
   }
 
-  toSubject(subject: NotificationSubject, emailRequest: SendSmtpEmailRequest) {
+  public toSubject(subject: NotificationSubject, emailRequest: SendSmtpEmailRequest) {
     const keyValues: KeyValue<any>[] = extractParametersFrom(emailRequest.params, false);
     const prefix = subject?.prefixParameter ? keyValues.find(item => item.key === subject?.prefixParameter)?.value : null;
     const suffix = subject?.suffixParameter ? keyValues.find(item => item.key === subject?.suffixParameter)?.value : null;
@@ -172,25 +184,16 @@ export class MailMessagingService {
     return returnedSubject;
   }
 
-  createEmailRequest(createSendSmtpEmailRequest: CreateSendSmtpEmailRequest): SendSmtpEmailRequest {
+  public createEmailRequest(createSendSmtpEmailRequest: CreateSendSmtpEmailRequest): SendSmtpEmailRequest {
     const {member, notificationConfig, notificationDirective, bodyContent}: CreateSendSmtpEmailRequest = createSendSmtpEmailRequest;
     const fullName = this.fullNamePipe.transform(member);
+    const roles: string[] = notificationConfig.signOffRoles;
     const emailRequest: SendSmtpEmailRequest = {
       subject: null,
       to: [{email: member.email, name: fullName}],
       sender: this.createBrevoAddress(notificationConfig.senderRole),
       replyTo: this.createBrevoAddress(notificationConfig.replyToRole),
-      headers: null,
-      params: {
-        messageMergeFields: {
-          subject: null,
-          SIGNOFF_NAMES: this.signoffNames(notificationConfig, notificationDirective),
-          BANNER_IMAGE_SOURCE: this.bannerImageSource(notificationConfig, true),
-          BODY_CONTENT: bodyContent,
-        },
-        memberMergeFields: this.toMemberMergeVariables(member),
-        systemMergeFields: this.toSystemMergeFields(member),
-      },
+      params: this.createSendSmtpEmailParams(roles, notificationDirective, member, notificationConfig, bodyContent, null, "Hi {{params.messageMergeFields.FNAME}},"),
       templateId: notificationConfig.templateId,
     };
     const subject = createSendSmtpEmailRequest.emailSubject || this.toSubject(notificationConfig.subject, emailRequest);
@@ -200,29 +203,47 @@ export class MailMessagingService {
     return emailRequest;
   }
 
-  private signoffNames(notificationConfig: NotificationConfig, notificationDirective: NotificationDirective): string {
+  public createSendSmtpEmailParams(roles: string[], notificationDirective: NotificationDirective, member: Member, notificationConfig: NotificationConfig, bodyContent: string, subject?: string, addresseeType?: string) {
+    this.logger.info("createSendSmtpEmailParams:notificationConfig:", notificationConfig, "member:", member);
+    const params = {
+      messageMergeFields: {
+        subject,
+        SIGNOFF_NAMES: this.signoffNames(roles, notificationDirective),
+        BANNER_IMAGE_SOURCE: this.bannerImageSource(notificationConfig, true),
+        ADDRESS_LINE: addresseeType,
+        BODY_CONTENT: bodyContent,
+      },
+      memberMergeFields: this.toMemberMergeVariables(member),
+      systemMergeFields: this.toSystemMergeFields(member),
+    };
+    this.logger.info("createSendSmtpEmailParams:notificationConfig:", notificationConfig, "member:", member, "returning:", params);
+    return params;
+  }
+
+  private signoffNames(roles: string[], notificationDirective: NotificationDirective): string {
+    this.logger.info("signoffNames for roles:", roles);
     const componentAndData = new NotificationComponent<ContactUsComponent>(ContactUsComponent);
     if (notificationDirective?.viewContainerRef) {
       notificationDirective.viewContainerRef.clear();
       const componentRef = notificationDirective.viewContainerRef.createComponent(componentAndData.component);
-      componentRef.instance.roles = notificationConfig.signOffRoles;
+      componentRef.instance.roles = roles;
       componentRef.instance.emailStyle = true;
       componentRef.instance.format = "list";
       componentRef.changeDetectorRef.detectChanges();
       const html = componentRef.location.nativeElement.innerHTML;
-      this.logger.off("signoffNames ->", html);
+      this.logger.info("signoffNames ->", html);
       return html;
     } else {
-      this.logger.off("signoffNames -> null due to null notificationDirective");
+      this.logger.info("signoffNames -> null due to null notificationDirective");
     }
   }
 
-  toSystemMergeFields(member: Member): SystemMergeFields {
+  toSystemMergeFields(member?: Member): SystemMergeFields {
     return {
       APP_SHORTNAME: this.mailMessagingConfig.group?.shortName,
       APP_LONGNAME: this.mailMessagingConfig.group?.longName,
       APP_URL: this.mailMessagingConfig.group?.href,
-      PW_RESET_LINK: `${this.mailMessagingConfig.group?.href}/admin/set-password/${member.passwordResetId}`
+      PW_RESET_LINK: member?.passwordResetId ? `${this.mailMessagingConfig.group?.href}/admin/set-password/${member?.passwordResetId}` : null
     };
   }
 
@@ -235,8 +256,9 @@ export class MailMessagingService {
     return {
       messageMergeFields: {
         subject: "Example Email",
-        SIGNOFF_NAMES: "Example Signoff Names",
-        BANNER_IMAGE_SOURCE: "Example Banner Image Source"
+        BANNER_IMAGE_SOURCE: "Example Banner Image Source",
+        ADDRESS_LINE: `<p>Hi {{params.memberMergeFields.FNAME}},</p>`,
+        SIGNOFF_NAMES: "Example Signoff Names"
       },
       memberMergeFields: this.toMemberMergeVariables(this.memberLoginService.loggedInMember()),
       systemMergeFields: this.toSystemMergeFields(this.memberLoginService.loggedInMember())
@@ -246,13 +268,13 @@ export class MailMessagingService {
   public toMemberMergeVariables(member: Member): MemberMergeFields {
     return {
       FULL_NAME: this.fullNamePipe.transform(member),
-      EMAIL: member.email,
-      FNAME: member.firstName,
-      LNAME: member.lastName,
-      MEMBER_NUM: member.membershipNumber,
-      MEMBER_EXP: this.dateUtils.displayDate(member.membershipExpiryDate),
-      USERNAME: member.userName,
-      PW_RESET: member.passwordResetId || ""
+      EMAIL: member?.email,
+      FNAME: member?.firstName,
+      LNAME: member?.lastName,
+      MEMBER_NUM: member?.membershipNumber,
+      MEMBER_EXP: this.dateUtils.displayDate(member?.membershipExpiryDate),
+      USERNAME: member?.userName,
+      PW_RESET: member?.passwordResetId || ""
     };
   }
 
@@ -277,7 +299,7 @@ export class MailMessagingService {
     if (!notificationConfig) {
       notify.error({
         title: "Email Notification Configuration Error",
-        message: "Unable to send notifications as the Process Mapping for " + this.stringUtilsService.asTitle(configKey) + " has not been configured",
+        message: `Unable to send notifications as the Process Mapping for ${this.stringUtilsService.asTitle(configKey)} has not been configured`,
       });
     } else {
       return notificationConfig;

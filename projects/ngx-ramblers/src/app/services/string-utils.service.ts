@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { Injectable, Input } from "@angular/core";
 import escapeRegExp from "lodash-es/escapeRegExp";
 import has from "lodash-es/has";
 import isNumber from "lodash-es/isNumber";
@@ -12,6 +12,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { AlertMessage } from "../models/alert-target.model";
 import { DateUtilsService } from "./date-utils.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
+import isArray from "lodash-es/isArray";
 
 @Injectable({
   providedIn: "root"
@@ -125,6 +126,10 @@ StringUtilsService {
 
   pluralise(count: number, singular: string, plural?: string) {
     return `${count === 1 ? singular : plural || (singular + "s")}`;
+  }
+
+  arrayFromDelimitedData(items: string[] | string) {
+    return items ? isArray(items) ? items : items.split(",").map(item => item.trim()) : [];
   }
 
   kebabCase(...strings: any[]): string {

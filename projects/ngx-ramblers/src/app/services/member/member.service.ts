@@ -47,22 +47,23 @@ export class MemberService {
 
   publicFieldsDataQueryOptions: DataQueryOptions = {
     select: {
-      mailchimpLists: 1,
-      groupMember: 1,
-      socialMember: 1,
-      financeAdmin: 1,
-      treasuryAdmin: 1,
-      fileAdmin: 1,
       committee: 1,
-      walkChangeNotifications: 1,
-      email: 1,
-      displayName: 1,
       contactId: 1,
-      mobileNumber: 1,
-      id: 1,
+      displayName: 1,
+      email: 1,
+      fileAdmin: 1,
+      financeAdmin: 1,
       firstName: 1,
+      groupMember: 1,
+      id: 1,
       lastName: 1,
-      nameAlias: 1
+      mail: 1,
+      mailchimpLists: 1,
+      mobileNumber: 1,
+      nameAlias: 1,
+      socialMember: 1,
+      treasuryAdmin: 1,
+      walkChangeNotifications: 1,
     }
   };
 
