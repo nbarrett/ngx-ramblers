@@ -119,6 +119,11 @@ export interface IncludedStringValue {
   value?: string;
 }
 
+export interface IncludedStringValues {
+  include?: boolean;
+  value?: string[];
+}
+
 export interface NotificationContent {
   notificationConfig: NotificationConfig;
   addresseeType?: string;

@@ -193,9 +193,12 @@ export class MailMessagingService {
       to: [{email: member.email, name: fullName}],
       sender: this.createBrevoAddress(notificationConfig.senderRole),
       replyTo: this.createBrevoAddress(notificationConfig.replyToRole),
-      params: this.createSendSmtpEmailParams(roles, notificationDirective, member, notificationConfig, bodyContent, null, "Hi {{params.messageMergeFields.FNAME}},"),
+      params: this.createSendSmtpEmailParams(roles, notificationDirective, member, notificationConfig, bodyContent, true, "Hi {{params.messageMergeFields.FNAME}},"),
       templateId: notificationConfig.templateId,
     };
+    if (notificationConfig?.ccRoles.length > 0) {
+      emailRequest.cc = notificationConfig?.ccRoles?.map(role => this.createBrevoAddress(role));
+    }
     const subject = createSendSmtpEmailRequest.emailSubject || this.toSubject(notificationConfig.subject, emailRequest);
     emailRequest.subject = subject;
     emailRequest.params.messageMergeFields.subject = subject;
@@ -203,12 +206,12 @@ export class MailMessagingService {
     return emailRequest;
   }
 
-  public createSendSmtpEmailParams(roles: string[], notificationDirective: NotificationDirective, member: Member, notificationConfig: NotificationConfig, bodyContent: string, subject?: string, addresseeType?: string) {
+  public createSendSmtpEmailParams(roles: string[], notificationDirective: NotificationDirective, member: Member, notificationConfig: NotificationConfig, bodyContent: string, includeSignOffNames: boolean, subject?: string, addresseeType?: string) {
     this.logger.info("createSendSmtpEmailParams:notificationConfig:", notificationConfig, "member:", member);
     const params = {
       messageMergeFields: {
         subject,
-        SIGNOFF_NAMES: this.signoffNames(roles, notificationDirective),
+        SIGNOFF_NAMES: includeSignOffNames ? this.signoffNames(roles, notificationDirective) : "",
         BANNER_IMAGE_SOURCE: this.bannerImageSource(notificationConfig, true),
         ADDRESS_LINE: addresseeType,
         BODY_CONTENT: bodyContent,

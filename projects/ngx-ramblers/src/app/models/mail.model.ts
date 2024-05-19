@@ -27,6 +27,7 @@ export interface NotificationConfig extends Auditable, Identifiable {
   defaultMemberSelection: MemberSelection;
   postSendActions: WorkflowAction[];
   monthsInPast?: number;
+  ccRoles?: string[];
   signOffRoles?: string[];
   senderRole?: string;
   replyToRole?: string;
