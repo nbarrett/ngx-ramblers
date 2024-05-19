@@ -24,6 +24,7 @@ export async function sendTransactionalMail(req: Request, res: Response, next: N
   sendSmtpEmail.subject = emailRequest.subject;
   sendSmtpEmail.sender = emailRequest.sender;
   sendSmtpEmail.to = emailRequest.to;
+  sendSmtpEmail.cc = emailRequest.cc;
   sendSmtpEmail.replyTo = emailRequest.replyTo;
   sendSmtpEmail.headers = emailRequest.headers;
   sendSmtpEmail.params = emailRequest.params;

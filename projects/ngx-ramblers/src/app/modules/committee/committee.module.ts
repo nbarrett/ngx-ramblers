@@ -16,7 +16,8 @@ import { SharedModule } from "../../shared-module";
     CommitteeNotificationDetailsComponent,
     CommitteeYearComponent,
     CommitteeEditFileModalComponent,
-    CommitteeHomeComponent
+    CommitteeHomeComponent,
+    CommitteeNotificationDetailsComponent
   ],
   imports: [
     SharedModule,

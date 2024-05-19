@@ -62,9 +62,7 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
            *ngIf="notification.groupEventsFilter.includeDescription"></p>
       </div>
     </ng-container>
-    <p *ngIf="notification.content.signoffText.include" markdown [data]="notification?.content.signoffText.value"></p>
-    <app-contact-us *ngIf="notification?.content.signoffAs.include" format="list"
-                    [roles]="notification?.content.signoffAs.value"></app-contact-us>`
+    <p *ngIf="notification.content.signoffText.include" markdown [data]="notification?.content.signoffText.value"></p>`
 })
 export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy {
 

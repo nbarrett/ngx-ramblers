@@ -128,36 +128,8 @@ import first from "lodash-es/first";
             </div>
           </ng-container>
           <div class="col-sm-12">
-            <div class="form-group">
-              <label for="sender">Sender</label>
-              <select [(ngModel)]="notificationConfig.senderRole"
-                      id="sender"
-                      class="form-control input-sm">
-                <option *ngFor="let role of mailMessagingConfig.committeeReferenceData.committeeMembers()"
-                        [ngValue]="role.type">{{ role.nameAndDescription }}
-                </option>
-              </select>
-            </div>
-          </div>
-          <div class="col-sm-12">
-            <div class="form-group">
-              <label for="reply-to">Reply To</label>
-              <select [(ngModel)]="notificationConfig.replyToRole"
-                      id="reply-to"
-                      class="form-control input-sm">
-                <option *ngFor="let role of mailMessagingConfig.committeeReferenceData.committeeMembers()"
-                        [ngValue]="role.type">{{ role.nameAndDescription }}
-                </option>
-              </select>
-            </div>
-          </div>
-          <div class="col-sm-12">
-            <div class="form-group">
-              <app-committee-role-multi-select [showRoleSelectionAs]="'description'"
-                                               [label]="'Sign Off Email With Roles'"
-                                               [roles]="notificationConfig.signOffRoles"
-                                               (rolesChange)="assignRolesTo($event)"/>
-            </div>
+            <app-sender-replies-and-sign-off [mailMessagingConfig]="mailMessagingConfig"
+                                             [notificationConfig]="notificationConfig"/>
           </div>
           <div class="col-sm-12">
             <div class="form-group">
@@ -208,7 +180,8 @@ import first from "lodash-es/first";
               <div class="form-group">
                 <label for="member-selection">
                   Pre-Send Action</label>
-                <select [disabled]="notificationConfig.defaultMemberSelection ===MemberSelection.MAILING_LIST" [compareWith]="arrayComparer" class="form-control input-sm"
+                <select [disabled]="notificationConfig.defaultMemberSelection ===MemberSelection.MAILING_LIST"
+                        [compareWith]="arrayComparer" class="form-control input-sm"
                         [(ngModel)]="notificationConfig.preSendActions"
                         id="member-selection">
                   <option *ngFor="let type of workflowActions"
@@ -221,7 +194,8 @@ import first from "lodash-es/first";
               <div class="form-group">
                 <label for="member-selection">
                   Post-Send Action</label>
-                <select [disabled]="notificationConfig.defaultMemberSelection ===MemberSelection.MAILING_LIST" [compareWith]="arrayComparer" class="form-control input-sm"
+                <select [disabled]="notificationConfig.defaultMemberSelection ===MemberSelection.MAILING_LIST"
+                        [compareWith]="arrayComparer" class="form-control input-sm"
                         [(ngModel)]="notificationConfig.postSendActions"
                         id="member-selection">
                   <option *ngFor="let type of workflowActions"

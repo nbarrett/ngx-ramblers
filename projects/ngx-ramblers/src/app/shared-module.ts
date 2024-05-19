@@ -136,6 +136,7 @@ import { ButtonWrapperComponent } from "./modules/common/third-parties/button-wr
 import { MailProviderSettingsComponent } from "./pages/admin/system-settings/mail-provider/mail-provider-settings";
 import { DisplayDateNoDayPipe } from "./pipes/display-date-no-day.pipe";
 import { NotificationConfigSelectorComponent } from "./pages/admin/system-settings/mail/notification-config-selector";
+import { SenderRepliesAndSignoffComponent } from "./pages/admin/send-emails/sender-replies-and-signoff";
 
 @NgModule({
   imports: [
@@ -240,6 +241,7 @@ import { NotificationConfigSelectorComponent } from "./pages/admin/system-settin
     MemberIdToFullNamePipe,
     MoneyPipe,
     NotificationConfigSelectorComponent,
+    SenderRepliesAndSignoffComponent,
     NotificationDirective,
     PageComponent,
     RelatedLinkComponent,
@@ -320,6 +322,7 @@ import { NotificationConfigSelectorComponent } from "./pages/admin/system-settin
     NgSelectModule,
     NotificationDirective,
     NotificationConfigSelectorComponent,
+    SenderRepliesAndSignoffComponent,
     PageComponent,
     PaginationModule,
     PopoverModule,

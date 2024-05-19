@@ -2,127 +2,126 @@
   <div class="row">
     <div class="col-sm-12">
       <tabset class="custom-tabset" *ngIf="notification">
-        <tab heading="Recipients & Addressing">
+        <tab heading="List, Addressing, Email Type, Banner, Template and Intro Message">
           <div class="img-thumbnail thumbnail-admin-edit">
-            <div class="row">
-              <div class="col-sm-7"><label>Send to:</label>
-                <div class="form-group">
-                  <div class="custom-control custom-radio">
-                    <input (click)="clearRecipientsForCampaignOfType('committee')"
-                      name="send-to"
-                      id="send-to-committee"
-                           [disabled]="true || allCommitteeList()?.length===0"
-                      type="radio"
-                      class="custom-control-input"
-                      [(ngModel)]="notification.content.destinationType"
-                      value="committee"/>
-                    <label class="custom-control-label" for="send-to-committee">{{allCommitteeList().length}}
-                      Committee Members
-                    </label>
-                    <a class="ml-1" *ngIf="allCommitteeList()?.length>0"
-                       (click)="editCommitteeRecipients()">(edit)</a>
-                  </div>
-                  <div class="custom-control custom-radio">
-                    <input (click)="clearRecipientsForCampaignOfType('general')"
-                           id="send-to-general"
-                           [disabled]="subscribedToCampaignEmails().length===0"
-                           name="send-to"
-                           type="radio"
-                           [checked]="true"
-                           class="custom-control-input"
-                           [(ngModel)]="notification.content.destinationType"
-                           [value]="notification.content.destinationType"/>
-                    <label class="custom-control-label" for="send-to-general">{{subscribedToCampaignEmails().length}}
-                      General List
-                      Members </label>
-                    <a class="ml-1 disabled" *ngIf="subscribedToCampaignEmails().length>0"
-                       (click)="editAllGroupRecipients()">(edit)</a>
-                  </div>
-                  <div class="custom-control custom-radio">
-                    <input (click)="clearRecipientsForCampaignOfType('socialEvents')"
-                           name="send-to"
-                           id="send-to-social"
-                           [disabled]="true || allSocialSubscribedList().length===0"
-                           type="radio"
-                           class="custom-control-input"
-                           [(ngModel)]="notification.content.destinationType"
-                           value="socialEvents"/>
-                    <label class="custom-control-label" for="send-to-social">{{allSocialSubscribedList().length}}
-                      Social List Members
-                    </label>
-                    <a class="ml-1" *ngIf="allSocialSubscribedList().length>0"
-                       (click)="editAllSocialRecipients()">(edit)</a>
-                  </div>
-                  <div class="custom-control custom-radio">
-                    <input id="custom"
-                           type="radio"
-                           class="custom-control-input"
-                           name="send-to"
-                           [disabled]="true"
-                           [(ngModel)]="notification.content.destinationType"
-                           value="custom"/>
-                    <label class="custom-control-label" for="custom">
+            <ng-container>
+              <div class="row">
+                <div class="col-sm-7"><label>Send to:</label>
+                  <div class="form-group">
+                    <div class="custom-control custom-radio">
+                      <input (click)="clearRecipientsForCampaignOfType('committee')"
+                             name="send-to"
+                             id="send-to-committee"
+                             [disabled]="true || allCommitteeList()?.length===0"
+                             type="radio"
+                             class="custom-control-input"
+                             [(ngModel)]="notification.content.destinationType"
+                             value="committee"/>
+                      <label class="custom-control-label" for="send-to-committee">{{ allCommitteeList().length }}
+                        Committee Members
+                      </label>
+                      <a class="ml-1" *ngIf="allCommitteeList()?.length>0"
+                         (click)="editCommitteeRecipients()">(edit)</a>
+                    </div>
+                    <div class="custom-control custom-radio">
+                      <input (click)="clearRecipientsForCampaignOfType('general')"
+                             id="send-to-general"
+                             [disabled]="subscribedToCampaignEmails().length===0"
+                             name="send-to"
+                             type="radio"
+                             [checked]="true"
+                             class="custom-control-input"
+                             [(ngModel)]="notification.content.destinationType"
+                             [value]="notification.content.destinationType"/>
+                      <label class="custom-control-label"
+                             for="send-to-general">{{ subscribedToCampaignEmails().length }}
+                        General List
+                        Members </label>
+                      <a class="ml-1 disabled" *ngIf="subscribedToCampaignEmails().length>0"
+                         (click)="editAllGroupRecipients()">(edit)</a>
+                    </div>
+                    <div class="custom-control custom-radio">
+                      <input (click)="clearRecipientsForCampaignOfType('socialEvents')"
+                             name="send-to"
+                             id="send-to-social"
+                             [disabled]="true || allSocialSubscribedList().length===0"
+                             type="radio"
+                             class="custom-control-input"
+                             [(ngModel)]="notification.content.destinationType"
+                             value="socialEvents"/>
+                      <label class="custom-control-label" for="send-to-social">{{ allSocialSubscribedList().length }}
+                        Social List Members
+                      </label>
+                      <a class="ml-1" *ngIf="allSocialSubscribedList().length>0"
+                         (click)="editAllSocialRecipients()">(edit)</a>
+                    </div>
+                    <div class="custom-control custom-radio">
+                      <input id="custom"
+                             type="radio"
+                             class="custom-control-input"
+                             name="send-to"
+                             [disabled]="true"
+                             [(ngModel)]="notification.content.destinationType"
+                             value="custom"/>
+                      <label class="custom-control-label" for="custom">
                       <span
                         *ngIf="notification.content.selectedMemberIds.length===0">Choose individual recipients</span>
-                      <span
-                        *ngIf="notification.content.selectedMemberIds.length>0">{{this.notification.content.selectedMemberIds.length}}
-                        recipient(s) chosen from {{this.notification.content.list}} list</span>
-                    </label>
-                    <a class="ml-1" (click)="clearRecipientsForCampaignOfType()"> (clear)</a>
+                        <span
+                          *ngIf="notification.content.selectedMemberIds.length>0">{{ this.notification.content.selectedMemberIds.length }}
+                          recipient(s) chosen from {{ this.notification.content.list }} list</span>
+                      </label>
+                      <a class="ml-1" (click)="clearRecipientsForCampaignOfType()"> (clear)</a>
+                    </div>
+                  </div>
+                </div>
+                <div class="col col-sm-5"><label>Address as:</label>
+                  <div class="form-group">
+                    <div class="custom-control custom-radio">
+                      <input id="addressee-first-name"
+                             type="radio"
+                             class="custom-control-input"
+                             name="address-as"
+                             [(ngModel)]="notification.content.addresseeType" [value]="'Hi {{contact.FIRSTNAME}},'"/>
+                      <label class="custom-control-label" for="addressee-first-name">Hi <i>first name</i> </label>
+                    </div>
+                    <div class="custom-control custom-radio">
+                      <input id="addressee-all"
+                             type="radio"
+                             class="custom-control-input"
+                             name="address-as"
+                             [(ngModel)]="notification.content.addresseeType"
+                             value="Hi all,"/>
+                      <label class="custom-control-label" for="addressee-all">Hi all,</label>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div class="col col-sm-5"><label>Address as:</label>
-                <div class="form-group">
-                  <div class="custom-control custom-radio">
-                    <input id="addressee-first-name"
-                           type="radio"
-                           class="custom-control-input"
-                           name="address-as"
-                           [(ngModel)]="notification.content.addresseeType" [value]="'Hi {{contact.FIRSTNAME}},'"/>
-                    <label class="custom-control-label" for="addressee-first-name">Hi <i>first name</i> </label>
-                  </div>
-                  <div class="custom-control custom-radio">
-                    <input id="addressee-all"
-                           type="radio"
-                           class="custom-control-input"
-                           name="address-as"
-                           [(ngModel)]="notification.content.addresseeType"
-                           value="Hi all,"/>
-                    <label class="custom-control-label" for="addressee-all">Hi all,</label>
+              <div class="row" *ngIf="notification.content.destinationType==='custom'">
+                <div class="col-sm-12">
+                  <div class="form-group" triggers="" placement="bottom"
+                       [tooltip]="helpMembers()">
+                    <ng-select #select [items]="selectableRecipients"
+                               bindLabel="memberInformation"
+                               name="member-selector"
+                               bindValue="id"
+                               placeholder="Select one or more members"
+                               [disabled]="notifyTarget.busy"
+                               [dropdownPosition]="'bottom'"
+                               [groupBy]="groupBy"
+                               [groupValue]="groupValue"
+                               [multiple]="true"
+                               [closeOnSelect]="true"
+                               (change)="onChange()"
+                               [(ngModel)]="notification.content.selectedMemberIds">
+                      <ng-template ng-optgroup-tmp let-item="item">
+                        <span class="group-header">{{ item.name }} members</span>
+                        <span class="ml-1 badge badge-secondary badge-group"> {{ item.total }} </span>
+                      </ng-template>
+                    </ng-select>
                   </div>
                 </div>
               </div>
-            </div>
-            <div class="row" *ngIf="notification.content.destinationType==='custom'">
-              <div class="col-sm-12">
-                <div class="form-group" triggers="" placement="bottom"
-                     [tooltip]="helpMembers()">
-                  <ng-select  #select [items]="selectableRecipients"
-                             bindLabel="memberInformation"
-                             name="member-selector"
-                             bindValue="id"
-                             placeholder="Select one or more members"
-                             [disabled]="notifyTarget.busy"
-                             [dropdownPosition]="'bottom'"
-                             [groupBy]="groupBy"
-                             [groupValue]="groupValue"
-                             [multiple]="true"
-                             [closeOnSelect]="true"
-                             (change)="onChange()"
-                             [(ngModel)]="notification.content.selectedMemberIds">
-                    <ng-template ng-optgroup-tmp let-item="item">
-                      <span class="group-header">{{item.name}} members</span>
-                      <span class="ml-1 badge badge-secondary badge-group"> {{item.total}} </span>
-                    </ng-template>
-                  </ng-select>
-                </div>
-              </div>
-            </div>
-          </div>
-        </tab>
-        <tab heading="Email Configuration & Content">
-          <div class="img-thumbnail thumbnail-admin-edit">
+            </ng-container>
             <app-notification-config-selector (emailConfigChanged)="emailConfigChanged($event)"
                                               [notificationConfig]="notification?.content?.notificationConfig"
                                               [notificationConfigListing]="notificationConfigListing"/>
@@ -139,8 +138,7 @@
             <div class="row">
               <div class="col-sm-12">
                 <div class="form-group">
-                  <label for="content-text">Email text: <small>(no need to prefix 'Hi ...' as it's done
-                    automatically)</small>
+                  <label for="content-text">Intro Message: <small>(no need to prefix 'Hi ...' as it's done  automatically by Address as: above)</small>
                   </label>
                   <textarea markdown [(ngModel)]="notification.content.text.value"
                             class="form-control input-sm" rows="5"
@@ -301,8 +299,10 @@
             </div>
           </div>
         </tab>
-        <tab heading="Signing Off">
+        <tab heading="Sender, Reply To, CCs & Sign Off">
           <div class="img-thumbnail thumbnail-admin-edit">
+            <app-sender-replies-and-sign-off omitSignOff omitCC [mailMessagingConfig]="mailMessagingConfig"
+                                             [notificationConfig]="notification?.content?.notificationConfig"/>
             <div class="row">
               <div class="col-sm-12">
                 <div class="form-group">
@@ -353,8 +353,10 @@
               <div #notificationContent>
                 <app-committee-notification-details [committeeFile]="committeeFile" [members]="members"
                                                   [notification]="notification">
-              </app-committee-notification-details>
+                </app-committee-notification-details>
               </div>
+              <app-contact-us *ngIf="notification?.content.signoffAs.include" format="list"
+                              [roles]="notification?.content.signoffAs.value"></app-contact-us>
             </div>
           </div>
         </tab>

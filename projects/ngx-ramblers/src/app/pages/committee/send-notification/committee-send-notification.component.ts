@@ -236,7 +236,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   }
 
   notReady() {
-    return this.members.length === 0 || this.notifyTarget.busy || (this.notification.content.selectedMemberIds.length === 0 && this.notification.content.destinationType === "custom");
+    return this.stringUtils.arrayFromDelimitedData(this.notification?.content?.signoffAs?.value)?.length === 0 || this.members.length === 0 || this.notifyTarget.busy || (this.notification.content.selectedMemberIds.length === 0 && this.notification.content.destinationType === "custom");
   }
 
   toMemberFilterSelection(member: Member): MemberFilterSelection {
@@ -342,8 +342,9 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   async createThenEditOrSendEmailCampaign(bodyContent: string, campaignName: string, createAsDraft: boolean) {
     this.notify.progress(createAsDraft ? (`Preparing to complete ${campaignName} in ${this.stringUtils.asTitle(this.systemConfig?.mailDefaults?.mailProvider)}`) : ("Sending " + campaignName));
     const lists: KeyValue<number>[] = this.mailListUpdaterService.mapToKeyValues(this.mailMessagingConfig.mailConfig.lists);
-    const role: string = this.notification.content.signoffAs.value || "secretary";
-    this.logger.info("role", role);
+    const roles: string[] = this.stringUtils.arrayFromDelimitedData(this.notification.content.signoffAs.value);
+    this.logger.info("roles", roles);
+    const role = roles[0];
     const senderEmail = this.display.committeeReferenceData.contactUsField(role, "email");
     const member: Member = await this.memberService.getById(this.memberLoginService.loggedInMember().memberId);
     const createCampaignRequest: CreateCampaignRequest = {
@@ -353,7 +354,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
       inlineImageActivation: false,
       mirrorActive: false,
       name: campaignName,
-      params: this.mailMessagingService.createSendSmtpEmailParams([role], this.notificationDirective, member, this.notification.content.notificationConfig, bodyContent, this.notification.content.title.value, this.notification.content.addresseeType),
+      params: this.mailMessagingService.createSendSmtpEmailParams(roles, this.notificationDirective, member, this.notification.content.notificationConfig, bodyContent, this.notification?.content.signoffAs.include, this.notification.content.title.value, this.notification.content.addresseeType),
       recipients: {listIds: lists.map(list => list.value)},
       replyTo: senderEmail,
       sender: {
@@ -491,8 +492,8 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   }
 
   setSignOffValue(rolesChangeEvent: CommitteeRolesChangeEvent) {
-    this.logger.info("rolesChangeEvent:", rolesChangeEvent);
     this.notification.content.signoffAs.value = rolesChangeEvent.roles.join(",");
+    this.logger.info("rolesChangeEvent:", rolesChangeEvent, "this.notification.content.signoffAs.value:", this.notification.content.signoffAs.value);
   }
 
   private subscribedToCampaigns(member: Member): boolean {
