@@ -6,10 +6,7 @@ import {
   SendSmtpEmailParams,
   WorkflowAction
 } from "../../../../models/mail.model";
-import { CommitteeRolesChangeEvent } from "../../../../models/committee.model";
 import { MailLinkService } from "../../../../services/mail/mail-link.service";
-import { BroadcastService } from "../../../../services/broadcast-service";
-import { AlertMessageAndType } from "../../../../models/alert-target.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { BannerConfig } from "../../../../models/banner-configuration.model";
@@ -144,7 +141,7 @@ import first from "lodash-es/first";
                 </select>
                 <div class="input-group-append">
                   <div class="input-group-text">
-                    <app-brevo-button [disabled]="notReady()"
+                    <app-brevo-button [disabled]="notReady()" title="View or Edit Template"
                                       (click)="mailLinkService.editTemplateWithNotifications(notificationConfig.templateId, this.notReady(), mailMessagingConfig)"/>
                   </div>
                 </div>
@@ -154,7 +151,16 @@ import first from "lodash-es/first";
         </div>
         <div class="img-thumbnail thumbnail-2">
           <div class="thumbnail-heading">Member Selection And Actions</div>
-          <div class="row">
+          <div class="row"
+               *ngIf="mailMessagingService.workflowIdsFor(mailMessagingConfig.mailConfig)?.includes(notificationConfig.id)">
+            <div class="col-sm-12">
+              <div class="form-group d-flex">
+                <label class="flex-grow-1">Member Selection: Selected automatically by built-in workflow</label>
+              </div>
+            </div>
+          </div>
+          <div class="row"
+               *ngIf="!mailMessagingService.workflowIdsFor(mailMessagingConfig.mailConfig)?.includes(notificationConfig.id)">
             <div class="col-sm-6">
               <div class="form-group">
                 <label for="member-selection">Member Selection</label>
@@ -234,7 +240,6 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   @Output() configDeleted: EventEmitter<string> = new EventEmitter();
   private logger: Logger = this.loggerFactory.createLogger("MailNotificationTemplateMappingComponent", NgxLoggerLevel.OFF);
   public stringUtils: StringUtilsService = inject(StringUtilsService);
-  private broadcastService: BroadcastService<AlertMessageAndType> = inject(BroadcastService);
   public  mailLinkService: MailLinkService = inject(MailLinkService);
   public urlService: UrlService = inject(UrlService);
   public mailMessagingService: MailMessagingService = inject(MailMessagingService);
@@ -247,7 +252,6 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   protected readonly faEraser = faEraser;
   protected readonly faCopy = faCopy;
   protected readonly first = first;
-  protected readonly faMailBulk = faMailBulk;
   protected readonly faForward = faForward;
   protected readonly faBackward = faBackward;
 
@@ -282,10 +286,6 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
 
   toBannerInformation(bannerConfig: BannerConfig) {
     return `${bannerConfig.name || "Unnamed"} (${this.stringUtils.asTitle(bannerConfig.bannerType)})`;
-  }
-
-  assignRolesTo(rolesChangeEvent: CommitteeRolesChangeEvent) {
-    this.notificationConfig.signOffRoles = rolesChangeEvent.roles;
   }
 
   notReady() {

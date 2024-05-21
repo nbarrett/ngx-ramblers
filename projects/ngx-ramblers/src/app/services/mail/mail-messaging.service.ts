@@ -7,7 +7,7 @@ import {
   BuiltInProcessMappings,
   CreateSendSmtpEmailRequest,
   DEFAULT_MAIL_MESSAGING_CONFIG,
-  EmailAddress,
+  EmailAddress, MailConfig,
   MailMessagingConfig,
   MailTemplates,
   MemberMergeFields,
@@ -113,13 +113,17 @@ export class MailMessagingService {
 
   notificationConfigs(configListing: NotificationConfigListing): NotificationConfig[] {
     const mailConfig = configListing.mailMessagingConfig.mailConfig;
-    const workflowIds: string[] = [mailConfig.forgotPasswordNotificationConfigId, mailConfig.walkNotificationConfigId, mailConfig.expenseNotificationConfigId];
+    const workflowIds: string[] = this.workflowIdsFor(mailConfig);
     const notificationConfigs = this.mailMessagingConfig.notificationConfigs
       .filter(item => (configListing.includeWorkflowRelatedConfigs || !workflowIds.includes(item.id)))
       .filter(item => !configListing.includeMemberSelections || configListing.includeMemberSelections.length === 0 || configListing.includeMemberSelections.includes(item.defaultMemberSelection))
       .filter(item => !configListing.excludeMemberSelections || configListing.excludeMemberSelections.length === 0 || !configListing.excludeMemberSelections.includes(item.defaultMemberSelection));
     this.logger.off("workflowIds:", workflowIds, "mailConfig:", mailConfig, "includeWorkflowRelatedConfigs:", configListing.includeWorkflowRelatedConfigs, "-> notificationConfigs:", notificationConfigs,);
     return notificationConfigs;
+  }
+
+  public workflowIdsFor(mailConfig: MailConfig) {
+    return [mailConfig.forgotPasswordNotificationConfigId, mailConfig.walkNotificationConfigId, mailConfig.expenseNotificationConfigId];
   }
 
   private emitConfigWhenReadyGiven(reason: string) {

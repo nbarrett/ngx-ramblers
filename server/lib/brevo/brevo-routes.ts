@@ -18,6 +18,8 @@ import { contactsDelete } from "./contacts/contact-delete";
 import { sendCampaign } from "./campaigns/send-campaign";
 import { createCampaign } from "./campaigns/create-campaign";
 import { querySegments } from "./segments/query-segements";
+import { senders } from "./senders/senders";
+import { createSender } from "./senders/create-sender";
 
 const router = express.Router();
 
@@ -31,6 +33,8 @@ router.post("/contacts/add-to-list", contactsAddToList);
 router.post("/contacts/remove-from-list", contactsRemoveFromList);
 router.get("/contacts/update", contactUpdate);
 router.get("/contacts/attributes", attributes);
+router.get("/senders", senders);
+router.post("/senders/create", createSender);
 router.post("/transactional/send", sendTransactionalMail);
 router.post("/campaign/create", createCampaign);
 router.post("/campaign/send", sendCampaign);

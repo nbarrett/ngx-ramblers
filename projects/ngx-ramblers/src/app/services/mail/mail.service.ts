@@ -11,18 +11,22 @@ import {
   ContactsAddOrRemoveRequest,
   ContactsDeleteRequest,
   ContactsListResponse,
+  CreateCampaignRequest,
   CreateContactRequest,
-  CreateContactRequestWithObjectAttributes,
+  CreateContactRequestWithObjectAttributes, CreateSenderResponse,
   FoldersListResponse,
   ListCreateRequest,
   ListCreateResponse,
   ListsResponse,
   MailIdentifiers,
-  MailTemplates, CreateCampaignRequest,
+  MailTemplates,
+  SendCampaignRequest,
+  Sender,
+  SendersResponse,
   SendSmtpEmailRequest,
   StatusMappedResponseMultipleInputs,
   StatusMappedResponseSingleInput,
-  TemplateOptions, SendCampaignRequest
+  TemplateOptions
 } from "../../models/mail.model";
 
 @Injectable({
@@ -124,6 +128,16 @@ export class MailService {
   async queryAccount(): Promise<Account> {
     this.logger.info("queryAccount");
     return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/account`))).response;
+  }
+
+  async querySenders(): Promise<SendersResponse> {
+    this.logger.info("querySenders");
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/senders`))).response;
+  }
+
+  async createSender(sender: Sender): Promise<CreateSenderResponse> {
+    this.logger.info("querySenders");
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/senders/create`, sender))).response;
   }
 
   async queryTemplates(templateOptions?: TemplateOptions): Promise<MailTemplates> {

@@ -4,6 +4,9 @@
       <tabset class="custom-tabset" *ngIf="notification">
         <tab heading="List, Addressing, Email Type, Banner, Template and Intro Message">
           <div class="img-thumbnail thumbnail-admin-edit">
+            <app-notification-config-selector (emailConfigChanged)="emailConfigChanged($event)"
+                                              [notificationConfig]="notification?.content?.notificationConfig"
+                                              [notificationConfigListing]="notificationConfigListing"/>
             <ng-container>
               <div class="row">
                 <div class="col-sm-7"><label>Send to:</label>
@@ -122,9 +125,6 @@
                 </div>
               </div>
             </ng-container>
-            <app-notification-config-selector (emailConfigChanged)="emailConfigChanged($event)"
-                                              [notificationConfig]="notification?.content?.notificationConfig"
-                                              [notificationConfigListing]="notificationConfigListing"/>
             <div class="row">
               <div class="col-sm-12">
                 <div class="form-group">
@@ -302,6 +302,7 @@
         <tab heading="Sender, Reply To, CCs & Sign Off">
           <div class="img-thumbnail thumbnail-admin-edit">
             <app-sender-replies-and-sign-off omitSignOff omitCC [mailMessagingConfig]="mailMessagingConfig"
+                                             (senderExists)="senderExists=$event"
                                              [notificationConfig]="notification?.content?.notificationConfig"/>
             <div class="row">
               <div class="col-sm-12">

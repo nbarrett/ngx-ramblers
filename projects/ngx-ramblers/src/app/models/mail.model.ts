@@ -472,6 +472,23 @@ export interface ContactsListResponse {
   count: number;
 }
 
+export interface SendersResponse {
+  senders: Sender[];
+}
+
+export interface Sender {
+  name: string;
+  active: boolean;
+  id?: number;
+  ips?: any[];
+  email: string;
+}
+
+export interface CreateSenderResponse extends Identifiable {
+  spfError: boolean;
+  dkimError: boolean;
+}
+
 export interface FoldersListResponse {
   folders: ListInfo[];
   count: number;

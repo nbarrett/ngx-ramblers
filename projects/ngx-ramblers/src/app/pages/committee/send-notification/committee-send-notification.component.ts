@@ -68,6 +68,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   public systemConfig: SystemConfig;
   public pageTitle: string;
   public notificationConfigListing: NotificationConfigListing;
+  public senderExists: boolean;
 
   constructor(
     private route: ActivatedRoute,
@@ -91,7 +92,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     this.logger = loggerFactory.createLogger("CommitteeSendNotificationComponent", NgxLoggerLevel.OFF);
   }
 
-  ngOnInit() {
+  async ngOnInit() {
     this.logger.info("ngOnInit with", this.members.length, "members");
     this.display.confirm.as(ConfirmType.SEND_NOTIFICATION);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget, NgxLoggerLevel.OFF);
@@ -236,7 +237,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   }
 
   notReady() {
-    return this.stringUtils.arrayFromDelimitedData(this.notification?.content?.signoffAs?.value)?.length === 0 || this.members.length === 0 || this.notifyTarget.busy || (this.notification.content.selectedMemberIds.length === 0 && this.notification.content.destinationType === "custom");
+    return !this.senderExists || this.stringUtils.arrayFromDelimitedData(this.notification?.content?.signoffAs?.value)?.length === 0 || this.members.length === 0 || this.notifyTarget.busy || (this.notification.content.selectedMemberIds.length === 0 && this.notification.content.destinationType === "custom");
   }
 
   toMemberFilterSelection(member: Member): MemberFilterSelection {
@@ -505,6 +506,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   }
 
   emailConfigChanged(notificationConfig: NotificationConfig) {
+    this.notification.content.notificationConfig = notificationConfig;
     this.notification.content.title.value = notificationConfig.subject.text;
   }
 }
