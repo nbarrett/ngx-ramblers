@@ -1,29 +1,30 @@
-const mongoose = require("mongoose");
-const uniqueValidator = require("mongoose-unique-validator");
+import mongoose from "mongoose";
+import uniqueValidator from "mongoose-unique-validator";
 
-const attendee = {
+const attendee = new mongoose.Schema({
   id: {type: String}
-}
+}, {_id: false});
 
-const notificationContent = {
+const notificationContent = new mongoose.Schema({
+  notificationConfig: {type: Object},
   addresseeType: {type: String},
-  attachment: {include: {type: Boolean}, value: {type: String},},
+  attachment: {include: {type: Boolean}, value: {type: String}},
   campaignId: {type: String},
   customCampaignType: {type: String},
-  description: {include: {type: Boolean}, value: {type: String},},
-  eventDetails: {include: {type: Boolean}, value: {type: String},},
+  description: {include: {type: Boolean}, value: {type: String}},
+  eventDetails: {include: {type: Boolean}, value: {type: String}},
   destinationType: {type: String},
   includeDownloadInformation: {type: Boolean},
   list: {type: String},
   attendees: {include: {type: Boolean}},
   recipients: {include: {type: Boolean}, value: [{type: String}]},
-  replyTo: {include: {type: Boolean}, value: {type: String},},
+  replyTo: {include: {type: Boolean}, value: {type: String}},
   selectedMemberIds: [{type: String}],
   signoffAs: {include: {type: Boolean}, value: {type: String}},
   signoffText: {include: {type: Boolean}, value: {type: String}},
   text: {include: {type: Boolean}, value: {type: String}},
   title: {include: {type: Boolean}, value: {type: String}},
-}
+}, {_id: false});
 
 const notification = {
   cancelled: {type: Boolean},
@@ -32,7 +33,7 @@ const notification = {
   groupEvents: [{type: Object}]
 }
 
-const socialEventSchema = mongoose.Schema({
+const socialEventSchema = new mongoose.Schema({
   eventDate: {type: Number},
   attendees: [attendee],
   location: {type: String},
@@ -43,7 +44,7 @@ const socialEventSchema = mongoose.Schema({
   link: {type: String},
   linkTitle: {type: String},
   thumbnail: {type: String},
-  notification: notification,
+  notification,
   mailchimp: {
     segmentId: {type: Number},
     members: {
@@ -66,4 +67,5 @@ const socialEventSchema = mongoose.Schema({
 
 socialEventSchema.plugin(uniqueValidator);
 
-module.exports = mongoose.model("social-event", socialEventSchema);
+export const socialEvent: mongoose.Model<mongoose.Document> = mongoose.model("social-event", socialEventSchema);
+

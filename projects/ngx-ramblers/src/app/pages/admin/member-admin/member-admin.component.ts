@@ -2,14 +2,12 @@ import { Component, OnDestroy, OnInit } from "@angular/core";
 import { faSearch, faUserXmark } from "@fortawesome/free-solid-svg-icons";
 import cloneDeep from "lodash-es/cloneDeep";
 import extend from "lodash-es/extend";
-import keys from "lodash-es/keys";
 import sortBy from "lodash-es/sortBy";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { MailchimpConfig } from "../../../models/mailchimp.model";
 import { Member, MemberBulkLoadAudit } from "../../../models/member.model";
 import {
   ASCENDING,
@@ -24,9 +22,6 @@ import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { ApiResponseProcessor } from "../../../services/api-response-processor.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
-import { MailchimpListUpdaterService } from "../../../services/mailchimp/mailchimp-list-updater.service";
-import { MailchimpListService } from "../../../services/mailchimp/mailchimp-list.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
@@ -38,12 +33,15 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { MemberBulkDeleteService } from "../../../services/member/member-bulk-delete.service";
 import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
 import { MailProvider, SystemConfig } from "../../../models/system.model";
-import { MailConfig, MailMessagingConfig } from "../../../models/mail.model";
+import { MailMessagingConfig } from "../../../models/mail.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { KeyValue } from "../../../services/enums";
 import uniq from "lodash-es/uniq";
 import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk-load-audit.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
+import { MailchimpConfig } from "../../../models/mailchimp.model";
+import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
 
 @Component({
   selector: "app-member-admin",
@@ -65,9 +63,8 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
               private walksService: WalksService,
               private stringUtils: StringUtilsService,
               private dateUtils: DateUtilsService,
-              public mailListUpdaterService: MailListUpdaterService,
-              private mailchimpListService: MailchimpListService,
-              private mailchimpListUpdaterService: MailchimpListUpdaterService,
+              protected mailListUpdaterService: MailListUpdaterService,
+              private memberDefaultsService: MemberDefaultsService,
               private profileService: ProfileService,
               private memberLoginService: MemberLoginService,
               loggerFactory: LoggerFactory) {
@@ -76,6 +73,8 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     this.searchChangeObservable = new Subject<string>();
   }
 
+  public mailchimpConfig: MailchimpConfig;
+  protected mailMessagingConfig: MailMessagingConfig;
   private latestMemberBulkLoadAudit: MemberBulkLoadAudit;
   public listsAsKeyValues: KeyValue<number>[];
   private notify: AlertInstance;
@@ -88,104 +87,99 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   public quickSearch = "";
   private searchChangeObservable: Subject<string>;
   public memberFilter: MemberTableFilter;
-  public mailConfig: MailConfig;
   filters: any;
   private subscriptions: Subscription[] = [];
   public confirm = new Confirm();
   faSearch = faSearch;
   faUserXmark = faUserXmark;
-  public mailchimpConfig: MailchimpConfig;
   public noMailchimpListsConfigured: boolean;
   private walkLeaders: string[];
   public systemConfig: SystemConfig;
   protected readonly MailProvider = MailProvider;
 
   async ngOnInit() {
-    this.mailchimpConfigService.getConfig().then((mailchimpConfig: MailchimpConfig) => {
-      this.mailchimpConfig = mailchimpConfig;
-      this.noMailchimpListsConfigured = keys(mailchimpConfig.lists).length === 0;
-      this.memberFilter = {
-        sortField: "memberName",
-        sortFunction: MEMBER_SORT,
-        reverseSort: false,
-        sortDirection: ASCENDING,
-        results: [],
-        availableFilters: [
-          {
-            title: "Active Group Member", group: "Group Settings", filter: this.memberService.filterFor.GROUP_MEMBERS
-          },
-          {
-            title: "All Members", filter: SELECT_ALL
-          },
-          {
-            title: "Active Social Member", group: "Group Settings", filter: this.memberService.filterFor.SOCIAL_MEMBERS
-          },
-          this.systemConfig?.mailDefaults?.mailProvider !== MailProvider.NONE ? {
-            title: `Subscribed to ${this.stringUtils.asTitle(this.systemConfig?.mailDefaults?.mailProvider)} Campaign Email`,
-            group: "Email Subscriptions",
-            filter: (member: Member) => this.subscribedToEmails(member)
-          } : null,
-          {
-            title: "Membership Date Active/Not set",
-            group: "From Ramblers Supplied Datas",
-            filter: (member: Member) => !member.membershipExpiryDate || (member.membershipExpiryDate >= this.today)
-          },
-          {
-            title: "Membership Date Expired",
-            group: "From Ramblers Supplied Data",
-            filter: (member: Member) => member.membershipExpiryDate < this.today
-          },
-          {
-            title: NOT_RECEIVED_IN_LAST_RAMBLERS_BULK_LOAD,
-            group: "From Ramblers Supplied Data",
-            filter: (member: Member) => !this.receivedInLastBulkLoad(member)
-          },
-          {
-            title: "Was received in last Ramblers Bulk Load",
-            group: "From Ramblers Supplied Data",
-            filter: (member: Member) => this.receivedInLastBulkLoad(member)
-          },
-          {
-            title: "Password Expired", group: "Other Settings", filter: (member: Member) => member.expiredPassword
-          },
-          {
-            title: "Walk Admin", group: "Administrators", filter: (member: Member) => member.walkAdmin
-          },
-          {
-            title: "Walk Change Notifications",
-            group: "Administrators",
-            filter: (member: Member) => member.walkChangeNotifications
-          },
-          {
-            title: "Social Admin", group: "Administrators", filter: (member: Member) => member.socialAdmin
-          },
-          {
-            title: "Member Admin", group: "Administrators", filter: (member: Member) => member.memberAdmin
-          },
-          {
-            title: "Finance Admin", group: "Administrators", filter: (member: Member) => member.financeAdmin
-          },
-          {
-            title: "File Admin", group: "Administrators", filter: (member: Member) => member.fileAdmin
-          },
-          {
-            title: "Treasury Admin", group: "Administrators", filter: (member: Member) => member.treasuryAdmin
-          },
-          {
-            title: "Content Admin", group: "Administrators", filter: (member: Member) => member.contentAdmin
-          },
-          {
-            title: "Committee Member", group: "Administrators", filter: (member: Member) => member.committee
-          },
-          {
-            title: "Walk Leader", group: "Administrators", filter: (member: Member) => this.isWalkLeader(member)
-          }
-        ].filter(item => item)
-      };
-      this.memberFilter.selectedFilter = this.memberFilter.availableFilters[0];
-      this.logger.info("mailchimpConfig:", mailchimpConfig, "this.noMailchimpListsConfigured", this.noMailchimpListsConfigured);
-      this.refreshMembers();
-    });
+    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.mailchimpConfig = await this.mailchimpConfigService.getConfig();
+    this.memberFilter = {
+      sortField: "memberName",
+      sortFunction: MEMBER_SORT,
+      reverseSort: false,
+      sortDirection: ASCENDING,
+      results: [],
+      availableFilters: [
+        {
+          title: "Active Group Member", group: "Group Settings", filter: this.memberService.filterFor.GROUP_MEMBERS
+        },
+        {
+          title: "All Members", filter: SELECT_ALL
+        },
+        {
+          title: "Active Social Member", group: "Group Settings", filter: this.memberService.filterFor.SOCIAL_MEMBERS
+        },
+        this.systemConfig?.mailDefaults?.mailProvider !== MailProvider.NONE ? {
+          title: `Subscribed to ${this.stringUtils.asTitle(this.systemConfig?.mailDefaults?.mailProvider)} Campaign Email`,
+          group: "Email Subscriptions",
+          filter: (member: Member) => this.memberDefaultsService.subscribedToEmails(member, this.systemConfig),
+        } : null,
+        {
+          title: "Membership Date Active/Not set",
+          group: "From Ramblers Supplied Datas",
+          filter: (member: Member) => !member.membershipExpiryDate || (member.membershipExpiryDate >= this.today)
+        },
+        {
+          title: "Membership Date Expired",
+          group: "From Ramblers Supplied Data",
+          filter: (member: Member) => member.membershipExpiryDate < this.today
+        },
+        {
+          title: NOT_RECEIVED_IN_LAST_RAMBLERS_BULK_LOAD,
+          group: "From Ramblers Supplied Data",
+          filter: (member: Member) => !this.receivedInLastBulkLoad(member)
+        },
+        {
+          title: "Was received in last Ramblers Bulk Load",
+          group: "From Ramblers Supplied Data",
+          filter: (member: Member) => this.receivedInLastBulkLoad(member)
+        },
+        {
+          title: "Password Expired", group: "Other Settings", filter: (member: Member) => member.expiredPassword
+        },
+        {
+          title: "Walk Admin", group: "Administrators", filter: (member: Member) => member.walkAdmin
+        },
+        {
+          title: "Walk Change Notifications",
+          group: "Administrators",
+          filter: (member: Member) => member.walkChangeNotifications
+        },
+        {
+          title: "Social Admin", group: "Administrators", filter: (member: Member) => member.socialAdmin
+        },
+        {
+          title: "Member Admin", group: "Administrators", filter: (member: Member) => member.memberAdmin
+        },
+        {
+          title: "Finance Admin", group: "Administrators", filter: (member: Member) => member.financeAdmin
+        },
+        {
+          title: "File Admin", group: "Administrators", filter: (member: Member) => member.fileAdmin
+        },
+        {
+          title: "Treasury Admin", group: "Administrators", filter: (member: Member) => member.treasuryAdmin
+        },
+        {
+          title: "Content Admin", group: "Administrators", filter: (member: Member) => member.contentAdmin
+        },
+        {
+          title: "Committee Member", group: "Administrators", filter: (member: Member) => member.committee
+        },
+        {
+          title: "Walk Leader", group: "Administrators", filter: (member: Member) => this.isWalkLeader(member)
+        }
+      ].filter(item => item)
+    };
+    this.memberFilter.selectedFilter = this.memberFilter.availableFilters[0];
+    this.refreshMembers();
     this.logger.info("subscribing to systemConfigService events");
     this.subscriptions.push(this.systemConfigService.events().subscribe(async (systemConfig: SystemConfig) => {
       this.systemConfig = systemConfig;
@@ -195,7 +189,6 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     }));
     this.subscriptions.push(this.profileService.subscribeToLogout(this.logger));
     this.logger.off("ngOnInit");
-    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.notify.setBusy();
     this.today = this.dateUtils.momentNowNoTime().valueOf();
     this.subscriptions.push(this.searchChangeObservable.pipe(debounceTime(250))
@@ -222,7 +215,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     }));
     this.subscriptions.push(this.mailMessagingService.events()
       .subscribe((mailMessagingConfig: MailMessagingConfig) => {
-        this.mailConfig = mailMessagingConfig.mailConfig;
+        this.mailMessagingConfig = mailMessagingConfig;
         this.listsAsKeyValues = this.mailListUpdaterService.mapToKeyValues(mailMessagingConfig?.mailConfig?.lists);
         this.logger.info("retrieved MailMessagingConfig event:", mailMessagingConfig.mailConfig);
       }));
@@ -266,7 +259,6 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
         receivedInLastBulkLoad: this.receivedInLastBulkLoad(member),
         member: cloneDeep(member),
         members: this.members,
-        mailchimpConfig: this.mailchimpConfig,
       }
     };
     this.logger.info("showMemberDialog:config:", config);
@@ -326,7 +318,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
 
   addMember() {
     const member: Member = {} as Member;
-    this.mailchimpListService.defaultMailchimpSettings(member, true);
+    this.memberDefaultsService.applyDefaultMailSettingsToMember(member, this.systemConfig, this.mailMessagingConfig);
     member.groupMember = true;
     member.socialMember = true;
     this.showMemberDialog(member, EditMode.ADD_NEW);
@@ -352,26 +344,6 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     }
   }
 
-  updateLists(): Promise<any> {
-    switch (this.systemConfig?.mailDefaults?.mailProvider) {
-      case MailProvider.BREVO:
-        return this.updateBrevoLists();
-      case MailProvider.MAILCHIMP:
-        return this.updateMailchimpLists();
-      default:
-        return Promise.resolve();
-    }
-  }
-
-  updateMailchimpLists() {
-    return this.mailchimpListUpdaterService.updateMailchimpLists(this.notify, this.members);
-  }
-
-  updateBrevoLists() {
-    return this.mailListUpdaterService.updateMailLists(this.notify, this.members)
-      .catch(error => this.notify.error({title: "Error updating Brevo lists", message: error}));
-  }
-
   beginBulkMemberDelete() {
     this.confirm.as(ConfirmType.BULK_DELETE);
     this.notifyDeletionInstructions();
@@ -393,8 +365,12 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   async confirmBulkDelete() {
     const deletedMembers = await this.memberBulkDeleteService.performBulkDelete(this.members, this.bulkDeleteMarkedMemberIds);
     this.logger.info("deletedMembers:", deletedMembers);
-    this.updateLists();
+    await this.updateLists();
     this.cancelBulkDelete();
+  }
+
+  public async updateLists() {
+    await this.memberDefaultsService.updateLists(this.systemConfig, this.notify, this.members);
   }
 
   selectAllForBulkDelete() {
@@ -432,14 +408,5 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     return this.memberBulkLoadAuditService.receivedInBulkLoad(member, true, this.latestMemberBulkLoadAudit);
   }
 
-  private subscribedToEmails(member: Member): boolean {
-    switch (this.systemConfig?.mailDefaults?.mailProvider) {
-      case MailProvider.BREVO:
-        return this.mailListUpdaterService.memberSubscribed(member);
-      case MailProvider.MAILCHIMP:
-        return this.mailchimpListService.memberSubscribedToAnyList(member);
-      default:
-        return false;
-    }
-  }
+
 }

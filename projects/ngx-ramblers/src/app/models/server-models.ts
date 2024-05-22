@@ -1,5 +1,3 @@
-import { Request } from "express";
-import { UploadedFile } from "./aws-object.model";
 import {
   BatchListMembersBody,
   BatchListMembersOpts,
@@ -12,7 +10,8 @@ import {
   MailchimpCampaignReplicateResponse,
   MailchimpCampaignSearchResponse,
   MailchimpCampaignSendResponse,
-  MailchimpCampaignUpdateRequest, MailchimpConfig,
+  MailchimpCampaignUpdateRequest,
+  MailchimpConfig,
   MailchimpList,
   MailchimpListingResponse,
   MailchimpListSegmentBatchAddOrRemoveMembersResponse,
@@ -31,11 +30,6 @@ export interface MessageHandlerOptions {
   successStatusCodes?: number[];
   res: any;
   debug: (...args: any) => void;
-}
-
-export interface MulterRequest extends Request {
-  file: UploadedFile;
-  files: UploadedFile[];
 }
 
 export interface MailchimpMarketingApiClient {

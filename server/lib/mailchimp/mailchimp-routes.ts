@@ -1,4 +1,4 @@
-import express = require("express");
+import express from "express";
 import { campaignGetContent } from "./campaigns/campaign-get-content";
 import { campaignList } from "./campaigns/campaign-list";
 import { campaignReplicate } from "./campaigns/campaign-replicate";

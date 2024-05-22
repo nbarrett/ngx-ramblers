@@ -1,4 +1,4 @@
-import express = require("express");
+import express from "express";
 import { sendTransactionalMail } from "./transactional-mail/send-transactional-mail";
 import { queryAccount } from "./account/account";
 import { queryTemplates } from "./templates/query-templates";

@@ -1,5 +1,5 @@
-import express = require("express");
-import multer = require("multer");
+import express from "express";
+import multer from "multer";
 import * as authConfig from "../auth/auth-config";
 import { envConfig } from "../env-config/env-config";
 import * as groups from "./list-groups";

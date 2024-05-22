@@ -73,7 +73,7 @@ export class CardEditorComponent implements OnInit {
   }
 
   idFor(name?: string) {
-    return this.actions.columnIdentifierFor(this.columnIndex, this.pageContent.path + (name ? ("-" + name) : ""));
+    return this.actions.rowColumnIdentifierFor(this.rowIndex, this.columnIndex, this.pageContent.path + (name ? ("-" + name) : ""));
   }
 
   imageSourceOrPreview(): string {

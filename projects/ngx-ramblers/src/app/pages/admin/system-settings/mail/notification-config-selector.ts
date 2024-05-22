@@ -14,12 +14,12 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 @Component({
   selector: "app-notification-config-selector",
   template: `
-    <ng-container *ngIf="notificationConfigListing?.mailMessagingConfig">
+    <ng-container *ngIf="notificationConfig && notificationConfigListing?.mailMessagingConfig">
       <div class="row align-items-center">
         <div class="col-sm-12">
           <div class="form-group">
             <label for="contact-member">Email Type</label>
-            <select class="form-control input-sm"
+            <select [compareWith]="notificationTypeConfigComparer" class="form-control input-sm"
                     [disabled]="busy"
                     [(ngModel)]="notificationConfig"
                     (ngModelChange)="emailConfigChanged.emit($event)">
@@ -128,6 +128,10 @@ export class NotificationConfigSelectorComponent implements OnInit {
 
   ngOnInit() {
     this.logger.info("constructed notificationConfig", this.notificationConfig, "notificationConfigListing:", this.notificationConfigListing);
+  }
+
+  notificationTypeConfigComparer(item1: NotificationConfig, item2: NotificationConfig): boolean {
+    return item1?.id === item2?.id;
   }
 
   toBannerInformation(bannerConfig: BannerConfig) {

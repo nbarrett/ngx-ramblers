@@ -1,4 +1,4 @@
-import express = require("express");
+import express from "express";
 import { postcodes } from "./postcodes";
 
 const router = express.Router();

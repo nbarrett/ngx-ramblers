@@ -1,5 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy, OnInit } from "@angular/core";
-import { ActivatedRoute } from "@angular/router";
+import { ChangeDetectionStrategy, Component, Input, OnDestroy, OnInit } from "@angular/core";
 import last from "lodash-es/last";
 import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -10,12 +9,11 @@ import { PageContent, PageContentColumn, PageContentRow } from "../../../models/
 import { LoginResponse } from "../../../models/member.model";
 import { ConfirmType } from "../../../models/ui-actions";
 import { ApiResponseProcessor } from "../../../services/api-response-processor.service";
-import { CommitteeConfigService } from "../../../services/committee/commitee-config.service";
 import { CommitteeFileService } from "../../../services/committee/committee-file.service";
 import { CommitteeQueryService } from "../../../services/committee/committee-query.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
-import { AlertInstance, NotifierService } from "../../../services/notifier.service";
+import { AlertInstance } from "../../../services/notifier.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { PageContentService } from "../../../services/page-content.service";
 import { UrlService } from "../../../services/url.service";
@@ -49,10 +47,8 @@ export class CommitteeYearComponent implements OnInit, OnDestroy {
 
   constructor(
     public memberLoginService: MemberLoginService,
-    private notifierService: NotifierService,
     private apiResponseProcessor: ApiResponseProcessor,
     public display: CommitteeDisplayService,
-    private route: ActivatedRoute,
     private authService: AuthService,
     private modalService: BsModalService,
     public pageContentService: PageContentService,
@@ -60,8 +56,6 @@ export class CommitteeYearComponent implements OnInit, OnDestroy {
     public committeeQueryService: CommitteeQueryService,
     private committeeFileService: CommitteeFileService,
     public urlService: UrlService,
-    private changeDetectorRef: ChangeDetectorRef,
-    private committeeConfig: CommitteeConfigService,
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(CommitteeYearComponent, NgxLoggerLevel.OFF);
   }
@@ -93,14 +87,24 @@ export class CommitteeYearComponent implements OnInit, OnDestroy {
     this.logger.info("committeeYear:", this.committeeYear, "filesForYear:", this.filesForYear);
     const pageContent: PageContent = await this.pageContentService.findByPath(committeeYearsPath);
     this.imageSource = this.imageSourceForRelativePath(pageContent);
+    this.logger.info("pageContent:", pageContent, "imageSource:", this.imageSource);
   }
 
   private imageSourceForRelativePath(pageContent: PageContent) {
-    const pageContentRow: PageContentRow = pageContent.rows.find(row => this.actions.isActionButtons(row));
     const relativeUrl = this.committeeYear?.latestYear && !this.urlService.lastPathSegmentNumeric() ? `${this.urlService.relativeUrl()}/${this.committeeQueryService?.latestYear()}` : this.urlService.relativeUrl();
-    this.logger.info("pageContentRow:", pageContentRow, "relativeUrl:", relativeUrl, "committeeYear:", this.committeeYear);
-    const pageContentColumn: PageContentColumn = pageContentRow?.columns.find(column => relativeUrl.endsWith(column.href));
+    const pageContentRow: PageContentRow = pageContent.rows.find(row => this.actions.isActionButtons(row) && this.columnHasRelativePathMatch(row, relativeUrl));
+    const pageContentColumn = this.columnHasRelativePathMatch(pageContentRow, relativeUrl);
+    this.logger.info("pageContentRow:", pageContentRow, "relativeUrl:", relativeUrl, "committeeYear:", this.committeeYear, "pageContentColumn:", pageContentColumn);
     return this.urlService.imageSource(pageContentColumn?.imageSource);
+  }
+
+  private columnHasRelativePathMatch(pageContentRow: PageContentRow, relativeUrl: string) {
+    const pageContentColumn: PageContentColumn = pageContentRow?.columns.find(column => {
+      const relativePathMatch = relativeUrl.endsWith(column.href);
+      this.logger.info("column:", column, "relativePathMatch:", relativePathMatch, "column?.imageSource:", column?.imageSource);
+      return relativePathMatch && column?.imageSource;
+    });
+    return pageContentColumn;
   }
 
   selectCommitteeFile(committeeFile: CommitteeFile) {

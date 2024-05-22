@@ -1,8 +1,9 @@
-const express = require("express");
-const authConfig = require("../../auth/auth-config");
-const socialEvent = require("../models/social-event");
-const controller = require("../controllers/crud-controller").create(socialEvent);
+import express from "express";
+import * as authConfig from "../../auth/auth-config";
+import { socialEvent } from "../models/social-event";
+import * as crudController from "../controllers/crud-controller";
 
+const controller = crudController.create(socialEvent, true);
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);
@@ -13,4 +14,4 @@ router.put("/:id", authConfig.authenticate(), controller.update);
 router.get("/:id", controller.findById);
 router.delete("/:id", authConfig.authenticate(), controller.deleteOne);
 
-module.exports = router;
+export const socialEventsRoutes = router;

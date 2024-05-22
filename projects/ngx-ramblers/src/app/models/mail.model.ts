@@ -98,6 +98,8 @@ export interface SendCampaignRequest {
   campaignId: number;
 }
 
+export const ADDRESSEE_CONTACT_FIRST_NAME = "Hi {{contact.FIRSTNAME}},";
+
 export interface CreateCampaignRequest extends EmailRequest {
   createAsDraft: boolean;
   tag?: string;

@@ -1,4 +1,4 @@
-import express = require("express");
+import express from "express";
 import createEvent = require("./create-event");
 import deleteEvent = require("./delete-event");
 import updateEvent = require("./update-event");

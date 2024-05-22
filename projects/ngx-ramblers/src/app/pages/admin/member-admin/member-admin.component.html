@@ -192,13 +192,13 @@
             </td>
           </ng-container>
           <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider==MailProvider.BREVO">
-            <td *ngFor="let keyValue of mailListUpdaterService.mapToKeyValues(mailConfig?.lists)">
+            <td *ngFor="let keyValue of mailListUpdaterService.mapToKeyValues(mailMessagingConfig?.mailConfig?.lists)">
               <app-switch-icon [on]="subscriptionFor(member, keyValue)"/>
             </td>
           </ng-container>
           <td class="pointer" *ngIf="confirm.bulkDeleteOutstanding()" (click)="toggleDeletionMarker(member.id)">
-
-          <fa-icon *ngIf="markedForDelete(member.id)" [icon]="faUserXmark" class="member-delete"></fa-icon>
+            <fa-icon *ngIf="markedForDelete(member.id)" [icon]="faUserXmark"
+                     class="member-delete"></fa-icon>
           </td>
         </tr>
         </tbody>

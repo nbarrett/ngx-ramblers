@@ -1,7 +1,7 @@
 import * as crudController from "../controllers/crud-controller";
 import * as authConfig from "../../auth/auth-config";
 import { deletedMember } from "../models/deleted-member";
-import express = require("express");
+import express from "express";
 
 const controller = crudController.create(deletedMember, true);
 const router = express.Router();

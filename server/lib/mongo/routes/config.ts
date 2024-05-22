@@ -1,4 +1,4 @@
-import express = require("express");
+import express from "express";
 import * as authConfig from "../../auth/auth-config";
 import * as config from "./../controllers/config";
 
