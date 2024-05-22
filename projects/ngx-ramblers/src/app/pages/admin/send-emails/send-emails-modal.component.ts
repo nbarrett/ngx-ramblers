@@ -372,7 +372,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
     this.logger.debug("populateSelectableMembers:based on", this.currentMemberSelection, "filtered", this.members.length, "members -> ", this.selectableMembers.length, "email enabled members ->", this.selectedMemberIds.length, "selected members");
     this.notify.warning({
       title: "Member selection",
-      message: `${this.selectedMemberIds.length} members were added to selection based on ${memberSelector.name}`
+      message: `${this.stringUtils.pluraliseWithCount(this.selectedMemberIds.length, "member")} ${this.stringUtils.pluralise(this.selectedMemberIds.length, "was", "were")} added to the selection based on ${this.stringUtils.asTitle(memberSelector.name)}`
     });
   }
 

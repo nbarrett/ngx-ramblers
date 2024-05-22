@@ -58,6 +58,7 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
 import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
 import cloneDeep from "lodash-es/cloneDeep";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
 
 @Component({
   selector: "app-bulk-load",
@@ -73,6 +74,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
               private memberService: MemberService,
               private searchFilterPipe: SearchFilterPipe,
               private memberUpdateAuditService: MemberUpdateAuditService,
+              private memberDefaultsService: MemberDefaultsService,
               private memberBulkLoadAuditService: MemberBulkLoadAuditService,
               private systemConfigService: SystemConfigService,
               private notifierService: NotifierService,
@@ -114,7 +116,6 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   public systemConfig: SystemConfig;
   private subscriptions: Subscription[] = [];
   faEnvelopesBulk = faEnvelopesBulk;
-  faSpinner = faSpinner;
   faSearch = faSearch;
 
   protected readonly faSadTear = faSadTear;
@@ -228,7 +229,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   }
 
   createMemberFromAudit(memberFromAudit: Member) {
-    const member = this.memberBulkLoadService.applyDefaultMailSettingsToMember(cloneDeep(memberFromAudit), this.systemConfig, this.mailMessagingConfig);
+    const member = this.memberDefaultsService.applyDefaultMailSettingsToMember(cloneDeep(memberFromAudit), this.systemConfig, this.mailMessagingConfig);
     this.modalService.show(MemberAdminModalComponent, {
       class: "modal-xl",
       show: true,

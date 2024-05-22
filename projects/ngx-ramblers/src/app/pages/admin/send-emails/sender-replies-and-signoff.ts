@@ -57,6 +57,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
               target="_blank" href="https://app.brevo.com/senders/list">See existing Senders</a></span>
           </alert>
         </div>
+      </div>
       <div class="col-sm-12">
         <div class="form-group">
           <label for="reply-to">Reply To</label>

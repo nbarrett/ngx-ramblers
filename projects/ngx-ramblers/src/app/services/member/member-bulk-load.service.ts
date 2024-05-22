@@ -15,15 +15,14 @@ import {
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
 import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { MailchimpListService } from "../mailchimp/mailchimp-list.service";
 import { AlertInstance } from "../notifier.service";
 import { MemberBulkLoadAuditService } from "./member-bulk-load-audit.service";
 import { MemberNamingService } from "./member-naming.service";
 import { MemberUpdateAuditService } from "./member-update-audit.service";
 import { MemberService } from "./member.service";
-import { MailListUpdaterService } from "../mail/mail-list-updater.service";
-import { MailProvider, SystemConfig } from "../../models/system.model";
+import { SystemConfig } from "../../models/system.model";
 import { MailMessagingConfig } from "../../models/mail.model";
+import { MemberDefaultsService } from "./member-defaults.service";
 
 @Injectable({
   providedIn: "root"
@@ -34,8 +33,7 @@ export class MemberBulkLoadService {
   constructor(private memberUpdateAuditService: MemberUpdateAuditService,
               private memberBulkLoadAuditService: MemberBulkLoadAuditService,
               private memberService: MemberService,
-              private mailchimpListService: MailchimpListService,
-              public mailListUpdaterService: MailListUpdaterService,
+              private memberDefaultsService: MemberDefaultsService,
               private displayDate: DisplayDatePipe,
               private memberNamingService: MemberNamingService,
               private dateUtils: DateUtilsService,
@@ -117,7 +115,7 @@ export class MemberBulkLoadService {
         this.logger.info("matched members based on:", memberMatchType,
           "ramblersMember:", ramblersMember,
           "member:", member);
-        resetUpdateStatusForMember(member);
+        this.memberDefaultsService.resetUpdateStatusForMember(member, systemConfig);
       } else {
         memberAction = MemberAction.created;
         member = {
@@ -143,20 +141,12 @@ export class MemberBulkLoadService {
         {fieldName: "postcode", writeDataIf: "empty", type: "string"},
         {fieldName: "groupMember", writeDataIf: "not-revoked", type: "boolean"}], field => {
         changeAndAuditMemberField(updateAudit, member, ramblersMember, field);
-        this.applyDefaultMailSettingsToMember(member, systemConfig, mailMessagingConfig);
+        this.memberDefaultsService.applyDefaultMailSettingsToMember(member, systemConfig, mailMessagingConfig);
       });
 
       this.logger.info("saveAndAuditMemberUpdate -> member:", member, "updateAudit:", updateAudit);
       return saveAndAuditMemberUpdate(promises, uploadSessionId, recordIndex + 1, memberAction || (updateAudit.fieldsChanged > 0 ? MemberAction.updated : MemberAction.skipped), updateAudit.fieldsChanged, updateAudit.auditMessages.join(", "), member);
 
-    };
-
-    const resetUpdateStatusForMember = (member: Member) => {
-      switch (systemConfig?.mailDefaults?.mailProvider) {
-        case MailProvider.MAILCHIMP:
-          this.mailchimpListService.resetUpdateStatusForMember(member);
-          break;
-      }
     };
 
     const changeAndAuditMemberField = (updateAudit: {
@@ -214,20 +204,6 @@ export class MemberBulkLoadService {
         return processBulkLoadResponses(uploadSessionId);
       });
 
-  }
-
-  public applyDefaultMailSettingsToMember(member: Member, systemConfig: SystemConfig, mailMessagingConfig: MailMessagingConfig) {
-    member.groupMember = true;
-    switch (systemConfig?.mailDefaults?.mailProvider) {
-      case MailProvider.NONE:
-        return member;
-      case MailProvider.BREVO:
-        this.mailListUpdaterService.initialiseMailSubscriptionsFromListIds(member, mailMessagingConfig.mailConfig.lists, systemConfig.mailDefaults.autoSubscribeNewMembers);
-        return member;
-      case MailProvider.MAILCHIMP:
-        this.mailchimpListService.defaultMailchimpSettings(member, systemConfig.mailDefaults.autoSubscribeNewMembers);
-        return member;
-    }
   }
 
 }

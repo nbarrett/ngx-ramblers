@@ -1,5 +1,4 @@
-import express = require("express");
-
+import express from "express";
 import * as authConfig from "../../auth/auth-config";
 import { contentMetadata } from "../models/content-metadata";
 import * as crudController from "../controllers/crud-controller";

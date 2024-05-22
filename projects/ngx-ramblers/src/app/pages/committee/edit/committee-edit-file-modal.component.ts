@@ -2,30 +2,17 @@ import { HttpErrorResponse } from "@angular/common/http";
 import { Component, OnDestroy, OnInit } from "@angular/core";
 import first from "lodash-es/first";
 import { FileUploader } from "ng2-file-upload";
-import { BsModalRef, BsModalService } from "ngx-bootstrap/modal";
+import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { CommitteeFile, Notification } from "../../../models/committee.model";
 import { DateValue } from "../../../models/date.model";
-import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
-import { LineFeedsToBreaksPipe } from "../../../pipes/line-feeds-to-breaks.pipe";
 import { CommitteeFileService } from "../../../services/committee/committee-file.service";
-import { CommitteeQueryService } from "../../../services/committee/committee-query.service";
-import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { FileUploadService } from "../../../services/file-upload.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
-import { MailchimpCampaignService } from "../../../services/mailchimp/mailchimp-campaign.service";
-import { MailchimpLinkService } from "../../../services/mailchimp/mailchimp-link.service";
-import { MailchimpSegmentService } from "../../../services/mailchimp/mailchimp-segment.service";
-import { MemberLoginService } from "../../../services/member/member-login.service";
-import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
-import { StringUtilsService } from "../../../services/string-utils.service";
-import { UrlService } from "../../../services/url.service";
 import { CommitteeDisplayService } from "../committee-display.service";
 import { AwsFileUploadResponseData } from "../../../models/aws-object.model";
 
@@ -40,31 +27,16 @@ export class CommitteeEditFileModalComponent implements OnInit, OnDestroy {
   public notification: Notification;
   private logger: Logger;
   public committeeFile: CommitteeFile;
-  private campaignSearchTerm: string;
   public hasFileOver = false;
   public eventDate: DateValue;
   private existingTitle: string;
   public uploader: FileUploader;
   private subscriptions: Subscription[] = [];
 
-  constructor(private contentMetadataService: ContentMetadataService,
-              private fileUploadService: FileUploadService,
-              private authService: AuthService,
-              private mailchimpSegmentService: MailchimpSegmentService,
+  constructor(private fileUploadService: FileUploadService,
               public display: CommitteeDisplayService,
-              private committeeQueryService: CommitteeQueryService,
               private committeeFileService: CommitteeFileService,
-              private mailchimpCampaignService: MailchimpCampaignService,
-              private mailchimpConfig: MailchimpConfigService,
               private notifierService: NotifierService,
-              private stringUtils: StringUtilsService,
-              private memberService: MemberService,
-              private fullNameWithAlias: FullNameWithAliasPipe,
-              private lineFeedsToBreaks: LineFeedsToBreaksPipe,
-              private modalService: BsModalService,
-              private mailchimpLinkService: MailchimpLinkService,
-              private memberLoginService: MemberLoginService,
-              private urlService: UrlService,
               protected dateUtils: DateUtilsService,
               public bsModalRef: BsModalRef,
               loggerFactory: LoggerFactory) {
@@ -76,7 +48,6 @@ export class CommitteeEditFileModalComponent implements OnInit, OnDestroy {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.eventDate = this.dateUtils.asDateValue(this.committeeFile.eventDate);
     this.existingTitle = this.committeeFile?.fileNameData?.title;
-    this.campaignSearchTerm = "Master";
     this.notify.hide();
     this.uploader = this.fileUploadService.createUploaderFor("committeeFiles");
     this.subscriptions.push(this.uploader.response.subscribe((response: string | HttpErrorResponse) => {

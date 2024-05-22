@@ -1,4 +1,4 @@
-import express = require("express");
+import express from "express";
 import * as authConfig from "../../auth/auth-config";
 import { memberUpdateAudit } from "../models/member-update-audit";
 import * as crudController from "../controllers/crud-controller";

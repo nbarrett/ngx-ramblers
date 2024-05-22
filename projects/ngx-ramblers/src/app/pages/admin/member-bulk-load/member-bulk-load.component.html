@@ -15,38 +15,14 @@
                   </div>
                   <div class="col-sm-9">
                     <ul class="list-arrows">
-                      The following data formats are supported:
-                      <li>{{systemConfig?.group?.shortName}} member data can be loaded into the site 'in bulk' from the monthly update files that up
-                        until September 2020 were emailed to
-                        Membership Secretaries by Ramblers. This data was supplied in CSV format and was zipped. You
-                        can tell if it's the right format as it should
-                        have a filename of <b>{{systemConfig?.group?.groupCode}}_MemberList.csv, {{systemConfig?.group?.groupCode}}
-                          _new.zip, {{systemConfig?.group?.groupCode}}_new.csv</b> or
-                        <b>{{systemConfig?.group?.groupCode}}_reports_{{currentMemberBulkLoadDisplayDate()}}.zip</b>.
-                      </li>
-                      <li>Since September 2020, Ramblers have now switched to Using <a
+                      <b>The following data format is supported</b>
+                      <li>Since September 2020, Ramblers have switched to Using <a
                         href="https://insight.ramblers.org.uk">InsightHub</a> for providing member data to Membership
                         Secretaries. The format that is compatible with Member Admin is <a
-                          href="https://insight.ramblers.org.uk/#/views/MembershipSecretariesV4-AZURE/FullList">Membership
-                          Secretaries FullList</a>.
+                          href="https://insight.ramblers.org.uk/#/views/MembershipSecretariesV4-AZURE/FullList">Explore/Membership/Membership
+                          Secretaries V4/FullList</a>.
                         The file that needs to be downloaded is named <b>Full List.xlsx</b></li>
-                    </ul>
-
-                    <ul class="list-arrows">
-                      To load the members, follow these steps:
-                      <li> Click the <b>Bulk Upload Ramblers Data</b> button below then navigate to the
-                        spreadsheet on
-                        your computer and then click <b>Open</b>.
-                      </li>
-                      <li>The data will be loaded automatically. If the member does not match an existing member
-                        based
-                        on their membership number, a new member will be created with the
-                        following fields populated: membership number,
-                        forename, surname, postcode, private email, telephone, expiry date.
-                      </li>
-                      <li>If the member does match based on the membership number, the expiry date will be
-                        updated.
-                        Other fields will only be updated if they are blank.
+                      <li> Click the <b>New Upload Tab</b> to continue.
                       </li>
                     </ul>
                   </div>
@@ -58,6 +34,32 @@
             <div class="admin-frame round-except-top-left">
               <div class="admin-header-white-background rounded">
                 <div class="row">
+                  <div class="col-md-12">
+                    <ul class="list-arrows ml-0">
+                      <b>To load the members, follow these steps:</b>
+                      <li>Download the <a
+                        href="https://insight.ramblers.org.uk/#/views/MembershipSecretariesV4-AZURE/FullList">Explore/Membership/Membership
+                        Secretaries V4/FullList</a> from <a
+                        href="https://insight.ramblers.org.uk">InsightHub</a> to a folder on your computer.
+                      </li>
+                      <li>Click the <b>Browse for member import file</b> button below, then navigate to the
+                        downloaded file and then click <b>Open</b>. Alternatively you can drop the file on the <i>Or
+                          drop file here</i> zone.
+                      </li>
+                      <li>The data will be loaded automatically. If the member does not match an existing member
+                        based
+                        on their membership number, a new member will be created with the
+                        following fields populated: membership number,
+                        forename, surname, postcode, private email, telephone, expiry date.
+                      </li>
+                      <li>If the member does match based on the membership number, the expiry date will be
+                        updated.
+                        Other fields will only be updated if they are blank.
+                      </li>
+                      <li>If all updates are performed successfully, {{this.systemConfig?.mailDefaults?.mailProvider | titlecase}} mailing list updates will be performed automatically.</li>
+                      <li>If one or more errors occur during the Bulk Load, you can see the details of these errors by clicking on the <b>Upload History</b> tab, Choose Status 'Error' where you will be able to view the members that could not be imported.</li>
+                    </ul>
+                  </div>
                   <div class="col-md-3">
                     <input type="submit" [disabled]="notifyTarget.busy"
                            value="Browse for member import file"

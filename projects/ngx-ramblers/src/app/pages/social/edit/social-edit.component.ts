@@ -8,28 +8,18 @@ import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { AwsFileData, AwsFileUploadResponse, AwsFileUploadResponseData } from "../../../models/aws-object.model";
+import { AwsFileData, AwsFileUploadResponseData } from "../../../models/aws-object.model";
 import { DateValue } from "../../../models/date.model";
 import { MemberFilterSelection } from "../../../models/member.model";
 import { HARD_CODED_SOCIAL_FOLDER, SocialEvent } from "../../../models/social-events.model";
-import { Actions, ConfirmType } from "../../../models/ui-actions";
-import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
-import { LineFeedsToBreaksPipe } from "../../../pipes/line-feeds-to-breaks.pipe";
-import { ContentMetadataService } from "../../../services/content-metadata.service";
+import { Actions } from "../../../models/ui-actions";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { FileUploadService } from "../../../services/file-upload.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
-import { MailchimpCampaignService } from "../../../services/mailchimp/mailchimp-campaign.service";
-import { MailchimpLinkService } from "../../../services/mailchimp/mailchimp-link.service";
-import { MailchimpListService } from "../../../services/mailchimp/mailchimp-list.service";
-import { MailchimpSegmentService } from "../../../services/mailchimp/mailchimp-segment.service";
-import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { SocialEventsService } from "../../../services/social-events/social-events.service";
-import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
 import { SocialSendNotificationModalComponent } from "../send-notification/social-send-notification-modal.component";
 import { SocialDisplayService } from "../social-display.service";
@@ -41,23 +31,13 @@ import { SocialDisplayService } from "../social-display.service";
 })
 export class SocialEditComponent implements OnInit, OnDestroy {
 
-  constructor(private contentMetadataService: ContentMetadataService,
-              private fileUploadService: FileUploadService,
-              private mailchimpSegmentService: MailchimpSegmentService,
-              private mailchimpListService: MailchimpListService,
+  constructor(private fileUploadService: FileUploadService,
               public display: SocialDisplayService,
-              private mailchimpCampaignService: MailchimpCampaignService,
-              private mailchimpConfigService: MailchimpConfigService,
               private notifierService: NotifierService,
-              private stringUtils: StringUtilsService,
               private memberService: MemberService,
-              private fullNameWithAlias: FullNameWithAliasPipe,
-              private lineFeedsToBreaks: LineFeedsToBreaksPipe,
               private modalService: BsModalService,
               public googleMapsService: GoogleMapsService,
-              private mailchimpLinkService: MailchimpLinkService,
               private socialEventsService: SocialEventsService,
-              private memberLoginService: MemberLoginService,
               private urlService: UrlService,
               protected dateUtils: DateUtilsService,
               loggerFactory: LoggerFactory) {
@@ -174,16 +154,9 @@ export class SocialEditComponent implements OnInit, OnDestroy {
 
   confirmDeleteSocialEventDetails() {
     Promise.resolve(this.notify.progress("Deleting social event", true))
-      .then(() => this.deleteMailchimpSegment())
       .then(() => this.removeSocialEventAndRefreshSocialEvents())
       .then(() => this.notify.clearBusy())
       .catch((error) => this.notify.error(error));
-  }
-
-  deleteMailchimpSegment() {
-    if (this.socialEvent.mailchimp && this.socialEvent.mailchimp.segmentId) {
-      return this.mailchimpListService.deleteSegment("socialEvents", this.socialEvent.mailchimp.segmentId);
-    }
   }
 
   removeSocialEventAndRefreshSocialEvents() {
@@ -237,18 +210,6 @@ export class SocialEditComponent implements OnInit, OnDestroy {
       message: (errorResponse && errorResponse.error ? (". Error was: " + JSON.stringify(errorResponse.error)) : "")
     });
     this.notify.clearBusy();
-  }
-
-  deleteSocialEvent() {
-    this.display.confirm.as(ConfirmType.DELETE);
-  }
-
-  showAlertMessage(): boolean {
-    return this.notifyTarget.busy || this.notifyTarget.showAlert;
-  }
-
-  pendingCompletion(): boolean {
-    return this.notifyTarget.busy || this.display.confirm.notificationsOutstanding();
   }
 
   eventDateChanged(dateValue: DateValue) {

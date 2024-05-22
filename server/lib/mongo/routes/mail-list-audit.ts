@@ -1,4 +1,4 @@
-import express = require("express");
+import express from "express";
 import * as authConfig from "../../auth/auth-config";
 import * as crudController from "../controllers/crud-controller";
 import { mailListAudit } from "../models/mail-list-audit";
