@@ -76,7 +76,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
               <select [(ngModel)]="notificationConfig.templateId"
                       id="template"
                       class="form-control input-sm">
-                <option *ngFor="let template of notificationConfigListing.mailMessagingConfig?.mailTemplates?.templates"
+                <option *ngFor="let template of notificationConfigListing?.mailMessagingConfig?.brevo?.mailTemplates?.templates"
                         [ngValue]="template.id">{{ template.name }}
                 </option>
               </select>

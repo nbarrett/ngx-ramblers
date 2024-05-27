@@ -41,7 +41,6 @@ export class CarouselStoryNavigatorComponent implements OnInit {
 
   constructor(public imageTagDataService: ImageTagDataService,
               private activatedRoute: ActivatedRoute,
-              private urlService: UrlService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger("CarouselStoryNavigatorComponent", NgxLoggerLevel.OFF);
   }

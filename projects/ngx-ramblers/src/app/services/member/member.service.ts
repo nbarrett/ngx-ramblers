@@ -38,8 +38,6 @@ export class MemberService {
   }
 
   filterFor = {
-    SOCIAL_MEMBERS_SUBSCRIBED: (member: Member) => member.groupMember && member.socialMember && member.mailchimpLists?.socialEvents?.subscribed,
-    GENERAL_MEMBERS_SUBSCRIBED: (member: Member) => member.groupMember && member.mailchimpLists?.general?.subscribed,
     GROUP_MEMBERS: (member: Member) => member.groupMember,
     COMMITTEE_MEMBERS: (member: Member) => member.groupMember && member.committee,
     SOCIAL_MEMBERS: (member: Member) => member.groupMember && member.socialMember,
@@ -199,8 +197,5 @@ export class MemberService {
     return typeof member === "string" ? {id: member} : {id: member.id};
   }
 
-  toIdString(member: MemberFilterSelection | Member): string {
-    return member.id;
-  }
 
 }

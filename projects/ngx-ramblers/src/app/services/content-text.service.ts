@@ -39,16 +39,20 @@ export class ContentTextService {
   async findByNameAndCategory(name: string, category: string): Promise<ContentText> {
     const params = this.commonDataService.toHttpParams(category ? {criteria: {name: {$eq: name}, category: {$eq: category}}} : {criteria: {name: {$eq: name}}});
     const apiResponse = await this.http.get<{ response: ContentText }>(this.BASE_URL, {params}).toPromise();
-    this.logger.info("forName", name, "- received", apiResponse);
+    this.logger.info("for name:", name, "received:", apiResponse);
     return apiResponse.response;
   }
 
   async findOrCreateByNameAndCategory(name: string, category: string, textOnNotFound: string): Promise<ContentText> {
     const data: ContentText = await this.findByNameAndCategory(name, category);
     if (data) {
+      this.logger.info("for name:", name, "category", category, "found existing data:", data);
       return data;
     } else {
-      return this.create({name, category, text: textOnNotFound});
+
+      const newData = await this.create({name, category, text: textOnNotFound});
+      this.logger.info("for name:", name, "category", category, "created new data:", data);
+      return newData;
     }
   }
 

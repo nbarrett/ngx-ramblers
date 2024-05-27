@@ -6,135 +6,66 @@ import { BroadcastService } from "../../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { AlertInstance } from "../../../../services/notifier.service";
 import {
-  FoldersListResponse,
-  ListCreateRequest,
   ListCreateResponse,
-  ListsResponse,
-  MailConfig
+  ListInfo,
+  ListSetting,
+  ListUpdateRequest,
+  MailMessagingConfig
 } from "../../../../models/mail.model";
 import { MailLinkService } from "../../../../services/mail/mail-link.service";
 import { MailService } from "projects/ngx-ramblers/src/app/services/mail/mail.service";
-import isEmpty from "lodash-es/isEmpty";
+import { faCancel, faEdit, faSave } from "@fortawesome/free-solid-svg-icons";
 
 @Component({
   selector: "app-mail-list-settings",
   template: `
-    <div *ngIf="listsResponse?.lists" class="col-sm-12">
-      <div class="form-group">
-        <label for="{{listType}}-list">{{ label }}</label>
-        <div class="col-sm-12">
-          <div class="form-inline">
-            <form>
-              <div class="custom-control custom-radio custom-control-inline">
-                <input id="{{listType}}-existing-list"
-                       type="radio"
-                       class="custom-control-input"
-                       [(ngModel)]="listConfigType"
-                       name="existing-list"
-                       (change)="selectListConfigType()"
-                       value="existing-list"/>
-                <label class="custom-control-label" for="{{listType}}-existing-list">Existing List:
-                </label>
-              </div>
-              <select *ngIf="mailConfig.lists" id="{{listType}}-list"
-                      [(ngModel)]="mailConfig.lists[listType]"
-                      name="listId"
-                      (ngModelChange)="listChange($event)"
-                      class="form-control input-sm flex-grow-1 mr-2">
-                <option *ngFor="let list of listsResponse.lists"
-                        [ngValue]="list.id">{{ list.name }}
-                </option>
-              </select>
-              <app-brevo-button button [title]="'View'" *ngIf="confirm.noneOutstanding()"
-                                (click)="viewList(currentListId())"
-                                [disabled]="listEditOrDeleteDisabled()"/>
-              <app-brevo-button class="ml-2" button [title]="'Delete'" *ngIf="confirm.noneOutstanding()"
-                                (click)="deleteList(currentListId())"
-                                [disabled]="listEditOrDeleteDisabled()"/>
-              <ng-container *ngIf="confirm.deleteConfirmOutstanding()">
-                <app-brevo-button class="ml-2" button [title]="'Confirm Delete'"
-                                  (click)="confirmDeleteList(currentListId())"
-                                  [disabled]="listEditOrDeleteDisabled()"/>
-                <app-brevo-button class="ml-2" button [title]="'Cancel Delete'"
-                                  (click)="confirm.clear()"
-                                  [disabled]="listEditOrDeleteDisabled()"/>
-              </ng-container>
-              <div class="custom-control custom-radio custom-control-inline ml-2">
-                <input id="{{listType}}-no-list"
-                       type="radio"
-                       class="custom-control-input"
-                       [(ngModel)]="listConfigType"
-                       (change)="selectListConfigType()"
-                       name="no-list"
-                       value="no-list"/>
-                <label class="custom-control-label" for="{{listType}}-no-list">
-                  No List</label>
-              </div>
-              <div class="custom-control custom-radio custom-control-inline">
-                <input id="{{listType}}-new-list"
-                       type="radio"
-                       class="custom-control-input"
-                       [(ngModel)]="listConfigType"
-                       (change)="selectListConfigType()"
-                       name="new-list"
-                       value="new-list"/>
-                <label class="custom-control-label" for="{{listType}}-new-list">
-                  Create new List</label>
-              </div>
-            </form>
-          </div>
+    <div *ngIf="mailMessagingConfig?.brevo?.lists?.lists" class="row align-items-start mt-3">
+      <div class="col-2">
+        <b>{{ mailMessagingConfig?.brevo?.lists?.lists.indexOf(list) + 1 }}: {{ list.name }}</b>
+        <app-badge-button *ngIf="!listUpdateRequest" class="ml-2" [icon]="faEdit" caption="Edit"
+                          (click)="beginEdit()"></app-badge-button>
+      </div>
+      <div class="col-2">
+        <div>Total Subscribers: {{ list.totalSubscribers }}</div>
+      </div>
+      <div class="col-2">
+        <div>Unique Subscribers: {{ list.uniqueSubscribers }}</div>
+      </div>
+      <div class="col-2">
+        <div class="custom-control custom-checkbox">
+          <input [checked]="autoSubscribeNewMembers()"
+                 (change)="autoSubscribeNewMembersChange()"
+                 type="checkbox" class="custom-control-input" id="auto-subscribe-new-members-{{list.id}}">
+          <label class="custom-control-label"
+                 for="auto-subscribe-new-members-{{list.id}}">Auto-subscribe new members
+          </label>
         </div>
-        <ng-container *ngIf="listConfigType==='new-list'">
-          <div class="row align-items-end mt-2">
-            <div class="col-sm-4">
-              <div class="form-group">
-                <label for="list-name">List Name</label>
-                <input [(ngModel)]="listCreateRequest.name" type="text" class="form-control input-sm"
-                       id="list-name"
-                       placeholder="The Name of the list to create">
-              </div>
-            </div>
-            <div class="col-sm-4">
-              <div class="form-group">
-                <label for="{{listType}}-folder">Folder Name</label>
-                <select *ngIf="foldersResponse" id="{{listType}}-folder"
-                        [(ngModel)]="listCreateRequest.folderId"
-                        name="folderId"
-                        (ngModelChange)="folderChange($event)"
-                        class="form-control input-sm flex-grow-1 mr-2">
-                  <option *ngFor="let folder of foldersResponse.folders"
-                          [ngValue]="folder.id">{{ folder.name }}
-                  </option>
-                </select>
-              </div>
-            </div>
-            <div class="col-sm-4">
-              <div class="form-group">
-                <input type="submit" value="Create List"
-                       (click)="createList()"
-                       [disabled]="listCreateDisabled()"
-                       [ngClass]="listCreateDisabled() ? 'disabled-button-form button-bottom-aligned': 'button-form blue-confirm button-bottom-aligned'">
-              </div>
-            </div>
-          </div>
+      </div>
+      <div class="col-sm-4">
+        <app-brevo-button button [title]="'View'" *ngIf="confirm.noneOutstanding()"
+                          (click)="viewList(list.id)"
+                          [disabled]="listEditOrDeleteDisabled()"/>
+        <app-brevo-button class="ml-2" button [title]="'Delete'" *ngIf="confirm.noneOutstanding()"
+                          (click)="deleteList(list.id)"
+                          [disabled]="listEditOrDeleteDisabled()"/>
+        <ng-container *ngIf="localConfirm.deleteConfirmOutstanding()">
+          <app-brevo-button button [title]="'Confirm Delete'"
+                            (click)="confirmDeleteList(list.id)"
+                            [disabled]="listEditOrDeleteDisabled()"/>
+          <app-brevo-button class="ml-2" button [title]="'Cancel Delete'"
+                            (click)="cancelDelete()"
+                            [disabled]="listEditOrDeleteDisabled()"/>
         </ng-container>
       </div>
-    </div>`
+    </div>
+    <ng-container *ngIf="listUpdateRequest">
+      <app-list-editor [listCreateRequest]="listUpdateRequest"/>
+      <app-badge-button class="ml-2" [icon]="faSave" caption="Save" (click)="saveEdit()"></app-badge-button>
+      <app-badge-button class="ml-2" [icon]="faCancel" caption="Cancel" (click)="cancelEdit()"></app-badge-button>
+    </ng-container>
+    <hr/>`
 })
 export class MailListSettingsComponent implements OnInit {
-  private logger: Logger;
-  @Input() mailConfig: MailConfig;
-  @Input() listsResponse: ListsResponse;
-  @Input() foldersResponse: FoldersListResponse;
-  @Input() notify: AlertInstance;
-  @Input() notReady: boolean;
-  @Input() label: string;
-  @Input() listType: string;
-  public listConfigType: string;
-  public listCreateResponse: ListCreateResponse;
-  public confirm: Confirm = new Confirm();
-  public listCreateRequest: ListCreateRequest;
-
   constructor(
     private broadcastService: BroadcastService<any>,
     private mailLinkService: MailLinkService,
@@ -143,13 +74,48 @@ export class MailListSettingsComponent implements OnInit {
     this.logger = loggerFactory.createLogger("MailListSettingsComponent", NgxLoggerLevel.OFF);
   }
 
+  private logger: Logger;
+  @Input() mailMessagingConfig: MailMessagingConfig;
+  @Input() list: ListInfo;
+  @Input() notify: AlertInstance;
+  @Input() notReady: boolean;
+  @Input() confirm: Confirm;
+  public localConfirm: Confirm = new Confirm();
+  public listUpdateResponse: ListCreateResponse;
+  public listUpdateRequest: ListUpdateRequest;
+  protected readonly faEdit = faEdit;
+  protected readonly faSave = faSave;
+  protected readonly faCancel = faCancel;
+
   ngOnInit() {
-    if (!this.mailConfig.lists) {
-      this.mailConfig.lists = {general: null, walks: null, socialEvents: null};
+    this.logger.info("constructed with list", this.list);
+  }
+
+  deleteList(id: number) {
+    if (!this.listEditOrDeleteDisabled()) {
+      if (!id) {
+        this.notify.error({
+          title: "Delete Mail List",
+          message: "Please select a list from the drop-down before choosing delete"
+        });
+      } else {
+        this.localConfirm.toggleOnDeleteConfirm();
+        this.confirm.toggleOnDeleteConfirm();
+      }
     }
-    const listId = this?.mailConfig?.lists && this.listType && this?.mailConfig?.lists[this.listType];
-    this.logger.info("constructed with listType", this.listType, "listId:", listId);
-    this.setListConfigType();
+  }
+
+  confirmDeleteList(id: number) {
+    if (!this.listEditOrDeleteDisabled()) {
+      this.notify.hide();
+      this.mailService.deleteList(id)
+        .then(response => {
+          this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MAIL_LISTS_CHANGED, response));
+        }).catch(error => this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.ERROR, error)))
+        .finally(() => {
+          this.cancelDelete();
+        });
+    }
   }
 
   viewList(id: number) {
@@ -167,94 +133,45 @@ export class MailListSettingsComponent implements OnInit {
     }
   }
 
-  deleteList(id: number) {
-    if (!this.listEditOrDeleteDisabled()) {
-      if (!id) {
-      this.notify.error({
-        title: "Delete Mail List",
-        message: "Please select a list from the drop-down before choosing delete"
-      });
-    } else {
-      this.confirm.toggleOnDeleteConfirm();
-      }
-    }
-  }
-
-  confirmDeleteList(id: number) {
-    if (!this.listEditOrDeleteDisabled()) {
-    this.notify.hide();
-    this.mailService.deleteList(id)
-      .then(response => {
-        this.noListChange();
-        this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MAIL_LISTS_CHANGED, response));
-      }).catch(error => this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.ERROR, error)))
-      .finally(() => this.confirm.clear());
-    }
-  }
-
-  listChange(listId: number) {
-    if (this.listType && listId) {
-      this.mailConfig.lists[this.listType] = listId;
-      this.listConfigType = "existing-list";
-    }
-    this.logger.info("listChange:listId:", listId, "this.mailConfig.lists:", this.mailConfig.lists);
-  }
-
-  noListChange() {
-    if (this.listType) {
-      this.mailConfig.lists[this.listType] = null;
-    }
-    this.logger.info("noListChange:this.mailConfig.lists:", this.mailConfig.lists);
-  }
-
-  folderChange(folderId: number) {
-    this.logger.info("folderChange:folderId:", folderId, "listCreateRequest:", this.listCreateRequest);
-  }
-
-  async selectListConfigType() {
-    this.logger.info("listConfigType:", this.listConfigType, "listType:", this.listType);
-    switch (this.listConfigType) {
-      case "no-list":
-        this.noListChange();
-        break;
-      case "existing-list":
-        this.listChange(this.currentListId());
-        break;
-      case "new-list":
-        this.listChange(null);
-        this.listCreateRequest = {name: "", folderId: 0};
-        break;
-    }
-  }
-
-  private setListConfigType() {
-    if (this.currentListId()) {
-      this.listConfigType = "existing-list";
-    } else {
-      this.listConfigType = "no-list";
-    }
-  }
-
   listEditOrDeleteDisabled() {
-    return this.notReady || !this.currentListId();
+    return this.notReady || !this.list.id;
   }
 
-  listCreateDisabled() {
-    return isEmpty(this.listCreateRequest?.name) || !this.listCreateRequest?.folderId;
+  cancelDelete() {
+    this.localConfirm.clear();
+    this.confirm.clear();
   }
 
-  currentListId(): number {
-    return this.mailConfig?.lists && this.listType && this.mailConfig?.lists[this.listType];
+  autoSubscribeNewMembers() {
+    return this.listSetting()?.autoSubscribeNewMembers;
   }
 
-  createList() {
-    this.mailService.createList(this.listCreateRequest)
+  private listSetting(): ListSetting {
+    return this.mailMessagingConfig?.mailConfig?.listSettings?.find(item => item.id === this.list.id);
+  }
+
+  autoSubscribeNewMembersChange() {
+    this.listSetting().autoSubscribeNewMembers = !this.autoSubscribeNewMembers();
+  }
+
+  beginEdit() {
+    this.listUpdateRequest = {listId: this.list.id, name: this.list.name, folderId: this.list.folderId};
+    this.logger.info("beginEdit :", this.listUpdateRequest);
+  }
+
+  saveEdit() {
+    this.logger.info("saveEdit :", this.listUpdateRequest);
+    this.mailService.updateList(this.listUpdateRequest)
       .then(response => {
-        this.listCreateResponse = response;
-        this.logger.info("createList response:", this.listCreateResponse);
-        this.listChange(response.id);
+        this.listUpdateRequest = null;
+        this.logger.info("updateList response:", response);
         this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MAIL_LISTS_CHANGED, response));
       })
       .catch(error => this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.ERROR, error)));
   }
+
+  cancelEdit() {
+    this.listUpdateRequest = null;
+  }
+
 }

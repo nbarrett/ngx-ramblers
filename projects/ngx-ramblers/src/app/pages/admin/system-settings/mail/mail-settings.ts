@@ -8,16 +8,23 @@ import { LoggerFactory } from "../../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { UrlService } from "../../../../services/url.service";
 import {
-  Account,
-  FoldersListResponse,
-  ListsResponse,
+  ListCreateRequest,
+  ListCreateResponse,
   MailMessagingConfig,
+  MailSettingsTab,
   NotificationConfig
 } from "../../../../models/mail.model";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { Subscription } from "rxjs";
-import { MailService } from "../../../../services/mail/mail.service";
 import { MailLinkService } from "../../../../services/mail/mail-link.service";
+import isEmpty from "lodash-es/isEmpty";
+import { MailService } from "../../../../services/mail/mail.service";
+import { StringUtilsService } from "../../../../services/string-utils.service";
+import { Confirm, StoredValue } from "../../../../models/ui-actions";
+import first from "lodash-es/first";
+import { ActivatedRoute, Router } from "@angular/router";
+import kebabCase from "lodash-es/kebabCase";
+import { NumberUtilsService } from "../../../../services/number-utils.service";
 
 @Component({
   selector: "app-mail-settings",
@@ -26,25 +33,32 @@ import { MailLinkService } from "../../../../services/mail/mail-link.service";
       <div class="row">
         <div class="col-sm-12">
           <tabset class="custom-tabset" *ngIf="mailMessagingConfig?.mailConfig">
-            <tab heading="Email Configurations">
+            <tab [active]="tabActive(MailSettingsTab.EMAIL_CONFIGURATIONS)"
+                 (selectTab)="selectTab(MailSettingsTab.EMAIL_CONFIGURATIONS)"
+                 [heading]="MailSettingsTab.EMAIL_CONFIGURATIONS">
               <div class="img-thumbnail thumbnail-admin-edit">
                 <app-mail-notification-template-mapping-editor [notificationConfig]="notificationConfig"
+                                                               (tabSelected)="selectTab($event)"
                                                                (configDeleted)="deletedConfigs.push($event)"/>
               </div>
             </tab>
-            <tab heading="Built-in Process Mappings">
+            <tab [active]="tabActive(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS)"
+                 (selectTab)="selectTab(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS)"
+                 [heading]="MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS">
               <div class="img-thumbnail thumbnail-admin-edit">
                 <app-notification-config-to-process-mapping/>
               </div>
             </tab>
-            <tab heading="Mail API Settings">
+            <tab [active]="tabActive(MailSettingsTab.MAIL_API_SETTINGS)"
+                 (selectTab)="selectTab(MailSettingsTab.MAIL_API_SETTINGS)"
+                 [heading]="MailSettingsTab.MAIL_API_SETTINGS">
               <div class="img-thumbnail thumbnail-admin-edit">
                 <div class="img-thumbnail thumbnail-2">
                   <div class="thumbnail-heading">Global Settings</div>
                   <div class="row">
-                    <div class="col-sm-12 mt-2 mb-2">
+                    <div class="col-sm-12 mb-3 mx-2">
                       <app-markdown-editor category="admin" name="mail-settings-global-help"
-                                           description="Mail Settings Global Configuration Help"></app-markdown-editor>
+                                           description="Mail Settings Global Configuration Help"/>
                     </div>
                   </div>
                   <div class="col-sm-12">
@@ -130,7 +144,7 @@ import { MailLinkService } from "../../../../services/mail/mail-link.service";
                     </div>
                   </div>
                 </div>
-                <div *ngIf=account class="img-thumbnail thumbnail-2">
+                <div *ngIf="mailMessagingConfig.brevo.account" class="img-thumbnail thumbnail-2">
                   <div class="thumbnail-heading">Account Settings</div>
                   <div class="row">
                     <div class="col-sm-12 mt-2 mb-2">
@@ -138,93 +152,134 @@ import { MailLinkService } from "../../../../services/mail/mail-link.service";
                                            description="Mail Settings Account Help"></app-markdown-editor>
                     </div>
                   </div>
-                  <div class="col-sm-12">
-                    <div class="form-group">
-                      <label for="email">Email</label>
-                      <div class="form-control input-sm"
-                           id="email">{{ account.email }}
+                  <div class="row">
+                    <div class="col-sm-4">
+                      <div class="form-group">
+                        <label for="email">Email</label>
+                        <div class="form-control input-sm"
+                             id="email">{{ mailMessagingConfig.brevo.account.email }}
+                        </div>
                       </div>
                     </div>
-                    <div class="form-group">
-                      <label for="firstName">First Name</label>
-                      <div class="form-control input-sm"
-                           id="firstName">{{ account.firstName }}
+                    <div class="col-sm-4">
+                      <div class="form-group">
+                        <label for="firstName">First Name</label>
+                        <div class="form-control input-sm"
+                             id="firstName">{{ mailMessagingConfig.brevo.account.firstName }}
+                        </div>
                       </div>
                     </div>
-                    <div class="form-group">
-                      <label for="lastName">Last Name</label>
-                      <div class="form-control input-sm"
-                           id="lastName">{{ account.lastName }}
+                    <div class="col-sm-4">
+                      <div class="form-group">
+                        <label for="lastName">Last Name</label>
+                        <div class="form-control input-sm"
+                             id="lastName">{{ mailMessagingConfig.brevo.account.lastName }}
+                        </div>
                       </div>
                     </div>
-                    <div class="form-group">
-                      <label for="companyName">Company Name</label>
-                      <div class="form-control input-sm"
-                           id="companyName">{{ account.companyName }}
+                  </div>
+                  <div class="row">
+                    <div class="col-sm-4">
+                      <div class="form-group">
+                        <label for="companyName">Company Name</label>
+                        <div class="form-control input-sm"
+                             id="companyName">{{ mailMessagingConfig.brevo.account.companyName }}
+                        </div>
                       </div>
                     </div>
-                    <div class="form-group">
-                      <label for="street">Street</label>
-                      <div class="form-control input-sm"
-                           id="street">{{ account.address.street }}
+                    <div class="col-sm-4">
+                      <div class="form-group">
+                        <label for="street">Street</label>
+                        <div class="form-control input-sm"
+                             id="street">{{ mailMessagingConfig.brevo.account.address.street }}
+                        </div>
                       </div>
                     </div>
-                    <div class="form-group">
-                      <label for="postcode">Postcode</label>
-                      <div class="form-control input-sm"
-                           id="postcode">{{ account.address.zipCode }}
+                    <div class="col-sm-4">
+                      <div class="form-group">
+                        <label for="postcode">Postcode</label>
+                        <div class="form-control input-sm"
+                             id="postcode">{{ mailMessagingConfig.brevo.account.address.zipCode }}
+                        </div>
                       </div>
                     </div>
-                    <div class="form-group">
-                      <label for="town">Town</label>
-                      <div type="text" class="form-control input-sm"
-                           id="town">{{ account.address.city }}
+                  </div>
+                  <div class="row">
+                    <div class="col-sm-4">
+                      <div class="form-group">
+                        <label for="town">Town</label>
+                        <div type="text" class="form-control input-sm"
+                             id="town">{{ mailMessagingConfig.brevo.account.address.city }}
+                        </div>
                       </div>
                     </div>
-                    <div class="form-group">
-                      <label for="country">Country</label>
-                      <div class="form-control input-sm">{{ account.address.country }}</div>
+                    <div class="col-sm-4">
+                      <div class="form-group">
+                        <label for="country">Country</label>
+                        <div class="form-control input-sm">{{ mailMessagingConfig.brevo.account.address.country }}</div>
+                      </div>
                     </div>
-                    <div class="form-group">
-                      <label>Plan</label>
-                      <pre>{{ account.plan|json }}</pre>
-                    </div>
-                    <div class="form-group">
-                      <label>Marketing Automation</label>
-                      <pre>{{ account.marketingAutomation|json }}</pre>
+                  </div>
+                </div>
+                <div *ngIf=mailMessagingConfig.brevo.account class="img-thumbnail thumbnail-2">
+                  <div class="thumbnail-heading">Free Email Plan</div>
+                  <div class="row">
+                    <div class="col-sm-12">
+                      <p>Credits are renewed each day - {{ freeCreditsUsed() }} available out of {{ CREDITS_AVAILABLE }}
+                        emails/day ({{ percentageCreditsUsed() }}% used)
+                      </p>
+                      <div class="progress">
+                        <div class="progress-bar" role="progressbar"
+                             [ngStyle]="{ 'width': percentageCreditsUsed() + '%' }"></div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </tab>
-            <tab heading="Mail List Settings">
+            <tab [active]="tabActive(MailSettingsTab.MAIL_LIST_SETTINGS)"
+                 (selectTab)="selectTab(MailSettingsTab.MAIL_LIST_SETTINGS)"
+                 [heading]="MailSettingsTab.MAIL_LIST_SETTINGS">
               <div class="img-thumbnail thumbnail-admin-edit">
                 <div class="img-thumbnail thumbnail-2">
                   <div class="thumbnail-heading">List Settings</div>
-                  <app-mail-list-settings label="General"
-                                          [listsResponse]="listsResponse"
-                                          [foldersResponse]="foldersResponse"
-                                          [notify]="notify"
-                                          [notReady]="notReady()"
-                                          [mailConfig]="mailMessagingConfig.mailConfig"
-                                          [listType]="'general'">
-                  </app-mail-list-settings>
-                  <app-mail-list-settings label="Walks"
-                                          [listsResponse]="listsResponse"
-                                          [foldersResponse]="foldersResponse"
-                                          [notify]="notify"
-                                          [notReady]="notReady()"
-                                          [mailConfig]="mailMessagingConfig.mailConfig"
-                                          [listType]="'walks'">
-                  </app-mail-list-settings>
-                  <app-mail-list-settings label="Social Events"
-                                          [listsResponse]="listsResponse"
-                                          [foldersResponse]="foldersResponse"
-                                          [notify]="notify"
-                                          [notReady]="notReady()"
-                                          [mailConfig]="mailMessagingConfig.mailConfig"
-                                          [listType]="'socialEvents'">
-                  </app-mail-list-settings>
+                  <div class="col-sm-12 mb-3">
+                    <app-markdown-editor category="admin" name="mail-settings-list-settings"/>
+                  </div>
+                  <div class="row">
+                    <div class="col-sm-8">
+                      <h5>{{ stringUtilsService.pluraliseWithCount(mailMessagingConfig?.brevo?.lists?.count, "list") }}
+                        {{ stringUtilsService.pluralise(mailMessagingConfig?.brevo?.lists?.count, "exists", "exist") }}
+                        in Brevo
+                      </h5>
+                    </div>
+                    <div class="col justify-content-end">
+                      <app-brevo-button button title="Create New List"
+                                        [disabled]="createNewListDisabled()"
+                                        (click)="createNewList()"/>
+                    </div>
+                  </div>
+                  <hr/>
+                  <ng-container *ngIf="listCreateRequest">
+                    <app-list-editor [listCreateRequest]="listCreateRequest"/>
+                    <div class="row">
+                      <div class="col-sm-12">
+                        <app-brevo-button button title="Confirm Create List"
+                                          (click)="confirmCreateList()"
+                                          [disabled]="listCreateDisabled()"/>
+                        <app-brevo-button button title="Cancel Create List"
+                                          class="ml-2" (click)="listCreateRequest=null"/>
+                      </div>
+                    </div>
+                  </ng-container>
+                  <ng-container *ngFor="let list of mailMessagingConfig?.brevo?.lists?.lists">
+                    <app-mail-list-settings [mailMessagingConfig]="mailMessagingConfig"
+                                            [notify]="notify"
+                                            [confirm]="confirm"
+                                            [notReady]="notReady()"
+                                            [list]="list">
+                    </app-mail-list-settings>
+                  </ng-container>
                 </div>
               </div>
             </tab>
@@ -257,34 +312,48 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   public deletedConfigs: string[] = [];
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  private mailService: MailService = inject(MailService);
   public mailMessagingConfig: MailMessagingConfig;
   private notifierService: NotifierService = inject(NotifierService);
   public mailLinkService: MailLinkService = inject(MailLinkService);
   private broadcastService: BroadcastService<any> = inject(BroadcastService);
+  protected stringUtilsService: StringUtilsService = inject(StringUtilsService);
   private urlService: UrlService = inject(UrlService);
+  private numberUtilsService: NumberUtilsService = inject(NumberUtilsService);
   public mailMessagingService: MailMessagingService = inject(MailMessagingService);
-  public account: Account;
   private subscriptions: Subscription[] = [];
   protected dateUtils: DateUtilsService = inject(DateUtilsService);
+  protected mailService: MailService = inject(MailService);
+  private activatedRoute: ActivatedRoute = inject(ActivatedRoute);
+  private router: Router = inject(Router);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("MailSettingsComponent", NgxLoggerLevel.OFF);
   public notificationConfig: NotificationConfig;
-  public listsResponse: ListsResponse;
-  public foldersResponse: FoldersListResponse;
+  public listCreateRequest: ListCreateRequest;
+  public listCreateResponse: ListCreateResponse;
   private error: any;
+  public CREDITS_AVAILABLE = 300;
+  public confirm: Confirm = new Confirm();
+  private tab: any;
+
+  protected readonly MailSettingsTab = MailSettingsTab;
 
   ngOnInit() {
     this.logger.debug("constructed");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.notify.setBusy();
+    this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
+      const defaultValue = kebabCase(MailSettingsTab.EMAIL_CONFIGURATIONS);
+      const tabParameter = params[StoredValue.TAB];
+      this.tab = tabParameter || defaultValue;
+      this.logger.info("received tab value of:", tabParameter, "defaultValue:", defaultValue);
+      this.selectTab(this.tab);
+    }));
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
       this.mailMessagingConfig = mailMessagingConfig;
     }));
-    this.refreshListsAndFolders();
     this.broadcastService.on(NamedEventType.MAIL_LISTS_CHANGED, () => {
       this.logger.info("event received:", NamedEventType.MAIL_LISTS_CHANGED);
-      this.refreshListsAndFolders();
+      this.mailMessagingService.initialise();
     });
     this.broadcastService.on(NamedEventType.NOTIFY_MESSAGE, (namedEvent: NamedEvent<AlertMessageAndType>) => {
       this.logger.info("event received:", namedEvent);
@@ -311,25 +380,12 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  private refreshListsAndFolders() {
-    this.error = null;
-    Promise.all([this.mailService.queryAccount().then(account => this.account = account),
-      this.mailService.queryLists().then(listsResponse => this.listsResponse = listsResponse),
-      this.mailService.queryFolders().then(foldersResponse => this.foldersResponse = foldersResponse)])
-      .then((all) => {
-        this.logger.info("all received:", all);
-      }).catch((error) => {
-      this.error = error;
-      this.notify.error(error);
-    });
-  }
-
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   notReady() {
-    return !(this?.mailMessagingConfig?.mailConfig);
+    return !!this.listCreateRequest || !(this?.mailMessagingConfig?.mailConfig);
   }
 
   save() {
@@ -353,5 +409,51 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
 
   undoChanges() {
     this.mailMessagingService.refresh();
+  }
+
+  freeCreditsUsed(): number {
+    return this.mailMessagingConfig?.brevo?.account?.plan?.find(item => item.type === "free")?.credits || 0;
+  }
+
+  percentageCreditsUsed(): number {
+    return this.numberUtilsService.asNumber((this.CREDITS_AVAILABLE - this.freeCreditsUsed()) / this.CREDITS_AVAILABLE * 100, 0);
+  }
+
+  listCreateDisabled() {
+    return isEmpty(this.listCreateRequest?.name) || !this.listCreateRequest?.folderId;
+  }
+
+  confirmCreateList() {
+    if (!this.listCreateDisabled()) {
+      this.mailService.createList(this.listCreateRequest)
+        .then(response => {
+          this.listCreateResponse = response;
+          this.logger.info("createList response:", this.listCreateResponse);
+          this.listCreateRequest = null;
+          this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MAIL_LISTS_CHANGED, response));
+        })
+        .catch(error => this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.ERROR, error)));
+    }
+  }
+
+  createNewList() {
+    if (!this.createNewListDisabled()) {
+      this.listCreateRequest = {name: "", folderId: first(this.mailMessagingConfig?.brevo?.folders?.folders)?.id};
+    }
+  }
+
+  createNewListDisabled() {
+    return !!this.listCreateRequest || this.confirm.deleteConfirmOutstanding();
+  }
+
+  public selectTab(tab: MailSettingsTab) {
+    this.router.navigate([], {
+      queryParams: {[StoredValue.TAB]: kebabCase(tab)},
+      queryParamsHandling: "merge"
+    });
+  }
+
+  tabActive(tab: MailSettingsTab): boolean {
+    return kebabCase(this.tab) === kebabCase(tab);
   }
 }

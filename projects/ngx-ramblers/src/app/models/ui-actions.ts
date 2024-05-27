@@ -28,6 +28,7 @@ export enum StoredValue {
   SOCIAL_DATE_SORT = "social-date-sort",
   SOCIAL_QUICK_SEARCH = "social-quick-search",
   STORY = "story",
+  TAB = "tab",
 }
 
 export class Actions {

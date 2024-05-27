@@ -41,6 +41,17 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
+  @Input()
+  contentPathReadOnly: boolean;
+  @Input()
+  public queryCompleted: boolean;
+  @Input()
+  public notify: AlertInstance;
+  @Input()
+  public contentDescription: string;
+  @Input()
+  public contentPath: string;
+
   @Input("defaultPageContent") set acceptChangesFrom(defaultPageContent: PageContent) {
     this.logger.info("acceptChangesFrom:defaultPageContent:", defaultPageContent);
     this.defaultPageContent = defaultPageContent;
@@ -68,16 +79,6 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     this.logger = loggerFactory.createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.OFF);
   }
 
-  @Input()
-  contentPathReadOnly: boolean;
-  @Input()
-  public queryCompleted: boolean;
-  @Input()
-  public notify: AlertInstance;
-  @Input()
-  public contentDescription: string;
-  @Input()
-  public contentPath: string;
 
   public pageContent: PageContent;
   public insertableContent: ColumnInsertData[] = [];
@@ -396,9 +397,8 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     this.destinationPath = value;
   }
 
-
   private clearAlert(pageContent: PageContent) {
-    if (pageContent) {
+    if (pageContent && this.notify) {
       this.notify.hide();
     }
   }

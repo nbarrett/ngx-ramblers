@@ -6,6 +6,13 @@ import { Auditable, Member, MemberFilterSelection } from "./member.model";
 import { NotificationDirective } from "../notifications/common/notification.directive";
 import { AuditStatus } from "./audit";
 
+export enum MailSettingsTab {
+  EMAIL_CONFIGURATIONS = "Email Configurations",
+  BUILT_IN_PROCESS_MAPPINGS = "Built-in Process Mappings",
+  MAIL_API_SETTINGS = "Mail API Settings",
+  MAIL_LIST_SETTINGS = "Mail List Settings"
+}
+
 export interface NotificationSubject {
   prefixParameter: string;
   text: string;
@@ -27,6 +34,7 @@ export interface NotificationConfig extends Auditable, Identifiable {
   defaultMemberSelection: MemberSelection;
   postSendActions: WorkflowAction[];
   monthsInPast?: number;
+  defaultListId?: number;
   ccRoles?: string[];
   signOffRoles?: string[];
   senderRole?: string;
@@ -150,12 +158,6 @@ export interface MergeFields {
   MEMBER_EXP: string;
 }
 
-export interface ListIds {
-  walks?: number;
-  socialEvents?: number;
-  general?: number;
-}
-
 export interface MailConfig extends BuiltInProcessMappings {
   apiKey: string;
   baseUrl: string;
@@ -164,7 +166,7 @@ export interface MailConfig extends BuiltInProcessMappings {
   allowUpdateLists: boolean;
   allowSendCampaign: boolean;
   allowSendTransactional: boolean;
-  lists: ListIds;
+  listSettings: ListSetting[];
 }
 
 export interface BuiltInProcessMappings {
@@ -241,10 +243,15 @@ export interface TemplateResponse {
 }
 
 export interface MailMessagingConfig {
+  brevo: {
+    account: Account;
+    folders: FoldersListResponse;
+    lists: ListsResponse;
+    mailTemplates: MailTemplates;
+  };
   group: Organisation;
   mailConfig: MailConfig;
   banners: BannerConfig[];
-  mailTemplates: MailTemplates;
   committeeReferenceData: CommitteeReferenceData;
   notificationConfigs: NotificationConfig[];
 }
@@ -268,7 +275,12 @@ export interface Account {
 
 export function DEFAULT_MAIL_MESSAGING_CONFIG(): MailMessagingConfig {
   return {
-    mailTemplates: null,
+    brevo: {
+      mailTemplates: null,
+      folders: null,
+      lists: null,
+      account: null
+    },
     notificationConfigs: null,
     committeeReferenceData: null,
     group: null,
@@ -379,6 +391,9 @@ export const NOTIFICATION_CONFIG_DEFAULTS: NotificationConfig[] = [
 export interface ListCreateRequest {
   name: string;
   folderId?: number;
+}
+
+export interface ListUpdateRequest extends ListCreateRequest, HasListId {
 }
 
 export interface ListCreateResponse {
@@ -535,6 +550,11 @@ export interface ContactAddOrRemoveResponse {
 export interface MailSubscription {
   subscribed?: boolean;
   id?: number;
+}
+
+export interface ListSetting {
+  autoSubscribeNewMembers: boolean;
+  id: number;
 }
 
 export interface MailIdentifiers {

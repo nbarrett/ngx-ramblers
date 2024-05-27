@@ -1,6 +1,7 @@
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { MailchimpSubscription } from "./mailchimp.model";
 import { MailIdentifiers, MailSubscription } from "./mail.model";
+import { sortBy } from "../services/arrays";
 
 export enum ProfileUpdateType {
   LOGIN_DETAILS = "login details",
@@ -243,3 +244,5 @@ export interface DisplayMember {
     lastName: string;
     membershipNumber: string;
 }
+
+export const SORT_BY_NAME = sortBy("order", "member.lastName", "member.firstName");

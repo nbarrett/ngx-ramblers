@@ -92,6 +92,7 @@ import { MailSubscriptionSettingComponent } from "../../pages/admin/member-admin
 import {
   EmailSubscriptionsMailchimpComponent
 } from "../../pages/admin/profile/email-subscriptions-mailchimp.component";
+import { MailListEditorComponent } from "../../pages/admin/system-settings/mail/list-editor";
 
 @NgModule({
   declarations: [
@@ -127,6 +128,7 @@ import {
     MailListSettingsComponent,
     MailNotificationTemplateMappingComponent,
     MailSettingsComponent,
+    MailListEditorComponent,
     MailSubscriptionSettingsComponent,
     MailSubscriptionSettingComponent,
     MailChimpSubscriptionSettingsComponent,

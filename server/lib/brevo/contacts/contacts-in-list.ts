@@ -16,8 +16,7 @@ export async function contactsInList(req: Request, res: Response, next: NextFunc
     const brevoConfig = await configuredBrevo();
     const apiInstance = new SibApiV3Sdk.ContactsApi();
     apiInstance.setApiKey(SibApiV3Sdk.ContactsApiApiKeys.apiKey, brevoConfig.apiKey);
-    const listType = req.query.listType.toString();
-    const listId: number = brevoConfig.lists[listType];
+    const listId = +req.query.listId;
     const opts = {
       limit: 1000,
       offset: 0

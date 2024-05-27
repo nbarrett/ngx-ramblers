@@ -24,19 +24,19 @@ export async function queryTemplateContent(templateId: number): Promise<Template
     const x: MailTemplateResponse = null;
     debugLog("API called successfully. Returned data", JSON.stringify(data));
     return {
-      createdAt: data.body.createdAt,
-      doiTemplate: data.body.doiTemplate,
-      htmlContent: data.body.htmlContent,
-      id: data.body.id,
-      isActive: data.body.isActive,
-      modifiedAt: data.body.modifiedAt,
-      name: data.body.name,
-      replyTo: data.body.replyTo,
-      sender: {name: data.body.sender.name, id: +data.body.sender.id, email: data.body.sender.email},
-      subject: data.body.subject,
-      tag: data.body.tag,
-      testSent: data.body.testSent,
-      toField: data.body.toField
+      createdAt: data.body?.createdAt,
+      doiTemplate: data.body?.doiTemplate,
+      htmlContent: data.body?.htmlContent,
+      id: data.body?.id,
+      isActive: data.body?.isActive,
+      modifiedAt: data.body?.modifiedAt,
+      name: data.body?.name,
+      replyTo: data.body?.replyTo,
+      sender: {name: data.body?.sender?.name, id: +data.body?.sender?.id, email: data.body?.sender?.email},
+      subject: data.body?.subject,
+      tag: data.body?.tag,
+      testSent: data.body?.testSent,
+      toField: data.body?.toField
     };
   }).catch((error: any) => {
     debugLog("error", error);

@@ -363,7 +363,7 @@
       </tab>
       <tab app-mailchimp-subscription-settings heading="Mailchimp" [member]="member" [mailchimpConfig]="mailchimpConfig"
            *ngIf="systemConfig?.mailDefaults?.mailProvider=== MailProvider.MAILCHIMP"/>
-      <tab app-mail-subscription-settings heading="Brevo" [member]="member" [members]="members" [mailConfig]="mailConfig" [systemConfig]="systemConfig" [mailListAudits]="mailListAudits"
+      <tab app-mail-subscription-settings heading="Brevo" [member]="member" [members]="members" [mailMessagingConfig]="mailMessagingConfig" [systemConfig]="systemConfig" [mailListAudits]="mailListAudits"
            *ngIf="systemConfig?.mailDefaults?.mailProvider=== MailProvider.BREVO"/>
       <tab heading="Audit">
         <div class="img-thumbnail thumbnail-admin-edit">

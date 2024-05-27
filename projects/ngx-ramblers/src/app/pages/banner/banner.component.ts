@@ -119,13 +119,14 @@ import isEqual from "lodash-es/isEqual";
               <ng-container *ngIf="editableBanner">
                 <div class="row">
                   <div class="col-6">
-                    <label for="name">Banner name</label>
+                    <label for="name">Banner Name</label>
                     <input [disabled]="!allowContentEdits" [(ngModel)]="editableBanner.name"
                            id="name"
                            type="text" class="form-control input-sm"
                            placeholder="Enter name of banner">
                   </div>
                   <div class="col-6">
+                    <label for="banner-type">Banner Type</label>
                     <select [disabled]="!allowContentEdits" class="form-control input-sm"
                             id="banner-type"
                             [(ngModel)]="editableBanner.bannerType"
@@ -173,7 +174,7 @@ import isEqual from "lodash-es/isEqual";
                     </app-banner-image-selector>
                   </div>
                 </div>
-                <div class="row">
+                <div class="row" *ngIf="editableBanner?.banner">
                   <div class="col-sm-6">
                     <label>Banner Text:</label>
                     <textarea class="form-control input-sm" rows="3"
