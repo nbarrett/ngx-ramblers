@@ -23,12 +23,13 @@ import { NumberUtilsService } from "../../services/number-utils.service";
 @Component({
   selector: "app-committee-role-multi-select",
   template: `
-    <label *ngIf="label" (click)="toggleExpanded()" [for]="id">{{ label }}</label>
+    <label *ngIf="label" (click)="toggleExpanded()"
+           [for]="id">{{ label }}</label>
     <div *ngIf="ready" [id]="id" (click)="toggleExpanded()">
       <div #dropdownMenu class="dropdown b-dropdown btn-group filter-dropdown w-100 dropdown-custom"
            [ngClass]="{'show':expanded}">
         <button aria-haspopup="menu" [attr.aria-expanded]="expanded"
-                class="btn dropdown-toggle btn-secondary btn-sm w-100 btn-normal">{{ roleSelection() }}
+                class="btn dropdown-toggle btn-secondary btn-sm w-100 btn-normal text-truncate">{{ roleSelection() }}
         </button>
         <ul role="menu" tabindex="-1" class="dropdown-menu p-3 w-100"
             [ngClass]="{'show':expanded}">
@@ -153,6 +154,6 @@ export class CommitteeRoleMultiSelectComponent implements OnInit, OnDestroy {
   }
 
   roleSelection() {
-    return this.display.committeeReferenceData.committeeMembersForRole(this.roles).map(role => role[this.showRoleSelectionAs || "fullName"]).join(", ");
+    return this.display.committeeReferenceData.committeeMembersForRole(this.roles).map(role => role[this.showRoleSelectionAs || "fullName"]).join(", ") || "Select Roles";
   }
 }

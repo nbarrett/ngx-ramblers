@@ -11,11 +11,10 @@ import {
   Notification
 } from "../../../models/committee.model";
 import { DateValue } from "../../../models/date.model";
-import { Member, MemberFilterSelection } from "../../../models/member.model";
+import { Member, MemberFilterSelection, SORT_BY_NAME } from "../../../models/member.model";
 import { SystemConfig } from "../../../models/system.model";
 import { ConfirmType } from "../../../models/ui-actions";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
-import { sortBy } from "../../../services/arrays";
 import { CommitteeQueryService } from "../../../services/committee/committee-query.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
@@ -32,6 +31,7 @@ import { MailLinkService } from "../../../services/mail/mail-link.service";
 import {
   ADDRESSEE_CONTACT_FIRST_NAME,
   CreateCampaignRequest,
+  ListInfo,
   MailMessagingConfig,
   MemberSelection,
   NotificationConfig,
@@ -41,13 +41,19 @@ import {
 import { MailService } from "../../../services/mail/mail.service";
 import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
-import { KeyValue } from "../../../services/enums";
 import { MemberLoginService } from "../../../services/member/member-login.service";
-
-const SORT_BY_NAME = sortBy("order", "member.lastName", "member.firstName");
 
 @Component({
   selector: "app-committee-send-notification",
+  styles: [`
+    .scrollable
+      max-height: 500px
+      overflow: scroll
+
+    .group-events-ul
+      @extend .scrollable
+      list-style: none
+  `],
   template: `
     <app-page autoTitle>
       <div class="row">
@@ -62,70 +68,44 @@ const SORT_BY_NAME = sortBy("order", "member.lastName", "member.firstName");
                   <div class="row">
                     <div class="col-sm-7"><label>Send to:</label>
                       <div class="form-group">
-                        <div class="custom-control custom-radio">
-                          <input (click)="clearRecipientsForCampaignOfType('committee')"
-                                 name="send-to"
-                                 id="send-to-committee"
-                                 [disabled]="true || allCommitteeList()?.length===0"
-                                 type="radio"
-                                 class="custom-control-input"
-                                 [(ngModel)]="notification.content.destinationType"
-                                 value="committee"/>
-                          <label class="custom-control-label" for="send-to-committee">{{ allCommitteeList().length }}
-                            Committee Members
-                          </label>
-                          <a class="ml-1" *ngIf="allCommitteeList()?.length>0"
-                             (click)="editCommitteeRecipients()">(edit)</a>
-                        </div>
-                        <div class="custom-control custom-radio">
-                          <input (click)="clearRecipientsForCampaignOfType('general')"
-                                 id="send-to-general"
-                                 [disabled]="subscribedToCampaignEmails().length===0"
-                                 name="send-to"
-                                 type="radio"
-                                 [checked]="true"
-                                 class="custom-control-input"
-                                 [(ngModel)]="notification.content.destinationType"
-                                 [value]="notification.content.destinationType"/>
-                          <label class="custom-control-label"
-                                 for="send-to-general">{{ subscribedToCampaignEmails().length }}
-                            General List
-                            Members </label>
-                          <a class="ml-1 disabled" *ngIf="subscribedToCampaignEmails().length>0"
-                             (click)="editAllGroupRecipients()">(edit)</a>
-                        </div>
-                        <div class="custom-control custom-radio">
-                          <input (click)="clearRecipientsForCampaignOfType('socialEvents')"
-                                 name="send-to"
-                                 id="send-to-social"
-                                 [disabled]="true || allSocialSubscribedList().length===0"
-                                 type="radio"
-                                 class="custom-control-input"
-                                 [(ngModel)]="notification.content.destinationType"
-                                 value="socialEvents"/>
-                          <label class="custom-control-label"
-                                 for="send-to-social">{{ allSocialSubscribedList().length }}
-                            Social List Members
-                          </label>
-                          <a class="ml-1" *ngIf="allSocialSubscribedList().length>0"
-                             (click)="editAllSocialRecipients()">(edit)</a>
-                        </div>
-                        <div class="custom-control custom-radio">
+                        <form>
+                          <ng-container *ngFor="let list of mailMessagingConfig?.brevo?.lists?.lists">
+                            <div class="custom-control custom-radio">
+                              <input class="custom-control-input"
+                                     id="send-list-{{list.id}}"
+                                     name="send-to"
+                                     type="radio"
+                                     [checked]="notification.content.listId===list.id"
+                                     [disabled]="selectionDisabled(list)"
+                                     (change)="selectList(list)"
+                                     [value]="list.id"/>
+                              <label class="custom-control-label"
+                                     for="send-list-{{list.id}}">
+                                {{ listNameAndMemberCount(list) }}</label>
+                              <a class="ml-1 disabled" *ngIf="false"
+                                 (click)="editRecipientsFromList(list)">(edit)</a>
+                            </div>
+                          </ng-container>
+                        </form>
+                        <div *ngIf="false" class="custom-control custom-radio">
                           <input id="custom"
                                  type="radio"
                                  class="custom-control-input"
                                  name="send-to"
                                  [disabled]="true"
-                                 [(ngModel)]="notification.content.destinationType"
+                                 [(ngModel)]="notification.content.listId"
                                  value="custom"/>
                           <label class="custom-control-label" for="custom">
-                      <span
-                        *ngIf="notification.content.selectedMemberIds.length===0">Choose individual recipients</span>
-                            <span
-                              *ngIf="notification.content.selectedMemberIds.length>0">{{ this.notification.content.selectedMemberIds.length }}
-                              recipient(s) chosen from {{ this.notification.content.list }} list</span>
+                            <div *ngIf="notification.content.selectedMemberIds.length===0">Choose individual
+                              recipients
+                            </div>
+                            <div
+                              *ngIf="notification.content.selectedMemberIds.length>0">
+                              {{ this.stringUtils.pluraliseWithCount(this.notification.content.selectedMemberIds.length, "recipient") }}
+                              chosen from {{ this.selectedList()?.name }} list
+                            </div>
                           </label>
-                          <a class="ml-1" (click)="clearRecipientsForCampaignOfType()"> (clear)</a>
+                          <a class="ml-1" (click)="clearRecipients(this.selectedList())"> (clear)</a>
                         </div>
                       </div>
                     </div>
@@ -152,7 +132,7 @@ const SORT_BY_NAME = sortBy("order", "member.lastName", "member.firstName");
                       </div>
                     </div>
                   </div>
-                  <div class="row" *ngIf="notification.content.destinationType==='custom'">
+                  <div class="row" *ngIf="false">
                     <div class="col-sm-12">
                       <div class="form-group" triggers="" placement="bottom"
                            [tooltip]="helpMembers()">
@@ -404,7 +384,7 @@ const SORT_BY_NAME = sortBy("order", "member.lastName", "member.firstName");
                          [src]="mailMessagingService.bannerImageSource(notification?.content?.notificationConfig, false)">
                   </div>
                   <h2 class="mb-3">{{ notification.content.title.value }}</h2>
-                  <p *ngIf="false">{{ notification?.content.addresseeType }}</p>
+                  <p>{{ notification?.content.addresseeType }}</p>
                   <div #notificationContent>
                     <app-committee-notification-details [committeeFile]="committeeFile" [members]="members"
                                                         [notification]="notification">
@@ -436,16 +416,7 @@ const SORT_BY_NAME = sortBy("order", "member.lastName", "member.firstName");
       <div class="d-none">
         <ng-template app-notification-directive/>
       </div>
-    </app-page>`,
-  styles: [`
-    .scrollable
-      max-height: 500px
-      overflow: scroll
-
-    .group-events-ul
-      @extend .scrollable
-      list-style: none
-  `]
+    </app-page>`
 })
 export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
 
@@ -470,6 +441,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger("CommitteeSendNotificationComponent", NgxLoggerLevel.OFF);
   }
+
   @ViewChild("notificationContent") notificationContent: ElementRef;
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   public segmentEditingSupported = false;
@@ -488,19 +460,27 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   public pageTitle: string;
   public notificationConfigListing: NotificationConfigListing;
   public senderExists: boolean;
-
+  public notificationConfigs: NotificationConfig[] = [];
   protected readonly addresseeFirstName = ADDRESSEE_CONTACT_FIRST_NAME;
 
   async ngOnInit() {
     this.logger.info("ngOnInit with", this.members.length, "members");
     this.display.confirm.as(ConfirmType.SEND_NOTIFICATION);
-    this.notify = this.notifierService.createAlertInstance(this.notifyTarget, NgxLoggerLevel.OFF);
+    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.notify.setBusy();
     this.logger.info("subscribing to systemConfigService events");
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
       this.mailMessagingConfig = mailMessagingConfig;
       this.notificationConfigListing = {mailMessagingConfig, includeMemberSelections: [MemberSelection.MAILING_LIST]};
-      this.generateNotificationDefaults("mailMessagingService");
+      this.notificationConfigs = this.mailMessagingService.notificationConfigs(this.notificationConfigListing);
+      if (this.notificationConfigs.length === 0) {
+        this.notify.error({
+          title: "Failed to initialise message sending",
+          message: `No notification configurations have been created for ${this.stringUtils.asTitle(MemberSelection.MAILING_LIST)} members. Create one in Mail Settings and try this again.`,
+        });
+      } else {
+        this.generateNotificationDefaults("mailMessagingService");
+      }
     }));
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => this.systemConfig = systemConfig));
     this.subscriptions.push(this.display.configEvents().subscribe(() => {
@@ -529,13 +509,18 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     }));
   }
 
+  selectedList(): ListInfo {
+    return this.mailMessagingConfig?.brevo?.lists?.lists?.find(item => item.id === this?.notification?.content?.listId);
+  }
+
   private initialiseMembersAndGroupEvents() {
+
     return Promise.all([
       this.memberService.publicFields(this.memberService.filterFor.GROUP_MEMBERS).then(members => {
         this.members = members;
         this.logger.info("refreshMembers -> populated ->", this.members.length, "members");
         this.selectableRecipients = members
-          .map(member => this.toMemberFilterSelection(member))
+          .map(member => this.toMemberFilterSelection(member, this.selectedList()))
           .sort(SORT_BY_NAME);
         this.logger.info("refreshMembers -> populated ->", this.selectableRecipients.length, "selectableRecipients:", this.selectableRecipients);
       }),
@@ -554,10 +539,10 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   }
 
   private generateNotificationDefaults(reason: string) {
-    const ready = !!(this.mailMessagingConfig && this.display.committeeReferenceData);
+    const ready = !!(this.mailMessagingConfig && this.display.committeeReferenceData && this.notificationConfigs?.length > 0);
     this.logger.info("generateNotificationDefaults due to:", reason, "ready:", ready);
     if (ready) {
-      const notificationConfig = this.mailMessagingService.notificationConfigs(this.notificationConfigListing)?.[0];
+      const notificationConfig = this.notificationConfigs?.[0];
       this.notification = {
         cancelled: false,
         content: {
@@ -568,7 +553,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
             include: true
           },
           includeDownloadInformation: !!this.committeeFile,
-          destinationType: "send-to-general",
+          listId: this.mailMessagingConfig?.brevo?.lists?.lists?.[0]?.id,
           addresseeType: ADDRESSEE_CONTACT_FIRST_NAME,
           selectedMemberIds: [],
           signoffAs: {
@@ -597,7 +582,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
         this.notification.content.title.value = this.committeeFile.fileType;
         this.notification.content.text.value = `This is just a quick note to let you know in case you are interested, that I've uploaded a new file to the ${this?.systemConfig?.group?.shortName} website. The file information is as follows:`;
       }
-      this.initialiseMembersAndGroupEvents().then(() => this.clearRecipientsForCampaignOfType("general"));
+      this.initialiseMembersAndGroupEvents().then(() => this.clearRecipients(this.selectedList()));
     }
   }
 
@@ -610,80 +595,27 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
       });
   }
 
-  changeGroupEventSelection(groupEvent) {
+  changeGroupEventSelection(groupEvent: GroupEvent) {
     groupEvent.selected = !groupEvent.selected;
   }
 
-  subscribedToCampaignEmails(): MemberFilterSelection[] {
+  subscribedToEmailsForList(list: ListInfo): MemberFilterSelection[] {
     return this.members
-      .filter(this.memberService.filterFor.GENERAL_MEMBERS_SUBSCRIBED)
-      .map(member => this.toMemberFilterSelection(member))
-      .sort(SORT_BY_NAME);
-  }
-
-  allSocialSubscribedList(): MemberFilterSelection[] {
-    return this.members
-      .filter(member => this.memberService.filterFor.SOCIAL_MEMBERS_SUBSCRIBED(member))
-      .map(member => this.toSelectSocialMember(member))
-      .sort(SORT_BY_NAME);
-  }
-
-  allCommitteeList(): MemberFilterSelection[] {
-    return this.members
-      .filter(member => this.memberService.filterFor.COMMITTEE_MEMBERS(member))
-      .map(member => this.toMemberFilterSelection(member))
+      .filter(this.memberService.filterFor.GROUP_MEMBERS)
+      .filter(member => this.mailListUpdaterService.memberSubscribed(member, list.id))
+      .map(member => this.toMemberFilterSelection(member, list))
       .sort(SORT_BY_NAME);
   }
 
   notReady() {
-    return !this.senderExists || this.stringUtils.arrayFromDelimitedData(this.notification?.content?.signoffAs?.value)?.length === 0 || this.members.length === 0 || this.notifyTarget.busy || (this.notification.content.selectedMemberIds.length === 0 && this.notification.content.destinationType === "custom");
+    return !this.senderExists || this.stringUtils.arrayFromDelimitedData(this.notification?.content?.signoffAs?.value)?.length === 0 || this.members.length === 0 || this.notifyTarget.busy || (this.notification.content.selectedMemberIds.length === 0 && !this.notification.content.listId);
   }
 
-  toMemberFilterSelection(member: Member): MemberFilterSelection {
-    let memberGrouping;
-    let order;
-    if (member.groupMember && this.subscribedToCampaigns(member)) {
-      memberGrouping = "Subscribed to general emails";
-      order = 0;
-    } else if (member.groupMember && !this.subscribedToCampaigns(member)) {
-      memberGrouping = "Not subscribed to general emails";
-      order = 1;
-    } else if (!member.groupMember) {
-      memberGrouping = "Not a group member";
-      order = 2;
-    } else {
-      memberGrouping = "Unexpected state";
-      order = 3;
-    }
+  toMemberFilterSelection(member: Member, list: ListInfo): MemberFilterSelection {
     return {
       id: member.id,
-      order,
-      memberGrouping,
-      member,
-      memberInformation: this.fullNameWithAlias.transform(member)
-    };
-  }
-
-  toSelectSocialMember(member: Member): MemberFilterSelection {
-    let memberGrouping;
-    let order;
-    if (member.groupMember && this.subscribedToSocial(member)) {
-      memberGrouping = "Subscribed to social emails";
-      order = 0;
-    } else if (member.groupMember && !this.subscribedToSocial(member)) {
-      memberGrouping = "Not subscribed to social emails";
-      order = 1;
-    } else if (!member.groupMember) {
-      memberGrouping = "Not a group member";
-      order = 2;
-    } else {
-      memberGrouping = "Unexpected state";
-      order = 3;
-    }
-    return {
-      id: member.id,
-      order,
-      memberGrouping,
+      order: 0,
+      memberGrouping: `Subscribed to ${list.name} emails`,
       member,
       memberInformation: this.fullNameWithAlias.transform(member)
     };
@@ -691,44 +623,30 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
 
   private showSelectedMemberIds() {
     this.onChange();
-    this.logger.info("notification.content.destinationType", this.notification.content.destinationType, "notification.content.addresseeType", this.notification.content.addresseeType);
+    this.logger.info("notification.content.destinationType", this.notification.content.listId, "notification.content.addresseeType", this.notification.content.addresseeType);
   }
 
-  editAllGroupRecipients() {
+  editRecipientsFromList(list: ListInfo) {
     if (this.segmentEditingSupported) {
-      this.notification.content.destinationType = "custom";
-      this.notification.content.list = "general";
-      this.notification.content.selectedMemberIds = this.subscribedToCampaignEmails().map(item => this.memberService.toIdString(item));
+      this.notification.content.listId = list.id;
+      this.notification.content.selectedMemberIds = this.subscribedToEmailsForList(list).map(item => item.id);
       this.showSelectedMemberIds();
     }
   }
 
-  editAllSocialRecipients() {
+  clearRecipients(list: ListInfo) {
     if (this.segmentEditingSupported) {
-      this.logger.info("editAllSocialRecipients");
-      this.notification.content.destinationType = "custom";
-      this.notification.content.list = "socialEvents";
-      this.notification.content.selectedMemberIds = this.allSocialSubscribedList().map(item => this.memberService.toIdString(item));
+      this.logger.info("clearRecipientsFor:", list);
+      this.notification.content.customCampaignType = null;
+      this.notification.content.listId = list.id;
+      this.notification.content.selectedMemberIds = [];
       this.showSelectedMemberIds();
     }
   }
 
-  editCommitteeRecipients() {
-    if (this.segmentEditingSupported) {
-      this.logger.info("editCommitteeRecipients");
-      this.notification.content.destinationType = "custom";
-      this.notification.content.list = "general";
-      this.notification.content.selectedMemberIds = this.allCommitteeList().map(item => this.memberService.toIdString(item));
-      this.showSelectedMemberIds();
-    }
-  }
-
-  clearRecipientsForCampaignOfType(campaignType?: string) {
-    this.logger.info("clearRecipientsForCampaignOfType:", campaignType);
-    this.notification.content.customCampaignType = campaignType;
-    this.notification.content.list = "general";
-    this.notification.content.selectedMemberIds = [];
-    this.showSelectedMemberIds();
+  selectList(list: ListInfo) {
+    this.logger.info("selectList:", list);
+    this.notification.content.listId = list.id;
   }
 
   handleNotificationError(errorResponse) {
@@ -741,11 +659,8 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
 
   async createThenEditOrSendEmailCampaign(bodyContent: string, campaignName: string, createAsDraft: boolean) {
     this.notify.progress(createAsDraft ? (`Preparing to complete ${campaignName} in ${this.stringUtils.asTitle(this.systemConfig?.mailDefaults?.mailProvider)}`) : ("Sending " + campaignName));
-    const lists: KeyValue<number>[] = this.mailListUpdaterService.mapToKeyValues(this.mailMessagingConfig.mailConfig.lists);
-    const roles: string[] = this.stringUtils.arrayFromDelimitedData(this.notification.content.signoffAs.value);
-    this.logger.info("roles", roles);
-    const role = roles[0];
-    const senderEmail = this.display.committeeReferenceData.contactUsField(role, "email");
+    const signoffRoles: string[] =  this.stringUtils.arrayFromDelimitedData(this.notification.content.signoffAs.value)
+    this.logger.info("roles", signoffRoles);
     const member: Member = await this.memberService.getById(this.memberLoginService.loggedInMember().memberId);
     const createCampaignRequest: CreateCampaignRequest = {
       createAsDraft,
@@ -754,19 +669,19 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
       inlineImageActivation: false,
       mirrorActive: false,
       name: campaignName,
-      params: this.mailMessagingService.createSendSmtpEmailParams(roles, this.notificationDirective, member, this.notification.content.notificationConfig, bodyContent, this.notification?.content.signoffAs.include, this.notification.content.title.value, this.notification.content.addresseeType),
-      recipients: {listIds: lists.map(list => list.value)},
-      replyTo: senderEmail,
+      params: this.mailMessagingService.createSendSmtpEmailParams(signoffRoles, this.notificationDirective, member, this.notification.content.notificationConfig, bodyContent, this.notification?.content.signoffAs.include, this.notification.content.title.value, this.notification.content.addresseeType),
+      recipients: {listIds: [this.notification.content.listId]},
+      replyTo: this.display.committeeReferenceData.contactUsField(this.notification.content.notificationConfig.replyToRole, "email"),
       sender: {
-        email: senderEmail,
-        name: this.display.committeeReferenceData.contactUsField(role, "fullName")
+        email: this.display.committeeReferenceData.contactUsField(this.notification.content.notificationConfig.senderRole, "email"),
+        name: this.display.committeeReferenceData.contactUsField(this.notification.content.notificationConfig.senderRole, "fullName")
       },
       subject: campaignName
     };
     this.logger.info("sendEmailCampaign:notification:", this.notification);
     this.logger.info("sendEmailCampaign:createCampaignRequest:", createCampaignRequest);
-    if (lists.length > 0) {
-      this.logger.info("about to replicateAndSendWithOptions to lists", lists, "with campaignName:", campaignName, "createAsDraft:", createAsDraft);
+    if (this.notification.content?.listId > 0) {
+      this.logger.info("about to send email campaign to list:", this.selectedList(), "with campaignName:", campaignName, "createAsDraft:", createAsDraft);
       const createCampaignResponse: StatusMappedResponseSingleInput = await this.mailService.createCampaign(createCampaignRequest);
       const campaignId: number = createCampaignResponse?.responseBody?.id;
       this.logger.info("sendEmailCampaign:createCampaignResponse:", createCampaignResponse, "createAsDraft:", createAsDraft, "campaignId:", campaignId);
@@ -896,16 +811,20 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     this.logger.info("rolesChangeEvent:", rolesChangeEvent, "this.notification.content.signoffAs.value:", this.notification.content.signoffAs.value);
   }
 
-  private subscribedToCampaigns(member: Member): boolean {
-    return this.mailListUpdaterService.memberSubscribed(member);
-  }
-
-  private subscribedToSocial(member: Member) {
-    return member.socialMember && this.mailListUpdaterService.memberSubscribed(member);
-  }
-
   emailConfigChanged(notificationConfig: NotificationConfig) {
-    this.notification.content.notificationConfig = notificationConfig;
-    this.notification.content.title.value = notificationConfig.subject.text;
+    if (notificationConfig) {
+      this.notification.content.notificationConfig = notificationConfig;
+      this.notification.content.title.value = notificationConfig.subject.text;
+    }
+  }
+
+  selectionDisabled(list: ListInfo): boolean {
+    const disabled = this.subscribedToEmailsForList(list).length === 0;
+    this.logger.debug("list selection disabled for", list.name, disabled);
+    return disabled;
+  }
+
+  listNameAndMemberCount(list: ListInfo) {
+    return `${list.name} (${this.stringUtils.pluraliseWithCount(this.subscribedToEmailsForList(list)?.length || 0, "member")})`;
   }
 }

@@ -49,7 +49,7 @@ export class MailchimpListService {
               private commonDataService: CommonDataService,
               private memberService: MemberService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MailchimpListService, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("MailchimpListService", NgxLoggerLevel.OFF);
   }
 
   async addSegment(listType: string, segmentName: string): Promise<MailchimpListSegmentAddResponse> {
@@ -199,13 +199,15 @@ export class MailchimpListService {
     const validIds: number = hasMailSubscription.map((member: Member) => this.existingMemberSubscription(member, listType)).filter((subscription) => subscription?.unique_email_id)?.length;
     const invalidIds: number = hasMailSubscription.length - validIds - pendingIds;
     const hasNoMailSubscription = groupMembers.length - hasMailSubscription.length;
-    return {
+    const stats = {
       hasMailSubscription: hasMailSubscription.length,
       pendingIds,
       validIds,
       invalidIds,
       hasNoMailSubscription
     };
+    this.logger.info("mailProviderStats", listType, "stats:", stats);
+    return stats;
   }
 
   private queryOrCreateSubscriptionFor(member: Member, listType: string, subscribed: boolean): MailchimpSubscription {

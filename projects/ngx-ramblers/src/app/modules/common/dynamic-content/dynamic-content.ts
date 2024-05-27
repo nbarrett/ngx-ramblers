@@ -77,7 +77,7 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
     this.logger = loggerFactory.createLogger("DynamicContentComponent", NgxLoggerLevel.OFF);
   }
 
-  ngOnInit() {
+  async ngOnInit() {
     this.notify = this.notifier || this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       if (this.areaAsContentPath) {

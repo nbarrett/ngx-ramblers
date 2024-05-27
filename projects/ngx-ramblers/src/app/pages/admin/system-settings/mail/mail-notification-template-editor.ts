@@ -1,6 +1,6 @@
 import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import {
-  MailMessagingConfig,
+  MailMessagingConfig, MailSettingsTab,
   MemberSelection,
   NotificationConfig,
   SendSmtpEmailParams,
@@ -17,7 +17,7 @@ import { extractParametersFrom } from "../../../../common/mail-parameters";
 import { enumKeyValues, KEY_NULL_VALUE_NONE, KeyValue } from "../../../../services/enums";
 import last from "lodash-es/last";
 import { Subscription } from "rxjs";
-import { faAdd, faBackward, faCopy, faEraser, faForward, faMailBulk } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faBackward, faCopy, faEraser, faForward } from "@fortawesome/free-solid-svg-icons";
 import cloneDeep from "lodash-es/cloneDeep";
 import first from "lodash-es/first";
 
@@ -31,6 +31,7 @@ import first from "lodash-es/first";
             {{ mailMessagingConfig.notificationConfigs.indexOf(notificationConfig) + 1 }}
             of {{ mailMessagingConfig.notificationConfigs.length }}: </label>
           <select [(ngModel)]="notificationConfig"
+                  (ngModelChange)="select(notificationConfig)"
                   id="template-mapping"
                   class="ml-2 form-control input-sm">
             <option *ngFor="let mapping of mailMessagingConfig.notificationConfigs"
@@ -39,12 +40,9 @@ import first from "lodash-es/first";
           </select>
         </div>
       </div>
-      <div class="row">
-        <div class="col-sm-12 mt-2 mb-2">
-          <app-markdown-editor category="admin" name="mail-settings-email-configurations-help"
-                               description="Mail Settings Email Configuration Help"
-                               text="* Once Brevo has been initialised and connected to your website, little if anything ever needs to be done on this tab again.\n* In this section, are settings such as the URL to the Brevo system, that you might have to visit if you want to edit email templates, along with configuration checkboxes that turn on/off the ability to send emails, and the API key which is used by the website to authenticate to Brevo when messages are sent and received."></app-markdown-editor>
-        </div>
+      <div class="col-sm-12 mt-2 mb-2">
+        <app-markdown-editor category="admin" name="mail-settings-email-configurations-help"
+                             description="Mail Settings Email Configuration Help"></app-markdown-editor>
       </div>
       <div class="col-sm-12">
         <div class="row">
@@ -67,7 +65,7 @@ import first from "lodash-es/first";
           </div>
         </div>
       </div>
-      <ng-container *ngIf="notificationConfig">
+      <div *ngIf="notificationConfig">
         <div class="row img-thumbnail thumbnail-2">
           <div class="thumbnail-heading">Notification Settings</div>
           <div *ngIf="notificationConfig?.subject" class="col-sm-12">
@@ -135,7 +133,7 @@ import first from "lodash-es/first";
                 <select [(ngModel)]="notificationConfig.templateId"
                         id="template"
                         class="form-control input-sm">
-                  <option *ngFor="let template of mailMessagingConfig?.mailTemplates?.templates"
+                  <option *ngFor="let template of mailMessagingConfig?.brevo?.mailTemplates?.templates"
                           [ngValue]="template.id">{{ template.name }}
                   </option>
                 </select>
@@ -154,63 +152,79 @@ import first from "lodash-es/first";
           <div class="row"
                *ngIf="mailMessagingService.workflowIdsFor(mailMessagingConfig.mailConfig)?.includes(notificationConfig.id)">
             <div class="col-sm-12">
-              <div class="form-group d-flex">
-                <label class="flex-grow-1">Member Selection: Selected automatically by built-in workflow</label>
+              <div class="form-group">
+                <label>Member Selected automatically via built-in workflow on <a (click)="tabSelected.emit(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS)">{{ MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS }}</a> tab</label>
               </div>
             </div>
           </div>
-          <div class="row"
-               *ngIf="!mailMessagingService.workflowIdsFor(mailMessagingConfig.mailConfig)?.includes(notificationConfig.id)">
-            <div class="col-sm-6">
-              <div class="form-group">
-                <label for="member-selection">Member Selection</label>
-                <select class="form-control input-sm"
-                        [(ngModel)]="notificationConfig.defaultMemberSelection"
-                        id="member-selection">
-                  <option *ngFor="let type of memberSelections"
-                          [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
-                  </option>
-                </select>
+          <ng-container
+            *ngIf="!mailMessagingService.workflowIdsFor(mailMessagingConfig.mailConfig)?.includes(notificationConfig.id)">
+            <div class="row">
+              <div class="col-sm-6">
+                <div class="form-group">
+                  <label for="member-selection">Member Selection</label>
+                  <select class="form-control input-sm"
+                          [(ngModel)]="notificationConfig.defaultMemberSelection"
+                          id="member-selection">
+                    <option *ngFor="let type of memberSelections"
+                            [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <div *ngIf="notificationConfig.defaultMemberSelection!==MemberSelection.MAILING_LIST"
+                     class="form-group">
+                  <label for="campaign-months-in-past-filter">Months In Past</label>
+                  <input [(ngModel)]="notificationConfig.monthsInPast"
+                         type="number" id="campaign-months-in-past-filter"
+                         class="form-control input-sm">
+                </div>
+                <div *ngIf="notificationConfig.defaultMemberSelection===MemberSelection.MAILING_LIST"
+                     class="form-group">
+                  <label for="default-list">
+                    Default List</label>
+                  <select [compareWith]="arrayComparer" class="form-control input-sm"
+                          [(ngModel)]="notificationConfig.defaultListId"
+                          id="default-list">
+                    <option *ngFor="let list of mailMessagingConfig.brevo.lists.lists"
+                            [ngValue]="list.id">{{ list.name }}
+                    </option>
+                  </select>
+                </div>
               </div>
             </div>
-            <div class="col-sm-6">
-              <div class="form-group">
-                <label for="campaign-months-in-past-filter">Months In Past</label>
-                <input [disabled]="notificationConfig.defaultMemberSelection ===MemberSelection.MAILING_LIST"
-                       [(ngModel)]="notificationConfig.monthsInPast"
-                       type="number" id="campaign-months-in-past-filter"
-                       class="form-control input-sm">
+            <div class="row" *ngIf="notificationConfig.defaultMemberSelection!==MemberSelection.MAILING_LIST">
+              <div class="col-sm-6">
+                <div class="form-group">
+                  <label for="member-selection">
+                    Pre-Send Action</label>
+                  <select [compareWith]="arrayComparer" class="form-control input-sm"
+                          [(ngModel)]="notificationConfig.preSendActions"
+                          id="member-selection">
+                    <option *ngFor="let type of workflowActions"
+                            [ngValue]="keyValueAsArray(type)">{{ stringUtils.asTitle(type.value) }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <div class="form-group">
+                  <label for="member-selection">
+                    Post-Send Action</label>
+                  <select [compareWith]="arrayComparer" class="form-control input-sm"
+                          [(ngModel)]="notificationConfig.postSendActions"
+                          id="member-selection">
+                    <option *ngFor="let type of workflowActions"
+                            [ngValue]="keyValueAsArray(type)">{{ stringUtils.asTitle(type.value) }}
+                    </option>
+                  </select>
+                </div>
               </div>
             </div>
-            <div class="col-sm-6">
-              <div class="form-group">
-                <label for="member-selection">
-                  Pre-Send Action</label>
-                <select [disabled]="notificationConfig.defaultMemberSelection ===MemberSelection.MAILING_LIST"
-                        [compareWith]="arrayComparer" class="form-control input-sm"
-                        [(ngModel)]="notificationConfig.preSendActions"
-                        id="member-selection">
-                  <option *ngFor="let type of workflowActions"
-                          [ngValue]="keyValueAsArray(type)">{{ stringUtils.asTitle(type.value) }}
-                  </option>
-                </select>
-              </div>
-            </div>
-            <div class="col-sm-6">
-              <div class="form-group">
-                <label for="member-selection">
-                  Post-Send Action</label>
-                <select [disabled]="notificationConfig.defaultMemberSelection ===MemberSelection.MAILING_LIST"
-                        [compareWith]="arrayComparer" class="form-control input-sm"
-                        [(ngModel)]="notificationConfig.postSendActions"
-                        id="member-selection">
-                  <option *ngFor="let type of workflowActions"
-                          [ngValue]="keyValueAsArray(type)">{{ stringUtils.asTitle(type.value) }}
-                  </option>
-                </select>
-              </div>
-            </div>
-            <div *ngIf="notificationConfig?.contentPreset" class="col-sm-12">
+          </ng-container>
+          <div class="row" *ngIf="notificationConfig?.contentPreset">
+            <div class="col-sm-12">
               <div class="form-group">
                 <app-forgot-password-notification-details [params]="params"
                                                           [notificationConfig]="notificationConfig"/>
@@ -218,7 +232,7 @@ import first from "lodash-es/first";
             </div>
           </div>
         </div>
-      </ng-container>
+      </div>
     </div>
   `,
 })
@@ -238,6 +252,7 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   private loggerFactory: LoggerFactory = inject(LoggerFactory);
   private subscriptions: Subscription[] = [];
   @Output() configDeleted: EventEmitter<string> = new EventEmitter();
+  @Output() tabSelected: EventEmitter<MailSettingsTab> = new EventEmitter();
   private logger: Logger = this.loggerFactory.createLogger("MailNotificationTemplateMappingComponent", NgxLoggerLevel.OFF);
   public stringUtils: StringUtilsService = inject(StringUtilsService);
   public  mailLinkService: MailLinkService = inject(MailLinkService);
@@ -256,6 +271,8 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   protected readonly faBackward = faBackward;
 
   protected readonly MemberSelection = MemberSelection;
+
+  protected readonly MailSettingsTab = MailSettingsTab;
 
   async ngOnInit() {
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
@@ -356,14 +373,19 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
 
   nextConfig() {
     if (!this.nextConfigDisabled()) {
-      this.notificationConfig = this.mailMessagingConfig.notificationConfigs[this.mailMessagingConfig.notificationConfigs.indexOf(this.notificationConfig) + 1];
+      this.select(this.mailMessagingConfig.notificationConfigs[this.mailMessagingConfig.notificationConfigs.indexOf(this.notificationConfig) + 1]);
     }
   }
 
   previousConfig() {
     if (!this.previousConfigDisabled()) {
-      this.notificationConfig = this.mailMessagingConfig.notificationConfigs[this.mailMessagingConfig.notificationConfigs.indexOf(this.notificationConfig) - 1];
+      this.select(this.mailMessagingConfig.notificationConfigs[this.mailMessagingConfig.notificationConfigs.indexOf(this.notificationConfig) - 1]);
     }
+  }
+
+  public select(notificationConfig: NotificationConfig) {
+    this.notificationConfig = notificationConfig;
+    this.mailMessagingService.initialiseSubject(this.notificationConfig);
   }
 
   nextConfigDisabled() {
@@ -373,4 +395,5 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   previousConfigDisabled() {
     return this.mailMessagingConfig.notificationConfigs.indexOf(this.notificationConfig) === 0;
   }
+
 }

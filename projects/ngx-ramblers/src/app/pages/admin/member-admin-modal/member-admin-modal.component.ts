@@ -1,4 +1,4 @@
-import { Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { Component, OnDestroy, OnInit } from "@angular/core";
 import { faPaste } from "@fortawesome/free-solid-svg-icons";
 import omit from "lodash-es/omit";
 import { BsModalRef } from "ngx-bootstrap/modal";
@@ -14,7 +14,6 @@ import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe"
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { DbUtilsService } from "../../../services/db-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { MailchimpListService } from "../../../services/mailchimp/mailchimp-list.service";
 import { MemberAuthAuditService } from "../../../services/member/member-auth-audit.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberNamingService } from "../../../services/member/member-naming.service";
@@ -25,10 +24,11 @@ import { ProfileConfirmationService } from "../../../services/profile-confirmati
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
-import { MailConfig, MailListAudit, MailMessagingConfig } from "../../../models/mail.model";
+import { MailListAudit, MailMessagingConfig } from "../../../models/mail.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { MailListAuditService } from "../../../services/mail/mail-list-audit.service";
+import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
 
 @Component({
   selector: "app-member-admin-modal",
@@ -36,7 +36,6 @@ import { MailListAuditService } from "../../../services/mail/mail-list-audit.ser
   styleUrls: ["./member-admin-modal.component.sass"]
 })
 export class MemberAdminModalComponent implements OnInit, OnDestroy {
-
 
   constructor(public systemConfigService: SystemConfigService,
               private notifierService: NotifierService,
@@ -50,7 +49,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
               private mailListAuditService: MailListAuditService,
               private broadcastService: BroadcastService<MailListAudit>,
               private profileConfirmationService: ProfileConfirmationService,
-              private mailchimpListService: MailchimpListService,
+              private memberDefaultsService: MemberDefaultsService,
               private mailMessagingService: MailMessagingService,
               private dbUtils: DbUtilsService,
               protected dateUtils: DateUtilsService,
@@ -60,7 +59,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   }
 
   public systemConfig: SystemConfig;
-  public mailConfig: MailConfig;
+  public mailMessagingConfig: MailMessagingConfig;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public lastLoggedIn: number;
@@ -90,9 +89,9 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
         this.logger.info("received SystemConfig event:", systemConfig);
       }));
     this.subscriptions.push(this.mailMessagingService.events()
-      .subscribe((config: MailMessagingConfig) => {
-        this.mailConfig = config.mailConfig;
-        this.logger.info("retrieved MailMessagingConfig event:", config.mailConfig);
+      .subscribe((mailMessagingConfig: MailMessagingConfig) => {
+        this.mailMessagingConfig = mailMessagingConfig;
+        this.logger.info("retrieved MailMessagingConfig event:", mailMessagingConfig.mailConfig);
       }));
     this.subscriptions.push(
       this.broadcastService.on(NamedEventType.MAIL_SUBSCRIPTION_CHANGED, (namedEvent: NamedEvent<MailListAudit>) => {
@@ -142,10 +141,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.subscriptions.forEach(subscription => {
-      this.logger.info("unsubscribing", subscription);
-      subscription.unsubscribe();
-    });
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   deleteMemberDetails() {
@@ -226,15 +222,9 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   }
 
   preProcessMemberBeforeSave() {
-    switch (this.systemConfig.mailDefaults.mailProvider) {
-      case MailProvider.BREVO:
-        break;
-      case MailProvider.MAILCHIMP:
-        return this.mailchimpListService.resetUpdateStatusForMember(this.member);
-      case MailProvider.NONE:
-        break;
-    }
+    return this.memberDefaultsService.resetUpdateStatusForMember(this.member, this.systemConfig);
   }
+
   copyDetailsToNewMember() {
     const mailProviderFields = this.systemConfig.mailDefaults.mailProvider === MailProvider.BREVO ? ["mail"] : ["mailchimpLists", "mailchimpSegmentIds"];
     const copiedMember = omit(this.member, mailProviderFields.concat(["id",
@@ -248,13 +238,12 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
       "receivedInLastBulkLoad",
       "updatedBy",
       "updatedDate"])) as Member;
-    this.mailchimpListService.defaultMailchimpSettings(copiedMember, true);
+    this.memberDefaultsService.applyDefaultMailSettingsToMember(copiedMember, this.systemConfig, this.mailMessagingConfig);
     this.profileConfirmationService.unconfirmProfile(copiedMember);
     this.member = copiedMember;
     this.editMode = EditMode.COPY_EXISTING;
     this.notify.success("Existing Member copied! Make changes here and save to create new member.");
   }
-
 
   defaultAssembleName() {
     this.member.contactId = this.fullNameWithAliasPipe.transform(this.member);

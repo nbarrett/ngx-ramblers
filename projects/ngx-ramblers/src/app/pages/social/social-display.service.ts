@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import cloneDeep from "lodash-es/cloneDeep";
 import isEmpty from "lodash-es/isEmpty";
-import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
+import { ModalOptions } from "ngx-bootstrap/modal";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AuthService } from "../../auth/auth.service";
@@ -12,13 +12,10 @@ import { SocialEvent, SocialEventsPermissions } from "../../models/social-events
 import { Confirm } from "../../models/ui-actions";
 import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
 import { MemberIdToFullNamePipe } from "../../pipes/member-id-to-full-name.pipe";
-import { ValueOrDefaultPipe } from "../../pipes/value-or-default.pipe";
 import { sortBy } from "../../services/arrays";
-import { ClipboardService } from "../../services/clipboard.service";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
 import { ContentMetadataService } from "../../services/content-metadata.service";
-import { DateUtilsService } from "../../services/date-utils.service";
 import { enumValues, KeyValue } from "../../services/enums";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
@@ -44,14 +41,10 @@ export class SocialDisplayService {
     private authService: AuthService,
     private memberService: MemberService,
     private siteEditService: SiteEditService,
-    private modalService: BsModalService,
     private memberLoginService: MemberLoginService,
     private urlService: UrlService,
-    private valueOrDefault: ValueOrDefaultPipe,
     private fullNameWithAlias: FullNameWithAliasPipe,
     private memberIdToFullNamePipe: MemberIdToFullNamePipe,
-    private dateUtils: DateUtilsService,
-    private clipboardService: ClipboardService,
     private committeeConfigService: CommitteeConfigService,
     private contentMetadataService: ContentMetadataService,
     loggerFactory: LoggerFactory) {
@@ -172,35 +165,17 @@ export class SocialDisplayService {
   }
 
   toMemberFilterSelection(member: Member): MemberFilterSelection {
-    let memberGrouping;
-    let order: number;
-    let disabled = true;
-    if (member.socialMember && member.mailchimpLists.socialEvents.subscribed) {
-      memberGrouping = "Subscribed to social emails";
-      order = 0;
-      disabled = false;
-    } else if (member.socialMember && !member.mailchimpLists.socialEvents.subscribed) {
-      memberGrouping = "Not subscribed to social emails";
-      order = 1;
-    } else if (!member.socialMember) {
-      memberGrouping = "Not a social member";
-      order = 2;
-    } else {
-      memberGrouping = "Unexpected state";
-      order = 3;
-    }
     return {
       id: member.id,
+      order: 0,
+      memberGrouping: `Social Member`,
       member,
-      order,
-      memberGrouping,
-      disabled,
-      text: this.fullNameWithAlias.transform(member)
+      memberInformation: this.fullNameWithAlias.transform(member)
     };
   }
 
   refreshSocialMemberFilterSelection(): Promise<MemberFilterSelection[]> {
-    return this.memberService.publicFields(this.memberService.filterFor.SOCIAL_MEMBERS_SUBSCRIBED).then(members => {
+    return this.memberService.publicFields(this.memberService.filterFor.SOCIAL_MEMBERS).then(members => {
       this.logger.debug("refreshMembers -> populated ->", members.length, "members");
       return members.map((member => this.toMemberFilterSelection(member)))
         .sort(SORT_BY_NAME);

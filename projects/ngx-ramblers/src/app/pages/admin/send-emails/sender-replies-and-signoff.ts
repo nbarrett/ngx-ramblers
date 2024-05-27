@@ -17,75 +17,77 @@ import { StringUtilsService } from "../../../services/string-utils.service";
   selector: " app-sender-replies-and-sign-off",
   template: `
     <div class="row">
-      <div class="col-sm-12">
-        <div class="form-group">
-          <label for="sender">Sender</label>
-          <select [(ngModel)]="notificationConfig.senderRole" (ngModelChange)="senderRoleChanged()"
-                  id="sender"
-                  class="form-control input-sm">
-            <option *ngFor="let role of mailMessagingConfig.committeeReferenceData.committeeMembers()"
-                    [ngValue]="role.type">{{ role.nameAndDescription }}
-            </option>
-          </select>
+      <ng-container *ngIf="notificationConfig">
+        <div *ngIf="senderDoesNotExist()" class="col-sm-12">
+          <div class="d-flex align-items-start">
+            <alert type="warning" class="flex-grow-1">
+              <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
+              <strong class="ml-2">Sender Not Yet Created</strong>
+              <span class="ml-2">- Click button to add {{ senderCommitteeMember?.fullName }} to Brevo as a sender. <a
+                target="_blank" href="https://app.brevo.com/senders/list">See existing Senders</a></span>
+            </alert>
+            <app-brevo-button class="ml-2 mt-1" button (click)="createSender()"
+                              title="Create Sender"></app-brevo-button>
+          </div>
+          <div *ngIf="error" class="d-flex align-items-start">
+            <alert type="danger" class="flex-grow-1">
+              <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
+              <strong class="ml-2">Error</strong>
+              <span class="ml-2">{{ stringUtilsService.stringify(error) }}</span>
+            </alert>
+          </div>
         </div>
-      </div>
-      <div *ngIf="senderDoesNotExist()" class="col-sm-12">
-        <div class="d-flex align-items-start">
-          <alert type="warning" class="flex-grow-1">
-            <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
-            <strong class="ml-2">Sender Not Yet Created</strong>
-            <span class="ml-2">- Click button to add {{ senderCommitteeMember?.fullName }} to Brevo as a sender. <a
-              target="_blank" href="https://app.brevo.com/senders/list">See existing Senders</a></span>
-          </alert>
-          <app-brevo-button class="ml-2 mt-1" button (click)="createSender()"
-                            title="Create Sender"></app-brevo-button>
+        <div *ngIf="this.createSenderResponse?.id" class="col-sm-12">
+          <div class="d-flex align-items-start">
+            <alert type="success" class="flex-grow-1">
+              <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
+              <strong class="ml-2">New Sender Created</strong>
+              <span class="ml-2">- {{ senderCommitteeMember?.fullName }} was added to Brevo as a sender. <a
+                target="_blank" href="https://app.brevo.com/senders/list">See existing Senders</a></span>
+            </alert>
+          </div>
         </div>
-        <div *ngIf="error" class="d-flex align-items-start">
-          <alert type="danger" class="flex-grow-1">
-            <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
-            <strong class="ml-2">Error</strong>
-            <span class="ml-2">{{ stringUtilsService.stringify(error) }}</span>
-          </alert>
+        <div class="col-sm-6">
+          <div class="form-group">
+            <label for="sender">Sender</label>
+            <select [(ngModel)]="notificationConfig.senderRole" (ngModelChange)="senderRoleChanged()"
+                    id="sender"
+                    class="form-control input-sm">
+              <option *ngFor="let role of mailMessagingConfig.committeeReferenceData.committeeMembers()"
+                      [ngValue]="role.type">{{ role.nameAndDescription }}
+              </option>
+            </select>
+          </div>
         </div>
-      </div>
-      <div *ngIf="this.createSenderResponse?.id" class="col-sm-12">
-        <div class="d-flex align-items-start">
-          <alert type="success" class="flex-grow-1">
-            <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
-            <strong class="ml-2">New Sender Created</strong>
-            <span class="ml-2">- {{ senderCommitteeMember?.fullName }} was added to Brevo as a sender. <a
-              target="_blank" href="https://app.brevo.com/senders/list">See existing Senders</a></span>
-          </alert>
+        <div *ngIf="!omitCC" class="col-sm-6">
+          <div class="form-group">
+            <app-committee-role-multi-select [showRoleSelectionAs]="'description'"
+                                             [label]="'CC Roles'"
+                                             [roles]="notificationConfig.ccRoles"
+                                             (rolesChange)="this.notificationConfig.ccRoles = $event.roles;"/>
+          </div>
         </div>
-      </div>
-      <div class="col-sm-12">
-        <div class="form-group">
-          <label for="reply-to">Reply To</label>
-          <select [(ngModel)]="notificationConfig.replyToRole"
-                  id="reply-to"
-                  class="form-control input-sm">
-            <option *ngFor="let role of mailMessagingConfig.committeeReferenceData.committeeMembers()"
-                    [ngValue]="role.type">{{ role.nameAndDescription }}
-            </option>
-          </select>
+        <div class="col-sm-6">
+          <div class="form-group">
+            <label for="reply-to">Reply To</label>
+            <select *ngIf="notificationConfig" [(ngModel)]="notificationConfig.replyToRole"
+                    id="reply-to"
+                    class="form-control input-sm">
+              <option *ngFor="let role of mailMessagingConfig.committeeReferenceData.committeeMembers()"
+                      [ngValue]="role.type">{{ role.nameAndDescription }}
+              </option>
+            </select>
+          </div>
         </div>
-      </div>
-      <div *ngIf="!omitCC" class="col-sm-12">
-        <div class="form-group">
-          <app-committee-role-multi-select [showRoleSelectionAs]="'description'"
-                                           [label]="'CC Roles'"
-                                           [roles]="notificationConfig.ccRoles"
-                                           (rolesChange)="this.notificationConfig.ccRoles = $event.roles;"/>
+        <div *ngIf="!omitSignOff" class="col-sm-6">
+          <div class="form-group">
+            <app-committee-role-multi-select [showRoleSelectionAs]="'description'"
+                                             [label]="'Sign Off Email With Roles'"
+                                             [roles]="notificationConfig.signOffRoles"
+                                             (rolesChange)="this.notificationConfig.signOffRoles = $event.roles;"/>
+          </div>
         </div>
-      </div>
-      <div *ngIf="!omitSignOff" class="col-sm-12">
-        <div class="form-group">
-          <app-committee-role-multi-select [showRoleSelectionAs]="'description'"
-                                           [label]="'Sign Off Email With Roles'"
-                                           [roles]="notificationConfig.signOffRoles"
-                                           (rolesChange)="this.notificationConfig.signOffRoles = $event.roles;"/>
-        </div>
-      </div>
+      </ng-container>
     </div>`
 })
 
@@ -124,7 +126,9 @@ export class SenderRepliesAndSignoffComponent implements OnInit {
   async ngOnInit() {
     await this.refreshSenders();
     this.logger.info("constructed notificationConfig", this.notificationConfig, "mailMessagingConfig:", this.mailMessagingConfig, "sendersResponse:", this.sendersResponse);
-    this.senderRoleChanged();
+    if (this.notificationConfig) {
+      this.senderRoleChanged();
+    }
   }
 
   private async refreshSenders() {

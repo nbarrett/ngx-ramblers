@@ -3,9 +3,11 @@ import { Member } from "../../models/member.model";
 import { MailchimpListService } from "../mailchimp/mailchimp-list.service";
 import { MailListUpdaterService } from "../mail/mail-list-updater.service";
 import { MailProvider, SystemConfig } from "../../models/system.model";
-import { MailMessagingConfig } from "../../models/mail.model";
+import { MailMessagingConfig, NotificationConfig } from "../../models/mail.model";
 import { MailchimpListUpdaterService } from "../mailchimp/mailchimp-list-updater.service";
 import { AlertInstance } from "../notifier.service";
+import { LoggerFactory } from "../logger-factory.service";
+import { NgxLoggerLevel } from "ngx-logger";
 
 @Injectable({
   providedIn: "root"
@@ -15,6 +17,8 @@ export class MemberDefaultsService {
   private mailchimpListUpdaterService: MailchimpListUpdaterService = inject(MailchimpListUpdaterService);
   private mailchimpListService: MailchimpListService = inject(MailchimpListService);
   private mailListUpdaterService: MailListUpdaterService = inject(MailListUpdaterService);
+  loggerFactory: LoggerFactory = inject(LoggerFactory);
+  private logger = this.loggerFactory.createLogger("MemberDefaultsService", NgxLoggerLevel.OFF);
 
   public resetUpdateStatusForMember = (member: Member, systemConfig: SystemConfig) => {
     switch (systemConfig?.mailDefaults?.mailProvider) {
@@ -30,7 +34,10 @@ export class MemberDefaultsService {
 
   updateBrevoLists(notify: AlertInstance, members: Member[]) {
     return this.mailListUpdaterService.updateMailLists(notify, members)
-      .catch(error => notify.error({title: "Error updating Brevo lists", message: error}));
+      .catch(error => {
+        this.logger.info("Error updating Brevo lists", error)
+        notify.error({title: "Error updating Brevo lists", message: error});
+      });
   }
 
   public updateLists(systemConfig: SystemConfig, notify: AlertInstance, members: Member[]): Promise<any> {
@@ -44,10 +51,10 @@ export class MemberDefaultsService {
     }
   }
 
-  public subscribedToEmails(member: Member, systemConfig: SystemConfig): boolean {
+  public subscribedToEmails(member: Member, systemConfig: SystemConfig, listId: number): boolean {
     switch (systemConfig?.mailDefaults?.mailProvider) {
       case MailProvider.BREVO:
-        return this.mailListUpdaterService.memberSubscribed(member);
+        return this.mailListUpdaterService.memberSubscribed(member, listId);
       case MailProvider.MAILCHIMP:
         return this.mailchimpListService.memberSubscribedToAnyList(member);
       default:
@@ -61,7 +68,7 @@ export class MemberDefaultsService {
       case MailProvider.NONE:
         return member;
       case MailProvider.BREVO:
-        this.mailListUpdaterService.initialiseMailSubscriptionsFromListIds(member, mailMessagingConfig.mailConfig.lists, systemConfig.mailDefaults.autoSubscribeNewMembers);
+        this.mailListUpdaterService.initialiseMailSubscriptionsFromListIds(member, mailMessagingConfig);
         return member;
       case MailProvider.MAILCHIMP:
         this.mailchimpListService.defaultMailchimpSettings(member, systemConfig.mailDefaults.autoSubscribeNewMembers);

@@ -7,7 +7,9 @@ import {
   BuiltInProcessMappings,
   CreateSendSmtpEmailRequest,
   DEFAULT_MAIL_MESSAGING_CONFIG,
-  EmailAddress, MailConfig,
+  EmailAddress,
+  ListSetting,
+  MailConfig,
   MailMessagingConfig,
   MailTemplates,
   MemberMergeFields,
@@ -69,14 +71,14 @@ export class MailMessagingService {
     this.initialise();
   }
 
-  initialise(): void {
+  async initialise(): Promise<void> {
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
       message: {
         title: "Mail Settings",
         message: "Getting Mail Settings"
       }, type: AlertLevel.ALERT_SUCCESS
     }));
-    this.logger.off("initialising data:");
+    this.logger.info("initialising data:");
     this.committeeConfig.events().subscribe(data => {
       this.mailMessagingConfig.committeeReferenceData = data;
       this.emitConfigWhenReadyGiven("committeeConfig");
@@ -85,30 +87,36 @@ export class MailMessagingService {
       this.mailMessagingConfig.group = item.group;
       this.emitConfigWhenReadyGiven("systemConfigService:group");
     });
-    this.mailConfigService.queryConfig().then(config => {
-      this.logger.off("config:", config);
-      this.mailMessagingConfig.mailConfig = config;
-      if (!config.allowSendTransactional) {
-        this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
-          message: {
-            title: "Mail Integration not enabled",
-            message: "List and template dropdowns will not be populated"
-          }, type: AlertLevel.ALERT_WARNING
-        }));
-      }
-      this.emitConfigWhenReadyGiven("mailConfigService");
-    });
+    this.mailMessagingConfig.mailConfig = await this.mailConfigService.queryConfig();
+    this.mailMessagingConfig.brevo.account = await this.mailService.queryAccount();
+    await this.configureBrevoLists();
+    this.mailMessagingConfig.brevo.folders = await this.mailService.queryFolders();
+    this.logger.info("config:", this.mailMessagingConfig.mailConfig);
+    if (!this.mailMessagingConfig.mailConfig.allowSendTransactional) {
+      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
+        message: {
+          title: "Mail Integration not enabled",
+          message: "List and template dropdowns will not be populated"
+        }, type: AlertLevel.ALERT_WARNING
+      }));
+    }
+    this.emitConfigWhenReadyGiven("mailConfigService");
     this.bannerConfigService.all().then((banners) => {
-      this.logger.off("retrieved banners:", banners);
+      this.logger.info("retrieved banners:", banners);
       this.mailMessagingConfig.banners = banners.filter(item => item.fileNameData).sort(sortBy("name"));
       this.emitConfigWhenReadyGiven("banners");
     });
     this.notificationConfigService.all().then((notificationConfigs) => {
-      this.logger.off("retrieved notificationConfigs:", notificationConfigs);
+      this.logger.info("retrieved notificationConfigs:", notificationConfigs);
       this.mailMessagingConfig.notificationConfigs = notificationConfigs.sort(sortBy("subject.text"));
       this.emitConfigWhenReadyGiven("notificationConfigs");
     });
     this.refreshTemplates();
+  }
+
+  private async configureBrevoLists() {
+    const lists = await this.mailService.queryLists();
+    return this.mailMessagingConfig.brevo.lists = {count: lists.count, lists: lists.lists.sort(sortBy("id"))};
   }
 
   notificationConfigs(configListing: NotificationConfigListing): NotificationConfig[] {
@@ -118,7 +126,7 @@ export class MailMessagingService {
       .filter(item => (configListing.includeWorkflowRelatedConfigs || !workflowIds.includes(item.id)))
       .filter(item => !configListing.includeMemberSelections || configListing.includeMemberSelections.length === 0 || configListing.includeMemberSelections.includes(item.defaultMemberSelection))
       .filter(item => !configListing.excludeMemberSelections || configListing.excludeMemberSelections.length === 0 || !configListing.excludeMemberSelections.includes(item.defaultMemberSelection));
-    this.logger.off("workflowIds:", workflowIds, "mailConfig:", mailConfig, "includeWorkflowRelatedConfigs:", configListing.includeWorkflowRelatedConfigs, "-> notificationConfigs:", notificationConfigs,);
+    this.logger.info("workflowIds:", workflowIds, "mailConfig:", mailConfig, "includeWorkflowRelatedConfigs:", configListing.includeWorkflowRelatedConfigs, "-> notificationConfigs:", notificationConfigs,);
     return notificationConfigs;
   }
 
@@ -127,8 +135,17 @@ export class MailMessagingService {
   }
 
   private emitConfigWhenReadyGiven(reason: string) {
-    if (this.mailMessagingConfig.mailTemplates && this.mailMessagingConfig.committeeReferenceData && this.mailMessagingConfig.group && this.mailMessagingConfig.mailConfig && this.mailMessagingConfig.banners && this.mailMessagingConfig.notificationConfigs) {
+    if (this.mailMessagingConfig.brevo.mailTemplates &&
+      this.mailMessagingConfig.brevo.folders &&
+      this.mailMessagingConfig.brevo.account &&
+      this.mailMessagingConfig.brevo.lists &&
+      this.mailMessagingConfig.committeeReferenceData &&
+      this.mailMessagingConfig.group &&
+      this.mailMessagingConfig.mailConfig &&
+      this.mailMessagingConfig.banners &&
+      this.mailMessagingConfig.notificationConfigs) {
       this.migrateTemplateMappings();
+      this.migrateMailConfig();
       this.logger.info("received", reason, "emitting mailMessagingConfig:", this.mailMessagingConfig);
       this.subject.next(this.mailMessagingConfig);
     } else {
@@ -139,7 +156,7 @@ export class MailMessagingService {
   private migrateTemplateMappings() {
     const processToTemplateMappings: ProcessToTemplateMappings = this.mailMessagingConfig.mailConfig["templateMappings"] as ProcessToTemplateMappings;
     const migratedNotificationConfigs: NotificationConfig[] = notificationMappings(processToTemplateMappings);
-    this.logger.off("templateMappings:", processToTemplateMappings, "migratedNotificationConfigs:", migratedNotificationConfigs);
+    this.logger.info("templateMappings:", processToTemplateMappings, "migratedNotificationConfigs:", migratedNotificationConfigs);
     if (this.mailMessagingConfig.notificationConfigs.length === 0 && processToTemplateMappings) {
       this.mailMessagingConfig.notificationConfigs = migratedNotificationConfigs;
       this.mailMessagingConfig.mailConfig["templateMappings"] = null;
@@ -155,7 +172,7 @@ export class MailMessagingService {
 
   private refreshTemplates() {
     this.mailService.queryTemplates().then((mailTemplates: MailTemplates) => {
-      this.mailMessagingConfig.mailTemplates = mailTemplates;
+      this.mailMessagingConfig.brevo.mailTemplates = mailTemplates;
       this.logger.info("refreshTemplates response:", mailTemplates);
       this.emitConfigWhenReadyGiven("mailTemplates");
       this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
@@ -184,12 +201,17 @@ export class MailMessagingService {
     const prefix = subject?.prefixParameter ? keyValues.find(item => item.key === subject?.prefixParameter)?.value : null;
     const suffix = subject?.suffixParameter ? keyValues.find(item => item.key === subject?.suffixParameter)?.value : null;
     const returnedSubject = [prefix, subject?.text, suffix].filter(item => item).join(" - ");
-    this.logger.off("keyValues ->", keyValues, "subject ->", subject, "returnedSubject:", returnedSubject);
+    this.logger.info("keyValues ->", keyValues, "subject ->", subject, "returnedSubject:", returnedSubject);
     return returnedSubject;
   }
 
   public createEmailRequest(createSendSmtpEmailRequest: CreateSendSmtpEmailRequest): SendSmtpEmailRequest {
-    const {member, notificationConfig, notificationDirective, bodyContent}: CreateSendSmtpEmailRequest = createSendSmtpEmailRequest;
+    const {
+      member,
+      notificationConfig,
+      notificationDirective,
+      bodyContent
+    }: CreateSendSmtpEmailRequest = createSendSmtpEmailRequest;
     const fullName = this.fullNamePipe.transform(member);
     const roles: string[] = notificationConfig.signOffRoles;
     const emailRequest: SendSmtpEmailRequest = {
@@ -206,16 +228,16 @@ export class MailMessagingService {
     const subject = createSendSmtpEmailRequest.emailSubject || this.toSubject(notificationConfig.subject, emailRequest);
     emailRequest.subject = subject;
     emailRequest.params.messageMergeFields.subject = subject;
-    this.logger.off("createEmailRequest ->", emailRequest);
+    this.logger.info("createEmailRequest ->", emailRequest);
     return emailRequest;
   }
 
-  public createSendSmtpEmailParams(roles: string[], notificationDirective: NotificationDirective, member: Member, notificationConfig: NotificationConfig, bodyContent: string, includeSignOffNames: boolean, subject?: string, addresseeType?: string) {
+  public createSendSmtpEmailParams(signoffRoles: string[], notificationDirective: NotificationDirective, member: Member, notificationConfig: NotificationConfig, bodyContent: string, includeSignOffNames: boolean, subject?: string, addresseeType?: string) {
     this.logger.info("createSendSmtpEmailParams:notificationConfig:", notificationConfig, "member:", member);
     const params = {
       messageMergeFields: {
         subject,
-        SIGNOFF_NAMES: includeSignOffNames ? this.signoffNames(roles, notificationDirective) : "",
+        SIGNOFF_NAMES: includeSignOffNames ? this.signoffNames(signoffRoles, notificationDirective) : "",
         BANNER_IMAGE_SOURCE: this.bannerImageSource(notificationConfig, true),
         ADDRESS_LINE: addresseeType,
         BODY_CONTENT: bodyContent,
@@ -293,8 +315,9 @@ export class MailMessagingService {
   }
 
   saveConfig(mailMessagingConfig: MailMessagingConfig, deletedConfigIds: string[]): Promise<any> {
-    this.logger.off("saveConfig.mailMessagingConfig:", mailMessagingConfig, "deletedConfigIds:", deletedConfigIds);
-    return Promise.all([this.mailConfigService.saveConfig(mailMessagingConfig.mailConfig), this.notificationConfigService.saveAndDelete(mailMessagingConfig.notificationConfigs, deletedConfigIds)]);
+    this.logger.info("saveConfig.mailMessagingConfig:", mailMessagingConfig, "deletedConfigIds:", deletedConfigIds);
+    return Promise.all([this.mailConfigService.saveConfig(mailMessagingConfig.mailConfig), this.notificationConfigService.saveAndDelete(mailMessagingConfig.notificationConfigs, deletedConfigIds)])
+      .then(() => this.initialise());
   }
 
   refresh() {
@@ -311,5 +334,18 @@ export class MailMessagingService {
     } else {
       return notificationConfig;
     }
+  }
+
+  private migrateMailConfig() {
+    if (!this.mailMessagingConfig.mailConfig?.listSettings) {
+      this.mailMessagingConfig.mailConfig.listSettings = [];
+    }
+    this.mailMessagingConfig?.brevo?.lists?.lists.forEach(list => {
+      if (!this.mailMessagingConfig.mailConfig.listSettings.find(item => item.id === list.id)) {
+        const listSetting: ListSetting = {id: list.id, autoSubscribeNewMembers: true};
+        this.logger.info("adding listSetting:", listSetting);
+        this.mailMessagingConfig.mailConfig.listSettings.push(listSetting);
+      }
+    });
   }
 }

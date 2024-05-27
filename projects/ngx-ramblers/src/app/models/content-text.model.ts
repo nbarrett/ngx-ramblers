@@ -88,6 +88,10 @@ export interface AlbumIndex {
   columns?: number;
 }
 
+export enum PageContentPath {
+  ADMIN_ACTION_BUTTONS = "admin#action-buttons"
+}
+
 export enum PageContentType {
   ACTION_BUTTONS = "action-buttons",
   ALBUM = "album",

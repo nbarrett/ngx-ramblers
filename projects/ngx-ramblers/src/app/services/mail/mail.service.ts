@@ -13,11 +13,13 @@ import {
   ContactsListResponse,
   CreateCampaignRequest,
   CreateContactRequest,
-  CreateContactRequestWithObjectAttributes, CreateSenderResponse,
+  CreateContactRequestWithObjectAttributes,
+  CreateSenderResponse,
   FoldersListResponse,
   ListCreateRequest,
   ListCreateResponse,
   ListsResponse,
+  ListUpdateRequest,
   MailIdentifiers,
   MailTemplates,
   SendCampaignRequest,
@@ -44,6 +46,10 @@ export class MailService {
 
   async createList(listCreateRequest: ListCreateRequest): Promise<ListCreateResponse> {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/lists/create`, listCreateRequest))).response;
+  }
+
+  async updateList(listUpdateRequest: ListUpdateRequest): Promise<ListCreateResponse> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/lists/update`, listUpdateRequest))).response;
   }
 
   async deleteList(listId: number): Promise<any> {

@@ -30,7 +30,7 @@
                 </select>
               </div>
               <div class="form-group">
-                <p class="search-results rounded">Showing {{memberFilter.results.length}} member(s)</p>
+                <p class="search-results rounded">Showing {{ memberFilter.results.length }} member(s)</p>
               </div>
               <div class="form-group admin-header-buttons">
                 <ng-container *ngIf="!confirm.bulkDeleteOutstanding()">
@@ -38,13 +38,13 @@
                          (click)="addMember()" title="Add New Member"
                          [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
                   <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider!== MailProvider.NONE">
-                  <input [disabled]="notifyTarget.busy" type="submit" value="Send Emails"
-                         (click)="showSendEmailsDialog()" title="Send Emails"
-                         [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
-                    <input [disabled]="notifyTarget.busy || noMailchimpListsConfigured" type="submit"
+                    <input [disabled]="notifyTarget.busy" type="submit" value="Send Emails"
+                           (click)="showSendEmailsDialog()" title="Send Emails"
+                           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
+                    <input [disabled]="notifyTarget.busy" type="submit"
                            value="Update {{systemConfig?.mailDefaults?.mailProvider| titlecase}} Mailing Lists"
                            (click)="updateLists()"
-                         [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
+                           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-in-tab': 'button-form button-form-in-tab'">
                   </ng-container>
                 </ng-container>
                 <ng-container>
@@ -78,132 +78,135 @@
             <div *ngIf="notifyTarget.showAlert" class="row mb-0">
               <div class="col-sm-12">
                 <div class="alert {{notifyTarget.alertClass}}">
-              <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-              <strong *ngIf="notifyTarget.alertTitle">
-                {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
+                  <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                  <strong *ngIf="notifyTarget.alertTitle">
+                    {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-      <div class="table-responsive">
-        <table class="round tbl-green-g table-striped table-hover table-sm">
-          <thead>
-          <tr class="white-anchor">
-            <th>Action</th>
-            <th (click)="sortMembersBy('memberName')">Member Name
-              <span class="sorting-header" *ngIf="showMembersColumn('memberName')">
-                {{ memberFilter.sortDirection }}</span>
-            </th>
-            <th (click)="sortMembersBy('email')">Email
-              <span class="sorting-header" *ngIf="showMembersColumn('email')">
-                {{ memberFilter.sortDirection }}</span>
-            </th>
-            <th (click)="sortMembersBy('mobileNumber')">Mobile Number
-              <span class="sorting-header" *ngIf="showMembersColumn('mobileNumber')">
-                {{ memberFilter.sortDirection }}</span>
-            </th>
-            <th (click)="sortMembersBy('createdDate')">Created Date
-              <span class="sorting-header" *ngIf="showMembersColumn('createdDate')">
-                {{ memberFilter.sortDirection }}</span>
-            </th>
-            <th (click)="sortMembersBy('membershipExpiryDate')">Expiry Date
-              <span class="sorting-header" *ngIf="showMembersColumn('membershipExpiryDate')">
-                {{ memberFilter.sortDirection }}</span>
-            </th>
-            <th class="switch-heading" (click)="sortMembersBy('receivedInLastBulkLoad')">
-              Last Bulk Load <span class="sorting-header" *ngIf="showMembersColumn('receivedInLastBulkLoad')">
-                {{ memberFilter.sortDirection }}</span>
-            </th>
-            <th (click)="sortMembersBy('groupMember')">Group Member
-              <span class="sorting-header" *ngIf="showMembersColumn('groupMember')">
-                {{ memberFilter.sortDirection }}</span>
-            </th>
-            <th (click)="sortMembersBy('socialMember')">Social Member
-              <span class="sorting-header" *ngIf="showMembersColumn('socialMember')">
-                {{ memberFilter.sortDirection }}</span>
-            </th>
-            <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider==MailProvider.MAILCHIMP">
-              <th *ngIf="mailchimpConfig?.lists?.walks" (click)="sortMembersBy('mailchimpLists.walks.subscribed')">
-                Walks emails
-                <div class="sorting-header" *ngIf="showMembersColumn('mailchimpLists.walks.subscribed')">
-                  {{ memberFilter.sortDirection }}
-                </div>
-              </th>
-              <th *ngIf="mailchimpConfig?.lists?.socialEvents"
-                  (click)="sortMembersBy('mailchimpLists.socialEvents.subscribed')">
-                Social emails
-                <div class="sorting-header" *ngIf="showMembersColumn('mailchimpLists.socialEvents.subscribed')">
-                  {{ memberFilter.sortDirection }}
-                </div>
-              </th>
-              <th *ngIf="mailchimpConfig?.lists?.general" (click)="sortMembersBy('mailchimpLists.general.subscribed')">
-                General emails
-                <div class="sorting-header"
-                     *ngIf="showMembersColumn('mailchimpLists.general.subscribed')">{{ memberFilter.sortDirection }}
-                </div>
-              </th>
-            </ng-container>
-            <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider==MailProvider.BREVO">
-              <th *ngFor="let keyValue of listsAsKeyValues" (click)="sortMembersBy(keyValue.key)">
-                {{keyValue.key | titlecase}} emails
-                <span class="sorting-header" *ngIf="showMembersColumn(keyValue.key)">
-                {{ memberFilter.sortDirection }}</span>
-              </th>
-            </ng-container>
-            <th *ngIf="confirm.bulkDeleteOutstanding()" (click)="sortMembersBy('markedForDelete')">
-              Marked For Delete<span class="sorting-header">{{ memberFilter.sortDirection }}</span></th>
-          </tr>
-        </thead>
-        <tbody>
-        <tr *ngFor="let member of memberFilter.results">
-          <td>
-            <input (click)="editMember(member)" type="submit" value="edit"
-                   [disabled]="notifyTarget.busy"
-                   [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
-          </td>
-          <td>{{ member | fullNameWithAlias }}</td>
-          <td><a class="small" *ngIf="member.email" [href]="'mailto:' + member.email" placement="right"
-                 tooltip="Click to email {{member | fullNameWithAlias}} at {{member.email}}">{{ member.email }}</a></td>
-          <td>
-            <a [href]="'tel: ' + member.mobileNumber">
-                                            <span placement="right"
-                                                  tooltip="Click to ring {{member | fullNameWithAlias}} on {{member.mobileNumber}} (mobile devices only)">{{member.mobileNumber}}</span></a>
-          </td>
-          <td class="nowrap">{{ member.createdDate | displayDateNoDay }}</td>
-          <td class="nowrap">{{ member.membershipExpiryDate | displayDateNoDay }}</td>
-          <td>
-            <app-switch-icon [on]="receivedInLastBulkLoad(member)"/>
-          </td>
-          <td>
-            <app-switch-icon [on]="member.groupMember"/>
-          </td>
-          <td>
-            <app-switch-icon [on]="member.socialMember"/>
-          </td>
-          <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider==MailProvider.MAILCHIMP">
-            <td *ngIf="mailchimpConfig?.lists?.walks">
-              <app-switch-icon [on]="member.mailchimpLists?.walks?.subscribed"/>
-            </td>
-            <td *ngIf="mailchimpConfig?.lists?.socialEvents">
-              <app-switch-icon [on]="member.mailchimpLists?.socialEvents?.subscribed"/>
-            </td>
-            <td *ngIf="mailchimpConfig?.lists?.general">
-              <app-switch-icon [on]="member.mailchimpLists?.general?.subscribed"/>
-            </td>
-          </ng-container>
-          <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider==MailProvider.BREVO">
-            <td *ngFor="let keyValue of mailListUpdaterService.mapToKeyValues(mailMessagingConfig?.mailConfig?.lists)">
-              <app-switch-icon [on]="subscriptionFor(member, keyValue)"/>
-            </td>
-          </ng-container>
-          <td class="pointer" *ngIf="confirm.bulkDeleteOutstanding()" (click)="toggleDeletionMarker(member.id)">
-            <fa-icon *ngIf="markedForDelete(member.id)" [icon]="faUserXmark"
-                     class="member-delete"></fa-icon>
-          </td>
-        </tr>
-        </tbody>
-        </table>
-      </div>
+          <div class="table-responsive">
+            <table class="round tbl-green-g table-striped table-hover table-sm">
+              <thead>
+              <tr class="white-anchor">
+                <th>Action</th>
+                <th (click)="sortMembersBy('memberName')">Member Name
+                  <span class="sorting-header" *ngIf="showMembersColumn('memberName')">
+            {{ memberFilter.sortDirection }}</span>
+                </th>
+                <th (click)="sortMembersBy('email')">Email
+                  <span class="sorting-header" *ngIf="showMembersColumn('email')">
+            {{ memberFilter.sortDirection }}</span>
+                </th>
+                <th (click)="sortMembersBy('mobileNumber')">Mobile Number
+                  <span class="sorting-header" *ngIf="showMembersColumn('mobileNumber')">
+            {{ memberFilter.sortDirection }}</span>
+                </th>
+                <th (click)="sortMembersBy('createdDate')">Created Date
+                  <span class="sorting-header" *ngIf="showMembersColumn('createdDate')">
+            {{ memberFilter.sortDirection }}</span>
+                </th>
+                <th (click)="sortMembersBy('membershipExpiryDate')">Expiry Date
+                  <span class="sorting-header" *ngIf="showMembersColumn('membershipExpiryDate')">
+            {{ memberFilter.sortDirection }}</span>
+                </th>
+                <th class="switch-heading" (click)="sortMembersBy('receivedInLastBulkLoad')">
+                  Last Bulk Load <span class="sorting-header" *ngIf="showMembersColumn('receivedInLastBulkLoad')">
+            {{ memberFilter.sortDirection }}</span>
+                </th>
+                <th (click)="sortMembersBy('groupMember')">Group Member
+                  <span class="sorting-header" *ngIf="showMembersColumn('groupMember')">
+            {{ memberFilter.sortDirection }}</span>
+                </th>
+                <th (click)="sortMembersBy('socialMember')">Social Member
+                  <span class="sorting-header" *ngIf="showMembersColumn('socialMember')">
+            {{ memberFilter.sortDirection }}</span>
+                </th>
+                <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider==MailProvider.MAILCHIMP">
+                  <th *ngIf="mailchimpConfig?.lists?.walks" (click)="sortMembersBy('mailchimpLists.walks.subscribed')">
+                    Walks emails
+                    <div class="sorting-header" *ngIf="showMembersColumn('mailchimpLists.walks.subscribed')">
+                      {{ memberFilter.sortDirection }}
+                    </div>
+                  </th>
+                  <th *ngIf="mailchimpConfig?.lists?.socialEvents"
+                      (click)="sortMembersBy('mailchimpLists.socialEvents.subscribed')">
+                    Social emails
+                    <div class="sorting-header" *ngIf="showMembersColumn('mailchimpLists.socialEvents.subscribed')">
+                      {{ memberFilter.sortDirection }}
+                    </div>
+                  </th>
+                  <th *ngIf="mailchimpConfig?.lists?.general"
+                      (click)="sortMembersBy('mailchimpLists.general.subscribed')">
+                    General emails
+                    <div class="sorting-header"
+                         *ngIf="showMembersColumn('mailchimpLists.general.subscribed')">{{ memberFilter.sortDirection }}
+                    </div>
+                  </th>
+                </ng-container>
+                <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider==MailProvider.BREVO">
+                  <th *ngFor="let listInfo of mailMessagingConfig?.brevo?.lists?.lists"
+                      (click)="sortMembersBy(listInfo.name)">
+                    {{ listInfo.name | titlecase }} emails
+                    <span class="sorting-header" *ngIf="showMembersColumn(listInfo.name)">
+            {{ memberFilter.sortDirection }}</span>
+                  </th>
+                </ng-container>
+                <th *ngIf="confirm.bulkDeleteOutstanding()" (click)="sortMembersBy('markedForDelete')">
+                  Marked For Delete<span class="sorting-header">{{ memberFilter.sortDirection }}</span></th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr *ngFor="let member of memberFilter.results">
+                <td>
+                  <input (click)="editMember(member)" type="submit" value="edit"
+                         [disabled]="notifyTarget.busy"
+                         [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
+                </td>
+                <td>{{ member | fullNameWithAlias }}</td>
+                <td><a class="small" *ngIf="member.email" [href]="'mailto:' + member.email" placement="right"
+                       tooltip="Click to email {{member | fullNameWithAlias}} at {{member.email}}">{{ member.email }}</a>
+                </td>
+                <td>
+                  <a [href]="'tel: ' + member.mobileNumber">
+                                        <span placement="right"
+                                              tooltip="Click to ring {{member | fullNameWithAlias}} on {{member.mobileNumber}} (mobile devices only)">{{ member.mobileNumber }}</span></a>
+                </td>
+                <td class="nowrap">{{ member.createdDate | displayDateNoDay }}</td>
+                <td class="nowrap">{{ member.membershipExpiryDate | displayDateNoDay }}</td>
+                <td>
+                  <app-switch-icon [on]="receivedInLastBulkLoad(member)"/>
+                </td>
+                <td>
+                  <app-switch-icon [on]="member.groupMember"/>
+                </td>
+                <td>
+                  <app-switch-icon [on]="member.socialMember"/>
+                </td>
+                <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider==MailProvider.MAILCHIMP">
+                  <td *ngIf="mailchimpConfig?.lists?.walks">
+                    <app-switch-icon [on]="member.mailchimpLists?.walks?.subscribed"/>
+                  </td>
+                  <td *ngIf="mailchimpConfig?.lists?.socialEvents">
+                    <app-switch-icon [on]="member.mailchimpLists?.socialEvents?.subscribed"/>
+                  </td>
+                  <td *ngIf="mailchimpConfig?.lists?.general">
+                    <app-switch-icon [on]="member.mailchimpLists?.general?.subscribed"/>
+                  </td>
+                </ng-container>
+                <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider==MailProvider.BREVO">
+                  <td *ngFor="let list of mailMessagingConfig?.brevo?.lists?.lists">
+                    <app-switch-icon [on]="subscriptionFor(member, list)"/>
+                  </td>
+                </ng-container>
+                <td class="pointer" *ngIf="confirm.bulkDeleteOutstanding()" (click)="toggleDeletionMarker(member.id)">
+                  <fa-icon *ngIf="markedForDelete(member.id)" [icon]="faUserXmark"
+                           class="member-delete"></fa-icon>
+                </td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

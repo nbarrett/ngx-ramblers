@@ -11,6 +11,9 @@ import { KEY_NULL_VALUE_NONE } from "../../../../services/enums";
   template: `
     <div *ngIf="mailMessagingConfig" class="row img-thumbnail thumbnail-2">
       <div class="thumbnail-heading">Process Mappings</div>
+        <div class="col-sm-12 mb-3">
+          <app-markdown-editor category="admin" name="mail-settings-process-mappings"/>
+        </div>
       <div class="col-sm-12">
         <div class="form-group">
           <label for="process-mapping-forgot-password">Forgot Password Process Uses Email Configuration</label>

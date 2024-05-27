@@ -130,9 +130,8 @@ export interface NotificationContent {
   attachment?: IncludedStringValue;
   customCampaignType?: string;
   description?: IncludedStringValue;
-  destinationType?: string;
+  listId?: number;
   includeDownloadInformation?: boolean;
-  list?: string;
   attendees?: { include?: boolean };
   eventDetails?: IncludedStringValue;
   replyTo?: IncludedStringValue;
