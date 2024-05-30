@@ -12,7 +12,7 @@ import {
 
 const messageType = "brevo:contacts-remove-from-list";
 const debugLog = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function contactsRemoveFromList(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {

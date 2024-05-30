@@ -18,18 +18,18 @@ export class AuthService {
   private BASE_URL = "/api/database/auth";
   private readonly AUTH_TOKEN = "AUTH_TOKEN";
   private readonly REFRESH_TOKEN = "REFRESH_TOKEN";
-  private authPayload;
+  private authPayload: {};
   private logger: Logger;
   private authResponseSubject = new Subject<LoginResponse>();
 
   constructor(private http: HttpClient,
-              private loggerFactory: LoggerFactory,
+              loggerFactory: LoggerFactory,
               private broadcastService: BroadcastService<any>,
               private siteEditService: SiteEditService) {
     this.logger = loggerFactory.createLogger(AuthService, NgxLoggerLevel.OFF);
   }
 
-  login(userName, password): Promise<LoginResponse> {
+  login(userName: string, password: string): Promise<LoginResponse> {
     const url = `${this.BASE_URL}/login`;
     this.logger.debug("logging in", userName, "via", url);
     const body = {userName, password};
@@ -44,7 +44,7 @@ export class AuthService {
     return this.performAuthPost(url, body, type);
   }
 
-  resetPassword(userName, newPassword, newPasswordConfirm): Promise<LoginResponse> {
+  resetPassword(userName: string, newPassword: string, newPasswordConfirm: string): Promise<LoginResponse> {
     const url = `${this.BASE_URL}/reset-password`;
     const type = "resetting password";
     this.logger.debug(type + " for", userName, "via", url);
@@ -99,16 +99,6 @@ export class AuthService {
     }).pipe(
       tap((tokens: AuthTokens) => {
         this.storeAuthToken(tokens.auth);
-      })
-    );
-  }
-
-  auditMemberLogin(userName: string, loginResponse: LoginResponse) {
-    const url = `${this.BASE_URL}/audit-member-login`;
-    this.logger.debug("calling", url);
-    return this.http.post<any>(url, {userName, loginResponse}).pipe(
-      tap((response) => {
-        this.logger.debug("auditMemberLogin:response:", response);
       })
     );
   }

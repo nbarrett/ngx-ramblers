@@ -25,8 +25,8 @@ import * as authConfig from "../auth/auth-config";
 
 const router = express.Router();
 
-router.get("/folders", authConfig.authenticate(), folders);
-router.get("/contacts", authConfig.authenticate(), contacts);
+router.get("/folders", folders);
+router.get("/contacts", contacts);
 router.get("/contacts/list", contactsInList);
 router.post("/contacts/delete", authConfig.authenticate(), contactsDelete);
 router.post("/contacts/create", authConfig.authenticate(), contactsCreate);
@@ -38,13 +38,14 @@ router.get("/contacts/attributes", authConfig.authenticate(), attributes);
 router.get("/senders", authConfig.authenticate(), senders);
 router.post("/senders/create", authConfig.authenticate(), createSender);
 router.post("/transactional/send", authConfig.authenticate(), sendTransactionalMail);
+router.post("/transactional/forgot-password-send", sendTransactionalMail);
 router.post("/campaign/create", authConfig.authenticate(), createCampaign);
 router.post("/campaign/send", authConfig.authenticate(), sendCampaign);
 router.get("/segments", authConfig.authenticate(), querySegments);
-router.post("/templates", authConfig.authenticate(), queryTemplates);
-router.get("/lists", authConfig.authenticate(), lists);
+router.post("/templates", queryTemplates);
+router.get("/lists", lists);
 router.delete("/lists/delete", authConfig.authenticate(), listDelete);
 router.post("/lists/create", authConfig.authenticate(), listCreate);
 router.post("/lists/update", authConfig.authenticate(), listUpdate);
-router.get("/account", authConfig.authenticate(), queryAccount);
+router.get("/account", queryAccount);
 export const brevoRoutes = router;

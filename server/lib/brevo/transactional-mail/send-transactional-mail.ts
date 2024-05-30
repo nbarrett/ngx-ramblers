@@ -11,7 +11,7 @@ import { SendSmtpEmailRequest } from "../../../../projects/ngx-ramblers/src/app/
 const messageType = "brevo:send-transactional-mail";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
 
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 
 export async function sendTransactionalMail(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -24,12 +24,14 @@ export async function sendTransactionalMail(req: Request, res: Response, next: N
   sendSmtpEmail.subject = emailRequest.subject;
   sendSmtpEmail.sender = emailRequest.sender;
   sendSmtpEmail.to = emailRequest.to;
-  sendSmtpEmail.cc = emailRequest.cc;
+  if (emailRequest.cc) {
+    sendSmtpEmail.cc = emailRequest.cc;
+  }
   sendSmtpEmail.replyTo = emailRequest.replyTo;
   sendSmtpEmail.headers = emailRequest.headers;
   sendSmtpEmail.params = emailRequest.params;
   await performTemplateSubstitution(emailRequest, sendSmtpEmail, debugLog);
-  debugLog(`About to send mail with  supplied htmlContent ${sendSmtpEmail}`);
+  debugLog("About to send mail with supplied sendSmtpEmail:", sendSmtpEmail);
   apiInstance.sendTransacEmail(sendSmtpEmail).then((data: {
     response: http.IncomingMessage;
     body: CreateSmtpEmail

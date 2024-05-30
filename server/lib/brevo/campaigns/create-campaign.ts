@@ -20,7 +20,7 @@ import moment from "moment-timezone";
 const messageType = "brevo:send-email-campaign";
 const debugLog = debug(envConfig.logNamespace(messageType));
 
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function createCampaign(req: Request, res: Response, next: NextFunction): Promise<void> {
   const brevoConfig = await configuredBrevo();

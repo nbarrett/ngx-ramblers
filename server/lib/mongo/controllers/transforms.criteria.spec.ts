@@ -16,6 +16,15 @@ describe("transforms.mongoIdCriteria", () => {
   });
 
 
+  it("transforms document with field-based criteria", done => {
+    const refreshToken = "tXvumMGUAgoxgBwxaosFux0TLZVZiYncpQTovVuZqdIdSqSjoV2U";
+    const json = {refreshToken};
+    // const expected = {"_id": undefined};
+    expect(transforms.mongoIdCriteria({body: json})).to.eql(json);
+    done();
+  });
+
+
   it("transforms request with body with id", done => {
 
     const json = {body: {id: "qaz123-body"}};

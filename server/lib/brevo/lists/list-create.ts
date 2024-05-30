@@ -9,7 +9,7 @@ import { ListCreateRequest, ListsResponse } from "../../../../projects/ngx-rambl
 
 const messageType = "brevo:lists:list-create";
 const debugLog = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function listCreate(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {

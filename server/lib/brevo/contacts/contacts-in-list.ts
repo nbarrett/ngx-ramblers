@@ -9,7 +9,7 @@ import { ContactsListResponse } from "../../../../projects/ngx-ramblers/src/app/
 
 const messageType = "brevo:contacts-in-list";
 const debugLog = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function contactsInList(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {

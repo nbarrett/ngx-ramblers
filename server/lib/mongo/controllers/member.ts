@@ -11,7 +11,7 @@ import { pluraliseWithCount } from "../../../serenity-js/screenplay/util/util";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 
 const debugLog = debug(envConfig.logNamespace("member"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 const controller = crudController.create<Member>(member, true);
 export const all = controller.all;

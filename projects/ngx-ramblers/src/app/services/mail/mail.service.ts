@@ -121,6 +121,11 @@ export class MailService {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/transactional/send`, emailRequest))).response;
   }
 
+  async sendForgotPasswordMessage(emailRequest: SendSmtpEmailRequest): Promise<void> {
+    this.logger.info("sendMessage emailRequest:", emailRequest);
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/transactional/forgot-password-send`, emailRequest))).response;
+  }
+
   async sendCampaign(createCampaignRequest: SendCampaignRequest): Promise<StatusMappedResponseSingleInput> {
     this.logger.info("sendCampaignMessage createCampaignRequest:", createCampaignRequest);
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/campaign/send`, createCampaignRequest))).response;

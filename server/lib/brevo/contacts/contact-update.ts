@@ -9,7 +9,7 @@ import { handleError, successfulResponse } from "../common/messages";
 
 const messageType = "brevo:contacts:update";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function contactUpdate(req: Request, res: Response): Promise<any> {
   try {

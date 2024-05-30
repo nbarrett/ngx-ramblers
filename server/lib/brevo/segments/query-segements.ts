@@ -15,7 +15,7 @@ import { handleError, successfulResponse } from "../common/messages";
 
 const messageType = "brevo:segments:query";
 const debugLog = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function querySegments(req: Request, res: Response): Promise<any> {
   try {

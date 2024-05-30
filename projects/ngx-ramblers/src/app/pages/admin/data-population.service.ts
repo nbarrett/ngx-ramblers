@@ -57,8 +57,14 @@ export class DataPopulationService {
         category: "admin"
       },
       {
-        name: "mail-settings-list-settings",
+        name: "mail-settings-account-help",
         text: "* This page allows Lists to be created, renamed or deleted in Brevo.\n* Depending on the type of message you are sending out,  you might want to send to a list that contains all members (e.g. periodic newsletters). However you may sometimes want to send messages to a specific list of members in your group (e.g. Walk Leaders or Committee Members). If this is the case, you can create lists and add the members to the lists.\n* There is no limit on the number of lists that can be created in Brevo and when emails are sent out, the the target audience is selected by choosing a list to send to.",
+        category: "admin"
+      },
+      {
+        name: "mail-settings-account-settings",
+        text: "* The fields below are readonly and reflect only what was previously input into Brevo when [this account](https://app.brevo.com/profile/information) was originally setup.\n" +
+          "* When campaign emails are sent out to members, the footer on the emails may contain some of these fields for identification purposes.",
         category: "admin"
       },
       {

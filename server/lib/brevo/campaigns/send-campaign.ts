@@ -15,7 +15,7 @@ import { CreateModel } from "@getbrevo/brevo/model/createModel";
 const messageType = "brevo:send-email-campaign";
 const debugLog = debug(envConfig.logNamespace(messageType));
 
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function sendCampaign(req: Request, res: Response, next: NextFunction): Promise<void> {
   const brevoConfig = await configuredBrevo();

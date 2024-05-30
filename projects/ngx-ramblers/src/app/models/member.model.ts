@@ -176,8 +176,7 @@ export enum MemberAction {
   skipped = "skipped"
 }
 
-export interface MemberAuthAudit {
-  id: string;
+export interface MemberAuthAudit extends Identifiable {
   userName: string;
   loginTime: number;
   loginResponse: LoginResponse;
@@ -193,7 +192,7 @@ export interface Auditable extends Identifiable {
 
 export interface LoginResponse {
   userName?: string;
-  member?: object;
+  member?: MemberCookie | Member;
   alertMessage?: string;
   showResetPassword?: boolean;
   memberLoggedIn?: boolean;

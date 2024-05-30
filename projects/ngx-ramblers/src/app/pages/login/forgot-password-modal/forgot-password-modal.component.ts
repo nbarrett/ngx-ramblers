@@ -122,7 +122,7 @@ export class ForgotPasswordModalComponent implements OnInit, OnDestroy {
     });
     this.subscriptions.push(this.authService.authResponse().subscribe(async (loginResponse) => {
       this.logger.debug("subscribe:forgot password", loginResponse);
-      if (loginResponse.member) {
+      if (loginResponse?.member) {
         this.forgottenPasswordMember = loginResponse.member as Member;
         this.sendForgottenPasswordEmailToMember();
       } else {
@@ -166,7 +166,7 @@ export class ForgotPasswordModalComponent implements OnInit, OnDestroy {
     });
     this.logger.info("sendForgottenPasswordEmailToMember:emailRequest:", this.emailRequest);
     return Promise.resolve(this.notify.success("Sending forgotten password email"))
-      .then(() => this.mailService.sendTransactionalMessage(this.emailRequest))
+      .then(() => this.mailService.sendForgotPasswordMessage(this.emailRequest))
       .then(() => this.finalMessage())
       .then(() => this.notify.clearBusy())
       .catch((error) => this.handleSendError(error));

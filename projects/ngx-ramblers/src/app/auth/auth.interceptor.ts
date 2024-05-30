@@ -14,7 +14,7 @@ export class AuthInterceptor implements HttpInterceptor {
   private refreshTokenSubject: BehaviorSubject<any> = new BehaviorSubject<any>(null);
   private logger: Logger;
 
-  constructor(public authService: AuthService, private loggerFactory: LoggerFactory) {
+  constructor(public authService: AuthService, loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(AuthInterceptor, NgxLoggerLevel.OFF);
   }
 
