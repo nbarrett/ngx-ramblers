@@ -9,7 +9,7 @@ import { ContactsListResponse, FoldersListResponse } from "../../../../projects/
 
 const messageType = "brevo:folders";
 const debugLog = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function folders(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {

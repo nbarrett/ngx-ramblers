@@ -46,14 +46,31 @@ export function setUnSetDocument<T>(document: T, parent?: string, parentResponse
   return setUnSetDocumentResponse;
 }
 
+function findId(controllerRequest: ControllerRequest | Identifiable | (Identifiable & ControllerRequest)) {
+  if (hasBody(controllerRequest)) {
+    return controllerRequest.body?.id;
+  } else if (isControllerRequest(controllerRequest)) {
+    return controllerRequest.params?.id;
+  } else {
+    return controllerRequest?.id;
+  }
+}
+
+function findCriteria(controllerRequest: ControllerRequest | Identifiable | (Identifiable & ControllerRequest)) {
+  if (hasBody(controllerRequest)) {
+    return controllerRequest.body;
+  } else if (isControllerRequest(controllerRequest)) {
+    return controllerRequest.params;
+  } else {
+    return controllerRequest;
+  }
+}
+
 export function mongoIdCriteria(controllerRequest: ControllerRequest | Identifiable): MongoId {
   debugLog("mongoIdCriteria:controllerRequest:", controllerRequest, "isControllerRequest:",
     isControllerRequest(controllerRequest), "hasBody(controllerRequest):", hasBody(controllerRequest));
-  const returnValue = {
-    _id: hasBody(controllerRequest) ?
-      controllerRequest.body?.id :
-      isControllerRequest(controllerRequest) ? controllerRequest.params?.id : controllerRequest?.id
-  };
+  const id = findId(controllerRequest);
+  const returnValue = id ? {_id: id} : findCriteria(controllerRequest);
   debugLog("mongoIdCriteria:returnValue:", returnValue);
   return returnValue;
 }

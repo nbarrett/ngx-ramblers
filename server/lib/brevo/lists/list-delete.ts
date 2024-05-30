@@ -9,7 +9,7 @@ import { HasListId, HasListType, ListsResponse } from "../../../../projects/ngx-
 
 const messageType = "brevo:lists:list-delete";
 const debugLog = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function listDelete(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {

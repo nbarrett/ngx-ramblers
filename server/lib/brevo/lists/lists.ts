@@ -13,7 +13,7 @@ import {
 
 const messageType = "brevo:lists";
 const debugLog = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function lists(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {

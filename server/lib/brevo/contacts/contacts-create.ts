@@ -14,7 +14,7 @@ import { ContactsApi } from "@getbrevo/brevo";
 
 const messageType = "brevo:contacts:create";
 const debugLog = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 const limiter = createBottleneckWithRatePerSecond(10);
 export async function contactsCreate(req: Request, res: Response): Promise<any> {

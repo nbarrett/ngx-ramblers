@@ -20,7 +20,7 @@ import { ContactsApi } from "@getbrevo/brevo";
 
 const messageType = "brevo:contacts:batch-update";
 const debugLog = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function contactsBatchUpdate(req: Request, res: Response): Promise<any> {
   try {

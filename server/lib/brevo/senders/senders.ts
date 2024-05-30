@@ -9,7 +9,7 @@ import { ListsResponse } from "../../../../projects/ngx-ramblers/src/app/models/
 
 const messageType = "brevo:senders";
 const debugLog = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function senders(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {

@@ -9,7 +9,7 @@ import { ListsResponse, ListUpdateRequest } from "../../../../projects/ngx-rambl
 
 const messageType = "brevo:lists:list-update";
 const debugLog = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function listUpdate(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {

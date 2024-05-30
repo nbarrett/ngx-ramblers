@@ -10,7 +10,7 @@ import { CreateSender } from "@getbrevo/brevo/model/createSender";
 
 const messageType = "brevo:senders:create";
 const debugLog = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function createSender(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {

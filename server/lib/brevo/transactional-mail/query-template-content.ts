@@ -10,7 +10,7 @@ import { MailTemplateResponse } from "../../../../projects/ngx-ramblers/src/app/
 const messageType = "brevo:query-template-content";
 const debugLog = debug(envConfig.logNamespace(messageType));
 
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function queryTemplateContent(templateId: number): Promise<TemplateResponse> {
 

@@ -15,7 +15,7 @@ import { createBottleneckWithRatePerSecond } from "../common/rate-limiting";
 
 const messageType = "brevo:contacts-delete";
 const debugLog = debug(envConfig.logNamespace(messageType));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 const limiter = createBottleneckWithRatePerSecond(10);
 

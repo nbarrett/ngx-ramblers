@@ -1,7 +1,8 @@
-const mongoose = require("mongoose");
-const uniqueValidator = require("mongoose-unique-validator");
+import mongoose from "mongoose";
+import uniqueValidator from "mongoose-unique-validator";
 
-const authSchema = mongoose.Schema({
+
+const authSchema = new mongoose.Schema({
   groupMember: {type: Boolean},
   expiredPassword: {type: Boolean},
   userName: {type: String, required: true, unique: true},
@@ -25,5 +26,4 @@ const authSchema = mongoose.Schema({
 
 authSchema.plugin(uniqueValidator);
 
-module.exports = mongoose.model("member-auth", authSchema);
-
+export const auth: mongoose.Model<mongoose.Document> = mongoose.model("member-auth", authSchema);
