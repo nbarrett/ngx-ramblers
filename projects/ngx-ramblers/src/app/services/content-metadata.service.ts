@@ -247,6 +247,10 @@ export class ContentMetadataService {
     }
   }
 
+  public findMetadataFor(file: ContentMetadataItem, s3Metadata: S3Metadata[]): S3Metadata {
+    return s3Metadata?.find(metadata => metadata.key.includes(file.image));
+  }
+
   public selectMetadataBasedOn(name: string, item: ContentMetadataApiResponses): AllAndSelectedContentMetaData {
     this.logger.info("contentMetaDataItems:", item.response, "name:", name);
     const contentMetadataItems: ContentMetadata[] = item.response;

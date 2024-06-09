@@ -10,6 +10,7 @@ import {
   BASE64_PREFIX_PNG,
   ContentMetadata,
   ContentMetadataItem,
+  HasEventId,
   S3_BASE_URL
 } from "../models/content-metadata.model";
 import { AWSLinkConfig, LinkConfig } from "../models/link.model";
@@ -21,6 +22,7 @@ import { isNumericRamblersId } from "./path-matchers";
 import { StringUtilsService } from "./string-utils.service";
 import { Organisation, RootFolder } from "../models/system.model";
 import { SystemConfigService } from "./system/system-config.service";
+import { DateUtilsService } from "./date-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -29,10 +31,12 @@ import { SystemConfigService } from "./system/system-config.service";
 export class UrlService {
   private logger: Logger;
   private group: Organisation;
+  private cacheBuster: number;
 
   constructor(@Inject(DOCUMENT) private document: Document,
               private router: Router,
               private stringUtils: StringUtilsService,
+              private dateUtils: DateUtilsService,
               private systemConfigService: SystemConfigService,
               private location: Location,
               private siteEdit: SiteEditService,
@@ -40,6 +44,7 @@ export class UrlService {
               private route: ActivatedRoute) {
     this.systemConfigService.events().subscribe(item => this.group = item.group);
     this.logger = loggerFactory.createLogger(UrlService, NgxLoggerLevel.OFF);
+    this.cacheBuster = this.dateUtils.nowAsValue();
   }
 
   pathContains(path: string): boolean {
@@ -56,13 +61,13 @@ export class UrlService {
 
   navigateUnconditionallyTo(pathSegments: string[], params?: Params, queryParamsHandling?: QueryParamsHandling): Promise<boolean> {
     const url = `${this.pageUrl(pathSegments.filter(item => item).join("/"))}`;
-    this.logger.info("navigating to pathSegments:", pathSegments, "->", url, "params:", params, "queryParamsHandling:", queryParamsHandling);
+    this.logger.off("navigating to pathSegments:", pathSegments, "->", url, "params:", params, "queryParamsHandling:", queryParamsHandling);
     return this.router.navigate([url], {
       relativeTo: this.route,
       queryParams: params,
       queryParamsHandling: queryParamsHandling || "merge"
     }).then((activated: boolean) => {
-      this.logger.info("activated:", activated, "area is now:", this.area());
+      this.logger.off("activated:", activated, "area is now:", this.area());
       return activated;
     });
   }
@@ -165,11 +170,11 @@ export class UrlService {
 
   routerLinkUrl(url: string): string {
     if (!url) {
-      this.logger.info("routerLinkUrl:url:", url, "not returning routerLinkUrl as url not present");
+      this.logger.off("routerLinkUrl:url:", url, "not returning routerLinkUrl as url not present");
       return null;
     } else {
       const routerLinkUrl = this.isRemoteUrl(url) ? null : "/" + url;
-      this.logger.info("routerLinkUrl:url:", url, "routerLinkUrl:", routerLinkUrl);
+      this.logger.off("routerLinkUrl:url:", url, "routerLinkUrl:", routerLinkUrl);
       return routerLinkUrl;
     }
   }
@@ -178,11 +183,13 @@ export class UrlService {
     return url?.startsWith("http");
   }
 
-  eventUrl(slide: ContentMetadataItem) {
-    return this.linkUrl({
-      area: slide.dateSource,
-      id: slide.eventId
-    });
+  eventUrl(hasEventId: HasEventId) {
+    const linkConfig = {
+      area: hasEventId.dateSource,
+      id: hasEventId.eventId
+    };
+    this.logger.info("eventUrl", hasEventId, "linkConfig:", linkConfig);
+    return this.linkUrl(linkConfig);
   }
 
   imageSourceFor(item: ContentMetadataItem, contentMetadata: ContentMetadata): string {
@@ -193,7 +200,7 @@ export class UrlService {
     return item.base64Content ? item.base64Content : (item.image && !this.isRemoteUrl(item.image)) ? `${rootFolder}/${contentMetaDataName}/${item.image}` : null;
   }
 
-  imageSource(url: string, absolute?: boolean): string {
+  imageSource(url: string, absolute?: boolean, cacheBuster?: boolean): string {
     if (this.isRemoteUrl(url)) {
       this.logger.debug("imageSourceUrl:isRemoteUrl:returning", url);
       return url;
@@ -201,7 +208,7 @@ export class UrlService {
       this.logger.debug("imageSourceUrl:isBase64Image:returning", url);
       return url;
     } else {
-      const imageSource = absolute ? this.absolutePathForAWSFileName(url) : this.resourceRelativePathForAWSFileName(url);
+      const imageSource = (absolute ? this.absolutePathForAWSFileName(url) : this.resourceRelativePathForAWSFileName(url)) + (cacheBuster ? `?${this.cacheBuster}` : "");
       this.logger.debug("imageSource:url", url, "absolute:", absolute, "returning", imageSource);
       return imageSource;
     }
@@ -211,19 +218,19 @@ export class UrlService {
     return (linkConfig as LinkConfig).id !== undefined;
   }
 
-  absolutePathForAWSFileName(fileName): string {
+  absolutePathForAWSFileName(fileName: string): string {
     return `${this.baseUrl()}/${this.resourceRelativePathForAWSFileName(fileName)}`;
   }
 
-  removeS3PrefixFrom(fileName): string {
-    return fileName?.includes(S3_BASE_URL) ? fileName.substring(S3_BASE_URL) : fileName;
+  removeS3PrefixFrom(fileName: string): string {
+    return fileName?.includes(S3_BASE_URL) ? fileName.replace(S3_BASE_URL, "") : fileName;
   }
 
   resourceRelativePathForAWSFileName(fileName: string): string {
     return fileName ? fileName.includes(S3_BASE_URL) ? fileName : `${S3_BASE_URL}/${fileName}` : null;
   }
 
-  hasRouteParameter(parameter): boolean {
+  hasRouteParameter(parameter: string): boolean {
     return this.pathSegmentsForUrl(this.router.url).includes(parameter);
   }
 
@@ -249,7 +256,7 @@ export class UrlService {
       return url;
     } else {
       const reformatted: string = url.split("/").map(item => item.includes(" ") ? this.stringUtils.kebabCase(item) : item).join("/");
-      this.logger.info("received", url, "reformatted to:", reformatted);
+      this.logger.off("received", url, "reformatted to:", reformatted);
       return reformatted;
     }
   }

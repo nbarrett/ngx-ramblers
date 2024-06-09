@@ -28,8 +28,14 @@ import { StringUtilsService } from "../../services/string-utils.service";
 
 export class TagEditorComponent implements OnInit, OnDestroy {
 
+  public tagsForImage: number[];
+
+  @Input("tagsForImage") set tagsForImageValue(tagsForImage: number[]) {
+    this.tagsForImage = tagsForImage;
+    this.populateData(this.contentMetadataImageTags);
+  }
+
   @Input() text: string;
-  @Input() tagsForImage: number[];
 
   @Input("contentMetadataImageTags") set acceptContentMetadataChangesFrom(contentMetadataImageTags: ImageTag[]) {
     this.logger.info("contentMetadataImageTags change:", contentMetadataImageTags);

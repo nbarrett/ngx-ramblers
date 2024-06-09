@@ -29,7 +29,7 @@ import { ContentMetadataService } from "../../../services/content-metadata.servi
                [(ngModel)]="row.carousel.name"
                name="new-password"
                [ngModelOptions]="{standalone: true}"
-               type="text" class="form-control flex-grow-1 mr-2">
+               type="text" class="form-control mr-2 right-justify-ellipsis">
         <app-badge-button [icon]="faSearch" [caption]="'existing'"
                           (click)="toggleNameEdit(false)"></app-badge-button>
       </div>
@@ -55,6 +55,7 @@ export class RowSettingsCarouselComponent implements OnInit {
   faAdd = faAdd;
   id: string;
   nameInput: boolean;
+  private defaultAlbumName: string;
 
   protected readonly faPlus = faPlus;
   protected readonly faSearch = faSearch;
@@ -62,6 +63,7 @@ export class RowSettingsCarouselComponent implements OnInit {
   ngOnInit() {
     this.id = this.numberUtils.generateUid();
     this.initialiseMissingAlbumData();
+    this.defaultAlbumName = this.row?.carousel?.name;
     this.contentMetadataService.contentMetadataNotifications().subscribe(metadataResponses => {
       const allAndSelectedContentMetaData = this.contentMetadataService.selectMetadataBasedOn(this.row?.carousel?.name, metadataResponses);
       this.nameInput = !allAndSelectedContentMetaData.contentMetadata;
@@ -87,6 +89,11 @@ export class RowSettingsCarouselComponent implements OnInit {
 
   toggleNameEdit(nameInput: boolean) {
     this.nameInput = nameInput;
+    if (this.nameInput) {
+      this.row.carousel.name = this.defaultAlbumName;
+    } else {
+      this.row.carousel.name = null;
+    }
   }
 
 }

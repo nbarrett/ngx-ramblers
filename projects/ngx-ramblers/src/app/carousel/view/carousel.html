@@ -5,7 +5,7 @@
                                     [imageTags]="lazyLoadingMetadata?.contentMetadata?.imageTags"
                                     [index]="index"
                                     (tagChanged)="tagChanged($event)"/>
-      <carousel *ngIf="lazyLoadingMetadata" [noPause]="false" [isAnimated]="true"
+      <carousel *ngIf="lazyLoadingMetadata" (mouseenter)="mouseEnter($event)"(mouseleave)="mouseLeave($event)" [isAnimated]="true" [noPause]="noPause" [pauseOnFocus]="noPause"
                 [interval]="album.slideInterval || 5000"
                 [showIndicators]="album.showIndicators && showIndicators"
                 [(activeSlide)]="lazyLoadingMetadata.activeSlideIndex"
@@ -18,11 +18,12 @@
                  'object-fit': 'cover',
                  'object-position': 'center'}">
           <div class="carousel-caption">
-            <h4>{{slide.text}}</h4>
-            <div *ngIf="slide.eventId">
+            <h4>{{ slide.text || album.subtitle }}</h4>
+            <div *ngIf="slide.eventId || album.eventId">
               <a delay="500" class="badge event-date"
-                 [tooltip]="eventTooltip(slide)"
-                 [placement]="!showIndicators?'bottom':'right'" [href]="urlService.eventUrl(slide)">
+                 [tooltip]="eventTooltip(slide.eventId? slide.dateSource : album.eventType)"
+                 [placement]="!showIndicators?'bottom':'right'"
+                 [href]="urlService.eventUrl(slide.eventId? slide : {dateSource:album.eventType, eventId: album.eventId})">
                 on {{slide.date | displayDate}}</a>
             </div>
           </div>

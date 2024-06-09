@@ -1,6 +1,6 @@
 import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
 import map from "lodash-es/map";
-import { GroupEventType, GroupEventTypes } from "../models/committee.model";
+import { GroupEventType, GroupEventTypes, uploadGroupEventType } from "../models/committee.model";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ContentMetadata, ContentMetadataItem } from "../models/content-metadata.model";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
@@ -54,13 +54,8 @@ export class GroupEventTypeSelectorComponent implements OnInit {
   ngOnInit() {
     this.logger.info("ngOnInit:label:", this.label, "dataSource:", this.dataSource, "search", this.search,);
     this.id = this.numberUtilsService.generateUid();
-    const upload = {
-      area: "upload",
-      eventType: "Upload Date",
-      description: "Upload Date"
-    };
     const items = map(GroupEventTypes, (item) => item);
-    this.dataSources = this.includeUpload ? [upload].concat(items) : items;
+    this.dataSources = this.includeUpload ? [uploadGroupEventType].concat(items) : items;
     this.selectedDataSource = this.dataSources.find(item => item.area === this.dataSource);
     if (this.selectedDataSource) {
       this.initialValue.emit(this.selectedDataSource);

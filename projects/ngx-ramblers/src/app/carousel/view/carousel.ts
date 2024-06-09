@@ -13,9 +13,7 @@ import {
 import { groupEventTypeFor } from "../../models/committee.model";
 import { PageService } from "../../services/page.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
-import { SystemConfigService } from "../../services/system/system-config.service";
 import { ContentMetadataService } from "../../services/content-metadata.service";
-import { SiteEditService } from "../../site-edit/site-edit.service";
 import { faPencil } from "@fortawesome/free-solid-svg-icons";
 import { Subscription } from "rxjs";
 import { AlbumData } from "../../models/content-text.model";
@@ -58,6 +56,7 @@ export class CarouselComponent implements OnInit, OnDestroy {
 
   @Input()
   public hideStoryNavigator: boolean;
+  public noPause = true;
 
   @HostListener("window:resize", ["$event"])
   onResize(event) {
@@ -69,9 +68,7 @@ export class CarouselComponent implements OnInit, OnDestroy {
     private memberLoginService: MemberLoginService,
     private lazyLoadingMetadataService: LazyLoadingMetadataService,
     private imageDuplicatesService: ImageDuplicatesService,
-    private systemConfigService: SystemConfigService,
     public contentMetadataService: ContentMetadataService,
-    private siteEditService: SiteEditService,
     public urlService: UrlService, loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger("CarouselComponent", NgxLoggerLevel.OFF);
   }
@@ -101,8 +98,8 @@ export class CarouselComponent implements OnInit, OnDestroy {
   }
 
 
-  eventTooltip(slide: ContentMetadataItem) {
-    return "Show details of this " + (groupEventTypeFor(slide.dateSource)?.description || slide.dateSource).toLowerCase();
+  eventTooltip(dateSource: string) {
+    return "Show details of this " + (groupEventTypeFor(dateSource)?.description || dateSource).toLowerCase();
   }
 
   activeSlideChange(force: boolean, $event: number) {
@@ -126,5 +123,15 @@ export class CarouselComponent implements OnInit, OnDestroy {
 
   tagChanged(imageTag: ImageTag) {
     this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.TAG_CHANGE, this.duplicateImages, imageTag);
+  }
+
+  mouseEnter($event: MouseEvent) {
+    this.noPause = false;
+    this.logger.info("mouseEnter:", $event, "noPause:", this.noPause);
+  }
+
+  mouseLeave($event: MouseEvent) {
+    this.noPause = true;
+    this.logger.info("mouseLeave:", $event, "noPause:", this.noPause);
   }
 }

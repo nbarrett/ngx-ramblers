@@ -30,8 +30,59 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-markdown-editor",
-  templateUrl: "./markdown-editor.component.html",
-  styleUrls: ["./markdown-editor.component.sass"]
+  template: `
+    <div class="row" *ngIf="siteEditService.active()">
+      <div class="col-12">
+        <app-badge-button *ngIf="buttonsAvailableOnlyOnFocus"
+                          (click)="componentHasFocus() ? toggleToView() : toggleToEdit()" delay=500
+                          [tooltip]="(componentHasFocus()? 'Exit edit' : 'Edit') + ' content for ' + description"
+                          [icon]="faPencil" [caption]="componentHasFocus() ? 'Exit edit' : 'Edit'">
+        </app-badge-button>
+        <ng-container *ngIf="!buttonsAvailableOnlyOnFocus || componentHasFocus()">
+          <ng-content select="[prepend]"></ng-content>
+          <app-badge-button *ngIf="editorState.view" (click)="toggleEdit()" delay=500 [tooltip]="tooltip()"
+                            [icon]="icon()"
+                            [caption]="nextActionCaption()"></app-badge-button>
+          <app-badge-button *ngIf="dirty() && canSave()" (click)="save()" [tooltip]="'Save content for ' + description"
+                            delay=500 [icon]="saving() ? faSpinner: faCircleCheck"
+                            [caption]="'save'"></app-badge-button>
+          <app-badge-button *ngIf="dirty() && !saving()" (click)="revert()"
+                            delay=500 [tooltip]="'Revert content for ' + description"
+                            [icon]="reverting() ? faSpinner: faRemove" caption="revert"></app-badge-button>
+          <app-badge-button *ngIf="canDelete() && !saving()" (click)="delete()" delay=500
+                            [tooltip]="'Delete content for ' + description" [icon]="reverting() ? faSpinner: faEraser"
+                            caption="delete">
+          </app-badge-button>
+          <app-badge-button *ngIf="canUnlink()" (click)="unlink()" delay=500
+                            [tooltip]="'Unlink and save as new content for ' + description"
+                            [icon]="reverting() ? faSpinner: faUnlink" caption="unlink">
+          </app-badge-button>
+          <ng-content select=":not([prepend])"></ng-content>
+        </ng-container>
+      </div>
+      <div class="col-12" *ngIf="editNameEnabled">
+        <label class="mt-2 mt-3" [for]="'input-'+ content.name | kebabCase">Content name</label>
+        <input [(ngModel)]="content.name"
+               [id]="'input-'+ content.name | kebabCase"
+               type="text" class="form-control input-sm"
+               placeholder="Enter name of content">
+        <label class="mt-2 mt-3" [for]="content.name">Content for {{ content.name }}</label>
+      </div>
+    </div>
+    <span *ngIf="showing() && editorState.view==='view'"
+          (click)="toggleEdit()" markdown ngPreserveWhitespaces [data]="content.text">
+</span>
+    <div *ngIf="allowHide && editorState.view==='view'" class="badge-button"
+         (click)="toggleShowHide()" [tooltip]="showHideCaption()">
+      <fa-icon [icon]="showing() ? faAngleUp:faAngleDown"></fa-icon>
+      <span>{{ showHideCaption() }}</span>
+    </div>
+    <textarea [wrap]="'hard'" *ngIf="editorState.view==='edit'"
+              [(ngModel)]="content.text"
+              (ngModelChange)="changeText($event)"
+              class="form-control markdown-textarea" [rows]="rows"
+              placeholder="Enter {{description}} text here">
+</textarea>`
 })
 export class MarkdownEditorComponent implements OnInit {
 
@@ -107,6 +158,7 @@ export class MarkdownEditorComponent implements OnInit {
   @Output() changed: EventEmitter<ContentText> = new EventEmitter();
   @Output() saved: EventEmitter<ContentText> = new EventEmitter();
   @Output() focusChange: EventEmitter<EditorInstanceState> = new EventEmitter();
+  public minimumRows = 10;
   public data: ContentText;
   public allowMaximise: boolean;
   public allowSave: boolean;
@@ -282,7 +334,7 @@ export class MarkdownEditorComponent implements OnInit {
   calculateRowsFrom(data: ContentText): number {
     const text = data?.text;
     const rows = text ? text?.split(/\r*\n/).length + 1 : 1;
-    const calculatedRows = Math.min(rows, 10);
+    const calculatedRows = Math.max(rows, this.minimumRows);
     this.logger.info("number of rows in text ", text, "->", rows, "calculatedRows:", calculatedRows);
     return calculatedRows;
   }

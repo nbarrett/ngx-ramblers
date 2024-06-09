@@ -3,12 +3,13 @@ import isArray from "lodash-es/isArray";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { AwsFileData } from "../../../models/aws-object.model";
-import { GroupEvent, GroupEventType } from "../../../models/committee.model";
+import { GroupEvent, GroupEventType, groupEventTypeFor, uploadGroupEventType } from "../../../models/committee.model";
 import {
   ContentMetadata,
   ContentMetadataItem,
   DuplicateImages,
-  ImageTag
+  ImageTag,
+  S3Metadata
 } from "../../../models/content-metadata.model";
 import { DateValue } from "../../../models/date.model";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
@@ -18,20 +19,172 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
-import { faAdd, faAngleDown, faAngleUp, faBook, faImage, faPencil, faRemove } from "@fortawesome/free-solid-svg-icons";
+import {
+  faAdd,
+  faAngleDown,
+  faAngleUp,
+  faBook,
+  faImage,
+  faLink,
+  faLinkSlash,
+  faPencil,
+  faRemove
+} from "@fortawesome/free-solid-svg-icons";
 import isEmpty from "lodash-es/isEmpty";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { KeyValue } from "../../../services/enums";
 import { ImageMessage } from "../../../models/images.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { NumberUtilsService } from "../../../services/number-utils.service";
 
 @Component({
   selector: "app-image-edit",
-  templateUrl: "./image-edit.html"
+  template: `
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-sm-12 mb-3" *ngIf="editActive">
+            <app-image-cropper-and-resizer noImageSave
+                                           [selectAspectRatio]="contentMetadata?.aspectRatio"
+                                           [rootFolder]="contentMetadataService.rootFolderAndName(contentMetadata?.rootFolder, contentMetadata?.name)"
+                                           [preloadImage]="imageSourceOrPreview()"
+                                           (imageChange)="imageChanged($event)"
+                                           (error)="imageCroppingError($event)"
+                                           (cropError)="imageCroppingError($event)"
+                                           (quit)="imageEditQuit()"
+                                           (save)="imagedSaved($event)"/>
+          </div>
+          <div class="col-sm-7">
+            <div class="form-group">
+              <div class="row mb-2">
+                <div class="col">Image {{ index + 1 }} of {{ filteredFiles?.length }}</div>
+                <div class="col text-right">
+                  <span *ngIf="imagedIsSaved()">Image Size {{ imageSize() }}</span>
+                  <span class="ml-2"  *ngIf="imagedIsCropped()">Cropped Size {{ croppedSize() }}</span>
+                </div>
+              </div>
+              <img *ngIf="!imageLoadText" (load)="imageLoaded($event)" (error)="imageError(item, $event)" loading="lazy"
+                   [id]="'image-' + index" class="img-fluid w-100" [src]="imageSourceOrPreview()"
+                   [alt]="item.text"/>
+              <div *ngIf="imageLoadText" class="row no-image"
+                   [ngClass]="{'small-icon-container': true}">
+                <div class="col align-self-center text-center">
+                  <fa-icon [icon]="faImage" class="fa-icon fa-3x"/>
+                  <div>{{ imageLoadText }}</div>
+                </div>
+              </div>
+            </div>
+            <div class="row no-gutters">
+              <div class="col pr-1">
+                <app-badge-button fullWidth [disabled]="editActive" [icon]="faRemove" caption="Delete"
+                                  (click)="callDelete()"/>
+              </div>
+              <div class="col pr-1">
+                <app-badge-button fullWidth [disabled]="editActive" [icon]="faAdd" caption="Insert"
+                                  (click)="callInsert()"/>
+              </div>
+              <div class="col">
+                <app-badge-button fullWidth [disabled]="editActive" [icon]="faPencil" caption="Edit image"
+                                  (click)="editImage()"/>
+              </div>
+            </div>
+            <div class="row no-gutters">
+              <div class="col pr-1">
+                <app-badge-button fullWidth [disabled]="editActive|| !canMoveUp" [icon]="faAngleUp" caption="Move up"
+                                  (click)="callMoveUp()"/>
+              </div>
+              <div class="col pr-1">
+                <app-badge-button fullWidth [disabled]="editActive|| !canMoveDown" [icon]="faAngleDown"
+                                  caption="Move down"
+                                  (click)="callMoveDown()"/>
+              </div>
+              <div class="col">
+                <app-badge-button fullWidth [disabled]="editActive" [icon]="faBook"
+                                  [caption]="item.image && item.image===contentMetadata.coverImage? 'Clear Cover image':'Cover Image'"
+                                  [active]="item.image && item.image===contentMetadata.coverImage"
+                                  (click)="coverImageSet()"/>
+              </div>
+            </div>
+            <div class="row no-gutters mb-2">
+              <div class="col pr-1">
+                <app-badge-button fullWidth [disabled]="!canMoveUp" [icon]="faLink" caption="Image Data as Previous"
+                                  (click)="imageDataAsPrevious()"/>
+              </div>
+              <div class="col pr-1">
+                <app-badge-button fullWidth [disabled]="editActive|| !canMoveDown" [icon]="faLink"
+                                  caption="Image Data As Next"
+                                  (click)="imageDataAsNext()"/>
+              </div>
+              <div class="col">
+                <app-badge-button fullWidth [disabled]="editActive" [icon]="faLinkSlash"
+                                  caption="Clear Image Data"
+                                  (click)="clearImageData()"/>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-5">
+            <div class="form-group">
+              <label [for]="stringUtils.kebabCase('image-title', index)">Image Title</label>
+              <textarea [(ngModel)]="item.text" (ngModelChange)="callImageChange()" type="text"
+                        class="form-control input-sm"
+                        rows="2" [id]="stringUtils.kebabCase('image-title', index)"
+                        placeholder="Enter title for image"></textarea>
+            </div>
+            <div class="row">
+              <div class="col-sm-5">
+                <app-group-event-type-selector [dataSource]="item.dateSource" label="Date Source" includeUpload
+                                               (eventChange)="eventTypeChange($event)"
+                                               (initialValue)="groupEventType=$event"/>
+              </div>
+              <div class="col-sm-7 no-left-padding">
+                <div class="form-group no-left-padding">
+                  <app-date-picker startOfDay [label]="'Image Date'"
+                                   [size]="'md'"
+                                   (dateChange)="dateChange($event)"
+                                   [value]="item?.date"/>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <app-tag-editor [tagsForImage]="item?.tags"
+                              [contentMetadataImageTags]="contentMetadataImageTags"
+                              [text]="item?.text"
+                              (tagsChange)="tagsChange($event)"/>
+            </div>
+            <div class="form-group">
+              <label [for]="'name-' + index">Image Source {{ imageUnsaved(item) }}</label>
+              <input *ngIf="!item.base64Content" [(ngModel)]="item.image" type="text"
+                     class="form-control input-sm"
+                     [id]="'name-' + index" placeholder="Image source - updated automatically"/>
+            </div>
+            <div *ngIf="item.originalFileName" class="form-group">
+              <label [for]="'original-name-' + index">Original Name</label>
+              <input class="form-control input-sm"
+                     [value]="item.originalFileName" disabled [id]="'original-name-' + index"/>
+            </div>
+          </div>
+          <div *ngIf="item?.dateSource!=='upload'" class="col-sm-12">
+            <app-group-event-selector [label]="'Link to ' + groupEventType?.description"
+                                      [eventId]="item.eventId"
+                                      [dataSource]="groupEventType?.area"
+                                      (eventCleared)="item.eventId=null"
+                                      (eventChange)="eventChange($event)"/>
+          </div>
+          <div *ngIf="notifyTarget.showAlert" class="col-sm-12">
+            <div class="alert {{notifyTarget.alertClass}} table-pointer">
+              <fa-icon [icon]="notifyTarget.alert.icon"/>
+              <strong *ngIf="notifyTarget.alertTitle">
+                {{ notifyTarget.alertTitle }}:</strong> {{ notifyTarget.alertMessage }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`
 })
 export class ImageEditComponent implements OnInit {
 
   public stringUtils: StringUtilsService = inject(StringUtilsService);
+  public numberUtils: NumberUtilsService = inject(NumberUtilsService);
   public imageDuplicatesService: ImageDuplicatesService = inject(ImageDuplicatesService);
   public broadcastService: BroadcastService<KeyValue<boolean>> = inject(BroadcastService);
   public contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
@@ -42,6 +195,7 @@ export class ImageEditComponent implements OnInit {
   private logger = this.loggerFactory.createLogger("ImageEditComponent", NgxLoggerLevel.OFF);
   public notifyTarget: AlertTarget = {};
   public notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
+  private s3Metadata: S3Metadata;
 
   @Input("duplicateImages") set acceptDuplicateImagesFrom(duplicateImages: DuplicateImages) {
     this.duplicateImages = duplicateImages;
@@ -55,10 +209,13 @@ export class ImageEditComponent implements OnInit {
 
   @Input("index") set acceptChangesFromIndex(index: number) {
     this.index = index;
+    this.logger.info("acceptChangesFromIndex:", index);
   }
 
   @Input("item") set acceptChangesFromItem(item: ContentMetadataItem) {
     this.item = item;
+    this.logger.info("acceptChangesFromItem:", item);
+    this.awsFileDataFromEdit = null;
     this.checkDuplicates(item);
   }
 
@@ -71,10 +228,14 @@ export class ImageEditComponent implements OnInit {
     this.contentMetadata = contentMetadata;
   }
 
+  @Input("s3Metadata") set s3MetadataValue(s3Metadata: S3Metadata) {
+    this.logger.info("s3Metadata change:", s3Metadata);
+    this.s3Metadata = s3Metadata;
+  }
+
   @Input("noImageSave") set noImageSaveValue(noImageSave: boolean) {
     this.noImageSave = coerceBooleanProperty(noImageSave);
   }
-
   @Output() imagedSavedOrReverted: EventEmitter<ContentMetadataItem> = new EventEmitter();
   @Output() imageChange: EventEmitter<ContentMetadataItem> = new EventEmitter();
   @Output() moveUp: EventEmitter<ContentMetadataItem> = new EventEmitter();
@@ -96,7 +257,7 @@ export class ImageEditComponent implements OnInit {
   public imageLoadText: string;
   public contentMetadata: ContentMetadata;
   public editActive: boolean;
-  private awsFileData: AwsFileData;
+  private awsFileDataFromEdit: AwsFileData;
   protected readonly faImage = faImage;
   protected readonly faRemove = faRemove;
   protected readonly faAdd = faAdd;
@@ -104,10 +265,13 @@ export class ImageEditComponent implements OnInit {
   protected readonly faPencil = faPencil;
   protected readonly faAngleDown = faAngleDown;
   protected readonly faBook = faBook;
+  protected readonly faLink = faLink;
+  protected readonly faLinkSlash = faLinkSlash;
 
   ngOnInit() {
     this.editActive = false;
     this.logger.info("ngOnInit:item", this.item, "index:", this.index, "this.aspectRatio:", this.contentMetadata?.aspectRatio, "editActive:", this.editActive);
+    this.setEnablementProperties();
   }
 
   dateChange(dateValue: DateValue) {
@@ -164,7 +328,7 @@ export class ImageEditComponent implements OnInit {
 
   imageChanged(awsFileData: AwsFileData) {
     this.logger.info("imageChanged:", awsFileData, "before item base64Content change:", this.item);
-    this.awsFileData = awsFileData;
+    this.awsFileDataFromEdit = awsFileData;
     if (awsFileData) {
       this.imageLoadText = null;
       this.item.base64Content = awsFileData.image;
@@ -185,7 +349,7 @@ export class ImageEditComponent implements OnInit {
 
   imageEditQuit() {
     this.editActive = false;
-    this.awsFileData = null;
+    this.awsFileDataFromEdit = null;
     if (this.item.base64Content && this.item.image) {
       delete this.item.base64Content;
     }
@@ -232,7 +396,7 @@ export class ImageEditComponent implements OnInit {
   }
 
   imageLoaded(event: Event) {
-    this.logger.info("imageLoaded:", event);
+    this.logger.off("imageLoaded:", event);
     this.imageLoadText = null;
   }
 
@@ -256,7 +420,63 @@ export class ImageEditComponent implements OnInit {
     }
   }
 
+  private setEnablementProperties() {
+    this.canMoveUp = this.index > 0;
+    this.canMoveDown = this.index < this.filteredFiles.length - 1;
+  }
+
+  clearImageData() {
+    this.item.tags = [];
+    this.item.text = null;
+    this.item.dateSource = null;
+    this.item.dateSource = uploadGroupEventType.area;
+    this.item.date = this.s3Metadata?.lastModified;
+    this.item.eventId = null;
+  }
+
+  imageDataAsPrevious() {
+    this.setImageDataFromIndex(this.index - 1);
+  }
+
+  imageDataAsNext() {
+    this.setImageDataFromIndex(this.index + 1);
+  }
+
+  private setImageDataFromIndex(index: number) {
+    const referenceItem: ContentMetadataItem = this.filteredFiles[index];
+    if (referenceItem) {
+      this.logger.info("setImageDataFromIndex:", index, "referenceItem:", referenceItem);
+      this.item.tags = referenceItem.tags;
+      this.item.text = referenceItem.text;
+      this.item.dateSource = referenceItem.dateSource;
+      this.item.date = referenceItem.date;
+      this.item.eventId = referenceItem.eventId;
+      this.groupEventType = groupEventTypeFor(referenceItem.dateSource);
+      this.callImageChange();
+    } else {
+      this.logger.info("setImageDataFromIndex: no referenceItem found for index:", index);
+    }
+  }
+
+
   imageUnsaved(item: ContentMetadataItem) {
     return item.base64Content ? "(unsaved changes)" : "";
   }
+
+  imagedIsCropped() {
+    return !this.editActive && !!this?.awsFileDataFromEdit;
+  }
+
+  imagedIsSaved() {
+    return this.s3Metadata && !!this.item.image;
+  }
+
+  croppedSize() {
+    return this.numberUtils.humanFileSize(this.awsFileDataFromEdit?.file?.size);
+  }
+
+  imageSize() {
+    return this.numberUtils.humanFileSize(this.s3Metadata?.size);
+  }
+
 }

@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from "@angular/common/http";
-import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output, ViewEncapsulation } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import min from "lodash-es/min";
 import range from "lodash-es/range";
@@ -60,8 +60,238 @@ import isEmpty from "lodash-es/isEmpty";
 
 @Component({
   selector: "app-image-list-edit",
-  styleUrls: ["./image-list-edit.sass"],
-  templateUrl: "./image-list-edit.html"
+  styles: [`
+    .horizontal
+      display: flex
+
+    .tags-input
+      max-width: 100%
+      line-height: 22px
+      overflow-y: scroll
+      overflow-x: scroll
+      height: 65px
+      cursor: text
+
+    .no-right-padding
+      padding-right: 0
+
+    .no-left-padding
+      padding-left: 0
+
+    .visible-viewport
+      height: 10000px
+      width: auto
+
+    .right-justify-ellipsis
+      text-align: right
+      direction: rtl
+      overflow: hidden
+      text-overflow: ellipsis
+      white-space: nowrap
+  `],
+  template: `
+    <ng-container *ngIf="allow.edit && contentMetadata">
+      <input #fileElement class="d-none" type="file" ng2FileSelect multiple
+             (onFileSelected)="onFileSelectOrDropped($event)"
+             [uploader]="uploader">
+      <div class="row no-gutters">
+        <div class="col pr-1">
+          <app-badge-button fullWidth="true" [icon]="faSave" caption="Save changes and exit"
+                            (click)="requestSaveChangesAndExit()"
+                            [disabled]="uploader.isUploading"/>
+        </div>
+        <div class="col pr-1">
+          <app-badge-button fullWidth="true" [icon]="faSave" caption="Save" (click)="requestSaveChanges()"
+                            [disabled]="uploader.isUploading"/>
+        </div>
+        <div class="col pr-1">
+          <app-badge-button fullWidth="true" [icon]="faUndo" caption="Exit without saving"
+                            [disabled]="uploader.isUploading"
+                            (click)="exitBackWithoutSaving()"/>
+        </div>
+        <div class="col pr-1">
+          <app-badge-button fullWidth [icon]="faUndo" [caption]="'Undo'" (click)="undoChanges()"
+                            [disabled]="uploader.isUploading"/>
+        </div>
+        <div class="col pr-1">
+          <app-badge-button fullWidth [icon]="faSortNumericDown" caption="Sort by image date"
+                            [disabled]="uploader.isUploading"
+                            (click)="sortByDate()"/>
+        </div>
+        <div *ngIf="imagesExist()" class="col pr-1">
+          <app-badge-button fullWidth [icon]="faSortNumericUp" caption="Reverse sort order"
+                            [disabled]="uploader.isUploading"
+                            (click)="reverseSortOrder()"/>
+        </div>
+        <div *ngIf="imagesExist()" class="col pr-1">
+          <app-badge-button fullWidth [icon]="faEraser" caption="Clear images"
+                            [disabled]="uploader.isUploading"
+                            (click)="clearImages()"/>
+        </div>
+        <div *ngIf="!imagesExist()" class="col pr-1">
+          <app-badge-button fullWidth [icon]="faAdd" caption="Create First Image"
+                            [disabled]="uploader.isUploading"
+                            (click)="insertToEmptyList()"/>
+        </div>
+        <div *ngIf="contentMetadata?.imageTags?.length>0" class="col pr-1">
+          <app-badge-button fullWidth
+                            [icon]="faTags"
+                            [disabled]="uploader.isUploading"
+                            [caption]="manageTags?'Close Tags': 'Manage Tags'"
+                            (click)="toggleManageTags()"/>
+        </div>
+        <div class="col-auto">
+          <app-badge-button fullWidth [disabled]="uploader.isUploading"
+                            [icon]="faFile"
+                            caption="Choose Files"
+                            (click)="browseToFile(fileElement)"/>
+        </div>
+      </div>
+      <div class="row mt-2">
+        <div class="col-sm-12">
+          <div ng2FileDrop [ngClass]="{'file-over': !uploader.isUploading && hasFileOver}"
+               (fileOver)="fileOver($event)"
+               (onFileDrop)="onFileSelectOrDropped($event)"
+               [uploader]="uploader"
+               class="badge-drop-zone">Drop new files here to add them
+          </div>
+        </div>
+        <div *ngIf="uploader.isUploading" class="col-sm-12 mb-2 mt-2">
+          <div class="progress">
+            <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': uploader.progress + '%' }">
+              {{ uploader.progress }} %
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-12 mt-4">
+          <div *ngIf="warningTarget.showAlert" class="flex-grow-1 alert {{warningTarget.alertClass}}">
+            <fa-icon [icon]="warningTarget.alert.icon"></fa-icon>
+            <strong *ngIf="warningTarget.alertTitle">
+              {{ warningTarget.alertTitle }}: </strong> {{ warningTarget.alertMessage }}
+          </div>
+        </div>
+      </div>
+      <div class="row mb-2" *ngIf="manageTags">
+        <div class="col-sm-12">
+          <h6>Tag Management</h6>
+          <app-tag-manager [contentMetadata]="contentMetadata"></app-tag-manager>
+        </div>
+      </div>
+      <h6>Image Filtering</h6>
+      <div class="custom-control custom-radio custom-control-inline">
+        <input [disabled]="notifyTarget.busy" id="recent-photos-filter"
+               type="radio"
+               class="custom-control-input"
+               [(ngModel)]="filterType"
+               (ngModelChange)="filterFor('recent')"
+               value="recent"/>
+        <label class="custom-control-label" for="recent-photos-filter">Show recent photos</label>
+      </div>
+      <ng-container *ngIf="selectableTags().length>0">
+        <div
+          class="custom-control custom-radio custom-control-inline">
+          <input [disabled]="notifyTarget.busy" id="tag-filter"
+                 type="radio"
+                 class="custom-control-input"
+                 [(ngModel)]="filterType"
+                 (ngModelChange)="filterFor('tag')"
+                 value="tag"/>
+          <label class="custom-control-label" for="tag-filter">Show images tagged with:</label>
+        </div>
+        <div
+          class="custom-control custom-radio custom-control-inline">
+          <select [disabled]="filterType !== 'tag'"
+                  [ngModel]="activeTag?.subject"
+                  id="filterByTag"
+                  class="form-control"
+                  (ngModelChange)="filterByTag($event)">
+            <option *ngFor="let imageTag of selectableTags(); trackBy: tagTracker"
+                    [ngValue]="imageTag.subject">{{ imageTag.subject }}
+          </select>
+        </div>
+      </ng-container>
+      <div class="custom-control custom-radio custom-control-inline">
+        <input [disabled]="notifyTarget.busy" id="all-photos-filter"
+               type="radio"
+               class="custom-control-input"
+               [(ngModel)]="filterType"
+               (ngModelChange)="filterFor('all')"
+               value="all"/>
+        <label class="custom-control-label" for="all-photos-filter">Show all photos</label>
+      </div>
+      <div class="row mb-3">
+        <div class="col-sm-6">
+          <label for="search">Filter images for text</label>
+          <input [(ngModel)]="filterText" type="text"
+                 (ngModelChange)="onSearchChange($event)" class="form-control input-md rounded ml-8 w-100"
+                 id="search"
+                 placeholder="any text">
+        </div>
+        <div class="col-sm-6 mt-auto">
+          <div class="custom-control custom-checkbox">
+            <input
+              [(ngModel)]="showDuplicates"
+              (ngModelChange)="applyFilter()"
+              type="checkbox" class="custom-control-input"
+              id="show-duplicates">
+            <label class="custom-control-label" for="show-duplicates">Show duplicate images</label>
+          </div>
+        </div>
+      </div>
+      <h6>Pagination</h6>
+      <div class="row">
+        <div class="col-sm-12 mt-3 d-flex">
+          <pagination class="pagination rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="maxSize()"
+                      [totalItems]="filteredFiles.length" [(ngModel)]="pageNumber"
+                      (pageChanged)="pageChanged($event)"></pagination>
+          <div *ngIf="notifyTarget.showAlert" class="flex-grow-1 alert {{notifyTarget.alertClass}}">
+            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+            <strong *ngIf="notifyTarget.alertTitle">
+              {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
+          </div>
+        </div>
+      </div>
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="row">
+            <div class="col-sm-6">
+              <div class="form-group">
+                <label for="name">Album Name</label>
+                <input [delay]="1000"
+                       [tooltip]="imagesExist()? 'Album name cannot be changed after images have been created in it':''"
+                       [disabled]="imagesExist()" type="text" [(ngModel)]="contentMetadata.name" id="name"
+                       class="form-control">
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <app-aspect-ratio-selector [label]="'Default Aspect Ratio'"
+                                         [dimensionsDescription]="contentMetadata.aspectRatio"
+                                         (dimensionsChanged)="dimensionsChanged($event)"></app-aspect-ratio-selector>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ng-container
+        *ngFor="let imageMetaDataItem of currentPageImages;let index = index; trackBy: metadataItemTracker;">
+        <app-image-edit noImageSave
+                        [index]="index"
+                        [duplicateImages]="duplicateImages"
+                        [contentMetadata]="contentMetadata"
+                        [s3Metadata]="metaDataFor(imageMetaDataItem)"
+                        [contentMetadataImageTags]="contentMetadata.imageTags"
+                        [filteredFiles]="currentPageImages"
+                        [item]="imageMetaDataItem"
+                        (imageInsert)="imageInsert($event)"
+                        (imageEdit)="imageEdit($event)"
+                        (imageChange)="imageChange($event)"
+                        (imagedSavedOrReverted)="imagedSavedOrReverted($event)"
+                        (delete)="delete($event)"
+                        (moveUp)="moveUp($event)"
+                        (moveDown)="moveDown($event)">
+        </app-image-edit>
+      </ng-container>
+    </ng-container>`,
+  encapsulation: ViewEncapsulation.None
 })
 export class ImageListEditComponent implements OnInit, OnDestroy {
 
@@ -387,9 +617,15 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     if (!file.date && !this.s3Metadata) {
       this.logger.warn("cant find date for", file);
     }
-    const fileDate = file.date || this.s3Metadata?.find(metadata => file.image.includes(metadata.key))?.lastModified;
+    const fileDate = file.date || this.metaDataFor(file)?.lastModified;
     this.logger.debug("fileDate:", fileDate, "original file.date", file.date);
     return fileDate;
+  }
+
+  public metaDataFor(item: ContentMetadataItem): S3Metadata {
+    const metadata = this.contentMetadataService.findMetadataFor(item, this.s3Metadata);
+    this.logger.off("metaDataFor item:", item, this.s3Metadata, "found metadata:", metadata);
+    return metadata;
   }
 
   reverseSortOrder() {

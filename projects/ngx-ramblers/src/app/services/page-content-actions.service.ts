@@ -25,6 +25,7 @@ import { NumberUtilsService } from "./number-utils.service";
 import { StringUtilsService } from "./string-utils.service";
 import { KeyValue } from "./enums";
 import remove from "lodash-es/remove";
+import cloneDeep from "lodash-es/cloneDeep";
 
 @Injectable({
   providedIn: "root"
@@ -144,7 +145,13 @@ export class PageContentActionsService {
     const columnData: PageContentColumn = row?.type === PageContentType.TEXT ?
       {columns: this.calculateColumnsFor(row, 1), accessLevel: AccessLevel.public} :
       {href: null, imageSource: null, title: null, accessLevel: AccessLevel.hidden};
-    row.maxColumns = row.maxColumns + 1;
+    row.columns.splice(columnIndex, 0, columnData);
+    this.logger.debug("pageContent:", pageContent);
+    this.notifyPageContentChanges(pageContent);
+  }
+
+  duplicateColumn(row: PageContentRow, columnIndex: number, pageContent: PageContent) {
+    const columnData: PageContentColumn = cloneDeep(row.columns[columnIndex]);
     row.columns.splice(columnIndex, 0, columnData);
     this.logger.debug("pageContent:", pageContent);
     this.notifyPageContentChanges(pageContent);
@@ -272,6 +279,20 @@ export class PageContentActionsService {
 
   public rowContainer(pageContent: PageContent, rowIsNested: boolean, column: PageContentColumn): HasPageContentRows {
     return rowIsNested && column?.rows ? column : pageContent;
+  }
+
+  public moveColumnLeft(columns: PageContentColumn[], fromIndex: number, pageContent: PageContent) {
+    const toIndex = fromIndex - 1;
+    this.logger.info("moving column left fromIndex:", fromIndex, "toIndex:", toIndex);
+    move(columns, fromIndex, toIndex);
+    this.notifyPageContentChanges(pageContent);
+  }
+
+  public moveColumnRight(columns: PageContentColumn[], fromIndex: number, pageContent: PageContent) {
+    const toIndex = fromIndex + 1;
+    this.logger.info("moving column left fromIndex:", fromIndex, "toIndex:", toIndex);
+    move(columns, fromIndex, toIndex);
+    this.notifyPageContentChanges(pageContent);
   }
 
   public moveRowUp(pageContent: PageContent, rowIndex: number, rowIsNested: boolean, column: PageContentColumn) {

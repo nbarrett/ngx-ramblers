@@ -93,7 +93,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   faUndo = faUndo;
   providers: [{ provide: BsDropdownConfig, useValue: { isAnimated: true, autoClose: true } }];
   enumKeyValuesForPageContentType: KeyValue<string>[] = enumKeyValues(PageContentType);
-  public unsavedMarkdownComponents: MarkdownEditorComponent[] = [];
+  public unsavedMarkdownComponents: Set<MarkdownEditorComponent> = new Set();
   public destinationPath: string;
   public destinationPathLookup: Subject<string> = new Subject<string>();
   destinationPathInsertionRowIndex = 0;
@@ -191,17 +191,13 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     });
     this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_UNSAVED, (namedEvent: NamedEvent<MarkdownEditorComponent>) => {
       this.logger.info("event received:", namedEvent);
-      if (!this.unsavedMarkdownComponents.includes(namedEvent.data)) {
-        this.unsavedMarkdownComponents.push(namedEvent.data);
-        this.logger.info("unsavedMarkdownComponents:", this.unsavedMarkdownComponents.map(item => item.content));
-      }
+      this.unsavedMarkdownComponents.add(namedEvent.data);
+      this.logger.info("added:", namedEvent.data, "to unsavedMarkdownComponents:", this.unsavedMarkdownComponents);
     });
     this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_SYNCED, (namedEvent: NamedEvent<MarkdownEditorComponent>) => {
       this.logger.info("event received:", namedEvent);
-      if (this.unsavedMarkdownComponents.includes(namedEvent.data)) {
-        this.unsavedMarkdownComponents = this.unsavedMarkdownComponents.filter(item => item !== namedEvent.data);
-        this.logger.info("unsavedMarkdownComponents:", this.unsavedMarkdownComponents.map(component => component.content));
-      }
+      this.unsavedMarkdownComponents.delete(namedEvent.data);
+      this.logger.info("unsavedMarkdownComponents removed:", namedEvent.data, "result:", this.unsavedMarkdownComponents);
     });
     this.destinationPathLookup.pipe(debounceTime(250))
       .pipe(distinctUntilChanged())
@@ -272,8 +268,8 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   public savePageContent(): Promise<boolean> {
     if (this.actions.rowsInEdit.length === 0) {
-      this.logger.info("saving", this.unsavedMarkdownComponents.length, "markdown components before saving page content");
-      return Promise.all(this.unsavedMarkdownComponents.map(component => component.save())).then(() => {
+      this.logger.info("saving", this.stringUtils.pluraliseWithCount(this.unsavedMarkdownComponents.size, "markdown component"), "before saving page content");
+      return Promise.all(Array.from(this.unsavedMarkdownComponents.values()).map(component => component.save())).then(() => {
         return this.pageContentService.createOrUpdate(this.pageContent)
           .then(pageContent => {
             this.pageContent = pageContent;
