@@ -21,7 +21,7 @@ import { StringUtilsService } from "../services/string-utils.service";
     <div class="row">
       <div class="col">
         <div class="form-group">
-          <label for="from-date">{{groupEventType.description}}s From:</label>
+          <label for="from-date">{{groupEventType?.description}}s From:</label>
           <app-date-picker startOfDay
                            id="from-date"
                            [size]="'md round'"
@@ -32,7 +32,7 @@ import { StringUtilsService } from "../services/string-utils.service";
       </div>
       <div class="col">
         <div class="form-group">
-          <label for="to-date">{{groupEventType.description}}s To:</label>
+          <label for="to-date">{{groupEventType?.description}}s To:</label>
           <app-date-picker startOfDay
                            id="to-date"
                            [size]="'md round'"
@@ -48,7 +48,7 @@ import { StringUtilsService } from "../services/string-utils.service";
         <ng-select [id]="id" #select [items]="groupEvents"
                    bindLabel="description"
                    bindValue="id"
-                   [placeholder]="'Select a ' + groupEventType.description + ' event - type part of title to filter items'"
+                   [placeholder]="'Select a ' + groupEventType?.description + ' event - type part of title to filter items'"
                    [dropdownPosition]="'bottom'"
                    [clearAllText]="'clear current selection'"
                    [closeOnSelect]="true"
@@ -85,7 +85,7 @@ export class GroupEventSelectorComponent implements OnInit {
   public groupEvents: GroupEvent[] = [];
   private search: string;
   public fromDate: number = this.dateUtils.asMoment().subtract(2, "weeks").valueOf();
-  public toDate: number = this.dateUtils.asMoment(this.fromDate).add(2, "day").valueOf();
+  public toDate: number = this.dateUtils.asMoment().add(1, "day").valueOf();
   public id: string;
   public groupEventType: GroupEventType;
 

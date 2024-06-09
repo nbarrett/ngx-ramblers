@@ -92,15 +92,14 @@
         </select>
       </div>
     </ng-container>
-    <app-markdown-editor class="card-text"
+    <app-markdown-editor unlinkEnabled
+                         class="card-text"
                          (saved)="actions.saveContentTextId($event, rowIndex, column, pageContent)"
                          [actionCaptionSuffix]="'text'"
-                         unlinkEnabled
                          [category]="pageContent.path"
                          [description]="idFor(pageContent.path)"
                          [id]="column?.contentTextId"
                          [name]="actions.rowColFor(rowIndex, columnIndex)">
-
       <div *ngIf="!pageContentEdit.editActive"
            (click)="editImage()"
            delay=500 tooltip="edit image" class="badge-button">

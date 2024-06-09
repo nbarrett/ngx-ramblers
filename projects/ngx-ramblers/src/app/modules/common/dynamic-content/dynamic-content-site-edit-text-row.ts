@@ -1,5 +1,5 @@
 import { Component, Input, OnInit } from "@angular/core";
-import { faAdd, faCaretDown, faCaretUp, faPencil } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faPencil } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AwsFileData } from "../../../models/aws-object.model";
 import {
@@ -14,7 +14,6 @@ import { MemberResourcesReferenceDataService } from "../../../services/member/me
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { PageContentEditService } from "../../../services/page-content-edit.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { MarkdownEditorFocusService } from "../../../services/markdown-editor-focus-service";
 
 @Component({
   selector: "app-dynamic-content-site-edit-text-row",
@@ -22,11 +21,10 @@ import { MarkdownEditorFocusService } from "../../../services/markdown-editor-fo
   styleUrls: ["./dynamic-content.sass"],
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
-  private expanded: boolean;
+  public expanded: boolean;
 
   constructor(
     public pageContentEditService: PageContentEditService,
-    private markdownEditorFocusService: MarkdownEditorFocusService,
     public memberResourcesReferenceData: MemberResourcesReferenceDataService,
     public stringUtils: StringUtilsService,
     public actions: PageContentActionsService,

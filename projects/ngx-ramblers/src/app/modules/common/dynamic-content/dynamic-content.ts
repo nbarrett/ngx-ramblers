@@ -1,5 +1,5 @@
 import { Component, Input, OnDestroy, OnInit } from "@angular/core";
-import { ActivatedRoute, ParamMap } from "@angular/router";
+import { ActivatedRoute, ParamMap, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
@@ -14,6 +14,7 @@ import { UrlService } from "../../../services/url.service";
 import { NamedEventType } from "../../../models/broadcast.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import cloneDeep from "lodash-es/cloneDeep";
 
 @Component({
   selector: "app-dynamic-content",
@@ -93,7 +94,7 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
       this.authService.authResponse().subscribe(() => this.refreshPageContent());
       this.broadcastService.on(NamedEventType.PAGE_CONTENT_CHANGED, (pageContentData) => {
         this.logger.info("received:", pageContentData);
-        this.pageContent = pageContentData.data;
+        this.pageContent = cloneDeep(pageContentData.data);
       });
     }));
   }
@@ -116,6 +117,7 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
             title: `Page not found`,
             message: `The ${queryPath} page content was not found`
           });
+          this.logger.info("Page content not found for", queryPath, "redirecting to", this.contentPath)
         }
       }).catch(error => {
       this.logger.info("Page content error found for", queryPath, error);

@@ -9,16 +9,16 @@ import {
   PageContentEditEvent,
   PageContentRow
 } from "../../../models/content-text.model";
-import { BroadcastService } from "../../../services/broadcast-service";
 import { IconService } from "../../../services/icon-service/icon-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { PageContentService } from "../../../services/page-content.service";
-import { PageService } from "../../../services/page.service";
-import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
+import { IconDefinition } from "@fortawesome/fontawesome-common-types";
+import { BroadcastService } from "../../../services/broadcast-service";
+import { NamedEventType } from "../../../models/broadcast.model";
 
 @Component({
   selector: "app-card-editor",
@@ -39,7 +39,7 @@ export class CardEditorComponent implements OnInit {
   public row: PageContentRow;
   public awsFileData: AwsFileData;
   private logger: Logger;
-  public faPencil = faPencil;
+  public faPencil: IconDefinition = faPencil;
   public imageType: ImageType;
   public columnIndex: number;
   public routerLink: string;
@@ -48,12 +48,10 @@ export class CardEditorComponent implements OnInit {
     public memberResourcesReferenceData: MemberResourcesReferenceDataService,
     public iconService: IconService,
     public urlService: UrlService,
-    private pageService: PageService,
-    private stringUtils: StringUtilsService,
     public siteEditService: SiteEditService,
     public pageContentService: PageContentService,
     public actions: PageContentActionsService,
-    private broadcastService: BroadcastService<PageContent>,
+    private broadcastService: BroadcastService<number>,
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(CardEditorComponent, NgxLoggerLevel.OFF);
   }
@@ -70,6 +68,10 @@ export class CardEditorComponent implements OnInit {
     };
     this.routerLink = this.urlService.routerLinkUrl(this.column.href);
     this.logger.debug("ngOnInit:column", this.column, "this.row:", this.row, "this.imageType:", this.imageType, "pageContentEdit:", this.pageContentEdit, "content path:", this.pageContent.path);
+    this.broadcastService.on(NamedEventType.PAGE_CONTENT_CHANGED, (pageContentData) => {
+      this.logger.info("received:", pageContentData);
+      this.columnIndexChanged();
+    });
   }
 
   idFor(name?: string) {
@@ -78,6 +80,16 @@ export class CardEditorComponent implements OnInit {
 
   imageSourceOrPreview(): string {
     return this.awsFileData?.image || this.column?.imageSource;
+  }
+
+  columnIndexChanged() {
+    const oldIndex = this.columnIndex;
+    const newIndex = this.row.columns.indexOf(this.column);
+    if (oldIndex !== newIndex) {
+      this.columnIndex = newIndex;
+      this.pageContentEdit.columnIndex = this.columnIndex;
+      this.logger.info("columnIndexChanged from:", oldIndex, "to:", this.columnIndex);
+    }
   }
 
   imageChanged(awsFileData: AwsFileData) {

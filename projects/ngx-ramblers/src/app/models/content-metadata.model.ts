@@ -32,9 +32,12 @@ export interface S3MetadataApiResponse extends ApiResponse {
   response?: S3Metadata[];
 }
 
-export interface ContentMetadataItem extends WithMongoId {
+export interface HasEventId {
   eventId?: string;
   dateSource?: string;
+}
+
+export interface ContentMetadataItem extends WithMongoId, HasEventId {
   date?: number;
   image?: string;
   base64Content?: string;

@@ -222,7 +222,7 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                   </div>
                 </div>
                 <div *ngIf=mailMessagingConfig.brevo.account class="img-thumbnail thumbnail-2">
-                  <div class="thumbnail-heading">Free Email Plan</div>
+                  <div class="thumbnail-heading">Free Email Plan Usage</div>
                   <div class="row">
                     <div class="col-sm-12">
                       <p>Credits are renewed each day - {{ freeCreditsUsed() }} available out of {{ CREDITS_AVAILABLE }}

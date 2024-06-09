@@ -3,7 +3,7 @@ import { AsyncPipe, CommonModule, NgFor } from "@angular/common";
 import { HTTP_INTERCEPTORS } from "@angular/common/http";
 import { ModuleWithProviders, NgModule } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { RouterModule } from "@angular/router";
+import { RouteReuseStrategy, RouterModule } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgSelectModule } from "@ng-select/ng-select";
 import { FileUploadModule } from "ng2-file-upload";
@@ -137,6 +137,7 @@ import { MailProviderSettingsComponent } from "./pages/admin/system-settings/mai
 import { DisplayDateNoDayPipe } from "./pipes/display-date-no-day.pipe";
 import { NotificationConfigSelectorComponent } from "./pages/admin/system-settings/mail/notification-config-selector";
 import { SenderRepliesAndSignoffComponent } from "./pages/admin/send-emails/sender-replies-and-signoff";
+import { CustomReuseStrategy } from "./routing/custom-reuse-strategy";
 
 @NgModule({
   imports: [
@@ -383,7 +384,10 @@ export class SharedModule {
         SnakeCasePipe,
         UpdatedAuditPipe,
         ValueOrDefaultPipe,
-        {provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true},
+        {provide: RouteReuseStrategy, useClass: CustomReuseStrategy},
+        {
+          provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true
+        },
         {
           provide: GALLERY_CONFIG,
           useValue: {

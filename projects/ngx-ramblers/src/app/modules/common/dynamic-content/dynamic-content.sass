@@ -19,15 +19,9 @@
 .ltr
   text-align: right
 
-.ellipsis
-  overflow: hidden
-  white-space: nowrap
-  text-overflow: ellipsis
-
-.ellipsis-right
-  @extend .ellipsis
+.right-justify-ellipsis
   text-align: right
-
-.ellipsis-left
-  @extend .ellipsis
-  text-align: left
+  direction: rtl
+  overflow: hidden
+  text-overflow: ellipsis
+  white-space: nowrap
