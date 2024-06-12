@@ -230,24 +230,33 @@ export class RamblersWalksAndEventsService {
 
   updateWalksWithRamblersWalkData(ramblersWalksResponses: RamblersWalkResponse[], walks: Walk[]) {
     let unreferencedUrls: string[] = this.collectExistingRamblersUrlsFrom(walks);
-    this.logger.off(this.stringUtilsService.pluraliseWithCount(unreferencedUrls.length, "existing ramblers walk url"), "found:", unreferencedUrls);
-    this.logger.off(this.stringUtilsService.pluraliseWithCount(walks.length, "saved walk"), "found:", walks);
+    this.logger.info(this.stringUtilsService.pluraliseWithCount(unreferencedUrls.length, "existing ramblers walk url"), "found:", unreferencedUrls);
+    this.logger.info(this.stringUtilsService.pluraliseWithCount(walks.length, "saved walk"), "found:", walks);
     const savePromises = [];
+    this.logger.info("ramblersWalksResponses:", ramblersWalksResponses);
     ramblersWalksResponses.forEach((ramblersWalksResponse: RamblersWalkResponse) => {
-      const walkMatchedByDate = walks.find(walk => this.dateUtils.asString(walk.walkDate, undefined, "dddd, Do MMMM YYYY") === ramblersWalksResponse.startDate);
+      const walkMatchedByDate: Walk = walks.find(walk => this.dateUtils.asString(walk.walkDate, undefined, "dddd, Do MMMM YYYY") === ramblersWalksResponse.startDate);
       if (!walkMatchedByDate) {
-        this.logger.off("no date match found for ramblersWalksResponse", ramblersWalksResponse);
+        this.logger.info("no date match found for ramblersWalksResponse", ramblersWalksResponse);
       } else {
         unreferencedUrls = without(unreferencedUrls, ramblersWalksResponse.url);
-        if (walkMatchedByDate && this.matchByIdOrUrl(walkMatchedByDate, ramblersWalksResponse)) {
-          this.logger.off("updating walk from", walkMatchedByDate.ramblersWalkId || "empty", "->", ramblersWalksResponse.id, "and", walkMatchedByDate.ramblersWalkUrl || "empty", "->", ramblersWalksResponse.url, "on", this.displayDate.transform(walkMatchedByDate.walkDate));
-          walkMatchedByDate.ramblersWalkId = ramblersWalksResponse.id;
-          walkMatchedByDate.ramblersWalkUrl = ramblersWalksResponse.url;
-          walkMatchedByDate.startLocationW3w = ramblersWalksResponse.startLocationW3w;
-          savePromises.push(this.walksService.createOrUpdate(walkMatchedByDate));
-          this.logger.off("walk updated to:", walkMatchedByDate);
+        if (walkMatchedByDate) {
+          if (this.notMatchedByIdOrUrl(walkMatchedByDate, ramblersWalksResponse)) {
+            this.logger.info("updating walk from", walkMatchedByDate.ramblersWalkId || "empty", "->", ramblersWalksResponse.id, "and", walkMatchedByDate.ramblersWalkUrl || "empty", "->", ramblersWalksResponse.url, "on", this.displayDate.transform(walkMatchedByDate.walkDate));
+            walkMatchedByDate.ramblersWalkId = ramblersWalksResponse.id;
+            walkMatchedByDate.ramblersWalkUrl = ramblersWalksResponse.url;
+            walkMatchedByDate.startLocationW3w = ramblersWalksResponse.startLocationW3w;
+            savePromises.push(this.walksService.createOrUpdate(walkMatchedByDate));
+            this.logger.info("walk updated to:", walkMatchedByDate);
+          }
+          if (this.mediaExistsOnWalksManagerNotLocal(walkMatchedByDate, ramblersWalksResponse)) {
+            this.logger.info("mediaMismatch:updating walk from", walkMatchedByDate.media || "empty", "->", ramblersWalksResponse.media, "on", this.displayDate.transform(walkMatchedByDate.walkDate));
+            walkMatchedByDate.media = ramblersWalksResponse.media;
+            savePromises.push(this.walksService.createOrUpdate(walkMatchedByDate));
+            this.logger.info("walk updated to:", walkMatchedByDate);
+          }
         } else {
-          this.logger.off("no update required for walk", walkMatchedByDate.id, walkMatchedByDate.walkDate, this.dateUtils.displayDay(walkMatchedByDate.walkDate));
+          this.logger.info("no update required for walk", walkMatchedByDate.id, walkMatchedByDate.walkDate, this.dateUtils.displayDay(walkMatchedByDate.walkDate));
         }
       }
     });
@@ -267,7 +276,7 @@ export class RamblersWalksAndEventsService {
     return Promise.all(savePromises).then(() => walks);
   }
 
-  private matchByIdOrUrl(walkMatchedByDate: Walk, ramblersWalksResponse: RamblersWalkResponse): boolean {
+  private notMatchedByIdOrUrl(walkMatchedByDate: Walk, ramblersWalksResponse: RamblersWalkResponse): boolean {
     return walkMatchedByDate.ramblersWalkUrl !== ramblersWalksResponse.url || walkMatchedByDate.ramblersWalkId !== ramblersWalksResponse.id;
   }
 
@@ -488,6 +497,7 @@ export class RamblersWalksAndEventsService {
     const contactName = groupWalk?.walk_leader?.name;
     const displayName = this.memberNamingService.createDisplayNameFromContactName(contactName);
     const walk: Walk = {
+      media: groupWalk.media,
       ascent: groupWalk.ascent_feet?.toString(),
       briefDescriptionAndStartPoint: groupWalk.title,
       config: {meetup: null},
@@ -530,7 +540,7 @@ export class RamblersWalksAndEventsService {
       features: (groupWalk.facilities || []).concat(groupWalk.transport || []).sort(sortBy("description")),
       startLocation: groupWalk.start_location.description
     };
-    this.logger.debug("groupWalk:", groupWalk, "walk:", walk, "contactName:", contactName, "displayName:", displayName);
+    this.logger.info("groupWalk:", groupWalk, "walk:", walk, "contactName:", contactName, "displayName:", displayName);
     return walk;
   }
 
@@ -581,4 +591,7 @@ export class RamblersWalksAndEventsService {
     return csvRecord;
   }
 
+  private mediaExistsOnWalksManagerNotLocal(walkMatchedByDate: Walk, ramblersWalksResponse: RamblersWalkResponse) {
+    return ramblersWalksResponse.media.length > 0 && (walkMatchedByDate?.media?.length || 0) === 0;
+  }
 }

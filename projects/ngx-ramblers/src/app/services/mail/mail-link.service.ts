@@ -64,6 +64,10 @@ export class MailLinkService {
     return `${this.config.baseUrl}/contact/list/id/${listId}`;
   }
 
+  profileInformation() {
+    return `${this.config.baseUrl}/profile/information`;
+  }
+
   public contactView(contactId: number) {
     return `${this.config.baseUrl}/contact/index/${contactId}`;
   }
@@ -101,4 +105,5 @@ export class MailLinkService {
       }
     }
   }
+
 }

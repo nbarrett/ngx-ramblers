@@ -9,6 +9,12 @@ import {
 } from "../../pages/committee/send-notification/committee-send-notification.component";
 import { CommitteeYearComponent } from "../../pages/committee/year/committee-year";
 import { SharedModule } from "../../shared-module";
+import {
+  CommitteeNotificationRamblersMessageItemComponent
+} from "../../notifications/committee/templates/committee-notification-ramblers-message-item";
+import {
+  CommitteeNotificationGroupEventMessageItemComponent
+} from "../../notifications/committee/templates/committee-notification-group-event-message-item";
 
 @NgModule({
   declarations: [
@@ -17,6 +23,8 @@ import { SharedModule } from "../../shared-module";
     CommitteeYearComponent,
     CommitteeEditFileModalComponent,
     CommitteeHomeComponent,
+    CommitteeNotificationRamblersMessageItemComponent,
+    CommitteeNotificationGroupEventMessageItemComponent,
     CommitteeNotificationDetailsComponent
   ],
   imports: [

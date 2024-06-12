@@ -12,7 +12,6 @@ import { Member } from "../../../models/member.model";
 import { RamblersUploadAudit, RamblersUploadAuditApiResponse } from "../../../models/ramblers-upload-audit.model";
 import { WalkUploadRow } from "../../../models/ramblers-walks-manager";
 import { Walk, WalkExport } from "../../../models/walk.model";
-import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -25,10 +24,158 @@ import { WalksService } from "../../../services/walks/walks.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { CsvOptions } from "../../../csv-export/csv-export";
 import { SystemConfigService } from "../../../services/system/system-config.service";
+import { StringUtilsService } from "../../../services/string-utils.service";
 
 @Component({
   selector: "app-walk-export",
-  templateUrl: "./walk-export.component.html",
+  template: `
+    <app-page>
+      <tabset class="custom-tabset">
+        <tab active="true" [heading]="'Walk upload selection'">
+          <app-csv-export hidden #csvComponent
+                          [data]="walksDownloadFileContents()"
+                          [filename]="walksDownloadFileName()"
+                          [options]="options()">
+          </app-csv-export>
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="form-group">
+              <div *ngIf="walkExportTarget.showAlert" class="alert {{walkExportTarget.alertClass}}">
+                <fa-icon [icon]="walkExportTarget.alert.icon"></fa-icon>
+                <strong *ngIf="walkExportTarget.alertTitle">
+                  {{ walkExportTarget.alertTitle }}: </strong> {{ walkExportTarget.alertMessage }}
+              </div>
+            </div>
+            <div *ngIf="!display.walkPopulationWalksManager()" class="row mb-2">
+              <div class="col-sm-12 form-inline">
+                <input *ngIf="walksDownloadFileContents().length > 0" type="submit"
+                       value="Upload {{walksDownloadFileContents().length}} walk(s) directly to Ramblers"
+                       (click)="uploadToRamblers()"
+                       [ngClass]="exportInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+                <input *ngIf="walksDownloadFileContents().length > 0" type="submit"
+                       (click)="csvComponent.generateCsv();"
+                       value="Export {{walksDownloadFileContents().length}} walk(s) file as CSV format"
+                       [ngClass]="exportInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+                <input type="submit" value="Back to walks" (click)="navigateBackToWalks()"
+                       title="Back to walks"
+                       class="button-form button-form-left">
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-sm-12">
+                <table class="round styled-table table-striped table-hover table-sm table-pointer">
+                  <thead>
+                  <tr>
+                    <th>Click to Export</th>
+                    <th>Already Published</th>
+                    <th>Walk Date</th>
+                    <th>Leader</th>
+                    <th>Status</th>
+                    <th>Description</th>
+                    <th>Problems</th>
+                  </tr>
+                  </thead>
+                  <tbody>
+                  <tr *ngFor="let walkExport of walksForExport">
+                    <td (click)="changeWalkExportSelection(walkExport)"
+                        [ngClass]="walkExport.selected ? 'yes' : 'no'">
+                      <div class="custom-control custom-checkbox">
+                        <input [ngModel]="walkExport.selected"
+                               type="checkbox" class="custom-control-input">
+                        <label class="custom-control-label"></label></div>
+                    </td>
+                    <td>{{ walkExport.publishedOnRamblers }}</td>
+                    <td class="nowrap">{{ walkExport.displayedWalk.walk.walkDate | displayDate }}</td>
+                    <td class="nowrap">{{ walkExport.displayedWalk.walk.displayName }}</td>
+                    <td>{{ walkExport.displayedWalk.latestEventType.description }}</td>
+                    <td>{{ walkExport.displayedWalk.walk.briefDescriptionAndStartPoint }}</td>
+                    <td>{{ walkExport.validationMessages.join(", ") }}</td>
+                  </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </tab>
+        <tab [heading]="'Walk upload audit'">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="form-group">
+              <div *ngIf="auditTarget.showAlert" class="alert {{auditTarget.alertClass}}">
+                <fa-icon [icon]="auditTarget.alert.icon"></fa-icon>
+                <strong *ngIf="auditTarget.alertTitle">
+                  {{ auditTarget.alertTitle }}: </strong> {{ auditTarget.alertMessage }}
+              </div>
+            </div>
+            <div *ngIf="!display.walkPopulationWalksManager()" class="row">
+              <div class="col-sm-12">
+                <div class="button-group">
+                  <form class="form-inline">
+                    <div class="form-group">
+                      <label for="fileName" class="inline-label">Show upload session: </label>
+                      <select class="form-control input-sm"
+                              id="fileName"
+                              name="filename"
+                              (change)="fileNameChanged()"
+                              [(ngModel)]="fileName"
+                              class="form-control input-sm" id="fileNames">
+                        <option *ngFor="let fileName of fileNames"
+                                [ngValue]="fileName"
+                                [textContent]="fileName">
+                        </option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <div class="custom-control custom-checkbox">
+                        <input [(ngModel)]="showDetail"
+                               name="showDetail" type="checkbox" class="custom-control-input"
+                               id="show-detailed-audit-messages">
+                        <label class="custom-control-label"
+                               (click)="fileNameChanged()"
+                               for="show-detailed-audit-messages">Show details
+                        </label>
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <input type="submit" value="Back to walks" (click)="navigateBackToWalks()"
+                             title="Back to walks"
+                             class="button-form button-form-left">
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col col-sm-12">
+                <table class="round styled-table table-striped table-hover table-sm table-pointer">
+                  <thead>
+                  <tr>
+                    <th>Date/Time</th>
+                    <th>Status</th>
+                    <th>Audit Message</th>
+                  </tr>
+                  </thead>
+                  <tbody>
+                  <tr *ngFor="let audit of ramblersUploadAuditData">
+                    <td class="nowrap">{{ audit.auditTime | displayDateAndTime }}</td>
+                    <td *ngIf="audit.status==='complete'">
+                      <fa-icon [icon]="finalStatusError ? faRemove : faCircleInfo" [ngClass]="finalStatusError ? 'red-icon':
+                            'green-icon'"></fa-icon>
+                    <td *ngIf="audit.status==='success'">
+                      <fa-icon [icon]="faEye" class="green-icon"></fa-icon>
+                    <td *ngIf="audit.status==='info'">
+                      <fa-icon [icon]="faCircleInfo" class="blue-icon"></fa-icon>
+                    <td *ngIf="audit.status==='error'">
+                      <fa-icon [icon]="faRemove" class="red-icon"></fa-icon>
+                    <td>{{ audit.message }}<span
+                      *ngIf="audit.errorResponse">: {{ audit.errorResponse | valueOrDefault }}</span></td>
+                  </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </tab>
+      </tabset>
+    </app-page>`,
   styleUrls: ["./walk-export.component.sass"]
 })
 
@@ -39,9 +186,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   public fileName: string;
   public fileNames: string[] = [];
   public showDetail: boolean;
-  private walkExportTab0Active: boolean;
   private members: Member[];
-  private walkExportTab1Active: boolean;
   public walkExportTarget: AlertTarget = {};
   private walkExportNotifier: AlertInstance;
   public auditTarget: AlertTarget = {};
@@ -59,12 +204,12 @@ export class WalkExportComponent implements OnInit, OnDestroy {
               private walksService: WalksService,
               private ramblersUploadAuditService: RamblersUploadAuditService,
               private notifierService: NotifierService,
-              private displayDateAndTime: DisplayDateAndTimePipe,
               private displayDate: DisplayDatePipe,
               private systemConfigService: SystemConfigService,
               private walksQueryService: WalksQueryService,
               public display: WalkDisplayService,
               private dateUtils: DateUtilsService,
+              private stringUtils: StringUtilsService,
               private urlService: UrlService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(WalkExportComponent, NgxLoggerLevel.OFF);
@@ -165,7 +310,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.logger.debug("populateWalkExport: found", walksForExport.length, "walks:", walksForExport);
     this.walksForExport = walksForExport;
     this.walkExportNotifier.success({
-      title: "Export status", message: `Found total of ${this.walksForExport.length} walk(s), ${this.walksDownloadFileContents().length} preselected for export`
+      title: "Export status", message: `Found total of ${this.stringUtils.pluraliseWithCount(this.walksForExport.length,"walk")}, ${this.walksDownloadFileContents().length} preselected for export`
     });
     this.walkExportNotifier.clearBusy();
   }
@@ -231,8 +376,6 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.logger.debug("Refreshing audit trail for file", this.fileName, "count =", this.ramblersUploadAuditData.length);
     this.startRamblersUploadAudit();
     this.ramblersUploadAuditData = [];
-    this.walkExportTab0Active = false;
-    this.walkExportTab1Active = true;
     this.exportInProgress = true;
     this.ramblersWalksAndEventsService.uploadToRamblers(this.walksForExport, this.members, this.walkExportNotifier).then(fileName => {
       this.fileName = fileName;

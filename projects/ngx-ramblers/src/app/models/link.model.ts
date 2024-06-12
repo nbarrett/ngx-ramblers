@@ -5,6 +5,12 @@ export interface LinkConfig {
   relative?: boolean;
 }
 
+export interface LinkTextConfig {
+  name: string;
+  text?: string;
+  href: string;
+}
+
 export interface AWSLinkConfig {
   name: string;
 }

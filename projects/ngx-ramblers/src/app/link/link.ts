@@ -28,9 +28,18 @@ export class LinkComponent implements OnInit {
 
   ngOnInit() {
     this.target = this.target || "_blank";
-    this.href = this.urlService.linkUrl({relative: this.relative, name: this.name, area: this.area, subArea: this.subArea, id: this.id});
-    this.linkText = !this.text && this.name ? this.fileUtils.basename(this.name) : this.text || this.href;
+    this.href = this.urlService.linkUrl({
+      relative: this.relative,
+      name: this.name,
+      area: this.area,
+      subArea: this.subArea,
+      id: this.id
+    });
+    this.linkText = this.urlService.linkText({
+      href: this.href,
+      text: this.text,
+      name: this.fileUtils.basename(this.name)
+    });
     this.logger.info("ngOnInit", "name:", this.name, "text:", this.text, "subArea:", this.subArea, "id:", this.id, "area:", this.area, "target:", this.target, "relative:", this.relative, "href:", this.href, "-> linkText:", this.linkText);
   }
-
 }

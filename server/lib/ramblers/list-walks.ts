@@ -165,7 +165,8 @@ function transformListWalksResponse(systemConfig: SystemConfig) {
         title: walk.title,
         startDate: walkMoment.format("dddd, Do MMMM YYYY"),
         startDateValue: walkMoment.valueOf(),
-        startLocationW3w: walk.start_location.w3w
+        startLocationW3w: walk.start_location.w3w,
+        media: walk.media
       };
     });
   };

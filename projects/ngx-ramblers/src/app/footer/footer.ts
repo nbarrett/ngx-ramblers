@@ -16,7 +16,7 @@ export class FooterComponent implements OnInit, OnDestroy {
   public year: number;
   public footer: Footer;
   private subscriptions: Subscription[] = [];
-  private national: Ramblers;
+  protected national: Ramblers;
   constructor(private dateUtils: DateUtilsService,
               private systemConfigService: SystemConfigService,
               loggerFactory: LoggerFactory) {

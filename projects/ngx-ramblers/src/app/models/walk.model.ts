@@ -7,7 +7,7 @@ import { WalkAccessMode } from "./walk-edit-mode.model";
 import { WalkEventType } from "./walk-event-type.model";
 import { WalkEvent } from "./walk-event.model";
 import { WalkVenue } from "./walk-venue.model";
-import { Metadata, WalkLeader } from "./ramblers-walks-manager";
+import { Media, Metadata, WalkLeader } from "./ramblers-walks-manager";
 
 export interface GoogleMapsConfig {
   apiKey: string;
@@ -80,6 +80,7 @@ export interface Walk extends Identifiable {
   group?: Group;
   features?: Metadata[];
   startLocation?: string;
+  media?: Media[];
 }
 
 export interface RiskAssessmentRecord {

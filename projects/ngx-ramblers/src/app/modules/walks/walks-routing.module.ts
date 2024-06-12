@@ -21,27 +21,56 @@ import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-g
 
 @NgModule({
   imports: [WalksModule, RouterModule.forChild([
-    {path: "add", component: WalkEditComponent, canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]},
-    {path: "admin", component: WalkAdminComponent, canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]},
+    {
+      path: "add",
+      component: WalkEditComponent,
+      canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]
+    },
+    {
+      path: "admin",
+      component: WalkAdminComponent,
+      canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]
+    },
     {
       path: "admin/add-walk-slots",
       component: WalkAddSlotsComponent,
       canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]
     },
-    {path: "admin/export", component: WalkExportComponent, canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]},
+    {
+      path: "admin/export",
+      component: WalkExportComponent,
+      canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]
+    },
     {
       path: "admin/meetup-settings",
       component: WalkMeetupSettingsComponent,
       canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]
     },
     {
-      path: "edit/:walk-id", component: WalkEditFullPageComponent, canActivate: [WalksPopulationLocalGuard]
+      path: "edit/:walk-id",
+      component: WalkEditFullPageComponent,
+      canActivate: [WalksPopulationLocalGuard]
     },
-    {path: "carousel", component: ActionButtonsComponent},
-    {matcher: hasMongoId, component: WalkViewComponent},
-    {matcher: hasRamblersIdOrUrl, component: WalkViewComponent},
-    {matcher: hasDynamicPath, component: DynamicContentPageComponent},
-    {path: "**", component: WalkListComponent},
+    {
+      path: "carousel",
+      component: ActionButtonsComponent
+    },
+    {
+      matcher: hasMongoId,
+      component: WalkViewComponent
+    },
+    {
+      matcher: hasRamblersIdOrUrl,
+      component: WalkViewComponent
+    },
+    {
+      matcher: hasDynamicPath,
+      component: DynamicContentPageComponent
+    },
+    {
+      path: "**",
+      component: WalkListComponent
+    },
   ])]
 })
 export class WalksRoutingModule {

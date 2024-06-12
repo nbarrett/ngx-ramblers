@@ -29,7 +29,7 @@ export class CommitteeDisplayService {
 
   constructor(
     private memberLoginService: MemberLoginService,
-    private urlService: UrlService,
+    public urlService: UrlService,
     private valueOrDefault: ValueOrDefaultPipe,
     private dateUtils: DateUtilsService,
     private committeeFileService: CommitteeFileService,

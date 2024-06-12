@@ -224,7 +224,7 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
                              (ngModelChange)="populateGroupEvents()"
                              type="checkbox" class="custom-control-input" id="user-events-show-description">
                       <label class="custom-control-label"
-                             for="user-events-show-description">Description:
+                             for="user-events-show-description">Description
                       </label>
                     </div>
                     <div class="custom-control custom-checkbox">
@@ -232,7 +232,7 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
                              (ngModelChange)="populateGroupEvents()"
                              type="checkbox" class="custom-control-input" id="user-events-show-location">
                       <label class="custom-control-label"
-                             for="user-events-show-location">Location:
+                             for="user-events-show-location">Location
                       </label>
                     </div>
                     <div class="custom-control custom-checkbox">
@@ -240,7 +240,15 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
                              (ngModelChange)="populateGroupEvents()"
                              type="checkbox" class="custom-control-input" id="user-events-show-contact">
                       <label class="custom-control-label"
-                             for="user-events-show-contact">Contact:
+                             for="user-events-show-contact">Contact
+                      </label>
+                    </div>
+                    <div class="custom-control custom-checkbox">
+                      <input [(ngModel)]="notification.groupEventsFilter.includeImage"
+                             (ngModelChange)="populateGroupEvents()"
+                             type="checkbox" class="custom-control-input" id="user-events-show-image">
+                      <label class="custom-control-label"
+                             for="user-events-show-image">Image
                       </label>
                     </div>
                   </div>
@@ -383,15 +391,11 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
                     <img class="card-img"
                          [src]="mailMessagingService.bannerImageSource(notification?.content?.notificationConfig, false)">
                   </div>
-                  <h2 class="mb-3">{{ notification.content.title.value }}</h2>
-                  <p>{{ notification?.content.addresseeType }}</p>
                   <div #notificationContent>
                     <app-committee-notification-details [committeeFile]="committeeFile" [members]="members"
                                                         [notification]="notification">
                     </app-committee-notification-details>
                   </div>
-                  <app-contact-us *ngIf="notification?.content.signoffAs.include" format="list"
-                                  [roles]="notification?.content.signoffAs.value"></app-contact-us>
                 </div>
               </div>
             </tab>
@@ -568,6 +572,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
           selectAll: true,
           fromDate: this.dateUtils.asDateValue(this.dateUtils.momentNowNoTime().valueOf()),
           toDate: this.dateUtils.asDateValue(this.dateUtils.momentNowNoTime().add(2, "weeks").valueOf()),
+          includeImage: true,
           includeContact: true,
           includeDescription: true,
           includeLocation: true,
