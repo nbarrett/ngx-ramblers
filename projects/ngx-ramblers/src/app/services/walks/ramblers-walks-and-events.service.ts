@@ -592,6 +592,6 @@ export class RamblersWalksAndEventsService {
   }
 
   private mediaExistsOnWalksManagerNotLocal(walkMatchedByDate: Walk, ramblersWalksResponse: RamblersWalkResponse) {
-    return ramblersWalksResponse.media.length > 0 && (walkMatchedByDate?.media?.length || 0) === 0;
+    return ramblersWalksResponse?.media?.length > 0 && (walkMatchedByDate?.media?.length || 0) === 0;
   }
 }
