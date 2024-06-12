@@ -1,5 +1,5 @@
 import { ApiResponse, Identifiable } from "./api-response.model";
-import { Organisation } from "./system.model";
+import { ExternalSystems, Organisation } from "./system.model";
 import { CommitteeReferenceData } from "../services/committee/committee-reference-data";
 import { BannerConfig } from "./banner-configuration.model";
 import { Auditable, Member, MemberFilterSelection } from "./member.model";
@@ -128,6 +128,7 @@ export interface SendSmtpEmailParams {
   messageMergeFields: MessageMergeFields;
   memberMergeFields: MemberMergeFields;
   systemMergeFields: SystemMergeFields;
+  accountMergeFields: AccountMergeFields;
 }
 
 export interface MessageMergeFields {
@@ -143,6 +144,15 @@ export interface SystemMergeFields {
   APP_SHORTNAME: string;
   APP_LONGNAME: string;
   PW_RESET_LINK: string;
+  FACEBOOK_URL: string;
+  TWITTER_URL: string;
+  INSTAGRAM_URL: string;
+}
+
+export interface AccountMergeFields {
+  STREET: string;
+  POSTCODE: string;
+  TOWN: string;
 }
 
 export interface MemberMergeFields extends MergeFields {
@@ -243,6 +253,7 @@ export interface TemplateResponse {
 }
 
 export interface MailMessagingConfig {
+  externalSystems: ExternalSystems;
   brevo: {
     account: Account;
     folders: FoldersListResponse;
@@ -275,6 +286,7 @@ export interface Account {
 
 export function DEFAULT_MAIL_MESSAGING_CONFIG(): MailMessagingConfig {
   return {
+    externalSystems: null,
     brevo: {
       mailTemplates: null,
       folders: null,

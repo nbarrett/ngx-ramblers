@@ -20,7 +20,6 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberLoginService } from "../member/member-login.service";
 import { MemberService } from "../member/member.service";
 import { SocialEventsService } from "../social-events/social-events.service";
-import { UrlService } from "../url.service";
 import { WalksQueryService } from "../walks/walks-query.service";
 import { WalksService } from "../walks/walks.service";
 import { CommitteeConfigService } from "./commitee-config.service";
@@ -29,6 +28,8 @@ import { CommitteeReferenceData } from "./committee-reference-data";
 import { toMongoIds } from "../mongo-utils";
 import { SocialEvent } from "../../models/social-events.model";
 import { isNumericRamblersId } from "../path-matchers";
+import { Walk } from "../../models/walk.model";
+import { Media } from "../../models/ramblers-walks-manager";
 
 @Injectable({
   providedIn: "root"
@@ -51,8 +52,8 @@ export class CommitteeQueryService {
     private socialEventsService: SocialEventsService,
     private memberLoginService: MemberLoginService,
     private displayDatePipe: DisplayDatePipe,
-    private urlService: UrlService,
-    private committeeConfig: CommitteeConfigService, loggerFactory: LoggerFactory) {
+    committeeConfig: CommitteeConfigService,
+    loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(CommitteeQueryService, NgxLoggerLevel.OFF);
     committeeConfig.events().subscribe(data => this.committeeReferenceData = data);
     this.queryCommitteeMembers();
@@ -97,7 +98,8 @@ export class CommitteeQueryService {
             description: walk.longerDescription,
             contactName: walk.displayName || "Awaiting walk leader",
             contactPhone: walk.contactPhone,
-            contactEmail: walk.contactEmail
+            contactEmail: walk.contactEmail,
+            image: this.imageFrom(walk)
           }))));
     }
     if (groupEventsFilter.includeCommitteeEvents) {
@@ -244,5 +246,10 @@ export class CommitteeQueryService {
 
   thisCommitteeYear(): CommitteeYear {
     return {year: this.latestYear(), latestYear: true};
+  }
+
+  private imageFrom(walk: Walk) {
+    const media: Media = walk?.media?.find(item => item.styles.find(style => style.style === "medium"));
+    return media?.styles?.find(style => style.style === "medium")?.url;
   }
 }

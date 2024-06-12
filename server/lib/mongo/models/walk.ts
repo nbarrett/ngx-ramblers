@@ -31,6 +31,17 @@ const walkVenue = {
   url: {type: String}
 };
 
+const mediaStyle = {
+  style: {type: String},
+  url: {type: String},
+  width: {type: Number},
+  height: {type: Number}
+};
+
+const media = {
+  alt: {type: String},
+  styles: [mediaStyle]
+};
 const walkSchema = new mongoose.Schema({
   contactName: {type: String},
   walkType: {type: String},
@@ -73,6 +84,7 @@ const walkSchema = new mongoose.Schema({
   walkLeaderMemberId: {type: String},
   venue: walkVenue,
   riskAssessment: [riskAssessmentRecord],
+  media: [media]
 }, {collection: "walks"});
 
 walkSchema.plugin(uniqueValidator);

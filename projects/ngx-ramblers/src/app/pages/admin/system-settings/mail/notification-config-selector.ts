@@ -84,7 +84,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
                 <div class="input-group-text">
                   <app-brevo-button [disabled]="!notificationConfig.templateId"
                                     (click)="editTemplate(notificationConfig.templateId)"
-                                    [title]="'View'"/>
+                                    [title]="'View or Edit Template'"/>
                 </div>
               </div>
             </div>

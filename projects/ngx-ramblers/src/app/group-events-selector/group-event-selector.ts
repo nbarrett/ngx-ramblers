@@ -123,6 +123,7 @@ export class GroupEventSelectorComponent implements OnInit {
       selectAll: true,
       fromDate: this.dateUtils.asDateValue(this.fromDate),
       toDate: this.dateUtils.asDateValue(this.toDate),
+      includeImage: true,
       includeContact: true,
       includeDescription: true,
       includeLocation: true,

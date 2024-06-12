@@ -100,8 +100,8 @@ export class FileUtilsService {
     };
   }
 
-  basename(path) {
-    return path.split(/[\\/]/).pop();
+  basename(path:string) {
+    return path?.split(/[\\/]/)?.pop();
   }
 
   fileNameNoExtension(path): string {

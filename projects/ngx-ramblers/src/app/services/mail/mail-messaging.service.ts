@@ -4,6 +4,8 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailConfigService } from "./mail-config.service";
 import { Member } from "../../models/member.model";
 import {
+  Account,
+  AccountMergeFields,
   BuiltInProcessMappings,
   CreateSendSmtpEmailRequest,
   DEFAULT_MAIL_MESSAGING_CONFIG,
@@ -45,7 +47,6 @@ import { BroadcastService } from "../broadcast-service";
 import { MailService } from "./mail.service";
 import { AlertInstance } from "../notifier.service";
 
-
 @Injectable({
   providedIn: "root"
 })
@@ -85,6 +86,7 @@ export class MailMessagingService {
     });
     this.systemConfigService.events().subscribe(item => {
       this.mailMessagingConfig.group = item.group;
+      this.mailMessagingConfig.externalSystems = item.externalSystems;
       this.emitConfigWhenReadyGiven("systemConfigService:group");
     });
     this.mailMessagingConfig.mailConfig = await this.mailConfigService.queryConfig();
@@ -244,6 +246,7 @@ export class MailMessagingService {
       },
       memberMergeFields: this.toMemberMergeVariables(member),
       systemMergeFields: this.toSystemMergeFields(member),
+      accountMergeFields: this.toAccountMergeFields(this.mailMessagingConfig.brevo.account)
     };
     this.logger.info("createSendSmtpEmailParams:notificationConfig:", notificationConfig, "member:", member, "returning:", params);
     return params;
@@ -267,8 +270,11 @@ export class MailMessagingService {
     }
   }
 
-  toSystemMergeFields(member?: Member): SystemMergeFields {
+  toSystemMergeFields(member: Member): SystemMergeFields {
     return {
+      FACEBOOK_URL: this.mailMessagingConfig?.externalSystems?.facebook?.groupUrl,
+      INSTAGRAM_URL: this.mailMessagingConfig?.externalSystems?.instagram?.groupUrl,
+      TWITTER_URL: this.mailMessagingConfig?.externalSystems?.twitter?.groupUrl,
       APP_SHORTNAME: this.mailMessagingConfig.group?.shortName,
       APP_LONGNAME: this.mailMessagingConfig.group?.longName,
       APP_URL: this.mailMessagingConfig.group?.href,
@@ -290,7 +296,8 @@ export class MailMessagingService {
         SIGNOFF_NAMES: "Example Signoff Names"
       },
       memberMergeFields: this.toMemberMergeVariables(this.memberLoginService.loggedInMember()),
-      systemMergeFields: this.toSystemMergeFields(this.memberLoginService.loggedInMember())
+      systemMergeFields: this.toSystemMergeFields(this.memberLoginService.loggedInMember()),
+      accountMergeFields: this.toAccountMergeFields(this.mailMessagingConfig.brevo.account)
     };
   };
 
@@ -304,6 +311,14 @@ export class MailMessagingService {
       MEMBER_EXP: this.dateUtils.displayDate(member?.membershipExpiryDate),
       USERNAME: member?.userName,
       PW_RESET: member?.passwordResetId || ""
+    };
+  }
+
+  public toAccountMergeFields(account: Account): AccountMergeFields {
+    return {
+      POSTCODE: account?.address?.zipCode,
+      STREET: account?.address?.street,
+      TOWN: account?.address?.city
     };
   }
 

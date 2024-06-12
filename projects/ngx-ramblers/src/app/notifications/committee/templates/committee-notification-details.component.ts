@@ -1,6 +1,6 @@
-import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { CommitteeFile, GroupEvent, Notification } from "../../../models/committee.model";
+import { CommitteeFile, GroupEvent, Notification, NotificationItem } from "../../../models/committee.model";
 import { Member } from "../../../models/member.model";
 import { CommitteeDisplayService } from "../../../pages/committee/committee-display.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
@@ -13,56 +13,39 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
 @Component({
   selector: "app-committee-notification-details",
   template: `
-    <p markdown [data]="notification.content.text.value"></p>
-    <ng-container *ngIf="notification?.content.includeDownloadInformation">
-      <p>
-        <b>File type:</b>
-        <span>{{ committeeFile.fileType }}</span>
-        <br>
-        <b>Description:</b>
-        <span>{{ display.fileTitle(committeeFile) }}</span>
-      </p>
-      <p>If you want to download this attachment you can click <a [href]="display.fileUrl(committeeFile)">here</a>,
-        alternatively
-        you can view or download it from our {{ group?.shortName }}
-        <a href="committee">Committee page</a>.
-      </p>
-    </ng-container>
-    <ng-container *ngIf="selectedGroupEvents().length > 0">
-      <h4><strong style="font-size:14px">Up and coming events</strong></h4>
-      <div *ngFor="let event of selectedGroupEvents()">
-        <p style="font-size: 14px;font-weight: bold">
-          <span [textContent]="event.eventDate | displayDate"></span>
-          <span *ngIf="event.eventTime"> • <span [textContent]="event.eventTime"></span>
-      </span>
-          •
-          <span [textContent]="event.eventType.description"></span>
-          •
-          <app-link area="{{event.eventType.area}}"
-                    id="{{event.id}}"
-                    text="{{event.title}}"></app-link>
-          <span *ngIf="event.distance"> •
-        <span [textContent]="event.distance"></span>
-      </span>
+
+    <app-committee-notification-ramblers-message-item
+      [notificationItem]="toNotificationItemFromNotification(notification)">
+      <p>{{ notification?.content.addresseeType }}</p>
+      <p markdown [data]="notification.content.text.value"></p>
+      <ng-container *ngIf="notification?.content.includeDownloadInformation">
+        <p>
+          <b>File type:</b>
+          <span>{{ committeeFile.fileType }}</span>
+          <br>
+          <b>Description:</b>
+          <span>{{ display.fileTitle(committeeFile) }}</span>
         </p>
-        <div style="font-size: 14px;font-weight: bold">
-      <span *ngIf="notification.groupEventsFilter.includeContact && event.contactName">
-        Contact: <a [href]="'mailto:' + event.contactEmail">
-        <span [textContent]="event.contactName || event.contactEmail"></span>
-      </a>
-        <span *ngIf="event.contactPhone"> ({{ event.contactPhone }})</span>
-      </span>
-          <span *ngIf="notification.groupEventsFilter.includeLocation && event.postcode">
-        • Location: <a [href]="googleMapsService.urlForPostcode(event.postcode)"
-                       target="_blank">
-        <span [textContent]="event.postcode"></span>
-      </a></span>
-        </div>
-        <p markdown [data]="event.description" style="padding: 0px 0px 0px 0px"
-           *ngIf="notification.groupEventsFilter.includeDescription"></p>
-      </div>
+        <p>If you want to download this attachment you can click <a [href]="display.fileUrl(committeeFile)">here</a>,
+          alternatively
+          you can view or download it from our {{ group?.shortName }}
+          <a href="committee">Committee page</a>.
+        </p>
+      </ng-container>
+    </app-committee-notification-ramblers-message-item>
+
+    <ng-container *ngIf="selectedGroupEvents().length > 0">
+      <ng-container *ngFor="let event of selectedGroupEvents()">
+        <app-committee-notification-ramblers-message-item [notificationItem]="toNotificationItem(event, notification)">
+          <app-committee-notification-group-event-message-item [notification]="notification" [event]="event"/>
+        </app-committee-notification-ramblers-message-item>
+      </ng-container>
     </ng-container>
-    <p *ngIf="notification.content.signoffText.include" markdown [data]="notification?.content.signoffText.value"></p>`
+    <app-committee-notification-ramblers-message-item *ngIf="notification.content.signoffText.include">
+      <p markdown [data]="notification?.content.signoffText.value"></p>
+      <app-contact-us *ngIf="notification?.content.signoffAs.include" format="list"
+                      [roles]="notification?.content.signoffAs.value"></app-contact-us>
+    </app-committee-notification-ramblers-message-item>`
 })
 export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy {
 
@@ -96,5 +79,33 @@ export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy 
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  toNotificationItem(event: GroupEvent, notification: Notification): NotificationItem {
+    const href = this.display.urlService.linkUrl({area: event.eventType.area, id: event.id});
+    const title = "View " + event.eventType.description;
+    const image = notification.groupEventsFilter.includeImage ? {
+      alt: title,
+      link: {href, title},
+      src: event.image
+    } : null;
+    return {
+      callToAction: {
+        href,
+        title
+      },
+      image,
+      subject: event.title,
+      text: event.description
+    };
+  }
+
+  toNotificationItemFromNotification(notification: Notification): NotificationItem {
+    return {
+      callToAction: null,
+      image: null,
+      subject: notification.content.title.value,
+      text: notification.content.text.value
+    };
   }
 }

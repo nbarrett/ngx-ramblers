@@ -3,6 +3,7 @@ import { ApiResponse, Identifiable } from "./api-response.model";
 import { FileNameData } from "./aws-object.model";
 import { DateValue } from "./date.model";
 import { NotificationConfig } from "./mail.model";
+import { Link } from "./page.model";
 
 export const committeeYearsPath = "committee#committee-years";
 
@@ -55,6 +56,7 @@ export interface CommitteeFileApiResponse extends ApiResponse {
 }
 
 export interface GroupEvent extends Identifiable {
+  image?: string;
   selected: boolean;
   eventType: GroupEventType;
   eventDate: number;
@@ -66,6 +68,19 @@ export interface GroupEvent extends Identifiable {
   contactName: string;
   contactPhone?: string;
   contactEmail: string;
+}
+
+interface NotificationImage {
+  src: string;
+  alt: string;
+  link: Link;
+}
+
+export interface NotificationItem extends Identifiable {
+  callToAction: Link;
+  text: string;
+  subject: string;
+  image: NotificationImage;
 }
 
 export interface CommitteeMember {
@@ -107,6 +122,7 @@ export interface CommitteeConfig {
 }
 
 export interface GroupEventsFilter {
+  includeImage: boolean;
   selectAll: boolean;
   eventIds?: string[];
   search: string;

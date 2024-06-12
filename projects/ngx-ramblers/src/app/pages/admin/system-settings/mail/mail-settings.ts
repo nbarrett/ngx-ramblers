@@ -145,14 +145,14 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                   </div>
                 </div>
                 <div *ngIf="mailMessagingConfig.brevo.account" class="img-thumbnail thumbnail-2">
-                  <div class="thumbnail-heading">Account Settings</div>
+                  <div class="thumbnail-heading">Account Profile</div>
                   <div class="row">
                     <div class="col-sm-12 mt-2 mb-2">
                       <app-markdown-editor category="admin" name="mail-settings-account-help"
                                            description="Mail Settings Account Help"></app-markdown-editor>
                     </div>
                   </div>
-                  <div class="row">
+                  <div class="row align-items-end">
                     <div class="col-sm-4">
                       <div class="form-group">
                         <label for="email">Email</label>
@@ -178,7 +178,7 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                       </div>
                     </div>
                   </div>
-                  <div class="row">
+                  <div class="row align-items-end">
                     <div class="col-sm-4">
                       <div class="form-group">
                         <label for="companyName">Company Name</label>
@@ -204,7 +204,7 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                       </div>
                     </div>
                   </div>
-                  <div class="row">
+                  <div class="row align-items-end">
                     <div class="col-sm-4">
                       <div class="form-group">
                         <label for="town">Town</label>
@@ -217,6 +217,12 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                       <div class="form-group">
                         <label for="country">Country</label>
                         <div class="form-control input-sm">{{ mailMessagingConfig.brevo.account.address.country }}</div>
+                      </div>
+                    </div>
+                    <div class="col">
+                      <div class="form-group">
+                        <app-brevo-button button title="Edit Account Profile Information"
+                                          (click)="editAccountProfileInformation()"/>
                       </div>
                     </div>
                   </div>
@@ -455,5 +461,9 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
 
   tabActive(tab: MailSettingsTab): boolean {
     return kebabCase(this.tab) === kebabCase(tab);
+  }
+
+  editAccountProfileInformation() {
+    this.mailLinkService.openUrl(this.mailLinkService.profileInformation());
   }
 }

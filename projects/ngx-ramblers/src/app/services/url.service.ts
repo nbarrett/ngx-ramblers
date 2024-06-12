@@ -13,7 +13,7 @@ import {
   HasEventId,
   S3_BASE_URL
 } from "../models/content-metadata.model";
-import { AWSLinkConfig, LinkConfig } from "../models/link.model";
+import { AWSLinkConfig, LinkConfig, LinkTextConfig } from "../models/link.model";
 import { SiteEditService } from "../site-edit/site-edit.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { isMongoId } from "./mongo-utils";
@@ -23,6 +23,7 @@ import { StringUtilsService } from "./string-utils.service";
 import { Organisation, RootFolder } from "../models/system.model";
 import { SystemConfigService } from "./system/system-config.service";
 import { DateUtilsService } from "./date-utils.service";
+import { FileUtilsService } from "../file-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -35,6 +36,7 @@ export class UrlService {
 
   constructor(@Inject(DOCUMENT) private document: Document,
               private router: Router,
+              // private fileUtils: FileUtilsService,
               private stringUtils: StringUtilsService,
               private dateUtils: DateUtilsService,
               private systemConfigService: SystemConfigService,
@@ -158,6 +160,10 @@ export class UrlService {
 
   refresh(): void {
     location.reload();
+  }
+
+  linkText(linkTextConfig: LinkTextConfig) {
+    return !linkTextConfig.text && linkTextConfig.name ? linkTextConfig.name : linkTextConfig.text || linkTextConfig.href;
   }
 
   linkUrl(linkConfig: LinkConfig | AWSLinkConfig): string {

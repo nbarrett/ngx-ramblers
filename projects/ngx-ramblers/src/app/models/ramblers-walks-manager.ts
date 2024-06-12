@@ -20,6 +20,7 @@ export interface RamblersWalkResponse {
   startDate: string;
   startLocationW3w: string;
   startDateValue: number;
+  media: Media[];
 }
 
 export interface RamblersWalksApiResponse extends ApiResponse {
@@ -47,9 +48,7 @@ export interface MediaStyle {
 
 export interface Media {
   alt: string;
-  styles: [
-    MediaStyle
-  ];
+  styles: MediaStyle[];
 }
 
 export interface SearchResultsSummary {
