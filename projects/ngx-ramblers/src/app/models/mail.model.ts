@@ -274,14 +274,14 @@ export interface Plan {
 }
 
 export interface Account {
-  email: string;
-  firstName: string;
-  lastName: string;
-  companyName: string;
-  address: { zipCode: string; country: string; city: string; street: string };
-  plan: Plan[];
-  relay: { data: { port: number; relay: string; userName: string }; enabled: boolean };
-  marketingAutomation: { key: string; enabled: boolean };
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  companyName?: string;
+  address?: { zipCode: string; country: string; city: string; street: string };
+  plan?: Plan[];
+  relay?: { data: { port: number; relay: string; userName: string }; enabled: boolean };
+  marketingAutomation?: { key: string; enabled: boolean };
 }
 
 export function DEFAULT_MAIL_MESSAGING_CONFIG(): MailMessagingConfig {
