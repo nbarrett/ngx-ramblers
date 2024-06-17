@@ -41,7 +41,7 @@ export class MailService {
   constructor(private http: HttpClient,
               private commonDataService: CommonDataService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("TransactionalMailService", NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("MailService", NgxLoggerLevel.ERROR);
   }
 
   async createList(listCreateRequest: ListCreateRequest): Promise<ListCreateResponse> {

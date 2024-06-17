@@ -157,7 +157,7 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                       <div class="form-group">
                         <label for="email">Email</label>
                         <div class="form-control input-sm"
-                             id="email">{{ mailMessagingConfig.brevo.account.email }}
+                             id="email">{{ mailMessagingConfig.brevo.account?.email }}
                         </div>
                       </div>
                     </div>
@@ -165,7 +165,7 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                       <div class="form-group">
                         <label for="firstName">First Name</label>
                         <div class="form-control input-sm"
-                             id="firstName">{{ mailMessagingConfig.brevo.account.firstName }}
+                             id="firstName">{{ mailMessagingConfig.brevo.account?.firstName }}
                         </div>
                       </div>
                     </div>
@@ -173,7 +173,7 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                       <div class="form-group">
                         <label for="lastName">Last Name</label>
                         <div class="form-control input-sm"
-                             id="lastName">{{ mailMessagingConfig.brevo.account.lastName }}
+                             id="lastName">{{ mailMessagingConfig.brevo.account?.lastName }}
                         </div>
                       </div>
                     </div>
@@ -183,7 +183,7 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                       <div class="form-group">
                         <label for="companyName">Company Name</label>
                         <div class="form-control input-sm"
-                             id="companyName">{{ mailMessagingConfig.brevo.account.companyName }}
+                             id="companyName">{{ mailMessagingConfig.brevo.account?.companyName }}
                         </div>
                       </div>
                     </div>
@@ -191,7 +191,7 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                       <div class="form-group">
                         <label for="street">Street</label>
                         <div class="form-control input-sm"
-                             id="street">{{ mailMessagingConfig.brevo.account.address.street }}
+                             id="street">{{ mailMessagingConfig.brevo.account?.address?.street }}
                         </div>
                       </div>
                     </div>
@@ -199,7 +199,7 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                       <div class="form-group">
                         <label for="postcode">Postcode</label>
                         <div class="form-control input-sm"
-                             id="postcode">{{ mailMessagingConfig.brevo.account.address.zipCode }}
+                             id="postcode">{{ mailMessagingConfig.brevo.account?.address?.zipCode }}
                         </div>
                       </div>
                     </div>
@@ -209,14 +209,14 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                       <div class="form-group">
                         <label for="town">Town</label>
                         <div type="text" class="form-control input-sm"
-                             id="town">{{ mailMessagingConfig.brevo.account.address.city }}
+                             id="town">{{ mailMessagingConfig.brevo.account?.address?.city }}
                         </div>
                       </div>
                     </div>
                     <div class="col-sm-4">
                       <div class="form-group">
                         <label for="country">Country</label>
-                        <div class="form-control input-sm">{{ mailMessagingConfig.brevo.account.address.country }}</div>
+                        <div class="form-control input-sm">{{ mailMessagingConfig.brevo.account?.address?.country }}</div>
                       </div>
                     </div>
                     <div class="col">
@@ -332,7 +332,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   private activatedRoute: ActivatedRoute = inject(ActivatedRoute);
   private router: Router = inject(Router);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger = this.loggerFactory.createLogger("MailSettingsComponent", NgxLoggerLevel.OFF);
+  private logger = this.loggerFactory.createLogger("MailSettingsComponent", NgxLoggerLevel.ERROR);
   public notificationConfig: NotificationConfig;
   public listCreateRequest: ListCreateRequest;
   public listCreateResponse: ListCreateResponse;
@@ -366,6 +366,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
       if (!this.error) {
         switch (namedEvent.data.type) {
         case AlertLevel.ALERT_ERROR:
+          this.error = namedEvent.data.message;
           this.notify.error(namedEvent.data.message);
           break;
         case AlertLevel.ALERT_WARNING:

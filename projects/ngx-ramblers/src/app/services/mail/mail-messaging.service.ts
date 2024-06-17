@@ -13,7 +13,6 @@ import {
   ListSetting,
   MailConfig,
   MailMessagingConfig,
-  MailTemplates,
   MemberMergeFields,
   NOTIFICATION_CONFIG_DEFAULTS,
   NotificationConfig,
@@ -66,7 +65,7 @@ export class MailMessagingService {
   private stringUtilsService: StringUtilsService = inject(StringUtilsService);
   private memberLoginService: MemberLoginService = inject(MemberLoginService);
   private fullNamePipe: FullNamePipe = inject(FullNamePipe);
-  private logger: Logger = inject(LoggerFactory).createLogger("MailMessagingService", NgxLoggerLevel.OFF);
+  private logger: Logger = inject(LoggerFactory).createLogger("MailMessagingService", NgxLoggerLevel.ERROR);
 
   constructor() {
     this.initialise();
@@ -82,43 +81,98 @@ export class MailMessagingService {
     this.logger.info("initialising data:");
     this.committeeConfig.events().subscribe(data => {
       this.mailMessagingConfig.committeeReferenceData = data;
-      this.emitConfigWhenReadyGiven("committeeConfig");
+      this.broadcastSuccess("Committee Config");
     });
     this.systemConfigService.events().subscribe(item => {
       this.mailMessagingConfig.group = item.group;
       this.mailMessagingConfig.externalSystems = item.externalSystems;
-      this.emitConfigWhenReadyGiven("systemConfigService:group");
+      this.broadcastSuccess("Group Information");
     });
-    this.mailMessagingConfig.mailConfig = await this.mailConfigService.queryConfig();
-    this.mailMessagingConfig.brevo.account = await this.mailService.queryAccount();
+    await this.refreshMailConfig();
+    await this.refreshAccount();
     await this.configureBrevoLists();
-    this.mailMessagingConfig.brevo.folders = await this.mailService.queryFolders();
-    this.logger.info("config:", this.mailMessagingConfig.mailConfig);
-    if (!this.mailMessagingConfig.mailConfig.allowSendTransactional) {
-      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
-        message: {
-          title: "Mail Integration not enabled",
-          message: "List and template dropdowns will not be populated"
-        }, type: AlertLevel.ALERT_WARNING
-      }));
-    }
-    this.emitConfigWhenReadyGiven("mailConfigService");
-    this.bannerConfigService.all().then((banners) => {
-      this.logger.info("retrieved banners:", banners);
-      this.mailMessagingConfig.banners = banners.filter(item => item.fileNameData).sort(sortBy("name"));
-      this.emitConfigWhenReadyGiven("banners");
-    });
+    await this.refreshFolders();
+    await this.refreshTemplates();
+    await this.refreshBanners();
+    await this.refreshNotificationConfigs();
+  }
+
+  private refreshNotificationConfigs() {
+    const configType = "Notification Configs";
     this.notificationConfigService.all().then((notificationConfigs) => {
       this.logger.info("retrieved notificationConfigs:", notificationConfigs);
       this.mailMessagingConfig.notificationConfigs = notificationConfigs.sort(sortBy("subject.text"));
-      this.emitConfigWhenReadyGiven("notificationConfigs");
-    });
-    this.refreshTemplates();
+      const message = `Found ${this.stringUtilsService.pluraliseWithCount(notificationConfigs.length, "Notification config")}`;
+      return this.broadcastSuccess(configType, message);
+    }).catch(error => this.broadcastError(error, configType));
+  }
+
+  private refreshBanners() {
+    const configType = "Banners";
+    this.bannerConfigService.all().then((banners) => {
+      this.logger.info("retrieved banners:", banners);
+      this.mailMessagingConfig.banners = banners.filter(item => item.fileNameData).sort(sortBy("name"));
+      const message = `Found ${this.stringUtilsService.pluraliseWithCount(this.mailMessagingConfig.banners.length, "banner")}`;
+      this.broadcastSuccess(configType, message);
+    }).catch(error => this.broadcastError(error, configType));
+  }
+
+  private async refreshMailConfig() {
+    const configType = "Mail config";
+    try {
+      this.mailMessagingConfig.mailConfig = await this.mailConfigService.queryConfig();
+      this.logger.info("config:", this.mailMessagingConfig.mailConfig);
+      if (!this.mailMessagingConfig.mailConfig.allowSendTransactional) {
+        this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
+          message: {
+            title: "Mail Integration not enabled",
+            message: "List and template dropdowns will not be populated"
+          }, type: AlertLevel.ALERT_WARNING
+        }));
+      } else {
+        this.broadcastSuccess(configType);
+      }
+    } catch (error) {
+      return this.broadcastError(error, configType);
+    }
+  }
+
+  private async refreshFolders() {
+    const configType = "Brevo Folders";
+    try {
+      this.mailMessagingConfig.brevo.folders = await this.mailService.queryFolders();
+      return this.broadcastSuccess(configType);
+    } catch (error) {
+      this.mailMessagingConfig.brevo.folders = {count: 0, folders: []};
+      return this.broadcastError(error, configType);
+    }
+  }
+
+  private async refreshAccount() {
+    const configType = "Brevo Account";
+    try {
+      this.mailMessagingConfig.brevo.account = await this.mailService.queryAccount();
+      return this.broadcastSuccess(configType);
+    } catch (error) {
+      this.mailMessagingConfig.brevo.account = {};
+      this.broadcastError(error, configType);
+
+    }
   }
 
   private async configureBrevoLists() {
-    const lists = await this.mailService.queryLists();
-    return this.mailMessagingConfig.brevo.lists = {count: lists.count, lists: lists.lists.sort(sortBy("id"))};
+    const configType = "Brevo Lists";
+    try {
+      const lists = await this.mailService.queryLists();
+      this.mailMessagingConfig.brevo.lists = {count: lists.count, lists: lists.lists.sort(sortBy("id"))};
+      const message = `Found ${this.stringUtilsService.pluraliseWithCount(lists.count, "list")}`;
+      return this.broadcastSuccess(configType, message);
+    } catch (error) {
+      this.broadcastError(error, configType);
+      this.mailMessagingConfig.brevo.lists = {count: 0, lists: []};
+      return this.broadcastError(error, configType);
+    }
+
   }
 
   notificationConfigs(configListing: NotificationConfigListing): NotificationConfig[] {
@@ -172,24 +226,38 @@ export class MailMessagingService {
     return this.subject.asObservable();
   }
 
-  private refreshTemplates() {
-    this.mailService.queryTemplates().then((mailTemplates: MailTemplates) => {
+  private async refreshTemplates() {
+    const configType = "Mail Templates";
+    try {
+      const mailTemplates = await this.mailService.queryTemplates();
       this.mailMessagingConfig.brevo.mailTemplates = mailTemplates;
       this.logger.info("refreshTemplates response:", mailTemplates);
-      this.emitConfigWhenReadyGiven("mailTemplates");
-      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
-        message: {
-          title: "Mail Templates",
-          message: "Found " + this.stringUtilsService.pluraliseWithCount(mailTemplates.count, "template")
-        }, type: AlertLevel.ALERT_SUCCESS
-      }));
-    }).catch(error => {
-      this.logger.error("refreshTemplates error:", error);
-      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
-        title: "Failed to query Mail templates",
-        message: error
-      }));
-    });
+      this.emitConfigWhenReadyGiven("brevo.mailTemplates");
+      const message = `Found ${this.stringUtilsService.pluraliseWithCount(mailTemplates.count, "template")}`;
+      return this.broadcastSuccess(configType, message);
+    } catch (error) {
+      this.mailMessagingConfig.brevo.mailTemplates = {templates: [], count: 0};
+      this.broadcastError(error, "Mail templates");
+    }
+  }
+
+  private broadcastSuccess(configType: string, message?: string) {
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
+      message: {
+        title: configType,
+        message: message || "retrieved config successfully"
+      }, type: AlertLevel.ALERT_SUCCESS
+    }));
+    this.emitConfigWhenReadyGiven(configType);
+  }
+
+  private broadcastError(error: any, configType: string) {
+    this.logger.error(configType, error);
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
+      title: "Failed to query " + configType,
+      message: error
+    }));
+    return this.emitConfigWhenReadyGiven(configType);
   }
 
   public initialiseSubject(notificationConfig: NotificationConfig) {
