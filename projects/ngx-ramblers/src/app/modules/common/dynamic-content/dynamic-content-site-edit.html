@@ -131,7 +131,7 @@
           <div class="thumbnail-heading">Row {{rowIndex + 1}}
             ({{stringUtils.pluraliseWithCount(row?.columns.length, 'column')}})
           </div>
-          <div class="row align-items-end mb-3">
+          <div class="row align-items-end mb-3 d-flex">
             <div class="col-auto">
               <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-type')">Row Type</label>
               <select class="form-control input-sm"
@@ -142,32 +142,34 @@
                         [ngValue]="type.value">{{stringUtils.asTitle(type.value)}}</option>
               </select>
             </div>
-            <div class="col-auto" app-row-settings-carousel
+            <div (nameInputChange)="editAlbumName=$event" class="col" app-row-settings-carousel
                  *ngIf="actions.isCarouselOrAlbum(row)" [row]="row">
             </div>
-            <div class="col-auto" app-row-settings-action-buttons
-                 *ngIf="actions.isActionButtons(row)" [row]="row"></div>
-            <div class="col-auto">
-              <div class="form-inline">
-                <div app-margin-select label="Margin Top"
-                     [data]="row"
-                     field="marginTop" class="mr-4">
-                </div>
-                <div app-margin-select label="Margin Bottom"
-                     [data]="row"
-                     field="marginBottom">
+            <ng-container *ngIf="!editAlbumName">
+              <div class="col-auto" app-row-settings-action-buttons
+                   *ngIf="actions.isActionButtons(row)" [row]="row"></div>
+              <div class="col-auto">
+                <div class="form-inline">
+                  <div app-margin-select label="Margin Top"
+                       [data]="row"
+                       field="marginTop" class="mr-4">
+                  </div>
+                  <div app-margin-select label="Margin Bottom"
+                       [data]="row"
+                       field="marginBottom">
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="col-auto">
-              <div class="form-inline float-right">
-                <app-actions-dropdown [rowIndex]="rowIndex"
-                                      [pageContent]="pageContent"
-                                      [row]="row">
-                </app-actions-dropdown>
-                <app-bulk-action-selector [row]="row"></app-bulk-action-selector>
+              <div class="col-auto">
+                <div class="form-inline float-right">
+                  <app-actions-dropdown [rowIndex]="rowIndex"
+                                        [pageContent]="pageContent"
+                                        [row]="row">
+                  </app-actions-dropdown>
+                  <app-bulk-action-selector [row]="row"></app-bulk-action-selector>
+                </div>
               </div>
-            </div>
+            </ng-container>
           </div>
           <app-action-buttons *ngIf="actions.isActionButtons(row)"
                               [pageContent]="pageContent"

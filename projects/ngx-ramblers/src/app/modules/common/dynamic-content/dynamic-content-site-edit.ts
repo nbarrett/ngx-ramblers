@@ -107,6 +107,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   private pageHrefs: string[];
   private copyOrMoveActionComplete: boolean;
   private subscriptions: Subscription[] = [];
+  public editAlbumName: boolean;
 
 
   ngOnInit() {
