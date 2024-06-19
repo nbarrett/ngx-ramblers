@@ -19,8 +19,8 @@ export class DateUtilsService {
   MILLISECONDS_IN_ONE_DAY = 86400000;
 
   constructor(private numberUtils: NumberUtilsService,
-              private loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(DateUtilsService, NgxLoggerLevel.OFF);
+              loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.createLogger(DateUtilsService, NgxLoggerLevel.ERROR);
   }
 
   public formats = {
@@ -125,14 +125,21 @@ export class DateUtilsService {
   }
 
   parseTime(startTime: string): Time {
-    const parsedTime = startTime.replace(".", ":");
-    const timeValues = parsedTime.split(":");
-    let hours = this.numberUtils.asNumber(timeValues[0]);
-    const minutes = this.numberUtils.asNumber(timeValues[1]);
-    if (parsedTime.toLowerCase().includes("pm") && hours < 12) {
-      hours += 12;
+    const parsedTime = startTime?.replace(".", ":");
+    const timeValues = parsedTime?.split(":");
+    if (timeValues) {
+      let hours = this.numberUtils.asNumber(timeValues[0]);
+      const minutes = this.numberUtils.asNumber(timeValues[1]);
+      if (parsedTime.toLowerCase().includes("pm") && hours < 12) {
+        hours += 12;
+      }
+      const returnValue = {hours, minutes};
+      this.logger.off("parseTime:startTime", startTime, "parsedTime:", parsedTime, "timeValues:", timeValues, "returnValue:", returnValue);
+      return returnValue;
+    } else {
+      this.logger.off("parseTime:startTime", startTime, "parsedTime:", parsedTime, "timeValues:", timeValues, "returnValue:", null);
+      return null;
     }
-    return {hours, minutes};
   }
 
   durationForDistance(distance: string | number): number {
@@ -140,11 +147,15 @@ export class DateUtilsService {
   }
 
   startTime(walk: Walk): number {
-    const startTime: Time = this.parseTime(walk.startTime);
-    const walkDateMoment = this.asMoment(walk.walkDate);
-    const walkDateAndTime: number = walkDateMoment.clone().add(startTime.hours, "hours").add(startTime.minutes, "minutes").valueOf();
-    this.logger.off("text based startTime:", walk.startTime, "startTime:", startTime, "walkDateMoment+DateAndTime:", this.displayDateAndTime(walkDateMoment), "walkDateAndTime+DateAndTime:", this.displayDateAndTime(walkDateAndTime));
-    return walkDateAndTime;
+    if (walk) {
+      const startTime: Time = this.parseTime(walk?.startTime);
+      const walkDateMoment = this.asMoment(walk?.walkDate);
+      const walkDateAndTime: number = walkDateMoment.clone().add(startTime?.hours, "hours").add(startTime?.minutes, "minutes").valueOf();
+      this.logger.off("text based startTime:", walk?.startTime, "startTime:", startTime, "walkDateMoment+DateAndTime:", this.displayDateAndTime(walkDateMoment), "walkDateAndTime+DateAndTime:", this.displayDateAndTime(walkDateAndTime));
+      return walkDateAndTime;
+    } else {
+      return null;
+    }
   }
 
   inclusiveDayRange(fromDate: number, toDate: number): number[] {

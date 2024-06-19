@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
 import { faAdd, faPencil, faPlus, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DEFAULT_GRID_OPTIONS, PageContentRow } from "../../../models/content-text.model";
@@ -15,25 +15,23 @@ import { ContentMetadataService } from "../../../services/content-metadata.servi
   selector: "[app-row-settings-carousel]",
   styleUrls: ["./dynamic-content.sass"],
   template: `
-    <form>
-      <label class="mr-2"
-             [for]="id">Album Name</label>
-      <app-carousel-select [maxWidth]="290" *ngIf="!nameInput" [id]="id" showNewButton
-                           [name]="row?.carousel?.name"
-                           (metadataChange)="metadataChange(row, $event)"
-                           (nameEditToggle)="toggleNameEdit($event)"></app-carousel-select>
-      <div class="form-inline" *ngIf="nameInput">
-        <input autocomplete="new-password" [typeahead]="contentMetadataService?.carousels"
-               [typeaheadMinLength]="0"
-               [id]="id"
-               [(ngModel)]="row.carousel.name"
-               name="new-password"
-               [ngModelOptions]="{standalone: true}"
-               type="text" class="form-control mr-2 right-justify-ellipsis">
-        <app-badge-button [icon]="faSearch" [caption]="'existing'"
-                          (click)="toggleNameEdit(false)"></app-badge-button>
-      </div>
-    </form>`,
+    <label class="mr-2"
+           [for]="id">Album Name</label>
+    <app-carousel-select [maxWidth]="290" *ngIf="!nameInput" [id]="id" showNewButton
+                         [name]="row?.carousel?.name"
+                         (metadataChange)="metadataChange(row, $event)"
+                         (nameEditToggle)="toggleNameEdit($event)"></app-carousel-select>
+    <div class="d-flex" *ngIf="nameInput">
+      <input autocomplete="new-password" [typeahead]="contentMetadataService?.carousels"
+             [typeaheadMinLength]="0"
+             [id]="id"
+             [(ngModel)]="row.carousel.name"
+             name="new-password"
+             [ngModelOptions]="{standalone: true}"
+             type="text" class="form-control mr-2 flex-grow-1">
+      <app-badge-button [icon]="faSearch" [caption]="'existing'"
+                        (click)="toggleNameEdit(false)"/>
+    </div>`
 })
 export class RowSettingsCarouselComponent implements OnInit {
 
@@ -50,14 +48,13 @@ export class RowSettingsCarouselComponent implements OnInit {
 
   @Input()
   public row: PageContentRow;
+  @Output() nameInputChange: EventEmitter<boolean> = new EventEmitter();
   private logger: Logger;
   faPencil = faPencil;
   faAdd = faAdd;
   id: string;
   nameInput: boolean;
   private defaultAlbumName: string;
-
-  protected readonly faPlus = faPlus;
   protected readonly faSearch = faSearch;
 
   ngOnInit() {
@@ -89,6 +86,7 @@ export class RowSettingsCarouselComponent implements OnInit {
 
   toggleNameEdit(nameInput: boolean) {
     this.nameInput = nameInput;
+    this.nameInputChange.emit(this.nameInput);
     if (this.nameInput) {
       this.row.carousel.name = this.defaultAlbumName;
     } else {

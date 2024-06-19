@@ -170,8 +170,8 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   durationInFutureFor(walk: Walk) {
-    return walk && walk.walkDate === this.dateUtils.momentNowNoTime().valueOf() ? "today"
-      : (this.dateUtils.asMoment(walk.walkDate).fromNow());
+    return walk?.walkDate === this.dateUtils.momentNowNoTime().valueOf() ? "today"
+      : (this.dateUtils.asMoment(this.dateUtils.startTime(walk)).fromNow());
   }
 
   changeMapView(newValue: MapDisplay) {

@@ -56,7 +56,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
             Insert <b>Column</b> to left
           </a>
         </li>
-        <li *ngIf="allowColumnMoveRight()" role="menuitem">
+        <li *ngIf="allowColumnActions()" role="menuitem">
           <a (click)="actions.addColumn(row, columnIndex+1, pageContent)" class="dropdown-item">
             Insert <b>Column</b> to right
           </a>
@@ -124,7 +124,7 @@ export class ActionsDropdownComponent implements OnInit {
   constructor(
     public actions: PageContentActionsService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ActionsDropdownComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(ActionsDropdownComponent, NgxLoggerLevel.ERROR);
   }
 
   ngOnInit() {
