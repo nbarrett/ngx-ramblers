@@ -56,7 +56,7 @@ export class CarouselSelectComponent implements OnInit {
     public pageContentService: PageContentService,
     public stringUtils: StringUtilsService,
     private urlService: UrlService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("CarouselSelectComponent", NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("CarouselSelectComponent", NgxLoggerLevel.ERROR);
   }
 
   private logger: Logger;
@@ -70,7 +70,7 @@ export class CarouselSelectComponent implements OnInit {
       const allAndSelectedContentMetaData = this.contentMetadataService.selectMetadataBasedOn(this.name, item);
       this.allContentMetadata = allAndSelectedContentMetaData.contentMetadataItems;
       this.selectedContentMetadata = allAndSelectedContentMetaData.contentMetadata;
-      this.logger.debug("contentMetadataNotifications().subscribe.allContentMetadata", this.allContentMetadata, "selectedContentMetadata:", this.selectedContentMetadata);
+      this.logger.info("contentMetadataNotifications().subscribe.allContentMetadata", this.allContentMetadata, "selectedContentMetadata:", this.selectedContentMetadata);
     });
   }
 
