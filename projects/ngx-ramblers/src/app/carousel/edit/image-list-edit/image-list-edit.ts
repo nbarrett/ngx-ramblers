@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from "@angular/common/http";
-import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output, ViewEncapsulation } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import min from "lodash-es/min";
 import range from "lodash-es/range";
@@ -187,7 +187,16 @@ import isEmpty from "lodash-es/isEmpty";
                value="recent"/>
         <label class="custom-control-label" for="recent-photos-filter">Show recent photos</label>
       </div>
-      <ng-container *ngIf="selectableTags().length>0">
+      <div class="custom-control custom-radio custom-control-inline">
+        <input [disabled]="notifyTarget.busy" id="all-photos-filter"
+               type="radio"
+               class="custom-control-input"
+               [(ngModel)]="filterType"
+               (ngModelChange)="filterFor('all')"
+               value="all"/>
+        <label class="custom-control-label" for="all-photos-filter">Show all photos</label>
+      </div>
+      <ng-container *ngIf="selectableTags()?.length>0">
         <div
           class="custom-control custom-radio custom-control-inline">
           <input [disabled]="notifyTarget.busy" id="tag-filter"
@@ -200,25 +209,16 @@ import isEmpty from "lodash-es/isEmpty";
         </div>
         <div
           class="custom-control custom-radio custom-control-inline">
-          <select [disabled]="filterType !== 'tag'"
-                  [ngModel]="activeTag?.subject"
+          <select [compareWith]="imageTagComparer" [disabled]="filterType !== 'tag'"
+                  [(ngModel)]="activeTag"
                   id="filterByTag"
                   class="form-control"
                   (ngModelChange)="filterByTag($event)">
             <option *ngFor="let imageTag of selectableTags(); trackBy: tagTracker"
-                    [ngValue]="imageTag.subject">{{ imageTag.subject }}
+                    [ngValue]="imageTag">{{ imageTag.subject }}
           </select>
         </div>
       </ng-container>
-      <div class="custom-control custom-radio custom-control-inline">
-        <input [disabled]="notifyTarget.busy" id="all-photos-filter"
-               type="radio"
-               class="custom-control-input"
-               [(ngModel)]="filterType"
-               (ngModelChange)="filterFor('all')"
-               value="all"/>
-        <label class="custom-control-label" for="all-photos-filter">Show all photos</label>
-      </div>
       <div class="row mb-3">
         <div class="col-sm-6">
           <label for="search">Filter images for text</label>
@@ -290,11 +290,15 @@ import isEmpty from "lodash-es/isEmpty";
                         (moveDown)="moveDown($event)">
         </app-image-edit>
       </ng-container>
-    </ng-container>`,
-  encapsulation: ViewEncapsulation.None
+    </ng-container>`
 })
 export class ImageListEditComponent implements OnInit, OnDestroy {
 
+  private loggerFactory: LoggerFactory = inject(LoggerFactory);
+  private logger = this.loggerFactory.createLogger("ImageListEditComponent", NgxLoggerLevel.ERROR);
+  public notifyTarget: AlertTarget = {};
+  private notifierService: NotifierService = inject(NotifierService);
+  public notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   public stringUtils: StringUtilsService = inject(StringUtilsService);
   public imageTagDataService: ImageTagDataService = inject(ImageTagDataService);
   public numberUtils: NumberUtilsService = inject(NumberUtilsService);
@@ -302,27 +306,19 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   private imageDuplicatesService: ImageDuplicatesService = inject(ImageDuplicatesService);
   private contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
   private route: ActivatedRoute = inject(ActivatedRoute);
-  private notifierService: NotifierService = inject(NotifierService);
   private fileUploadService: FileUploadService = inject(FileUploadService);
   private memberLoginService: MemberLoginService = inject(MemberLoginService);
   public dateUtils: DateUtilsService = inject(DateUtilsService);
   private urlService: UrlService = inject(UrlService);
-  private loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger = this.loggerFactory.createLogger("ImageListEditComponent", NgxLoggerLevel.OFF);
-
-  @Input()
-  name: string;
-  @Output() exit: EventEmitter<ContentMetadata> = new EventEmitter();
-
+  public name: string;
+  private changeUrlOnChangeOfTag = false;
   private queuedFileCount = 0;
   public duplicateImages: DuplicateImages;
   public base64Files: Base64File[] = [];
   public nonImageFiles: Base64File[] = [];
   public activeTag: ImageTag;
   private story: string;
-  public notify: AlertInstance;
   public warnings: AlertInstance;
-  public notifyTarget: AlertTarget = {};
   public warningTarget: AlertTarget = {};
   public confirm = new Confirm();
   public destinationType: string;
@@ -358,10 +354,15 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   protected readonly faTags = faTags;
   protected readonly faFile = faFile;
 
+  @Input("name") set nameValue(name: string) {
+    this.logger.info("name changed:", name);
+    this.initialiseImagesForName(name);
+  }
+
+  @Output() exit: EventEmitter<ContentMetadata> = new EventEmitter();
 
   ngOnInit() {
-    this.logger.debug("ngOnInit");
-    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.logger.info("ngOnInit:this.contentMetadata", this.contentMetadata, "name:", this.name, "story:", this.story);
     this.notify.setBusy();
     this.warnings = this.notifierService.createAlertInstance(this.warningTarget);
     this.destinationType = "";
@@ -374,18 +375,23 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     }));
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       const name = paramMap.get("name");
-      if (name) {
-        this.name = name;
-        this.initialiseImageList();
-      } else if (this.name) {
-        this.initialiseImageList();
-      }
+      this.logger.info("paramMap:subscribe:", paramMap, "name from paramMap:", name, "existing name:", this.name);
+      this.initialiseImagesForName(name);
     }));
     this.applyFilter();
     this.applyAllowEdits();
     this.searchChangeObservable.pipe(debounceTime(500))
       .pipe(distinctUntilChanged())
       .subscribe(() => this.applyFilter());
+  }
+
+  private initialiseImagesForName(name: string) {
+    if (name && this.name !== name) {
+      this.name = name;
+      this.initialiseImageList();
+    } else if (this.name && this.name !== this.contentMetadata?.name) {
+      this.initialiseImageList();
+    }
   }
 
   public tagSelected(tag: ImageTag) {
@@ -402,23 +408,28 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   private syncTagWithStory() {
-    const tag = this.imageTagDataService.findTag(this.contentMetadata?.imageTags, this.story);
-    this.logger.info("received story parameter:", this.story, "setting activeTag to:", tag);
-    this.activeTag = tag;
-    if (tag) {
-      this.imageTagDataService.updateUrlWith(tag);
-      this.tagSelected(tag);
-      this.applyFilter();
+    if (this.contentMetadata) {
+      const tag = this.imageTagDataService.findTag(this.contentMetadata?.imageTags, this.story);
+      this.logger.info("syncTagWithStory:contentMetadata:", this.contentMetadata, "received story parameter:", this.story, "setting activeTag to:", tag);
+      this.activeTag = tag;
+      if (tag) {
+        this.imageTagDataService.updateUrlWith(tag);
+        this.tagSelected(tag);
+        this.applyFilter();
+      }
+    } else {
+      this.logger.info("syncTagWithStory:story parameter:", this.story, "cant perform sync as no contentMetadata");
     }
+
   }
 
   private initialiseImageList() {
-    this.logger.debug("name from route params:", this.name);
+    this.logger.info("initialiseImageList for name:", this.name);
     this.refreshImageMetaData(this.name);
     this.uploader = this.fileUploadService.createUploaderFor(RootFolder.carousels + "/" + this.name, false);
     this.uploader.response.subscribe((response: string | HttpErrorResponse) => {
         const awsFileUploadResponse: AwsFileUploadResponse = this.fileUploadService.handleAwsFileUploadResponse(response, this.notify, this.logger);
-        this.logger.info("received awsFileUploadResponse:", awsFileUploadResponse);
+      this.logger.debug("received awsFileUploadResponse:", awsFileUploadResponse);
         if (awsFileUploadResponse.errors.length > 0) {
           this.notify.error({title: "File upload failed", message: awsFileUploadResponse.errors});
         } else {
@@ -433,7 +444,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
               if (metadataItem) {
                 metadataItem.image = response.fileNameData.awsFileName;
                 delete metadataItem.base64Content;
-                this.logger.info("matched image :", metadataItem?.originalFileName, "with aws file", response.fileNameData.awsFileName);
+                this.logger.debug("matched image :", metadataItem?.originalFileName, "with aws file", response.fileNameData.awsFileName);
                 return metadataItem;
               } else {
                 this.logger.warn("could not find match in metadata items for:", response);
@@ -442,12 +453,12 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
             }).filter(item => item);
             if (matches.length === responses.length) {
               if (this.uploader.progress < 100) {
-                this.logger.info("uploader is still uploading with", this.stringUtils.pluraliseWithCount(this.uploader.queue.length, "queued item"), "remaining");
+                this.logger.debug("uploader is still uploading with", this.stringUtils.pluraliseWithCount(this.uploader.queue.length, "queued item"), "remaining");
                 this.alertWarnings();
               } else {
                 const message = this.stringUtils.pluraliseWithCount(responses.length, "saved file") + " were matched to currently viewed images that have been uploaded";
                 const title = "File upload success";
-                this.logger.info(title, message);
+                this.logger.debug(title, message);
                 this.notify.success({
                   title,
                   message
@@ -546,14 +557,21 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.searchChangeObservable.next(searchEntry);
   }
 
+  imageTagComparer(item1: ImageTag, item2: ImageTag): boolean {
+    return item1?.key === item2?.key;
+  }
+
   filterByTag(tagSubject: string) {
     this.logger.debug("filterByTag:tagSubject:", tagSubject);
-    this.imageTagDataService.select(this.contentMetadata?.imageTags, tagSubject);
+    if (this.changeUrlOnChangeOfTag) {
+      // causes full component reload so don't do this
+      this.imageTagDataService.select(this.contentMetadata?.imageTags, tagSubject);
+    }
     this.applyFilter();
   }
 
   applyFilter() {
-    this.logger.debug("applyFilters start:", this.filteredFiles?.length, "of", this.contentMetadata?.files?.length, "files", "tag:", this.activeTag, "showDuplicates:", this.showDuplicates, "filterText:", this.filterText);
+    this.logger.info("applyFilters start:", this.filteredFiles?.length, "of", this.contentMetadata?.files?.length, "files", "tag:", this.activeTag, "showDuplicates:", this.showDuplicates, "filterText:", this.filterText);
     this.filterFiles();
     this.pageCount = this.calculatePageCount();
     this.applyPagination();
@@ -567,6 +585,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   private filterFiles() {
     this.filteredFiles = this.contentMetadataService.filterSlides(this.contentMetadata?.imageTags, this.contentMetadata?.files, this.duplicateImages, this.filterType, this.activeTag, this.showDuplicates, this.filterText) || [];
+    this.logger.info("filteredFiles:", this.filteredFiles);
   }
 
   refreshImageMetaData(name: string) {
@@ -577,7 +596,6 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     return Promise.all([
         this.contentMetadataService.items(RootFolder.carousels, this.name)
           .then((contentMetaData: ContentMetadata) => {
-            this.logger.info("contentMetaData:", contentMetaData);
             this.contentMetadata = contentMetaData;
             this.logger.info("this.contentMetadataService:returned:", contentMetaData);
           }),
@@ -596,6 +614,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   private postMetadataRetrieveMapping() {
+    this.syncTagWithStory();
     if (this.contentMetadata.files) {
       this.contentMetadata.files = this.contentMetadata.files.map(file => {
         return {
@@ -605,7 +624,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
         };
       });
     } else {
-      this.logger.info("no data exists for:", this.name);
+      this.logger.debug("no data exists for:", this.name);
     }
     this.logger.debug("refreshImageMetaData:name", this.name, "returning", this.contentMetadata?.files?.length, "ContentMetadataItem items");
     this.base64Files = [];
@@ -725,7 +744,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   imagedSavedOrReverted(changedItem: ContentMetadataItem) {
-    this.logger.info("imagedSavedOrReverted:changedItem.image", changedItem.image);
+    this.logger.debug("imagedSavedOrReverted:changedItem.image", changedItem.image);
     this.removeFromChangedItems(changedItem);
     if (!changedItem.image) {
       this.applyFilter();
@@ -734,11 +753,11 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   imageChange(item: ContentMetadataItem) {
     if (!item) {
-      this.logger.info("change:no item");
+      this.logger.debug("change:no item");
     } else {
       this.currentImageIndex = this.contentMetadataService.findIndex(this.contentMetadata.files, item);
       if (this.currentImageIndex >= 0) {
-        this.logger.info("change:existing item", item, "at index", this.currentImageIndex);
+        this.logger.debug("change:existing item", item, "at index", this.currentImageIndex);
         this.contentMetadata.files[this.currentImageIndex] = item;
       } else {
         this.logger.warn("change:appears to be a new item", item, "at index", this.currentImageIndex);
@@ -748,7 +767,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   delete(item: ContentMetadataItem): number {
     this.removeFromChangedItems(item);
-    this.logger.info("delete:before count", this.contentMetadata?.files?.length, "item:", item);
+    this.logger.debug("delete:before count", this.contentMetadata?.files?.length, "item:", item);
     const index = this.contentMetadataService.findIndex(this.contentMetadata.files, item);
     if (index >= 0) {
       this.contentMetadata.files.splice(index, 1);
@@ -859,7 +878,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   async onFileSelectOrDropped(fileList: any) {
     if (!this.uploader.isUploading) {
-      this.logger.info("onFileSelectOrDropped:", fileList);
+      this.logger.debug("onFileSelectOrDropped:", fileList);
       this.notify.success({
         title: "Uploading Files",
         message: "Processing " + this.stringUtils.pluraliseWithCount(fileList?.length, "file")
@@ -869,10 +888,10 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
         file,
         isImage: this.urlService.isBase64Image(file.base64Content)
       }));
-      this.logger.info("checkedResults:", checkedResults);
+      this.logger.debug("checkedResults:", checkedResults);
       this.base64Files = checkedResults.filter(result => result.isImage).map(result => result.file);
       this.nonImageFiles = checkedResults.filter(result => !result.isImage).map(result => result.file);
-      this.logger.info("there are", this.stringUtils.pluraliseWithCount(this.base64Files.length, "image"), "and", this.stringUtils.pluraliseWithCount(this.nonImageFiles.length, "non-image"));
+      this.logger.debug("there are", this.stringUtils.pluraliseWithCount(this.base64Files.length, "image"), "and", this.stringUtils.pluraliseWithCount(this.nonImageFiles.length, "non-image"));
       this.notify.setBusy();
       this.imageInsert(...this.base64Files.map(item => this.fileUtils.contentMetadataItemFromBase64File(item)));
       this.notify.clearBusy();
@@ -892,7 +911,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.queuedFileCount = queuedFiles.length;
     this.uploader.clearQueue();
     this.uploader.addToQueue(queuedFiles);
-    this.logger.info("addedToQueue:", queuedFiles);
+    this.logger.debug("addedToQueue:", queuedFiles);
     this.uploader.uploadAll();
   }
 

@@ -324,11 +324,13 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
     public urlService: UrlService,
     public uiActionsService: UiActionsService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("DynamicContentSiteEditAlbumComponent", NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("DynamicContentSiteEditAlbumComponent", NgxLoggerLevel.ERROR);
   }
-
-  @Input()
   public row: PageContentRow;
+  @Input("row") set rowValue(row: PageContentRow) {
+    this.logger.info("row changed:", row);
+    this.row = row
+  }
   @Input()
   public rowIndex: number;
   @Input()
