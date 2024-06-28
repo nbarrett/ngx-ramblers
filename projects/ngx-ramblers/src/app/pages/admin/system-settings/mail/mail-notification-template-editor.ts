@@ -14,7 +14,7 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
 import { UrlService } from "../../../../services/url.service";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { extractParametersFrom } from "../../../../common/mail-parameters";
-import { enumKeyValues, KEY_NULL_VALUE_NONE, KeyValue } from "../../../../services/enums";
+import { enumKeyValues, KEY_NULL_VALUE_NONE, KeyValue } from "../../../../functions/enums";
 import last from "lodash-es/last";
 import { Subscription } from "rxjs";
 import { faAdd, faBackward, faCopy, faEraser, faForward } from "@fortawesome/free-solid-svg-icons";

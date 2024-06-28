@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { AlbumIndex } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 
 const PageContentColumn = new mongoose.Schema({
   href: {type: String},
@@ -21,6 +22,7 @@ const PageContentRow = new mongoose.Schema({
   marginBottom: {type: Number},
   album: {type: Object},
   carousel: {type: Object},
+  albumIndex: {type: Object},
 }, { _id : false });
 
 const pageContentSchema = new mongoose.Schema({

@@ -5,6 +5,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
 import {
   AlbumData,
+  AlbumIndex,
   AlbumView,
   ColumnInsertData,
   ContentText,
@@ -18,12 +19,12 @@ import {
   View
 } from "../models/content-text.model";
 import { AccessLevel } from "../models/member-resource.model";
-import { move } from "./arrays";
+import { move } from "../functions/arrays";
 import { BroadcastService } from "./broadcast-service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { NumberUtilsService } from "./number-utils.service";
 import { StringUtilsService } from "./string-utils.service";
-import { KeyValue } from "./enums";
+import { KeyValue } from "../functions/enums";
 import remove from "lodash-es/remove";
 import cloneDeep from "lodash-es/cloneDeep";
 
@@ -80,6 +81,12 @@ export class PageContentActionsService {
       type: type as PageContentType,
       columns: [this.columnFor(type)],
       carousel: this.defaultAlbum(null)
+    };
+  };
+
+  defaultAlbumIndex(): AlbumIndex {
+    return {
+      contentPaths: [],
     };
   };
 
@@ -330,10 +337,10 @@ export class PageContentActionsService {
 
   carouselOrAlbumIndex(row: PageContentRow, viewablePageContent: PageContent): number {
     this.logger.debug("carouselOrAlbumIndex:for:", row);
-    const carouselNameIndexes: KeyValue<number>[] = viewablePageContent.rows
+    const carouselNameIndexes: KeyValue<number>[] = viewablePageContent?.rows
       .filter(item => this.isCarouselOrAlbum(item))
       .map((row, index) => ({key: row?.carousel?.name, value: index}));
-    const numberKeyValue: KeyValue<number> = carouselNameIndexes.find(item => item.key === row.carousel?.name);
+    const numberKeyValue: KeyValue<number> = carouselNameIndexes?.find(item => item.key === row.carousel?.name);
     this.logger.debug("carouselIndex:for:", row?.carousel?.name, "given:", carouselNameIndexes, "returned:", numberKeyValue?.value);
     return numberKeyValue?.value;
   }

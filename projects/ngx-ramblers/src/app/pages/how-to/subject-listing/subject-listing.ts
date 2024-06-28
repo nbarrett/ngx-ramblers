@@ -14,7 +14,7 @@ import { Member } from "../../../models/member.model";
 import { Confirm } from "../../../models/ui-actions";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { ApiResponseProcessor } from "../../../services/api-response-processor.service";
-import { sortBy } from "../../../services/arrays";
+import { sortBy } from "../../../functions/arrays";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";

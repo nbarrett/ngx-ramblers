@@ -19,7 +19,7 @@ import {
   S3MetadataApiResponse
 } from "../models/content-metadata.model";
 import { SearchFilterPipe } from "../pipes/search-filter.pipe";
-import { sortBy } from "./arrays";
+import { sortBy } from "../functions/arrays";
 import { CommonDataService } from "./common-data-service";
 import { DateUtilsService } from "./date-utils.service";
 import { ImageDuplicatesService } from "./image-duplicates-service";
@@ -261,4 +261,8 @@ export class ContentMetadataService {
     return response;
   }
 
+  public async albumNames(): Promise<string[]> {
+    const results: ContentMetadata[] = await this.all();
+    return results.map(contentMetadata => contentMetadata.name);
+  }
 }

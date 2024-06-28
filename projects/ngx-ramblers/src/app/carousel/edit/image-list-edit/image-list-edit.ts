@@ -35,7 +35,7 @@ import {
 } from "../../../models/content-metadata.model";
 import { MemberResourcesPermissions } from "../../../models/member-resource.model";
 import { Confirm, StoredValue } from "../../../models/ui-actions";
-import { move, sortBy } from "../../../services/arrays";
+import { move, sortBy } from "../../../functions/arrays";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { FileUploadService } from "../../../services/file-upload.service";

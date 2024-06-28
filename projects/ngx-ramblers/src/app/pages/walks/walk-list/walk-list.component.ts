@@ -44,7 +44,7 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { LoginModalComponent } from "../../login/login-modal/login-modal.component";
 import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
-import { sortBy } from "../../../services/arrays";
+import { sortBy } from "../../../functions/arrays";
 
 @Component({
   selector: "app-walk-list",

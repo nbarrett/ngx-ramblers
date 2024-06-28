@@ -13,13 +13,13 @@
     </app-dynamic-content-view-text-row>
     <app-dynamic-content-view-carousel *ngIf="actions.isCarousel(row)"
                                        [row]="row"
-                                       [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"></app-dynamic-content-view-carousel>
+                                       [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
     <app-dynamic-content-view-album-index *ngIf="actions.isAlbumIndex(row)"
                                        [row]="row"
-                                       [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"></app-dynamic-content-view-album-index>
+                                       [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
     <app-dynamic-content-view-album *ngIf="actions.isAlbum(row)"
                                     [row]="row"
-                                    [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"></app-dynamic-content-view-album>
+                                    [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
   </ng-container>
   <ng-container *ngIf="!actions.pageContentFound(viewablePageContent, !!viewablePageContent?.id)">
     <div *ngIf="notify.alertTarget.showAlert" class="col-12 alert {{notify.alertTarget.alertClass}} mt-3">

@@ -12,11 +12,11 @@ import { SocialEvent, SocialEventsPermissions } from "../../models/social-events
 import { Confirm } from "../../models/ui-actions";
 import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
 import { MemberIdToFullNamePipe } from "../../pipes/member-id-to-full-name.pipe";
-import { sortBy } from "../../services/arrays";
+import { sortBy } from "../../functions/arrays";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
 import { ContentMetadataService } from "../../services/content-metadata.service";
-import { enumValues, KeyValue } from "../../services/enums";
+import { enumValues, KeyValue } from "../../functions/enums";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { MemberService } from "../../services/member/member.service";

@@ -4,7 +4,7 @@ import { Logger, LoggerFactory } from "../../../../services/logger-factory.servi
 import { NgxLoggerLevel } from "ngx-logger";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { Subscription } from "rxjs";
-import { KEY_NULL_VALUE_NONE } from "../../../../services/enums";
+import { KEY_NULL_VALUE_NONE } from "../../../../functions/enums";
 
 @Component({
   selector: "app-notification-config-to-process-mapping",

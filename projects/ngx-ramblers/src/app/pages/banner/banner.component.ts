@@ -15,10 +15,10 @@ import {
 import { Member } from "../../models/member.model";
 import { colourSelectors, Image, RootFolder, SystemConfig } from "../../models/system.model";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
-import { sortBy } from "../../services/arrays";
+import { sortBy } from "../../functions/arrays";
 import { BannerConfigService } from "../../services/banner-config.service";
 import { DateUtilsService } from "../../services/date-utils.service";
-import { enumKeyValues, KeyValue } from "../../services/enums";
+import { enumKeyValues, KeyValue } from "../../functions/enums";
 import { LoggerFactory } from "../../services/logger-factory.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { MemberService } from "../../services/member/member.service";

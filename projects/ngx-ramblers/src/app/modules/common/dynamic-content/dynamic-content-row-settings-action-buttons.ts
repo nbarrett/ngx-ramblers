@@ -9,7 +9,7 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
 @Component({
   selector: "[app-row-settings-action-buttons]",
   template: `
-      <ng-container *ngIf="actions.isActionButtons(row)">
+      <ng-container *ngIf="actions.isActionButtons(row) || actions.isAlbumIndex(row)">
           <div class="row align-items-end">
               <div class="col-auto">
                   <label [for]="id +'max-cols'">Max Columns</label>

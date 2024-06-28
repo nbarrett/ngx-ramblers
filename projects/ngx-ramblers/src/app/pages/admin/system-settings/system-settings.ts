@@ -6,7 +6,7 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { ExternalSystems, RootFolder, SystemConfig, WalkPopulation } from "../../../models/system.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { DateUtilsService } from "../../../services/date-utils.service";
-import { enumKeyValues, KeyValue } from "../../../services/enums";
+import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { StringUtilsService } from "../../../services/string-utils.service";

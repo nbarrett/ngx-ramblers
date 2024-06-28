@@ -19,11 +19,13 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEventType } from "../../../models/broadcast.model";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-card-editor",
   templateUrl: "./card-editor.html",
-  styleUrls: ["./card-editor.sass"]
+  styleUrls: ["./card-editor.sass", "./../dynamic-content/dynamic-content.sass"]
+
 })
 export class CardEditorComponent implements OnInit {
   @Output() pageContentEditEvents: EventEmitter<PageContentEditEvent> = new EventEmitter();
@@ -35,6 +37,11 @@ export class CardEditorComponent implements OnInit {
   public rowIndex: number;
   @Input()
   public smallIconContainer: boolean;
+  private presentationMode: boolean;
+
+  @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {
+    this.presentationMode = coerceBooleanProperty(presentationMode);
+  }
   public pageContentEdit: PageContentEditEvent;
   public row: PageContentRow;
   public awsFileData: AwsFileData;
@@ -142,6 +149,14 @@ export class CardEditorComponent implements OnInit {
   reformatHref($event: any) {
     this.logger.info("reformat:", $event, "this.column.href", this.column.href);
     this.column.href = this.urlService.reformatHref(this.column.href);
+  }
+
+  siteEditActive() {
+    if (this.presentationMode) {
+      return false;
+    } else {
+      return this.siteEditService.active();
+    }
   }
 }
 

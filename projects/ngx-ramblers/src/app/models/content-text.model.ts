@@ -2,9 +2,16 @@ import { ApiResponse } from "./api-response.model";
 import { AccessLevel } from "./member-resource.model";
 import { Link } from "./page.model";
 import { BezierEasingOptions } from "ng-gallery/lib/smooth-scroll";
+import { fieldContainsValue, fieldEqualsValue, fieldStartsWithValue, MongoRegex } from "../functions/mongo";
 
 export enum ContentTextCategory {
   MEETUP_DESCRIPTION_PREFIX = "meetup-description-prefix"
+}
+
+export enum StringMatch {
+  EQUALS = "equals",
+  STARTS_WITH = "starts-with",
+  CONTAINS = "contains"
 }
 
 export interface ContentText {
@@ -26,6 +33,16 @@ export interface HasPageContentRows {
 export interface PageContent extends HasPageContentRows {
   id?: string;
   path?: string;
+}
+
+export interface PageContentToRows {
+  pageContent: PageContent;
+  rows?: PageContentRow[];
+}
+
+export interface PageContentApiResponse extends ApiResponse {
+  request: any;
+  response?: PageContent | PageContent[];
 }
 
 export interface PageContentRow {
@@ -57,6 +74,11 @@ export interface PageContentEditEvent {
   editActive?: boolean;
 }
 
+export interface AlbumPath {
+  albumName: string;
+  contentPath: string;
+}
+
 export interface AlbumData {
   name: string;
   title: string;
@@ -84,8 +106,7 @@ export interface AlbumData {
 }
 
 export interface AlbumIndex {
-  albums: string[];
-  columns?: number;
+  contentPaths: ContentPathMatch[];
 }
 
 export enum PageContentPath {
@@ -116,6 +137,23 @@ export interface EditorState {
   view: View;
   dataAction: DataAction;
 }
+
+export interface ContentPathMatch {
+  contentPath: string;
+  stringMatch: StringMatch;
+}
+
+type MongoRegexFunction = (fieldValue: string) => MongoRegex;
+
+export interface ContentPathMatchConfig {
+  mongoRegex: MongoRegexFunction;
+}
+
+export const ContentPathMatchConfigs: { [key in StringMatch]: ContentPathMatchConfig } = {
+  [StringMatch.CONTAINS]: {mongoRegex: fieldContainsValue},
+  [StringMatch.STARTS_WITH]: {mongoRegex: fieldStartsWithValue},
+  [StringMatch.EQUALS]: {mongoRegex: fieldEqualsValue},
+};
 
 export interface EditorInstanceState {
   view: View;

@@ -3,7 +3,7 @@ import { faAdd, faRemove, faSortAlphaAsc } from "@fortawesome/free-solid-svg-ico
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../../models/alert-target.model";
 import { Image, Images, RootFolder, SystemConfig } from "../../../../models/system.model";
-import { sortBy } from "../../../../services/arrays";
+import { sortBy } from "../../../../functions/arrays";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";

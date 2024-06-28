@@ -8,7 +8,7 @@ import {
   DEFAULT_COST_PER_MILE,
   Notification
 } from "../../../../models/committee.model";
-import { sortBy } from "../../../../services/arrays";
+import { sortBy } from "../../../../functions/arrays";
 import { CommitteeConfigService } from "../../../../services/committee-config.service";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
