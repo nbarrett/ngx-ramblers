@@ -10,7 +10,7 @@ import {
   TemplateResponse
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { queryTemplateContent } from "../transactional-mail/query-template-content";
-import { KeyValue } from "../../../../projects/ngx-ramblers/src/app/services/enums";
+import { KeyValue } from "../../../../projects/ngx-ramblers/src/app/functions/enums";
 import { extractParametersFrom } from "../../../../projects/ngx-ramblers/src/app/common/mail-parameters";
 import { replaceAll } from "../../shared/string-utils";
 

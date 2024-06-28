@@ -47,7 +47,7 @@ import { CommitteeConfigService } from "../committee/commitee-config.service";
 import { CommitteeReferenceData } from "../committee/committee-reference-data";
 import { CommonDataService } from "../common-data-service";
 import { DateUtilsService } from "../date-utils.service";
-import { enumForKey, enumValues } from "../enums";
+import { enumForKey, enumValues } from "../../functions/enums";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberLoginService } from "../member/member-login.service";
 import { MemberNamingService } from "../member/member-naming.service";
@@ -61,7 +61,7 @@ import isEqual from "lodash-es/isEqual";
 import { isNumericRamblersId } from "../path-matchers";
 import { RiskAssessmentService } from "./risk-assessment.service";
 import { AlertMessage } from "../../models/alert-target.model";
-import { sortBy } from "../arrays";
+import { sortBy } from "../../functions/arrays";
 
 @Injectable({
   providedIn: "root"

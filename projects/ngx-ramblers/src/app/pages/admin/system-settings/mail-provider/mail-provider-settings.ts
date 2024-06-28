@@ -5,7 +5,7 @@ import { DateUtilsService } from "../../../../services/date-utils.service";
 import { LoggerFactory } from "../../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
-import { enumKeyValues, KeyValue } from "../../../../services/enums";
+import { enumKeyValues, KeyValue } from "../../../../functions/enums";
 import { MemberService } from "../../../../services/member/member.service";
 import { Member } from "../../../../models/member.model";
 import { MailListUpdaterService } from "../../../../services/mail/mail-list-updater.service";

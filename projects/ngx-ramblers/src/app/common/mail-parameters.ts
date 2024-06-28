@@ -1,4 +1,4 @@
-import { KeyValue } from "../services/enums";
+import { KeyValue } from "../functions/enums";
 import { keys, map } from "lodash";
 import { NotificationConfig, ProcessToTemplateMappings, SendSmtpEmailParams } from "../models/mail.model";
 

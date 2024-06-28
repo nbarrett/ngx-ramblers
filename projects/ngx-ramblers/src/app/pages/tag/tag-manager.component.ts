@@ -4,7 +4,7 @@ import remove from "lodash-es/remove";
 import { NgxLoggerLevel } from "ngx-logger";
 import { TagData } from "ngx-tagify";
 import { ContentMetadata, ImageTag } from "../../models/content-metadata.model";
-import { sortBy } from "../../services/arrays";
+import { sortBy } from "../../functions/arrays";
 import { ImageTagDataService } from "../../services/image-tag-data-service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { StringUtilsService } from "../../services/string-utils.service";

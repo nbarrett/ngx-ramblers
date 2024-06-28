@@ -11,7 +11,7 @@ import {
 } from "../../../../models/mailchimp.model";
 import { Confirm } from "../../../../models/ui-actions";
 import { BroadcastService } from "../../../../services/broadcast-service";
-import { enumValues } from "../../../../services/enums";
+import { enumValues } from "../../../../functions/enums";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { MailchimpConfigService } from "../../../../services/mailchimp-config.service";
 import { MailchimpLinkService } from "../../../../services/mailchimp/mailchimp-link.service";

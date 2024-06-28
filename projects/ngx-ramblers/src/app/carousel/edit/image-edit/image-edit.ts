@@ -32,7 +32,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import isEmpty from "lodash-es/isEmpty";
 import { BroadcastService } from "../../../services/broadcast-service";
-import { KeyValue } from "../../../services/enums";
+import { KeyValue } from "../../../functions/enums";
 import { ImageMessage } from "../../../models/images.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { NumberUtilsService } from "../../../services/number-utils.service";

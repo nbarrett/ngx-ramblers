@@ -33,7 +33,7 @@ import { MemberService } from "../member/member.service";
 import { AlertInstance } from "../notifier.service";
 import { MergeFields } from "../../models/mail.model";
 import { MailProviderStats } from "../../models/system.model";
-import { KeyValue } from "../enums";
+import { KeyValue } from "../../functions/enums";
 import map from "lodash-es/map";
 
 @Injectable({

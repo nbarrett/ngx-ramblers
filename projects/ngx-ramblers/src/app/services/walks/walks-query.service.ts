@@ -3,7 +3,7 @@ import cloneDeep from "lodash-es/cloneDeep";
 import first from "lodash-es/first";
 import { NgxLoggerLevel } from "ngx-logger";
 import { EventType, Walk } from "../../models/walk.model";
-import { sortBy } from "../arrays";
+import { sortBy } from "../../functions/arrays";
 import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { WalkEventService } from "./walk-event.service";

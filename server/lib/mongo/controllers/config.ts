@@ -6,7 +6,7 @@ import { config } from "../models/config";
 import * as crudController from "./crud-controller";
 import * as transforms from "./transforms";
 import { createDocumentRequest, parseError, toObjectWithId } from "./transforms";
-import { enumForKey, enumValues } from "../../../../projects/ngx-ramblers/src/app/services/enums";
+import { enumForKey, enumValues } from "../../../../projects/ngx-ramblers/src/app/functions/enums";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 
 const debugLog = debug(envConfig.logNamespace("config"));

@@ -4,7 +4,7 @@ import { faDownLong } from "@fortawesome/free-solid-svg-icons";
 import { faUpLong } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Link } from "../../../models/page.model";
-import { move } from "../../../services/arrays";
+import { move } from "../../../functions/arrays";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 
 let uniqueId = 0;

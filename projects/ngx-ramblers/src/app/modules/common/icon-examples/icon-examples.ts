@@ -3,7 +3,7 @@ import range from "lodash-es/range";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
-import { KeyValue } from "../../../services/enums";
+import { KeyValue } from "../../../functions/enums";
 import { IconService } from "../../../services/icon-service/icon-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 

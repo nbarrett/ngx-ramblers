@@ -31,7 +31,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 @Component({
   selector: "app-markdown-editor",
   template: `
-    <div class="row" *ngIf="siteEditService.active()">
+    <div class="row" *ngIf="siteEditActive()">
       <div class="col-12">
         <app-badge-button *ngIf="buttonsAvailableOnlyOnFocus"
                           (click)="componentHasFocus() ? toggleToView() : toggleToEdit()" delay=500
@@ -85,7 +85,11 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 </textarea>`
 })
 export class MarkdownEditorComponent implements OnInit {
+  private presentationMode: boolean;
 
+  @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {
+    this.presentationMode = coerceBooleanProperty(presentationMode);
+  }
 
   @Input("editNameEnabled") set acceptEditNameEnabledChangesFrom(editNameEnabled: boolean) {
     this.logger.debug("editNameEnabled:", editNameEnabled);
@@ -474,6 +478,14 @@ export class MarkdownEditorComponent implements OnInit {
     if (this.category !== this.content.category) {
       this.logger.debug("changing category from ", this.content.category, "->", this.category);
       this.content.category = this.category;
+    }
+  }
+
+  siteEditActive(): boolean {
+    if (this.presentationMode) {
+      return false;
+    } else {
+      return this.siteEditService.active();
     }
   }
 }

@@ -25,7 +25,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { EventNotePipe } from "../../../pipes/event-note.pipe";
 import { FullNameWithAliasOrMePipe } from "../../../pipes/full-name-with-alias-or-me.pipe";
 import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pipe";
-import { sortBy } from "../../../services/arrays";
+import { sortBy } from "../../../functions/arrays";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { ConfigService } from "../../../services/config.service";
 import { DateUtilsService } from "../../../services/date-utils.service";

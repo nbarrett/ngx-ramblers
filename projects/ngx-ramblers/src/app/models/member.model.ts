@@ -1,7 +1,7 @@
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { MailchimpSubscription } from "./mailchimp.model";
 import { MailIdentifiers, MailSubscription } from "./mail.model";
-import { sortBy } from "../services/arrays";
+import { sortBy } from "../functions/arrays";
 
 export enum ProfileUpdateType {
   LOGIN_DETAILS = "login details",

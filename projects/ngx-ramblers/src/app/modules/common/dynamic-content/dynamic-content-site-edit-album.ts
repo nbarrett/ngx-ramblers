@@ -13,7 +13,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { GroupEvent, GroupEventType } from "../../../models/committee.model";
-import { enumKeyValues, KeyValue } from "../../../services/enums";
+import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { LazyLoadingMetadata } from "../../../models/content-metadata.model";
 import { UrlService } from "../../../services/url.service";
 import { UiActionsService } from "../../../services/ui-actions.service";

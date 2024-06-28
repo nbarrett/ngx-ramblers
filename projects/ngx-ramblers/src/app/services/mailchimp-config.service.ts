@@ -3,7 +3,7 @@ import { MailchimpContact, MailchimpListCreateRequest } from "../models/server-m
 import { ConfigKey } from "../models/config.model";
 import { MailchimpCampaignDefaults, MailchimpConfig } from "../models/mailchimp.model";
 import { ConfigService } from "./config.service";
-import { KeyValue } from "./enums";
+import { KeyValue } from "../functions/enums";
 import map from "lodash-es/map";
 
 @Injectable({

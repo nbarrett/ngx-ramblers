@@ -138,6 +138,9 @@ import { DisplayDateNoDayPipe } from "./pipes/display-date-no-day.pipe";
 import { NotificationConfigSelectorComponent } from "./pages/admin/system-settings/mail/notification-config-selector";
 import { SenderRepliesAndSignoffComponent } from "./pages/admin/send-emails/sender-replies-and-signoff";
 import { CustomReuseStrategy } from "./routing/custom-reuse-strategy";
+import {
+  AlbumIndexSiteEditComponent
+} from "./modules/common/dynamic-content/dynamic-content-site-edit-album-index";
 
 @NgModule({
   imports: [
@@ -205,6 +208,7 @@ import { CustomReuseStrategy } from "./routing/custom-reuse-strategy";
     DynamicContentComponent,
     DynamicContentPageComponent,
     DynamicContentSiteEditAlbumComponent,
+    AlbumIndexSiteEditComponent,
     DynamicContentSiteEditComponent,
     DynamicContentSiteEditTextRowComponent,
     DynamicContentViewAlbumComponent,

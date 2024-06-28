@@ -2,7 +2,7 @@ import { Injectable } from "@angular/core";
 import * as icons from "@fortawesome/free-solid-svg-icons";
 import map from "lodash-es/map";
 import { NgxLoggerLevel } from "ngx-logger";
-import { KeyValue } from "../enums";
+import { KeyValue } from "../../functions/enums";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 
 @Injectable({

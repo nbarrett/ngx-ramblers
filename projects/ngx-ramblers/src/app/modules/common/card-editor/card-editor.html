@@ -1,4 +1,4 @@
-<div class="card shadow clickable h-100 mb-4">
+<div class="card shadow clickable h-100 mb-4 xcompressed-view">
   <app-card-image
     [smallIconContainer]="smallIconContainer"
     [imageType]="imageType"
@@ -14,13 +14,13 @@
          target="_self">{{column.title}}</a>
     </h4>
     <app-image-cropper-and-resizer
-      *ngIf="pageContentEdit.editActive"
+      *ngIf="pageContentEdit?.editActive"
       [preloadImage]="column?.imageSource"
       (imageChange)="imageChanged($event)"
       (quit)="exitImageEdit()"
       (save)="imagedSaved($event)">
     </app-image-cropper-and-resizer>
-    <ng-container *ngIf="siteEditService.active()">
+    <ng-container *ngIf="siteEditActive()">
       <div class="form-group">
         <label class="form-label"
                [for]="idFor('title')">Title</label>
@@ -93,14 +93,16 @@
       </div>
     </ng-container>
     <app-markdown-editor unlinkEnabled
+                         presentationMode="presentationMode"
                          class="card-text"
                          (saved)="actions.saveContentTextId($event, rowIndex, column, pageContent)"
+                         [text]="column?.contentText"
                          [actionCaptionSuffix]="'text'"
                          [category]="pageContent.path"
                          [description]="idFor(pageContent.path)"
                          [id]="column?.contentTextId"
                          [name]="actions.rowColFor(rowIndex, columnIndex)">
-      <div *ngIf="!pageContentEdit.editActive"
+      <div *ngIf="!pageContentEdit?.editActive"
            (click)="editImage()"
            delay=500 tooltip="edit image" class="badge-button">
         <fa-icon [icon]="faPencil"></fa-icon>

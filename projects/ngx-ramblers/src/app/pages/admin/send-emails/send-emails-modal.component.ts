@@ -28,7 +28,7 @@ import { NotificationDirective } from "../../../notifications/common/notificatio
 import { MailService } from "../../../services/mail/mail.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import first from "lodash-es/first";
-import { KEY_NULL_VALUE_NONE } from "../../../services/enums";
+import { KEY_NULL_VALUE_NONE } from "../../../functions/enums";
 import { MemberBulkDeleteService } from "../../../services/member/member-bulk-delete.service";
 import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk-load-audit.service";
 

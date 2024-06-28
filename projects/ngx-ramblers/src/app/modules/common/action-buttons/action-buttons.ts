@@ -1,4 +1,4 @@
-import { Component, HostListener, Input, OnInit } from "@angular/core";
+import { Component, HostListener, inject, Input, OnInit } from "@angular/core";
 import { faPencil } from "@fortawesome/free-solid-svg-icons";
 import isEqual from "lodash-es/isEqual";
 import max from "lodash-es/max";
@@ -14,39 +14,94 @@ import {
 import { DeviceSize } from "../../../models/page.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { CARD_MARGIN_BOTTOM, cardClasses } from "../../../services/card-utils";
-import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { NumberUtilsService } from "../../../services/number-utils.service";
+import { LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
+import { PageContentService } from "../../../services/page-content.service";
+import { ContentMetadataService } from "../../../services/content-metadata.service";
+import { StringUtilsService } from "../../../services/string-utils.service";
+import { UrlService } from "../../../services/url.service";
 import { PageContentEditService } from "../../../services/page-content-edit.service";
-import { SiteEditService } from "../../../site-edit/site-edit.service";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-action-buttons",
-  templateUrl: "./action-buttons.html",
-  styleUrls: ["./action-buttons.sass"]
+  template: `
+    <ng-container *ngIf="row">
+      <div class="row">
+        <div *ngIf="row.showSwiper && maxViewableSlideCount < pageContentColumns().length"
+             class="d-flex align-items-center mb-3 col">
+          <div class="flex-shrink-0">
+            <button aria-label="Previous slide" class="text-dark border-0 bg-transparent p-0 mr-1">
+              <app-svg (click)="back()"
+                       [disabled]="backDisabled()"
+                       class="icon"
+                       height="36"
+                       width="36"
+                       icon="i-back-round">
+              </app-svg>
+              <span class="sr-only">Previous slide</span></button>
+            <button aria-label="Next slide" class="text-dark border-0 bg-transparent p-0">
+              <app-svg (click)="forward()"
+                       [disabled]="forwardDisabled()"
+                       class="icon"
+                       height="36"
+                       width="36"
+                       icon="i-forward-round">
+              </app-svg>
+              <span class="sr-only">Next slide</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <ng-container *ngFor="let column of viewableColumns(); let columnIndex = index;">
+          <div [class]="slideClasses(column)"
+               [id]="actions.columnIdentifierFor(columnIndex,pageContent.path + '-card')">
+            <app-card-editor presentationMode="presentationMode"
+              [smallIconContainer]="smallIconContainer()"
+              [rowIndex]="rowIndex"
+              [column]="column"
+              [pageContent]="pageContent"
+              (pageContentEditEvents)="pageContentEditEvents = pageContentEditService.handleEvent($event, pageContentEditEvents)">
+            </app-card-editor>
+          </div>
+        </ng-container>
+      </div>
+    </ng-container>`
 })
 export class ActionButtonsComponent implements OnInit {
-  @Input()
-  public pageContent: PageContent;
-  @Input()
-  public rowIndex: number;
 
-  private logger: Logger;
+  public pageContentService: PageContentService = inject(PageContentService);
+  public pageContentEditService: PageContentEditService = inject(PageContentEditService);
+  public contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
+  public stringUtils: StringUtilsService = inject(StringUtilsService);
+  public urlService: UrlService = inject(UrlService);
+  public actions: PageContentActionsService = inject(PageContentActionsService);
+  private broadcastService: BroadcastService<PageContent> = inject(BroadcastService);
+  loggerFactory: LoggerFactory = inject(LoggerFactory);
+  public logger = this.loggerFactory.createLogger("ActionButtonsComponent", NgxLoggerLevel.ERROR);
+  public instance = this;
   public slideIndex = 0;
   public maxViewableSlideCount: number;
   public actualViewableSlideCount: number;
   public row: PageContentRow;
   public faPencil = faPencil;
   public pageContentEditEvents: PageContentEditEvent[] = [];
-  private id: string;
-  constructor(
-    private numberUtils: NumberUtilsService,
-    public siteEditService: SiteEditService,
-    public pageContentEditService: PageContentEditService,
-    public actions: PageContentActionsService,
-    private broadcastService: BroadcastService<PageContent>,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ActionButtonsComponent, NgxLoggerLevel.OFF);
+  public pageContent: PageContent;
+  public rowIndex: number;
+  public presentationMode: boolean;
+
+  @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {
+    this.presentationMode = coerceBooleanProperty(presentationMode);
+  }
+
+  @Input("pageContent") set pageContentValue(pageContent: PageContent) {
+    this.pageContent = pageContent;
+    this.initialiseViewableRow();
+  }
+
+  @Input("rowIndex") set rowIndexValue(rowIndex: number) {
+    this.rowIndex = rowIndex;
+    this.initialiseViewableRow();
   }
 
   @HostListener("window:resize", ["event"])
@@ -55,23 +110,30 @@ export class ActionButtonsComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.id = this.numberUtils.generateUid();
-    this.row = this.pageContent.rows[this.rowIndex];
-    this.logger.info("initialised with contentPath:", this.pageContent.path);
-    this.determineViewableSlideCount();
-    this.pageColumnsChanged();
+    this.initialiseViewableRow();
     this.broadcastService.on(NamedEventType.PAGE_CONTENT_CHANGED, () => {
       this.logger.debug("event received:", NamedEventType.PAGE_CONTENT_CHANGED);
       this.pageColumnsChanged();
     });
   }
 
- private pageColumnsChanged() {
-    this.actualViewableSlideCount = min([this.pageContentColumns().length, this.maxViewableSlideCount]);
+  private initialiseViewableRow() {
+    if (this.rowIndex >= 0 && this.pageContent?.rows) {
+      this.row = this.pageContent?.rows?.[this.rowIndex];
+      this.logger.info("initialised with contentPath:", this.pageContent?.path);
+      this.determineViewableSlideCount();
+      this.pageColumnsChanged();
+    } else {
+      this.logger.info("not initialised with rowIndex:", this.rowIndex, "rows:", this.pageContent?.rows);
+    }
+  }
+
+  private pageColumnsChanged() {
+    this.actualViewableSlideCount = min([this.pageContentColumns()?.length, this.maxViewableSlideCount]);
   }
 
   pageContentColumns(): PageContentColumn[] {
-    return this.pageContent.rows[this.rowIndex].columns;
+    return this.pageContent?.rows?.[this.rowIndex]?.columns;
   }
 
   private determineViewableSlideCount() {
@@ -94,17 +156,18 @@ export class ActionButtonsComponent implements OnInit {
   columnInEditMode(column: PageContentColumn) {
     const columnIndex = this.row.columns.indexOf(column);
     return this.pageContentEditEvents.find(item => isEqual(item,
-      {columnIndex, rowIndex: this.rowIndex, path: this.pageContent.path, editActive: true}));
+      {columnIndex, rowIndex: this.rowIndex, path: this.pageContent?.path, editActive: true}));
   }
 
   viewableColumns(): PageContentColumn[] {
+    const columns = this.pageContentColumns();
     if (this.row.showSwiper) {
       const endIndex = this.slideIndex + this.maxViewableSlideCount;
-      const viewableSlides: PageContentColumn[] = this.pageContentColumns().slice(this.slideIndex, endIndex);
-      this.logger.debug("viewableSlides:slideIndex", this.slideIndex, "end index:", endIndex, "all slides:", this.pageContentColumns(), "viewableSlideCount:", this.maxViewableSlideCount, "viewableSlides:", viewableSlides);
+      const viewableSlides: PageContentColumn[] = columns?.slice(this.slideIndex, endIndex);
+      this.logger.debug("viewableSlides:slideIndex", this.slideIndex, "end index:", endIndex, "all slides:", columns, "viewableSlideCount:", this.maxViewableSlideCount, "viewableSlides:", viewableSlides);
       return viewableSlides;
     } else {
-      return this.pageContentColumns();
+      return columns;
     }
   }
 
