@@ -37,7 +37,7 @@ export class CardEditorComponent implements OnInit {
   public rowIndex: number;
   @Input()
   public smallIconContainer: boolean;
-  private presentationMode: boolean;
+  public presentationMode: boolean;
 
   @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {
     this.presentationMode = coerceBooleanProperty(presentationMode);

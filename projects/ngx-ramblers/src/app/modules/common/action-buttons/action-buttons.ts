@@ -56,7 +56,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
         <ng-container *ngFor="let column of viewableColumns(); let columnIndex = index;">
           <div [class]="slideClasses(column)"
                [id]="actions.columnIdentifierFor(columnIndex,pageContent.path + '-card')">
-            <app-card-editor presentationMode="presentationMode"
+            <app-card-editor [presentationMode]="presentationMode"
               [smallIconContainer]="smallIconContainer()"
               [rowIndex]="rowIndex"
               [column]="column"

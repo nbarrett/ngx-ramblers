@@ -93,7 +93,7 @@
       </div>
     </ng-container>
     <app-markdown-editor unlinkEnabled
-                         presentationMode="presentationMode"
+                         [presentationMode]="presentationMode"
                          class="card-text"
                          (saved)="actions.saveContentTextId($event, rowIndex, column, pageContent)"
                          [text]="column?.contentText"
