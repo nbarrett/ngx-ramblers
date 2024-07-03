@@ -27,6 +27,7 @@ import { StringUtilsService } from "./string-utils.service";
 import { KeyValue } from "../functions/enums";
 import remove from "lodash-es/remove";
 import cloneDeep from "lodash-es/cloneDeep";
+import { UrlService } from "./url.service";
 
 @Injectable({
   providedIn: "root"
@@ -37,6 +38,7 @@ export class PageContentActionsService {
 
   constructor(private stringUtils: StringUtilsService,
               private broadcastService: BroadcastService<PageContent>,
+              private urlService: UrlService,
               private numberUtils: NumberUtilsService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(PageContentActionsService, NgxLoggerLevel.OFF);
@@ -58,8 +60,8 @@ export class PageContentActionsService {
     return View.EDIT;
   }
 
-  allPageHrefs(pageContent: PageContent): any[] {
-    return (pageContent.rows.map(row => row.columns.map(col => first(col?.href?.split("?"))).filter(item => item))).flat(2);
+  allPageHrefs(pageContent: PageContent): string[] {
+    return (pageContent?.rows?.map(row => row.columns.map(col => this.urlService.pathOnlyFrom(col?.href))?.filter(item => item)))?.flat(2) || [];
   }
 
   saveContentTextId(contentText: ContentText, rowIndex: number, column: PageContentColumn, pageContent: PageContent) {

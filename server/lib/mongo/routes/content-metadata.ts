@@ -9,7 +9,7 @@ const router = express.Router();
 router.post("", authConfig.authenticate(), controller.create);
 router.put("/:id", authConfig.authenticate(), controller.update);
 router.get("", controller.findByConditions);
-router.get("/all", authConfig.authenticate(), controller.all);
+router.get("/all", controller.all);
 router.delete("/:id", authConfig.authenticate(), controller.deleteOne);
 
 export const contentMetadataRoutes = router;

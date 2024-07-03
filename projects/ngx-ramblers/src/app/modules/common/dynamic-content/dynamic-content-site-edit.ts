@@ -1,5 +1,5 @@
 import { Component, Input, OnDestroy, OnInit } from "@angular/core";
-import { faAdd, faPencil, faRemove, faSave, faUndo } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faEye, faPencil, faRemove, faSave, faUndo } from "@fortawesome/free-solid-svg-icons";
 import cloneDeep from "lodash-es/cloneDeep";
 import first from "lodash-es/first";
 import isEmpty from "lodash-es/isEmpty";
@@ -33,6 +33,13 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
+import { fieldStartsWithValue } from "../../../functions/mongo";
+import { PageService } from "../../../services/page.service";
+import last from "lodash-es/last";
+import { AlbumIndexService } from "../../../services/album-index.service";
+import uniq from "lodash-es/uniq";
+import { UiActionsService } from "../../../services/ui-actions.service";
+import { StoredValue } from "../../../models/ui-actions";
 
 @Component({
   selector: "app-dynamic-content-site-edit",
@@ -78,6 +85,12 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
                                   delay=500 [tooltip]="'Add first row'"
                                   [icon]="faAdd" caption="Add first row">
                 </app-badge-button>
+                <app-badge-button *ngIf="unreferencedPaths?.length>0" (click)="toggleShowUnreferencedPages()"
+                                  [icon]="faEye"
+                                  [active]="showUnreferenced"
+                                  delay=500
+                                  caption="{{showUnreferenced? 'Hide':'Show'}} {{stringUtils.pluraliseWithCount(unreferencedPaths?.length, 'unreferenced page')}}">
+                </app-badge-button>
                 <app-badge-button (click)="deletePageContent()"
                                   [icon]="faRemove"
                                   delay=500 caption="Delete page"
@@ -85,23 +98,41 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
                                   [disabled]="allReferringPages().length !== 0">
                 </app-badge-button>
                 <ng-container *ngIf="this.allReferringPageCount() > 0">
-                  <div class="align-middle">Referred to by: <a class="ml-1"
+                  <div class="align-middle">Referred to by: <a class="ml-2 rams-text-decoration-pink"
                                                                *ngFor="let referringPage of allReferringPages(); let linkIndex = index;"
                                                                [href]="referringPage">{{ formatHref(referringPage) }}{{ linkIndex < allReferringPageCount() - 1 ? ',' : '' }}</a>
                   </div>
                 </ng-container>
                 <ng-container *ngIf="this.allReferringPageCount() === 0">
-                  <div class="align-middle">Not Referred to by any other pages or links</div>
+                  <div class="align-middle mb-2">Not Referred to by any other pages or links</div>
                 </ng-container>
               </div>
             </ng-template>
             <ng-container *ngTemplateOutlet="saveButtonsAndPath"></ng-container>
+            <div class="row mt-2 align-items-end mb-3" *ngIf="unreferencedPaths?.length>0 && showUnreferenced">
+              <div class="align-middle">
+                <div class="col-sm-12">
+                  <div class="mb-2">Other unreferenced pages related to this area:</div>
+                  <ul *ngFor="let path of unreferencedPaths;" class="breadcrumb bg-transparent mb-1 ml-0 p-1">
+                    <span class="d-md-none">...</span>
+                    <li class="breadcrumb-item d-none d-md-inline"
+                        *ngFor="let page of pageService.linksFromPathSegments(urlService.pathSegmentsForUrl(path))">
+                      <a [routerLink]="'/' + page?.href" target="_self">{{ page?.title }}</a>
+                    </li>
+                    <li class="breadcrumb-item d-none d-md-inline">
+                      <a class="rams-text-decoration-pink"
+                         [href]="path">{{ formatHref(last(urlService.pathSegmentsForUrl(path))) }}</a>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
             <div class="row mt-2 align-items-end mb-3">
               <div [ngClass]="pageContentRowService.rowsSelected()? 'col-md-10' : 'col'">
                 <form>
                   <label class="mr-2" for="path">Content Path
                     <span>{{ contentPathReadOnly ? "(not editable as this content is part of internal page)" : "" }}</span></label>
-                  <input [disabled]="contentPathReadOnly" autocomplete="nope" [typeahead]="pageContentService.siteLinks"
+                  <input [disabled]="contentPathReadOnly" autocomplete="off" [typeahead]="pageContentService.siteLinks"
                          [typeaheadMinLength]="0" id="path"
                          [(ngModel)]="pageContent.path"
                          name="path"
@@ -216,7 +247,7 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
                   </div>
                 </ng-container>
               </div>
-              <app-album-index-site-edit *ngIf="actions.isAlbumIndex(row)" [row]="row"/>
+              <app-album-index-site-edit *ngIf="actions.isAlbumIndex(row)" [row]="row" [rowIndex]="rowIndex"/>
               <app-action-buttons *ngIf="actions.isActionButtons(row)"
                                   [pageContent]="pageContent"
                                   [rowIndex]="rowIndex">
@@ -240,6 +271,36 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
+  @Input("defaultPageContent") set acceptChangesFrom(defaultPageContent: PageContent) {
+    this.logger.info("acceptChangesFrom:defaultPageContent:", defaultPageContent);
+    this.defaultPageContent = defaultPageContent;
+    this.deriveInsertableData();
+  }
+
+  @Input("pageContent") set acceptPageContentChanges(pageContent: PageContent) {
+    this.logger.info("acceptPageContentChanges:pageContent:", pageContent);
+    this.initialisePageContent(pageContent);
+    this.clearAlert(pageContent);
+  }
+
+  constructor(
+    private systemConfigService: SystemConfigService,
+    public pageContentRowService: PageContentRowService,
+    public siteEditService: SiteEditService,
+    private albumIndexService: AlbumIndexService,
+    public memberResourcesReferenceData: MemberResourcesReferenceDataService,
+    protected urlService: UrlService,
+    protected pageService: PageService,
+    public uiActionsService: UiActionsService,
+    public stringUtils: StringUtilsService,
+    public pageContentService: PageContentService,
+    private contentTextService: ContentTextService,
+    public actions: PageContentActionsService,
+    private broadcastService: BroadcastService<any>,
+    loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.ERROR);
+  }
+
   @Input()
   contentPathReadOnly: boolean;
   @Input()
@@ -250,35 +311,9 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   public contentDescription: string;
   @Input()
   public contentPath: string;
-
-  @Input("defaultPageContent") set acceptChangesFrom(defaultPageContent: PageContent) {
-    this.logger.info("acceptChangesFrom:defaultPageContent:", defaultPageContent);
-    this.defaultPageContent = defaultPageContent;
-    this.deriveInsertableData();
-  }
-
-  @Input("pageContent") set acceptPageContentChanges(pageContent: PageContent) {
-    this.logger.info("acceptPageContentChanges:pageContent:", pageContent);
-    this.pageContent = this.initialisePageContent(pageContent);
-    this.clearAlert(pageContent);
-  }
-
-  constructor(
-    private systemConfigService: SystemConfigService,
-    public pageContentRowService: PageContentRowService,
-    public siteEditService: SiteEditService,
-    public memberResourcesReferenceData: MemberResourcesReferenceDataService,
-    private urlService: UrlService,
-    public stringUtils: StringUtilsService,
-    public pageContentService: PageContentService,
-    private contentTextService: ContentTextService,
-    public actions: PageContentActionsService,
-    private broadcastService: BroadcastService<any>,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.OFF);
-  }
-
-
+  private albumIndexDataRows: PageContent[] = [];
+  public showUnreferenced: boolean;
+  public unreferencedPaths: string[];
   public pageContent: PageContent;
   public insertableContent: ColumnInsertData[] = [];
   private defaultPageContent: PageContent;
@@ -302,12 +337,15 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   action: string = this.contentActions[0];
   insertionRowPosition: InsertionRow[] = [{index: 0, description: InsertionPosition.BEFORE}, {index: 1, description: InsertionPosition.AFTER}];
   public referringPages: PageContent[] = [];
+  public pagesBelow: PageContent[] = [];
   private error: any = null;
   private pageHrefs: string[];
   private copyOrMoveActionComplete: boolean;
   private subscriptions: Subscription[] = [];
   public editAlbumName: boolean;
+  protected readonly last = last;
 
+  protected readonly faEye = faEye;
 
   ngOnInit() {
     this.logger.info("ngOnInit");
@@ -354,7 +392,8 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
-  private runInitCode() {
+  private async runInitCode() {
+    this.showUnreferenced = this.uiActionsService.initialBooleanValueFor(StoredValue.SHOW_UNREFERENCED_PAGES, false);
     this.logger.info("ngOnInit:runInitCode:pageContent:", this.pageContent, "path:", this.urlService.urlPath());
     this.systemConfigService.events().subscribe(item => {
       const pageHrefs: string[] = item.group.pages.map(link => link.href).filter(item => item);
@@ -374,30 +413,30 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
       this.error = error;
     });
     this.broadcastService.on(NamedEventType.SAVE_PAGE_CONTENT, (namedEvent: NamedEvent<PageContent>) => {
-      this.logger.info("event received:", namedEvent);
+      this.logger.debug("event received:", namedEvent);
       if (namedEvent.data.id === this.pageContent.id) {
         this.savePageContent();
       }
     });
     this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_DELETED, (namedEvent: NamedEvent<PageContent>) => {
-      this.logger.info("event received:", namedEvent);
+      this.logger.debug("event received:", namedEvent);
       this.pageContent.rows.forEach(row => row.columns.forEach(column => {
         if (column.contentTextId === namedEvent?.data?.id) {
-          this.logger.info("removing link to content " + namedEvent.data.id);
+          this.logger.debug("removing link to content " + namedEvent.data.id);
           delete column.contentTextId;
         }
       }));
       this.savePageContent();
     });
     this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_UNSAVED, (namedEvent: NamedEvent<MarkdownEditorComponent>) => {
-      this.logger.info("event received:", namedEvent);
+      this.logger.debug("event received:", namedEvent);
       this.unsavedMarkdownComponents.add(namedEvent.data);
-      this.logger.info("added:", namedEvent.data, "to unsavedMarkdownComponents:", this.unsavedMarkdownComponents);
+      this.logger.debug("added:", namedEvent.data, "to unsavedMarkdownComponents:", this.unsavedMarkdownComponents);
     });
     this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_SYNCED, (namedEvent: NamedEvent<MarkdownEditorComponent>) => {
-      this.logger.info("event received:", namedEvent);
+      this.logger.debug("event received:", namedEvent);
       this.unsavedMarkdownComponents.delete(namedEvent.data);
-      this.logger.info("unsavedMarkdownComponents removed:", namedEvent.data, "result:", this.unsavedMarkdownComponents);
+      this.logger.debug("unsavedMarkdownComponents removed:", namedEvent.data, "result:", this.unsavedMarkdownComponents);
     });
     this.destinationPathLookup.pipe(debounceTime(250))
       .pipe(distinctUntilChanged())
@@ -430,12 +469,11 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     return replaced.trim();
   }
 
-  createContent() {
-    this.pageContent = {
+  async createContent() {
+    await this.initialisePageContent({
       path: this.contentPath,
       rows: [this.actions.defaultRowFor(PageContentType.TEXT)]
-    };
-    this.logger.info("this.pageContent:", this.pageContent);
+    })
     this.queryCompleted = true;
     this.actions.notifyPageContentChanges(this.pageContent);
   }
@@ -480,9 +518,8 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
       this.logger.info("saving", this.stringUtils.pluraliseWithCount(this.unsavedMarkdownComponents.size, "markdown component"), "before saving page content");
       return Promise.all(Array.from(this.unsavedMarkdownComponents.values()).map(component => component.save())).then(() => {
         return this.pageContentService.createOrUpdate(this.pageContent)
-          .then(pageContent => {
-            this.pageContent = pageContent;
-            this.logger.info("this.pageContent.path:", this.pageContent.path, "urlPath:", this.urlService.urlPath());
+          .then(async pageContent => {
+            await this.initialisePageContent(pageContent);
             if (this.pageContent.path !== this.urlService.urlPath()) {
               const navigateToPath = this.urlService.pathMinusAnchorForUrl(this.pageContent.path);
               this.logger.info("need to move to:", navigateToPath);
@@ -499,8 +536,8 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   public revertPageContent() {
     this.actions.rowsInEdit = [];
     this.pageContentService.findByPath(this.pageContent.path)
-      .then(pageContent => {
-        this.pageContent = pageContent;
+      .then(async pageContent => {
+        await this.initialisePageContent(pageContent);
         this.actions.notifyPageContentChanges(pageContent);
         this.deriveInsertableData();
       });
@@ -531,6 +568,24 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     const allReferringPages = this.referringPages.map(pageContent => first(pageContent.path.split("?"))).concat(this.mainPagesReferred());
     this.logger.debug("allReferringPages:", allReferringPages);
     return allReferringPages;
+  }
+
+  public async unreferencedPagesStartingWith(pageContent: PageContent): Promise<void> {
+    const albumIndexHrefs: string[] = this.albumIndexDataRows.map(albumIndexDataRow => albumIndexDataRow.rows[0].columns.map(item => item.href)).flat(2);
+    const hrefsBelow: string[] = this.pagesBelow.map(page => this.actions.allPageHrefs(page)).flat(2);
+    const currentPageHrefs = this.actions.allPageHrefs(pageContent).concat(pageContent.path);
+    const allReferencedHrefs = uniq(currentPageHrefs.concat(albumIndexHrefs).concat(hrefsBelow)).sort();
+    const pagePathsBelow: string[] = this.pagesBelow.map(page => this.urlService.pathOnlyFrom(page.path));
+    const unreferencedPaths: string[] = uniq(pagePathsBelow.filter(path => !allReferencedHrefs.includes(path))).sort();
+    this.unreferencedPaths = unreferencedPaths;
+    this.logger.info("calculateOtherPagesStartingWith:path:", pageContent.path, "albumIndexHrefs:", albumIndexHrefs, "currentPageHrefs:", currentPageHrefs, "allReferencedHrefs:", allReferencedHrefs, "pagesBelowPath:", this.pagesBelow, "pagePathsBelow:", pagePathsBelow, "unreferencedPaths:", unreferencedPaths);
+  }
+
+  private async collectNestedAlbumIndexes() {
+    const albumIndexRows: PageContentRow[] = this.pagesBelow.map(item => item.rows.filter(row => this.actions.isAlbumIndex(row))).flat(3);
+    const albums = await Promise.all(albumIndexRows.map(albumIndexRow => this.albumIndexService.albumIndexToPageContent(albumIndexRow, albumIndexRows.indexOf(albumIndexRow))));
+    this.logger.info("collectNestedAlbumIndexes:albums:", albums);
+    albums.forEach(album => this.collectAlbumIndexData(album));
   }
 
   public deletePagContentDisabled(): boolean {
@@ -585,7 +640,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   formatHref(referringPage: string): string {
-    return referringPage?.split("#").join(" ");
+    return this.stringUtils.asTitle(referringPage?.split("#").join(" "));
   }
 
   destinationPathInsertionRowIndexChange($event: any) {
@@ -608,10 +663,33 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     }
   }
 
-  private initialisePageContent(pageContent: PageContent): PageContent {
+  private async initialisePageContent(pageContent: PageContent): Promise<void> {
     if (pageContent) {
       pageContent.rows.forEach(row => this.initialiseRowIfRequired(row));
+      this.pageContent = pageContent;
+      this.logger.info("initialisePageContent.pageContent:", this.pageContent, "urlPath:", this.urlService.urlPath());
+      await this.collectPagesBelowPath(pageContent);
+      await this.collectNestedAlbumIndexes();
+      await this.unreferencedPagesStartingWith(pageContent);
     }
-    return pageContent;
+  }
+
+  private async collectPagesBelowPath(pageContent: PageContent) {
+    const path = pageContent.path;
+    const dataQueryOptions = {criteria: {path: fieldStartsWithValue(path)}};
+    this.pagesBelow = await this.pageContentService.all(dataQueryOptions);
+    this.logger.info("initialisePageContent:path:", path, "dataQueryOptions:", dataQueryOptions, "pagesBelowPath:", this.pagesBelow);
+  }
+
+  collectAlbumIndexData(albumIndexDataRow: PageContent) {
+    if (albumIndexDataRow) {
+      this.albumIndexDataRows = this.albumIndexDataRows.filter(item => item.path !== albumIndexDataRow.path).concat(albumIndexDataRow);
+      this.logger.info("collectAlbumIndexData:albumIndexDataRow:", albumIndexDataRow, "albumIndexDataRows:", this.albumIndexDataRows);
+    }
+  }
+
+  toggleShowUnreferencedPages() {
+    this.showUnreferenced = !this.showUnreferenced;
+    this.uiActionsService.saveValueFor(StoredValue.SHOW_UNREFERENCED_PAGES, this.showUnreferenced);
   }
 }

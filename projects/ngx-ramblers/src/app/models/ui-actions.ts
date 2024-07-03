@@ -27,6 +27,7 @@ export enum StoredValue {
   SOCIAL_DATE_CRITERIA = "social-date-criteria",
   SOCIAL_DATE_SORT = "social-date-sort",
   SOCIAL_QUICK_SEARCH = "social-quick-search",
+  SHOW_UNREFERENCED_PAGES = "show-unreferenced-pages",
   STORY = "story",
   TAB = "tab",
 }
