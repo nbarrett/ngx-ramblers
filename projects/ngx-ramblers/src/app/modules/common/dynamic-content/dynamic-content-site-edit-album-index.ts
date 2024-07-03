@@ -1,13 +1,7 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { faAdd, faEraser, faPencil, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import {
-  AlbumPath,
-  ContentPathMatch,
-  PageContent,
-  PageContentRow,
-  StringMatch
-} from "../../../models/content-text.model";
+import { ContentPathMatch, PageContent, PageContentRow, StringMatch } from "../../../models/content-text.model";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
@@ -25,7 +19,7 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
   template: `
     <div class="row align-items-end mb-3 d-flex">
       <div class="col-sm-12">
-        <app-badge-button [icon]="faAdd" [caption]="'Add new Album Path'"
+        <app-badge-button [icon]="faAdd" [caption]="'Add new Content Path Match'"
                           (click)="addNewAlbum()"/>
       </div>
     </div>
@@ -34,7 +28,7 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
         <div class="col-sm-2">
           <label
             [for]="actions.rowColumnIdentifierFor(index, 0, contentPath + '-album-index-item')">
-            String Match {{ index + 1 }}</label>
+            Match {{ index + 1 }}</label>
           <select class="form-control input-sm"
                   [(ngModel)]="row.albumIndex.contentPaths[index].stringMatch"
                   (ngModelChange)="refreshContentPreview()"
@@ -48,7 +42,7 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
           <form>
             <label for="{{id}}-album-{{index}}">Content Path {{ index + 1 }}</label>
             <div class="d-flex">
-              <input autocomplete="new-password" [typeahead]="albumNames"
+              <input autocomplete="off" [typeahead]="pageContentService.siteLinks"
                      [typeaheadMinLength]="0"
                      id="{{id}}-album-{{index}}"
                      [(ngModel)]="row.albumIndex.contentPaths[index].contentPath"
@@ -56,8 +50,8 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
                      [value]="contentPath"
                      name="new-password"
                      type="text" class="form-control flex-grow-1 mr-2">
-              <app-badge-button class="mt-1" [icon]="faEraser" [caption]="'Delete'"
-                                (click)="delete(contentPath)"/>
+              <app-badge-button class="mt-1" [icon]="faEraser" [caption]="'Remove Content Path Match'"
+                                (click)="remove(contentPath)"/>
             </div>
           </form>
         </div>
@@ -86,26 +80,24 @@ export class AlbumIndexSiteEditComponent implements OnInit {
   public instance = this;
   @Input()
   public row: PageContentRow;
+  @Input() rowIndex: number;
   faPencil = faPencil;
   faAdd = faAdd;
   faEraser = faEraser;
   id: string;
-  public albumPaths: AlbumPath[] = [];
-  public albumNames: string[] = [];
   protected readonly faSearch = faSearch;
   stringMatchingValues: KeyValue<string>[] = enumKeyValues(StringMatch);
+
 
   async ngOnInit() {
     this.logger.info("ngOnInit:albumIndex:", this.row.albumIndex);
     this.id = this.numberUtils.generateUid();
     await this.refreshContentPreview();
-    this.albumPaths = await this.pageContentService.albumNames();
-    this.albumNames = this.albumPaths.map(albumPath => albumPath.albumName);
-    this.logger.info("albumNames:", this.albumNames, "albumIndex:", this.row?.albumIndex, "albumIndexPageContent:", this.albumIndexPageContent);
+    this.logger.info("albumIndex:", this.row?.albumIndex, "albumIndexPageContent:", this.albumIndexPageContent);
   }
 
   protected async refreshContentPreview() {
-    this.albumIndexPageContent = await this.albumIndexService.albumIndexToPageContent(this.row);
+    this.albumIndexPageContent = await this.albumIndexService.albumIndexToPageContent(this.row, this.rowIndex);
   }
 
   trackByIndex(index: number, item: any): number {
@@ -122,11 +114,7 @@ export class AlbumIndexSiteEditComponent implements OnInit {
     this.logger.info("addNewAlbum:albums:", this.row.albumIndex.contentPaths);
   }
 
-  findAlbumsFor(contentPath: ContentPathMatch): AlbumPath[] {
-    return contentPath ? this.albumPaths.filter(albumPath => albumPath.contentPath.includes(contentPath.contentPath)) : [];
-  }
-
-  delete(contentPath: ContentPathMatch) {
+  remove(contentPath: ContentPathMatch) {
     this.logger.info("delete:", contentPath);
     this.row.albumIndex.contentPaths = this.row.albumIndex.contentPaths.filter(item => item !== contentPath);
     this.refreshContentPreview();

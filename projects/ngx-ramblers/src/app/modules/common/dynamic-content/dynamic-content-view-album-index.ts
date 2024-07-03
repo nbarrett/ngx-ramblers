@@ -24,7 +24,7 @@ export class DynamicContentViewAlbumIndexComponent implements OnInit {
 
   async ngOnInit() {
     const albumIndex = this.row.albumIndex;
-    this.albumIndexPageContent = await this.albumIndexService.albumIndexToPageContent(this.row);
+    this.albumIndexPageContent = await this.albumIndexService.albumIndexToPageContent(this.row, 0);
     this.logger.info("row", this.row, "albumIndex:", albumIndex, "albumIndexPageContent:", this.albumIndexPageContent);
   }
 

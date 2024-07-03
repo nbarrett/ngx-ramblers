@@ -1,4 +1,3 @@
-import { Location } from "@angular/common";
 import { Injectable } from "@angular/core";
 import { Title } from "@angular/platform-browser";
 import last from "lodash-es/last";
@@ -25,10 +24,9 @@ export class PageService {
   constructor(private stringUtils: StringUtilsService,
               private titleService: Title,
               private systemConfigService: SystemConfigService,
-              private location: Location,
               private urlService: UrlService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("PageService", NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("PageService", NgxLoggerLevel.ERROR);
     this.logger.info("subscribing to systemConfigService events");
     this.systemConfigService.events().subscribe(item => {
       this.group = item.group;
@@ -44,8 +42,13 @@ export class PageService {
     if (this.urlService.pathContainsMongoId()) {
       return null;
     } else {
-      return this.stringUtils.asTitle(this.stringUtils.asWords(this.urlService.lastPathSegment()));
+      const lastPathSegment = this.urlService.lastPathSegment();
+      return this.subtitleFrom(lastPathSegment);
     }
+  }
+
+  public subtitleFrom(lastPathSegment: string) {
+    return this.stringUtils.asTitle(this.stringUtils.asWords(lastPathSegment));
   }
 
   contentDescription(anchor?: string): string {
@@ -70,11 +73,18 @@ export class PageService {
 
   public relativePages(): Link[] {
     const pathSegments = this.urlService.pathSegments();
-    this.logger.debug("pathSegments:", pathSegments);
+    return this.linksFromPathSegments(pathSegments);
+  }
+
+  public linksFromPathSegments(pathSegments: string[], includeLast?: boolean): Link[] {
+    this.logger.info("pathSegments:", pathSegments);
     const relativePages: Link[] = pathSegments
-      ?.filter(item => item !== last(pathSegments))
-      ?.map((path, index) => ({title: this.stringUtils.asTitle(path), href: this.pathSegmentsUpTo(pathSegments, index)}));
-    this.logger.debug("relativePages:", relativePages);
+      ?.filter(item => includeLast || item !== last(pathSegments))
+      ?.map((path, index) => ({
+        title: this.stringUtils.asTitle(path),
+        href: this.pathSegmentsUpTo(pathSegments, index)
+      }));
+    this.logger.info("linksFromPathSegments:", relativePages);
     return this.group?.pages ? [this.group.pages[0]].concat(relativePages) : relativePages;
   }
 
@@ -96,10 +106,10 @@ export class PageService {
       const uniqueData = uniq(rawData.filter(item => item));
       const fullTitle = uniqueData.join(delimiter);
       this.logger.debug("group:", this?.group);
-      this.logger.info("setTitle:pageTitles:", pageTitles, "rawData:", rawData, "uniqueData:", uniqueData, "fullTitle:", fullTitle);
+      this.logger.info("setTitle:areaTitle:", areaTitle, "subTitle:", subTitle, "pageTitles:", pageTitles, "rawData:", rawData, "uniqueData:", uniqueData, "fullTitle:", fullTitle);
       this.titleService.setTitle(fullTitle);
     } else {
-      this.logger.info("setTitle:supplied pageTitles", pageTitles, "group not configured yet");
+      this.logger.info("setTitle:supplied pageTitles", pageTitles, "group longName not configured yet");
     }
   }
 

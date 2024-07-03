@@ -10,6 +10,7 @@ import { MemberLoginService } from "./member/member-login.service";
 import { PageContentActionsService } from "./page-content-actions.service";
 import { sortBy } from "../functions/arrays";
 import { uniqBy } from "lodash-es";
+import { fieldContainsValue } from "../functions/mongo";
 
 @Injectable({
   providedIn: "root"
@@ -36,7 +37,7 @@ export class PageContentService {
   }
 
   async allReferringPages(path: string): Promise<PageContent[]> {
-    const dataQueryOptions: DataQueryOptions = {criteria: {"rows.columns.href": {$regex: path, $options: "i"}}};
+    const dataQueryOptions: DataQueryOptions = {criteria: {"rows.columns.href": fieldContainsValue(path)}};
     const params = this.commonDataService.toHttpParams(dataQueryOptions);
     const apiResponse = await this.http.get<{ response: PageContent[] }>(`${this.BASE_URL}/all`, {params}).toPromise();
     this.logger.debug("all - received", apiResponse);

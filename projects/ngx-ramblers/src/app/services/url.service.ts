@@ -53,6 +53,10 @@ export class UrlService {
     return this.location.path().includes(path);
   }
 
+  public pathOnlyFrom(path: string) {
+    return first(path?.split("?"));
+  }
+
   navigateTo(pathSegments: string[], params?: Params, queryParamsHandling?: QueryParamsHandling): Promise<boolean> {
     if (this.siteEdit.active()) {
       return Promise.resolve(false);
