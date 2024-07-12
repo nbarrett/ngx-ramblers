@@ -1,5 +1,5 @@
-const mongoose = require("mongoose");
-const uniqueValidator = require("mongoose-unique-validator");
+import mongoose from "mongoose";
+import uniqueValidator from "mongoose-unique-validator";
 
 const expenseType = {
   value: {type: String},
@@ -10,7 +10,7 @@ const expenseType = {
 const expenseItem = {
   cost: {type: Number},
   description: {type: String},
-  expenseType: expenseType,
+  expenseType,
   expenseDate: {type: Number},
   travel: {
     costPerMile: {type: Number},
@@ -45,7 +45,7 @@ const expenseEvent = {
   memberId: {type: String},
 };
 
-const expenseClaimSchema = mongoose.Schema({
+const expenseClaimSchema = new mongoose.Schema({
   expenseEvents: [expenseEvent],
   expenseItems: [expenseItem],
   cost: {type: Number},
@@ -58,4 +58,4 @@ const expenseClaimSchema = mongoose.Schema({
 
 expenseClaimSchema.plugin(uniqueValidator);
 
-module.exports = mongoose.model("expense-claim", expenseClaimSchema);
+export const expenseClaim: mongoose.Model<mongoose.Document> = mongoose.model("expense-claim", expenseClaimSchema);

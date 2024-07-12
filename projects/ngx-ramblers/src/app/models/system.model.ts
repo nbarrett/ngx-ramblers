@@ -130,6 +130,20 @@ export const colourSelectors: ColourSelector[] = [
   {class: "colour-rosycheeks", badgeClass: "badge badge-rosycheeks", name: "Rosy Cheeks"},
   {class: "colour-sunrise", badgeClass: "badge badge-sunrise", name: "Sunrise"},
   {class: "colour-sunset", badgeClass: "badge badge-sunset", name: "Sunset"},
+  {class: "colour-grey", badgeClass: "badge badge-grey", name: "Grey"},
+];
+
+export const textStyleSelectors: ColourSelector[] = [
+  {class: "as-button", badgeClass: "badge badge-as-button", name: "Make Links Buttons"},
+  {class: "", name: "Clear"},
+  {class: "d-none", name: "Hide"},
+  {class: "text-style-cloudy", badgeClass: "badge badge-cloudy", name: "Cloudy"},
+  {class: "text-style-granite", badgeClass: "badge badge-granite", name: "Granite"},
+  {class: "text-style-mintcake", badgeClass: "badge badge-mintcake", name: "Mintcake"},
+  {class: "text-style-rosycheeks", badgeClass: "badge badge-rosycheeks", name: "Rosy Cheeks"},
+  {class: "text-style-sunrise", badgeClass: "badge badge-sunrise", name: "Sunrise"},
+  {class: "text-style-sunset", badgeClass: "badge badge-sunset", name: "Sunset"},
+  {class: "text-style-grey", badgeClass: "badge badge-grey", name: "Grey"},
 ];
 
 

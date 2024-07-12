@@ -4,6 +4,7 @@ import kebabCase from "lodash-es/kebabCase";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
 import {
+  ActionType,
   AlbumData,
   AlbumIndex,
   AlbumView,
@@ -41,7 +42,19 @@ export class PageContentActionsService {
               private urlService: UrlService,
               private numberUtils: NumberUtilsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(PageContentActionsService, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(PageContentActionsService, NgxLoggerLevel.ERROR);
+  }
+
+  public actionType(columnIndex: number, rowIndex: number, rowIsNested: boolean): string {
+    const actionType = rowIsNested ? columnIndex >= 0 ?
+        ActionType.NESTED_COLUMN :
+        rowIndex >= 0 ? ActionType.NESTED_ROW :
+          ActionType.UNKNOWN :
+      columnIndex >= 0 ?
+        ActionType.COLUMN : rowIndex >= 0 ?
+          ActionType.ROW :
+          ActionType.UNKNOWN;
+    return `${this.stringUtils.asTitle(actionType)} ${(columnIndex >= 0 ? columnIndex : rowIndex) + 1}`;
   }
 
   public nestedRowsExistFor(column: PageContentColumn): boolean {
@@ -167,14 +180,15 @@ export class PageContentActionsService {
   }
 
   deleteColumn(row: PageContentRow, columnIndex: number, pageContent: PageContent) {
+    this.logger.info("about to deleteColumn from row:", row, "columnIndex:", columnIndex, "pageContent:", pageContent);
     this.calculateColumnsFor(row, -1);
     row.columns = row.columns.filter((item, index) => index !== columnIndex);
-    this.logger.debug("pageContent:", pageContent);
+    this.logger.info("pageContent:", pageContent);
     this.notifyPageContentChanges(pageContent);
   }
 
   private calculateColumnsFor(row: PageContentRow, columnIncrement: number) {
-    const newColumnCount = row.columns.length + columnIncrement;
+    const newColumnCount = row?.columns?.length + columnIncrement;
     const columns = this.numberUtils.asNumber(12 / newColumnCount, 0);
     row.columns.forEach(column => column.columns = columns);
     return columns;

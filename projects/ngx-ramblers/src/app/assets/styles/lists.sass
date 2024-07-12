@@ -1,37 +1,75 @@
-.list-style-arrows
-  font-weight: normal
+.list-no-padding-or-margin
+  padding: 0
+  margin: 0
+
+.list-style-arrow
+  list-style: none
   padding: 3px 0px 9px 24px
-  list-style: none outside
   background-image: url("../images/ramblers/icons/ramblers_icon_2_arrow_forward_rgb.png")
   background-repeat: no-repeat
   background-position: 0px 7px
   background-size: 18px
   margin-left: 0px
 
-.list-style-ticks-large
+.list-style-tick-large
   list-style: none
   padding: 0px 4px 11px 33px
   background: url("../images/ramblers/icons/ramblers_icon_8_tick_rgb.png") no-repeat
   background-size: 25px
 
-[markdown] ul li
-  @extend .list-style-arrows
 
-ul.list-arrows li
-  @extend .list-style-arrows
+.list-style-tick-medium
+  list-style: none
+  padding: 0px 4px 11px 33px
+  background: url("../images/ramblers/icons/ramblers_icon_8_tick_rgb.png") no-repeat
+  background-size: 20px
+
+.list-style-none
+  @extend .list-unstyled
+
+ul.list-arrow li
+  @extend .list-style-arrow
+
+
+.list-arrow
+  ul
+    @extend .list-no-padding-or-margin
+
+    li
+      @extend .list-style-arrow
+
+.list-tick-large
+  ul
+    @extend .list-no-padding-or-margin
+
+    li
+      @extend .list-style-tick-large
+
+.list-tick-medium
+  ul
+    @extend .list-no-padding-or-margin
+
+    li
+      @extend .list-style-tick-medium
+
+.list-default
+  ul
+    padding-left: 16px
+    margin-left: 0px
 
 .no-bullets ul li
   list-style: none
+
+
+.check-list
+  background: #eee
+  padding: 10px
+  margin-bottom: 20px
 
 .check-list h3
   font-size: 16px
   padding: 10px
   margin-bottom: 0
-
-[markdown] ul
-  list-style: none
-  padding: 0
-  margin: 0
 
 .check-list ul
   list-style: none
@@ -39,7 +77,17 @@ ul.list-arrows li
   margin: 0 0 0 6px
 
 .check-list ul li
-  @extend .list-style-ticks-large
+  @extend .list-style-tick-large
+
+.as-button
+  a
+    @extend .btn
+    @extend .btn-primary
+    @extend .w-100
+
+.badge-as-button
+  @extend .btn
+  @extend .btn-primary
 
 .button-content ul
   font-weight: bold

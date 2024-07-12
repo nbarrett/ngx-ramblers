@@ -1,5 +1,5 @@
 import { Component, Input, OnInit } from "@angular/core";
-import { faAdd, faPencil } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faPencil, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AwsFileData } from "../../../models/aws-object.model";
 import {
@@ -14,6 +14,7 @@ import { MemberResourcesReferenceDataService } from "../../../services/member/me
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { PageContentEditService } from "../../../services/page-content-edit.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { faStackOverflow } from "@fortawesome/free-brands-svg-icons";
 
 @Component({
   selector: "app-dynamic-content-site-edit-text-row",
@@ -21,7 +22,6 @@ import { StringUtilsService } from "../../../services/string-utils.service";
   styleUrls: ["./dynamic-content.sass"],
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
-  public expanded: boolean;
 
   constructor(
     public pageContentEditService: PageContentEditService,
@@ -31,6 +31,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(DynamicContentSiteEditTextRowComponent, NgxLoggerLevel.OFF);
   }
+  public expanded: boolean;
 
   @Input()
   public row: PageContentRow;
@@ -48,6 +49,8 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   faPencil = faPencil;
   faAdd = faAdd;
   public pageContentEditEvents: PageContentEditEvent[] = [];
+
+  protected readonly faRemove = faRemove;
 
   ngOnInit() {
   }
@@ -67,6 +70,15 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
       columnIndex,
       editActive: true
     }, this.pageContentEditEvents);
+  }
+
+  removeImage(column: PageContentColumn) {
+    column.imageSource = null;
+  }
+
+  replaceImage(column: PageContentColumn, rowIndex: number, columnIndex: number) {
+    column.imageSource = null;
+    this.editImage(rowIndex, columnIndex);
   }
 
   imageChanged(rowIndex: number, columnIndex: number, awsFileData: AwsFileData) {
@@ -113,5 +125,4 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   markdownEditorFocusChange(editorInstanceState: EditorInstanceState) {
     this.logger.info("markdownEditorFocusChange:editorInstanceState:", editorInstanceState);
   }
-
 }
