@@ -56,7 +56,7 @@
                   edit</a> </label>
               <p *ngIf="longerDescriptionPreview"
                  (click)="editLongerDescription()"
-                 markdown [data]="displayedWalk.walk.longerDescription" type="text"
+                 class="list-arrow" markdown [data]="displayedWalk.walk.longerDescription" type="text"
                  id="longer-description-formatted"></p>
               <textarea *ngIf="!longerDescriptionPreview"
                         [disabled]="inputDisabled()"

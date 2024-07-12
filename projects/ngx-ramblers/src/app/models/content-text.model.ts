@@ -3,6 +3,7 @@ import { AccessLevel } from "./member-resource.model";
 import { Link } from "./page.model";
 import { BezierEasingOptions } from "ng-gallery/lib/smooth-scroll";
 import { fieldContainsValue, fieldEqualsValue, fieldStartsWithValue, MongoRegex } from "../functions/mongo";
+import { HasClass } from "./banner-configuration.model";
 
 export enum ContentTextCategory {
   MEETUP_DESCRIPTION_PREFIX = "meetup-description-prefix"
@@ -14,11 +15,23 @@ export enum StringMatch {
   CONTAINS = "contains"
 }
 
+export enum ListStyle {
+  ARROW = "arrow",
+  NO_IMAGE = "no-image",
+  TICK_LARGE = "tick-large",
+  TICK_MEDIUM = "tick-medium",
+}
+
 export interface ContentText {
   id?: string;
   category?: string;
   name?: string;
   text?: string;
+  styles?: ContentTextStyles;
+}
+
+export interface ContentTextStyles extends HasClass {
+  list?: ListStyle;
 }
 
 export interface ContentTextApiResponse extends ApiResponse {
@@ -165,6 +178,14 @@ export enum DataAction {
   SAVE = "save",
   REVERT = "revert",
   NONE = "none"
+}
+
+export enum ActionType {
+  ROW = "row",
+  COLUMN = "column",
+  NESTED_ROW = "nested-row",
+  NESTED_COLUMN = "nested-column",
+  UNKNOWN = "unknown"
 }
 
 export interface Margin {

@@ -17,7 +17,14 @@ import isEqual from "lodash-es/isEqual";
 import pick from "lodash-es/pick";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
-import { ContentText, DataAction, EditorInstanceState, EditorState, View } from "../models/content-text.model";
+import {
+  ContentText,
+  DataAction,
+  EditorInstanceState,
+  EditorState,
+  ListStyle,
+  View
+} from "../models/content-text.model";
 import { BroadcastService } from "../services/broadcast-service";
 import { ContentTextService } from "../services/content-text.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
@@ -30,6 +37,16 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-markdown-editor",
+  styles: [`
+    .markdown-textarea
+      margin-top: 6px
+      margin-bottom: 12px
+      min-width: 100%
+
+    .background-panel
+      border-radius: 6px
+      padding: 16px
+  `],
   template: `
     <div class="row" *ngIf="siteEditActive()">
       <div class="col-12">
@@ -69,9 +86,20 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
         <label class="mt-2 mt-3" [for]="content.name">Content for {{ content.name }}</label>
       </div>
     </div>
-    <span *ngIf="showing() && editorState.view==='view'"
-          (click)="toggleEdit()" markdown ngPreserveWhitespaces [data]="content.text">
-</span>
+    <ng-container *ngIf="showing() && editorState.view==='view'">
+      <span *ngIf="renderInline()"
+            [class]="content?.styles?.class"
+            (click)="toggleEdit()" markdown ngPreserveWhitespaces [data]="content.text">
+      </span>
+      <div *ngIf="!renderInline()" [class]="contentStylesClass()"
+           [ngClass]="{
+          'list-default': content?.styles?.list===ListStyle.NO_IMAGE,
+          'list-arrow': content?.styles?.list===ListStyle.ARROW||!content?.styles?.list,
+          'list-tick-medium': content?.styles?.list===ListStyle.TICK_MEDIUM,
+          'list-tick-large': content?.styles?.list===ListStyle.TICK_LARGE}"
+           (click)="toggleEdit()" markdown ngPreserveWhitespaces [data]="content.text">
+      </div>
+    </ng-container>
     <div *ngIf="allowHide && editorState.view==='view'" class="badge-button"
          (click)="toggleShowHide()" [tooltip]="showHideCaption()">
       <fa-icon [icon]="showing() ? faAngleUp:faAngleDown"></fa-icon>
@@ -85,8 +113,6 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 </textarea>`
 })
 export class MarkdownEditorComponent implements OnInit {
-  private presentationMode: boolean;
-
   @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {
     this.presentationMode = coerceBooleanProperty(presentationMode);
   }
@@ -123,12 +149,6 @@ export class MarkdownEditorComponent implements OnInit {
     this.setDataAttributes();
   }
 
-
-  @Input() id: string;
-  @Input() rows: number;
-  @Input() actionCaptionSuffix: string;
-
-
   @Input("allowMaximise") set allowMaximiseValue(allowMaximise: boolean) {
     this.allowMaximise = coerceBooleanProperty(allowMaximise);
   }
@@ -157,6 +177,23 @@ export class MarkdownEditorComponent implements OnInit {
     this.queryOnlyById = coerceBooleanProperty(queryOnlyById);
   }
 
+  constructor(private uiActionsService: UiActionsService,
+              private broadcastService: BroadcastService<ContentText>,
+              private contentTextService: ContentTextService,
+              private markdownEditorFocusService: MarkdownEditorFocusService,
+              public stringUtilsService: StringUtilsService,
+              public siteEditService: SiteEditService,
+              loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.createLogger(MarkdownEditorComponent, NgxLoggerLevel.ERROR);
+  }
+
+  private presentationMode: boolean;
+
+
+  @Input() id: string;
+  @Input() rows: number;
+  @Input() actionCaptionSuffix: string;
+
   @Input() initialView: View;
   @Input() description: string;
   @Output() changed: EventEmitter<ContentText> = new EventEmitter();
@@ -184,16 +221,6 @@ export class MarkdownEditorComponent implements OnInit {
 
   protected readonly faUnlink = faUnlink;
 
-  constructor(private uiActionsService: UiActionsService,
-              private broadcastService: BroadcastService<ContentText>,
-              private contentTextService: ContentTextService,
-              private markdownEditorFocusService: MarkdownEditorFocusService,
-              public stringUtilsService: StringUtilsService,
-              public siteEditService: SiteEditService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MarkdownEditorComponent, NgxLoggerLevel.OFF);
-  }
-
   private noSave: boolean;
   private logger: Logger;
   private originalContent: ContentText;
@@ -204,6 +231,8 @@ export class MarkdownEditorComponent implements OnInit {
   public text: string;
   public category: string;
   private hideParameterName: string;
+
+  protected readonly ListStyle = ListStyle;
 
 
   ngOnInit() {
@@ -233,6 +262,24 @@ export class MarkdownEditorComponent implements OnInit {
       const currentlyHidden = this.uiActionsService.initialBooleanValueFor(this.hideParameterName, false);
       this.show = !currentlyHidden;
     }
+  }
+
+  public assignListStyleTo(listStyle: ListStyle) {
+    this.logger.info("assignListStyleTo:listStyle:", listStyle, "this.content:", this.content);
+    this.initialiseStyles();
+    this.content.styles.list = listStyle;
+  }
+
+  private initialiseStyles() {
+    if (this.content && !this.content?.styles) {
+      const styles = {list: null, class: null};
+      this.logger.info("initialiseStyles:for:", this.content, "to:", styles);
+      this.content.styles = styles;
+    }
+  }
+
+  listStyleIs(listStyle: ListStyle): boolean {
+    return this.content?.styles?.list === listStyle || (!this.content?.styles && listStyle === ListStyle.ARROW);
   }
 
   private setDataAttributes() {
@@ -285,6 +332,7 @@ export class MarkdownEditorComponent implements OnInit {
       this.syncContent();
     } else {
       this.content = content;
+      this.initialiseStyles();
     }
     this.saveEnabled = true;
     this.originalContent = cloneDeep(this.content);
@@ -311,7 +359,7 @@ export class MarkdownEditorComponent implements OnInit {
   }
 
   dirty(): boolean {
-    const fields = ["name", "category", "text"];
+    const fields = ["name", "category", "text", "styles"];
     const isDirty = !isEqual(pick(this.content, fields), pick(this.originalContent, fields));
     this.logger.debug("dirty:content", this.content, "originalContent", this.originalContent, "isDirty ->", isDirty);
     return isDirty;
@@ -487,5 +535,13 @@ export class MarkdownEditorComponent implements OnInit {
     } else {
       return this.siteEditService.active();
     }
+  }
+
+  renderInline(): boolean {
+    return this.content?.styles?.class === "as-button";
+  }
+
+  contentStylesClass() {
+    return this.content?.styles?.class ? `${this.content?.styles?.class} background-panel` : null;
   }
 }

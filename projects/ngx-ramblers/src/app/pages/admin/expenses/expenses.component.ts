@@ -315,6 +315,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
 
   allowReturnExpenseClaim() {
     return this.display.allowAdminFunctions()
+      && this.confirm.noneOutstanding()
       && this.selected.expenseClaim
       && this.display.expenseClaimHasEventType(this.selected.expenseClaim, this.display.eventTypes.submitted)
       && !this.display.expenseClaimHasEventType(this.selected.expenseClaim, this.display.eventTypes.returned)

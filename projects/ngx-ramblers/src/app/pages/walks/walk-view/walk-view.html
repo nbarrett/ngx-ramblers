@@ -21,7 +21,7 @@
              [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
              class="button-form button-form-edit-event mt-2 mr-2">
       <div *ngIf="display.shouldShowFullDetails(displayedWalk)" class="event-description">
-        <p markdown [data]="displayedWalk?.walk?.longerDescription"></p>
+        <p class="list-arrow" markdown [data]="displayedWalk?.walk?.longerDescription"></p>
       </div>
       <app-walk-leader [displayedWalk]="displayedWalk"/>
       <app-walk-features *ngIf="displayedWalk.walk?.features?.length>0" [features]="displayedWalk.walk?.features"/>

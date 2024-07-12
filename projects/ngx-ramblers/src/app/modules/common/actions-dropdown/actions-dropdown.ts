@@ -1,9 +1,16 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { faTableCells } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { PageContent, PageContentColumn, PageContentRow } from "../../../models/content-text.model";
-import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
+import {
+  ContentTextStyles,
+  ListStyle,
+  PageContent,
+  PageContentColumn,
+  PageContentRow
+} from "../../../models/content-text.model";
+import { LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 
 @Component({
   selector: "app-actions-dropdown",
@@ -15,30 +22,30 @@ import { PageContentActionsService } from "../../../services/page-content-action
 
     .input-sm
       margin-top: 0
-      height: 29px`
-  ],
+      height: 29px
+  `],
   template: `
     <div class="btn-group" dropdown>
       <button aria-controls="dropdown-animated" class="dropdown-toggle badge-button" dropdownToggle
               type="button">
         <fa-icon [icon]="faTableCells"></fa-icon>
-        <span class="ml-2">Actions</span><span class="caret"></span>
+        <span class="ml-2">{{ actionType() }} Actions</span><span class="caret"></span>
       </button>
-      <ul *dropdownMenu class="dropdown-menu"
+      <ul *dropdownMenu class="dropdown-menu" (click)="actionClicked($event)"
           id="dropdown-animated" role="menu">
         <li *ngIf="allowMoveRowUp()" role="menuitem">
           <a (click)="actions.moveRowUp(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
-            Move this <b>Row</b> up
+            Move <b>Row</b> up
           </a>
         </li>
         <li *ngIf="allowMoveRowDown()" role="menuitem">
           <a (click)="actions.moveRowDown(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
-            Move this <b>Row</b> down
+            Move <b>Row</b> down
           </a>
         </li>
         <li *ngIf="allowDeleteRow()" role="menuitem">
           <a (click)="actions.deleteRow(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
-            Delete this <b>Row</b>
+            Delete <b>Row</b>
           </a>
         </li>
         <li *ngIf="allowInsertNestedRows()" role="menuitem">
@@ -73,7 +80,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
         </li>
         <li *ngIf="allowColumnActions()" role="menuitem">
           <a (click)="actions.duplicateColumn(row, columnIndex, pageContent)" class="dropdown-item">
-            Duplicate this <b>Column</b>
+            Duplicate <b>Column</b>
           </a>
         </li>
         <li *ngIf="allowColumnDelete()" role="menuitem">
@@ -81,6 +88,41 @@ import { PageContentActionsService } from "../../../services/page-content-action
             Delete <b>Column</b>
           </a>
         </li>
+        <ng-container *ngIf="allowColumnActions() && markdownEditorComponentInjected()">
+          <hr>
+          <div class="ml-2">Bullet style</div>
+          <a (click)="assignListStyleTo(ListStyle.ARROW)" class="dropdown-item">
+            <li role="menuitem" class="list-style-arrow">
+              <small class="p-2"
+                     [ngClass]="{'font-weight-bold': listStyleIs(ListStyle.ARROW)}">{{ listStyleIs(ListStyle.ARROW) ? 'Selected' : '' }}</small>
+            </li>
+          </a>
+          <a (click)="assignListStyleTo(ListStyle.TICK_MEDIUM)" class="dropdown-item">
+            <li role="menuitem" class="list-style-tick-medium">
+              <small class="p-2"
+                     [ngClass]="{'font-weight-bold': listStyleIs(ListStyle.TICK_MEDIUM)}">{{ listStyleIs(ListStyle.TICK_MEDIUM) ? 'Selected' : '' }}</small>
+            </li>
+          </a>
+          <a (click)="assignListStyleTo(ListStyle.TICK_LARGE)" class="dropdown-item">
+            <li role="menuitem" class="list-style-tick-large">
+              <small class="p-2"
+                     [ngClass]="{'font-weight-bold': listStyleIs(ListStyle.TICK_LARGE)}">{{ listStyleIs(ListStyle.TICK_LARGE) ? 'Selected' : '' }}</small>
+            </li>
+          </a>
+          <a (click)="assignListStyleTo(ListStyle.NO_IMAGE)" class="dropdown-item">
+            <li role="menuitem" class="list-style-none"><small>(no image)</small>
+              <small class="p-2"
+                     [ngClass]="{'font-weight-bold': listStyleIs(ListStyle.NO_IMAGE)}">{{ listStyleIs(ListStyle.NO_IMAGE) ? 'Selected' : '' }}</small>
+            </li>
+          </a>
+          <hr>
+          <div class="ml-2 mb-2">Styling Options</div>
+          <a (click)="backgroundColourClick($event)" class="dropdown-item">
+            <li role="menuitem">
+              <app-colour-selector noLabel textStyleSelectors [itemWithClass]="styles()"/>
+            </li>
+          </a>
+        </ng-container>
         <li *ngIf="allowTextRowActions()" role="menuitem">
           <a (click)="actions.addRow(rowIndex,'text', rows())" class="dropdown-item">
             Add <b>Row</b> above
@@ -105,6 +147,13 @@ import { PageContentActionsService } from "../../../services/page-content-action
     </div>`
 })
 export class ActionsDropdownComponent implements OnInit {
+  public actions: PageContentActionsService = inject(PageContentActionsService);
+  loggerFactory: LoggerFactory = inject(LoggerFactory);
+  public logger = this.loggerFactory.createLogger("ActionsDropdownComponent", NgxLoggerLevel.ERROR);
+  private markdownEditorComponent: MarkdownEditorComponent;
+  protected readonly faTableCells = faTableCells;
+  protected readonly ListStyle = ListStyle;
+
   @Input()
   public pageContent: PageContent;
   @Input()
@@ -118,17 +167,15 @@ export class ActionsDropdownComponent implements OnInit {
   @Input()
   public rowIsNested: boolean;
 
-  private logger: Logger;
-  faTableCells = faTableCells;
-
-  constructor(
-    public actions: PageContentActionsService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ActionsDropdownComponent, NgxLoggerLevel.ERROR);
+  @Input("markdownEditorComponent") set valueForMarkdownEditorComponent(markdownEditorComponent: MarkdownEditorComponent) {
+    if (markdownEditorComponent) {
+      this.logger.off("markdownEditorComponent set to:", markdownEditorComponent);
+      this.markdownEditorComponent = markdownEditorComponent;
+    }
   }
 
   ngOnInit() {
-    this.logger.info("row:", this.row, "column:", this.column, "rowIndex:", this.rowIndex, "columnIndex:", this.columnIndex, "rowIsNested:", this.rowIsNested, "pageContent:", this.pageContent)
+    this.logger.info("actionType:", this.actionType(), "row:", this.row, "column:", this.column, "rowIndex:", this.rowIndex, "columnIndex:", this.columnIndex, "rowIsNested:", this.rowIsNested, "pageContent:", this.pageContent, "markdownEditorComponent:", this.markdownEditorComponent);
   }
 
   rows(): PageContentRow[] {
@@ -144,11 +191,11 @@ export class ActionsDropdownComponent implements OnInit {
   }
 
   allowDeleteRow() {
-    return this.rows().length > 0 && this.rowIndex >= 0;
+    return this.rows().length > 1 && this.rowIndex >= 0;
   }
 
   allowInsertNestedRows(): boolean {
-    return this.actions.isTextRow(this.row) && !this.rowIsNested && !this.actions.nestedRowsExistFor(this?.column);
+    return this.actions.isTextRow(this.row) && this.columnIndex >= 0 && !this.rowIsNested && !this.actions.nestedRowsExistFor(this?.column);
   }
 
   allowDeleteNestedRows(): boolean {
@@ -160,7 +207,7 @@ export class ActionsDropdownComponent implements OnInit {
   }
 
   allowColumnMoveRight() {
-    return this.columnIndex < this.row.columns.length - 1;
+    return this.columnIndex < this?.row?.columns?.length - 1;
   }
 
   allowColumnActions() {
@@ -176,6 +223,36 @@ export class ActionsDropdownComponent implements OnInit {
   }
 
   allowColumnDelete() {
-    return this.columnIndex >= 0;
+    return this.columnIndex > 0;
+  }
+
+  assignListStyleTo(listStyle: ListStyle) {
+    this.markdownEditorComponent.assignListStyleTo(listStyle);
+  }
+
+  listStyleIs(listStyle: ListStyle): boolean {
+    return this.markdownEditorComponent.listStyleIs(listStyle);
+  }
+
+  actionClicked($event: MouseEvent) {
+    this.logger.info("actionClicked:", $event);
+  }
+
+  markdownEditorComponentInjected(): boolean {
+    return !!this.markdownEditorComponent;
+  }
+
+  styles(): ContentTextStyles {
+    this.logger.info("markdownEditorComponent content:", this?.markdownEditorComponent?.content, "background:", this?.markdownEditorComponent?.content?.styles?.class);
+    return this?.markdownEditorComponent?.content?.styles;
+  }
+
+  backgroundColourClick($event: MouseEvent) {
+    this.logger.info("backgroundColourClick:", $event);
+    $event.stopPropagation();
+  }
+
+  public actionType(): string {
+    return this.actions.actionType(this.columnIndex, this.rowIndex, this.rowIsNested);
   }
 }
