@@ -30,7 +30,6 @@ import { PrivacyPolicyComponent } from "../../pages/home/privacy-policy.componen
 import { HowToModalComponent } from "../../pages/how-to/how-to-modal.component";
 import { HowToSubjectListingComponent } from "../../pages/how-to/subject-listing/subject-listing";
 import { InstagramComponent } from "../../pages/instagram/instagram.component";
-import { JoinUsComponent } from "../../pages/join-us/join-us.component";
 import { LoginModalComponent } from "../../pages/login/login-modal/login-modal.component";
 import { ChangedItemsPipe } from "../../pipes/changed-items.pipe";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
@@ -64,7 +63,6 @@ import { NavbarComponent } from "./navbar/navbar";
         HowToModalComponent,
         HowToSubjectListingComponent,
         InstagramComponent,
-        JoinUsComponent,
         LoginComponent,
         LoginModalComponent,
         LoginPanelComponent,

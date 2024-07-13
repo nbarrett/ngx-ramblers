@@ -8,7 +8,6 @@ import { DynamicContentPageComponent } from "./modules/common/dynamic-content-pa
 import { HomeComponent } from "./pages/home/home.component";
 import { PrivacyPolicyComponent } from "./pages/home/privacy-policy.component";
 import { HowToSubjectListingComponent } from "./pages/how-to/subject-listing/subject-listing";
-import { JoinUsComponent } from "./pages/join-us/join-us.component";
 import { Logger, LoggerFactory } from "./services/logger-factory.service";
 import { hasDynamicPath } from "./services/path-matchers";
 
@@ -21,7 +20,6 @@ const routes: Routes = [
   {path: "forgot-password", component: ForgotPasswordComponent},
   {path: "home", component: HomeComponent},
   {path: "how-to/committee/email-archives/:subject", component: HowToSubjectListingComponent},
-  {path: "join-us", component: JoinUsComponent},
   {path: "login", component: LoginComponent},
   {path: "logout", component: LogoutComponent},
   {path: "privacy-policy", component: PrivacyPolicyComponent},
