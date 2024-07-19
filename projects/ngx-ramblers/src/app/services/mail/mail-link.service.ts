@@ -49,11 +49,11 @@ export class MailLinkService {
   }
 
   public campaignEditRichText(campaignId: number) {
-    return `${this.config.editorUrl}/editor/classic/html/${campaignId}?editor=rich-text`;
+    return `${this.config.editorUrl}/editor/classic/rich-text/${campaignId}`;
   }
 
   public campaignEditHtml(campaignId: number) {
-    return `${this.config.editorUrl}/editor/classic/html/${campaignId}?editor=html`;
+    return `${this.config.editorUrl}/editor/classic/html/${campaignId}`;
   }
 
   public templateEdit(templateId: number) {
