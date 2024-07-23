@@ -123,7 +123,8 @@ export interface AlbumIndex {
 }
 
 export enum PageContentPath {
-  ADMIN_ACTION_BUTTONS = "admin#action-buttons"
+  ADMIN_ACTION_BUTTONS = "admin#action-buttons",
+  COMMITTEE_ACTION_BUTTONS_YEARS = "committee#committee-years"
 }
 
 export enum PageContentType {

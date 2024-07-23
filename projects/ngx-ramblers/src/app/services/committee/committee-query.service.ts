@@ -211,7 +211,7 @@ export class CommitteeQueryService {
   }
 
   committeeFilesForYear(year: number): CommitteeFile[] {
-    this.logger.off("committeeFilesForYear", year, "file count:", this.committeeFilesLatestFirst()?.length);
+    this.logger.info("committeeFilesForYear", year, "file count:", this.committeeFilesLatestFirst()?.length);
     const latestYearValue = this.latestYear();
     const committeeFilesForYear = this.committeeFilesLatestFirst().filter(committeeFile => {
       const fileYear = this.extractYear(committeeFile);

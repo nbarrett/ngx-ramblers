@@ -4,15 +4,13 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { CommitteeFile, CommitteeYear, committeeYearsPath } from "../../../models/committee.model";
-import { PageContent, PageContentColumn, PageContentType } from "../../../models/content-text.model";
+import { CommitteeYear} from "../../../models/committee.model";
+import { PageContent, PageContentColumn, PageContentPath, PageContentType } from "../../../models/content-text.model";
 import { AccessLevel } from "../../../models/member-resource.model";
 import { LoginResponse, Member } from "../../../models/member.model";
 import { Confirm } from "../../../models/ui-actions";
-import { CommitteeFileService } from "../../../services/committee/committee-file.service";
 import { CommitteeQueryService } from "../../../services/committee/committee-query.service";
 import { ContentTextService } from "../../../services/content-text.service";
-import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
@@ -33,10 +31,8 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public allowAdminEdits: boolean;
-  private destinationType: string;
   public members: Member[];
-  private selected: { committeeFile?: CommitteeFile, committeeFiles: CommitteeFile[] };
-  public confirm = new Confirm();
+  public confirm: Confirm = new Confirm();
   public committeeYear: CommitteeYear;
   private committeeFileId: string;
   public pageTitle: string;
@@ -49,13 +45,11 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
               private route: ActivatedRoute,
               private authService: AuthService,
               private urlService: UrlService,
-              private dateUtils: DateUtilsService,
               public pageContentService: PageContentService,
               public contentTextService: ContentTextService,
-              private committeeFileService: CommitteeFileService,
               private committeeQueryService: CommitteeQueryService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(CommitteeHomeComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(CommitteeHomeComponent, NgxLoggerLevel.ERROR);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
   }
 
@@ -64,10 +58,6 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
     this.committeeYearChange("ngOnInit");
     this.pageService.setTitle();
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => this.setPrivileges(loginResponse)));
-    this.destinationType = "";
-    this.selected = {
-      committeeFiles: []
-    };
     this.refreshAll();
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       this.committeeYearChange("route change");
@@ -98,7 +88,6 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
   private refreshCommitteeFiles() {
     this.committeeQueryService.queryFiles(this.committeeFileId)
         .then(() => {
-          this.committeeYear = this.committeeQueryService.thisCommitteeYear();
           this.logger.info("refreshCommitteeFiles:committeeYear:", this.committeeYear);
           this.generateActionButtons();
           this.confirm.clear();
@@ -108,10 +97,6 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
   private setPrivileges(loginResponse?: LoginResponse) {
     this.allowAdminEdits = this.memberLoginService.allowMemberAdminEdits();
     this.refreshAll();
-  }
-
-  showCommitteeFileDeleted() {
-    return this.notify.success("File was deleted successfully");
   }
 
   refreshMembers() {
@@ -133,7 +118,7 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
   }
 
   private generateActionButtons() {
-    this.pageContentService.findByPath(committeeYearsPath)
+    this.pageContentService.findByPath(PageContentPath.COMMITTEE_ACTION_BUTTONS_YEARS)
       .then(async response => {
         this.logger.debug("response:", response);
         if (!response) {
@@ -155,7 +140,7 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
             });
           Promise.all(unresolvedColumns).then((columns: PageContentColumn[]) => {
             const data: PageContent = {
-              path: committeeYearsPath,
+              path: PageContentPath.COMMITTEE_ACTION_BUTTONS_YEARS,
               rows: [
                 {
                   maxColumns: 4,
