@@ -5,8 +5,6 @@ import { DateValue } from "./date.model";
 import { NotificationConfig } from "./mail.model";
 import { Link } from "./page.model";
 
-export const committeeYearsPath = "committee#committee-years";
-
 export interface GroupEventType {
   eventType: string;
   area: string;
