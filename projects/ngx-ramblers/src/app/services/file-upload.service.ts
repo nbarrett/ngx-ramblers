@@ -6,7 +6,6 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { AuthService } from "../auth/auth.service";
 import { S3_BASE_URL } from "../models/content-metadata.model";
 import { CommonDataService } from "./common-data-service";
-import { ContentMetadataService } from "./content-metadata.service";
 import { DateUtilsService } from "./date-utils.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { UrlService } from "./url.service";
@@ -29,11 +28,10 @@ export class FileUploadService {
               private authService: AuthService, protected dateUtils: DateUtilsService,
               private commonDataService: CommonDataService,
               private stringUtils: StringUtilsService,
-              private contentMetadataService: ContentMetadataService,
               private fileUtilsService: FileUtilsService,
               private urlService: UrlService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(FileUploadService, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(FileUploadService, NgxLoggerLevel.ERROR);
   }
 
   createUploaderFor(rootFolder: string, autoUpload?: boolean): FileUploader {
@@ -111,7 +109,7 @@ export class FileUploadService {
         });
       }
       notify.clearBusy();
-      logger.debug("JSON response:", uploadResponse, "firstResponse:", firstResponse);
+      logger.info("JSON response:", uploadResponse, "firstResponse:", firstResponse);
       return firstResponse;
     } else if (errors.length > 0) {
       notify.error({title: "File upload failed", message: errors});

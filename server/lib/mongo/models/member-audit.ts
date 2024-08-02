@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import uniqueValidator from "mongoose-unique-validator";
 
 const memberAuditSchema = new mongoose.Schema({
   userName: {type: String},
@@ -8,6 +7,6 @@ const memberAuditSchema = new mongoose.Schema({
   member: {type: Object}
 }, {collection: "memberAudit"});
 
-memberAuditSchema.plugin(uniqueValidator);
+memberAuditSchema.index({ userName: 1 }, { unique: false });
 
 export const memberAudit: mongoose.Model<mongoose.Document> = mongoose.model("member-audit", memberAuditSchema);

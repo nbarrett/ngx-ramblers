@@ -41,14 +41,12 @@ ul.list-arrow li
 .list-tick-large
   ul
     @extend .list-no-padding-or-margin
-
     li
       @extend .list-style-tick-large
 
 .list-tick-medium
   ul
     @extend .list-no-padding-or-margin
-
     li
       @extend .list-style-tick-medium
 
@@ -59,25 +57,6 @@ ul.list-arrow li
 
 .no-bullets ul li
   list-style: none
-
-
-.check-list
-  background: #eee
-  padding: 10px
-  margin-bottom: 20px
-
-.check-list h3
-  font-size: 16px
-  padding: 10px
-  margin-bottom: 0
-
-.check-list ul
-  list-style: none
-  padding: 6px
-  margin: 0 0 0 6px
-
-.check-list ul li
-  @extend .list-style-tick-large
 
 .as-button
   a
@@ -112,68 +91,6 @@ ul.list-arrow li
   min-width: 90px
   text-align: left
 
-ul[ramblers-list]
-  display: block
-  margin: 3rem 0
-
-
-li[ramblers-list], ul[ramblers-list]
-  padding: 0
-
-
-li[ramblers-list]
-  margin: .5rem 0
-  list-style: none
-  text-align: center
-
-
-ul li a[ramblers-list]
-  position: relative
-  font-size: 1.5rem
-  padding: .75rem .375rem
-  font-family: "Rucksack", serif
-
-
-@media (min-width: 576px)
-  ul li a[ramblers-list]
-    font-size: 2rem
-
-
-
-@media (min-width: 992px)
-  ul[ramblers-list]
-    display: flex
-    margin: 0
-
-
-  li[ramblers-list]
-    margin: 0 10px 0 0
-    display: inline-flex
-
-
-  ul li a[ramblers-list]
-    font-size: inherit
-
-
-
-.navigation[ramblers-list] a.active:after
-  content: ""
-  position: absolute
-  bottom: 1rem
-  left: 0
-  right: 0
-  top: auto
-  height: .25rem
-  background: $ramblers-colour-sunset
-  z-index: -1
-
-
-a.active[ramblers-list]
-  background-color: transparent
-  color: #000
-  text-decoration: none
-
-
 a
   color: $ramblers-colour-granite
   font-weight: bold
@@ -203,9 +120,6 @@ a:focus
   background-repeat: no-repeat
   background-size: 100% 2px
 
-
-a.active[ramblers-list]
-  background: linear-gradient($ramblers-colour-sunset, $ramblers-colour-sunset) 0 67% / 100% 0.25rem no-repeat
 
 .event-panel a
   background: linear-gradient($ramblers-colour-rosycheeks, $ramblers-colour-rosycheeks) 0 87%/100% 4px no-repeat

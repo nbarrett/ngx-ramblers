@@ -2,7 +2,7 @@ import { Component, Input, OnInit } from "@angular/core";
 import { faAdd, faRemove, faSortAlphaAsc } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../../models/alert-target.model";
-import { Image, Images, RootFolder, SystemConfig } from "../../../../models/system.model";
+import { defaultImage, Image, Images, RootFolder, SystemConfig } from "../../../../models/system.model";
 import { sortBy } from "../../../../functions/arrays";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
@@ -67,7 +67,7 @@ export class ImageCollectionSettingsComponent implements OnInit {
   }
 
   createNewImage() {
-    this.images.images.splice(0, 0, {padding: 16, width: 150, originalFileName: null, awsFileName: null});
+    this.images.images.splice(0, 0, defaultImage);
   }
 
   sortImages() {
@@ -76,7 +76,7 @@ export class ImageCollectionSettingsComponent implements OnInit {
 
 
   headerLogoDefault(image: Image): boolean {
-    return this.config.header.selectedLogo === image.originalFileName;
+    return this.config?.header?.selectedLogo === image?.originalFileName;
   }
 
   imageChanged(imageFileData: Image, imageIndex: number) {

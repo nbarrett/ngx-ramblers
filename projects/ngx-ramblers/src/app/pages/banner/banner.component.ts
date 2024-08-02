@@ -186,7 +186,7 @@ import isEqual from "lodash-es/isEqual";
                            [(ngModel)]="editableBanner.banner.photo.image.awsFileName"/>
                   </div>
                   <div class="col-sm-6">
-                    <app-colour-selector [itemWithClass]="editableBanner.banner?.text"/>
+                    <app-colour-selector [itemWithClassOrColour]="editableBanner.banner?.text"/>
                   </div>
                   <div class="col-sm-12 mt-4">
                     <app-image-cropper-and-resizer
@@ -233,7 +233,7 @@ export class BannerComponent implements OnInit, OnDestroy {
   private fileUtils: FileUtilsService = inject(FileUtilsService);
   public urlService: UrlService = inject(UrlService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger = this.loggerFactory.createLogger(BannerComponent, NgxLoggerLevel.OFF);
+  private logger = this.loggerFactory.createLogger(BannerComponent, NgxLoggerLevel.ERROR);
   public bannerPhotos: RootFolder = RootFolder.bannerPhotos;
   public allowContentEdits: boolean;
   public config: SystemConfig;

@@ -71,7 +71,116 @@
              [images]="config.logos">
         </tab>
         <tab heading="Website Header">
-          <app-links-edit [heading]="'Header Buttons'" [links]="config.header.navigationButtons"></app-links-edit>
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <app-links-edit [heading]="'Header Buttons'" [links]="config.header.navigationButtons"/>
+            <div class="img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Header Bar</div>
+              <div class="row">
+                <div class="col-md-12">
+                  <div class="custom-control custom-checkbox">
+                    <input [(ngModel)]="config.header.headerBar.show"
+                           type="checkbox" class="custom-control-input" id="show-header-bar">
+                    <label class="custom-control-label"
+                           for="show-header-bar">Show
+                    </label>
+                  </div>
+                </div>
+                <div class="col-md-12">
+                  <div class="custom-control custom-checkbox">
+                    <input [(ngModel)]="config.header.headerBar.showLoginLinksAndSiteEdit"
+                           [disabled]="!config.header.headerBar.show"
+                           type="checkbox" class="custom-control-input" id="show-header-bar-login-links-and-site-edit">
+                    <label class="custom-control-label"
+                           for="show-header-bar-login-links-and-site-edit">Show Login Links and Site Edit
+                    </label>
+                  </div>
+                </div>
+                <div class="col-md-12">
+                  <div class="custom-control custom-checkbox">
+                    <input [(ngModel)]="config.header.headerBar.showNavigationButtons"
+                           [disabled]="!config.header.headerBar.show"
+                           type="checkbox" class="custom-control-input" id="show-header-bar-buttons">
+                    <label class="custom-control-label"
+                           for="show-header-bar-buttons">Show Header Buttons
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Header Right Panel</div>
+              <div class="row">
+                <div class="col-md-12">
+                  <div class="custom-control custom-checkbox">
+                    <input [(ngModel)]="config.header.rightPanel.show"
+                           type="checkbox" class="custom-control-input" id="show-right-panel">
+                    <label class="custom-control-label"
+                           for="show-right-panel">Show
+                    </label>
+                  </div>
+                </div>
+                <div class="col-md-12">
+                  <div class="custom-control custom-checkbox">
+                    <input [(ngModel)]="config.header.rightPanel.showNavigationButtons"
+                           [disabled]="!config.header.rightPanel.show"
+                           type="checkbox" class="custom-control-input" id="show-header-buttons">
+                    <label class="custom-control-label"
+                           for="show-header-buttons">Show Header Buttons
+                    </label>
+                  </div>
+                </div>
+                <div class="col-md-12">
+                  <div class="custom-control custom-checkbox">
+                    <input [(ngModel)]="config.header.rightPanel.showLoginLinksAndSiteEdit"
+                           [disabled]="!config.header.rightPanel.show"
+                           type="checkbox" class="custom-control-input" id="show-login-links-and-site-edit">
+                    <label class="custom-control-label"
+                           for="show-login-links-and-site-edit">Show Login Links and Site Edit
+                    </label>
+                  </div>
+                </div>
+                <div class="col-md-12">
+                  <div class="form-inline d-flex align-items-center justify-content-between">
+                    <div class="custom-control custom-checkbox">
+                      <input [(ngModel)]="config.header.rightPanel.socialMediaLinks.show"
+                             [disabled]="!config.header.rightPanel.show"
+                             type="checkbox" class="custom-control-input" id="show-social-media-links">
+                      <label class="custom-control-label"
+                             for="show-social-media-links">Show Social Media Links
+                      </label>
+                    </div>
+                    <label for="social-mediaLinks-width">Width</label>
+                    <input [(ngModel)]="config.header.rightPanel.socialMediaLinks.width"
+                           id="social-mediaLinks-width"
+                           type="number" class="form-control input-sm">
+                    <label>Colour</label>
+                    <app-colour-selector [itemWithClassOrColour]="config.header.rightPanel.socialMediaLinks"
+                                         [colours]="colourSelectors" noLabel/>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Navbar</div>
+              <div class="row">
+                <div class="col-sm-6">
+                  <label for="navbar-location">Navbar Location</label>
+                  <select class="form-control input-sm"
+                          [(ngModel)]="config.header.navBar.location"
+                          id="navbar-location">
+                    <option *ngFor="let type of navbarLocations"
+                            [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+                    </option>
+                  </select>
+                </div>
+                <div class="col-sm-6">
+                  <app-colour-selector [itemWithClassOrColour]="config.header.navBar"
+                                       [colours]="colourSelectorsDarkLight"
+                                       label="Navbar Colour"/>
+                </div>
+              </div>
+            </div>
+          </div>
         </tab>
         <tab heading="Website Footer">
           <div class="img-thumbnail thumbnail-admin-edit">

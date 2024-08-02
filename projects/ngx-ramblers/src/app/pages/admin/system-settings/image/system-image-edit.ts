@@ -6,18 +6,15 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { AlertMessage, AlertTarget } from "../../../../models/alert-target.model";
 import { AwsFileData } from "../../../../models/aws-object.model";
 import { NamedEvent, NamedEventType } from "../../../../models/broadcast.model";
-import { RootFolder, Image, Images } from "../../../../models/system.model";
+import { Image, Images, RootFolder } from "../../../../models/system.model";
 import { BroadcastService } from "../../../../services/broadcast-service";
 import { DateUtilsService } from "../../../../services/date-utils.service";
-import { FileUploadService } from "../../../../services/file-upload.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
-import { MemberLoginService } from "../../../../services/member/member-login.service";
-import { MemberService } from "../../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
-import { NumberUtilsService } from "../../../../services/number-utils.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
-import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { UrlService } from "../../../../services/url.service";
+import { FileUtilsService } from "../../../../file-utils.service";
+import { FileTypeAttributes } from "../../../../models/content-metadata.model";
 
 @Component({
   selector: "app-system-image-edit",
@@ -36,18 +33,16 @@ export class SystemImageEditComponent implements OnInit {
   public logoEditActive: boolean;
   public uploader: FileUploader;
   public logoMode: boolean;
+  protected fileTypeAttributes: FileTypeAttributes;
 
-  constructor(private systemConfigService: SystemConfigService,
-              private notifierService: NotifierService,
-              private numberUtils: NumberUtilsService,
+  constructor(private notifierService: NotifierService,
               private stringUtils: StringUtilsService,
-              private memberService: MemberService,
-              private memberLoginService: MemberLoginService,
               private broadcastService: BroadcastService<string>,
+              private fileUtils: FileUtilsService,
               private urlService: UrlService,
               protected dateUtils: DateUtilsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SystemImageEditComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(SystemImageEditComponent, NgxLoggerLevel.ERROR);
   }
 
   @Input() headerLogoDefault: boolean;
@@ -57,9 +52,10 @@ export class SystemImageEditComponent implements OnInit {
   @Output() imageChanged: EventEmitter<Image> = new EventEmitter();
 
   ngOnInit() {
-    this.logger.info("constructed with imageType:", this.rootFolder, "image:", this.image);
+    this.logger.debug("constructed with imageType:", this.rootFolder, "image:", this.image);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.logoEditActive = !this.image.awsFileName;
+    this.fileTypeAttributes = this.fileUtils.fileTypeAttributesForName(this.image.awsFileName);
     this.logoMode = this.rootFolder === RootFolder.logos;
   }
 
@@ -69,7 +65,9 @@ export class SystemImageEditComponent implements OnInit {
   }
 
   toggleImageEditor() {
-    this.logoEditActive = true;
+    if (this.fileTypeAttributes?.croppable) {
+      this.logoEditActive = true;
+    }
   }
 
   delete() {
@@ -88,13 +86,16 @@ export class SystemImageEditComponent implements OnInit {
   exitImageEdit() {
     this.logoEditActive = false;
     this.awsFileData = null;
+    if (!this.image.originalFileName && !this.image.awsFileName) {
+      this.delete();
+    }
   }
 
   imagedSaved(awsFileData: AwsFileData) {
     const logoImageSource = awsFileData.awsFileName;
     this.logger.info("imagedSaved:", awsFileData, "setting logoImageSource to", logoImageSource);
     this.image.awsFileName = logoImageSource;
-    this.imageChanged.next(this.image);
+    this.imageChanged.emit(this.image);
   }
 
   uniqueIdFor(prefix: string) {

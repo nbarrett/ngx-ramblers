@@ -11,6 +11,7 @@ import {
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { textStyleSelectors } from "../../../models/system.model";
 
 @Component({
   selector: "app-actions-dropdown",
@@ -119,7 +120,7 @@ import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-edito
           <div class="ml-2 mb-2">Styling Options</div>
           <a (click)="backgroundColourClick($event)" class="dropdown-item">
             <li role="menuitem">
-              <app-colour-selector noLabel textStyleSelectors [itemWithClass]="styles()"/>
+              <app-colour-selector noLabel [colours]="textStyleSelectors" [itemWithClassOrColour]="styles()"/>
             </li>
           </a>
         </ng-container>
@@ -147,12 +148,20 @@ import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-edito
     </div>`
 })
 export class ActionsDropdownComponent implements OnInit {
+
+  @Input("markdownEditorComponent") set valueForMarkdownEditorComponent(markdownEditorComponent: MarkdownEditorComponent) {
+    if (markdownEditorComponent) {
+      this.logger.off("markdownEditorComponent set to:", markdownEditorComponent);
+      this.markdownEditorComponent = markdownEditorComponent;
+    }
+  }
   public actions: PageContentActionsService = inject(PageContentActionsService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   public logger = this.loggerFactory.createLogger("ActionsDropdownComponent", NgxLoggerLevel.ERROR);
   private markdownEditorComponent: MarkdownEditorComponent;
   protected readonly faTableCells = faTableCells;
   protected readonly ListStyle = ListStyle;
+  protected readonly textStyleSelectors = textStyleSelectors;
 
   @Input()
   public pageContent: PageContent;
@@ -166,13 +175,6 @@ export class ActionsDropdownComponent implements OnInit {
   public rowIndex: number;
   @Input()
   public rowIsNested: boolean;
-
-  @Input("markdownEditorComponent") set valueForMarkdownEditorComponent(markdownEditorComponent: MarkdownEditorComponent) {
-    if (markdownEditorComponent) {
-      this.logger.off("markdownEditorComponent set to:", markdownEditorComponent);
-      this.markdownEditorComponent = markdownEditorComponent;
-    }
-  }
 
   ngOnInit() {
     this.logger.info("actionType:", this.actionType(), "row:", this.row, "column:", this.column, "rowIndex:", this.rowIndex, "columnIndex:", this.columnIndex, "rowIsNested:", this.rowIsNested, "pageContent:", this.pageContent, "markdownEditorComponent:", this.markdownEditorComponent);

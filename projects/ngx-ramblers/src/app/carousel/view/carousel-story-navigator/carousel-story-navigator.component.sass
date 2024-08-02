@@ -14,10 +14,17 @@
     li
       float: left
       a
-        padding: 6px 12px 8px
+        padding: 1px 12px 8px
         font-size: 12px
         font-weight: normal
         @extend .drop-shadow
         color: $ramblers-colour-cloudy
         &:hover
           color: $ramblers-colour-hover
+
+.carousel-ul
+  display: flex
+  flex-wrap: wrap
+
+.carousel-ul li
+  white-space: nowrap

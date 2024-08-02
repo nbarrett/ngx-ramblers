@@ -138,6 +138,8 @@ function contentTypeFrom(fileName: string): string {
     return "image/jpeg";
   } else if ([".png", ".x-png"].includes(extension)) {
     return "image/png";
+  } else if ([".svg"].includes(extension)) {
+    return "image/svg+xml";
   } else if ([".pdf"].includes(extension)) {
     return "application/pdf";
   } else if ([".doc", ".docx", ".dot"].includes(extension)) {

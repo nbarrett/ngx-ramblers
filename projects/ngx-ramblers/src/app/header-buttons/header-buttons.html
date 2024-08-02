@@ -1,9 +1,9 @@
 <div class="d-block d-lg-none d-sm-flex align-items-center col-md-4">
   <app-login-panel></app-login-panel>
 </div>
-  <div class="text-center text-sm-right d-block d-sm-flex">
+<div class="text-center text-sm-right d-block d-sm-flex">
     <a [href]="site.href"
        class="mx-auto btn btn-primary text-black mb-3 mb-sm-0 mr-sm-3 d-block d-sm-inline-block"
             *ngFor="let site of systemConfigResponse?.header?.navigationButtons">
       {{site.title}}</a>
-  </div>
+</div>

@@ -37,7 +37,7 @@
 </div>
 <div class="row mt-2 mb-2">
   <div class="col-sm-12 img-fluid w-100">
-    <image-cropper
+    <image-cropper *ngIf="fileTypeAttributes?.croppable"
       [allowMoveImage]="true"
       [imageFile]="originalFile"
       [maintainAspectRatio]="maintainAspectRatio"
@@ -58,21 +58,17 @@
     </image-cropper>
   </div>
 </div>
-<div class="row justify-content-between">
-  <div class="col-sm-12">
-
-  </div>
-</div>
 <div class="row">
   <div class="col-sm-6 mb-2">
     <app-aspect-ratio-selector [dimensionsDescription]="selectAspectRatio"
+                               [disabled]="actionDisabled"
                                (initialised)="initialiseAspectRatioSettings($event)"
                                (dimensionsChanged)="changeAspectRatioSettingsAndCrop($event)"></app-aspect-ratio-selector>
   </div>
   <div class="col-sm-6 mb-2">
     <label for="compression">Compress to size ({{imageQuality}}%):</label>
     <input type="range" min="1" max="100" value="90" step="1" class="custom-range" id="compression"
-           (change)="changeRange($event, true)" (input)="changeRange($event, false)">
+           [disabled]="actionDisabled" (change)="changeRange($event, true)" (input)="changeRange($event, false)">
   </div>
 </div>
 <div class="row mb-2" *ngIf="imagePresent()">
@@ -150,7 +146,7 @@
   </div>
   <div class="col">
     <app-badge-button fullWidth (click)="saveImage()"
-                      delay=500 tooltip="save changes" [disabled]="actionDisabled"
+                      delay=500 tooltip="save changes" [disabled]="!fileTypeAttributes"
                       [icon]="faSave"
                       caption="save">
     </app-badge-button>

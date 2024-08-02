@@ -13,7 +13,7 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
         <input id="{{id}}-include" type="text" [(ngModel)]="titlePart.value" class="form-control mr-2">
       </div>
       <div class="col-sm-6">
-        <app-colour-selector [itemWithClass]="titlePart"/>
+        <app-colour-selector [itemWithClassOrColour]="titlePart"/>
       </div>
     </div>`
 })

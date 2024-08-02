@@ -45,7 +45,7 @@ import { AlertInstance, NotifierService } from "../services/notifier.service";
 import { NumberUtilsService } from "../services/number-utils.service";
 import { UrlService } from "../services/url.service";
 import { RootFolder } from "../models/system.model";
-import { Base64File } from "../models/content-metadata.model";
+import { Base64File, FileTypeAttributes } from "../models/content-metadata.model";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
@@ -64,7 +64,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
               private notifierService: NotifierService,
               private fileUtils: FileUtilsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ImageCropperAndResizerComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(ImageCropperAndResizerComponent, NgxLoggerLevel.ERROR);
   }
 
   @ViewChild(ImageCropperComponent) imageCropperComponent: ImageCropperComponent;
@@ -122,17 +122,17 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
   public originalFile: File;
   public croppedFile: AwsFileData;
   public originalImageData: ImageData;
-
+  public fileTypeAttributes: FileTypeAttributes = null;
   protected readonly faRemove = faRemove;
 
   ngAfterViewInit(): void {
-    this.imageCropperComponent.loadImageFailed.subscribe(error => {
+    this.imageCropperComponent?.loadImageFailed.subscribe(error => {
       this.throwOrNotifyError({title: "Image Load Failed", message: error});
     });
   }
 
   ngOnInit(): void {
-    this.logger.debug("constructed with fileNameData", this.fileNameData, "selectAspectRatio:", this.selectAspectRatio);
+    this.logger.info("constructed with fileNameData", this.fileNameData, "preloadImage:", this.preloadImage, "selectAspectRatio:", this.selectAspectRatio);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     const rootFolder = this.rootFolder || RootFolder.siteContent;
     this.uploader = this.fileUploadService.createUploaderFor(rootFolder, false);
@@ -144,9 +144,10 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
       // extra bit from other handler
       const awsFileName = `${awsFileUploadResponseData.fileNameData?.rootFolder}/${awsFileUploadResponseData.fileNameData?.awsFileName}`;
       this.croppedFile.awsFileName = awsFileName;
-      this.logger.debug("received response:", awsFileUploadResponseData, "awsFileName:", awsFileName, "local originalFile.name:", this.originalFile.name, "aws originalFileName", awsFileUploadResponseData?.fileNameData.originalFileName);
+      this.logger.info("received response:", awsFileUploadResponseData, "awsFileName:", awsFileName, "local originalFile.name:", this.originalFile.name, "aws originalFileName", awsFileUploadResponseData?.fileNameData.originalFileName);
       this.save.next(this.croppedFile);
       this.notify.success({title: "File upload", message: "image was saved successfully"});
+      this.quit.emit();
       this.action = null;
       // end of extra bit from other handler
     }));
@@ -159,6 +160,8 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
           .then((file: File) => this.processSingleFile(file))
           .catch(error => this.throwOrNotifyError({title: "Unexpected Error", message: error}));
       }
+    } else {
+      this.updateActionDisabled();
     }
   }
 
@@ -167,10 +170,18 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
   }
 
   format(): OutputFormat {
-    if (this?.originalFile?.name?.endsWith("png")) {
-      return "png";
-    } else {
-      return "jpeg";
+    return this.fileTypeAttributes?.cropperFormat;
+  }
+
+  private async calculateImageTypeAttributes() {
+    this.fileTypeAttributes = this.fileUtils.fileTypeAttributesForFile(this?.originalFile);
+    this.logger.info("calculateImageTypeAttributes:originalFile:", this?.originalFile, "fileTypeAttributes:", this.fileTypeAttributes);
+    if (!this.fileTypeAttributes?.croppable) {
+      const base64File: Base64File = await this.fileUtils.loadBase64ImageFromFile(this?.originalFile);
+      const awsFileData: AwsFileData = this.fileUtils.awsFileData(this.preloadImage, base64File.base64Content, this.originalFile);
+      this.croppedFile = awsFileData;
+      this.imageChange.emit(this.croppedFile);
+      this.logger.info("calculateImageTypeAttributes:fileExtension", this.fileTypeAttributes?.contentType, "is not croppable so auto-generating and imageChange.emit(croppedFile):", this.croppedFile);
     }
   }
 
@@ -178,7 +189,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     const awsFileData: AwsFileData = this.fileUtils.awsFileData(this.preloadImage, event.base64, this.originalFile);
     this.croppedFile = awsFileData;
     this.logger.info("imageCropped:quality,", this.imageQuality, "original size,", this.originalFile.size, this.originalSize(), "croppedFile size", this.croppedFile.file.size, "croppedSize:", this.croppedSize());
-    this.imageChange.next(awsFileData);
+    this.imageChange.emit(awsFileData);
   }
 
 
@@ -313,7 +324,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     } else {
       this.processSingleFile(firstFile);
     }
-    this.actionDisabled = this.updateActionDisabled();
+    this.updateActionDisabled();
   }
 
   onFileSelect(fileList: any) {
@@ -322,16 +333,17 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
   }
 
   private processSingleFile(file: File) {
-    this.logger.debug("processSingleFile:file:", file, "queue:", this.uploader.queue, "original file size:", this.numberUtils.humanFileSize(file.size));
+    this.logger.info("processSingleFile:file:", file, "queue:", this.uploader.queue, "original file size:", this.numberUtils.humanFileSize(file.size));
     if (this?.croppedFile?.awsFileName) {
-      this.logger.debug("processSingleFile:retaining existing loaded filename:", this.croppedFile.awsFileName, "file being processed:", file.name, " will be ignored");
+      this.logger.info("processSingleFile:retaining existing loaded filename:", this.croppedFile.awsFileName, "file being processed:", file.name, " will be ignored");
       const myRenamedFile = this.fileUploadService.createImageFileFrom(file, this.croppedFile.awsFileName);
-      this.logger.debug("processSingleFile:renamed file:", myRenamedFile);
+      this.logger.info("processSingleFile:renamed file:", myRenamedFile);
       this.originalFile = myRenamedFile;
     } else {
-      this.logger.debug("processSingleFile:no existing loaded filename to retain - file being processed:", file.name, " will be used as original");
+      this.logger.info("processSingleFile:no existing loaded filename to retain - file being processed:", file.name, " will be used as original");
       this.originalFile = file;
     }
+    this.calculateImageTypeAttributes();
     this.notify.progress({title: "File upload", message: `loading preview for ${file.name}...`});
   }
 
@@ -370,7 +382,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     try {
       if (this.noImageSave) {
         this.logger.info("emitting image changes but not saving:", this.croppedFile);
-        this.save.next(this.croppedFile);
+        this.save.emit(this.croppedFile);
         this.action = null;
       } else {
         this.notify.success({title: "File upload", message: "saving image"});
@@ -391,14 +403,14 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     this.notify.error(message);
   }
 
-  updateActionDisabled(): boolean {
-    if (this.fileNameData || this.croppedFile) {
-      return false;
-    } else {
-      const actionDisabled = (!!this.action);
-      this.logger.info("actionDisabled:action:", "fileNameData:", this.action, "fileNameData:", this.fileNameData, "croppedFile:", this.croppedFile, "actionDisabled->", actionDisabled);
-      return actionDisabled;
-    }
+  updateActionDisabled(): void {
+    // if (this.fileNameData || this.croppedFile) {
+    //   return false;
+    // } else {
+    const actionDisabled = (!!this.action) || !this.fileTypeAttributes?.croppable;
+    this.logger.info("actionDisabled:action:", "fileNameData:", this.action, "fileNameData:", this.fileNameData, "croppedFile:", this.croppedFile, "croppable:", this.fileTypeAttributes?.croppable, "actionDisabled->", actionDisabled);
+    this.actionDisabled = actionDisabled;
+    // }
   }
 
   private aspectRatioMaintained(dimensions: Dimensions): boolean {

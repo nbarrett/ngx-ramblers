@@ -1,5 +1,5 @@
-    <li class="navigation" ramblers-list *ngFor="let page of pages()">
-      <a (click)="unToggleMenu()" ramblers-list [ngClass]="{'active' : isOnPage(page)} "
-         [routerLink]="'/' + page.href"
-         [textContent]="page.title" title="{{page.title}}"></a>
-    </li>
+<li class="navigation" *ngFor="let page of pages()">
+    <a (click)="unToggleMenu()" [ngClass]="{'active' : isOnPage(page)} "
+       [routerLink]="'/' + page.href"
+       [textContent]="page.title" title="{{page.title}}"></a>
+</li>

@@ -34,8 +34,7 @@ import { LazyLoadingMetadata } from "../../../models/content-metadata.model";
         </div>
         <div *ngIf="row.carousel?.showPreAlbumText" markdown [data]="row.carousel.preAlbumText" class="col-sm-12 mt-2"></div>
         <div class="col-sm-12">
-          <app-album (lazyLoadingMetadataChange)="lazyLoadingMetadata=$event" [album]="row.carousel"
-                     [index]="index"></app-album>
+          <app-album (lazyLoadingMetadataChange)="lazyLoadingMetadata=$event" [album]="row.carousel" [index]="index"/>
         </div>
       </div>
     </ng-container>`,
