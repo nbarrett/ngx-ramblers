@@ -36,7 +36,6 @@ export class UrlService {
 
   constructor(@Inject(DOCUMENT) private document: Document,
               private router: Router,
-              // private fileUtils: FileUtilsService,
               private stringUtils: StringUtilsService,
               private dateUtils: DateUtilsService,
               private systemConfigService: SystemConfigService,

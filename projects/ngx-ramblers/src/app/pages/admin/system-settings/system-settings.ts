@@ -3,7 +3,14 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
-import { ExternalSystems, RootFolder, SystemConfig, WalkPopulation } from "../../../models/system.model";
+import {
+  colourSelectors,
+  colourSelectorsDarkLight,
+  NavBarLocation,
+  RootFolder,
+  SystemConfig,
+  WalkPopulation
+} from "../../../models/system.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
@@ -39,6 +46,9 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   private broadcastService: BroadcastService<string> = inject(BroadcastService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("SystemSettingsComponent", NgxLoggerLevel.DEBUG);
+  navbarLocations: KeyValue<string>[] = enumKeyValues(NavBarLocation);
+  protected readonly colourSelectorsDarkLight = colourSelectorsDarkLight;
+  protected readonly colourSelectors = colourSelectors;
 
   ngOnInit() {
     this.logger.debug("constructed");
@@ -50,11 +60,6 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.systemConfigService.events()
       .subscribe((config: SystemConfig) => {
         this.config = config;
-        this.prepareMigrationIfRequired(config);
-        this.migrateDataIfRequired(config);
-        if (!this.config?.national?.mainSite) {
-          this.config.national = this.systemConfigService.defaultRamblersConfig();
-        }
         this.logger.debug("retrieved config", config);
       }));
   }
@@ -63,63 +68,6 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
-  private prepareMigrationIfRequired(config: SystemConfig) {
-    const externalSystemsMigrate = this.migrateConfigKeyIfRequired(config, "externalUrls", "externalSystems");
-    const facebookMigrate = this.prepareMigration(config.externalSystems, "facebook");
-    const instagramMigrate = this.prepareMigration(config.externalSystems, "instagram");
-    const meetupMigrate = this.prepareMigration(config.externalSystems, "meetup");
-    if (externalSystemsMigrate || facebookMigrate || instagramMigrate || meetupMigrate) {
-      this.systemConfigService.saveConfig(config);
-    }
-  }
-
-  private migrateDataIfRequired(config: SystemConfig) {
-    if (!config.externalSystems.facebook) {
-      this.config.externalSystems.facebook = {appId: null, pagesUrl: null, groupUrl: null, showFeed: true};
-      this.logger.debug("migrated facebook to", this.config.externalSystems.facebook);
-    } else {
-      this.logger.debug("nothing to migrate for facebook", this.config.externalSystems.facebook);
-    }
-    if (!config.externalSystems.instagram) {
-      this.logger.debug("migrated instagram to", this.config.externalSystems.instagram);
-      this.config.externalSystems.instagram = {groupUrl: null, showFeed: true};
-    } else {
-      this.logger.debug("nothing to migrate for instagram", this.config.externalSystems.instagram);
-    }
-    if (!config.externalSystems.meetup) {
-      this.logger.debug("migrated meetup to", this.config.externalSystems.meetup);
-      this.config.externalSystems.meetup = {groupUrl: null, apiUrl: null, groupName: null, accessToken: null, apiKey: null};
-    } else {
-      this.logger.debug("nothing to migrate for meetup", this.config.externalSystems.meetup);
-    }
-  }
-
-  private prepareMigration(externalSystems: ExternalSystems, field: string): boolean {
-    const needsMigration = this.needsMigration(externalSystems, field);
-    if (needsMigration) {
-      this.logger.debug("externalSystems ", field, "with value", externalSystems[field], "needs migration");
-      externalSystems[field] = null;
-    } else {
-      this.logger.debug("externalSystems ", field, "with value", externalSystems[field], "already migrated");
-    }
-    return needsMigration;
-  }
-
-  private migrateConfigKeyIfRequired(systemConfig: SystemConfig, oldKey: string, newKey: string): boolean {
-    const needsMigration = !systemConfig[newKey] && systemConfig[oldKey];
-    if (needsMigration) {
-      this.logger.debug("migrating systemConfig old key", oldKey, "to new key", newKey);
-      systemConfig[newKey] = systemConfig[oldKey];
-      delete systemConfig[oldKey];
-    } else {
-      this.logger.debug("systemConfig ", newKey, "with value", systemConfig[newKey], "already migrated");
-    }
-    return needsMigration;
-  }
-
-  private needsMigration(externalSystems: ExternalSystems, field: string): boolean {
-    return typeof externalSystems[field] === "string";
-  }
 
   savePendingMembers() {
     if (this.membersPendingSave.length > 0) {
@@ -140,11 +88,13 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   }
 
   cancel() {
+    this.systemConfigService.refresh();
     this.urlService.navigateTo(["admin"]);
   }
 
   headerLogoChanged(logo: string) {
-    this.config.header.selectedLogo = logo;
+    if (this.config?.header?.selectedLogo) {
+      this.config.header.selectedLogo = logo;
+    }
   }
-
 }

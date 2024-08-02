@@ -33,6 +33,10 @@ export interface HasClass {
   class: string;
 }
 
+export interface HasColour {
+  colour: string;
+}
+
 export interface PapercutBackgroundBanner {
   photo: BannerImageItem
   logo: BannerImageItem

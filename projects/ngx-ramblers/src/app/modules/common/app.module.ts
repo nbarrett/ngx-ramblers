@@ -5,7 +5,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { AppRoutingModule } from "../../app-routing.module";
 import { ContainerComponent } from "../../container/container";
 import { FooterComponent } from "../../footer/footer";
-import { FooterIconsComponent } from "../../footer/icons/footer-icons";
+import { SocialMediaLinksComponent } from "../../footer/icons/footer-icons";
 import { HeaderBarComponent } from "../../header-bar/header-bar";
 import { HeaderButtonsComponent } from "../../header-buttons/header-buttons";
 import { LoginPanelComponent } from "../../login-panel/login-panel.component";
@@ -55,7 +55,7 @@ import { NavbarComponent } from "./navbar/navbar";
         ContainerComponent,
         FacebookComponent,
         FooterComponent,
-        FooterIconsComponent,
+        SocialMediaLinksComponent,
         ForgotPasswordComponent,
         HeaderBarComponent,
         HeaderButtonsComponent,

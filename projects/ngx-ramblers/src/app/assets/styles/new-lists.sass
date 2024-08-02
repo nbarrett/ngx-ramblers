@@ -1,0 +1,57 @@
+.ramblers-list
+  ul
+    display: block
+    margin: 3rem 0
+
+  li
+    padding: 0
+    margin: .5rem 0
+    list-style: none
+    text-align: center
+
+    a
+      position: relative
+      font-size: 1.5rem
+      padding: .75rem .375rem
+      font-family: "Rucksack", serif
+
+      @media (min-width: 576px)
+        font-size: 2rem
+
+      @media (min-width: 992px)
+        font-size: inherit
+
+  a.active:after
+    content: ""
+    position: absolute
+    bottom: 1rem
+    left: 0
+    right: 0
+    top: auto
+    height: .25rem
+    z-index: -1
+
+  a.active
+    background-color: transparent
+    text-decoration: none
+
+  @media (min-width: 992px)
+    ul
+      display: flex
+      margin: 0
+
+      li
+        margin: 0 10px 0 0
+        display: inline-flex
+
+.ramblers-list-bg-light
+  @extend .ramblers-list
+  a.active
+    background: linear-gradient($ramblers-colour-sunset, $ramblers-colour-sunset) 0 67% / 100% 0.25rem no-repeat
+
+.ramblers-list-bg-dark
+  @extend .ramblers-list
+  a
+    color: $ramblers-colour-cloudy
+  a.active
+    background: linear-gradient($ramblers-colour-sunset, $ramblers-colour-sunset) 0 67% / 100% 0.25rem no-repeat

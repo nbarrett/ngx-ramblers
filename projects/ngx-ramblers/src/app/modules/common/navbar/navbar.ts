@@ -2,7 +2,15 @@ import { Component, HostListener, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
-import { Image, SystemConfig } from "../../../models/system.model";
+import {
+  classBackgroundDark,
+  classColourCloudy,
+  Image,
+  NavBarLocation,
+  rgbColourCloudy,
+  rgbColourGranite,
+  SystemConfig
+} from "../../../models/system.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
@@ -14,6 +22,15 @@ import { UrlService } from "../../../services/url.service";
   styleUrls: ["./navbar.sass"]
 })
 export class NavbarComponent implements OnInit, OnDestroy {
+
+  constructor(
+    private systemConfigService: SystemConfigService,
+    private broadcastService: BroadcastService<any>,
+    public urlService: UrlService,
+    loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.createLogger("NavbarComponent", NgxLoggerLevel.ERROR);
+  }
+
   private logger: Logger;
   public navbarContentWithinCollapse: boolean;
   public logo: Image;
@@ -21,13 +38,9 @@ export class NavbarComponent implements OnInit, OnDestroy {
   public systemConfig: SystemConfig;
   private subscriptions: Subscription[] = [];
 
-  constructor(
-    private systemConfigService: SystemConfigService,
-    private broadcastService: BroadcastService<boolean>,
-    public urlService: UrlService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("NavbarComponent", NgxLoggerLevel.OFF);
-  }
+  protected readonly NavBarLocation = NavBarLocation;
+  protected readonly classColourCloudy = classColourCloudy;
+  protected readonly colourCloudy = rgbColourCloudy;
 
   @HostListener("window:resize", ["$event"])
   onResize(event) {
@@ -47,16 +60,25 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.logger.info("subscribing to systemConfigService events");
-    this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
+    this.subscriptions.push(this.systemConfigService.events().subscribe((systemConfig: SystemConfig) => {
       this.systemConfig = systemConfig;
       this.logger.info("received:", systemConfig);
-      this.logo = this.systemConfig?.logos?.images?.find(logo => logo.originalFileName === this.systemConfig?.header?.selectedLogo);
+      this.selectActiveLogo(this.systemConfig?.header?.selectedLogo);
     }));
+    this.broadcastService.on(NamedEventType.DEFAULT_LOGO_CHANGED, (namedEvent: NamedEvent<string>) => {
+      this.logger.info("event received:", namedEvent);
+      this.selectActiveLogo(namedEvent.data);
+    });
+
     this.broadcastService.on(NamedEventType.MENU_TOGGLE, (event: NamedEvent<boolean>) => {
       this.logger.info("menu toggled with event:", event);
       this.navbarExpanded = event.data;
     });
     this.detectWidth(window.innerWidth);
+  }
+
+  private selectActiveLogo(activeLogo: string) {
+    this.logo = this.systemConfig?.logos?.images?.find(logo => logo.originalFileName === activeLogo);
   }
 
   ngOnDestroy(): void {
@@ -67,4 +89,6 @@ export class NavbarComponent implements OnInit, OnDestroy {
     return this.navbarExpanded ? "i-cross" : "i-menu";
   }
 
+  protected readonly colourGranite = rgbColourGranite;
+  protected readonly classBackgroundDark = classBackgroundDark;
 }

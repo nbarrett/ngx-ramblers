@@ -41,24 +41,15 @@
     </div>
     <div class="row mt-2">
       <div class="col">
-        <div *ngIf="logoMode" (click)="makeDefault()" class="badge-button"
-             [tooltip]="'Make ' + image.originalFileName + ' the default website logo'"
-             delay=500>
-          make this logo the website default
-          <fa-icon [icon]="faSave"></fa-icon>
-        </div>
-        <div (click)="toggleImageEditor()" class="badge-button"
-             [tooltip]="'Edit ' + image.originalFileName + ' image'"
-             delay=500>
-          edit image
-          <fa-icon [icon]="faEdit"></fa-icon>
-        </div>
-        <div (click)="delete()" class="badge-button"
-             [tooltip]="'Delete ' + image.originalFileName + ' from collection of ' + rootFolder"
-             delay=500>
-          delete
-          <fa-icon [icon]="faRemove"></fa-icon>
-        </div>
+        <app-badge-button *ngIf="logoMode" (click)="makeDefault()"
+                          [tooltip]="'Make ' + image.originalFileName + ' the default website logo'"
+                          [icon]="faSave" caption="Make this logo the website default"/>
+        <app-badge-button (click)="toggleImageEditor()"
+                          [tooltip]="fileTypeAttributes?.croppable?'Edit '+image.originalFileName:image.originalFileName + ' is not editable'"
+                          [icon]="faEdit" caption="Edit image" [disabled]="!fileTypeAttributes.croppable"/>
+        <app-badge-button (click)="delete()"
+                          [tooltip]="'Delete ' + image.originalFileName + ' from collection of ' + rootFolder"
+                          [icon]="faRemove" caption="Delete image" [disabled]="!fileTypeAttributes?.croppable"/>
       </div>
     </div>
   </div>

@@ -1,7 +1,7 @@
 import { Component, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { HasClass } from "../../models/banner-configuration.model";
-import { ColourSelector, colourSelectors, textStyleSelectors } from "../../models/system.model";
+import { HasClass, HasColour } from "../../models/banner-configuration.model";
+import { ColourSelector, colourSelectors } from "../../models/system.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
@@ -44,18 +44,21 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
   template: `
     <div class="row">
       <div class="col-md-12">
-        <label *ngIf="!noLabel " for="colour-selector">Colour:</label>
-        <ng-select *ngIf="itemWithClass" [(ngModel)]="itemWithClass.class" (ngModelChange)="audit()"
+        <label *ngIf="!noLabel " for="colour-selector">{{ label }}</label>
+        <ng-select *ngIf="itemWithClassOrColour"
+                   [ngModel]="this.hasClass(this.itemWithClassOrColour) ? this.itemWithClassOrColour.class : this.itemWithClassOrColour.colour"
+                   (change)="change($event)"
                    appearance="outline"
                    [clearable]="false"
                    labelForId="colour-selector"
                    [virtualScroll]="true"
                    [bufferAmount]="30">
-          <ng-option *ngFor="let colour of colours" [value]="colour.class">
+          <ng-option *ngFor="let colour of colours"
+                     [value]="this.hasClass(this.itemWithClassOrColour) ? colour.class : colour.colour">
             <span [class]="colour.badgeClass">{{ colour.name }}</span>
           </ng-option>
         </ng-select>
-        <div *ngIf="!itemWithClass">No item to configure</div>
+        <div *ngIf="!itemWithClassOrColour">No item to configure</div>
       </div>
     </div>
   `
@@ -63,37 +66,47 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 export class ColourSelectorComponent implements OnInit {
   private logger: Logger;
-  public colours: ColourSelector[] = colourSelectors;
-  public itemWithClass: HasClass;
+  public itemWithClassOrColour: HasClass | HasColour;
   public noLabel: boolean;
 
   constructor(loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(ColourSelectorComponent, NgxLoggerLevel.ERROR);
   }
 
+  @Input()
+  public colours: ColourSelector[] = colourSelectors;
+  @Input()
+  label = "Colour";
+
   @Input("noLabel") set noLabelValue(value: boolean) {
     this.noLabel = coerceBooleanProperty(value);
   }
 
-  @Input("textStyleSelectors") set textStyleSelectorsValue(value: boolean) {
-    if (coerceBooleanProperty(value)) {
-      this.colours = textStyleSelectors;
+  @Input("itemWithClassOrColour") set valueForHasClass(hasClassOrColour: HasClass | HasColour) {
+    if (hasClassOrColour) {
+      this.logger.info("hasClassOrColour set to:", hasClassOrColour);
+      this.itemWithClassOrColour = hasClassOrColour;
     }
   }
 
-  @Input("itemWithClass") set valueForHasClass(hasClass: HasClass) {
-    if (hasClass) {
-      this.logger.info("hasClass set to:", hasClass);
-      this.itemWithClass = hasClass;
-    }
+  hasClass(data: any): data is HasClass {
+    return (data as HasClass)?.class !== undefined;
   }
-
 
   ngOnInit() {
-    this.logger.info("ngOnInit:", this.itemWithClass);
+    this.logger.info("ngOnInit:itemWithClassOrColour:", this.itemWithClassOrColour, "hasClass:", this.hasClass(this.itemWithClassOrColour), "colours:", this.colours);
   }
 
   audit() {
-    this.logger.info("colour:", this.itemWithClass.class);
+    this.logger.info("audit", this.hasClass(this.itemWithClassOrColour) ? "class:" : "colour:", this.hasClass(this.itemWithClassOrColour) ? this.itemWithClassOrColour.class : this.itemWithClassOrColour.colour, "itemWithClassOrColour:", this.itemWithClassOrColour);
+  }
+
+  change(value: any) {
+    if (this.hasClass(this.itemWithClassOrColour)) {
+      this.itemWithClassOrColour.class = value;
+    } else {
+      this.itemWithClassOrColour.colour = value;
+    }
+    this.logger.info("change:value:", value, "itemWithClassOrColour:", this.itemWithClassOrColour);
   }
 }

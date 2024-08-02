@@ -1,4 +1,5 @@
 import { Link } from "./page.model";
+import { HasClass, HasColour } from "./banner-configuration.model";
 
 export enum WalkPopulation {
   WALKS_MANAGER = "walks-manager",
@@ -74,10 +75,36 @@ export interface ExternalSystems {
   youtube?: ExternalSystem;
 }
 
+export interface SocialMediaLinks extends HasColour {
+  show: boolean;
+  width: number;
+}
+
+export interface RightPanel {
+  show: boolean;
+  showNavigationButtons: boolean;
+  showLoginLinksAndSiteEdit: boolean;
+  socialMediaLinks: SocialMediaLinks;
+}
+
+export interface HeaderBar {
+  show: boolean;
+  showNavigationButtons: boolean;
+  showLoginLinksAndSiteEdit: boolean;
+}
+
 export interface Header {
   navigationButtons: Link[];
   selectedLogo: string;
+  navBar?: NavBar;
+  headerBar?: HeaderBar;
+  rightPanel?: RightPanel;
 }
+
+export interface NavBar extends HasClass {
+  location: string;
+}
+
 
 export interface Image {
   awsFileName?: string;
@@ -95,10 +122,17 @@ export enum RootFolder {
   siteContent = "site-content"
 }
 
+export enum NavBarLocation {
+  LOGO_RIGHT = "logo-right",
+  BELOW_LOGO = "below-logo",
+}
+
 export interface Images {
   rootFolder: RootFolder;
   images: Image[];
 }
+
+export const defaultImage: Image = {padding: 0, width: 150, originalFileName: null, awsFileName: null};
 
 export interface SystemConfig {
   icons: Images;
@@ -120,30 +154,54 @@ export interface ColourSelector {
   class: string;
   badgeClass?: string;
   name: string;
+  colour?: string;
 }
 
+
+export const rgbColourCloudy = "rgb(255, 255, 255)";
+export const rgbColourGranite = "rgb(64, 65, 65)";
+export const rgbColourMintcake = "rgb(155, 200, 171)";
+export const rgbColourRosyCheeks = "rgb(246, 176, 157)";
+export const rgbColourSunrise = "rgb(249, 177, 4)";
+export const rgbColourSunset = "rgb(240, 128, 80)";
+export const rgbColourGrey = "rgb(222, 226, 230)";
+
+export const classBackgroundLight = "bg-light";
+export const classBackgroundDark = "bg-dark";
+export const classColourCloudy = "colour-cloudy";
+export const classColourGranite = "colour-granite";
 export const colourSelectors: ColourSelector[] = [
   {class: "d-none", name: "Hide"},
-  {class: "colour-cloudy", badgeClass: "badge badge-cloudy", name: "Cloudy"},
-  {class: "colour-granite", badgeClass: "badge badge-granite", name: "Granite"},
-  {class: "colour-mintcake", badgeClass: "badge badge-mintcake", name: "Mintcake"},
-  {class: "colour-rosycheeks", badgeClass: "badge badge-rosycheeks", name: "Rosy Cheeks"},
-  {class: "colour-sunrise", badgeClass: "badge badge-sunrise", name: "Sunrise"},
-  {class: "colour-sunset", badgeClass: "badge badge-sunset", name: "Sunset"},
-  {class: "colour-grey", badgeClass: "badge badge-grey", name: "Grey"},
+  {class: classColourCloudy, badgeClass: "badge badge-cloudy", name: "Cloudy", colour: rgbColourCloudy},
+  {class: classColourGranite, badgeClass: "badge badge-granite", name: "Granite", colour: rgbColourGranite},
+  {class: "colour-mintcake", badgeClass: "badge badge-mintcake", name: "Mintcake", colour: rgbColourMintcake},
+  {class: "colour-rosycheeks", badgeClass: "badge badge-rosycheeks", name: "Rosy Cheeks", colour: rgbColourRosyCheeks},
+  {class: "colour-sunrise", badgeClass: "badge badge-sunrise", name: "Sunrise", colour: rgbColourSunrise},
+  {class: "colour-sunset", badgeClass: "badge badge-sunset", name: "Sunset", colour: rgbColourSunset},
+  {class: "colour-grey", badgeClass: "badge badge-grey", name: "Grey", colour: rgbColourGrey},
+];
+
+export const colourSelectorsDarkLight: ColourSelector[] = [
+  {class: classBackgroundLight, badgeClass: "badge badge-cloudy", name: "Light", colour: rgbColourCloudy},
+  {class: classBackgroundDark, badgeClass: "badge badge-granite", name: "Dark", colour: rgbColourGranite}
 ];
 
 export const textStyleSelectors: ColourSelector[] = [
   {class: "as-button", badgeClass: "badge badge-as-button", name: "Make Links Buttons"},
   {class: "", name: "Clear"},
   {class: "d-none", name: "Hide"},
-  {class: "text-style-cloudy", badgeClass: "badge badge-cloudy", name: "Cloudy"},
-  {class: "text-style-granite", badgeClass: "badge badge-granite", name: "Granite"},
-  {class: "text-style-mintcake", badgeClass: "badge badge-mintcake", name: "Mintcake"},
-  {class: "text-style-rosycheeks", badgeClass: "badge badge-rosycheeks", name: "Rosy Cheeks"},
-  {class: "text-style-sunrise", badgeClass: "badge badge-sunrise", name: "Sunrise"},
-  {class: "text-style-sunset", badgeClass: "badge badge-sunset", name: "Sunset"},
-  {class: "text-style-grey", badgeClass: "badge badge-grey", name: "Grey"},
+  {class: "text-style-cloudy", badgeClass: "badge badge-cloudy", name: "Cloudy", colour: rgbColourCloudy},
+  {class: "text-style-granite", badgeClass: "badge badge-granite", name: "Granite", colour: rgbColourGranite},
+  {class: "text-style-mintcake", badgeClass: "badge badge-mintcake", name: "Mintcake", colour: rgbColourMintcake},
+  {
+    class: "text-style-rosycheeks",
+    badgeClass: "badge badge-rosycheeks",
+    name: "Rosy Cheeks",
+    colour: rgbColourRosyCheeks
+  },
+  {class: "text-style-sunrise", badgeClass: "badge badge-sunrise", name: "Sunrise", colour: rgbColourSunrise},
+  {class: "text-style-sunset", badgeClass: "badge badge-sunset", name: "Sunset", colour: rgbColourSunset},
+  {class: "text-style-grey", badgeClass: "badge badge-grey", name: "Grey", colour: rgbColourGrey},
 ];
 
 
@@ -154,3 +212,39 @@ export interface MailProviderStats {
   hasMailSubscription: number;
   invalidIds: number;
 }
+
+export const defaultRamblersConfig: Ramblers = {
+  mainSite: {
+    href: "https://ramblers.org.uk",
+    title: "Ramblers"
+  },
+  walksManager: {
+    href: "https://walks-manager.ramblers.org.uk/walks-manager",
+    title: "Walks Manager",
+    apiKey: null,
+    password: null,
+    userName: null
+  }
+};
+
+export const defaultNavbar: NavBar = {
+  class: classBackgroundLight,
+  location: NavBarLocation.LOGO_RIGHT
+};
+
+export const defaultHeaderBar: HeaderBar = {
+  show: true,
+  showLoginLinksAndSiteEdit: true,
+  showNavigationButtons: true
+};
+
+export const defaultRightPanel: RightPanel = {
+  show: false,
+  socialMediaLinks: {
+    show: false,
+    colour: rgbColourSunset,
+    width: 100
+  },
+  showLoginLinksAndSiteEdit: true,
+  showNavigationButtons: false
+};

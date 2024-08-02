@@ -1,7 +1,10 @@
-import { Component, OnInit } from "@angular/core";
+import { Component, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { UrlService } from "../services/url.service";
+import { SystemConfig } from "../models/system.model";
+import { Subscription } from "rxjs";
+import { SystemConfigService } from "../services/system/system-config.service";
 
 @Component({
   selector: "app-header-bar",
@@ -9,15 +12,27 @@ import { UrlService } from "../services/url.service";
   styleUrls: ["./header-bar.sass"]
 
 })
-export class HeaderBarComponent implements OnInit {
-  private logger: Logger;
+export class HeaderBarComponent implements OnInit, OnDestroy {
 
-  constructor(loggerFactory: LoggerFactory, public urlService: UrlService) {
+  constructor(private systemConfigService: SystemConfigService,
+              loggerFactory: LoggerFactory, public urlService: UrlService) {
     this.logger = loggerFactory.createLogger(HeaderBarComponent, NgxLoggerLevel.OFF);
   }
 
+  private logger: Logger;
+  public systemConfig: SystemConfig;
+  private subscriptions: Subscription[] = [];
+
   ngOnInit(): void {
     this.logger.info("HeaderBar created");
+    this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
+      this.systemConfig = systemConfig;
+      this.logger.info("received:", systemConfig);
+    }));
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
 }

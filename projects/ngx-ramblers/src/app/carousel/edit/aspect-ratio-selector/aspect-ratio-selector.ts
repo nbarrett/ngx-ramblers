@@ -1,14 +1,10 @@
 import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { FileUtilsService } from "../../../file-utils.service";
 import { DescribedDimensions, SelectedDescribedDimensions, SQUARE } from "../../../models/aws-object.model";
-import { BroadcastService } from "../../../services/broadcast-service";
-import { FileUploadService } from "../../../services/file-upload.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { NotifierService } from "../../../services/notifier.service";
 import { NumberUtilsService } from "../../../services/number-utils.service";
-import { UrlService } from "../../../services/url.service";
 import { Dimensions } from "ngx-image-cropper";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 
 @Component({
@@ -18,13 +14,9 @@ import { Dimensions } from "ngx-image-cropper";
 
 export class AspectRatioSelectorComponent implements OnInit {
   private logger: Logger;
+  public disabled: boolean;
 
-  constructor(private broadcastService: BroadcastService<any>,
-              private numberUtils: NumberUtilsService,
-              private fileUploadService: FileUploadService,
-              private urlService: UrlService,
-              private notifierService: NotifierService,
-              private fileUtils: FileUtilsService,
+  constructor(private numberUtils: NumberUtilsService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger("AspectRatioSelectorComponent", NgxLoggerLevel.OFF);
   }
@@ -33,6 +25,10 @@ export class AspectRatioSelectorComponent implements OnInit {
   public dimensionsDescription: string;
   @Input()
   public label: string;
+
+  @Input("disabled") set disabledValue(value: boolean) {
+    this.disabled = coerceBooleanProperty(value);
+  }
   @Output() dimensionsChanged: EventEmitter<DescribedDimensions> = new EventEmitter();
   @Output() initialised: EventEmitter<SelectedDescribedDimensions> = new EventEmitter();
 
@@ -49,7 +45,6 @@ export class AspectRatioSelectorComponent implements OnInit {
     {width: 1116, height: 470, description: "Ramblers Landing page"},
   ];
   id: any;
-
 
   ngOnInit(): void {
     this.id = this.numberUtils.generateUid();

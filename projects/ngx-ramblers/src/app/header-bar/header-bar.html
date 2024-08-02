@@ -3,11 +3,11 @@
     <div class="container">
       <div class="row p-2">
         <div class="d-block d-sm-flex align-items-center col-md-4">
-          <app-login-panel></app-login-panel>
+          <app-login-panel  *ngIf="systemConfig?.header?.headerBar?.showLoginLinksAndSiteEdit"/>
         </div>
         <div
           class="d-block d-sm-flex align-items-center justify-content-center justify-content-lg-end col-md-8 order-sm-3 col-12 order-3">
-          <app-header-buttons></app-header-buttons>
+          <app-header-buttons *ngIf="systemConfig?.header?.headerBar?.showNavigationButtons"/>
         </div>
       </div>
     </div>

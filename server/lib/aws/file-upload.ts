@@ -13,22 +13,23 @@ import { generateUid, uidFormat } from "../shared/string-utils";
 import * as aws from "./aws-controllers";
 import debug from "debug";
 import { isAwsUploadErrorResponse } from "./aws-utils";
+import { Request, Response } from "express";
 import path = require("path");
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("s3-file-upload"));
-debugLog.enabled = false;
+debugLog.enabled = true;
 export { uploadFile };
 
-function uploadFile(req, res) {
+function uploadFile(req: Request, res: Response) {
 
   const bulkUploadError = {error: undefined};
 
   debugLog("Received file request with req.query", req.query);
   const awsFileUploadResponse: AwsFileUploadResponse = {responses: [], errors: []};
-  const rootFolder: string = req.query["root-folder"];
-  const uploadedFiles: UploadedFile[] = req.files;
+  const rootFolder: string = req.query["root-folder"]?.toString();
+  const uploadedFiles: UploadedFile[] = req.files as UploadedFile[];
   debugLog("About to process", uploadedFiles.length, "received uploadedFiles:", uploadedFiles);
-  Promise.all(uploadedFiles.map(uploadedFile => {
+  Promise.all(uploadedFiles.map((uploadedFile: UploadedFile) => {
     const fileNameData: ServerFileNameData = generateFileNameData(uploadedFile);
     const fileUploadResponseData: AwsFileUploadResponseData = createFileUploadResponseData();
     debugAndInfo(fileUploadResponseData, "Received file", "rootFolder", rootFolder, uploadedFile.originalname, "to", uploadedFile.path,
@@ -46,8 +47,8 @@ function uploadFile(req, res) {
         return response;
       }
     });
-  })).then(done => {
-    debugLog("Upload of ", uploadedFiles.length, "complete:success:", awsFileUploadResponse.responses.length, "errors:", awsFileUploadResponse.responses.length, "done:", done);
+  })).then((response: Awaited<AwsUploadErrorResponse | AwsInfo>[]) => {
+    debugLog("Upload of", uploadedFiles.length, "complete:success:", awsFileUploadResponse.responses.length, "errors:", awsFileUploadResponse.errors.length, "response:", response, "returning awsFileUploadResponse:", awsFileUploadResponse);
     res.json(awsFileUploadResponse);
   });
 

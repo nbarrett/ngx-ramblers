@@ -6,7 +6,12 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { DateUtilsService } from "./services/date-utils.service";
 import { Logger, LoggerFactory } from "./services/logger-factory.service";
 import { UrlService } from "./services/url.service";
-import { Base64File, ContentMetadataItem } from "./models/content-metadata.model";
+import {
+  Base64File,
+  ContentMetadataItem,
+  FileTypeAttributes,
+  fileTypeAttributes
+} from "./models/content-metadata.model";
 import { AwsFileData } from "./models/aws-object.model";
 import { base64ToFile } from "ngx-image-cropper";
 
@@ -123,11 +128,11 @@ export class FileUtilsService {
     return container ? resource[container].fileNameData : resource.fileNameData;
   }
 
-  fileExtensionIs(fileName, extensions: string[]) {
+  fileExtensionIs(fileName: string, extensions: string[]): boolean {
     return extensions.includes(this.fileExtension(fileName));
   }
 
-  fileExtension(fileName: string) {
+  fileExtension(fileName: string): string {
     return fileName ? last(fileName.split(".")).toLowerCase() : "";
   }
 
@@ -140,4 +145,12 @@ export class FileUtilsService {
     return "images/ramblers/" + icon;
   }
 
+  fileTypeAttributesForName(name: string): FileTypeAttributes {
+    const fileExtension = this.fileExtension(name);
+    return fileTypeAttributes.find(fileTypeAttributes => fileTypeAttributes.fileExtensions.includes(fileExtension));
+  }
+
+  fileTypeAttributesForFile(file: File): FileTypeAttributes {
+    return fileTypeAttributes.find(fileTypeAttributes => fileTypeAttributes.contentType === file.type);
+  }
 }
