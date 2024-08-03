@@ -14,9 +14,7 @@
     <app-dynamic-content-view-carousel *ngIf="actions.isCarousel(row)"
                                        [row]="row"
                                        [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
-    <app-dynamic-content-view-album-index *ngIf="actions.isAlbumIndex(row)"
-                                       [row]="row"
-                                       [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
+    <app-dynamic-content-view-album-index *ngIf="actions.isAlbumIndex(row)" [row]="row"/>
     <app-dynamic-content-view-album *ngIf="actions.isAlbum(row)"
                                     [row]="row"
                                     [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>

@@ -8,6 +8,7 @@ import { DateUtilsService } from "../../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
+import cloneDeep from "lodash-es/cloneDeep";
 
 @Component({
   selector: "[app-image-collection-settings]",
@@ -16,16 +17,11 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
       <div class="row img-thumbnail thumbnail-2">
         <div class="thumbnail-heading">{{ imageTypeDescription }} ({{ images?.images?.length || 0 }})</div>
         <div class="col-sm-12">
-          <div class="badge-button mb-2" (click)="createNewImage()"
-               delay=500 tooltip="Add new link">
-            <fa-icon [icon]="faAdd"></fa-icon>
-            <span>Add to {{ imageTypeDescription }}</span>
-          </div>
-          <div class="badge-button mb-2" (click)="sortImages()"
-               delay=500 tooltip="Add new link">
-            <fa-icon [icon]="faSortAlphaAsc"></fa-icon>
-            <span>Sort {{ imageTypeDescription }}</span>
-          </div>
+          <app-badge-button [disabled]="oneOrMoreImagesNotSaved()" [icon]="faAdd" (click)="createNewImage()"
+                            [tooltip]="oneOrMoreImagesNotSaved()? 'Save currently edited '+imageTypeDescription + ' first': 'Add to ' + imageTypeDescription"
+                            [caption]="'Add to ' + imageTypeDescription"/>
+          <app-badge-button [icon]="faSortAlphaAsc" (click)="sortImages()"
+                            caption="Sort {{ imageTypeDescription }}"/>
         </div>
         <div class="col-sm-12" *ngFor="let image of images?.images; let imageIndex = index;">
           <app-system-image-edit
@@ -67,7 +63,13 @@ export class ImageCollectionSettingsComponent implements OnInit {
   }
 
   createNewImage() {
-    this.images.images.splice(0, 0, defaultImage);
+    if (!this.oneOrMoreImagesNotSaved()) {
+      this.images.images = [cloneDeep(defaultImage)].concat(this.images.images);
+    }
+  }
+
+  protected oneOrMoreImagesNotSaved() {
+    return !!this.images.images.find(item => !item.awsFileName);
   }
 
   sortImages() {

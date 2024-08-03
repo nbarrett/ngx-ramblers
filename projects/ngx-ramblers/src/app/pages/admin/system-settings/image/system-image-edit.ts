@@ -113,7 +113,7 @@ export class SystemImageEditComponent implements OnInit {
   }
 
   logoTitle() {
-    return this?.images?.images ? `${this?.images.images.indexOf(this.image) + 1} of ${this.images.images.length} — ${this.image.originalFileName || "New Logo"} ${this.headerLogoDefault ? " (header logo default)" : ""}` : "";
+    return this?.images?.images ? `${this?.images.images.indexOf(this.image) + 1} of ${this.images.images.length} — ${this.image.originalFileName || "not named yet"} ${this.headerLogoDefault ? " (header logo default)" : ""}` : "";
   }
 
   imageValid(image: Image) {

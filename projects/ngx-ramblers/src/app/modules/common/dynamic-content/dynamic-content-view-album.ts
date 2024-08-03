@@ -13,13 +13,13 @@ import { LazyLoadingMetadata } from "../../../models/content-metadata.model";
     <ng-container *ngIf="actions.isAlbum(row)">
       <div [class]="actions.rowClasses(row)">
         <div *ngIf="row.carousel.showTitle" class="col-sm-12">
-          <h1>{{row.carousel.title}}</h1>
-          <h3>{{row.carousel.eventDate | displayDay}}
+          <h1>{{ row.carousel.title }}</h1>
+          <h3>{{ row.carousel.eventDate | displayDay }}
             <ng-container *ngIf="row.carousel.subtitle">
                           <span *ngIf="row.carousel.eventId"> - <a delay="500"
                                                                    [href]="urlService.linkUrl({area: row.carousel.eventType, id: row.carousel.eventId })">
-                              {{row.carousel.subtitle}}</a></span>
-              <span *ngIf="!row.carousel.eventId">{{row.carousel.subtitle}}</span>
+                              {{ row.carousel.subtitle }}</a></span>
+              <span *ngIf="!row.carousel.eventId">{{ row.carousel.subtitle }}</span>
             </ng-container>
           </h3>
         </div>
