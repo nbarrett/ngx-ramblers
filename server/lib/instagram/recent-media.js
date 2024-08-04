@@ -5,7 +5,7 @@ debug.enabled = false;
 const messageHandlers = require("../shared/message-handlers");
 const refreshOnEachCall = true;
 
-recentMedia = (res, req) => {
+const recentMedia = (res, req) => {
   messageHandlers.httpRequest({
     apiRequest: {
       hostname: "graph.instagram.com",
@@ -19,8 +19,7 @@ recentMedia = (res, req) => {
     debug: debug,
     res: res,
     req: req,
-  }).then(response => res.json(response))
-    .catch(error => res.json(error));
+  }).then(response => res.json(response));
 };
 
 exports.recentMedia = (req, res) => {
@@ -28,9 +27,19 @@ exports.recentMedia = (req, res) => {
   const refreshResponse = {};
   if (refreshOnEachCall) {
     refreshToken.refreshToken(refreshRequest, refreshResponse)
-      .then(apiResponse => debug("refreshToken response:", apiResponse.response, "apiStatusCode:", apiResponse.apiStatusCode))
-      .then(() => recentMedia(res, req))
+      .then(apiResponse => {
+        debug("refreshToken response:", apiResponse.response, "apiStatusCode:", apiResponse.apiStatusCode);
+        return recentMedia(res, req);
+      })
+      .catch(error => {
+        debug("error in refreshOnEachCall:", error);
+        return res.status(500).json({error: error.message});
+      });
   } else {
-    recentMedia(res, req);
+    recentMedia(res, req)
+      .catch(error => {
+        debug("error not in refreshOnEachCall:", error);
+        return res.status(500).json({error: error.message});
+      });
   }
 };

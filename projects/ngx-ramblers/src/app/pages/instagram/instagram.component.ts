@@ -26,7 +26,7 @@ export class InstagramComponent implements OnInit, OnDestroy {
               private systemConfigService: SystemConfigService,
               public dateUtils: DateUtilsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("InstagramComponent", NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("InstagramComponent", NgxLoggerLevel.ERROR);
   }
 
   ngOnInit() {
@@ -35,8 +35,9 @@ export class InstagramComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.externalSystems = item.externalSystems));
     this.instagramService.recentMedia()
       .then((recentMedia: InstagramRecentMediaData) => {
-        this.recentMedia = take(recentMedia.data, 14);
-        this.logger.debug("Refreshed instagram recent media", this.recentMedia, "count =", this.recentMedia.length);
+        this.logger.debug("Refreshed instagram recent media:recentMedia:", recentMedia);
+        this.recentMedia = take(recentMedia?.data, 14);
+        this.logger.info("Refreshed instagram recent media", this.recentMedia, "count =", this.recentMedia?.length);
       });
   }
 
