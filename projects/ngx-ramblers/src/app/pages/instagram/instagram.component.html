@@ -1,5 +1,5 @@
 <app-card-container>
-  <h5 class="card-title cta-button cta-instagram rounded"><a [href]="externalSystems?.instagram?.groupUrl">
+  <h5 class="card-title cta-button cta-instagram rounded"><a [href]="externalSystems?.instagram?.groupUrl + '/' + externalSystems?.instagram?.groupName">
     <img class="instagram-image"
          src="/assets/images/local/instagram.png"><span class="instagram-title float-right">{{instagramPath()}}</span></a>
   </h5>

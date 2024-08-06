@@ -32,12 +32,6 @@ export const envConfig = {
   googleMaps: {
     apiKey: validatedEnvironmentVariable("GOOGLE_MAPS_APIKEY"),
   },
-  instagram: {
-    accessToken: validatedEnvironmentVariable("INSTAGRAM_ACCESS_TOKEN"),
-    clientId: validatedEnvironmentVariable("INSTAGRAM_CLIENT_ID"),
-    clientSecret: validatedEnvironmentVariable("INSTAGRAM_CLIENT_SECRET"),
-    userId: validatedEnvironmentVariable("INSTAGRAM_USER_ID"),
-  },
   logNamespace,
   meetup: {
     apiUrl: null,
