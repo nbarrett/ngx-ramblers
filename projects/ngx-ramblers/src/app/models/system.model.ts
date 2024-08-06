@@ -54,6 +54,14 @@ export interface ExternalSystem {
   showFeed?: boolean;
 }
 
+export interface Instagram extends ExternalSystem {
+  clientSecret: string;
+  userId: string;
+  clientId: string;
+  groupName: string;
+  accessToken: string;
+}
+
 export interface Meetup extends ExternalSystem {
   apiUrl: string;
   groupName: string;
@@ -68,7 +76,7 @@ export interface Facebook extends ExternalSystem {
 
 export interface ExternalSystems {
   facebook?: Facebook;
-  instagram?: ExternalSystem;
+  instagram?: Instagram;
   meetup?: Meetup;
   linkedIn?: ExternalSystem;
   twitter?: ExternalSystem;

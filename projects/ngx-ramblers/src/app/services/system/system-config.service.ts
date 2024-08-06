@@ -82,7 +82,16 @@ export class SystemConfigService {
     }
     if (!config.externalSystems.instagram) {
       this.logger.info("migrated instagram to", config.externalSystems.instagram);
-      config.externalSystems.instagram = {groupUrl: null, showFeed: true};
+      config.externalSystems.instagram = {
+        userId: null,
+        accessToken: null,
+        clientId: null,
+        clientSecret: null,
+        groupName: null,
+        showFooterLink: false,
+        groupUrl: null,
+        showFeed: true
+      };
     } else {
       this.logger.info("nothing to migrate for instagram", config.externalSystems.instagram);
     }
