@@ -18,7 +18,11 @@ systemConfig().then((systemConfig: SystemConfig) => {
     access_token: systemConfig.externalSystems.instagram.accessToken,
   };
   debug("configuring ig.use to use instagramConfig:", instagramConfig);
-  ig.use(instagramConfig);
+  if (systemConfig.externalSystems.instagram.showFeed) {
+    ig.use(instagramConfig);
+  }
+}).catch((error: Error) => {
+  debug("error", error);
 });
 
 export function authorise(req: Request, res: Response) {

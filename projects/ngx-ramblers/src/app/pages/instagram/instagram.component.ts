@@ -53,7 +53,4 @@ export class InstagramComponent implements OnInit, OnDestroy {
     return this.recentMedia.indexOf(media) <= 1 ? "250px" : "130px";
   }
 
-  instagramPath() {
-    return this.urlService.urlPath(this.externalSystems?.instagram?.groupUrl);
-  }
 }
