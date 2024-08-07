@@ -2,14 +2,14 @@ import { envConfig } from "../env-config/env-config";
 import debugLib from "debug";
 import * as messageHandlers from "../shared/message-handlers";
 import { Request, Response } from "express";
-import { systemConfig } from "../config/system-config";
-import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
+import { Instagram } from "../../../projects/ngx-ramblers/src/app/models/system.model";
+import { configuredInstagram } from "./instagram-controllers";
 
 const debug = debugLib(envConfig.logNamespace("instagram:refresh-token"));
 debug.enabled = true;
 
 export async function refreshAccessToken(req: Request, res: Response) {
-  const config: SystemConfig = await systemConfig();
+  const instagram: Instagram = await configuredInstagram();
   return messageHandlers.httpRequest({
     apiRequest: {
       hostname: "graph.instagram.com",
@@ -18,7 +18,7 @@ export async function refreshAccessToken(req: Request, res: Response) {
         "Content-Type": "application/json; charset=utf-8"
       },
       method: "get",
-      path: `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${config.externalSystems.instagram.accessToken}`
+      path: `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${instagram?.accessToken}`
     },
     debug,
     res,
