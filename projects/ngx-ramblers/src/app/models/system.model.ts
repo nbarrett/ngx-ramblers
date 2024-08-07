@@ -55,9 +55,6 @@ export interface ExternalSystem {
 }
 
 export interface Instagram extends ExternalSystem {
-  clientSecret: string;
-  userId: string;
-  clientId: string;
   groupName: string;
   accessToken: string;
 }

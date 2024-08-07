@@ -380,11 +380,10 @@
           <div class="img-thumbnail thumbnail-admin-edit">
             <app-mail-provider-settings [config]="config"
                                         (membersPendingSave)="membersPendingSave=$event"></app-mail-provider-settings>
-            <div class="row img-thumbnail thumbnail-2 align-items-end">
+            <div class="row img-thumbnail thumbnail-2">
               <div class="thumbnail-heading">Instagram</div>
-
               <div class="col-sm-12">
-                <div class="row" *ngIf="config?.externalSystems.instagram">
+                <div class="row align-items-end" *ngIf="config?.externalSystems.instagram">
                   <div class="col-md-6">
                     <div class="form-group">
                       <label for="instagram-href">Url</label>
@@ -403,34 +402,7 @@
                              placeholder="Enter Instagram group name">
                     </div>
                   </div>
-                  <div class="col-md-6">
-                    <div class="form-group">
-                      <label for="instagram-user-id">User Id</label>
-                      <input [(ngModel)]="config.externalSystems.instagram.userId"
-                             id="instagram-user-id"
-                             type="text" class="form-control input-sm"
-                             placeholder="Enter Instagram User Id">
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="form-group">
-                      <label for="instagram-client-id">Client Id</label>
-                      <input [(ngModel)]="config.externalSystems.instagram.clientId"
-                             id="instagram-client-id"
-                             type="text" class="form-control input-sm"
-                             placeholder="Enter Instagram Client Id">
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="form-group">
-                      <label for="instagram-client-secret">Client Secret</label>
-                      <input [(ngModel)]="config.externalSystems.instagram.clientSecret"
-                             id="instagram-client-secret"
-                             type="text" class="form-control input-sm"
-                             placeholder="Enter Instagram Client Secret">
-                    </div>
-                  </div>
-                  <div class="col-md-6">
+                  <div class="col-md-12">
                     <div class="form-group">
                       <label for="instagram-access-token">Access Token</label>
                       <input [(ngModel)]="config.externalSystems.instagram.accessToken"
@@ -439,7 +411,7 @@
                              placeholder="Enter Instagram Access Token">
                     </div>
                   </div>
-                  <div class="col-md-6">
+                  <div class="col-md-12">
                     <div class="form-group">
                       <div class="custom-control custom-checkbox">
                         <input [(ngModel)]="config.externalSystems.instagram.showFeed"

@@ -3,15 +3,15 @@ import { refreshAccessToken } from "./refresh-access-token";
 import debugLib from "debug";
 import * as messageHandlers from "../shared/message-handlers";
 import { Request, Response } from "express";
-import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import { systemConfig } from "../config/system-config";
+import { Instagram } from "../../../projects/ngx-ramblers/src/app/models/system.model";
+import { configuredInstagram } from "./instagram-controllers";
 
 const debug = debugLib(envConfig.logNamespace("instagram:recent-media"));
 debug.enabled = true;
 const refreshOnEachCall = true;
 
 async function recentMediaRequest(req: Request, res: Response) {
-  const config: SystemConfig = await systemConfig();
+  const instagram: Instagram = await configuredInstagram();
   const response = await messageHandlers.httpRequest({
     apiRequest: {
       hostname: "graph.instagram.com",
@@ -20,7 +20,7 @@ async function recentMediaRequest(req: Request, res: Response) {
         "Content-Type": "application/json; charset=utf-8"
       },
       method: "get",
-      path: `https://graph.instagram.com/${config.externalSystems.instagram.userId}/media?access_token=${config.externalSystems.instagram.accessToken}&fields=id,media_type,media_url,permalink,username,timestamp,caption`
+      path: `https://graph.instagram.com/me/media?access_token=${instagram.accessToken}&fields=id,media_type,media_url,permalink,username,timestamp,caption`
     },
     debug,
     res,
