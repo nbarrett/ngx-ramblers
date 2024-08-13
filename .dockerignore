@@ -1,0 +1,11 @@
+.angular/
+.idea/
+.dist/
+.e2e/
+non-vcs/
+.git/
+node_modules/
+server/node_modules/
+server/target/
+server/ts-gen/
+docker-compose*.yml
