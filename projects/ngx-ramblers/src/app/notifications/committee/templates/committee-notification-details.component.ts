@@ -73,7 +73,7 @@ export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy 
   }
 
   ngOnInit() {
-    this.logger.debug("ngOnInit:notification ->", this.notification, "committeeFile ->", this.committeeFile);
+    this.logger.info("ngOnInit:notification ->", this.notification, "committeeFile ->", this.committeeFile);
     this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));
   }
 
