@@ -1,3 +1,4 @@
+// @ts-ignore
 import mongoose from "mongoose";
 
 export function isMongoId(id: string): boolean {

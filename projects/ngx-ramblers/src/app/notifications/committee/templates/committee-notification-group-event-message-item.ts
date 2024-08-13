@@ -26,10 +26,8 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
       <span *ngIf="event.contactPhone"> ({{ event.contactPhone }})</span>
     </span>
     <span *ngIf="notification.groupEventsFilter.includeLocation && event.postcode">
-    <span> • </span>Location: <a [href]="googleMapsService.urlForPostcode(event.postcode)"
-                       target="_blank">
-        <span>{{ event.postcode }}</span>
-      </a></span>
+    <span> • </span>Location: <span *ngIf="event.location" [ngStyle]="{'margin-right': '6px'}">{{event.location}}</span>  <a [href]="googleMapsService.urlForPostcode(event.postcode)"
+                       target="_blank">{{ event.postcode }}</a></span>
     <div markdown [data]="event.description" *ngIf="notification.groupEventsFilter.includeDescription"></div>`
 })
 export class CommitteeNotificationGroupEventMessageItemComponent implements OnInit, OnDestroy {

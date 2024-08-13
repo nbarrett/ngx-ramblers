@@ -1,3 +1,4 @@
+// @ts-ignore
 import mongoose from "mongoose";
 import { Injectable } from "@angular/core";
 import first from "lodash-es/first";
@@ -30,6 +31,7 @@ import { SocialEvent } from "../../models/social-events.model";
 import { isNumericRamblersId } from "../path-matchers";
 import { Walk } from "../../models/walk.model";
 import { Media } from "../../models/ramblers-walks-manager";
+import { UrlService } from "../url.service";
 
 @Injectable({
   providedIn: "root"
@@ -42,6 +44,7 @@ export class CommitteeQueryService {
   public committeeMembers: Member[] = [];
 
   constructor(
+    private urlService: UrlService,
     public display: CommitteeDisplayService,
     private dateUtils: DateUtilsService,
     private walksService: WalksService,
@@ -93,13 +96,14 @@ export class CommitteeQueryService {
             eventDate: walk.walkDate,
             eventTime: walk.startTime,
             distance: walk.distance,
+            location: walk.location,
             postcode: walk.postcode,
             title: walk.briefDescriptionAndStartPoint || "Awaiting walk details",
             description: walk.longerDescription,
             contactName: walk.displayName || "Awaiting walk leader",
             contactPhone: walk.contactPhone,
             contactEmail: walk.contactEmail,
-            image: this.imageFrom(walk)
+            image: this.imageFromWalk(walk)
           }))));
     }
     if (groupEventsFilter.includeCommitteeEvents) {
@@ -118,6 +122,7 @@ export class CommitteeQueryService {
             selected: true,
             eventType: GroupEventTypes.COMMITTEE,
             eventDate: committeeFile.eventDate,
+            location: null,
             postcode: committeeFile.postcode,
             description: committeeFile.fileType,
             title: this.committeeDisplayService.fileTitle(committeeFile),
@@ -136,19 +141,24 @@ export class CommitteeQueryService {
             }
           }
         })
-          .then((socialEvents: SocialEvent[]) => socialEvents.forEach(socialEvent => events.push({
-            id: socialEvent.id,
-            selected: true,
-            eventType: GroupEventTypes.SOCIAL,
-            eventDate: socialEvent.eventDate,
-            eventTime: socialEvent.eventTimeStart,
-            postcode: socialEvent.postcode,
-            title: socialEvent.briefDescription,
-            description: socialEvent.longerDescription,
-            contactName: socialEvent.displayName,
-            contactPhone: socialEvent.contactPhone,
-            contactEmail: socialEvent.contactEmail
-          }))));
+          .then((socialEvents: SocialEvent[]) => socialEvents.forEach(socialEvent => {
+            this.logger.info("social event:", socialEvent);
+            events.push({
+              id: socialEvent.id,
+              selected: true,
+              eventType: GroupEventTypes.SOCIAL,
+              eventDate: socialEvent.eventDate,
+              eventTime: socialEvent.eventTimeStart,
+              location: socialEvent.location,
+              postcode: socialEvent.postcode,
+              title: socialEvent.briefDescription,
+              description: socialEvent.longerDescription,
+              contactName: socialEvent.displayName,
+              contactPhone: socialEvent.contactPhone,
+              contactEmail: socialEvent.contactEmail,
+              image: this.imageFromSocialEvent(socialEvent)
+            });
+          })));
     }
 
     return Promise.all(promises).then(() => {
@@ -244,12 +254,12 @@ export class CommitteeQueryService {
     return years.length === 0 ? [{year: this.latestYear(), latestYear: true}] : years;
   }
 
-  thisCommitteeYear(): CommitteeYear {
-    return {year: this.latestYear(), latestYear: true};
-  }
-
-  private imageFrom(walk: Walk) {
+  private imageFromWalk(walk: Walk) {
     const media: Media = walk?.media?.find(item => item.styles.find(style => style.style === "medium"));
     return media?.styles?.find(style => style.style === "medium")?.url;
+  }
+
+  private imageFromSocialEvent(socialEvent: SocialEvent) {
+    return this.urlService.imageSource(socialEvent?.thumbnail, true);
   }
 }

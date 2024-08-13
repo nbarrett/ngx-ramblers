@@ -60,6 +60,7 @@ export interface GroupEvent extends Identifiable {
   eventDate: number;
   eventTime?: string;
   distance?: string;
+  location: string;
   postcode: string;
   title: string;
   description: string;
