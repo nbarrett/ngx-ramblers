@@ -40,7 +40,7 @@ import { MemberDefaultsService } from "../../../services/member/member-defaults.
 import { MailchimpConfig } from "../../../models/mailchimp.model";
 import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
 import { faUserXmark } from "@fortawesome/free-solid-svg-icons/faUserXmark";
-import { faSearch } from "@fortawesome/free-solid-svg-icons";
+import { faSearch, faUserCheck } from "@fortawesome/free-solid-svg-icons";
 
 @Component({
   selector: "app-member-admin",
@@ -75,8 +75,8 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private latestMemberBulkLoadAudit: MemberBulkLoadAudit;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  private logger: Logger;
-  private apiResponseProcessorLogger: Logger;
+  private readonly logger: Logger;
+  private readonly apiResponseProcessorLogger: Logger;
   private today: number;
   public members: Member[] = [];
   public bulkDeleteMarkedMemberIds: string[] = [];
@@ -91,6 +91,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   protected readonly MailProvider = MailProvider;
   protected readonly faUserXmark = faUserXmark;
   protected readonly faSearch = faSearch;
+  protected readonly faUserCheck = faUserCheck;
 
   async ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -349,7 +350,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private notifyDeletionInstructions() {
     this.notify.warning({
       title: "Member Bulk Delete Started",
-      message: "Select individual members to include/exclude in bulk delete by clicking rightmost column on a member. Or click Select All button to mark all " + this.memberFilter.results.length + " members for deletion. When you have completed your selection, click Confirm Deletion of " + this.bulkDeleteMarkedMemberIds.length + " members to physically delete them, or Cancel to exit the process without making any changes."
+      message: "Select individual members to include/exclude in bulk delete by clicking the leftmost column on a member. Or click Select All button to mark all " + this.memberFilter.results.length + " members for deletion. When you have completed your selection, click Confirm Deletion of " + this.bulkDeleteMarkedMemberIds.length + " members to physically delete them, or Cancel to exit the process without making any changes."
     });
   }
 

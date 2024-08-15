@@ -15,6 +15,7 @@ import { MailListAudit } from "../../../models/mail.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { MailListAuditService } from "../../../services/mail/mail-list-audit.service";
+import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 
 @Component({
   selector: "app-email-subscriptions",
@@ -34,7 +35,8 @@ import { MailListAuditService } from "../../../services/mail/mail-list-audit.ser
               <app-email-subscriptions-mailchimp [member]="member"
                                                  *ngIf="systemConfig?.mailDefaults?.mailProvider=== MailProvider.MAILCHIMP"/>
               <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider=== MailProvider.BREVO">
-                <div class="col-sm-12" *ngFor="let subscription of member.mail.subscriptions">
+                <div class="col-sm-12"
+                     *ngFor="let subscription of mailMessagingService.memberSubscribableSubscriptions(member.mail.subscriptions)">
                   <app-mail-subscription-setting [member]="member" [subscription]="subscription"/>
                 </div>
               </ng-container>
@@ -82,6 +84,7 @@ export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
               private broadcastService: BroadcastService<MailListAudit>,
               private systemConfigService: SystemConfigService,
               private mailListAuditService: MailListAuditService,
+              protected mailMessagingService: MailMessagingService,
               public profileService: ProfileService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(EmailSubscriptionsComponent, NgxLoggerLevel.OFF);

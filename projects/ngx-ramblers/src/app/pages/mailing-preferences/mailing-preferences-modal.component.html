@@ -18,7 +18,7 @@
           <app-email-subscriptions-mailchimp [member]="member"
                                              *ngIf="systemConfig?.mailDefaults?.mailProvider=== MailProvider.MAILCHIMP"/>
           <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider=== MailProvider.BREVO">
-            <div class="col-sm-12" *ngFor="let subscription of member.mail.subscriptions">
+            <div class="col-sm-12" *ngFor="let subscription of mailMessagingService.memberSubscribableSubscriptions(member.mail.subscriptions)">
               <app-mail-subscription-setting [member]="member" [subscription]="subscription"/>
             </div>
           </ng-container>

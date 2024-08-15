@@ -5,6 +5,7 @@ import omit from "lodash-es/omit";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   AuditField,
+  BulkLoadMemberAndMatch,
   Member,
   MemberAction,
   MemberBulkLoadAudit,
@@ -38,7 +39,7 @@ export class MemberBulkLoadService {
               private memberNamingService: MemberNamingService,
               private dateUtils: DateUtilsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MemberBulkLoadService, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(MemberBulkLoadService, NgxLoggerLevel.ERROR);
   }
 
   processResponse(mailMessagingConfig: MailMessagingConfig, systemConfig: SystemConfig, apiResponse: MemberBulkLoadAuditApiResponse, existingMembers: Member[], notify: AlertInstance): Promise<any> {
@@ -94,31 +95,30 @@ export class MemberBulkLoadService {
       return dataValue;
     };
 
-    const createOrUpdateMember = (uploadSessionId: string, recordIndex: number, ramblersMember: RamblersMember, promises: any[]) => {
-      let memberAction: MemberAction;
-      let memberMatchType: string;
+    const queryOrCreateBulkLoadMemberAndMatch = (ramblersMember: RamblersMember): BulkLoadMemberAndMatch => {
       ramblersMember.membershipExpiryDate = convertMembershipExpiryDate(ramblersMember);
       ramblersMember.groupMember = !ramblersMember.membershipExpiryDate || ramblersMember.membershipExpiryDate >= today;
-      let member: Member = existingMembers.find(member => {
+      const bulkLoadMemberAndMatch: BulkLoadMemberAndMatch = {memberAction: null, member: null, memberMatchType: null};
+      bulkLoadMemberAndMatch.member = existingMembers.find(member => {
         const membershipNumberMatch = member?.membershipNumber === ramblersMember?.membershipNumber;
         if (membershipNumberMatch) {
-          memberMatchType = "membership number";
+          bulkLoadMemberAndMatch.memberMatchType = "membership number";
           return true;
         } else if (!isEmpty(ramblersMember.email) && !isEmpty(member.email) && ramblersMember.email === member.email && ramblersMember.lastName === member.lastName) {
-          memberMatchType = "email and last name";
+          bulkLoadMemberAndMatch.memberMatchType = "email and last name";
           return true;
         } else {
           return false;
         }
       });
-      if (member) {
-        this.logger.info("matched members based on:", memberMatchType,
+      if (bulkLoadMemberAndMatch.member) {
+        this.logger.info("matched members based on:", bulkLoadMemberAndMatch.memberMatchType,
           "ramblersMember:", ramblersMember,
-          "member:", member);
-        this.memberDefaultsService.resetUpdateStatusForMember(member, systemConfig);
+          "member:", bulkLoadMemberAndMatch.member);
+        this.memberDefaultsService.resetUpdateStatusForMember(bulkLoadMemberAndMatch.member, systemConfig);
       } else {
-        memberAction = MemberAction.created;
-        member = {
+        bulkLoadMemberAndMatch.memberAction = MemberAction.created;
+        bulkLoadMemberAndMatch.member = {
           firstName: null,
           lastName: null,
           groupMember: true,
@@ -127,9 +127,13 @@ export class MemberBulkLoadService {
           displayName: this.memberNamingService.createUniqueDisplayName(ramblersMember, existingMembers),
           expiredPassword: true
         };
-        this.logger.info("new member created:", member);
+        this.logger.info("new member created:", bulkLoadMemberAndMatch.member);
       }
+      return bulkLoadMemberAndMatch;
+    };
 
+    const createOrUpdateMember = (uploadSessionId: string, recordIndex: number, ramblersMember: RamblersMember, promises: any[]) => {
+      const bulkLoadMemberAndMatch: BulkLoadMemberAndMatch = queryOrCreateBulkLoadMemberAndMatch(ramblersMember);
       const updateAudit = {auditMessages: [], fieldsChanged: 0, fieldsSkipped: 0};
       each([
         {fieldName: "membershipExpiryDate", writeDataIf: "changed", type: "date"},
@@ -140,12 +144,13 @@ export class MemberBulkLoadService {
         {fieldName: "lastName", writeDataIf: "empty", type: "string"},
         {fieldName: "postcode", writeDataIf: "empty", type: "string"},
         {fieldName: "groupMember", writeDataIf: "not-revoked", type: "boolean"}], field => {
-        changeAndAuditMemberField(updateAudit, member, ramblersMember, field);
-        this.memberDefaultsService.applyDefaultMailSettingsToMember(member, systemConfig, mailMessagingConfig);
+        changeAndAuditMemberField(updateAudit, bulkLoadMemberAndMatch.member, ramblersMember, field);
+        if (bulkLoadMemberAndMatch.memberAction === MemberAction.created) {
+          this.memberDefaultsService.applyDefaultMailSettingsToMember(bulkLoadMemberAndMatch.member, systemConfig, mailMessagingConfig);
+        }
       });
-
-      this.logger.info("saveAndAuditMemberUpdate -> member:", member, "updateAudit:", updateAudit);
-      return saveAndAuditMemberUpdate(promises, uploadSessionId, recordIndex + 1, memberAction || (updateAudit.fieldsChanged > 0 ? MemberAction.updated : MemberAction.skipped), updateAudit.fieldsChanged, updateAudit.auditMessages.join(", "), member);
+      this.logger.info("saveAndAuditMemberUpdate -> member:", bulkLoadMemberAndMatch.member, "updateAudit:", updateAudit);
+      return saveAndAuditMemberUpdate(promises, uploadSessionId, recordIndex + 1, bulkLoadMemberAndMatch.memberAction || (updateAudit.fieldsChanged > 0 ? MemberAction.updated : MemberAction.skipped), updateAudit.fieldsChanged, updateAudit.auditMessages.join(", "), bulkLoadMemberAndMatch.member);
 
     };
 
@@ -154,7 +159,7 @@ export class MemberBulkLoadService {
       auditMessages: any[]
     }, member: Member, ramblersMember: RamblersMember, auditField: AuditField) => {
 
-      const auditValueForType = (field, source) => {
+      const auditValueForType = (field: AuditField, source: object) => {
         const dataValue = source[field.fieldName];
         switch (field.type) {
           case "date":
