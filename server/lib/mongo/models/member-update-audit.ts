@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import * as memberModel from "./member";
 
 const memberUpdateAuditSchema = new mongoose.Schema({
   uploadSessionId: {type: String},
@@ -9,7 +8,7 @@ const memberUpdateAuditSchema = new mongoose.Schema({
   changes: {type: Number},
   auditMessage: {type: String},
   memberId: {type: String},
-  member: memberModel.member.schema,
+  member: {type: Object},
   auditErrorMessage: {type: Object}
 }, {collection: "memberUpdateAudit"});
 

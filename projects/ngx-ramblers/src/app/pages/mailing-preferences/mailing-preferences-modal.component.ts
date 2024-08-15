@@ -11,12 +11,26 @@ import { RouterHistoryService } from "../../services/router-history.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { MailProvider, SystemConfig } from "../../models/system.model";
 import { Subscription } from "rxjs";
+import { MailMessagingConfig } from "../../models/mail.model";
+import { MailMessagingService } from "../../services/mail/mail-messaging.service";
 
 @Component({
   selector: "app-mailing-preferences-modal-component",
   templateUrl: "./mailing-preferences-modal.component.html",
 })
 export class MailingPreferencesModalComponent implements OnInit, OnDestroy {
+
+  constructor(private memberService: MemberService,
+              private systemConfigService: SystemConfigService,
+              private profileConfirmationService: ProfileConfirmationService,
+              private notifierService: NotifierService,
+              private routerHistoryService: RouterHistoryService,
+              protected mailMessagingService: MailMessagingService,
+              public bsModalRef: BsModalRef,
+              loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.createLogger(MailingPreferencesModalComponent, NgxLoggerLevel.ERROR);
+  }
+  public mailMessagingConfig: MailMessagingConfig;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   private logger: Logger;
@@ -25,20 +39,18 @@ export class MailingPreferencesModalComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   public systemConfig: SystemConfig;
 
-  constructor(private memberService: MemberService,
-              private systemConfigService: SystemConfigService,
-              private profileConfirmationService: ProfileConfirmationService,
-              private notifierService: NotifierService,
-              private routerHistoryService: RouterHistoryService,
-              public bsModalRef: BsModalRef,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MailingPreferencesModalComponent, NgxLoggerLevel.OFF);
-  }
+  protected readonly MailProvider = MailProvider;
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.logger.debug("constructed");
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => this.systemConfig = systemConfig));
+    this.subscriptions.push(this.mailMessagingService.events()
+      .subscribe((mailMessagingConfig: MailMessagingConfig) => {
+        this.mailMessagingConfig = mailMessagingConfig;
+        this.logger.info("retrieved MailMessagingConfig event:", mailMessagingConfig.mailConfig);
+      }));
+
     if (this.memberId) {
       this.memberService.getById(this.memberId)
         .then(member => {
@@ -75,5 +87,5 @@ export class MailingPreferencesModalComponent implements OnInit, OnDestroy {
     this.bsModalRef.hide();
   }
 
-  protected readonly MailProvider = MailProvider;
+
 }

@@ -1,3 +1,4 @@
+// @ts-ignore
 import mongoose from "mongoose";
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { MeetupConfig } from "./meetup-config.model";

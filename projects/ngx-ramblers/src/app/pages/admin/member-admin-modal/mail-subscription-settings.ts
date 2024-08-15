@@ -14,6 +14,7 @@ import {
 import { MailLinkService } from "../../../services/mail/mail-link.service";
 import cloneDeep from "lodash-es/cloneDeep";
 import { SystemConfig } from "../../../models/system.model";
+import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 
 @Component({
   selector: "[app-mail-subscription-settings]",
@@ -25,8 +26,9 @@ import { SystemConfig } from "../../../models/system.model";
             by using the subscription checkboxes below.</p>
         </div>
         <div class="col-sm-12 mb-3">
-          <div class="row" *ngIf="member?.mail?.subscriptions">
-            <div class="col-sm-4" *ngFor="let subscription of member.mail.subscriptions">
+          <div class="row" *ngIf="member?.mail?.subscriptions && mailMessagingConfig">
+            <div class="col-sm-4"
+                 *ngFor="let subscription of mailMessagingService.allSubscriptions(member.mail.subscriptions)">
               <app-mail-subscription-setting [member]="member" [subscription]="subscription"/>
             </div>
             <div class="col">
@@ -83,8 +85,10 @@ export class MailSubscriptionSettingsComponent implements OnInit {
   @Input() public mailListAudits: MailListAudit[];
   @Input() public members: Member[];
 
+
   constructor(public stringUtils: StringUtilsService,
               public mailLinkService: MailLinkService,
+              protected mailMessagingService: MailMessagingService,
               protected dateUtils: DateUtilsService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger("MailSubscriptionSettingsComponent", NgxLoggerLevel.OFF);

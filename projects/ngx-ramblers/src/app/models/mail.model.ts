@@ -565,6 +565,7 @@ export interface MailSubscription {
 }
 
 export interface ListSetting {
+  memberSubscribable: boolean;
   autoSubscribeNewMembers: boolean;
   id: number;
 }

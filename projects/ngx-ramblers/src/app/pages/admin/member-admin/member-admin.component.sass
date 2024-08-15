@@ -5,10 +5,15 @@
   justify-content: center
   align-items: center
 
+
 .member-delete
-  color: $confirm-initial
+  color: $disabled-color
   border: none
   display: flex
   justify-content: center
   align-items: center
   font-size: 1.2em
+
+.member-delete-confirm
+  @extend .member-delete
+  color: $confirm-initial

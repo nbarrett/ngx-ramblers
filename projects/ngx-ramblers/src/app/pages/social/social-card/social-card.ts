@@ -1,5 +1,5 @@
 import { Component, Input, OnInit } from "@angular/core";
-import { faCopy, faImage, faSearch } from "@fortawesome/free-solid-svg-icons";
+import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { SocialEvent } from "../../../models/social-events.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -9,15 +9,28 @@ import { SocialDisplayService } from "../social-display.service";
 
 @Component({
   selector: "app-social-card",
-  templateUrl: "./social-card.html",
-  styleUrls: ["./social-card.sass"]
+  template: `
+    <div class="card shadow clickable h-100">
+      <app-card-image [imageLink]="display.socialEventLink(socialEvent, true)"
+                      [imageSource]="imageSourceOrPreview()">
+      </app-card-image>
+      <div class="card-body">
+        <h4 class="card-title">
+          <a class="rams-text-decoration-pink"
+             [routerLink]="urlService.routerLinkUrl(display.socialEventLink(socialEvent, true))"
+             target="_self">{{ socialEvent.briefDescription }}</a>
+        </h4>
+        <ul class="list-arrow">
+          <li>{{ socialEvent.eventDate | displayDay }}</li>
+          <li *ngIf="socialEvent?.eventTimeStart">Time: {{ socialEvent | eventTimes }}</li>
+        </ul>
+      </div>
+    </div>`
 })
 export class SocialCardComponent implements OnInit {
   public socialEvents: SocialEvent[] = [];
   public notify: AlertInstance;
   private logger: Logger;
-  faCopy = faCopy;
-  faImage = faImage;
 
   constructor(
     public display: SocialDisplayService,
@@ -34,6 +47,7 @@ export class SocialCardComponent implements OnInit {
   faSearch = faSearch;
 
   ngOnInit() {
+    this.logger.info("socialEvent:", this.socialEvent);
   }
 
   imageSourceOrPreview(): string {

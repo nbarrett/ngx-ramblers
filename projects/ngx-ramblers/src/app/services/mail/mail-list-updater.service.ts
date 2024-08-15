@@ -39,7 +39,7 @@ import { MailMessagingService } from "./mail-messaging.service";
   providedIn: "root"
 })
 export class MailListUpdaterService {
-  private update = true;
+  private performUpdates = true;
   public pendingMailListAudits: MailListAudit[] = [];
   public mailMessagingConfig: MailMessagingConfig;
   public mailMessagingService: MailMessagingService = inject(MailMessagingService);
@@ -49,7 +49,7 @@ export class MailListUpdaterService {
   private mailListAuditService: MailListAuditService = inject(MailListAuditService);
   private stringUtils: StringUtilsService = inject(StringUtilsService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger = this.loggerFactory.createLogger("MailListUpdaterService", NgxLoggerLevel.OFF);
+  private logger = this.loggerFactory.createLogger("MailListUpdaterService", NgxLoggerLevel.ERROR);
 
 
   constructor() {
@@ -115,16 +115,18 @@ export class MailListUpdaterService {
       })));
       this.logger.info("contactRemoveRequests", contactRemoveRequests);
       this.logger.info("prepared", this.stringUtils.pluraliseWithCount(contactRemoveRequests.length, "contact remove from list request"), contactRemoveRequests);
-      if (this.update) {
+      if (this.performUpdates) {
         await this.processCreateContactRequests(createContactRequests, members, notify);
         await this.processDeleteContactsRequests(deleteContactIds, members, notify);
         await this.processUpdateContactRequests(updateContactRequests, notify);
         await this.processContactRemoveRequests(contactRemoveRequests, members, notify);
         await this.processMailListAuditing();
+      } else {
+        this.logger.info("Not performing updates as performUpdates is false");
       }
       notify.success({
         title: "Brevo updates",
-        message: "Brevo contact and list synchronisation complete"
+        message: "Brevo contact and list synchronisation complete" + (this.performUpdates ? "" : " (updates skipped as performUpdates is false)")
       });
       notify.clearBusy();
     } else {
@@ -163,7 +165,7 @@ export class MailListUpdaterService {
     if (contactRemoveRequests.length > 0) {
       const contactAddOrRemoveResponse = await this.mailService.contactsRemoveFromList(contactRemoveRequests);
       this.logger.info("contactAddOrRemoveResponse:", contactAddOrRemoveResponse);
-      const mailListAudits = contactRemoveRequests
+      const mailListAudits: MailListAudit[] = contactRemoveRequests
         .map((contactRemoveRequest) => contactRemoveRequest.ids
           .map(contactId => this.mailListAuditService.createMailListAudit(`Contact removed from ${this.listNameFrom(contactRemoveRequest.listId)} list`, AuditStatus.info, contactIdToMember(contactId), contactRemoveRequest.listId))).flat(2);
       this.pendingMailListAudits.push(...mailListAudits);
@@ -270,9 +272,9 @@ export class MailListUpdaterService {
   }
 
   private listIdsToRemoveFromContact(contactToMember: ContactToMember): number[] {
-    const contact = contactToMember.contact;
-    const member = contactToMember.member;
-    const subscribedListIds = this.subscribedListIds(member);
+    const contact: Contact = contactToMember.contact;
+    const member: Member = contactToMember.member;
+    const subscribedListIds: number[] = this.subscribedListIds(member);
     return subscribedListIds.length > 0 ? contact.listIds.filter(item => !subscribedListIds.includes(item)) : [];
   }
 
@@ -319,7 +321,7 @@ export class MailListUpdaterService {
       id: null,
       subscriptions: mailMessagingConfig?.brevo?.lists?.lists.map((item: ListInfo) => this.mapIdToSubscription(item.id, mailMessagingConfig.mailConfig.listSettings.find(setting => setting.id === item.id)?.autoSubscribeNewMembers && !!(member.email)))
     };
-    this.logger.info("initialiseMailSubscriptionsFromListIds:for subscribed:", "lists:", mailMessagingConfig?.brevo?.lists?.lists, "name:", this.fullNamePipe.transform(member), "member.mail before:", preMail, "after:", member.mail);
+    this.logger.off("initialiseMailSubscriptionsFromListIds:for subscribed:", "lists:", mailMessagingConfig?.brevo?.lists?.lists, "name:", this.fullNamePipe.transform(member), "member.mail before:", preMail, "after:", member.mail);
   }
 
   public toCreateContactRequest(member: Member): CreateContactRequestWithAttributes {

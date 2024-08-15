@@ -5,13 +5,7 @@ import { Confirm } from "../../../../models/ui-actions";
 import { BroadcastService } from "../../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { AlertInstance } from "../../../../services/notifier.service";
-import {
-  ListCreateResponse,
-  ListInfo,
-  ListSetting,
-  ListUpdateRequest,
-  MailMessagingConfig
-} from "../../../../models/mail.model";
+import { ListInfo, ListSetting, ListUpdateRequest, MailMessagingConfig } from "../../../../models/mail.model";
 import { MailLinkService } from "../../../../services/mail/mail-link.service";
 import { MailService } from "projects/ngx-ramblers/src/app/services/mail/mail.service";
 import { faCancel, faEdit, faSave } from "@fortawesome/free-solid-svg-icons";
@@ -20,18 +14,21 @@ import { faCancel, faEdit, faSave } from "@fortawesome/free-solid-svg-icons";
   selector: "app-mail-list-settings",
   template: `
     <div *ngIf="mailMessagingConfig?.brevo?.lists?.lists" class="row align-items-start mt-3">
-      <div class="col-2">
-        <b>{{ mailMessagingConfig?.brevo?.lists?.lists.indexOf(list) + 1 }}: {{ list.name }}</b>
-        <app-badge-button *ngIf="!listUpdateRequest" class="ml-2" [icon]="faEdit" caption="Edit"
-                          (click)="beginEdit()"></app-badge-button>
+      <div class="col">
+        <div class="row">
+          <div class="col-12">
+            <b>{{ mailMessagingConfig?.brevo?.lists?.lists.indexOf(list) + 1 }}: {{ list.name }}</b>
+          </div>
+          <div class="col-12">
+            <app-badge-button *ngIf="!listUpdateRequest" [icon]="faEdit" caption="Edit"
+                              (click)="beginEdit()"></app-badge-button>
+          </div>
+        </div>
       </div>
-      <div class="col-2">
-        <div>Total Subscribers: {{ list.totalSubscribers }}</div>
+      <div class="col">
+        <div>Subscribers: {{ list.uniqueSubscribers }}</div>
       </div>
-      <div class="col-2">
-        <div>Unique Subscribers: {{ list.uniqueSubscribers }}</div>
-      </div>
-      <div class="col-2">
+      <div class="col">
         <div class="custom-control custom-checkbox">
           <input [checked]="autoSubscribeNewMembers()"
                  (change)="autoSubscribeNewMembersChange()"
@@ -41,13 +38,23 @@ import { faCancel, faEdit, faSave } from "@fortawesome/free-solid-svg-icons";
           </label>
         </div>
       </div>
-      <div class="col-sm-4">
-        <app-brevo-button button [title]="'View'" *ngIf="confirm.noneOutstanding()"
-                          (click)="viewList(list.id)"
-                          [disabled]="listEditOrDeleteDisabled()"/>
-        <app-brevo-button class="ml-2" button [title]="'Delete'" *ngIf="confirm.noneOutstanding()"
-                          (click)="deleteList(list.id)"
-                          [disabled]="listEditOrDeleteDisabled()"/>
+      <div class="col">
+        <div class="custom-control custom-checkbox">
+          <input [checked]="memberSubscribable()"
+                 (change)="memberSubscribableChange()"
+                 type="checkbox" class="custom-control-input" id="self-subscribable-{{list.id}}">
+          <label class="custom-control-label" for="self-subscribable-{{list.id}}">Member-subscribable</label>
+        </div>
+      </div>
+      <div class="col-3">
+        <ng-container *ngIf="confirm.noneOutstanding()">
+          <app-brevo-button button [title]="'View'"
+                            (click)="viewList(list.id)"
+                            [disabled]="listEditOrDeleteDisabled()"/>
+          <app-brevo-button class="ml-2" button [title]="'Delete'"
+                            (click)="deleteList(list.id)"
+                            [disabled]="listEditOrDeleteDisabled()"/>
+        </ng-container>
         <ng-container *ngIf="localConfirm.deleteConfirmOutstanding()">
           <app-brevo-button button [title]="'Confirm Delete'"
                             (click)="confirmDeleteList(list.id)"
@@ -60,8 +67,8 @@ import { faCancel, faEdit, faSave } from "@fortawesome/free-solid-svg-icons";
     </div>
     <ng-container *ngIf="listUpdateRequest">
       <app-list-editor [listCreateRequest]="listUpdateRequest"/>
-      <app-badge-button class="ml-2" [icon]="faSave" caption="Save" (click)="saveEdit()"></app-badge-button>
-      <app-badge-button class="ml-2" [icon]="faCancel" caption="Cancel" (click)="cancelEdit()"></app-badge-button>
+      <app-badge-button [icon]="faSave" caption="Save" (click)="saveEdit()"></app-badge-button>
+      <app-badge-button [icon]="faCancel" caption="Cancel" (click)="cancelEdit()"></app-badge-button>
     </ng-container>
     <hr/>`
 })
@@ -81,7 +88,6 @@ export class MailListSettingsComponent implements OnInit {
   @Input() notReady: boolean;
   @Input() confirm: Confirm;
   public localConfirm: Confirm = new Confirm();
-  public listUpdateResponse: ListCreateResponse;
   public listUpdateRequest: ListUpdateRequest;
   protected readonly faEdit = faEdit;
   protected readonly faSave = faSave;
@@ -146,12 +152,20 @@ export class MailListSettingsComponent implements OnInit {
     return this.listSetting()?.autoSubscribeNewMembers;
   }
 
+  memberSubscribable() {
+    return this.listSetting()?.memberSubscribable;
+  }
+
   private listSetting(): ListSetting {
     return this.mailMessagingConfig?.mailConfig?.listSettings?.find(item => item.id === this.list.id);
   }
 
   autoSubscribeNewMembersChange() {
     this.listSetting().autoSubscribeNewMembers = !this.autoSubscribeNewMembers();
+  }
+
+  memberSubscribableChange() {
+    this.listSetting().memberSubscribable = !this.memberSubscribable();
   }
 
   beginEdit() {
@@ -173,5 +187,4 @@ export class MailListSettingsComponent implements OnInit {
   cancelEdit() {
     this.listUpdateRequest = null;
   }
-
 }

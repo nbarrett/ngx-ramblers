@@ -13,6 +13,7 @@ import {
   ListSetting,
   MailConfig,
   MailMessagingConfig,
+  MailSubscription,
   MemberMergeFields,
   NOTIFICATION_CONFIG_DEFAULTS,
   NotificationConfig,
@@ -425,10 +426,31 @@ export class MailMessagingService {
     }
     this.mailMessagingConfig?.brevo?.lists?.lists.forEach(list => {
       if (!this.mailMessagingConfig.mailConfig.listSettings.find(item => item.id === list.id)) {
-        const listSetting: ListSetting = {id: list.id, autoSubscribeNewMembers: true};
+        const listSetting: ListSetting = {id: list.id, autoSubscribeNewMembers: false, memberSubscribable: false};
         this.logger.info("adding listSetting:", listSetting);
         this.mailMessagingConfig.mailConfig.listSettings.push(listSetting);
       }
     });
   }
+
+  public memberSubscribableSubscriptions(subscriptions: MailSubscription[]): MailSubscription[] {
+    return this.subscriptionsFor(subscriptions, (item: ListSetting) => item.memberSubscribable);
+  }
+
+  public allSubscriptions(subscriptions: MailSubscription[]): MailSubscription[] {
+    return this.subscriptionsFor(subscriptions, (item: ListSetting) => true);
+  }
+
+  private subscriptionsFor(subscriptions: MailSubscription[], predicate: (item: ListSetting) => boolean) {
+    this.logger.info("subscriptionsFor:subscriptions ->", subscriptions, "listSettings ->", this.mailMessagingConfig.mailConfig.listSettings);
+    const filtered: MailSubscription[] = this.mailMessagingConfig.mailConfig.listSettings
+      ?.filter(predicate).map(listSetting => subscriptions.find(subscription => subscription.id === listSetting.id) || {
+        id: listSetting.id,
+        subscribed: false
+      });
+    this.logger.info("subscriptionsFor:subscriptions ->", subscriptions, "filtered ->", filtered);
+    return filtered;
+  }
+
+
 }

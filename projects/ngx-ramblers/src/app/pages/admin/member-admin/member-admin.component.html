@@ -89,7 +89,9 @@
             <table class="round tbl-green-g table-striped table-hover table-sm">
               <thead>
               <tr class="white-anchor">
-                <th>Action</th>
+                <th *ngIf="!confirm.bulkDeleteOutstanding()">Action</th>
+                <th *ngIf="confirm.bulkDeleteOutstanding()" (click)="sortMembersBy('markedForDelete')">
+                  Marked For Delete<span class="sorting-header">{{ memberFilter.sortDirection }}</span></th>
                 <th (click)="sortMembersBy('memberName')">Member Name
                   <span class="sorting-header" *ngIf="showMembersColumn('memberName')">
             {{ memberFilter.sortDirection }}</span>
@@ -152,16 +154,18 @@
             {{ memberFilter.sortDirection }}</span>
                   </th>
                 </ng-container>
-                <th *ngIf="confirm.bulkDeleteOutstanding()" (click)="sortMembersBy('markedForDelete')">
-                  Marked For Delete<span class="sorting-header">{{ memberFilter.sortDirection }}</span></th>
               </tr>
               </thead>
               <tbody>
               <tr *ngFor="let member of memberFilter.results">
-                <td>
+                <td *ngIf="!confirm.bulkDeleteOutstanding()">
                   <input (click)="editMember(member)" type="submit" value="edit"
                          [disabled]="notifyTarget.busy"
                          [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
+                </td>
+                <td class="pointer" *ngIf="confirm.bulkDeleteOutstanding()" (click)="toggleDeletionMarker(member.id)">
+                  <fa-icon [icon]="markedForDelete(member.id)? faUserXmark:faUserCheck"
+                           [ngClass]="markedForDelete(member.id)?'member-delete-confirm':'member-delete'"></fa-icon>
                 </td>
                 <td>{{ member | fullNameWithAlias }}</td>
                 <td><a class="small" *ngIf="member.email" [href]="'mailto:' + member.email" placement="right"
@@ -199,10 +203,6 @@
                     <app-switch-icon [on]="subscriptionFor(member, list)"/>
                   </td>
                 </ng-container>
-                <td class="pointer" *ngIf="confirm.bulkDeleteOutstanding()" (click)="toggleDeletionMarker(member.id)">
-                  <fa-icon *ngIf="markedForDelete(member.id)" [icon]="faUserXmark"
-                           class="member-delete"></fa-icon>
-                </td>
               </tr>
               </tbody>
             </table>

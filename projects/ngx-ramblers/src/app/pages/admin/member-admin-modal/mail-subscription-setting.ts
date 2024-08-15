@@ -15,9 +15,8 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
 @Component({
   selector: "app-mail-subscription-setting",
   template: `
-    <div class="custom-control custom-checkbox">
-      <input *ngIf="subscription"
-             [(ngModel)]="subscription.subscribed"
+    <div *ngIf="subscription && this.mailMessagingConfig" class="custom-control custom-checkbox">
+      <input [(ngModel)]="subscription.subscribed"
              (ngModelChange)="subscriptionChange($event)"
              type="checkbox" class="custom-control-input" id="mail-list-{{subscription.id}}-subscription">
       <label class="custom-control-label"
@@ -38,7 +37,7 @@ export class MailSubscriptionSettingComponent implements OnInit {
   private broadcastService: BroadcastService<MailListAudit> = inject(BroadcastService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("MailSubscriptionSettingComponent", NgxLoggerLevel.OFF);
-  private mailMessagingConfig: MailMessagingConfig;
+  protected mailMessagingConfig: MailMessagingConfig;
 
   async ngOnInit() {
     this.mailMessagingService.events().subscribe(mailMessagingConfig => {

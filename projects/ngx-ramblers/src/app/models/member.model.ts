@@ -128,6 +128,12 @@ export interface HasFirstAndLastName {
   lastName: string;
 }
 
+export interface BulkLoadMemberAndMatch {
+  memberAction: MemberAction;
+  memberMatchType: string;
+  member: Member;
+}
+
 export interface RamblersMember extends HasFirstAndLastName {
   groupMember?: boolean;
   membershipExpiryDate?: string | number;
