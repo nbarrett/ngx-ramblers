@@ -65,8 +65,8 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
               private profileService: ProfileService,
               private memberLoginService: MemberLoginService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MemberAdminComponent, NgxLoggerLevel.OFF);
-    this.apiResponseProcessorLogger = loggerFactory.createLogger(MemberAdminComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(MemberAdminComponent, NgxLoggerLevel.ERROR);
+    this.apiResponseProcessorLogger = loggerFactory.createLogger(MemberAdminComponent, NgxLoggerLevel.ERROR);
     this.searchChangeObservable = new Subject<string>();
   }
 
@@ -100,7 +100,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.systemConfigService.events().subscribe(async (systemConfig: SystemConfig) => {
       this.systemConfig = systemConfig;
       this.logger.debug("retrieved systemConfig", systemConfig);
-      this.walkLeaders = await this.walksService.queryPreviousWalkLeaderIds();
+      this.walkLeaders = await this.walksService.queryWalkLeaders();
       this.logger.info("walkLeaders:", this.walkLeaders);
     }));
     this.subscriptions.push(this.profileService.subscribeToLogout(this.logger));

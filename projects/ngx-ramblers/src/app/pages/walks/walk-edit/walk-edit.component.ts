@@ -132,7 +132,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
       }
     });
-    this.previousWalkLeaderIds = await this.walksService.queryPreviousWalkLeaderIds();
+    this.previousWalkLeaderIds = await this.walksService.queryWalkLeaders();
     this.display.memberEvents().subscribe(members => {
       this.refreshAssembleNames();
     });

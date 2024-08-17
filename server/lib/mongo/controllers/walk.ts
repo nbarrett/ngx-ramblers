@@ -8,7 +8,7 @@ import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-
 const debugLog = debug(envConfig.logNamespace("walk"));
 debugLog.enabled = false;
 
-export function queryWalkLeaderMemberIds(req: Request, res: Response): Promise<any> {
+export function queryWalkLeaders(req: Request, res: Response): Promise<any> {
   return walk.distinct("walkLeaderMemberId")
     .then((response: string[]) => {
       debugLog(req.query, "queryWalkLeaderMemberIds:response", response);

@@ -55,7 +55,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
               protected dateUtils: DateUtilsService,
               public bsModalRef: BsModalRef,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MemberAdminModalComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(MemberAdminModalComponent, NgxLoggerLevel.ERROR);
   }
 
   public systemConfig: SystemConfig;
@@ -98,7 +98,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
         this.pendingMailListAudits = this.pendingMailListAudits.filter(item => item.listId !== namedEvent.data.listId).concat(namedEvent.data);
         this.logger.info("event received:", namedEvent, "pendingMailListAudits:", this.pendingMailListAudits);
       }));
-    this.logger.debug("constructed with member", this.member, this.members.length, "members");
+    this.logger.info("constructed with member", this.member, this.members.length, "members");
     this.allowEdits = this.memberLoginService.allowMemberAdminEdits();
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     const existingRecordEditEnabled = this.allowEdits && this.editMode === EditMode.EDIT;
@@ -135,7 +135,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
         memberId
       }, sort: {timestamp: -1}
     }).then(mailListAudits => {
-      this.logger.debug("mailListAuditService:", mailListAudits.length, "events", mailListAudits);
+      this.logger.info("mailListAuditService:", mailListAudits.length, "events", mailListAudits);
       this.mailListAudits = mailListAudits;
     });
   }

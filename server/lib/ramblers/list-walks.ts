@@ -20,13 +20,16 @@ import groupBy from "lodash/groupBy";
 import map from "lodash/map";
 import omit from "lodash/omit";
 import { systemConfig } from "../config/system-config";
+import { Request, Response } from "express";
+import { WalkLeadersApiResponse } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { pluraliseWithCount } from "../../serenity-js/screenplay/util/util";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
 noopDebugLog.enabled = false;
 debugLog.enabled = false;
 
-export function walkLeaderIds(req, res): void {
+export function walkLeaders(req: Request, res: Response): void {
   const body: WalkListRequest = req.body;
   debugLog("listWalks:body:", body);
   systemConfig()
@@ -64,16 +67,15 @@ export function walkLeaderIds(req, res): void {
         }
       });
     })
-    .then(response => {
-      const rawResponse = response as WalkLeader[];
-      debugLog("returned:", rawResponse.length, "walk leaders");
+    .then((response: WalkLeadersApiResponse) => {
+      debugLog("returned:", pluraliseWithCount(response.response.length, "walk leader"));
       return response;
     })
     .then(response => res.json(response))
     .catch(error => res.json(error));
 }
 
-export function listWalks(req, res): void {
+export function listWalks(req: Request, res: Response): void {
   const body: WalkListRequest = req.body;
   const rawData: boolean = body.rawData;
   debugLog("listWalks:body:", body);

@@ -126,13 +126,13 @@ export class RamblersWalksAndEventsService {
     return this.commonDataService.responseFrom(this.logger, this.http.post<RamblersUploadAuditApiResponse>(`${this.BASE_URL}/upload-walks`, data), this.auditSubject);
   }
 
-  async queryPreviousWalkLeaderIds(): Promise<WalkLeader[]> {
-    this.logger.debug("queryPreviousWalkLeaderIds:");
+  async queryWalkLeaders(): Promise<WalkLeader[]> {
+    this.logger.debug("queryWalkLeaders:");
     const date = WALKS_MANAGER_GO_LIVE_DATE;
     const dateEnd = this.dateUtils.asMoment().add(2, "month").format(WALKS_MANAGER_API_DATE_FORMAT);
     const body: WalkListRequest = {date, dateEnd, limit: 2000};
-    this.logger.off("queryPreviousWalkLeaderIds:body:", body);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<WalkLeadersApiResponse>(`${this.BASE_URL}/walk-leader-ids`, body), this.walkLeadersSubject);
+    this.logger.off("queryWalkLeaders:body:", body);
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<WalkLeadersApiResponse>(`${this.BASE_URL}/walk-leaders`, body), this.walkLeadersSubject);
     return apiResponse.response;
   }
 
