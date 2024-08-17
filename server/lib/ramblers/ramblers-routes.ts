@@ -12,7 +12,7 @@ const router = express.Router();
 router.post("/walks-manager/list-walks", walksAndEvents.listWalks);
 router.post("/walks-manager/list-groups", groups.listGroups);
 router.post("/walks-manager/upload-walks", authConfig.authenticate(), ramblersWalkUpload.uploadWalks);
-router.post("/walks-manager/walk-leader-ids", authConfig.authenticate(), walksAndEvents.walkLeaderIds);
+router.post("/walks-manager/walk-leaders", authConfig.authenticate(), walksAndEvents.walkLeaders);
 router.post("/monthly-reports/upload", authConfig.authenticate(), multer({dest: envConfig.server.uploadDir}).any(), memberBulkLoad.uploadRamblersData);
 
 export const ramblersRoutes = router;

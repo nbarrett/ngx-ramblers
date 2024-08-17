@@ -1,18 +1,13 @@
-import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
 import { Walk, WalkApiResponse } from "../../models/walk.model";
-import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { UrlService } from "../url.service";
 import { WalksLocalService } from "./walks-local.service";
 import { RamblersWalksAndEventsService } from "./ramblers-walks-and-events.service";
 import { Organisation, WalkPopulation } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
-import { DateUtilsService } from "../date-utils.service";
-import { StringUtilsService } from "../string-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -22,15 +17,10 @@ export class WalksService {
   private readonly logger: Logger;
   public group: Organisation;
 
-  constructor(private http: HttpClient,
-              private systemConfigService: SystemConfigService,
-              private dateUtilsService: DateUtilsService,
-              private stringUtilsService: StringUtilsService,
-              private commonDataService: CommonDataService,
-              private urlService: UrlService,
+  constructor(private systemConfigService: SystemConfigService,
               private walksLocalService: WalksLocalService,
               private ramblersWalksAndEventsService: RamblersWalksAndEventsService,
-              private loggerFactory: LoggerFactory) {
+              loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(WalksService, NgxLoggerLevel.OFF);
     this.applyConfig();
   }
@@ -57,15 +47,15 @@ export class WalksService {
     }
   }
 
-  async queryPreviousWalkLeaderIds(): Promise<string[]> {
-    this.logger.info("queryPreviousWalkLeaderIds:walkPopulation:", this?.group?.walkPopulation);
+  async queryWalkLeaders(): Promise<string[]> {
+    this.logger.info("queryWalkLeaders:walkPopulation:", this?.group?.walkPopulation);
     switch (this?.group?.walkPopulation) {
       case WalkPopulation.WALKS_MANAGER:
-        const walkLeaders = await this.ramblersWalksAndEventsService.queryPreviousWalkLeaderIds();
-        this.logger.info("queryPreviousWalkLeaderIds:", walkLeaders);
+        const walkLeaders = await this.ramblersWalksAndEventsService.queryWalkLeaders();
+        this.logger.info("queryWalkLeaders:", walkLeaders);
         return walkLeaders.map(item => item.name);
       case WalkPopulation.LOCAL:
-        return this.walksLocalService.queryPreviousWalkLeaderIds();
+        return this.walksLocalService.queryWalkLeaders();
     }
   }
 

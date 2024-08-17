@@ -56,10 +56,10 @@ import { faCancel, faEdit, faSave } from "@fortawesome/free-solid-svg-icons";
                             [disabled]="listEditOrDeleteDisabled()"/>
         </ng-container>
         <ng-container *ngIf="localConfirm.deleteConfirmOutstanding()">
-          <app-brevo-button button [title]="'Confirm Delete'"
+          <app-brevo-button button [title]="'Confirm'"
                             (click)="confirmDeleteList(list.id)"
                             [disabled]="listEditOrDeleteDisabled()"/>
-          <app-brevo-button class="ml-2" button [title]="'Cancel Delete'"
+          <app-brevo-button class="ml-2" button [title]="'Cancel'"
                             (click)="cancelDelete()"
                             [disabled]="listEditOrDeleteDisabled()"/>
         </ng-container>

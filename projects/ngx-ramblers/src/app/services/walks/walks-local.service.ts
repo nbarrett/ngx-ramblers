@@ -54,9 +54,9 @@ export class WalksLocalService {
     return apiResponse.response as Walk;
   }
 
-  async queryPreviousWalkLeaderIds(): Promise<string[]> {
-    this.logger.debug("queryPreviousWalkLeaderIds:");
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<WalkLeaderIdsApiResponse>(`${this.BASE_URL}/walk-leader-ids`), this.walkLeaderIdNotifications);
+  async queryWalkLeaders(): Promise<string[]> {
+    this.logger.debug("queryWalkLeaders:");
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<WalkLeaderIdsApiResponse>(`${this.BASE_URL}/walk-leaders`), this.walkLeaderIdNotifications);
     return apiResponse.response;
   }
 
