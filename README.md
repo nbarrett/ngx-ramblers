@@ -1,6 +1,10 @@
+![NGX-Ramblers Logo](https://www.ngx-ramblers.org.uk/api/aws/s3/logos/21b1e74f-f0f0-4ad3-9bf4-6d894ed02fcd.png)
+
 # Welcome to NGX-Ramblers!
 
-![NGX-Ramblers Logo](https://www.ngx-ramblers.org.uk/api/aws/s3/logos/21b1e74f-f0f0-4ad3-9bf4-6d894ed02fcd.png)
+[![Heroku](https://img.shields.io/badge/heroku-%23430098.svg?style=&logo=heroku&logoColor=white)](https://github.com/nbarrett/ngx-ramblers/deployments/ngx-ramblers-staging)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub issues](https://img.shields.io/github/issues/nbarrett/ngx-ramblers)](https://github.com/nbarrett/ngx-ramblers/issues)
 
 [NGX-Ramblers](https://www.ngx-ramblers.org.uk/) is a [completely free and open-source framework](https://github.com/nbarrett/ngx-ramblers) for building Local Ramblers Group websites using the latest Ramblers Branding, without the webmaster needing technical or programming skills. It's the culmination of over 10 years voluntary work by members of [Kent Ramblers](https://www.ngx-ramblers.org.uk/how-to/committee/editing-content/example-pages/site-migrations/kent-ramblers), but is free to use by any other group.
 
