@@ -7,7 +7,7 @@ import { Instagram } from "../../../projects/ngx-ramblers/src/app/models/system.
 import { configuredInstagram } from "./instagram-controllers";
 
 const debug = debugLib(envConfig.logNamespace("instagram:recent-media"));
-debug.enabled = true;
+debug.enabled = false;
 const refreshOnEachCall = true;
 
 async function recentMediaRequest(req: Request, res: Response) {

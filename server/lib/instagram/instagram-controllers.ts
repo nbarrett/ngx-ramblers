@@ -5,7 +5,7 @@ import { Instagram, SystemConfig } from "../../../projects/ngx-ramblers/src/app/
 import { systemConfig } from "../config/system-config";
 
 const debug = debugLib(envConfig.logNamespace("instagram"));
-debug.enabled = true;
+debug.enabled = false;
 
 export async function configuredInstagram(): Promise<Instagram> {
   const config: SystemConfig = await systemConfig();

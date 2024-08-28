@@ -1,11 +1,12 @@
-const APP_PREFIX: string = "NGX_RAMBLERS_";
+const ENV_PREFIX: string = "SITE_";
 
 function validatedEnvironmentVariable(variableName: string, prefixed?: boolean): string {
-  const resolvedName = prefixed ? APP_PREFIX + variableName : variableName;
-  const variableValue = process.env[resolvedName];
+  const resolvedName = prefixed ? ENV_PREFIX + variableName : variableName;
+  const variableValue = process.env[resolvedName] || process.env[variableName];
   if (!variableValue) {
     throw new Error("Environment variable '" + resolvedName + "' must be set");
   } else {
+    console.info(`Environment variable '${resolvedName}' is set to '${variableValue}'`);
     return variableValue;
   }
 }
