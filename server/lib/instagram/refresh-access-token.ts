@@ -6,7 +6,7 @@ import { Instagram } from "../../../projects/ngx-ramblers/src/app/models/system.
 import { configuredInstagram } from "./instagram-controllers";
 
 const debug = debugLib(envConfig.logNamespace("instagram:refresh-token"));
-debug.enabled = true;
+debug.enabled = false;
 
 export async function refreshAccessToken(req: Request, res: Response) {
   const instagram: Instagram = await configuredInstagram();

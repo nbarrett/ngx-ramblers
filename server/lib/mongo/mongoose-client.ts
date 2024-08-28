@@ -3,6 +3,8 @@ import debug from "debug";
 import mongoose from "mongoose";
 import transforms = require("./controllers/transforms");
 
+const debugLog = debug(envConfig.logNamespace("local-database"));
+debugLog.enabled = false;
 let connected = false;
 
 function createDebugFor(model: any): debug.Debugger {
@@ -45,15 +47,17 @@ export function create<T>(model: mongoose.Model<mongoose.Document>, data: T) {
 }
 
 export function connect(debug: debug.Debugger) {
-  return mongoose.connect(envConfig.mongo.uri, {
+  const mongoUri = envConfig.mongo.uri.replace(/^"|"$/g, ""); ;
+  debugLog("MongoDB URI:", mongoUri);
+  return mongoose.connect(mongoUri, {
     useUnifiedTopology: true,
     useNewUrlParser: true,
   }).then(response => {
-    debug("Connected to database:", envConfig.mongo.uri, "configured models:", response.models);
+    debug("Connected to database:", mongoUri, "configured models:", response.models);
     connected = true;
     return true;
   }).catch(error => {
-    debug("Connection failed:", envConfig.mongo.uri, "error:", error);
+    debug("Connection failed:", mongoUri, "error:", error);
     throw error;
   });
 }

@@ -1,0 +1,43 @@
+name: Build and Deploy NGX-Ramblers Docker Image
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+      - name: Build the Docker image
+        run: |
+          docker build . --file Dockerfile --tag ngx-ramblers:latest
+      - name: Tag the Docker image
+        run: docker tag ngx-ramblers:latest ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest
+      - name: Push the Docker image to Docker Hub
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest
+      - name: Deploy the Docker image
+        run: |
+          docker run -d -p 5000:5000 --name ngx-ramblers ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest \
+            -e AUTH_SECRET=${{ secrets.AUTH_SECRET }} \
+            -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            -e AWS_BUCKET=${{ secrets.AWS_BUCKET }} \
+            -e AWS_REGION=${{ secrets.AWS_REGION }} \
+            -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            -e CHROMEDRIVER_PATH=${{ secrets.CHROMEDRIVER_PATH }} \
+            -e CHROMEDRIVER_VERSION=${{ secrets.CHROMEDRIVER_VERSION }} \
+            -e CHROME_VERSION=${{ secrets.CHROME_VERSION }} \
+            -e DEBUG=${{ secrets.DEBUG }} \
+            -e DEBUG_COLORS=${{ secrets.DEBUG_COLORS }} \
+            -e GOOGLE_CHROME_BIN=${{ secrets.GOOGLE_CHROME_BIN }} \
+            -e GOOGLE_MAPS_APIKEY=${{ secrets.GOOGLE_MAPS_APIKEY }} \
+            -e MEETUP_ACCESS_TOKEN=${{ secrets.MEETUP_ACCESS_TOKEN }} \
+            -e MONGODB_URI=${{ secrets.MONGODB_URI }} \
+            -e NODE_ENV=${{ secrets.NODE_ENV }} \
+            -e NODE_OPTIONS=${{ secrets.NODE_OPTIONS }} \
+            -e WALKS_NPM_COMMAND=${{ secrets.WALKS_NPM_COMMAND }}

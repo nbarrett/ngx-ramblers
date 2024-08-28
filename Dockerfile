@@ -1,5 +1,5 @@
 # Use the official Node.js image as the base image
-FROM node:20.16.0
+FROM node:20.11.0
 
 # Set the working directory inside the container
 WORKDIR /usr/src/app
@@ -37,5 +37,6 @@ RUN npm install
 # Expose the port the application will run on
 EXPOSE 5000
 
+WORKDIR /usr/src/app
 # Define the command to run the server application
 CMD ["npm", "run", "server", "--prefix", "server"]
