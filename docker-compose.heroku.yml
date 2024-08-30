@@ -1,0 +1,23 @@
+services:
+  ngx-ramblers:
+    image: nbarrett36/ngx-ramblers:latest
+    container_name: ngx-ramblers
+    environment:
+      - AUTH_SECRET=${AUTH_SECRET}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_BUCKET=${AWS_BUCKET}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - CHROMEDRIVER_PATH=${CHROMEDRIVER_PATH}
+      - CHROMEDRIVER_VERSION=${CHROMEDRIVER_VERSION}
+      - CHROME_VERSION=${CHROME_VERSION}
+      - DEBUG=${DEBUG}
+      - DEBUG_COLORS=${DEBUG_COLORS}
+      - GOOGLE_CHROME_BIN=${GOOGLE_CHROME_BIN}
+      - GOOGLE_MAPS_APIKEY=${GOOGLE_MAPS_APIKEY}
+      - MEETUP_ACCESS_TOKEN=${MEETUP_ACCESS_TOKEN}
+      - MONGODB_URI=${MONGODB_URI}
+      - NODE_ENV=${NODE_ENV}
+    ports:
+      - $PORT:$PORT
+    restart: on-failure
