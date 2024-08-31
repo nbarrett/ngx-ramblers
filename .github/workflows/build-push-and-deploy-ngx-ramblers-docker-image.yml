@@ -1,11 +1,6 @@
 name: Build and Deploy NGX-Ramblers Docker Image
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
 jobs:
   build:
     runs-on: ubuntu-latest
