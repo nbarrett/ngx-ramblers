@@ -1,42 +1,46 @@
-# Use the official Node.js image as the base image
-FROM node:20.11.0
+# Stage 1: Build Angular Application
+FROM node:20.11.0 AS builder
 
 # Set the working directory inside the container
 WORKDIR /usr/src/app
 
-# Copy package.json and package-lock.json to the working directory
+# Copy package.json and install dependencies
 COPY package*.json ./
-
-# Copy Angular configuration files
 COPY angular.json ./
 COPY custom-webpack.config.js ./
 COPY ts*.json ./
 
+# Install Angular CLI dependencies
+RUN npm install
+
 # Copy the Angular application code to the working directory
 COPY projects/ngx-ramblers /usr/src/app/projects/ngx-ramblers
-
-# Install the dependencies
-RUN npm install
 
 # Build the Angular application using the locally installed Angular CLI
 RUN npx ng build --project ngx-ramblers --build-optimizer --progress --configuration production
 
-# Copy the server application code to the working directory
+# Stage 2: Build and run the server application
+FROM node:20.11.0
+
+# Set the working directory for the server
 WORKDIR /usr/src/app/server
+
+# Copy server-specific files
 COPY server/package*.json ./
 COPY server/ts*.json ./
 COPY server/lib* ./
 COPY server/serenity-js ./
 COPY server/.mocharc.yml ./
 COPY server/protractor.conf.js ./
-COPY server /usr/src/app/server
 
-# Install server dependencies (postinstall will run automatically)
+# Install server dependencies
 RUN npm install
 
-# Expose the port the application will run on
-EXPOSE 5000
+# Copy built Angular app from builder stage
+COPY --from=builder /usr/src/app/dist /usr/src/app/dist
 
-WORKDIR /usr/src/app
+# Copy the server application code
+COPY server /usr/src/app/server
+
 # Define the command to run the server application
 CMD ["npm", "run", "server", "--prefix", "server"]

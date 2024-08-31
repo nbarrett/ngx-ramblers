@@ -1,0 +1,43 @@
+name: Deploy Docker image to Heroku
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - nbarrett-docker-build
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Heroku CLI
+        run: |
+          curl https://cli-assets.heroku.com/install.sh | sh
+
+      - name: Log in to Heroku container registry
+        run: |
+          echo "${{ secrets.HEROKU_API_KEY }}" | docker login --username="${{ secrets.HEROKU_EMAIL }}" --password-stdin registry.heroku.com
+
+      - name: Pull Docker image from Docker Hub
+        run: |
+          docker pull nbarrett36/ngx-ramblers:latest
+
+      - name: Tag Docker image for Heroku
+        run: |
+          docker tag nbarrett36/ngx-ramblers:latest registry.heroku.com/ngx-ramblers-docker/web
+
+      - name: Push Docker image to Heroku
+        run: |
+          docker push registry.heroku.com/ngx-ramblers-docker/web
+
+      - name: Release Docker image on Heroku
+        run: |
+          heroku container:release web --app ngx-ramblers-docker
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
