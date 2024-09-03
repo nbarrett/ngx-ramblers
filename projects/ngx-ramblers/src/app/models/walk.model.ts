@@ -82,6 +82,7 @@ export interface Walk extends Identifiable {
   features?: Metadata[];
   startLocation?: string;
   media?: Media[];
+  additionalDetails?: string;
 }
 
 export interface RiskAssessmentRecord {
