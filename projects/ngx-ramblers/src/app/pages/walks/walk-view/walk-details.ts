@@ -105,6 +105,9 @@ import { WalkDisplayService } from "../walk-display.service";
           </div>
         </div>
         <div *ngIf="displayedWalk?.walk?.startLocation" class="col-sm-12 mt-1">{{displayedWalk?.walk?.startLocation}}</div>
+        <div *ngIf="displayedWalk?.walk?.additionalDetails" class="col-sm-12 mt-1 list-tick-medium">
+          <p markdown>additionalDetails:{{ displayedWalk.walk.additionalDetails }}</p>
+        </div>
       </div>
     </div>`
 })

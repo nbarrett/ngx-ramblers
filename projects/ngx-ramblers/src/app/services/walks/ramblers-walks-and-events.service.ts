@@ -11,6 +11,7 @@ import { RamblersUploadAuditApiResponse } from "../../models/ramblers-upload-aud
 import {
   GroupListRequest,
   GroupWalk,
+  Metadata,
   RamblersGroupsApiResponse,
   RamblersGroupsApiResponseApiResponse,
   RamblersWalkResponse,
@@ -537,11 +538,79 @@ export class RamblersWalksAndEventsService {
         groupCode: groupWalk.group_code,
         longName: groupWalk.group_name
       },
-      features: (groupWalk.facilities || []).concat(groupWalk.transport || []).sort(sortBy("description")),
-      startLocation: groupWalk.start_location.description
+      features: (groupWalk.facilities || []).concat(groupWalk.transport || []).concat(groupWalk.accessibility || []).sort(sortBy("description")),
+      startLocation: groupWalk.start_location.description,
+      additionalDetails: groupWalk.additional_details
     };
     this.logger.info("groupWalk:", groupWalk, "walk:", walk, "contactName:", contactName, "displayName:", displayName);
     return walk;
+  }
+
+  generateAllFeatures(): Metadata[] {
+    return [
+      "assistance-dogs",
+      "back",
+      "back-link",
+      "back-round",
+      "car-parking",
+      "car-sharing",
+      "chat",
+      "clock",
+      "coach-trip",
+      "component-tick-desktop",
+      "component-tick-mobile",
+      "copyright",
+      "cross",
+      "cursor",
+      "dog-friendly",
+      "down",
+      "email-icon",
+      "external-link",
+      "facebook",
+      "facebook-icon",
+      "family-friendly",
+      "fast-pace",
+      "footprint",
+      "forward",
+      "forward-round",
+      "gate",
+      "hat",
+      "hiking",
+      "home",
+      "information",
+      "instagram",
+      "introductory-walk",
+      "linkedin-in",
+      "location",
+      "mail",
+      "may-be-muddy",
+      "meetup",
+      "menu",
+      "no-car",
+      "no-stiles",
+      "play",
+      "public-transport",
+      "pushchair-friendly",
+      "quote-end",
+      "quote-start",
+      "rain",
+      "refreshments",
+      "rest-stop-available",
+      "search",
+      "signpost",
+      "slower-pace",
+      "some-inclines",
+      "sun",
+      "tick",
+      "toilets",
+      "tree",
+      "twitter",
+      "twitter-icon",
+      "uneven-ground",
+      "up",
+      "whatsapp",
+      "wheelchair-accessible",
+      "youtube"].map(feature => this.toFeature(feature));
   }
 
   walkToWalkUploadRow(walk): WalkUploadRow {
@@ -593,5 +662,9 @@ export class RamblersWalksAndEventsService {
 
   private mediaExistsOnWalksManagerNotLocal(walkMatchedByDate: Walk, ramblersWalksResponse: RamblersWalkResponse) {
     return ramblersWalksResponse?.media?.length > 0 && (walkMatchedByDate?.media?.length || 0) === 0;
+  }
+
+  private toFeature(feature: string): Metadata {
+    return {code: feature, description: this.stringUtilsService.asTitle(feature)};
   }
 }
