@@ -13,30 +13,42 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
       - name: Log in to Docker Hub
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
       - name: Build the Docker image
-        run: |
-          docker build . --file Dockerfile --tag ngx-ramblers:latest
-      - name: Tag the Docker image
-        run: docker tag ngx-ramblers:latest ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest
-      - name: Push the Docker image to Docker Hub
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest
+        run: docker build . --file Dockerfile --tag ngx-ramblers:${{ github.run_number }}
+
+      - name: Tag the Docker image (github run number ${{ github.run_number }})
+        run: docker tag ngx-ramblers:${{ github.run_number }} ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}
+
+      - name: Push the Docker image to Docker Hub (github run number ${{ github.run_number }})
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}
+
+      - name: Tag the Docker image (latest)
+        run: docker tag ngx-ramblers:${{ github.run_number }} ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}latest
+
+      - name: Push the Docker image to Docker Hub (latest)
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}
+
       - name: Install Heroku CLI
-        run: |
-          curl https://cli-assets.heroku.com/install.sh | sh
+        run: curl https://cli-assets.heroku.com/install.sh | sh
+
       - name: Log in to Heroku container registry
-        run: |
-          echo "${{ secrets.HEROKU_API_KEY }}" | docker login --username="${{ secrets.HEROKU_EMAIL }}" --password-stdin registry.heroku.com
-      - name: Pull Docker image from Docker Hub
-        run: |
-          docker pull nbarrett36/ngx-ramblers:latest
-      - name: Tag Docker image for Heroku
-        run: |
-          docker tag nbarrett36/ngx-ramblers:latest registry.heroku.com/ngx-ramblers-docker/latest
-      - name: Push Docker image to Heroku
-        run: |
-          docker push registry.heroku.com/ngx-ramblers-docker/latest
-      - name: Release Docker image on Heroku
-        run: |
-          heroku container:release latest --app ngx-ramblers-docker
+        run: echo "${{ secrets.HEROKU_API_KEY }}" | docker login --username="${{ secrets.HEROKU_EMAIL }}" --password-stdin registry.heroku.com
+
+      - name: Tag Docker image for Heroku (github run number ${{ github.run_number }})
+        run: docker tag ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }} registry.heroku.com/ngx-ramblers-docker:${{ github.run_number }}
+
+      - name: Push Docker image to Heroku (github run number ${{ github.run_number }})
+        run: docker push registry.heroku.com/ngx-ramblers-docker:${{ github.run_number }}
+
+      - name: Release Docker image on Heroku (github run number ${{ github.run_number }})
+        run: heroku container:release ${{ github.run_number }} --app ngx-ramblers-docker
+
+      - name: Tag Docker image for Heroku (latest)
+        run: docker tag ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }} registry.heroku.com/ngx-ramblers-docker:latest
+
+      - name: Push Docker image to Heroku (latest)
+        run: docker push registry.heroku.com/ngx-ramblers-docker:latest
