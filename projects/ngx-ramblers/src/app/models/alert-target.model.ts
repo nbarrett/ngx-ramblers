@@ -15,6 +15,7 @@ export interface AlertTarget {
 
 export interface AlertType extends FontAwesomeIcon {
   failure?: boolean;
+  type: string;
 }
 
 export interface AlertMessageAndType {
@@ -28,10 +29,10 @@ export interface AlertMessage {
   continue?: boolean;
 }
 
-export const ALERT_ERROR: AlertType = {class: "alert-danger", icon: faCircleExclamation, failure: true};
-export const ALERT_WARNING: AlertType = {class: "alert-warning", icon: faCircleCheck};
-export const ALERT_INFO: AlertType = {class: "alert-success", icon: faCircleInfo};
-export const ALERT_SUCCESS: AlertType = {class: "alert-success", icon: faCircleCheck};
+export const ALERT_ERROR: AlertType = {type: "danger", class: "alert-danger", icon: faCircleExclamation, failure: true};
+export const ALERT_WARNING: AlertType = {type: "warning", class: "alert-warning", icon: faCircleCheck};
+export const ALERT_INFO: AlertType = {type: "success", class: "alert-success", icon: faCircleInfo};
+export const ALERT_SUCCESS: AlertType = {type: "success", class: "alert-success", icon: faCircleCheck};
 
 export enum AlertLevel {
   ALERT_ERROR = "ALERT_ERROR",

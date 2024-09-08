@@ -23,7 +23,6 @@ import { StringUtilsService } from "./string-utils.service";
 import { Organisation, RootFolder } from "../models/system.model";
 import { SystemConfigService } from "./system/system-config.service";
 import { DateUtilsService } from "./date-utils.service";
-import { FileUtilsService } from "../file-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -44,7 +43,7 @@ export class UrlService {
               loggerFactory: LoggerFactory,
               private route: ActivatedRoute) {
     this.systemConfigService.events().subscribe(item => this.group = item.group);
-    this.logger = loggerFactory.createLogger(UrlService, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(UrlService, NgxLoggerLevel.ERROR);
     this.cacheBuster = this.dateUtils.nowAsValue();
   }
 
@@ -270,4 +269,15 @@ export class UrlService {
     }
   }
 
+  removeQueryParameter(param: string) {
+    const queryParams = {...this.route.snapshot.queryParams};
+    this.logger.info("removing query parameter:", param, "from:", queryParams);
+    delete queryParams[param];
+    this.logger.info("now navigating to:", queryParams);
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams,
+      queryParamsHandling: ""
+    });
+  }
 }

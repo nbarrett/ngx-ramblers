@@ -49,7 +49,7 @@ export class WalkMeetupSettingsComponent implements OnInit {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.publishStatuses = this.meetupService.publishStatuses();
     this.guestLimits = range(1, 11);
-    this.meetupService.getConfig().then(config => this.config = config);
+    this.meetupService.queryConfig().then(config => this.config = config);
     this.contentTextService.filterByCategory(ContentTextCategory.MEETUP_DESCRIPTION_PREFIX).then(contentTextItems => {
       this.logger.debug("forCategory", ContentTextCategory.MEETUP_DESCRIPTION_PREFIX + ":", contentTextItems);
       this.contentTextItems = contentTextItems;

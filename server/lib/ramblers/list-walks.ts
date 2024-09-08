@@ -14,7 +14,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { envConfig } from "../env-config/env-config";
-import { httpRequest } from "../shared/message-handlers";
+import { httpRequest, optionalParameter } from "../shared/message-handlers";
 import * as requestDefaults from "./request-defaults";
 import groupBy from "lodash/groupBy";
 import map from "lodash/map";
@@ -126,10 +126,6 @@ export function listWalks(req: Request, res: Response): void {
     })
     .then(response => res.json(response))
     .catch(error => res.json(error));
-}
-
-function optionalParameter(key: string, value: any): string {
-  return key && value ? `${key}=${value}` : "";
 }
 
 function dateParameter(body: WalkListRequest): string {

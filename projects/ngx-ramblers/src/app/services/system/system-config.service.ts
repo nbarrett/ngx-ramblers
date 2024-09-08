@@ -94,7 +94,16 @@ export class SystemConfigService {
     }
     if (!config.externalSystems.meetup) {
       this.logger.info("migrated meetup to", config.externalSystems.meetup);
-      config.externalSystems.meetup = {groupUrl: null, apiUrl: null, groupName: null, accessToken: null, apiKey: null};
+      config.externalSystems.meetup = {
+        accessToken: null,
+        apiUrl: null,
+        clientId: null,
+        clientRedirectUrl: null,
+        clientSecret: null,
+        groupName: null,
+        groupUrl: null,
+        refreshToken: null
+      };
     } else {
       this.logger.info("nothing to migrate for meetup", config.externalSystems.meetup);
     }

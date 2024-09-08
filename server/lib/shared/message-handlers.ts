@@ -5,6 +5,10 @@ import querystring = require("querystring");
 import { envConfig } from "../env-config/env-config";
 import { MessageHandlerOptions } from "../../../projects/ngx-ramblers/src/app/models/server-models";
 
+export function optionalParameter(key: string, value: any): string {
+  return key && value ? `${key}=${value}` : "";
+}
+
 function createRequestAudit(options: MessageHandlerOptions) {
   const requestAudit = {
     request: {

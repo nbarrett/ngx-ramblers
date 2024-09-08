@@ -24,7 +24,13 @@ import { DateUtilsService } from "./date-utils.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { AlertInstance } from "./notifier.service";
 import { StringUtilsService } from "./string-utils.service";
-
+import { CommonDataService } from "./common-data-service";
+import {
+  MeetupAuthRefreshToken,
+  MeetupAuthRefreshTokenApiResponse,
+  MeetupRequestAuthorisationApiResponse,
+  MeetupRequestAuthorisationResponse
+} from "../models/meetup-authorisation.model";
 
 @Injectable({
   providedIn: "root"
@@ -38,6 +44,7 @@ export class MeetupService {
   constructor(private dateUtils: DateUtilsService,
               private configService: ConfigService,
               private stringUtils: StringUtilsService,
+              private commonDataService: CommonDataService,
               private http: HttpClient, loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(MeetupService, NgxLoggerLevel.OFF);
   }
@@ -58,7 +65,7 @@ export class MeetupService {
       });
   }
 
-  getConfig(): Promise<MeetupConfig> {
+  queryConfig(): Promise<MeetupConfig> {
     return this.configService.queryConfig<MeetupConfig>(ConfigKey.MEETUP, {
       defaultContent: null,
       publishStatus: MeetupStatus.DRAFT,
@@ -286,4 +293,17 @@ export class MeetupService {
   private extractCreatedVenue(response: MeetupVenueResponse): NumericIdentifier {
     return {id: response.id};
   }
+
+  async requestAuthorisation(): Promise<MeetupRequestAuthorisationResponse> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<MeetupRequestAuthorisationApiResponse>(`${this.BASE_URL}/request-authorisation-url`))).response;
+  }
+
+  async requestAccess(meetupAccessCode: string): Promise<MeetupAuthRefreshToken> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<MeetupAuthRefreshTokenApiResponse>(`${this.BASE_URL}/request-access?code=${meetupAccessCode}`, null))).response;
+  }
+
+  async refreshToken(refreshToken: string): Promise<MeetupAuthRefreshToken> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.post<MeetupAuthRefreshTokenApiResponse>(`${this.BASE_URL}/refresh-token?refreshToken=${refreshToken}`, null))).response;
+  }
+
 }
