@@ -34,14 +34,6 @@ export const envConfig = {
     apiKey: validatedEnvironmentVariable("GOOGLE_MAPS_APIKEY"),
   },
   logNamespace,
-  meetup: {
-    apiUrl: null,
-    group: null,
-    oauth: {
-      accessToken: validatedEnvironmentVariable("MEETUP_ACCESS_TOKEN"),
-    },
-    url: null,
-  },
   mongo: {
     uri: validatedEnvironmentVariable("MONGODB_URI"),
   },

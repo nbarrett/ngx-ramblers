@@ -305,7 +305,7 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                  [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
           <input type="submit" value="Save" (click)="save()"
                  [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
-          <input type="submit" value="Undo Changs" (click)="undoChanges()"
+          <input type="submit" value="Undo Changes" (click)="undoChanges()"
                  [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm button-form-left'">
           <input type="submit" value="Exit Without Saving" (click)="cancel()"
                  [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm button-form-left'">

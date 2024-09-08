@@ -93,6 +93,7 @@ import {
   EmailSubscriptionsMailchimpComponent
 } from "../../pages/admin/profile/email-subscriptions-mailchimp.component";
 import { MailListEditorComponent } from "../../pages/admin/system-settings/mail/list-editor";
+import { SystemMeetupSettingsComponent } from "../../pages/admin/system-settings/meetup/system-meetup-settings";
 
 @NgModule({
   declarations: [
@@ -148,6 +149,7 @@ import { MailListEditorComponent } from "../../pages/admin/system-settings/mail/
     SwitchIconComponent,
     SystemImageEditComponent,
     SystemSettingsComponent,
+    SystemMeetupSettingsComponent,
   ],
   imports: [
     SharedModule

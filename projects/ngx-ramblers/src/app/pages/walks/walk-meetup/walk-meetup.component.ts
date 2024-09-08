@@ -52,7 +52,7 @@ export class WalkMeetupComponent implements OnInit {
 
   ngOnInit() {
     this.logger.info("ngOnInit:saveInProgress", typeof this.saveInProgress, this.saveInProgress);
-    this.meetupService.getConfig().then(config => this.config = config);
+    this.meetupService.queryConfig().then(config => this.config = config);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.walkNotificationData = this.walkNotificationService.toWalkNotification(this.displayedWalk, this.display.members);
     this.meetupEventDescription = this.displayedWalk.walk.meetupEventDescription;

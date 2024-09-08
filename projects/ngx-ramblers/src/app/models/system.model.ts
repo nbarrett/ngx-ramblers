@@ -1,6 +1,17 @@
 import { Link } from "./page.model";
 import { HasClass, HasColour } from "./banner-configuration.model";
 
+export enum SystemSettingsTab {
+  GROUP_DETAILS = "Group Details",
+  BACKGROUNDS = "Backgrounds",
+  ICONS = "Icons",
+  LOGOS = "Logos",
+  WEBSITE_HEADER = "Website Header",
+  WEBSITE_FOOTER = "Website Footer",
+  RAMBLERS_DETAILS = "Ramblers Details",
+  EXTERNAL_SYSTEMS = "External Systems",
+}
+
 export enum WalkPopulation {
   WALKS_MANAGER = "walks-manager",
   LOCAL = "local"
@@ -62,8 +73,11 @@ export interface Instagram extends ExternalSystem {
 export interface Meetup extends ExternalSystem {
   apiUrl: string;
   groupName: string;
+  clientId: string;
+  clientSecret: string;
+  clientRedirectUrl: string;
   accessToken: string;
-  apiKey: string;
+  refreshToken: string;
 }
 
 export interface Facebook extends ExternalSystem {

@@ -1,23 +1,26 @@
 import express from "express";
-import createEvent = require("./create-event");
-import deleteEvent = require("./delete-event");
-import updateEvent = require("./update-event");
-import handleAuth = require("./handle-auth");
-import config = require("./config");
-import events = require("./events");
-import locations = require("./locations");
-import venues = require("./venues");
+import { createEvent } from "./create-event";
+import { deleteEvent } from "./delete-event";
+import { updateEvent } from "./update-event";
+import { all, single } from "./events";
+import { locations } from "./locations";
+import { create, list } from "./venues";
+import { requestAuthorisation } from "./request-authorisation";
+import { refreshToken, requestAccess } from "./request-access";
+import * as authConfig from "../auth/auth-config";
+
 const router = express.Router();
 
-router.get("/config", config.config);
-router.delete("/events/delete/:eventId", deleteEvent.deleteEvent);
-router.get("/events/:eventId", events.single);
-router.get("/events", events.all);
-router.patch("/events/update/:eventId", updateEvent.updateEvent);
-router.post("/events/create", createEvent.createEvent);
-router.post("/venues/create", venues.create);
-router.get("/venues/list", venues.list);
-router.get("/handle-auth", handleAuth.handleAuth);
-router.get("/locations", locations.locations);
+router.get("/request-authorisation-url", authConfig.authenticate(), requestAuthorisation);
+router.post("/request-access", authConfig.authenticate(), requestAccess);
+router.post("/refresh-token", authConfig.authenticate(), refreshToken);
+router.delete("/events/delete/:eventId", authConfig.authenticate(), deleteEvent);
+router.get("/events/:eventId", single);
+router.get("/events", all);
+router.patch("/events/update/:eventId", authConfig.authenticate(), updateEvent);
+router.post("/events/create", authConfig.authenticate(), createEvent);
+router.post("/venues/create", authConfig.authenticate(), create);
+router.get("/venues/list", list);
+router.get("/locations", locations);
 
-export const meetup = router;
+export const meetupRoutes = router;
