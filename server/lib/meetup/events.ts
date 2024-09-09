@@ -6,31 +6,81 @@ import * as messageHandlers from "../shared/message-handlers";
 import * as requestDefaults from "./request-defaults";
 import { Meetup } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { configuredMeetup } from "./meetup-config";
+import { HeaderBuilder } from "./header-builder";
+
+import { ContentType } from "../shared/server-models";
 
 const debug = debugLib(envConfig.logNamespace("meetup:events"));
 debug.enabled = true;
 
 function handleError(error: Error, res: Response) {
   debug("error", error);
-  res.status(500).json({error: error.toString()});
+  res.status(500).json({error});
 }
 
 export async function all(req: Request, res: Response): Promise<void> {
   try {
     const meetupConfig: Meetup = await configuredMeetup();
     const defaultOptions = requestDefaults.createApiRequestOptions(meetupConfig);
-    const detail = req.query.detail && (req.query.detail === "true");
-    const status = req.query.status || "upcoming";
-    debug("detail type", typeof req.query.detail);
+    defaultOptions.headers = HeaderBuilder.create().withContentType(ContentType.APPLICATION_JSON).withAuthorisation(meetupConfig.accessToken).build();
+    debug("headers about to be sent:", defaultOptions.headers);
+    const status = "PAST";
+    const proQuery = `
+      query {
+        proNetworkByUrlname(urlname: "${meetupConfig.groupName}") {
+          eventsSearch(filter: { status: ${status} }, input: { first: 20 }) {
+            edges {
+              node {
+                id
+                title
+                description
+                eventUrl
+                dateTime
+                duration
+              }
+            }
+          }
+        }
+      }`;
+    const proBody = {query: proQuery};
+
+
+    const query = `
+      query {
+        groupByUrlname(urlname: "${meetupConfig.groupName}") {
+          eventSearch(
+            filter: {
+              status: ${status},
+              query: ""
+            }
+            input: {
+              first: 20
+            }
+          ) {
+            edges {
+              node {
+                id
+                title
+                description
+                eventUrl
+                dateTime
+                duration
+              }
+            }
+          }
+        }
+    }`;
+    const body = {query};
+    debug("body:", body);
     messageHandlers.httpRequest({
       apiRequest: {
         hostname: defaultOptions.hostname,
         protocol: defaultOptions.protocol,
         headers: defaultOptions.headers,
-        method: "get",
-        path: `/${meetupConfig.groupName}/events?&sign=true&photo-host=public&page=20&status=${status}`
+        method: "POST",
+        path: "/gql",
       },
-      mapper: detail ? undefined : toConciseResponse,
+      body,
       successStatusCodes: defaultOptions.successStatusCodes,
       res,
       req,

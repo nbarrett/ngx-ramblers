@@ -162,7 +162,7 @@ export class MeetupService {
   async createEvent(notify: AlertInstance, walk: Walk, description: string): Promise<MeetupEventResponse> {
     try {
       notify.progress({title: "Meetup", message: "Creating new event"});
-      const eventRequest = await this.eventRequestFor(notify, walk, description);
+      const eventRequest: MeetupEventRequest = await this.eventRequestFor(notify, walk, description);
       const apiResponse = await this.http.post<ApiResponse>(`${this.BASE_URL}/events/create`, eventRequest).toPromise();
       this.logger.debug("create event API response", apiResponse);
       const eventResponse: MeetupEventResponse = apiResponse.response;
@@ -248,15 +248,15 @@ export class MeetupService {
     const venueResponse: NumericIdentifier = await this.createOrMatchVenue(notify, walk);
     this.logger.debug("venue for", walk.postcode, "is", venueResponse);
 
-    const eventRequest = {
-      venue_id: venueResponse.id,
-      time: this.dateUtils.startTime(walk),
+    const eventRequest: MeetupEventRequest = {
+      venueId: venueResponse.id,
+      dateTime: this.dateUtils.startTime(walk),
       duration: this.dateUtils.durationForDistance(walk.distance),
-      guest_limit: walk.config.meetup.guestLimit,
+      guestLimit: walk.config.meetup.guestLimit,
       announce: walk.config.meetup.announce,
       venue_visibility: "public",
       publish_status: walk.config.meetup.publishStatus,
-      name: walk.briefDescriptionAndStartPoint,
+      title: walk.briefDescriptionAndStartPoint,
       description
     };
     this.logger.debug("request about to be submitted for walk is", eventRequest);

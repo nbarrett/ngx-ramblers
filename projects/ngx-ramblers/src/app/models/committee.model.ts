@@ -1,5 +1,5 @@
 import map from "lodash-es/map";
-import { ApiResponse, Identifiable } from "./api-response.model";
+import { Identifiable, TypedApiResponse } from "./api-response.model";
 import { FileNameData } from "./aws-object.model";
 import { DateValue } from "./date.model";
 import { NotificationConfig } from "./mail.model";
@@ -48,9 +48,7 @@ export interface CommitteeFile extends Identifiable {
   fileNameData?: FileNameData;
 }
 
-export interface CommitteeFileApiResponse extends ApiResponse {
-  request: any;
-  response?: CommitteeFile[] | CommitteeFile;
+export interface CommitteeFileApiResponse extends TypedApiResponse<CommitteeFile[] | CommitteeFile> {
 }
 
 export interface GroupEvent extends Identifiable {
