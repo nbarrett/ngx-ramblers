@@ -22,16 +22,6 @@ import {
   MergeFieldAddResponse
 } from "./mailchimp.model";
 
-export interface MessageHandlerOptions {
-  req: any;
-  body?: any;
-  mapper?: (parsedDataJSON: any) => any;
-  apiRequest: any;
-  successStatusCodes?: number[];
-  res: any;
-  debug: (...args: any) => void;
-}
-
 export interface MailchimpMarketingApiClient {
   campaigns: {
     setContent(campaignId: string, mailchimpCampaignContentUpdateRequest: MailchimpCampaignContentUpdateRequest): Promise<MailchimpSetContentResponse>;

@@ -140,6 +140,7 @@ import { SenderRepliesAndSignoffComponent } from "./pages/admin/send-emails/send
 import { CustomReuseStrategy } from "./routing/custom-reuse-strategy";
 import { AlbumIndexSiteEditComponent } from "./modules/common/dynamic-content/dynamic-content-site-edit-album-index";
 import { ColourSelectorComponent } from "./pages/banner/colour-selector";
+import { MeetupButtonComponent } from "./modules/common/third-parties/meetup-button";
 
 @NgModule({
   imports: [
@@ -184,6 +185,7 @@ import { ColourSelectorComponent } from "./pages/banner/colour-selector";
     AspectRatioSelectorComponent,
     BadgeButtonComponent,
     BrevoButtonComponent,
+    MeetupButtonComponent,
     BulkActionSelectorComponent,
     ButtonWrapperComponent,
     CardEditorComponent,
@@ -270,6 +272,7 @@ import { ColourSelectorComponent } from "./pages/banner/colour-selector";
     AspectRatioSelectorComponent,
     BadgeButtonComponent,
     BrevoButtonComponent,
+    MeetupButtonComponent,
     BsDatepickerModule,
     BsDropdownModule,
     ButtonWrapperComponent,

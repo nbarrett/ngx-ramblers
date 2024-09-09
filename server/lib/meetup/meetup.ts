@@ -8,6 +8,7 @@ import { create, list } from "./venues";
 import { requestAuthorisation } from "./request-authorisation";
 import { refreshToken, requestAccess } from "./request-access";
 import * as authConfig from "../auth/auth-config";
+import { groupDetails } from "./group-details";
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ router.get("/events/:eventId", single);
 router.get("/events", all);
 router.patch("/events/update/:eventId", authConfig.authenticate(), updateEvent);
 router.post("/events/create", authConfig.authenticate(), createEvent);
+router.get("/group-details", groupDetails);
 router.post("/venues/create", authConfig.authenticate(), create);
 router.get("/venues/list", list);
 router.get("/locations", locations);

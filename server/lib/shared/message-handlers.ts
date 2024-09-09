@@ -3,88 +3,99 @@ import https = require("https");
 import isEmpty = require("lodash/isEmpty");
 import querystring = require("querystring");
 import { envConfig } from "../env-config/env-config";
-import { MessageHandlerOptions } from "../../../projects/ngx-ramblers/src/app/models/server-models";
+import { keys } from "lodash-es";
+import { ContentType, MessageHandlerOptions } from "./server-models";
+import { ApiResponse } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
 
 export function optionalParameter(key: string, value: any): string {
   return key && value ? `${key}=${value}` : "";
 }
 
-function createRequestAudit(options: MessageHandlerOptions) {
-  const requestAudit = {
-    request: {
+function createAuditedApiResponse<I, O>(options: MessageHandlerOptions<I, O>): ApiResponse {
+  const requestAudit: ApiResponse = {
+    request: options.req ? {
       parameters: options.req.params,
-      url: options.req.url, apiRequest: undefined,
-      body: undefined
-
-    }
+      url: options.req.url,
+    } : {}
   };
   if (!isEmpty(options.body)) {
     requestAudit.request.body = options.body;
   }
   if (envConfig.dev) {
-    requestAudit.request.apiRequest = options.apiRequest;
+    requestAudit.serverApiRequest = options.apiRequest;
   }
   return requestAudit;
 }
 
-export function httpRequest(options: MessageHandlerOptions) {
+function parseJson<I, O>(options: MessageHandlerOptions<I, O>, rawData: string) {
+  options.debug("parsing raw data", rawData);
+  try {
+    return isEmpty(rawData) ? {} : JSON.parse(rawData);
+  } catch (e) {
+    options.debug("error parsing JSON", e);
+    return {error: rawData};
+  }
+}
+
+export function httpRequest<I, O>(options: MessageHandlerOptions<I, O>): Promise<ApiResponse> {
   return new Promise((resolve, reject) => {
     options.debug("sending request using API request options", options.apiRequest);
-    const requestAudit = createRequestAudit(options);
+    const apiResponse: ApiResponse = createAuditedApiResponse(options);
     const request = https.request(options.apiRequest, (response: http.IncomingMessage) => {
       const data = [];
-      options.res.httpVersion = response.httpVersion;
-      options.res.trailers = response.trailers;
-      options.res.headers = response.headers;
       response.on("data", chunk => {
         data.push(chunk);
       });
       response.on("end", () => {
-        const returnValue = {apiStatusCode: response.statusCode, response: undefined};
-        let debugPrefix;
-        if ((options.successStatusCodes || [200]).includes(response.statusCode)) {
-          debugPrefix = response.statusCode !== 200 ? `REMAPPED ${response.statusCode} -> 200` : `SUCCESS 200`;
-          options.res.statusCode = 200;
+        let debugPrefix: string;
+        if (options.res && (options.successStatusCodes || [200]).includes(response.statusCode)) {
+          debugPrefix = response.statusCode !== 200 ? `Remapped ${response.statusCode} -> 200` : `Success 200`;
+          options.res.status(200);
         } else {
-          debugPrefix = `ERROR ${response.statusCode}`;
-          options.res.statusCode = response.statusCode;
+          debugPrefix = `Error ${response.statusCode}`;
+          if (options.res) {
+            options.res.statusCode = response.statusCode;
+          }
         }
         if (response.statusCode === 204) {
-          returnValue.response = {message: "request was successful but no data was returned"};
+          apiResponse.response = {message: "Request was successful but no data was returned"};
         } else {
           const rawData = Buffer.concat(data).toString();
           try {
-            options.debug("parsing raw data", rawData);
-            const parsedDataJSON = isEmpty(rawData) ? {} : JSON.parse(rawData);
-            returnValue.response = parsedDataJSON.errors ? parsedDataJSON : (options.mapper ? options.mapper(parsedDataJSON) : parsedDataJSON);
+            const parsedDataJSON = parseJson(options, rawData);
+            apiResponse.response = (parsedDataJSON.errors || parsedDataJSON.error) ? parsedDataJSON : (options.mapper ? options.mapper(parsedDataJSON) : parsedDataJSON);
           } catch (err) {
-            options.res.statusCode = 500;
+            if (options.res) {
+              options.res.status(500);
+            }
             const message = rawData;
             options.debug(message, rawData, err);
-            const rejectedResponse = {...requestAudit, message, response: {error: err.message}};
-            options.debug("ERROR:", rejectedResponse);
-            reject(rejectedResponse);
+            apiResponse.message = message;
+            apiResponse.response = {error: err.message};
+            options.debug("Error:", apiResponse);
+            reject(apiResponse);
           }
         }
-        const resolvedResponse = {...requestAudit, ...returnValue};
-        options.debug(debugPrefix, ":", JSON.stringify(resolvedResponse));
-        resolve(resolvedResponse);
+        options.debug(debugPrefix, ":", JSON.stringify(apiResponse));
+        resolve(apiResponse);
       });
     });
     request.on("error", error => {
       const rejectedResponse = {
-        ...requestAudit,
+        ...apiResponse,
         message: "request.on error event occurred",
         response: {error}
       };
       options.debug("ERROR:", JSON.stringify(rejectedResponse));
       reject(rejectedResponse);
     });
-    if (!isEmpty(options.body)) {
+    if (options.body) {
       options.debug("sending body", options.body);
-      const formData = querystring.stringify(options.body);
+      const formData = options.apiRequest.headers["Content-Type"] === ContentType.APPLICATION_JSON ? JSON.stringify(options.body) : querystring.stringify(options.body);
       options.debug("writing formData", formData);
       request.write(formData);
+    } else {
+      options.debug("no body supplied in options containing keys:", keys(options));
     }
     request.end();
   });
