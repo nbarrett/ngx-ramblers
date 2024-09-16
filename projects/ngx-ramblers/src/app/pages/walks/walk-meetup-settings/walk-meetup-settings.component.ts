@@ -113,4 +113,6 @@ export class WalkMeetupSettingsComponent implements OnInit {
   save() {
     this.meetupService.saveConfig(this.notify, this.config);
   }
+
+  protected readonly View = View;
 }

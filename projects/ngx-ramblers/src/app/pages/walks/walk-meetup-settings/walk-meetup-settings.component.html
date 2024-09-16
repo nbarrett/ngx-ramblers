@@ -46,9 +46,8 @@
                                            [editNameEnabled]="true"
                                            [deleteEnabled]="true"
                                            [id]="content.name"
-                                           [initialView]="view"
-                                           [rows]="8">
-                      </app-markdown-editor>
+                                           [initialView]="View.EDIT"
+                                           [rows]="8"/>
                     </div>
                   </ng-container>
                 </div>
@@ -58,20 +57,20 @@
         </tab>
         <tab heading="Publishing defaults">
           <div class="img-thumbnail thumbnail-admin-edit">
-            <div markdown class="mb-2">
+            <div markdown class="list-arrow b-2">
               <ul>
                 <li>Here you can configure default settings that will be used when creating Meetup events.
                 </li>
               </ul>
             </div>
             <app-walk-meetup-config-parameters *ngIf="config" [config]="config"
-                                               [contentTextItems]="contentTextItems"></app-walk-meetup-config-parameters>
+                                               [contentTextItems]="contentTextItems"/>
           </div>
         </tab>
       </tabset>
       <div class="form-group">
         <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
-          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+          <fa-icon [icon]="notifyTarget.alert.icon"/>
           <strong> {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
         </div>
       </div>

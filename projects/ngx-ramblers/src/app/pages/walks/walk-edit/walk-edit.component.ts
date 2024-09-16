@@ -40,7 +40,6 @@ import { WalkNotificationService } from "../../../services/walks/walk-notificati
 import { WalksQueryService } from "../../../services/walks/walks-query.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { WalksService } from "../../../services/walks/walks.service";
-import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
@@ -113,9 +112,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     protected notifierService: NotifierService,
     private configService: ConfigService,
     private broadcastService: BroadcastService<Walk>,
-    private siteEditService: SiteEditService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkEditComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(WalkEditComponent, NgxLoggerLevel.INFO);
   }
 
   async ngOnInit() {
@@ -306,7 +304,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   showWalk(displayedWalk: DisplayedWalk) {
     if (displayedWalk) {
-      this.logger.info("showWalk", displayedWalk.walk, "mailConfig:", this.mailMessagingConfig.mailConfig);
+      this.logger.info("showWalk", displayedWalk.walk, "mailConfig:", this?.mailMessagingConfig?.mailConfig);
       if (!displayedWalk.walk.venue) {
         this.logger.debug("initialising walk venue");
         displayedWalk.walk.venue = {type: this.walksReferenceService.venueTypes()[0].type, postcode: displayedWalk.walk.postcode};
@@ -414,7 +412,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         this.logger.info("updating contactId from", walkTemplate.contactId, "to", contactId);
         walkTemplate.contactId = contactId;
       } else {
-        this.logger.info("cannot find contact Id to overwrite copy ied walk contact Id of", walkTemplate.contactId);
+        this.logger.info("cannot find contact Id to overwrite copied walk contact Id of", walkTemplate.contactId);
       }
       Object.assign(this.displayedWalk.walk, walkTemplate);
       const event = this.walkEventService.createEventIfRequired(this.displayedWalk.walk,
@@ -425,6 +423,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         title: "Walk details were copied from previous walk on " + templateDate,
         message: "Make any further changes here and save when you are done."
       });
+    } else {
+      this.logger.warn("populateCurrentWalkFromTemplate no template to copy from");
     }
   }
 
@@ -701,7 +701,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.longerDescriptionPreview = true;
   }
 
-  selectCopySelectedLeader() {
+  copySelectedWalkLeader() {
     this.copySource = "copy-selected-walk-leader";
     this.populateWalkTemplates();
   }
