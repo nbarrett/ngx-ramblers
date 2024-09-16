@@ -187,18 +187,15 @@ export class MarkdownEditorComponent implements OnInit {
     this.logger = loggerFactory.createLogger(MarkdownEditorComponent, NgxLoggerLevel.ERROR);
   }
 
-  private presentationMode: boolean;
-
-
   @Input() id: string;
   @Input() rows: number;
   @Input() actionCaptionSuffix: string;
-
   @Input() initialView: View;
   @Input() description: string;
   @Output() changed: EventEmitter<ContentText> = new EventEmitter();
   @Output() saved: EventEmitter<ContentText> = new EventEmitter();
   @Output() focusChange: EventEmitter<EditorInstanceState> = new EventEmitter();
+  private presentationMode: boolean;
   public minimumRows = 10;
   public data: ContentText;
   public allowMaximise: boolean;

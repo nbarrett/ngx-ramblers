@@ -23,6 +23,18 @@ import { MeetupService } from "../../../services/meetup.service";
 })
 export class WalkMeetupComponent implements OnInit {
 
+  constructor(private memberLoginService: MemberLoginService,
+              private broadcastService: BroadcastService<ContentText>,
+              private changeDetectorRef: ChangeDetectorRef,
+              private contentTextService: ContentTextService,
+              private notifierService: NotifierService,
+              private walkNotificationService: WalkNotificationService,
+              public display: WalkDisplayService,
+              public meetupService: MeetupService,
+              loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.createLogger(WalkMeetupComponent, NgxLoggerLevel.OFF);
+  }
+
   @Input()
   public displayedWalk: DisplayedWalk;
 
@@ -38,17 +50,7 @@ export class WalkMeetupComponent implements OnInit {
   meetupEventDescription: string;
   public view: View = View.VIEW;
 
-  constructor(private memberLoginService: MemberLoginService,
-              private broadcastService: BroadcastService<ContentText>,
-              private changeDetectorRef: ChangeDetectorRef,
-              private contentTextService: ContentTextService,
-              private notifierService: NotifierService,
-              private walkNotificationService: WalkNotificationService,
-              public display: WalkDisplayService,
-              public meetupService: MeetupService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkMeetupComponent, NgxLoggerLevel.OFF);
-  }
+  protected readonly ContentTextCategory = ContentTextCategory;
 
   ngOnInit() {
     this.logger.info("ngOnInit:saveInProgress", typeof this.saveInProgress, this.saveInProgress);
@@ -107,5 +109,7 @@ export class WalkMeetupComponent implements OnInit {
     this.changeDetectorRef.detectChanges();
   }
 
-  protected readonly ContentTextCategory = ContentTextCategory;
+  inputDisabled(): boolean {
+    return false;
+  }
 }

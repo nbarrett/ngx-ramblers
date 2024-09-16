@@ -5,10 +5,9 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { ContentText } from "../../../models/content-text.model";
 import { MeetupConfig } from "../../../models/meetup-config.model";
 import { BroadcastService } from "../../../services/broadcast-service";
-import { ConfigService } from "../../../services/config.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MeetupService } from "../../../services/meetup.service";
-import { UrlService } from "../../../services/url.service";
+import { isString } from "lodash-es";
 
 @Component({
   selector: "app-walk-meetup-config-parameters",
@@ -31,12 +30,10 @@ export class WalkMeetupConfigParametersComponent implements OnInit {
   public publishStatuses: string[] = [];
   public guestLimits: number[];
 
-  constructor(private urlService: UrlService,
-              private configService: ConfigService,
-              private meetupService: MeetupService,
+  constructor(private meetupService: MeetupService,
               private broadcastService: BroadcastService<ContentText>,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkMeetupConfigParametersComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(WalkMeetupConfigParametersComponent, NgxLoggerLevel.INFO);
   }
 
   ngOnInit() {
@@ -52,13 +49,15 @@ export class WalkMeetupConfigParametersComponent implements OnInit {
     this.config.guestLimit = content;
   }
 
-  changeDefaultContent(content: ContentText) {
+  changeDefaultContent(contentOrName: string | ContentText) {
+    const content: ContentText = isString(contentOrName) ? this.contentTextItems?.find(item => item.name === contentOrName) : contentOrName;
     this.selectContent(content, true);
   }
 
   selectContent(content: ContentText, renderMarkdownField: boolean) {
+    this.logger.info("changeDefaultContent:change to", content, "this.config.defaultContent:", this.config?.defaultContent);
     if (content) {
-      this.logger.info("changeDefaultContent:change to", content, "this.config.defaultContent:", this.config.defaultContent);
+      this.logger.info("changeDefaultContent:change to", content, "this.config.defaultContent:", this.config?.defaultContent);
       if (renderMarkdownField) {
         this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MEETUP_DEFAULT_CONTENT_CHANGED, content));
       }

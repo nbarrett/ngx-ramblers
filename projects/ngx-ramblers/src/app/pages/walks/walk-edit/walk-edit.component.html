@@ -112,27 +112,27 @@
                 </div>
                 <div class="col-sm-6" *ngIf="ramblersWalkExists()">
                   <div class="form-group">
-                    <label>Link preview:
-                      <img class="related-links-ramblers-image"
-                           src="favicon.ico"
-                           alt="Click to view on Ramblers Walks and Events Manager"/>
-                      <a target="_blank"
-                         tooltip="Click to view on Ramblers Walks and Events Manager"
-                         [href]="display.ramblersLink(displayedWalk.walk)">Ramblers</a>
-                    </label>
+                    <label class="mr-2">Link preview:</label>
+                    <img class="related-links-ramblers-image"
+                         src="favicon.ico"
+                         alt="Click to view on Ramblers Walks and Events Manager"/>
+                    <a target="_blank"
+                       class="ml-2"
+                       tooltip="Click to view on Ramblers Walks and Events Manager"
+                       [href]="display.ramblersLink(displayedWalk.walk)">Ramblers</a>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          <app-walk-venue *ngIf="displayedWalk.walk.venue" [displayedWalk]="displayedWalk"></app-walk-venue>
-          <app-walk-meetup [displayedWalk]="displayedWalk" [saveInProgress]="saveInProgress"></app-walk-meetup>
+          <app-walk-venue *ngIf="displayedWalk.walk.venue" [displayedWalk]="displayedWalk"/>
+          <app-walk-meetup [displayedWalk]="displayedWalk" [saveInProgress]="saveInProgress"/>
           <div class="col-sm-12">
             <div class="row img-thumbnail thumbnail-walk-edit">
               <div class="thumbnail-heading">OS Maps</div>
               <div class="row">
                 <div class="col-sm-12">
-                  <app-markdown-editor name="os-maps-help" description="Linking to OS Maps"></app-markdown-editor>
+                  <app-markdown-editor name="os-maps-help" description="Linking to OS Maps"/>
                 </div>
               </div>
               <div class="row">
@@ -474,7 +474,7 @@
                         [disabled]="copySource!=='copy-selected-walk-leader'"
                         class="input-md input-led-by"
                         [(ngModel)]="copySourceFromWalkLeaderMemberId"
-                        (change)="selectCopySelectedLeader()"
+                        (ngModelChange)="copySelectedWalkLeader()"
                         id="copy-member-walks">
                         <option value="">(no walk leader selected)</option>
                         <option *ngFor="let member of previousWalkLeadersWithAliasOrMe()"
@@ -502,7 +502,7 @@
                       Copy from {{ copyFrom?.walkTemplates?.length || 0 }} available walk(s): </label>
                     <select [disabled]="inputDisabled()" class="form-control input-sm"
                             [(ngModel)]="copyFrom.walkTemplate"
-                            (change)="populateCurrentWalkFromTemplate()"
+                            (ngModelChange)="populateCurrentWalkFromTemplate()"
                             id="copy-walks-list">
                       <option value="">(none selected)</option>
                       <option *ngFor="let walkTemplate of copyFrom.walkTemplates"
