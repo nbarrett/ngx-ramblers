@@ -113,7 +113,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     private configService: ConfigService,
     private broadcastService: BroadcastService<Walk>,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkEditComponent, NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger(WalkEditComponent, NgxLoggerLevel.ERROR);
   }
 
   async ngOnInit() {

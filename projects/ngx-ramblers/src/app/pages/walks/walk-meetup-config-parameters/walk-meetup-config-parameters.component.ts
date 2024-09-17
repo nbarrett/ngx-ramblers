@@ -33,7 +33,7 @@ export class WalkMeetupConfigParametersComponent implements OnInit {
   constructor(private meetupService: MeetupService,
               private broadcastService: BroadcastService<ContentText>,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkMeetupConfigParametersComponent, NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger(WalkMeetupConfigParametersComponent, NgxLoggerLevel.ERROR);
   }
 
   ngOnInit() {
