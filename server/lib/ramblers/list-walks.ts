@@ -119,7 +119,7 @@ export function listWalks(req: Request, res: Response): void {
         const rawResponse = response as RamblersWalksRawApiResponseApiResponse;
         debugLog("returned response summary:", rawResponse?.response?.summary);
       } else {
-        const rawResponse = response as RamblersWalkResponse[];
+        const rawResponse = response as unknown as RamblersWalkResponse[];
         debugLog("returned response summary:", rawResponse.length, "results");
       }
       return response;

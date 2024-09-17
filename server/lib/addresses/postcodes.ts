@@ -13,7 +13,7 @@ const debugLog: debug.Debugger = debug(envConfig.logNamespace("postcodes"));
 
 export const postcodes = {postcodeLookup};
 
-function mapper(response: PostcodeLookupServiceResponse) {
+function mapper(response: PostcodeLookupServiceResponse): PostcodeLookupServiceResponse | PostcodeLookupResponse {
   if (response.result) {
     const returnedResponse: PostcodeLookupResponse = {
       eastings: padStart(response.result.eastings.toString(), 6, "0"),
@@ -44,6 +44,6 @@ async function postcodeLookup(req, res) {
     res,
     req,
     debug: debugLog
-  }).then((response: PostcodeLookupServiceResponse) => res.json(response))
+  }).then((response: any) => res.json(response))
     .catch(error => res.json(error));
 }

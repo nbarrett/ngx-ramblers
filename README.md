@@ -2,7 +2,7 @@
 
 # Welcome to NGX-Ramblers!
 
-[![NGX-Ramblers Docker Image](https://github.com/nbarrett/ngx-ramblers/actions/workflows/build-push-and-deploy-ngx-ramblers-docker-image-via-heroku.yml/badge.svg)](https://github.com/nbarrett/ngx-ramblers/actions/workflows/build-push-and-deploy-ngx-ramblers-docker-image.yml)
+[![NGX-Ramblers Docker Image](https://github.com/nbarrett/ngx-ramblers/actions/workflows/build-push-and-deploy-ngx-ramblers-docker-image-via-heroku.yml/badge.svg)](https://github.com/nbarrett/ngx-ramblers/actions/workflows/build-push-and-deploy-ngx-ramblers-docker-image-via-heroku.yml)
 [![Heroku](https://img.shields.io/badge/heroku-%23430098.svg?style=&logo=heroku&logoColor=white)](https://github.com/nbarrett/ngx-ramblers/deployments/ngx-ramblers-staging)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub issues](https://img.shields.io/github/issues/nbarrett/ngx-ramblers)](https://github.com/nbarrett/ngx-ramblers/issues)
