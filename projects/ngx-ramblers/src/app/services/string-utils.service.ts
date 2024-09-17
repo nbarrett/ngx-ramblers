@@ -53,10 +53,10 @@ StringUtilsService {
       const messageToStringify = {message: extractedMessage.message, error: extractedMessage.error};
       this.logger.error("error is instanceof HttpErrorResponse:extractedMessage:", extractedMessage, "messageToStringify:", messageToStringify);
       returnValue = extractedMessage.statusText + " - " + this.stringifyObject(messageToStringify);
-    } else if (has(extractedMessage, ["error", "message"])) {
-      returnValue = extractedMessage.error.message + (extractedMessage.error.error ? " - " + extractedMessage.error.error : "");
-    } else if (has(extractedMessage, ["error", "errmsg"])) {
-      returnValue = extractedMessage.error.errmsg + (extractedMessage.error.error ? " - " + extractedMessage.error.error : "");
+    } else if (extractedMessage?.error?.message) {
+      returnValue = extractedMessage?.error?.message + (extractedMessage?.error?.error ? " - " + extractedMessage?.error?.error : "");
+    } else if (extractedMessage?.error?.errmsg) {
+      returnValue = extractedMessage?.error?.errmsg + (extractedMessage?.error?.error ? " - " + extractedMessage?.error?.error : "");
     } else if (isObject(extractedMessage)) {
       returnValue = this.stringifyObject(extractedMessage);
     } else {
