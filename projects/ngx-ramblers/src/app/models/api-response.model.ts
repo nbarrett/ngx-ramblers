@@ -2,16 +2,11 @@ import { ApiRequest } from "./api-request.model";
 
 export interface ApiResponse {
   request: ApiRequest;
-  action?: ApiAction;
-  serverApiRequest?: any;
+  action: ApiAction;
   response?: any;
   message?: string;
   error?: any;
   apiStatusCode?: number;
-}
-
-export interface TypedApiResponse<T> extends ApiResponse {
-  response?: T;
 }
 
 export interface Identifiable {

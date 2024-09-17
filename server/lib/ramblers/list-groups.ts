@@ -5,12 +5,11 @@ import { envConfig } from "../env-config/env-config";
 import { httpRequest } from "../shared/message-handlers";
 import * as requestDefaults from "./request-defaults";
 import { systemConfig } from "../config/system-config";
-import { Request, Response } from "express";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:groups"));
 debugLog.enabled = false;
 
-export function listGroups(req: Request, res: Response): void {
+export function listGroups(req, res): void {
   systemConfig()
     .then((systemConfig: SystemConfig) => {
       const body: GroupListRequest = req.body;

@@ -2,7 +2,7 @@ import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { ALERT_ERROR, AlertTarget } from "../../../../models/alert-target.model";
-import { MailProvider, SystemConfig } from "../../../../models/system.model";
+import { SystemConfig } from "../../../../models/system.model";
 import { LoggerFactory } from "../../../../services/logger-factory.service";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { ActivatedRoute, ParamMap } from "@angular/router";
@@ -12,8 +12,6 @@ import { HttpErrorResponse } from "@angular/common/http";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { UrlService } from "../../../../services/url.service";
-import cloneDeep from "lodash-es/cloneDeep";
-import isEqual from "lodash-es/isEqual";
 
 @Component({
   selector: "app-system-meetup-settings",
@@ -95,15 +93,15 @@ import isEqual from "lodash-es/isEqual";
             </div>
           </div>
           <div class="col-md-12">
-            <div class="form-inline">
-              <app-meetup-button button (click)="viewOAuthClients()"
-                                 title="View OAuth Clients"/>
-              <app-meetup-button class="ml-2" button (click)="requestMeetupAuthorisation()"
-                                 title="Initiate Request Authorisation"/>
+            <div class="form-group">
+              <button (click)="requestMeetupAuthorisation()"
+                      class="btn btn-primary">
+                Initiate Request Authorisation
+              </button>
             </div>
           </div>
           <div *ngIf="notifyTarget.showAlert" class="col-sm-12">
-            <div class="form-group mt-3">
+            <div class="form-group">
               <alert [type]="notifyTarget.alert.type">
                 <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
                 <strong class="ml-2">{{ notifyTarget.alertTitle }}</strong>
@@ -124,7 +122,7 @@ export class SystemMeetupSettingsComponent implements OnInit, OnDestroy {
   private meetupService: MeetupService = inject(MeetupService);
   protected stringUtils: StringUtilsService = inject(StringUtilsService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger = this.loggerFactory.createLogger("MeetupSettingsComponent", NgxLoggerLevel.INFO);
+  private logger = this.loggerFactory.createLogger("MeetupSettingsComponent", NgxLoggerLevel.ERROR);
   protected meetupAccessToken: MeetupAuthToken;
   private notifierService: NotifierService = inject(NotifierService);
   protected meetupAccessCode: string;
@@ -132,9 +130,6 @@ export class SystemMeetupSettingsComponent implements OnInit, OnDestroy {
   private notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   protected readonly ALERT_ERROR = ALERT_ERROR;
   private urlService: UrlService = inject(UrlService);
-
-  protected readonly MailProvider = MailProvider;
-  private configInitialValue: SystemConfig;
 
   ngOnInit() {
     this.logger.info("constructed");
@@ -198,7 +193,6 @@ export class SystemMeetupSettingsComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.systemConfigService.events()
       .subscribe((config: SystemConfig) => {
         this.config = config;
-        this.configInitialValue = cloneDeep(config);
         this.logger.info("retrieved config", config);
       }));
   }
@@ -208,32 +202,14 @@ export class SystemMeetupSettingsComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
-  async requestMeetupAuthorisation() {
-    if (!isEqual(this.configInitialValue, this.config)) {
-      this.logger.info("saveConfig started");
-      await this.systemConfigService.saveConfig(this.config);
-      this.logger.info("saveConfig completed");
-    } else {
-      this.logger.info("config not changed");
-    }
+  requestMeetupAuthorisation() {
     this.meetupService.requestAuthorisation()
       .then((authorisationResponse: MeetupRequestAuthorisationResponse) => {
-        this.notify.progress({
-          title: `Meetup Access Request Authorisation`,
-          message: `Navigating to  ${authorisationResponse.requestAuthorisationUrl}`,
-        });
         this.logger.info("requestMeetupAuthorisation:", authorisationResponse);
         window.open(authorisationResponse.requestAuthorisationUrl);
       })
       .catch((error: HttpErrorResponse) => {
-        this.notify.error({
-          title: `Unexpected Error Occurred In Meetup Authorisation`,
-          message: error,
-        });
+        this.logger.error("requestMeetupAuthorisation failed:", error);
       });
-  }
-
-  viewOAuthClients() {
-    window.open("https://www.meetup.com/api/oauth/list/", "_blank");
   }
 }

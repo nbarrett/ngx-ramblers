@@ -7,15 +7,15 @@ import debugLib from "debug";
 import { configuredMeetup } from "./meetup-config";
 import { Meetup } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { isEmpty } from "lodash";
+import { ContentType, HTTPRequestOptions } from "./models";
 import { HeaderBuilder } from "./header-builder";
-import { ContentType, HTTPRequestOptions } from "../shared/server-models";
 
 export async function requestAccess(req: Request, res: Response): Promise<void> {
   const debug = debugLib(envConfig.logNamespace("meetup:request-access"));
   debug.enabled = true;
   const meetupConfig: Meetup = await configuredMeetup();
   const defaultOptions = requestDefaults.createApiRequestOptions(meetupConfig);
-  defaultOptions.headers = HeaderBuilder.create().withContentType(ContentType.APPLICATION_FORM_URL_ENCODED).build();
+  defaultOptions.headers = new HeaderBuilder().withContentType(ContentType.APPLICATION_FORM_URL_ENCODED).build();
   const optionalParameters = [
     optionalParameter("client_id", meetupConfig.clientId),
     optionalParameter("client_secret", meetupConfig.clientSecret),
@@ -32,7 +32,7 @@ export async function refreshToken(req: Request, res: Response): Promise<void> {
   debug.enabled = true;
   const meetupConfig: Meetup = await configuredMeetup();
   const defaultOptions = requestDefaults.createApiRequestOptions(meetupConfig);
-  defaultOptions.headers = HeaderBuilder.create().withContentType(ContentType.APPLICATION_FORM_URL_ENCODED).build();
+  defaultOptions.headers = new HeaderBuilder().withContentType(ContentType.APPLICATION_FORM_URL_ENCODED).build();
   const optionalParameters = [
     optionalParameter("client_id", meetupConfig.clientId),
     optionalParameter("client_secret", meetupConfig.clientSecret),

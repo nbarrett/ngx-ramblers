@@ -428,7 +428,7 @@ import { StoredValue } from "../../../models/ui-actions";
                  (selectTab)="selectTab(SystemSettingsTab.EXTERNAL_SYSTEMS)">
               <div class="img-thumbnail thumbnail-admin-edit">
                 <app-mail-provider-settings [config]="config"
-                                            (membersPendingSave)="membersPendingSave=$event"/>
+                                            (membersPendingSave)="membersPendingSave=$event"></app-mail-provider-settings>
                 <div class="row img-thumbnail thumbnail-2">
                   <div class="thumbnail-heading">Instagram</div>
                   <div class="col-sm-12">

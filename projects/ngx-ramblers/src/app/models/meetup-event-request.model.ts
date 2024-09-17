@@ -1,11 +1,11 @@
 export interface MeetupEventRequest {
-  title: string;
-  venueId: number;
-  dateTime: number;
+  venue_id: number;
+  time: number;
   announce: boolean;
   venue_visibility: string;
   publish_status: string;
+  name: string;
   description: string;
   duration: number;
-  guestLimit: number;
+  guest_limit: number;
 }

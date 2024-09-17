@@ -1,7 +1,7 @@
 export interface ApiRequest {
-  parameters?: object;
-  url?: string;
-  body?: object;
+  parameters: object;
+  url: string;
+  body: object;
 }
 
 export interface DataQueryOptions {
