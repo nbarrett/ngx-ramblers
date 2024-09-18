@@ -5,10 +5,10 @@ const path = require('path'),
   {SerenityBDDReporter} = require("@serenity-js/serenity-bdd");
 
 exports.config = {
-  chromeDriver: process.env["CHROMEDRIVER_PATH"] || require('chromedriver/lib/chromedriver').path,
+  chromeDriver: process.env["CHROMEDRIVER_PATH"] || "/usr/local/bin/chromedriver",
   SELENIUM_PROMISE_MANAGER: false,
   directConnect: true,
-  baseUrl: "https://ekwg-dev.herokuapp.com",
+  baseUrl: process.env["BASE_URL"],
   allScriptsTimeout: 110000,
   getPageTimeout: 60000,
 
