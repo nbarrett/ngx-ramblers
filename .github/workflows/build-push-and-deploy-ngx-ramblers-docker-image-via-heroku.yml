@@ -27,10 +27,10 @@ jobs:
         run: docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}
 
       - name: Tag the Docker image (latest)
-        run: docker tag ngx-ramblers:${{ github.run_number }} ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}latest
+        run: docker tag ngx-ramblers:${{ github.run_number }} ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest
 
       - name: Push the Docker image to Docker Hub (latest)
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest
 
       - name: Install Heroku CLI
         run: curl https://cli-assets.heroku.com/install.sh | sh
@@ -58,23 +58,28 @@ jobs:
           echo "APP_NAME=${{ secrets.APP_NAME }}" >> $GITHUB_ENV
           echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> $GITHUB_ENV
           echo "DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest" >> $GITHUB_ENV
-          echo "ALLOWED_DOMAINS=${{ secrets.ALLOWED_DOMAINS }}" >> $GITHUB_ENV # Add this line
+          echo "ALLOWED_DOMAINS=${{ secrets.ALLOWED_DOMAINS }}" >> $GITHUB_ENV
 
       - name: Replace Docker image, app name, and allowed domains in fly.toml
+        env:
+          APP_NAME: ${{ secrets.APP_NAME }}
+          DOCKER_IMAGE: ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest
+          ALLOWED_DOMAINS: ${{ secrets.ALLOWED_DOMAINS }}
         run: |
           sed -i 's|\${DOCKER_IMAGE}|'"$DOCKER_IMAGE"'|g' fly.toml
           sed -i 's|\${APP_NAME}|'"$APP_NAME"'|g' fly.toml
           sed -i 's|\${ALLOWED_DOMAINS}|'"$ALLOWED_DOMAINS"'|g' fly.toml
-
+          echo "fly.toml updated with DOCKER_IMAGE, APP_NAME, and ALLOWED_DOMAINS:"
+          cat fly.toml
       - name: Install Flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy App
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl deploy --remote-only --app $APP_NAME
-
+        run: |
+          flyctl deploy --remote-only --app ${{ secrets.APP_NAME }}
       - name: Scale App to 1
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl scale count 1 --app $APP_NAME
+        run: flyctl scale count 1  --app ${{ secrets.APP_NAME }}
