@@ -48,10 +48,11 @@ debugLog.enabled = true;
 const folderNavigationsUp = process.env.NODE_ENV === "production" ? "../../" : "";
 const distFolder = path.resolve(__dirname, folderNavigationsUp, "../../dist/ngx-ramblers");
 const currentDir = path.resolve(__dirname);
-debugLog("currentDir:", currentDir, "distFolder:", distFolder, "NODE_ENV:", process.env.NODE_ENV);
+const port: number = +envConfig.server.listenPort;
+debugLog("currentDir:", currentDir, "distFolder:", distFolder, "NODE_ENV:", process.env.NODE_ENV, "port:", port);
 const app = express();
 app.use(compression());
-app.set("port", envConfig.server.listenPort);
+app.set("port", port);
 app.disable("view cache");
 app.use(favicon(path.join(distFolder, "favicon.ico")));
 app.use(logger(envConfig.env));
@@ -98,6 +99,6 @@ if (app.get("env") === "dev") {
   app.use(errorHandler());
 }
 mongooseClient.connect(debugLog);
-app.listen(app.get("port"), function () {
-  debugLog("listening on port " + envConfig.server.listenPort);
+app.listen(port, "0.0.0.0", () => {
+  debugLog("Server is listening on port", port);
 });
