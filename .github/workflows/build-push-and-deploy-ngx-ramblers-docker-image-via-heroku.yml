@@ -9,7 +9,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    concurrency: deploy-group
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -52,3 +52,29 @@ jobs:
 
       - name: Push Docker image to Heroku (latest)
         run: docker push registry.heroku.com/ngx-ramblers-docker:latest
+
+      - name: Set environment variables for fly.io deployment
+        run: |
+          echo "APP_NAME=${{ secrets.APP_NAME }}" >> $GITHUB_ENV
+          echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> $GITHUB_ENV
+          echo "DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest" >> $GITHUB_ENV
+          echo "ALLOWED_DOMAINS=${{ secrets.ALLOWED_DOMAINS }}" >> $GITHUB_ENV # Add this line
+
+      - name: Replace Docker image, app name, and allowed domains in fly.toml
+        run: |
+          sed -i 's|\${DOCKER_IMAGE}|'"$DOCKER_IMAGE"'|g' fly.toml
+          sed -i 's|\${APP_NAME}|'"$APP_NAME"'|g' fly.toml
+          sed -i 's|\${ALLOWED_DOMAINS}|'"$ALLOWED_DOMAINS"'|g' fly.toml
+
+      - name: Install Flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy App
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --remote-only --app $APP_NAME
+
+      - name: Scale App to 1
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl scale count 1 --app $APP_NAME
