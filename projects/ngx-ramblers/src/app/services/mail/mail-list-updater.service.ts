@@ -62,7 +62,7 @@ export class MailListUpdaterService {
     notify.setBusy();
     this.pendingMailListAudits = [];
     this.logger.info("updateMailLists:members:", members);
-    if (this.mailMessagingConfig.mailConfig.allowSendCampaign) {
+    if (this.mailMessagingConfig?.mailConfig?.allowSendCampaign) {
       notify.success({
         title: "Brevo updates",
         message: "Synchronising Brevo contacts and lists"
@@ -319,7 +319,7 @@ export class MailListUpdaterService {
     member.mail = {
       email: null,
       id: null,
-      subscriptions: mailMessagingConfig?.brevo?.lists?.lists.map((item: ListInfo) => this.mapIdToSubscription(item.id, mailMessagingConfig.mailConfig.listSettings.find(setting => setting.id === item.id)?.autoSubscribeNewMembers && !!(member.email)))
+      subscriptions: mailMessagingConfig?.brevo?.lists?.lists.map((item: ListInfo) => this.mapIdToSubscription(item.id, mailMessagingConfig?.mailConfig?.listSettings.find(setting => setting.id === item.id)?.autoSubscribeNewMembers && !!(member.email)))
     };
     this.logger.off("initialiseMailSubscriptionsFromListIds:for subscribed:", "lists:", mailMessagingConfig?.brevo?.lists?.lists, "name:", this.fullNamePipe.transform(member), "member.mail before:", preMail, "after:", member.mail);
   }

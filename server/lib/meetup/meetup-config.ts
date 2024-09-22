@@ -4,7 +4,7 @@ import { Meetup, SystemConfig } from "../../../projects/ngx-ramblers/src/app/mod
 import { systemConfig } from "../config/system-config";
 
 const debugLog = debug(envConfig.logNamespace("meetup-config"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function configuredMeetup(): Promise<Meetup> {
   const config: SystemConfig = await systemConfig();

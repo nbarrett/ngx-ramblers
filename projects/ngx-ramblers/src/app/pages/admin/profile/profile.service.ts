@@ -58,7 +58,7 @@ export class ProfileService  {
       .then(member => {
         if (!isEmpty(member)) {
           notify.showContactUs(false);
-          notify.success({title: "Profile", message: "Changes to your " + profileUpdateType + " were reverted"});
+          notify.success({title: "Profile", message: `Changes to your ${profileUpdateType} were reverted`});
           return member;
         } else {
           this.saveOrUpdateUnsuccessful(notify, profileUpdateType, "Could not refresh member");
@@ -76,12 +76,12 @@ export class ProfileService  {
   }
 
   saveOrUpdateSuccessful(notify: AlertInstance, profileUpdateType: ProfileUpdateType) {
-    notify.success({title: "Profile updates", message: "Your " + profileUpdateType + " were saved successfully and will be effective on your next login"});
+    notify.success({title: "Profile updates", message: `Your ${profileUpdateType} were saved successfully and will be effective on your next login`});
   }
 
   saveOrUpdateUnsuccessful(notify: AlertInstance, profileUpdateType: ProfileUpdateType, errorMessage) {
     const messageDefaulted = errorMessage || "Please try again later.";
-    notify.error({title: `${profileUpdateType} update error`, message: "Changes to your " + profileUpdateType + " could not be saved. " + messageDefaulted});
+    notify.error({title: `${profileUpdateType} update error`, message: `Changes to your ${profileUpdateType} could not be saved. ${messageDefaulted}`});
   }
 
 }

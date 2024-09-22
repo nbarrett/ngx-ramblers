@@ -17,7 +17,7 @@ import * as transforms from "./transforms";
 const debugLog = debug(envConfig.logNamespace("database:auth:common"));
 export const pleaseTryAgain = `. Please try again or`;
 export const please = `. Please`;
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export interface ReturnTokenOnSuccessParams {
   status?: number;

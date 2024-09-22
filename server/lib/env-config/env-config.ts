@@ -1,21 +1,26 @@
+import debug from "debug";
+
 const ENV_PREFIX: string = "SITE_";
 
-function validatedEnvironmentVariable(variableName: string, prefixed?: boolean): string {
-  const resolvedName = prefixed ? ENV_PREFIX + variableName : variableName;
-  const variableValue = process.env[resolvedName] || process.env[variableName];
-  if (!variableValue) {
-    throw new Error("Environment variable '" + resolvedName + "' must be set");
-  } else {
-    console.info(`Environment variable '${resolvedName}' is set to '${variableValue}'`);
-    return variableValue;
-  }
-}
+const debugLog = debug("env-config");
 
 const env = validatedEnvironmentVariable("NODE_ENV");
 
 function logNamespace(moduleName: string) {
   return `ngx-ramblers:${env}:${moduleName || ""}`;
 }
+
+function validatedEnvironmentVariable(variableName: string, prefixed?: boolean): string {
+  const resolvedName = prefixed ? ENV_PREFIX + variableName : variableName;
+  const variableValue = process.env[resolvedName] || process.env[variableName];
+  if (!variableValue) {
+    throw new Error(`Environment variable '${resolvedName}' must be set`);
+  } else {
+    debugLog(`Environment variable '${resolvedName}' is set to '${variableValue}'`);
+    return variableValue;
+  }
+}
+
 export const envConfig = {
   production: env === "production",
   auth: {

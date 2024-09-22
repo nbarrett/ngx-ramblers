@@ -132,7 +132,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.mailMessagingService.events()
       .subscribe((mailMessagingConfig: MailMessagingConfig) => {
         this.mailMessagingConfig = mailMessagingConfig;
-        this.logger.info("retrieved MailMessagingConfig event:", mailMessagingConfig.mailConfig);
+        this.logger.info("retrieved MailMessagingConfig event:", mailMessagingConfig?.mailConfig);
         this.generateFilters();
         this.refreshMembers();
       }));

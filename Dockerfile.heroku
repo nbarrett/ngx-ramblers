@@ -1,2 +1,0 @@
-# Dockerfile.heroku
-FROM nbarrett36/ngx-ramblers:latest

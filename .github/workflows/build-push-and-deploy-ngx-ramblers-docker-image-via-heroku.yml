@@ -18,19 +18,19 @@ jobs:
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
       - name: Build the Docker image
-        run: docker build . --build-arg CHROME_VERSION=${{ secrets.CHROME_VERSION }} --build-arg CHROMEDRIVER_VERSION=${{ secrets.CHROMEDRIVER_VERSION }} --file Dockerfile --tag ngx-ramblers:${{ github.run_number }}
-
-      - name: Tag the Docker image (github run number ${{ github.run_number }})
-        run: docker tag ngx-ramblers:${{ github.run_number }} ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}
-
-      - name: Push the Docker image to Docker Hub (github run number ${{ github.run_number }})
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}
+        run: docker build . --build-arg CHROME_VERSION=${{ secrets.CHROME_VERSION }} --file Dockerfile --tag ngx-ramblers:${{ github.run_number }}
 
       - name: Tag the Docker image (latest)
         run: docker tag ngx-ramblers:${{ github.run_number }} ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest
 
       - name: Push the Docker image to Docker Hub (latest)
         run: docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest
+
+      - name: Tag the Docker image (github run number ${{ github.run_number }})
+        run: docker tag ngx-ramblers:${{ github.run_number }} ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}
+
+      - name: Push the Docker image to Docker Hub (github run number ${{ github.run_number }})
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}
 
       - name: Install Heroku CLI
         run: curl https://cli-assets.heroku.com/install.sh | sh

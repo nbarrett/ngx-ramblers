@@ -8,7 +8,7 @@ import * as transforms from "./transforms";
 import { Request, Response } from "express";
 
 const debugLog = debug(envConfig.logNamespace("database:login"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 const authenticationFailureMessage = "incorrect username and password combination";
 
 export function login(req: Request, res: Response) {

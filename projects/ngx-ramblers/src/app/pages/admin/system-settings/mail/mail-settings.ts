@@ -85,7 +85,7 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                                placeholder="The Base Url for the Mail Application">
                         <div class="input-group-append">
                           <div class="input-group-text">
-                            <app-brevo-button [disabled]="!mailMessagingConfig.mailConfig.baseUrl"
+                            <app-brevo-button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
                                               (click)="mailLinkService.openUrl(mailLinkService.appUrl())"
                                               [title]="'View'"/>
                           </div>
@@ -101,7 +101,7 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                                placeholder="The Base Url for My Mail Application">
                         <div class="input-group-append">
                           <div class="input-group-text">
-                            <app-brevo-button [disabled]="!mailMessagingConfig.mailConfig.myBaseUrl"
+                            <app-brevo-button [disabled]="!mailMessagingConfig?.mailConfig.myBaseUrl"
                                               (click)="mailLinkService.openUrl(mailLinkService.myBaseUrl())"
                                               [title]="'View'"/>
 
@@ -118,7 +118,7 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                                placeholder="The Base Url for editor of The Mail Application">
                         <div class="input-group-append">
                           <div class="input-group-text">
-                            <app-brevo-button [disabled]="!mailMessagingConfig.mailConfig.editorUrl"
+                            <app-brevo-button [disabled]="!mailMessagingConfig?.mailConfig.editorUrl"
                                               (click)="mailLinkService.openUrl(mailLinkService.editorUrl())"
                                               [title]="'View'"/>
 
@@ -135,7 +135,7 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                                placeholder="The API key for the mail api">
                         <div class="input-group-append">
                           <div class="input-group-text">
-                            <app-brevo-button [disabled]="!mailMessagingConfig.mailConfig.baseUrl"
+                            <app-brevo-button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
                                               (click)="mailLinkService.openUrl(mailLinkService.apiKeysView())"
                                               [title]="'View'"/>
                           </div>
@@ -396,13 +396,13 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   }
 
   save() {
-    this.logger.info("saving config", this.mailMessagingConfig.mailConfig);
+    this.logger.info("saving config", this.mailMessagingConfig?.mailConfig);
     return this.mailMessagingService.saveConfig(this.mailMessagingConfig, this.deletedConfigs)
       .catch((error) => this.notify.error(error));
   }
 
   saveAndExit() {
-    this.logger.info("saving config", this.mailMessagingConfig.mailConfig);
+    this.logger.info("saving config", this.mailMessagingConfig?.mailConfig);
     this.save()
       .then((response) => {
         this.logger.info("config response:", response);

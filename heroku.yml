@@ -1,7 +1,0 @@
-# heroku.yml
-build:
-  docker:
-    web: Dockerfile.heroku
-
-run:
-  web: docker run -d -p $PORT:$PORT nbarrett36/ngx-ramblers:latest

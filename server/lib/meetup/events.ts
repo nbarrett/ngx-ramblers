@@ -8,7 +8,7 @@ import { Meetup } from "../../../projects/ngx-ramblers/src/app/models/system.mod
 import { configuredMeetup } from "./meetup-config";
 
 const debug = debugLib(envConfig.logNamespace("meetup:events"));
-debug.enabled = true;
+debug.enabled = false;
 
 function handleError(error: Error, res: Response) {
   debug("error", error);

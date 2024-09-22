@@ -1,11 +1,11 @@
-const path = require('path'),
-  {ConsoleReporter} = require('@serenity-js/console-reporter'),
-  {ArtifactArchiver} = require("@serenity-js/core"),
-  {Photographer, TakePhotosOfFailures} = require('@serenity-js/protractor'),
-  {SerenityBDDReporter} = require("@serenity-js/serenity-bdd");
+const path = require("path"),
+  { ConsoleReporter } = require("@serenity-js/console-reporter"),
+  { ArtifactArchiver } = require("@serenity-js/core"),
+  { Photographer, TakePhotosOfFailures } = require("@serenity-js/protractor"),
+  { SerenityBDDReporter } = require("@serenity-js/serenity-bdd");
 
 exports.config = {
-  chromeDriver: process.env["CHROMEDRIVER_PATH"] || "/usr/local/bin/chromedriver",
+  chromeDriver: process.env["CHROMEDRIVER_PATH"],
   SELENIUM_PROMISE_MANAGER: false,
   directConnect: true,
   baseUrl: process.env["BASE_URL"],
@@ -42,26 +42,26 @@ exports.config = {
   capabilities: {
     browserName: "chrome",
     loggingPrefs: {
-      browser: "SEVERE" // "OFF", "SEVERE", "WARNING", "INFO", "CONFIG", "FINE", "FINER", "FINEST", "ALL".
+      driver: "INFO",
+      browser: "INFO",
     },
-
     chromeOptions: {
-      binary: process.env["GOOGLE_CHROME_BIN"],
       args: [
-        "--no-sandbox",
-        "--disable-infobars",
-        "--disable-dev-shm-usage",
-        "--disable-extensions",
-        "--log-level=3",
-        "--disable-gpu",
-        "--window-size=1920,1080",
         "--headless",
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--remote-debugging-port=9222",
+        "--window-size=1280,800",
+        "user-data-dir=/tmp/user_data",
+        "--log-level=ALL",
+        "--log-path=/tmp/user_data/chrome.log"
       ],
-    },
-
-    shardTestFiles: false,
-    maxInstances: 1,
+      binary: process.env.CHROME_BIN,
+    }
   },
+
+  shardTestFiles: false,
+  maxInstances: 1,
 
   disableChecks: true,
   ignoreUncaughtExceptions: true,
@@ -71,5 +71,4 @@ exports.config = {
   onPrepare: function () {
     browser.waitForAngularEnabled(false);
   },
-
 };

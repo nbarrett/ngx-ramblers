@@ -122,8 +122,8 @@ export class MailMessagingService {
     const configType = "Mail config";
     try {
       this.mailMessagingConfig.mailConfig = await this.mailConfigService.queryConfig();
-      this.logger.info("config:", this.mailMessagingConfig.mailConfig);
-      if (!this.mailMessagingConfig.mailConfig.allowSendTransactional) {
+      this.logger.info("config:", this.mailMessagingConfig?.mailConfig);
+      if (!this.mailMessagingConfig?.mailConfig?.allowSendTransactional) {
         this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
           message: {
             title: "Mail Integration not enabled",
@@ -177,7 +177,7 @@ export class MailMessagingService {
   }
 
   notificationConfigs(configListing: NotificationConfigListing): NotificationConfig[] {
-    const mailConfig = configListing.mailMessagingConfig.mailConfig;
+    const mailConfig = configListing.mailMessagingConfig?.mailConfig;
     const workflowIds: string[] = this.workflowIdsFor(mailConfig);
     const notificationConfigs = this.mailMessagingConfig.notificationConfigs
       .filter(item => (configListing.includeWorkflowRelatedConfigs || !workflowIds.includes(item.id)))
@@ -211,7 +211,7 @@ export class MailMessagingService {
   }
 
   private migrateTemplateMappings() {
-    const processToTemplateMappings: ProcessToTemplateMappings = this.mailMessagingConfig.mailConfig["templateMappings"] as ProcessToTemplateMappings;
+    const processToTemplateMappings: ProcessToTemplateMappings = this.mailMessagingConfig?.mailConfig["templateMappings"] as ProcessToTemplateMappings;
     const migratedNotificationConfigs: NotificationConfig[] = notificationMappings(processToTemplateMappings);
     this.logger.info("templateMappings:", processToTemplateMappings, "migratedNotificationConfigs:", migratedNotificationConfigs);
     if (this.mailMessagingConfig.notificationConfigs.length === 0 && processToTemplateMappings) {
@@ -409,7 +409,7 @@ export class MailMessagingService {
   }
 
   queryNotificationConfig(notify: AlertInstance, mailMessagingConfig: MailMessagingConfig, configKey: keyof BuiltInProcessMappings): NotificationConfig {
-    const notificationConfig = mailMessagingConfig?.notificationConfigs?.find(item => item.id === mailMessagingConfig.mailConfig[configKey]);
+    const notificationConfig = mailMessagingConfig?.notificationConfigs?.find(item => item.id === mailMessagingConfig?.mailConfig[configKey]);
     if (!notificationConfig) {
       notify.error({
         title: "Email Notification Configuration Error",
@@ -421,11 +421,11 @@ export class MailMessagingService {
   }
 
   private migrateMailConfig() {
-    if (!this.mailMessagingConfig.mailConfig?.listSettings) {
+    if (!this.mailMessagingConfig?.mailConfig?.listSettings) {
       this.mailMessagingConfig.mailConfig.listSettings = [];
     }
     this.mailMessagingConfig?.brevo?.lists?.lists.forEach(list => {
-      if (!this.mailMessagingConfig.mailConfig.listSettings.find(item => item.id === list.id)) {
+      if (!this.mailMessagingConfig?.mailConfig?.listSettings.find(item => item.id === list.id)) {
         const listSetting: ListSetting = {id: list.id, autoSubscribeNewMembers: false, memberSubscribable: false};
         this.logger.info("adding listSetting:", listSetting);
         this.mailMessagingConfig.mailConfig.listSettings.push(listSetting);
@@ -442,8 +442,8 @@ export class MailMessagingService {
   }
 
   private subscriptionsFor(subscriptions: MailSubscription[], predicate: (item: ListSetting) => boolean) {
-    this.logger.info("subscriptionsFor:subscriptions ->", subscriptions, "listSettings ->", this.mailMessagingConfig.mailConfig.listSettings);
-    const filtered: MailSubscription[] = this.mailMessagingConfig.mailConfig.listSettings
+    this.logger.info("subscriptionsFor:subscriptions ->", subscriptions, "listSettings ->", this.mailMessagingConfig?.mailConfig?.listSettings);
+    const filtered: MailSubscription[] = this.mailMessagingConfig?.mailConfig?.listSettings
       ?.filter(predicate).map(listSetting => subscriptions.find(subscription => subscription.id === listSetting.id) || {
         id: listSetting.id,
         subscribed: false
