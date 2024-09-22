@@ -27,9 +27,9 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
             <fa-icon [icon]="faEnvelopeOpenText" class="fa-5x ramblers"></fa-icon>
           </div>
         </div>
-        <div class="col col-sm-9">
+        <div class="col-sm-9">
           <div class="row">
-            <div class="col col-sm-12 mt-2">
+            <div class="col-sm-12 mt-2">
               <p>You can change your emailing preferences at any time using the subscription checkboxes
                 below:</p>
               <app-email-subscriptions-mailchimp [member]="member"
@@ -46,30 +46,30 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
               </p>
             </div>
           </div>
-          <div class="row">
-            <div class="col col-sm-12">
-              <input type="submit" [disabled]="false" value="Back to admin" (click)="profileService.backToAdmin()"
-                     class="button-form button-form-left">
-              <input type="submit" [disabled]="!member || notifyTarget.busy" value="Save Changes"
-                     (click)="saveContactPreferences()"
-                     [ngClass]="member && !notifyTarget.busy? 'button-form button-form-left': 'disabled-button-form button-form-left'">
-              <input type="submit" [disabled]="!member || notifyTarget.busy" value="Undo Changes"
-                     (click)="undoContactPreferences()"
-                     [ngClass]="member && !notifyTarget.busy? 'button-form button-form-left': 'disabled-button-form button-form-left'">
-            </div>
-          </div>
         </div>
-        <div class="row">
-          <div class="col col-sm-12">
-            <div class="alert {{notifyTarget.alertClass}} mt-3" *ngIf="notifyTarget.showAlert">
-              <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-              <strong *ngIf="notifyTarget.alertTitle">
-                {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
-              <div *ngIf="notifyTarget.showContactUs"> contact our
-                <app-contact-us class="alert-link" roles="membership"
-                                text="Membership Administrator"></app-contact-us>
-                .
-              </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12">
+          <input type="submit" [disabled]="false" value="Back to admin" (click)="profileService.backToAdmin()"
+                 class="button-form button-form-left">
+          <input type="submit" [disabled]="!member || notifyTarget.busy" value="Save Changes"
+                 (click)="saveContactPreferences()"
+                 [ngClass]="member && !notifyTarget.busy? 'button-form button-form-left': 'disabled-button-form button-form-left'">
+          <input type="submit" [disabled]="!member || notifyTarget.busy" value="Undo Changes"
+                 (click)="undoContactPreferences()"
+                 [ngClass]="member && !notifyTarget.busy? 'button-form button-form-left': 'disabled-button-form button-form-left'">
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12">
+          <div class="alert {{notifyTarget.alertClass}} mt-3" *ngIf="notifyTarget.showAlert">
+            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+            <strong *ngIf="notifyTarget.alertTitle">
+              {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
+            <div *ngIf="notifyTarget.showContactUs"> contact our
+              <app-contact-us class="alert-link" roles="membership"
+                              text="Membership Administrator"></app-contact-us>
+              .
             </div>
           </div>
         </div>
@@ -87,7 +87,7 @@ export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
               protected mailMessagingService: MailMessagingService,
               public profileService: ProfileService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(EmailSubscriptionsComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(EmailSubscriptionsComponent, NgxLoggerLevel.ERROR);
   }
 
   public pendingMailListAudits: MailListAudit[] = [];

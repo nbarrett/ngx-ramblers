@@ -8,7 +8,7 @@ import { LoginResponse, Member } from "../../../../projects/ngx-ramblers/src/app
 import * as stringUtils from "../../shared/string-utils";
 
 const debugLog = debug(envConfig.logNamespace("database:forgot-password"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function forgotPassword(req: Request, res: Response) {
   try {

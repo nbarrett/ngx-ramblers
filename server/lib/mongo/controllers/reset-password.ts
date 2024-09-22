@@ -11,7 +11,7 @@ import * as crudController from "./crud-controller";
 import { member } from "../models/member";
 
 const debugLog = debug(envConfig.logNamespace("database:reset-password"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 const controller = crudController.create<Member>(member, true);
 
 export function resetPassword(req: Request, res: Response) {

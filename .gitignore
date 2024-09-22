@@ -46,3 +46,5 @@ Thumbs.db
 /.angular/cache/
 /.angular/
 /data/mongo-scripts/
+/server/chrome/
+/server/chromedriver/

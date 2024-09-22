@@ -9,7 +9,7 @@ import * as crudController from "./crud-controller";
 import { MemberCookie } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 
 const debugLog = debug(envConfig.logNamespace("auth"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 const refreshTokenController = crudController.create<RefreshToken>(refreshToken, true);
 

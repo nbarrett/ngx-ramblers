@@ -3,14 +3,14 @@ import { envConfig } from "../env-config/env-config";
 import * as parser from "./ramblers-audit-parser";
 import debug from "debug";
 import moment from "moment-timezone";
+import { ramblersUploadAudit } from "../mongo/models/ramblers-upload-audit";
+import * as mongooseClient from "../mongo/mongoose-client";
 import fs = require("fs");
 import stringDecoder = require("string_decoder");
-import { ramblersUploadAudit } from "../mongo/models/ramblers-upload-audit";
 import json2csv = require("json2csv");
-import * as mongooseClient from "../mongo/mongoose-client";
-import os = require("os");
 
 const debugLog = debug(envConfig.logNamespace("ramblers-walk-upload"));
+debugLog.enabled = false;
 const path = "/tmp/ramblers/";
 const StringDecoder = stringDecoder.StringDecoder;
 const decoder = new StringDecoder("utf8");
@@ -52,14 +52,13 @@ export function uploadWalks(req, res) {
     });
   };
 
-  process.env["CHROMEDRIVER_PATH"] = os.platform() === "darwin" ? "/usr/local/bin/chromedriver" : "/app/.chromedriver/bin/chromedriver";
   process.env["RAMBLERS_USER"] = walksUploadRequest.ramblersUser;
   process.env["RAMBLERS_DELETE_WALKS"] = walksUploadRequest.walkIdDeletionList.join(",");
   process.env["RAMBLERS_FILENAME"] = filePath;
   process.env["RAMBLERS_WALKCOUNT"] = walksUploadRequest.rows.length.toString();
   process.env["RAMBLERS_FEATURE"] = "walks-upload.ts";
   const spawn = require("child_process").spawn;
-  debugLog("running feature", process.env["RAMBLERS_FEATURE"]);
+  debugLog("Running feature", process.env["RAMBLERS_FEATURE"], "with CHROMEDRIVER_PATH:", process.env["CHROMEDRIVER_PATH"], "CHROME_BIN:", process.env["CHROME_BIN"], "CHROME_VERSION:", process.env["CHROME_VERSION"]);
   const subprocess = spawn("npm", ["run", "serenity"], {
     detached: true,
     stdio: ["pipe"],

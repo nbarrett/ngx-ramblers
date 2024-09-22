@@ -150,7 +150,7 @@ import first from "lodash-es/first";
         <div class="img-thumbnail thumbnail-2">
           <div class="thumbnail-heading">Member Selection And Actions</div>
           <div class="row"
-               *ngIf="mailMessagingService.workflowIdsFor(mailMessagingConfig.mailConfig)?.includes(notificationConfig.id)">
+               *ngIf="mailMessagingService.workflowIdsFor(mailMessagingConfig?.mailConfig)?.includes(notificationConfig.id)">
             <div class="col-sm-12">
               <div class="form-group">
                 <label>Member Selected automatically via built-in workflow on <a (click)="tabSelected.emit(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS)">{{ MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS }}</a> tab</label>
@@ -158,7 +158,7 @@ import first from "lodash-es/first";
             </div>
           </div>
           <ng-container
-            *ngIf="!mailMessagingService.workflowIdsFor(mailMessagingConfig.mailConfig)?.includes(notificationConfig.id)">
+            *ngIf="!mailMessagingService.workflowIdsFor(mailMessagingConfig?.mailConfig)?.includes(notificationConfig.id)">
             <div class="row">
               <div class="col-sm-6">
                 <div class="form-group">

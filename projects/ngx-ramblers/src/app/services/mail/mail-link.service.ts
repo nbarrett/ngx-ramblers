@@ -82,7 +82,7 @@ export class MailLinkService {
 
   editTemplateWithNotifications(templateId: number, notReady: boolean, mailMessagingConfig: MailMessagingConfig) {
     if (!notReady) {
-      if (mailMessagingConfig.mailConfig?.allowSendTransactional) {
+      if (mailMessagingConfig?.mailConfig?.allowSendTransactional) {
         if (!templateId) {
           this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
             message: {

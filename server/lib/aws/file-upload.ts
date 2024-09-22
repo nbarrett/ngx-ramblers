@@ -17,7 +17,7 @@ import { Request, Response } from "express";
 import path = require("path");
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("s3-file-upload"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 export { uploadFile };
 
 function uploadFile(req: Request, res: Response) {
