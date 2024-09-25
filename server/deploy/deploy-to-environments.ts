@@ -45,7 +45,7 @@ function deployApps(configFilePath: string): void {
     .forEach((environmentConfig: EnvironmentConfig) => {
       process.env.FLY_API_TOKEN = environmentConfig.apiKey;
       process.env.APP_NAME = environmentConfig.appName;
-      process.env.DOCKER_IMAGE = config.dockerImage;
+      process.env.IMAGE = config.dockerImage;
       debugLog(`Deploying ${config.dockerImage} to ${environmentConfig.appName} environment`);
       const secretsFilePath = path.resolve(currentDir, `../../non-vcs/secrets/secrets.${environmentConfig.appName}.env`);
       if (fs.existsSync(secretsFilePath)) {
@@ -53,7 +53,7 @@ function deployApps(configFilePath: string): void {
       } else {
         debugLog(`Secrets file not found: ${secretsFilePath}`);
       }
-      runCommand(`flyctl deploy --remote-only --app ${environmentConfig.appName}`);
+      runCommand(`flyctl deploy --remote-only --app ${environmentConfig.appName} --image ${config.dockerImage}`);
       runCommand(`fly scale count 1 --app ${environmentConfig.appName}`);
     });
 }
