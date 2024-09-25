@@ -1,0 +1,46 @@
+name: Deploy and Build Docker Image and release to Heroku
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    concurrency: deploy-group
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: Build the Docker image
+        run: docker build . --build-arg CHROME_VERSION=${{ secrets.CHROME_VERSION }} --file Dockerfile --tag ngx-ramblers:${{ github.run_number }}
+
+      - name: Tag the Docker image (latest)
+        run: docker tag ngx-ramblers:${{ github.run_number }} ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest
+
+      - name: Push the Docker image to Docker Hub (latest)
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest
+
+      - name: Tag the Docker image (github run number ${{ github.run_number }})
+        run: docker tag ngx-ramblers:${{ github.run_number }} ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}
+
+      - name: Push the Docker image to Docker Hub (github run number ${{ github.run_number }})
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}
+
+      - name: Install Flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy App
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl deploy --remote-only --app ${{ secrets.APP_NAME }} --image ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest
+      - name: Scale App to 1
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl scale count 1  --app ${{ secrets.APP_NAME }}
