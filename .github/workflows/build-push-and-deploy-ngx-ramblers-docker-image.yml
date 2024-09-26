@@ -1,4 +1,4 @@
-name: Deploy and Build Docker Image and release to Heroku
+name: Deploy and Build Docker Image and Deploy to Fly.io
 
 on:
   push:
