@@ -78,6 +78,7 @@ import { WalksService } from "../../services/walks/walks.service";
 import { SharedModule } from "../../shared-module";
 import { WalkFeaturesComponent } from "../../pages/walks/walk-view/walk-features";
 import { WalkFeatureComponent } from "../../pages/walks/walk-view/walk-feature";
+import { WalkImagesComponent } from "../../pages/walks/walk-view/walk-images";
 
 @NgModule({
   declarations: [
@@ -87,13 +88,14 @@ import { WalkFeatureComponent } from "../../pages/walks/walk-view/walk-feature";
     WalkAddSlotsComponent,
     WalkAdminComponent,
     WalkDetailsComponent,
-    WalkFeaturesComponent,
-    WalkFeatureComponent,
     WalkEditComponent,
     WalkEditFullPageComponent,
     WalkEventTypePipe,
     WalkExportComponent,
+    WalkFeatureComponent,
+    WalkFeaturesComponent,
     WalkGroupComponent,
+    WalkImagesComponent,
     WalkLeaderComponent,
     WalkListComponent,
     WalkMeetupComponent,

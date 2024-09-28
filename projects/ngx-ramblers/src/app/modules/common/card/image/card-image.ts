@@ -10,7 +10,27 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-card-image",
-  templateUrl: "./card-image.html",
+  template: `
+    <ng-container *ngIf="displayImage()">
+      <img *ngIf="unconstrainedHeight" class="card-img-top" (load)="imageLoaded($event)"
+           (error)="imageError($event)"
+           [ngStyle]="{'border-radius.px': borderRadius}"
+           [ngClass]="{'card-img-fixed-height': fixedHeight}"
+           [src]="urlService.imageSource(imageSource, false, true)" [routerLink]="urlService.routerLinkUrl(imageLink)">
+      <img *ngIf="!unconstrainedHeight" class="card-img-top" [height]="constrainedHeight"
+           (load)="imageLoaded($event)"
+           (error)="imageError($event)"
+           [ngStyle]="{'border-radius.px': borderRadius}"
+           [ngClass]="{'card-img-fixed-height': fixedHeight}"
+           [src]="urlService.imageSource(imageSource, false, true)" [routerLink]="urlService.routerLinkUrl(imageLink)">
+    </ng-container>
+    <div *ngIf="cardMissingImage() || cardShouldHaveIcon()" class="row no-image"
+         [ngClass]="{'small-icon-container': smallIconContainer}">
+      <div class="col align-self-center text-center">
+        <fa-icon [icon]="icon || faImage" class="fa-icon fa-3x"></fa-icon>
+        <div *ngIf="!icon">{{ imageText }}</div>
+      </div>
+    </div>`,
   styleUrls: ["./card-image.sass"]
 })
 export class CardImageComponent implements OnInit {
@@ -44,6 +64,10 @@ export class CardImageComponent implements OnInit {
     this.unconstrainedHeight = coerceBooleanProperty(unconstrainedHeight);
   }
 
+  @Input("fixedHeight") set fixedHeightValue(fixedHeight: boolean) {
+    this.fixedHeight = coerceBooleanProperty(fixedHeight);
+  }
+
   @Input("smallIconContainer") set smallIconContainerValue(smallIconContainer: boolean) {
     this.smallIconContainer = coerceBooleanProperty(smallIconContainer);
   }
@@ -55,6 +79,7 @@ export class CardImageComponent implements OnInit {
 
   public height: number;
   public unconstrainedHeight: boolean;
+  public fixedHeight: boolean;
   public smallIconContainer: boolean;
 
   faSearch = faSearch;
