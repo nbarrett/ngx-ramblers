@@ -139,7 +139,7 @@ import { WalksQueryService } from "../../../services/walks/walks-query.service";
           </div>
         </div>
         <div class="col-sm-12 col-lg-6 rounded" *ngIf="display.shouldShowFullDetails(displayedWalk)">
-          <div class="row" *ngIf="displayedWalk.walk.media.length>0">
+          <div class="row" *ngIf="displayedWalk?.walk?.media?.length>0">
             <div class="col-sm-12">
               <app-walk-images [displayedWalk]="displayedWalk"/>
             </div>

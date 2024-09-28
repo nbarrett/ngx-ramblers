@@ -54,7 +54,7 @@ export class WalkImagesComponent {
   }
 
   forwardDisabled() {
-    return this.imageIndex >= this.displayedWalk.walk.media.length - 1;
+    return this.imageIndex >= this.displayedWalk?.walk?.media?.length - 1;
   }
 
   imageSource(): BasicMedia {
@@ -62,7 +62,7 @@ export class WalkImagesComponent {
   }
 
   next() {
-    if (this.imageIndex < this.displayedWalk.walk.media.length - 1) {
+    if (this.imageIndex < this.displayedWalk?.walk?.media?.length - 1) {
       this.imageIndex++;
     }
   }
