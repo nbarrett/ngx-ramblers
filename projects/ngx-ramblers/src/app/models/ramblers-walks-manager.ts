@@ -51,6 +51,11 @@ export interface Media {
   styles: MediaStyle[];
 }
 
+export interface BasicMedia {
+  alt: string;
+  url: string
+}
+
 export interface SearchResultsSummary {
   count: number;
   offset: number;

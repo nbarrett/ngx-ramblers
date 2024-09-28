@@ -30,7 +30,7 @@ import { toMongoIds } from "../mongo-utils";
 import { SocialEvent } from "../../models/social-events.model";
 import { isNumericRamblersId } from "../path-matchers";
 import { Walk } from "../../models/walk.model";
-import { Media } from "../../models/ramblers-walks-manager";
+import { BasicMedia, Media } from "../../models/ramblers-walks-manager";
 import { UrlService } from "../url.service";
 
 @Injectable({
@@ -57,7 +57,7 @@ export class CommitteeQueryService {
     private displayDatePipe: DisplayDatePipe,
     committeeConfig: CommitteeConfigService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(CommitteeQueryService, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(CommitteeQueryService, NgxLoggerLevel.ERROR);
     committeeConfig.events().subscribe(data => this.committeeReferenceData = data);
     this.queryCommitteeMembers();
   }
@@ -254,9 +254,16 @@ export class CommitteeQueryService {
     return years.length === 0 ? [{year: this.latestYear(), latestYear: true}] : years;
   }
 
-  private imageFromWalk(walk: Walk) {
+  public imageFromWalk(walk: Walk) {
+    this.logger.info("imageFromWalk:walk media:", walk?.media);
     const media: Media = walk?.media?.find(item => item.styles.find(style => style.style === "medium"));
     return media?.styles?.find(style => style.style === "medium")?.url;
+  }
+
+  public imagesFromWalk(walk: Walk): BasicMedia[] {
+    const media = walk?.media?.map(item => ({alt: item.alt, url: item.styles.find(style => style.style === "medium")?.url}));
+    this.logger.info("imageFromWalk:walk media:", media);
+    return media;
   }
 
   private imageFromSocialEvent(socialEvent: SocialEvent) {
