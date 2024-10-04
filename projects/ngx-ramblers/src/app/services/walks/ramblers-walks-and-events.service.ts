@@ -95,7 +95,7 @@ export class RamblersWalksAndEventsService {
               committeeConfig: CommitteeConfigService,
               loggerFactory: LoggerFactory) {
     committeeConfig.events().subscribe(data => this.committeeReferenceData = data);
-    this.logger = loggerFactory.createLogger("RamblersWalksAndEventsService", NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("RamblersWalksAndEventsService", NgxLoggerLevel.ERROR);
     this.systemConfigService.events().subscribe(item => {
       this.ramblers = item.national;
       this.logger.off("systemConfigService:ramblers:", this.ramblers, "item.system", item);
@@ -509,17 +509,17 @@ export class RamblersWalksAndEventsService {
       displayName,
       distance: `${groupWalk?.distance_miles} miles`,
       events: [],
-      grade: groupWalk.difficulty.description,
+      grade: groupWalk.difficulty?.description,
       gridReference: groupWalk.start_location?.grid_reference_8,
       gridReferenceFinish: groupWalk.end_location?.grid_reference_8,
       id: groupWalk.id,
       location: null,
-      longerDescription: groupWalk.description,
+      longerDescription: groupWalk?.description,
       meetupEventDescription: null,
-      meetupEventTitle: null,
-      meetupEventUrl: null,
+      meetupEventTitle: this.isMeetupUrl(groupWalk.external_url) ? groupWalk.title : null,
+      meetupEventUrl: this.isMeetupUrl(groupWalk.external_url) ? groupWalk.external_url : null,
       meetupPublish: false,
-      nearestTown: groupWalk.start_location.description?.replace(this.NEAREST_TOWN_PREFIX, ""),
+      nearestTown: groupWalk.start_location?.description?.replace(this.NEAREST_TOWN_PREFIX, ""),
       osMapsRoute: null,
       osMapsTitle: null,
       postcode: groupWalk.start_location?.postcode,
@@ -539,7 +539,7 @@ export class RamblersWalksAndEventsService {
         longName: groupWalk.group_name
       },
       features: (groupWalk.facilities || []).concat(groupWalk.transport || []).concat(groupWalk.accessibility || []).sort(sortBy("description")),
-      startLocation: groupWalk.start_location.description,
+      startLocation: groupWalk.start_location?.description,
       additionalDetails: groupWalk.additional_details
     };
     this.logger.info("groupWalk:", groupWalk, "walk:", walk, "contactName:", contactName, "displayName:", displayName);
@@ -666,5 +666,9 @@ export class RamblersWalksAndEventsService {
 
   private toFeature(feature: string): Metadata {
     return {code: feature, description: this.stringUtilsService.asTitle(feature)};
+  }
+
+  private isMeetupUrl(externalUrl: string) {
+    return externalUrl?.includes("meetup.com");
   }
 }
