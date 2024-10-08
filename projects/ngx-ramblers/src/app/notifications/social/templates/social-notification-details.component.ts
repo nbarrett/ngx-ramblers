@@ -7,11 +7,12 @@ import { SocialDisplayService } from "../../../pages/social/social-display.servi
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { UrlService } from "../../../services/url.service";
+import { CommitteeReferenceData } from "../../../services/committee/committee-reference-data";
+import { MailMessagingConfig } from "../../../models/mail.model";
 
 @Component({
   selector: "app-social-notification-details",
   template: `
-    <div>
       <img *ngIf="socialEvent?.thumbnail" style="width:100%; margin-bottom: 15px"
            [src]="urlService.imageSource(socialEvent?.thumbnail, true)">
       <h3 *ngIf="socialEvent.notification.content.title.include"><strong
@@ -55,9 +56,7 @@ import { UrlService } from "../../../services/url.service";
           <tr *ngIf="socialEvent.notification.content.replyTo.include">
             <td style="border:1px solid lightgrey; font-weight: bold; padding: 6px">Send email replies to:</td>
             <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">
-              <a [href]="'mailto: ' + replyTo()?.email"><span
-                [textContent]="replyTo()?.fullName"></span></a>
-              ({{ replyTo()?.email }})
+              <a [href]="'mailto: ' + replyTo()?.email">{{ replyTo()?.fullName }}</a> ({{ replyTo()?.email }})
             </td>
           </tr>
           <tr *ngIf="socialEvent.notification.content.attachment.include && socialEvent.attachment">
@@ -88,14 +87,19 @@ import { UrlService } from "../../../services/url.service";
          [textContent]="socialEvent.notification.content.text.value"></p>
       <p *ngIf="socialEvent.notification.content.signoffText.include"
          markdown [data]="socialEvent.notification.content.signoffText.value"></p>
-    </div>`
+      <app-contact-us *ngIf="socialEvent.notification.content.signoffAs.include"
+                      [committeeReferenceDataOverride]="committeeReferenceDataSource()"
+                      [format]="'list'"
+                      [roles]="socialEvent?.notification?.content?.signoffAs?.value"/>`
 })
 export class SocialNotificationDetailsComponent implements OnInit {
 
-  @Input()
+  @Input({ required: true })
   public members: Member[];
-  @Input()
+  @Input({ required: true })
   public socialEvent: SocialEvent;
+  @Input({ required: true })
+  public mailMessagingConfig: MailMessagingConfig;
 
   protected logger: Logger;
 
@@ -111,11 +115,17 @@ export class SocialNotificationDetailsComponent implements OnInit {
     this.logger.debug("ngOnInit:app-social-notification-details members:", this.members, "socialEvent:", this.socialEvent);
   }
 
-  memberFilterSelections(): MemberFilterSelection[] {
+  committeeReferenceDataSource(): CommitteeReferenceData {
+    return this.mailMessagingConfig.committeeReferenceData.createFrom(this.display?.committeeMembersPlusOrganiser(this.socialEvent, this.members));
+  }
+
+  public memberFilterSelections(): MemberFilterSelection[] {
     return this.members.map(member => this.display.toMemberFilterSelection(member));
   }
 
-  replyTo(): CommitteeMember {
-    return this.display?.committeeMembersPlusOrganiser(this.socialEvent, this.members)?.find(member => this.socialEvent?.notification?.content?.replyTo?.value === member.memberId);
+  public replyTo(): CommitteeMember {
+    const committeeMember = this.display?.committeeMembersPlusOrganiser(this.socialEvent, this.members)?.find(member => this.socialEvent?.notification?.content?.replyTo?.value === member.type);
+    this.logger.info("replyTo:committeeMember:", committeeMember);
+    return committeeMember;
   }
 }

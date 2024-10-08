@@ -444,21 +444,18 @@
   <div class="modal-footer">
     <input *ngIf="allowEdits" type="submit" [disabled]="saveInProgress"
            [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
-           (click)="saveMemberDetails()" title="Save these member details" value="Save">
+           (click)="saveMemberDetails()" tooltip="Save these member details" adaptivePosition value="Save">
     <input *ngIf="allowDelete" type="submit" [disabled]="saveInProgress"
            [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
-           (click)="deleteMemberDetails()" title="Delete these member details" value="Delete">
+           (click)="deleteMemberDetails()" tooltip="Delete these member details" value="Delete">
     <input *ngIf="allowConfirmDelete" type="submit" class="button-form button-form-left button-confirm"
-           (click)="confirmDeleteMemberDetails()" title="Confirm Delete of these member details"
+           (click)="confirmDeleteMemberDetails()" tooltip="Confirm Delete of these member details"
            value="Confirm Deletion">
     <input *ngIf="allowEdits" type="submit" [disabled]="saveInProgress"
            [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
-           (click)="this.bsModalRef.hide();" title="Cancel and don't save" value="Cancel">
+           (click)="copyDetailsToNewMember()" tooltip="Copy details to new Member" value="Copy">
     <input *ngIf="allowEdits" type="submit" [disabled]="saveInProgress"
            [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
-           (click)="copyDetailsToNewMember()" title="Copy details to new Member" value="Copy">
-    <input *ngIf="!allowEdits" type="submit" [disabled]="saveInProgress"
-           [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
-           (click)="this.bsModalRef.hide();" title="Close" value="Close">
+           (click)="this.bsModalRef.hide();" tooltip="Cancel and don't save changes" value="Cancel">
   </div>
 </div>

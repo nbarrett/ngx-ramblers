@@ -10,9 +10,6 @@ import {
 import { CommitteeYearComponent } from "../../pages/committee/year/committee-year";
 import { SharedModule } from "../../shared-module";
 import {
-  CommitteeNotificationRamblersMessageItemComponent
-} from "../../notifications/committee/templates/committee-notification-ramblers-message-item";
-import {
   CommitteeNotificationGroupEventMessageItemComponent
 } from "../../notifications/committee/templates/committee-notification-group-event-message-item";
 
@@ -23,7 +20,6 @@ import {
     CommitteeYearComponent,
     CommitteeEditFileModalComponent,
     CommitteeHomeComponent,
-    CommitteeNotificationRamblersMessageItemComponent,
     CommitteeNotificationGroupEventMessageItemComponent,
     CommitteeNotificationDetailsComponent
   ],
