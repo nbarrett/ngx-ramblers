@@ -75,6 +75,7 @@ export function handleError(req: Request, res: Response, messageType: string, de
     debugLog(messageType, "API call failed with HttpError: body", error.body, "statusCode:", error.statusCode);
     res.status(error.statusCode).json({request: {messageType}, error: error.body});
   } else {
+    debugLog(messageType, "API call failed with non-HttpError: body", error);
     res.status(500).json({request: {messageType}, error});
   }
 }

@@ -2,7 +2,7 @@ import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from "@angular/co
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { CommitteeMember } from "../../../models/committee.model";
+import { CommitteeMember, Notification, NotificationItem } from "../../../models/committee.model";
 import { Member, MemberFilterSelection, SORT_BY_NAME } from "../../../models/member.model";
 import { SocialEvent } from "../../../models/social-events.model";
 import { ConfirmType } from "../../../models/ui-actions";
@@ -33,7 +33,6 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
 import { MailService } from "../../../services/mail/mail.service";
 import first from "lodash-es/first";
-import { CommitteeReferenceData } from "../../../services/committee/committee-reference-data";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { isUndefined, set } from "lodash-es";
 import get from "lodash-es/get";
@@ -210,28 +209,6 @@ import get from "lodash-es/get";
                       </div>
                     </div>
                   </div>
-                  <div class="row">
-                    <div class="col-sm-12">
-                      <div class="form-group">
-                        <div class="custom-control custom-checkbox">
-                          <input [(ngModel)]="socialEvent.notification.content.replyTo.include"
-                                 type="checkbox" class="custom-control-input"
-                                 id="include-reply-to">
-                          <label class="custom-control-label"
-                                 for="include-reply-to">Send replies to:
-                          </label>
-                        </div>
-                        <select [(ngModel)]="socialEvent.notification.content.replyTo.value" id="replyTo"
-                                [disabled]="!socialEvent?.notification?.content?.replyTo?.include"
-                                class="form-control input-sm">
-                          <option *ngFor="let role of roles.replyTo"
-                                  [ngValue]="role.memberId"
-                                  [textContent]="role.nameAndDescription">
-                          </option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
               <div class="row">
@@ -286,10 +263,6 @@ import get from "lodash-es/get";
                   </div>
                 </div>
               </div>
-            </div>
-          </tab>
-          <tab heading="Signing Off">
-            <div class="img-thumbnail thumbnail-admin-edit">
               <div class="row">
                 <div class="col-sm-12">
                   <div class="form-group">
@@ -315,11 +288,33 @@ import get from "lodash-es/get";
                 <div class="col-sm-12">
                   <div class="form-group">
                     <div class="custom-control custom-checkbox">
+                      <input [(ngModel)]="socialEvent.notification.content.replyTo.include"
+                             type="checkbox" class="custom-control-input"
+                             id="include-reply-to">
+                      <label class="custom-control-label"
+                             for="include-reply-to">Send replies to:
+                      </label>
+                    </div>
+                    <select [(ngModel)]="socialEvent.notification.content.replyTo.value" id="replyTo"
+                            (ngModelChange)="modelChange('replyTo',$event)"
+                            [disabled]="!socialEvent?.notification?.content?.replyTo?.include"
+                            class="form-control input-sm">
+                      <option *ngFor="let role of roles.replyTo"
+                              [ngValue]="role.type">{{ role.nameAndDescription }}
+                      </option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-sm-12">
+                  <div class="form-group">
+                    <div class="custom-control custom-checkbox">
                       <input [(ngModel)]="socialEvent.notification.content.signoffAs.include"
                              type="checkbox" class="custom-control-input"
                              id="include-signoff-as">
                       <label class="custom-control-label"
-                             for="include-signoff-as">Signoff as:
+                             for="include-signoff-as">Signoff and Send as:
                       </label>
                     </div>
                     <select [(ngModel)]="socialEvent.notification.content.signoffAs.value"
@@ -328,8 +323,7 @@ import get from "lodash-es/get";
                             [disabled]="!socialEvent?.notification?.content?.signoffAs?.include"
                             class="form-control input-sm">
                       <option *ngFor="let role of roles.signoff"
-                              [ngValue]="role.memberId"
-                              [textContent]="role.nameAndDescription">
+                              [ngValue]="role.type">{{ role.nameAndDescription }}
                       </option>
                     </select>
                   </div>
@@ -346,13 +340,12 @@ import get from "lodash-es/get";
                 </div>
                 <h2 class="mb-3">{{ socialEvent.notification.content.title.value }}</h2>
                 <div #notificationContent>
-                  <app-social-notification-details [members]="toMembers()" [socialEvent]="socialEvent">
-                  </app-social-notification-details>
+                  <app-committee-notification-ramblers-message-item
+                    [notificationItem]="toNotificationItemFromNotification(socialEvent.notification)">
+                    <app-social-notification-details [members]="toMembers()" [socialEvent]="socialEvent"
+                                                     [mailMessagingConfig]="mailMessagingConfig"/>
+                  </app-committee-notification-ramblers-message-item>
                 </div>
-                <app-contact-us *ngIf="socialEvent.notification.content.signoffAs.include"
-                                [committeeReferenceDataOverride]="committeeReferenceDataSource()"
-                                [format]="'list'"
-                                [roles]="signoffAs()?.type"></app-contact-us>
               </div>
             </div>
           </tab>
@@ -360,18 +353,20 @@ import get from "lodash-es/get";
         <div *ngIf="notifyTarget.showAlert" class="row">
           <div class="col-sm-12 mb-10">
             <div class="alert {{notifyTarget.alertClass}}">
-              <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+              <fa-icon [icon]="notifyTarget.alert.icon"/>
               <strong *ngIf="notifyTarget.alertTitle">
                 {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
             </div>
           </div>
         </div>
+        <div class="row" app-create-or-amend-sender (senderExists)="setSenderExists($event)"
+             [committeeRoleSender]="signoffAs()"></div>
       </div>
       <div class="modal-footer">
         <app-brevo-button button [disabled]="notReady()" (click)="runCampaignCreationAndSendWorkflow()"
-                          title="Send Now via {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"></app-brevo-button>
+                          title="Send Now via {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
         <app-brevo-button class="ml-2" button [disabled]="notReady()" (click)="completeInMailSystem()"
-                          title="Complete in {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"></app-brevo-button>
+                          title="Complete in {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
         <input type="submit" value="Save and Send Later" (click)="saveAndSendLater()"
                class="ml-2 btn btn-primary px-2 py-2">
         <input type="submit" value="Cancel Send" (click)="cancelSendNotification()"
@@ -399,7 +394,7 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
               protected dateUtils: DateUtilsService,
               public bsModalRef: BsModalRef,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SocialSendNotificationModalComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("SocialSendNotificationModalComponent", NgxLoggerLevel.ERROR);
   }
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   @ViewChild("notificationContent") notificationContent: ElementRef;
@@ -408,7 +403,6 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   private logger: Logger;
-
   public roles: {
     replyTo: CommitteeMember[];
     signoff: CommitteeMember[];
@@ -420,10 +414,11 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   public members: Member[] = [];
 
   protected readonly ADDRESSEE_CONTACT_FIRST_NAME = ADDRESSEE_CONTACT_FIRST_NAME;
+  protected senderExists = false;
 
   async ngOnInit() {
     this.logger.info("ngOnInit", this.socialEvent, "memberFilterSelections:", this.display.memberFilterSelections);
-    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.notify = this.notifierService.createAlertInstance(this.notifyTarget, NgxLoggerLevel.ERROR);
     this.subscriptions.push(this.mailMessagingService.events().subscribe(async mailMessagingConfig => {
       this.mailMessagingConfig = mailMessagingConfig;
       this.notificationConfigListing = {mailMessagingConfig, includeMemberSelections: [MemberSelection.MAILING_LIST]};
@@ -443,11 +438,7 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   }
 
   notReady(): boolean {
-    return this.roles.replyTo.length === 0 || this.notifyTarget.busy || !this.socialEvent?.notification?.content?.listId;
-  }
-
-  committeeReferenceDataSource(): CommitteeReferenceData {
-    return this.mailMessagingConfig.committeeReferenceData.createFrom(this.display?.committeeMembersPlusOrganiser(this.socialEvent, this.members));
+    return !this.senderExists || this.roles.replyTo.length === 0 || this.notifyTarget.busy || !this.socialEvent?.notification?.content?.listId;
   }
 
   initialiseNotification() {
@@ -472,7 +463,7 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
     this.defaultNotificationField(["attachment"], {include: !!this.socialEvent.attachment});
     this.defaultNotificationField(["replyTo"], {
       include: true,
-      value: this.roleForType(this.socialEvent.displayName ? "organiser" : "social")?.memberId
+      value: this.roleForType(this.socialEvent.displayName ? "organiser" : "social")?.type
     });
     this.defaultNotificationField(["signoffText"], {
       include: true,
@@ -480,7 +471,7 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
     });
     this.defaultNotificationField(["signoffAs"], {
       include: true,
-      value: this.roleForType("social")?.memberId
+      value: this.roleForType("social")?.type
     });
     this.emailConfigChanged(this.socialEvent.notification.content.notificationConfig);
     this.logger.info("initialiseNotification:socialEvent.notification ->", this.socialEvent.notification);
@@ -529,12 +520,6 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
     return role;
   }
 
-  committeeMemberForMemberId(memberId: string): CommitteeMember {
-    const committeeMembe: CommitteeMember = this.roles.replyTo.find(role => role.memberId === memberId);
-    this.logger.info("roleForMemberId for", memberId, "->", committeeMembe);
-    return committeeMembe;
-  }
-
   initialiseRoles(members: Member[]) {
     const roles = this.display.committeeMembersPlusOrganiser(this.socialEvent, members);
     this.roles.replyTo = roles;
@@ -570,6 +555,7 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   }
 
   handleError(errorResponse: any) {
+    this.logger.error("errorResponse", errorResponse);
     this.notify.error({
       continue: true,
       title: "Your notification could not be sent",
@@ -618,11 +604,10 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
 
   async createThenEditOrSendEmailCampaign(bodyContent: string, campaignName: string, createAsDraft: boolean) {
     this.notify.progress(createAsDraft ? (`Preparing to complete ${campaignName} in ${this.stringUtils.asTitle(this.systemConfig?.mailDefaults?.mailProvider)}`) : ("Sending " + campaignName));
-    const replyToRole: CommitteeMember = this.socialEvent?.notification?.content.replyTo.value ? this.committeeMemberForMemberId(this.socialEvent?.notification?.content.replyTo.value) : this.roleForType("social");
-    const lists: ListInfo[] = this.mailMessagingConfig?.brevo?.lists?.lists;
-    const roles: string[] = [replyToRole.type];
-    this.logger.info("roles", roles);
-    const senderEmail = replyToRole.email;
+    const replyToRole: CommitteeMember = this.replyToRole() || this.roleForType("social");
+    const senderRole: CommitteeMember = this.signoffAs();
+    const signoffRoles: string[] = [senderRole.type];
+    this.logger.info("signoffRoles:", signoffRoles);
     const member: Member = await this.memberService.getById(this.memberLoginService.loggedInMember().memberId);
     const createCampaignRequest: CreateCampaignRequest = {
       createAsDraft,
@@ -631,12 +616,12 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
       inlineImageActivation: false,
       mirrorActive: false,
       name: campaignName,
-      params: this.mailMessagingService.createSendSmtpEmailParams(roles, this.notificationDirective, member, this.socialEvent.notification.content.notificationConfig, bodyContent, this.socialEvent.notification?.content.signoffAs.include, this.socialEvent.notification.content.title.value, this.socialEvent.notification.content.addresseeType),
+      params: this.mailMessagingService.createSendSmtpEmailParams(signoffRoles, this.notificationDirective, member, this.socialEvent.notification.content.notificationConfig, bodyContent, this.socialEvent.notification?.content.signoffAs.include, this.socialEvent.notification.content.title.value, this.socialEvent.notification.content.addresseeType),
       recipients: {listIds: [this.socialEvent.notification.content.listId]},
-      replyTo: senderEmail,
+      replyTo: replyToRole.email,
       sender: {
-        email: senderEmail,
-        name: replyToRole.fullName
+        email: senderRole.email,
+        name: senderRole.fullName
       },
       subject: campaignName
     };
@@ -673,6 +658,7 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   }
 
   runCampaignCreationAndSendWorkflow(createAsDraft?: boolean) {
+    if (!this.notReady()) {
     this.notify.setBusy();
     const campaignName = this.socialEvent.briefDescription;
     this.logger.info("sendSocialNotification:notification->", this.socialEvent.notification);
@@ -683,20 +669,17 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
       .then(() => this.saveSocialEvent())
       .then(() => this.notifyEmailSendComplete(campaignName))
       .catch((error) => this.handleError(error));
-  }
-
-  signoffAs(): CommitteeMember {
-    const signoffAs = this.display?.committeeMembersPlusOrganiser(this.socialEvent, this.members)?.find(member => this.socialEvent?.notification?.content?.signoffAs?.value === member.memberId);
-    this.logger.off("signoffAs:", this.members, signoffAs);
-    return signoffAs;
+    }
   }
 
   completeInMailSystem() {
+    if (!this.notReady()) {
     this.notify.warning({
       title: `Complete in ${this.stringUtils.asTitle(this.systemConfig?.mailDefaults?.mailProvider)}`,
       message: `You can close this dialog now as the message was presumably completed and sent in ${this.stringUtils.asTitle(this.systemConfig?.mailDefaults?.mailProvider)}`
     });
     this.runCampaignCreationAndSendWorkflow(true);
+    }
   }
 
   emailConfigChanged(notificationConfig: NotificationConfig) {
@@ -719,5 +702,38 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
 
   listNameAndMemberCount(list: ListInfo) {
     return `${list.name} (${this.stringUtils.pluraliseWithCount(this.subscribedToEmailsForList(list)?.length || 0, "member")})`;
+  }
+
+  modelChange(type: string, data: any) {
+    this.logger.info("modelChange:", type, "data:", data, "notification content:", this.socialEvent.notification.content[type]);
+  }
+
+  signoffAs(): CommitteeMember {
+    const signoffAs = this.display?.committeeMembersPlusOrganiser(this.socialEvent, this.members)?.find(member => this.socialEvent?.notification?.content?.signoffAs?.value === member.type);
+    this.logger.off("signoffAs:", this.members, signoffAs);
+    return signoffAs;
+  }
+
+
+  replyToRole(): CommitteeMember {
+    const membersPlusOrganiser = this.display?.committeeMembersPlusOrganiser(this.socialEvent, this.members);
+    const sender: CommitteeMember = membersPlusOrganiser?.find(member => this.socialEvent?.notification?.content?.replyTo?.value === member.type);
+    this.logger.info("replyTo:", this.socialEvent?.notification?.content?.replyTo, "sender:", sender);
+    return sender;
+
+  }
+
+  setSenderExists(senderExists: boolean) {
+    this.logger.info("setSenderExists:from:", this.senderExists, "to:", senderExists);
+    this.senderExists = senderExists;
+  }
+
+  toNotificationItemFromNotification(notification: Notification): NotificationItem {
+    return {
+      callToAction: null,
+      image: null,
+      subject: notification.content.title.value,
+      text: notification.content.text.value
+    };
   }
 }

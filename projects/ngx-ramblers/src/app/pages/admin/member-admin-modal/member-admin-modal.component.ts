@@ -231,6 +231,8 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
       "createdBy",
       "createdDate",
       "lastBulkLoadDate",
+      "mail",
+      "mailchimpLists",
       "password",
       "profileSettingsConfirmed",
       "profileSettingsConfirmedAt",
@@ -242,6 +244,9 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     this.profileConfirmationService.unconfirmProfile(copiedMember);
     this.member = copiedMember;
     this.editMode = EditMode.COPY_EXISTING;
+    this.memberUpdateAudits = [];
+    this.mailListAudits = [];
+    this.lastLoggedIn = null;
     this.notify.success("Existing Member copied! Make changes here and save to create new member.");
   }
 
