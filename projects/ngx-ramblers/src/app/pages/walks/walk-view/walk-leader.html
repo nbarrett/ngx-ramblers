@@ -1,6 +1,6 @@
 <div class="event-panel rounded event-panel-inner">
   <app-walk-group [displayedWalk]="displayedWalk"></app-walk-group>
-  <h1>Walk Leader{{!display.shouldShowFullDetails(displayedWalk) && displayedWalk.walk.displayName ? " is " + displayedWalk.walk.displayName : ""}}</h1>
+  <h1>{{ display.isWalk(displayedWalk.walk) ? 'Walk Leader' : (display.eventTypeTitle(displayedWalk.walk) + " Organiser") }}{{ !display.shouldShowFullDetails(displayedWalk) && displayedWalk.walk.displayName ? " is " + displayedWalk.walk.displayName : "" }}</h1>
   <div *ngIf="!display.shouldShowFullDetails(displayedWalk)">
     <div class="col-sm-12">
       <p name="description">{{displayedWalk?.latestEventType?.description || 'no description'}}</p>

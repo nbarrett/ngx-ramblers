@@ -4,7 +4,7 @@ import last from "lodash-es/last";
 import { ModalOptions } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable } from "rxjs";
-import { CommitteeFile } from "../../models/committee.model";
+import { CommitteeFile, GroupEventType, groupEventTypeFor } from "../../models/committee.model";
 import { Confirm } from "../../models/ui-actions";
 import { ValueOrDefaultPipe } from "../../pipes/value-or-default.pipe";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
@@ -16,6 +16,8 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { AlertInstance } from "../../services/notifier.service";
 import { UrlService } from "../../services/url.service";
+import { Walk } from "../../models/walk.model";
+import { RamblersEventType } from "../../models/ramblers-walks-manager";
 
 @Injectable({
   providedIn: "root"
@@ -117,6 +119,21 @@ export class CommitteeDisplayService {
       return "icon-" + this.fileExtension(committeeFile?.fileNameData?.awsFileName).substring(0, 3) + ".jpg";
     } else {
       return "icon-default.jpg";
+    }
+  }
+
+  ramblersEventType(walk: Walk): RamblersEventType {
+    return walk?.eventType || RamblersEventType.GROUP_WALK;
+  }
+
+  groupEventType(walk: Walk): GroupEventType {
+    switch (this.ramblersEventType(walk)) {
+      case RamblersEventType.GROUP_WALK:
+        return groupEventTypeFor("walk");
+      case RamblersEventType.GROUP_EVENT:
+        return groupEventTypeFor("socialEvent");
+      case RamblersEventType.WELLBEING_WALK:
+        return groupEventTypeFor("walk");
     }
   }
 

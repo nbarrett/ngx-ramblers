@@ -4,13 +4,12 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { DisplayedWalk, EventType, Walk } from "../../../models/walk.model";
-import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { WalksService } from "../../../services/walks/walks.service";
 import { WalkDisplayService } from "../walk-display.service";
+import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 
 @Component({
   selector: "app-walk-edit-full-page",
@@ -21,7 +20,6 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
   private logger: Logger;
   public displayedWalk: DisplayedWalk;
   public notifyTarget: AlertTarget = {};
-  private notify: AlertInstance;
   pageTitle: string;
   private subscriptions: Subscription[] = [];
 
@@ -30,19 +28,18 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
               private walksReferenceService: WalksReferenceService,
               private dateUtils: DateUtilsService,
               private display: WalkDisplayService,
-              private notifierService: NotifierService,
-              displayDate: DisplayDatePipe, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkEditFullPageComponent, NgxLoggerLevel.OFF);
+              loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.createLogger(WalkEditFullPageComponent, NgxLoggerLevel.ERROR);
   }
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
-    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       if (paramMap.has("add")) {
         this.displayedWalk = {
           walkAccessMode: WalksReferenceService.walkAccessModes.add,
           walk: {
+            eventType: RamblersEventType.GROUP_WALK,
             walkType: this.display.walkTypes[0],
             walkDate: this.dateUtils.momentNowNoTime().valueOf(),
             events: []
@@ -56,7 +53,7 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
         this.logger.debug("querying walk-id", walkId);
         this.walksService.getById(walkId)
           .then((walk: Walk) => {
-            this.logger.debug("found walk", walk);
+            this.logger.info("found walk", walk);
             this.displayedWalk = this.display.toDisplayedWalk(walk);
             if (this.displayedWalk.latestEventType) {
               this.setStatus(this.displayedWalk.latestEventType.eventType);

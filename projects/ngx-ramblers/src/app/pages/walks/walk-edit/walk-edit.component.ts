@@ -48,6 +48,7 @@ import { MailMessagingConfig } from "../../../models/mail.model";
 import { MeetupService } from "../../../services/meetup.service";
 import { WalkNotification } from "../../../models/walk-notification.model";
 import { MeetupDescriptionComponent } from "../../../notifications/walks/templates/meetup/meetup-description.component";
+import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 
 @Component({
   selector: "app-walk-edit",
@@ -333,6 +334,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         walkAccessMode: WalksReferenceService.walkAccessModes.add,
         latestEventType: null,
         walk: {
+          eventType: RamblersEventType.GROUP_WALK,
           walkType: this.display.walkTypes[0],
           walkDate: this.dateUtils.momentNowNoTime().valueOf(),
           events: []
@@ -642,7 +644,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       switch (eventType.eventType) {
         case EventType.AWAITING_LEADER: {
           const walkDate = this.displayedWalk.walk.walkDate;
-          this.displayedWalk.walk = pick(this.displayedWalk.walk, ["id", "events", "walkDate"]);
+          this.displayedWalk.walk = pick(this.displayedWalk.walk, ["id", "events", "walkDate", "eventType"]);
           this.displayedWalk.walk.riskAssessment = [];
           return this.notify.success({
             title: "Walk details reset for " + this.displayDate.transform(walkDate),

@@ -8,7 +8,7 @@ import {
   RamblersWalksRawApiResponse,
   RamblersWalksRawApiResponseApiResponse,
   WalkLeader,
-  WalkListRequest,
+  EventsListRequest,
   WALKS_MANAGER_API_DATE_FORMAT,
   WALKS_MANAGER_GO_LIVE_DATE
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
@@ -30,17 +30,18 @@ noopDebugLog.enabled = false;
 debugLog.enabled = false;
 
 export function walkLeaders(req: Request, res: Response): void {
-  const body: WalkListRequest = req.body;
-  debugLog("listWalks:body:", body);
+  const body: EventsListRequest = req.body;
+  debugLog("listEvents:body:", body);
   systemConfig()
     .then((systemConfig: SystemConfig) => {
       const limit = body.limit;
       const date = dateParameter(body);
       const dateEnd = dateEndParameter(body);
       const defaultOptions = requestDefaults.createApiRequestOptions(systemConfig);
-      debugLog("listWalks:defaultOptions:", defaultOptions);
+      debugLog("listEvents:defaultOptions:", defaultOptions);
       const optionalParameters = [
         optionalParameter("groups", systemConfig?.group?.groupCode),
+        optionalParameter("types", body.types),
         optionalParameter("limit", limit),
         optionalParameter("date", date),
         optionalParameter("date_end", dateEnd)]
@@ -53,7 +54,7 @@ export function walkLeaders(req: Request, res: Response): void {
           protocol: defaultOptions.protocol,
           headers: defaultOptions.headers,
           method: "get",
-          path: `/api/volunteers/walksevents?api-key=${systemConfig?.national?.walksManager?.apiKey}&types=group-walk&${optionalParameters}`
+          path: `/api/volunteers/walksevents?api-key=${systemConfig?.national?.walksManager?.apiKey}&${optionalParameters}`
         },
         debug: noopDebugLog,
         res,
@@ -75,10 +76,10 @@ export function walkLeaders(req: Request, res: Response): void {
     .catch(error => res.json(error));
 }
 
-export function listWalks(req: Request, res: Response): void {
-  const body: WalkListRequest = req.body;
+export function listEvents(req: Request, res: Response): void {
+  const body: EventsListRequest = req.body;
   const rawData: boolean = body.rawData;
-  debugLog("listWalks:body:", body);
+  debugLog("listEvents:body:", body);
   systemConfig()
     .then((systemConfig: SystemConfig) => {
       const limit = body.limit;
@@ -88,9 +89,10 @@ export function listWalks(req: Request, res: Response): void {
       const date = dateParameter(body);
       const dateEnd = dateEndParameter(body);
       const defaultOptions = requestDefaults.createApiRequestOptions(systemConfig);
-      debugLog("listWalks:defaultOptions:", defaultOptions);
+      debugLog("listEvents:defaultOptions:", defaultOptions);
       const optionalParameters = [
         optionalParameter("groups", systemConfig?.group?.groupCode),
+        optionalParameter("types", body.types),
         optionalParameter("ids", ids),
         optionalParameter("limit", limit),
         optionalParameter("sort", sort),
@@ -106,7 +108,7 @@ export function listWalks(req: Request, res: Response): void {
           protocol: defaultOptions.protocol,
           headers: defaultOptions.headers,
           method: "get",
-          path: `/api/volunteers/walksevents?api-key=${systemConfig?.national?.walksManager?.apiKey}&types=group-walk&${optionalParameters}`
+          path: `/api/volunteers/walksevents?api-key=${systemConfig?.national?.walksManager?.apiKey}&${optionalParameters}`
         },
         debug: noopDebugLog,
         res,
@@ -128,7 +130,7 @@ export function listWalks(req: Request, res: Response): void {
     .catch(error => res.json(error));
 }
 
-function dateParameter(body: WalkListRequest): string {
+function dateParameter(body: EventsListRequest): string {
   if (body?.ids?.length > 0) {
     const dateParameter = moment(WALKS_MANAGER_GO_LIVE_DATE).tz("Europe/London").startOf("day").format(WALKS_MANAGER_API_DATE_FORMAT);
     debugLog("returning dateParameter:", dateParameter, "given id request:", body.ids, "and dateEnd:", body.date);
@@ -139,7 +141,7 @@ function dateParameter(body: WalkListRequest): string {
   }
 }
 
-function dateEndParameter(body: WalkListRequest): string {
+function dateEndParameter(body: EventsListRequest): string {
   if (body?.ids?.length > 0) {
     const dateEndParameter = moment().tz("Europe/London").add(2, "month").format(WALKS_MANAGER_API_DATE_FORMAT);
     debugLog("returning dateEndParameter:", dateEndParameter, "given id request:", body.ids, "and dateEnd:", body.dateEnd);
