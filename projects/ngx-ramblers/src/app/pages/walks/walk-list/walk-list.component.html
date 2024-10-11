@@ -20,8 +20,8 @@
                class="rounded table styled-table table-striped table-hover table-sm">
           <thead *ngIf="showTableHeader(displayedWalk)" class="styled-table">
           <tr>
-            <th class="action" *ngIf="display.walkPopulationLocal() && memberLoginService.memberLoggedIn()" width="7%">Action</th>
-            <th *ngIf="!display.walkPopulationLocal()" width="5%">Type</th>
+            <th class="action" *ngIf="display.walkPopulationLocal() && memberLoginService.memberLoggedIn()" width="8%">Action</th>
+            <th *ngIf="!display.walkPopulationLocal()" width="8%">Type</th>
             <th width="13%">Walk Date</th>
             <th class="d-none d-lg-table-cell" width="7%">Start Time</th>
             <th width="25%">Title</th>
@@ -40,7 +40,7 @@
               (click)="display.edit(displayedWalk)"
               class="button-form">
             </td>
-            <td *ngIf="!display.walkPopulationLocal()" width="5%" class="d-none d-lg-table-cell event-type" (click)="display.view(displayedWalk.walk)"
+            <td *ngIf="!display.walkPopulationLocal()" width="8%" class="event-type" (click)="display.view(displayedWalk.walk)"
                 id="eventType-{{index}}">
               <fa-icon class="{{display.eventType(displayedWalk.walk)}}"
                        tooltip="{{display.eventTypeTitle(displayedWalk.walk)}}" adaptivePosition
