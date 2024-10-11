@@ -158,8 +158,11 @@ export class RamblersWalksAndEventsService {
   }
 
   async listRamblersWalks(): Promise<RamblersWalkResponse[]> {
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<RamblersWalksApiResponse>(`${this.BASE_URL}/list-events`, {}), this.walksSubject);
-    this.logger.off("received", apiResponse);
+    const body: EventsListRequest = {
+      types: [RamblersEventType.GROUP_WALK, RamblersEventType.GROUP_EVENT, RamblersEventType.WELLBEING_WALK]
+    };
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<RamblersWalksApiResponse>(`${this.BASE_URL}/list-events`, body), this.walksSubject);
+    this.logger.debug("received", apiResponse);
     return apiResponse.response;
   }
 
