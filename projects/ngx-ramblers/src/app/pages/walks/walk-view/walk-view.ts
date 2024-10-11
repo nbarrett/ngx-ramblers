@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -8,7 +8,7 @@ import { LoginResponse } from "../../../models/member.model";
 import { DisplayedWalk, MapDisplay, Walk } from "../../../models/walk.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
-import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
+import { LoggerFactory } from "../../../services/logger-factory.service";
 import { MeetupService } from "../../../services/meetup.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
@@ -18,6 +18,7 @@ import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { SystemConfig } from "../../../models/system.model";
 import { WalksQueryService } from "../../../services/walks/walks-query.service";
+import { StringUtilsService } from "../../../services/string-utils.service";
 
 @Component({
   selector: "app-walk-view",
@@ -113,9 +114,10 @@ import { WalksQueryService } from "../../../services/walks/walks-query.service";
               <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" *ngIf="displayedWalk.walkLink"
                    class="col-sm-12">
                 <app-copy-icon title [value]="displayedWalk.walkLink"
-                               [elementName]="'This Walk'"></app-copy-icon>
+                               elementName="This {{display.eventTypeTitle(displayedWalk.walk)}}"></app-copy-icon>
                 <div content>
-                  <a [href]="displayedWalk.walkLink " target="_blank">This Walk</a>
+                  <a [href]="displayedWalk.walkLink "
+                     target="_blank">This {{ display.eventTypeTitle(displayedWalk.walk) }}</a>
                 </div>
               </div>
             </div>
@@ -200,49 +202,41 @@ import { WalksQueryService } from "../../../services/walks/walks-query.service";
       </div>
     </div>`,
   styleUrls: ["./walk-view.sass"],
-  changeDetection: ChangeDetectionStrategy.Default
 })
 
 export class WalkViewComponent implements OnInit, OnDestroy {
-
-  @Input("displayedWalk") set init(displayedWalk: DisplayedWalk) {
-    this.applyWalk(displayedWalk);
-  }
-
-  constructor(
-    public walksQueryService: WalksQueryService,
-    private walksService: WalksService,
-    public googleMapsService: GoogleMapsService,
-    private authService: AuthService,
-    private memberLoginService: MemberLoginService,
-    public display: WalkDisplayService,
-    private dateUtils: DateUtilsService,
-    public meetupService: MeetupService,
-    private urlService: UrlService,
-    private systemConfigService: SystemConfigService,
-    private notifierService: NotifierService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkViewComponent", NgxLoggerLevel.OFF);
-  }
-
   public walkIdOrPath: string;
   public pathContainsWalkId: boolean;
   public displayedWalk: DisplayedWalk;
   public displayLinks: boolean;
   public fromPostcode = "";
   public mapDisplay: MapDisplay = MapDisplay.SHOW_START_POINT;
-  private logger: Logger;
   public allowWalkAdminEdits: boolean;
   public googleMapsUrl: SafeResourceUrl;
   public loggedIn: boolean;
   private subscriptions: Subscription[] = [];
-  private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-
   protected readonly ALERT_WARNING = ALERT_WARNING;
+  public walksQueryService = inject(WalksQueryService);
+  private walksService = inject(WalksService);
+  public googleMapsService = inject(GoogleMapsService);
+  private authService = inject(AuthService);
+  private memberLoginService = inject(MemberLoginService);
+  public display = inject(WalkDisplayService);
+  private dateUtils = inject(DateUtilsService);
+  public meetupService = inject(MeetupService);
+  private urlService = inject(UrlService);
+  protected stringUtils = inject(StringUtilsService);
+  private systemConfigService = inject(SystemConfigService);
+  private notifierService = inject(NotifierService);
+  private logger = inject(LoggerFactory).createLogger("WalkViewComponent", NgxLoggerLevel.OFF);
+  private notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
+
+  @Input("displayedWalk") set init(displayedWalk: DisplayedWalk) {
+    this.applyWalk(displayedWalk);
+  }
 
   ngOnInit() {
-    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.loggedIn = this.memberLoginService.memberLoggedIn();
     this.allowWalkAdminEdits = this.memberLoginService.allowWalkAdminEdits();
     this.refreshHomePostcode();
@@ -270,10 +264,6 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       this.logger.info("event received:", config);
       this.updateGoogleMap();
     });
-    this.notify.success({
-      title: "Single walk showing",
-      message: " - "
-    });
   }
 
   ngOnDestroy(): void {
@@ -285,6 +275,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       this.walksService.getByIdIfPossible(this.walkIdOrPath)
         .then((walk: Walk) => {
           if (walk) {
+            this.logger.info("Walk found:", walk);
             this.applyWalk(this.display.toDisplayedWalk(walk));
           } else {
             this.logger.warn("Walk not found:", this.walkIdOrPath)
@@ -303,6 +294,10 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       this.displayLinks = !!(this.displayedWalk.walk.meetupEventUrl || this.displayedWalk.walk.osMapsRoute || this.displayedWalk.walk.osMapsRoute || this.displayedWalk.walk.ramblersWalkId || this.displayedWalk.walkLink);
       this.updateGoogleMap();
     }
+    this.notify.success({
+      title: `Single ${this.display.eventTypeTitle(this.displayedWalk?.walk)} showing`,
+      message: " - "
+    });
   }
 
   updateGoogleMap() {

@@ -8,7 +8,7 @@ import { BasicMedia } from "../../../models/ramblers-walks-manager";
 @Component({
   selector: "app-walk-images",
   template: `
-    <div class="pointer">
+    <div class="pointer" [tooltip]="imageSource()?.alt" [placement]="'bottom'">
       <ng-container *ngIf="displayedWalk?.walk?.media?.length > 1">
         <app-svg colour="rgb(155, 200, 171)" (click)="back()"
                  [disabled]="backDisabled()"
@@ -37,7 +37,7 @@ export class WalkImagesComponent {
   constructor(
     public committeeQueryService: CommitteeQueryService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkImagesComponent", NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger("WalkImagesComponent", NgxLoggerLevel.ERROR);
   }
 
   protected imageIndex = 0;
@@ -66,4 +66,5 @@ export class WalkImagesComponent {
       this.imageIndex++;
     }
   }
+
 }

@@ -92,7 +92,7 @@ export class CommitteeQueryService {
           .then(walks => walks?.forEach(walk => events.push({
             id: walk.id,
             selected: true,
-            eventType: GroupEventTypes.WALK,
+            eventType: this.display.groupEventType(walk),
             eventDate: walk.walkDate,
             eventTime: walk.startTime,
             distance: walk.distance,

@@ -4,9 +4,15 @@ import isEmpty = require("lodash/isEmpty");
 import querystring = require("querystring");
 import { envConfig } from "../env-config/env-config";
 import { MessageHandlerOptions } from "../../../projects/ngx-ramblers/src/app/models/server-models";
+import { isArray } from "lodash";
 
 export function optionalParameter(key: string, value: any): string {
-  return key && value ? `${key}=${value}` : "";
+  if (key && value) {
+    const appliedValue = isArray(value) ? value.join(",") : value;
+    return `${key}=${appliedValue}`;
+  } else {
+    return "";
+  }
 }
 
 function createRequestAudit(options: MessageHandlerOptions) {

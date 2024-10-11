@@ -24,6 +24,8 @@ import { WalksReferenceService } from "../../services/walks/walks-reference-data
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 import { Observable, ReplaySubject } from "rxjs";
+import { StringUtilsService } from "../../services/string-utils.service";
+import { RamblersEventType } from "../../models/ramblers-walks-manager";
 
 @Injectable({
   providedIn: "root"
@@ -49,6 +51,7 @@ export class WalkDisplayService {
     private memberLoginService: MemberLoginService,
     private router: Router,
     private urlService: UrlService,
+    protected stringUtils: StringUtilsService,
     private route: ActivatedRoute,
     private sanitiser: DomSanitizer,
     private walkEventService: WalkEventService,
@@ -56,7 +59,7 @@ export class WalkDisplayService {
     private walksQueryService: WalksQueryService,
     private committeeConfig: CommitteeConfigService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkDisplayService, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(WalkDisplayService, NgxLoggerLevel.ERROR);
     this.applyConfig();
     this.refreshCachedData();
     this.logger.debug("this.memberLoginService", this.memberLoginService.loggedInMember());
@@ -295,5 +298,17 @@ export class WalkDisplayService {
 
   allowAdminEdits() {
     return this.memberLoginService.allowWalkAdminEdits();
+  }
+
+  eventType(walk: Walk): string {
+    return walk?.eventType || RamblersEventType.GROUP_WALK;
+  }
+
+  eventTypeTitle(walk: Walk): string {
+    return this.stringUtils.asTitle(walk?.eventType) || "Walk";
+  }
+
+  isWalk(walk: Walk): boolean {
+    return !walk?.eventType || walk.eventType === RamblersEventType.GROUP_WALK;
   }
 }

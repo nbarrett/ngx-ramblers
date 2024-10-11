@@ -1,15 +1,11 @@
 import { Component, OnInit } from "@angular/core";
-import { ActivatedRoute } from "@angular/router";
 import difference from "lodash-es/difference";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertMessage, AlertTarget } from "../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { DateValue } from "../../../models/date.model";
 import { Walk } from "../../../models/walk.model";
-import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
-import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
-import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -17,15 +13,13 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { UrlService } from "../../../services/url.service";
 import { WalkEventService } from "../../../services/walks/walk-event.service";
-import { WalkNotificationService } from "../../../services/walks/walk-notification.service";
 import { WalksQueryService } from "../../../services/walks/walks-query.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { WalksService } from "../../../services/walks/walks.service";
-import { WalkDisplayService } from "../walk-display.service";
 import { DisplayDatesAndTimesPipe } from "../../../pipes/display-dates-and-times.pipe";
-import { StringUtilsService } from "../../../services/string-utils.service";
 import uniq from "lodash-es/uniq";
 import { DisplayDatesPipe } from "../../../pipes/display-dates.pipe";
+import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 
 @Component({
   selector: "app-walk-add-slots",
@@ -48,16 +42,9 @@ export class WalkAddSlotsComponent implements OnInit {
   constructor(
     private walksService: WalksService,
     private memberLoginService: MemberLoginService,
-    private walksNotificationService: WalkNotificationService,
-    private display: WalkDisplayService,
-    private displayDay: DisplayDayPipe,
     private displayDate: DisplayDatePipe,
-    private stringUtilsService: StringUtilsService,
     private displayDates: DisplayDatesPipe,
     private displayDatesAndTimes: DisplayDatesAndTimesPipe,
-    private searchFilterPipe: SearchFilterPipe,
-    private displayDateAndTime: DisplayDateAndTimePipe,
-    private route: ActivatedRoute,
     private walksQueryService: WalksQueryService,
     private dateUtils: DateUtilsService,
     private notifierService: NotifierService,
@@ -86,6 +73,7 @@ export class WalkAddSlotsComponent implements OnInit {
   createSlots(requiredSlots: number[], message: AlertMessage) {
     this.requiredWalkSlots = requiredSlots.map(date => {
       const walk: Walk = {
+        eventType: RamblersEventType.GROUP_WALK,
         walkDate: date,
         ramblersPublish: true,
         events: []

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import range from "lodash-es/range";
 import uniq from "lodash-es/uniq";
@@ -20,31 +20,24 @@ import {
   WalkDateAscending,
   WalkDateDescending
 } from "../../../models/walk.model";
-import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
-import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
-import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
-import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
-import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageService } from "../../../services/page.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { UrlService } from "../../../services/url.service";
 import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
-import { WalkNotificationService } from "../../../services/walks/walk-notification.service";
 import { WalksQueryService } from "../../../services/walks/walks-query.service";
-import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { WalksService } from "../../../services/walks/walks.service";
-import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { LoginModalComponent } from "../../login/login-modal/login-modal.component";
 import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { sortBy } from "../../../functions/arrays";
+import { RamblersEventType } from "../../../models/ramblers-walks-manager";
+import { faPeopleGroup, faWalking } from "@fortawesome/free-solid-svg-icons";
 
 @Component({
   selector: "app-walk-list",
@@ -53,6 +46,9 @@ import { sortBy } from "../../../functions/arrays";
   changeDetection: ChangeDetectionStrategy.Default
 })
 export class WalkListComponent implements OnInit, OnDestroy {
+  protected readonly RamblersEventType = RamblersEventType;
+  protected readonly faWalking = faWalking;
+  protected readonly faPeopleGroup = faPeopleGroup;
   public currentWalkId: string;
   private logger: Logger;
   private todayValue: number;
@@ -79,27 +75,17 @@ export class WalkListComponent implements OnInit, OnDestroy {
     private pageService: PageService,
     public googleMapsService: GoogleMapsService,
     private walksService: WalksService,
-    private memberService: MemberService,
-    private numberUtils: NumberUtilsService,
     private authService: AuthService,
     public ramblersWalksAndEventsService: RamblersWalksAndEventsService,
     public memberLoginService: MemberLoginService,
-    private walksNotificationService: WalkNotificationService,
     public display: WalkDisplayService,
-    private stringUtils: StringUtilsService,
-    private displayDay: DisplayDayPipe,
-    private displayDate: DisplayDatePipe,
+    protected stringUtils: StringUtilsService,
     private searchFilterPipe: SearchFilterPipe,
-    private displayDateAndTime: DisplayDateAndTimePipe,
     private route: ActivatedRoute,
     private walksQueryService: WalksQueryService,
     private dateUtils: DateUtilsService,
     private notifierService: NotifierService,
     private broadcastService: BroadcastService<any>,
-    private urlService: UrlService,
-    private walksReferenceService: WalksReferenceService,
-    private changeDetectorRef: ChangeDetectorRef,
-    private siteEditService: SiteEditService,
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(WalkListComponent, NgxLoggerLevel.OFF);
   }
@@ -302,4 +288,5 @@ export class WalkListComponent implements OnInit, OnDestroy {
       this.logger.info("no groups to query:", groups);
     }
   }
+
 }

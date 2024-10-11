@@ -28,7 +28,7 @@ export interface RamblersWalksApiResponse extends ApiResponse {
   response?: RamblersWalkResponse[];
 }
 
-export enum WalkType {
+export enum RamblersEventType {
   GROUP_WALK = "group-walk",
   GROUP_EVENT = "group-event",
   WELLBEING_WALK = "wellbeing-walk"
@@ -84,7 +84,7 @@ export interface WalkLeader {
 }
 
 export interface GroupWalk {
-  item_type: WalkType;
+  item_type: RamblersEventType;
   id: string;
   title: string;
   group_code: string;
@@ -95,6 +95,23 @@ export interface GroupWalk {
   start_date_time: string;
   end_date_time: string;
   meeting_date_time: string;
+  event_organiser?: {
+    name: string;
+    telephone: string;
+    has_email: boolean;
+    is_overridden: boolean;
+    email_form: string;
+  },
+  location?: {
+    latitude: number;
+    longitude: number;
+    grid_reference_6: string;
+    grid_reference_8: string;
+    grid_reference_10: string;
+    postcode: string;
+    description: string;
+    w3w: string;
+  };
   start_location: {
     latitude: number;
     longitude: number;
@@ -156,7 +173,8 @@ export interface GroupListRequest {
   groups: string[];
 }
 
-export interface WalkListRequest {
+export interface EventsListRequest {
+  types: RamblersEventType[];
   ids?: string[];
   rawData?: boolean;
   limit?: number;
