@@ -1,55 +1,60 @@
-import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Observable, Subject } from "rxjs";
+import { Observable } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
 import { SocialEvent, SocialEventApiResponse } from "../../models/social-events.model";
-import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
+import { EventPopulation, Organisation } from "../../models/system.model";
+import { SystemConfigService } from "../system/system-config.service";
+import { SocialEventsLocalService } from "./social-events-local.service";
+import { RamblersWalksAndEventsService } from "../walks/ramblers-walks-and-events.service";
 
 @Injectable({
   providedIn: "root"
 })
 export class SocialEventsService {
 
-  private BASE_URL = "/api/database/social-event";
-  private logger: Logger;
-  private socialEventNotifications = new Subject<SocialEventApiResponse>();
+  private readonly logger: Logger;
+  public group: Organisation;
 
-  constructor(private http: HttpClient,
-              private commonDataService: CommonDataService,
+  constructor(private systemConfigService: SystemConfigService,
+              private socialEventsLocalService: SocialEventsLocalService,
+              private ramblersWalksAndEventsService: RamblersWalksAndEventsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SocialEventsService, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(SocialEventsService, NgxLoggerLevel.ERROR);
+    this.applyConfig();
   }
 
-  publicFieldsDataQueryOptions: DataQueryOptions = {
-    select: {
-      briefDescription: 1,
-      eventDate: 1,
-      location: 1,
-      longerDescription: 1,
-      attachment: 1,
-      thumbnail: 1
-    }
-  };
+  private applyConfig() {
+    this.logger.info("applyConfig called");
+    this.systemConfigService.events().subscribe(item => {
+      this.group = item.group;
+      this.logger.info("group:", this.group);
+    });
+  }
+
 
   notifications(): Observable<SocialEventApiResponse> {
-    return this.socialEventNotifications.asObservable();
+    return this.socialEventsLocalService.notifications();
   }
 
   async all(dataQueryOptions?: DataQueryOptions): Promise<SocialEvent[]> {
-    const params = this.commonDataService.toHttpParams(dataQueryOptions);
-    this.logger.debug("all:dataQueryOptions", dataQueryOptions, "params", params.toString());
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<SocialEventApiResponse>(`${this.BASE_URL}/all`, {params}), this.socialEventNotifications);
-    return apiResponse.response as SocialEvent[];
+    this.logger.info("all called with socialEventPopulation:", this.group?.walkPopulation);
+    switch (this.group?.socialEventPopulation) {
+      case EventPopulation.WALKS_MANAGER:
+        return this.ramblersWalksAndEventsService.allSocialEvents(dataQueryOptions);
+      case EventPopulation.LOCAL:
+        return this.socialEventsLocalService.all(dataQueryOptions);
+    }
   }
 
   async allPublic(dataQueryOptions?: DataQueryOptions): Promise<SocialEvent[]> {
-    const publicDataQueryOptions: DataQueryOptions = {...dataQueryOptions, select: this.publicFieldsDataQueryOptions.select};
-    const params = this.commonDataService.toHttpParams(publicDataQueryOptions);
-    this.logger.debug("allPublic:dataQueryOptions", publicDataQueryOptions, "params", params.toString());
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<SocialEventApiResponse>(`${this.BASE_URL}/all-public`, {params}), this.socialEventNotifications);
-    return apiResponse.response as SocialEvent[];
+    switch (this.group?.socialEventPopulation) {
+      case EventPopulation.WALKS_MANAGER:
+        return this.ramblersWalksAndEventsService.allSocialEvents(dataQueryOptions);
+      case EventPopulation.LOCAL:
+        return this.socialEventsLocalService.allPublic(dataQueryOptions);
+    }
   }
 
   async createOrUpdate(socialEvent: SocialEvent): Promise<SocialEvent> {
@@ -60,31 +65,40 @@ export class SocialEventsService {
     }
   }
 
-  async getById(socialEventId: string): Promise<SocialEvent> {
-    this.logger.debug("getById:", socialEventId);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<SocialEventApiResponse>(`${this.BASE_URL}/${socialEventId}`), this.socialEventNotifications);
-    return apiResponse.response as SocialEvent;
+  async queryForId(socialEventId: string): Promise<SocialEvent> {
+    this.logger.info("getById called with socialEventId:", socialEventId);
+    switch (this.group?.socialEventPopulation) {
+      case EventPopulation.WALKS_MANAGER:
+        return this.ramblersWalksAndEventsService.socialEventForId(socialEventId);
+      case EventPopulation.LOCAL:
+        return this.socialEventsLocalService.queryForId(socialEventId);
+    }
   }
 
   async update(socialEvent: SocialEvent): Promise<SocialEvent> {
-    this.logger.debug("updating", socialEvent);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.put<SocialEventApiResponse>(this.BASE_URL + "/" + socialEvent.id, socialEvent), this.socialEventNotifications);
-    this.logger.debug("updated", socialEvent, "- received", apiResponse);
-    return apiResponse.response as SocialEvent;
+    switch (this.group?.socialEventPopulation) {
+      case EventPopulation.WALKS_MANAGER:
+        return Promise.reject("cannot update social event as socialEventPopulation is " + this.group?.socialEventPopulation);
+      case EventPopulation.LOCAL:
+        return this.socialEventsLocalService.update(socialEvent);
+    }
   }
 
   async create(socialEvent: SocialEvent): Promise<SocialEvent> {
-    this.logger.debug("creating", socialEvent);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<SocialEventApiResponse>(this.BASE_URL, socialEvent), this.socialEventNotifications);
-    this.logger.debug("created", socialEvent, "- received", apiResponse);
-    return apiResponse.response as SocialEvent;
+    switch (this.group?.socialEventPopulation) {
+      case EventPopulation.WALKS_MANAGER:
+        return Promise.reject("cannot create social event as socialEventPopulation is " + this.group?.socialEventPopulation);
+      case EventPopulation.LOCAL:
+        return this.socialEventsLocalService.create(socialEvent);
+    }
   }
 
   async delete(socialEvent: SocialEvent): Promise<SocialEvent> {
-    this.logger.debug("deleting", socialEvent);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.delete<SocialEventApiResponse>(this.BASE_URL + "/" + socialEvent.id), this.socialEventNotifications);
-    this.logger.debug("deleted", socialEvent, "- received", apiResponse);
-    return apiResponse.response as SocialEvent;
+    switch (this.group?.socialEventPopulation) {
+      case EventPopulation.WALKS_MANAGER:
+        return Promise.reject("cannot delete social event as socialEventPopulation is " + this.group?.socialEventPopulation);
+      case EventPopulation.LOCAL:
+        return this.socialEventsLocalService.delete(socialEvent);
+    }
   }
-
 }

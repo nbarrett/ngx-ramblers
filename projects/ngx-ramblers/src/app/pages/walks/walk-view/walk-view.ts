@@ -240,7 +240,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     this.loggedIn = this.memberLoginService.memberLoggedIn();
     this.allowWalkAdminEdits = this.memberLoginService.allowWalkAdminEdits();
     this.refreshHomePostcode();
-    this.pathContainsWalkId = this.urlService.pathContainsWalkId();
+    this.pathContainsWalkId = this.urlService.pathContainsEventId();
     this.walkIdOrPath = this.urlService.lastPathSegment();
     this.logger.info("initialised with walk", this.displayedWalk, "pathContainsWalkId:", this.pathContainsWalkId, "walkIdOrPath:", this.walkIdOrPath);
     if (this.systemConfigService.systemConfig()) {

@@ -29,9 +29,7 @@ import { CommitteeReferenceData } from "./committee-reference-data";
 import { toMongoIds } from "../mongo-utils";
 import { SocialEvent } from "../../models/social-events.model";
 import { isNumericRamblersId } from "../path-matchers";
-import { Walk } from "../../models/walk.model";
-import { BasicMedia, Media } from "../../models/ramblers-walks-manager";
-import { UrlService } from "../url.service";
+import { MediaQueryService } from "./media-query.service";
 
 @Injectable({
   providedIn: "root"
@@ -44,9 +42,9 @@ export class CommitteeQueryService {
   public committeeMembers: Member[] = [];
 
   constructor(
-    private urlService: UrlService,
     public display: CommitteeDisplayService,
     private dateUtils: DateUtilsService,
+    private mediaQueryService: MediaQueryService,
     private walksService: WalksService,
     private memberService: MemberService,
     private walksQueryService: WalksQueryService,
@@ -103,7 +101,7 @@ export class CommitteeQueryService {
             contactName: walk.displayName || "Awaiting walk leader",
             contactPhone: walk.contactPhone,
             contactEmail: walk.contactEmail,
-            image: this.imageFromWalk(walk)
+            image: this.mediaQueryService.imageUrlFrom(walk)
           }))));
     }
     if (groupEventsFilter.includeCommitteeEvents) {
@@ -156,7 +154,7 @@ export class CommitteeQueryService {
               contactName: socialEvent.displayName,
               contactPhone: socialEvent.contactPhone,
               contactEmail: socialEvent.contactEmail,
-              image: this.imageFromSocialEvent(socialEvent)
+              image: this.mediaQueryService.imageFromSocialEvent(socialEvent)
             });
           })));
     }
@@ -254,19 +252,4 @@ export class CommitteeQueryService {
     return years.length === 0 ? [{year: this.latestYear(), latestYear: true}] : years;
   }
 
-  public imageFromWalk(walk: Walk) {
-    this.logger.info("imageFromWalk:walk media:", walk?.media);
-    const media: Media = walk?.media?.find(item => item.styles.find(style => style.style === "medium"));
-    return media?.styles?.find(style => style.style === "medium")?.url;
-  }
-
-  public imagesFromWalk(walk: Walk): BasicMedia[] {
-    const media = walk?.media?.map(item => ({alt: item.alt, url: item.styles.find(style => style.style === "medium")?.url}));
-    this.logger.info("imageFromWalk:walk media:", media);
-    return media;
-  }
-
-  private imageFromSocialEvent(socialEvent: SocialEvent) {
-    return this.urlService.imageSource(socialEvent?.thumbnail, true);
-  }
 }

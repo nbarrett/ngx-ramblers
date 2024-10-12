@@ -47,6 +47,10 @@ export class UrlService {
     this.cacheBuster = this.dateUtils.nowAsValue();
   }
 
+  public isMeetupUrl(externalUrl: string) {
+    return externalUrl?.includes("meetup.com");
+  }
+
   pathContains(path: string): boolean {
     return this.location.path().includes(path);
   }
@@ -144,7 +148,7 @@ export class UrlService {
     return this.isMongoId(this.lastPathSegment());
   }
 
-  pathContainsWalkId(): boolean {
+  pathContainsEventId(): boolean {
     return this.pathContainsMongoId() || this.pathContainsNumericRamblersId();
   }
 

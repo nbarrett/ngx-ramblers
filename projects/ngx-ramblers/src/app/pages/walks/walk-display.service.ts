@@ -6,7 +6,7 @@ import isEmpty from "lodash-es/isEmpty";
 import isNumber from "lodash-es/isNumber";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Member } from "../../models/member.model";
-import { Organisation, WalkPopulation } from "../../models/system.model";
+import { EventPopulation, Organisation } from "../../models/system.model";
 import { WalkAccessMode } from "../../models/walk-edit-mode.model";
 import { WalkEventType } from "../../models/walk-event-type.model";
 import { ExpandedWalk } from "../../models/walk-expanded-view.model";
@@ -79,7 +79,7 @@ export class WalkDisplayService {
 
   walkMode(walk: Walk): WalkViewMode {
     const expandedWalk = find(this.expandedWalks, {walkId: walk?.id}) as ExpandedWalk;
-    const walkViewMode = expandedWalk ? expandedWalk.mode : this.urlService.pathContainsWalkId() ? WalkViewMode.VIEW_SINGLE : this.urlService.pathContains("edit") ? WalkViewMode.EDIT_FULL_SCREEN : WalkViewMode.LIST;
+    const walkViewMode = expandedWalk ? expandedWalk.mode : this.urlService.pathContainsEventId() ? WalkViewMode.VIEW_SINGLE : this.urlService.pathContains("edit") ? WalkViewMode.EDIT_FULL_SCREEN : WalkViewMode.LIST;
     this.logger.debug("walkMode:", walkViewMode, "expandedWalk:", expandedWalk);
     return walkViewMode;
   }
@@ -120,13 +120,13 @@ export class WalkDisplayService {
   }
 
   public walkPopulationWalksManager(): boolean {
-    const result = this.group?.walkPopulation === WalkPopulation.WALKS_MANAGER;
+    const result = this.group?.walkPopulation === EventPopulation.WALKS_MANAGER;
     this.logger.debug("walkPopulationWalksManager:walkPopulation:", this.group?.walkPopulation, "result:", result);
     return result;
   }
 
   public walkPopulationLocal(): boolean {
-    const result = this.group?.walkPopulation === WalkPopulation.LOCAL;
+    const result = this.group?.walkPopulation === EventPopulation.LOCAL;
     this.logger.debug("walkPopulationWalksManager:walkPopulation:", this.group?.walkPopulation, "result:", result);
     return result;
   }
@@ -189,7 +189,7 @@ export class WalkDisplayService {
       const newWalk = {walkId, mode: toggleTo};
       this.expandedWalks.push(newWalk);
       this.logger.info("display.toggleViewFor", toggleTo, "added", newWalk);
-      if (this.urlService.pathContainsWalkId() && toggleTo === WalkViewMode.EDIT) {
+      if (this.urlService.pathContainsEventId() && toggleTo === WalkViewMode.EDIT) {
         this.editFullscreen(walk);
       }
     }

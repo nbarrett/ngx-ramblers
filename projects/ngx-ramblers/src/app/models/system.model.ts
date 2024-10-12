@@ -12,7 +12,7 @@ export enum SystemSettingsTab {
   EXTERNAL_SYSTEMS = "External Systems",
 }
 
-export enum WalkPopulation {
+export enum EventPopulation {
   WALKS_MANAGER = "walks-manager",
   LOCAL = "local"
 }
@@ -29,7 +29,8 @@ export interface Group {
 }
 
 export interface Organisation extends Group {
-  walkPopulation: WalkPopulation;
+  walkPopulation: EventPopulation;
+  socialEventPopulation: EventPopulation;
   shortName?: string;
   href?: string;
   pages: Link[];

@@ -36,7 +36,6 @@ import { LoginModalComponent } from "../../login/login-modal/login-modal.compone
 import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { sortBy } from "../../../functions/arrays";
-import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { faPeopleGroup, faWalking } from "@fortawesome/free-solid-svg-icons";
 
 @Component({
@@ -46,7 +45,6 @@ import { faPeopleGroup, faWalking } from "@fortawesome/free-solid-svg-icons";
   changeDetection: ChangeDetectionStrategy.Default
 })
 export class WalkListComponent implements OnInit, OnDestroy {
-  protected readonly RamblersEventType = RamblersEventType;
   protected readonly faWalking = faWalking;
   protected readonly faPeopleGroup = faPeopleGroup;
   public currentWalkId: string;

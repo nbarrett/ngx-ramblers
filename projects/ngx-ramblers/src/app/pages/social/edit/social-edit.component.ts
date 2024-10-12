@@ -50,12 +50,10 @@ export class SocialEditComponent implements OnInit, OnDestroy {
   public notifyTarget: AlertTarget = {};
   public notification: Notification;
   private logger: Logger;
-  private campaignSearchTerm: string;
   public hasFileOver = false;
   public eventDate: DateValue;
   private existingTitle: string;
   public uploader: FileUploader;
-  public socialEventEditMode: string;
   public longerDescriptionPreview = true;
   public selectedMemberIds: string[] = [];
   faCopy = faCopy;
@@ -69,18 +67,17 @@ export class SocialEditComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
-    if (this.urlService.pathContainsMongoId()) {
+    if (this.urlService.pathContainsEventId()) {
       this.notify.setBusy();
       const socialEventId = this.urlService.lastPathSegment();
       this.logger.debug("finding socialEvent from socialEventId:", socialEventId);
-      this.socialEventsService.getById(socialEventId).then(data => {
+      this.socialEventsService.queryForId(socialEventId).then(data => {
         this.socialEvent = data;
         if (!this.socialEvent.attendees) {
           this.socialEvent.attendees = [];
         }
         this.eventDate = this.dateUtils.asDateValue(this.socialEvent.eventDate);
         this.existingTitle = this.socialEvent?.attachment?.title;
-        this.campaignSearchTerm = "Master";
         this.notify.hide();
         this.selectedMemberIds = this.socialEvent.attendees.map(attendee => attendee.id);
       });
