@@ -3,10 +3,7 @@ import isEmpty from "lodash-es/isEmpty";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AuthService } from "../../auth/auth.service";
 import { MemberCookie } from "../../models/member.model";
-import { FullNamePipe } from "../../pipes/full-name.pipe";
-import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { NumberUtilsService } from "../number-utils.service";
 import { UrlService } from "../url.service";
 
 @Injectable({
@@ -17,12 +14,9 @@ export class MemberLoginService {
   private logger: Logger;
 
   constructor(
-    private fullNamePipe: FullNamePipe,
     private authService: AuthService,
-    private numberUtils: NumberUtilsService,
     private urlService: UrlService,
-    private dateUtils: DateUtilsService,
-    private loggerFactory: LoggerFactory) {
+    loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(MemberLoginService, NgxLoggerLevel.OFF);
   }
 

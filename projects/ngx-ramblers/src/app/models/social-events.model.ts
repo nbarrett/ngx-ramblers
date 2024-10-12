@@ -3,13 +3,14 @@ import { ApiResponse, Identifiable } from "./api-response.model";
 import { FileNameData } from "./aws-object.model";
 import { Notification } from "./committee.model";
 import { FilterParametersSearch } from "./member-resource.model";
+import { Media } from "./ramblers-walks-manager";
 
 export interface FilterParameters extends FilterParametersSearch {
   selectType: DateCriteria;
   fieldSort: number;
 }
 
-export interface SocialEvent extends Identifiable {
+export interface SocialEvent extends Identifiable, HasMedia {
   attachment?: FileNameData;
   attendees: Identifiable[];
   briefDescription?: string;
@@ -29,6 +30,10 @@ export interface SocialEvent extends Identifiable {
   notification?: Notification;
   postcode?: string;
   thumbnail?: string;
+}
+
+export interface HasMedia {
+  media?: Media[];
 }
 
 export interface SocialEventApiResponse extends ApiResponse {

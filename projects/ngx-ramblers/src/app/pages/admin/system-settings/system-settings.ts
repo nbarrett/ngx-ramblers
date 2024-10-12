@@ -6,11 +6,11 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import {
   colourSelectors,
   colourSelectorsDarkLight,
+  EventPopulation,
   NavBarLocation,
   RootFolder,
   SystemConfig,
-  SystemSettingsTab,
-  WalkPopulation
+  SystemSettingsTab
 } from "../../../models/system.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -79,6 +79,17 @@ import { StoredValue } from "../../../models/ui-actions";
                       <label for="walk-population">Walk Population</label>
                       <select [(ngModel)]="config.group.walkPopulation"
                               class="form-control" id="walk-population">
+                        <option *ngFor="let walkPopulation of populationMethods"
+                                [ngValue]="walkPopulation.value">{{ stringUtils.asTitle(walkPopulation.value) }}
+                        </option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-group">
+                      <label for="social-event-population">Social Event Population</label>
+                      <select [(ngModel)]="config.group.socialEventPopulation"
+                              class="form-control" id="social-event-population">
                         <option *ngFor="let walkPopulation of populationMethods"
                                 [ngValue]="walkPopulation.value">{{ stringUtils.asTitle(walkPopulation.value) }}
                         </option>
@@ -400,7 +411,7 @@ import { StoredValue } from "../../../models/ui-actions";
                   </div>
                   <div class="col-md-4">
                     <form class="form-group">
-                      <label for="walks-manager-password" for="walks-manager-password">Walks Manager password</label>
+                      <label for="walks-manager-password">Walks Manager password</label>
                       <input autocomplete="nope"
                              [(ngModel)]="config.national.walksManager.password"
                              type="text" class="form-control input-sm"
@@ -512,7 +523,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   public logos: RootFolder = RootFolder.logos;
   public backgrounds: RootFolder = RootFolder.backgrounds;
   private subscriptions: Subscription[] = [];
-  public populationMethods: KeyValue<string>[] = enumKeyValues(WalkPopulation);
+  public populationMethods: KeyValue<string>[] = enumKeyValues(EventPopulation);
   public membersPendingSave: Member[] = [];
   private memberService: MemberService = inject(MemberService);
   public systemConfigService: SystemConfigService = inject(SystemConfigService);

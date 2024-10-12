@@ -4,26 +4,21 @@ import range from "lodash-es/range";
 import { PageChangedEvent } from "ngx-bootstrap/pagination";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { DateCriteria } from "../../../models/api-request.model";
-import { ApiAction } from "../../../models/api-response.model";
+import { DataQueryOptions, DateCriteria } from "../../../models/api-request.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
-import { FilterParameters, SocialEvent, SocialEventApiResponse } from "../../../models/social-events.model";
+import { FilterParameters, SocialEvent } from "../../../models/social-events.model";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
-import { ApiResponseProcessor } from "../../../services/api-response-processor.service";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
-import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageService } from "../../../services/page.service";
 import { SocialEventsService } from "../../../services/social-events/social-events.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { UrlService } from "../../../services/url.service";
-import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { SocialDisplayService } from "../social-display.service";
+import { SystemConfigService } from "../../../services/system/system-config.service";
 
 @Component({
   selector: "app-social-home",
@@ -36,7 +31,11 @@ export class SocialHomeComponent implements OnInit, OnDestroy {
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public socialEventId: string;
-  public filterParameters: FilterParameters = {fieldSort: 1, quickSearch: "", selectType: DateCriteria.CURRENT_OR_FUTURE_DATES};
+  public filterParameters: FilterParameters = {
+    fieldSort: 1,
+    quickSearch: "",
+    selectType: DateCriteria.CURRENT_OR_FUTURE_DATES
+  };
   private pageSize = 8;
   public pageNumber = 1;
   public pageCount: number;
@@ -45,66 +44,40 @@ export class SocialHomeComponent implements OnInit, OnDestroy {
   public filteredSocialEvents: SocialEvent[] = [];
   public currentPageSocials: SocialEvent[] = this.filteredSocialEvents;
 
-  constructor(public pageService: PageService,
-              private numberUtils: NumberUtilsService,
-              private authService: AuthService,
+  constructor(private systemConfigService: SystemConfigService,
+              public pageService: PageService,
               private stringUtils: StringUtilsService,
               private searchFilterPipe: SearchFilterPipe,
               private notifierService: NotifierService,
               public display: SocialDisplayService,
-              private apiResponseProcessor: ApiResponseProcessor,
-              private urlService: UrlService,
               private broadcastService: BroadcastService<any>,
               private route: ActivatedRoute,
               private socialEventsService: SocialEventsService,
-              private siteEditService: SiteEditService,
               private memberLoginService: MemberLoginService,
               protected dateUtils: DateUtilsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SocialHomeComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(SocialHomeComponent, NgxLoggerLevel.ERROR);
   }
 
   ngOnInit() {
-    this.logger.debug("ngOnInit started");
+    this.logger.info("ngOnInit started");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.systemConfigService.events().subscribe(item => {
+      this.notify.success({
+        title: "Social Events",
+        message: "Querying for data"
+      });
+      this.refreshSocialEvents();
+    });
     this.broadcastService.on(NamedEventType.REFRESH, () => this.refreshSocialEvents());
     this.broadcastService.on(NamedEventType.APPLY_FILTER, (searchTerm?: NamedEvent<string>) => this.applyFilterToSocialEvents(searchTerm));
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       const socialEventId = paramMap.get("relativePath");
-      this.logger.debug("socialEventId from route params:", paramMap, socialEventId);
+      this.logger.info("socialEventId from route params:", paramMap, socialEventId);
       if (socialEventId) {
         this.socialEventId = socialEventId;
       }
       this.pageService.setTitle("Home");
-    }));
-    this.notify.success({
-      title: "Finding social events",
-      message: "please wait..."
-    });
-    this.refreshSocialEvents();
-    this.subscriptions.push(this.socialEventsService.notifications().subscribe((apiResponse: SocialEventApiResponse) => {
-      this.logger.info("received apiResponse:", apiResponse);
-      if (apiResponse.error) {
-        this.logger.warn("received error:", apiResponse.error);
-        this.notify.error({
-          title: "Problem viewing Social Events",
-          message: "Refresh this page to clear this message."
-        });
-      } else if (this.display.confirm.notificationsOutstanding()) {
-        this.logger.debug("Not processing subscription response due to confirm:", this.display.confirm.confirmType());
-      } else {
-        const socialEvents: SocialEvent[] = this.apiResponseProcessor.processResponse(this.logger, this.socialEvents, apiResponse);
-        if (apiResponse.action === ApiAction.QUERY && !!this.socialEventId) {
-          this.notify.warning({
-            title: "Single Social Event being viewed",
-            message: "Refresh this page to return to normal view."
-          });
-        }
-        this.display.confirm.clear();
-        this.socialEvents = socialEvents;
-        this.logger.info("received socialEvents:", socialEvents);
-        this.applyFilterToSocialEvents();
-      }
     }));
   }
 
@@ -115,11 +88,29 @@ export class SocialHomeComponent implements OnInit, OnDestroy {
   public refreshSocialEvents() {
     this.notify.setBusy();
     const dataQueryOptions = {criteria: this.criteria(), sort: this.sort()};
-    this.logger.debug("refreshSocialEvents:dataQueryOptions", dataQueryOptions);
+    this.logger.info("refreshSocialEvents:dataQueryOptions", dataQueryOptions);
+    this.queryAndReturnSocialEvents(dataQueryOptions)
+      .then((socialEvents: SocialEvent[]) => {
+        this.logger.info("received socialEvents:", socialEvents);
+        this.display.confirm.clear();
+        this.socialEvents = socialEvents;
+        this.logger.info("received socialEvents:", socialEvents);
+        this.applyFilterToSocialEvents();
+      })
+      .catch(error => {
+        this.logger.error("received error:", error);
+        this.notify.error({
+          title: "Problem viewing Social Events",
+          message: error
+        });
+      });
+  }
+
+  private queryAndReturnSocialEvents(dataQueryOptions: DataQueryOptions): Promise<SocialEvent[]> {
     if (this.memberLoginService.memberLoggedIn()) {
-      this.socialEventsService.all(dataQueryOptions);
+      return this.socialEventsService.all(dataQueryOptions);
     } else {
-      this.socialEventsService.allPublic(dataQueryOptions);
+      return this.socialEventsService.allPublic(dataQueryOptions);
     }
   }
 

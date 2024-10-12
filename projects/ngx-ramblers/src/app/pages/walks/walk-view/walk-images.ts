@@ -2,8 +2,8 @@ import { Component, Input } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DisplayedWalk } from "../../../models/walk.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { CommitteeQueryService } from "../../../services/committee/committee-query.service";
 import { BasicMedia } from "../../../models/ramblers-walks-manager";
+import { MediaQueryService } from "../../../services/committee/media-query.service";
 
 @Component({
   selector: "app-walk-images",
@@ -35,7 +35,7 @@ export class WalkImagesComponent {
   private logger: Logger;
 
   constructor(
-    public committeeQueryService: CommitteeQueryService,
+    public mediaQueryService: MediaQueryService,
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger("WalkImagesComponent", NgxLoggerLevel.ERROR);
   }
@@ -58,7 +58,7 @@ export class WalkImagesComponent {
   }
 
   imageSource(): BasicMedia {
-    return this.committeeQueryService.imagesFromWalk(this.displayedWalk.walk)[this.imageIndex];
+    return this.mediaQueryService.basicMediaFrom(this.displayedWalk.walk)[this.imageIndex];
   }
 
   next() {

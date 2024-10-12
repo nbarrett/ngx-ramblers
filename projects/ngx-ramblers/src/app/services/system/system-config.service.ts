@@ -9,13 +9,13 @@ import {
   defaultNavbar,
   defaultRamblersConfig,
   defaultRightPanel,
+  EventPopulation,
   ExternalSystems,
   Images,
   MailProvider,
   Organisation,
   RootFolder,
-  SystemConfig,
-  WalkPopulation
+  SystemConfig
 } from "../../models/system.model";
 import { BroadcastService } from "../broadcast-service";
 import { ConfigService } from "../config.service";
@@ -187,7 +187,8 @@ export class SystemConfigService {
       longName: null,
       pages: [],
       shortName: null,
-      walkPopulation: WalkPopulation.WALKS_MANAGER
+      socialEventPopulation: EventPopulation.WALKS_MANAGER,
+      walkPopulation: EventPopulation.WALKS_MANAGER
     };
   }
 

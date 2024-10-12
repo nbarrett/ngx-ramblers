@@ -253,3 +253,5 @@ export enum WalkUploadColumnHeading {
 export type WalkUploadRow = {
   [column in keyof WalkUploadColumnHeading]?: string;
 }
+
+export const ALL_EVENT_TYPES: RamblersEventType[] = [RamblersEventType.GROUP_WALK, RamblersEventType.GROUP_EVENT, RamblersEventType.WELLBEING_WALK];

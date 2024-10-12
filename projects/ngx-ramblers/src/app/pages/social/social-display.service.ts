@@ -22,6 +22,8 @@ import { MemberLoginService } from "../../services/member/member-login.service";
 import { MemberService } from "../../services/member/member.service";
 import { UrlService } from "../../services/url.service";
 import { SiteEditService } from "../../site-edit/site-edit.service";
+import { EventPopulation, Organisation } from "../../models/system.model";
+import { SystemConfigService } from "../../services/system/system-config.service";
 
 const SORT_BY_NAME = sortBy("order", "member.lastName", "member.firstName");
 
@@ -36,8 +38,11 @@ export class SocialDisplayService {
   public allow: SocialEventsPermissions = {};
   public confirm: Confirm = new Confirm();
   public memberFilterSelections: MemberFilterSelection[];
+  private group: Organisation;
+  relatedLinksMediaWidth: 22;
 
   constructor(
+    private systemConfigService: SystemConfigService,
     private authService: AuthService,
     private memberService: MemberService,
     private siteEditService: SiteEditService,
@@ -54,12 +59,17 @@ export class SocialDisplayService {
 
   private configureEventSubscriptions() {
     this.committeeConfigService.events().subscribe(data => this.committeeReferenceData = data);
+    this.systemConfigService.events().subscribe(item => {
+      this.group = item.group;
+      this.applyAllows();
+    });
     this.authService.authResponse().subscribe(() => this.applyAllows());
     this.authService.authResponse().subscribe(() => this.authChanges());
     this.siteEditService.events.subscribe(() => this.applyAllows());
     this.applyAllows();
     this.authChanges();
   }
+
 
   loggedIn(): boolean {
     return this.memberLoginService.memberLoggedIn();
@@ -76,8 +86,8 @@ export class SocialDisplayService {
   applyAllows() {
     this.allow.detailView = this.memberLoginService.allowSocialDetailView();
     this.allow.summaryView = this.memberLoginService.allowSocialAdminEdits() || !this.memberLoginService.allowSocialDetailView();
-    this.allow.edits = this.memberLoginService.allowSocialAdminEdits();
-    this.allow.copy = this.memberLoginService.allowSocialAdminEdits();
+    this.allow.edits = this.memberLoginService.allowSocialAdminEdits() && this.socialPopulationLocal();
+    this.allow.copy = this.memberLoginService.allowSocialAdminEdits() && this.socialPopulationLocal();
     this.allow.contentEdits = this.siteEditService.active() && this.memberLoginService.allowContentEdits();
     this.logger.debug("permissions:", this.allow);
   }
@@ -180,6 +190,12 @@ export class SocialDisplayService {
       return members.map((member => this.toMemberFilterSelection(member)))
         .sort(SORT_BY_NAME);
     });
+  }
+
+  public socialPopulationLocal(): boolean {
+    const result = this.group?.socialEventPopulation === EventPopulation.LOCAL;
+    this.logger.debug("walkPopulationWalksManager:walkPopulation:", this.group?.socialEventPopulation, "result:", result);
+    return result;
   }
 
 }

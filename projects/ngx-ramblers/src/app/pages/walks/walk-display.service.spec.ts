@@ -14,7 +14,7 @@ import { GoogleMapsService } from "../../services/google-maps.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { WalksReferenceService } from "../../services/walks/walks-reference-data.service";
 import { WalkDisplayService } from "./walk-display.service";
-import { Organisation, WalkPopulation } from "../../models/system.model";
+import { EventPopulation, Organisation } from "../../models/system.model";
 
 const anyWalkDate = 123364;
 const walkLeaderMemberId = "walk-leader-id";
@@ -83,7 +83,7 @@ describe("WalkDisplayService", () => {
       const val = {memberId: "some-other-id"} as any;
       spy = spyOn(memberLoginService, "loggedInMember").and.returnValue(val);
       const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
-      service.group = {walkPopulation: WalkPopulation.LOCAL} as Organisation;
+      service.group = {walkPopulation: EventPopulation.LOCAL} as Organisation;
       expect(service.toWalkAccessMode({walkLeaderMemberId: "any-walk-id", events: dontCare, walkDate: anyWalkDate})).toEqual(WalksReferenceService.walkAccessModes.edit);
     });
 
@@ -92,7 +92,7 @@ describe("WalkDisplayService", () => {
       spy = spyOn(memberLoginService, "allowWalkAdminEdits").and.returnValue(false);
       spy = spyOn(memberLoginService, "loggedInMember").and.returnValue({memberId: "leader-id"} as any);
       const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
-      service.group = {walkPopulation: WalkPopulation.LOCAL} as Organisation;
+      service.group = {walkPopulation: EventPopulation.LOCAL} as Organisation;
       expect(service.toWalkAccessMode({
         walkLeaderMemberId: "leader-id",
         events: dontCare,
@@ -105,7 +105,7 @@ describe("WalkDisplayService", () => {
       spy = spyOn(memberLoginService, "allowWalkAdminEdits").and.returnValue(false);
       spy = spyOn(memberLoginService, "loggedInMember").and.returnValue({memberId: "leader-id"} as any);
       const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
-      service.group = {walkPopulation: WalkPopulation.LOCAL} as Organisation;
+      service.group = {walkPopulation: EventPopulation.LOCAL} as Organisation;
       expect(service.toWalkAccessMode({
         events: dontCare,
         walkDate: 0,

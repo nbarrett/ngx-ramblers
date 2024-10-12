@@ -6,7 +6,7 @@ import { Walk, WalkApiResponse } from "../../models/walk.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { WalksLocalService } from "./walks-local.service";
 import { RamblersWalksAndEventsService } from "./ramblers-walks-and-events.service";
-import { Organisation, WalkPopulation } from "../../models/system.model";
+import { EventPopulation, Organisation } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
 
 @Injectable({
@@ -40,9 +40,9 @@ export class WalksService {
   async all(dataQueryOptions?: DataQueryOptions): Promise<Walk[]> {
     this.logger.info("all called with walkPopulation:", this.group?.walkPopulation);
     switch (this.group?.walkPopulation) {
-      case WalkPopulation.WALKS_MANAGER:
+      case EventPopulation.WALKS_MANAGER:
         return this.ramblersWalksAndEventsService.all(dataQueryOptions);
-      case WalkPopulation.LOCAL:
+      case EventPopulation.LOCAL:
         return this.walksLocalService.all(dataQueryOptions);
     }
   }
@@ -50,11 +50,11 @@ export class WalksService {
   async queryWalkLeaders(): Promise<string[]> {
     this.logger.info("queryWalkLeaders:walkPopulation:", this?.group?.walkPopulation);
     switch (this?.group?.walkPopulation) {
-      case WalkPopulation.WALKS_MANAGER:
+      case EventPopulation.WALKS_MANAGER:
         const walkLeaders = await this.ramblersWalksAndEventsService.queryWalkLeaders();
         this.logger.info("queryWalkLeaders:", walkLeaders);
         return walkLeaders.map(item => item.name);
-      case WalkPopulation.LOCAL:
+      case EventPopulation.LOCAL:
         return this.walksLocalService.queryWalkLeaders();
     }
   }
@@ -64,14 +64,20 @@ export class WalksService {
   }
 
   async getById(walkId: string): Promise<Walk> {
-    return this.walksLocalService.getById(walkId);
+    switch (this?.group?.walkPopulation) {
+      case EventPopulation.WALKS_MANAGER:
+        return this.ramblersWalksAndEventsService.walkForId(walkId);
+      case EventPopulation.LOCAL:
+        return this.walksLocalService.getById(walkId);
+    }
+
   }
 
   async getByIdIfPossible(walkId: string): Promise<Walk | null> {
     switch (this?.group?.walkPopulation) {
-      case WalkPopulation.WALKS_MANAGER:
+      case EventPopulation.WALKS_MANAGER:
         return this.ramblersWalksAndEventsService.getByIdIfPossible(walkId);
-      case WalkPopulation.LOCAL:
+      case EventPopulation.LOCAL:
         return this.walksLocalService.getByIdIfPossible(walkId);
     }
   }
