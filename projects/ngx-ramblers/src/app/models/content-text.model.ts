@@ -4,6 +4,7 @@ import { Link } from "./page.model";
 import { BezierEasingOptions } from "ng-gallery/lib/smooth-scroll";
 import { fieldContainsValue, fieldEqualsValue, fieldStartsWithValue, MongoRegex } from "../functions/mongo";
 import { HasClass } from "./banner-configuration.model";
+import { EventsData } from "./social-events.model";
 
 export enum ContentTextCategory {
   MEETUP_DESCRIPTION_PREFIX = "meetup-description-prefix"
@@ -66,6 +67,7 @@ export interface PageContentRow {
   marginTop?: number;
   marginBottom?: number;
   carousel?: AlbumData;
+  events?: EventsData;
   albumIndex?: AlbumIndex;
 }
 
@@ -132,6 +134,7 @@ export enum PageContentType {
   ALBUM = "album",
   ALBUM_INDEX = "album-index",
   CAROUSEL = "carousel",
+  EVENTS = "events",
   TEXT = "text",
 }
 

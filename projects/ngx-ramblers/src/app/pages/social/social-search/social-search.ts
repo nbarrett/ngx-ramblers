@@ -1,6 +1,5 @@
 import { Component, Input, OnDestroy, OnInit } from "@angular/core";
-import { ActivatedRoute } from "@angular/router";
-import { faCopy, faSearch } from "@fortawesome/free-solid-svg-icons";
+import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
@@ -9,8 +8,6 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { FilterParameters } from "../../../models/social-events.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { MemberLoginService } from "../../../services/member/member-login.service";
-import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { SocialDisplayService } from "../social-display.service";
 
 @Component({
@@ -26,16 +23,12 @@ export class SocialSearchComponent implements OnInit, OnDestroy {
   @Input()
   filterParameters: FilterParameters;
   faSearch = faSearch;
-  faCopy = faCopy;
   private subscriptions: Subscription[] = [];
   public showPagination = false;
   private logger: Logger;
   private searchChangeObservable: Subject<string>;
 
-  constructor(private route: ActivatedRoute,
-              private walksReferenceService: WalksReferenceService,
-              private memberLoginService: MemberLoginService,
-              public display: SocialDisplayService,
+  constructor(public display: SocialDisplayService,
               private broadcastService: BroadcastService<any>,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(SocialSearchComponent, NgxLoggerLevel.OFF);

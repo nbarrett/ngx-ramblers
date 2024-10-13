@@ -14,7 +14,6 @@ import { MemberResourcesReferenceDataService } from "../../../services/member/me
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { PageContentEditService } from "../../../services/page-content-edit.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { faStackOverflow } from "@fortawesome/free-brands-svg-icons";
 
 @Component({
   selector: "app-dynamic-content-site-edit-text-row",

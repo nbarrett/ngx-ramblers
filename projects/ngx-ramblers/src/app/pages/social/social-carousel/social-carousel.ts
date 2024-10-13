@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnInit, ViewChild } from "@angular/core";
+import { Component, ElementRef, OnInit, ViewChild } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { ContentMetadata, ContentMetadataItem } from "../../../models/content-metadata.model";
@@ -8,6 +8,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { UrlService } from "../../../services/url.service";
 import { RootFolder } from "../../../models/system.model";
 import { HARD_CODED_SOCIAL_FOLDER } from "../../../models/social-events.model";
+import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 
 @Component({
   selector: "app-social-carousel",
@@ -15,8 +16,8 @@ import { HARD_CODED_SOCIAL_FOLDER } from "../../../models/social-events.model";
   templateUrl: "./social-carousel.html",
 })
 export class SocialCarouselComponent implements OnInit {
-  @Input()
-  public notifyTarget: AlertTarget;
+  public notify: AlertInstance;
+  public notifyTarget: AlertTarget = {};
   public contentMetadataItem: ContentMetadataItem;
   public slides: ContentMetadataItem[] = [];
   public paperCutWidth: 150;
@@ -26,6 +27,7 @@ export class SocialCarouselComponent implements OnInit {
   public contentMetadata: ContentMetadata;
 
   constructor(private contentMetadataService: ContentMetadataService,
+              private notifierService: NotifierService,
               public urlService: UrlService,
               protected dateUtils: DateUtilsService,
               loggerFactory: LoggerFactory) {
@@ -36,6 +38,7 @@ export class SocialCarouselComponent implements OnInit {
   @ViewChild("paperCutImage") paperCutImage: ElementRef<HTMLImageElement>;
 
   ngOnInit() {
+    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.refreshImages();
     setInterval(() => {
       this.nextSlide();
@@ -82,6 +85,5 @@ export class SocialCarouselComponent implements OnInit {
     this.logger.debug("papercutHeight:", clientHeight);
     return clientHeight;
   }
-
 
 }
