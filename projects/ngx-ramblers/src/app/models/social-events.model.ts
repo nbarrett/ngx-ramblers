@@ -3,7 +3,7 @@ import { ApiResponse, Identifiable } from "./api-response.model";
 import { FileNameData } from "./aws-object.model";
 import { Notification } from "./committee.model";
 import { FilterParametersSearch } from "./member-resource.model";
-import { Media } from "./ramblers-walks-manager";
+import { Media, RamblersEventType } from "./ramblers-walks-manager";
 
 export interface FilterParameters extends FilterParametersSearch {
   selectType: DateCriteria;
@@ -42,6 +42,7 @@ export interface SocialEventApiResponse extends ApiResponse {
 }
 
 export interface SocialEventsPermissions {
+  admin?: boolean;
   detailView?: boolean;
   summaryView?: boolean;
   delete?: boolean;
@@ -51,3 +52,7 @@ export interface SocialEventsPermissions {
 }
 
 export const HARD_CODED_SOCIAL_FOLDER = "images-social-events";
+
+export interface EventsData {
+  eventTypes: RamblersEventType[];
+}

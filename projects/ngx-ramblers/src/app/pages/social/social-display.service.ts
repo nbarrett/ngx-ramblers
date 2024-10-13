@@ -89,6 +89,7 @@ export class SocialDisplayService {
     this.allow.edits = this.memberLoginService.allowSocialAdminEdits() && this.socialPopulationLocal();
     this.allow.copy = this.memberLoginService.allowSocialAdminEdits() && this.socialPopulationLocal();
     this.allow.contentEdits = this.siteEditService.active() && this.memberLoginService.allowContentEdits();
+    this.allow.admin = this.memberLoginService.allowSocialAdminEdits();
     this.logger.debug("permissions:", this.allow);
   }
 

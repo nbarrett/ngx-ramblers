@@ -261,6 +261,7 @@ import { StoredValue } from "../../../models/ui-actions";
                 [contentPath]="contentPath"
                 [pageContent]="pageContent">
               </app-dynamic-content-site-edit-text-row>
+              <app-events *ngIf="actions.isEvents(row)" [row]="row" [rowIndex]="rowIndex"/>
             </div>
             <ng-container *ngTemplateOutlet="saveButtonsAndPath"></ng-container>
           </div>

@@ -49,13 +49,8 @@
             <img title class="related-links-image"
                  src="/assets/images/local/meetup.ico"
                  alt="View event on Meetup"/>
-            <a content target="_blank"
-               [href]="socialEvent.link">
-              <div class="related-links-title"
-                   tooltip="Click to view this event on Meetup">
-                View event on Meetup
-              </div>
-            </a>
+            <a content target="_blank" tooltip="Click to view this event on Meetup"
+               [href]="socialEvent.link">View event on Meetup</a>
           </div>
           <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12"
                *ngIf="socialEvent?.link && !urlService.isMeetupUrl(socialEvent?.link)">

@@ -290,6 +290,10 @@ export class PageContentActionsService {
     return row?.type === PageContentType.ALBUM_INDEX;
   }
 
+  public isEvents(row: PageContentRow) {
+    return row?.type === PageContentType.EVENTS;
+  }
+
   public isCarousel(row: PageContentRow) {
     return row?.type === PageContentType.CAROUSEL;
   }

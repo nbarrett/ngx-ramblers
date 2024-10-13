@@ -145,6 +145,27 @@ import { CreateOrAmendSenderComponent } from "./pages/admin/send-emails/create-o
 import {
   CommitteeNotificationRamblersMessageItemComponent
 } from "./notifications/committee/templates/committee-notification-ramblers-message-item";
+import { EventsComponent } from "./modules/common/events/events";
+import { EventTimesPipe } from "./pipes/event-times.pipe";
+import { SocialCardComponent } from "./pages/social/social-card/social-card";
+import { SocialCarouselComponent } from "./pages/social/social-carousel/social-carousel";
+import { SocialEditComponent } from "./pages/social/edit/social-edit.component";
+import { SocialHomeComponent } from "./pages/social/home/social-home.component";
+import { SocialInformationComponent } from "./pages/social/information/social-information.component";
+import { SocialListCardsComponent } from "./pages/social/social-list-cards/social-list-cards";
+import { SocialListComponent } from "./pages/social/social-list/social-list.component";
+import {
+  SocialNotificationDetailsComponent
+} from "./notifications/social/templates/social-notification-details.component";
+import { SocialNotificationDirective } from "./notifications/social/social-notification.directive";
+import { SocialSearchComponent } from "./pages/social/social-search/social-search";
+import {
+  SocialSendNotificationModalComponent
+} from "./pages/social/send-notification/social-send-notification-modal.component";
+import { SocialViewComponent } from "./pages/social/social-view/social-view";
+import { SocialViewPageComponent } from "./pages/social/social-view-page/social-view-page";
+import { SocialDisplayService } from "./pages/social/social-display.service";
+import { SocialEventsComponent } from "./pages/social/list/social-events";
 
 @NgModule({
   imports: [
@@ -224,6 +245,8 @@ import {
     DynamicContentViewComponent,
     DynamicContentViewTextRowComponent,
     EventNotePipe,
+    EventTimesPipe,
+    EventsComponent,
     FormatAuditPipe,
     FullNamePipe,
     FullNameWithAliasOrMePipe,
@@ -262,6 +285,20 @@ import {
     SearchFilterPipe,
     SenderRepliesAndSignoffComponent,
     SnakeCasePipe,
+    SocialCardComponent,
+    SocialCarouselComponent,
+    SocialEditComponent,
+    SocialEventsComponent,
+    SocialHomeComponent,
+    SocialInformationComponent,
+    SocialListCardsComponent,
+    SocialListComponent,
+    SocialNotificationDetailsComponent,
+    SocialNotificationDirective,
+    SocialSearchComponent,
+    SocialSendNotificationModalComponent,
+    SocialViewComponent,
+    SocialViewPageComponent,
     SvgComponent,
     TagEditorComponent,
     TagManagerComponent,
@@ -307,6 +344,7 @@ import {
     DynamicContentComponent,
     DynamicContentPageComponent,
     EventNotePipe,
+    EventsComponent,
     FileUploadModule,
     FontAwesomeModule,
     FormsModule,
@@ -347,6 +385,8 @@ import {
     SearchFilterPipe,
     SenderRepliesAndSignoffComponent,
     SnakeCasePipe,
+    SocialEventsComponent,
+    SocialHomeComponent,
     SvgComponent,
     TabsModule,
     TooltipModule,
@@ -398,6 +438,7 @@ export class SharedModule {
         SearchFilterPipe,
         SiteEditService,
         SnakeCasePipe,
+        SocialDisplayService,
         UpdatedAuditPipe,
         ValueOrDefaultPipe,
         {provide: RouteReuseStrategy, useClass: CustomReuseStrategy},
