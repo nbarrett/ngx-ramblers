@@ -143,7 +143,7 @@ function dateParameter(body: EventsListRequest): string {
 
 function dateEndParameter(body: EventsListRequest): string {
   if (body?.ids?.length > 0) {
-    const dateEndParameter = moment().tz("Europe/London").add(2, "month").format(WALKS_MANAGER_API_DATE_FORMAT);
+    const dateEndParameter = moment().tz("Europe/London").add(12, "month").format(WALKS_MANAGER_API_DATE_FORMAT);
     debugLog("returning dateEndParameter:", dateEndParameter, "given id request:", body.ids, "and dateEnd:", body.dateEnd);
     return dateEndParameter;
   } else {

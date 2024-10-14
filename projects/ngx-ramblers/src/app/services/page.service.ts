@@ -11,6 +11,8 @@ import { UrlService } from "./url.service";
 import isEmpty from "lodash-es/isEmpty";
 import first from "lodash-es/first";
 import uniq from "lodash-es/uniq";
+import { Observable, ReplaySubject } from "rxjs";
+import { shareReplay } from "rxjs/operators";
 
 @Injectable({
   providedIn: "root"
@@ -20,7 +22,8 @@ export class PageService {
   private logger: Logger;
   public group: Organisation;
   private previouslySetTitles: string[] = [];
-
+  private socialLink: Link;
+  private subject = new ReplaySubject<Link>();
   constructor(private stringUtils: StringUtilsService,
               private titleService: Title,
               private systemConfigService: SystemConfigService,
@@ -30,12 +33,23 @@ export class PageService {
     this.logger.info("subscribing to systemConfigService events");
     this.systemConfigService.events().subscribe(item => {
       this.group = item.group;
+      this.socialLink = item.group.pages.find(item => item.title.toLowerCase().includes("social"));
+      this.logger.info("social page found as:", this.socialLink);
+      this.subject.next(this.socialLink);
       this.setTitle(...this.previouslySetTitles);
     });
   }
 
   areaTitle(): string {
     return this.stringUtils.asTitle(this.urlService.area() || "home");
+  }
+
+  public socialPageEvents(): Observable<Link> {
+    return this.subject.pipe(shareReplay());
+  }
+
+  public socialPage(): Link {
+    return this.socialLink;
   }
 
   pageSubtitle(): string {

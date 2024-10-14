@@ -9,6 +9,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { UrlService } from "../../../services/url.service";
 import { CommitteeReferenceData } from "../../../services/committee/committee-reference-data";
 import { MailMessagingConfig } from "../../../models/mail.model";
+import { PageService } from "../../../services/page.service";
 
 @Component({
   selector: "app-social-notification-details",
@@ -75,7 +76,7 @@ import { MailMessagingConfig } from "../../../models/mail.model";
           <tr>
             <td style="border:1px solid lightgrey; font-weight: bold; padding: 6px">View Social On Website:</td>
             <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">
-              <app-link area="social" id="{{socialEvent.id}}" text="click here"></app-link>
+              <app-link [area]="pageService.socialPage()?.href" id="{{socialEvent.id}}" text="click here"></app-link>
             </td>
           </tr>
         </table>
@@ -104,6 +105,7 @@ export class SocialNotificationDetailsComponent implements OnInit {
   protected logger: Logger;
 
   constructor(
+    protected pageService: PageService,
     public urlService: UrlService,
     public googleMapsService: GoogleMapsService,
     public display: SocialDisplayService,
