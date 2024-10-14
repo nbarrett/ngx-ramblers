@@ -11,6 +11,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { AlertInstance } from "../../../services/notifier.service";
 import { UrlService } from "../../../services/url.service";
 import { SocialDisplayService } from "../social-display.service";
+import { PageService } from "../../../services/page.service";
 
 @Component({
   selector: "app-social-list-cards",
@@ -27,13 +28,14 @@ export class SocialListCardsComponent implements OnInit {
   constructor(public googleMapsService: GoogleMapsService,
               public display: SocialDisplayService,
               private urlService: UrlService,
+              private pageService: PageService,
               protected dateUtils: DateUtilsService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(SocialListCardsComponent, NgxLoggerLevel.OFF);
   }
 
   addSocialEvent() {
-    this.urlService.navigateTo(["social", "new"]);
+    this.urlService.navigateTo([this.pageService.socialPage()?.href, "new"]);
   }
 
   @Input()

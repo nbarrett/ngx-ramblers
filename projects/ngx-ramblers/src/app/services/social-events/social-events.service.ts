@@ -39,7 +39,7 @@ export class SocialEventsService {
   }
 
   async all(dataQueryOptions?: DataQueryOptions): Promise<SocialEvent[]> {
-    this.logger.info("all called with socialEventPopulation:", this.group?.walkPopulation);
+    this.logger.info("all called with socialEventPopulation:", this.group?.socialEventPopulation);
     switch (this.group?.socialEventPopulation) {
       case EventPopulation.WALKS_MANAGER:
         return this.ramblersWalksAndEventsService.allSocialEvents(dataQueryOptions);
@@ -66,7 +66,7 @@ export class SocialEventsService {
   }
 
   async queryForId(socialEventId: string): Promise<SocialEvent> {
-    this.logger.info("getById called with socialEventId:", socialEventId);
+    this.logger.info("getById called with socialEventId:", socialEventId, "with socialEventPopulation:", this.group?.socialEventPopulation);
     switch (this.group?.socialEventPopulation) {
       case EventPopulation.WALKS_MANAGER:
         return this.ramblersWalksAndEventsService.socialEventForId(socialEventId);

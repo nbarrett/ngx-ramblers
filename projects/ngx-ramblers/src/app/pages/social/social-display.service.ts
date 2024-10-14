@@ -24,6 +24,7 @@ import { UrlService } from "../../services/url.service";
 import { SiteEditService } from "../../site-edit/site-edit.service";
 import { EventPopulation, Organisation } from "../../models/system.model";
 import { SystemConfigService } from "../../services/system/system-config.service";
+import { PageService } from "../../services/page.service";
 
 const SORT_BY_NAME = sortBy("order", "member.lastName", "member.firstName");
 
@@ -42,6 +43,7 @@ export class SocialDisplayService {
   relatedLinksMediaWidth: 22;
 
   constructor(
+    private pageService: PageService,
     private systemConfigService: SystemConfigService,
     private authService: AuthService,
     private memberService: MemberService,
@@ -134,7 +136,7 @@ export class SocialDisplayService {
   }
 
   socialEventLink(socialEvent: SocialEvent, relative: boolean) {
-    return socialEvent?.id ? this.urlService.linkUrl({area: "social", id: socialEvent?.id, relative}) : undefined;
+    return socialEvent?.id ? this.urlService.linkUrl({area: this.pageService.socialPage()?.href, id: socialEvent?.id, relative}) : undefined;
   }
 
   copyToClipboard(socialEvent: SocialEvent, pop: TooltipDirective) {

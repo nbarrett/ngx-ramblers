@@ -61,13 +61,9 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                 <img title class="related-links-image"
                      src="/assets/images/local/meetup.ico"
                      alt="View {{meetupService.meetupPublishedStatus(displayedWalk)}} event on Meetup"/>
-                <a content target="_blank"
-                   [href]="displayedWalk.walk.meetupEventUrl">
-                  <div class="related-links-title"
-                       tooltip="Click to view the route for This Walk on Meetup">
-                    View {{ meetupService.meetupPublishedStatus(displayedWalk) }} event on Meetup
-                  </div>
-                </a>
+                <a content target="_blank" tooltip="Click to view the route for This Walk on Meetup"
+                   [href]="displayedWalk.walk.meetupEventUrl">View {{ meetupService.meetupPublishedStatus(displayedWalk) }}
+                  event on Meetup</a>
               </div>
               <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
                    *ngIf="displayedWalk.walk.ramblersWalkId"

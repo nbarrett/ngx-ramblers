@@ -10,6 +10,7 @@ import { PrivacyPolicyComponent } from "./pages/home/privacy-policy.component";
 import { HowToSubjectListingComponent } from "./pages/how-to/subject-listing/subject-listing";
 import { Logger, LoggerFactory } from "./services/logger-factory.service";
 import { hasDynamicPath } from "./services/path-matchers";
+import { SocialViewComponent } from "./pages/social/social-view/social-view";
 
 const routes: Routes = [
   {path: "", component: HomeComponent},
@@ -23,6 +24,7 @@ const routes: Routes = [
   {path: "login", component: LoginComponent},
   {path: "logout", component: LogoutComponent},
   {path: "privacy-policy", component: PrivacyPolicyComponent},
+  {path: "social-events/:id", component: SocialViewComponent},
   {matcher: hasDynamicPath, component: DynamicContentPageComponent},
   {path: "**", redirectTo: "/"},
 ];

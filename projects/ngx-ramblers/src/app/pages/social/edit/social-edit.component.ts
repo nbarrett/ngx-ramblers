@@ -23,6 +23,7 @@ import { SocialEventsService } from "../../../services/social-events/social-even
 import { UrlService } from "../../../services/url.service";
 import { SocialSendNotificationModalComponent } from "../send-notification/social-send-notification-modal.component";
 import { SocialDisplayService } from "../social-display.service";
+import { PageService } from "../../../services/page.service";
 
 @Component({
   selector: "app-social-edit",
@@ -32,6 +33,7 @@ import { SocialDisplayService } from "../social-display.service";
 export class SocialEditComponent implements OnInit, OnDestroy {
 
   constructor(private fileUploadService: FileUploadService,
+              private pageService: PageService,
               public display: SocialDisplayService,
               private notifierService: NotifierService,
               private memberService: MemberService,
@@ -235,7 +237,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
     this.actions.clearEditMode();
     this.logger.info("close:this.actions", this.actions, "this.display.confirm", this.display.confirm);
     if (this.display.inNewEventMode()) {
-      this.urlService.navigateTo(["social"]);
+      this.urlService.navigateTo([this.pageService.socialPage()?.href]);
     }
   }
 
