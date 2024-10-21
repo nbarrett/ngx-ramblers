@@ -1,6 +1,7 @@
 import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import {
-  MailMessagingConfig, MailSettingsTab,
+  MailMessagingConfig,
+  MailSettingsTab,
   MemberSelection,
   NotificationConfig,
   SendSmtpEmailParams,
@@ -253,7 +254,7 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   private subscriptions: Subscription[] = [];
   @Output() configDeleted: EventEmitter<string> = new EventEmitter();
   @Output() tabSelected: EventEmitter<MailSettingsTab> = new EventEmitter();
-  private logger: Logger = this.loggerFactory.createLogger("MailNotificationTemplateMappingComponent", NgxLoggerLevel.OFF);
+  private logger: Logger = this.loggerFactory.createLogger("MailNotificationTemplateMappingComponent", NgxLoggerLevel.ERROR);
   public stringUtils: StringUtilsService = inject(StringUtilsService);
   public  mailLinkService: MailLinkService = inject(MailLinkService);
   public urlService: UrlService = inject(UrlService);
@@ -281,7 +282,7 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
       this.notificationConfig = first(mailMessagingConfig.notificationConfigs);
       const parameters: KeyValue<any>[] = extractParametersFrom(this.params, false);
       const parametersAndValues: KeyValue<any>[] = extractParametersFrom(this.params, true);
-      this.logger.info("parameters:raw:", parameters, "parameters:wrapped:", parametersAndValues);
+      this.logger.debug("parameters:raw:", parameters, "parameters:wrapped:", parametersAndValues);
       this.parametersFrom = [{
         key: null,
         value: "(none)"
@@ -386,6 +387,7 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   public select(notificationConfig: NotificationConfig) {
     this.notificationConfig = notificationConfig;
     this.mailMessagingService.initialiseSubject(this.notificationConfig);
+    this.logger.info("selected notificationConfig:", this.notificationConfig);
   }
 
   nextConfigDisabled() {

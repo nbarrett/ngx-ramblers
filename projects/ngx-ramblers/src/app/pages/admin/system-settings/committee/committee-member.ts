@@ -1,77 +1,114 @@
 import { Component, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { CommitteeMember } from "../../../../models/committee.model";
+import { CommitteeMember, RoleType } from "../../../../models/committee.model";
 import { Member } from "../../../../models/member.model";
 import { FullNamePipe } from "../../../../pipes/full-name.pipe";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
+import { enumKeyValues, KeyValue } from "../../../../functions/enums";
+import { faAdd, faRemove } from "@fortawesome/free-solid-svg-icons";
+import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 
 @Component({
   selector: "app-committee-member",
   template: `
     <div *ngIf="committeeMember" class="img-thumbnail thumbnail-2">
-      <div class="thumbnail-heading">{{ committeeMember.description }}</div>
-      <div class="row p-1">
-        <div class="col-sm-12">
+      <div class="thumbnail-heading">Role {{ index + 1 }} of {{ roles.length }}
+        : {{ committeeMember.nameAndDescription }}
+      </div>
+      <div class="row p-3">
+        <div class="col-sm-4">
           <div class="form-group">
-            <label [for]="stringUtils.kebabCase('committee-member-description',committeeMember.memberId)"
+            <label for="committee-member-description-{{index}}"
                    class="control-label">Role Description</label>
-            <div class="form-inline">
-              <input [(ngModel)]="committeeMember.description"
-                     [id]="stringUtils.kebabCase('committee-member-description',committeeMember.memberId)"
-                     name="showDetail" type="text" class="form-control flex-grow-1">
-              <div class="custom-control custom-checkbox">
-                <input type="checkbox" class="custom-control-input"
-                       [(ngModel)]="committeeMember.vacant"
-                       (ngModelChange)="roleChange()"
-                       [id]="stringUtils.kebabCase(committeeMember.description +'-role-is-vacant')">
-                <label class="custom-control-label custom-control-label mx-3"
-                       [for]="stringUtils.kebabCase(committeeMember.description +'-role-is-vacant')">
-                  Role is vacant</label>
-              </div>
+            <input [(ngModel)]="committeeMember.description" (ngModelChange)="changeDescription()"
+                   id="committee-member-description-{{index}}"
+                   type="text" class="form-control">
+          </div>
+        </div>
+        <div class="col-sm-4">
+          <div class="form-group">
+            <label for="member-selection-{{index}}">Role Type</label>
+            <select class="form-control input-sm"
+                    [(ngModel)]="committeeMember.roleType"
+                    id="member-selection-{{index}}">
+              <option *ngFor="let type of roleTypes"
+                      [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="col-sm-2">
+          <div class="form-group">
+            <label for="committee-member-vacant-{{index}}" class="control-label">
+              Role is vacant
+            </label>
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input"
+                     [(ngModel)]="committeeMember.vacant"
+                     (ngModelChange)="roleChange()"
+                     id="committee-member-vacant-{{index}}">
+              <label class="custom-control-label" for="committee-member-vacant-{{index}}">
+              </label>
             </div>
           </div>
         </div>
+        <div class="col-sm-2 mt-5">
+          <app-badge-button [icon]="faRemove" (click)="deleteRole()"
+                            caption="Delete"/>
+        </div>
+      </div>
+      <div class="row p-3">
         <div class="col-sm-4">
           <app-committee-member-lookup [disabled]="committeeMember.vacant" [committeeMember]="committeeMember"
-                                       (memberChange)="setOtherMemberFields($event)">
-          </app-committee-member-lookup>
+                                       (memberChange)="setOtherMemberFields($event)"/>
         </div>
         <div class="col-sm-4">
           <div class="form-group">
-            <label [for]="stringUtils.kebabCase('committee-member-email',committeeMember.memberId)"
-                   class="control-label">Email Address</label>
-            <input [(ngModel)]="committeeMember.email" [disabled]="committeeMember.vacant"
-                   [id]="stringUtils.kebabCase('committee-member-email',committeeMember.memberId)"
-                   name="showDetail" type="text" class="form-control">
-          </div>
-        </div>
-        <div class="col-sm-4">
-          <div class="form-group">
-            <label [for]="stringUtils.kebabCase('committee-member-fullName',committeeMember.memberId)"
+            <label for="committee-member-fullName-{{index}}"
                    class="control-label">Full Name</label>
             <input [(ngModel)]="committeeMember.fullName" [disabled]="committeeMember.vacant"
-                   [id]="stringUtils.kebabCase('committee-member-fullName',committeeMember.memberId)"
-                   name="showDetail" type="text" class="form-control">
+                   (ngModelChange)="changeNameAndDescription()"
+                   id="committee-member-fullName-{{index}}"
+                   type="text" class="form-control">
           </div>
         </div>
+        <div class="col-sm-4">
+          <div class="form-group">
+            <label for="committee-member-email-{{index}}"
+                   class="control-label">Email Address</label>
+            <input [(ngModel)]="committeeMember.email" [disabled]="committeeMember.vacant"
+                   id="committee-member-email-{{index}}"
+                   type="text" class="form-control">
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12" app-create-or-amend-sender [committeeRoleSender]="committeeMember"></div>
       </div>
     </div>
   `,
   styleUrls: ["./committee-member.sass"]
 })
 export class CommitteeMemberComponent implements OnInit {
+  constructor(public stringUtils: StringUtilsService,
+              private fullNamePipe: FullNamePipe,
+              private committeeConfigService: CommitteeConfigService,
+              loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.createLogger(CommitteeMemberComponent, NgxLoggerLevel.ERROR);
+  }
 
   @Input()
   public committeeMember: CommitteeMember;
 
   private logger: Logger;
+  @Input() roles!: CommitteeMember[];
+  @Input() index!: number;
+  roleTypes: KeyValue<string>[] = enumKeyValues(RoleType);
 
-  constructor(public stringUtils: StringUtilsService,
-              private fullNamePipe: FullNamePipe,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(CommitteeMemberComponent, NgxLoggerLevel.OFF);
-  }
+  protected readonly faAdd = faAdd;
+  protected readonly faRemove = faRemove;
+
 
   ngOnInit() {
     this.logger.info("ngOnInit", this.committeeMember);
@@ -81,6 +118,7 @@ export class CommitteeMemberComponent implements OnInit {
     this.logger.debug("setOtherMemberFields:", member);
     this.committeeMember.fullName = this.fullNamePipe.transform(member);
     this.committeeMember.email = member.email;
+    this.changeNameAndDescription()
   }
 
   roleChange() {
@@ -89,5 +127,19 @@ export class CommitteeMemberComponent implements OnInit {
       this.committeeMember.fullName = null;
       this.committeeMember.email = null;
     }
+  }
+
+  changeDescription() {
+    this.committeeMember.type = this.stringUtils.kebabCase(this.committeeMember.description);
+    this.changeNameAndDescription();
+  }
+
+  changeNameAndDescription() {
+    this.committeeMember.nameAndDescription = this.committeeConfigService.nameAndDescriptionFrom(this.committeeMember);
+  }
+
+  deleteRole() {
+    this.logger.info("deleteRole:", this.committeeMember);
+    this.roles.splice(this.index, 1);
   }
 }

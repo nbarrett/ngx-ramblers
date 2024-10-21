@@ -56,7 +56,7 @@ export class CommitteeQueryService {
     committeeConfig: CommitteeConfigService,
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(CommitteeQueryService, NgxLoggerLevel.ERROR);
-    committeeConfig.events().subscribe(data => this.committeeReferenceData = data);
+    committeeConfig.committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data);
     this.queryCommitteeMembers();
   }
 

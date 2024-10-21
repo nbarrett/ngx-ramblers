@@ -164,6 +164,7 @@ export interface SystemConfig {
   area: Organisation;
   national: Ramblers;
   externalSystems: ExternalSystems
+  recaptcha: ReCaptchaConfig
   mailDefaults: {
     mailProvider: MailProvider;
     autoSubscribeNewMembers: boolean;
@@ -268,3 +269,19 @@ export const defaultRightPanel: RightPanel = {
   showLoginLinksAndSiteEdit: true,
   showNavigationButtons: false
 };
+
+
+export interface ReCaptchaConfig {
+  siteKey: string;
+  secretKey: string;
+}
+
+export interface CaptchaVerificationResponse {
+  success: boolean;
+  challenge_ts: string;
+  hostname: string;
+  score?: number;
+  action?: string;
+  "error-codes"?: string[];
+}
+

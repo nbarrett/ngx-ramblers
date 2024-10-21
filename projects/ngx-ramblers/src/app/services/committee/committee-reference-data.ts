@@ -1,4 +1,3 @@
-import map from "lodash-es/map";
 import { CommitteeConfig, CommitteeMember, ExpensesConfig } from "../../models/committee.model";
 import { MemberLoginService } from "../member/member-login.service";
 import { FileType } from "./committee-file-type.model";
@@ -13,19 +12,7 @@ export class CommitteeReferenceData {
   }
 
   static create(committeeConfig: CommitteeConfig, memberLoginService: MemberLoginService) {
-    return new CommitteeReferenceData(CommitteeReferenceData.toCommitteeMembers(committeeConfig), committeeConfig.fileTypes, committeeConfig.expenses, memberLoginService);
-  }
-
-  public static toCommitteeMembers(committeeConfig: CommitteeConfig): CommitteeMember[] {
-    return map(committeeConfig?.contactUs, (data, type) => ({
-      type,
-      fullName: data.fullName,
-      memberId: data.memberId,
-      nameAndDescription: data.description + " (" + data.fullName + ")",
-      description: data.description,
-      email: data.email,
-      vacant: data.vacant
-    })).filter(item => !item.vacant) || [];
+    return new CommitteeReferenceData(committeeConfig.roles, committeeConfig.fileTypes, committeeConfig.expenses, memberLoginService);
   }
 
   createFrom(injectedCommitteeMembers: CommitteeMember[]) {

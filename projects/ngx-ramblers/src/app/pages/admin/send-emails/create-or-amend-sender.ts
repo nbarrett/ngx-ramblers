@@ -53,7 +53,7 @@ export class CreateOrAmendSenderComponent implements OnInit {
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private mailService: MailService = inject(MailService);
   public stringUtilsService: StringUtilsService = inject(StringUtilsService);
-  private logger = this.loggerFactory.createLogger("CreateOrAmendSenderComponent", NgxLoggerLevel.OFF);
+  private logger = this.loggerFactory.createLogger("CreateOrAmendSenderComponent", NgxLoggerLevel.ERROR);
 
   @Input({
     alias: "committeeRoleSender",
@@ -68,8 +68,8 @@ export class CreateOrAmendSenderComponent implements OnInit {
   protected readonly ALERT_SUCCESS = ALERT_SUCCESS;
 
   senderDoesNotExist(): boolean {
-    const response = this.senderCommitteeMemberInternal && this.sendersResponse && !this.sender();
-    this.logger.debug("senderDoesNotExist:senderCommitteeMemberInternal:", this.senderCommitteeMemberInternal, "sendersResponse:", this.sendersResponse, "sender:", this.sender());
+    const response = this.senderCommitteeMemberInternal?.email && this.sendersResponse && !this.senderMatchedByEmail();
+    this.logger.debug("senderDoesNotExist:senderCommitteeMemberInternal:", this.senderCommitteeMemberInternal, "sendersResponse:", this.sendersResponse, "sender:", this.senderMatchedByEmail());
     return response;
   }
 
@@ -92,7 +92,7 @@ export class CreateOrAmendSenderComponent implements OnInit {
         name: this.senderCommitteeMemberInternal.nameAndDescription,
         email: this.senderCommitteeMemberInternal.email
       };
-      this.logger.info("From:", this.sender(), "creating sender:", sender);
+      this.logger.info("From:", this.senderMatchedByEmail(), "creating sender:", sender);
       this.createSenderResponse = await this.mailService.createSender(sender)
         .catch(error => this.error = error)
         .finally(() => this.apiRequestPending = false);
@@ -119,7 +119,7 @@ export class CreateOrAmendSenderComponent implements OnInit {
     this.senderExists.emit(value);
   }
 
-  public sender(): Sender {
+  public senderMatchedByEmail(): Sender {
     return this?.sendersResponse?.senders?.find(sender => sender?.email === this.senderCommitteeMemberInternal?.email);
   };
 }

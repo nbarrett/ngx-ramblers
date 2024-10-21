@@ -80,7 +80,7 @@ export class MailMessagingService {
       }, type: AlertLevel.ALERT_SUCCESS
     }));
     this.logger.info("initialising data:");
-    this.committeeConfig.events().subscribe(data => {
+    this.committeeConfig.committeeReferenceDataEvents().subscribe(data => {
       this.mailMessagingConfig.committeeReferenceData = data;
       this.broadcastSuccess("Committee Config");
     });
@@ -188,7 +188,7 @@ export class MailMessagingService {
   }
 
   public workflowIdsFor(mailConfig: MailConfig) {
-    return [mailConfig.forgotPasswordNotificationConfigId, mailConfig.walkNotificationConfigId, mailConfig.expenseNotificationConfigId];
+    return [mailConfig.forgotPasswordNotificationConfigId, mailConfig.walkNotificationConfigId, mailConfig.expenseNotificationConfigId, mailConfig.contactUsNotificationConfigId];
   }
 
   private emitConfigWhenReadyGiven(reason: string) {
@@ -277,26 +277,24 @@ export class MailMessagingService {
   }
 
   public createEmailRequest(createSendSmtpEmailRequest: CreateSendSmtpEmailRequest): SendSmtpEmailRequest {
-    const {
-      member,
-      notificationConfig,
-      notificationDirective,
-      bodyContent
-    }: CreateSendSmtpEmailRequest = createSendSmtpEmailRequest;
-    const fullName = this.fullNamePipe.transform(member);
-    const roles: string[] = notificationConfig.signOffRoles;
+    const sender: EmailAddress = createSendSmtpEmailRequest.sender || this.createBrevoAddress(createSendSmtpEmailRequest.notificationConfig.senderRole);
+    const to: EmailAddress[] = createSendSmtpEmailRequest.to || [{
+      email: createSendSmtpEmailRequest.member.email,
+      name: this.fullNamePipe.transform(createSendSmtpEmailRequest.member)
+    }];
+    const replyTo: EmailAddress = createSendSmtpEmailRequest.replyTo || this.createBrevoAddress(createSendSmtpEmailRequest.notificationConfig.replyToRole);
     const emailRequest: SendSmtpEmailRequest = {
       subject: null,
-      to: [{email: member.email, name: fullName}],
-      sender: this.createBrevoAddress(notificationConfig.senderRole),
-      replyTo: this.createBrevoAddress(notificationConfig.replyToRole),
-      params: this.createSendSmtpEmailParams(roles, notificationDirective, member, notificationConfig, bodyContent, true, "Hi {{params.messageMergeFields.FNAME}},"),
-      templateId: notificationConfig.templateId,
+      to,
+      sender,
+      replyTo,
+      params: this.createSendSmtpEmailParams(createSendSmtpEmailRequest.notificationConfig.signOffRoles, createSendSmtpEmailRequest.notificationDirective, createSendSmtpEmailRequest.member, createSendSmtpEmailRequest.notificationConfig, createSendSmtpEmailRequest.bodyContent, true, "Hi {{params.messageMergeFields.FNAME}},"),
+      templateId: createSendSmtpEmailRequest.notificationConfig.templateId,
     };
-    if (notificationConfig?.ccRoles.length > 0) {
-      emailRequest.cc = notificationConfig?.ccRoles?.map(role => this.createBrevoAddress(role));
+    if (createSendSmtpEmailRequest.notificationConfig?.ccRoles.length > 0) {
+      emailRequest.cc = createSendSmtpEmailRequest.notificationConfig?.ccRoles?.map(role => this.createBrevoAddress(role));
     }
-    const subject = createSendSmtpEmailRequest.emailSubject || this.toSubject(notificationConfig.subject, emailRequest);
+    const subject = createSendSmtpEmailRequest.emailSubject || this.toSubject(createSendSmtpEmailRequest.notificationConfig.subject, emailRequest);
     emailRequest.subject = subject;
     emailRequest.params.messageMergeFields.subject = subject;
     this.logger.info("createEmailRequest ->", emailRequest);
@@ -413,7 +411,7 @@ export class MailMessagingService {
     if (!notificationConfig) {
       notify.error({
         title: "Email Notification Configuration Error",
-        message: `Unable to send notifications as the Process Mapping for ${this.stringUtilsService.asTitle(configKey)} has not been configured`,
+        message: `Unable to send notifications as the ${this.stringUtilsService.asWords(configKey)} has not been configured`,
       });
     } else {
       return notificationConfig;

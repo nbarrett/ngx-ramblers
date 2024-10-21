@@ -14,6 +14,7 @@ export class MailConfigService {
 
   async queryConfig(): Promise<MailConfig> {
     return await this.config.queryConfig<MailConfig>(ConfigKey.BREVO, {
+      contactUsNotificationConfigId: null,
       expenseNotificationConfigId: null,
       forgotPasswordNotificationConfigId: null,
       walkNotificationConfigId: null,

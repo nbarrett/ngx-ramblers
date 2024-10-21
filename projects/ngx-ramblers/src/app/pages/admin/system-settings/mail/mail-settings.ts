@@ -11,8 +11,7 @@ import {
   ListCreateRequest,
   ListCreateResponse,
   MailMessagingConfig,
-  MailSettingsTab,
-  NotificationConfig
+  MailSettingsTab
 } from "../../../../models/mail.model";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { Subscription } from "rxjs";
@@ -37,8 +36,7 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                  (selectTab)="selectTab(MailSettingsTab.EMAIL_CONFIGURATIONS)"
                  [heading]="MailSettingsTab.EMAIL_CONFIGURATIONS">
               <div class="img-thumbnail thumbnail-admin-edit">
-                <app-mail-notification-template-mapping-editor [notificationConfig]="notificationConfig"
-                                                               (tabSelected)="selectTab($event)"
+                <app-mail-notification-template-mapping-editor (tabSelected)="selectTab($event)"
                                                                (configDeleted)="deletedConfigs.push($event)"/>
               </div>
             </tab>
@@ -333,7 +331,6 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   private router: Router = inject(Router);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("MailSettingsComponent", NgxLoggerLevel.ERROR);
-  public notificationConfig: NotificationConfig;
   public listCreateRequest: ListCreateRequest;
   public listCreateResponse: ListCreateResponse;
   private error: any;

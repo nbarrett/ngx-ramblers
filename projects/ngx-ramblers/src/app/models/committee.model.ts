@@ -82,6 +82,12 @@ export interface NotificationItem extends Identifiable {
   image: NotificationImage;
 }
 
+export enum RoleType {
+  COMMITTEE_MEMBER = "COMMITTEE_MEMBER",
+  GROUP_MEMBER = "GROUP_MEMBER",
+  SYSTEM_ROLE = "SYSTEM_ROLE"
+}
+
 export interface CommitteeMember {
   description: string;
   email: string;
@@ -90,6 +96,7 @@ export interface CommitteeMember {
   nameAndDescription?: string;
   type: string;
   vacant?: boolean;
+  roleType: RoleType;
 }
 
 export interface CommitteeRolesChangeEvent {
@@ -107,7 +114,8 @@ export interface ExpensesConfig {
 }
 
 export interface CommitteeConfig {
-  contactUs: {
+  roles: CommitteeMember[],
+  contactUs?: {
     chairman: CommitteeMember;
     secretary: CommitteeMember;
     treasurer: CommitteeMember;
@@ -174,4 +182,25 @@ export interface Notification {
 export interface CommitteeYear {
   year: number;
   latestYear: boolean;
+}
+
+export interface ContactFormDetails {
+  timestamp: number;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  sendCopy: boolean;
+}
+
+export interface ValidateTokenRequest {
+  captchaToken: string;
+}
+
+export interface ValidateTokenResponse {
+  message: string;
+}
+
+export interface ValidateTokenApiResponse extends ApiResponse {
+  response?: ValidateTokenResponse;
 }

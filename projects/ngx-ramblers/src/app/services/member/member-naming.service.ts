@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import first from "lodash-es/first";
 import { NgxLoggerLevel } from "ngx-logger";
-import { HasFirstAndLastName, Member, RamblersMember } from "../../models/member.model";
+import { FirstAndLastName, HasEmailFirstAndLastName, Member, RamblersMember } from "../../models/member.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { StringUtilsService } from "../string-utils.service";
 
@@ -17,20 +17,25 @@ export class MemberNamingService {
 
   createDisplayNameFromContactName(contactName: string): string {
     if (contactName) {
-      const contactNames: string[] = contactName.split(" ");
-      const firstName = first(contactNames);
-      const lastName = contactNames.length > 1 ? contactNames[1] : "";
+      const {firstName, lastName} = this.firstAndLastNameFrom(contactName);
       return this.createDisplayName(firstName, lastName);
     } else {
       return null;
     }
   }
 
+  public firstAndLastNameFrom(contactName: string): FirstAndLastName {
+    const contactNames: string[] = contactName?.split(" ");
+    const firstName = first(contactNames);
+    const lastName = contactNames.length > 1 ? contactNames.slice(1).join(" ") : "";
+    return {firstName, lastName};
+  }
+
   createUniqueUserName(member: RamblersMember | Member, members: Member[]) {
     return this.createUniqueValueFrom(this.createUserName(member), "userName", members);
   }
 
-  createUniqueDisplayName(member: HasFirstAndLastName, members: Member[]) {
+  createUniqueDisplayName(member: HasEmailFirstAndLastName, members: Member[]) {
     return this.createUniqueValueFrom(this.createDisplayNameFromMember(member), "displayName", members);
   }
 

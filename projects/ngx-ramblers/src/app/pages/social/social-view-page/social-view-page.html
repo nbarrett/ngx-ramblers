@@ -1,6 +1,4 @@
-
-  <app-social-view *ngIf="!actions.editModeActive()" [actions]="actions"
-                   [socialEvent]="socialEvent"/>
-  <app-page *ngIf="actions.editModeActive()" [pageTitle]="pageTitle()">
-    <app-social-edit [actions]="actions"/>
+<app-social-view *ngIf="!actions.editModeActive()" [actions]="actions" [socialEvent]="socialEvent"/>
+<app-page *ngIf="actions.editModeActive()" [pageTitle]="pageTitle()">
+  <app-social-edit [actions]="actions"/>
 </app-page>

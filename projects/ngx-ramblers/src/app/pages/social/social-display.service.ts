@@ -6,7 +6,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AuthService } from "../../auth/auth.service";
 import { DateCriteria } from "../../models/api-request.model";
-import { CommitteeMember } from "../../models/committee.model";
+import { CommitteeMember, RoleType } from "../../models/committee.model";
 import { Member, MemberFilterSelection } from "../../models/member.model";
 import { SocialEvent, SocialEventsPermissions } from "../../models/social-events.model";
 import { Confirm } from "../../models/ui-actions";
@@ -60,7 +60,7 @@ export class SocialDisplayService {
   }
 
   private configureEventSubscriptions() {
-    this.committeeConfigService.events().subscribe(data => this.committeeReferenceData = data);
+    this.committeeConfigService.committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data);
     this.systemConfigService.events().subscribe(item => {
       this.group = item.group;
       this.applyAllows();
@@ -127,7 +127,8 @@ export class SocialDisplayService {
       memberId: socialEvent.eventContactMemberId,
       description: "Organiser",
       nameAndDescription: `Organiser (${fullName})`,
-      email: socialEvent.contactEmail
+      email: socialEvent.contactEmail,
+      roleType: RoleType.GROUP_MEMBER
     };
   }
 

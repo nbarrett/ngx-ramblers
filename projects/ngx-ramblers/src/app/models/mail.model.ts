@@ -2,7 +2,7 @@ import { ApiResponse, Identifiable } from "./api-response.model";
 import { ExternalSystems, Organisation } from "./system.model";
 import { CommitteeReferenceData } from "../services/committee/committee-reference-data";
 import { BannerConfig } from "./banner-configuration.model";
-import { Auditable, Member, MemberFilterSelection } from "./member.model";
+import { Auditable, HasEmailFirstAndLastName, Member, MemberFilterSelection } from "./member.model";
 import { NotificationDirective } from "../notifications/common/notification.directive";
 import { AuditStatus } from "./audit";
 
@@ -78,11 +78,14 @@ export interface EmailAddress {
 }
 
 export interface CreateSendSmtpEmailRequest {
-  member: Member;
+  member?: HasEmailFirstAndLastName;
   notificationConfig: NotificationConfig;
   notificationDirective: NotificationDirective;
   bodyContent?: string;
   emailSubject?: string;
+  sender?: EmailAddress;
+  to?: EmailAddress[];
+  replyTo?: EmailAddress;
 }
 
 export interface EmailRequest {
@@ -95,8 +98,6 @@ export interface EmailRequest {
 }
 
 export interface SendSmtpEmailRequest extends EmailRequest {
-  sender: EmailAddress;
-  subject: string;
   to?: EmailAddress[];
   cc?: EmailAddress[];
   replyTo?: EmailAddress;
@@ -183,6 +184,7 @@ export interface BuiltInProcessMappings {
   expenseNotificationConfigId: string;
   forgotPasswordNotificationConfigId: string;
   walkNotificationConfigId: string;
+  contactUsNotificationConfigId: string;
 }
 
 export interface NotificationConfigurationApiResponse extends ApiResponse {

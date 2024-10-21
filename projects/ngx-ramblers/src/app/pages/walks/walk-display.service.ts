@@ -281,7 +281,7 @@ export class WalkDisplayService {
 
   private applyConfig() {
     this.logger.info("applyConfig called");
-    this.committeeConfig.events().subscribe(committeeReferenceData => this.committeeReferenceData = committeeReferenceData);
+    this.committeeConfig.committeeReferenceDataEvents().subscribe(committeeReferenceData => this.committeeReferenceData = committeeReferenceData);
     this.systemConfigService.events().subscribe(item => {
       this.group = item.group;
       this.logger.info("group:", this.group);

@@ -11,9 +11,21 @@ import { KEY_NULL_VALUE_NONE } from "../../../../functions/enums";
   template: `
     <div *ngIf="mailMessagingConfig" class="row img-thumbnail thumbnail-2">
       <div class="thumbnail-heading">Process Mappings</div>
-        <div class="col-sm-12 mb-3">
-          <app-markdown-editor category="admin" name="mail-settings-process-mappings"/>
+      <div class="col-sm-12 mb-3">
+        <app-markdown-editor category="admin" name="mail-settings-process-mappings"/>
+      </div>
+      <div class="col-sm-12">
+        <div class="form-group">
+          <label for="process-mapping-contact-us">Contact Us Process Uses Email Configuration</label>
+          <select [(ngModel)]="mailMessagingConfig.mailConfig.contactUsNotificationConfigId"
+                  id="process-mapping-contact-us"
+                  class="form-control input-sm">
+            <option *ngFor="let mapping of notificationConfigsPlusNone"
+                    [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
+            </option>
+          </select>
         </div>
+      </div>
       <div class="col-sm-12">
         <div class="form-group">
           <label for="process-mapping-forgot-password">Forgot Password Process Uses Email Configuration</label>
@@ -61,7 +73,7 @@ export class NotificationConfigToProcessMappingComponent implements OnInit, OnDe
   private loggerFactory: LoggerFactory = inject(LoggerFactory);
   private subscriptions: Subscription[] = [];
   public notificationConfigsPlusNone: NotificationConfig[];
-  private logger: Logger = this.loggerFactory.createLogger("NotificationConfigToProcessMappingComponent", NgxLoggerLevel.OFF);
+  private logger: Logger = this.loggerFactory.createLogger("NotificationConfigToProcessMappingComponent", NgxLoggerLevel.ERROR);
   public mailMessagingService: MailMessagingService = inject(MailMessagingService);
   public mailMessagingConfig: MailMessagingConfig;
 
@@ -72,7 +84,7 @@ export class NotificationConfigToProcessMappingComponent implements OnInit, OnDe
         id: KEY_NULL_VALUE_NONE.key,
         subject: {text: KEY_NULL_VALUE_NONE.value}
       } as NotificationConfig].concat(mailMessagingConfig.notificationConfigs);
-      this.logger.info("mailMessagingConfig:", mailMessagingConfig);
+      this.logger.info("mailMessagingConfig:", mailMessagingConfig, "notificationConfigsPlusNone:", this.notificationConfigsPlusNone);
     }));
   }
 
