@@ -153,7 +153,7 @@ export class ExpenseDisplayService {
       .then((members) => {
         this.members = members;
       });
-    this.committeeConfigService.events().subscribe(data => this.committeeReferenceData = data);
+    this.committeeConfigService.committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data);
   }
 
   showExpenseEmailErrorAlert(notify: AlertInstance, message: string) {

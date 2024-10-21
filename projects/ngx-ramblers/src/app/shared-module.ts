@@ -166,6 +166,10 @@ import { SocialViewComponent } from "./pages/social/social-view/social-view";
 import { SocialViewPageComponent } from "./pages/social/social-view-page/social-view-page";
 import { SocialDisplayService } from "./pages/social/social-display.service";
 import { SocialEventsComponent } from "./pages/social/list/social-events";
+import { CommitteeMemberLookupComponent } from "./pages/admin/system-settings/committee/committee-member-lookup";
+import { RecaptchaModule } from 'ng-recaptcha';
+import { ContactUsModalComponent } from "./pages/contact-us/contact-us-modal.component";
+import { SystemRecaptchaSettingsComponent } from "./pages/admin/system-settings/meetup/system-recaptcha-settings";
 
 @NgModule({
   imports: [
@@ -199,6 +203,7 @@ import { SocialEventsComponent } from "./pages/social/list/social-events";
     TooltipModule.forRoot(),
     TypeaheadModule.forRoot(),
     UiSwitchModule,
+    RecaptchaModule,
   ],
   declarations: [
     ActionButtonsComponent,
@@ -220,9 +225,12 @@ import { SocialEventsComponent } from "./pages/social/list/social-events";
     CarouselStoryNavigatorComponent,
     ColourSelectorComponent,
     ColumnWidthComponent,
+    CommitteeMemberLookupComponent,
     CommitteeNotificationRamblersMessageItemComponent,
     CommitteeRoleMultiSelectComponent,
     ContactUsComponent,
+    ContactUsModalComponent,
+    SystemRecaptchaSettingsComponent,
     CopyIconComponent,
     CreateOrAmendSenderComponent,
     CreatedAuditPipe,
@@ -330,6 +338,8 @@ import { SocialEventsComponent } from "./pages/social/list/social-events";
     CommitteeRoleMultiSelectComponent,
     CommonModule,
     ContactUsComponent,
+    ContactUsModalComponent,
+    SystemRecaptchaSettingsComponent,
     CopyIconComponent,
     CreateOrAmendSenderComponent,
     CreatedAuditPipe,
@@ -391,9 +401,11 @@ import { SocialEventsComponent } from "./pages/social/list/social-events";
     TabsModule,
     TooltipModule,
     UiSwitchModule,
+    RecaptchaModule,
     UpdatedAuditPipe,
     ValueOrDefaultPipe,
     WalkPanelExpanderComponent,
+    CommitteeMemberLookupComponent,
   ]
 })
 export class SharedModule {

@@ -11,9 +11,10 @@ import { HowToSubjectListingComponent } from "./pages/how-to/subject-listing/sub
 import { Logger, LoggerFactory } from "./services/logger-factory.service";
 import { hasDynamicPath } from "./services/path-matchers";
 import { SocialViewComponent } from "./pages/social/social-view/social-view";
+import { contactUsGuard } from "./pages/contact-us/contact-us.guard";
 
 const routes: Routes = [
-  {path: "", component: HomeComponent},
+  {path: "", component: HomeComponent, canActivate: [contactUsGuard]},
   {path: "admin", loadChildren: () => import("./modules/admin/admin-routing.module").then(module => module.AdminRoutingModule)},
   {path: "committee", loadChildren: () => import("./modules/committee/committee-routing.module").then(module => module.CommitteeRoutingModule)},
   {path: "social", loadChildren: () => import("./modules/social/social-routing.module").then(module => module.SocialRoutingModule)},
@@ -35,10 +36,10 @@ const routes: Routes = [
 })
 
 export class AppRoutingModule {
-  private logger: Logger;
+  logger: Logger;
 
   constructor(loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(AppRoutingModule, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("AppRoutingModule", NgxLoggerLevel.OFF);
   }
 
 }

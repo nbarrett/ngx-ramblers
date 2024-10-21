@@ -6,7 +6,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { DateValue } from "../../../models/date.model";
-import { HelpInfo, Member, MemberBulkLoadAudit, MemberFilterSelection } from "../../../models/member.model";
+import { Member, MemberBulkLoadAudit, MemberFilterSelection } from "../../../models/member.model";
 import { Organisation } from "../../../models/system.model";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -244,7 +244,6 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   memberFilterDate: DateValue;
   public notificationConfigs: NotificationConfig[] = [];
   public mailMessagingConfig: MailMessagingConfig;
-  public helpInfo: HelpInfo = {showHelp: false, monthsInPast: 1};
   private group: Organisation;
   private subscriptions: Subscription[] = [];
   public notificationConfig: NotificationConfig;

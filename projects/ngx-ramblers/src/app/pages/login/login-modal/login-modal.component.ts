@@ -17,11 +17,65 @@ import { Organisation } from "../../../models/system.model";
 
 @Component({
   selector: "app-login-modal-component",
-  templateUrl: "./login-modal.component.html",
+  template: `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title" id="modal-title-heading">Login to <em>{{ group?.shortName }}</em> site</h4>
+        <button type="button" class="close" data-dismiss="modal" (click)="bsModalRef.hide()" aria-hidden="true">&times;
+        </button>
+      </div>
+      <div class="modal-body">
+        <form>
+          <div class="row">
+            <div class="col col-sm-12">
+              <div class="form-group">
+                <label for="user-name">User Name</label>
+                <input #userNameInput [(ngModel)]="userName" type="text" (keyup.enter)="login()"
+                       class="form-control input-sm" id="user-name" autocomplete="user-name" name="user-name"
+                       placeholder="Enter username">
+              </div>
+              <div class="form-group">
+                <label for="password">Password</label>
+                <input [(ngModel)]="password" type="password" (keyup.enter)="login()"
+                       class="form-control input-sm" id="password" autocomplete="current-password" name="password"
+                       placeholder="Enter password">
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div *ngIf="notifyTarget.showAlert" class="col col-sm-12 mb-2">
+              <div class="alert {{notifyTarget.alertClass}}">
+                <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                <strong *ngIf="notifyTarget.alertTitle">
+                  {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
+                <span *ngIf="notifyTarget.showContactUs"> contact our <app-contact-us class="alert-link"
+                                                                                      roles="membership"
+                                                                                      text="Membership Administrator"></app-contact-us>.
+        </span>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <div class="row col-sm-12">
+          <input type="submit" #loginButton [disabled]="notifyTarget.busy || !submittable()" value="Login"
+                 (click)="login()"
+                 title="Login"
+                 [ngClass]="!notifyTarget.busy && submittable() ? 'button-form button-form-left': 'disabled-button-form button-form-left'">
+          <input type="reset" value="Cancel" (click)="close()" title="Cancel and don't login"
+                 [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+          <input type="reset" value="Forgot Password" (click)="forgotPassword()"
+                 title="I've forgotten my password"
+                 [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+        </div>
+      </div>
+    </div>`,
   styleUrls: ["./login-modal.component.sass"]
 })
 export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
-  @ViewChild("loginButton", { static: false }) loginButton: ElementRef;
+  @ViewChild("userNameInput") userNameInput: ElementRef;
+  @ViewChild("loginButton") loginButton: ElementRef;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   private logger: Logger;
@@ -88,7 +142,9 @@ export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    this.loginButton.nativeElement.focus();
+    setTimeout(() => {
+      this.userNameInput.nativeElement.focus();
+    }, 0);
   }
 
   ngOnDestroy(): void {

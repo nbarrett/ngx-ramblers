@@ -75,12 +75,16 @@ interface MailSettings extends MailIdentifiers {
   subscriptions: MailSubscription[];
 }
 
-export interface Member extends HasFirstAndLastName, MemberPrivileges, Auditable, Identifiable {
+export interface FirstAndLastName {
+  firstName: string;
+  lastName: string;
+}
+
+export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Auditable, Identifiable {
   hideSurname?: boolean;
   expiredPassword?: boolean;
   password?: string;
   nameAlias?: string;
-  email?: string;
   mobileNumber?: string;
   displayName?: string;
   contactId?: string;
@@ -123,7 +127,8 @@ export interface StatusMessage {
   message: string;
 }
 
-export interface HasFirstAndLastName {
+export interface HasEmailFirstAndLastName {
+  email?: string;
   firstName: string;
   lastName: string;
 }
@@ -134,12 +139,11 @@ export interface BulkLoadMemberAndMatch {
   member: Member;
 }
 
-export interface RamblersMember extends HasFirstAndLastName {
+export interface RamblersMember extends HasEmailFirstAndLastName {
   groupMember?: boolean;
   membershipExpiryDate?: string | number;
   membershipNumber: string;
   mobileNumber: string;
-  email: string;
   postcode: string;
 }
 

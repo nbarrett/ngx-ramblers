@@ -91,7 +91,7 @@ export class RamblersWalksAndEventsService {
               private commonDataService: CommonDataService,
               committeeConfig: CommitteeConfigService,
               loggerFactory: LoggerFactory) {
-    committeeConfig.events().subscribe(data => this.committeeReferenceData = data);
+    committeeConfig.committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data);
     this.logger = loggerFactory.createLogger("RamblersWalksAndEventsService", NgxLoggerLevel.ERROR);
     this.systemConfigService.events().subscribe(item => {
       this.ramblers = item.national;

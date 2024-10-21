@@ -198,6 +198,7 @@ export class SystemConfigService {
 
   default(): SystemConfig {
     return {
+      recaptcha: this.recaptchaDefaults(),
       mailDefaults: this.mailDefaults(),
       backgrounds: this.defaultImages(RootFolder.backgrounds),
       icons: this.defaultImages(RootFolder.icons),
@@ -213,6 +214,10 @@ export class SystemConfigService {
       footer: {appDownloads: {apple: undefined, google: undefined}, legals: [], pages: [], quickLinks: []}
     };
   };
+
+  public recaptchaDefaults() {
+    return {siteKey: null, secretKey: null};
+  }
 
   public mailDefaults() {
     return {

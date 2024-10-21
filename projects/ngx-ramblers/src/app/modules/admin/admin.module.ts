@@ -50,7 +50,6 @@ import { ContactDetailsComponent } from "../../pages/admin/profile/contact-detai
 import { EmailSubscriptionsComponent } from "../../pages/admin/profile/email-subscriptions.component";
 import { SendEmailsModalComponent } from "../../pages/admin/send-emails/send-emails-modal.component";
 import { CommitteeMemberComponent } from "../../pages/admin/system-settings/committee/committee-member";
-import { CommitteeMemberLookupComponent } from "../../pages/admin/system-settings/committee/committee-member-lookup";
 import { CommitteeSettingsComponent } from "../../pages/admin/system-settings/committee/committee-settings";
 import {
   ImageCollectionSettingsComponent
@@ -100,7 +99,6 @@ import { SystemMeetupSettingsComponent } from "../../pages/admin/system-settings
     AdminComponent,
     ChangePasswordComponent,
     CommitteeMemberComponent,
-    CommitteeMemberLookupComponent,
     CommitteeSettingsComponent,
     ContactDetailsComponent,
     EmailSubscriptionsComponent,
@@ -126,13 +124,13 @@ import { SystemMeetupSettingsComponent } from "../../pages/admin/system-settings
     ForgotPasswordModalComponent,
     ForgotPasswordNotificationDetailsComponent,
     ImageCollectionSettingsComponent,
+    MailChimpSubscriptionSettingsComponent,
+    MailListEditorComponent,
     MailListSettingsComponent,
     MailNotificationTemplateMappingComponent,
     MailSettingsComponent,
-    MailListEditorComponent,
-    MailSubscriptionSettingsComponent,
     MailSubscriptionSettingComponent,
-    MailChimpSubscriptionSettingsComponent,
+    MailSubscriptionSettingsComponent,
     MailchimpCampaignDefaultsComponent,
     MailchimpContactComponent,
     MailchimpListSettingsComponent,
@@ -148,11 +146,11 @@ import { SystemMeetupSettingsComponent } from "../../pages/admin/system-settings
     SendEmailsModalComponent,
     SwitchIconComponent,
     SystemImageEditComponent,
-    SystemSettingsComponent,
     SystemMeetupSettingsComponent,
+    SystemSettingsComponent,
   ],
   imports: [
-    SharedModule
+    SharedModule,
   ],
   providers: [
     FormatAuditPipe

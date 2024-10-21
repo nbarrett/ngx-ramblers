@@ -27,7 +27,7 @@ export class MailchimpCampaignDefaultsComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.committeeConfigService.events().subscribe(data => {
+    this.committeeConfigService.committeeReferenceDataEvents().subscribe(data => {
       this.committeeReferenceData = data;
       this.setDefaultCommitteeMember();
     });

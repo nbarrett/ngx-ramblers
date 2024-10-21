@@ -486,6 +486,7 @@ import { StoredValue } from "../../../models/ui-actions";
                   </div>
                 </div>
                 <app-system-meetup-settings/>
+                <app-system-recaptcha-settings [config]="config"/>
               </div>
             </tab>
           </tabset>

@@ -49,7 +49,7 @@ export class DataPopulationService {
       {
         category: "admin",
         name: "committee-roles-help",
-        text: "[ngx-ramblers](https://www.ngx-ramblers.org.uk) allows the roles of _chairman, secretary, treasurer, membership, social, walks_  and  _support_ to be configured to suit your group. This screen allows group members flagged as being in the _Committee_, to be associated with each of these roles, for meaningful names to be assigned with the roles and for contact email addresses to be associated. By default, the email address from the selected membership record is offered as a default, but this can be overidden with a public address related to the website domain. This data is used to automatically generate signoff text for email notifications. "
+        text: "[ngx-ramblers](https://www.ngx-ramblers.org.uk) allows any number of roles  e.g.  _chairman, secretary, treasurer, membership, social, walks_ etc to be configured to suit your group. This screen allows group members that are also Committee Members, to be associated with each of these roles, for meaningful names to be assigned with the roles and for contact email addresses to be associated. By default, the email address from the selected member record is offered as a default, but this can be overridden with a public address related to the website domain, which is recommended in order for emails to be reliably sent via Brevo."
       },
       {
         name: "mail-settings-global-help",

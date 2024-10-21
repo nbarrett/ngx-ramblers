@@ -39,12 +39,12 @@ export class CommitteeDisplayService {
     private committeeConfig: CommitteeConfigService,
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(CommitteeDisplayService, NgxLoggerLevel.OFF);
-    this.committeeConfig.events().subscribe(data => this.committeeReferenceData = data);
+    this.committeeConfig.committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data);
     this.logger.debug("this.memberLoginService", this.memberLoginService.loggedInMember());
   }
 
   configEvents(): Observable<CommitteeReferenceData> {
-    return this.committeeConfig.events();
+    return this.committeeConfig.committeeReferenceDataEvents();
   }
 
   defaultCommitteeFile(): CommitteeFile {

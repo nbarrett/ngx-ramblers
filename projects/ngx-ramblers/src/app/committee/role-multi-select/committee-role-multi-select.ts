@@ -9,7 +9,6 @@ import {
   Output,
   ViewChild
 } from "@angular/core";
-import isArray from "lodash-es/isArray";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { CommitteeMember, CommitteeRolesChangeEvent } from "../../models/committee.model";
@@ -58,7 +57,8 @@ import { NumberUtilsService } from "../../services/number-utils.service";
                   <label class="custom-control-label" [for]="stringUtils.kebabCase('role', roleIndex, id)">
                     {{ committeeMember.fullName }}
                     <small class="d-block">
-                      {{ committeeMember.description }}
+                      {{ committeeMember.description }}<span class="ml-1 colour-disabled"
+                                                             *ngIf="committeeMember.email">{{ committeeMember.email }}</span>
                     </small>
                   </label>
                 </div>
