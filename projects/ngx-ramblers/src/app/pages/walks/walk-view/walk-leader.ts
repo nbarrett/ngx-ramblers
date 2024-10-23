@@ -51,7 +51,7 @@ export class WalkLeaderComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => {
       this.logger.debug("loginResponseObservable:", loginResponse);
       this.display.refreshCachedData();
-      this.loggedIn = loginResponse.memberLoggedIn;
+      this.loggedIn = loginResponse?.memberLoggedIn;
     }));
   }
 

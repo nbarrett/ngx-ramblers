@@ -6,6 +6,7 @@ export enum ConfigKey {
   MAILCHIMP = "mailchimp",
   MEETUP = "meetup",
   SYSTEM = "system",
+  WALKS = "walks",
 }
 
 export interface ConfigDocument extends Identifiable {

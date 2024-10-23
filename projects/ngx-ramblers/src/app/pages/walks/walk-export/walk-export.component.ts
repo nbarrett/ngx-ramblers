@@ -33,7 +33,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
       <tabset class="custom-tabset">
         <tab active="true" [heading]="'Walk upload selection'">
           <app-csv-export hidden #csvComponent
-                          [data]="walksDownloadFileContents()"
+                          [data]="walksDownloadFileContents"
                           [filename]="walksDownloadFileName()"
                           [options]="options()">
           </app-csv-export>
@@ -47,13 +47,13 @@ import { StringUtilsService } from "../../../services/string-utils.service";
             </div>
             <div *ngIf="!display.walkPopulationWalksManager()" class="row mb-2">
               <div class="col-sm-12 form-inline">
-                <input *ngIf="walksDownloadFileContents().length > 0" type="submit"
-                       value="Upload {{walksDownloadFileContents().length}} walk(s) directly to Ramblers"
+                <input *ngIf="walksDownloadFileContents.length > 0" type="submit"
+                       value="Upload {{walksDownloadFileContents.length}} walk(s) directly to Ramblers"
                        (click)="uploadToRamblers()"
                        [ngClass]="exportInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
-                <input *ngIf="walksDownloadFileContents().length > 0" type="submit"
+                <input *ngIf="walksDownloadFileContents.length > 0" type="submit"
                        (click)="csvComponent.generateCsv();"
-                       value="Export {{walksDownloadFileContents().length}} walk(s) file as CSV format"
+                       value="Export {{walksDownloadFileContents.length}} walk(s) file as CSV format"
                        [ngClass]="exportInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
                 <input type="submit" value="Back to walks" (click)="navigateBackToWalks()"
                        title="Back to walks"
@@ -76,7 +76,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                   </thead>
                   <tbody>
                   <tr *ngFor="let walkExport of walksForExport">
-                    <td (click)="changeWalkExportSelection(walkExport)"
+                    <td (click)="toggleWalkExportSelection(walkExport)"
                         [ngClass]="walkExport.selected ? 'yes' : 'no'">
                       <div class="custom-control custom-checkbox">
                         <input [ngModel]="walkExport.selected"
@@ -198,9 +198,9 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   faEye = faEye;
   faRemove = faRemove;
   faCircleInfo = faCircleInfo;
+  public walksDownloadFileContents: WalkUploadRow[] = [];
 
-  constructor(@Inject(DOCUMENT) private document: Document,
-              private ramblersWalksAndEventsService: RamblersWalksAndEventsService,
+  constructor(private ramblersWalksAndEventsService: RamblersWalksAndEventsService,
               private walksService: WalksService,
               private ramblersUploadAuditService: RamblersUploadAuditService,
               private notifierService: NotifierService,
@@ -220,7 +220,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.ramblersUploadAuditData = [];
     this.walkExportNotifier = this.notifierService.createAlertInstance(this.walkExportTarget);
     this.auditNotifier = this.notifierService.createAlertInstance(this.auditTarget);
-    this.systemConfigService.events().subscribe(item => {
+    this.systemConfigService.events().subscribe(async item => {
       if (this.display.walkPopulationWalksManager()) {
         const message = {
           title: "Walks Export Initialisation",
@@ -229,7 +229,8 @@ export class WalkExportComponent implements OnInit, OnDestroy {
         this.walkExportNotifier.warning(message);
         this.auditNotifier.warning(message);
       } else {
-        this.showAvailableWalkExports();
+        await this.showAvailableWalkExports();
+        this.populateWalksDownloadFileContents()
         this.showAllAudits();
       }
     });
@@ -306,23 +307,24 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.urlService.navigateTo(["walks"]);
   }
 
-  populateWalkExport(walksForExport: WalkExport[]) {
+  populateWalkExport(walksForExport: WalkExport[]): WalkExport[] {
     this.logger.debug("populateWalkExport: found", walksForExport.length, "walks:", walksForExport);
     this.walksForExport = walksForExport;
     this.walkExportNotifier.success({
-      title: "Export status", message: `Found total of ${this.stringUtils.pluraliseWithCount(this.walksForExport.length,"walk")}, ${this.walksDownloadFileContents().length} preselected for export`
+      title: "Export status", message: `Found total of ${this.stringUtils.pluraliseWithCount(this.walksForExport.length,"walk")}, ${this.walksDownloadFileContents.length} preselected for export`
     });
     this.walkExportNotifier.clearBusy();
+    return walksForExport;
   }
 
-  walksDownloadFileContents(): WalkUploadRow[] {
+  createWalksDownloadFileContents(): WalkUploadRow[] {
     const walkUploadRows = this.ramblersWalksAndEventsService.walkUploadRows(this.exportableWalks());
-    this.logger.info("walksDownloadFileContents:", walkUploadRows);
+    this.logger.info("createWalksDownloadFileContents:", walkUploadRows);
     return walkUploadRows;
   }
 
   private headers(): string[] {
-    const headers = map(this.walksDownloadFileContents()[0], (column, row) => row);
+    const headers = map(this.walksDownloadFileContents[0], (column, row) => row);
     this.logger.debug("headers:", headers);
     return headers;
   }
@@ -343,10 +345,10 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   showAvailableWalkExports() {
     this.walksForExport = [];
     this.walkExportNotifier.warning("Refreshing export status of future walks", false, true);
-    this.walksService.all({criteria: {walkDate: {$gte: this.dateUtils.momentNowNoTime().valueOf()}}, sort: {walkDate: -1}})
+    return this.walksService.all({criteria: {walkDate: {$gte: this.dateUtils.momentNowNoTime().valueOf()}}, sort: {walkDate: -1}})
       .then((walks: Walk[]) => this.walksQueryService.activeWalks(walks))
       .then((walks: Walk[]) => {
-        this.ramblersWalksAndEventsService.createWalksForExportPrompt(walks)
+        return this.ramblersWalksAndEventsService.createWalksForExportPrompt(walks)
           .then((walksForExport: WalkExport[]) => this.populateWalkExport(walksForExport))
           .catch(error => {
             this.logger.error("error->", error);
@@ -355,14 +357,16 @@ export class WalkExportComponent implements OnInit, OnDestroy {
               continue: true,
               message: error
             });
+            return false
           });
       });
   }
 
-  changeWalkExportSelection(walkExport: WalkExport) {
+  toggleWalkExportSelection(walkExport: WalkExport) {
     if (walkExport.validationMessages.length === 0) {
       walkExport.selected = !walkExport.selected;
       this.logWalkSelected(walkExport);
+      this.populateWalksDownloadFileContents();
       this.walkExportNotifier.hide();
     } else {
       this.walkExportNotifier.error({
@@ -370,6 +374,10 @@ export class WalkExportComponent implements OnInit, OnDestroy {
         message: walkExport.validationMessages.join(", ")
       });
     }
+  }
+
+  private populateWalksDownloadFileContents() {
+    this.walksDownloadFileContents = this.createWalksDownloadFileContents();
   }
 
   uploadToRamblers() {

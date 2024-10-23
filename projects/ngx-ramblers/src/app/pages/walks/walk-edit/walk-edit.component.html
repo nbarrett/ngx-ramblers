@@ -9,7 +9,7 @@
     <tab heading="Main Details">
       <div class="img-thumbnail thumbnail-admin-edit">
         <div class="row">
-          <div class="col-sm-6">
+          <div class="col-sm-4">
             <div class="form-group">
               <label for="walk-date">Walk Date</label>
               <app-date-picker startOfDay id="walk-date" size="md"
@@ -21,12 +21,39 @@
               </app-date-picker>
             </div>
           </div>
-          <div class="col-sm-6">
+          <div class="col-sm-2">
             <div class="form-group">
               <label for="start-time">Start Time</label>
               <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.startTime"
+                     (ngModelChange)="calculateAndSetFinishTime()"
                      type="text" class="form-control input-sm" id="start-time"
                      placeholder="Enter Start time here">
+            </div>
+          </div>
+          <div class="col-sm-2">
+            <div class="form-group">
+              <label for="distance">Distance</label>
+              <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.distance"
+                     (ngModelChange)="calculateAndSetFinishTime()"
+                     type="text" class="form-control input-sm" id="distance"
+                     placeholder="Enter Distance here">
+            </div>
+          </div>
+          <div class="col-sm-2">
+            <div class="form-group">
+              <label for="miles-per-hour">Miles Per Hour</label>
+              <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.milesPerHour"
+                     (ngModelChange)="calculateAndSetFinishTime()"
+                     type="number" step="0.25" class="form-control input-sm" id="miles-per-hour"
+                     placeholder="Enter Estimated MPH of walk">
+            </div>
+          </div>
+          <div class="col-sm-2">
+            <div class="form-group">
+              <label for="finish-time">Finish Time</label>
+              <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.finishTime"
+                     type="text" class="form-control input-sm" id="finish-time"
+                     placeholder="Enter Estimated finish time here">
             </div>
           </div>
         </div>
@@ -64,6 +91,129 @@
                         class="form-control input-sm" rows="5" id="longer-description"
                         placeholder="Enter Longer Description here"></textarea>
             </div>
+          </div>
+        </div>
+      </div>
+    </tab>
+    <tab heading="Walk Details">
+      <div class="img-thumbnail thumbnail-admin-edit">
+        <div class="row">
+          <div class="col-sm-6">
+            <h5>Walk details</h5>
+            <div class="row">
+              <div class="col-sm-6">
+                <div class="form-group">
+                  <label for="grade">Grade</label>
+                  <select *ngIf="allowDetailView()" [disabled]="inputDisabled()"
+                          placeholder="Enter Grade here"
+                          [(ngModel)]="displayedWalk.walk.grade"
+                          class="form-control input-sm" id="grade">
+                    <option *ngFor="let grade of display.grades"
+                            [ngValue]="grade">{{ grade }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <div class="form-group">
+                  <label for="walkType">Walk Type</label>
+                  <select *ngIf="allowDetailView()" [disabled]="inputDisabled()"
+                          [(ngModel)]="displayedWalk.walk.walkType"
+                          class="form-control input-sm" id="walkType">
+                    <option *ngFor="let type of display.walkTypes" [ngValue]="type"
+                            [attr.selected]="type == display.walkTypes[0]">{{ type }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <div class="form-group">
+                  <label for="post-code">Start Postcode</label>
+                  <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.postcode"
+                         (ngModelChange)="postcodeChange()"
+                         type="text" class="form-control input-sm" id="post-code"
+                         placeholder="Enter Postcode here">
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <div class="form-group">
+                  <label for="grid-reference">Start Grid Reference</label>
+                  <div class="input-group">
+                    <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.gridReference"
+                           type="text" class="form-control input-sm" id="grid-reference"
+                           placeholder="Enter start grid Reference here">
+                    <div class="input-group-append">
+                      <div class="input-group-text pointer">
+                        <div (click)="viewGridReference(displayedWalk.walk.gridReference)" placement="top"
+                             tooltip="View start grid reference position in gridreferencefinder.com">
+                          <img src="/assets/images/local/grid-reference-finder.ico"/>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <ng-container *ngIf="displayedWalk.walk.walkType === 'Linear'">
+                <div class="col-sm-6">
+                  <div class="form-group">
+                    <label for="finish-post-code">Finish Postcode</label>
+                    <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.postcodeFinish"
+                           (ngModelChange)="postcodeFinishChange()"
+                           type="text" class="form-control input-sm" id="finish-post-code"
+                           placeholder="Enter finish postcode here">
+                  </div>
+                </div>
+                <div class="col-sm-6">
+                  <div class="form-group">
+                    <label for="grid-reference-end">Finish Grid Reference</label>
+                    <div class="input-group">
+                      <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.gridReferenceFinish"
+                             type="text" class="form-control input-sm" id="grid-reference-end"
+                             placeholder="Enter Finish Grid Reference here">
+                      <div class="input-group-append">
+                        <div class="input-group-text pointer">
+                          <div (click)="viewGridReference(displayedWalk.walk.gridReferenceFinish)"
+                               placement="top"
+                               tooltip="View finish grid reference position in gridreferencefinder.com">
+                            <img src="/assets/images/local/grid-reference-finder.ico"/>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </ng-container>
+              <div class="col-sm-6">
+                <div class="form-group">
+                  <label for="nearest-town">Nearest Town</label>
+                  <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.nearestTown"
+                         type="text" class="form-control input-sm"
+                         id="nearest-town"
+                         placeholder="Enter nearest town here">
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <div class="form-group">
+                  <label for="ascent">Ascent</label>
+                  <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.ascent"
+                         type="text" class="form-control input-sm" id="ascent"
+                         placeholder="Enter Ascent here">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6 rounded">
+            <h5>Google Maps</h5>
+            <p>The map below is a preview of where postcode <strong>{{ displayedWalk.walk.postcode }}</strong> will
+              appear on
+              Google Maps. This map will be displayed in the detail view of the walk.</p>
+            <input type="number" min="1" max="20" *ngIf="false"
+                   [(ngModel)]="display.googleMapsConfig.zoomLevel">
+            <iframe *ngIf="display.mapViewReady(googleMapsUrl)"
+                    allowfullscreen
+                    class="map-thumbnail-image-dialog"
+                    style="border:0;border-radius: 10px;"
+                    [src]="googleMapsUrl"></iframe>
           </div>
         </div>
       </div>
@@ -289,137 +439,6 @@
                      class="form-control input-sm"
                      id="contact-email-hidden">
             </div>
-          </div>
-        </div>
-      </div>
-    </tab>
-    <tab heading="Walk Details">
-      <div class="img-thumbnail thumbnail-admin-edit">
-        <div class="row">
-          <div class="col-sm-6">
-            <h5>Walk details</h5>
-            <div class="row">
-              <div class="col-sm-6">
-                <div class="form-group">
-                  <label for="distance">Distance</label>
-                  <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.distance"
-                         type="text" class="form-control input-sm" id="distance"
-                         placeholder="Enter Distance here">
-                </div>
-              </div>
-              <div class="col-sm-6">
-                <div class="form-group">
-                  <label for="nearest-town">Nearest Town</label>
-                  <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.nearestTown"
-                         type="text" class="form-control input-sm"
-                         id="nearest-town"
-                         placeholder="Enter nearest town here">
-                </div>
-              </div>
-              <div class="col-sm-6">
-                <div class="form-group">
-                  <label for="walkType">Walk Type</label>
-                  <select *ngIf="allowDetailView()" [disabled]="inputDisabled()"
-                          [(ngModel)]="displayedWalk.walk.walkType"
-                          class="form-control input-sm" id="walkType">
-                    <option *ngFor="let type of display.walkTypes" [ngValue]="type"
-                            [attr.selected]="type == display.walkTypes[0]">{{ type }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-              <div class="col-sm-6">
-                <div class="form-group">
-                  <label for="grade">Grade</label>
-                  <select *ngIf="allowDetailView()" [disabled]="inputDisabled()"
-                          placeholder="Enter Grade here"
-                          [(ngModel)]="displayedWalk.walk.grade"
-                          class="form-control input-sm" id="grade">
-                    <option *ngFor="let grade of display.grades"
-                            [ngValue]="grade">{{ grade }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-              <div class="col-sm-6">
-                <div class="form-group">
-                  <label for="post-code">Start Postcode</label>
-                  <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.postcode"
-                         (ngModelChange)="postcodeChange()"
-                         type="text" class="form-control input-sm" id="post-code"
-                         placeholder="Enter Postcode here">
-                </div>
-              </div>
-              <div class="col-sm-6">
-                <div class="form-group">
-                  <label for="grid-reference">Start Grid Reference</label>
-                  <div class="input-group">
-                    <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.gridReference"
-                           type="text" class="form-control input-sm" id="grid-reference"
-                           placeholder="Enter start grid Reference here">
-                    <div class="input-group-append">
-                      <div class="input-group-text pointer">
-                        <div (click)="viewGridReference(displayedWalk.walk.gridReference)" placement="top"
-                             tooltip="View start grid reference position in gridreferencefinder.com">
-                          <img src="/assets/images/local/grid-reference-finder.ico"/>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <ng-container *ngIf="displayedWalk.walk.walkType === 'Linear'">
-                <div class="col-sm-6">
-                  <div class="form-group">
-                    <label for="finish-post-code">Finish Postcode</label>
-                    <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.postcodeFinish"
-                           (ngModelChange)="postcodeFinishChange()"
-                           type="text" class="form-control input-sm" id="finish-post-code"
-                           placeholder="Enter finish postcode here">
-                  </div>
-                </div>
-                <div class="col-sm-6">
-                  <div class="form-group">
-                    <label for="grid-reference-end">Finish Grid Reference</label>
-                    <div class="input-group">
-                      <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.gridReferenceFinish"
-                             type="text" class="form-control input-sm" id="grid-reference-end"
-                             placeholder="Enter Finish Grid Reference here">
-                      <div class="input-group-append">
-                        <div class="input-group-text pointer">
-                          <div (click)="viewGridReference(displayedWalk.walk.gridReferenceFinish)"
-                               placement="top"
-                               tooltip="View finish grid reference position in gridreferencefinder.com">
-                            <img src="/assets/images/local/grid-reference-finder.ico"/>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </ng-container>
-              <div class="col-sm-6">
-                <div class="form-group">
-                  <label for="ascent">Ascent</label>
-                  <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.ascent"
-                         type="text" class="form-control input-sm" id="ascent"
-                         placeholder="Enter Ascent here">
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-sm-6 rounded">
-            <h5>Google Maps</h5>
-            <p>The map below is a preview of where postcode <strong>{{ displayedWalk.walk.postcode }}</strong> will
-              appear on
-              Google Maps. This map will be displayed in the detail view of the walk.</p>
-            <input type="number" min="1" max="20" *ngIf="false"
-                   [(ngModel)]="display.googleMapsConfig.zoomLevel">
-            <iframe *ngIf="display.mapViewReady(googleMapsUrl)"
-                    allowfullscreen
-                    class="map-thumbnail-image-dialog"
-                    style="border:0;border-radius: 10px;"
-                    [src]="googleMapsUrl"></iframe>
           </div>
         </div>
       </div>

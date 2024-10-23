@@ -2,6 +2,11 @@ import { TestBed } from "@angular/core/testing";
 import moment from "moment-timezone";
 import { LoggerTestingModule } from "ngx-logger/testing";
 import { DateUtilsService } from "./date-utils.service";
+import { Walk } from "../models/walk.model";
+
+function momentFor(startDate: string) {
+  return moment(startDate).tz("Europe/London");
+}
 
 describe("DateUtilsService", () => {
 
@@ -9,6 +14,21 @@ describe("DateUtilsService", () => {
     imports: [LoggerTestingModule],
     providers: []
   }).compileComponents());
+
+  describe("startTime for every day of 2024 (which is a leap year)", () => {
+    it("should produce the correct start time for each day of 2024", () => {
+      const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
+      const startTime = "10:00 am";
+      const expectedStartTime = {hours: 10, minutes: 0};
+      for (let day = 1; day <= 366; day++) {
+        const date = momentFor("2024-01-01").add(day - 1, "days").toDate();
+        const walk: Walk = {walkDate: date, startTime} as Walk;
+        const calculatedStartTime = dateUtils.startTime(walk);
+        const expectedMoment = momentFor(date).hours(expectedStartTime.hours).minutes(expectedStartTime.minutes).valueOf();
+        expect(calculatedStartTime).withContext(`Failed on date: ${momentFor(date).format("YYYY-MM-DD")}`).toEqual(expectedMoment);
+      }
+    });
+  });
 
   describe("asMoment", () => {
 
@@ -109,12 +129,12 @@ describe("DateUtilsService", () => {
 
     it("should calculate distance in ms based on miles where 2.5 miles covered per hour distance/2.5*60*60*1000", () => {
       const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      expect(dateUtils.durationForDistance("12 miles")).toBe(17280000);
+      expect(dateUtils.durationForDistanceInMiles("12 miles", 2.5)).toBe(17280000);
     });
 
     it("should accept a numeric input", () => {
       const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      expect(dateUtils.durationForDistance(10)).toBe(14400000);
+      expect(dateUtils.durationForDistanceInMiles(10, 2.5)).toBe(14400000);
     });
 
   });

@@ -100,7 +100,7 @@ export class WalkNotificationDetailsComponent implements OnInit {
     public googleMapsService: GoogleMapsService,
     public display: WalkDisplayService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkNotificationDetailsComponent", NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("WalkNotificationDetailsComponent", NgxLoggerLevel.ERROR);
   }
 
   ngOnInit() {

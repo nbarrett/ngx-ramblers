@@ -54,6 +54,7 @@ export interface Walk extends Identifiable, HasMedia {
   contactPhone?: string;
   displayName?: string;
   distance?: string;
+  milesPerHour?: number;
   ascent?: string;
   events: WalkEvent[];
   grade?: string;
@@ -76,6 +77,7 @@ export interface Walk extends Identifiable, HasMedia {
   startLocationW3w?: string;
   ramblersPublish?: boolean;
   startTime?: string;
+  finishTime?: string;
   walkDate?: number;
   walkLeaderMemberId?: string;
   venue?: WalkVenue;

@@ -1,4 +1,4 @@
-import { HttpClientTestingModule, HttpTestingController } from "@angular/common/http/testing";
+import { HttpClientTestingModule } from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
 import { RouterTestingModule } from "@angular/router/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
@@ -10,6 +10,7 @@ import { MemberIdToFullNamePipe } from "../../pipes/member-id-to-full-name.pipe"
 import { StringUtilsService } from "../string-utils.service";
 
 import { WalkEventService } from "./walk-event.service";
+import { RamblersEventType } from "../../models/ramblers-walks-manager";
 
 describe("WalksEventService", () => {
   const MemberLoginService = {
@@ -33,6 +34,7 @@ describe("WalksEventService", () => {
     it("changedItems should correctly calculate difference", () => {
       const service: WalkEventService = TestBed.inject(WalkEventService);
       const walk: Walk = {
+        eventType: RamblersEventType.GROUP_WALK,
         walkDate: 12,
         gridReference: "123",
         postcode: "TN26 3HF",
@@ -56,6 +58,7 @@ describe("WalksEventService", () => {
     it("should return a value if there is no existing event with status change", () => {
       const service: WalkEventService = TestBed.inject(WalkEventService);
       const walk: Walk = {
+        eventType: RamblersEventType.GROUP_WALK,
         walkDate: 12,
         gridReference: "123",
         postcode: "TN26 3HF",

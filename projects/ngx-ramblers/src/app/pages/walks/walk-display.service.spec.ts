@@ -15,6 +15,7 @@ import { MemberLoginService } from "../../services/member/member-login.service";
 import { WalksReferenceService } from "../../services/walks/walks-reference-data.service";
 import { WalkDisplayService } from "./walk-display.service";
 import { EventPopulation, Organisation } from "../../models/system.model";
+import { RamblersEventType } from "../../models/ramblers-walks-manager";
 
 const anyWalkDate = 123364;
 const walkLeaderMemberId = "walk-leader-id";
@@ -84,7 +85,10 @@ describe("WalkDisplayService", () => {
       spy = spyOn(memberLoginService, "loggedInMember").and.returnValue(val);
       const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
       service.group = {walkPopulation: EventPopulation.LOCAL} as Organisation;
-      expect(service.toWalkAccessMode({walkLeaderMemberId: "any-walk-id", events: dontCare, walkDate: anyWalkDate})).toEqual(WalksReferenceService.walkAccessModes.edit);
+      expect(service.toWalkAccessMode({
+        eventType: RamblersEventType.GROUP_WALK,
+        walkLeaderMemberId: "any-walk-id", events: dontCare, walkDate: anyWalkDate
+      })).toEqual(WalksReferenceService.walkAccessModes.edit);
     });
 
     it("should return edit if user is logged in and not admin but is leader", () => {
@@ -94,6 +98,7 @@ describe("WalkDisplayService", () => {
       const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
       service.group = {walkPopulation: EventPopulation.LOCAL} as Organisation;
       expect(service.toWalkAccessMode({
+        eventType: RamblersEventType.GROUP_WALK,
         walkLeaderMemberId: "leader-id",
         events: dontCare,
         walkDate: anyWalkDate
@@ -107,6 +112,7 @@ describe("WalkDisplayService", () => {
       const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
       service.group = {walkPopulation: EventPopulation.LOCAL} as Organisation;
       expect(service.toWalkAccessMode({
+        eventType: RamblersEventType.GROUP_WALK,
         events: dontCare,
         walkDate: 0,
       })).toEqual(WalksReferenceService.walkAccessModes.lead);
@@ -116,7 +122,12 @@ describe("WalkDisplayService", () => {
       spy = spyOn(memberLoginService, "memberLoggedIn").and.returnValue(false);
       spy = spyOn(memberLoginService, "allowWalkAdminEdits").and.returnValue(false);
       const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
-      expect(service.toWalkAccessMode({walkLeaderMemberId, events: dontCare, walkDate: anyWalkDate})).toEqual(WalksReferenceService.walkAccessModes.view);
+      expect(service.toWalkAccessMode({
+        eventType: RamblersEventType.GROUP_WALK,
+        walkLeaderMemberId,
+        events: dontCare,
+        walkDate: anyWalkDate
+      })).toEqual(WalksReferenceService.walkAccessModes.view);
     });
 
     it("should return view if user is not member admin and not leading the walk", () => {
@@ -124,7 +135,12 @@ describe("WalkDisplayService", () => {
       spy = spyOn(memberLoginService, "allowWalkAdminEdits").and.returnValue(false);
       spy = spyOn(memberLoginService, "loggedInMember").and.returnValue({memberId: "leader-id"} as any);
       const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
-      expect(service.toWalkAccessMode({walkLeaderMemberId: "another-walk-leader-id", events: dontCare, walkDate: anyWalkDate})).toEqual(WalksReferenceService.walkAccessModes.view);
+      expect(service.toWalkAccessMode({
+        eventType: RamblersEventType.GROUP_WALK,
+        walkLeaderMemberId: "another-walk-leader-id",
+        events: dontCare,
+        walkDate: anyWalkDate
+      })).toEqual(WalksReferenceService.walkAccessModes.view);
     });
   });
 
