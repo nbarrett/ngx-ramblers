@@ -142,20 +142,38 @@ export class DateUtilsService {
     }
   }
 
-  durationForDistance(distance: string | number): number {
-    return this.numberUtils.asNumber(distance) / 2.5 * 60 * 60 * 1000;
+  durationForDistanceInMiles(distance: string | number, milesPerHour: number): number {
+    return this.numberUtils.asNumber(distance) / milesPerHour * 60 * 60 * 1000;
   }
 
   startTime(walk: Walk): number {
     if (walk) {
       const startTime: Time = this.parseTime(walk?.startTime);
-      const walkDateMoment = this.asMoment(walk?.walkDate);
-      const walkDateAndTime: number = walkDateMoment.clone().add(startTime?.hours, "hours").add(startTime?.minutes, "minutes").valueOf();
-      this.logger.off("text based startTime:", walk?.startTime, "startTime:", startTime, "walkDateMoment+DateAndTime:", this.displayDateAndTime(walkDateMoment), "walkDateAndTime+DateAndTime:", this.displayDateAndTime(walkDateAndTime));
-      return walkDateAndTime;
+      const walkDateMoment: moment = this.asMoment(walk?.walkDate);
+      const walkDateAndTimeValue = this.calculateWalkDateAndTimeValue(walkDateMoment, startTime);
+      this.logger.info("text based startTime:", walk?.startTime,
+        "startTime:", startTime,
+        "walkDateMoment:", walkDateMoment.format(),
+        "displayDateAndTime(walkDateMoment):", this.displayDateAndTime(walkDateMoment),
+        "walkDateAndTime:", walkDateAndTimeValue,
+        "displayDateAndTime(walkDateAndTimeValue):", this.displayDateAndTime(walkDateAndTimeValue));
+      return walkDateAndTimeValue;
     } else {
       return null;
     }
+  }
+
+  private calculateWalkDateAndTimeValue(walkDateMoment: moment, startTime: Time): number {
+    let walkDateAndTime = walkDateMoment.clone().add(startTime?.hours, "hours").add(startTime?.minutes, "minutes");
+    // Adjust for DST end transition
+    if (walkDateMoment.isDST() && !walkDateAndTime.isDST()) {
+      walkDateAndTime = walkDateAndTime.add(1, "hour");
+    }
+    // Adjust for DST start transition
+    if (!walkDateMoment.isDST() && walkDateAndTime.isDST()) {
+      walkDateAndTime = walkDateAndTime.subtract(1, "hour");
+    }
+    return walkDateAndTime.valueOf();
   }
 
   inclusiveDayRange(fromDate: number, toDate: number): number[] {

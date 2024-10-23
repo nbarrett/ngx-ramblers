@@ -12,26 +12,32 @@ import { AlertInstance, NotifierService } from "../../../../services/notifier.se
   template: `
     <div class="row img-thumbnail thumbnail-2">
       <div class="thumbnail-heading">reCAPTCHA</div>
-      <div class="col-sm-12" *ngIf="config?.recaptcha">
+      <div class="col-sm-12" *ngIf="systemConfigInternal?.recaptcha">
         <div class="row">
           <div class="col-sm-6">
             <div class="row">
               <div class="col-md-12">
                 <div class="form-group">
                   <label for="site-key">Site Key (v2)</label>
-                  <input [(ngModel)]="config.recaptcha.siteKey"
+                  <input [(ngModel)]="systemConfigInternal.recaptcha.siteKey"
                          id="site-key"
                          type="text" class="form-control input-sm"
                          placeholder="Enter reCAPTCHA Site Key">
+                  <div *ngIf="!systemConfigInternal?.recaptcha?.siteKey" class="mt-1 small text-danger">
+                    Site Key is required
+                  </div>
                 </div>
               </div>
               <div class="col-md-12">
                 <div class="form-group">
                   <label for="recaptcha-secret-key">Secret Key (v2)</label>
-                  <input [(ngModel)]="config.recaptcha.secretKey"
+                  <input [(ngModel)]="systemConfigInternal.recaptcha.secretKey"
                          id="recaptcha-secret-key"
                          type="text" class="form-control input-sm"
                          placeholder="Enter reCAPTCHA Secret Key">
+                  <div *ngIf="!systemConfigInternal?.recaptcha?.secretKey" class="mt-1 small text-danger">
+                    Secret Key is required
+                  </div>
                 </div>
               </div>
             </div>
@@ -41,8 +47,9 @@ import { AlertInstance, NotifierService } from "../../../../services/notifier.se
               Test site reCAPTCHA configuration by clicking the checkbox below:
             </div>
             <div class="form-group">
-              <re-captcha *ngIf="config?.recaptcha?.siteKey" (resolved)="onCaptchaResolved($event)"
-                          [siteKey]="config?.recaptcha?.siteKey"/>
+              <re-captcha *ngIf="systemConfigInternal?.recaptcha?.siteKey" (resolved)="onCaptchaResolved($event)"
+                          (errored)="onCaptchaErrored($event)"
+                          [siteKey]="systemConfigInternal?.recaptcha?.siteKey"/>
             </div>
             <div>For more information on how to configure the Site Key and Secret Key, visit the
               <a href="https://www.google.com/recaptcha/about/" target="_blank">reCAPTCHA project site.</a>
@@ -59,7 +66,7 @@ import { AlertInstance, NotifierService } from "../../../../services/notifier.se
 })
 export class SystemRecaptchaSettingsComponent implements OnInit, OnDestroy {
 
-  @Input({required: true}) public config: SystemConfig;
+  protected systemConfigInternal: SystemConfig;
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   public contactUsService: ContactUsService = inject(ContactUsService);
   systemConfigService: SystemConfigService = inject(SystemConfigService);
@@ -68,22 +75,40 @@ export class SystemRecaptchaSettingsComponent implements OnInit, OnDestroy {
   private notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   private logger = this.loggerFactory.createLogger("SystemRecaptchaSettingsComponent", NgxLoggerLevel.ERROR);
 
+  @Input({
+    alias: "config",
+    required: true
+  }) set configValue(systemConfig: SystemConfig) {
+    this.handleConfigChange(systemConfig);
+  }
+
   ngOnInit() {
-    if (!this.config?.recaptcha) {
-      this.config.recaptcha = this.systemConfigService.recaptchaDefaults();
-    }
-    this.logger.info("constructed:", this.config.recaptcha);
+    this.logger.info("constructed:", this.systemConfigInternal.recaptcha);
   }
 
   ngOnDestroy(): void {
     this.logger.info("ngOnDestroy");
   }
 
+  handleConfigChange(systemConfig: SystemConfig) {
+    this.systemConfigInternal = systemConfig;
+    if (!this.systemConfigInternal?.recaptcha) {
+      this.systemConfigInternal.recaptcha = this.systemConfigService.recaptchaDefaults();
+    }
+    this.logger.info("handleConfigChange:recaptcha:", this.systemConfigInternal.recaptcha);
+  }
+
   onCaptchaResolved(captchaToken: string) {
     this.logger.info("Captcha resolved with response:", captchaToken);
     this.contactUsService.validateToken({captchaToken})
-      .then((response) => this.notify.success({title: "Captcha validation", message: "Validation was successful!"}))
-      .catch((error) => this.notify.error({title: "Failed to send email", message: error}));
+      .then((response) => this.notify.success({
+        title: "Captcha validation",
+        message: "Validation was successful!"
+      }))
+      .catch((error) => this.notify.error({title: "Captcha validation", message: error}));
   }
 
+  onCaptchaErrored($event: any[]) {
+    this.logger.error("Captcha errored with $event:", $event);
+  }
 }

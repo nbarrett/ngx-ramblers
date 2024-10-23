@@ -19,12 +19,12 @@ describe("addressQueryService", () => {
 
     it("should return grid reference for Kent", () => {
       const addressQueryService: AddressQueryService = TestBed.inject(AddressQueryService);
-      expect(addressQueryService.gridReferenceFrom("589060", "140509")).toBe("TQ 890405");
+      expect(addressQueryService.gridReferenceFrom("589060", "140509")).toBe("TQ 89060 40509");
     });
 
     it("should return grid reference for Scotland", () => {
       const addressQueryService: AddressQueryService = TestBed.inject(AddressQueryService);
-      expect(addressQueryService.gridReferenceFrom("403183" , "078709")).toBe("SZ 031787");
+      expect(addressQueryService.gridReferenceFrom("403183" , "078709")).toBe("SZ 03183 78709");
     });
 
   });

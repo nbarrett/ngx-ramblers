@@ -68,17 +68,19 @@ import { sortBy } from "../../functions/arrays";
 import { SocialEvent } from "../../models/social-events.model";
 import { MediaQueryService } from "../committee/media-query.service";
 import { UrlService } from "../url.service";
+import { WalksConfigService } from "../system/walks-config.service";
+import { WalksConfig } from "../../models/walk-notification.model";
 
 @Injectable({
   providedIn: "root"
 })
 export class RamblersWalksAndEventsService {
-
   constructor(private http: HttpClient,
               private mediaQueryService: MediaQueryService,
               private riskAssessmentService: RiskAssessmentService,
               private systemConfigService: SystemConfigService,
               private walksService: WalksLocalService,
+              private walksConfigService: WalksConfigService,
               private memberNamingService: MemberNamingService,
               private distanceValidationService: DistanceValidationService,
               private ascentValidationService: AscentValidationService,
@@ -97,9 +99,13 @@ export class RamblersWalksAndEventsService {
       this.ramblers = item.national;
       this.logger.off("systemConfigService:ramblers:", this.ramblers, "item.system", item);
     });
-
+    this.walksConfigService.events().subscribe(walksConfig => {
+      this.walksConfig = walksConfig;
+      this.logger.info("walksConfigService:walksConfig:", walksConfig);
+    });
   }
 
+  private walksConfig: WalksConfig;
   private readonly logger: Logger;
   private auditSubject = new ReplaySubject<RamblersUploadAuditApiResponse>();
   private walkLeadersSubject = new ReplaySubject<WalkLeadersApiResponse>();
@@ -464,23 +470,23 @@ export class RamblersWalksAndEventsService {
     return walkDescription.map(this.replaceSpecialCharacters).join(". ");
   }
 
-  walkDescription(walk: Walk) {
+  walkDescription(walk: Walk): string {
     return this.replaceSpecialCharacters(walk.longerDescription);
   }
 
-  walkType(walk: Walk) {
+  walkType(walk: Walk): string {
     return walk.walkType || "Circular";
   }
 
-  asString(value) {
+  asString(value): string {
     return value ? value : "";
   }
 
-  walkLeader(walk: Walk) {
+  walkLeader(walk: Walk): string {
     return walk.contactId ? this.replaceSpecialCharacters(walk.contactId) : "";
   }
 
-  replaceSpecialCharacters(value) {
+  replaceSpecialCharacters(value: string): string {
     return value ? value
       ?.replace("’", "")
       ?.replace("é", "e")
@@ -497,31 +503,36 @@ export class RamblersWalksAndEventsService {
     return walk.startTime ? this.dateUtils.asString(this.dateUtils.startTime(walk), null, "HH:mm") : "";
   }
 
-  walkFinishTime(walk) {
-    return walk.startTime ? this.dateUtils.asString(this.dateUtils.startTime(walk) + this.dateUtils.durationForDistance(walk.distance), null, "HH:mm") : "";
+  walkFinishTime(walk: Walk, milesPerHour: number): string {
+    const distance: number = this.distanceValidationService.parse(walk).miles.value;
+    return walk.startTime ? this.dateUtils.asString(this.dateUtils.startTime(walk) + this.dateUtils.durationForDistanceInMiles(distance, milesPerHour), null, "HH:mm") : "";
   }
 
-  walkStartGridReference(walk) {
+  walkFinishTimeIfEmpty(walk: Walk, milesPerHour: number): string {
+    return walk.finishTime || this.walkFinishTime(walk, milesPerHour);
+  }
+
+  walkStartGridReference(walk: Walk): string {
     return walk.gridReference || "";
   }
 
-  walkStartPostcode(walk) {
+  walkStartPostcode(walk: Walk): string {
     return walk.postcode || "";
   }
 
-  walkFinishGridReference(walk) {
+  walkFinishGridReference(walk: Walk): string {
     return walk.gridReferenceFinish || "";
   }
 
-  walkFinishPostcode(walk) {
+  walkFinishPostcode(walk: Walk): string {
     return walk.gridReferenceFinish ? "" : walk.postcodeFinish || "";
   }
 
-  walkDate(walk: Walk, format: string) {
+  walkDate(walk: Walk, format: string): string {
     return this.dateUtils.asString(walk.walkDate, null, format);
   }
 
-  walkToUploadRow(walk): WalkUploadRow {
+  walkToUploadRow(walk: Walk): WalkUploadRow {
     return this.walkToWalkUploadRow(walk);
   }
 
@@ -691,7 +702,7 @@ export class RamblersWalksAndEventsService {
       "youtube"].map(feature => this.toFeature(feature));
   }
 
-  walkToWalkUploadRow(walk): WalkUploadRow {
+  walkToWalkUploadRow(walk: Walk): WalkUploadRow {
     const csvRecord: WalkUploadRow = {};
     const walkDistance: WalkDistance = this.distanceValidationService.parse(walk);
     this.logger.debug("walkDistance:", walkDistance);
@@ -714,7 +725,7 @@ export class RamblersWalksAndEventsService {
     csvRecord[WalkUploadColumnHeading.MEETING_POSTCODE] = "";
     csvRecord[WalkUploadColumnHeading.MEETING_GRIDREF] = "";
     csvRecord[WalkUploadColumnHeading.MEETING_LOCATION_DETAILS] = "";
-    csvRecord[WalkUploadColumnHeading.EST_FINISH_TIME] = this.walkFinishTime(walk);
+    csvRecord[WalkUploadColumnHeading.EST_FINISH_TIME] = this.walkFinishTimeIfEmpty(walk, this.walksConfig?.milesPerHour);
     csvRecord[WalkUploadColumnHeading.FINISHING_LOCATION] = "";
     csvRecord[WalkUploadColumnHeading.FINISHING_POSTCODE] = this.walkFinishPostcode(walk);
     csvRecord[WalkUploadColumnHeading.FINISHING_GRIDREF] = this.walkFinishGridReference(walk);

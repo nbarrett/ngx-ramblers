@@ -51,6 +51,8 @@ const walkSchema = new mongoose.Schema({
   contactPhone: {type: String},
   displayName: {type: String},
   distance: {type: String},
+  finishTime: {type: String},
+  milesPerHour: {type: Number},
   ascent: {type: String},
   events: [walkEvent],
   grade: {type: String},

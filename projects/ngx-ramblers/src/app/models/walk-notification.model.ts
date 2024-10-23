@@ -3,7 +3,6 @@ import { WalkEvent } from "./walk-event.model";
 import { EventType, Walk } from "./walk.model";
 import { NotificationDirective } from "../notifications/common/notification.directive";
 import { AlertInstance } from "../services/notifier.service";
-import { Member } from "./member.model";
 import { WalkEventType } from "./walk-event-type.model";
 import { NotificationConfig } from "./mail.model";
 
@@ -30,4 +29,8 @@ export interface WalkMailMessageConfiguration {
   notificationConfig: NotificationConfig;
   emailSubject: string;
   destination: string;
+}
+
+export interface WalksConfig {
+  milesPerHour: number;
 }

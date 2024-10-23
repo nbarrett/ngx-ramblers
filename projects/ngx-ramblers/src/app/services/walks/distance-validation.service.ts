@@ -49,7 +49,7 @@ export class DistanceValidationService {
     }
   }
 
-  walkDistanceKilometres(walk): number {
+  walkDistanceKilometres(walk: Walk): number {
     const distanceItems = this.distanceItems(walk);
     const units: DistanceUnit = this.distanceUnits(distanceItems);
     const numericDistance = this.numberUtils.asNumber(distanceItems[0]);

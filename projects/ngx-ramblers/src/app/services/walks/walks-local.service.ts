@@ -26,7 +26,7 @@ export class WalksLocalService {
               private commonDataService: CommonDataService,
               private urlService: UrlService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalksLocalService", NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("WalksLocalService", NgxLoggerLevel.ERROR);
   }
 
   notifications(): Observable<WalkApiResponse> {
@@ -92,9 +92,10 @@ export class WalksLocalService {
   }
 
   async fixIncorrectWalkDates(): Promise<Walk[]> {
+    this.logger.info("fixIncorrectWalkDates:beginning");
     const walks = await this.all();
     const walksWithIncorrectDate: Walk[] = walks.filter(walk => walk.walkDate !== this.dateUtils.asValueNoTime(walk.walkDate));
-    this.logger.info("given", this.stringUtilsService.pluraliseWithCount(walks.length, "queried walk"), "there are", this.stringUtilsService.pluraliseWithCount(walksWithIncorrectDate.length, "incorrectly dated walk"), walksWithIncorrectDate.map(walk => this.dateUtils.displayDateAndTime(walk.walkDate)).join("\n"));
+    this.logger.info("given", this.stringUtilsService.pluraliseWithCount(walks.length, "queried walk"), "there are", this.stringUtilsService.pluraliseWithCount(walksWithIncorrectDate.length, "incorrectly dated walk"), walksWithIncorrectDate.map(walk => "current:" + this.dateUtils.displayDateAndTime(walk.walkDate) + ", fixed:" + this.dateUtils.displayDateAndTime(this.dateUtils.asValueNoTime(walk.walkDate))).join("\n"));
     const walksWithFixedDate: Walk[] = walksWithIncorrectDate.map(walk => ({
       ...walk,
       walkDate: this.dateUtils.asValueNoTime(walk.walkDate)

@@ -31,6 +31,8 @@ import {
   MeetupRequestAuthorisationApiResponse,
   MeetupRequestAuthorisationResponse
 } from "../models/meetup-authorisation.model";
+import { WalksConfigService } from "./system/walks-config.service";
+import { WalksConfig } from "../models/walk-notification.model";
 
 @Injectable({
   providedIn: "root"
@@ -40,13 +42,19 @@ export class MeetupService {
   private receivedEvents: MeetupEventResponse[] = [];
   private eventsUpdated = new Subject<MeetupEventResponse[]>();
   private logger: Logger;
+  private walksConfig: WalksConfig;
 
   constructor(private dateUtils: DateUtilsService,
+              private walksConfigService: WalksConfigService,
               private configService: ConfigService,
               private stringUtils: StringUtilsService,
               private commonDataService: CommonDataService,
               private http: HttpClient, loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(MeetupService, NgxLoggerLevel.OFF);
+    this.walksConfigService.events().subscribe(walksConfig => {
+      this.walksConfig = walksConfig;
+      this.logger.info("walksConfigService:walksConfig:", walksConfig);
+    });
   }
 
   saveConfig(notify: AlertInstance, config: MeetupConfig): Promise<void> {
@@ -251,7 +259,7 @@ export class MeetupService {
     const eventRequest = {
       venue_id: venueResponse.id,
       time: this.dateUtils.startTime(walk),
-      duration: this.dateUtils.durationForDistance(walk.distance),
+      duration: this.dateUtils.durationForDistanceInMiles(walk.distance, this.walksConfig.milesPerHour),
       guest_limit: walk.config.meetup.guestLimit,
       announce: walk.config.meetup.announce,
       venue_visibility: "public",

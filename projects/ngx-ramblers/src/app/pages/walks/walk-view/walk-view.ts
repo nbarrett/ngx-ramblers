@@ -234,7 +234,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.loggedIn = this.memberLoginService.memberLoggedIn();
-    this.allowWalkAdminEdits = this.memberLoginService.allowWalkAdminEdits();
+    this.allowWalkAdminEdits = this.display.walkPopulationLocal() && this.memberLoginService.allowWalkAdminEdits();
     this.refreshHomePostcode();
     this.pathContainsWalkId = this.urlService.pathContainsEventId();
     this.walkIdOrPath = this.urlService.lastPathSegment();
@@ -251,8 +251,8 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => {
       this.logger.info("loginResponseObservable:", loginResponse);
       this.display.refreshCachedData();
-      this.loggedIn = loginResponse.memberLoggedIn;
-      this.allowWalkAdminEdits = this.memberLoginService.allowWalkAdminEdits();
+      this.loggedIn = loginResponse?.memberLoggedIn;
+      this.allowWalkAdminEdits = this.display.walkPopulationLocal() && this.memberLoginService.allowWalkAdminEdits();
       this.refreshHomePostcode();
       this.updateGoogleMap();
     }));

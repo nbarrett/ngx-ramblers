@@ -21,6 +21,7 @@ export enum NamedEventType {
     SAVE_PAGE_CONTENT = "save-page-content",
     SHOW_PAGINATION = "show-pagination",
     SYSTEM_CONFIG_LOADED = "system-config-loaded",
+    WALKS_CONFIG_LOADED = "walks-config-loaded",
     WALK_SAVED = "walkSaved",
     WALK_SLOTS_CREATED = "walk-slots-created",
 }

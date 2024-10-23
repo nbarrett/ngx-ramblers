@@ -46,9 +46,10 @@ import { NotificationDirective } from "../../../notifications/common/notificatio
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { MailMessagingConfig } from "../../../models/mail.model";
 import { MeetupService } from "../../../services/meetup.service";
-import { WalkNotification } from "../../../models/walk-notification.model";
+import { WalkNotification, WalksConfig } from "../../../models/walk-notification.model";
 import { MeetupDescriptionComponent } from "../../../notifications/walks/templates/meetup/meetup-description.component";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
+import { WalksConfigService } from "../../../services/system/walks-config.service";
 
 @Component({
   selector: "app-walk-edit",
@@ -88,8 +89,9 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   private walkLeadContactId: string;
   private myContactId: string;
-
+  private walksConfig: WalksConfig;
   constructor(
+    private walksConfigService: WalksConfigService,
     private mailMessagingService: MailMessagingService,
     public googleMapsService: GoogleMapsService,
     private walksService: WalksService,
@@ -119,7 +121,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
-    this.mailMessagingService.events().subscribe(mailMessagingConfig => {
+    this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
       this.mailMessagingConfig = mailMessagingConfig;
       if (this.mailMessagingConfig?.mailConfig.allowSendTransactional) {
         this.sendNotifications = true;
@@ -130,11 +132,15 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         });
 
       }
-    });
+    }));
     this.previousWalkLeaderIds = await this.walksService.queryWalkLeaders();
-    this.display.memberEvents().subscribe(members => {
+    this.subscriptions.push(this.walksConfigService.events().subscribe(walksConfig => {
+      this.walksConfig = walksConfig;
+      this.logger.info("walksConfigService:walksConfig:", walksConfig);
+    }));
+    this.subscriptions.push(this.display.memberEvents().subscribe(members => {
       this.refreshAssembleNames();
-    });
+    }));
     this.logger.info("previousWalkLeaderIds:", this.previousWalkLeaderIds);
     this.copyFrom = {walkTemplate: {}, walkTemplates: [] as Walk[]};
     this.configService.queryConfig<MeetupConfig>(ConfigKey.MEETUP).then(meetupConfig => this.meetupConfig = meetupConfig);
@@ -328,6 +334,10 @@ export class WalkEditComponent implements OnInit, OnDestroy {
           this.setStatus(eventType);
           this.priorStatus = eventType;
         }
+        if (!this.displayedWalk.walk.milesPerHour) {
+          this.displayedWalk.walk.milesPerHour = this.walksConfig.milesPerHour;
+        }
+        this.calculateAndSetFinishTimeIfNotPopulated();
       }
     } else {
       this.displayedWalk = {
@@ -612,12 +622,12 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     }
   }
 
-  private notifyError(message: any) {
+  private notifyError(error: any) {
     this.saveInProgress = false;
     this.confirmAction = ConfirmType.NONE;
     const title = "Save of walk failed";
-    this.logger.error(title, message);
-    this.notify.error({continue: true, title, message});
+    this.logger.error(title, error);
+    this.notify.error({continue: true, title, message: error});
   }
 
   confirmContactOther() {
@@ -806,5 +816,17 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   memberLookup() {
     this.logger.off("memberLookup:showOnlyWalkLeaders:", this.showOnlyWalkLeaders);
     return this.showOnlyWalkLeaders ? this.previousWalkLeadersWithAliasOrMe() : this.membersWithAliasOrMe();
+  }
+
+  calculateAndSetFinishTime() {
+    if (this.displayedWalk.walk.milesPerHour) {
+      this.displayedWalk.walk.finishTime = this.ramblersWalksAndEventsService.walkFinishTime(this.displayedWalk.walk, this.displayedWalk.walk.milesPerHour);
+    }
+  }
+
+  calculateAndSetFinishTimeIfNotPopulated() {
+    if (this.displayedWalk.walk.milesPerHour) {
+      this.displayedWalk.walk.finishTime = this.ramblersWalksAndEventsService.walkFinishTimeIfEmpty(this.displayedWalk.walk, this.displayedWalk.walk.milesPerHour);
+    }
   }
 }

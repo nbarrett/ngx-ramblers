@@ -4,6 +4,7 @@ import { ActivatedRoute, Router } from "@angular/router";
 import { LoggerTestingModule } from "ngx-logger/testing";
 import { AWSLinkConfig, LinkConfig } from "../models/link.model";
 import { UrlService } from "./url.service";
+import { HttpClientTestingModule } from "@angular/common/http/testing";
 
 describe("UrlService", () => {
 
@@ -19,7 +20,7 @@ describe("UrlService", () => {
   beforeEach(() => {
     const path = "/path-part-1/path-part-2/path-part-3";
     return TestBed.configureTestingModule({
-      imports: [LoggerTestingModule],
+      imports: [LoggerTestingModule, HttpClientTestingModule],
       providers: [
         {provide: Location, useValue: {path: () => path}},
         {

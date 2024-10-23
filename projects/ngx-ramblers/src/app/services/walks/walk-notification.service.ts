@@ -72,7 +72,7 @@ export class WalkNotificationService {
   private walksService: WalksService = inject(WalksService);
   private fullNameWithAliasPipe: FullNameWithAliasPipe = inject(FullNameWithAliasPipe);
   private displayDatePipe: DisplayDatePipe = inject(DisplayDatePipe);
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkNotificationService", NgxLoggerLevel.OFF);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkNotificationService", NgxLoggerLevel.ERROR);
 
   constructor() {
     this.mailMessagingService.events().subscribe(mailMessagingConfig => {
