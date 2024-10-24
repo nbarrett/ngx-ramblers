@@ -11,6 +11,7 @@ import {
   defaultRightPanel,
   EventPopulation,
   ExternalSystems,
+  GoogleAnalyticsConfig,
   Images,
   MailProvider,
   Organisation,
@@ -198,6 +199,7 @@ export class SystemConfigService {
 
   default(): SystemConfig {
     return {
+      googleAnalytics: this.googleAnalyticsDefaults(),
       recaptcha: this.recaptchaDefaults(),
       mailDefaults: this.mailDefaults(),
       backgrounds: this.defaultImages(RootFolder.backgrounds),
@@ -226,5 +228,7 @@ export class SystemConfigService {
     };
   }
 
-
+  public googleAnalyticsDefaults(): GoogleAnalyticsConfig {
+    return {trackingId: null};
+  }
 }

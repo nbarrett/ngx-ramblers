@@ -165,11 +165,17 @@ export interface SystemConfig {
   national: Ramblers;
   externalSystems: ExternalSystems
   recaptcha: ReCaptchaConfig
+  googleAnalytics: GoogleAnalyticsConfig
   mailDefaults: {
     mailProvider: MailProvider;
     autoSubscribeNewMembers: boolean;
   }
 }
+
+export interface GoogleAnalyticsConfig {
+  trackingId: string;
+}
+
 
 export interface ColourSelector {
   class: string;

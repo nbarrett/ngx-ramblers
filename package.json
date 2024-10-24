@@ -60,6 +60,7 @@
     "ng2-file-upload": "5.0.0",
     "ngx-bootstrap": "11.0.2",
     "ngx-capture": "0.13.0",
+    "ngx-google-analytics": "14.0.1",
     "ngx-image-cropper": "6.2.2",
     "ngx-logger": "5.0.12",
     "ngx-markdown": "16.0.0",
