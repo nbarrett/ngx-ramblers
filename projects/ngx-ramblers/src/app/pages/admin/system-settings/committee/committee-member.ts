@@ -6,8 +6,10 @@ import { FullNamePipe } from "../../../../pipes/full-name.pipe";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { enumKeyValues, KeyValue } from "../../../../functions/enums";
-import { faAdd, faRemove } from "@fortawesome/free-solid-svg-icons";
+import { faRemove } from "@fortawesome/free-solid-svg-icons";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
+import { MemberNamingService } from "projects/ngx-ramblers/src/app/services/member/member-naming.service";
+import { UrlService } from "../../../../services/url.service";
 
 @Component({
   selector: "app-committee-member",
@@ -86,6 +88,21 @@ import { CommitteeConfigService } from "../../../../services/committee/commitee-
       <div class="row">
         <div class="col-sm-12" app-create-or-amend-sender [committeeRoleSender]="committeeMember"></div>
       </div>
+      <ng-container *ngIf="committeeMember.roleType!==RoleType.SYSTEM_ROLE">
+        <div class="row mt-1">
+          <div class="col-sm-2 ml-3">Markdown Link</div>
+          <div class="col-sm-9"><code class="mr-2">{{ markdownLink(committeeMember) }}</code>
+            <app-copy-icon title [value]="markdownLink(committeeMember)"
+                           elementName="markdown link"/>
+          </div>
+        </div>
+        <div class="row mt-2">
+          <div class="col-sm-2 ml-3">Link Preview</div>
+          <div class="col-sm-6">
+            <span class="as-button" markdown>{{ markdownLink(committeeMember) }}</span>
+          </div>
+        </div>
+      </ng-container>
     </div>
   `,
   styleUrls: ["./committee-member.sass"]
@@ -93,6 +110,8 @@ import { CommitteeConfigService } from "../../../../services/committee/commitee-
 export class CommitteeMemberComponent implements OnInit {
   constructor(public stringUtils: StringUtilsService,
               private fullNamePipe: FullNamePipe,
+              private urlService: UrlService,
+              private memberNamingService: MemberNamingService,
               private committeeConfigService: CommitteeConfigService,
               loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(CommitteeMemberComponent, NgxLoggerLevel.ERROR);
@@ -106,9 +125,7 @@ export class CommitteeMemberComponent implements OnInit {
   @Input() index!: number;
   roleTypes: KeyValue<string>[] = enumKeyValues(RoleType);
 
-  protected readonly faAdd = faAdd;
   protected readonly faRemove = faRemove;
-
 
   ngOnInit() {
     this.logger.info("ngOnInit", this.committeeMember);
@@ -142,4 +159,12 @@ export class CommitteeMemberComponent implements OnInit {
     this.logger.info("deleteRole:", this.committeeMember);
     this.roles.splice(this.index, 1);
   }
+
+  markdownLink(committeeMember: CommitteeMember) {
+    const name = this.memberNamingService.firstAndLastNameFrom(committeeMember.fullName);
+    const path = this.urlService.pathSegments().join("/");
+    return "[Contact " + name.firstName + "](?contact-us&role=" + committeeMember.type + "&redirect=" + path + ")";
+  }
+
+  protected readonly RoleType = RoleType;
 }
