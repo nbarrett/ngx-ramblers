@@ -1,7 +1,7 @@
 import { ScrollingModule } from "@angular/cdk/scrolling";
 import { AsyncPipe, CommonModule, NgFor } from "@angular/common";
 import { HTTP_INTERCEPTORS } from "@angular/common/http";
-import { ModuleWithProviders, NgModule } from "@angular/core";
+import { APP_INITIALIZER, ModuleWithProviders, NgModule } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { RouteReuseStrategy, RouterModule } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -167,9 +167,16 @@ import { SocialViewPageComponent } from "./pages/social/social-view-page/social-
 import { SocialDisplayService } from "./pages/social/social-display.service";
 import { SocialEventsComponent } from "./pages/social/list/social-events";
 import { CommitteeMemberLookupComponent } from "./pages/admin/system-settings/committee/committee-member-lookup";
-import { RecaptchaModule } from 'ng-recaptcha';
+import { RecaptchaModule } from "ng-recaptcha";
 import { ContactUsModalComponent } from "./pages/contact-us/contact-us-modal.component";
-import { SystemRecaptchaSettingsComponent } from "./pages/admin/system-settings/meetup/system-recaptcha-settings";
+import { SystemRecaptchaSettingsComponent } from "./pages/admin/system-settings/recaptcha/system-recaptcha-settings";
+import { initializeGtag } from "./pages/admin/system-settings/google-analytics/tag-manager";
+import { SystemConfigService } from "./services/system/system-config.service";
+import { LoggerFactory } from "./services/logger-factory.service";
+import { NgxGoogleAnalyticsModule } from "ngx-google-analytics";
+import {
+  SystemGoogleAnalyticsSettings
+} from "./pages/admin/system-settings/google-analytics/system-google-analytics-settings";
 
 @NgModule({
   imports: [
@@ -204,6 +211,7 @@ import { SystemRecaptchaSettingsComponent } from "./pages/admin/system-settings/
     TypeaheadModule.forRoot(),
     UiSwitchModule,
     RecaptchaModule,
+    NgxGoogleAnalyticsModule.forRoot("TEMP_ID")
   ],
   declarations: [
     ActionButtonsComponent,
@@ -231,6 +239,7 @@ import { SystemRecaptchaSettingsComponent } from "./pages/admin/system-settings/
     ContactUsComponent,
     ContactUsModalComponent,
     SystemRecaptchaSettingsComponent,
+    SystemGoogleAnalyticsSettings,
     CopyIconComponent,
     CreateOrAmendSenderComponent,
     CreatedAuditPipe,
@@ -340,6 +349,7 @@ import { SystemRecaptchaSettingsComponent } from "./pages/admin/system-settings/
     ContactUsComponent,
     ContactUsModalComponent,
     SystemRecaptchaSettingsComponent,
+    SystemGoogleAnalyticsSettings,
     CopyIconComponent,
     CreateOrAmendSenderComponent,
     CreatedAuditPipe,
@@ -469,6 +479,12 @@ export class SharedModule {
             keyboardShortcuts: false,
             exitAnimationTime: 1000
           } as LightboxConfig
+        },
+        {
+          provide: APP_INITIALIZER,
+          useFactory: initializeGtag,
+          multi: true,
+          deps: [SystemConfigService, LoggerFactory]
         }
       ]
     };
