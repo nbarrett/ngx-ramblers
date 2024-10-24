@@ -30,7 +30,7 @@ import { MemberNamingService } from "../../services/member/member-naming.service
         <button type="button" class="close" (click)="close()">&times;</button>
       </div>
       <div class="modal-body">
-        <form #contactForm="ngForm" (ngSubmit)="sendEmail()" class="p-2" novalidate>
+        <form #contactForm="ngForm" *ngIf="committeeMember" (ngSubmit)="sendEmail()" class="p-2" novalidate>
           <h6 class="my-3">Please complete the following details and we'll send your message to
             {{ committeeMember?.fullName }}, our {{ committeeMember?.description }}.</h6>
           <div class="form-group">
@@ -86,7 +86,7 @@ import { MemberNamingService } from "../../services/member/member-naming.service
       </div>
       <div class="modal-footer">
         <div class="form-group">
-          <button class="btn btn-primary" [disabled]="!contactForm.valid || emailSendDisabled()"
+          <button class="btn btn-primary" [disabled]="emailSendDisabled()"
                   (click)="triggerSubmit()">Send
             Email
           </button>
@@ -213,16 +213,23 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
         }
       }));
     this.subscriptions.push(this.committeeConfig.committeeReferenceDataEvents().subscribe((data: CommitteeReferenceData) => {
-      this.committeeMember = data.committeeMemberForRole(this.queryParams["role"] || "chairman");
+      this.committeeMember = data.committeeMemberForRole(this.queryParams["role"]);
+      if (!this.committeeMember) {
+        this.notify.error({
+          title: "Failed to initialise Contact Us form",
+          message: "No committee member found for role: " + this.queryParams["role"]
+        });
+      }
+
       this.contactFormDetails.subject = "Website Enquiry";
       this.logger.info("ngOnInit - queryParams:", this.queryParams, "bsModalRef:", this.bsModalRef, "committeeMember:", this.committeeMember);
     }));
   }
 
   ngAfterViewInit(): void {
-    this.logger.info("ngAfterViewInit - focus on contactNameInput:", this.contactNameInput.nativeElement);
+    this.logger.info("ngAfterViewInit - focus on contactNameInput:", this.contactNameInput?.nativeElement);
     setTimeout(() => {
-      this.contactNameInput.nativeElement.focus();
+      this.contactNameInput?.nativeElement?.focus();
     }, 0);
   }
 
@@ -319,7 +326,7 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   emailSendDisabled() {
-    return this.emailSent || !this.validateTokenRequest.captchaToken;
+    return !this.committeeMember || this.emailSent || !this.validateTokenRequest.captchaToken;
   }
 
   formatRoute() {
