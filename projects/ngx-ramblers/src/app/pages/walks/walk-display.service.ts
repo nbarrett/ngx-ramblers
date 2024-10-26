@@ -26,6 +26,7 @@ import { CommitteeConfigService } from "../../services/committee/commitee-config
 import { Observable, ReplaySubject } from "rxjs";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
+import { BuiltInRole } from "../../models/committee.model";
 
 @Injectable({
   providedIn: "root"
@@ -276,7 +277,7 @@ export class WalkDisplayService {
   }
 
   public walksCoordinatorName() {
-    return this.committeeReferenceData.contactUsField("walks", "fullName");
+    return this.committeeReferenceData.contactUsFieldForBuiltInRole(BuiltInRole.WALKS_CO_ORDINATOR, "fullName");
   }
 
   private applyConfig() {

@@ -1,5 +1,6 @@
 import { Component } from "@angular/core";
 import { ExpenseNotificationDetailsComponent } from "../common/expense-notification-details.component";
+import { BuiltInRole } from "../../../../models/committee.model";
 
 @Component({
   selector: "app-expense-notification-approver-second-approval",
@@ -15,11 +16,11 @@ import { ExpenseNotificationDetailsComponent } from "../common/expense-notificat
       and contains the following {{ stringUtilsService.pluraliseWithCount(expenseClaim.expenseItems.length, 'item') }}:
     </p>
     <app-expense-notification-details [expenseClaim]="expenseClaim"></app-expense-notification-details>
-    <p>Our Treasurer {{ display.committeeReferenceData.contactUsField("treasurer", "fullName") }} has also been notified
+    <p>Our Treasurer {{ display.committeeReferenceData.contactUsFieldForBuiltInRole(BuiltInRole.TREASURER, "fullName") }} has also been notified
       about this, so should now be able to process the payment.</p>
     <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>
   `
 })
 export class ExpenseNotificationApproverSecondApprovalComponent extends ExpenseNotificationDetailsComponent {
-
+  protected readonly BuiltInRole = BuiltInRole;
 }

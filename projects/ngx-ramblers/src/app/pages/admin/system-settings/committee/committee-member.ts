@@ -1,6 +1,6 @@
 import { Component, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { CommitteeMember, RoleType } from "../../../../models/committee.model";
+import { BuiltInRole, CommitteeMember, RoleType } from "../../../../models/committee.model";
 import { Member } from "../../../../models/member.model";
 import { FullNamePipe } from "../../../../pipes/full-name.pipe";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
@@ -10,6 +10,7 @@ import { faRemove } from "@fortawesome/free-solid-svg-icons";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { MemberNamingService } from "projects/ngx-ramblers/src/app/services/member/member-naming.service";
 import { UrlService } from "../../../../services/url.service";
+import { PageContentType } from "../../../../models/content-text.model";
 
 @Component({
   selector: "app-committee-member",
@@ -28,13 +29,25 @@ import { UrlService } from "../../../../services/url.service";
                    type="text" class="form-control">
           </div>
         </div>
-        <div class="col-sm-4">
+        <div class="col-sm-3">
           <div class="form-group">
             <label for="member-selection-{{index}}">Role Type</label>
             <select class="form-control input-sm"
                     [(ngModel)]="committeeMember.roleType"
                     id="member-selection-{{index}}">
               <option *ngFor="let type of roleTypes"
+                      [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="col-sm-3">
+          <div class="form-group">
+            <label for="member-selection-{{index}}">Maps to Built-in Role</label>
+            <select class="form-control input-sm"
+                    [(ngModel)]="committeeMember.builtInRoleMapping"
+                    id="member-selection-{{index}}">
+              <option *ngFor="let type of builtInRoles"
                       [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
               </option>
             </select>
@@ -51,13 +64,11 @@ import { UrlService } from "../../../../services/url.service";
                      (ngModelChange)="roleChange()"
                      id="committee-member-vacant-{{index}}">
               <label class="custom-control-label" for="committee-member-vacant-{{index}}">
+                <app-badge-button [icon]="faRemove" (click)="deleteRole()"
+                                  caption="Delete"/>
               </label>
             </div>
           </div>
-        </div>
-        <div class="col-sm-2 mt-5">
-          <app-badge-button [icon]="faRemove" (click)="deleteRole()"
-                            caption="Delete"/>
         </div>
       </div>
       <div class="row p-3">
@@ -124,7 +135,7 @@ export class CommitteeMemberComponent implements OnInit {
   @Input() roles!: CommitteeMember[];
   @Input() index!: number;
   roleTypes: KeyValue<string>[] = enumKeyValues(RoleType);
-
+  builtInRoles: KeyValue<string>[] = enumKeyValues(BuiltInRole);
   protected readonly faRemove = faRemove;
   protected readonly RoleType = RoleType;
 

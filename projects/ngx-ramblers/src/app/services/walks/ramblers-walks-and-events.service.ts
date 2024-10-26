@@ -70,6 +70,7 @@ import { MediaQueryService } from "../committee/media-query.service";
 import { UrlService } from "../url.service";
 import { WalksConfigService } from "../system/walks-config.service";
 import { WalksConfig } from "../../models/walk-notification.model";
+import { BuiltInRole } from "../../models/committee.model";
 
 @Injectable({
   providedIn: "root"
@@ -394,7 +395,7 @@ export class RamblersWalksAndEventsService {
     const walkDistance: WalkDistance = this.distanceValidationService.parse(walk);
     const walkAscent: WalkAscent = this.ascentValidationService.parse(walk);
     this.logger.off("validateWalk:walk:", walk, "walkDistance:", walkDistance);
-    const contactIdMessage = this.memberLoginService.allowWalkAdminEdits() ? "This can be entered on the Walk Leader tab" : "This will need to be setup for you by " + this.committeeReferenceData.contactUsField("walks", "fullName");
+    const contactIdMessage = this.memberLoginService.allowWalkAdminEdits() ? "This can be entered on the Walk Leader tab" : "This will need to be setup for you by " + this.committeeReferenceData.contactUsFieldForBuiltInRole(BuiltInRole.WALKS_CO_ORDINATOR, "fullName");
     if (isEmpty(walk)) {
       validationMessages.push("walk does not exist");
     } else {
