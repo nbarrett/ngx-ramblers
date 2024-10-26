@@ -1,5 +1,6 @@
 import { Component } from "@angular/core";
 import { ExpenseNotificationDetailsComponent } from "../common/expense-notification-details.component";
+import { BuiltInRole } from "../../../../models/committee.model";
 
 @Component({
   selector: "app-expense-notification-creator-second-approval",
@@ -14,11 +15,11 @@ import { ExpenseNotificationDetailsComponent } from "../common/expense-notificat
       item(s):
     </p>
     <app-expense-notification-details [expenseClaim]="expenseClaim"></app-expense-notification-details>
-    <p>Our Treasurer {{ display.committeeReferenceData.contactUsField("treasurer", "fullName") }} has also been
+    <p>Our Treasurer {{ display.committeeReferenceData.contactUsFieldForBuiltInRole(BuiltInRole.TREASURER, "fullName") }} has also been
       notified about this, so should now be able to process the payment, and you'll
       hear from them next via email.</p>
     <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`
 })
 export class ExpenseNotificationCreatorSecondApprovalComponent extends ExpenseNotificationDetailsComponent {
-
+  protected readonly BuiltInRole = BuiltInRole;
 }

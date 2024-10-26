@@ -88,6 +88,12 @@ export enum RoleType {
   SYSTEM_ROLE = "SYSTEM_ROLE"
 }
 
+export enum BuiltInRole {
+  WALKS_CO_ORDINATOR = "WALKS_CO_ORDINATOR",
+  SOCIAL_CO_ORDINATOR = "SOCIAL_CO_ORDINATOR",
+  TREASURER = "TREASURER"
+}
+
 export interface CommitteeMember {
   description: string;
   email: string;
@@ -97,6 +103,7 @@ export interface CommitteeMember {
   type: string;
   vacant?: boolean;
   roleType: RoleType;
+  builtInRoleMapping?: BuiltInRole;
 }
 
 export interface CommitteeRolesChangeEvent {

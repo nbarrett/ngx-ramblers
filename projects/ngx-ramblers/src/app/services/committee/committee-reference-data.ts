@@ -1,7 +1,8 @@
-import { CommitteeConfig, CommitteeMember, ExpensesConfig } from "../../models/committee.model";
+import { BuiltInRole, CommitteeConfig, CommitteeMember, ExpensesConfig } from "../../models/committee.model";
 import { MemberLoginService } from "../member/member-login.service";
 import { FileType } from "./committee-file-type.model";
 import isArray from "lodash-es/isArray";
+import kebabCase from "lodash-es/kebabCase";
 
 export class CommitteeReferenceData {
 
@@ -40,7 +41,7 @@ export class CommitteeReferenceData {
 
   committeeMembersForRole(role: string[] | string): CommitteeMember[] {
     const roles = this.toRoles(role);
-    return this.committeeMembers().filter(member => roles.includes(member.type));
+    return this.committeeMembers().filter(member => roles.filter(role => this.roleMatch(member, role)).length > 0);
   }
 
   public toRoles(role: string[] | string) {
@@ -48,11 +49,25 @@ export class CommitteeReferenceData {
   }
 
   committeeMemberForRole(role: string): CommitteeMember {
-    return this.committeeMembers().find(member => member.type === role);
+    return this.committeeMembers().find(member => member.type === role)
+      || this.committeeMembers().find(member => this.roleMatch(member, role));
   }
 
-  contactUsField(role: string, field: string): string {
+  committeeMemberForBuiltInRole(builtInRole: BuiltInRole): CommitteeMember {
+    return this.committeeMembers().find(member => member.builtInRoleMapping === builtInRole);
+  }
+
+  private roleMatch(member: CommitteeMember, role: string) {
+    return kebabCase(member?.type)?.toLowerCase().includes(kebabCase(role));
+  }
+
+  contactUsField(role: BuiltInRole | string, field: string): string {
     const committeeMember: CommitteeMember = this.committeeMemberForRole(role);
+    return committeeMember?.[field];
+  }
+
+  contactUsFieldForBuiltInRole(role: BuiltInRole, field: string): string {
+    const committeeMember: CommitteeMember = this.committeeMemberForBuiltInRole(role);
     return committeeMember?.[field];
   }
 
