@@ -211,7 +211,7 @@ import {
     TypeaheadModule.forRoot(),
     UiSwitchModule,
     RecaptchaModule,
-    NgxGoogleAnalyticsModule.forRoot("TEMP_ID")
+    NgxGoogleAnalyticsModule
   ],
   declarations: [
     ActionButtonsComponent,

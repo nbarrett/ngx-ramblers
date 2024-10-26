@@ -12,7 +12,7 @@ declare global {
 }
 
 export function initializeGtag(systemConfigService: SystemConfigService, loggerFactory: LoggerFactory) {
-  const logger = loggerFactory.createLogger("initializeGtag", NgxLoggerLevel.INFO);
+  const logger = loggerFactory.createLogger("initializeGtag", NgxLoggerLevel.ERROR);
   return async () => {
     try {
       const config: SystemConfig = await firstValueFrom(systemConfigService.events());
@@ -22,14 +22,19 @@ export function initializeGtag(systemConfigService: SystemConfigService, loggerF
         const gtagScript = document.createElement("script");
         gtagScript.src = `https://www.googletagmanager.com/gtag/js?id=${trackingId}`;
         gtagScript.async = true;
-        document.head.appendChild(gtagScript);
-        window.dataLayer = window.dataLayer || [];
-        window.gtag = (...args: any[]) => {
-          window.dataLayer.push(args);
+        gtagScript.onload = () => {
+          window.dataLayer = window.dataLayer || [];
+          window.gtag = (...args: any[]) => window.dataLayer.push(args);
+          window.gtag("js", new Date());
+          window.gtag("config", trackingId);
+          logger.info("Google Analytics initialized successfully with trackingId:", trackingId);
         };
 
-        window.gtag("js", new Date());
-        window.gtag("config", trackingId);
+        gtagScript.onerror = (error) => {
+          logger.error("Failed to load Google Tag Manager script:", error);
+        };
+
+        document.head.appendChild(gtagScript);
       } else {
         logger.error("Google Analytics tracking ID is missing from configuration.");
       }
