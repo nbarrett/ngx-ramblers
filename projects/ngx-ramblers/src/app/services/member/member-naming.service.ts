@@ -25,10 +25,14 @@ export class MemberNamingService {
   }
 
   public firstAndLastNameFrom(contactName: string): FirstAndLastName {
-    const contactNames: string[] = contactName?.split(" ");
-    const firstName = first(contactNames);
-    const lastName = contactNames.length > 1 ? contactNames.slice(1).join(" ") : "";
-    return {firstName, lastName};
+    if (contactName) {
+      const contactNames: string[] = contactName?.split(" ");
+      const firstName = first(contactNames);
+      const lastName = contactNames.length > 1 ? contactNames.slice(1).join(" ") : "";
+      return {firstName, lastName};
+    } else {
+      return null;
+    }
   }
 
   createUniqueUserName(member: RamblersMember | Member, members: Member[]) {

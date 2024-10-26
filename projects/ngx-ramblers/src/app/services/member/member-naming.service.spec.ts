@@ -58,4 +58,22 @@ describe("MemberNamingService", () => {
       lastName: "Grant"
     }, [])).toEqual("John G");
   });
-});
+
+  it("firstAndLastNameFrom should generate a nam from a single string input", () => {
+    const service: MemberNamingService = TestBed.inject(MemberNamingService);
+    expect(service.firstAndLastNameFrom("John Grant")).toEqual({firstName: "John", lastName: "Grant"});
+  });
+
+  it("firstAndLastNameFrom should accept a hyphenated a name", () => {
+    const service: MemberNamingService = TestBed.inject(MemberNamingService);
+    expect(service.firstAndLastNameFrom("John Hyphenated-Grant")).toEqual({
+      firstName: "John",
+      lastName: "Hyphenated-Grant"
+    });
+  });
+
+  it("firstAndLastNameFrom should accept a hyphenated a name", () => {
+    const service: MemberNamingService = TestBed.inject(MemberNamingService);
+    expect(service.firstAndLastNameFrom(null)).toEqual(null);
+  });
+})

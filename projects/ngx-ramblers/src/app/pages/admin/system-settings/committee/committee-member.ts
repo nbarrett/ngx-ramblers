@@ -126,6 +126,7 @@ export class CommitteeMemberComponent implements OnInit {
   roleTypes: KeyValue<string>[] = enumKeyValues(RoleType);
 
   protected readonly faRemove = faRemove;
+  protected readonly RoleType = RoleType;
 
   ngOnInit() {
     this.logger.info("ngOnInit", this.committeeMember);
@@ -161,10 +162,8 @@ export class CommitteeMemberComponent implements OnInit {
   }
 
   markdownLink(committeeMember: CommitteeMember) {
-    const name = this.memberNamingService.firstAndLastNameFrom(committeeMember.fullName);
+    const name = this.memberNamingService.firstAndLastNameFrom(committeeMember?.fullName);
     const path = this.urlService.pathSegments().join("/");
-    return "[Contact " + name.firstName + "](?contact-us&role=" + committeeMember.type + "&redirect=" + path + ")";
+    return name ? "[Contact " + name?.firstName + "](?contact-us&role=" + committeeMember?.type + "&redirect=" + path + ")" : null;
   }
-
-  protected readonly RoleType = RoleType;
 }
