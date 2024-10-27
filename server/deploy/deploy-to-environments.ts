@@ -67,12 +67,12 @@ function deployApps(configFilePath: string, filterEnvironments: string[]): void 
       debugLog(`Secrets file not found: ${secretsFilePath}`);
     }
 
-    runCommand(`flyctl deploy --memory 2gb --remote-only --app ${environmentConfig.appName} --image ${config.dockerImage}`);
+    runCommand(`flyctl deploy --remote-only --app ${environmentConfig.appName} --image ${config.dockerImage}`);
     runCommand(`fly scale count 1 --app ${environmentConfig.appName}`);
+    runCommand(`fly scale memory 1024 --app ${environmentConfig.appName}`);
   });
 }
 
-// Get environments from command line arguments (excluding the first two arguments)
 const filterEnvironments = process.argv.slice(2);
 const currentDir = path.resolve(__dirname);
 const configFilePath = path.resolve(currentDir, "../../non-vcs/fly-io/configs.json");

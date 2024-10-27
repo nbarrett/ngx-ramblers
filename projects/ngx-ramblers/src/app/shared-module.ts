@@ -173,7 +173,7 @@ import { SystemRecaptchaSettingsComponent } from "./pages/admin/system-settings/
 import { initializeGtag } from "./pages/admin/system-settings/google-analytics/tag-manager";
 import { SystemConfigService } from "./services/system/system-config.service";
 import { LoggerFactory } from "./services/logger-factory.service";
-import { NgxGoogleAnalyticsModule } from "ngx-google-analytics";
+import { NgxGoogleAnalyticsModule, NgxGoogleAnalyticsRouterModule } from "ngx-google-analytics";
 import {
   SystemGoogleAnalyticsSettings
 } from "./pages/admin/system-settings/google-analytics/system-google-analytics-settings";
@@ -211,7 +211,8 @@ import {
     TypeaheadModule.forRoot(),
     UiSwitchModule,
     RecaptchaModule,
-    NgxGoogleAnalyticsModule
+    NgxGoogleAnalyticsModule,
+    NgxGoogleAnalyticsRouterModule
   ],
   declarations: [
     ActionButtonsComponent,

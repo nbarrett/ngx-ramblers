@@ -22,11 +22,16 @@ export function initializeGtag(systemConfigService: SystemConfigService, loggerF
         const gtagScript = document.createElement("script");
         gtagScript.src = `https://www.googletagmanager.com/gtag/js?id=${trackingId}`;
         gtagScript.async = true;
-        gtagScript.onload = () => {
+        const inlineScript = document.createElement("script");
+        inlineScript.innerHTML = `
           window.dataLayer = window.dataLayer || [];
-          window.gtag = (...args: any[]) => window.dataLayer.push(args);
-          window.gtag("js", new Date());
-          window.gtag("config", trackingId);
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${trackingId}');
+          `;
+
+        gtagScript.onload = () => {
+          document.head.appendChild(inlineScript);
           logger.info("Google Analytics initialized successfully with trackingId:", trackingId);
         };
 
