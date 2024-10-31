@@ -1,5 +1,6 @@
 import { Link } from "./page.model";
 import { HasClass, HasColour } from "./banner-configuration.model";
+import { AccessLevel } from "./member-resource.model";
 
 export enum SystemSettingsTab {
   GROUP_DETAILS = "Group Details",
@@ -31,6 +32,7 @@ export interface Group {
 export interface Organisation extends Group {
   walkPopulation: EventPopulation;
   socialEventPopulation: EventPopulation;
+  socialDetailsPublic: boolean;
   shortName?: string;
   href?: string;
   pages: Link[];

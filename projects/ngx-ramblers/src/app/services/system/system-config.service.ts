@@ -184,6 +184,7 @@ export class SystemConfigService {
 
   private emptyOrganisation(): Organisation {
     return {
+      socialDetailsPublic: true,
       href: null,
       longName: null,
       pages: [],

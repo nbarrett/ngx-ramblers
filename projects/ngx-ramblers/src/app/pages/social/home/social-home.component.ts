@@ -6,7 +6,7 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
   selector: "app-social-home",
   template: `
     <app-page>
-      <app-social-carousel></app-social-carousel>
+      <app-social-carousel/>
       <app-social-events/>
     </app-page>
   `,

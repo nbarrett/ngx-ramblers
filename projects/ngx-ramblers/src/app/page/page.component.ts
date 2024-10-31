@@ -7,7 +7,21 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-page",
-  templateUrl: "./page.component.html",
+  template: `
+    <main>
+      <div class="container">
+        <ul *ngIf="pageService.nested()" class="breadcrumb bg-transparent mb-1 ml-0 p-1">
+          <span class="d-md-none">...</span>
+          <li class="breadcrumb-item d-none d-md-inline" *ngFor="let page of pageService.relativePages()">
+            <a [routerLink]="'/' + page?.href" target="_self">{{ page?.title }}</a>
+          </li>
+          <li class="breadcrumb-item d-none d-md-inline active">{{ suppliedOrDefaultPageTitle() }}</li>
+        </ul>
+        <h1 *ngIf="pageTitle">{{ pageTitle }}</h1>
+        <ng-content></ng-content>
+      </div>
+    </main>
+  `,
   styleUrls: ["./page.component.sass"]
 })
 export class PageComponent implements OnInit {
