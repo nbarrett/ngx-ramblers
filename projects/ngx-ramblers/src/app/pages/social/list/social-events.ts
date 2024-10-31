@@ -19,7 +19,6 @@ import { SocialEventsService } from "../../../services/social-events/social-even
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { SocialDisplayService } from "../social-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
-import { PageContentRow } from "../../../models/content-text.model";
 
 @Component({
   selector: "app-social-events",
@@ -28,7 +27,7 @@ import { PageContentRow } from "../../../models/content-text.model";
                        [notifyTarget]="notifyTarget">
       <pagination pagination class="pagination rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="5"
                   [totalItems]="filteredSocialEvents?.length" [(ngModel)]="pageNumber"
-                  (pageChanged)="pageChanged($event)"></pagination>
+                  (pageChanged)="pageChanged($event)"/>
     </app-social-search>
     <app-social-list-cards [filterParameters]="filterParameters" [notifyTarget]="notifyTarget"
                            [filteredSocialEvents]="currentPageSocials">
@@ -54,8 +53,6 @@ export class SocialEventsComponent implements OnInit, OnDestroy {
   public socialEvents: SocialEvent[] = [];
   public filteredSocialEvents: SocialEvent[] = [];
   public currentPageSocials: SocialEvent[] = this.filteredSocialEvents;
-  @Input()
-  public hideCarousel: PageContentRow;
   @Input() rowIndex: number;
 
   constructor(private systemConfigService: SystemConfigService,

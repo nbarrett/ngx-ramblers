@@ -38,7 +38,7 @@ export class SystemGoogleAnalyticsSettings implements OnInit, OnDestroy {
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   systemConfigService: SystemConfigService = inject(SystemConfigService);
   public notifyTarget: AlertTarget = {};
-  private logger = this.loggerFactory.createLogger("SystemGoogleAnalyticsSettings", NgxLoggerLevel.INFO);
+  private logger = this.loggerFactory.createLogger("SystemGoogleAnalyticsSettings", NgxLoggerLevel.ERROR);
 
   @Input({
     alias: "config",

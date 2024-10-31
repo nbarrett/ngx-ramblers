@@ -32,23 +32,6 @@ export enum StoredValue {
   TAB = "tab",
 }
 
-export class Actions {
-  private editMode: EditMode = EditMode.NONE;
-
-  activateEditMode(): void {
-    this.editMode = EditMode.EDIT;
-  }
-
-  editModeActive(): boolean {
-    return this.editMode === EditMode.EDIT;
-  }
-
-  clearEditMode(): void {
-    this.editMode = EditMode.NONE;
-  }
-
-}
-
 export class Confirm {
   private type: ConfirmType = ConfirmType.NONE;
 

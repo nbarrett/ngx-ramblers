@@ -86,8 +86,9 @@ export class SocialDisplayService {
   }
 
   applyAllows() {
-    this.allow.detailView = this.memberLoginService.allowSocialDetailView();
-    this.allow.summaryView = this.memberLoginService.allowSocialAdminEdits() || !this.memberLoginService.allowSocialDetailView();
+    const detailViewAllowed = this.group?.socialDetailsPublic;
+    this.allow.detailView = detailViewAllowed;
+    this.allow.summaryView = this.memberLoginService.allowSocialAdminEdits() || !detailViewAllowed;
     this.allow.edits = this.memberLoginService.allowSocialAdminEdits() && this.socialPopulationLocal();
     this.allow.copy = this.memberLoginService.allowSocialAdminEdits() && this.socialPopulationLocal();
     this.allow.contentEdits = this.siteEditService.active() && this.memberLoginService.allowContentEdits();

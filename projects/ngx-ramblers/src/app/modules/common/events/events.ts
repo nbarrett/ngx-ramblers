@@ -38,6 +38,10 @@ export class EventsComponent implements OnInit {
   public row: PageContentRow;
   @Input() rowIndex: number;
 
+  constructor() {
+    this.logger.debug("row:", this.row);
+  }
+
   ngOnInit() {
     this.broadcastService.on(NamedEventType.PAGE_CONTENT_CHANGED, () => {
       this.logger.debug("event received:", NamedEventType.PAGE_CONTENT_CHANGED);

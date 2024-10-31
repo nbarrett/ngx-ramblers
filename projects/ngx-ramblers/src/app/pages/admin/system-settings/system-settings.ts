@@ -96,6 +96,19 @@ import { StoredValue } from "../../../models/ui-actions";
                       </select>
                     </div>
                   </div>
+                  <div class="col-md-6">
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-group">
+                      <div class="custom-control custom-checkbox">
+                        <input [(ngModel)]="config.group.socialDetailsPublic"
+                               type="checkbox" class="custom-control-input" id="social-details-public-viewable">
+                        <label class="custom-control-label"
+                               for="social-details-public-viewable">Social Details Public Viewable
+                        </label>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <app-links-edit [heading]='"Pages on Site"' [links]="config.group.pages"></app-links-edit>
               </div>

@@ -3,7 +3,6 @@ import { faEnvelope, faFile, faHouse, faMapMarkerAlt, faPhone } from "@fortaweso
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { SocialEvent } from "../../../models/social-events.model";
-import { Actions } from "../../../models/ui-actions";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
@@ -11,7 +10,6 @@ import { SocialEventsService } from "../../../services/social-events/social-even
 import { UrlService } from "../../../services/url.service";
 import { SocialDisplayService } from "../social-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
-import { faMeetup } from "@fortawesome/free-brands-svg-icons";
 import { PageService } from "../../../services/page.service";
 
 @Component({
@@ -136,7 +134,7 @@ import { PageService } from "../../../services/page.service";
             </div>
           </div>
         </div>
-        <div *ngIf="!this.display.loggedIn()">
+        <div *ngIf="showSensitiveDetailsAlert()">
           <div *ngIf="notifyTarget.showAlert" class="col-12 alert alert-warning mt-3 mb-0">
             <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
             <strong class="ml-2">Some of the information on this event is hidden</strong>
@@ -157,6 +155,17 @@ import { PageService } from "../../../services/page.service";
   styleUrls: ["social-view.sass"]
 })
 export class SocialViewComponent implements OnInit {
+  @Input()
+  public socialEvent: SocialEvent;
+  public notifyTarget: AlertTarget = {};
+  public notify: AlertInstance;
+  private logger: Logger;
+  faEnvelope = faEnvelope;
+  faPhone = faPhone;
+  faMapMarkerAlt = faMapMarkerAlt;
+  faHouse = faHouse;
+  faFile = faFile;
+
   constructor(
     protected pageService: PageService,
     public googleMapsService: GoogleMapsService,
@@ -168,18 +177,7 @@ export class SocialViewComponent implements OnInit {
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(SocialViewComponent, NgxLoggerLevel.ERROR);
   }
-  @Input()
-  public socialEvent: SocialEvent;
-  @Input()
-  public actions: Actions;
-  public notifyTarget: AlertTarget = {};
-  public notify: AlertInstance;
-  private logger: Logger;
-  faEnvelope = faEnvelope;
-  faPhone = faPhone;
-  faMapMarkerAlt = faMapMarkerAlt;
-  faHouse = faHouse;
-  faFile = faFile;
+
   ngOnInit() {
     this.logger.info("ngOnInit:socialEvent:", this.socialEvent);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -196,7 +194,6 @@ export class SocialViewComponent implements OnInit {
           this.notifySocialEventDisplayed()
         });
       } else if (this.display.inNewEventMode()) {
-        this.logger.info("creating new social event");
         this.editSocialEvent();
       }
     });
@@ -208,11 +205,25 @@ export class SocialViewComponent implements OnInit {
       message: " - "
     });
   }
+
   editSocialEvent() {
+    if (this.display.inNewEventMode()) {
+      this.logger.info("creating new social event");
+    } else {
+      this.logger.info("editing existing social event");
+    }
     this.display.confirm.clear();
     const existingRecordEditEnabled = this.display.allow.edits;
     this.display.allow.copy = existingRecordEditEnabled;
     this.display.allow.delete = existingRecordEditEnabled;
-    this.actions.activateEditMode();
+    if (this?.socialEvent?.id) {
+      this.urlService.navigateTo([this.pageService.socialPage()?.href, this.socialEvent.id, "edit"]);
+    } else {
+      this.urlService.navigateTo([this.pageService.socialPage()?.href, "new"]);
+    }
+  }
+
+  showSensitiveDetailsAlert() {
+    return !this.display.loggedIn() && !this.systemConfigService?.systemConfig()?.group?.socialDetailsPublic;
   }
 }

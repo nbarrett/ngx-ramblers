@@ -87,15 +87,15 @@ export class PageService {
 
   public relativePages(): Link[] {
     const pathSegments = this.urlService.pathSegments();
-    return this.linksFromPathSegments(pathSegments);
+    return this.linksFromPathSegments(pathSegments, "View");
   }
 
-  public linksFromPathSegments(pathSegments: string[], includeLast?: boolean): Link[] {
+  public linksFromPathSegments(pathSegments: string[], replaceMongoIdWith: string, includeLast?: boolean): Link[] {
     this.logger.info("pathSegments:", pathSegments);
     const relativePages: Link[] = pathSegments
       ?.filter(item => includeLast || item !== last(pathSegments))
       ?.map((path, index) => ({
-        title: this.stringUtils.asTitle(path),
+        title: this.urlService.isMongoId(path) ? replaceMongoIdWith : this.stringUtils.asTitle(path),
         href: this.pathSegmentsUpTo(pathSegments, index)
       }));
     this.logger.info("linksFromPathSegments:", relativePages);

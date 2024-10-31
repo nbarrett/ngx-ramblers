@@ -69,13 +69,13 @@ export class UrlService {
 
   navigateUnconditionallyTo(pathSegments: string[], params?: Params, queryParamsHandling?: QueryParamsHandling): Promise<boolean> {
     const url = `${this.pageUrl(pathSegments.filter(item => item).join("/"))}`;
-    this.logger.off("navigating to pathSegments:", pathSegments, "->", url, "params:", params, "queryParamsHandling:", queryParamsHandling);
+    this.logger.info("navigating to pathSegments:", pathSegments, "->", url, "params:", params, "queryParamsHandling:", queryParamsHandling);
     return this.router.navigate([url], {
       relativeTo: this.route,
       queryParams: params,
       queryParamsHandling: queryParamsHandling || "merge"
     }).then((activated: boolean) => {
-      this.logger.off("activated:", activated, "area is now:", this.area());
+      this.logger.info("activated:", activated, "area is now:", this.area());
       return activated;
     });
   }
@@ -144,8 +144,12 @@ export class UrlService {
     return pathSegments;
   }
 
+  segmentWithMongoId(): string {
+    return this.pathSegments().find(segment => this.isMongoId(segment));
+  }
+
   pathContainsMongoId(): boolean {
-    return this.isMongoId(this.lastPathSegment());
+    return !!this.segmentWithMongoId();
   }
 
   pathContainsEventId(): boolean {
@@ -284,4 +288,5 @@ export class UrlService {
       queryParamsHandling: ""
     });
   }
+
 }
