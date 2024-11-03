@@ -8,6 +8,10 @@
                     (pageChanged)="pageChanged($event)"></pagination>
 
       </app-walks-search>
+      <input *ngIf="false" type="submit"
+             [value]="'Copy ' + walks?.length + ' walks'"
+             (click)="walksService.copyWalks(walks)"
+             class="button-form button-form-edit-event mt-2 mr-2">
       <div class="table-responsive"
            *ngFor="let displayedWalk of currentPageWalks; let index = index; trackBy: walkTracker">
         <div *ngIf="display.isExpanded(displayedWalk.walk)">

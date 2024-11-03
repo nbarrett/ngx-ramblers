@@ -72,7 +72,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
     private modalService: BsModalService,
     private pageService: PageService,
     public googleMapsService: GoogleMapsService,
-    private walksService: WalksService,
+    protected walksService: WalksService,
     private authService: AuthService,
     public ramblersWalksAndEventsService: RamblersWalksAndEventsService,
     public memberLoginService: MemberLoginService,
