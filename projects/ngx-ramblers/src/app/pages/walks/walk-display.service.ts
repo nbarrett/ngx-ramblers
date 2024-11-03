@@ -218,12 +218,13 @@ export class WalkDisplayService {
   }
 
   toWalkAccessMode(walk: Walk): WalkAccessMode {
+    this.logger.off("toWalkAccessMode:", walk);
     let returnValue = WalksReferenceService.walkAccessModes.view;
     if (this.memberLoginService.memberLoggedIn()) {
       if (this.loggedInMemberIsLeadingWalk(walk) ||
         this.memberLoginService.allowWalkAdminEdits()) {
         returnValue = {...WalksReferenceService.walkAccessModes.edit, walkWritable: this.walkPopulationLocal()};
-      } else if (!walk.walkLeaderMemberId) {
+      } else if (this.walkEventService.latestEvent(walk)?.eventType !== EventType.APPROVED) {
         returnValue = {...WalksReferenceService.walkAccessModes.lead, walkWritable: this.walkPopulationLocal()};
       }
     }

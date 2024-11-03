@@ -41,10 +41,10 @@ export function initializeGtag(systemConfigService: SystemConfigService, loggerF
 
         document.head.appendChild(gtagScript);
       } else {
-        logger.error("Google Analytics tracking ID is missing from configuration.");
+        logger.warn("Google Analytics tracking ID is missing from configuration.");
       }
     } catch (error) {
-      logger.error("Failed to initialize Google Tag Manager:", error);
+      logger.info("Failed to initialize Google Tag Manager:", error);
     }
   };
 }
