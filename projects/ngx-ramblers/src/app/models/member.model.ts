@@ -2,6 +2,8 @@ import { ApiResponse, Identifiable } from "./api-response.model";
 import { MailchimpSubscription } from "./mailchimp.model";
 import { MailIdentifiers, MailSubscription } from "./mail.model";
 import { sortBy } from "../functions/arrays";
+import { Walk } from "./walk.model";
+import { Contact } from "./ramblers-walks-manager";
 
 export enum ProfileUpdateType {
   LOGIN_DETAILS = "login details",
@@ -136,7 +138,24 @@ export interface HasEmailFirstAndLastName {
 export interface BulkLoadMemberAndMatch {
   memberAction: MemberAction;
   memberMatchType: string;
+  contact: Contact;
+  ramblersMember: RamblersMember;
   member: Member;
+}
+
+export interface WalksImportPreparation {
+  bulkLoadMembersAndMatchesToWalks: BulkLoadMemberAndMatchToWalks[];
+  existingWalksWithinRange: Walk[];
+}
+
+export interface BulkLoadMemberAndMatchToWalks {
+  bulkLoadMemberAndMatch: BulkLoadMemberAndMatch;
+  walks: Walk[];
+}
+
+export interface RamblersMemberAndContact {
+  contact: Contact;
+  ramblersMember: RamblersMember;
 }
 
 export interface RamblersMember extends HasEmailFirstAndLastName {
@@ -176,6 +195,8 @@ export interface MemberUpdateAudit extends Auditable {
 }
 
 export enum MemberAction {
+  found = "found",
+  notFound = "not-found",
   created = "created",
   complete = "complete",
   summary = "summary",

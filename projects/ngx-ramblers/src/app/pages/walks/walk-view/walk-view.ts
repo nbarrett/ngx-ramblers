@@ -225,7 +225,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected stringUtils = inject(StringUtilsService);
   private systemConfigService = inject(SystemConfigService);
   private notifierService = inject(NotifierService);
-  private logger = inject(LoggerFactory).createLogger("WalkViewComponent", NgxLoggerLevel.OFF);
+  private logger = inject(LoggerFactory).createLogger("WalkViewComponent", NgxLoggerLevel.ERROR);
   private notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
 
   @Input("displayedWalk") set init(displayedWalk: DisplayedWalk) {

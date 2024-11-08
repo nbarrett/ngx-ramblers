@@ -18,6 +18,7 @@ import { ActionButtonsComponent } from "../common/action-buttons/action-buttons"
 import { DynamicContentPageComponent } from "../common/dynamic-content-page/dynamic-content-page";
 import { WalksModule } from "./walks.module";
 import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-guard";
+import { WalkImportComponent } from "../../pages/walks/walk-import/walk-import.component";
 
 @NgModule({
   imports: [WalksModule, RouterModule.forChild([
@@ -29,22 +30,27 @@ import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-g
     {
       path: "admin",
       component: WalkAdminComponent,
-      canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]
+      canActivate: [WalksAuthGuard]
     },
     {
       path: "admin/add-walk-slots",
       component: WalkAddSlotsComponent,
-      canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]
+      canActivate: [WalksAuthGuard]
     },
     {
       path: "admin/export",
       component: WalkExportComponent,
-      canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]
+      canActivate: [WalksAuthGuard]
+    },
+    {
+      path: "admin/import",
+      component: WalkImportComponent,
+      canActivate: [WalksAuthGuard]
     },
     {
       path: "admin/meetup-settings",
       component: WalkMeetupSettingsComponent,
-      canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]
+      canActivate: [WalksAuthGuard]
     },
     {
       path: "edit/:walk-id",

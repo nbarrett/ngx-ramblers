@@ -10,6 +10,7 @@ import { Member } from "../../models/member.model";
 import { RamblersUploadAuditApiResponse } from "../../models/ramblers-upload-audit.model";
 import {
   ALL_EVENT_TYPES,
+  Contact,
   EventsListRequest,
   GroupListRequest,
   GroupWalk,
@@ -22,7 +23,6 @@ import {
   RamblersWalksRawApiResponse,
   RamblersWalksRawApiResponseApiResponse,
   RamblersWalksUploadRequest,
-  WalkLeader,
   WALKS_MANAGER_API_DATE_FORMAT,
   WALKS_MANAGER_CSV_DATE_FORMAT,
   WALKS_MANAGER_GO_LIVE_DATE,
@@ -31,6 +31,7 @@ import {
 } from "../../models/ramblers-walks-manager";
 import { Ramblers } from "../../models/system.model";
 import {
+  LocalContact,
   MongoIdsSupplied,
   Walk,
   WalkAscent,
@@ -143,12 +144,12 @@ export class RamblersWalksAndEventsService {
     return this.commonDataService.responseFrom(this.logger, this.http.post<RamblersUploadAuditApiResponse>(`${this.BASE_URL}/upload-walks`, data), this.auditSubject);
   }
 
-  async queryWalkLeaders(): Promise<WalkLeader[]> {
-    this.logger.debug("queryWalkLeaders:");
+  async queryWalkLeaders(): Promise<Contact[]> {
+    this.logger.info("queryWalkLeaders:");
     const date = WALKS_MANAGER_GO_LIVE_DATE;
     const dateEnd = this.dateUtils.asMoment().add(12, "month").format(WALKS_MANAGER_API_DATE_FORMAT);
     const body: EventsListRequest = {types: [RamblersEventType.GROUP_WALK], date, dateEnd, limit: 2000};
-    this.logger.off("queryWalkLeaders:body:", body);
+    this.logger.info("queryWalkLeaders:body:", body);
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<WalkLeadersApiResponse>(`${this.BASE_URL}/walk-leaders`, body), this.walkLeadersSubject);
     return apiResponse.response;
   }
@@ -426,11 +427,11 @@ export class RamblersWalksAndEventsService {
       }
 
       if (isEmpty(walk.contactId)) {
-        validationMessages.push("Walk leader has no Ramblers Assemble Name entered on their member record. " + contactIdMessage);
+        validationMessages.push("Walk leader has no Walks Manager Contact Name entered on their member record. " + contactIdMessage);
       }
 
       if (!isNaN(+walk.contactId)) {
-        validationMessages.push(`Walk leader has an old Ramblers contact Id (${walk.contactId}) setup on their member record. This needs to be updated to an Assemble Full Name. ${contactIdMessage}`);
+        validationMessages.push(`Walk leader has an old Ramblers contact Id (${walk.contactId}) setup on their member record. This needs to be updated to an Walks Manager Contact Name. ${contactIdMessage}`);
       }
 
       if (isEmpty(walk.walkType)) {
@@ -537,8 +538,8 @@ export class RamblersWalksAndEventsService {
     return this.walkToWalkUploadRow(walk);
   }
 
-  async all(dataQueryOptions?: DataQueryOptions): Promise<Walk[]> {
-    return this.listRamblersWalksRawData(dataQueryOptions)
+  async all(dataQueryOptions?: DataQueryOptions, ids?: string[], types?: RamblersEventType[]): Promise<Walk[]> {
+    return this.listRamblersWalksRawData(dataQueryOptions, ids, types)
       .then((ramblersWalksRawApiResponse: RamblersWalksRawApiResponse) => ramblersWalksRawApiResponse.data.map(remoteWalk => this.toWalk(remoteWalk)));
   }
 
@@ -547,26 +548,30 @@ export class RamblersWalksAndEventsService {
       .then((ramblersWalksRawApiResponse: RamblersWalksRawApiResponse) => ramblersWalksRawApiResponse.data.map(remoteWalk => this.toSocialEvent(remoteWalk)));
   }
 
-  private generateContactData(groupWalk: GroupWalk) {
-    const startMoment = this.dateUtils.asMoment(groupWalk.start_date_time);
-    const contactName = groupWalk?.walk_leader?.name;
+  private localContact(groupWalk: GroupWalk): LocalContact {
+    const contact: Contact = groupWalk.walk_leader || groupWalk.event_organiser;
+    const telephone = contact?.telephone;
+    const id = contact?.id;
+    const email = contact?.email_form;
+    const contactName = contact?.name;
     const displayName = this.memberNamingService.createDisplayNameFromContactName(contactName);
-    return {startMoment, contactName, displayName};
+    return {id, email, contactName, displayName, telephone};
   }
 
   toWalk(groupWalk: GroupWalk): Walk {
-    const {startMoment, contactName, displayName} = this.generateContactData(groupWalk);
+    const startMoment = this.dateUtils.asMoment(groupWalk.start_date_time);
+    const contact: LocalContact = this.localContact(groupWalk);
     const walk: Walk = {
       eventType: groupWalk.item_type,
       media: groupWalk.media,
       ascent: groupWalk.ascent_feet?.toString(),
       briefDescriptionAndStartPoint: groupWalk.title,
       config: {meetup: null},
-      contactEmail: groupWalk?.walk_leader?.email_form || groupWalk?.event_organiser?.email_form,
-      contactId: "n/a",
-      contactName,
-      contactPhone: groupWalk?.walk_leader?.telephone || groupWalk?.event_organiser?.telephone,
-      displayName,
+      contactEmail: contact?.email,
+      contactId: contact?.id,
+      contactName: contact?.contactName,
+      contactPhone: groupWalk?.walk_leader?.telephone,
+      displayName: contact?.displayName,
       distance: groupWalk?.distance_miles ? `${groupWalk?.distance_miles} miles` : "",
       events: [],
       grade: groupWalk.difficulty?.description,
@@ -603,18 +608,19 @@ export class RamblersWalksAndEventsService {
       additionalDetails: groupWalk.additional_details,
       organiser:groupWalk?.event_organiser?.name
     };
-    this.logger.info("groupWalk:", groupWalk, "walk:", walk, "contactName:", contactName, "displayName:", displayName);
+    this.logger.info("groupWalk:", groupWalk, "walk:", walk, "contactName:", contact.contactName, "displayName:", contact.displayName);
     return walk;
   }
 
   toSocialEvent(groupWalk: GroupWalk): SocialEvent {
-    const {startMoment, contactName, displayName} = this.generateContactData(groupWalk);
+    const startMoment = this.dateUtils.asMoment(groupWalk.start_date_time);
+    const contact: LocalContact = this.localContact(groupWalk);
     const socialEvent: SocialEvent = {
       id: groupWalk.id,
-      displayName,
+      displayName:contact.displayName,
       briefDescription: groupWalk.title,
-      contactEmail: groupWalk?.walk_leader?.email_form || groupWalk?.event_organiser?.email_form,
-      contactPhone: groupWalk?.walk_leader?.telephone || groupWalk?.event_organiser?.telephone,
+      contactEmail: contact?.email,
+      contactPhone: contact?.telephone,
       eventContactMemberId: null,
       eventDate: this.dateUtils.asValueNoTime(startMoment),
       eventTimeStart: this.dateUtils.asString(startMoment, undefined, this.dateUtils.formats.displayTime),
@@ -632,7 +638,7 @@ export class RamblersWalksAndEventsService {
       thumbnail: this.mediaQueryService.imageUrlFrom(groupWalk),
       media: groupWalk.media,
     };
-    this.logger.info("groupWalk:", groupWalk, "socialEvent:", socialEvent, "contactName:", contactName, "displayName:", displayName);
+    this.logger.info("groupWalk:", groupWalk, "socialEvent:", socialEvent, "contactName:", contact.contactName, "displayName:", contact.displayName);
     return socialEvent;
   }
 

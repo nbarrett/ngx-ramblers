@@ -1,18 +1,7 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
-import {
-  faBan,
-  faCircleCheck,
-  faCircleInfo,
-  faCirclePlus,
-  faEnvelopesBulk,
-  faPencil,
-  faRemove, faSadTear,
-  faSearch,
-  faSpinner,
-  faThumbsUp
-} from "@fortawesome/free-solid-svg-icons";
+import { faEnvelopesBulk, faSadTear, faSearch } from "@fortawesome/free-solid-svg-icons";
 import first from "lodash-es/first";
 import groupBy from "lodash-es/groupBy";
 import map from "lodash-es/map";
@@ -25,7 +14,6 @@ import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { FontAwesomeIcon } from "../../../models/images.model";
 import {
   Member,
   MemberBulkLoadAudit,
@@ -59,10 +47,386 @@ import { MailListUpdaterService } from "../../../services/mail/mail-list-updater
 import cloneDeep from "lodash-es/cloneDeep";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
+import { IconService } from "../../../services/icon-service/icon-service";
 
 @Component({
   selector: "app-bulk-load",
-  templateUrl: "./member-bulk-load.component.html",
+  template: `
+    <app-page autoTitle>
+      <div class="row">
+        <div class="col-sm-12">
+          <div class="form-group">
+            <tabset class="custom-tabset">
+              <tab [heading]="'Help'">
+                <div class="admin-frame round-except-top-left">
+                  <div class="admin-header-white-background rounded">
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <div class="item-panel-heading">
+                          <fa-icon [icon]="faEnvelopesBulk" class="fa-5x ramblers"></fa-icon>
+                          <h5>Member bulk load</h5>
+                        </div>
+                      </div>
+                      <div class="col-sm-9">
+                        <ul class="list-arrow">
+                          <b>The following data format is supported</b>
+                          <li>Since September 2020, Ramblers have switched to Using <a
+                            href="https://insight.ramblers.org.uk">InsightHub</a> for providing member data to
+                            Membership
+                            Secretaries. The format that is compatible with Member Admin is <a
+                              href="https://insight.ramblers.org.uk/#/views/MembershipSecretariesV4-AZURE/FullList">Explore/Membership/Membership
+                              Secretaries V4/FullList</a>.
+                            The file that needs to be downloaded is named <b>Full List.xlsx</b></li>
+                          <li> Click the <b>New Upload Tab</b> to continue.
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </tab>
+              <tab active heading="New Upload">
+                <div class="admin-frame round-except-top-left">
+                  <div class="admin-header-white-background rounded">
+                    <div class="row">
+                      <div class="col-md-12">
+                        <ul class="list-arrow ml-0">
+                          <b>To load the members, follow these steps:</b>
+                          <li>Download the <a
+                            href="https://insight.ramblers.org.uk/#/views/MembershipSecretariesV4-AZURE/FullList">Explore/Membership/Membership
+                            Secretaries V4/FullList</a> from <a
+                            href="https://insight.ramblers.org.uk">InsightHub</a> to a folder on your computer.
+                          </li>
+                          <li>Click the <b>Browse for member import file</b> button below, then navigate to the
+                            downloaded file and then click <b>Open</b>. Alternatively you can drop the file on the <i>Or
+                              drop file here</i> zone.
+                          </li>
+                          <li>The data will be loaded automatically. If the member does not match an existing member
+                            based
+                            on their membership number, a new member will be created with the
+                            following fields populated: membership number,
+                            forename, surname, postcode, private email, telephone, expiry date.
+                          </li>
+                          <li>If the member does match based on the membership number, the expiry date will be
+                            updated.
+                            Other fields will only be updated if they are blank.
+                          </li>
+                          <li>If all updates are performed
+                            successfully, {{ this.systemConfig?.mailDefaults?.mailProvider | titlecase }} mailing list
+                            updates will be performed automatically.
+                          </li>
+                          <li>If one or more errors occur during the Bulk Load, you can see the details of these errors
+                            by clicking on the <b>Upload History</b> tab, Choose Status 'Error' where you will be able
+                            to view the members that could not be imported.
+                          </li>
+                        </ul>
+                      </div>
+                      <div class="col-md-3">
+                        <input type="submit" [disabled]="notifyTarget.busy"
+                               value="Browse for member import file"
+                               (click)="bulkUploadRamblersDataStart(fileElement)"
+                               class="button-form mb-10 w-100"
+                               [ngClass]="{'disabled-button-form': notifyTarget.busy }">
+                        <input #fileElement class="d-none" id="browse-to-file" name="bulkUploadRamblersDataFile"
+                               type="file" value="Upload"
+                               ng2FileSelect [uploader]="fileUploader">
+                        <div ng2FileDrop [ngClass]="{'file-over': hasFileOver}"
+                             (fileOver)="fileOver($event)"
+                             [uploader]="fileUploader"
+                             class="drop-zone">
+                          Or drop file here
+                        </div>
+                      </div>
+                      <div class="col-md-9">
+                        <table class="table">
+                          <thead>
+                          <tr>
+                            <th width="50%">Name</th>
+                            <th>Size</th>
+                            <th>Progress</th>
+                            <th>Uploaded</th>
+                          </tr>
+                          </thead>
+                          <tbody>
+                          <tr *ngFor="let item of fileUploader.queue">
+                            <td><strong>{{ item?.file?.name }}</strong></td>
+                            <td *ngIf="fileUploader.options.isHTML5"
+                                nowrap>{{ item?.file?.size / 1024 / 1024 | number:'.2' }}MB
+                            </td>
+                            <td *ngIf="fileUploader.options.isHTML5">
+                              <div class="progress" style="margin-bottom: 0;">
+                                <div class="progress-bar" role="progressbar"
+                                     [ngStyle]="{ 'width': item.progress + '%' }"></div>
+                              </div>
+                            </td>
+                            <td class="text-center">
+                              <fa-icon *ngIf="item.isSuccess" [icon]="icons.toFontAwesomeIcon('success').icon"
+                                       [class]="icons.toFontAwesomeIcon('success').class"/>
+                              <fa-icon *ngIf="item.isCancel" [icon]="icons.toFontAwesomeIcon('cancelled').icon"
+                                       [class]="icons.toFontAwesomeIcon('success').class"/>
+                              <fa-icon *ngIf="item.isError" [icon]="icons.toFontAwesomeIcon('error').icon"
+                                       [class]="icons.toFontAwesomeIcon('success').class"/>
+                            </td>
+                          </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    <div *ngIf="notifyTarget.showAlert" class="row">
+                      <div class="col-sm-12">
+                        <div class="form-group">
+                          <div class="alert {{notifyTarget.alertClass}}">
+                            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                            <strong *ngIf="notifyTarget.alertTitle"> {{ notifyTarget.alertTitle }}: </strong>
+                            {{ notifyTarget.alertMessage }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </tab>
+              <tab heading="Upload History">
+                <div class="admin-frame round-except-top-left">
+                  <div class="admin-header-background rounded">
+                    <div class="admin-header-container-with-tabs">
+                      <div *ngIf="memberBulkLoadAudits.length==0" class="admin-session-loading">
+                        <div class="col-sm-12 text-center mt-3">
+                          <h3>No Upload History Exists</h3>
+                        </div>
+                      </div>
+                      <div *ngIf="uploadSession" class="form-inline quick-search">
+                        <div class="form-group">
+                          <div class="input-group">
+                            <div class="input-group-prepend">
+                              <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
+                            </div>
+                            <input id="quick-search" [(ngModel)]="quickSearch"
+                                   (ngModelChange)="onSearchChange($event)"
+                                   name="quickSearch"
+                                   class="form-control input-sm rounded"
+                                   type="text" placeholder="Quick Search">
+                          </div>
+                        </div>
+                        <div class="form-group">
+                          <label class="inline-label" for="filter-upload-sessions">Uploaded at:</label>
+                          <select class="form-control input-sm" id="filter-upload-sessions"
+                                  [(ngModel)]="uploadSession"
+                                  (ngModelChange)="uploadSessionChanged()">
+                            <option *ngFor="let uploadSession of memberBulkLoadAudits"
+                                    [ngValue]="uploadSession"
+                                    [textContent]="uploadSession.createdDate | displayDateAndTime">
+                            </option>
+                          </select>
+                        </div>
+                        <div class="form-group">
+                          <label class="inline-label" for="filter-by-audit-status">Status:</label>
+                          <select class="form-control input-sm"
+                                  [(ngModel)]="filters.memberUpdateAudit.query"
+                                  (ngModelChange)="uploadSessionChanged()"
+                                  id="filter-by-audit-status">
+                            <option *ngFor="let uploadSessionStatus of uploadSessionStatuses"
+                                    [ngValue]="uploadSessionStatus"
+                                    [textContent]="uploadSessionStatus.title">
+                            </option>
+                          </select>
+                        </div>
+                      </div>
+                      <tabset class="custom-tabset" *ngIf="uploadSession">
+                        <tab [heading]="memberTabHeading" class="table-responsive">
+                          <table class="round tbl-green-g table-striped table-hover table-sm">
+                            <thead>
+                            <tr class="white-anchor">
+                              <th colspan="2">File upload information</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                            <tr *ngIf="uploadSession.files && uploadSession.files.archive">
+                              <td>Zip file:</td>
+                              <td>
+                                <app-link
+                                  name="{{uploadSession.files.archive}}"/>
+                              </td>
+                            </tr>
+                            <tr *ngIf="uploadSession.files && uploadSession.files.data">
+                              <td>Data file:</td>
+                              <td>
+                                <app-link [name]="uploadSession?.files?.data"/>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>Uploaded by:</td>
+                              <td
+                                [textContent]="uploadSession.createdBy | memberIdToFullName : members : '(none)'"></td>
+                            </tr>
+                            <tr>
+                              <td>Uploaded on:</td>
+                              <td [textContent]="uploadSession.createdDate | displayDateAndTime"></td>
+                            </tr>
+                            </tbody>
+                          </table>
+                          <div class="table-responsive">
+                            <table class="round tbl-green-g table-striped table-hover table-sm">
+                              <thead>
+                              <tr class="white-anchor">
+                                <th>Status</th>
+                                <th>Message</th>
+                              </tr>
+                              </thead>
+                              <tbody>
+                              <tr *ngFor="let auditLog of uploadSession.auditLog;">
+                                <td>
+                                  <fa-icon [icon]="icons.toFontAwesomeIcon(auditLog.status).icon"
+                                           [class]="icons.toFontAwesomeIcon(auditLog.status).class"/>
+                                </td>
+                                <td [textContent]="auditLog.message"></td>
+                              </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                          <div class="table-responsive">
+                            <table class="round tbl-green-g table-striped table-hover table-sm">
+                              <thead>
+                              <tr class="white-anchor">
+                                <th>
+                                  <div (click)="sortMembersUploadedBy('membershipNumber')">Membership
+                                    Number
+                                    <span class="sorting-header"
+                                          *ngIf="showMembersUploadedColumn('membershipNumber')"
+                                          [textContent]="filters.membersUploaded.sortDirection"></span>
+                                  </div>
+                                </th>
+                                <th>
+                                  <div (click)="sortMembersUploadedBy('mobileNumber')">Mobile Number
+                                    <span class="sorting-header"
+                                          *ngIf="showMembersUploadedColumn('mobileNumber')"
+                                          [textContent]="filters.membersUploaded.sortDirection"></span>
+                                  </div>
+                                </th>
+                                <th>
+                                  <div (click)="sortMembersUploadedBy('email')">Email
+                                    <span class="sorting-header"
+                                          *ngIf="showMembersUploadedColumn('email')"
+                                          [textContent]="filters.membersUploaded.sortDirection"></span>
+                                  </div>
+                                </th>
+                                <th>
+                                  <div (click)="sortMembersUploadedBy('firstName')">First Name
+                                    <span class="sorting-header"
+                                          *ngIf="showMembersUploadedColumn('firstName')"
+                                          [textContent]="filters.membersUploaded.sortDirection"></span>
+                                  </div>
+                                </th>
+                                <th>
+                                  <div (click)="sortMembersUploadedBy('lastName')">Last Number
+                                    <span class="sorting-header"
+                                          *ngIf="showMembersUploadedColumn('lastName')"
+                                          [textContent]="filters.membersUploaded.sortDirection"></span>
+                                  </div>
+                                </th>
+                                <th>
+                                  <div (click)="sortMembersUploadedBy('postcode')">Postcode
+                                    <span class="sorting-header"
+                                          *ngIf="showMembersUploadedColumn('postcode')"
+                                          [textContent]="filters.membersUploaded.sortDirection"></span>
+                                  </div>
+                                </th>
+                              </tr>
+                              </thead>
+                              <tbody>
+                              <tr *ngFor="let member of filters.membersUploaded.results">
+                                <td>{{ member.membershipNumber }}</td>
+                                <td>{{ member.mobileNumber }}</td>
+                                <td>{{ member.email }}</td>
+                                <td>{{ member.firstName }}</td>
+                                <td>{{ member.lastName }}</td>
+                                <td>{{ member.postcode }}</td>
+                              </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </tab>
+                        <tab [heading]="auditTabHeading" class="table-responsive">
+                          <table class="round tbl-green-g table-striped table-hover table-sm">
+                            <thead>
+                            <tr class="white-anchor">
+                              <th>
+                                <div (click)="sortMemberUpdateAuditBy('updateTime')">Update Time
+                                  <span class="sorting-header" *ngIf="showMemberUpdateAuditColumn('updateTime')"
+                                        [textContent]="filters.memberUpdateAudit.sortDirection"></span>
+                                </div>
+                              </th>
+                              <th>
+                                <div (click)="sortMemberUpdateAuditBy('memberAction')">Status
+                                  <span class="sorting-header" *ngIf="showMemberUpdateAuditColumn('memberAction')"
+                                        [textContent]="filters.memberUpdateAudit.sortDirection"></span>
+                                </div>
+                              </th>
+                              <th>
+                                <div (click)="sortMemberUpdateAuditBy('rowNumber')">Row Number
+                                  <span class="sorting-header" *ngIf="showMemberUpdateAuditColumn('rowNumber')"
+                                        [textContent]="filters.memberUpdateAudit.sortDirection"></span>
+                                </div>
+                              </th>
+                              <th>
+                                <div
+                                  (click)="sortMemberUpdateAuditBy('member')">Member Name
+                                  <span class="sorting-header" *ngIf="showMemberUpdateAuditColumn('member')"
+                                        [textContent]="filters.memberUpdateAudit.sortDirection"></span>
+                                </div>
+                              </th>
+                              <th>
+                                <div (click)="sortMemberUpdateAuditBy('changes')"> Changes
+                                  <span class="sorting-header" *ngIf="showMemberUpdateAuditColumn('changes')"
+                                        [textContent]="filters.memberUpdateAudit.sortDirection"></span>
+                                </div>
+                              </th>
+                              <th>
+                                <div (click)="sortMemberUpdateAuditBy('auditMessage')">Audit Message
+                                  <span class="sorting-header"
+                                        *ngIf="showMemberUpdateAuditColumn('auditMessage')"
+                                        [textContent]="filters.memberUpdateAudit.sortDirection"></span>
+                                </div>
+                              </th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr *ngFor="let memberUpdateAudit of filters.memberUpdateAudit.results">
+                              <td class="text-nowrap">{{ memberUpdateAudit.updateTime | displayDateAndTime }}</td>
+                              <td>
+                                <fa-icon [icon]="icons.toFontAwesomeIcon(memberUpdateAudit.memberAction).icon"
+                                         [class]="icons.toFontAwesomeIcon(memberUpdateAudit.memberAction).class"/>
+                              </td>
+                              <td>{{ memberUpdateAudit.rowNumber }}</td>
+                              <td>{{ memberUpdateAudit.memberId || (memberUpdateAudit.member && memberUpdateAudit.member.id) | memberIdToFullName : members : '': true }}</td>
+                              <td>{{ memberUpdateAudit.changes }}</td>
+                              <td>{{ memberUpdateAudit.auditMessage }}
+                                <span *ngIf="memberUpdateAudit.auditErrorMessage">
+                            <strong>Error Message: </strong>
+                        <span [textContent]="memberUpdateAudit.auditErrorMessage | json"></span>
+                        <br>
+                        <input type="submit" [disabled]="notifyTarget.busy"
+                               value="Reattempt creation of {{memberUpdateAudit.member | fullName}}"
+                               (click)="createMemberFromAudit(memberUpdateAudit.member)"
+                               title="Reattempt creation of {{memberUpdateAudit.member | fullName}}"
+                               [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
+                        </span>
+                              </td>
+                            </tr>
+                            </tbody>
+                          </table>
+                        </tab>
+                      </tabset>
+                    </div>
+                  </div>
+                </div>
+              </tab>
+            </tabset>
+          </div>
+        </div>
+      </div>
+    </app-page>`,
   styleUrls: ["./member-bulk-load.component.sass", "../admin/admin.component.sass"]
 })
 export class MemberBulkLoadComponent implements OnInit, OnDestroy {
@@ -73,6 +437,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
               private memberBulkLoadService: MemberBulkLoadService,
               private memberService: MemberService,
               private searchFilterPipe: SearchFilterPipe,
+              protected icons: IconService,
               private memberUpdateAuditService: MemberUpdateAuditService,
               private memberDefaultsService: MemberDefaultsService,
               private memberBulkLoadAuditService: MemberBulkLoadAuditService,
@@ -152,7 +517,8 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
       } else {
         const memberBulkLoadAuditApiResponse: MemberBulkLoadAuditApiResponse = JSON.parse(response);
         this.logger.debug("received response", memberBulkLoadAuditApiResponse);
-        this.memberBulkLoadService.processResponse(this.mailMessagingConfig, this.systemConfig, memberBulkLoadAuditApiResponse, this.members, this.notify)
+        const memberBulkLoadResponse = memberBulkLoadAuditApiResponse.response as MemberBulkLoadAudit;
+        this.memberBulkLoadService.processResponse(this.mailMessagingConfig, this.systemConfig, memberBulkLoadResponse, this.members, this.notify)
           .then(() => this.refreshMemberBulkLoadAudit())
           .then(() => this.refreshMemberUpdateAudit())
           .then(() => this.validateBulkUploadProcessing(memberBulkLoadAuditApiResponse))
@@ -259,33 +625,6 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
 
   memberUpdateAuditSummary() {
     return this.auditSummaryFormatted(this.auditSummary());
-  }
-
-  toFontAwesomeIcon(status: string): FontAwesomeIcon {
-    if (status === "cancelled") {
-      return {icon: faBan, class: "red-icon"};
-    }
-    if (status === "created") {
-      return {icon: faCirclePlus, class: "green-icon"};
-    }
-    if (status === "complete" || status === "summary") {
-      return {icon: faCircleCheck, class: "green-icon"};
-    }
-    if (status === "success") {
-      return {icon: faCircleCheck, class: "green-icon"};
-    }
-    if (status === "info") {
-      return {icon: faCircleInfo, class: "blue-icon"};
-    }
-    if (status === "updated") {
-      return {icon: faPencil, class: "green-icon"};
-    }
-    if (status === "error") {
-      return {icon: faRemove, class: "red-icon"};
-    }
-    if (status === "skipped") {
-      return {icon: faThumbsUp, class: "green-icon"};
-    }
   }
 
   applySortTo(field: string, filterSource: MemberTableFilter | MemberUpdateAuditTableFilter, unfilteredList: any[]) {

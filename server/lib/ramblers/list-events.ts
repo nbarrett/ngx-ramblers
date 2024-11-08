@@ -3,12 +3,12 @@ import first from "lodash/first";
 import isEmpty from "lodash/isEmpty";
 import moment from "moment-timezone";
 import {
+  Contact,
+  EventsListRequest,
   GroupWalk,
   RamblersWalkResponse,
   RamblersWalksRawApiResponse,
   RamblersWalksRawApiResponseApiResponse,
-  WalkLeader,
-  EventsListRequest,
   WALKS_MANAGER_API_DATE_FORMAT,
   WALKS_MANAGER_GO_LIVE_DATE
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
@@ -18,16 +18,38 @@ import { httpRequest, optionalParameter } from "../shared/message-handlers";
 import * as requestDefaults from "./request-defaults";
 import groupBy from "lodash/groupBy";
 import map from "lodash/map";
-import omit from "lodash/omit";
 import { systemConfig } from "../config/system-config";
 import { Request, Response } from "express";
 import { WalkLeadersApiResponse } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { pluraliseWithCount } from "../../serenity-js/screenplay/util/util";
+import omit from "lodash/omit";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
 noopDebugLog.enabled = false;
 debugLog.enabled = false;
+
+
+function identity(walkLeader: Contact) {
+  return walkLeader.id || walkLeader.telephone || walkLeader.name;
+}
+
+function toWalkLeaders(response: RamblersWalksRawApiResponse): Contact[] {
+  let unNamedIndex = 0;
+  noopDebugLog("transformListWalksResponse:", response);
+  const filteredWalkLeaders: Contact[] = response.data.map((walk: GroupWalk) => omit(walk.walk_leader, ["email_form"])).filter(item => !isEmpty(identity(item)));
+  const groupedWalkLeaders = groupBy(filteredWalkLeaders, (walkLeader => identity(walkLeader)));
+  noopDebugLog("groupedWalkLeaders:", groupedWalkLeaders);
+  return map(groupedWalkLeaders, (items, key, index) => {
+    const result: Contact = first(items.sort((a, b) => b.name.length - a.name.length));
+    if (isEmpty(result.name)) {
+      unNamedIndex++;
+      result.name = `Unknown Leader ${unNamedIndex}`;
+    }
+    noopDebugLog("result:", result, "from items:", items, "key:", key);
+    return result;
+  });
+}
 
 export function walkLeaders(req: Request, res: Response): void {
   const body: EventsListRequest = req.body;
@@ -59,13 +81,7 @@ export function walkLeaders(req: Request, res: Response): void {
         debug: noopDebugLog,
         res,
         req,
-        mapper: (response: RamblersWalksRawApiResponse): WalkLeader[] => {
-          debugLog("transformListWalksResponse:", response);
-          const filteredWalkLeaders: WalkLeader[] = response.data.map((walk: GroupWalk) => omit(walk.walk_leader, ["email_form"])).filter(item => !isEmpty(item.name));
-          const groupedWalkLeaders = groupBy(filteredWalkLeaders, (walkLeader => walkLeader.id || walkLeader.name));
-          debugLog("groupedWalkLeaders:", groupedWalkLeaders);
-          return map(groupedWalkLeaders, (items, key) => first(items));
-        }
+        mapper: toWalkLeaders
       });
     })
     .then((response: WalkLeadersApiResponse) => {

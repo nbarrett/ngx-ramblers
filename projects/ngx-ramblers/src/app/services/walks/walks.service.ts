@@ -2,17 +2,12 @@ import { Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
-import { EventType, Walk, WalkApiResponse } from "../../models/walk.model";
+import { Walk, WalkApiResponse } from "../../models/walk.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { WalksLocalService } from "./walks-local.service";
 import { RamblersWalksAndEventsService } from "./ramblers-walks-and-events.service";
 import { EventPopulation, Organisation } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
-import first from "lodash-es/first";
-import last from "lodash-es/last";
-import { DateUtilsService } from "../date-utils.service";
-import omit from "lodash-es/omit";
-import { WalkEventService } from "./walk-event.service";
 
 @Injectable({
   providedIn: "root"
@@ -24,11 +19,9 @@ export class WalksService {
 
   constructor(private systemConfigService: SystemConfigService,
               private walksLocalService: WalksLocalService,
-              private dateUtils: DateUtilsService,
-              private walkEventService: WalkEventService,
               private ramblersWalksAndEventsService: RamblersWalksAndEventsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalksService, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(WalksService, NgxLoggerLevel.ERROR);
     this.applyConfig();
   }
 
@@ -45,7 +38,7 @@ export class WalksService {
   }
 
   async all(dataQueryOptions?: DataQueryOptions): Promise<Walk[]> {
-    this.logger.info("all called with walkPopulation:", this.group?.walkPopulation);
+    this.logger.info("all called with walkPopulation:", this.group?.walkPopulation, "dataQueryOptions:", dataQueryOptions);
     switch (this.group?.walkPopulation) {
       case EventPopulation.WALKS_MANAGER:
         return this.ramblersWalksAndEventsService.all(dataQueryOptions);
@@ -93,22 +86,4 @@ export class WalksService {
     return this.walksLocalService.fixIncorrectWalkDates();
   }
 
-  async copyWalks(walks: Walk[]) {
-    const firstWalk = first(walks);
-    const lastWalk = last(walks);
-    this.logger.info("firstWalk:", firstWalk, "on", this.dateUtils.displayDate(firstWalk.walkDate), "lastWalk:", lastWalk, "on", this.dateUtils.displayDate(lastWalk.walkDate));
-    const existingWalks = await this.walksLocalService.all();
-    const walksWithinRange = existingWalks.filter(walk => walk.walkDate >= firstWalk.walkDate && walk.walkDate <= lastWalk.walkDate);
-    this.logger.info("existingWalks:", existingWalks, "walks within range", walksWithinRange);
-    walksWithinRange.forEach(walk => this.walksLocalService.delete(walk));
-    Promise.all(walks.map(walk => {
-      const walkWithoutId: Walk = omit(walk, ["_id", "id"]) as Walk;
-      this.logger.info("copying walk:", walkWithoutId);
-      const event = this.walkEventService.createEventIfRequired(walkWithoutId, EventType.APPROVED, "Imported from Walks Manager");
-      this.walkEventService.writeEventIfRequired(walkWithoutId, event);
-      return this.walksLocalService.createOrUpdate(walkWithoutId);
-    })).then(response => {
-      this.logger.info("walk copy completed with response:", response);
-    });
-  }
 }

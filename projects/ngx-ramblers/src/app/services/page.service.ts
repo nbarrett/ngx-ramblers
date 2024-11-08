@@ -90,7 +90,7 @@ export class PageService {
     return this.linksFromPathSegments(pathSegments, "View");
   }
 
-  public linksFromPathSegments(pathSegments: string[], replaceMongoIdWith: string, includeLast?: boolean): Link[] {
+  public linksFromPathSegments(pathSegments: string[], replaceMongoIdWith?: string, includeLast?: boolean): Link[] {
     this.logger.info("pathSegments:", pathSegments);
     const relativePages: Link[] = pathSegments
       ?.filter(item => includeLast || item !== last(pathSegments))
