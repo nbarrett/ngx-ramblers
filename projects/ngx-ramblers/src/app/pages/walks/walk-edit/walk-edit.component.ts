@@ -273,7 +273,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     } else {
       this.notify.warning({
         title: "Walk Leader Override failed",
-        message: "Could not Ramblers Assemble name for " + targetOverride
+        message: "Could not Walks Manager Contact Name for " + targetOverride
       });
     }
   }

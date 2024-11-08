@@ -45,17 +45,19 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                   {{ walkExportTarget.alertTitle }}: </strong> {{ walkExportTarget.alertMessage }}
               </div>
             </div>
-            <div *ngIf="!display.walkPopulationWalksManager()" class="row mb-2">
+            <div class="row mb-2">
               <div class="col-sm-12 form-inline">
-                <input *ngIf="walksDownloadFileContents.length > 0" type="submit"
-                       value="Upload {{walksDownloadFileContents.length}} walk(s) directly to Ramblers"
-                       (click)="uploadToRamblers()"
-                       [ngClass]="exportInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
-                <input *ngIf="walksDownloadFileContents.length > 0" type="submit"
-                       (click)="csvComponent.generateCsv();"
-                       value="Export {{walksDownloadFileContents.length}} walk(s) file as CSV format"
-                       [ngClass]="exportInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
-                <input type="submit" value="Back to walks" (click)="navigateBackToWalks()"
+                <ng-container *ngIf="!display.walkPopulationWalksManager()">
+                  <input *ngIf="walksDownloadFileContents.length > 0" type="submit"
+                         value="Upload {{walksDownloadFileContents.length}} walk(s) directly to Ramblers"
+                         (click)="uploadToRamblers()"
+                         [ngClass]="exportInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+                  <input *ngIf="walksDownloadFileContents.length > 0" type="submit"
+                         (click)="csvComponent.generateCsv();"
+                         value="Export {{walksDownloadFileContents.length}} walk(s) file as CSV format"
+                         [ngClass]="exportInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+                </ng-container>
+                <input type="submit" value="Back To Walks Admin" (click)="navigatebackToWalksAdmin()"
                        title="Back to walks"
                        class="button-form button-form-left">
               </div>
@@ -135,7 +137,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                       </div>
                     </div>
                     <div class="form-group">
-                      <input type="submit" value="Back to walks" (click)="navigateBackToWalks()"
+                      <input type="submit" value="Back To Walks Admins" (click)="navigatebackToWalksAdmin()"
                              title="Back to walks"
                              class="button-form button-form-left">
                     </div>
@@ -224,7 +226,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
       if (this.display.walkPopulationWalksManager()) {
         const message = {
           title: "Walks Export Initialisation",
-          message: "Walks cannot be exported from this view when the walk population is set to " + this.display?.group?.walkPopulation
+          message: `Walks cannot be exported from this view when the walk population is set to ${this.stringUtils.asTitle(this.display?.group?.walkPopulation)}`
         };
         this.walkExportNotifier.warning(message);
         this.auditNotifier.warning(message);
@@ -303,8 +305,8 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     return this.ramblersWalksAndEventsService.selectedExportableWalks(this.walksForExport);
   }
 
-  navigateBackToWalks() {
-    this.urlService.navigateTo(["walks"]);
+  navigatebackToWalksAdmin() {
+    this.urlService.navigateTo(["walks", "admin"]);
   }
 
   populateWalkExport(walksForExport: WalkExport[]): WalkExport[] {

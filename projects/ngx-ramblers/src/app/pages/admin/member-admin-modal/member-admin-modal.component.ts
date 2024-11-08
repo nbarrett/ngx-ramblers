@@ -250,7 +250,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     this.notify.success("Existing Member copied! Make changes here and save to create new member.");
   }
 
-  defaultAssembleName() {
+  defaultContactName() {
     this.member.contactId = this.fullNameWithAliasPipe.transform(this.member);
   }
 }

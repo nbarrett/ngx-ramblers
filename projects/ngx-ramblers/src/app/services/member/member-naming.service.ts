@@ -3,7 +3,6 @@ import first from "lodash-es/first";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FirstAndLastName, HasEmailFirstAndLastName, Member, RamblersMember } from "../../models/member.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { StringUtilsService } from "../string-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -11,7 +10,7 @@ import { StringUtilsService } from "../string-utils.service";
 export class MemberNamingService {
   private logger: Logger;
 
-  constructor(private stringUtils: StringUtilsService, loggerFactory: LoggerFactory) {
+  constructor(loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger(MemberNamingService, NgxLoggerLevel.OFF);
   }
 
@@ -43,7 +42,7 @@ export class MemberNamingService {
     return this.createUniqueValueFrom(this.createDisplayNameFromMember(member), "displayName", members);
   }
 
-  createUniqueValueFrom(value: string, field: string, members: Member[]) {
+  public createUniqueValueFrom(value: string, field: string, members: Member[]) {
     let attempts = 0;
     while (true) {
       const createdName = value + (attempts === 0 ? "" : attempts);
@@ -55,18 +54,24 @@ export class MemberNamingService {
     }
   }
 
-  memberFieldExists(field: string, value: string, members: Member[]) {
-    const member = members.find(member => member[field] === value);
-    const returnValue = member && member[field];
-    this.logger.debug("field", field, "matching", value, member, "->", returnValue);
-    return returnValue;
+  public createUserName(member: RamblersMember | Member): string {
+    if (member?.firstName && member?.lastName) {
+      const userName = `${member.firstName.trim()}.${member.lastName.trim()}`.toLowerCase();
+      return this.removeCharactersNotPartOfName(userName);
+    } else if (member?.firstName) {
+      return this.removeCharactersNotPartOfName(member.firstName.trim().toLowerCase());
+    } else if (member?.lastName) {
+      return this.removeCharactersNotPartOfName(member.lastName.trim().toLowerCase());
+    } else {
+      return "";
+    }
   }
 
-  private createUserName(member: RamblersMember | Member): string {
-    return member?.firstName && member?.lastName ? this.stringUtils.replaceAll(" ", "", (`${member.firstName}.${member.lastName}`).toLowerCase()) as string : "";
+  public removeCharactersNotPartOfName(value: string): string {
+    return value ? value.replace(/\s+$/, "").replace(/\.$/, "").trim() : "";
   }
 
-  private createDisplayNameFromMember(member: Member): string {
+  public createDisplayNameFromMember(member: Member): string {
     const lastName = member.lastName;
     const firstName = member.firstName;
     return this.createDisplayName(firstName, lastName);
@@ -74,6 +79,13 @@ export class MemberNamingService {
 
   private createDisplayName(firstName: string, lastName: string): string {
     return (`${(firstName || "").trim()} ${(lastName || "").trim().substring(0, 1).toUpperCase()}`).trim();
+  }
+
+  private memberFieldExists(field: string, value: string, members: Member[]) {
+    const member = members.find(member => member[field] === value);
+    const returnValue = member && member[field];
+    this.logger.debug("field", field, "matching", value, member, "->", returnValue);
+    return returnValue;
   }
 
 }

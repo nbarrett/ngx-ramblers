@@ -20,10 +20,113 @@ import { DisplayDatesAndTimesPipe } from "../../../pipes/display-dates-and-times
 import uniq from "lodash-es/uniq";
 import { DisplayDatesPipe } from "../../../pipes/display-dates.pipe";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
+import { SystemConfigService } from "../../../services/system/system-config.service";
+import { WalkDisplayService } from "../walk-display.service";
+import { StringUtilsService } from "../../../services/string-utils.service";
 
 @Component({
   selector: "app-walk-add-slots",
-  templateUrl: "./walk-add-slots.component.html",
+  template: `
+    <app-page autoTitle>
+      <div class="row">
+        <div class="col-sm-12">
+          <div class="mb-2">
+            <p>This facility allows you to add any number of walk slots to the programme that
+              will then entice walk leaders to come forward and lead. Please choose how you would like to create the
+              slots.</p>
+            <div class="custom-control custom-radio custom-control-inline">
+              <input id="create-in-bulk"
+                     type="radio"
+                     class="custom-control-input"
+                     [disabled]="display.walkPopulationWalksManager()"
+                     (click)="selectBulk(true)"
+                     [(ngModel)]="selectionMade"
+                     value="true"/>
+              <label class="custom-control-label" for="create-in-bulk">Create Sunday slots in bulk</label>
+            </div>
+            <div class="custom-control custom-radio custom-control-inline">
+              <input id="create-non-standard"
+                     type="radio"
+                     class="custom-control-input"
+                     [disabled]="display.walkPopulationWalksManager()"
+                     (click)="selectBulk(false)"
+                     [(ngModel)]="selectionMade"
+                     value="false"/>
+              <label class="custom-control-label" for="create-non-standard">Create non-standard slot</label>
+            </div>
+            <input *ngIf="!selectionMade" type="submit" value="Back To Walks Admin" (click)="backToWalksAdmin()"
+                   title="Back to walks"
+                   class="button-form">
+          </div>
+          <div class="main-body">
+            <div *ngIf="selectionMade && bulk">
+              <ul class="list-arrow">
+                <li>You can choose the date up until you want slots created using the calendar below.</li>
+                <li>An email can optionally be sent to the group informing them of the new slots that can now be
+                  filled.
+                </li>
+              </ul>
+
+              <div class="form-inline">
+                <label for="add-slots-until">Add available slots until:</label>
+                <app-date-picker startOfDay id="add-slots-until"
+                                 [size]="'md'"
+                                 (dateChange)="onUntilDateChange($event)"
+                                 [value]="untilDate">
+                </app-date-picker>
+              </div>
+            </div>
+            <div *ngIf="selectionMade && !bulk">
+              <ul class="list-arrow">
+                <li>Use this option to create a slot on any day rather than just on a Sunday.</li>
+              </ul>
+              <div class="form-inline">
+                <label for="add-single-slot">Add a slot on:</label>
+                <app-date-picker startOfDay id="add-single-slot"
+                                 [size]="'md'"
+                                 (dateChange)="onSingleDateChange($event)"
+                                 [value]="singleDate">
+                </app-date-picker>
+              </div>
+            </div>
+          </div>
+          <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}} mb-2 mt-2">
+            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+            <strong> {{ notifyTarget.alertTitle }}</strong> {{ notifyTarget.alertMessage }}
+          </div>
+          <div class="mt-3">
+          <span *ngIf="selectionMade && bulk">
+            <input *ngIf="allowAddSlots()" [disabled]="!validDate(this.untilDate) || display.walkPopulationWalksManager()" type="submit" value="Add slots"
+                   (click)="addWalkSlots()" title="Add more available slots on the walks programme"
+                   [ngClass]="validDate(untilDate) ? 'button-form green-confirm' : 'disabled-button-form button-form-left'">
+            <input *ngIf="confirmAction" type="submit" value="Confirm add slots" (click)="confirmAddWalkSlots()"
+                   title="Confirm to add more available slots on the walks programme"
+                   [disabled]="notifyTarget.busy"
+                   [ngClass]="notifyTarget.busy ? 'button-form disabled-button-form': 'button-form green-confirm'">
+            <input *ngIf="confirmAction" type="submit" value="Cancel" (click)="cancelConfirmableAction()"
+                   title="Cancel this action" class="button-form amber-confirm">
+          </span>
+            <span *ngIf="selectionMade && !bulk">
+            <input *ngIf="allowAddSlot()" [disabled]="!validDate(singleDate) || display.walkPopulationWalksManager()" type="submit" value="Add slot"
+                   (click)="addWalkSlot()" title="Add new slot on the walks programme"
+                   [ngClass]="validDate(singleDate) ? 'button-form green-confirm' : 'disabled-button-form button-form-left'">
+            <input *ngIf="confirmAction" type="submit" value="Confirm add slot" (click)="confirmAddWalkSlots()"
+                   title="Confirm to add new slot on the walks programme"
+                   [disabled]="notifyTarget.busy"
+                   [ngClass]="notifyTarget.busy ? 'button-form disabled-button-form': 'button-form green-confirm'">
+            <input *ngIf="confirmAction" type="submit" value="Cancel" (click)="cancelConfirmableAction()"
+                   title="Cancel this action" class="button-form amber-confirm">
+          </span>
+            <input *ngIf="selectionMade" type="submit" value="Back To Walks Admin" (click)="backToWalksAdmin()"
+                   title="Back to walks"
+                   class="button-form">
+            <input *ngIf="false" type="submit" value="Fix Walk Dates" (click)="fixWalkDates()"
+                   class="button-form">
+          </div>
+        </div>
+      </div>
+    </app-page>
+  `,
   styleUrls: ["./walk-add-slots.component.sass"]
 })
 export class WalkAddSlotsComponent implements OnInit {
@@ -47,7 +150,10 @@ export class WalkAddSlotsComponent implements OnInit {
     private displayDatesAndTimes: DisplayDatesAndTimesPipe,
     private walksQueryService: WalksQueryService,
     private dateUtils: DateUtilsService,
+    private stringUtils: StringUtilsService,
     private notifierService: NotifierService,
+    protected display: WalkDisplayService,
+    private systemConfigService: SystemConfigService,
     private broadcastService: BroadcastService<Walk[]>,
     private urlService: UrlService,
     private walkEventService: WalkEventService,
@@ -59,6 +165,15 @@ export class WalkAddSlotsComponent implements OnInit {
   ngOnInit() {
     this.logger.debug("ngOnInit");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.systemConfigService.events().subscribe(async item => {
+      if (this.display.walkPopulationWalksManager()) {
+        this.notify.warning({
+          title: "Create Walk Slots",
+          message: `This function is not available when the walk population is set to ${this.stringUtils.asTitle(this.display?.group?.walkPopulation)}`
+        });
+      } else {
+      }
+    });
     this.todayValue = this.dateUtils.momentNowNoTime().valueOf();
     const momentUntil = this.dateUtils.momentNowNoTime().day(7 * 12);
     this.untilDate = this.dateUtils.asDateValue(momentUntil.valueOf());
@@ -188,8 +303,8 @@ export class WalkAddSlotsComponent implements OnInit {
     });
   }
 
-  backToWalks() {
-    this.urlService.navigateTo(["walks"]);
+  backToWalksAdmin() {
+    this.urlService.navigateTo(["walks", "admin"]);
   }
 
   fixWalkDates() {

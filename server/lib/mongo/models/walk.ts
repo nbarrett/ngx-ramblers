@@ -9,6 +9,11 @@ const riskAssessmentRecord = {
   riskAssessmentKey: {type: String},
 };
 
+const metaData = {
+  code: {type: String},
+  description: {type: String},
+};
+
 const walkEvent = {
   data: {type: Object},
   eventType: {type: String},
@@ -42,6 +47,7 @@ const media = {
   alt: {type: String},
   styles: [mediaStyle]
 };
+
 const walkSchema = new mongoose.Schema({
   contactName: {type: String},
   walkType: {type: String},
@@ -86,7 +92,9 @@ const walkSchema = new mongoose.Schema({
   walkLeaderMemberId: {type: String},
   venue: walkVenue,
   riskAssessment: [riskAssessmentRecord],
-  media: [media]
+  media: [media],
+  features: [metaData],
+  startLocation: {type: String},
 }, {collection: "walks"});
 
 walkSchema.plugin(uniqueValidator);

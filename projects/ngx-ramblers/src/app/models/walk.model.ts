@@ -8,7 +8,7 @@ import { WalkAccessMode } from "./walk-edit-mode.model";
 import { WalkEventType } from "./walk-event-type.model";
 import { WalkEvent } from "./walk-event.model";
 import { WalkVenue } from "./walk-venue.model";
-import { Metadata, RamblersEventType, WalkLeader } from "./ramblers-walks-manager";
+import { Contact, Metadata, RamblersEventType } from "./ramblers-walks-manager";
 import { HasMedia } from "./social-events.model";
 
 export interface GoogleMapsConfig {
@@ -117,7 +117,7 @@ export interface WalkLeaderIdsApiResponse extends ApiResponse {
 
 export interface WalkLeadersApiResponse extends ApiResponse {
   request: any;
-  response?: WalkLeader[];
+  response?: Contact[];
 }
 
 export enum WalkType {
@@ -191,4 +191,12 @@ export interface DisplayedWalk {
 export interface FilterParameters extends FilterParametersSearch {
   selectType: number;
   ascending: boolean;
+}
+
+export interface LocalContact {
+  id?: string;
+  contactName?: string;
+  email?: string;
+  displayName?: string;
+  telephone?: string;
 }

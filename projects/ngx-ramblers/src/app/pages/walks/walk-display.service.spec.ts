@@ -16,6 +16,8 @@ import { WalksReferenceService } from "../../services/walks/walks-reference-data
 import { WalkDisplayService } from "./walk-display.service";
 import { EventPopulation, Organisation } from "../../models/system.model";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
+import { WalkEventService } from "../../services/walks/walk-event.service";
+import { EventType } from "../../models/walk.model";
 
 const anyWalkDate = 123364;
 const walkLeaderMemberId = "walk-leader-id";
@@ -62,6 +64,7 @@ describe("WalkDisplayService", () => {
         MemberIdToFullNamePipe,
         ValueOrDefaultPipe,
         GoogleMapsService,
+        WalkEventService,
         {provide: MemberLoginService, useValue: memberLoginService},
         {provide: "MemberAuditService", useValue: {}},
         {provide: "WalkNotificationService", useValue: {}},
@@ -135,12 +138,22 @@ describe("WalkDisplayService", () => {
       spy = spyOn(memberLoginService, "allowWalkAdminEdits").and.returnValue(false);
       spy = spyOn(memberLoginService, "loggedInMember").and.returnValue({memberId: "leader-id"} as any);
       const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
-      expect(service.toWalkAccessMode({
+      const walkEventService = TestBed.inject(WalkEventService);
+      spyOn(service, "walkPopulationLocal").and.returnValue(true);
+      spyOn(walkEventService, "latestEvent").and.returnValue({
+        eventType: EventType.APPROVED,
+        data: undefined,
+        date: 0,
+        memberId: ""
+      });
+      const actual = service.toWalkAccessMode({
         eventType: RamblersEventType.GROUP_WALK,
         walkLeaderMemberId: "another-walk-leader-id",
         events: dontCare,
         walkDate: anyWalkDate
-      })).toEqual(WalksReferenceService.walkAccessModes.view);
+      });
+      console.log("actual", JSON.stringify(actual));
+      expect(actual).toEqual(WalksReferenceService.walkAccessModes.view);
     });
   });
 

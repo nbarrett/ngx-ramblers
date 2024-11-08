@@ -76,6 +76,14 @@ export class DataPopulationService {
         name: "mail-settings-process-mappings",
         text: "* Listed below are the built-in processes that are utilise email at points in the workflow. \n* This configuration page allows each of the built in processes to be linked to an Email Notification configuration.",
         category: "admin"
+      },
+      {
+        name: "ramblers-import-help-page",
+        text: "This page should be used to prepare your group for when you wish to switch from using Walks Manager as your data source to your local database. There are several reasons why this can be beneficial, including providing better control over the walk leader information published on walks, email-backed workflow such as advertising walk slots and email notifications on change of walk details and the ability to provide more informative fields on the walk that are not supported by Walks Manager. The steps for using this page are to :\n" +
+          "* Click the **Collect importable walks from Walks Manager** button below to query all walks that are held in Walks manager. This data is then analysed for walk leaders and attempts are made to match them to existing members in your database.\n" +
+          "* Present statistics on the number of walks and walk leaders with an indication as to whether any missing members should be added.\n" +
+          "* Click the **Import And Save Walks Locally** button when you are happy with the proposed import information.",
+        category: "admin"
       }
     ];
     const defaultContentTextItems = await Promise.all(defaultContent.map(async (contentText: ContentText) => await this.contentTextService.findOrCreateByNameAndCategory(contentText.name, contentText.category, contentText.text)));

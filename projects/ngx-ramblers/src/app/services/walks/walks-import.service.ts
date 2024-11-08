@@ -1,0 +1,203 @@
+import { Injectable } from "@angular/core";
+import { NgxLoggerLevel } from "ngx-logger";
+import { EventType, Walk } from "../../models/walk.model";
+import { Logger, LoggerFactory } from "../logger-factory.service";
+import { WalksLocalService } from "./walks-local.service";
+import { RamblersWalksAndEventsService } from "./ramblers-walks-and-events.service";
+import { Organisation, SystemConfig } from "../../models/system.model";
+import { SystemConfigService } from "../system/system-config.service";
+import first from "lodash-es/first";
+import last from "lodash-es/last";
+import { DateUtilsService } from "../date-utils.service";
+import omit from "lodash-es/omit";
+import { WalkEventService } from "./walk-event.service";
+import { MemberService } from "../member/member.service";
+import { NumberUtilsService } from "../number-utils.service";
+import { MemberBulkLoadService } from "../member/member-bulk-load.service";
+import {
+  BulkLoadMemberAndMatchToWalks,
+  Member,
+  MemberAction,
+  RamblersMemberAndContact,
+  WalksImportPreparation
+} from "../../models/member.model";
+import { MemberNamingService } from "../member/member-naming.service";
+import { DataQueryOptions } from "../../models/api-request.model";
+import { StringUtilsService } from "../string-utils.service";
+import { Contact, RamblersEventType } from "../../models/ramblers-walks-manager";
+import { AlertInstance } from "../notifier.service";
+
+@Injectable({
+  providedIn: "root"
+})
+export class WalksImportService {
+
+  private readonly logger: Logger;
+  public group: Organisation;
+  private systemConfig: SystemConfig;
+
+  constructor(private systemConfigService: SystemConfigService,
+              private walksLocalService: WalksLocalService,
+              private dateUtils: DateUtilsService,
+              private numberUtils: NumberUtilsService,
+              private walkEventService: WalkEventService,
+              private stringUtils: StringUtilsService,
+              private memberBulkLoadService: MemberBulkLoadService,
+              private memberService: MemberService,
+              private memberNamingService: MemberNamingService,
+              private ramblersWalksAndEventsService: RamblersWalksAndEventsService,
+              loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.createLogger("WalksImportService", NgxLoggerLevel.ERROR);
+    this.applyConfig();
+  }
+
+  private applyConfig() {
+    this.logger.info("applyConfig called");
+    this.systemConfigService.events().subscribe(systemConfig => {
+      this.systemConfig = systemConfig;
+      this.logger.info("systemConfig:", this.systemConfig);
+    });
+  }
+
+  async prepareImport(messages: string[]): Promise<WalksImportPreparation> {
+    // const searchString = "Dave M";
+    const searchString = "Penny";
+    const dataQueryOptions: DataQueryOptions = {criteria: {}, sort: {walkDate: 1}};
+    const walksToImport = await this.ramblersWalksAndEventsService.all(dataQueryOptions, null, [RamblersEventType.GROUP_WALK]);
+    messages.push(`Found ${this.stringUtils.pluraliseWithCount(walksToImport.length, "walk")} to import`);
+    const walkLeaders = await this.ramblersWalksAndEventsService.queryWalkLeaders();
+    messages.push(`Found ${this.stringUtils.pluraliseWithCount(walkLeaders.length, "walk leader")} to import`);
+    const firstWalk = first(walksToImport);
+    const lastWalk = last(walksToImport);
+    const walksWithContactId: Walk[] = walksToImport.filter(item => item.contactId);
+    const walksWithContactNameSearchString: Walk[] = walksToImport.filter(item => JSON.stringify(item).includes(searchString));
+    this.logger.info("firstWalk:", firstWalk, "on", this.dateUtils.displayDate(firstWalk.walkDate), "lastWalk:", lastWalk, "on", this.dateUtils.displayDate(lastWalk.walkDate), "walksWithContactId:", walksWithContactId, "walksWithContactNameSearchString:", `${searchString}:`, walksWithContactNameSearchString);
+    messages.push(`First walk is on ${this.dateUtils.displayDate(firstWalk.walkDate)}`);
+    messages.push(`Last walk is on ${this.dateUtils.displayDate(lastWalk.walkDate)}`);
+    const existingWalks: Walk[] = await this.walksLocalService.all();
+    const existingWalksWithinRange: Walk[] = existingWalks.filter(walk => walk.walkDate >= firstWalk.walkDate && walk.walkDate <= lastWalk.walkDate);
+    messages.push(`${this.stringUtils.pluraliseWithCount(existingWalksWithinRange.length, "existing walk")} within date range`);
+    this.logger.info("existingWalks:", existingWalks, "walks to import within range",);
+    this.logger.info("walkLeaders:", walkLeaders);
+    const members = await this.memberService.all();
+    const ramblersMemberAndContacts: RamblersMemberAndContact[] = walkLeaders.map((walkLeader: Contact) => {
+      const firstAndLastName = this.memberNamingService.firstAndLastNameFrom(walkLeader.name);
+      return {
+        contact: walkLeader,
+        ramblersMember: {
+          mobileNumber: walkLeader.telephone,
+          firstName: firstAndLastName?.firstName,
+          lastName: firstAndLastName?.lastName,
+          email: null,
+          membershipNumber: null,
+          postcode: null
+        }
+      };
+    });
+    const unmatched: BulkLoadMemberAndMatchToWalks = {
+      bulkLoadMemberAndMatch: {
+        memberMatchType: "none",
+        member: null,
+        ramblersMember: null,
+        contact: null,
+        memberAction: MemberAction.notFound
+      }, walks: []
+    };
+    const bulkLoadMembersAndMatchesToWalks: BulkLoadMemberAndMatchToWalks[] = ramblersMemberAndContacts
+      .map(ramblersMemberAndContact => this.memberBulkLoadService.bulkLoadMemberAndMatchFor(ramblersMemberAndContact, members, this.systemConfig))
+      .map(bulkLoadMemberAndMatch => ({bulkLoadMemberAndMatch, walks: []})).concat(unmatched);
+
+    const unmatchedToMember: BulkLoadMemberAndMatchToWalks = bulkLoadMembersAndMatchesToWalks
+      .find(bulkLoadMemberAndMatch => bulkLoadMemberAndMatch === unmatched);
+
+    walksToImport.forEach(walk => {
+      const matchToWalk: BulkLoadMemberAndMatchToWalks = bulkLoadMembersAndMatchesToWalks
+        .find(bulkLoadMemberAndMatch => {
+          if (bulkLoadMemberAndMatch.bulkLoadMemberAndMatch?.contact?.name) {
+            return bulkLoadMemberAndMatch.bulkLoadMemberAndMatch?.contact?.name === walk.contactName;
+          } else if (bulkLoadMemberAndMatch.bulkLoadMemberAndMatch?.member?.mobileNumber) {
+            return this.numberUtils.asNumber(bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.member.mobileNumber) === this.numberUtils.asNumber(walk.contactPhone);
+          } else if (bulkLoadMemberAndMatch.bulkLoadMemberAndMatch?.contact?.id) {
+            return bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.contact.id === walk.contactId;
+          }
+        });
+      if (matchToWalk) {
+        matchToWalk.walks.push(walk);
+      } else {
+        if (unmatchedToMember) {
+          unmatchedToMember.walks.push(walk);
+        }
+      }
+    });
+    bulkLoadMembersAndMatchesToWalks.forEach(bulkLoadMemberAndMatchToWalks => {
+      if (bulkLoadMemberAndMatchToWalks.walks.length === 0) {
+        bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberAction = MemberAction.skipped;
+      }
+    });
+    const bulkLoadMembersAndMatchesToWalksWithContactNameSearchString: BulkLoadMemberAndMatchToWalks[] = bulkLoadMembersAndMatchesToWalks.filter(item => JSON.stringify(item).includes(searchString));
+    this.logger.info("bulkLoadMemberAndMatches:", bulkLoadMembersAndMatchesToWalks, "bulkLoadMembersAndMatchesToWalksWithContactNameSearchString:", `${searchString}:`, bulkLoadMembersAndMatchesToWalksWithContactNameSearchString);
+    messages.push(`${walksToImport.length - unmatchedToMember.walks.length} out of ${walksToImport?.length} were matched to a walk leader`);
+    return Promise.resolve({bulkLoadMembersAndMatchesToWalks, existingWalksWithinRange});
+  }
+
+  async performImport(walksImportPreparation: WalksImportPreparation, messages: string[], notify: AlertInstance): Promise<any> {
+    const errorMessages: string[]=[];
+    let createdWalks = 0;
+    let createdMembers = 0;
+    const deletions = await Promise.all(walksImportPreparation.existingWalksWithinRange.map(walk => this.walksLocalService.delete(walk)));
+    messages.push(`${deletions.length} existing walks deleted`);
+    const imports = await Promise.all(walksImportPreparation.bulkLoadMembersAndMatchesToWalks.map(async bulkLoadMemberAndMatchToWalks => {
+      const member = bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.member;
+      if (bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberAction === MemberAction.found) {
+        return bulkLoadMemberAndMatchToWalks.walks.map(walk => {
+          createdWalks++;
+          return this.applyWalkLeaderIfSuppliedAndSaveWalk(walk, member);
+        });
+      } else if (bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberAction === MemberAction.created) {
+        if (bulkLoadMemberAndMatchToWalks.walks.length > 0) {
+          const qualifier = `for ${member.firstName} ${member.lastName}`;
+          const createdMember: Member = await this.memberService.createOrUpdate(member)
+            .then((savedMember: Member) => {
+              notify.success({title: "Walks Import", message: `Member creation ${qualifier} was successful`});
+              return savedMember;
+            }).catch(response => {
+              this.logger.error("member save error for member:", member, "response:", response);
+              bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberAction = MemberAction.error;
+              const message = `Member creation ${qualifier} failed`;
+              errorMessages.push(message);
+              messages.push(message);
+              notify.warning({title: "Walks Import", message});
+              return null;
+            });
+          createdMembers++;
+          return bulkLoadMemberAndMatchToWalks.walks.map(walk => {
+            createdWalks++;
+            return this.applyWalkLeaderIfSuppliedAndSaveWalk(walk, createdMember);
+          });
+        } else {
+          this.logger.info("member:", member, "was not matched to any walks");
+          return Promise.resolve();
+        }
+      } else {
+        this.logger.info("processing memberAction:", bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberAction, "with", this.stringUtils.pluraliseWithCount(bulkLoadMemberAndMatchToWalks.walks.length, "matched walk"));
+        return bulkLoadMemberAndMatchToWalks.walks.map(walk => {
+          createdWalks++;
+          return this.applyWalkLeaderIfSuppliedAndSaveWalk(walk);
+        });
+      }
+    }));
+    this.logger.info("imports:", imports);
+    messages.push(`${this.stringUtils.pluraliseWithCount(createdMembers, "new member")} created, ${this.stringUtils.pluraliseWithCount(createdWalks, "walk")} imported`);
+    return errorMessages;
+  }
+
+  private applyWalkLeaderIfSuppliedAndSaveWalk(walk: Walk, member?: Member): Promise<Walk> {
+    const unsavedWalk: Walk = omit(walk, ["_id", "id"]) as Walk;
+    if (member) {
+      unsavedWalk.walkLeaderMemberId = member.id;
+    }
+    const event = this.walkEventService.createEventIfRequired(unsavedWalk, EventType.APPROVED, "Imported from Walks Manager");
+    this.walkEventService.writeEventIfRequired(unsavedWalk, event);
+    return this.walksLocalService.createOrUpdate(unsavedWalk);
+  }
+}

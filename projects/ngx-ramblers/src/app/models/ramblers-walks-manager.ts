@@ -74,13 +74,28 @@ export interface MetadataDescription {
 export interface Metadata extends MetadataCode, MetadataDescription {
 }
 
-export interface WalkLeader {
+export interface Contact {
   id: string;
   name: string;
   telephone: string;
-  has_email: true;
+  has_email: boolean;
   email_form?: string;
-  is_overridden: false;
+  is_overridden: boolean;
+}
+
+export interface LocationDetails {
+  latitude: number;
+  longitude: number;
+  grid_reference_6: string;
+  grid_reference_8: string;
+  postcode: string;
+  description: string;
+  w3w: string;
+}
+
+export interface Difficulty {
+  code: string;
+  description: string;
 }
 
 export interface GroupWalk {
@@ -95,13 +110,7 @@ export interface GroupWalk {
   start_date_time: string;
   end_date_time: string;
   meeting_date_time: string;
-  event_organiser?: {
-    name: string;
-    telephone: string;
-    has_email: boolean;
-    is_overridden: boolean;
-    email_form: string;
-  },
+  event_organiser?: Contact,
   location?: {
     latitude: number;
     longitude: number;
@@ -112,44 +121,17 @@ export interface GroupWalk {
     description: string;
     w3w: string;
   };
-  start_location: {
-    latitude: number;
-    longitude: number;
-    grid_reference_6: string;
-    grid_reference_8: string;
-    postcode: string;
-    description: string;
-    w3w: string;
-  };
-  meeting_location: {
-    latitude: number;
-    longitude: number;
-    grid_reference_6: string;
-    grid_reference_8: string;
-    postcode: string;
-    description: string;
-    w3w: string;
-  };
-  end_location: {
-    latitude: number;
-    longitude: number;
-    grid_reference_6: string;
-    grid_reference_8: string;
-    postcode: string;
-    description: string;
-    w3w: string;
-  };
+  start_location: LocationDetails;
+  meeting_location: LocationDetails;
+  end_location: LocationDetails;
   distance_km: number;
   distance_miles: number;
   ascent_feet: number;
   ascent_metres: number;
-  difficulty: {
-    code: string;
-    description: string;
-  };
+  difficulty: Difficulty;
   shape: string;
   duration: number;
-  walk_leader: WalkLeader;
+  walk_leader: Contact;
   url: string;
   external_url: string;
   status: WalkStatus;
@@ -255,3 +237,4 @@ export type WalkUploadRow = {
 }
 
 export const ALL_EVENT_TYPES: RamblersEventType[] = [RamblersEventType.GROUP_WALK, RamblersEventType.GROUP_EVENT, RamblersEventType.WELLBEING_WALK];
+

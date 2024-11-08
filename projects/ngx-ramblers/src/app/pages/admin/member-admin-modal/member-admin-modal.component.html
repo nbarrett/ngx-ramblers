@@ -318,44 +318,16 @@
           </div>
           <div class="row">
             <div class="col col-sm-6">
-              <label for="ramblers-assemble-name">Ramblers Assemble Name</label>
+              <label for="ramblers-contact-name">Walks Manager Contact Name</label>
               <div class="input-group">
                 <input autocomplete="new-password" name="contactId" [(ngModel)]="member.contactId" type="text"
-                       class="form-control input-sm" id="ramblers-assemble-name"
-                       placeholder="The first name and last name used in Ramblers Assemble System">
+                       class="form-control input-sm" id="ramblers-contact-name"
+                       placeholder="The first name and last name used in Ramblers contact System">
                 <div class="input-group-append" tooltip="Set this field to be {{member | fullNameWithAlias}}">
-                  <div class="input-group-text pointer" (click)="defaultAssembleName()">
+                  <div class="input-group-text pointer" (click)="defaultContactName()">
                     <fa-icon [icon]="faPaste" class="fa-icon"></fa-icon>
                   </div>
                 </div>
-              </div>
-            </div>
-            <div class="col col-sm-6">
-              <form class="form-group">
-                <label for="assemble-id">Assemble Id</label>
-                <input autocomplete="new-password" name="assembleId" [(ngModel)]="member.assembleId" type="text"
-                       class="form-control input-sm" id="assemble-id"
-                       placeholder="The Identifier as used in Ramblers Assemble System">
-              </form>
-            </div>
-            <div class="col col-sm-12">
-              <div class="form-group mb-0">
-                <label class="title-in-thumbnail">Assemble Links</label>
-              </div>
-              <div class="form-group" markdown>
-                <ul>
-                  <li><a *ngIf="member.assembleId" target="_blank"
-                         [href]="'https://volunteer.ramblers.org.uk/portal/user/'+member.assembleId+'#tab=1'">{{member | fullNameWithAlias}}
-                    's User Details</a>
-                  </li>
-                  <li>
-                    <a target="_blank"
-                       [href]="'https://volunteer.ramblers.org.uk/portal/supervisor/myteam'">View My Team</a>
-                  </li>
-                  <li><a target="_blank"
-                         [href]="'https://volunteer.ramblers.org.uk/portal/supervisor/volunteer/create#type=volunteer&sid'">
-                    Create new Volunteer in Assemble</a></li>
-                </ul>
               </div>
             </div>
           </div>

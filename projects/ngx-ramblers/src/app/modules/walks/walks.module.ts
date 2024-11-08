@@ -79,6 +79,7 @@ import { SharedModule } from "../../shared-module";
 import { WalkFeaturesComponent } from "../../pages/walks/walk-view/walk-features";
 import { WalkFeatureComponent } from "../../pages/walks/walk-view/walk-feature";
 import { WalkImagesComponent } from "../../pages/walks/walk-view/walk-images";
+import { WalkImportComponent } from "../../pages/walks/walk-import/walk-import.component";
 
 @NgModule({
   declarations: [
@@ -92,6 +93,7 @@ import { WalkImagesComponent } from "../../pages/walks/walk-view/walk-images";
     WalkEditFullPageComponent,
     WalkEventTypePipe,
     WalkExportComponent,
+    WalkImportComponent,
     WalkFeatureComponent,
     WalkFeaturesComponent,
     WalkGroupComponent,
