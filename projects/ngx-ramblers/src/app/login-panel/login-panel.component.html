@@ -1,4 +1,4 @@
-<div class="d-flex justify-content-around panel-container mr-3">
+<div class="justify-content-around panel-container mr-lg-3" [ngClass]="memberLoggedIn() ? 'd-flex': 'd-lg-flex'">
   <a class="login-text" (click)="loginOrLogout()">
     <img *ngIf="memberLoggedIn()" class="home-logo"
          src="/assets/images/ramblers/icons/ramblers_icon_11_home_rgb.png"
