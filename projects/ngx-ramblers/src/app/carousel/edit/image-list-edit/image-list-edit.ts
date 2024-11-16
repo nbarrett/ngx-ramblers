@@ -259,7 +259,8 @@ import isEmpty from "lodash-es/isEmpty";
                 <label for="name">Album Name</label>
                 <input [delay]="1000"
                        [tooltip]="imagesExist()? 'Album name cannot be changed after images have been created in it':''"
-                       [disabled]="imagesExist()" type="text" [(ngModel)]="contentMetadata.name" id="name"
+                       [disabled]="imagesExist()" type="text" [ngModel]="contentMetadata.name" id="name"
+                       (ngModelChange)="albumNameChange($event)"
                        class="form-control">
               </div>
             </div>
@@ -383,6 +384,12 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.searchChangeObservable.pipe(debounceTime(500))
       .pipe(distinctUntilChanged())
       .subscribe(() => this.applyFilter());
+  }
+
+  albumNameChange(albumName: string) {
+    const reformattedPath = this.urlService.reformatLocalHref(albumName);
+    this.logger.info("albumNameChange:", albumName, "reformattedPath:", reformattedPath);
+    this.contentMetadata.name = reformattedPath;
   }
 
   private initialiseImagesForName(name: string) {

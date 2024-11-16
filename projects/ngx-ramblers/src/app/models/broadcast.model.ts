@@ -1,5 +1,6 @@
 export enum NamedEventType {
     APPLY_FILTER = "apply-filter",
+    CONTENT_METADATA_CHANGED = "content-metadata-changed",
     DEFAULT_LOGO_CHANGED = "default-logo-changed",
     EDIT_SITE = "editSite",
     ERROR = "error",

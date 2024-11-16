@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
-import { faCalendar, faCaretDown, faCaretUp } from "@fortawesome/free-solid-svg-icons";
+import { faCaretDown, faCaretUp } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { PageContentColumn } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -48,7 +48,6 @@ export class ColumnWidthComponent implements OnInit {
   expandAction: string;
   INITIAL_EXPAND_TOOLTIP = "Temporarily expand width";
 
-
   ngOnInit() {
     this.id = this.numberUtils.generateUid();
     this.expandAction = this.INITIAL_EXPAND_TOOLTIP;
@@ -63,7 +62,5 @@ export class ColumnWidthComponent implements OnInit {
     this.expanded = !this.expanded;
     this.expandToggle.emit(this.expanded);
   }
-
-  protected readonly faCalendar = faCalendar;
 }
 

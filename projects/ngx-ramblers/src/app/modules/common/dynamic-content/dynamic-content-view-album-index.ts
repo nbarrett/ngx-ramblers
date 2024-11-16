@@ -10,7 +10,7 @@ import { AlbumIndexService } from "../../../services/album-index.service";
   template: `
     <app-action-buttons *ngIf="actions.isAlbumIndex(row)"
                         [pageContent]="albumIndexPageContent"
-                        [rowIndex]="0"></app-action-buttons>`,
+                        [rowIndex]="0"/>`,
 })
 export class DynamicContentViewAlbumIndexComponent implements OnInit {
 

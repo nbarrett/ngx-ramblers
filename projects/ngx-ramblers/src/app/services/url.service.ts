@@ -267,11 +267,11 @@ export class UrlService {
     return url?.startsWith(BASE64_PREFIX_JPEG) || url?.startsWith(BASE64_PREFIX_PNG);
   }
 
-  reformatHref(url: string): string {
+  reformatLocalHref(url: string): string {
     if (!url || (url.startsWith("http") || url.startsWith("www") || url.includes("://"))) {
       return url;
     } else {
-      const reformatted: string = url.split("/").map(item => item.includes(" ") ? this.stringUtils.kebabCase(item) : item).join("/");
+      const reformatted: string = url.split("/").map(item => /[A-Z\s]/.test(item) ? this.stringUtils.kebabCase(item) : item).join("/");
       this.logger.off("received", url, "reformatted to:", reformatted);
       return reformatted;
     }
@@ -287,6 +287,16 @@ export class UrlService {
       queryParams,
       queryParamsHandling: ""
     });
+  }
+
+  public redirectToNormalisedUrl(normalisedUrl: string): Promise<boolean>{
+    if (normalisedUrl !== this.urlPath()) {
+      const navigateToPath = this.pathMinusAnchorForUrl(normalisedUrl);
+      this.logger.info("need to move to:", navigateToPath);
+      return this.navigateUnconditionallyTo([navigateToPath]);
+    } else {
+      return Promise.resolve(true);
+    }
   }
 
 }

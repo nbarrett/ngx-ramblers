@@ -73,8 +73,9 @@ export class PageService {
     const anchorSuffixWithSuffix = this.anchorWithSuffix(anchor);
     const path = this.pathSegments().join("/");
     const contentPath = `${path}${anchorSuffixWithSuffix}`;
-    this.logger.debug("contentPath:anchor:", anchor, "path:", path, "contentPath:", contentPath);
-    return contentPath;
+    const normalisedContentPath = this.urlService.reformatLocalHref(contentPath);
+    this.logger.info("contentPath:anchor:", anchor, "pathSegments:", this.pathSegments(), "path:", path, "contentPath:", contentPath, "normalisedContentPath:", normalisedContentPath);
+    return normalisedContentPath;
   }
 
   public anchorWithSuffix(anchor: string) {
@@ -91,14 +92,14 @@ export class PageService {
   }
 
   public linksFromPathSegments(pathSegments: string[], replaceMongoIdWith?: string, includeLast?: boolean): Link[] {
-    this.logger.info("pathSegments:", pathSegments);
+    this.logger.debug("pathSegments:", pathSegments);
     const relativePages: Link[] = pathSegments
       ?.filter(item => includeLast || item !== last(pathSegments))
       ?.map((path, index) => ({
         title: this.urlService.isMongoId(path) ? replaceMongoIdWith : this.stringUtils.asTitle(path),
         href: this.pathSegmentsUpTo(pathSegments, index)
       }));
-    this.logger.info("linksFromPathSegments:", relativePages);
+    this.logger.debug("linksFromPathSegments:", relativePages);
     return this.group?.pages ? [this.group.pages[0]].concat(relativePages) : relativePages;
   }
 
