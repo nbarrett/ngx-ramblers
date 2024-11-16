@@ -55,7 +55,8 @@ export class AlbumIndexService {
         const href = pageContentToRowsItem.pageContent.path;
         const title = this.stringUtils.asTitle(last(this.urlService.pathSegmentsForUrl(href)));
         const contentMetadata: ContentMetadata = albumMetadata.find(metadata => metadata.name === row.carousel.name);
-        const imageSource = this.urlService.imageSourceFor({image: contentMetadata?.coverImage || first(contentMetadata.files).image}, contentMetadata);
+        this.logger.info("contentMetadata:", contentMetadata, "row:", row);
+        const imageSource = this.urlService.imageSourceFor({image: contentMetadata?.coverImage || first(contentMetadata?.files)?.image}, contentMetadata);
         return ({
           title: row.carousel?.title || title,
           contentText: row?.carousel?.subtitle || row?.carousel?.introductoryText || row?.carousel?.preAlbumText || "no text found",

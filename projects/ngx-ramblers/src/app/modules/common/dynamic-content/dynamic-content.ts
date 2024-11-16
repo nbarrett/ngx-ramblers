@@ -75,7 +75,7 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
     private broadcastService: BroadcastService<PageContent>,
     private authService: AuthService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("DynamicContentComponent", NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("DynamicContentComponent", NgxLoggerLevel.ERROR);
   }
 
   async ngOnInit() {
@@ -86,6 +86,7 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
       } else {
         this.contentPath = this.pageService.contentPath(this.anchor);
       }
+      this.urlService.redirectToNormalisedUrl(this.contentPath);
       this.contentDescription = this.pageService.contentDescription(this.anchor);
       this.logger.info("areaAsContentPath:", this.areaAsContentPath, "initialised with contentPath:", this.contentPath);
       this.pageTitle = this.pageService.pageSubtitle();

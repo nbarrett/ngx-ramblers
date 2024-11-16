@@ -148,7 +148,7 @@ export class CardEditorComponent implements OnInit {
 
   reformatHref($event: any) {
     this.logger.info("reformat:", $event, "this.column.href", this.column.href);
-    this.column.href = this.urlService.reformatHref(this.column.href);
+    this.column.href = this.urlService.reformatLocalHref(this.column.href);
   }
 
   siteEditActive() {

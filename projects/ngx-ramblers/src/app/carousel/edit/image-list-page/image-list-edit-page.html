@@ -1,8 +1,8 @@
 <app-page pageTitle="Image Editor">
   <app-login-required>
     <app-markdown-editor allowHide="true" name="image-editor-help"
-                         description="Image Editor help"></app-markdown-editor>
-    <app-carousel-selector *ngIf="!editing" [name]="name"></app-carousel-selector>
-    <app-image-list-edit *ngIf="editing" [name]="name" (exit)="backToEditorHome()"></app-image-list-edit>
+                         description="Image Editor help"/>
+    <app-carousel-selector *ngIf="!editing" [name]="name"/>
+    <app-image-list-edit *ngIf="editing" [name]="name" (exit)="backToEditorHome()"/>
   </app-login-required>
 </app-page>

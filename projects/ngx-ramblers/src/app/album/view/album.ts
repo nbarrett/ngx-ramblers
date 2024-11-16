@@ -17,12 +17,15 @@ import { ContentMetadataService } from "../../services/content-metadata.service"
 import { RootFolder } from "../../models/system.model";
 import {
   ALL_PHOTOS,
+  ContentMetadata,
   DuplicateImages,
   LazyLoadingMetadata,
   SlideInitialisation
 } from "../../models/content-metadata.model";
 import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata.service";
 import { ImageDuplicatesService } from "../../services/image-duplicates-service";
+import { BroadcastService } from "../../services/broadcast-service";
+import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
 
 @Component({
   selector: "app-album",
@@ -85,7 +88,8 @@ export class AlbumComponent implements OnInit {
   public lazyLoadingMetadataService: LazyLoadingMetadataService = inject(LazyLoadingMetadataService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private imageDuplicatesService: ImageDuplicatesService = inject(ImageDuplicatesService);
-  private logger = this.loggerFactory.createLogger("AlbumComponent", NgxLoggerLevel.OFF);
+  private broadcastService: BroadcastService<ContentMetadata> = inject(BroadcastService);
+  private logger = this.loggerFactory.createLogger("AlbumComponent", NgxLoggerLevel.ERROR);
   public noImages: boolean;
   public lazyLoadingMetadata: LazyLoadingMetadata;
   public duplicateImages: DuplicateImages;
@@ -130,12 +134,7 @@ export class AlbumComponent implements OnInit {
     this.logger.info("ngOnInit:querying metadata service with root folder", RootFolder.carousels, "album name:", this.album?.name);
     this.contentMetadataService.items(RootFolder.carousels, this.album?.name)
       .then(contentMetadata => {
-        this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata);
-        this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
-        this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS, 10);
-        this.noImages = !contentMetadata;
-        this.lazyLoadingMetadataChange.emit(this.lazyLoadingMetadata);
-        this.logger.info("initialised with", this?.lazyLoadingMetadata?.contentMetadata?.files?.length, "slides in total", "lazyLoadingMetadata:", this.lazyLoadingMetadata, "duplicateImages:", this.duplicateImages);
+        this.applyContentMetadata(contentMetadata);
       });
 
     this.contentMetadataService.contentMetadataNotifications().subscribe(metadataResponses => {
@@ -143,7 +142,19 @@ export class AlbumComponent implements OnInit {
       this.noImages = !allAndSelectedContentMetaData.contentMetadata;
       this.logger.info("in subscribe:album:", this.album, "allAndSelectedContentMetaData:", allAndSelectedContentMetaData);
     });
+    this.broadcastService.on(NamedEventType.CONTENT_METADATA_CHANGED, (namedEvent: NamedEvent<ContentMetadata>) => {
+      this.logger.info("received:", namedEvent);
+      this.applyContentMetadata(namedEvent.data);
+    });
+  }
 
+  private applyContentMetadata(contentMetadata: ContentMetadata) {
+    this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata);
+    this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
+    this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS, 10);
+    this.noImages = !contentMetadata;
+    this.lazyLoadingMetadataChange.emit(this.lazyLoadingMetadata);
+    this.logger.info("initialised with", this?.lazyLoadingMetadata?.contentMetadata?.files?.length, "slides in total", "lazyLoadingMetadata:", this.lazyLoadingMetadata, "duplicateImages:", this.duplicateImages);
   }
 
   switchToView(albumView: AlbumView) {

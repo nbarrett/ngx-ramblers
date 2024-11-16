@@ -3,11 +3,12 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { ContentMetadata } from "../../../models/content-metadata.model";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
-import { UrlService } from "../../../services/url.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { PageContentService } from "../../../services/page-content.service";
 import { faPencil, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
+import { BroadcastService } from "../../../services/broadcast-service";
 
 @Component({
   selector: "app-carousel-select",
@@ -16,7 +17,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
     <div class="form-inline">
       <select [(ngModel)]="selectedContentMetadata"
               [id]="id"
-              (ngModelChange)="metadataChange.emit(($event))"
+              (ngModelChange)="emitAndPublishMetadata(($event))"
               class="form-control mr-2" [ngStyle]="{'max-width.px': maxWidth}">
         <option *ngFor="let contentMetadata of allContentMetadata"
                 [ngValue]="contentMetadata">
@@ -25,7 +26,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
         </option>
       </select>
       <app-badge-button *ngIf="showNewButton" [icon]="faPlus" [caption]="'new'"
-                        (click)="nameEditToggle.emit(true)"></app-badge-button>
+                        (click)="nameEditToggle.emit(true)"/>
     </div>`
 })
 export class CarouselSelectComponent implements OnInit {
@@ -55,7 +56,8 @@ export class CarouselSelectComponent implements OnInit {
     public contentMetadataService: ContentMetadataService,
     public pageContentService: PageContentService,
     public stringUtils: StringUtilsService,
-    private urlService: UrlService, loggerFactory: LoggerFactory) {
+    private broadcastService: BroadcastService<ContentMetadata>,
+    loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger("CarouselSelectComponent", NgxLoggerLevel.ERROR);
   }
 
@@ -74,4 +76,8 @@ export class CarouselSelectComponent implements OnInit {
     });
   }
 
+  emitAndPublishMetadata(contentMetadata: ContentMetadata) {
+    this.metadataChange.emit((contentMetadata));
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.CONTENT_METADATA_CHANGED, contentMetadata));
+  }
 }

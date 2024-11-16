@@ -13,6 +13,7 @@ import { AlertMessage } from "../models/alert-target.model";
 import { DateUtilsService } from "./date-utils.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import isArray from "lodash-es/isArray";
+import kebabCase from "lodash-es/kebabCase";
 
 @Injectable({
   providedIn: "root"
@@ -135,8 +136,7 @@ StringUtilsService {
   kebabCase(...strings: any[]): string {
     const returnValue = strings
       .filter(item => item)
-      .map(item => this.asTitle(item))
-      .map(item => this.replaceAll(" ", "-", item).toString().toLowerCase())
+      .map(item => kebabCase(item))
       .join("-");
     this.logger.debug("input:", strings, "output:", returnValue);
     return returnValue;

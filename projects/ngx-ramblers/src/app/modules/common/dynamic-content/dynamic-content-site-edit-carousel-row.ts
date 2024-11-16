@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
-import { faAdd, faPencil, faPlus, faSearch } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faPencil, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DEFAULT_GRID_OPTIONS, PageContentRow } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -10,6 +10,7 @@ import { ContentMetadata } from "../../../models/content-metadata.model";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageContentService } from "../../../services/page-content.service";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
+import { UrlService } from "../../../services/url.service";
 
 @Component({
   selector: "[app-row-settings-carousel]",
@@ -17,15 +18,16 @@ import { ContentMetadataService } from "../../../services/content-metadata.servi
   template: `
     <label class="mr-2"
            [for]="id">Album Name</label>
-    <app-carousel-select [maxWidth]="290" *ngIf="!nameInput" [id]="id" showNewButton
+    <app-carousel-select [maxWidth]="250" *ngIf="!nameInput" [id]="id" showNewButton
                          [name]="row?.carousel?.name"
                          (metadataChange)="metadataChange(row, $event)"
-                         (nameEditToggle)="toggleNameEdit($event)"></app-carousel-select>
+                         (nameEditToggle)="toggleNameEdit($event)"/>
     <div class="d-flex" *ngIf="nameInput">
       <input autocomplete="new-password" [typeahead]="contentMetadataService?.carousels"
              [typeaheadMinLength]="0"
              [id]="id"
-             [(ngModel)]="row.carousel.name"
+             [ngModel]="row.carousel.name"
+             (ngModelChange)="carouselNameChange($event)"
              name="new-password"
              [ngModelOptions]="{standalone: true}"
              type="text" class="form-control mr-2 flex-grow-1">
@@ -41,9 +43,10 @@ export class RowSettingsCarouselComponent implements OnInit {
     public contentMetadataService: ContentMetadataService,
     public stringUtils: StringUtilsService,
     private numberUtils: NumberUtilsService,
+    private urlService: UrlService,
     public actions: PageContentActionsService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("RowSettingsCarouselComponent", NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("RowSettingsCarouselComponent", NgxLoggerLevel.ERROR);
   }
 
   @Input()
@@ -67,6 +70,12 @@ export class RowSettingsCarouselComponent implements OnInit {
       this.logger.info("given name:", this.row?.carousel?.name, "allAndSelectedContentMetaData:", allAndSelectedContentMetaData);
       this.initialiseMissingAlbumData();
     });
+  }
+
+  carouselNameChange(contentPath: string) {
+    const reformattedPath = this.urlService.reformatLocalHref(contentPath);
+    this.logger.info("contentPathChange:", contentPath, "reformattedPath:", reformattedPath);
+    this.row.carousel.name = reformattedPath;
   }
 
   private initialiseMissingAlbumData() {

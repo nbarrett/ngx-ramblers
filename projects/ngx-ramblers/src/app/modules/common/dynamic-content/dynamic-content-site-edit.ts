@@ -70,33 +70,27 @@ import { StoredValue } from "../../../models/ui-actions";
                                   delay=500
                                   [tooltip]="actions.rowsInEdit.length>0?'Finish current row edit before saving':'Save page changes'"
                                   [icon]="faSave"
-                                  caption="Save page changes">
-                </app-badge-button>
+                                  caption="Save page changes"/>
                 <app-badge-button (click)="revertPageContent()"
                                   delay=500 [tooltip]="'Revert page changes'"
                                   [icon]="faUndo"
-                                  caption="Revert page changes">
-                </app-badge-button>
+                                  caption="Revert page changes"/>
                 <app-badge-button *ngIf="insertableContent?.length > 0" (click)="insertData()"
                                   delay=500 [tooltip]="'Insert missing data'"
-                                  [icon]="faAdd" caption="Insert data">
-                </app-badge-button>
+                                  [icon]="faAdd" caption="Insert data"/>
                 <app-badge-button *ngIf="pageContent.rows?.length === 0" (click)="createContent()"
                                   delay=500 [tooltip]="'Add first row'"
-                                  [icon]="faAdd" caption="Add first row">
-                </app-badge-button>
+                                  [icon]="faAdd" caption="Add first row"/>
                 <app-badge-button *ngIf="unreferencedPaths?.length>0" (click)="toggleShowUnreferencedPages()"
                                   [icon]="faEye"
                                   [active]="showUnreferenced"
                                   delay=500
-                                  caption="{{showUnreferenced? 'Hide':'Show'}} {{stringUtils.pluraliseWithCount(unreferencedPaths?.length, 'unreferenced page')}}">
-                </app-badge-button>
+                                  caption="{{showUnreferenced? 'Hide':'Show'}} {{stringUtils.pluraliseWithCount(unreferencedPaths?.length, 'unreferenced page')}}"/>
                 <app-badge-button (click)="deletePageContent()"
                                   [icon]="faRemove"
                                   delay=500 caption="Delete page"
                                   [tooltip]="deletePagContentTooltip()"
-                                  [disabled]="allReferringPages().length !== 0">
-                </app-badge-button>
+                                  [disabled]="allReferringPages().length !== 0"/>
                 <ng-container *ngIf="this.allReferringPageCount() > 0">
                   <div class="align-middle">Referred to by: <a class="ml-2 rams-text-decoration-pink"
                                                                *ngFor="let referringPage of allReferringPages(); let linkIndex = index;"
@@ -108,7 +102,7 @@ import { StoredValue } from "../../../models/ui-actions";
                 </ng-container>
               </div>
             </ng-template>
-            <ng-container *ngTemplateOutlet="saveButtonsAndPath"></ng-container>
+            <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
             <div class="row mt-2 align-items-end mb-3" *ngIf="unreferencedPaths?.length>0 && showUnreferenced">
               <div class="align-middle">
                 <div class="col-sm-12">
@@ -128,13 +122,14 @@ import { StoredValue } from "../../../models/ui-actions";
               </div>
             </div>
             <div class="row mt-2 align-items-end mb-3">
-              <div [ngClass]="pageContentRowService.rowsSelected()? 'col-md-10' : 'col'">
+              <div [ngClass]="pageContentRowService.rowsSelected()? 'col-md-10' : 'col'" class="mb-2">
                 <form>
                   <label class="mr-2" for="path">Content Path
                     <span>{{ contentPathReadOnly ? "(not editable as this content is part of internal page)" : "" }}</span></label>
                   <input [disabled]="contentPathReadOnly" autocomplete="off" [typeahead]="pageContentService.siteLinks"
+                         (ngModelChange)="contentPathChange($event)"
                          [typeaheadMinLength]="0" id="path"
-                         [(ngModel)]="pageContent.path"
+                         [ngModel]="pageContent.path"
                          name="path"
                          [ngModelOptions]="{standalone: true}"
                          type="text" class="form-control">
@@ -312,6 +307,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   public contentDescription: string;
   @Input()
   public contentPath: string;
+  private queriedContentPath: string;
   private albumIndexDataRows: PageContent[] = [];
   public showUnreferenced: boolean;
   public unreferencedPaths: string[];
@@ -521,13 +517,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
         return this.pageContentService.createOrUpdate(this.pageContent)
           .then(async pageContent => {
             await this.initialisePageContent(pageContent);
-            if (this.pageContent.path !== this.urlService.urlPath()) {
-              const navigateToPath = this.urlService.pathMinusAnchorForUrl(this.pageContent.path);
-              this.logger.info("need to move to:", navigateToPath);
-              return this.urlService.navigateUnconditionallyTo([navigateToPath]);
-            } else {
-              return true;
-            }
+            return this.urlService.redirectToNormalisedUrl(this.pageContent.path);
           });
       });
     } else {
@@ -536,7 +526,9 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   public revertPageContent() {
     this.actions.rowsInEdit = [];
-    this.pageContentService.findByPath(this.pageContent.path)
+    const revertPath = this.queriedContentPath || this.pageContent.path;
+    this.logger.info("reverting page content to:", revertPath);
+    this.pageContentService.findByPath(revertPath)
       .then(async pageContent => {
         await this.initialisePageContent(pageContent);
         this.actions.notifyPageContentChanges(pageContent);
@@ -644,6 +636,12 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     return this.stringUtils.asTitle(referringPage?.split("#").join(" "));
   }
 
+  contentPathChange(contentPath: string) {
+    const reformattedPath = this.urlService.reformatLocalHref(contentPath);
+    this.logger.info("contentPathChange:", contentPath, "reformattedPath:", reformattedPath);
+    this.pageContent.path = reformattedPath;
+  }
+
   destinationPathInsertionRowIndexChange($event: any) {
     this.logger.info("destinationPathInsertionRowIndexChange:", $event);
   }
@@ -666,6 +664,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   private async initialisePageContent(pageContent: PageContent): Promise<void> {
     if (pageContent) {
+      this.queriedContentPath = pageContent.path;
       pageContent.rows.forEach(row => this.initialiseRowIfRequired(row));
       this.pageContent = pageContent;
       this.logger.info("initialisePageContent.pageContent:", this.pageContent, "urlPath:", this.urlService.urlPath());

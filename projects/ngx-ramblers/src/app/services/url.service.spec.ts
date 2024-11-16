@@ -5,6 +5,7 @@ import { LoggerTestingModule } from "ngx-logger/testing";
 import { AWSLinkConfig, LinkConfig } from "../models/link.model";
 import { UrlService } from "./url.service";
 import { HttpClientTestingModule } from "@angular/common/http/testing";
+import { StringUtilsService } from "./string-utils.service";
 
 describe("UrlService", () => {
 
@@ -31,7 +32,8 @@ describe("UrlService", () => {
           }
         },
         {provide: ActivatedRoute, useValue: {snapshot: {url: Array("admin", "member-bulk-load")}}},
-        {provide: DOCUMENT, useValue: LOCATION_VALUE}]
+        {provide: DOCUMENT, useValue: LOCATION_VALUE},
+        StringUtilsService]
     }).compileComponents();
   });
 
@@ -154,6 +156,64 @@ describe("UrlService", () => {
   it("absoluteUrl should return full current url ", () => {
     const service: UrlService = TestBed.inject(UrlService);
     expect(service.absoluteUrl()).toBe(URL_PATH);
+  });
+
+  describe("reformatLocalHref", () => {
+    let service: UrlService;
+    let stringUtils: StringUtilsService;
+
+    beforeEach(() => {
+      service = TestBed.inject(UrlService);
+      stringUtils = TestBed.inject(StringUtilsService);
+    });
+
+    it("should return the original URL if it starts with http", () => {
+      const url = "http://example.com";
+      expect(service.reformatLocalHref(url)).toBe(url);
+    });
+
+    it("should return the original URL if it starts with http(2)", () => {
+      const url = "http://example.com/path/WithUpperCase";
+      expect(service.reformatLocalHref(url)).toBe(url);
+    });
+
+    it("should return the original URL if it starts with http(3)", () => {
+      const url = "http://example.com/path/with-upper-case";
+      expect(service.reformatLocalHref(url)).toBe(url);
+    });
+
+    it("should return the original URL if it starts with www", () => {
+      const url = "www.example.com";
+      expect(service.reformatLocalHref(url)).toBe(url);
+    });
+
+    it("should return the original URL if it contains ://", () => {
+      const url = "ftp://example.com";
+      expect(service.reformatLocalHref(url)).toBe(url);
+    });
+
+    it("should apply kebabCase to path segments with spaces", () => {
+      spyOn(stringUtils, "kebabCase").and.callThrough();
+      const url = "path/with spaces";
+      expect(service.reformatLocalHref(url)).toBe("path/with-spaces");
+      expect(stringUtils.kebabCase).toHaveBeenCalledWith("with spaces");
+    });
+
+    it("should apply kebabCase to path segments with uppercase characters", () => {
+      spyOn(stringUtils, "kebabCase").and.callThrough();
+      expect(service.reformatLocalHref("path/WithUpperCase")).toBe("path/with-upper-case");
+      expect(stringUtils.kebabCase).toHaveBeenCalledWith("WithUpperCase");
+    });
+
+    it("should not change path segments without spaces or uppercase characters", () => {
+      expect(service.reformatLocalHref("path/without-changes")).toBe("path/without-changes");
+    });
+
+    it("should handle mixed cases and spaces correctly", () => {
+      spyOn(stringUtils, "kebabCase").and.callThrough();
+      expect(service.reformatLocalHref("path/With Mixed CASES")).toBe("path/with-mixed-cases");
+      expect(stringUtils.kebabCase).toHaveBeenCalledWith("With Mixed CASES");
+    });
   });
 
 });

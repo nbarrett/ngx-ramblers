@@ -14,18 +14,22 @@ const memberService = {
 };
 
 describe("StringUtilsService", () => {
-  beforeEach(() => TestBed.configureTestingModule({
-    imports: [LoggerTestingModule, HttpClientTestingModule, RouterTestingModule],
-    providers: [
-      MemberIdToFullNamePipe,
-      FullNamePipe,
-      FullNameWithAliasPipe,
-      {provide: "MemberService", useValue: memberService}]
-  }));
+  let service: StringUtilsService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [LoggerTestingModule, HttpClientTestingModule, RouterTestingModule],
+      providers: [
+        MemberIdToFullNamePipe,
+        FullNamePipe,
+        FullNameWithAliasPipe,
+        {provide: "MemberService", useValue: memberService}]
+    });
+    service = TestBed.inject(StringUtilsService);
+  });
 
   describe("stringifyObject", () => {
     it("should return an object with humanised key, values", () => {
-      const service: StringUtilsService = TestBed.inject(StringUtilsService);
       expect(service.stringifyObject({
           hostname: "api.meetup.com",
           protocol: "https:"
@@ -33,21 +37,18 @@ describe("StringUtilsService", () => {
       )).toBe("Hostname: api.meetup.com, Protocol: https:");
     });
     it("should not distinguish between undefined, empty and null", () => {
-      const service: StringUtilsService = TestBed.inject(StringUtilsService);
       expect(service.stringifyObject({value: undefined})).toBe("Value: (none)");
       expect(service.stringifyObject({value: null})).toBe("Value: (none)");
       expect(service.stringifyObject({value: ""})).toBe("Value: (none)");
       expect(service.stringifyObject("")).toBe("(none)");
     });
     it("should allow a default value to be supplied for non-present values", () => {
-      const service: StringUtilsService = TestBed.inject(StringUtilsService);
       expect(service.stringifyObject({value: undefined}, "(nowt)")).toBe("Value: (nowt)");
       expect(service.stringifyObject({value: null}, "(nowt)")).toBe("Value: (nowt)");
       expect(service.stringifyObject({value: ""}, "(nowt)")).toBe("Value: (nowt)");
       expect(service.stringifyObject("", "(nowt)")).toBe("(nowt)");
     });
     it("should return an object nested objects each with humanised key, values", () => {
-      const service: StringUtilsService = TestBed.inject(StringUtilsService);
       expect(service.stringifyObject({
         title: "a Brief Description and Start Point",
         config: {
@@ -70,7 +71,6 @@ describe("StringUtilsService", () => {
 
   describe("left", () => {
     it("should return the left X characters of string regardless of length", () => {
-      const service: StringUtilsService = TestBed.inject(StringUtilsService);
       expect(service.left("Hello Mum", 10)).toBe("Hello Mum");
       expect(service.left("the quick brown fox jumped over the lazy dog", 10)).toBe("the quick ");
     });
@@ -78,34 +78,28 @@ describe("StringUtilsService", () => {
 
   describe("stringify", () => {
     it("Check this - seems odd behaviour: should return just message if supplied object with both title and message (e.g. AlertMessage)", () => {
-      const service: StringUtilsService = TestBed.inject(StringUtilsService);
       expect(service.stringify({title: "who cares", message: "foo"})).toBe("foo");
     });
     it("should return stringified version of field if string", () => {
-      const service: StringUtilsService = TestBed.inject(StringUtilsService);
       expect(service.stringify({message: "foo"})).toBe("Message: foo");
       expect(service.stringify({title: "who cares"})).toBe("Title: who cares");
     });
     it("should return stringified version of message field if object", () => {
-      const service: StringUtilsService = TestBed.inject(StringUtilsService);
       expect(service.stringify({message: {some: {complex: {object: "wohoo"}}}})).toBe("Message -> Some -> Complex -> Object: wohoo");
     });
   });
 
   describe("replaceAll", () => {
     it("should replace multiple instance of one character with another", () => {
-      const service: StringUtilsService = TestBed.inject(StringUtilsService);
       expect(service.replaceAll("  ", " ", "Hello            Mum")).toBe("Hello Mum");
       expect(service.replaceAll("  ", " ", "Hello      Mum")).toBe("Hello Mum");
     });
 
     it("should not get stuck in a loop if search and replace are the same", () => {
-      const service: StringUtilsService = TestBed.inject(StringUtilsService);
       expect(service.replaceAll(" ", " ", "Hello            Mum")).toBe("Hello            Mum");
     });
 
     it("should replace one or more instances of one string with another", () => {
-      const service: StringUtilsService = TestBed.inject(StringUtilsService);
       expect(service.replaceAll("abc", "replaced text", "Test abc test test abc test test test abc test test abc")).toBe("Test replaced text test test replaced text test test test replaced text test test replaced text");
       expect(service.replaceAll(".", "", "$100.00")).toBe("$10000");
       expect(service.replaceAll("e", "o", "there are quite a few instances of the letter e in this text")).toBe("thoro aro quito a fow instancos of tho lottor o in this toxt");
@@ -114,10 +108,74 @@ describe("StringUtilsService", () => {
     });
 
     it("should accept numeric values too!", () => {
-      const service: StringUtilsService = TestBed.inject(StringUtilsService);
       expect(service.replaceAll(9, 1, 909912349.9)).toBe(101112341.1);
     });
-
   });
 
+  describe("kebabCase", () => {
+    it("should convert a single string to kebab-case", () => {
+      const result = service.kebabCase("Hello World");
+      expect(result).toBe("hello-world");
+    });
+
+    it("should convert multiple strings to a single kebab-case string", () => {
+      const result = service.kebabCase("Hello", "World");
+      expect(result).toBe("hello-world");
+    });
+
+    it("should handle empty strings and falsy values", () => {
+      const result = service.kebabCase("", null, "Hello World");
+      expect(result).toBe("hello-world");
+    });
+
+    it("should handle strings with multiple spaces", () => {
+      const result = service.kebabCase("Hello   World");
+      expect(result).toBe("hello-world");
+    });
+
+    it("should handle strings with uppercase characters", () => {
+      const result = service.kebabCase("path", "WithUpperCase");
+      expect(result).toBe("path-with-upper-case");
+    });
+  });
+
+  describe("asTitle", () => {
+    it("should convert a string to title case", () => {
+      const result = service.asTitle("hello world");
+      expect(result).toBe("Hello World");
+    });
+  });
+
+  describe("asWords", () => {
+    it("should split a string into words", () => {
+      const result = service.asWords("hello world");
+      expect(result).toBe("hello world");
+    });
+  });
+
+  describe("pluraliseWithCount", () => {
+    it("should pluralise a word based on count", () => {
+      const result = service.pluraliseWithCount(1, "apple");
+      expect(result).toBe("1 apple");
+      const resultPlural = service.pluraliseWithCount(2, "apple");
+      expect(resultPlural).toBe("2 apples");
+    });
+  });
+
+  describe("arrayFromDelimitedData", () => {
+    it("should convert a comma-separated string to an array", () => {
+      const result = service.arrayFromDelimitedData("apple, banana, cherry");
+      expect(result).toEqual(["apple", "banana", "cherry"]);
+    });
+
+    it("should handle an array input", () => {
+      const result = service.arrayFromDelimitedData(["apple", "banana", "cherry"]);
+      expect(result).toEqual(["apple", "banana", "cherry"]);
+    });
+
+    it("should handle empty input", () => {
+      const result = service.arrayFromDelimitedData("");
+      expect(result).toEqual([]);
+    });
+  });
 });
