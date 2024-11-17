@@ -10,7 +10,7 @@ import { WalkNotificationDetailsComponent } from "../common/walk-notification-de
         [textContent]="walk.walkLeaderMemberId | memberIdToFullName : members : walk.displayName"></strong>
       on <strong [textContent]="walk.walkDate | displayDate"></strong>:
     </p>
-    <app-walk-notification-changes [data]="data"></app-walk-notification-changes>
+    <app-walk-notification-changes [data]="data"/>
     <p *ngIf="event.reason" [textContent]="event.reason"></p>
     <p *ngIf="validationMessages.length > 0"><strong>Note:</strong> The Walk can't be approved yet because <span
       [textContent]="validationMessages | asWalkValidationsList"></span>.</p>
@@ -19,7 +19,7 @@ import { WalkNotificationDetailsComponent } from "../common/walk-notification-de
       any further changes to this walk,
       you will need to decide whether to re-publish <a [href]="display.ramblersLink(walk)">this
         walk on the Ramblers site</a>.</p>
-    <app-walk-notification-footer [data]="data"></app-walk-notification-footer>`
+    <app-walk-notification-footer [data]="data"/>`
 })
 export class WalkNotificationCoordinatorUpdatedComponent extends WalkNotificationDetailsComponent {
 

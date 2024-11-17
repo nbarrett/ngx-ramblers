@@ -1,4 +1,4 @@
-import { HttpClientTestingModule } from "@angular/common/http/testing";
+import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
 import { RouterTestingModule } from "@angular/router/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
@@ -8,13 +8,13 @@ import { MemberIdToFullNamePipe } from "../pipes/member-id-to-full-name.pipe";
 
 import { DbUtilsService } from "./db-utils.service";
 import { StringUtilsService } from "./string-utils.service";
+import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 
 describe("DbUtilsService", () => {
   beforeEach(() => TestBed.configureTestingModule({
-    imports: [LoggerTestingModule, HttpClientTestingModule, RouterTestingModule],
-    providers: [StringUtilsService, MemberIdToFullNamePipe, FullNamePipe, FullNameWithAliasPipe]
-
-  }));
+    imports: [LoggerTestingModule, RouterTestingModule],
+    providers: [StringUtilsService, MemberIdToFullNamePipe, FullNamePipe, FullNameWithAliasPipe, provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
+}));
 
   it("should extract mongo duplicate message", () => {
     const service: DbUtilsService = TestBed.inject(DbUtilsService);

@@ -157,7 +157,6 @@ import { StringUtilsService } from "../../../services/string-utils.service";
               <div class="custom-control custom-radio custom-control-inline">
                 <input class="custom-control-input" id="{{displayedWalk.walk.id}}-show-start-point"
                        type="radio"
-                       class="custom-control-input"
                        [ngModel]="mapDisplay" name="mapDisplay"
                        (ngModelChange)="changeMapView($event)"
                        value="show-start-point"/>
@@ -167,7 +166,6 @@ import { StringUtilsService } from "../../../services/string-utils.service";
               <div *ngIf="displayedWalk.walk.postcodeFinish" class="custom-control custom-radio custom-control-inline">
                 <input class="custom-control-input" id="{{displayedWalk.walk.id}}-show-end-point"
                        type="radio"
-                       class="custom-control-input"
                        [ngModel]="mapDisplay" name="mapDisplay"
                        (ngModelChange)="changeMapView($event)"
                        value="show-end-point"/>
@@ -225,7 +223,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected stringUtils = inject(StringUtilsService);
   private systemConfigService = inject(SystemConfigService);
   private notifierService = inject(NotifierService);
-  private logger = inject(LoggerFactory).createLogger("WalkViewComponent", NgxLoggerLevel.ERROR);
+  private logger = inject(LoggerFactory).createLogger("WalkViewComponent", NgxLoggerLevel.INFO);
   private notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
 
   @Input("displayedWalk") set init(displayedWalk: DisplayedWalk) {

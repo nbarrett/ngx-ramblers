@@ -167,7 +167,7 @@ import { SocialViewPageComponent } from "./pages/social/social-view-page/social-
 import { SocialDisplayService } from "./pages/social/social-display.service";
 import { SocialEventsComponent } from "./pages/social/list/social-events";
 import { CommitteeMemberLookupComponent } from "./pages/admin/system-settings/committee/committee-member-lookup";
-import { RecaptchaModule } from "ng-recaptcha";
+import { RecaptchaModule } from "ng-recaptcha-2";
 import { ContactUsModalComponent } from "./pages/contact-us/contact-us-modal.component";
 import { SystemRecaptchaSettingsComponent } from "./pages/admin/system-settings/recaptcha/system-recaptcha-settings";
 import { initializeGtag } from "./pages/admin/system-settings/google-analytics/tag-manager";
