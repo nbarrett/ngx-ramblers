@@ -1,4 +1,4 @@
-import { HttpClientTestingModule } from "@angular/common/http/testing";
+import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
 import { RouterTestingModule } from "@angular/router/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
@@ -18,6 +18,7 @@ import { EventPopulation, Organisation } from "../../models/system.model";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
 import { WalkEventService } from "../../services/walks/walk-event.service";
 import { EventType } from "../../models/walk.model";
+import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 
 const anyWalkDate = 123364;
 const walkLeaderMemberId = "walk-leader-id";
@@ -50,12 +51,9 @@ describe("WalkDisplayService", () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [
-        LoggerTestingModule,
-        HttpClientTestingModule,
-        RouterTestingModule,
-      ],
-      providers: [
+    imports: [LoggerTestingModule,
+        RouterTestingModule],
+    providers: [
         AuditDeltaChangedItemsPipePipe,
         FullNameWithAliasPipe,
         FullNamePipe,
@@ -65,17 +63,19 @@ describe("WalkDisplayService", () => {
         ValueOrDefaultPipe,
         GoogleMapsService,
         WalkEventService,
-        {provide: MemberLoginService, useValue: memberLoginService},
-        {provide: "MemberAuditService", useValue: {}},
-        {provide: "WalkNotificationService", useValue: {}},
-        {provide: "MailchimpSegmentService", useValue: {}},
-        {provide: "MailchimpConfigDocument", useValue: {}},
-        {provide: "MailchimpCampaignService", useValue: {}},
-        {provide: "MeetupService", useValue: meetupService},
-        {provide: "ClipboardService", useValue: {}},
-        {provide: "MemberService", useValue: memberService}
-      ]
-    });
+        { provide: MemberLoginService, useValue: memberLoginService },
+        { provide: "MemberAuditService", useValue: {} },
+        { provide: "WalkNotificationService", useValue: {} },
+        { provide: "MailchimpSegmentService", useValue: {} },
+        { provide: "MailchimpConfigDocument", useValue: {} },
+        { provide: "MailchimpCampaignService", useValue: {} },
+        { provide: "MeetupService", useValue: meetupService },
+        { provide: "ClipboardService", useValue: {} },
+        { provide: "MemberService", useValue: memberService },
+        provideHttpClient(withInterceptorsFromDi()),
+        provideHttpClientTesting()
+    ]
+});
     const emptyPromise = Promise.resolve({}) as any;
     spy = spyOn(googleConfig, "getConfig").and.returnValue(emptyPromise);
   });

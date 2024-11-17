@@ -75,7 +75,7 @@ export class WalkEventService {
     private stringUtils: StringUtilsService,
     private auditDeltaChangedItems: AuditDeltaChangedItemsPipePipe,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkEventService, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger(WalkEventService, NgxLoggerLevel.INFO);
   }
 
   public latestEventWithStatusChange(walk: Walk): WalkEvent {

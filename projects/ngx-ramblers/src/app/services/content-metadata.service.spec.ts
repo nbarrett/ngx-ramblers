@@ -1,4 +1,4 @@
-import { HttpClientTestingModule } from "@angular/common/http/testing";
+import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
 import { ActivatedRoute } from "@angular/router";
 import { LoggerTestingModule } from "ngx-logger/testing";
@@ -10,25 +10,29 @@ import { SearchFilterPipe } from "../pipes/search-filter.pipe";
 import { ContentMetadataService } from "./content-metadata.service";
 import { StringUtilsService } from "./string-utils.service";
 import { RootFolder } from "../models/system.model";
+import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 
 describe("ContentMetadataService", () => {
   beforeEach(() => TestBed.configureTestingModule({
-    imports: [LoggerTestingModule, HttpClientTestingModule],
+    imports: [LoggerTestingModule],
     providers: [
-      {
-        provide: ActivatedRoute, useValue: {
-          queryParams: {
-            subscribe: () => {
+        {
+            provide: ActivatedRoute, useValue: {
+                queryParams: {
+                    subscribe: () => {
+                    }
+                }, snapshot: { url: Array("admin", "member-bulk-load") }
             }
-          }, snapshot: {url: Array("admin", "member-bulk-load")}
-        }
-      },
-      StringUtilsService,
-      MemberIdToFullNamePipe,
-      FullNamePipe,
-      FullNameWithAliasPipe,
-      SearchFilterPipe]
-  }));
+        },
+        StringUtilsService,
+        MemberIdToFullNamePipe,
+        FullNamePipe,
+        FullNameWithAliasPipe,
+        SearchFilterPipe,
+        provideHttpClient(withInterceptorsFromDi()),
+        provideHttpClientTesting()
+    ]
+}));
 
   const input: ContentMetadata = {
     id: "53729e3fb1e8b51319e3a2ec",

@@ -1,4 +1,4 @@
-import { HttpClientTestingModule } from "@angular/common/http/testing";
+import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
 import { FullNameWithAliasPipe } from "../pipes/full-name-with-alias.pipe";
@@ -6,6 +6,7 @@ import { FullNamePipe } from "../pipes/full-name.pipe";
 import { MemberIdToFullNamePipe } from "../pipes/member-id-to-full-name.pipe";
 import { CommonDataService } from "./common-data-service";
 import { StringUtilsService } from "./string-utils.service";
+import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 
 const criteria = {
   memberId: "12324"
@@ -21,9 +22,9 @@ const input = {
 
 describe("CommonDataService", () => {
   beforeEach(() => TestBed.configureTestingModule({
-    imports: [LoggerTestingModule, HttpClientTestingModule],
-    providers: [StringUtilsService, MemberIdToFullNamePipe, FullNamePipe, FullNameWithAliasPipe]
-  }));
+    imports: [LoggerTestingModule],
+    providers: [StringUtilsService, MemberIdToFullNamePipe, FullNamePipe, FullNameWithAliasPipe, provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
+}));
 
   it("should return keys of complex input", () => {
     const service: CommonDataService = TestBed.inject(CommonDataService);

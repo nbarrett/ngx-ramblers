@@ -4,8 +4,9 @@ import { ActivatedRoute, Router } from "@angular/router";
 import { LoggerTestingModule } from "ngx-logger/testing";
 import { AWSLinkConfig, LinkConfig } from "../models/link.model";
 import { UrlService } from "./url.service";
-import { HttpClientTestingModule } from "@angular/common/http/testing";
+import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { StringUtilsService } from "./string-utils.service";
+import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 
 describe("UrlService", () => {
 
@@ -21,20 +22,23 @@ describe("UrlService", () => {
   beforeEach(() => {
     const path = "/path-part-1/path-part-2/path-part-3";
     return TestBed.configureTestingModule({
-      imports: [LoggerTestingModule, HttpClientTestingModule],
-      providers: [
-        {provide: Location, useValue: {path: () => path}},
+    imports: [LoggerTestingModule],
+    providers: [
+        { provide: Location, useValue: { path: () => path } },
         {
-          provide: Router, useValue: {
-            parseUrl: (url) => {
-              return {root: {children: {primary: {segments: path.split("/").filter(item => item).map(item => ({path: item}))}}}};
-            }, url: "/admin/member-bulk-load/12398719823"
-          }
+            provide: Router, useValue: {
+                parseUrl: (url) => {
+                    return { root: { children: { primary: { segments: path.split("/").filter(item => item).map(item => ({ path: item })) } } } };
+                }, url: "/admin/member-bulk-load/12398719823"
+            }
         },
-        {provide: ActivatedRoute, useValue: {snapshot: {url: Array("admin", "member-bulk-load")}}},
-        {provide: DOCUMENT, useValue: LOCATION_VALUE},
-        StringUtilsService]
-    }).compileComponents();
+        { provide: ActivatedRoute, useValue: { snapshot: { url: Array("admin", "member-bulk-load") } } },
+        { provide: DOCUMENT, useValue: LOCATION_VALUE },
+        StringUtilsService,
+        provideHttpClient(withInterceptorsFromDi()),
+        provideHttpClientTesting()
+    ]
+}).compileComponents();
   });
 
   it("should return baseUrl as the path segment before /", () => {
