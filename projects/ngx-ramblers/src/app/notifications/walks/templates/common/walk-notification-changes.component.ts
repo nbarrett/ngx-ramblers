@@ -1,6 +1,5 @@
-import { Component, inject } from "@angular/core";
+import { Component } from "@angular/core";
 import { WalkNotificationDetailsComponent } from "./walk-notification-details.component";
-import { AuditDeltaValuePipe } from "../../../../pipes/audit-delta-value.pipe";
 
 @Component({
   selector: "app-walk-notification-changes",
@@ -11,22 +10,22 @@ import { AuditDeltaValuePipe } from "../../../../pipes/audit-delta-value.pipe";
         <th width="40%" style="border:1px solid lightgrey; font-weight: bold; padding: 6px">From</th>
         <th width="40%" style="border:1px solid lightgrey; font-weight: bold; padding: 6px">To</th>
       </tr>
-      <tr *ngFor="let item of walkDataAudit.changedItems">
+      <tr *ngFor="let item of walkDataAudit?.changedItems">
         <td style="border:1px solid lightgrey; padding: 6px">{{ item.fieldName | humanise }}</td>
-        <td style="border:1px solid lightgrey; padding: 6px" markdown
-            [data]="auditedValue(item.previousValue, item.fieldName)"></td>
-        <td style="border:1px solid lightgrey; padding: 6px" markdown
-            [data]="auditedValue(item.currentValue,item.fieldName)"></td>
+        <ng-container *ngIf="!renderMarkdown">
+          <td style="border:1px solid lightgrey; padding: 6px">{{ item.previousValue }}</td>
+          <td style="border:1px solid lightgrey; padding: 6px">{{ item.currentValue }}</td>
+        </ng-container>
+        <ng-container *ngIf="renderMarkdown">
+          <td style="border:1px solid lightgrey; padding: 6px"
+              markdown [data]="item.previousValue"></td>
+          <td style="border:1px solid lightgrey; padding: 6px"
+              markdown [data]="item.currentValue"></td>
+        </ng-container>
       </tr>
-    </table>`
+    </table>
+  `
 })
 export class WalkNotificationChangesComponent extends WalkNotificationDetailsComponent {
-
-  private auditDeltaValuePipe: AuditDeltaValuePipe = inject(AuditDeltaValuePipe);
-
-  auditedValue(previousValue: any, fieldName: string): string {
-    const transformedValue = this.auditDeltaValuePipe.transform(previousValue, fieldName, this.members, "(none)");
-    this.logger.off("audit:previousValue ->", previousValue, "fieldName ->", fieldName, "transformedValue:", transformedValue);
-    return transformedValue?.toString();
-  }
+  protected renderMarkdown = true;
 }

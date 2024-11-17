@@ -16,27 +16,27 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
     <table style="cellpadding:10; border:1px solid lightgrey;border-collapse:collapse;width: 100%;border-spacing: 5px;">
       <thead>
       <tr>
-        <th style="border:1px solid lightgrey; font-weight: bold; padding: 6px">Expense Date</th>
-        <th style="border:1px solid lightgrey; font-weight: bold; padding: 6px">Item Description</th>
-        <th style="border:1px solid lightgrey; font-weight: bold; padding: 6px; text-align:right">Cost</th>
+        <th style="width:30%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Expense Date</th>
+        <th style="width:50%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Item Description</th>
+        <th style="width:20%; border:1px solid lightgrey; font-weight: bold; padding: 6px; text-align:right">Cost</th>
       </tr>
       </thead>
       <tbody>
       <tr *ngFor="let expenseItem of expenseClaim.expenseItems">
-        <td style="border:1px solid lightgrey; padding: 6px" [textContent]="expenseItem.expenseDate | displayDate"></td>
+        <td style="border:1px solid lightgrey; padding: 6px">{{ expenseItem.expenseDate | displayDate }}</td>
         <td style="border:1px solid lightgrey; padding: 6px">
-          <div [textContent]="display.prefixedExpenseItemDescription(expenseItem)"></div>
-          <div *ngIf="expenseItem.receipt"> receipt: <a target="_blank" [href]="display.receiptUrl(expenseItem)"
-                                                        [textContent]="display.receiptTitle(expenseItem)"></a></div>
+          <div>{{display.prefixedExpenseItemDescription(expenseItem)}}</div>
+          <div *ngIf="expenseItem.receipt"> receipt: <a target="_blank"
+                                                        [href]="display.receiptUrl(expenseItem)">{{ display.receiptTitle(expenseItem) }}</a>
+          </div>
         </td>
-        <td style="border:1px solid lightgrey; padding: 6px;text-align:right"
-            [textContent]="expenseItem.cost | asMoney"></td>
+        <td style="border:1px solid lightgrey; padding: 6px;text-align:right">{{ expenseItem.cost | asMoney }}</td>
       </tr>
       <tr>
-        <td colspan="2" style="border:1px solid lightgrey; font-weight: bold; padding: 6px"
-            [textContent]="expenseClaim.expenseItems.length + ' item(s)'"></td>
-        <td style="border:1px solid lightgrey; font-weight: bold; padding: 6px; text-align:right"
-            [textContent]="expenseClaim.cost | asMoney"></td>
+        <td colspan="2" style="border:1px solid lightgrey; font-weight: bold; padding: 6px">{{ stringUtilsService.pluraliseWithCount(expenseClaim.expenseItems.length, 'item') }}</td>
+        <td
+          style="border:1px solid lightgrey; font-weight: bold; padding: 6px; text-align:right">{{ expenseClaim.cost | asMoney }}
+        </td>
       </tr>
       </tbody>
     </table>`

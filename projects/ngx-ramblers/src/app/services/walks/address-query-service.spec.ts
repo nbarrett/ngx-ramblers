@@ -1,19 +1,17 @@
-import { HttpClientTestingModule } from "@angular/common/http/testing";
+import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
 import { RouterTestingModule } from "@angular/router/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
 import { AddressQueryService } from "./address-query.service";
+import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 
 describe("addressQueryService", () => {
 
   beforeEach(() => TestBed.configureTestingModule({
-    imports: [
-      LoggerTestingModule,
-      HttpClientTestingModule,
-      RouterTestingModule,
-    ],
-    providers: []
-  }).compileComponents());
+    imports: [LoggerTestingModule,
+        RouterTestingModule],
+    providers: [provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
+}).compileComponents());
 
   describe("gridReferenceFrom", () => {
 

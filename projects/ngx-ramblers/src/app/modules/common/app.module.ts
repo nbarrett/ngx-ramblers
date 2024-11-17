@@ -1,4 +1,4 @@
-import { HttpClientModule } from "@angular/common/http";
+import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 import { ApplicationRef, DoBootstrap, NgModule } from "@angular/core";
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -38,54 +38,48 @@ import { SiteEditComponent } from "../../site-edit/site-edit.component";
 import { CardContainerComponent } from "./card-container/card-container.component";
 import { NavbarContentComponent } from "./navbar-content/navbar-content";
 import { NavbarComponent } from "./navbar/navbar";
-import { RecaptchaModule } from "ng-recaptcha";
+import { RecaptchaModule } from "ng-recaptcha-2";
 import { AdminModule } from "../admin/admin.module";
 
-@NgModule({
-  declarations: [
-    BannerComponent,
-    BannerHeadLogoComponent,
-    BannerImageSelectorComponent,
-    BannerLogoAndTextLinesOutputComponent,
-    BannerPapercutOutputComponent,
-    BannerTitleConfigComponent,
-    BannerTitleOutputComponent,
-    BannerTitlePartConfigComponent,
-    CardContainerComponent,
-    ChangedItemsPipe,
-    ContainerComponent,
-    FacebookComponent,
-    FooterComponent,
-    ForgotPasswordComponent,
-    HeaderBarComponent,
-    HeaderButtonsComponent,
-    HomeComponent,
-    HowToModalComponent,
-    HowToSubjectListingComponent,
-    IconSelectorComponent,
-    InstagramComponent,
-    LoginComponent,
-    LoginModalComponent,
-    LoginPanelComponent,
-    LogoutComponent,
-    MeetupDescriptionComponent,
-    NavbarComponent,
-    NavbarContentComponent,
-    PageNavigatorComponent,
-    PrivacyPolicyComponent,
-    SetPasswordComponent,
-    SiteEditComponent,
-    SocialMediaLinksComponent
-  ],
-    imports: [
-        AppRoutingModule,
+@NgModule({ declarations: [
+        BannerComponent,
+        BannerHeadLogoComponent,
+        BannerImageSelectorComponent,
+        BannerLogoAndTextLinesOutputComponent,
+        BannerPapercutOutputComponent,
+        BannerTitleConfigComponent,
+        BannerTitleOutputComponent,
+        BannerTitlePartConfigComponent,
+        CardContainerComponent,
+        ChangedItemsPipe,
+        ContainerComponent,
+        FacebookComponent,
+        FooterComponent,
+        ForgotPasswordComponent,
+        HeaderBarComponent,
+        HeaderButtonsComponent,
+        HomeComponent,
+        HowToModalComponent,
+        HowToSubjectListingComponent,
+        IconSelectorComponent,
+        InstagramComponent,
+        LoginComponent,
+        LoginModalComponent,
+        LoginPanelComponent,
+        LogoutComponent,
+        MeetupDescriptionComponent,
+        NavbarComponent,
+        NavbarContentComponent,
+        PageNavigatorComponent,
+        PrivacyPolicyComponent,
+        SetPasswordComponent,
+        SiteEditComponent,
+        SocialMediaLinksComponent
+    ], imports: [AppRoutingModule,
         BrowserAnimationsModule,
-        HttpClientModule,
         RecaptchaModule,
         SharedModule.forRoot(),
-        AdminModule,
-    ]
-})
+        AdminModule], providers: [provideHttpClient(withInterceptorsFromDi())] })
 
 export class AppModule implements DoBootstrap {
   private logger: Logger;

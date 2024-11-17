@@ -1,4 +1,4 @@
-import { HttpClientTestingModule } from "@angular/common/http/testing";
+import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
 import { RouterTestingModule } from "@angular/router/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
@@ -7,6 +7,7 @@ import { FullNamePipe } from "../../pipes/full-name.pipe";
 import { MemberIdToFullNamePipe } from "../../pipes/member-id-to-full-name.pipe";
 import { MemberNamingService } from "./member-naming.service";
 import { Member } from "../../models/member.model";
+import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 
 const twoJohns = [{
   firstName: "John",
@@ -32,9 +33,9 @@ describe("MemberNamingService", () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [LoggerTestingModule, HttpClientTestingModule, RouterTestingModule],
-      providers: [MemberIdToFullNamePipe, FullNamePipe, FullNameWithAliasPipe]
-    });
+    imports: [LoggerTestingModule, RouterTestingModule],
+    providers: [MemberIdToFullNamePipe, FullNamePipe, FullNameWithAliasPipe, provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
+});
     service = TestBed.inject(MemberNamingService);
   });
 
@@ -150,9 +151,9 @@ describe("MemberNamingService - createUserName", () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [LoggerTestingModule, HttpClientTestingModule, RouterTestingModule],
-      providers: [MemberIdToFullNamePipe, FullNamePipe, FullNameWithAliasPipe]
-    });
+    imports: [LoggerTestingModule, RouterTestingModule],
+    providers: [MemberIdToFullNamePipe, FullNamePipe, FullNameWithAliasPipe, provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
+});
     service = TestBed.inject(MemberNamingService);
   });
 

@@ -8,6 +8,9 @@ import { EventType, Walk } from "../../../../models/walk.model";
 import { WalkDisplayService } from "../../../../pages/walks/walk-display.service";
 import { GoogleMapsService } from "../../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
+import { AuditDeltaValuePipe } from "../../../../pipes/audit-delta-value.pipe";
+import { ChangedItem } from "../../../../models/changed-item.model";
+import { MarkdownService } from "ngx-markdown";
 
 @Component({
   selector: "app-walk-notification-details",
@@ -95,8 +98,8 @@ export class WalkNotificationDetailsComponent implements OnInit {
 
   protected logger: Logger;
   public members: Member[];
-
   constructor(
+    private auditDeltaValuePipe: AuditDeltaValuePipe,
     public googleMapsService: GoogleMapsService,
     public display: WalkDisplayService,
     loggerFactory: LoggerFactory) {
@@ -116,9 +119,20 @@ export class WalkNotificationDetailsComponent implements OnInit {
       this.status = this.data.status;
       this.event = this.data.event;
       this.walkDataAudit = this.data.walkDataAudit;
+      this.walkDataAudit.changedItems = this.walkDataAudit.changedItems.map((changedItem: ChangedItem) => ({
+        fieldName: changedItem.fieldName,
+        previousValue: this.auditedValue(changedItem.previousValue, changedItem.fieldName),
+        currentValue: this.auditedValue(changedItem.currentValue, changedItem.fieldName)
+      }));
       this.validationMessages = this.data.validationMessages;
       this.reason = this.data.reason;
     }
+  }
+
+  auditedValue(previousValue: any, fieldName: string): string {
+    const transformedValue = this.auditDeltaValuePipe.transform(previousValue, fieldName, this.members, "(none)");
+    this.logger.info("audit:previousValue ->", previousValue, "fieldName ->", fieldName, "transformedValue:", transformedValue);
+    return transformedValue?.toString();
   }
 
 }

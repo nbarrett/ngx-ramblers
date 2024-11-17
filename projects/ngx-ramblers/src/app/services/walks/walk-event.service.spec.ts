@@ -1,4 +1,4 @@
-import { HttpClientTestingModule } from "@angular/common/http/testing";
+import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
 import { RouterTestingModule } from "@angular/router/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
@@ -11,6 +11,7 @@ import { StringUtilsService } from "../string-utils.service";
 
 import { WalkEventService } from "./walk-event.service";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
+import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 
 describe("WalksEventService", () => {
   const MemberLoginService = {
@@ -21,14 +22,11 @@ describe("WalksEventService", () => {
   };
 
   beforeEach(() => TestBed.configureTestingModule({
-    imports: [HttpClientTestingModule,
-      LoggerTestingModule, RouterTestingModule
-    ],
-    providers: [{provide: "MemberAuditService", useValue: {}},
-      AuditDeltaChangedItemsPipePipe, StringUtilsService, MemberIdToFullNamePipe, FullNameWithAliasPipe, FullNamePipe,
-      {provide: "MemberService", useValue: MemberLoginService}
-    ]
-  }));
+    imports: [LoggerTestingModule, RouterTestingModule],
+    providers: [{ provide: "MemberAuditService", useValue: {} },
+        AuditDeltaChangedItemsPipePipe, StringUtilsService, MemberIdToFullNamePipe, FullNameWithAliasPipe, FullNamePipe,
+        { provide: "MemberService", useValue: MemberLoginService }, provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
+}));
 
   describe("dataAuditDelta", () => {
     it("changedItems should correctly calculate difference", () => {

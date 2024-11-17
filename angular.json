@@ -18,15 +18,18 @@
       "prefix": "app",
       "architect": {
         "build": {
-          "builder": "@angular-devkit/build-angular:browser",
+          "builder": "@angular-devkit/build-angular:application",
           "options": {
             "allowedCommonJsDependencies": [
               "lodash"
             ],
-            "outputPath": "dist/ngx-ramblers",
+            "outputPath": {
+              "base": "dist/ngx-ramblers"
+            },
             "index": "projects/ngx-ramblers/src/index.html",
-            "main": "projects/ngx-ramblers/src/main.ts",
-            "polyfills": "projects/ngx-ramblers/src/polyfills.ts",
+            "polyfills": [
+              "projects/ngx-ramblers/src/polyfills.ts"
+            ],
             "tsConfig": "projects/ngx-ramblers/tsconfig.app.json",
             "inlineStyleLanguage": "sass",
             "assets": [
@@ -44,7 +47,8 @@
               "./node_modules/jquery/dist/jquery.slim.min.js",
               "./node_modules/bootstrap/dist/js/bootstrap.bundle.min.js",
               "./node_modules/marked/marked.min.js"
-            ]
+            ],
+            "browser": "projects/ngx-ramblers/src/main.ts"
           },
           "configurations": {
             "production": {
@@ -70,9 +74,7 @@
               "outputHashing": "all"
             },
             "development": {
-              "buildOptimizer": false,
               "optimization": false,
-              "vendorChunk": true,
               "extractLicenses": false,
               "sourceMap": true,
               "namedChunks": true
@@ -87,10 +89,10 @@
           },
           "configurations": {
             "production": {
-              "browserTarget": "ngx-ramblers:build:production"
+              "buildTarget": "ngx-ramblers:build:production"
             },
             "development": {
-              "browserTarget": "ngx-ramblers:build:development"
+              "buildTarget": "ngx-ramblers:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -98,7 +100,7 @@
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "ngx-ramblers:build"
+            "buildTarget": "ngx-ramblers:build"
           }
         },
         "test": {
