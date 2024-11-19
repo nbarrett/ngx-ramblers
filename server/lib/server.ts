@@ -53,7 +53,7 @@ const app = express();
 app.use(compression());
 app.set("port", port);
 app.disable("view cache");
-app.use(favicon(path.join(distFolder, "favicon.ico")));
+app.use(favicon(path.join(distFolder, "browser", "favicon.ico")));
 app.use(logger(envConfig.env));
 app.use(methodOverride());
 app.use(bodyParser.json({limit: "50mb"}));

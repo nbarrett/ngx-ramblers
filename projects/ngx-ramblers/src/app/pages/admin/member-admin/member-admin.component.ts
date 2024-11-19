@@ -39,7 +39,7 @@ import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk
 import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
 import { MailchimpConfig } from "../../../models/mailchimp.model";
 import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
-import { faUserXmark } from "@fortawesome/free-solid-svg-icons/faUserXmark";
+import { faUserXmark } from "@fortawesome/free-solid-svg-icons";
 import { faSearch, faUserCheck } from "@fortawesome/free-solid-svg-icons";
 
 @Component({

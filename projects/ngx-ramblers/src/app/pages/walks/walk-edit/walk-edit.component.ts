@@ -18,7 +18,7 @@ import { ConfirmType } from "../../../models/ui-actions";
 import { DisplayedEvent } from "../../../models/walk-displayed-event.model";
 import { WalkEventType } from "../../../models/walk-event-type.model";
 import { WalkEvent } from "../../../models/walk-event.model";
-import { DisplayedWalk, EventType, Walk, WalkExport, WalkViewMode } from "../../../models/walk.model";
+import { DisplayedWalk, EventType, Walk, WalkExport, WalkType, WalkViewMode } from "../../../models/walk.model";
 import { ChangedItemsPipe } from "../../../pipes/changed-items.pipe";
 import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
@@ -48,7 +48,7 @@ import { MailMessagingConfig } from "../../../models/mail.model";
 import { MeetupService } from "../../../services/meetup.service";
 import { WalkNotification, WalksConfig } from "../../../models/walk-notification.model";
 import { MeetupDescriptionComponent } from "../../../notifications/walks/templates/meetup/meetup-description.component";
-import { RamblersEventType } from "../../../models/ramblers-walks-manager";
+import { LocationDetails, RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { WalksConfigService } from "../../../services/system/walks-config.service";
 
 @Component({
@@ -151,13 +151,12 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
             </div>
           </div>
         </tab>
-        <tab heading="Walk Details">
+        <tab (selectTab)="onTabSelect(true)" heading="Walk Details">
           <div class="img-thumbnail thumbnail-admin-edit">
             <div class="row">
-              <div class="col-sm-6">
-                <h5>Walk details</h5>
+              <div class="col-sm-12">
                 <div class="row">
-                  <div class="col-sm-6">
+                  <div class="col-sm-4">
                     <div class="form-group">
                       <label for="grade">Grade</label>
                       <select *ngIf="allowDetailView()" [disabled]="inputDisabled()"
@@ -170,7 +169,7 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
                       </select>
                     </div>
                   </div>
-                  <div class="col-sm-6">
+                  <div class="col-sm-4">
                     <div class="form-group">
                       <label for="walkType">Walk Type</label>
                       <select *ngIf="allowDetailView()" [disabled]="inputDisabled()"
@@ -182,73 +181,7 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
                       </select>
                     </div>
                   </div>
-                  <div class="col-sm-6">
-                    <div class="form-group">
-                      <label for="post-code">Start Postcode</label>
-                      <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.postcode"
-                             (ngModelChange)="postcodeChange()"
-                             type="text" class="form-control input-sm" id="post-code"
-                             placeholder="Enter Postcode here">
-                    </div>
-                  </div>
-                  <div class="col-sm-6">
-                    <div class="form-group">
-                      <label for="grid-reference">Start Grid Reference</label>
-                      <div class="input-group">
-                        <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.gridReference"
-                               type="text" class="form-control input-sm" id="grid-reference"
-                               placeholder="Enter start grid Reference here">
-                        <div class="input-group-append">
-                          <div class="input-group-text pointer">
-                            <div (click)="viewGridReference(displayedWalk.walk.gridReference)" placement="top"
-                                 tooltip="View start grid reference position in gridreferencefinder.com">
-                              <img src="/assets/images/local/grid-reference-finder.ico"/>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <ng-container *ngIf="displayedWalk.walk.walkType === 'Linear'">
-                    <div class="col-sm-6">
-                      <div class="form-group">
-                        <label for="finish-post-code">Finish Postcode</label>
-                        <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.postcodeFinish"
-                               (ngModelChange)="postcodeFinishChange()"
-                               type="text" class="form-control input-sm" id="finish-post-code"
-                               placeholder="Enter finish postcode here">
-                      </div>
-                    </div>
-                    <div class="col-sm-6">
-                      <div class="form-group">
-                        <label for="grid-reference-end">Finish Grid Reference</label>
-                        <div class="input-group">
-                          <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.gridReferenceFinish"
-                                 type="text" class="form-control input-sm" id="grid-reference-end"
-                                 placeholder="Enter Finish Grid Reference here">
-                          <div class="input-group-append">
-                            <div class="input-group-text pointer">
-                              <div (click)="viewGridReference(displayedWalk.walk.gridReferenceFinish)"
-                                   placement="top"
-                                   tooltip="View finish grid reference position in gridreferencefinder.com">
-                                <img src="/assets/images/local/grid-reference-finder.ico"/>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </ng-container>
-                  <div class="col-sm-6">
-                    <div class="form-group">
-                      <label for="nearest-town">Nearest Town</label>
-                      <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.nearestTown"
-                             type="text" class="form-control input-sm"
-                             id="nearest-town"
-                             placeholder="Enter nearest town here">
-                    </div>
-                  </div>
-                  <div class="col-sm-6">
+                  <div class="col-sm-4">
                     <div class="form-group">
                       <label for="ascent">Ascent</label>
                       <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.ascent"
@@ -258,24 +191,22 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
                   </div>
                 </div>
               </div>
-              <div class="col-sm-6 rounded">
-                <h5>Google Maps</h5>
-                <p>The map below is a preview of where postcode <strong>{{ displayedWalk.walk.postcode }}</strong> will
-                  appear on
-                  Google Maps. This map will be displayed in the detail view of the walk.</p>
-                <input type="number" min="1" max="20" *ngIf="false"
-                       [(ngModel)]="display.googleMapsConfig.zoomLevel">
-                <iframe *ngIf="display.mapViewReady(googleMapsUrl)"
-                        allowfullscreen
-                        class="map-thumbnail-image-dialog"
-                        style="border:0;border-radius: 10px;"
-                        [src]="googleMapsUrl"></iframe>
+            </div>
+            <div class="row" *ngIf="renderMapEdit">
+              <div class="col">
+                <app-walk-location-edit locationType="Starting" [locationDetails]="displayedWalk.walk.start_location"
+                                        [notify]="notify"/>
+              </div>
+              <div class="col" *ngIf="displayedWalk.walk.walkType ===WalkType.LINEAR">
+                <app-walk-location-edit locationType="Finishing"
+                                        [locationDetails]="displayedWalk.walk.end_location"
+                                        [notify]="notify"/>
               </div>
             </div>
           </div>
         </tab>
         <tab *ngIf="display.allowEdits(displayedWalk.walk)" heading="Risk Assessment">
-          <app-walk-risk-assessment [displayedWalk]="displayedWalk"></app-walk-risk-assessment>
+          <app-walk-risk-assessment [displayedWalk]="displayedWalk"/>
         </tab>
         <tab heading="Related Links">
           <div class="img-thumbnail thumbnail-admin-edit">
@@ -680,33 +611,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   set initialiseWalk(displayedWalk: DisplayedWalk) {
     this.logger.debug("cloning walk for edit");
     this.displayedWalk = cloneDeep(displayedWalk);
+    this.mapEditComponentDisplayedWalk = this.displayedWalk;
   }
-  @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
-  private mailMessagingConfig: MailMessagingConfig;
-  public previousWalkLeaderIds: string[] = [];
-  public displayedWalk: DisplayedWalk;
-  public meetupService: MeetupService;
-  public confirmAction: ConfirmType = ConfirmType.NONE;
-  public googleMapsUrl: SafeResourceUrl;
-  public walkDate: Date;
-  private priorStatus: EventType;
-  protected logger: Logger;
-  public notifyTarget: AlertTarget = {};
-  public notify: AlertInstance;
-  public saveInProgress = false;
-  public sendNotifications = false;
-  public longerDescriptionPreview: boolean;
-  public meetupConfig: MeetupConfig;
-  public faPencil = faPencil;
-  public faMagnifyingGlass = faMagnifyingGlass;
-  public copySource = "copy-selected-walk-leader";
-  public copySourceFromWalkLeaderMemberId: string;
-  public copyFrom: any = {};
-  public showOnlyWalkLeaders = true;
-  private subscriptions: Subscription[] = [];
-  private walkLeadContactId: string;
-  private myContactId: string;
-  private walksConfig: WalksConfig;
   constructor(
     private walksConfigService: WalksConfigService,
     private mailMessagingService: MailMessagingService,
@@ -735,6 +641,39 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     loggerFactory: LoggerFactory) {
     this.logger = loggerFactory.createLogger("WalkEditComponent", NgxLoggerLevel.INFO);
   }
+  protected renderMapEdit: boolean;
+
+  @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
+  private mailMessagingConfig: MailMessagingConfig;
+  public previousWalkLeaderIds: string[] = [];
+  public displayedWalk: DisplayedWalk;
+  public mapEditComponentDisplayedWalk: DisplayedWalk;
+  public meetupService: MeetupService;
+  public confirmAction: ConfirmType = ConfirmType.NONE;
+  public googleMapsUrl: SafeResourceUrl;
+  public walkDate: Date;
+  private priorStatus: EventType;
+  protected logger: Logger;
+  public notifyTarget: AlertTarget = {};
+  public notify: AlertInstance;
+  public saveInProgress = false;
+  public sendNotifications = false;
+  public longerDescriptionPreview: boolean;
+  public meetupConfig: MeetupConfig;
+  public faPencil = faPencil;
+  public faMagnifyingGlass = faMagnifyingGlass;
+  public copySource = "copy-selected-walk-leader";
+  public copySourceFromWalkLeaderMemberId: string;
+  public copyFrom: any = {};
+  public showOnlyWalkLeaders = true;
+  private subscriptions: Subscription[] = [];
+  private walkLeadContactId: string;
+  private myContactId: string;
+  private walksConfig: WalksConfig;
+  public options: any;
+  public showGoogleMapsView = false;
+
+  protected readonly WalkType = WalkType;
 
   async ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -763,6 +702,19 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.configService.queryConfig<MeetupConfig>(ConfigKey.MEETUP).then(meetupConfig => this.meetupConfig = meetupConfig);
     this.showWalk(this.displayedWalk);
     this.logger.debug("displayedWalk:", this.displayedWalk);
+  }
+
+  toggleMapView() {
+    this.showGoogleMapsView = !this.showGoogleMapsView;
+    setTimeout(() => {
+      this.showGoogleMapsView = !this.showGoogleMapsView;
+    }, 0);
+  }
+
+  private pushWalkToChild() {
+    this.logger.info("displayedWalk changed:", this.displayedWalk);
+    this.toggleMapView()
+    this.mapEditComponentDisplayedWalk = cloneDeep(this.displayedWalk);
   }
 
   ngOnDestroy(): void {
@@ -931,7 +883,10 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       this.logger.info("showWalk", displayedWalk.walk, "mailConfig:", this?.mailMessagingConfig?.mailConfig);
       if (!displayedWalk.walk.venue) {
         this.logger.debug("initialising walk venue");
-        displayedWalk.walk.venue = {type: this.walksReferenceService.venueTypes()[0].type, postcode: displayedWalk.walk.postcode};
+        displayedWalk.walk.venue = {
+          type: this.walksReferenceService.venueTypes()[0].type,
+          postcode: displayedWalk.walk.start_location.postcode
+        };
       }
       this.confirmAction = ConfirmType.NONE;
       this.updateGoogleMapsUrl();
@@ -975,7 +930,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   private updateGoogleMapsUrl() {
-    this.googleMapsUrl = this.display.googleMapsUrl(false, this.displayedWalk.walk.postcode, this.displayedWalk.walk.postcode);
+    this.googleMapsUrl = this.display.googleMapsUrl(false, this.displayedWalk.walk.start_location.postcode, this.displayedWalk.walk.start_location.postcode);
   }
 
   populateCopySourceFromWalkLeaderMemberId() {
@@ -1089,7 +1044,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   insufficientDataToUploadToRamblers() {
     return this.memberLoginService.allowWalkAdminEdits() && this.displayedWalk.walk
-      && !(this.displayedWalk.walk.gridReference || this.displayedWalk.walk.postcode);
+      && !(this.display.gridReferenceFrom(this.displayedWalk.walk.start_location) || this.displayedWalk.walk.start_location.postcode);
   }
 
   validateWalk(): WalkExport {
@@ -1232,7 +1187,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   private updateGridReferenceIfRequired() {
     this.logger.info("walk:", this.displayedWalk.walk);
-    if (this.displayedWalk.walk.postcode && (!this.displayedWalk.walk.gridReference || this.displayedWalk.walk.gridReference.length < 14)) {
+    if (this.displayedWalk.walk.start_location.postcode && (!this.display.gridReferenceFrom(this.displayedWalk.walk.start_location) || this.display.gridReferenceFrom(this.displayedWalk.walk.start_location).length < 14)) {
       return this.postcodeChange();
     } else {
       return Promise.resolve();
@@ -1346,9 +1301,11 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   personToNotify() {
-    return this.display.loggedInMemberIsLeadingWalk(this.displayedWalk.walk) ?
+    const loggedInMemberIsLeadingWalk = this.display.loggedInMemberIsLeadingWalk(this.displayedWalk.walk);
+    this.logger.off("personToNotify:loggedInMemberIsLeadingWalk:", loggedInMemberIsLeadingWalk, "walkLeaderMemberId:", this.displayedWalk.walk.walkLeaderMemberId, "walk.displayName:", this.displayedWalk?.walk?.displayName);
+    return loggedInMemberIsLeadingWalk ?
       this.display.walksCoordinatorName() :
-      this.displayedWalk.walk && this.displayedWalk.walk.displayName;
+      this.displayedWalk?.walk?.displayName;
   }
 
   populateWalkTemplates(injectedMemberId?: string) {
@@ -1410,10 +1367,12 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   async postcodeChange() {
-    if (this.displayedWalk.walk.postcode.length > 3) {
-      const postcode = this.displayedWalk.walk.postcode;
-      this.displayedWalk.walk.postcode = postcode?.toUpperCase()?.trim();
-      this.displayedWalk.walk.gridReference = await this.lookupGridReferenceBasedOn(postcode);
+    if (this.displayedWalk.walk.start_location.postcode.length > 3) {
+      const postcode = this.displayedWalk.walk.start_location.postcode;
+      this.displayedWalk.walk.start_location.postcode = postcode?.toUpperCase()?.trim();
+      this.displayedWalk.walk.start_location.grid_reference_10 = await this.lookupGridReferenceBasedOn(postcode);
+      this.pushWalkToChild();
+      // this.toggleMapView();
       return this.updateGoogleMapsUrl();
     } else {
       return Promise.resolve();
@@ -1421,9 +1380,9 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   async postcodeFinishChange() {
-    const postcode = this.displayedWalk.walk.postcodeFinish;
-    this.displayedWalk.walk.postcodeFinish = postcode.toUpperCase().trim();
-    this.displayedWalk.walk.gridReferenceFinish = await this.lookupGridReferenceBasedOn(postcode);
+    const postcode = this.displayedWalk.walk.end_location.postcode;
+    this.displayedWalk.walk.end_location.postcode = postcode.toUpperCase().trim();
+    this.displayedWalk.walk.end_location.postcode = await this.lookupGridReferenceBasedOn(postcode);
   }
 
   viewGridReference(gridReference: string) {
@@ -1447,4 +1406,14 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     }
   }
 
+  locationChanged(locationChangeEvent: LocationDetails) {
+    this.displayedWalk.walk.start_location = locationChangeEvent;
+    this.logger.info("locationChanged:", locationChangeEvent);
+    this.updateGoogleMapsUrl();
+  }
+
+  onTabSelect(event: any): void {
+    this.logger.info("onTabSelect:event", event);
+    this.renderMapEdit = true;
+  }
 }

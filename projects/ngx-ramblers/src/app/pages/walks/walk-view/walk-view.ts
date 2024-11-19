@@ -39,7 +39,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                  class="badge event-badge next-event-badge"> Our next walk
             </div>
           </h2>
-          <h2 *ngIf="display.shouldShowFullDetails(displayedWalk) && displayedWalk.walk.startTime" name="startTime">
+          <h2 *ngIf="display.shouldShowFullDetails(displayedWalk) && displayedWalk.walk.startTime">
             Start Time: {{ displayedWalk.walk.startTime }}</h2>
           <input *ngIf="displayedWalk?.walkAccessMode?.walkWritable" type="submit"
                  [value]="displayedWalk?.walkAccessMode?.caption"
@@ -161,16 +161,16 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                        (ngModelChange)="changeMapView($event)"
                        value="show-start-point"/>
                 <label class="custom-control-label" for="{{displayedWalk.walk.id}}-show-start-point">
-                  At start point {{ displayedWalk.walk.postcode }}</label>
+                  At start point {{ displayedWalk.walk.start_location.postcode }}</label>
               </div>
-              <div *ngIf="displayedWalk.walk.postcodeFinish" class="custom-control custom-radio custom-control-inline">
+              <div *ngIf="displayedWalk?.walk?.end_location?.postcode" class="custom-control custom-radio custom-control-inline">
                 <input class="custom-control-input" id="{{displayedWalk.walk.id}}-show-end-point"
                        type="radio"
                        [ngModel]="mapDisplay" name="mapDisplay"
                        (ngModelChange)="changeMapView($event)"
                        value="show-end-point"/>
                 <label class="custom-control-label" for="{{displayedWalk.walk.id}}-show-end-point">
-                  At finish point {{ displayedWalk.walk.postcodeFinish }}</label>
+                  At finish point {{ displayedWalk?.walk?.end_location?.postcode }}</label>
               </div>
               <div class="custom-control custom-radio custom-control-inline">
                 <input id="{{displayedWalk.walk.id}}-show-driving-directions"
@@ -180,11 +180,11 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                        [ngModel]="mapDisplay" name="mapDisplay"
                        value="show-driving-directions"/>
                 <label class="custom-control-label text-nowrap align-middle"
-                       [ngClass]="{'postcode-label-second-line' : displayedWalk.walk.postcodeFinish}"
+                       [ngClass]="{'postcode-label-second-line' : displayedWalk?.walk?.end_location?.postcode}"
                        for="{{displayedWalk.walk.id}}-show-driving-directions">
                   Driving from</label>
                 <input class="form-control input-sm text-uppercase ml-2 postcode-input align-middle"
-                       [ngClass]="{'postcode-input-second-line' : displayedWalk.walk.postcodeFinish}"
+                       [ngClass]="{'postcode-input-second-line' : displayedWalk?.walk?.end_location?.postcode}"
                        [ngModel]="fromPostcode" name="fromPostcode"
                        (ngModelChange)="changeFromPostcode($event)"
                        type="text">
@@ -296,7 +296,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
 
   updateGoogleMap() {
     if (this.display.shouldShowFullDetails(this.displayedWalk)) {
-      this.googleMapsUrl = this.display.googleMapsUrl(!this.drivingDirectionsDisabled() && this.showDrivingDirections(), this.fromPostcode, this.showEndPoint() ? this.displayedWalk?.walk.postcodeFinish : this.displayedWalk?.walk.postcode);
+      this.googleMapsUrl = this.display.googleMapsUrl(!this.drivingDirectionsDisabled() && this.showDrivingDirections(), this.fromPostcode, this.showEndPoint() ? this.displayedWalk?.walk.end_location.postcode : this.displayedWalk?.walk.start_location.postcode);
       this.logger.info("Should show details - rendering googleMapsUrl:", this.googleMapsUrl);
     } else {
       this.logger.warn("Should not show details for walk:", this.displayedWalk);

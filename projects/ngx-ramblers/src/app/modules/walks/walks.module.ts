@@ -80,6 +80,8 @@ import { WalkFeaturesComponent } from "../../pages/walks/walk-view/walk-features
 import { WalkFeatureComponent } from "../../pages/walks/walk-view/walk-feature";
 import { WalkImagesComponent } from "../../pages/walks/walk-view/walk-images";
 import { WalkImportComponent } from "../../pages/walks/walk-import/walk-import.component";
+import { MapEditComponent } from "../../pages/walks/walk-edit/map-edit";
+import { WalkLocationEditComponent } from "../../pages/walks/walk-edit/walk-location-edit";
 
 @NgModule({
   declarations: [
@@ -90,6 +92,8 @@ import { WalkImportComponent } from "../../pages/walks/walk-import/walk-import.c
     WalkAdminComponent,
     WalkDetailsComponent,
     WalkEditComponent,
+    WalkLocationEditComponent,
+    MapEditComponent,
     WalkEditFullPageComponent,
     WalkEventTypePipe,
     WalkExportComponent,

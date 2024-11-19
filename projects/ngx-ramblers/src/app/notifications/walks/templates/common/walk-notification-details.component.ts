@@ -10,7 +10,6 @@ import { GoogleMapsService } from "../../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { AuditDeltaValuePipe } from "../../../../pipes/audit-delta-value.pipe";
 import { ChangedItem } from "../../../../models/changed-item.model";
-import { MarkdownService } from "ngx-markdown";
 
 @Component({
   selector: "app-walk-notification-details",
@@ -41,9 +40,9 @@ import { MarkdownService } from "ngx-markdown";
             [textContent]="walk.distance | valueOrDefault"></td>
       </tr>
       <tr>
-        <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Nearest Town:</td>
+        <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Starting Location:</td>
         <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px"
-            [textContent]="walk.nearestTown | valueOrDefault"></td>
+            [textContent]="walk.start_location.description | valueOrDefault"></td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Grade:</td>
@@ -53,14 +52,14 @@ import { MarkdownService } from "ngx-markdown";
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Grid Ref:</td>
         <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">
-          <a [href]="'http://gridreferencefinder.com/?gr=' + walk.gridReference" target="_blank"><span
-            [textContent]="walk.gridReference | valueOrDefault"></span></a></td>
+          <a [href]="'http://gridreferencefinder.com/?gr=' + display.gridReferenceFrom(walk.start_location)" target="_blank">
+            {{ display.gridReferenceFrom(walk.start_location) | valueOrDefault }}</a></td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Postcode:</td>
         <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">
-          <a [href]="googleMapsService.urlForPostcode(walk.postcode)" target="_blank"><span
-            [textContent]="walk.postcode | valueOrDefault"></span></a></td>
+          <a [href]="googleMapsService.urlForPostcode(walk.start_location.postcode)" target="_blank">
+            {{ walk.start_location.postcode | valueOrDefault }}</a></td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Display Name:</td>
@@ -103,7 +102,7 @@ export class WalkNotificationDetailsComponent implements OnInit {
     public googleMapsService: GoogleMapsService,
     public display: WalkDisplayService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkNotificationDetailsComponent", NgxLoggerLevel.ERROR);
+    this.logger = loggerFactory.createLogger("WalkNotificationDetailsComponent", NgxLoggerLevel.INFO);
   }
 
   ngOnInit() {
