@@ -25,7 +25,7 @@ COPY projects/ngx-ramblers /usr/src/app/projects/ngx-ramblers
 RUN npm install
 
 # Build the Angular application using the locally installed Angular CLI
-RUN npx ng build --project ngx-ramblers --build-optimizer --progress --configuration production
+RUN npx ng build --project ngx-ramblers --progress --configuration production
 
 # Copy the server application code to the working directory
 WORKDIR /usr/src/app/server

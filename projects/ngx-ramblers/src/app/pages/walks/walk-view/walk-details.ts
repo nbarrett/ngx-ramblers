@@ -38,75 +38,77 @@ import { StringUtilsService } from "../../../services/string-utils.service";
       <div *ngIf="display.shouldShowFullDetails(displayedWalk)" class="row">
         <div app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6">
           <div title>
-            <app-copy-icon [value]="displayedWalk.walk.postcode"
-                           [elementName]="elementNameStart('Postcode')"></app-copy-icon>
+            <app-copy-icon [value]="displayedWalk?.walk?.start_location?.postcode"
+                           [elementName]="elementNameStart('Postcode')"/>
             {{ elementNameStart('Postcode') }}
           </div>
           <div content>
-            <span>{{ displayedWalk.walk.location }}</span>
-            <a tooltip="Click to locate postcode {{displayedWalk.walk.postcode}} on Google Maps"
-               [href]="googleMapsService.urlForPostcode(displayedWalk.walk.postcode)" target="_blank">
-              {{ displayedWalk.walk.postcode }}</a>
+            <a tooltip="Click to locate postcode {{displayedWalk?.walk?.start_location?.postcode}} on Google Maps"
+               [href]="googleMapsService.urlForPostcode(displayedWalk?.walk?.start_location?.postcode)" target="_blank">
+              {{ displayedWalk?.walk?.start_location?.postcode }}</a>
           </div>
         </div>
-        <div app-related-link [mediaWidth]="walkDetailsMediaWidth" *ngIf="displayedWalk.walk.gridReference"
+        <div app-related-link [mediaWidth]="walkDetailsMediaWidth"
+             *ngIf="display.gridReferenceFrom(displayedWalk.walk.start_location)"
              class="col-sm-6">
           <div title>
-            <app-copy-icon [value]="displayedWalk.walk.gridReference"
+            <app-copy-icon [value]="display.gridReferenceFrom(displayedWalk.walk.start_location)"
                            [elementName]="elementNameStart('Grid Ref')"></app-copy-icon>
-            {{ elementNameStart('Grid Ref') }}
+            Grid Ref
           </div>
           <div content>
             <a content
-               [href]="display.gridReferenceLink(displayedWalk.walk.gridReference)"
-               tooltip="Click to locate grid reference {{displayedWalk.walk.gridReference}} on UK Grid Reference Finder"
-               target="_blank">{{ displayedWalk.walk.gridReference }}</a></div>
+               [href]="display.gridReferenceLink(display.gridReferenceFrom(displayedWalk.walk.start_location))"
+               tooltip="Click to locate grid reference {{display.gridReferenceFrom(displayedWalk.walk.start_location)}} on UK Grid Reference Finder"
+               target="_blank">{{ display.gridReferenceFrom(displayedWalk.walk.start_location) }}</a></div>
 
         </div>
         <ng-container *ngIf="displayedWalk.showEndpoint">
           <div app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6">
             <div title>
-              <app-copy-icon [value]="displayedWalk.walk.postcodeFinish"
-                             [elementName]="'Finish Postcode'"></app-copy-icon>
+              <app-copy-icon [value]="displayedWalk?.walk?.end_location?.postcode"
+                             [elementName]="'Finish Postcode'"/>
               {{ elementNameFinish('Postcode') }}
             </div>
             <div content>
-              <a tooltip="Click to locate finish postcode {{displayedWalk.walk.postcodeFinish}} on Google Maps"
-                 [href]="googleMapsService.urlForPostcode(displayedWalk.walk.postcodeFinish)" target="_blank">
-                {{ displayedWalk.walk.postcode }}</a>
+              <a
+                tooltip="Click to locate finish postcode {{displayedWalk?.walk?.end_location?.postcode}} on Google Maps"
+                [href]="googleMapsService.urlForPostcode(displayedWalk?.walk?.end_location?.postcode)" target="_blank">
+                {{ displayedWalk?.walk?.end_location?.postcode }}</a>
             </div>
           </div>
-          <div app-related-link [mediaWidth]="walkDetailsMediaWidth" *ngIf="displayedWalk.walk.gridReferenceFinish"
+          <div app-related-link [mediaWidth]="walkDetailsMediaWidth"
+               *ngIf="display.gridReferenceFrom(displayedWalk?.walk?.end_location)"
                class="col-sm-6">
             <div title>
-              <app-copy-icon [value]="displayedWalk.walk.gridReferenceFinish"
-                             [elementName]="'Finish Grid reference'"></app-copy-icon>
-              {{ elementNameFinish('Grid Ref') }}
+              <app-copy-icon [value]="display.gridReferenceFrom(displayedWalk?.walk?.end_location)"
+                             [elementName]="'Finish Grid reference'"/>
+              Grid Ref
             </div>
             <div content>
               <a content
-                 [href]="display.gridReferenceLink(displayedWalk.walk.gridReferenceFinish)"
-                 tooltip="Click to locate finish grid reference {{displayedWalk.walk.gridReferenceFinish}} on UK Grid Reference Finder"
-                 target="_blank">{{ displayedWalk.walk.gridReferenceFinish }}</a></div>
+                 [href]="display.gridReferenceLink(display.gridReferenceFrom(displayedWalk?.walk?.end_location))"
+                 tooltip="Click to locate finish grid reference {{display.gridReferenceFrom(displayedWalk?.walk?.end_location)}} on UK Grid Reference Finder"
+                 target="_blank">{{ display.gridReferenceFrom(displayedWalk?.walk?.end_location) }}</a></div>
           </div>
         </ng-container>
         <div *ngIf="displayedWalk.walk.distance" app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6">
           <div title>
-            <fa-icon [icon]="faRulerHorizontal" class="fa-icon mr-1"></fa-icon>
+            <fa-icon [icon]="faRulerHorizontal" class="fa-icon mr-1"/>
             Distance
             <strong class="ml-1">{{ distanceValidationService.walkDistances(displayedWalk.walk) }}</strong>
           </div>
         </div>
         <div *ngIf="displayedWalk.walk.grade" app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6">
           <div title>
-            <fa-icon [icon]="faListCheck" class="fa-icon mr-1"></fa-icon>
+            <fa-icon [icon]="faListCheck" class="fa-icon mr-1"/>
             Grade
             <strong class="ml-1">{{ displayedWalk.walk.grade }}</strong>
           </div>
         </div>
         <div app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6" *ngIf="displayedWalk.walk.ascent">
           <div title>
-            <fa-icon [icon]="faRulerVertical" class="fa-icon mr-3"></fa-icon>
+            <fa-icon [icon]="faRulerVertical" class="fa-icon mr-3"/>
             Ascent
             <strong class="ml-1">{{ ascentValidationService.walkAscents(displayedWalk.walk) }}</strong>
           </div>

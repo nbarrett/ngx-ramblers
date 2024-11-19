@@ -117,7 +117,7 @@ export class RamblersWalksAndEventsService {
   private committeeReferenceData: CommitteeReferenceData;
   private ramblers: Ramblers;
   private BASE_URL = "/api/ramblers/walks-manager";
-  private NEAREST_TOWN_PREFIX = "Nearest Town is ";
+  private NEAREST_TOWN_PREFIX = "Starting Location is ";
 
 
   static areMongoIdsSupplied(response: any): response is MongoIdsSupplied {
@@ -422,8 +422,8 @@ export class RamblersWalksAndEventsService {
         validationMessages.push("description is missing");
       }
 
-      if (isEmpty(walk.postcode) && isEmpty(walk.gridReference)) {
-        validationMessages.push("both postcode and grid reference are missing");
+      if (isEmpty(walk?.start_location?.postcode) && isEmpty(this.walkDisplayService.gridReferenceFrom(walk?.start_location))) {
+        validationMessages.push("both starting postcode and grid reference are missing");
       }
 
       if (isEmpty(walk.contactId)) {
@@ -438,12 +438,12 @@ export class RamblersWalksAndEventsService {
         validationMessages.push("Display Name for walk leader is missing. This can be entered manually on the Walk Leader tab");
       }
 
-      if (walk.walkType === WalkType.LINEAR && isEmpty(walk.postcodeFinish)) {
+      if (walk.walkType === WalkType.LINEAR && isEmpty(this.walkDisplayService.gridReferenceFrom(walk?.end_location))) {
         validationMessages.push(`Walk is ${WalkType.LINEAR} but no finish postcode has been entered in the Walk Details tab`);
       }
 
-      if (walk.walkType === WalkType.CIRCULAR && !isEmpty(walk.postcodeFinish) && walk.postcodeFinish !== walk.postcode) {
-        validationMessages.push(`Walk is ${WalkType.CIRCULAR} but the finish postcode ${walk.postcodeFinish} does not match the start postcode ${walk.postcode} in the Walk Details tab`);
+      if (walk.walkType === WalkType.CIRCULAR && !isEmpty(walk?.end_location?.postcode) && walk?.end_location?.postcode !== walk?.start_location?.postcode) {
+        validationMessages.push(`Walk is ${WalkType.CIRCULAR} but the finish postcode ${walk?.end_location?.postcode} does not match the Starting Postcode ${walk?.start_location?.postcode} in the Walk Details tab`);
       }
 
       if (this.riskAssessmentService.unconfirmedRiskAssessmentsExist(walk.riskAssessment)) {
@@ -460,8 +460,12 @@ export class RamblersWalksAndEventsService {
     };
   }
 
-  nearestTown(walk: Walk) {
-    return walk.nearestTown ? `${this.NEAREST_TOWN_PREFIX}${walk.nearestTown}` : "";
+  startingLocationDetails(walk: Walk) {
+    return walk.start_location.description ? `${this.NEAREST_TOWN_PREFIX}${walk.start_location.description}` : "";
+  }
+
+  finishingLocationDetails(walk: Walk) {
+    return walk?.end_location?.description || "";
   }
 
   walkTitle(walk: Walk) {
@@ -514,20 +518,21 @@ export class RamblersWalksAndEventsService {
     return walk.finishTime || this.walkFinishTime(walk, milesPerHour);
   }
 
-  walkStartGridReference(walk: Walk): string {
-    return walk.gridReference || "";
+  startingGridReference(walk: Walk): string {
+    return this.walkDisplayService.gridReferenceFrom(walk?.start_location);
   }
 
-  walkStartPostcode(walk: Walk): string {
-    return walk.postcode || "";
+
+  startingPostcode(walk: Walk): string {
+    return walk?.start_location?.postcode || "";
   }
 
   walkFinishGridReference(walk: Walk): string {
-    return walk.gridReferenceFinish || "";
+    return walk?.end_location?.grid_reference_10  || "";
   }
 
   walkFinishPostcode(walk: Walk): string {
-    return walk.gridReferenceFinish ? "" : walk.postcodeFinish || "";
+    return this.walkDisplayService.gridReferenceFrom(walk?.end_location) ? "" : walk?.end_location?.postcode || "";
   }
 
   walkDate(walk: Walk, format: string): string {
@@ -575,20 +580,16 @@ export class RamblersWalksAndEventsService {
       distance: groupWalk?.distance_miles ? `${groupWalk?.distance_miles} miles` : "",
       events: [],
       grade: groupWalk.difficulty?.description,
-      gridReference: groupWalk.start_location?.grid_reference_8 || groupWalk.location.grid_reference_8,
-      gridReferenceFinish: groupWalk.end_location?.grid_reference_8,
+      start_location: groupWalk.start_location || groupWalk.location,
+      end_location: groupWalk?.end_location,
       id: groupWalk.id,
-      location: null,
       longerDescription: groupWalk?.description,
       meetupEventDescription: null,
       meetupEventTitle: this.urlService.isMeetupUrl(groupWalk.external_url) ? groupWalk.title : null,
       meetupEventUrl: this.urlService.isMeetupUrl(groupWalk.external_url) ? groupWalk.external_url : null,
       meetupPublish: false,
-      nearestTown: groupWalk.start_location?.description?.replace(this.NEAREST_TOWN_PREFIX, ""),
       osMapsRoute: null,
       osMapsTitle: null,
-      postcode: groupWalk.start_location?.postcode || groupWalk.location.postcode,
-      postcodeFinish: groupWalk.end_location?.postcode,
       ramblersPublish: false,
       ramblersWalkId: groupWalk.id,
       ramblersWalkUrl: groupWalk.url,
@@ -604,7 +605,6 @@ export class RamblersWalksAndEventsService {
         longName: groupWalk.group_name
       },
       features: (groupWalk.facilities || []).concat(groupWalk.transport || []).concat(groupWalk.accessibility || []).sort(sortBy("description")),
-      startLocation: groupWalk.start_location?.description,
       additionalDetails: groupWalk.additional_details,
       organiser:groupWalk?.event_organiser?.name
     };
@@ -724,9 +724,9 @@ export class RamblersWalksAndEventsService {
     csvRecord[WalkUploadColumnHeading.LINEAR_OR_CIRCULAR] = this.walkType(walk);
     csvRecord[WalkUploadColumnHeading.START_TIME] = this.walkStartTime(walk);
     csvRecord[WalkUploadColumnHeading.STARTING_LOCATION] = "";
-    csvRecord[WalkUploadColumnHeading.STARTING_POSTCODE] = this.walkStartPostcode(walk);
-    csvRecord[WalkUploadColumnHeading.STARTING_GRIDREF] = this.walkStartGridReference(walk);
-    csvRecord[WalkUploadColumnHeading.STARTING_LOCATION_DETAILS] = this.nearestTown(walk);
+    csvRecord[WalkUploadColumnHeading.STARTING_POSTCODE] = this.startingPostcode(walk);
+    csvRecord[WalkUploadColumnHeading.STARTING_GRIDREF] = this.startingGridReference(walk);
+    csvRecord[WalkUploadColumnHeading.STARTING_LOCATION_DETAILS] = this.startingLocationDetails(walk);
     csvRecord[WalkUploadColumnHeading.MEETING_TIME] = "";
     csvRecord[WalkUploadColumnHeading.MEETING_LOCATION] = "";
     csvRecord[WalkUploadColumnHeading.MEETING_POSTCODE] = "";
@@ -736,7 +736,7 @@ export class RamblersWalksAndEventsService {
     csvRecord[WalkUploadColumnHeading.FINISHING_LOCATION] = "";
     csvRecord[WalkUploadColumnHeading.FINISHING_POSTCODE] = this.walkFinishPostcode(walk);
     csvRecord[WalkUploadColumnHeading.FINISHING_GRIDREF] = this.walkFinishGridReference(walk);
-    csvRecord[WalkUploadColumnHeading.FINISHING_LOCATION_DETAILS] = "";
+    csvRecord[WalkUploadColumnHeading.FINISHING_LOCATION_DETAILS] = this.finishingLocationDetails(walk);
     csvRecord[WalkUploadColumnHeading.DIFFICULTY] = this.asString(walk.grade);
     csvRecord[WalkUploadColumnHeading.DISTANCE_KM] = walkDistance.kilometres.valueAsString;
     csvRecord[WalkUploadColumnHeading.DISTANCE_MILES] = walkDistance.miles.valueAsString;

@@ -13,7 +13,7 @@ import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-
 const debugLog = debug(envConfig.logNamespace("member"));
 debugLog.enabled = false;
 
-const controller = crudController.create<Member>(member, true);
+const controller = crudController.create<Member>(member);
 export const all = controller.all;
 export const deleteOne = controller.deleteOne;
 export const findById = controller.findById;

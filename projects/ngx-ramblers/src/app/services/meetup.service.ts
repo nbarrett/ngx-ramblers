@@ -254,7 +254,7 @@ export class MeetupService {
 
   async eventRequestFor(notify: AlertInstance, walk: Walk, description: string): Promise<MeetupEventRequest> {
     const venueResponse: NumericIdentifier = await this.createOrMatchVenue(notify, walk);
-    this.logger.debug("venue for", walk.postcode, "is", venueResponse);
+    this.logger.debug("venue for", walk.start_location.postcode, "is", venueResponse);
 
     const eventRequest = {
       venue_id: venueResponse.id,
@@ -274,8 +274,8 @@ export class MeetupService {
   venueRequestFor(walk: Walk): MeetupVenueRequest {
     const venueRequest: MeetupVenueRequest = {
       name: walk.venue.name || walk.briefDescriptionAndStartPoint,
-      address_1: walk.venue.address1 || walk.nearestTown,
-      city: walk.venue.postcode || walk.postcode,
+      address_1: walk.venue.address1 || walk.start_location.description,
+      city: walk.venue.postcode || walk.start_location.postcode,
       web_url: walk.venue.url,
       country: "gb",
     };

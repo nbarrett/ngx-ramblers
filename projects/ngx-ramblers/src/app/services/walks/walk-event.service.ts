@@ -29,13 +29,11 @@ const auditedFields: string[] = [
   "contactPhone",
   "displayName",
   "distance",
+  "end_location",
   "features",
   "finishTime",
   "grade",
-  "gridReference",
-  "gridReferenceFinish",
   "group",
-  "location",
   "longerDescription",
   "media",
   "meetupEventDescription",
@@ -43,11 +41,8 @@ const auditedFields: string[] = [
   "meetupEventUrl",
   "meetupPublish",
   "milesPerHour",
-  "nearestTown",
   "osMapsRoute",
   "osMapsTitle",
-  "postcode",
-  "postcodeFinish",
   "ramblersPublish",
   "ramblersWalkId",
   "ramblersWalkUrl",
@@ -55,6 +50,7 @@ const auditedFields: string[] = [
   "startLocation",
   "startLocationW3w",
   "startTime",
+  "start_location",
   "venue",
   "walkDate",
   "walkLeaderMemberId",
@@ -75,7 +71,7 @@ export class WalkEventService {
     private stringUtils: StringUtilsService,
     private auditDeltaChangedItems: AuditDeltaChangedItemsPipePipe,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkEventService, NgxLoggerLevel.INFO);
+    this.logger = loggerFactory.createLogger(WalkEventService, NgxLoggerLevel.ERROR);
   }
 
   public latestEventWithStatusChange(walk: Walk): WalkEvent {

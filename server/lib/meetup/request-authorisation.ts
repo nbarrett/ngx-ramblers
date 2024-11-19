@@ -9,7 +9,7 @@ import {
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
 
 const debug = debugLib(envConfig.logNamespace("meetup:request-access"));
-debug.enabled = true;
+debug.enabled = false;
 
 export async function requestAuthorisation(req: Request, res: Response): Promise<void> {
   try {

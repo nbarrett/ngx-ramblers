@@ -9,7 +9,7 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("contact-us"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function validateTokenRequest(req: Request, res: Response): Promise<void> {
   const validateTokenRequest: ValidateTokenRequest = req.body;

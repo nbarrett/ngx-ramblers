@@ -8,7 +8,7 @@ import { WalkAccessMode } from "./walk-edit-mode.model";
 import { WalkEventType } from "./walk-event-type.model";
 import { WalkEvent } from "./walk-event.model";
 import { WalkVenue } from "./walk-venue.model";
-import { Contact, Metadata, RamblersEventType } from "./ramblers-walks-manager";
+import { Contact, LocationDetails, Metadata, RamblersEventType } from "./ramblers-walks-manager";
 import { HasMedia } from "./social-events.model";
 
 export interface GoogleMapsConfig {
@@ -58,23 +58,16 @@ export interface Walk extends Identifiable, HasMedia {
   ascent?: string;
   events: WalkEvent[];
   grade?: string;
-  gridReference?: string;
-  gridReferenceFinish?: string;
-  location?: string;
   longerDescription?: string;
   config?: { meetup: MeetupConfig };
   meetupEventTitle?: string;
   meetupEventDescription?: string;
   meetupEventUrl?: string;
   meetupPublish?: boolean;
-  nearestTown?: string;
   osMapsRoute?: string;
   osMapsTitle?: string;
-  postcode?: string;
-  postcodeFinish?: string;
   ramblersWalkId?: string;
   ramblersWalkUrl?: string;
-  startLocationW3w?: string;
   ramblersPublish?: boolean;
   startTime?: string;
   finishTime?: string;
@@ -84,9 +77,19 @@ export interface Walk extends Identifiable, HasMedia {
   riskAssessment?: RiskAssessmentRecord[];
   group?: Group;
   features?: Metadata[];
-  startLocation?: string;
   additionalDetails?: string;
   organiser?: string;
+  start_location?: LocationDetails;
+  meeting_location?: LocationDetails;
+  end_location?: LocationDetails;
+  // deprecated fields
+  postcode?: string; // maps to start_location.postcode
+  gridReference?: string; // maps to start_location.grid_reference_10 (e.g. TR 05559 46726)
+  nearestTown?: string; // maps to start_location.description
+  startLocation?: string;// maps to start_location.description if nearestTown not populated
+  postcodeFinish?: string; // maps to end_location.postcode
+  gridReferenceFinish?: string; // maps to end_location.grid_reference_10 (e.g. TR 05559 46726)
+  startLocationW3w?: string; // maps to start_location.w3w
 }
 
 export interface RiskAssessmentRecord {
@@ -178,6 +181,11 @@ export interface WalkDateLessThanOrEqualTo {
   walkDate: { $lte: number };
 }
 
+export interface WalkLocation {
+  latitude: number;
+  longitude: number;
+}
+
 export interface DisplayedWalk {
   walk: Walk;
   walkAccessMode: WalkAccessMode;
@@ -200,3 +208,14 @@ export interface LocalContact {
   displayName?: string;
   telephone?: string;
 }
+
+export const INITIALISED_LOCATION: LocationDetails = {
+  w3w: "",
+  postcode: "",
+  description: "",
+  grid_reference_6: "",
+  grid_reference_8: "",
+  grid_reference_10: "",
+  latitude: null,
+  longitude: null
+};
