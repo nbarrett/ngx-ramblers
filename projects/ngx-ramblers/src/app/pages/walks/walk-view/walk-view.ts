@@ -39,7 +39,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                  class="badge event-badge next-event-badge"> Our next walk
             </div>
           </h2>
-          <h2 *ngIf="display.shouldShowFullDetails(displayedWalk) && displayedWalk.walk.startTime" name="startTime">
+          <h2 *ngIf="display.shouldShowFullDetails(displayedWalk) && displayedWalk.walk.startTime">
             Start Time: {{ displayedWalk.walk.startTime }}</h2>
           <input *ngIf="displayedWalk?.walkAccessMode?.walkWritable" type="submit"
                  [value]="displayedWalk?.walkAccessMode?.caption"
@@ -144,47 +144,68 @@ import { StringUtilsService } from "../../../services/string-utils.service";
           </div>
           <div class="row">
             <div class="col-sm-12">
-              <iframe *ngIf="display.mapViewReady(googleMapsUrl)"
-                      allowfullscreen
-                      class="map-thumbnail-image"
-                      style="border:0;border-radius: 10px;"
-                      [src]="googleMapsUrl"></iframe>
+              <ng-container *ngIf="display.mapViewReady(googleMapsUrl) && showGoogleMapsView">
+                <iframe allowfullscreen class="map-thumbnail-image" style="border:0;border-radius: 10px;"
+                        [src]="googleMapsUrl"></iframe>
+              </ng-container>
+              <ng-container *ngIf="!showGoogleMapsView">
+                <app-map-edit class="map-thumbnail-image" readonly
+                               [locationDetails]="mapDisplay==MapDisplay.SHOW_START_POINT? displayedWalk?.walk?.start_location:displayedWalk?.walk?.end_location"
+                              [notify]="notify"/>
+              </ng-container>
             </div>
           </div>
           <form class="rounded img-thumbnail map-radio-frame">
-            <label class="ml-2 mr-2 font-weight-bold">Show Map:</label>
+            <label class="ml-2 mr-2 font-weight-bold">Show Map As
+              <div class="custom-control custom-radio custom-control-inline ml-2">
+                <input class="custom-control-input" type="radio" name="mapView" [(ngModel)]="showGoogleMapsView"
+                       id="{{displayedWalk.walk.id}}-pin-view-mode-start"
+                       [value]="false" (ngModelChange)="configureMapDisplay()">
+                <label class="custom-control-label" for="{{displayedWalk.walk.id}}-pin-view-mode-start">
+                  Pin Location View</label>
+              </div>
+              <div class="custom-control custom-radio custom-control-inline">
+                <input class="custom-control-input" type="radio" name="mapView" [(ngModel)]="showGoogleMapsView"
+                       id="{{displayedWalk.walk.id}}-google-maps-mode-start"
+                       [value]="true" (ngModelChange)="configureMapDisplay()">
+                <label class="custom-control-label" for="{{displayedWalk.walk.id}}-google-maps-mode-start">
+                  Google Maps</label>
+
+              </div>
+            </label>
             <div class="col-sm-12 ml-2 mr-2">
               <div class="custom-control custom-radio custom-control-inline">
                 <input class="custom-control-input" id="{{displayedWalk.walk.id}}-show-start-point"
                        type="radio"
                        [ngModel]="mapDisplay" name="mapDisplay"
                        (ngModelChange)="changeMapView($event)"
-                       value="show-start-point"/>
+                       [value]="MapDisplay.SHOW_START_POINT"/>
                 <label class="custom-control-label" for="{{displayedWalk.walk.id}}-show-start-point">
-                  At start point {{ displayedWalk.walk.postcode }}</label>
+                  At start point {{ displayedWalk?.walk?.start_location?.postcode }}</label>
               </div>
-              <div *ngIf="displayedWalk.walk.postcodeFinish" class="custom-control custom-radio custom-control-inline">
+              <div *ngIf="displayedWalk?.walk?.end_location?.postcode"
+                   class="custom-control custom-radio custom-control-inline">
                 <input class="custom-control-input" id="{{displayedWalk.walk.id}}-show-end-point"
                        type="radio"
                        [ngModel]="mapDisplay" name="mapDisplay"
                        (ngModelChange)="changeMapView($event)"
-                       value="show-end-point"/>
+                       [value]="MapDisplay.SHOW_END_POINT"/>
                 <label class="custom-control-label" for="{{displayedWalk.walk.id}}-show-end-point">
-                  At finish point {{ displayedWalk.walk.postcodeFinish }}</label>
+                  At finish point {{ displayedWalk?.walk?.end_location?.postcode }}</label>
               </div>
-              <div class="custom-control custom-radio custom-control-inline">
+              <div *ngIf="this.showGoogleMapsView" class="custom-control custom-radio custom-control-inline">
                 <input id="{{displayedWalk.walk.id}}-show-driving-directions"
                        type="radio"
                        class="custom-control-input align-middle"
                        (ngModelChange)="changeMapView($event)"
                        [ngModel]="mapDisplay" name="mapDisplay"
-                       value="show-driving-directions"/>
+                       [value]="MapDisplay.SHOW_DRIVING_DIRECTIONS"/>
                 <label class="custom-control-label text-nowrap align-middle"
-                       [ngClass]="{'postcode-label-second-line' : displayedWalk.walk.postcodeFinish}"
+                       [ngClass]="{'postcode-label-second-line' : displayedWalk?.walk?.end_location?.postcode}"
                        for="{{displayedWalk.walk.id}}-show-driving-directions">
                   Driving from</label>
                 <input class="form-control input-sm text-uppercase ml-2 postcode-input align-middle"
-                       [ngClass]="{'postcode-input-second-line' : displayedWalk.walk.postcodeFinish}"
+                       [ngClass]="{'postcode-input-second-line' : displayedWalk?.walk?.end_location?.postcode}"
                        [ngModel]="fromPostcode" name="fromPostcode"
                        (ngModelChange)="changeFromPostcode($event)"
                        type="text">
@@ -199,6 +220,11 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 })
 
 export class WalkViewComponent implements OnInit, OnDestroy {
+
+
+  @Input("displayedWalk") set init(displayedWalk: DisplayedWalk) {
+    this.applyWalk(displayedWalk);
+  }
   public walkIdOrPath: string;
   public pathContainsWalkId: boolean;
   public displayedWalk: DisplayedWalk;
@@ -223,12 +249,10 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected stringUtils = inject(StringUtilsService);
   private systemConfigService = inject(SystemConfigService);
   private notifierService = inject(NotifierService);
-  private logger = inject(LoggerFactory).createLogger("WalkViewComponent", NgxLoggerLevel.INFO);
-  private notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
-
-  @Input("displayedWalk") set init(displayedWalk: DisplayedWalk) {
-    this.applyWalk(displayedWalk);
-  }
+  private logger = inject(LoggerFactory).createLogger("WalkViewComponent", NgxLoggerLevel.ERROR);
+  protected notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
+  public showGoogleMapsView = false;
+  protected readonly MapDisplay = MapDisplay;
 
   ngOnInit() {
     this.loggedIn = this.memberLoginService.memberLoggedIn();
@@ -252,16 +276,32 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       this.loggedIn = loginResponse?.memberLoggedIn;
       this.allowWalkAdminEdits = this.display.walkPopulationLocal() && this.memberLoginService.allowWalkAdminEdits();
       this.refreshHomePostcode();
-      this.updateGoogleMap();
+      this.updateGoogleMapIfApplicable();
     }));
     this.googleMapsService.events().subscribe(config => {
       this.logger.info("event received:", config);
-      this.updateGoogleMap();
+      this.updateGoogleMapIfApplicable();
     });
   }
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  toggleGoogleOrLeafletMapViewAndBack() {
+    this.showGoogleMapsView = !this.showGoogleMapsView;
+    setTimeout(() => {
+      this.showGoogleMapsView = !this.showGoogleMapsView;
+    }, 0);
+  }
+
+  configureMapDisplay() {
+    this.logger.info("configureMapDisplay:showGoogleMapsView:", this.showGoogleMapsView, "mapDisplay initial value:", this.mapDisplay);
+    if (!this.showGoogleMapsView && this.mapDisplay === MapDisplay.SHOW_DRIVING_DIRECTIONS) {
+      this.mapDisplay = MapDisplay.SHOW_START_POINT;
+      this.logger.info("configureMapDisplay:mapDisplay changed to:", this.mapDisplay);
+    }
+    this.updateGoogleMapIfApplicable();
   }
 
   queryIfRequired(): void {
@@ -286,7 +326,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     if (displayedWalk) {
       this.displayedWalk = displayedWalk;
       this.displayLinks = !!(this.displayedWalk.walk.meetupEventUrl || this.displayedWalk.walk.osMapsRoute || this.displayedWalk.walk.osMapsRoute || this.displayedWalk.walk.ramblersWalkId || this.displayedWalk.walkLink);
-      this.updateGoogleMap();
+      this.configureMapDisplay();
     }
     this.notify.success({
       title: `Single ${this.display.eventTypeTitle(this.displayedWalk?.walk)} showing`,
@@ -294,12 +334,17 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     });
   }
 
-  updateGoogleMap() {
-    if (this.display.shouldShowFullDetails(this.displayedWalk)) {
-      this.googleMapsUrl = this.display.googleMapsUrl(!this.drivingDirectionsDisabled() && this.showDrivingDirections(), this.fromPostcode, this.showEndPoint() ? this.displayedWalk?.walk.postcodeFinish : this.displayedWalk?.walk.postcode);
-      this.logger.info("Should show details - rendering googleMapsUrl:", this.googleMapsUrl);
+  updateGoogleMapIfApplicable() {
+    if (this.showGoogleMapsView) {
+      if (this.display.shouldShowFullDetails(this.displayedWalk)) {
+      this.googleMapsUrl = this.display.googleMapsUrl(!this.drivingDirectionsDisabled() && this.showDrivingDirections(), this.fromPostcode, this.showEndPoint() ? this.displayedWalk?.walk?.end_location?.postcode : this.displayedWalk?.walk?.start_location?.postcode);
+      this.logger.info("updateGoogleMap:Should show details - rendering googleMapsUrl:", this.googleMapsUrl);
+        this.toggleGoogleOrLeafletMapViewAndBack();
     } else {
-      this.logger.warn("Should not show details for walk:", this.displayedWalk);
+      this.logger.warn("updateGoogleMap:Should not show details for walk:", this.displayedWalk);
+      }
+    } else {
+      this.logger.info("updateGoogleMap:not performed as:this.showGoogleMapsView", this.showGoogleMapsView);
     }
   }
 
@@ -309,14 +354,14 @@ export class WalkViewComponent implements OnInit, OnDestroy {
 
   autoSelectMapDisplay() {
     const switchToShowStartPoint = this.drivingDirectionsDisabled() && this.showDrivingDirections();
-    const switchToShowDrivingDirections = this.validFromPostcodeEntered() && !this.showDrivingDirections();
+    const switchToShowDrivingDirections = this.validFromPostcodeEntered() && !this.showDrivingDirections() && this.showGoogleMapsView;
     this.logger.info("autoSelectMapDisplay on entering: drivingDirectionsDisabled:", this.drivingDirectionsDisabled(), "switchToShowStartPoint:", switchToShowStartPoint, "switchToShowDrivingDirections:", switchToShowDrivingDirections, "mapDisplay:", this.mapDisplay, "fromPostcode:", this.fromPostcode);
     if (switchToShowStartPoint) {
       this.mapDisplay = MapDisplay.SHOW_START_POINT;
     } else if (switchToShowDrivingDirections) {
       this.mapDisplay = MapDisplay.SHOW_DRIVING_DIRECTIONS;
     }
-    this.logger.info("autoSelectMapDisplay:mapDisplay:", this.mapDisplay);
+    this.logger.info("autoSelectMapDisplay:mapDisplay:", this.mapDisplay, "showGoogleMapsView:", this.showGoogleMapsView);
   }
 
   showDrivingDirections(): boolean {
@@ -328,7 +373,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   drivingDirectionsDisabled() {
-    return !this.validFromPostcodeEntered();
+    return !this.validFromPostcodeEntered() || !this.showGoogleMapsView;
   }
 
   validFromPostcodeEntered() {
@@ -343,13 +388,13 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   changeMapView(newValue: MapDisplay) {
     this.logger.info("changeShowDrivingDirections:", newValue);
     this.mapDisplay = newValue;
-    this.updateGoogleMap();
+    this.updateGoogleMapIfApplicable();
   }
 
   changeFromPostcode(fromPostcode: string) {
     this.logger.info("changeFromPostcode:", fromPostcode);
     this.fromPostcode = fromPostcode;
     this.autoSelectMapDisplay();
-    this.updateGoogleMap();
+    this.updateGoogleMapIfApplicable();
   }
 }

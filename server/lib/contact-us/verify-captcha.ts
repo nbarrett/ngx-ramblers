@@ -5,7 +5,7 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("verify-captcha"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function verifyCaptcha(token: string): Promise<CaptchaVerificationResponse> {
   const config: SystemConfig = await systemConfig();

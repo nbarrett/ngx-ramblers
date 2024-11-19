@@ -34,9 +34,14 @@ describe("WalksEventService", () => {
       const walk: Walk = {
         eventType: RamblersEventType.GROUP_WALK,
         walkDate: 12,
-        gridReference: "123",
-        postcode: "TN26 3HF",
-        nearestTown: "this",
+        start_location: {
+          grid_reference_10: "123", postcode: "TN26 3HF", description: "this",
+          latitude: 0,
+          longitude: 0,
+          grid_reference_6: "",
+          grid_reference_8: "",
+          w3w: ""
+        },
         events: [{
           eventType: EventType.AWAITING_APPROVAL, date: 23, memberId: "12",
           data: {nearestTown: "that"}
@@ -44,9 +49,14 @@ describe("WalksEventService", () => {
       };
       expect(service.walkDataAuditFor(walk, EventType.AWAITING_APPROVAL, true).changedItems)
         .toEqual([
-          {fieldName: "gridReference", previousValue: undefined, currentValue: "123"},
-          {fieldName: "nearestTown", previousValue: "that", currentValue: "this"},
-          {fieldName: "postcode", previousValue: undefined, currentValue: "TN26 3HF"},
+          {fieldName: "start_location", previousValue: undefined, currentValue: {
+              grid_reference_10: "123", postcode: "TN26 3HF", description: "this",
+              latitude: 0,
+              longitude: 0,
+              grid_reference_6: "",
+              grid_reference_8: "",
+              w3w: ""
+            }},
           {fieldName: "walkDate", previousValue: undefined, currentValue: 12},
         ]);
     });
@@ -58,9 +68,14 @@ describe("WalksEventService", () => {
       const walk: Walk = {
         eventType: RamblersEventType.GROUP_WALK,
         walkDate: 12,
-        gridReference: "123",
-        postcode: "TN26 3HF",
-        nearestTown: "this",
+        start_location: {
+          grid_reference_10: "123", postcode: "TN26 3HF", description: "this",
+          latitude: 0,
+          longitude: 0,
+          grid_reference_6: "",
+          grid_reference_8: "",
+          w3w: ""
+        },
         events: [{
           eventType: EventType.WALK_DETAILS_COPIED, date: 23, memberId: "12",
           data: {nearestTown: "that"}

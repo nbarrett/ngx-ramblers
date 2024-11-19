@@ -43,9 +43,9 @@ import memberResource = require("./mongo/routes/member-resource");
 
 install();
 const debugLog = debug(envConfig.logNamespace("server"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 const folderNavigationsUp = process.env.NODE_ENV === "production" ? "../../" : "";
-const distFolder = path.resolve(__dirname, folderNavigationsUp, "../../dist/ngx-ramblers");
+const distFolder = path.resolve(__dirname, folderNavigationsUp, "../../dist/ngx-ramblers/browser");
 const currentDir = path.resolve(__dirname);
 const port: number = +envConfig.server.listenPort;
 debugLog("currentDir:", currentDir, "distFolder:", distFolder, "NODE_ENV:", process.env.NODE_ENV, "port:", port);

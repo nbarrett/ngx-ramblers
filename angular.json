@@ -21,7 +21,12 @@
           "builder": "@angular-devkit/build-angular:application",
           "options": {
             "allowedCommonJsDependencies": [
-              "lodash"
+              "@yaireo/tagify",
+              "html2canvas",
+              "leaflet",
+              "lodash",
+              "moment-timezone",
+              "mongoose"
             ],
             "outputPath": {
               "base": "dist/ngx-ramblers"
@@ -38,10 +43,21 @@
                 "input": "projects/ngx-ramblers/src/app/assets",
                 "glob": "**/**/*.*",
                 "output": "/assets"
+              },
+              {
+                "glob": "*.png",
+                "input": "node_modules/leaflet/dist/images",
+                "output": "/media/assets/images"
+              },
+              {
+                "glob": "*.png",
+                "input": "node_modules/leaflet/dist/images",
+                "output": "/assets/images"
               }
             ],
             "styles": [
-              "projects/ngx-ramblers/src/app/assets/styles/styles.sass"
+              "projects/ngx-ramblers/src/app/assets/styles/styles.sass",
+              "node_modules/leaflet/dist/leaflet.css"
             ],
             "scripts": [
               "./node_modules/jquery/dist/jquery.slim.min.js",
@@ -56,12 +72,12 @@
                 {
                   "type": "initial",
                   "maximumWarning": "500kb",
-                  "maximumError": "6mb"
+                  "maximumError": "8mb"
                 },
                 {
                   "type": "anyComponentStyle",
                   "maximumWarning": "2kb",
-                  "maximumError": "6mb"
+                  "maximumError": "8mb"
                 }
               ],
               "fileReplacements": [

@@ -176,7 +176,7 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
       }
       query
         .then(results => {
-          debugLog(req.query, "find - criteria:found", results.length, "documents");
+          debugLog(req.query, "find - criteria:found", results.length, "documents:", results);
           return res.status(200).json({
             action: ApiAction.QUERY,
             response: results.map(result => transforms.toObjectWithId(result))

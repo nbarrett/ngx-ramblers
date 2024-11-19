@@ -10,7 +10,8 @@ import { GoogleMapsService } from "../../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { AuditDeltaValuePipe } from "../../../../pipes/audit-delta-value.pipe";
 import { ChangedItem } from "../../../../models/changed-item.model";
-import { MarkdownService } from "ngx-markdown";
+import { marked } from "marked";
+import { ValueOrDefaultPipe } from "../../../../pipes/value-or-default.pipe";
 
 @Component({
   selector: "app-walk-notification-details",
@@ -22,64 +23,52 @@ import { MarkdownService } from "ngx-markdown";
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Start Time:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px"
-            [textContent]="walk.startTime | valueOrDefault"></td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.startTime | valueOrDefault }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Description:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px"
-            [textContent]="walk.briefDescriptionAndStartPoint | valueOrDefault"></td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.briefDescriptionAndStartPoint | valueOrDefault }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Longer Description:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px"
-            markdown [data]="walk.longerDescription | valueOrDefault"></td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px" [innerHTML]="renderMarked(walk.longerDescription)"></td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Distance:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px"
-            [textContent]="walk.distance | valueOrDefault"></td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.distance | valueOrDefault }}</td>
       </tr>
       <tr>
-        <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Nearest Town:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px"
-            [textContent]="walk.nearestTown | valueOrDefault"></td>
+        <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Starting Location:</td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.start_location.description | valueOrDefault }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Grade:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px"
-            [textContent]="walk.grade | valueOrDefault"></td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.grade | valueOrDefault }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Grid Ref:</td>
         <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">
-          <a [href]="'http://gridreferencefinder.com/?gr=' + walk.gridReference" target="_blank"><span
-            [textContent]="walk.gridReference | valueOrDefault"></span></a></td>
+          <a [href]="'http://gridreferencefinder.com/?gr=' + display.gridReferenceFrom(walk.start_location)" target="_blank">
+            {{ display.gridReferenceFrom(walk.start_location) | valueOrDefault }}</a></td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Postcode:</td>
         <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">
-          <a [href]="googleMapsService.urlForPostcode(walk.postcode)" target="_blank"><span
-            [textContent]="walk.postcode | valueOrDefault"></span></a></td>
+          <a [href]="googleMapsService.urlForPostcode(walk.start_location.postcode)" target="_blank">
+            {{ walk.start_location.postcode | valueOrDefault }}</a></td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Display Name:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px"
-            [textContent]="walk.displayName | valueOrDefault"></td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.displayName | valueOrDefault }}</td>
       </tr>
-
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Contact Email:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px"><a
-          [href]="'mailto:'+ walk.contactEmail"><span
-          [textContent]="walk.contactEmail | valueOrDefault"></span></a></td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px"><a [href]="'mailto:'+ walk.contactEmail"><span>{{ walk.contactEmail | valueOrDefault }}</span></a></td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Contact Phone:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px"
-            [textContent]="walk.contactPhone"></td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.contactPhone }}</td>
       </tr>
-      <tr>
     </table>`
 })
 export class WalkNotificationDetailsComponent implements OnInit {
@@ -99,6 +88,7 @@ export class WalkNotificationDetailsComponent implements OnInit {
   protected logger: Logger;
   public members: Member[];
   constructor(
+    private valueOrDefaultPipe: ValueOrDefaultPipe,
     private auditDeltaValuePipe: AuditDeltaValuePipe,
     public googleMapsService: GoogleMapsService,
     public display: WalkDisplayService,
@@ -126,6 +116,16 @@ export class WalkNotificationDetailsComponent implements OnInit {
       }));
       this.validationMessages = this.data.validationMessages;
       this.reason = this.data.reason;
+    }
+  }
+
+  renderMarked(markdownValue: any) {
+    if (markdownValue) {
+      const renderedMarkdown = marked(markdownValue.toString() || "");
+      this.logger.info("renderMarked: markdownValue:", markdownValue, "renderedMarkdown:", renderedMarkdown);
+      return renderedMarkdown;
+    } else {
+      return this.valueOrDefaultPipe.transform(markdownValue);
     }
   }
 

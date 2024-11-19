@@ -2,7 +2,7 @@ name: Deploy and Build Docker Image and Deploy to Fly.io
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "pre-main" ]
   pull_request:
     branches: [ "main" ]
 

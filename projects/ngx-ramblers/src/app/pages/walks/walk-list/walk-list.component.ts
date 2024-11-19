@@ -37,6 +37,7 @@ import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { sortBy } from "../../../functions/arrays";
 import { faPeopleGroup, faWalking } from "@fortawesome/free-solid-svg-icons";
+import { DataMigrationService } from "../../../services/walks/data-migration.service";
 
 @Component({
   selector: "app-walk-list",
@@ -73,6 +74,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
     private pageService: PageService,
     public googleMapsService: GoogleMapsService,
     protected walksService: WalksService,
+    protected dataMigrationService: DataMigrationService,
     private authService: AuthService,
     public ramblersWalksAndEventsService: RamblersWalksAndEventsService,
     public memberLoginService: MemberLoginService,
@@ -85,7 +87,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
     private notifierService: NotifierService,
     private broadcastService: BroadcastService<any>,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkListComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("WalkListComponent", NgxLoggerLevel.ERROR);
   }
 
   ngOnInit() {
@@ -150,6 +152,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
     const toWalkNumber = Math.min(offset + this.pageSize - 1, this.walks.length);
     this.notify.progress(`Showing ${offset} to ${toWalkNumber} of ${this.stringUtils.pluraliseWithCount(this.walks.length, "walk")}${pageIndicator ? " - " + pageIndicator : ""}`);
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SHOW_PAGINATION, this.pageCount > 1));
+    this.dataMigrationService.migrateWalkLocations(this.walks);
   }
 
   allowDetailView() {
