@@ -14,6 +14,18 @@ const metaData = {
   description: {type: String},
 };
 
+const locationDetails = {
+  latitude: {type: Number},
+  longitude: {type: Number},
+  grid_reference_6: {type: String},
+  grid_reference_8: {type: String},
+  grid_reference_10: {type: String},
+  postcode: {type: String},
+  description: {type: String},
+  w3w: {type: String},
+};
+
+
 const walkEvent = {
   data: {type: Object},
   eventType: {type: String},
@@ -94,7 +106,9 @@ const walkSchema = new mongoose.Schema({
   riskAssessment: [riskAssessmentRecord],
   media: [media],
   features: [metaData],
-  startLocation: {type: String},
+  start_location: locationDetails,
+  meeting_location: locationDetails,
+  end_location: locationDetails,
 }, {collection: "walks"});
 
 walkSchema.plugin(uniqueValidator);

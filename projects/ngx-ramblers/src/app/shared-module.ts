@@ -20,6 +20,7 @@ import { TabsModule } from "ngx-bootstrap/tabs";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { TypeaheadModule } from "ngx-bootstrap/typeahead";
 import { ImageCropperModule } from "ngx-image-cropper";
+import { LeafletModule } from "@asymmetrik/ngx-leaflet";
 import { CustomNGXLoggerService, LoggerModule, NgxLoggerLevel } from "ngx-logger";
 import { MarkdownModule } from "ngx-markdown";
 import { TagifyModule } from "ngx-tagify";
@@ -194,6 +195,7 @@ import {
     FormsModule,
     GalleryModule,
     ImageCropperModule,
+    LeafletModule,
     LightboxModule,
     LoggerModule.forRoot({serverLoggingUrl: "api/logs", level: NgxLoggerLevel.OFF, serverLogLevel: NgxLoggerLevel.OFF}),
     MarkdownModule.forRoot(),
@@ -201,8 +203,11 @@ import {
     NgFor,
     NgSelectModule,
     NgxCaptureModule,
+    NgxGoogleAnalyticsModule,
+    NgxGoogleAnalyticsRouterModule,
     PaginationModule.forRoot(),
     PopoverModule.forRoot(),
+    RecaptchaModule,
     RouterModule,
     ScrollingModule,
     TabsModule.forRoot(),
@@ -210,9 +215,6 @@ import {
     TooltipModule.forRoot(),
     TypeaheadModule.forRoot(),
     UiSwitchModule,
-    RecaptchaModule,
-    NgxGoogleAnalyticsModule,
-    NgxGoogleAnalyticsRouterModule
   ],
   declarations: [
     ActionButtonsComponent,
@@ -239,8 +241,6 @@ import {
     CommitteeRoleMultiSelectComponent,
     ContactUsComponent,
     ContactUsModalComponent,
-    SystemRecaptchaSettingsComponent,
-    SystemGoogleAnalyticsSettings,
     CopyIconComponent,
     CreateOrAmendSenderComponent,
     CreatedAuditPipe,
@@ -318,6 +318,8 @@ import {
     SocialViewComponent,
     SocialViewPageComponent,
     SvgComponent,
+    SystemGoogleAnalyticsSettings,
+    SystemRecaptchaSettingsComponent,
     TagEditorComponent,
     TagManagerComponent,
     UpdatedAuditPipe,
@@ -344,13 +346,12 @@ import {
     CarouselStoryNavigatorComponent,
     CollapseModule,
     ColourSelectorComponent,
+    CommitteeMemberLookupComponent,
     CommitteeNotificationRamblersMessageItemComponent,
     CommitteeRoleMultiSelectComponent,
     CommonModule,
     ContactUsComponent,
     ContactUsModalComponent,
-    SystemRecaptchaSettingsComponent,
-    SystemGoogleAnalyticsSettings,
     CopyIconComponent,
     CreateOrAmendSenderComponent,
     CreatedAuditPipe,
@@ -378,6 +379,7 @@ import {
     ImageCropperModule,
     KebabCasePipe,
     LastConfirmedDateDisplayed,
+    LeafletModule,
     LineFeedsToBreaksPipe,
     LinkComponent,
     LinkEditComponent,
@@ -401,6 +403,7 @@ import {
     PageComponent,
     PaginationModule,
     PopoverModule,
+    RecaptchaModule,
     RelatedLinkComponent,
     RouterModule,
     SearchFilterPipe,
@@ -409,14 +412,14 @@ import {
     SocialEventsComponent,
     SocialHomeComponent,
     SvgComponent,
+    SystemGoogleAnalyticsSettings,
+    SystemRecaptchaSettingsComponent,
     TabsModule,
     TooltipModule,
     UiSwitchModule,
-    RecaptchaModule,
     UpdatedAuditPipe,
     ValueOrDefaultPipe,
     WalkPanelExpanderComponent,
-    CommitteeMemberLookupComponent,
   ]
 })
 export class SharedModule {

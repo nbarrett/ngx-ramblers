@@ -12,7 +12,7 @@ import { HeaderBuilder } from "./header-builder";
 
 export async function requestAccess(req: Request, res: Response): Promise<void> {
   const debug = debugLib(envConfig.logNamespace("meetup:request-access"));
-  debug.enabled = true;
+  debug.enabled = false;
   const meetupConfig: Meetup = await configuredMeetup();
   const defaultOptions = requestDefaults.createApiRequestOptions(meetupConfig);
   defaultOptions.headers = new HeaderBuilder().withContentType(ContentType.APPLICATION_FORM_URL_ENCODED).build();
@@ -29,7 +29,7 @@ export async function requestAccess(req: Request, res: Response): Promise<void> 
 
 export async function refreshToken(req: Request, res: Response): Promise<void> {
   const debug = debugLib(envConfig.logNamespace("meetup:refresh-token"));
-  debug.enabled = true;
+  debug.enabled = false;
   const meetupConfig: Meetup = await configuredMeetup();
   const defaultOptions = requestDefaults.createApiRequestOptions(meetupConfig);
   defaultOptions.headers = new HeaderBuilder().withContentType(ContentType.APPLICATION_FORM_URL_ENCODED).build();

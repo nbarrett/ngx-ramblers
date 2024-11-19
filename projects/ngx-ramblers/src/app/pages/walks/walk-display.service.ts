@@ -25,7 +25,7 @@ import { CommitteeReferenceData } from "../../services/committee/committee-refer
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 import { Observable, ReplaySubject } from "rxjs";
 import { StringUtilsService } from "../../services/string-utils.service";
-import { RamblersEventType } from "../../models/ramblers-walks-manager";
+import { LocationDetails, RamblersEventType } from "../../models/ramblers-walks-manager";
 import { BuiltInRole } from "../../models/committee.model";
 
 @Injectable({
@@ -60,7 +60,7 @@ export class WalkDisplayService {
     private walksQueryService: WalksQueryService,
     private committeeConfig: CommitteeConfigService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkDisplayService, NgxLoggerLevel.ERROR);
+    this.logger = loggerFactory.createLogger("WalkDisplayService", NgxLoggerLevel.ERROR);
     this.applyConfig();
     this.refreshCachedData();
     this.logger.debug("this.memberLoginService", this.memberLoginService.loggedInMember());
@@ -100,7 +100,7 @@ export class WalkDisplayService {
       const googleMapsUrl = this.sanitiser.bypassSecurityTrustResourceUrl(showDrivingDirections ?
         `https://www.google.com/maps/embed/v1/directions?origin=${fromPostcode}&destination=${toPostcode}&key=${this.googleMapsConfig?.apiKey}` :
         `https://www.google.com/maps/embed/v1/place?q=${toPostcode}&zoom=${this.googleMapsConfig?.zoomLevel || 12}&key=${this.googleMapsConfig?.apiKey}`);
-      this.logger.debug("given showDrivingDirections:", showDrivingDirections, "googleMapsUrl set to:", googleMapsUrl);
+      this.logger.info("given showDrivingDirections:", showDrivingDirections, "googleMapsUrl set to:", googleMapsUrl);
       return googleMapsUrl;
     } else {
       this.logger.warn("can't set googleMapsUrl as apiKey:", this.googleMapsConfig?.apiKey, "zoomLevel:", this.googleMapsConfig?.zoomLevel);
@@ -116,7 +116,7 @@ export class WalkDisplayService {
 
   public shouldShowFullDetails(displayedWalk: DisplayedWalk): boolean {
     return this.walkPopulationWalksManager()
-      || !!(displayedWalk?.walkAccessMode?.walkWritable && displayedWalk?.walk?.postcode)
+      || !!(displayedWalk?.walkAccessMode?.walkWritable && displayedWalk?.walk?.start_location?.postcode)
       || displayedWalk?.latestEventType?.showDetails;
   }
 
@@ -239,7 +239,7 @@ export class WalkDisplayService {
       latestEventType: this.latestEventTypeFor(walk),
       walkLink: this.walkLink(walk),
       ramblersLink: this.ramblersLink(walk),
-      showEndpoint: walk.walkType === WalkType.LINEAR && !isEmpty(walk.postcodeFinish)
+      showEndpoint: walk.walkType === WalkType.LINEAR && !isEmpty(walk?.end_location?.postcode)
     };
   }
 
@@ -313,4 +313,9 @@ export class WalkDisplayService {
   isWalk(walk: Walk): boolean {
     return !walk?.eventType || walk.eventType === RamblersEventType.GROUP_WALK;
   }
+
+  gridReferenceFrom(location: LocationDetails) {
+    return location?.grid_reference_10 || location?.grid_reference_8 || location?.grid_reference_6 || "";
+  }
+
 }

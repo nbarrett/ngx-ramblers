@@ -88,6 +88,7 @@ export interface LocationDetails {
   longitude: number;
   grid_reference_6: string;
   grid_reference_8: string;
+  grid_reference_10: string;
   postcode: string;
   description: string;
   w3w: string;
@@ -111,16 +112,7 @@ export interface GroupWalk {
   end_date_time: string;
   meeting_date_time: string;
   event_organiser?: Contact,
-  location?: {
-    latitude: number;
-    longitude: number;
-    grid_reference_6: string;
-    grid_reference_8: string;
-    grid_reference_10: string;
-    postcode: string;
-    description: string;
-    w3w: string;
-  };
+  location?: LocationDetails;
   start_location: LocationDetails;
   meeting_location: LocationDetails;
   end_location: LocationDetails;

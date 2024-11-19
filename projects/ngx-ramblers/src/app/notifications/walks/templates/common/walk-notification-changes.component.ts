@@ -1,5 +1,7 @@
 import { Component } from "@angular/core";
 import { WalkNotificationDetailsComponent } from "./walk-notification-details.component";
+import { marked } from "marked";
+
 
 @Component({
   selector: "app-walk-notification-changes",
@@ -12,20 +14,12 @@ import { WalkNotificationDetailsComponent } from "./walk-notification-details.co
       </tr>
       <tr *ngFor="let item of walkDataAudit?.changedItems">
         <td style="border:1px solid lightgrey; padding: 6px">{{ item.fieldName | humanise }}</td>
-        <ng-container *ngIf="!renderMarkdown">
-          <td style="border:1px solid lightgrey; padding: 6px">{{ item.previousValue }}</td>
-          <td style="border:1px solid lightgrey; padding: 6px">{{ item.currentValue }}</td>
-        </ng-container>
-        <ng-container *ngIf="renderMarkdown">
-          <td style="border:1px solid lightgrey; padding: 6px"
-              markdown [data]="item.previousValue"></td>
-          <td style="border:1px solid lightgrey; padding: 6px"
-              markdown [data]="item.currentValue"></td>
-        </ng-container>
+          <td style="border:1px solid lightgrey; padding: 6px" [innerHTML]="renderMarked(item.previousValue)"></td>
+          <td style="border:1px solid lightgrey; padding: 6px" [innerHTML]="renderMarked(item.currentValue) "></td>
       </tr>
     </table>
   `
 })
 export class WalkNotificationChangesComponent extends WalkNotificationDetailsComponent {
-  protected renderMarkdown = true;
+
 }
