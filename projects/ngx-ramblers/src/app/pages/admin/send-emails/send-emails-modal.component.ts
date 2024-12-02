@@ -390,18 +390,20 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   }
 
   renderExpiryInformation(member: Member): MemberFilterSelection {
+    const disabled = !member.email;
     const today = this.dateUtils.momentNowNoTime().valueOf();
     const expiredActive = member.membershipExpiryDate < today ? "expired" : "active";
-    const memberGrouping = this.memberBulkLoadAuditService.receivedInBulkLoad(member, true, this.latestMemberBulkLoadAudit) ? expiredActive : "missing from last bulk load";
+    const memberGrouping = disabled ? "no email address" : this.memberBulkLoadAuditService.receivedInBulkLoad(member, true, this.latestMemberBulkLoadAudit) ? expiredActive : "missing from last bulk load";
     const datePrefix = memberGrouping === "expired" ? ": " : ", " + (member.membershipExpiryDate < today ? "expired" : "expiry") + ": ";
     const memberInformation = `${this.fullNameWithAliasPipe.transform(member)} (${memberGrouping}${datePrefix}${this.dateUtils.displayDate(member.membershipExpiryDate) || "not known"})`;
-    return {id: member.id, member, memberInformation, memberGrouping};
+    return {id: member.id, member, memberInformation, memberGrouping, disabled};
   }
 
   renderCreatedInformation(member: Member): MemberFilterSelection {
-    const memberGrouping = member.membershipExpiryDate < this.dateUtils.momentNowNoTime().valueOf() ? "expired" : "active";
+    const disabled = !member.email;
+    const memberGrouping = disabled ? "no email address" : member.membershipExpiryDate < this.dateUtils.momentNowNoTime().valueOf() ? "expired" : "active";
     const memberInformation = `${this.fullNameWithAliasPipe.transform(member)} (created ${this.dateUtils.displayDate(member.createdDate) || "not known"})`;
-    return {id: member.id, member, memberInformation, memberGrouping};
+    return {id: member.id, member, memberInformation, memberGrouping, disabled};
   }
 
   memberGrouping(member: MemberFilterSelection) {
@@ -415,7 +417,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   }
 
   recentlyAddedMembers(member: Member): boolean {
-    const selected = !!(member.groupMember && (member.createdDate >= this.memberFilterDate.value));
+    const selected = !!(member.groupMember && member.email && (member.createdDate >= this.memberFilterDate.value));
     this.logger.off("populateMembersBasedOnFilter:selected", selected, "member:", member);
     return selected;
   }
@@ -423,11 +425,11 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   expiredMembers(member: Member): boolean {
     const expirationExceeded = member.membershipExpiryDate < this.memberFilterDate.value;
     this.logger.off("populateMembersBasedOnFilter:expirationExceeded", expirationExceeded, member);
-    return member.groupMember && member.membershipExpiryDate && expirationExceeded;
+    return member.groupMember && member.email && member.membershipExpiryDate && expirationExceeded;
   }
 
   missingFromBulkLoad(member: Member): boolean {
-    return member.groupMember && member.membershipExpiryDate && this.memberBulkLoadAuditService.receivedInBulkLoad(member, false, this.latestMemberBulkLoadAudit);
+    return member.groupMember && member.email && member.membershipExpiryDate && this.memberBulkLoadAuditService.receivedInBulkLoad(member, false, this.latestMemberBulkLoadAudit);
   }
 
   selectedMembersWithEmails() {
