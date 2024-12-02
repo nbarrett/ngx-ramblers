@@ -505,12 +505,14 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   }
 
   toMemberFilterSelection(member: Member, list: ListInfo): MemberFilterSelection {
+    const disabled = !member.email;
     return {
       id: member.id,
       order: 0,
-      memberGrouping: `Subscribed to ${list.name} emails`,
+      memberGrouping: disabled ? "no email address" : `Subscribed to ${list.name} emails`,
       member,
-      memberInformation: this.fullNameWithAlias.transform(member)
+      memberInformation: this.fullNameWithAlias.transform(member),
+      disabled
     };
   }
 

@@ -180,12 +180,14 @@ export class SocialDisplayService {
   }
 
   toMemberFilterSelection(member: Member): MemberFilterSelection {
+    const disabled = !member.email;
     return {
       id: member.id,
       order: 0,
-      memberGrouping: `Social Member`,
+      memberGrouping: disabled ? "no email address" : `Social Member`,
       member,
-      memberInformation: this.fullNameWithAlias.transform(member)
+      memberInformation: this.fullNameWithAlias.transform(member),
+      disabled
     };
   }
 

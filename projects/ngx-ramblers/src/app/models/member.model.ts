@@ -22,8 +22,8 @@ export interface MemberFilterSelection {
   member?: Member;
   memberInformation?: string;
   text?: string;
-  memberGrouping?: string;
-  disabled?: boolean;
+  memberGrouping: string;
+  disabled: boolean;
 }
 
 export type IdentifiableOrId = Identifiable | string ;
