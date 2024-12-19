@@ -178,6 +178,8 @@ import { NgxGoogleAnalyticsModule, NgxGoogleAnalyticsRouterModule } from "ngx-go
 import {
   SystemGoogleAnalyticsSettings
 } from "./pages/admin/system-settings/google-analytics/system-google-analytics-settings";
+import { DisplayTimePipe } from "./pipes/display-time.pipe";
+import { StatusIconComponent } from "./pages/admin/status-icon";
 
 @NgModule({
   imports: [
@@ -247,6 +249,7 @@ import {
     CsvExportComponent,
     DatePickerComponent,
     DisplayDateAndTimePipe,
+    DisplayTimePipe,
     DisplayDateNoDayPipe,
     DisplayDatePipe,
     DisplayDatesAndTimesPipe,
@@ -323,6 +326,7 @@ import {
     TagEditorComponent,
     TagManagerComponent,
     UpdatedAuditPipe,
+    StatusIconComponent,
     ValueOrDefaultPipe,
     WalkPanelExpanderComponent,
   ],
@@ -358,6 +362,7 @@ import {
     CsvExportComponent,
     DatePickerComponent,
     DisplayDateAndTimePipe,
+    DisplayTimePipe,
     DisplayDateNoDayPipe,
     DisplayDatePipe,
     DisplayDatesAndTimesPipe,
@@ -405,6 +410,7 @@ import {
     PopoverModule,
     RecaptchaModule,
     RelatedLinkComponent,
+    StatusIconComponent,
     RouterModule,
     SearchFilterPipe,
     SenderRepliesAndSignoffComponent,
@@ -435,6 +441,7 @@ export class SharedModule {
         CommitteeConfigService,
         CustomNGXLoggerService,
         DisplayDateAndTimePipe,
+        DisplayTimePipe,
         DisplayDateNoDayPipe,
         DisplayDatePipe,
         DisplayDatesAndTimesPipe,

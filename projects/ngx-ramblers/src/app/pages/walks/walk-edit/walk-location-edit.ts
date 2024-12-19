@@ -85,13 +85,14 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
             will appear on Google Maps. This map will be displayed in the detail view of the walk.</p>
           <input type="number" min="1" max="20" *ngIf="false" (ngModelChange)="this.updateGoogleMapsUrl()"
                  [(ngModel)]="display.googleMapsConfig.zoomLevel">
-          <iframe allowfullscreen class="map-thumbnail-image-dialog" style="border:0;border-radius: 10px;"
+          <iframe allowfullscreen class="map-walk-location-edit" style="border:0;border-radius: 10px;"
                   [src]="googleMapsUrl"></iframe>
         </ng-container>
 
         <ng-container *ngIf="!showGoogleMapsView && showLeafletView">
           <p>Use the map below to drag the pin to accurately pinpoint the location.</p>
-          <app-map-edit [locationDetails]="locationDetails" [notify]="notify"/>
+          <div app-map-edit class="map-walk-location-edit" [locationDetails]="locationDetails" [notify]="notify">
+          </div>
         </ng-container>
       </div>
     </div>`,

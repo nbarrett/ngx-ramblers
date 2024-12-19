@@ -16,14 +16,14 @@ import {
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { Subscription } from "rxjs";
 import { MailLinkService } from "../../../../services/mail/mail-link.service";
-import isEmpty from "lodash-es/isEmpty";
 import { MailService } from "../../../../services/mail/mail.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { Confirm, StoredValue } from "../../../../models/ui-actions";
-import first from "lodash-es/first";
 import { ActivatedRoute, Router } from "@angular/router";
 import kebabCase from "lodash-es/kebabCase";
 import { NumberUtilsService } from "../../../../services/number-utils.service";
+import first from "lodash-es/first";
+import isEmpty from "lodash-es/isEmpty";
 
 @Component({
   selector: "app-mail-settings",
@@ -214,7 +214,8 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                     <div class="col-sm-4">
                       <div class="form-group">
                         <label for="country">Country</label>
-                        <div class="form-control input-sm">{{ mailMessagingConfig.brevo.account?.address?.country }}</div>
+                        <div class="form-control input-sm">{{ mailMessagingConfig.brevo.account?.address?.country }}
+                        </div>
                       </div>
                     </div>
                     <div class="col">
@@ -250,40 +251,41 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
                   <div class="col-sm-12 mb-3">
                     <app-markdown-editor category="admin" name="mail-settings-list-settings"/>
                   </div>
-                  <div class="row">
-                    <div class="col-sm-8">
-                      <h5>{{ stringUtilsService.pluraliseWithCount(mailMessagingConfig?.brevo?.lists?.count, "list") }}
-                        {{ stringUtilsService.pluralise(mailMessagingConfig?.brevo?.lists?.count, "exists", "exist") }}
-                        in Brevo
-                      </h5>
-                    </div>
-                    <div class="col justify-content-end">
-                      <app-brevo-button button title="Create New List"
-                                        [disabled]="createNewListDisabled()"
-                                        (click)="createNewList()"/>
-                    </div>
-                  </div>
-                  <hr/>
-                  <ng-container *ngIf="listCreateRequest">
-                    <app-list-editor [listCreateRequest]="listCreateRequest"/>
+                  <div class="px-3">
                     <div class="row">
-                      <div class="col-sm-12">
-                        <app-brevo-button button title="Confirm Create List"
-                                          (click)="confirmCreateList()"
-                                          [disabled]="listCreateDisabled()"/>
-                        <app-brevo-button button title="Cancel Create List"
-                                          class="ml-2" (click)="listCreateRequest=null"/>
+                      <div class="col">
+                        <h5>{{ stringUtilsService.pluraliseWithCount(mailMessagingConfig?.brevo?.lists?.count, "list") }}
+                          {{ stringUtilsService.pluralise(mailMessagingConfig?.brevo?.lists?.count, "exists", "exist") }}
+                          in Brevo
+                        </h5>
+                      </div>
+                      <div *ngIf="!listCreateRequest" class="col-auto">
+                        <div class="float-right">
+                          <app-brevo-button button title="Create New List"
+                                            [disabled]="createNewListDisabled()"
+                                            (click)="createNewList()"/>
+                        </div>
                       </div>
                     </div>
-                  </ng-container>
-                  <ng-container *ngFor="let list of mailMessagingConfig?.brevo?.lists?.lists">
-                    <app-mail-list-settings [mailMessagingConfig]="mailMessagingConfig"
-                                            [notify]="notify"
-                                            [confirm]="confirm"
-                                            [notReady]="notReady()"
-                                            [list]="list">
-                    </app-mail-list-settings>
-                  </ng-container>
+                    <ng-container *ngIf="listCreateRequest">
+                      <app-list-editor [listCreateRequest]="listCreateRequest"/>
+                      <div class="row">
+                        <div class="col-sm-12">
+                          <app-brevo-button button title="Confirm Create List"
+                                            (click)="confirmCreateList()"
+                                            [disabled]="listCreateDisabled()"/>
+                          <app-brevo-button button title="Cancel Create List"
+                                            class="ml-2" (click)="listCreateRequest=null"/>
+                        </div>
+                      </div>
+                    </ng-container>
+                    <ng-container *ngFor="let list of mailMessagingConfig?.brevo?.lists?.lists">
+                      <app-mail-list-settings [mailMessagingConfig]="mailMessagingConfig"
+                                              [notify]="notify"
+                                              [list]="list">
+                      </app-mail-list-settings>
+                    </ng-container>
+                  </div>
                 </div>
               </div>
             </tab>
@@ -331,13 +333,12 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   private router: Router = inject(Router);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("MailSettingsComponent", NgxLoggerLevel.ERROR);
-  public listCreateRequest: ListCreateRequest;
-  public listCreateResponse: ListCreateResponse;
   private error: any;
   public CREDITS_AVAILABLE = 300;
   public confirm: Confirm = new Confirm();
   private tab: any;
-
+  public listCreateRequest: ListCreateRequest;
+  public listCreateResponse: ListCreateResponse;
   protected readonly MailSettingsTab = MailSettingsTab;
 
   ngOnInit() {
@@ -388,8 +389,35 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
+  confirmCreateList() {
+    if (!this.listCreateDisabled()) {
+      this.mailService.createList(this.listCreateRequest)
+        .then(response => {
+          this.listCreateResponse = response;
+          this.logger.info("createList response:", this.listCreateResponse);
+          this.listCreateRequest = null;
+          this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MAIL_LISTS_CHANGED, response));
+        })
+        .catch(error => this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.ERROR, error)));
+    }
+  }
+
+  listCreateDisabled() {
+    return isEmpty(this.listCreateRequest?.name) || !this.listCreateRequest?.folderId;
+  }
+
+  createNewList() {
+    if (!this.createNewListDisabled()) {
+      this.listCreateRequest = {name: "", folderId: first(this.mailMessagingConfig?.brevo?.folders?.folders)?.id};
+    }
+  }
+
+  createNewListDisabled() {
+    return !!this.listCreateRequest || this.confirm.deleteConfirmOutstanding();
+  }
+
   notReady() {
-    return !!this.listCreateRequest || !(this?.mailMessagingConfig?.mailConfig);
+    return !(this?.mailMessagingConfig?.mailConfig);
   }
 
   save() {
@@ -421,33 +449,6 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
 
   percentageCreditsUsed(): number {
     return this.numberUtilsService.asNumber((this.CREDITS_AVAILABLE - this.freeCreditsUsed()) / this.CREDITS_AVAILABLE * 100, 0);
-  }
-
-  listCreateDisabled() {
-    return isEmpty(this.listCreateRequest?.name) || !this.listCreateRequest?.folderId;
-  }
-
-  confirmCreateList() {
-    if (!this.listCreateDisabled()) {
-      this.mailService.createList(this.listCreateRequest)
-        .then(response => {
-          this.listCreateResponse = response;
-          this.logger.info("createList response:", this.listCreateResponse);
-          this.listCreateRequest = null;
-          this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MAIL_LISTS_CHANGED, response));
-        })
-        .catch(error => this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.ERROR, error)));
-    }
-  }
-
-  createNewList() {
-    if (!this.createNewListDisabled()) {
-      this.listCreateRequest = {name: "", folderId: first(this.mailMessagingConfig?.brevo?.folders?.folders)?.id};
-    }
-  }
-
-  createNewListDisabled() {
-    return !!this.listCreateRequest || this.confirm.deleteConfirmOutstanding();
   }
 
   public selectTab(tab: MailSettingsTab) {

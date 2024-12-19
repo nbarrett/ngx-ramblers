@@ -71,6 +71,12 @@ const memberSchema = new mongoose.Schema({
   updatedDate: {type: Number},
   updatedBy: {type: String},
   assembleId: {type: Number},
+  jointWith: {type: String},
+  title: {type: String},
+  type: {type: String},
+  landlineTelephone: {type: String},
+  emailMarketingConsent: {type: Boolean},
+  emailPermissionLastUpdated: {type: Number},
 }, {collection: "members"});
 
 memberSchema.plugin(uniqueValidator);

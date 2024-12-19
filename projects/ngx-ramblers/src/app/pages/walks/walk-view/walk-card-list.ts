@@ -1,0 +1,153 @@
+import { Component, inject, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
+import { NgxLoggerLevel } from "ngx-logger";
+import { Subscription } from "rxjs";
+import { AlertTarget } from "../../../models/alert-target.model";
+import { DisplayedWalk, EventType, Walk, WalkViewMode } from "../../../models/walk.model";
+import { GoogleMapsService } from "../../../services/google-maps.service";
+import { LoggerFactory } from "../../../services/logger-factory.service";
+import { MeetupService } from "../../../services/meetup.service";
+import { MemberLoginService } from "../../../services/member/member-login.service";
+import { AlertInstance, NotifierService } from "../../../services/notifier.service";
+import { WalkDisplayService } from "../walk-display.service";
+import { SystemConfigService } from "../../../services/system/system-config.service";
+import { Organisation, SystemConfig } from "../../../models/system.model";
+import { StringUtilsService } from "../../../services/string-utils.service";
+import { MediaQueryService } from "../../../services/committee/media-query.service";
+import { BasicMedia } from "../../../models/ramblers-walks-manager";
+import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
+import { LoginModalComponent } from "../../login/login-modal/login-modal.component";
+
+@Component({
+  selector: "app-walk-card-list",
+  template: `
+    <div class="d-flex flex-column pt-2 mb-2">
+      <div *ngIf="false" class="heading d-flex align-items-center mb-3">
+        <button aria-label="Previous slide" class="text-dark border-0 bg-transparent p-0 mr-1">
+          <app-svg (click)="prevSlide()"
+                   [disabled]="backDisabled()"
+                   class="icon"
+                   height="36"
+                   width="36"
+                   icon="i-back-round">
+          </app-svg>
+          <span class="sr-only">Previous slide</span></button>
+        <button aria-label="Next slide" class="text-dark border-0 bg-transparent p-0">
+          <app-svg (click)="nextSlide()"
+                   [disabled]="forwardDisabled()"
+                   class="icon"
+                   height="36"
+                   width="36"
+                   icon="i-forward-round">
+          </app-svg>
+          <span class="sr-only">Next slide</span></button>
+      </div>
+      <div class="row">
+        <div *ngFor="let displayedWalk of currentPageWalks; let index = index; "
+             [ngClass]="{'pt-2 mb-3 col-lg-4 col-md-6 col-sm-12': !viewExpanded(displayedWalk.walk), 'w-100': viewExpanded(displayedWalk.walk)}"
+             class="d-flex flex-column">
+          <app-walk-card-view *ngIf="cardViewDisplay(displayedWalk.walk)" class="card shadow clickable h-100"
+                              [displayedWalk]="displayedWalk" [index]="index"/>
+          <app-walk-view class="mx-3" *ngIf="expandedViewDisplay(displayedWalk.walk)" [displayedWalk]="displayedWalk"/>
+          <app-walk-edit *ngIf="walkEditDisplay(displayedWalk.walk)"
+                         [displayedWalk]="displayedWalk"/>
+        </div>
+      </div>
+    </div>`,
+  styleUrls: ["./walk-view.sass"],
+  styles: [`
+  `]
+})
+export class WalkCardListComponent implements OnInit, OnChanges, OnDestroy {
+  public config: ModalOptions = {
+    animated: false,
+    initialState: {}
+  };
+  public group: Organisation;
+  public loggedIn: boolean;
+  private subscriptions: Subscription[] = [];
+  public notifyTarget: AlertTarget = {};
+  public mediaQueryService: MediaQueryService = inject(MediaQueryService);
+  private modalService: BsModalService = inject(BsModalService);
+  public googleMapsService = inject(GoogleMapsService);
+  private memberLoginService = inject(MemberLoginService);
+  public display = inject(WalkDisplayService);
+  public meetupService = inject(MeetupService);
+  protected stringUtils = inject(StringUtilsService);
+  private systemConfigService = inject(SystemConfigService);
+  private notifierService = inject(NotifierService);
+  private logger = inject(LoggerFactory).createLogger("WalkCardViewComponent", NgxLoggerLevel.ERROR);
+  protected notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
+  activeSlide = 0;
+  @Input() currentPageWalks!: DisplayedWalk[];
+
+  protected readonly EventType = EventType;
+
+  protected readonly WalkViewMode = WalkViewMode;
+
+  ngOnInit() {
+    this.loggedIn = this.memberLoginService.memberLoggedIn();
+    this.subscriptions.push(this.systemConfigService.events().subscribe((systemConfig: SystemConfig) => {
+      this.logger.info("systemConfigService returned systemConfig:", systemConfig);
+      this.group = systemConfig.group;
+    }));
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes.currentPageWalks && this.currentPageWalks?.length) {
+      const firstWalk: Walk = this.currentPageWalks[0].walk;
+      if (!this.display.awaitingLeader(firstWalk)) {
+        this.display.toggleExpandedViewFor(firstWalk, WalkViewMode.VIEW_SINGLE);
+      }
+      this.logger.info("currentPageWalks populated", this.currentPageWalks);
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  viewExpanded(walk: Walk): boolean {
+    return [WalkViewMode.VIEW_SINGLE, WalkViewMode.EDIT, WalkViewMode.EDIT_FULL_SCREEN].includes(this.display.walkMode(walk));
+  }
+
+  imageSource(walk: Walk): BasicMedia {
+    return this.mediaQueryService.basicMediaFrom(walk)?.[0];
+  }
+
+  backDisabled(): boolean {
+    return this.activeSlide === 0;
+  }
+
+  login() {
+    this.modalService.show(LoginModalComponent, this.config);
+  }
+
+  forwardDisabled(): boolean {
+    return this.activeSlide > this.currentPageWalks?.length - 1;
+  }
+
+  prevSlide() {
+    if (this.activeSlide > 0) {
+      this.activeSlide--;
+    }
+  }
+
+  nextSlide() {
+    if (this.activeSlide < this.currentPageWalks?.length - 1) {
+      this.activeSlide++;
+    }
+  }
+
+  cardViewDisplay(walk: Walk) {
+    return [WalkViewMode.LIST, WalkViewMode.VIEW].includes(this.display.walkMode(walk));
+
+  }
+
+  expandedViewDisplay(walk: Walk) {
+    return this.display.walkMode(walk) === WalkViewMode.VIEW_SINGLE;
+  }
+
+  walkEditDisplay(walk: Walk) {
+    return this.display.walkMode(walk) === WalkViewMode.EDIT;
+  }
+}

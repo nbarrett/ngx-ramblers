@@ -82,6 +82,9 @@ import { WalkImagesComponent } from "../../pages/walks/walk-view/walk-images";
 import { WalkImportComponent } from "../../pages/walks/walk-import/walk-import.component";
 import { MapEditComponent } from "../../pages/walks/walk-edit/map-edit";
 import { WalkLocationEditComponent } from "../../pages/walks/walk-edit/walk-location-edit";
+import { WalkCardListComponent } from "../../pages/walks/walk-view/walk-card-list";
+import { WalkCardViewComponent } from "../../pages/walks/walk-view/walk-card-view";
+import { WalkGradingComponent } from "../../pages/walks/walk-view/walk-grading";
 
 @NgModule({
   declarations: [
@@ -129,6 +132,9 @@ import { WalkLocationEditComponent } from "../../pages/walks/walk-edit/walk-loca
     WalkValidationsListPipe,
     WalkVenueComponent,
     WalkViewComponent,
+    WalkCardListComponent,
+    WalkCardViewComponent,
+    WalkGradingComponent,
   ],
   imports: [
     SharedModule

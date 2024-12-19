@@ -1,0 +1,29 @@
+import { Component, Input } from "@angular/core";
+import { StringUtilsService } from "../../services/string-utils.service";
+import { IconService } from "../../services/icon-service/icon-service";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
+
+@Component({
+  selector: "app-status-icon",
+  template: `
+    <div class="form-inline">
+      <fa-icon [icon]="icons.toFontAwesomeIcon(status).icon"
+               [class]="icons.toFontAwesomeIcon(status).class"/>
+      <div *ngIf="!noLabel" class="ml-2">{{ stringUtils.asTitle(status) }}</div>
+    </div>`,
+  styleUrls: ["./member-bulk-load/member-bulk-load.component.sass", "./admin/admin.component.sass"]
+})
+export class StatusIconComponent {
+  protected noLabel: boolean;
+
+  constructor(protected icons: IconService,
+              protected stringUtils: StringUtilsService) {
+  }
+
+  @Input() status: string;
+
+  @Input("noLabel") set noLabelValue(value: boolean) {
+    this.noLabel = coerceBooleanProperty(value);
+  }
+
+}

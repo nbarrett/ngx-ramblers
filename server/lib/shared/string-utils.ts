@@ -26,5 +26,5 @@ export function replaceAll(find: string, replace: string, str: string): string |
 }
 
 export function asBoolean(val: any): boolean {
-  return val === true || val === "true";
+  return val === true || ["true", "yes"].includes(val?.toString().toLowerCase());
 }

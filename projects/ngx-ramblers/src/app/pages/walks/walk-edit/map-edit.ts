@@ -17,9 +17,9 @@ import { LocationDetails } from "../../../models/ramblers-walks-manager";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
-  selector: "app-map-edit",
+  selector: "[app-map-edit]",
   template: `
-    <div class="map-thumbnail-image-dialog" *ngIf="mapReady()"
+    <div [class]="class" *ngIf="mapReady()"
          leaflet [leafletOptions]="options"
          [leafletLayers]="layers"
          [leafletFitBounds]="fitBounds"
@@ -43,6 +43,7 @@ export class MapEditComponent implements OnInit, OnDestroy {
     this.locationDetails = locationDetails;
     this.setDefaultLatLng().then(() => this.initializeMap());
   }
+  @Input() class!: string;
   @Input() notify!: AlertInstance;
   public locationDetails: LocationDetails;
   public notifyTarget: AlertTarget = {};

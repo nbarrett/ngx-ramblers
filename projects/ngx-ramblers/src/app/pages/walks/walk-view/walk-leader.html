@@ -33,7 +33,7 @@
                   tooltip="Login as an {{group?.shortName}} member and send an email to {{displayedWalk?.walk?.displayName}}">
           {{displayedWalk?.walk?.displayName}}</span></div>
         </div>
-        <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
+        <div *ngIf="loggedIn"  app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
           <app-copy-icon [icon]="faPhone" title [value]="displayedWalk?.walk?.contactPhone"
                          [elementName]="'mobile number for '+ displayedWalk?.walk?.displayName "></app-copy-icon>
           <a content [href]="'tel:' + displayedWalk?.walk?.contactPhone"

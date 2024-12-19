@@ -19,7 +19,17 @@
             </div>
           </div>
           <div class="row">
-            <div class="col-sm-6">
+            <div class="col-sm-2">
+              <form class="form-group">
+                <label for="title">Title</label>
+                <input autocomplete="new-password"
+                       name="title" [disabled]="!allowEdits" [(ngModel)]="member.title"
+                       type="text"
+                       class="form-control input-sm" id="title"
+                       placeholder="Enter Title here">
+              </form>
+            </div>
+            <div class="col-sm-4">
               <form class="form-group">
                 <label for="first-name">First Name</label>
                 <input autocomplete="new-password"
@@ -56,6 +66,15 @@
                        [(ngModel)]="member.mobileNumber"
                        type="text" class="form-control input-sm" id="mobile-number"
                        placeholder="Enter mobile number here">
+              </form>
+            </div>
+            <div class="col-sm-6">
+              <form class="form-group">
+                <label for="landline-number">Land Line Number</label>
+                <input autocomplete="new-password" name="landlineTelephone" [disabled]="!allowEdits"
+                       [(ngModel)]="member.landlineTelephone"
+                       type="text" class="form-control input-sm" id="landline-number"
+                       placeholder="Enter landline number here">
               </form>
             </div>
             <div class="col col-sm-6">
@@ -301,6 +320,24 @@
               </div>
             </div>
           </div>
+          <div class="row">
+            <div class="col col-sm-6" *ngIf="member?.jointWith">
+              <div class="form-group">
+                <label for="joint-with">Joint with</label>
+                <input disabled [value]="jointWith(member.jointWith)" type="text"
+                       class="form-control input-sm" id="joint-with"
+                       placeholder="(not found)">
+              </div>
+            </div>
+            <div class="col col-sm-6" *ngIf="member?.jointWith">
+              <div class="form-group">
+                <label for="joint-with-membership-number">Joint Membership Number</label>
+                <input disabled [value]="member.jointWith" type="text"
+                       class="form-control input-sm" id="joint-with-membership-number"
+                       placeholder="(not found)">
+              </div>
+            </div>
+        </div>
         </div>
       </tab>
       <tab heading="Ramblers">
@@ -309,11 +346,10 @@
             <div class="col-sm-12">
               <p class="title-in-thumbnail">The following section allows data to be managed for
                 <a target="_blank" [href]="systemConfig.national.walksManager.href">Ramblers Walks and Events Manager</a>
-                and <a target="_blank" href="https://volunteer.ramblers.org.uk">Assemble</a>
             </div>
             <div class="col-sm-12 mt-2 mb-2">
               <app-markdown-editor category="admin" name="walks-manager-fields-help"
-                                   description="Walks Manager fields help"></app-markdown-editor>
+                                   description="Walks Manager fields help"/>
             </div>
           </div>
           <div class="row">
@@ -322,7 +358,7 @@
               <div class="input-group">
                 <input autocomplete="new-password" name="contactId" [(ngModel)]="member.contactId" type="text"
                        class="form-control input-sm" id="ramblers-contact-name"
-                       placeholder="The first name and last name used in Ramblers contact System">
+                       placeholder="The first name and last name used in Ramblers Walks Manager">
                 <div class="input-group-append" tooltip="Set this field to be {{member | fullNameWithAlias}}">
                   <div class="input-group-text pointer" (click)="defaultContactName()">
                     <fa-icon [icon]="faPaste" class="fa-icon"></fa-icon>
@@ -389,7 +425,7 @@
                 <tr *ngFor="let memberUpdateAudit of memberUpdateAudits">
                   <td>{{memberUpdateAudit.updateTime | displayDateAndTime}}</td>
                   <td>{{memberUpdateAudit.memberAction}}</td>
-                  <td>{{memberUpdateAudit.auditMessage || 'No changes or differences found'}}
+                  <td>{{memberUpdateAudit.auditMessage || NO_CHANGES_OR_DIFFERENCES }}
                   </td>
                 </tr>
                 </tbody>

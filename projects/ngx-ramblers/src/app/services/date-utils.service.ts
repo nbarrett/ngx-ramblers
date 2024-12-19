@@ -25,10 +25,10 @@ export class DateUtilsService {
 
   public formats = {
     displayTime: "h:mm a",
-    displayDateAndTime: "ddd DD-MMM-YYYY, h:mm:ss a",
+    displayDateAndTime: "dddd, D MMMM YYYY, h:mm:ss a",
     displayDateTh: "MMMM Do YYYY",
-    displayDate: "ddd DD-MMM-YYYY",
-    displayDateNoDay: "DD-MMM-YYYY",
+    displayDate: "dddd, D MMMM YYYY",
+    displayDateNoDay: "D MMMM YYYY",
     displayDay: "dddd MMMM D, YYYY",
     ddmmyyyyWithSlashes: "DD/MM/YYYY",
     yyyymmdd: "YYYYMMDD"
@@ -80,6 +80,10 @@ export class DateUtilsService {
 
   displayDay(dateValue: any): string {
     return this.asString(dateValue, undefined, this.formats.displayDay);
+  }
+
+  displayTime(dateValue: any): string {
+    return this.asString(dateValue, undefined, this.formats.displayTime);
   }
 
   asDateValue(dateValue?: any, inputFormat?: string): DateValue {

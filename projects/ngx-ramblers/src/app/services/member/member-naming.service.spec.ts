@@ -74,6 +74,15 @@ describe("MemberNamingService", () => {
     expect(service.createUniqueUserName(withDot, [])).toEqual("carol.m");
   });
 
+  it("createUniqueUserName should remove spaced from the names if supplied", () => {
+    expect(service.createUniqueUserName({
+      firstName: "S J",
+      lastName: "Tay lor",
+      userName: "sj.taylor",
+      displayName: "SJ T"
+    }, [])).toEqual("sj.taylor");
+  });
+
   it("createUniqueUserName should generate the next available username were some exist already", () => {
     expect(service.createUniqueUserName({
       firstName: "John",

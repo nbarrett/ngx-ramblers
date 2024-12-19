@@ -94,3 +94,9 @@ export interface SelectedDescribedDimensions {
   describedDimensions: DescribedDimensions;
   preselected: boolean;
 }
+
+export interface BucketConfig {
+    name: string;
+    region: string;
+    include?: boolean;
+}

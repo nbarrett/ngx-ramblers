@@ -10,7 +10,15 @@ import { EventPopulation, Organisation } from "../../models/system.model";
 import { WalkAccessMode } from "../../models/walk-edit-mode.model";
 import { WalkEventType } from "../../models/walk-event-type.model";
 import { ExpandedWalk } from "../../models/walk-expanded-view.model";
-import { DisplayedWalk, EventType, GoogleMapsConfig, Walk, WalkType, WalkViewMode } from "../../models/walk.model";
+import {
+  DisplayedWalk,
+  EventType,
+  GoogleMapsConfig,
+  Walk,
+  WALK_GRADES,
+  WalkType,
+  WalkViewMode
+} from "../../models/walk.model";
 import { enumValues } from "../../functions/enums";
 import { GoogleMapsService } from "../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
@@ -27,6 +35,7 @@ import { Observable, ReplaySubject } from "rxjs";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { LocationDetails, RamblersEventType } from "../../models/ramblers-walks-manager";
 import { BuiltInRole } from "../../models/committee.model";
+import { MediaQueryService } from "../../services/committee/media-query.service";
 
 @Injectable({
   providedIn: "root"
@@ -37,7 +46,7 @@ export class WalkDisplayService {
   public relatedLinksMediaWidth = 22;
   public expandedWalks: ExpandedWalk [] = [];
   private logger: Logger;
-  public grades = ["Easy access", "Easy", "Leisurely", "Moderate", "Strenuous", "Technical"];
+  public grades = WALK_GRADES.map(item => item.description);
   public walkTypes = enumValues(WalkType);
   private nextWalkId: string;
   public members: Member[] = [];
@@ -46,6 +55,7 @@ export class WalkDisplayService {
   private committeeReferenceData: CommitteeReferenceData;
 
   constructor(
+    public mediaQueryService: MediaQueryService,
     private systemConfigService: SystemConfigService,
     private googleMapsService: GoogleMapsService,
     private memberService: MemberService,
@@ -64,6 +74,14 @@ export class WalkDisplayService {
     this.applyConfig();
     this.refreshCachedData();
     this.logger.debug("this.memberLoginService", this.memberLoginService.loggedInMember());
+  }
+
+  public notAwaitingLeader(walk: Walk): boolean {
+    return this.walkEventService.latestEvent(walk)?.eventType !== EventType.AWAITING_LEADER;
+  }
+
+  public awaitingLeader(walk: Walk): boolean {
+    return this.walkEventService.latestEvent(walk)?.eventType === EventType.AWAITING_LEADER;
   }
 
   public memberEvents(): Observable<Member[]> {
@@ -95,12 +113,12 @@ export class WalkDisplayService {
   }
 
   googleMapsUrl(showDrivingDirections: boolean, fromPostcode: string, toPostcode: string): SafeResourceUrl {
-    this.logger.info("googleMapsUrl:showDrivingDirections:", showDrivingDirections, "fromPostcode:", fromPostcode, "toPostcode:", toPostcode);
+    this.logger.debug("googleMapsUrl:showDrivingDirections:", showDrivingDirections, "fromPostcode:", fromPostcode, "toPostcode:", toPostcode);
     if (this.googleMapsConfig?.apiKey && this.googleMapsConfig?.zoomLevel) {
       const googleMapsUrl = this.sanitiser.bypassSecurityTrustResourceUrl(showDrivingDirections ?
         `https://www.google.com/maps/embed/v1/directions?origin=${fromPostcode}&destination=${toPostcode}&key=${this.googleMapsConfig?.apiKey}` :
         `https://www.google.com/maps/embed/v1/place?q=${toPostcode}&zoom=${this.googleMapsConfig?.zoomLevel || 12}&key=${this.googleMapsConfig?.apiKey}`);
-      this.logger.info("given showDrivingDirections:", showDrivingDirections, "googleMapsUrl set to:", googleMapsUrl);
+      this.logger.debug("given showDrivingDirections:", showDrivingDirections, "googleMapsUrl set to:", googleMapsUrl);
       return googleMapsUrl;
     } else {
       this.logger.warn("can't set googleMapsUrl as apiKey:", this.googleMapsConfig?.apiKey, "zoomLevel:", this.googleMapsConfig?.zoomLevel);
@@ -115,7 +133,7 @@ export class WalkDisplayService {
   }
 
   public shouldShowFullDetails(displayedWalk: DisplayedWalk): boolean {
-    return this.walkPopulationWalksManager()
+    return true || this.walkPopulationWalksManager()
       || !!(displayedWalk?.walkAccessMode?.walkWritable && displayedWalk?.walk?.start_location?.postcode)
       || displayedWalk?.latestEventType?.showDetails;
   }
@@ -182,14 +200,14 @@ export class WalkDisplayService {
     const existingWalk: ExpandedWalk = this.findWalk(walk);
     if (existingWalk && toggleTo === WalkViewMode.LIST) {
       this.expandedWalks = this.expandedWalks.filter(expandedWalk => expandedWalk.walkId !== walkId);
-      this.logger.info("display.toggleViewFor", toggleTo, "removed", walkId);
+      this.logger.info("display.toggleViewFor", toggleTo, "removed", walkId, "expandedWalks:", this.expandedWalks);
     } else if (existingWalk) {
       existingWalk.mode = toggleTo;
-      this.logger.info("display.toggleViewFor", toggleTo, "updated", existingWalk);
+      this.logger.info("display.toggleViewFor", toggleTo, "updated", existingWalk, "expandedWalks:", this.expandedWalks);
     } else {
       const newWalk = {walkId, mode: toggleTo};
       this.expandedWalks.push(newWalk);
-      this.logger.info("display.toggleViewFor", toggleTo, "added", newWalk);
+      this.logger.info("display.toggleViewFor", toggleTo, "added", newWalk, "expandedWalks:", this.expandedWalks);
       if (this.urlService.pathContainsEventId() && toggleTo === WalkViewMode.EDIT) {
         this.editFullscreen(walk);
       }
@@ -218,16 +236,20 @@ export class WalkDisplayService {
   }
 
   toWalkAccessMode(walk: Walk): WalkAccessMode {
-    this.logger.off("toWalkAccessMode:", walk);
     let returnValue = WalksReferenceService.walkAccessModes.view;
     if (this.memberLoginService.memberLoggedIn()) {
-      if (this.loggedInMemberIsLeadingWalk(walk) ||
-        this.memberLoginService.allowWalkAdminEdits()) {
+      if (this.loggedInMemberIsLeadingWalk(walk) || this.memberLoginService.allowWalkAdminEdits()) {
         returnValue = {...WalksReferenceService.walkAccessModes.edit, walkWritable: this.walkPopulationLocal()};
-      } else if (this.walkEventService.latestEvent(walk)?.eventType !== EventType.APPROVED) {
-        returnValue = {...WalksReferenceService.walkAccessModes.lead, walkWritable: this.walkPopulationLocal()};
+      } else {
+        const walkEvent = this.walkEventService.latestEventWithStatusChange(walk);
+        console.log("walk is ", JSON.stringify(walk));
+        console.log("walkEvent is ", JSON.stringify(walkEvent));
+        if (walkEvent?.eventType === EventType.AWAITING_LEADER) {
+          returnValue = {...WalksReferenceService.walkAccessModes.lead, walkWritable: this.walkPopulationLocal()};
+        }
       }
     }
+    this.logger.debug("toWalkAccessMode:returnValue:", returnValue, "walk:", walk);
     return returnValue;
   }
 
@@ -282,15 +304,15 @@ export class WalkDisplayService {
   }
 
   private applyConfig() {
-    this.logger.info("applyConfig called");
+    this.logger.debug("applyConfig called");
     this.committeeConfig.committeeReferenceDataEvents().subscribe(committeeReferenceData => this.committeeReferenceData = committeeReferenceData);
     this.systemConfigService.events().subscribe(item => {
       this.group = item.group;
-      this.logger.info("group:", this.group);
+      this.logger.debug("group:", this.group);
     });
     this.googleMapsService.events().subscribe(config => {
       this.googleMapsConfig = {zoomLevel: 12, apiKey: config.apiKey};
-      this.logger.info("googleMapsConfig:", this.googleMapsConfig);
+      this.logger.debug("googleMapsConfig:", this.googleMapsConfig);
     });
   }
 
@@ -318,4 +340,19 @@ export class WalkDisplayService {
     return location?.grid_reference_10 || location?.grid_reference_8 || location?.grid_reference_6 || "";
   }
 
+  walkContactDetailsPublic(): boolean {
+    return this.group?.walkContactDetailsPublic;
+  }
+
+  displayMapAsImageFallback(walk: Walk): boolean {
+    return !!(!this.mediaQueryService.imageSource(walk) && walk?.start_location?.postcode);
+  }
+
+  displayMap(walk: Walk): boolean {
+    return !!walk?.start_location?.postcode;
+  }
+
+  displayImage(walk: Walk): boolean {
+    return !!(this.mediaQueryService.imageSource(walk) || !walk?.start_location?.postcode);
+  }
 }

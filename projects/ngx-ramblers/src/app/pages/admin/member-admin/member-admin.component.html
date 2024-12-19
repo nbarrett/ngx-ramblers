@@ -19,7 +19,7 @@
               </div>
               <div class="form-group">
                 <label class="spaced-label mr-2" for="filter-members">Filter:</label>
-                <select [disabled]="confirm.bulkDeleteOutstanding()" class="form-control input-sm"
+                <select class="form-control input-sm"
                         [(ngModel)]="memberFilter.selectedFilter"
                         (ngModelChange)="refreshMembers($event)"
                         id="filter-members">

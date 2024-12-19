@@ -18,6 +18,7 @@ import {
   BulkLoadMemberAndMatchToWalks,
   Member,
   MemberAction,
+  RamblersMember,
   RamblersMemberAndContact,
   WalksImportPreparation
 } from "../../models/member.model";
@@ -82,16 +83,23 @@ export class WalksImportService {
     const members = await this.memberService.all();
     const ramblersMemberAndContacts: RamblersMemberAndContact[] = walkLeaders.map((walkLeader: Contact) => {
       const firstAndLastName = this.memberNamingService.firstAndLastNameFrom(walkLeader.name);
+      const ramblersMember: RamblersMember = {
+        mobileNumber: walkLeader.telephone,
+        firstName: firstAndLastName?.firstName,
+        lastName: firstAndLastName?.lastName,
+        email: null,
+        membershipNumber: null,
+        postcode: null,
+        emailMarketingConsent: null,
+        emailPermissionLastUpdated: null,
+        jointWith: null,
+        landlineTelephone: null,
+        title: null,
+        type: null,
+      };
       return {
         contact: walkLeader,
-        ramblersMember: {
-          mobileNumber: walkLeader.telephone,
-          firstName: firstAndLastName?.firstName,
-          lastName: firstAndLastName?.lastName,
-          email: null,
-          membershipNumber: null,
-          postcode: null
-        }
+        ramblersMember
       };
     });
     const unmatched: BulkLoadMemberAndMatchToWalks = {
@@ -100,7 +108,7 @@ export class WalksImportService {
         member: null,
         ramblersMember: null,
         contact: null,
-        memberAction: MemberAction.notFound
+        memberMatch: MemberAction.notFound
       }, walks: []
     };
     const bulkLoadMembersAndMatchesToWalks: BulkLoadMemberAndMatchToWalks[] = ramblersMemberAndContacts
@@ -131,7 +139,7 @@ export class WalksImportService {
     });
     bulkLoadMembersAndMatchesToWalks.forEach(bulkLoadMemberAndMatchToWalks => {
       if (bulkLoadMemberAndMatchToWalks.walks.length === 0) {
-        bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberAction = MemberAction.skipped;
+        bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch = MemberAction.skipped;
       }
     });
     const bulkLoadMembersAndMatchesToWalksWithContactNameSearchString: BulkLoadMemberAndMatchToWalks[] = bulkLoadMembersAndMatchesToWalks.filter(item => JSON.stringify(item).includes(searchString));
@@ -148,12 +156,12 @@ export class WalksImportService {
     messages.push(`${deletions.length} existing walks deleted`);
     const imports = await Promise.all(walksImportPreparation.bulkLoadMembersAndMatchesToWalks.map(async bulkLoadMemberAndMatchToWalks => {
       const member = bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.member;
-      if (bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberAction === MemberAction.found) {
+      if (bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch === MemberAction.found) {
         return bulkLoadMemberAndMatchToWalks.walks.map(walk => {
           createdWalks++;
           return this.applyWalkLeaderIfSuppliedAndSaveWalk(walk, member);
         });
-      } else if (bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberAction === MemberAction.created) {
+      } else if (bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch === MemberAction.created) {
         if (bulkLoadMemberAndMatchToWalks.walks.length > 0) {
           const qualifier = `for ${member.firstName} ${member.lastName}`;
           const createdMember: Member = await this.memberService.createOrUpdate(member)
@@ -162,7 +170,7 @@ export class WalksImportService {
               return savedMember;
             }).catch(response => {
               this.logger.error("member save error for member:", member, "response:", response);
-              bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberAction = MemberAction.error;
+              bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch = MemberAction.error;
               const message = `Member creation ${qualifier} failed`;
               errorMessages.push(message);
               messages.push(message);
@@ -179,7 +187,7 @@ export class WalksImportService {
           return Promise.resolve();
         }
       } else {
-        this.logger.info("processing memberAction:", bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberAction, "with", this.stringUtils.pluraliseWithCount(bulkLoadMemberAndMatchToWalks.walks.length, "matched walk"));
+        this.logger.info("processing memberAction:", bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch, "with", this.stringUtils.pluraliseWithCount(bulkLoadMemberAndMatchToWalks.walks.length, "matched walk"));
         return bulkLoadMemberAndMatchToWalks.walks.map(walk => {
           createdWalks++;
           return this.applyWalkLeaderIfSuppliedAndSaveWalk(walk);

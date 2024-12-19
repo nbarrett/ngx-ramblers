@@ -62,13 +62,14 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
 @Component({
   selector: "app-walk-edit",
   template: `
-    <app-walk-panel-expander [walk]="displayedWalk.walk" [collapsable]="true" [collapseAction]="'exit edit'"
-                             [expandAction]="'edit walk full-screen'" [expandable]="isExpandable()">
-    </app-walk-panel-expander>
     <div [ngClass]="{'busy': notifyTarget.busy}">
       <div class="d-none">
         <ng-template app-notification-directive/>
       </div>
+      <div class="tabset-container">
+      <app-walk-panel-expander [walk]="displayedWalk.walk" [collapsable]="true" [collapseAction]="'exit edit'"
+                               [expandAction]="'edit walk full-screen'" [expandable]="isExpandable()">
+      </app-walk-panel-expander>
       <tabset class="custom-tabset" *ngIf="displayedWalk.walk">
         <tab heading="Main Details">
           <div class="img-thumbnail thumbnail-admin-edit">
@@ -536,6 +537,7 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
           </div>
         </tab>
       </tabset>
+      </div>
       <div class="form-group">
         <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
           <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
@@ -1062,7 +1064,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   validateWalk(): WalkExport {
-    return this.ramblersWalksAndEventsService.validateWalk(this.displayedWalk.walk);
+    return this.ramblersWalksAndEventsService.validateWalk({localWalk: this.displayedWalk.walk, ramblersWalk: null});
   }
 
   walkValidations() {

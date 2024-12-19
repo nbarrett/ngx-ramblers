@@ -109,7 +109,7 @@ export function uploadRamblersData(req, res) {
         zip.stdout.on("data", data => {
           const logOutput = data.toString().trim().split("\n").filter(item => !isEmpty(item));
           if (logOutput.length > 0) {
-            debugAndInfo("Unzip output [" + logOutput + "]");
+            debugAndInfo(`Unzip output [${logOutput}]`);
             zipOutputLines = zipOutputLines.concat(logOutput);
           }
         });
@@ -129,7 +129,7 @@ export function uploadRamblersData(req, res) {
             debugAndInfo("Unzip process completed successfully after processing", receivedZipFileName, "and extracted",
               extractedFiles.length, "file(s):", extractedFiles.join(", "));
             if (extractedFiles.length === 0) {
-              debugAndError("No files could be unzipped from " + userZipFileName);
+              debugAndError(`No files could be unzipped from ${userZipFileName}`);
               returnResponse();
             } else {
               extractFromFile(extractedFiles, BULK_LOAD_SUFFIX, res).then(response => {
@@ -154,7 +154,7 @@ export function uploadRamblersData(req, res) {
   }
 
   function extractExcelDataToJson(uploadedWorkbook, userFileName, res) {
-    debugLog("Reading members from " + uploadedWorkbook);
+    debugLog(`Reading members from ${uploadedWorkbook}`);
     bulkUploadResponse.files.data = `${uploadSessionFolder}/${userFileName}`;
     aws.putObjectDirect(uploadSessionFolder, userFileName, uploadedWorkbook)
       .then(response => {
@@ -173,7 +173,7 @@ export function uploadRamblersData(req, res) {
             extractMemberDataFromArray(json, userFileName);
             return returnResponse();
           } else {
-            debugAndError("Excel workbook " + userFileName + " did not contain a sheet called [" + ramblersSheet + "] or no data rows were found in it");
+            debugAndError(`Excel workbook ${userFileName} did not contain a sheet called [${ramblersSheet}] or no data rows were found in it`);
             returnResponse();
           }
         }
@@ -209,27 +209,7 @@ export function uploadRamblersData(req, res) {
     try {
       const memberDataRows: RamblersMember[] = json.map(dataRow => {
         currentDataRow = dataRow;
-        if (dataRow["[Expiry Date]"]) {
-          return {
-            membershipExpiryDate: trim(dataRow["[Expiry Date]"]),
-            membershipNumber: trim(dataRow["[Membership Number]"]),
-            mobileNumber: trim(dataRow["[Telephone]"]),
-            email: trim(dataRow["[Private Email]"]),
-            firstName: trim(dataRow["[Forenames]"] || dataRow["[Initials]"]),
-            lastName: trim(dataRow["[Surname]"]),
-            postcode: trim(dataRow["[Postcode]"])
-          };
-        } else if (dataRow["Membership_No"]) {
-          return {
-            membershipExpiryDate: null,
-            membershipNumber: trim(dataRow["Membership_No"]),
-            mobileNumber: trim(dataRow["Tel"]),
-            email: trim(dataRow["Email"]),
-            firstName: trim(dataRow["Forenames"] || dataRow["Initials"]),
-            lastName: trim(dataRow["Surname"]),
-            postcode: trim(dataRow["PostCode"])
-          };
-        } else if (membershipSecratariesInsightHubFormat(dataRow)) {
+        if (membershipSecratariesInsightHubFormat(dataRow)) {
           return {
             membershipExpiryDate: trim(dataRow["Expiry date"]),
             membershipNumber: trim(dataRow["Mem No."]),
@@ -237,10 +217,16 @@ export function uploadRamblersData(req, res) {
             email: trim(dataRow["Email Address"]),
             firstName: trim(dataRow["Forenames"] || dataRow["Initials"]),
             lastName: trim(dataRow["Surname"] || dataRow["Last Name"]),
-            postcode: trim(dataRow["Postcode"])
+            postcode: trim(dataRow["Postcode"]),
+            jointWith: trim(dataRow["Joint With"]),
+            title: trim(dataRow["Title"]),
+            type: trim(dataRow["Type"]),
+            landlineTelephone: trim(dataRow["Landline Telephone"]),
+            emailMarketingConsent: trim(dataRow["Email Marketing Consent"]),
+            emailPermissionLastUpdated: trim(dataRow["Email Permission Last Updated"])
           };
         } else {
-          debugAndError("Loading of data from " + userFileName + " failed processing data row " + JSON.stringify(currentDataRow) + " due to membership record type not being recognised");
+          debugAndError(`Loading of data from ${userFileName} failed processing data row ${JSON.stringify(currentDataRow)} due to membership record type not being recognised`);
         }
       })
         .filter(dataRow => dataRow?.membershipNumber);
@@ -248,9 +234,9 @@ export function uploadRamblersData(req, res) {
       debugAndComplete(`${memberDataRows.length} member(s) were extracted from ${userFileName}`);
     } catch (error) {
       debugAndError("Error attempting to extract data from", userFileName);
-      debugAndError("Error message:" + error.message);
+      debugAndError(`Error message:${error.message}`);
       debugAndError("Error stack:", error.stack);
-      return debugAndError("Loading of data from " + userFileName + " failed processing data row " + JSON.stringify(currentDataRow) + " due to unexpected error:" + error);
+      return debugAndError(`Loading of data from ${userFileName} failed processing data row ${JSON.stringify(currentDataRow)} due to unexpected error:${error}`);
     }
   }
 

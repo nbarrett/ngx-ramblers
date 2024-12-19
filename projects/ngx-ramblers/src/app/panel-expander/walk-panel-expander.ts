@@ -9,16 +9,14 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 @Component({
   selector: "app-walk-panel-expander",
   template: `
-      <div class="float-right pr-3">
-          <div [ngClass]="display.walkMode(walk)">
-              <fa-icon *ngIf="expandable" (click)="expand()"
-                       placement="auto" [tooltip]="expandAction" [icon]="faCaretUp"
-                       class="markdown-preview-icon fa-2x"></fa-icon>
-              <fa-icon *ngIf="collapsable" placement="auto" [tooltip]="collapseAction"
-                       (click)="collapse()" [icon]="faCaretDown"
-                       class="fa-2x markdown-preview-icon ml-1"></fa-icon>
-          </div>
-      </div>`,
+    <div class="form-inline" [ngClass]="display.walkMode(walk)">
+      <fa-icon *ngIf="expandable" (click)="expand()"
+               placement="auto" [tooltip]="expandAction" [icon]="faCaretUp"
+               class="markdown-preview-icon fa-2x"></fa-icon>
+      <fa-icon *ngIf="collapsable" placement="auto" [tooltip]="collapseAction"
+               (click)="collapse()" [icon]="faCaretDown"
+               class="fa-2x markdown-preview-icon ml-1"></fa-icon>
+    </div>`,
   styleUrls: ["./walk-panel-expander.sass"]
 })
 export class WalkPanelExpanderComponent implements OnInit {
@@ -48,7 +46,7 @@ export class WalkPanelExpanderComponent implements OnInit {
   private logger: Logger;
 
   constructor(public display: WalkDisplayService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkPanelExpanderComponent, NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("WalkPanelExpanderComponent", NgxLoggerLevel.ERROR);
   }
 
   ngOnInit() {
@@ -83,8 +81,10 @@ export class WalkPanelExpanderComponent implements OnInit {
 
   collapse() {
     const viewMode = this.display.walkMode(this.walk);
-    this.logger.debug("collapsing walk from current mode", viewMode);
+    this.logger.info("collapsing walk from current mode", viewMode);
     if (viewMode === WalkViewMode.VIEW) {
+      this.display.list(this.walk);
+    } else if (viewMode === WalkViewMode.VIEW_SINGLE) {
       this.display.list(this.walk);
     } else if (viewMode === WalkViewMode.EDIT) {
       this.display.view(this.walk);

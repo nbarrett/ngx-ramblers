@@ -10,11 +10,12 @@ import { Member } from "../../models/member.model";
 import { RamblersUploadAuditApiResponse } from "../../models/ramblers-upload-audit.model";
 import {
   ALL_EVENT_TYPES,
-  Contact,
+  Contact, DateFormat,
   EventsListRequest,
   GroupListRequest,
   GroupWalk,
   Metadata,
+  PublishStatus,
   RamblersEventType,
   RamblersGroupsApiResponse,
   RamblersGroupsApiResponseApiResponse,
@@ -23,14 +24,14 @@ import {
   RamblersWalksRawApiResponse,
   RamblersWalksRawApiResponseApiResponse,
   RamblersWalksUploadRequest,
-  WALKS_MANAGER_API_DATE_FORMAT,
-  WALKS_MANAGER_CSV_DATE_FORMAT,
   WALKS_MANAGER_GO_LIVE_DATE,
   WalkUploadColumnHeading,
   WalkUploadRow
 } from "../../models/ramblers-walks-manager";
 import { Ramblers } from "../../models/system.model";
 import {
+  FileUploadSummary,
+  LocalAndRamblersWalk,
   LocalContact,
   MongoIdsSupplied,
   Walk,
@@ -72,6 +73,7 @@ import { UrlService } from "../url.service";
 import { WalksConfigService } from "../system/walks-config.service";
 import { WalksConfig } from "../../models/walk-notification.model";
 import { BuiltInRole } from "../../models/committee.model";
+import { AlertInstance } from "../notifier.service";
 
 @Injectable({
   providedIn: "root"
@@ -147,7 +149,7 @@ export class RamblersWalksAndEventsService {
   async queryWalkLeaders(): Promise<Contact[]> {
     this.logger.info("queryWalkLeaders:");
     const date = WALKS_MANAGER_GO_LIVE_DATE;
-    const dateEnd = this.dateUtils.asMoment().add(12, "month").format(WALKS_MANAGER_API_DATE_FORMAT);
+    const dateEnd = this.dateUtils.asMoment().add(12, "month").format(DateFormat.WALKS_MANAGER_API);
     const body: EventsListRequest = {types: [RamblersEventType.GROUP_WALK], date, dateEnd, limit: 2000};
     this.logger.info("queryWalkLeaders:body:", body);
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<WalkLeadersApiResponse>(`${this.BASE_URL}/walk-leaders`, body), this.walkLeadersSubject);
@@ -220,11 +222,11 @@ export class RamblersWalksAndEventsService {
 
   private createStartDate(criteria: object): string {
     if (RamblersWalksAndEventsService.isWalkDateGreaterThanOrEqualTo(criteria)) {
-      return this.dateUtils.asMoment(criteria?.walkDate.$gte).format(WALKS_MANAGER_API_DATE_FORMAT);
+      return this.dateUtils.asMoment(criteria?.walkDate.$gte).format(DateFormat.WALKS_MANAGER_API);
     } else if (RamblersWalksAndEventsService.isWalkDateLessThan(criteria) || isEmpty(criteria)) {
-      return this.dateUtils.asMoment().subtract(2, "year").format(WALKS_MANAGER_API_DATE_FORMAT);
+      return this.dateUtils.asMoment().subtract(2, "year").format(DateFormat.WALKS_MANAGER_API);
     } else {
-      return this.dateUtils.asMoment().format(WALKS_MANAGER_API_DATE_FORMAT);
+      return this.dateUtils.asMoment().format(DateFormat.WALKS_MANAGER_API);
     }
   }
 
@@ -239,13 +241,13 @@ export class RamblersWalksAndEventsService {
   }
 
   private createEndDate(criteria: any): string {
-    this.logger.off("createEndDate.criteria:", criteria, "walkDate value:", criteria?.walkDate, "walkDate formatted:", this.dateUtils.asMoment(criteria?.walkDate).format(WALKS_MANAGER_API_DATE_FORMAT));
+    this.logger.off("createEndDate.criteria:", criteria, "walkDate value:", criteria?.walkDate, "walkDate formatted:", this.dateUtils.asMoment(criteria?.walkDate).format(DateFormat.WALKS_MANAGER_API));
     if (RamblersWalksAndEventsService.isWalkDateLessThan(criteria)) {
-      return this.dateUtils.asMoment(criteria?.walkDate?.$lt).subtract(1, "day").format(WALKS_MANAGER_API_DATE_FORMAT);
+      return this.dateUtils.asMoment(criteria?.walkDate?.$lt).subtract(1, "day").format(DateFormat.WALKS_MANAGER_API);
     } else if (RamblersWalksAndEventsService.isWalkDateLessThanOrEqualTo(criteria)) {
-      return this.dateUtils.asMoment(criteria?.walkDate?.$lte).format(WALKS_MANAGER_API_DATE_FORMAT);
+      return this.dateUtils.asMoment(criteria?.walkDate?.$lte).format(DateFormat.WALKS_MANAGER_API);
     } else {
-      return this.dateUtils.asMoment().add(2, "year").format(WALKS_MANAGER_API_DATE_FORMAT);
+      return this.dateUtils.asMoment().add(2, "year").format(DateFormat.WALKS_MANAGER_API);
     }
   }
 
@@ -270,11 +272,11 @@ export class RamblersWalksAndEventsService {
 
   createWalksForExportPrompt(walks): Promise<WalkExport[]> {
     return this.listRamblersWalks()
-      .then(ramblersWalksResponses => this.updateWalksWithRamblersWalkData(ramblersWalksResponses, walks))
-      .then(updatedWalks => this.returnWalksExport(updatedWalks));
+      .then((ramblersWalksResponses: RamblersWalkResponse[]) => this.updateWalksWithRamblersWalkData(ramblersWalksResponses, walks))
+      .then((updatedWalks: LocalAndRamblersWalk[]) => this.returnWalksExport(updatedWalks));
   }
 
-  updateWalksWithRamblersWalkData(ramblersWalksResponses: RamblersWalkResponse[], walks: Walk[]) {
+  updateWalksWithRamblersWalkData(ramblersWalksResponses: RamblersWalkResponse[], walks: Walk[]): Promise<LocalAndRamblersWalk[]> {
     let unreferencedUrls: string[] = this.collectExistingRamblersUrlsFrom(walks);
     this.logger.info(this.stringUtilsService.pluraliseWithCount(unreferencedUrls.length, "existing ramblers walk url"), "found:", unreferencedUrls);
     this.logger.info(this.stringUtilsService.pluraliseWithCount(walks.length, "saved walk"), "found:", walks);
@@ -291,7 +293,7 @@ export class RamblersWalksAndEventsService {
             this.logger.info("updating walk from", walkMatchedByDate.ramblersWalkId || "empty", "->", ramblersWalksResponse.id, "and", walkMatchedByDate.ramblersWalkUrl || "empty", "->", ramblersWalksResponse.url, "on", this.displayDate.transform(walkMatchedByDate.walkDate));
             walkMatchedByDate.ramblersWalkId = ramblersWalksResponse.id;
             walkMatchedByDate.ramblersWalkUrl = ramblersWalksResponse.url;
-            walkMatchedByDate.startLocationW3w = ramblersWalksResponse.startLocationW3w;
+            walkMatchedByDate.startLocationW3w = ramblersWalksResponse.start_location.w3w;
             savePromises.push(this.walksService.createOrUpdate(walkMatchedByDate));
             this.logger.info("walk updated to:", walkMatchedByDate);
           }
@@ -319,7 +321,14 @@ export class RamblersWalksAndEventsService {
         }
       });
     }
-    return Promise.all(savePromises).then(() => walks);
+    return Promise.all(savePromises).then(() => this.integrate(walks, ramblersWalksResponses));
+  }
+
+  private integrate(walks: Walk[], ramblersWalksResponses: RamblersWalkResponse[]): LocalAndRamblersWalk[] {
+    return walks.map(walk => ({
+      localWalk: walk,
+      ramblersWalk: ramblersWalksResponses.find(item => item.id === walk.ramblersWalkId)
+    }));
   }
 
   private notMatchedByIdOrUrl(walkMatchedByDate: Walk, ramblersWalksResponse: RamblersWalkResponse): boolean {
@@ -331,15 +340,15 @@ export class RamblersWalksAndEventsService {
       ?.map(walk => walk.ramblersWalkUrl);
   }
 
-  returnWalksExport(walks: Walk[]): WalkExport[] {
+  returnWalksExport(localAndRamblersWalks: LocalAndRamblersWalk[]): WalkExport[] {
     const todayValue = this.dateUtils.momentNowNoTime().valueOf();
-    return walks
-      .filter(walk => (walk.walkDate >= todayValue) && walk.briefDescriptionAndStartPoint)
-      .sort(walk => walk.walkDate)
+    return localAndRamblersWalks
+      .filter(walk => (walk.localWalk.walkDate >= todayValue) && walk.localWalk.briefDescriptionAndStartPoint)
+      .sort(walk => walk.localWalk.walkDate)
       .map(walk => this.validateWalk(walk));
   }
 
-  uploadToRamblers(walkExports: WalkExport[], members: Member[], notify): Promise<string> {
+  uploadToRamblers(walkExports: WalkExport[], members: Member[], notify: AlertInstance): Promise<FileUploadSummary> {
     notify.setBusy();
     const walkIdDeletionList = this.walkDeletionList(walkExports);
     this.logger.debug("sourceData", walkExports);
@@ -365,14 +374,15 @@ export class RamblersWalksAndEventsService {
         });
         this.logger.debug("success response data", response);
         notify.clearBusy();
-        return fileName;
+        return {fileName, error: false};
       })
       .catch(response => {
         this.logger.debug("error response data", response);
-        return notify.error({
+        notify.error({
           title: "Ramblers walks upload failed",
           message: response
         });
+        return {fileName, error: true};
       });
   }
 
@@ -391,8 +401,9 @@ export class RamblersWalksAndEventsService {
     return enumValues(WalkUploadColumnHeading);
   }
 
-  validateWalk(walk: Walk): WalkExport {
+  validateWalk(localAndRamblersWalk: LocalAndRamblersWalk): WalkExport {
     const validationMessages = [];
+    const walk: Walk = localAndRamblersWalk.localWalk;
     const walkDistance: WalkDistance = this.distanceValidationService.parse(walk);
     const walkAscent: WalkAscent = this.ascentValidationService.parse(walk);
     this.logger.off("validateWalk:walk:", walk, "walkDistance:", walkDistance);
@@ -452,11 +463,13 @@ export class RamblersWalksAndEventsService {
         validationMessages.push(`${alertMessage.title}. ${alertMessage.message}`);
       }
     }
+    const publishedStatus = this.publishedStatus(localAndRamblersWalk);
     return {
+      publishedStatus: publishedStatus.messages.join(", "),
       displayedWalk: this.walkDisplayService.toDisplayedWalk(walk),
       validationMessages,
       publishedOnRamblers: walk && !isEmpty(walk.ramblersWalkId),
-      selected: walk && walk.ramblersPublish && validationMessages.length === 0 && isEmpty(walk.ramblersWalkId)
+      selected: walk?.ramblersPublish && (validationMessages.length === 0 && isEmpty(walk.ramblersWalkId)) || publishedStatus.publish
     };
   }
 
@@ -715,7 +728,7 @@ export class RamblersWalksAndEventsService {
     this.logger.debug("walkDistance:", walkDistance);
     const walkAscent: WalkAscent = this.ascentValidationService.parse(walk);
     this.logger.debug("walkAscent:", walkAscent);
-    csvRecord[WalkUploadColumnHeading.DATE] = this.walkDate(walk, WALKS_MANAGER_CSV_DATE_FORMAT);
+    csvRecord[WalkUploadColumnHeading.DATE] = this.walkDate(walk, DateFormat.WALKS_MANAGER_CSV);
     csvRecord[WalkUploadColumnHeading.TITLE] = this.walkTitle(walk);
     csvRecord[WalkUploadColumnHeading.DESCRIPTION] = this.walkDescription(walk);
     csvRecord[WalkUploadColumnHeading.ADDITIONAL_DETAILS] = "";
@@ -764,4 +777,50 @@ export class RamblersWalksAndEventsService {
     return {code: feature, description: this.stringUtilsService.asTitle(feature)};
   }
 
+  private publishedStatus(localAndRamblersWalk: LocalAndRamblersWalk): PublishStatus {
+    const validateGridReferences = false;
+    const publishStatus: PublishStatus = {publish: false, messages: []};
+    const walk: Walk = localAndRamblersWalk.localWalk;
+    const ramblersWalk: RamblersWalkResponse = localAndRamblersWalk.ramblersWalk;
+    if (walk.ramblersPublish) {
+      if (!ramblersWalk) {
+        publishStatus.messages.push("Walk is not yet published");
+        publishStatus.publish = true;
+      } else {
+        if (walk?.start_location?.postcode && walk?.start_location?.postcode !== ramblersWalk?.start_location?.postcode) {
+          publishStatus.messages.push("Ramblers postcode is " + ramblersWalk?.start_location?.postcode + " but website postcode is " + walk?.start_location?.postcode);
+          publishStatus.publish = true;
+        }
+        if (validateGridReferences && walk?.start_location?.grid_reference_10 && walk?.start_location?.grid_reference_10 !== ramblersWalk?.start_location?.grid_reference_10) {
+          publishStatus.messages.push("Ramblers grid reference is " + ramblersWalk?.start_location?.grid_reference_10 + " but website grid reference is " + walk?.start_location?.grid_reference_10);
+          publishStatus.publish = true;
+        }
+        if (walk?.end_location?.postcode && walk?.end_location?.postcode !== ramblersWalk?.end_location?.postcode) {
+          publishStatus.messages.push("Ramblers postcode is " + ramblersWalk?.end_location?.postcode + " but website postcode is " + walk?.end_location?.postcode);
+          publishStatus.publish = true;
+        }
+        if (validateGridReferences && walk?.end_location?.grid_reference_10 && walk?.end_location?.grid_reference_10 !== ramblersWalk?.end_location?.grid_reference_10) {
+          publishStatus.messages.push("Ramblers grid reference is " + ramblersWalk?.end_location?.grid_reference_10 + " but website grid reference is " + walk?.end_location?.grid_reference_10);
+          publishStatus.publish = true;
+        }
+        if (walk?.briefDescriptionAndStartPoint && walk?.briefDescriptionAndStartPoint !== ramblersWalk?.title) {
+          publishStatus.messages.push("Ramblers title is " + ramblersWalk?.title + " but website title is " + walk?.briefDescriptionAndStartPoint);
+          publishStatus.publish = true;
+        }
+        if (publishStatus.messages.length === 0) {
+          publishStatus.messages.push("Walk is published to Ramblers and details are correct");
+        }
+      }
+
+    } else {
+      if (ramblersWalk) {
+        publishStatus.messages.push("Walk needs to be unpublished from Ramblers");
+        publishStatus.publish = true;
+      } else {
+        publishStatus.messages.push("Walk is not to be published");
+      }
+    }
+    this.logger.off("publishedStatus:walk:", walk, "ramblersWalk:", ramblersWalk, "publishStatus:", publishStatus);
+    return publishStatus;
+  }
 }

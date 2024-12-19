@@ -1,17 +1,15 @@
-import { DOCUMENT } from "@angular/common";
-import { Component, Inject, OnDestroy, OnInit } from "@angular/core";
-import { faCircleInfo, faEye, faRemove } from "@fortawesome/free-solid-svg-icons";
+import { Component, OnDestroy, OnInit } from "@angular/core";
+import { faCircleInfo, faEnvelope, faEye, faRemove } from "@fortawesome/free-solid-svg-icons";
 import find from "lodash-es/find";
 import map from "lodash-es/map";
 import { NgxLoggerLevel } from "ngx-logger";
 import { interval, Observable, Subscription } from "rxjs";
 import { switchMap } from "rxjs/operators";
-import { chain } from "../../../functions/chain";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { Member } from "../../../models/member.model";
 import { RamblersUploadAudit, RamblersUploadAuditApiResponse } from "../../../models/ramblers-upload-audit.model";
 import { WalkUploadRow } from "../../../models/ramblers-walks-manager";
-import { Walk, WalkExport } from "../../../models/walk.model";
+import { FileUploadSummary, Walk, WalkExport } from "../../../models/walk.model";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -25,6 +23,7 @@ import { WalkDisplayService } from "../walk-display.service";
 import { CsvOptions } from "../../../csv-export/csv-export";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import groupBy from "lodash-es/groupBy";
 
 @Component({
   selector: "app-walk-export",
@@ -45,55 +44,94 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                   {{ walkExportTarget.alertTitle }}: </strong> {{ walkExportTarget.alertMessage }}
               </div>
             </div>
-            <div class="row mb-2">
-              <div class="col-sm-12 form-inline">
-                <ng-container *ngIf="!display.walkPopulationWalksManager()">
-                  <input *ngIf="walksDownloadFileContents.length > 0" type="submit"
-                         value="Upload {{walksDownloadFileContents.length}} walk(s) directly to Ramblers"
+            <div class="row">
+              <ng-container *ngIf="!display.walkPopulationWalksManager()">
+                <div class="col mb-2">
+                  <input type="submit"
+                         value="Upload {{stringUtils.pluraliseWithCount(walksDownloadFileContents.length, 'walk')}} directly to Ramblers"
                          (click)="uploadToRamblers()"
-                         [ngClass]="exportInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
-                  <input *ngIf="walksDownloadFileContents.length > 0" type="submit"
+                         [disabled]="(walksDownloadFileContents.length === 0) || exportInProgress"
+                         class="btn btn-primary w-100">
+                </div>
+                <div class="col mb-2">
+                  <input type="submit"
                          (click)="csvComponent.generateCsv();"
-                         value="Export {{walksDownloadFileContents.length}} walk(s) file as CSV format"
-                         [ngClass]="exportInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
-                </ng-container>
+                         value="Export {{stringUtils.pluraliseWithCount(walksDownloadFileContents.length, 'walk')}} file as CSV format"
+                         [disabled]="walksDownloadFileContents.length === 0 || exportInProgress"
+                         class="btn btn-primary w-100">
+                </div>
+              </ng-container>
+              <div class="col mb-2">
                 <input type="submit" value="Back To Walks Admin" (click)="navigatebackToWalksAdmin()"
                        title="Back to walks"
-                       class="button-form button-form-left">
+                       class="btn btn-primary w-100">
               </div>
+              <div class="col-lg-6 d-sm-none"></div>
             </div>
             <div class="row">
-              <div class="col-sm-12">
-                <table class="round styled-table table-striped table-hover table-sm table-pointer">
-                  <thead>
-                  <tr>
-                    <th>Click to Export</th>
-                    <th>Already Published</th>
-                    <th>Walk Date</th>
-                    <th>Leader</th>
-                    <th>Status</th>
-                    <th>Description</th>
-                    <th>Problems</th>
-                  </tr>
-                  </thead>
-                  <tbody>
-                  <tr *ngFor="let walkExport of walksForExport">
-                    <td (click)="toggleWalkExportSelection(walkExport)"
-                        [ngClass]="walkExport.selected ? 'yes' : 'no'">
+              <div *ngFor="let walkExport of walksForExport"
+                   class="py-2 col-lg-4 col-md-6 col-sm-12 d-flex flex-column">
+                <div (click)="toggleWalkExportSelection(walkExport)" class="card mb-0 h-100 pointer">
+                  <div class="card-body shadow">
+                    <dl class="d-flex pointer checkbox-toggle my-2">
+                      <dt class="font-weight-bold mr-2 flex-nowrap checkbox-toggle">Publish this walk:</dt>
                       <div class="custom-control custom-checkbox">
                         <input [ngModel]="walkExport.selected"
                                type="checkbox" class="custom-control-input">
                         <label class="custom-control-label"></label></div>
-                    </td>
-                    <td>{{ walkExport.publishedOnRamblers }}</td>
-                    <td class="nowrap">{{ walkExport.displayedWalk.walk.walkDate | displayDate }}</td>
-                    <td class="nowrap">{{ walkExport.displayedWalk.walk.displayName }}</td>
-                    <td>{{ walkExport.displayedWalk.latestEventType.description }}</td>
-                    <td>{{ walkExport.displayedWalk.walk.briefDescriptionAndStartPoint }}</td>
-                    <td>{{ walkExport.validationMessages.join(", ") }}</td>
-                  </tr>
-                  </tbody>
-                </table>
+                    </dl>
+                    <div (click)="ignoreClicks($event)" [ngClass]="{'card-disabled': !walkExport.selected}">
+                      <h3 class="card-title">
+                        <a [href]="walkExport.displayedWalk.walkLink" class="rams-text-decoration-pink active"
+                           target="_blank">{{ walkExport.displayedWalk.walk.briefDescriptionAndStartPoint || walkExport.displayedWalk.latestEventType.description }}</a>
+                      </h3>
+                      <dl class="d-flex">
+                        <dt class="font-weight-bold mr-2">Date and time:</dt>
+                        <time>{{ walkExport.displayedWalk.walk.walkDate | displayDate }} {{ walkExport.displayedWalk.walk.startTime }}</time>
+                      </dl>
+                      <dl *ngIf="walkExport.displayedWalk.walk?.distance" class="d-flex mb-1">
+                        <dt class="font-weight-bold mr-2">Distance:</dt>
+                        <dd>{{ walkExport.displayedWalk.walk.distance }}</dd>
+                      </dl>
+                      <dl class="d-flex">
+                        <dt class="font-weight-bold mr-2">Leader:</dt>
+                        <dd>
+                          <div class="row no-gutters">
+                            <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
+                                 class="col-sm-6 nowrap">
+                              <fa-icon title
+                                       tooltip="contact walk leader {{walkExport.displayedWalk?.walk?.displayName}}"
+                                       [icon]="faEnvelope"
+                                       class="fa-icon mr-1"/>
+                              <a content
+                                 [href]="'mailto:' + walkExport.displayedWalk?.walk?.contactEmail">{{ walkExport.displayedWalk?.walk?.displayName || "Contact Via Ramblers" }}</a>
+                            </div>
+                          </div>
+                        </dd>
+                      </dl>
+                      <dl class="d-flex" *ngIf="walkExport.validationMessages.length>0">
+                        <dt class="font-weight-bold mr-2">Problems:</dt>
+                        <dd>
+                          <div>
+                            {{ walkExport.validationMessages.join(", ") }}
+                          </div>
+                        </dd>
+                      </dl>
+                      <dl class="d-flex">
+                        <dt class="font-weight-bold mr-2 nowrap">Publish status:</dt>
+                        <dd *ngIf="walkExport.displayedWalk.walk.ramblersWalkId">
+                          <a target="_blank"
+                             class="ml-2"
+                             tooltip="Click to view on Ramblers Walks and Events Manager"
+                             [href]="display.ramblersLink(walkExport.displayedWalk.walk)">
+                            <img class="related-links-ramblers-image" src="favicon.ico"
+                                 alt="Click to view on Ramblers Walks and Events Manager"/></a>
+                        </dd>
+                      </dl>
+                      <div>{{ walkExport.publishedStatus }}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -113,17 +151,15 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                   <form class="form-inline">
                     <div class="form-group">
                       <label for="fileName" class="inline-label">Show upload session: </label>
-                      <select class="form-control input-sm"
-                              id="fileName"
-                              name="filename"
-                              (change)="fileNameChanged()"
-                              [(ngModel)]="fileName"
-                              class="form-control input-sm" id="fileNames">
-                        <option *ngFor="let fileName of fileNames"
-                                [ngValue]="fileName"
-                                [textContent]="fileName">
-                        </option>
-                      </select>
+                      <ng-select [clearable]="false" name="fileName" [(ngModel)]="fileName" (change)="fileNameChanged()" class="filename-select rounded">
+                        <ng-option *ngFor="let fileName of fileNames" [value]="fileName">
+                          <div class="form-inline">
+                            <fa-icon [icon]="fileName.error ? faRemove : faCircleInfo"
+                                     [ngClass]="fileName.error ? 'red-icon' : 'green-icon'"></fa-icon>
+                            {{ fileName.fileName }}
+                          </div>
+                        </ng-option>
+                      </ng-select>
                     </div>
                     <div class="form-group">
                       <div class="custom-control custom-checkbox">
@@ -137,9 +173,9 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                       </div>
                     </div>
                     <div class="form-group">
-                      <input type="submit" value="Back To Walks Admins" (click)="navigatebackToWalksAdmin()"
+                      <input type="submit" value="Back To Walks Admin" (click)="navigatebackToWalksAdmin()"
                              title="Back to walks"
-                             class="button-form button-form-left">
+                             class="btn btn-primary">
                     </div>
                   </form>
                 </div>
@@ -150,14 +186,14 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                 <table class="round styled-table table-striped table-hover table-sm table-pointer">
                   <thead>
                   <tr>
-                    <th>Date/Time</th>
+                    <th>Time</th>
                     <th>Status</th>
                     <th>Audit Message</th>
                   </tr>
                   </thead>
                   <tbody>
                   <tr *ngFor="let audit of ramblersUploadAuditData">
-                    <td class="nowrap">{{ audit.auditTime | displayDateAndTime }}</td>
+                    <td class="nowrap">{{ audit.auditTime | displayTime }}</td>
                     <td *ngIf="audit.status==='complete'">
                       <fa-icon [icon]="finalStatusError ? faRemove : faCircleInfo" [ngClass]="finalStatusError ? 'red-icon':
                             'green-icon'"></fa-icon>
@@ -178,15 +214,41 @@ import { StringUtilsService } from "../../../services/string-utils.service";
         </tab>
       </tabset>
     </app-page>`,
+  styles: [`
+    .filename-select
+      width: 400px
+
+    .card-disabled
+      opacity: 0.5
+      pointer-events: none
+
+    dl
+      margin-bottom: 0
+  `],
   styleUrls: ["./walk-export.component.sass"]
 })
 
 export class WalkExportComponent implements OnInit, OnDestroy {
+
+  constructor(private ramblersWalksAndEventsService: RamblersWalksAndEventsService,
+              private walksService: WalksService,
+              private ramblersUploadAuditService: RamblersUploadAuditService,
+              private notifierService: NotifierService,
+              private displayDate: DisplayDatePipe,
+              private systemConfigService: SystemConfigService,
+              private walksQueryService: WalksQueryService,
+              public display: WalkDisplayService,
+              private dateUtils: DateUtilsService,
+              protected stringUtils: StringUtilsService,
+              private urlService: UrlService,
+              loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.createLogger("WalkExportComponent", NgxLoggerLevel.ERROR);
+  }
   private logger: Logger;
   public ramblersUploadAuditData: RamblersUploadAudit[];
   public walksForExport: WalkExport[] = [];
-  public fileName: string;
-  public fileNames: string[] = [];
+  public fileName: FileUploadSummary;
+  public fileNames: FileUploadSummary[] = [];
   public showDetail: boolean;
   private members: Member[];
   public walkExportTarget: AlertTarget = {};
@@ -202,20 +264,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   faCircleInfo = faCircleInfo;
   public walksDownloadFileContents: WalkUploadRow[] = [];
 
-  constructor(private ramblersWalksAndEventsService: RamblersWalksAndEventsService,
-              private walksService: WalksService,
-              private ramblersUploadAuditService: RamblersUploadAuditService,
-              private notifierService: NotifierService,
-              private displayDate: DisplayDatePipe,
-              private systemConfigService: SystemConfigService,
-              private walksQueryService: WalksQueryService,
-              public display: WalkDisplayService,
-              private dateUtils: DateUtilsService,
-              private stringUtils: StringUtilsService,
-              private urlService: UrlService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkExportComponent, NgxLoggerLevel.ERROR);
-  }
+  protected readonly faEnvelope = faEnvelope;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -233,7 +282,12 @@ export class WalkExportComponent implements OnInit, OnDestroy {
       } else {
         await this.showAvailableWalkExports();
         this.populateWalksDownloadFileContents()
-        this.showAllAudits();
+        await this.showAllAudits();
+        this.walkExportNotifier.success({
+          title: "Walks Export Initialisation",
+          message: `${this.stringUtils.pluraliseWithCount(this.walksDownloadFileContents.length, "walk")} ${this.stringUtils.pluralise(this.walksDownloadFileContents.length, "was", "were")} preselected for export`
+        });
+
       }
     });
   }
@@ -267,7 +321,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   }
 
   fileNameChanged() {
-    this.logger.debug("filename changed to", this.fileName);
+    this.logger.info("filename changed to", this.fileName);
     this.refreshRamblersUploadAudit().then(() => this.walkExportNotifier.clearBusy());
   }
 
@@ -280,7 +334,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
 
   refreshRamblersUploadAudit() {
     this.walkExportNotifier.setBusy();
-    return this.ramblersUploadAuditService.all({criteria: {fileName: this.fileName}, sort: {auditTime: -1}})
+    return this.ramblersUploadAuditService.all({criteria: {fileName: this.fileName.fileName}, sort: {auditTime: -1}})
       .then((auditItems: RamblersUploadAuditApiResponse) => {
         this.ramblersUploadAuditData = auditItems.response
           .filter(auditItem => {
@@ -299,6 +353,14 @@ export class WalkExportComponent implements OnInit, OnDestroy {
         this.auditNotifier.warning(`Showing ${this.ramblersUploadAuditData.length} audit items`);
         this.finalStatusError = find(this.ramblersUploadAuditData, {status: "error"});
       });
+  }
+
+  groupByFileName(response: RamblersUploadAudit[]): FileUploadSummary[] {
+    const groupedData = groupBy(response, "fileName");
+    return Object.keys(groupedData).map(fileName => {
+      const hasError = groupedData[fileName].some(audit => audit.status === "error");
+      return {fileName, error: hasError};
+    });
   }
 
   exportableWalks(): WalkExport[] {
@@ -335,9 +397,9 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.walkExportNotifier.warning("Refreshing past download sessions", false, true);
     this.ramblersUploadAuditService.all({limit: 1000, sort: {auditTime: -1}})
       .then((auditItems: RamblersUploadAuditApiResponse) => {
-        this.logger.debug("found total of", auditItems.response.length, "audit trail records:", auditItems.response);
-        this.fileNames = chain(auditItems.response).map("fileName").unique().value();
-        this.logger.debug("found total of", this.fileNames.length, "fileNames:", this.fileNames);
+        this.logger.info("found total of", auditItems.response.length, "audit trail records:", auditItems.response);
+        this.fileNames = this.groupByFileName(auditItems.response);
+        this.logger.info("found total of", this.fileNames.length, "fileNames:", this.fileNames);
         this.fileName = this.fileNames[0];
         this.fileNameChanged();
         this.logger.debug("Total of", this.fileNames.length, "download sessions");
@@ -389,7 +451,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.exportInProgress = true;
     this.ramblersWalksAndEventsService.uploadToRamblers(this.walksForExport, this.members, this.walkExportNotifier).then(fileName => {
       this.fileName = fileName;
-      if (!this.fileNames.includes(this.fileName)) {
+      if (!this.fileNames.find(item => item.fileName ===this?.fileName?.fileName)) {
         this.fileNames.push(this.fileName);
         this.logger.debug("added", this.fileName, "to filenames of", this.fileNames.length, "audit trail records");
       }
@@ -404,4 +466,9 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   logWalkSelected(walk: WalkExport) {
     this.logger.info("logWalkSelected:walkExport:", walk, "walkDeletionList:", this.ramblersWalksAndEventsService.walkDeletionList(this.walksForExport),);
   }
+
+  ignoreClicks($event: MouseEvent) {
+    $event.stopPropagation();
+  }
+
 }

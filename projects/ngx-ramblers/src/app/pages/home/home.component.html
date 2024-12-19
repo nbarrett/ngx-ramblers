@@ -1,5 +1,5 @@
-<app-dynamic-content [anchor]="'home-content'" [contentPathReadOnly]="true"></app-dynamic-content>
+<app-dynamic-content [anchor]="'home-content'" contentPathReadOnly/>
 <div class="card-columns">
-  <app-facebook *ngIf="externalSystems?.facebook?.showFeed"></app-facebook>
-  <app-instagram *ngIf="externalSystems?.instagram?.showFeed"></app-instagram>
+  <app-facebook *ngIf="externalSystems?.facebook?.showFeed"/>
+  <app-instagram *ngIf="externalSystems?.instagram?.showFeed"/>
 </div>

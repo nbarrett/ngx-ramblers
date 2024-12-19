@@ -25,6 +25,14 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
           <p>Please select how {{ member | fullNameWithAlias }} wants to be <b>emailed</b>
             by using the subscription checkboxes below.</p>
         </div>
+        <div class="col-sm-12">
+          <p *ngIf="member.emailMarketingConsent">Email Marketing Consent was provided
+            by {{ member | fullNameWithAlias }} <span
+              *ngIf="member.emailPermissionLastUpdated">via <a href="https://www.ramblers.org.uk/my-account">The Ramblers Website</a> on {{ member.emailPermissionLastUpdated | displayDate }}</span>.
+          </p>
+          <p *ngIf="!member.emailMarketingConsent">Email Marketing Consent has not been given by {{ member | fullNameWithAlias }}.
+          <span *ngIf="member.emailPermissionLastUpdated"> This was last updated via <a href="https://www.ramblers.org.uk/my-account">The Ramblers Website</a> on {{ member.emailPermissionLastUpdated | displayDate }}.</span></p>
+        </div>
         <div class="col-sm-12 mb-3">
           <div class="row" *ngIf="member?.mail?.subscriptions && mailMessagingConfig">
             <div class="col-sm-4"
@@ -115,7 +123,7 @@ export class MailSubscriptionSettingsComponent implements OnInit {
     if (this.mailMessagingConfig && list && this.member && !this.member.mail?.subscriptions?.find(mailSubscription => mailSubscription?.id === list.id)) {
       const listSetting: ListSetting = this.listSetting(list);
       const subscription: MailSubscription = {
-        subscribed: listSetting?.autoSubscribeNewMembers,
+        subscribed: this.mailMessagingService.subscribed(listSetting, this.member),
         id: list.id
       };
       if (!this.member?.mail?.subscriptions) {

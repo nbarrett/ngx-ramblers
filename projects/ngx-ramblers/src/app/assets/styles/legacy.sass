@@ -99,27 +99,42 @@ audio[controls], canvas, video
 .related-links-gylph-title
   cursor: pointer
 
-.map-thumbnail-image-dialog
-  border-radius: 10px
+.map-walk-location-edit
+  border-radius: 8px
   margin: 0px 20px 3px 0px
   width: 100%
   height: 400px
 
-.map-thumbnail-image
-  border-radius: 10px
+.map-walk-view
+  border-radius: 8px
   overflow: hidden
   float: right
   width: 100%
-  margin-top: 20px
+  margin-top: 8px
   margin-bottom: 0
   height: 380px
+
+.map-walk-view-google
+  margin-top: 16px
+
+.map-card-image
+  border-radius: 5px
+  width: 100%
+  height: 150px
+
 
 h3 small
   font-size: 75%
 
-.event-description
+.event-description-old
   text-align: justify
   font-size: 15px
+
+.event-description
+  word-wrap: break-word
+  text-align: justify
+  font-size: 15px
+  hyphens: auto
 
 .spaced-controls
   width: 190px
@@ -195,9 +210,8 @@ html
 
 body
   margin: 0
-  font-size: 15px
-  line-height: 1.231
-
+  font-size: 1.125rem
+  line-height: 1.5
 
 img
   border: 0
@@ -1525,3 +1539,6 @@ img[src*="#thumbnail"]
   display: inline-block
   position: absolute
   float: left
+
+.nowrap
+  white-space: nowrap

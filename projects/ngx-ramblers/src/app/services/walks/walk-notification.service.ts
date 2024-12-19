@@ -139,7 +139,10 @@ export class WalkNotificationService {
       status: displayedWalk.status,
       event: this.walkEventService.latestEvent(displayedWalk.walk),
       walkDataAudit: this.walkEventService.walkDataAuditFor(displayedWalk.walk, displayedWalk.status, false),
-      validationMessages: this.ramblersWalksAndEventsService.validateWalk(displayedWalk.walk).validationMessages,
+      validationMessages: this.ramblersWalksAndEventsService.validateWalk({
+        localWalk: displayedWalk.walk,
+        ramblersWalk: null
+      }).validationMessages,
       reason
     };
     this.logger.info("toWalkNotification ->", data);

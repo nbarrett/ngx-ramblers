@@ -6,6 +6,7 @@
   "private": true,
   "scripts": {
     "clean": "rimraf target",
+    "aws-backup": "ts-node aws-backup/backup-s3-images.ts",
     "deploy": "ts-node deploy/deploy-to-environments.ts",
     "e2e": "protractor ./protractor.conf.js",
     "e2e-single": "protractor ./protractor.conf.js --mochaOpts.grep",
@@ -67,6 +68,7 @@
     "errorhandler": "1.5.1",
     "express": "4.18.2",
     "express-session": "1.17.3",
+    "fs": "^0.0.1-security",
     "jasmine": "3.5.0",
     "js-yaml": "3.13.1",
     "json2csv": "3.11.5",

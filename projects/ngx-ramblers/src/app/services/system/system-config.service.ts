@@ -24,6 +24,7 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 import { StringUtilsService } from "../string-utils.service";
 import cloneDeep from "lodash-es/cloneDeep";
 import isEqual from "lodash-es/isEqual";
+import { WalkListView } from "../../models/walk.model";
 
 @Injectable({
   providedIn: "root"
@@ -184,6 +185,9 @@ export class SystemConfigService {
 
   private emptyOrganisation(): Organisation {
     return {
+      defaultWalkListView: WalkListView.CARDS,
+      allowSwitchWalkView: false,
+      walkContactDetailsPublic: true,
       socialDetailsPublic: true,
       href: null,
       longName: null,

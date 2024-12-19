@@ -15,6 +15,7 @@ import {
   CreateContactRequestWithAttributes,
   CreateContactRequestWithObjectAttributes,
   ListInfo,
+  ListSetting,
   MailListAudit,
   MailMessagingConfig,
   MailSubscription,
@@ -319,7 +320,10 @@ export class MailListUpdaterService {
     member.mail = {
       email: null,
       id: null,
-      subscriptions: mailMessagingConfig?.brevo?.lists?.lists.map((item: ListInfo) => this.mapIdToSubscription(item.id, mailMessagingConfig?.mailConfig?.listSettings.find(setting => setting.id === item.id)?.autoSubscribeNewMembers && !!(member.email)))
+      subscriptions: mailMessagingConfig?.brevo?.lists?.lists.map((item: ListInfo) => {
+        const listSetting: ListSetting = mailMessagingConfig?.mailConfig?.listSettings?.find(setting => setting?.id === item?.id);
+        return this.mapIdToSubscription(item.id, this.mailMessagingService.subscribed(listSetting, member));
+      })
     };
     this.logger.off("initialiseMailSubscriptionsFromListIds:for subscribed:", "lists:", mailMessagingConfig?.brevo?.lists?.lists, "name:", this.fullNamePipe.transform(member), "member.mail before:", preMail, "after:", member.mail);
   }

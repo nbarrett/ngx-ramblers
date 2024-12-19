@@ -8,7 +8,14 @@ import { WalkAccessMode } from "./walk-edit-mode.model";
 import { WalkEventType } from "./walk-event-type.model";
 import { WalkEvent } from "./walk-event.model";
 import { WalkVenue } from "./walk-venue.model";
-import { Contact, LocationDetails, Metadata, RamblersEventType } from "./ramblers-walks-manager";
+import {
+  BasicMedia,
+  Contact,
+  LocationDetails,
+  Metadata,
+  RamblersEventType,
+  RamblersWalkResponse
+} from "./ramblers-walks-manager";
 import { HasMedia } from "./social-events.model";
 
 export interface GoogleMapsConfig {
@@ -44,6 +51,23 @@ export interface WalkAscent {
   validationMessage?: string;
 }
 
+export interface WalkGrade {
+  description: string;
+  image: string;
+}
+
+export const WALK_GRADES: WalkGrade[] = [
+  {description: "Easy access", image: "easy.png"},
+  {description: "Easy", image: "easy.png"},
+  {description: "Leisurely", image: "leisurely.png"},
+  {description: "Moderate", image: "moderate.png"},
+  {description: "Strenuous", image: "strenuous.png"},
+  {description: "Technical", image: "strenuous.png"}];
+
+export interface LocalAndRamblersWalk {
+  localWalk: Walk;
+  ramblersWalk: RamblersWalkResponse;
+}
 export interface Walk extends Identifiable, HasMedia {
   contactName?: string;
   walkType?: WalkType;
@@ -105,7 +129,13 @@ export interface WalkExport {
   displayedWalk: DisplayedWalk;
   validationMessages: string[];
   publishedOnRamblers: boolean;
+  publishedStatus: string;
   selected: boolean;
+}
+
+export interface FileUploadSummary {
+  fileName: string,
+  error: boolean
 }
 
 export interface WalkApiResponse extends ApiResponse {
@@ -155,6 +185,7 @@ export interface WalkFilter {
 }
 
 export enum WalkViewMode {
+  CARD = "card",
   VIEW = "view",
   VIEW_SINGLE = "view-single",
   EDIT = "edit",
@@ -179,11 +210,6 @@ export interface WalkDateLessThan {
 
 export interface WalkDateLessThanOrEqualTo {
   walkDate: { $lte: number };
-}
-
-export interface WalkLocation {
-  latitude: number;
-  longitude: number;
 }
 
 export interface DisplayedWalk {
@@ -219,3 +245,14 @@ export const INITIALISED_LOCATION: LocationDetails = {
   latitude: null,
   longitude: null
 };
+
+export const FALLBACK_MEDIA: BasicMedia = {
+  alt: "placeholder image",
+  url: "/assets/images/ramblers/placeholder-image.png"
+};
+
+export enum WalkListView {
+  TABLE = "table",
+  CARDS = "cards",
+  MAP = "map",
+}

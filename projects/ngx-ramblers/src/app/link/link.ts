@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit, OnChanges, SimpleChanges } from "@angular/core";
 import { FileUtilsService } from "../file-utils.service";
 import { UrlService } from "../services/url.service";
 import { LoggerFactory } from "../services/logger-factory.service";
@@ -8,7 +8,7 @@ import { NgxLoggerLevel } from "ngx-logger";
   selector: "app-link",
   template: `<a [href]="href" target="{{target}}">{{ linkText }}</a>`,
 })
-export class LinkComponent implements OnInit {
+export class LinkComponent implements OnInit, OnChanges {
 
   @Input() name: string;
   @Input() text: string;
@@ -27,6 +27,14 @@ export class LinkComponent implements OnInit {
   public linkText: string;
 
   ngOnInit() {
+    this.updateLink();
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    this.updateLink();
+  }
+
+  private updateLink() {
     this.target = this.target || "_blank";
     this.href = this.urlService.linkUrl({
       relative: this.relative,
@@ -40,6 +48,6 @@ export class LinkComponent implements OnInit {
       text: this.text,
       name: this.fileUtils.basename(this.name)
     });
-    this.logger.info("ngOnInit", "name:", this.name, "text:", this.text, "subArea:", this.subArea, "id:", this.id, "area:", this.area, "target:", this.target, "relative:", this.relative, "href:", this.href, "-> linkText:", this.linkText);
+    this.logger.info("updateLink", "name:", this.name, "text:", this.text, "subArea:", this.subArea, "id:", this.id, "area:", this.area, "target:", this.target, "relative:", this.relative, "href:", this.href, "-> linkText:", this.linkText);
   }
 }

@@ -7,6 +7,7 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 import { HasMedia, SocialEvent } from "../../models/social-events.model";
 import { BasicMedia, Media } from "../../models/ramblers-walks-manager";
 import { UrlService } from "../url.service";
+import { FALLBACK_MEDIA, Walk } from "../../models/walk.model";
 
 @Injectable({
   providedIn: "root"
@@ -47,4 +48,14 @@ export class MediaQueryService {
   imageFromSocialEvent(socialEvent: SocialEvent) {
     return this.urlService.imageSource(socialEvent?.thumbnail, true);
   }
+
+  imageSource(walk: Walk): BasicMedia {
+    return this.basicMediaFrom(walk)?.[0];
+  }
+
+  imageSourceWithFallback(walk: Walk): BasicMedia {
+    return this.imageSource(walk) || FALLBACK_MEDIA;
+  }
+
+
 }
