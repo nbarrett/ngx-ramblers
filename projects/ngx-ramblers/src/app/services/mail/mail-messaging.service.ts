@@ -25,7 +25,6 @@ import {
   SystemMergeFields
 } from "../../models/mail.model";
 import { DateUtilsService } from "../date-utils.service";
-
 import { CommitteeConfigService } from "../committee/commitee-config.service";
 import { SystemConfigService } from "../system/system-config.service";
 import { Observable, ReplaySubject } from "rxjs";
@@ -424,7 +423,12 @@ export class MailMessagingService {
     }
     this.mailMessagingConfig?.brevo?.lists?.lists.forEach(list => {
       if (!this.mailMessagingConfig?.mailConfig?.listSettings.find(item => item.id === list.id)) {
-        const listSetting: ListSetting = {id: list.id, autoSubscribeNewMembers: false, memberSubscribable: false};
+        const listSetting: ListSetting = {
+          id: list.id,
+          autoSubscribeNewMembers: false,
+          requiresMemberEmailMarketingConsent: false,
+          memberSubscribable: false
+        };
         this.logger.info("adding listSetting:", listSetting);
         this.mailMessagingConfig.mailConfig.listSettings.push(listSetting);
       }
@@ -435,8 +439,8 @@ export class MailMessagingService {
     return this.subscriptionsFor(subscriptions, (item: ListSetting) => item.memberSubscribable);
   }
 
-  public allSubscriptions(subscriptions: MailSubscription[]): MailSubscription[] {
-    return this.subscriptionsFor(subscriptions, (item: ListSetting) => true);
+  public subscribed(listSetting: ListSetting, member: Member): boolean {
+    return listSetting?.autoSubscribeNewMembers && (listSetting?.requiresMemberEmailMarketingConsent ? member?.emailMarketingConsent : true) && !!(member.email);
   }
 
   private subscriptionsFor(subscriptions: MailSubscription[], predicate: (item: ListSetting) => boolean) {

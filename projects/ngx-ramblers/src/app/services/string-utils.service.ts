@@ -1,7 +1,6 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import escapeRegExp from "lodash-es/escapeRegExp";
-import has from "lodash-es/has";
 import isNumber from "lodash-es/isNumber";
 import isObject from "lodash-es/isObject";
 import map from "lodash-es/map";
@@ -14,6 +13,10 @@ import { DateUtilsService } from "./date-utils.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import isArray from "lodash-es/isArray";
 import kebabCase from "lodash-es/kebabCase";
+import isBoolean from "lodash-es/isBoolean";
+import isNull from "lodash-es/isNull";
+import isUndefined from "lodash-es/isUndefined";
+import isEmpty from "lodash-es/isEmpty";
 
 @Injectable({
   providedIn: "root"
@@ -42,7 +45,11 @@ StringUtilsService {
   }
 
   asBoolean(val: any): boolean {
-    return val === true || val === "true";
+    return val === true || ["true", "yes"].includes(val?.toString().toLowerCase());
+  }
+
+  noValueFor(dataValue: any): boolean {
+    return !isBoolean(dataValue) && (isEmpty(dataValue) || isUndefined(dataValue) || isNull(dataValue));
   }
 
   stringify(message): string {

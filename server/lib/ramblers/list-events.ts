@@ -4,12 +4,12 @@ import isEmpty from "lodash/isEmpty";
 import moment from "moment-timezone";
 import {
   Contact,
+  DateFormat,
   EventsListRequest,
   GroupWalk,
   RamblersWalkResponse,
   RamblersWalksRawApiResponse,
   RamblersWalksRawApiResponseApiResponse,
-  WALKS_MANAGER_API_DATE_FORMAT,
   WALKS_MANAGER_GO_LIVE_DATE
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -148,7 +148,7 @@ export function listEvents(req: Request, res: Response): void {
 
 function dateParameter(body: EventsListRequest): string {
   if (body?.ids?.length > 0) {
-    const dateParameter = moment(WALKS_MANAGER_GO_LIVE_DATE).tz("Europe/London").startOf("day").format(WALKS_MANAGER_API_DATE_FORMAT);
+    const dateParameter = moment(WALKS_MANAGER_GO_LIVE_DATE).tz("Europe/London").startOf("day").format(DateFormat.WALKS_MANAGER_API);
     debugLog("returning dateParameter:", dateParameter, "given id request:", body.ids, "and dateEnd:", body.date);
     return dateParameter;
   } else {
@@ -159,7 +159,7 @@ function dateParameter(body: EventsListRequest): string {
 
 function dateEndParameter(body: EventsListRequest): string {
   if (body?.ids?.length > 0) {
-    const dateEndParameter = moment().tz("Europe/London").add(12, "month").format(WALKS_MANAGER_API_DATE_FORMAT);
+    const dateEndParameter = moment().tz("Europe/London").add(12, "month").format(DateFormat.WALKS_MANAGER_API);
     debugLog("returning dateEndParameter:", dateEndParameter, "given id request:", body.ids, "and dateEnd:", body.dateEnd);
     return dateEndParameter;
   } else {
@@ -181,7 +181,8 @@ function transformListWalksResponse(systemConfig: SystemConfig) {
         title: walk.title,
         startDate: walkMoment.format("dddd, Do MMMM YYYY"),
         startDateValue: walkMoment.valueOf(),
-        startLocationW3w: walk.start_location.w3w,
+        start_location: walk.start_location,
+        end_location: walk.end_location,
         media: walk.media
       };
     });

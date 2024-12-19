@@ -105,7 +105,12 @@ export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Audi
   profileSettingsConfirmed?: boolean;
   profileSettingsConfirmedAt?: number;
   profileSettingsConfirmedBy?: string;
-  assembleId?: number;
+  jointWith?: string;
+  title?: string;
+  type?: string;
+  landlineTelephone?: string;
+  emailMarketingConsent?: boolean;
+  emailPermissionLastUpdated?: number;
 }
 
 export interface MemberPrivileges {
@@ -136,7 +141,7 @@ export interface HasEmailFirstAndLastName {
 }
 
 export interface BulkLoadMemberAndMatch {
-  memberAction: MemberAction;
+  memberMatch: MemberAction;
   memberMatchType: string;
   contact: Contact;
   ramblersMember: RamblersMember;
@@ -159,11 +164,16 @@ export interface RamblersMemberAndContact {
 }
 
 export interface RamblersMember extends HasEmailFirstAndLastName {
-  groupMember?: boolean;
-  membershipExpiryDate?: string | number;
+  membershipExpiryDate?: string;
   membershipNumber: string;
   mobileNumber: string;
   postcode: string;
+  jointWith: string;
+  title: string;
+  type: string;
+  landlineTelephone: string;
+  emailMarketingConsent: string;
+  emailPermissionLastUpdated: string;
 }
 
 export interface MemberBulkLoadAudit extends Auditable {
@@ -176,15 +186,29 @@ export interface MemberBulkLoadAudit extends Auditable {
   members: RamblersMember[];
 }
 
-export interface AuditField {
-  fieldName: string;
-  writeDataIf: string;
-  type: string;
+export enum WriteDataRule {
+  CHANGED = "changed",
+  NO_OLD_VALUE = "no-old-value",
+  TRANSITION_TO_TRUE_NEW_VALUE = "true-new-value",
+  NOT_REVOKED = "not-revoked"
+}
+
+export enum WriteDataType {
+  DATE = "date",
+  STRING = "string",
+  BOOLEAN = "boolean",
+}
+
+export interface UpdateAudit {
+  fieldsChanged: number;
+  fieldsSkipped: number;
+  auditMessages: any[];
 }
 
 export interface MemberUpdateAudit extends Auditable {
   uploadSessionId: string;
   updateTime: number;
+  memberMatch: MemberAction;
   memberAction: MemberAction;
   rowNumber: number;
   changes: number;
@@ -276,3 +300,5 @@ export interface DisplayMember {
 }
 
 export const SORT_BY_NAME = sortBy("order", "member.lastName", "member.firstName");
+
+export const NONE = "(none)";

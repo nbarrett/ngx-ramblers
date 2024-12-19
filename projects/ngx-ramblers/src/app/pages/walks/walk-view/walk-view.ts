@@ -23,14 +23,14 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 @Component({
   selector: "app-walk-view",
   template: `
-    <div *ngIf="displayedWalk" class="img-thumbnail event-thumbnail">
+    <div *ngIf="displayedWalk" class="event-thumbnail card shadow tabset-container">
       <app-walk-panel-expander [walk]="displayedWalk.walk" [expandable]="allowWalkAdminEdits"
                                [collapsable]="true" [collapseAction]="'collapse'">
       </app-walk-panel-expander>
       <div class="row">
-        <div [ngClass]="display.shouldShowFullDetails(displayedWalk)?'col-sm-12 col-lg-6':'col-sm-12'" class="rounded">
-          <h1 *ngIf="display.shouldShowFullDetails(displayedWalk)"
-              id="{{displayedWalk.walk.id}}-briefDescriptionAndStartPoint">{{ displayedWalk.walk.briefDescriptionAndStartPoint }}</h1>
+        <div class="col-sm-12 col-lg-6 rounded">
+          <h1
+            id="{{displayedWalk.walk.id}}-briefDescriptionAndStartPoint">{{ displayedWalk.walk.briefDescriptionAndStartPoint || displayedWalk.latestEventType.description }}</h1>
           <h2 id="{{displayedWalk.walk.id}}-walkDate">{{ displayedWalk.walk.walkDate | displayDay }}
             <div id="{{displayedWalk.walk.id}}-durationInFuture"
                  class="badge event-badge blue-badge">{{ durationInFutureFor(displayedWalk.walk) }}
@@ -39,19 +39,19 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                  class="badge event-badge next-event-badge"> Our next walk
             </div>
           </h2>
-          <h2 *ngIf="display.shouldShowFullDetails(displayedWalk) && displayedWalk.walk.startTime">
+          <h2 *ngIf="displayedWalk.walk.startTime">
             Start Time: {{ displayedWalk.walk.startTime }}</h2>
           <input *ngIf="displayedWalk?.walkAccessMode?.walkWritable" type="submit"
                  [value]="displayedWalk?.walkAccessMode?.caption"
                  (click)="display.edit(displayedWalk)"
                  [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
                  class="button-form button-form-edit-event mt-2 mr-2">
-          <div *ngIf="display.shouldShowFullDetails(displayedWalk)" class="event-description">
+          <div *ngIf="displayedWalk?.walk?.longerDescription" class="event-description">
             <p class="list-arrow" markdown [data]="displayedWalk?.walk?.longerDescription"></p>
           </div>
           <app-walk-leader [displayedWalk]="displayedWalk"/>
           <app-walk-features *ngIf="displayedWalk.walk?.features?.length>0" [features]="displayedWalk.walk?.features"/>
-          <div *ngIf="display.shouldShowFullDetails(displayedWalk) && displayLinks"
+          <div *ngIf="displayLinks"
                class="event-panel rounded event-panel-inner">
             <h1>Related Links</h1>
             <div class="row">
@@ -126,93 +126,94 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                                                  class="rams-text-decoration-pink">Switch to Walks Programme</a>
             </div>
           </div>
-          <div *ngIf="display.walkLeaderOrAdmin(displayedWalk.walk)
-      && display.shouldShowFullDetails(displayedWalk)
-      && (display.walkPopulationLocal() && !walksQueryService.approvedWalk(displayedWalk.walk))">
+          <div
+            *ngIf="display.walkLeaderOrAdmin(displayedWalk.walk) && (display.walkPopulationLocal() && !walksQueryService.approvedWalk(displayedWalk.walk))">
             <div *ngIf="notifyTarget.showAlert" class="col-12 alert {{ALERT_WARNING.class}} mt-3">
               <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
-              <strong class="ml-2">This walk is not yet publicly viewable</strong> - it first needs to be approved
-              by {{ display.walksCoordinatorName() }}
+              <strong class="ml-2">Walk Status</strong>
+              <div class="ml-1">This walk is not approved by {{ display.walksCoordinatorName() }}</div>
             </div>
           </div>
         </div>
-        <div class="col-sm-12 col-lg-6 rounded" *ngIf="display.shouldShowFullDetails(displayedWalk)">
+        <div class="col-sm-12 col-lg-6 rounded">
           <div class="row" *ngIf="displayedWalk?.walk?.media?.length>0">
             <div class="col-sm-12">
               <app-walk-images [displayedWalk]="displayedWalk"/>
             </div>
           </div>
-          <div class="row">
-            <div class="col-sm-12">
-              <ng-container *ngIf="display.mapViewReady(googleMapsUrl) && showGoogleMapsView">
-                <iframe allowfullscreen class="map-thumbnail-image" style="border:0;border-radius: 10px;"
-                        [src]="googleMapsUrl"></iframe>
-              </ng-container>
-              <ng-container *ngIf="!showGoogleMapsView">
-                <app-map-edit class="map-thumbnail-image" readonly
-                               [locationDetails]="mapDisplay==MapDisplay.SHOW_START_POINT? displayedWalk?.walk?.start_location:displayedWalk?.walk?.end_location"
-                              [notify]="notify"/>
-              </ng-container>
-            </div>
-          </div>
-          <form class="rounded img-thumbnail map-radio-frame">
-            <label class="ml-2 mr-2 font-weight-bold">Show Map As
-              <div class="custom-control custom-radio custom-control-inline ml-2">
-                <input class="custom-control-input" type="radio" name="mapView" [(ngModel)]="showGoogleMapsView"
-                       id="{{displayedWalk.walk.id}}-pin-view-mode-start"
-                       [value]="false" (ngModelChange)="configureMapDisplay()">
-                <label class="custom-control-label" for="{{displayedWalk.walk.id}}-pin-view-mode-start">
-                  Pin Location View</label>
-              </div>
-              <div class="custom-control custom-radio custom-control-inline">
-                <input class="custom-control-input" type="radio" name="mapView" [(ngModel)]="showGoogleMapsView"
-                       id="{{displayedWalk.walk.id}}-google-maps-mode-start"
-                       [value]="true" (ngModelChange)="configureMapDisplay()">
-                <label class="custom-control-label" for="{{displayedWalk.walk.id}}-google-maps-mode-start">
-                  Google Maps</label>
-
-              </div>
-            </label>
-            <div class="col-sm-12 ml-2 mr-2">
-              <div class="custom-control custom-radio custom-control-inline">
-                <input class="custom-control-input" id="{{displayedWalk.walk.id}}-show-start-point"
-                       type="radio"
-                       [ngModel]="mapDisplay" name="mapDisplay"
-                       (ngModelChange)="changeMapView($event)"
-                       [value]="MapDisplay.SHOW_START_POINT"/>
-                <label class="custom-control-label" for="{{displayedWalk.walk.id}}-show-start-point">
-                  At start point {{ displayedWalk?.walk?.start_location?.postcode }}</label>
-              </div>
-              <div *ngIf="displayedWalk?.walk?.end_location?.postcode"
-                   class="custom-control custom-radio custom-control-inline">
-                <input class="custom-control-input" id="{{displayedWalk.walk.id}}-show-end-point"
-                       type="radio"
-                       [ngModel]="mapDisplay" name="mapDisplay"
-                       (ngModelChange)="changeMapView($event)"
-                       [value]="MapDisplay.SHOW_END_POINT"/>
-                <label class="custom-control-label" for="{{displayedWalk.walk.id}}-show-end-point">
-                  At finish point {{ displayedWalk?.walk?.end_location?.postcode }}</label>
-              </div>
-              <div *ngIf="this.showGoogleMapsView" class="custom-control custom-radio custom-control-inline">
-                <input id="{{displayedWalk.walk.id}}-show-driving-directions"
-                       type="radio"
-                       class="custom-control-input align-middle"
-                       (ngModelChange)="changeMapView($event)"
-                       [ngModel]="mapDisplay" name="mapDisplay"
-                       [value]="MapDisplay.SHOW_DRIVING_DIRECTIONS"/>
-                <label class="custom-control-label text-nowrap align-middle"
-                       [ngClass]="{'postcode-label-second-line' : displayedWalk?.walk?.end_location?.postcode}"
-                       for="{{displayedWalk.walk.id}}-show-driving-directions">
-                  Driving from</label>
-                <input class="form-control input-sm text-uppercase ml-2 postcode-input align-middle"
-                       [ngClass]="{'postcode-input-second-line' : displayedWalk?.walk?.end_location?.postcode}"
-                       [ngModel]="fromPostcode" name="fromPostcode"
-                       (ngModelChange)="changeFromPostcode($event)"
-                       type="text">
+          <ng-container *ngIf="display.displayMap(displayedWalk.walk)">
+            <div class="row">
+              <div class="col-sm-12">
+                <ng-container *ngIf="display.mapViewReady(googleMapsUrl) && showGoogleMapsView">
+                  <iframe allowfullscreen class="map-walk-view map-walk-view-google"
+                          style="border:0;border-radius: 10px;"
+                          [src]="googleMapsUrl"></iframe>
+                </ng-container>
+                <ng-container *ngIf="!showGoogleMapsView">
+                  <div app-map-edit class="map-walk-view" readonly
+                       [locationDetails]="mapDisplay==MapDisplay.SHOW_START_POINT? displayedWalk?.walk?.start_location:displayedWalk?.walk?.end_location"
+                       [notify]="notify"></div>
+                </ng-container>
               </div>
             </div>
-          </form>
-          <app-walk-details [displayedWalk]="displayedWalk"></app-walk-details>
+            <form class="rounded img-thumbnail map-radio-frame">
+              <label class="ml-2 mr-2 font-weight-bold">Show Map As
+                <div class="custom-control custom-radio custom-control-inline ml-2">
+                  <input class="custom-control-input" type="radio" name="mapView" [(ngModel)]="showGoogleMapsView"
+                         id="{{displayedWalk.walk.id}}-pin-view-mode-start"
+                         [value]="false" (ngModelChange)="configureMapDisplay()">
+                  <label class="custom-control-label" for="{{displayedWalk.walk.id}}-pin-view-mode-start">
+                    Pin Location View</label>
+                </div>
+                <div class="custom-control custom-radio custom-control-inline">
+                  <input class="custom-control-input" type="radio" name="mapView" [(ngModel)]="showGoogleMapsView"
+                         id="{{displayedWalk.walk.id}}-google-maps-mode-start"
+                         [value]="true" (ngModelChange)="configureMapDisplay()">
+                  <label class="custom-control-label" for="{{displayedWalk.walk.id}}-google-maps-mode-start">
+                    Google Maps</label>
+                </div>
+              </label>
+              <div class="col-sm-12 ml-2 mr-2">
+                <div class="custom-control custom-radio custom-control-inline">
+                  <input class="custom-control-input" id="{{displayedWalk.walk.id}}-show-start-point"
+                         type="radio"
+                         [ngModel]="mapDisplay" name="mapDisplay"
+                         (ngModelChange)="changeMapView($event)"
+                         [value]="MapDisplay.SHOW_START_POINT"/>
+                  <label class="custom-control-label" for="{{displayedWalk.walk.id}}-show-start-point">
+                    At start point {{ displayedWalk?.walk?.start_location?.postcode }}</label>
+                </div>
+                <div *ngIf="displayedWalk?.walk?.end_location?.postcode"
+                     class="custom-control custom-radio custom-control-inline">
+                  <input class="custom-control-input" id="{{displayedWalk.walk.id}}-show-end-point"
+                         type="radio"
+                         [ngModel]="mapDisplay" name="mapDisplay"
+                         (ngModelChange)="changeMapView($event)"
+                         [value]="MapDisplay.SHOW_END_POINT"/>
+                  <label class="custom-control-label" for="{{displayedWalk.walk.id}}-show-end-point">
+                    At finish point {{ displayedWalk?.walk?.end_location?.postcode }}</label>
+                </div>
+                <div *ngIf="this.showGoogleMapsView" class="custom-control custom-radio custom-control-inline">
+                  <input id="{{displayedWalk.walk.id}}-show-driving-directions"
+                         type="radio"
+                         class="custom-control-input align-middle"
+                         (ngModelChange)="changeMapView($event)"
+                         [ngModel]="mapDisplay" name="mapDisplay"
+                         [value]="MapDisplay.SHOW_DRIVING_DIRECTIONS"/>
+                  <label class="custom-control-label text-nowrap align-middle"
+                         [ngClass]="{'postcode-label-second-line' : displayedWalk?.walk?.end_location?.postcode}"
+                         for="{{displayedWalk.walk.id}}-show-driving-directions">
+                    Driving from</label>
+                  <input class="form-control input-sm text-uppercase ml-2 postcode-input align-middle"
+                         [ngClass]="{'postcode-input-second-line' : displayedWalk?.walk?.end_location?.postcode}"
+                         [ngModel]="fromPostcode" name="fromPostcode"
+                         (ngModelChange)="changeFromPostcode($event)"
+                         type="text">
+                </div>
+              </div>
+            </form>
+            <app-walk-details [displayedWalk]="displayedWalk"></app-walk-details>
+          </ng-container>
         </div>
       </div>
     </div>`,

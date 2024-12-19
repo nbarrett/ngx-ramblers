@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const memberUpdateAuditSchema = new mongoose.Schema({
   uploadSessionId: {type: String},
   updateTime: {type: Number},
+  memberMatch: {type: String},
   memberAction: {type: String},
   rowNumber: {type: Number},
   changes: {type: Number},

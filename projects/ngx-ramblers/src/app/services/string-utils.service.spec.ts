@@ -73,6 +73,49 @@ describe("StringUtilsService", () => {
     });
   });
 
+  describe("noValueFor", () => {
+
+    it("should return true for undefined", () => {
+      expect(service.noValueFor(undefined)).toBe(true);
+    });
+
+    it("should return true for null", () => {
+      expect(service.noValueFor(null)).toBe(true);
+    });
+
+    it("should return false for false", () => {
+      expect(service.noValueFor(false)).toBe(false);
+    });
+
+    it("should return false for true", () => {
+      expect(service.noValueFor(true)).toBe(false);
+    });
+
+    it("should return true for empty string", () => {
+      expect(service.noValueFor("")).toBe(true);
+    });
+
+    it("should return true for empty array", () => {
+      expect(service.noValueFor([])).toBe(true);
+    });
+
+    it("should return true for empty object", () => {
+      expect(service.noValueFor({})).toBe(true);
+    });
+
+    it("should return false for non-empty string", () => {
+      expect(service.noValueFor("value")).toBe(false);
+    });
+
+    it("should return false for non-empty array", () => {
+      expect(service.noValueFor([1, 2, 3])).toBe(false);
+    });
+
+    it("should return false for non-empty object", () => {
+      expect(service.noValueFor({key: "value"})).toBe(false);
+    });
+  });
+
   describe("left", () => {
     it("should return the left X characters of string regardless of length", () => {
       expect(service.left("Hello Mum", 10)).toBe("Hello Mum");

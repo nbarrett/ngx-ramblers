@@ -45,7 +45,7 @@ export class MemberNamingService {
   public createUniqueValueFrom(value: string, field: string, members: Member[]) {
     let attempts = 0;
     while (true) {
-      const createdName = value + (attempts === 0 ? "" : attempts);
+      const createdName = `${value}${attempts === 0 ? "" : attempts}`;
       if (!this.memberFieldExists(field, createdName, members)) {
         return createdName;
       } else {
@@ -55,16 +55,21 @@ export class MemberNamingService {
   }
 
   public createUserName(member: RamblersMember | Member): string {
-    if (member?.firstName && member?.lastName) {
-      const userName = `${member.firstName.trim()}.${member.lastName.trim()}`.toLowerCase();
-      return this.removeCharactersNotPartOfName(userName);
-    } else if (member?.firstName) {
-      return this.removeCharactersNotPartOfName(member.firstName.trim().toLowerCase());
-    } else if (member?.lastName) {
-      return this.removeCharactersNotPartOfName(member.lastName.trim().toLowerCase());
+    const firstName = this.removeCharactersNotPartOfName(this.removeSpacesAndLower(member?.firstName || member.title));
+    const lastName = this.removeCharactersNotPartOfName(this.removeSpacesAndLower(member?.lastName));
+    if (firstName && lastName) {
+      return `${firstName}.${lastName}`;
+    } else if (firstName) {
+      return firstName;
+    } else if (lastName) {
+      return lastName;
     } else {
       return "";
     }
+  }
+
+  public removeSpacesAndLower(value: string): string {
+    return value ? value.replace(/[ ]/, "").trim().toLowerCase() : "";
   }
 
   public removeCharactersNotPartOfName(value: string): string {

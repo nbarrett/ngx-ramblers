@@ -24,12 +24,13 @@ export enum StoredValue {
   ALBUM_TAB = "album-tab",
   CAROUSEL="carousel",
   MARKDOWN_FIELD_HIDDEN = "markdown-field-hidden",
+  SHOW_UNREFERENCED_PAGES = "show-unreferenced-pages",
   SOCIAL_DATE_CRITERIA = "social-date-criteria",
   SOCIAL_DATE_SORT = "social-date-sort",
   SOCIAL_QUICK_SEARCH = "social-quick-search",
-  SHOW_UNREFERENCED_PAGES = "show-unreferenced-pages",
   STORY = "story",
   TAB = "tab",
+  WALK_LIST_VIEW = "walk-list-view",
 }
 
 export class Confirm {

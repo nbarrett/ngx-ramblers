@@ -2,7 +2,6 @@ import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
 import { RouterTestingModule } from "@angular/router/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
-import { MeetupEventResponse } from "../../models/meetup-event-response.model";
 import { AuditDeltaChangedItemsPipePipe } from "../../pipes/audit-delta-changed-items.pipe";
 import { AuditDeltaValuePipe } from "../../pipes/audit-delta-value.pipe";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
@@ -19,6 +18,7 @@ import { RamblersEventType } from "../../models/ramblers-walks-manager";
 import { WalkEventService } from "../../services/walks/walk-event.service";
 import { EventType } from "../../models/walk.model";
 import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
+import { SearchFilterPipe } from "../../pipes/search-filter.pipe";
 
 const anyWalkDate = 123364;
 const walkLeaderMemberId = "walk-leader-id";
@@ -31,7 +31,6 @@ const googleConfig = {
 
 const meetupService = {
   config: () => Promise.resolve(),
-  eventsForStatus: () => Promise.resolve([] as MeetupEventResponse[])
 };
 
 const memberLoginService = {
@@ -47,35 +46,34 @@ const memberService = {
 };
 
 describe("WalkDisplayService", () => {
-  let spy;
-
+  let spy: jasmine.Spy<any>;
   beforeEach(() => {
     TestBed.configureTestingModule({
-    imports: [LoggerTestingModule,
+      imports: [LoggerTestingModule,
         RouterTestingModule],
-    providers: [
+      providers: [
         AuditDeltaChangedItemsPipePipe,
         FullNameWithAliasPipe,
         FullNamePipe,
         AuditDeltaValuePipe,
+        SearchFilterPipe,
         DisplayDatePipe,
         MemberIdToFullNamePipe,
         ValueOrDefaultPipe,
         GoogleMapsService,
-        WalkEventService,
-        { provide: MemberLoginService, useValue: memberLoginService },
-        { provide: "MemberAuditService", useValue: {} },
-        { provide: "WalkNotificationService", useValue: {} },
-        { provide: "MailchimpSegmentService", useValue: {} },
-        { provide: "MailchimpConfigDocument", useValue: {} },
-        { provide: "MailchimpCampaignService", useValue: {} },
-        { provide: "MeetupService", useValue: meetupService },
-        { provide: "ClipboardService", useValue: {} },
-        { provide: "MemberService", useValue: memberService },
+        {provide: MemberLoginService, useValue: memberLoginService},
+        {provide: "MemberAuditService", useValue: {}},
+        {provide: "WalkNotificationService", useValue: {}},
+        {provide: "MailchimpSegmentService", useValue: {}},
+        {provide: "MailchimpConfigDocument", useValue: {}},
+        {provide: "MailchimpCampaignService", useValue: {}},
+        {provide: "MeetupService", useValue: meetupService},
+        {provide: "ClipboardService", useValue: {}},
+        {provide: "MemberService", useValue: memberService},
         provideHttpClient(withInterceptorsFromDi()),
         provideHttpClientTesting()
-    ]
-});
+      ]
+    });
     const emptyPromise = Promise.resolve({}) as any;
     spy = spyOn(googleConfig, "getConfig").and.returnValue(emptyPromise);
   });
@@ -113,10 +111,11 @@ describe("WalkDisplayService", () => {
       spy = spyOn(memberLoginService, "allowWalkAdminEdits").and.returnValue(false);
       spy = spyOn(memberLoginService, "loggedInMember").and.returnValue({memberId: "leader-id"} as any);
       const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
+      const expectedEvent: any = {eventType: EventType.AWAITING_LEADER};
       service.group = {walkPopulation: EventPopulation.LOCAL} as Organisation;
       expect(service.toWalkAccessMode({
         eventType: RamblersEventType.GROUP_WALK,
-        events: dontCare,
+        events: [expectedEvent],
         walkDate: 0,
       })).toEqual(WalksReferenceService.walkAccessModes.lead);
     });

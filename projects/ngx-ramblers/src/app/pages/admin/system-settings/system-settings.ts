@@ -25,6 +25,7 @@ import { MemberService } from "../../../services/member/member.service";
 import kebabCase from "lodash-es/kebabCase";
 import { ActivatedRoute, Router } from "@angular/router";
 import { StoredValue } from "../../../models/ui-actions";
+import { WalkListView } from "../../../models/walk.model";
 
 @Component({
   selector: "app-system-settings",
@@ -84,6 +85,35 @@ import { StoredValue } from "../../../models/ui-actions";
                         </option>
                       </select>
                     </div>
+                    <div class="form-group">
+                      <div class="custom-control custom-checkbox">
+                        <input [(ngModel)]="config.group.walkContactDetailsPublic"
+                               type="checkbox" class="custom-control-input" id="walk-contact-details-public-viewable">
+                        <label class="custom-control-label"
+                               for="walk-contact-details-public-viewable">Walk Contact Details Public Viewable
+                        </label>
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <div class="custom-control custom-checkbox">
+                        <input [(ngModel)]="config.group.allowSwitchWalkView"
+                               type="checkbox" class="custom-control-input" id="allow-walk-listing-to-be-switched">
+                        <label class="custom-control-label"
+                               for="allow-walk-listing-to-be-switched">
+                          Allow Walk Listing to be switched between {{ walkListViewsJoined }}
+                        </label>
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label for="navbar-location">Default Walk List View</label>
+                      <select class="form-control input-sm"
+                              [(ngModel)]="config.group.defaultWalkListView"
+                              id="navbar-location">
+                        <option *ngFor="let type of walkListViews"
+                                [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+                        </option>
+                      </select>
+                    </div>
                   </div>
                   <div class="col-md-6">
                     <div class="form-group">
@@ -95,10 +125,6 @@ import { StoredValue } from "../../../models/ui-actions";
                         </option>
                       </select>
                     </div>
-                  </div>
-                  <div class="col-md-6">
-                  </div>
-                  <div class="col-md-6">
                     <div class="form-group">
                       <div class="custom-control custom-checkbox">
                         <input [(ngModel)]="config.group.socialDetailsPublic"
@@ -552,6 +578,8 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("SystemSettingsComponent", NgxLoggerLevel.ERROR);
   navbarLocations: KeyValue<string>[] = enumKeyValues(NavBarLocation);
+  walkListViews: KeyValue<string>[] = enumKeyValues(WalkListView).filter(item => item.value !== WalkListView.MAP);
+  walkListViewsJoined = this.walkListViews.map(item => this.stringUtils.asTitle(item.value)).join(" and ");
   protected readonly colourSelectorsDarkLight = colourSelectorsDarkLight;
   protected readonly colourSelectors = colourSelectors;
   private tab: any;
@@ -641,5 +669,4 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   tabActive(tab: SystemSettingsTab): boolean {
     return kebabCase(this.tab) === kebabCase(tab);
   }
-
 }

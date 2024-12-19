@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
-import { faEnvelopesBulk, faSadTear, faSearch } from "@fortawesome/free-solid-svg-icons";
+import { faEnvelopesBulk, faSearch } from "@fortawesome/free-solid-svg-icons";
 import first from "lodash-es/first";
 import groupBy from "lodash-es/groupBy";
 import map from "lodash-es/map";
@@ -16,6 +16,7 @@ import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import {
   Member,
+  MemberAction,
   MemberBulkLoadAudit,
   MemberBulkLoadAuditApiResponse,
   MemberUpdateAudit,
@@ -30,7 +31,6 @@ import {
 } from "../../../models/table-filtering.model";
 import { EditMode } from "../../../models/ui-actions";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
-import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MailchimpListUpdaterService } from "../../../services/mailchimp/mailchimp-list-updater.service";
 import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk-load-audit.service";
@@ -48,6 +48,7 @@ import cloneDeep from "lodash-es/cloneDeep";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
 import { IconService } from "../../../services/icon-service/icon-service";
+import { NO_CHANGES_OR_DIFFERENCES } from "../../../models/ramblers-insight-hub";
 
 @Component({
   selector: "app-bulk-load",
@@ -121,12 +122,12 @@ import { IconService } from "../../../services/icon-service/icon-service";
                           </li>
                         </ul>
                       </div>
-                      <div class="col-md-3">
+                      <div class="col-md-4">
                         <input type="submit" [disabled]="notifyTarget.busy"
                                value="Browse for member import file"
                                (click)="bulkUploadRamblersDataStart(fileElement)"
-                               class="button-form mb-10 w-100"
-                               [ngClass]="{'disabled-button-form': notifyTarget.busy }">
+                               class="btn btn-primary w-100"
+                               [disabled]="notifyTarget.busy">
                         <input #fileElement class="d-none" id="browse-to-file" name="bulkUploadRamblersDataFile"
                                type="file" value="Upload"
                                ng2FileSelect [uploader]="fileUploader">
@@ -137,7 +138,7 @@ import { IconService } from "../../../services/icon-service/icon-service";
                           Or drop file here
                         </div>
                       </div>
-                      <div class="col-md-9">
+                      <div class="col-md-8">
                         <table class="table">
                           <thead>
                           <tr>
@@ -160,12 +161,8 @@ import { IconService } from "../../../services/icon-service/icon-service";
                               </div>
                             </td>
                             <td class="text-center">
-                              <fa-icon *ngIf="item.isSuccess" [icon]="icons.toFontAwesomeIcon('success').icon"
-                                       [class]="icons.toFontAwesomeIcon('success').class"/>
-                              <fa-icon *ngIf="item.isCancel" [icon]="icons.toFontAwesomeIcon('cancelled').icon"
-                                       [class]="icons.toFontAwesomeIcon('success').class"/>
-                              <fa-icon *ngIf="item.isError" [icon]="icons.toFontAwesomeIcon('error').icon"
-                                       [class]="icons.toFontAwesomeIcon('success').class"/>
+                              <app-status-icon
+                                [status]="item.isSuccess ? 'success' : item.isError ? 'error' : item.isCancel?'cancelled':'info'"/>
                             </td>
                           </tr>
                           </tbody>
@@ -195,8 +192,8 @@ import { IconService } from "../../../services/icon-service/icon-service";
                           <h3>No Upload History Exists</h3>
                         </div>
                       </div>
-                      <div *ngIf="uploadSession" class="form-inline quick-search">
-                        <div class="form-group">
+                      <div *ngIf="uploadSession" class="row quick-search d-flex">
+                        <div class="col">
                           <div class="input-group">
                             <div class="input-group-prepend">
                               <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
@@ -208,8 +205,9 @@ import { IconService } from "../../../services/icon-service/icon-service";
                                    type="text" placeholder="Quick Search">
                           </div>
                         </div>
-                        <div class="form-group">
-                          <label class="inline-label" for="filter-upload-sessions">Uploaded at:</label>
+                        <div class="col-auto">
+                          <div class="form-inline">
+                          <label class="inline-label nowrap" for="filter-upload-sessions">Uploaded at:</label>
                           <select class="form-control input-sm" id="filter-upload-sessions"
                                   [(ngModel)]="uploadSession"
                                   (ngModelChange)="uploadSessionChanged()">
@@ -219,8 +217,10 @@ import { IconService } from "../../../services/icon-service/icon-service";
                             </option>
                           </select>
                         </div>
-                        <div class="form-group">
-                          <label class="inline-label" for="filter-by-audit-status">Status:</label>
+                        </div>
+                        <div class="col">
+                          <div class="form-inline float-right">
+                          <label class="inline-label nowrap" for="filter-by-audit-status">Member Action:</label>
                           <select class="form-control input-sm"
                                   [(ngModel)]="filters.memberUpdateAudit.query"
                                   (ngModelChange)="uploadSessionChanged()"
@@ -230,6 +230,7 @@ import { IconService } from "../../../services/icon-service/icon-service";
                                     [textContent]="uploadSessionStatus.title">
                             </option>
                           </select>
+                        </div>
                         </div>
                       </div>
                       <tabset class="custom-tabset" *ngIf="uploadSession">
@@ -277,8 +278,7 @@ import { IconService } from "../../../services/icon-service/icon-service";
                               <tbody>
                               <tr *ngFor="let auditLog of uploadSession.auditLog;">
                                 <td>
-                                  <fa-icon [icon]="icons.toFontAwesomeIcon(auditLog.status).icon"
-                                           [class]="icons.toFontAwesomeIcon(auditLog.status).class"/>
+                                  <app-status-icon [status]="auditLog.status"/>
                                 </td>
                                 <td [textContent]="auditLog.message"></td>
                               </tr>
@@ -357,7 +357,7 @@ import { IconService } from "../../../services/icon-service/icon-service";
                                         [textContent]="filters.memberUpdateAudit.sortDirection"></span>
                                 </div>
                               </th>
-                              <th>
+                              <th width="10%">
                                 <div (click)="sortMemberUpdateAuditBy('memberAction')">Status
                                   <span class="sorting-header" *ngIf="showMemberUpdateAuditColumn('memberAction')"
                                         [textContent]="filters.memberUpdateAudit.sortDirection"></span>
@@ -394,23 +394,20 @@ import { IconService } from "../../../services/icon-service/icon-service";
                             <tbody>
                             <tr *ngFor="let memberUpdateAudit of filters.memberUpdateAudit.results">
                               <td class="text-nowrap">{{ memberUpdateAudit.updateTime | displayDateAndTime }}</td>
-                              <td>
-                                <fa-icon [icon]="icons.toFontAwesomeIcon(memberUpdateAudit.memberAction).icon"
-                                         [class]="icons.toFontAwesomeIcon(memberUpdateAudit.memberAction).class"/>
-                              </td>
+                              <td class="text-nowrap"><app-status-icon [status]="memberUpdateAudit.memberAction"/></td>
                               <td>{{ memberUpdateAudit.rowNumber }}</td>
                               <td>{{ memberUpdateAudit.memberId || (memberUpdateAudit.member && memberUpdateAudit.member.id) | memberIdToFullName : members : '': true }}</td>
                               <td>{{ memberUpdateAudit.changes }}</td>
-                              <td>{{ memberUpdateAudit.auditMessage }}
+                              <td>{{ memberUpdateAudit.auditMessage || NO_CHANGES_OR_DIFFERENCES }}
                                 <span *ngIf="memberUpdateAudit.auditErrorMessage">
                             <strong>Error Message: </strong>
                         <span [textContent]="memberUpdateAudit.auditErrorMessage | json"></span>
                         <br>
                         <input type="submit" [disabled]="notifyTarget.busy"
+                               class="btn btn-primary"
                                value="Reattempt creation of {{memberUpdateAudit.member | fullName}}"
                                (click)="createMemberFromAudit(memberUpdateAudit.member)"
-                               title="Reattempt creation of {{memberUpdateAudit.member | fullName}}"
-                               [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
+                               title="Reattempt creation of {{memberUpdateAudit.member | fullName}}">
                         </span>
                               </td>
                             </tr>
@@ -444,19 +441,23 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
               private systemConfigService: SystemConfigService,
               private notifierService: NotifierService,
               private modalService: BsModalService,
-              private stringUtils: StringUtilsService,
-              private dateUtils: DateUtilsService,
+              protected stringUtils: StringUtilsService,
               private urlService: UrlService,
               private authService: AuthService,
               private route: ActivatedRoute,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MemberBulkLoadComponent", NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("MemberBulkLoadComponent", NgxLoggerLevel.ERROR);
   }
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   private logger: Logger;
   private searchChangeObservable: Subject<string>;
-  public uploadSessionStatuses: SessionStatus[];
+  public uploadSessionStatuses: SessionStatus[] = [
+    {title: "All"},
+    {status: MemberAction.created, title: "Created"},
+    {status: MemberAction.skipped, title: "Skipped"},
+    {status: MemberAction.updated, title: "Updated"},
+    {status: MemberAction.error, title: "Error"}];
   public uploadSession: MemberBulkLoadAudit;
   public filters: {
     membersUploaded: MemberTableFilter;
@@ -482,8 +483,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   faEnvelopesBulk = faEnvelopesBulk;
   faSearch = faSearch;
-
-  protected readonly faSadTear = faSadTear;
+  protected readonly NO_CHANGES_OR_DIFFERENCES = NO_CHANGES_OR_DIFFERENCES;
 
   ngOnInit() {
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse) => {
@@ -509,32 +509,29 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
       .subscribe(() => this.filterLists()));
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.fileUploader.response.subscribe((response: string | HttpErrorResponse) => {
-      this.logger.debug("response", response, "type", typeof response);
+      this.logger.info("response", response, "type", typeof response);
       if (response instanceof HttpErrorResponse) {
         this.notify.error({title: "Upload failed", message: response.error});
       } else if (response === "Unauthorized") {
-        this.notify.error({title: "Upload failed", message: response + " - try logging out and logging back in again and trying this again."});
+        this.notify.error({
+          title: "Upload failed",
+          message: `${response} - try logging out and logging back in again and trying this again.`
+        });
       } else {
         const memberBulkLoadAuditApiResponse: MemberBulkLoadAuditApiResponse = JSON.parse(response);
-        this.logger.debug("received response", memberBulkLoadAuditApiResponse);
+        this.logger.info("received response", memberBulkLoadAuditApiResponse);
         const memberBulkLoadResponse = memberBulkLoadAuditApiResponse.response as MemberBulkLoadAudit;
         this.memberBulkLoadService.processResponse(this.mailMessagingConfig, this.systemConfig, memberBulkLoadResponse, this.members, this.notify)
           .then(() => this.refreshMemberBulkLoadAudit())
           .then(() => this.refreshMemberUpdateAudit())
           .then(() => this.validateBulkUploadProcessing(memberBulkLoadAuditApiResponse))
           .then((validationSuccessful) => this.sendSubscriptionUpdates(validationSuccessful))
-          .finally(() => this.clearBusy());
-
+          .finally(async () => {
+            await this.refreshMembers();
+            this.clearBusy();
+          });
       }
     }));
-
-    this.uploadSessionStatuses = [
-      {title: "All"},
-      {status: "created", title: "Created"},
-      {status: "summary", title: "Summary"},
-      {status: "skipped", title: "Skipped"},
-      {status: "updated", title: "Updated"},
-      {status: "error", title: "Error"}];
 
     this.filters = {
       memberUpdateAudit: {
@@ -555,19 +552,22 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
         results: [],
       }
     };
-
-    this.memberService.all().then(members => {
-      this.logger.debug("found:members", members.length);
-      this.members = members;
-    });
-
+    this.refreshMembers();
     this.memberBulkLoadAuditService.all({
       sort: {createdDate: -1}
     }).then(memberBulkLoadAudits => {
-      this.logger.debug("found", memberBulkLoadAudits.length, "memberBulkLoadAudits");
+      this.logger.debug("found", this.stringUtils.pluraliseWithCount(memberBulkLoadAudits.length, "memberBulkLoadAudit"));
       this.memberBulkLoadAudits = memberBulkLoadAudits;
       this.uploadSession = first(this.memberBulkLoadAudits);
       this.uploadSessionChanged();
+    });
+  }
+
+  private refreshMembers() {
+    this.logger.info(`refreshing ${this.stringUtils.pluraliseWithCount(this.members.length, "member")}`);
+    this.memberService.all().then(members => {
+      this.logger.info(`found ${this.stringUtils.pluraliseWithCount(members.length, "member")}`);
+      this.members = members;
     });
   }
 
@@ -585,12 +585,8 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     this.hasFileOver = e;
   }
 
-  currentMemberBulkLoadDisplayDate() {
-    return this.dateUtils.currentMemberBulkLoadDisplayDate();
-  }
-
   onSearchChange(searchEntry: string) {
-    this.logger.debug("received searchEntry:" + searchEntry);
+    this.logger.debug(`received searchEntry:${searchEntry}`);
     this.searchChangeObservable.next(searchEntry);
   }
 
@@ -667,7 +663,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
 
   private updateTabHeadings() {
     this.auditTabHeading = this.memberUpdateAuditSummary();
-    this.memberTabHeading = (this.filters.membersUploaded.results.length || 0) + " Members uploaded";
+    this.memberTabHeading = `${this.filters.membersUploaded.results.length || 0} Members uploaded`;
   }
 
   uploadSessionChanged() {
@@ -699,7 +695,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
 
   auditSummaryFormatted(auditSummary) {
     const total = reduce(auditSummary, (memo, value) => memo + value.length, 0);
-    const summary = map(auditSummary, (items, key) => `${items.length}:${key}`).join(", ");
+    const summary = map(auditSummary, (items, key) => `${items.length}:${this.stringUtils.asTitle(key)}`).join(", ");
     return `${total} Member audits ${total ? `(${summary})` : ""}`;
   }
 
@@ -747,7 +743,8 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     this.notify.clearBusy();
   }
 
-  bulkUploadRamblersDataStart(fileElement: HTMLInputElement) {
+  async bulkUploadRamblersDataStart(fileElement: HTMLInputElement) {
+    await this.refreshMembers();
     fileElement.click();
   }
 }

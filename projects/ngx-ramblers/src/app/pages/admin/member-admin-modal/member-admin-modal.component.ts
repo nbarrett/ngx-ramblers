@@ -29,6 +29,7 @@ import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { MailListAuditService } from "../../../services/mail/mail-list-audit.service";
 import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
+import { NO_CHANGES_OR_DIFFERENCES } from "../../../models/ramblers-insight-hub";
 
 @Component({
   selector: "app-member-admin-modal",
@@ -74,6 +75,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   public receivedInLastBulkLoad: boolean;
   public lastBulkLoadDate: number;
   public editMode: EditMode;
+  public NO_CHANGES_OR_DIFFERENCES= NO_CHANGES_OR_DIFFERENCES;
   public members: Member[] = [];
   public pendingMailListAudits: MailListAudit[] = [];
   public mailListAudits: MailListAudit[] = [];
@@ -252,5 +254,10 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
 
   defaultContactName() {
     this.member.contactId = this.fullNameWithAliasPipe.transform(this.member);
+  }
+
+  jointWith(jointWith: string): string {
+    const member = this?.members?.find(member => member.membershipNumber === jointWith);
+    return member ? this.fullNameWithAliasPipe.transform(member) : null;
   }
 }

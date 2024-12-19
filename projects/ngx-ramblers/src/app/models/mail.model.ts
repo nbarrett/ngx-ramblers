@@ -569,6 +569,7 @@ export interface MailSubscription {
 export interface ListSetting {
   memberSubscribable: boolean;
   autoSubscribeNewMembers: boolean;
+  requiresMemberEmailMarketingConsent: boolean;
   id: number;
 }
 

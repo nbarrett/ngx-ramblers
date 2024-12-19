@@ -101,9 +101,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
         </div>
         <div *ngIf="displayedWalk.walk.grade" app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6">
           <div title>
-            <fa-icon [icon]="faListCheck" class="fa-icon mr-1"/>
-            Grade
-            <strong class="ml-1">{{ displayedWalk.walk.grade }}</strong>
+            <strong><app-walk-grading [grading]="displayedWalk.walk.grade"/></strong>
           </div>
         </div>
         <div app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6" *ngIf="displayedWalk.walk.ascent">

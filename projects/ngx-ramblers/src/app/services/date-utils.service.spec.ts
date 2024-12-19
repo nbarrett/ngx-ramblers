@@ -3,6 +3,7 @@ import moment from "moment-timezone";
 import { LoggerTestingModule } from "ngx-logger/testing";
 import { DateUtilsService } from "./date-utils.service";
 import { Walk } from "../models/walk.model";
+import { DateValue } from "../models/date.model";
 
 function momentFor(startDate: string) {
   return moment(startDate).tz("Europe/London");
@@ -42,6 +43,18 @@ describe("DateUtilsService", () => {
       const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
       const injectedData = new Date(2018, 10, 15);
       expect(dateUtils.asMoment(injectedData).toDate()).toEqual(injectedData);
+    });
+
+    it("should support a DateValue as an argument", () => {
+      const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
+      const dateValue: DateValue = dateUtils.asDateValue(1402614000000);
+      expect(dateUtils.asMoment(dateValue).toDate()).toEqual(dateValue.date);
+    });
+
+    it("should support a number as an argument", () => {
+      const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
+      const dateValue = 1402614000000;
+      expect(dateUtils.asMoment(dateValue).valueOf()).toEqual(dateValue);
     });
 
   });
@@ -143,8 +156,8 @@ describe("DateUtilsService", () => {
 
     it("should display date with time", () => {
       const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      expect(dateUtils.displayDateAndTime(1576771476573)).toBe("Thu 19-Dec-2019, 4:04:36 pm");
-      expect(dateUtils.displayDateAndTime(1580811420982)).toBe("Tue 04-Feb-2020, 10:17:00 am");
+      expect(dateUtils.displayDateAndTime(1576771476573)).toBe("Thursday, 19 December 2019, 4:04:36 pm");
+      expect(dateUtils.displayDateAndTime(1580811420982)).toBe("Tuesday, 4 February 2020, 10:17:00 am");
     });
 
   });

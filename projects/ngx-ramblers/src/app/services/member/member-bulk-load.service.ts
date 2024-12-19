@@ -3,16 +3,18 @@ import isEmpty from "lodash-es/isEmpty";
 import omit from "lodash-es/omit";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
-  AuditField,
   BulkLoadMemberAndMatch,
   Member,
   MemberAction,
   MemberBulkLoadAudit,
   MemberUpdateAudit,
+  NONE,
   RamblersMember,
-  RamblersMemberAndContact
+  RamblersMemberAndContact,
+  UpdateAudit,
+  WriteDataRule,
+  WriteDataType
 } from "../../models/member.model";
-import { DisplayDatePipe } from "../../pipes/display-date.pipe";
 import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { AlertInstance } from "../notifier.service";
@@ -24,6 +26,11 @@ import { SystemConfig } from "../../models/system.model";
 import { MailMessagingConfig } from "../../models/mail.model";
 import { MemberDefaultsService } from "./member-defaults.service";
 import { NumberUtilsService } from "../number-utils.service";
+import { StringUtilsService } from "../string-utils.service";
+import { AUDIT_FIELDS, AuditField } from "../../models/ramblers-insight-hub";
+import { isString } from "lodash-es";
+import isNumber from "lodash-es/isNumber";
+import { FullNamePipe } from "../../pipes/full-name.pipe";
 
 @Injectable({
   providedIn: "root"
@@ -35,12 +42,13 @@ export class MemberBulkLoadService {
               private memberBulkLoadAuditService: MemberBulkLoadAuditService,
               private memberService: MemberService,
               private memberDefaultsService: MemberDefaultsService,
-              private displayDate: DisplayDatePipe,
               private memberNamingService: MemberNamingService,
+              private fullNamePipe: FullNamePipe,
               private dateUtils: DateUtilsService,
+              private stringUtils: StringUtilsService,
               private numberUtils: NumberUtilsService,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MemberBulkLoadService, NgxLoggerLevel.ERROR);
+    this.logger = loggerFactory.createLogger("MemberBulkLoadService", NgxLoggerLevel.ERROR);
   }
 
   public processResponse(mailMessagingConfig: MailMessagingConfig, systemConfig: SystemConfig, memberBulkLoadResponse: MemberBulkLoadAudit, existingMembers: Member[], notify: AlertInstance): Promise<any> {
@@ -54,13 +62,10 @@ export class MemberBulkLoadService {
   }
 
   public bulkLoadMemberAndMatchFor(ramblersMemberAndContact: RamblersMemberAndContact, existingMembers: Member[], systemConfig: SystemConfig): BulkLoadMemberAndMatch {
-    const today = this.dateUtils.momentNowNoTime().valueOf();
     const ramblersMember = ramblersMemberAndContact.ramblersMember;
-    ramblersMember.membershipExpiryDate = this.convertMembershipExpiryDate(ramblersMember);
-    ramblersMember.groupMember = !ramblersMember.membershipExpiryDate || ramblersMember.membershipExpiryDate >= today;
     const contactMatchingEnabled: boolean = !!ramblersMemberAndContact?.contact;
     const bulkLoadMemberAndMatch: BulkLoadMemberAndMatch = {
-      memberAction: null,
+      memberMatch: null,
       member: null,
       memberMatchType: null,
       ramblersMember,
@@ -69,19 +74,19 @@ export class MemberBulkLoadService {
     bulkLoadMemberAndMatch.member = existingMembers.find(member => {
       if (member?.membershipNumber === ramblersMember?.membershipNumber) {
         bulkLoadMemberAndMatch.memberMatchType = "membership number";
-        bulkLoadMemberAndMatch.memberAction = MemberAction.found;
+        bulkLoadMemberAndMatch.memberMatch = MemberAction.found;
         return true;
       } else if (!isEmpty(ramblersMember.email) && !isEmpty(member.email) && ramblersMember.email === member.email && ramblersMember.lastName === member.lastName) {
         bulkLoadMemberAndMatch.memberMatchType = "email and last name";
-        bulkLoadMemberAndMatch.memberAction = MemberAction.found;
+        bulkLoadMemberAndMatch.memberMatch = MemberAction.found;
         return true;
       } else if (contactMatchingEnabled && !isEmpty(ramblersMember.mobileNumber) && !isEmpty(member.mobileNumber) && this.numberUtils.asNumber(ramblersMember.mobileNumber) === this.numberUtils.asNumber(member.mobileNumber)) {
         bulkLoadMemberAndMatch.memberMatchType = "mobile number";
-        bulkLoadMemberAndMatch.memberAction = MemberAction.found;
+        bulkLoadMemberAndMatch.memberMatch = MemberAction.found;
         return true;
       } else if (contactMatchingEnabled && this.memberNamingService.removeCharactersNotPartOfName(ramblersMemberAndContact.contact.name) === this.memberNamingService.removeCharactersNotPartOfName(member.displayName)) {
         bulkLoadMemberAndMatch.memberMatchType = "display name";
-        bulkLoadMemberAndMatch.memberAction = MemberAction.found;
+        bulkLoadMemberAndMatch.memberMatch = MemberAction.found;
         return true;
       } else {
         return false;
@@ -94,7 +99,7 @@ export class MemberBulkLoadService {
         "member:", bulkLoadMemberAndMatch.member);
       this.memberDefaultsService.resetUpdateStatusForMember(bulkLoadMemberAndMatch.member, systemConfig);
     } else {
-      bulkLoadMemberAndMatch.memberAction = MemberAction.created;
+      bulkLoadMemberAndMatch.memberMatch = MemberAction.created;
       const displayName = this.memberNamingService.createUniqueDisplayName(ramblersMember, existingMembers);
       bulkLoadMemberAndMatch.member = {
         firstName: null,
@@ -117,11 +122,12 @@ export class MemberBulkLoadService {
     return bulkLoadMemberAndMatch;
   };
 
-  private saveAndAuditMemberUpdate(promises: Promise<any>[], uploadSessionId: string, rowNumber: number, memberAction: MemberAction, changes: number, auditMessage: any, member: Member, notify: AlertInstance): Promise<Promise<any>[]> {
+  private saveAndAuditMemberUpdate(promises: Promise<any>[], uploadSessionId: string, rowNumber: number, memberMatch: MemberAction, memberAction: MemberAction, changes: number, auditMessage: any, member: Member, notify: AlertInstance): Promise<Promise<any>[]> {
 
     const audit: MemberUpdateAudit = {
       uploadSessionId,
       updateTime: this.dateUtils.nowAsValue(),
+      memberMatch,
       memberAction,
       rowNumber,
       changes,
@@ -149,62 +155,99 @@ export class MemberBulkLoadService {
       });
   };
 
-  private convertMembershipExpiryDate(ramblersMember: RamblersMember): number | string {
-    const dataValue = !isEmpty(ramblersMember?.membershipExpiryDate) ? this.dateUtils.asValueNoTime(ramblersMember.membershipExpiryDate, "DD/MM/YYYY") : ramblersMember.membershipExpiryDate;
-    this.logger.info("ramblersMember", ramblersMember, "membershipExpiryDate", ramblersMember.membershipExpiryDate, "->", this.dateUtils.displayDate(dataValue));
-    return dataValue;
-  };
-
-
-  private auditValueForType(field: AuditField, source: object) {
-    const dataValue = source[field.fieldName];
+  private newDataValueForField(field: AuditField, ramblersMember: RamblersMember, member: Member): any {
+    const dataValue = this.readActualOrDerivedValue(field, member, ramblersMember);
     switch (field.type) {
-      case "date":
-        return this.displayDate.transform(dataValue || "(none)");
-      case "boolean":
-        return dataValue || false;
+      case WriteDataType.DATE:
+        if (isString(dataValue)) {
+          return this.dateUtils.asValueNoTime(dataValue, field.dateFormat);
+        } else if (isNumber(dataValue)) {
+          return dataValue;
+        } else {
+          return null;
+        }
+      case WriteDataType.BOOLEAN:
+        return this.stringUtils.asBoolean(dataValue);
       default:
-        return dataValue || "(none)";
+        return dataValue;
     }
   };
 
-  private changeAndAuditMemberField(updateAudit: {
-    fieldsChanged: number;
-    fieldsSkipped: number;
-    auditMessages: any[]
-  }, member: Member, ramblersMember: RamblersMember, auditField: AuditField) {
+  private readActualOrDerivedValue(field: AuditField, member: Member, ramblersMember: RamblersMember) {
+    let dataValue: any = ramblersMember[field.fieldName];
+    if (this.stringUtils.noValueFor(dataValue)) {
+      if (field.memberDerivedValue) {
+        dataValue = field.memberDerivedValue(member, this.dateUtils);
+        this.logger.info("readActualOrDerivedValue:fieldName:", field.fieldName, "memberDerivedValue:", dataValue, "member:", member);
+      } else if (field.ramblersDerivedValue) {
+        dataValue = field.ramblersDerivedValue(ramblersMember, this.dateUtils);
+        this.logger.info("readActualOrDerivedValue:fieldName:", field.fieldName, "memberDerivedValue:", dataValue, "ramblersMember:", ramblersMember);
+      } else {
+        dataValue = null;
+        this.logger.info("readActualOrDerivedValue:fieldName:", field.fieldName, "no actual or derived value available:", dataValue, "member:", member, "ramblersMember:", ramblersMember);
+      }
+    }
+    return dataValue;
+  }
 
 
-    const fieldName = auditField.fieldName;
+  private oldDataValueForField(field: AuditField, source: Member): any {
+    return source[field.fieldName];
+  };
+
+  private changeAndAuditMemberField(updateAudit: UpdateAudit, member: Member, ramblersMember: RamblersMember, auditField: AuditField) {
+    const fieldName: string = auditField.fieldName;
     let performMemberUpdate = false;
     let auditQualifier = " not overwritten with ";
     let auditMessage: string;
-    const oldValue = this.auditValueForType(auditField, member);
-    const newValue = this.auditValueForType(auditField, ramblersMember);
-    const dataDifferent: boolean = oldValue.toString() !== newValue.toString();
-    if (auditField.writeDataIf === "changed") {
-      performMemberUpdate = dataDifferent && ramblersMember[fieldName];
-    } else if (auditField.writeDataIf === "empty") {
-      performMemberUpdate = !member[fieldName];
-    } else if (auditField.writeDataIf === "not-revoked") {
-      performMemberUpdate = newValue && dataDifferent && !member.revoked;
-    } else if (auditField.writeDataIf) {
-      performMemberUpdate = !!newValue;
+    const oldDataValue = this.oldDataValueForField(auditField, member);
+    const oldFormattedValue = this.formatValue(oldDataValue, auditField);
+    const newDataValue = this.newDataValueForField(auditField, ramblersMember, member);
+    const newFormattedValue = this.formatValue(newDataValue, auditField);
+    const dataDifferent: boolean = oldFormattedValue.toString() !== newFormattedValue.toString();
+    switch (auditField.writeDataIf) {
+      case WriteDataRule.CHANGED:
+        performMemberUpdate = !!(dataDifferent && ramblersMember[fieldName]);
+        break;
+      case WriteDataRule.NO_OLD_VALUE:
+        performMemberUpdate = !!(newDataValue && !member[fieldName]);
+        break;
+      case WriteDataRule.TRANSITION_TO_TRUE_NEW_VALUE:
+        performMemberUpdate = this.stringUtils.asBoolean(newDataValue) && !this.stringUtils.asBoolean(oldDataValue);
+        break;
+      case WriteDataRule.NOT_REVOKED:
+        performMemberUpdate = !!(newFormattedValue && dataDifferent && !member.revoked);
+        break;
+      default:
+        performMemberUpdate = !this.stringUtils.noValueFor(newDataValue);
+        break;
     }
     if (performMemberUpdate) {
       auditQualifier = " updated to ";
-      member[fieldName] = ramblersMember[fieldName];
+      member[fieldName] = newDataValue;
       updateAudit.fieldsChanged++;
     }
     if (dataDifferent) {
       if (!performMemberUpdate) {
         updateAudit.fieldsSkipped++;
       }
-      auditMessage = `${fieldName}: ${oldValue}${auditQualifier}${newValue}`;
+      auditMessage = `${fieldName}: ${oldFormattedValue}${auditQualifier}${newFormattedValue}`;
     }
     if ((performMemberUpdate || dataDifferent) && auditMessage) {
       updateAudit.auditMessages.push(auditMessage);
     }
+    this.logger.info("changeAndAuditMemberField:",
+      "membershipNumber:", member.membershipNumber,
+      "name:", this.fullNamePipe.transform(member, "no name available"),
+      "fieldName:", fieldName,
+      "auditMessage:", auditMessage,
+      "performMemberUpdate:", performMemberUpdate,
+      "dataDifferent:", dataDifferent,
+      "oldDataValue:", oldDataValue,
+      "oldFormattedValue:", oldFormattedValue,
+      "newDataValue:", newDataValue,
+      "newFormattedValue:", newFormattedValue,
+      "auditMessage:", auditMessage);
   };
 
   private createOrUpdateMember(mailMessagingConfig: MailMessagingConfig, systemConfig: SystemConfig, uploadSessionId: string, recordIndex: number, ramblersMember: RamblersMember, promises: any[], existingMembers: Member[], notify: AlertInstance): Promise<any> {
@@ -213,27 +256,30 @@ export class MemberBulkLoadService {
       contact: null
     };
     const bulkLoadMemberAndMatch: BulkLoadMemberAndMatch = this.bulkLoadMemberAndMatchFor(ramblersMemberAndContactNotUsingContactMatching, existingMembers, systemConfig);
-    const updateAudit = {auditMessages: [], fieldsChanged: 0, fieldsSkipped: 0};
-    [
-      {fieldName: "membershipExpiryDate", writeDataIf: "changed", type: "date"},
-      {fieldName: "membershipNumber", writeDataIf: "changed", type: "string"},
-      {fieldName: "mobileNumber", writeDataIf: "empty", type: "string"},
-      {fieldName: "email", writeDataIf: "empty", type: "string"},
-      {fieldName: "firstName", writeDataIf: "empty", type: "string"},
-      {fieldName: "lastName", writeDataIf: "empty", type: "string"},
-      {fieldName: "postcode", writeDataIf: "empty", type: "string"},
-      {fieldName: "groupMember", writeDataIf: "not-revoked", type: "boolean"}
-    ].forEach((field: AuditField) => {
+    const updateAudit: UpdateAudit = {auditMessages: [], fieldsChanged: 0, fieldsSkipped: 0};
+    AUDIT_FIELDS.forEach((field: AuditField) => {
       this.changeAndAuditMemberField(updateAudit, bulkLoadMemberAndMatch.member, ramblersMember, field);
-      if (bulkLoadMemberAndMatch.memberAction === MemberAction.created) {
+      if (bulkLoadMemberAndMatch.memberMatch === MemberAction.created) {
         this.memberDefaultsService.applyDefaultMailSettingsToMember(bulkLoadMemberAndMatch.member, systemConfig, mailMessagingConfig);
       }
     });
     this.logger.info("saveAndAuditMemberUpdate -> member:", bulkLoadMemberAndMatch.member, "updateAudit:", updateAudit);
-    const memberAction = bulkLoadMemberAndMatch.memberAction || (updateAudit.fieldsChanged > 0 ? MemberAction.updated : MemberAction.skipped);
-    return this.saveAndAuditMemberUpdate(promises, uploadSessionId, recordIndex + 1, memberAction, updateAudit.fieldsChanged, updateAudit.auditMessages.join(", "), bulkLoadMemberAndMatch.member, notify);
-
+    const memberMatch: MemberAction = bulkLoadMemberAndMatch.memberMatch;
+    const memberAction: MemberAction = this.deriveMemberAction(updateAudit, memberMatch);
+    return this.saveAndAuditMemberUpdate(promises, uploadSessionId, recordIndex + 1, memberMatch, memberAction, updateAudit.fieldsChanged, updateAudit.auditMessages.join(", "), bulkLoadMemberAndMatch.member, notify);
   };
+
+  private deriveMemberAction(updateAudit: UpdateAudit, memberMatch: MemberAction) {
+    let memberAction: MemberAction = MemberAction.skipped;
+    if (memberMatch === MemberAction.created) {
+      memberAction = MemberAction.created;
+    } else if (updateAudit.fieldsChanged > 0) {
+      memberAction = MemberAction.updated;
+    } else if (updateAudit.fieldsSkipped > 0) {
+      memberAction = MemberAction.skipped;
+    }
+    return memberAction;
+  }
 
   private async processBulkLoadResponses(mailMessagingConfig: MailMessagingConfig, systemConfig: SystemConfig, uploadSessionId: string, ramblersMembers: RamblersMember[], existingMembers: Member[], notify: AlertInstance) {
     const updatedPromises = [];
@@ -246,4 +292,11 @@ export class MemberBulkLoadService {
     return updatedPromises;
   };
 
+  private formatValue(value: any, auditField: AuditField) {
+    if (value && auditField.type === WriteDataType.DATE) {
+      return this.dateUtils.displayDate(value);
+    } else {
+      return this.stringUtils.noValueFor(value) ? NONE : value;
+    }
+  }
 }

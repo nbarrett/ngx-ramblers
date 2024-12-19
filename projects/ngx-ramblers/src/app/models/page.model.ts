@@ -4,7 +4,8 @@ export interface Link {
 }
 
 export enum DeviceSize {
-  SMALL = 768,
+  SMALL = 576,
+  MEDIUM = 768,
   LARGE = 992,
   EXTRA_LARGE = 1200
 }

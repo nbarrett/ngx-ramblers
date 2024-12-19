@@ -39,8 +39,8 @@ import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk
 import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
 import { MailchimpConfig } from "../../../models/mailchimp.model";
 import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
-import { faUserXmark } from "@fortawesome/free-solid-svg-icons";
-import { faSearch, faUserCheck } from "@fortawesome/free-solid-svg-icons";
+import { faSearch, faUserCheck, faUserXmark } from "@fortawesome/free-solid-svg-icons";
+import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
 
 @Component({
   selector: "app-member-admin",
@@ -52,6 +52,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   constructor(private mailchimpConfigService: MailchimpConfigService,
               private memberService: MemberService,
               private apiResponseProcessor: ApiResponseProcessor,
+              private mailListUpdaterService: MailListUpdaterService,
               private searchFilterPipe: SearchFilterPipe,
               private modalService: BsModalService,
               private mailMessagingService: MailMessagingService,
@@ -153,7 +154,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     const filter3: TableFilterItem[] = [
       {
         title: "Membership Date Active/Not set",
-        group: "From Ramblers Supplied Datas",
+        group: "From Ramblers Supplied Data",
         filter: (member: Member) => !member.membershipExpiryDate || (member.membershipExpiryDate >= this.today)
       },
       {
@@ -170,6 +171,21 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
         title: "Was received in last Ramblers Bulk Load",
         group: "From Ramblers Supplied Data",
         filter: (member: Member) => this.receivedInLastBulkLoad(member)
+      },
+      {
+        title: "Email Marketing Consent Given",
+        group: "From Ramblers Supplied Data",
+        filter: (member: Member) => member.emailMarketingConsent
+      },
+      {
+        title: "Email Marketing Consent Not Given",
+        group: "From Ramblers Supplied Data",
+        filter: (member: Member) => !member.emailMarketingConsent
+      },
+      {
+        title: "Email Marketing Consent Not Given and Subscribed to Email Lists",
+        group: "From Ramblers Supplied Data",
+        filter: (member: Member) => !member.emailMarketingConsent && this.mailListUpdaterService.memberSubscribedToAnyList(member)
       },
       {
         title: "Password Expired", group: "Other Settings", filter: (member: Member) => member.expiredPassword

@@ -137,7 +137,7 @@ export class ActionButtonsComponent implements OnInit {
   }
 
   private determineViewableSlideCount() {
-    if (window.innerWidth <= DeviceSize.SMALL) {
+    if (window.innerWidth <= DeviceSize.MEDIUM) {
       this.maxViewableSlideCount = 1;
     } else if (window.innerWidth <= DeviceSize.LARGE) {
       this.maxViewableSlideCount = 2;

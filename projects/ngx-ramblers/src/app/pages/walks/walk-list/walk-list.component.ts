@@ -18,7 +18,8 @@ import {
   FilterParameters,
   Walk,
   WalkDateAscending,
-  WalkDateDescending
+  WalkDateDescending,
+  WalkListView
 } from "../../../models/walk.model";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { BroadcastService } from "../../../services/broadcast-service";
@@ -36,39 +37,162 @@ import { LoginModalComponent } from "../../login/login-modal/login-modal.compone
 import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { sortBy } from "../../../functions/arrays";
-import { faPeopleGroup, faWalking } from "@fortawesome/free-solid-svg-icons";
+import { faImages, faPeopleGroup, faTableCells, faWalking } from "@fortawesome/free-solid-svg-icons";
 import { DataMigrationService } from "../../../services/walks/data-migration.service";
+import { UiActionsService } from "../../../services/ui-actions.service";
+import { StoredValue } from "../../../models/ui-actions";
 
 @Component({
   selector: "app-walk-list",
-  templateUrl: "./walk-list.component.html",
+  template: `
+    <app-page>
+      <app-dynamic-content [anchor]="'page-header'" contentPathReadOnly/>
+      <div class="row mb-n3">
+        <div class="mb-3 col-sm-12">
+          <app-walks-search [filterParameters]="filterParameters" [notifyTarget]="notifyTarget">
+            <div class="row no-gutters">
+              <div class="col">
+                <div *ngIf="group?.allowSwitchWalkView" class="btn-group w-100 mb-3 btn-group-custom" dropdown>
+                  <button aria-controls="dropdown-animated" class="dropdown-toggle btn btn-primary mr-2" dropdownToggle
+                          type="button">
+                    <fa-icon [icon]="walkListView===WalkListView.CARDS ? faImages : faTableCells"/>
+                    <span class="ml-2">{{ stringUtils.asTitle(walkListView) }} View</span><span class="caret"></span>
+                  </button>
+                  <ul *dropdownMenu class="dropdown-menu" id="dropdown-animated" role="menu">
+                    <li role="menuitem">
+                      <a (click)="switchToView(WalkListView.CARDS)" class="dropdown-item">
+                        <div>
+                          <fa-icon [icon]="faImages" class="mr-2"/>
+                          {{ stringUtils.asTitle(WalkListView.CARDS) }} View
+                        </div>
+                      </a>
+                    </li>
+                    <li role="menuitem">
+                      <a (click)="switchToView(WalkListView.TABLE)" class="dropdown-item">
+                        <div>
+                          <fa-icon [icon]="faTableCells" class="mr-2"/>
+                          {{ stringUtils.asTitle(WalkListView.TABLE) }} View
+                        </div>
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              <div class="col">
+                <pagination class="pagination rounded w-100" [boundaryLinks]=true [rotate]="true" [maxSize]="maxSize()"
+                            [totalItems]="walks?.length" [(ngModel)]="pageNumber"
+                            (pageChanged)="pageChanged($event)"/>
+              </div>
+            </div>
+          </app-walks-search>
+          <app-walk-card-list *ngIf="walkListView===WalkListView.CARDS" [currentPageWalks]="currentPageWalks"/>
+          <ng-container *ngIf="!walkListView || walkListView===WalkListView.TABLE">
+            <div class="table-responsive"
+                 *ngFor="let displayedWalk of currentPageWalks; let index = index; trackBy: walkTracker">
+              <div *ngIf="display.isExpanded(displayedWalk.walk)">
+                <app-walk-view *ngIf="!display.isEdit(displayedWalk.walk)"
+                               [displayedWalk]="displayedWalk"></app-walk-view>
+                <app-walk-edit *ngIf="display.isEdit(displayedWalk.walk)"
+                               [displayedWalk]="displayedWalk"></app-walk-edit>
+              </div>
+              <table *ngIf="!display.isExpanded(displayedWalk.walk)"
+                     class="rounded table styled-table table-striped table-hover table-sm">
+                <thead *ngIf="showTableHeader(displayedWalk)" class="styled-table">
+                <tr>
+                  <th class="action" *ngIf="display.walkPopulationLocal() && memberLoginService.memberLoggedIn()"
+                      width="8%">Action
+                  </th>
+                  <th width="8%">Type</th>
+                  <th width="13%">Walk Date</th>
+                  <th class="d-none d-lg-table-cell" width="7%">Start Time</th>
+                  <th width="25%">Title</th>
+                  <th class="d-none d-lg-table-cell" width="7%">Distance</th>
+                  <th class="d-none d-lg-table-cell" width="8%">Postcode</th>
+                  <th class="d-none d-lg-table-cell" width="12%">Leader</th>
+                  <th *ngIf="display.walkContactDetailsPublic()" class="d-none d-lg-table-cell" width="11%">Contact
+                    Phone
+                  </th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr [ngClass]="tableRowEven(displayedWalk)? 'default': 'active'">
+                  <td *ngIf="display.walkPopulationLocal() && memberLoginService.memberLoggedIn()"
+                      id="walkAction-{{index}}"
+                      class="nowrap action" width="7%"><input
+                    *ngIf="displayedWalk?.walkAccessMode?.walkWritable" type="submit"
+                    value="{{displayedWalk?.walkAccessMode?.caption}}"
+                    (click)="display.edit(displayedWalk)"
+                    class="button-form">
+                  </td>
+                  <td width="8%" class="event-type"
+                      (click)="display.view(displayedWalk.walk)"
+                      id="eventType-{{index}}">
+                    <app-walk-grading *ngIf="display.isWalk(displayedWalk.walk)" [grading]="displayedWalk.walk.grade"/>
+                    <fa-icon *ngIf="!display.isWalk(displayedWalk.walk)"
+                             class="{{display.eventType(displayedWalk.walk)}}"
+                             tooltip="{{display.eventTypeTitle(displayedWalk.walk)}}" adaptivePosition
+                             [icon]="display.isWalk(displayedWalk.walk)? faWalking: faPeopleGroup"/>
+                  </td>
+                  <td width="13%" (click)="display.view(displayedWalk.walk)" id="walkDate-{{index}}"
+                      class="nowrap walk-date">
+                    {{ displayedWalk.walk.walkDate|displayDate }}
+                  </td>
+                  <td width="7%" class="d-none d-lg-table-cell start-time" (click)="display.view(displayedWalk.walk)"
+                      id="startTime-{{index}}">{{ displayedWalk.walk.startTime }}
+                  </td>
+                  <td width="25%" name="briefDescriptionAndStartPoint"
+                      (click)="display.view(displayedWalk.walk)"
+                      id="briefDescription-{{index}}">{{ displayedWalk.walk.briefDescriptionAndStartPoint || displayedWalk?.latestEventType?.description }}
+                  </td>
+                  <td width="7%" class="d-none d-lg-table-cell distance" (click)="display.view(displayedWalk.walk)"
+                      id="distance-{{index}}">{{ displayedWalk.walk.distance }}
+                  </td>
+                  <td width="8%" class="d-none d-lg-table-cell postcode" id="postcode-{{index}}">
+                    <a [href]="'http://maps.google.co.uk/maps?q=' + displayedWalk.walk.start_location?.postcode"
+                       target="_blank" name="postcode"
+                       tooltip="Click to locate postcode {{displayedWalk.walk.start_location?.postcode}} on Google Maps"
+                       placement="left">{{ displayedWalk.walk.start_location?.postcode }}</a></td>
+                  <td width="12%" class="d-none d-lg-table-cell walk-leader" id="contactEmail-{{index}}">
+                    <a *ngIf="allowDetailView()" [href]="'mailto:'+ displayedWalk.walk.contactEmail"
+                       tooltip="Click to email {{displayedWalk.walk.displayName}} at {{displayedWalk.walk.contactEmail}}"
+                       placement="left">{{ displayedWalk.walk.displayName }}</a>
+                    <div class="tooltip-link" *ngIf="!allowDetailView()" placement="left"
+                         (click)="login()"
+                         tooltip="Click to login as an {{group?.shortName}} member and send an email to {{displayedWalk.walk.displayName}}">
+                      {{ displayedWalk.walk.displayName }}
+                    </div>
+                  </td>
+                  <td *ngIf="display.walkContactDetailsPublic()" width="11%"
+                      class="d-none d-lg-table-cell contact-phone"
+                      id="contactPhone-{{index}}" name="contactPhone">
+                    <a *ngIf="allowDetailView()" [href]="'tel:' + displayedWalk.walk.contactPhone"
+                       [textContent]="displayedWalk.walk.contactPhone"
+                       tooltip="Click to ring {{displayedWalk.walk.displayName}} on {{displayedWalk.walk.contactPhone}} (mobile devices only)"
+                       placement="left"></a>
+                    <a *ngIf="!allowDetailView()" [href]="'tel:' + displayedWalk.walk.contactPhone">
+                    <span [textContent]="displayedWalk.walk.contactPhone"
+                          tooltip="Click to ring {{displayedWalk.walk.displayName}} on {{displayedWalk.walk.contactPhone}} (mobile devices only)"
+                          placement="left"></span></a>
+                    <app-walk-panel-expander class="d-none d-lg-inline" [walk]="displayedWalk.walk" [expandable]="true">
+                    </app-walk-panel-expander>
+                  </td>
+                </tr>
+                </tbody>
+              </table>
+            </div>
+          </ng-container>
+        </div>
+      </div>
+      <app-dynamic-content [anchor]="'action-buttons'" contentPathReadOnly></app-dynamic-content>
+    </app-page>
+  `,
   styleUrls: ["./walk-list.component.sass"],
   changeDetection: ChangeDetectionStrategy.Default
 })
 export class WalkListComponent implements OnInit, OnDestroy {
-  protected readonly faWalking = faWalking;
-  protected readonly faPeopleGroup = faPeopleGroup;
-  public currentWalkId: string;
-  private logger: Logger;
-  private todayValue: number;
-  public walks: Walk[];
-  public filteredWalks: DisplayedWalk[] = [];
-  public currentPageWalks: DisplayedWalk[] = [];
-  public filterParameters: FilterParameters = {quickSearch: "", selectType: 1, ascending: true};
-  private notify: AlertInstance;
-  public notifyTarget: AlertTarget = {};
-  private pageSize: number;
-  public pageNumber: number;
-  public pageCount: number;
-  public pages: number[] = [];
-  config: ModalOptions = {
-    animated: false,
-    initialState: {}
-  };
-  private subscriptions: Subscription[] = [];
-  public group: Organisation;
 
   constructor(
+    private uiActionsService: UiActionsService,
     private systemConfigService: SystemConfigService,
     private modalService: BsModalService,
     private pageService: PageService,
@@ -90,9 +214,38 @@ export class WalkListComponent implements OnInit, OnDestroy {
     this.logger = loggerFactory.createLogger("WalkListComponent", NgxLoggerLevel.ERROR);
   }
 
+  protected readonly faWalking = faWalking;
+  protected readonly faPeopleGroup = faPeopleGroup;
+  public currentWalkId: string;
+  private logger: Logger;
+  private todayValue: number;
+  public walks: Walk[];
+  public filteredWalks: DisplayedWalk[] = [];
+  public currentPageWalks: DisplayedWalk[] = [];
+  public filterParameters: FilterParameters = {quickSearch: "", selectType: 1, ascending: true};
+  private notify: AlertInstance;
+  public notifyTarget: AlertTarget = {};
+  private pageSize: number;
+  public pageNumber: number;
+  public pageCount: number;
+  public pages: number[] = [];
+  config: ModalOptions = {
+    animated: false,
+    initialState: {}
+  };
+  private subscriptions: Subscription[] = [];
+  public group: Organisation;
+  protected readonly faTableCells = faTableCells;
+  protected readonly WalkListView = WalkListView;
+  protected walkListView: WalkListView;
+  protected readonly faImages = faImages;
+
   ngOnInit() {
     this.logger.debug("ngOnInit");
-    this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));
+    this.subscriptions.push(this.systemConfigService.events().subscribe(item => {
+      this.group = item.group;
+      this.walkListView = this.uiActionsService.initialValueFor(StoredValue.WALK_LIST_VIEW, this.group.defaultWalkListView) as WalkListView;
+    }));
     this.todayValue = this.dateUtils.momentNowNoTime().valueOf();
     this.pageSize = 10;
     this.pageNumber = 1;
@@ -120,7 +273,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
   }
 
   maxSize(): number {
-    const maxSize = window.innerWidth <= DeviceSize.SMALL ? 3 : 5;
+    const maxSize = window.innerWidth <= DeviceSize.MEDIUM ? 3 : 5;
     this.logger.debug("window.innerWidth:", window.innerWidth, "->", maxSize);
     return maxSize;
   }
@@ -149,24 +302,15 @@ export class WalkListComponent implements OnInit, OnDestroy {
     this.logger.info("total walks count", this.walks.length, "walks:", this.walks, "filteredWalks count", this.filteredWalks.length, "currentPageWalks count", this.currentPageWalks.length, "pageSize:", this.pageSize, "pageCount", this.pageCount, "pages", this.pages);
     const offset = (this.pageNumber - 1) * this.pageSize + 1;
     const pageIndicator = this.pages.length > 1 ? `page ${this.pageNumber} of ${this.pageCount}` : "";
-    const toWalkNumber = Math.min(offset + this.pageSize - 1, this.walks.length);
-    this.notify.progress(`Showing ${offset} to ${toWalkNumber} of ${this.stringUtils.pluraliseWithCount(this.walks.length, "walk")}${pageIndicator ? " - " + pageIndicator : ""}`);
+    const toWalkNumber = Math.min(offset + this.pageSize - 1, this.currentPageWalks.length);
+    const alertMessage = this.currentPageWalks.length > 0 ? `Showing ${offset} to ${toWalkNumber} of ${this.stringUtils.pluraliseWithCount(this.walks.length, "walk")}${pageIndicator ? " - " + pageIndicator : ""}` : "No walks found";
+    this.notify.progress(alertMessage);
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SHOW_PAGINATION, this.pageCount > 1));
     this.dataMigrationService.migrateWalkLocations(this.walks);
   }
 
   allowDetailView() {
     return this.memberLoginService.memberLoggedIn();
-  }
-
-  viewWalkField(displayedWalk: DisplayedWalk, field) {
-    if (displayedWalk.walk.events.length === 0 || displayedWalk.latestEventType.showDetails) {
-      return displayedWalk.walk[field] || "";
-    } else if (field === "briefDescriptionAndStartPoint") {
-      return displayedWalk?.latestEventType?.description;
-    } else {
-      return "";
-    }
   }
 
   walksCriteriaObject() {
@@ -290,4 +434,9 @@ export class WalkListComponent implements OnInit, OnDestroy {
     }
   }
 
+  switchToView(walkListView: WalkListView) {
+    this.walkListView = walkListView;
+    this.logger.info("switching to", walkListView, "view");
+    this.uiActionsService.saveValueFor(StoredValue.WALK_LIST_VIEW, walkListView);
+  }
 }

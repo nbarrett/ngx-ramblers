@@ -19,28 +19,34 @@ import { WalkDisplayService } from "../walk-display.service";
   template: `
     <ng-container *ngIf="!currentWalkId">
       <ng-container *ngIf="showPagination">
-        <div class="d-flex pb-0">
-          <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
-                 (ngModelChange)="onSearchChange($event)"
-                 name="quickSearch"
-                 class="form-control rounded mr-3"
-                 type="text" placeholder="Quick Search">
-          <select [(ngModel)]="filterParameters.selectType"
-                  (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
-                  class="form-control rounded mr-3">
-            <option *ngFor="let filter of walksFilter()" [ngValue]="filter.value"
-                    [selected]="filter.selected">{{ filter.description }}
-            </option>
-          </select>
-          <select [(ngModel)]="filterParameters.ascending"
-                  (ngModelChange)="refreshWalks('change filterParameters.ascending')" name="ascending"
-                  class="form-control rounded">
-            <option selected [value]="true">Sort (date ascending)</option>
-            <option [value]="false">Sort (date descending)</option>
-          </select>
+        <div class="row pb-0">
+          <div class="col-xs-12 mb-3 mb-md-0 col-md-4">
+            <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
+                   (ngModelChange)="onSearchChange($event)"
+                   name="quickSearch"
+                   class="form-control rounded mr-3"
+                   type="text" placeholder="Quick Search">
+          </div>
+          <div class="col-xs-12 mb-3 mb-md-0 col-md-4">
+            <select [(ngModel)]="filterParameters.selectType"
+                    (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
+                    class="form-control rounded mr-3">
+              <option *ngFor="let filter of walksFilter()" [ngValue]="filter.value"
+                      [selected]="filter.selected">{{ filter.description }}
+              </option>
+            </select>
+          </div>
+          <div class="col-xs-12 col-md-4">
+            <select [(ngModel)]="filterParameters.ascending"
+                    (ngModelChange)="refreshWalks('change filterParameters.ascending')" name="ascending"
+                    class="form-control rounded">
+              <option selected [value]="true">Sort (date ascending)</option>
+              <option [value]="false">Sort (date descending)</option>
+            </select>
+          </div>
         </div>
         <div class="d-flex mt-3">
-          <ng-content></ng-content>
+          <ng-content/>
           <div *ngIf="showAlertInline()" class="flex-grow-1">
             <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
               <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
@@ -115,7 +121,7 @@ export class WalkSearchComponent implements OnInit, OnDestroy {
               private memberLoginService: MemberLoginService,
               private broadcastService: BroadcastService<any>,
               loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkSearchComponent", NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("WalkSearchComponent", NgxLoggerLevel.ERROR);
     this.searchChangeObservable = new Subject<string>();
   }
 
@@ -161,7 +167,7 @@ export class WalkSearchComponent implements OnInit, OnDestroy {
   }
 
   showAlertInline(): boolean {
-    const showAlertInline: boolean = window.innerWidth >= DeviceSize.SMALL;
+    const showAlertInline: boolean = window.innerWidth >= DeviceSize.EXTRA_LARGE;
     this.logger.info("window.innerWidth:", window.innerWidth, "showAlertInline ->", showAlertInline);
     return showAlertInline;
 
