@@ -3,7 +3,6 @@ import { SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute } from "@angular/router";
 import { faPencil } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { MeetupConfig } from "../../../models/meetup-config.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -11,7 +10,6 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { AddressQueryService } from "../../../services/walks/address-query.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { MeetupService } from "../../../services/meetup.service";
 import { LocationDetails } from "../../../models/ramblers-walks-manager";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { GridReferenceLookupResponse } from "../../../models/address-model";
@@ -24,10 +22,21 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
       <div class="col-sm-6">
         <div class="form-group">
           <label for="post-code">{{ locationType }} Postcode</label>
-          <input [disabled]="disabled" [(ngModel)]="locationDetails.postcode"
-                 (ngModelChange)="postcodeChange()"
-                 type="text" class="form-control input-sm" id="post-code"
-                 placeholder="Enter Postcode here">
+          <ng-container *ngIf="showPostcodeSelect">
+            <select [disabled]="disabled" [(ngModel)]="locationDetails.postcode"
+                    (ngModelChange)="this.updateGoogleMapsUrl()"
+                    class="form-control input-sm" id="post-code">
+              <option *ngFor="let option of postcodeOptions" [value]="option.postcode">{{ option.postcode }}
+                ({{ option.distance == null ? 'keep existing' : numberUtils.asNumber(option.distance, 0)+ ' m from pin' }})
+              </option>
+            </select>
+          </ng-container>
+          <ng-container *ngIf="!showPostcodeSelect">
+            <input [disabled]="disabled" [(ngModel)]="locationDetails.postcode"
+                   (ngModelChange)="postcodeChange()"
+                   type="text" class="form-control input-sm" id="post-code"
+                   placeholder="Enter Postcode here">
+          </ng-container>
         </div>
       </div>
       <div class="col-sm-6">
@@ -91,7 +100,10 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
 
         <ng-container *ngIf="!showGoogleMapsView && showLeafletView">
           <p>Use the map below to drag the pin to accurately pinpoint the location.</p>
-          <div app-map-edit class="map-walk-location-edit" [locationDetails]="locationDetails" [notify]="notify">
+          <div app-map-edit class="map-walk-location-edit" [locationType]="locationType"
+               [locationDetails]="locationDetails" [notify]="notify"
+               (postcodeOptionsChange)="postcodeOptions = $event"
+               (showPostcodeSelectChange)="showPostcodeSelect = $event">
           </div>
         </ng-container>
       </div>
@@ -99,16 +111,12 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
   styleUrls: ["./walk-edit.component.sass"]
 })
 export class WalkLocationEditComponent implements OnInit {
-
   @Input() public locationType!: string;
   @Input() public notify!: AlertInstance;
-
   @Input("disabled") set previewValue(disabled: boolean) {
     this.disabled = coerceBooleanProperty(disabled);
   }
-
-  @Input("locationDetails")
-  set initialiseWalk(locationDetails: LocationDetails) {
+  @Input("locationDetails") set initialiseWalk(locationDetails: LocationDetails) {
     this.logger.info("locationDetails:", locationDetails);
     this.locationDetails = locationDetails;
     this.updateGoogleMapsUrl();
@@ -116,12 +124,11 @@ export class WalkLocationEditComponent implements OnInit {
 
   public showLeafletView = true;
   public disabled: boolean;
-  public locationDetails: LocationDetails;
-  public meetupService: MeetupService;
-  public googleMapsUrl: SafeResourceUrl;
-  public walkDate: Date;
   protected logger: Logger;
-  public meetupConfig: MeetupConfig;
+  public locationDetails: LocationDetails;
+  public showPostcodeSelect = false;
+  public postcodeOptions: {postcode: string, distance: number}[] = [];
+  public googleMapsUrl: SafeResourceUrl;
   public faPencil = faPencil;
   public showGoogleMapsView = false;
 
@@ -180,5 +187,4 @@ export class WalkLocationEditComponent implements OnInit {
   viewGridReference(gridReference: string) {
     return window.open(this.display.gridReferenceLink(gridReference));
   }
-
 }

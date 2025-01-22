@@ -62,11 +62,10 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
 @Component({
   selector: "app-walk-edit",
   template: `
-    <div [ngClass]="{'busy': notifyTarget.busy}">
-      <div class="d-none">
-        <ng-template app-notification-directive/>
-      </div>
-      <div class="tabset-container">
+    <div class="d-none">
+      <ng-template app-notification-directive/>
+    </div>
+    <div class="tabset-container">
       <app-walk-panel-expander [walk]="displayedWalk.walk" [collapsable]="true" [collapseAction]="'exit edit'"
                                [expandAction]="'edit walk full-screen'" [expandable]="isExpandable()">
       </app-walk-panel-expander>
@@ -235,13 +234,13 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
                     </p>
                     <div *ngIf="canUnlinkRamblers()">
                       <div class="row">
-                        <div class="col-sm-1">
+                        <div class="col-sm-2">
                           <input type="submit" value="Unlink"
                                  (click)="unlinkRamblersDataFromCurrentWalk()"
                                  title="Remove link between this walk and Ramblers"
-                                 class="mt-6 button-form">
+                                 class="btn btn-primary">
                         </div>
-                        <div class="col-sm-11">
+                        <div class="col-sm-10">
                           <app-markdown-editor name="ramblers-help"
                                                description="Linking to Ramblers"></app-markdown-editor>
                         </div>
@@ -320,8 +319,7 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
                                (click)="unlinkOSMapsFromCurrentWalk()"
                                title="Remove link between this walk and OS Maps"
                                [disabled]="!canUnlinkOSMaps()|| inputDisabled()"
-                               [ngClass]="canUnlinkOSMaps() ? 'button-form': 'button-form disabled-button-form'"
-                               class="ml-2">
+                               class="btn btn-primary ml-2">
                       </div>
                     </div>
                   </div>
@@ -367,7 +365,7 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
               </div>
             </div>
             <div *ngIf="display.allowAdminEdits()" class="row">
-              <div class="col-sm-11">
+              <div class="col-sm-10">
                 <div class="form-group">
                   <label for="contact-member">Walk Leader</label>
                   <select *ngIf="allowDetailView()" [disabled]="!display.allowAdminEdits()"
@@ -381,15 +379,15 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
                   </select>
                 </div>
               </div>
-              <div class="col-sm-1">
+              <div class="col-sm-2">
                 <div class="form-group">
-                  <input type="submit" value="Me" (click)="setWalkLeaderToMe()"
-                         [ngClass]="saveInProgress ? 'button-form disabled-button-form button-bottom-aligned': 'button-form button-bottom-aligned'">
+                  <input type="submit" [disabled]="saveInProgress" value="Me" (click)="setWalkLeaderToMe()"
+                         class="btn btn-primary button-bottom-aligned w-100">
                 </div>
               </div>
             </div>
             <div *ngIf="display.allowAdminEdits()" class="row">
-              <div class="col-sm-6">
+              <div class="col-sm-5">
                 <div class="form-group">
                   <label for="display-name">Display Name (how it will be published on this walk)</label>
                   <input [(ngModel)]="displayedWalk.walk.displayName"
@@ -398,20 +396,21 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
                          placeholder="Name as displayed to the public and sent to Ramblers in CSV export file">
                 </div>
               </div>
-              <div class="col-sm-6">
-                <div class="row">
-                  <div class="col-sm-10">
-                    <label for="walk-leader-contact-id">Walks Manager Contact Name</label>
-                    <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.contactId"
-                           type="text"
-                           class="form-control input-sm flex-grow-1 mr-2" id="walk-leader-contact-id"
-                           placeholder="Name that matches the User Details in Assemble. This will be sent in Ramblers in CSV export file">
-                  </div>
-                  <div class="col-sm-1">
-                    <input type="submit" [value]="toggleRamblersAssembleNameCaption()"
-                           (click)="toggleRamblersAssembleName()"
-                           [ngClass]="saveInProgress ? 'button-form disabled-button-form button-bottom-aligned': 'button-form button-bottom-aligned'">
-                  </div>
+              <div class="col-sm-5">
+                <div class="form-group">
+                  <label for="walk-leader-contact-id">Walks Manager Contact Name</label>
+                  <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.contactId"
+                         type="text"
+                         class="form-control input-sm flex-grow-1 mr-2" id="walk-leader-contact-id"
+                         placeholder="Name that matches the User Details in Assemble. This will be sent in Ramblers in CSV export file">
+                </div>
+              </div>
+              <div class="col-sm-2">
+                <div class="form-group">
+                  <input type="submit" [value]="toggleRamblersAssembleNameCaption()"
+                         (click)="toggleRamblersAssembleName()"
+                         [disabled]="saveInProgress"
+                         class="btn btn-primary button-bottom-aligned w-100">
                 </div>
               </div>
             </div>
@@ -488,17 +487,18 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
                                  [(ngModel)]="copySource"
                                  (change)="populateWalkTemplates()"
                                  value="copy-selected-walk-leader"/>
-                          <label class="custom-control-label" for="copy-selected-walk-leader">Previously led by: <select
-                            [disabled]="copySource!=='copy-selected-walk-leader'"
-                            class="input-md input-led-by"
-                            [(ngModel)]="copySourceFromWalkLeaderMemberId"
-                            (ngModelChange)="copySelectedWalkLeader()"
-                            id="copy-member-walks">
-                            <option value="">(no walk leader selected)</option>
-                            <option *ngFor="let member of previousWalkLeadersWithAliasOrMe()"
-                                    [ngValue]="member.memberId">{{ member.name }}
-                            </option>
-                          </select>
+                          <label class="custom-control-label" for="copy-selected-walk-leader">Previously led by:
+                            <select
+                              [disabled]="copySource!=='copy-selected-walk-leader'"
+                              class="input-md input-led-by"
+                              [(ngModel)]="copySourceFromWalkLeaderMemberId"
+                              (ngModelChange)="copySelectedWalkLeader()"
+                              id="copy-member-walks">
+                              <option value="">(no walk leader selected)</option>
+                              <option *ngFor="let member of previousWalkLeadersWithAliasOrMe()"
+                                      [ngValue]="member.memberId">{{ member.name }}
+                              </option>
+                            </select>
                           </label>
                         </div>
                         <div class="custom-control custom-radio custom-control-inline">
@@ -537,82 +537,69 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
           </div>
         </tab>
       </tabset>
+    </div>
+    <div class="form-group">
+      <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
+        <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+        <strong> {{ notifyTarget.alertTitle }}: </strong>
+        {{ notifyTarget.alertMessage }}
       </div>
-      <div class="form-group">
-        <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
-          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-          <strong> {{ notifyTarget.alertTitle }}: </strong>
-          {{ notifyTarget.alertMessage }}
-        </div>
-      </div>
-      <div *ngIf="displayedWalk.walk" class="form-inline mb-4 align-middle">
-        <input *ngIf="allowClose()" [disabled]="saveInProgress" type="submit"
-               value="Close"
-               (click)="closeEditView()" title="Close and go back to walks list"
-               class="button-form"
-               [ngClass]="{'disabled':saveInProgress}">
-        <input *ngIf="allowSave()" [disabled]="saveInProgress" type="submit" value="Save"
-               (click)="saveWalkDetails()" title="Save these walk details"
-               class="button-form"
-               [ngClass]="{'disabled':saveInProgress}">
-        <input *ngIf="allowCancel()" [disabled]="saveInProgress" type="submit"
-               value="Cancel"
-               (click)="cancelWalkDetails()" title="Cancel and don't save"
-               class="button-form"
-               [ngClass]="{'disabled':saveInProgress}">
-        <input *ngIf="pendingCancel()" [disabled]="saveInProgress" type="submit"
-               value="Confirm" (click)="confirmCancelWalkDetails()"
-               title="Confirm losing my changes and closing this form"
-               class="button-form"
-               [ngClass]="{'disabled':saveInProgress}">
-        <input *ngIf="allowDelete()" [disabled]="saveInProgress" type="submit"
-               value="Delete"
-               (click)="deleteWalkDetails()" title="Delete these walk details"
-               class="button-form"
-               [ngClass]="{'disabled':saveInProgress}">
-        <input *ngIf="pendingDelete()" [disabled]="saveInProgress" type="submit"
-               value="Confirm Deletion" (click)="confirmDeleteWalkDetails()"
-               title="Confirm Delete of these walk details"
-               class="button-form"
-               [ngClass]="{'disabled':saveInProgress}">
-        <input *ngIf="allowRequestApproval()" [disabled]="saveInProgress" type="submit"
-               value="Request Approval" (click)="requestApproval()"
-               title="Mark walk details complete and request approval"
-               class="button-form"
-               [ngClass]="{'disabled':saveInProgress}">
-        <input *ngIf="allowApprove()" [disabled]="saveInProgress" type="submit"
-               value="Approve" (click)="approveWalkDetails()"
-               title="Approve walk and publish"
-               class="button-form"
-               [ngClass]="{'disabled':saveInProgress}">
-        <input *ngIf="pendingRequestApproval()" [disabled]="saveInProgress"
-               type="submit"
-               value="Confirm Request Approval" (click)="confirmRequestApproval()"
-               title="Confirm walk details complete and request approval"
-               class="button-form"
-               [ngClass]="{'disabled':saveInProgress}">
-        <input *ngIf="allowContactOther()" [disabled]="saveInProgress" type="submit"
-               value=""
-               (click)="contactOther()" title="Contact {{personToNotify()}}"
-               class="button-form"
-               [ngClass]="{'disabled':saveInProgress}">
-        <input *ngIf="pendingContactOther()" [disabled]="saveInProgress" type="submit"
-               value="Contact {{personToNotify()}}" (click)="confirmContactOther()"
-               title="Contact {{personToNotify()}} via email"
-               class="button-form"
-               [ngClass]="{'disabled':saveInProgress}">
-        <input *ngIf="pendingConfirmation()" type="submit" value="Cancel" (click)="cancelConfirmableAction()"
-               title="Cancel this action"
-               class="button-form amber-confirm"
-               [ngClass]="{'disabled':saveInProgress}">
-        <div *ngIf="allowNotifyConfirmation() && !saveInProgress" class="custom-control custom-checkbox">
-          <input [disabled]="!display.allowAdminEdits() ||saveInProgress "
-                 [(ngModel)]="sendNotifications"
-                 type="checkbox" class="custom-control-input" id="send-notification">
-          <label class="custom-control-label ml-2"
-                 for="send-notification">Notify {{ personToNotify() }} about this change
-          </label>
-        </div>
+    </div>
+    <div *ngIf="displayedWalk.walk" class="form-inline mb-4 align-middle">
+      <input *ngIf="allowClose()" [disabled]="saveInProgress" type="submit"
+             value="Close"
+             (click)="closeEditView()" title="Close and go back to walks list"
+             class="btn btn-primary mr-2">
+      <input *ngIf="allowSave()" [disabled]="saveInProgress" type="submit" value="Save"
+             (click)="saveWalkDetails()" title="Save these walk details"
+             class="btn btn-primary mr-2">
+      <input *ngIf="allowCancel()" [disabled]="saveInProgress" type="submit"
+             value="Cancel"
+             (click)="cancelWalkDetails()" title="Cancel and don't save"
+             class="btn btn-primary mr-2">
+      <input *ngIf="pendingCancel()" [disabled]="saveInProgress" type="submit"
+             value="Confirm" (click)="confirmCancelWalkDetails()"
+             title="Confirm losing my changes and closing this form"
+             class="btn btn-primary mr-2">
+      <input *ngIf="allowDelete()" [disabled]="saveInProgress" type="submit"
+             value="Delete"
+             (click)="deleteWalkDetails()" title="Delete these walk details"
+             class="btn btn-primary mr-2">
+      <input *ngIf="pendingDelete()" [disabled]="saveInProgress" type="submit"
+             value="Confirm Deletion" (click)="confirmDeleteWalkDetails()"
+             title="Confirm Delete of these walk details"
+             class="btn btn-primary mr-2">
+      <input *ngIf="allowRequestApproval()" [disabled]="saveInProgress" type="submit"
+             value="Request Approval" (click)="requestApproval()"
+             title="Mark walk details complete and request approval"
+             class="btn btn-primary mr-2">
+      <input *ngIf="allowApprove()" [disabled]="saveInProgress" type="submit"
+             value="Approve" (click)="approveWalkDetails()"
+             title="Approve walk and publish"
+             class="btn btn-primary mr-2">
+      <input *ngIf="pendingRequestApproval()" [disabled]="saveInProgress"
+             type="submit"
+             value="Confirm Request Approval" (click)="confirmRequestApproval()"
+             title="Confirm walk details complete and request approval"
+             class="btn btn-primary mr-2">
+      <input *ngIf="allowContactOther()" [disabled]="saveInProgress" type="submit"
+             value=""
+             (click)="contactOther()" title="Contact {{personToNotify()}}"
+             class="btn btn-primary mr-2">
+      <input *ngIf="pendingContactOther()" [disabled]="saveInProgress" type="submit"
+             value="Contact {{personToNotify()}}" (click)="confirmContactOther()"
+             title="Contact {{personToNotify()}} via email"
+             class="btn btn-primary mr-2">
+      <input *ngIf="pendingConfirmation()" type="submit" value="Cancel" (click)="cancelConfirmableAction()"
+             title="Cancel this action"
+             class="btn btn-primary mr-2">
+      <div *ngIf="allowNotifyConfirmation() && !saveInProgress" class="custom-control custom-checkbox">
+        <input [disabled]="!display.allowAdminEdits() ||saveInProgress "
+               [(ngModel)]="sendNotifications"
+               type="checkbox" class="custom-control-input" id="send-notification">
+        <label class="custom-control-label ml-2"
+               for="send-notification">Notify {{ personToNotify() }} about this change
+        </label>
       </div>
     </div>`,
   styleUrls: ["./walk-edit.component.sass"]
@@ -901,7 +888,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         this.logger.debug("initialising walk venue");
         displayedWalk.walk.venue = {
           type: this.walksReferenceService.venueTypes()[0].type,
-          postcode: displayedWalk.walk.start_location.postcode
+          postcode: displayedWalk.walk.start_location?.postcode
         };
       }
       this.confirmAction = ConfirmType.NONE;

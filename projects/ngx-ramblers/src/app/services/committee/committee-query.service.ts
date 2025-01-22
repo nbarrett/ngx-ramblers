@@ -95,7 +95,7 @@ export class CommitteeQueryService {
             eventTime: walk.startTime,
             distance: walk.distance,
             location: null,
-            postcode: walk.start_location.postcode,
+            postcode: walk.start_location?.postcode,
             title: walk.briefDescriptionAndStartPoint || "Awaiting walk details",
             description: walk.longerDescription,
             contactName: walk.displayName || "Awaiting walk leader",

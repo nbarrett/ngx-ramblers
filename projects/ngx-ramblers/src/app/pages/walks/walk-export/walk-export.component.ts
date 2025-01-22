@@ -111,12 +111,8 @@ import groupBy from "lodash-es/groupBy";
                       </dl>
                       <dl class="d-flex" *ngIf="walkExport.validationMessages.length>0">
                         <dt class="font-weight-bold mr-2">Problems:</dt>
-                        <dd>
-                          <div>
-                            {{ walkExport.validationMessages.join(", ") }}
-                          </div>
-                        </dd>
                       </dl>
+                      <div>{{ walkExport.validationMessages.join(", ") }}</div>
                       <dl class="d-flex">
                         <dt class="font-weight-bold mr-2 nowrap">Publish status:</dt>
                         <dd *ngIf="walkExport.displayedWalk.walk.ramblersWalkId">

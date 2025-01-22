@@ -91,9 +91,9 @@ import { StoredValue } from "../../../models/ui-actions";
                  *ngFor="let displayedWalk of currentPageWalks; let index = index; trackBy: walkTracker">
               <div *ngIf="display.isExpanded(displayedWalk.walk)">
                 <app-walk-view *ngIf="!display.isEdit(displayedWalk.walk)"
-                               [displayedWalk]="displayedWalk"></app-walk-view>
+                               [displayedWalk]="displayedWalk"/>
                 <app-walk-edit *ngIf="display.isEdit(displayedWalk.walk)"
-                               [displayedWalk]="displayedWalk"></app-walk-edit>
+                               [displayedWalk]="displayedWalk"/>
               </div>
               <table *ngIf="!display.isExpanded(displayedWalk.walk)"
                      class="rounded table styled-table table-striped table-hover table-sm">
@@ -173,8 +173,8 @@ import { StoredValue } from "../../../models/ui-actions";
                     <span [textContent]="displayedWalk.walk.contactPhone"
                           tooltip="Click to ring {{displayedWalk.walk.displayName}} on {{displayedWalk.walk.contactPhone}} (mobile devices only)"
                           placement="left"></span></a>
-                    <app-walk-panel-expander class="d-none d-lg-inline" [walk]="displayedWalk.walk" [expandable]="true">
-                    </app-walk-panel-expander>
+                    <app-walk-panel-expander class="d-none d-lg-inline" [walk]="displayedWalk.walk"
+                                             [expandable]="true"/>
                   </td>
                 </tr>
                 </tbody>
@@ -183,7 +183,7 @@ import { StoredValue } from "../../../models/ui-actions";
           </ng-container>
         </div>
       </div>
-      <app-dynamic-content [anchor]="'action-buttons'" contentPathReadOnly></app-dynamic-content>
+      <app-dynamic-content [anchor]="'action-buttons'" contentPathReadOnly/>
     </app-page>
   `,
   styleUrls: ["./walk-list.component.sass"],
