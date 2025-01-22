@@ -30,7 +30,8 @@ import first from "lodash-es/first";
     </ul>
     <a *ngIf="format!=='list'" [href]="'mailto:' + email()">{{ text || email() }}</a>
   `,
-  styleUrls: ["./contact-us.sass"]
+  styleUrls: ["./contact-us.sass"],
+  standalone: false
 })
 
 export class ContactUsComponent implements OnInit, OnDestroy {

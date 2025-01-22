@@ -25,7 +25,8 @@ import { DataPopulationService } from "../data-population.service";
   selector: "app-admin",
   templateUrl: "./admin.component.html",
   styleUrls: ["./admin.component.sass"],
-  changeDetection: ChangeDetectionStrategy.Default
+  changeDetection: ChangeDetectionStrategy.Default,
+  standalone: false
 })
 export class AdminComponent implements OnInit, OnDestroy, OnDestroy {
   faIdCard = faIdCard;

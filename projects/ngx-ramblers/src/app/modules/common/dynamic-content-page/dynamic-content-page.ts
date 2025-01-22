@@ -6,6 +6,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
   selector: "app-dynamic-content-page",
   templateUrl: "./dynamic-content-page.html",
   styleUrls: ["./dynamic-content-page.sass"],
+  standalone: false
 })
 export class DynamicContentPageComponent {
   private logger: Logger;

@@ -1,6 +1,5 @@
 import { Component } from "@angular/core";
 import { WalkNotificationDetailsComponent } from "./walk-notification-details.component";
-import { marked } from "marked";
 
 
 @Component({
@@ -18,7 +17,8 @@ import { marked } from "marked";
           <td style="border:1px solid lightgrey; padding: 6px" [innerHTML]="renderMarked(item.currentValue) "></td>
       </tr>
     </table>
-  `
+  `,
+  standalone: false
 })
 export class WalkNotificationChangesComponent extends WalkNotificationDetailsComponent {
 

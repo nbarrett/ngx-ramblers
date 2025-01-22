@@ -31,6 +31,7 @@ import { AlertTarget } from "../../../../models/alert-target.model";
         </div>
       </div>
     </div>`,
+  standalone: false
 })
 export class SystemGoogleAnalyticsSettings implements OnInit, OnDestroy {
 

@@ -65,7 +65,8 @@ import { SystemConfigService } from "../../services/system/system-config.service
       </span>
       </a></li>
     </ul>`,
-  styleUrls: ["./footer-icons.sass"]
+  styleUrls: ["./footer-icons.sass"],
+  standalone: false
 })
 export class SocialMediaLinksComponent implements OnInit, OnDestroy {
 

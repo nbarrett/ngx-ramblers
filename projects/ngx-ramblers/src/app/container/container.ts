@@ -15,7 +15,8 @@ import { SystemConfigService } from "../services/system/system-config.service";
     </div>
     <app-footer/>
   `,
-  styleUrls: ["./container.sass"]
+  styleUrls: ["./container.sass"],
+  standalone: false
 })
 export class ContainerComponent implements OnInit, OnDestroy {
   public systemConfigService: SystemConfigService = inject(SystemConfigService);

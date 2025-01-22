@@ -3,21 +3,17 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { DisplayedWalk, Walk } from "../../../models/walk.model";
-import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pipe";
-import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { MemberLoginService } from "../../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
-import { StringUtilsService } from "../../../services/string-utils.service";
 import { WalkChangesService } from "../../../services/walks/walk-changes.service";
-import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { RiskAssessmentService } from "../../../services/walks/risk-assessment.service";
 
 @Component({
   selector: "app-walk-risk-assessment",
   templateUrl: "./walk-risk-assessment.component.html",
-  styleUrls: ["./walk-risk-assessment.component.sass"]
+  styleUrls: ["./walk-risk-assessment.component.sass"],
+  standalone: false
 })
 export class WalkRiskAssessmentComponent implements OnInit, OnDestroy {
 

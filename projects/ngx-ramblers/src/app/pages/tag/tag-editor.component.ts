@@ -23,7 +23,8 @@ import { StringUtilsService } from "../../services/string-utils.service";
               (add)="onAdd($event)"
               (remove)="onRemove($event)">
       </tagify>
-  `
+  `,
+  standalone: false
 })
 
 export class TagEditorComponent implements OnInit, OnDestroy {

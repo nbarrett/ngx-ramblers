@@ -16,7 +16,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
           <span *ngIf="caption">{{caption}}</span>
           <ng-content/>
           <fa-icon class="ml-2" *ngIf="iconPositionRight" [icon]="icon"></fa-icon>
-      </div>`
+      </div>`,
+  standalone: false
 })
 
 export class BadgeButtonComponent {

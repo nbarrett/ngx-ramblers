@@ -13,7 +13,8 @@ import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 
 @Component({
   selector: "app-walk-edit-full-page",
-  templateUrl: "./walk-edit-full-page.component.html"
+  templateUrl: "./walk-edit-full-page.component.html",
+  standalone: false
 })
 
 export class WalkEditFullPageComponent implements OnInit, OnDestroy {

@@ -45,7 +45,8 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
       <p markdown [data]="notification?.content.signoffText.value"></p>
       <app-contact-us *ngIf="notification?.content.signoffAs.include" format="list"
                       [roles]="notification?.content.signoffAs.value"></app-contact-us>
-    </app-committee-notification-ramblers-message-item>`
+    </app-committee-notification-ramblers-message-item>`,
+  standalone: false
 })
 export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy {
 

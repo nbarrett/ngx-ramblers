@@ -10,6 +10,7 @@ import { MailchimpConfigService } from "../../../../services/mailchimp-config.se
 @Component({
   selector: "app-mailchimp-campaign-defaults",
   templateUrl: "./mailchimp-campaign-defaults.html",
+  standalone: false
 })
 export class MailchimpCampaignDefaultsComponent implements OnInit {
 

@@ -2,7 +2,6 @@ import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ImageTagDataService } from "../../../services/image-tag-data-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { UrlService } from "../../../services/url.service";
 import { ContentMetadataItem, ImageTag } from "../../../models/content-metadata.model";
 import { ActivatedRoute } from "@angular/router";
 import { Subscription } from "rxjs";
@@ -10,8 +9,8 @@ import { Subscription } from "rxjs";
 @Component({
   selector: "app-carousel-story-navigator",
   templateUrl: "./carousel-story-navigator.component.html",
-  styleUrls: ["./carousel-story-navigator.component.sass"]
-
+  styleUrls: ["./carousel-story-navigator.component.sass"],
+  standalone: false
 })
 export class CarouselStoryNavigatorComponent implements OnInit {
 

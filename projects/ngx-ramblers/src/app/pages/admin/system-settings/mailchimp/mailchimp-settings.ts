@@ -475,6 +475,7 @@ import { MailchimpCampaignService } from "projects/ngx-ramblers/src/app/services
       </div>
     </app-page>
   `,
+  standalone: false
 })
 export class MailchimpSettingsComponent implements OnInit, OnDestroy {
 

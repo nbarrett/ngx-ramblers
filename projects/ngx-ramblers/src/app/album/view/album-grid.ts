@@ -36,7 +36,8 @@ import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata
                       [tooltip]="'load more images'"
                       [icon]="faSearch"
                       (click)="viewMoreImages()" caption="load more images"/>
-  `
+  `,
+  standalone: false
 })
 export class AlbumGridComponent implements OnInit {
   loggerFactory: LoggerFactory = inject(LoggerFactory);

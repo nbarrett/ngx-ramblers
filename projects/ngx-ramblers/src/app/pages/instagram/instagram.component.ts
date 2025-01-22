@@ -13,7 +13,8 @@ import { UrlService } from "../../services/url.service";
 @Component({
   selector: "app-instagram",
   templateUrl: "./instagram.component.html",
-  styleUrls: ["./instagram.component.sass"]
+  styleUrls: ["./instagram.component.sass"],
+  standalone: false
 })
 export class InstagramComponent implements OnInit, OnDestroy {
   private logger: Logger;

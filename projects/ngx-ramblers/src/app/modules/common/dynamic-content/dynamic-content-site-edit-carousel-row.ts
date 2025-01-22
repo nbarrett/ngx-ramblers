@@ -33,7 +33,8 @@ import { UrlService } from "../../../services/url.service";
              type="text" class="form-control mr-2 flex-grow-1">
       <app-badge-button [icon]="faSearch" [caption]="'existing'"
                         (click)="toggleNameEdit(false)"/>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class RowSettingsCarouselComponent implements OnInit {
 

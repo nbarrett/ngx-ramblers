@@ -30,7 +30,8 @@ import { NgxLoggerLevel } from "ngx-logger";
           </select>
         </div>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class MailListEditorComponent implements OnInit, OnDestroy {
   public mailMessagingConfig: MailMessagingConfig;

@@ -13,7 +13,8 @@ import { WalkDisplayService } from "../../walk-display.service";
 @Component({
   selector: "app-walk-risk-assessment-section",
   templateUrl: "./walk-risk-assessment-section.component.html",
-  styleUrls: ["../walk-risk-assessment.component.sass"]
+  styleUrls: ["../walk-risk-assessment.component.sass"],
+  standalone: false
 })
 export class WalkRiskAssessmentSectionComponent implements OnInit {
   public riskAssessmentKey: string;

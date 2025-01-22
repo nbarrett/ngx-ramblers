@@ -2,7 +2,8 @@ import { Component, Input, OnInit } from "@angular/core";
 
 @Component({
   selector: "[app-related-link]",
-  templateUrl: "./related-link.component.html"
+  templateUrl: "./related-link.component.html",
+  standalone: false
 })
 export class RelatedLinkComponent implements OnInit {
 

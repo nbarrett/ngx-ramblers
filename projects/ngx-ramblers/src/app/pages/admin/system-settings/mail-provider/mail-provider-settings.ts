@@ -70,7 +70,8 @@ import first from "lodash-es/first";
           <div class="col-md-12"><label>Mail Provider Stats: {{ mailProviderStats }}</label></div>
         </div>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class MailProviderSettingsComponent implements OnInit, OnDestroy {
 

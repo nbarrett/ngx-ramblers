@@ -46,7 +46,8 @@ const SELECTED_EXPENSE = "Expense from last email link";
 @Component({
   selector: "app-expenses",
   templateUrl: "./expenses.component.html",
-  styleUrls: ["../admin/admin.component.sass", "./expenses.component.sass"]
+  styleUrls: ["../admin/admin.component.sass", "./expenses.component.sass"],
+  standalone: false
 })
 export class ExpensesComponent implements OnInit, OnDestroy {
   faCashRegister = faCashRegister;

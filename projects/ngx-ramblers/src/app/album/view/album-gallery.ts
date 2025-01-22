@@ -34,7 +34,8 @@ import { StringUtilsService } from "../../services/string-utils.service";
                   <div>{{item?.alt}}</div>
               </div>
           </ng-container>
-      </gallery>`
+      </gallery>`,
+  standalone: false
 })
 
 export class AlbumGalleryComponent implements OnInit {

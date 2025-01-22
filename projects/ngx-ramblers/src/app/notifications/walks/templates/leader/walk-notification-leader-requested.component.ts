@@ -16,7 +16,8 @@ import { WalkNotificationDetailsComponent } from "../common/walk-notification-de
       emailing me.
       I'll then give it a quick check, mark it as approved, and then it will be published on our walks programme for
       all to see.</p>
-    <app-walk-notification-footer [data]="data"></app-walk-notification-footer>`
+    <app-walk-notification-footer [data]="data"></app-walk-notification-footer>`,
+  standalone: false
 })
 export class WalkNotificationLeaderRequestedComponent extends WalkNotificationDetailsComponent {
 

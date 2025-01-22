@@ -2,7 +2,10 @@ import { Pipe, PipeTransform } from "@angular/core";
 import { Member } from "../models/member.model";
 import { DateUtilsService } from "../services/date-utils.service";
 
-@Pipe({name: "lastConfirmedDateDisplayed", pure: false})
+@Pipe({
+  name: "lastConfirmedDateDisplayed", pure: false,
+  standalone: false
+})
 export class LastConfirmedDateDisplayed implements PipeTransform {
   constructor(private dateUtils: DateUtilsService) {
   }

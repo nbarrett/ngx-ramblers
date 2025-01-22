@@ -1,7 +1,10 @@
 import { Pipe, PipeTransform } from "@angular/core";
 import snakeCase from "lodash-es/snakeCase";
 
-@Pipe({name: "snakeCase"})
+@Pipe({
+  name: "snakeCase",
+  standalone: false
+})
 export class SnakeCasePipe implements PipeTransform {
 
   transform(value: string) {

@@ -179,7 +179,8 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
           </div>
         </div>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class ImageEditComponent implements OnInit {
 

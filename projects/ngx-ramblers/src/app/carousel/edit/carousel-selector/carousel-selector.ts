@@ -30,7 +30,8 @@ import { StoredValue } from "../../../models/ui-actions";
           </div>
         </div>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class CarouselSelectorComponent implements OnInit {
 

@@ -11,6 +11,7 @@ import { PageService } from "../../../services/page.service";
   template: `
     <app-social-view [socialEvent]="socialEvent"/>
   `,
+  standalone: false
 })
 export class SocialViewPageComponent implements OnInit, OnDestroy {
   private logger: Logger;

@@ -16,7 +16,8 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
         <app-banner-title-output [titleLine]="banner.line2"></app-banner-title-output>
       </div>
     </div>
-  `
+  `,
+  standalone: false
 })
 
 export class BannerLogoAndTextLinesOutputComponent implements OnInit {

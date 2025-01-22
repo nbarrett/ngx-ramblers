@@ -4,7 +4,8 @@ import { WalkNotificationDetailsComponent } from "../common/walk-notification-de
 @Component({
   selector: "app-meetup-description",
   template: `<p markdown [data]="walk.meetupEventDescription"></p>`,
-  styleUrls: ["./meetup-description.component.sass"]
+  styleUrls: ["./meetup-description.component.sass"],
+  standalone: false
 })
 export class MeetupDescriptionComponent extends WalkNotificationDetailsComponent {
 }

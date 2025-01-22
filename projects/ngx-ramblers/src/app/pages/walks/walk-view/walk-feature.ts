@@ -15,7 +15,8 @@ import { Metadata } from "../../../models/ramblers-walks-manager";
           <div class="ml-3">{{ metadata.description }}</div>
         </div>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 
 export class WalkFeatureComponent implements OnInit {

@@ -58,7 +58,8 @@ import { SystemConfigService } from "../../services/system/system-config.service
                type="number" class="form-control input-sm">
       </div>
     </div>
-  `
+  `,
+  standalone: false
 })
 
 export class BannerImageSelectorComponent implements OnInit, OnDestroy {

@@ -21,7 +21,8 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
              type="checkbox" class="custom-control-input" id="mail-list-{{subscription.id}}-subscription">
       <label class="custom-control-label"
              for="mail-list-{{subscription.id}}-subscription">{{ checkboxTitle() }}</label>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class MailSubscriptionSettingComponent implements OnInit {
 

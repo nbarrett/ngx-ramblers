@@ -10,6 +10,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
   selector: "app-copy-icon",
   templateUrl: "./copy-icon.html",
   styleUrls: ["./copy-icon.sass"],
+  standalone: false
 })
 
 export class CopyIconComponent implements OnInit {

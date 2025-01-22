@@ -114,6 +114,7 @@ import isEqual from "lodash-es/isEqual";
         </div>
       </div>
     </div>`,
+  standalone: false
 })
 export class SystemMeetupSettingsComponent implements OnInit, OnDestroy {
 

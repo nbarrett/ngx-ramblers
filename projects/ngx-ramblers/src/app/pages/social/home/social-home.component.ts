@@ -10,7 +10,8 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
       <app-social-events/>
     </app-page>
   `,
-  styleUrls: ["./social-home.component.sass"]
+  styleUrls: ["./social-home.component.sass"],
+  standalone: false
 })
 export class SocialHomeComponent implements OnInit {
   loggerFactory: LoggerFactory = inject(LoggerFactory);

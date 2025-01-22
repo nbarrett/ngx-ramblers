@@ -424,7 +424,8 @@ import { NO_CHANGES_OR_DIFFERENCES } from "../../../models/ramblers-insight-hub"
         </div>
       </div>
     </app-page>`,
-  styleUrls: ["./member-bulk-load.component.sass", "../admin/admin.component.sass"]
+  styleUrls: ["./member-bulk-load.component.sass", "../admin/admin.component.sass"],
+  standalone: false
 })
 export class MemberBulkLoadComponent implements OnInit, OnDestroy {
 

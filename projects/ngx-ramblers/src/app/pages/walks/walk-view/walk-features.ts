@@ -11,7 +11,8 @@ import { Metadata } from "../../../models/ramblers-walks-manager";
     <div class="event-panel rounded event-panel-inner">
       <h1>Features</h1>
       <app-walk-feature *ngFor="let feature of features" [metadata]="feature"></app-walk-feature>
-    </div>`
+    </div>`,
+  standalone: false
 })
 
 export class WalkFeaturesComponent implements OnInit {

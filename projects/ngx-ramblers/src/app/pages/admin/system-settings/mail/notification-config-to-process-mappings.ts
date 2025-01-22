@@ -65,7 +65,8 @@ import { KEY_NULL_VALUE_NONE } from "../../../../functions/enums";
         </div>
       </div>
     </div>
-  `
+  `,
+  standalone: false
 })
 
 export class NotificationConfigToProcessMappingComponent implements OnInit, OnDestroy {

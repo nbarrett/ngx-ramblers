@@ -14,6 +14,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
               </div>
           </div>
       </ng-container>`,
+  standalone: false
 })
 export class DynamicContentViewCarouselComponent implements OnInit {
 

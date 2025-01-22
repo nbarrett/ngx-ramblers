@@ -5,7 +5,8 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 
 @Component({
   selector: "app-privacy-policy-us",
-  templateUrl: "./privacy-policy.component.html"
+  templateUrl: "./privacy-policy.component.html",
+  standalone: false
 })
 export class PrivacyPolicyComponent implements OnInit {
   private logger: Logger;

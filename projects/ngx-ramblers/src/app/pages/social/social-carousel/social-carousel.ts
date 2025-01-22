@@ -14,6 +14,7 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
   selector: "app-social-carousel",
   styleUrls: ["./social-carousel.sass"],
   templateUrl: "./social-carousel.html",
+  standalone: false
 })
 export class SocialCarouselComponent implements OnInit {
   public notify: AlertInstance;

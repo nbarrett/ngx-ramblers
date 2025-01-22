@@ -30,7 +30,8 @@ import { ServerFileNameData } from "../../models/aws-object.model";
         </div>
       </div>
     </div>
-  `
+  `,
+  standalone: false
 })
 
 export class BannerPapercutOutputComponent implements OnInit {

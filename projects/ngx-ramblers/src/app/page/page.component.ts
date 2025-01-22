@@ -22,7 +22,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
       </div>
     </main>
   `,
-  styleUrls: ["./page.component.sass"]
+  styleUrls: ["./page.component.sass"],
+  standalone: false
 })
 export class PageComponent implements OnInit {
 

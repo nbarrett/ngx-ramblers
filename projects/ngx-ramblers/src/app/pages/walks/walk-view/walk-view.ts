@@ -218,6 +218,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
       </div>
     </div>`,
   styleUrls: ["./walk-view.sass"],
+  standalone: false
 })
 
 export class WalkViewComponent implements OnInit, OnDestroy {

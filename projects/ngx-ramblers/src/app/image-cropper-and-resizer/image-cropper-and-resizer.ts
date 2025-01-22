@@ -52,7 +52,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 @Component({
   selector: "app-image-cropper-and-resizer",
   templateUrl: "./image-cropper-and-resizer.html",
-  styleUrls: ["./image-cropper-and-resizer.sass"]
+  styleUrls: ["./image-cropper-and-resizer.sass"],
+  standalone: false
 })
 
 export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, OnDestroy {

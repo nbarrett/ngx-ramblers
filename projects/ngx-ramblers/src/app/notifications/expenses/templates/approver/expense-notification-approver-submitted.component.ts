@@ -10,7 +10,8 @@ import { ExpenseNotificationDetailsComponent } from "../common/expense-notificat
       <span [textContent]="display.expenseClaimCreatedEvent(expenseClaim).date | displayDate"></span>
       and contains the following {{stringUtilsService.pluraliseWithCount(expenseClaim.expenseItems.length,'item')}}:</p>
     <app-expense-notification-details [expenseClaim]="expenseClaim"></app-expense-notification-details>
-    <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`
+    <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`,
+  standalone: false
 })
 export class ExpenseNotificationApproverSubmittedComponent extends ExpenseNotificationDetailsComponent {
 

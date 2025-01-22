@@ -236,6 +236,7 @@ import first from "lodash-es/first";
       </div>
     </div>
   `,
+  standalone: false
 })
 
 export class MailNotificationTemplateMappingComponent implements OnInit, OnDestroy {

@@ -40,7 +40,8 @@ import { SystemConfigService } from "../../services/system/system-config.service
     <app-banner-title-part-config [titlePart]="titleLine.part1" id="1"></app-banner-title-part-config>
     <app-banner-title-part-config [titlePart]="titleLine.part2" id="2"></app-banner-title-part-config>
     <app-banner-title-part-config [titlePart]="titleLine.part3" id="3"></app-banner-title-part-config>
-  `
+  `,
+  standalone: false
 })
 
 export class BannerTitleConfigComponent implements OnInit, OnDestroy {

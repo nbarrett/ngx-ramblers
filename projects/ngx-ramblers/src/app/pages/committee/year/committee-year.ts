@@ -24,7 +24,8 @@ import { CommitteeEditFileModalComponent } from "../edit/committee-edit-file-mod
   selector: "app-committee-year",
   templateUrl: "./committee-year.html",
   styleUrls: ["./committee-year.sass"],
-  changeDetection: ChangeDetectionStrategy.Default
+  changeDetection: ChangeDetectionStrategy.Default,
+  standalone: false
 })
 export class CommitteeYearComponent implements OnInit, OnDestroy {
 

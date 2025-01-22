@@ -1,7 +1,7 @@
 import { ScrollingModule } from "@angular/cdk/scrolling";
 import { AsyncPipe, CommonModule, NgFor } from "@angular/common";
 import { HTTP_INTERCEPTORS } from "@angular/common/http";
-import { APP_INITIALIZER, ModuleWithProviders, NgModule } from "@angular/core";
+import { ModuleWithProviders, NgModule, inject, provideAppInitializer } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { RouteReuseStrategy, RouterModule } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -20,7 +20,7 @@ import { TabsModule } from "ngx-bootstrap/tabs";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { TypeaheadModule } from "ngx-bootstrap/typeahead";
 import { ImageCropperModule } from "ngx-image-cropper";
-import { LeafletModule } from "@asymmetrik/ngx-leaflet";
+import { LeafletModule } from "@bluehalo/ngx-leaflet";
 import { CustomNGXLoggerService, LoggerModule, NgxLoggerLevel } from "ngx-logger";
 import { MarkdownModule } from "ngx-markdown";
 import { TagifyModule } from "ngx-tagify";
@@ -491,12 +491,10 @@ export class SharedModule {
             exitAnimationTime: 1000
           } as LightboxConfig
         },
-        {
-          provide: APP_INITIALIZER,
-          useFactory: initializeGtag,
-          multi: true,
-          deps: [SystemConfigService, LoggerFactory]
-        }
+        provideAppInitializer(() => {
+        const initializerFn = (initializeGtag)(inject(SystemConfigService), inject(LoggerFactory));
+        return initializerFn();
+      })
       ]
     };
   }

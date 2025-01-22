@@ -110,7 +110,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
               (ngModelChange)="changeText($event)"
               class="form-control markdown-textarea" [rows]="rows"
               placeholder="Enter {{description}} text here">
-</textarea>`
+</textarea>`,
+  standalone: false
 })
 export class MarkdownEditorComponent implements OnInit {
   @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {

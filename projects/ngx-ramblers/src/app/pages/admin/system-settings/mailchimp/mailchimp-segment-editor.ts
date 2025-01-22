@@ -23,6 +23,7 @@ import { faEraser } from "@fortawesome/free-solid-svg-icons";
         </div>
       </div>
     </div>`,
+  standalone: false
 })
 export class MailchimpSegmentEditorComponent implements OnInit {
   @Input()

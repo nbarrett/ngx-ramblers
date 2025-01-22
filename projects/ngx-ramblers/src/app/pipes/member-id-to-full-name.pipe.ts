@@ -4,7 +4,10 @@ import { MemberService } from "../services/member/member.service";
 import { FullNameWithAliasPipe } from "./full-name-with-alias.pipe";
 import { FullNamePipe } from "./full-name.pipe";
 
-@Pipe({name: "memberIdToFullName"})
+@Pipe({
+  name: "memberIdToFullName",
+  standalone: false
+})
 export class MemberIdToFullNamePipe implements PipeTransform {
   constructor(private memberService: MemberService,
               private fullNamePipe: FullNamePipe,

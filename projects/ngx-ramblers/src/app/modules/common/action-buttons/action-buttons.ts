@@ -66,7 +66,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
           </div>
         </ng-container>
       </div>
-    </ng-container>`
+    </ng-container>`,
+  standalone: false
 })
 export class ActionButtonsComponent implements OnInit {
 

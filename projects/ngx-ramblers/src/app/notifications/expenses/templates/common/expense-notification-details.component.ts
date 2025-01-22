@@ -39,7 +39,8 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
         </td>
       </tr>
       </tbody>
-    </table>`
+    </table>`,
+  standalone: false
 })
 export class ExpenseNotificationDetailsComponent implements OnInit, AfterViewInit, OnDestroy {
 

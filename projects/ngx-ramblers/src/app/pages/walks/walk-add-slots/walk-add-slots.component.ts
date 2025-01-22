@@ -127,7 +127,8 @@ import { StringUtilsService } from "../../../services/string-utils.service";
       </div>
     </app-page>
   `,
-  styleUrls: ["./walk-add-slots.component.sass"]
+  styleUrls: ["./walk-add-slots.component.sass"],
+  standalone: false
 })
 export class WalkAddSlotsComponent implements OnInit {
   public confirmAction = false;

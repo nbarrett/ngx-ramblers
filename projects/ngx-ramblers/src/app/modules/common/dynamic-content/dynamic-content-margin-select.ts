@@ -18,7 +18,8 @@ import { PageContentActionsService } from "../../../services/page-content-action
       <option *ngFor="let margin of margins; trackBy: marginTracker"
               [ngValue]="margin.value">{{margin.description}}</option>
     </select>
-  `
+  `,
+  standalone: false
 })
 
 export class MarginSelectComponent implements OnInit {

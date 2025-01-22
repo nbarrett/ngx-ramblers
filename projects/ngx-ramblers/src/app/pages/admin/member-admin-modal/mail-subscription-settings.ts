@@ -69,7 +69,8 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
           </table>
         </div>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class MailSubscriptionSettingsComponent implements OnInit {
   private logger: Logger;

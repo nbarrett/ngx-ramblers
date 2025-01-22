@@ -129,6 +129,7 @@ import isEqual from "lodash-es/isEqual";
         </div>
       </div>
     </app-page>`,
+  standalone: false
 })
 export class CommitteeSettingsComponent implements OnInit, OnDestroy {
 

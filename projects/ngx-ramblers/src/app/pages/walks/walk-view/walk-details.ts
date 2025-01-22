@@ -121,7 +121,8 @@ import { StringUtilsService } from "../../../services/string-utils.service";
           <p markdown>**Additional Details**: {{ displayedWalk.walk.additionalDetails }}</p>
         </div>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 
 export class WalkDetailsComponent implements OnInit {

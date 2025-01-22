@@ -5,7 +5,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-brevo-button",
-  styles:[`
+  styles: [`
     .image
       width: 17px
   `],
@@ -14,7 +14,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
       <img title class="image"
            src="/assets/images/local/brevo.ico"
            alt="{{title}}"/>
-    </app-button-wrapper>`
+    </app-button-wrapper>`,
+  standalone: false
 })
 
 export class BrevoButtonComponent implements OnInit {

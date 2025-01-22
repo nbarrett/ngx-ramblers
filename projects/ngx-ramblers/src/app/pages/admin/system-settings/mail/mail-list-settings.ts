@@ -82,7 +82,8 @@ import { MailService } from "projects/ngx-ramblers/src/app/services/mail/mail.se
           </div>
         </div>
       </div>
-    </ng-container>`
+    </ng-container>`,
+  standalone: false
 })
 export class MailListSettingsComponent implements OnInit {
   constructor(

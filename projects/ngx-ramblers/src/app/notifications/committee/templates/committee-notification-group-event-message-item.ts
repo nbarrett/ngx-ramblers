@@ -1,6 +1,6 @@
 import { Component, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { GroupEvent, Notification, NotificationItem } from "../../../models/committee.model";
+import { GroupEvent, Notification } from "../../../models/committee.model";
 import { Member } from "../../../models/member.model";
 import { CommitteeDisplayService } from "../../../pages/committee/committee-display.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
@@ -28,7 +28,8 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
     <span *ngIf="notification.groupEventsFilter.includeLocation && event.postcode">
     <span> • </span>Location: <span *ngIf="event.location" [ngStyle]="{'margin-right': '6px'}">{{event.location}}</span>  <a [href]="googleMapsService.urlForPostcode(event.postcode)"
                        target="_blank">{{ event.postcode }}</a></span>
-    <div markdown [data]="event.description" *ngIf="notification.groupEventsFilter.includeDescription"></div>`
+    <div markdown [data]="event.description" *ngIf="notification.groupEventsFilter.includeDescription"></div>`,
+  standalone: false
 })
 export class CommitteeNotificationGroupEventMessageItemComponent implements OnInit, OnDestroy {
 

@@ -187,7 +187,8 @@ import { StoredValue } from "../../../models/ui-actions";
     </app-page>
   `,
   styleUrls: ["./walk-list.component.sass"],
-  changeDetection: ChangeDetectionStrategy.Default
+  changeDetection: ChangeDetectionStrategy.Default,
+  standalone: false
 })
 export class WalkListComponent implements OnInit, OnDestroy {
 

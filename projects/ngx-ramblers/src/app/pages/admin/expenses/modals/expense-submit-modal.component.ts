@@ -15,6 +15,7 @@ import { MailMessagingConfig, NotificationConfig } from "../../../../models/mail
 @Component({
   selector: "app-expense-submit-modal",
   templateUrl: "./expense-submit-modal.component.html",
+  standalone: false
 })
 export class ExpenseSubmitModalComponent implements OnInit {
   private notify: AlertInstance;

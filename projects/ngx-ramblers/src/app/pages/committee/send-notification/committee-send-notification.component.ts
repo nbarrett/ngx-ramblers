@@ -420,7 +420,8 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
       <div class="d-none">
         <ng-template app-notification-directive/>
       </div>
-    </app-page>`
+    </app-page>`,
+  standalone: false
 })
 export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
 

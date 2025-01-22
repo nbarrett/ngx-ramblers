@@ -159,7 +159,8 @@ import { MemberNamingService } from "../../services/member/member-naming.service
         </dl>
       </div>
     </div>
-  `
+  `,
+  standalone: false
 })
 export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit {
   queryParams: Params;

@@ -76,6 +76,7 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
       </div>
     </app-page>`,
   styleUrls: ["../admin/admin.component.sass"],
+  standalone: false
 })
 export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
 

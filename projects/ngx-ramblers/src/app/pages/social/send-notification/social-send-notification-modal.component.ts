@@ -375,7 +375,8 @@ import get from "lodash-es/get";
       <div class="d-none">
         <ng-template app-notification-directive/>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
 

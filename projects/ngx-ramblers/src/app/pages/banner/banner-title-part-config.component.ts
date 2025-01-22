@@ -15,7 +15,8 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
       <div class="col-sm-6">
         <app-colour-selector [itemWithClassOrColour]="titlePart"/>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 
 export class BannerTitlePartConfigComponent implements OnInit {

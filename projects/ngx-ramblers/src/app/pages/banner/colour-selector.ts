@@ -61,7 +61,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
         <div *ngIf="!itemWithClassOrColour">No item to configure</div>
       </div>
     </div>
-  `
+  `,
+  standalone: false
 })
 
 export class ColourSelectorComponent implements OnInit {

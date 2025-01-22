@@ -346,7 +346,8 @@ import { PageService } from "../../../services/page.service";
       </div>
     </app-page>
   `,
-  styleUrls: ["social-edit.component.sass"]
+  styleUrls: ["social-edit.component.sass"],
+  standalone: false
 })
 export class SocialEditComponent implements OnInit, OnDestroy {
 

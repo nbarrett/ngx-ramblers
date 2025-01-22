@@ -24,8 +24,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 @Component({
   selector: "app-card-editor",
   templateUrl: "./card-editor.html",
-  styleUrls: ["./card-editor.sass", "./../dynamic-content/dynamic-content.sass"]
-
+  styleUrls: ["./card-editor.sass", "./../dynamic-content/dynamic-content.sass"],
+  standalone: false
 })
 export class CardEditorComponent implements OnInit {
   @Output() pageContentEditEvents: EventEmitter<PageContentEditEvent> = new EventEmitter();

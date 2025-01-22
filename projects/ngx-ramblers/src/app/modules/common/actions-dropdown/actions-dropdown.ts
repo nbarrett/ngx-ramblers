@@ -145,7 +145,8 @@ import { textStyleSelectors } from "../../../models/system.model";
           </a>
         </li>
       </ul>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class ActionsDropdownComponent implements OnInit {
 

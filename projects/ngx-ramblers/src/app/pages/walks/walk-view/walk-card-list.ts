@@ -55,7 +55,8 @@ import { LoginModalComponent } from "../../login/login-modal/login-modal.compone
     </div>`,
   styleUrls: ["./walk-view.sass"],
   styles: [`
-  `]
+  `],
+  standalone: false
 })
 export class WalkCardListComponent implements OnInit, OnChanges, OnDestroy {
   public config: ModalOptions = {

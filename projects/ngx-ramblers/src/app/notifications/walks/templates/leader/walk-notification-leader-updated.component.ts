@@ -14,7 +14,8 @@ import { WalkNotificationDetailsComponent } from "../common/walk-notification-de
       programme, I need more information from you as
       <span [textContent]="validationMessages | asWalkValidationsList"></span>.</p>
     <p *ngIf="event.reason" [textContent]="event.reason"></p>
-    <app-walk-notification-footer [data]="data"/>`
+    <app-walk-notification-footer [data]="data"/>`,
+  standalone: false
 })
 export class WalkNotificationLeaderUpdatedComponent extends WalkNotificationDetailsComponent {
 

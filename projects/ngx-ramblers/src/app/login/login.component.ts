@@ -8,7 +8,8 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
 
 @Component({
   selector: "app-login",
-  template: ""
+  template: "",
+  standalone: false
 })
 export class LoginComponent implements OnInit, OnDestroy {
   private logger: Logger;

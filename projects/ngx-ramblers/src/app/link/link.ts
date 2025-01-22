@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnInit, OnChanges, SimpleChanges } from "@angular/core";
+import { Component, inject, Input, OnChanges, OnInit, SimpleChanges } from "@angular/core";
 import { FileUtilsService } from "../file-utils.service";
 import { UrlService } from "../services/url.service";
 import { LoggerFactory } from "../services/logger-factory.service";
@@ -7,6 +7,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 @Component({
   selector: "app-link",
   template: `<a [href]="href" target="{{target}}">{{ linkText }}</a>`,
+  standalone: false
 })
 export class LinkComponent implements OnInit, OnChanges {
 

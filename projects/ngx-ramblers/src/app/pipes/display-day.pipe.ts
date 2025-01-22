@@ -1,7 +1,10 @@
 import { Pipe, PipeTransform } from "@angular/core";
 import { DateUtilsService } from "../services/date-utils.service";
 
-@Pipe({name: "displayDay"})
+@Pipe({
+  name: "displayDay",
+  standalone: false
+})
 export class DisplayDayPipe implements PipeTransform {
   constructor(private dateUtils: DateUtilsService) {
   }

@@ -8,7 +8,8 @@ import { NgxLoggerLevel } from "ngx-logger";
 @Component({
   selector: "app-site-edit",
   templateUrl: "./site-edit.component.html",
-  styleUrls: ["./site-edit.component.sass"]
+  styleUrls: ["./site-edit.component.sass"],
+  standalone: false
 })
 
 export class SiteEditComponent implements OnDestroy {

@@ -2,7 +2,10 @@ import { Pipe, PipeTransform } from "@angular/core";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import { WalksReferenceService } from "../services/walks/walks-reference-data.service";
 
-@Pipe({name: "toVenueIcon"})
+@Pipe({
+  name: "toVenueIcon",
+  standalone: false
+})
 export class VenueIconPipe implements PipeTransform {
   constructor(private walksReferenceService: WalksReferenceService) {
   }

@@ -32,7 +32,8 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
               </div>
           </div>
       </ng-container>
-  `
+  `,
+  standalone: false
 })
 
 export class RowSettingsActionButtonsComponent implements OnInit {

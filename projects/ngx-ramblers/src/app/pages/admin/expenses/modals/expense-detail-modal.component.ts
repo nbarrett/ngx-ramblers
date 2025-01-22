@@ -19,7 +19,8 @@ import { AwsFileUploadResponseData } from "../../../../models/aws-object.model";
 @Component({
   selector: "app-expense-detail-modal",
   templateUrl: "./expense-detail-modal.component.html",
-  styleUrls: ["./expense-detail-modal.component.sass"]
+  styleUrls: ["./expense-detail-modal.component.sass"],
+  standalone: false
 })
 export class ExpenseDetailModalComponent implements OnInit, OnDestroy {
 

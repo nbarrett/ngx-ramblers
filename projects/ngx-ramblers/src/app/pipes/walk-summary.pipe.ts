@@ -2,7 +2,10 @@ import { Pipe, PipeTransform } from "@angular/core";
 import { Walk } from "../models/walk.model";
 import { DisplayDatePipe } from "./display-date.pipe";
 
-@Pipe({name: "walkSummary"})
+@Pipe({
+  name: "walkSummary",
+  standalone: false
+})
 export class WalkSummaryPipe implements PipeTransform {
   constructor(private displayDatePipe: DisplayDatePipe) {
   }

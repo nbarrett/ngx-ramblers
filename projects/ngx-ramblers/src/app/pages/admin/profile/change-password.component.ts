@@ -17,6 +17,7 @@ const pleaseTryAgain = " - please try again";
   selector: "app-change-password",
   templateUrl: "./change-password.component.html",
   styleUrls: ["../admin/admin.component.sass"],
+  standalone: false
 })
 export class ChangePasswordComponent implements OnInit, OnDestroy {
   public member: Member;

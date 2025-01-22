@@ -91,7 +91,8 @@ import { PageService } from "../../../services/page.service";
       <app-contact-us *ngIf="socialEvent.notification.content.signoffAs.include"
                       [committeeReferenceDataOverride]="committeeReferenceDataSource()"
                       [format]="'list'"
-                      [roles]="socialEvent?.notification?.content?.signoffAs?.value"/>`
+                      [roles]="socialEvent?.notification?.content?.signoffAs?.value"/>`,
+  standalone: false
 })
 export class SocialNotificationDetailsComponent implements OnInit {
 

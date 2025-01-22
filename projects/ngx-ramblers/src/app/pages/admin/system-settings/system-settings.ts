@@ -554,6 +554,7 @@ import { WalkListView } from "../../../models/walk.model";
         </div>
       </div>
     </app-page>`,
+  standalone: false
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 

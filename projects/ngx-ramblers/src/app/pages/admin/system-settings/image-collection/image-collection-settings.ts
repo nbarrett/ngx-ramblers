@@ -33,7 +33,8 @@ import cloneDeep from "lodash-es/cloneDeep";
           </app-system-image-edit>
         </div>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class ImageCollectionSettingsComponent implements OnInit {
   public notifyTarget: AlertTarget = {};

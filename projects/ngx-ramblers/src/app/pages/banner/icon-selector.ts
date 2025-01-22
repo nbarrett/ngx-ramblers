@@ -23,7 +23,8 @@ import { UrlService } from "../../services/url.service";
         <span class="ml-2">{{friendlyFileName(image?.originalFileName)}}</span>
       </ng-option>
     </ng-select>
-  `
+  `,
+  standalone: false
 })
 
 export class IconSelectorComponent implements OnInit, OnDestroy {

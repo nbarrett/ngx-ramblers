@@ -4,7 +4,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { CommitteeYear} from "../../../models/committee.model";
+import { CommitteeYear } from "../../../models/committee.model";
 import { PageContent, PageContentColumn, PageContentPath, PageContentType } from "../../../models/content-text.model";
 import { AccessLevel } from "../../../models/member-resource.model";
 import { LoginResponse, Member } from "../../../models/member.model";
@@ -23,7 +23,8 @@ import { filter } from "rxjs/operators";
 @Component({
   selector: "app-committee-home",
   templateUrl: "./committee-home.component.html",
-  changeDetection: ChangeDetectionStrategy.Default
+  changeDetection: ChangeDetectionStrategy.Default,
+  standalone: false
 })
 export class CommitteeHomeComponent implements OnInit, OnDestroy {
   private logger: Logger;

@@ -135,7 +135,8 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
           </div>
         </div>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class MailchimpListSettingsComponent implements OnInit {
   private logger: Logger;

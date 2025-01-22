@@ -11,8 +11,39 @@ import { Subscription } from "rxjs";
 
 @Component({
   selector: "app-dynamic-content-view",
-  templateUrl: "./dynamic-content-view.html",
+  template: `
+    <ng-container *ngIf="!siteEditService.active()">
+      <ng-container *ngFor="let row of viewablePageContent.rows; let rowIndex = index;">
+        <ng-container *ngIf="false">{{ 'row ' + (rowIndex + 1) + ' ' + row.type }}</ng-container>
+        <app-action-buttons *ngIf="actions.isActionButtons(row)"
+                            [pageContent]="viewablePageContent"
+                            [rowIndex]="rowIndex"/>
+        <app-dynamic-content-view-text-row *ngIf="actions.isTextRow(row)"
+                                           [row]="row"
+                                           [rowIndex]="rowIndex"
+                                           [contentPath]="contentPath"
+                                           [contentDescription]="contentDescription"/>
+        <app-dynamic-content-view-carousel *ngIf="actions.isCarousel(row)"
+                                           [row]="row"
+                                           [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
+        <app-dynamic-content-view-album-index *ngIf="actions.isAlbumIndex(row)" [row]="row"/>
+        <app-dynamic-content-view-album *ngIf="actions.isAlbum(row)"
+                                        [row]="row"
+                                        [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
+        <app-events *ngIf="actions.isEvents(row)" [row]="row" [rowIndex]="rowIndex"/>
+      </ng-container>
+      <ng-container *ngIf="!actions.pageContentFound(viewablePageContent, !!viewablePageContent?.id)">
+        <div *ngIf="notify.alertTarget.showAlert" class="col-12 alert {{notify.alertTarget.alertClass}} mt-3">
+          <fa-icon [icon]="notify.alertTarget.alert.icon"></fa-icon>
+          <strong class="ml-2">{{ notify.alertTarget.alertTitle }}</strong>
+          <span class="p-2">{{ notify.alertTarget.alertMessage }}. <a [href]="area" class="rams-text-decoration-pink"
+                                                                      type="button"> Go Back to {{ area }}
+            page</a></span>
+        </div>
+      </ng-container>
+    </ng-container>`,
   styleUrls: ["./dynamic-content.sass"],
+  standalone: false
 })
 export class DynamicContentViewComponent implements OnInit, OnDestroy {
   private pageContentRawData: PageContent;
@@ -37,7 +68,7 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
     public actions: PageContentActionsService,
     public siteEditService: SiteEditService,
     loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("DynamicContentViewComponent", NgxLoggerLevel.OFF);
+    this.logger = loggerFactory.createLogger("DynamicContentViewComponent", NgxLoggerLevel.ERROR);
   }
 
   ngOnInit() {

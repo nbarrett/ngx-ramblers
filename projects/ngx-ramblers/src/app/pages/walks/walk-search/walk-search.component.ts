@@ -98,7 +98,8 @@ import { WalkDisplayService } from "../walk-display.service";
           </div>
         </div>
       </ng-container>
-    </ng-container>`
+    </ng-container>`,
+  standalone: false
 })
 export class WalkSearchComponent implements OnInit, OnDestroy {
 

@@ -9,7 +9,8 @@ import { ExpenseNotificationDetailsComponent } from "../common/expense-notificat
       has just paid <strong
         [textContent]="(display.expenseClaimCreatedEvent(expenseClaim).memberId | memberIdToFullName : members) + '\\'s'"></strong>
       {{ group?.shortName }} expense claim.</p>
-    <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`
+    <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`,
+  standalone: false
 })
 export class ExpenseNotificationApproverPaidComponent extends ExpenseNotificationDetailsComponent {
 

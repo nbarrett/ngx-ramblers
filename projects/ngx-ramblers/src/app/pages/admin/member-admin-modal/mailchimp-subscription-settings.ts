@@ -86,7 +86,8 @@ import { MailchimpConfig, MailchimpSubscription } from "../../../models/mailchim
           </div>
         </div>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class MailChimpSubscriptionSettingsComponent implements OnInit {
 

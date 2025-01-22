@@ -13,6 +13,7 @@ import { WalkDisplayService } from "../walk-display.service";
 @Component({
   selector: "app-walk-group",
   templateUrl: "./walk-group.html",
+  standalone: false
 })
 
 export class WalkGroupComponent implements OnInit {

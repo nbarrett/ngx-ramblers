@@ -45,7 +45,8 @@ import { MailListUpdaterService } from "../../../services/mail/mail-list-updater
 @Component({
   selector: "app-member-admin",
   templateUrl: "./member-admin.component.html",
-  styleUrls: ["./member-admin.component.sass"]
+  styleUrls: ["./member-admin.component.sass"],
+  standalone: false
 })
 export class MemberAdminComponent implements OnInit, OnDestroy {
 

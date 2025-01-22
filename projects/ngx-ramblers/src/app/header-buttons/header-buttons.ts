@@ -9,8 +9,8 @@ import { UrlService } from "../services/url.service";
 @Component({
   selector: "app-header-buttons",
   templateUrl: "./header-buttons.html",
-  styleUrls: ["./header-buttons.sass"]
-
+  styleUrls: ["./header-buttons.sass"],
+  standalone: false
 })
 export class HeaderButtonsComponent implements OnInit, OnDestroy {
   private logger: Logger;

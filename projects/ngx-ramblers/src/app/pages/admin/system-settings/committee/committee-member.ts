@@ -10,7 +10,6 @@ import { faRemove } from "@fortawesome/free-solid-svg-icons";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { MemberNamingService } from "projects/ngx-ramblers/src/app/services/member/member-naming.service";
 import { UrlService } from "../../../../services/url.service";
-import { PageContentType } from "../../../../models/content-text.model";
 
 @Component({
   selector: "app-committee-member",
@@ -116,7 +115,8 @@ import { PageContentType } from "../../../../models/content-text.model";
       </ng-container>
     </div>
   `,
-  styleUrls: ["./committee-member.sass"]
+  styleUrls: ["./committee-member.sass"],
+  standalone: false
 })
 export class CommitteeMemberComponent implements OnInit {
   constructor(public stringUtils: StringUtilsService,

@@ -14,7 +14,8 @@ import { ExpenseNotificationDetailsComponent } from "../common/expense-notificat
     <br>
     <p *ngIf="display.expenseClaimLatestEvent(expenseClaim).reason">The reason given was as follows: <span
       [textContent]="display.expenseClaimLatestEvent(expenseClaim).reason"></span>.</p>
-    <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`
+    <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`,
+  standalone: false
 })
 export class ExpenseNotificationApproverReturnedComponent extends ExpenseNotificationDetailsComponent {
 

@@ -315,6 +315,7 @@ import { StoredValue } from "../../../models/ui-actions";
     <app-image-list-edit *ngIf="actions.editActive(rowIndex)" [name]="row?.carousel?.name"
                          (exit)="actions.toggleEditMode(rowIndex)"/>`,
   styleUrls: ["./dynamic-content.sass"],
+  standalone: false
 })
 export class DynamicContentSiteEditAlbumComponent implements OnInit {
 

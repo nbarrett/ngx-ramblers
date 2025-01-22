@@ -22,7 +22,8 @@ import { KEY_NULL_VALUE_NONE } from "../../../../functions/enums";
                 [ngValue]="member.id">{{member | fullNameWithAlias}}</option>
       </select>
     </div>
-  `
+  `,
+  standalone: false
 })
 export class CommitteeMemberLookupComponent implements OnInit {
   public committeeQueryService: CommitteeQueryService = inject(CommitteeQueryService);

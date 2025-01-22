@@ -63,6 +63,7 @@ import { AlertInstance, NotifierService } from "../../../../services/notifier.se
         </div>
       </div>
     </div>`,
+  standalone: false
 })
 export class SystemRecaptchaSettingsComponent implements OnInit, OnDestroy {
 

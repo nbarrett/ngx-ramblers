@@ -2,7 +2,10 @@ import { Pipe, PipeTransform } from "@angular/core";
 import { Member } from "../models/member.model";
 import { FullNamePipe } from "./full-name.pipe";
 
-@Pipe({name: "fullNameWithAlias"})
+@Pipe({
+  name: "fullNameWithAlias",
+  standalone: false
+})
 export class FullNameWithAliasPipe implements PipeTransform {
   constructor(private fullNamePipe: FullNamePipe) {
 
