@@ -16,7 +16,8 @@ import { SocialDisplayService } from "../social-display.service";
       <app-social-view [socialEvent]="socialEvent"/>
     </div>
   `,
-  styleUrls: ["./social-list.component.sass"]
+  styleUrls: ["./social-list.component.sass"],
+  standalone: false
 })
 export class SocialListComponent implements OnInit {
   public notify: AlertInstance;

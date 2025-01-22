@@ -60,7 +60,8 @@ import { UrlService } from "../../../services/url.service";
     </app-page>
   `,
   styleUrls: ["./walk-admin.component.sass"],
-  changeDetection: ChangeDetectionStrategy.Default
+  changeDetection: ChangeDetectionStrategy.Default,
+  standalone: false
 })
 export class WalkAdminComponent implements OnInit, OnDestroy {
 

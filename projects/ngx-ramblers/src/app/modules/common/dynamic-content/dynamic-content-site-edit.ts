@@ -264,6 +264,7 @@ import { StoredValue } from "../../../models/ui-actions";
       </ng-container>
     </ng-container>`,
   styleUrls: ["./dynamic-content.sass"],
+  standalone: false
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 

@@ -9,8 +9,8 @@ import { SystemConfigService } from "../services/system/system-config.service";
 @Component({
   selector: "app-header-bar",
   templateUrl: "./header-bar.html",
-  styleUrls: ["./header-bar.sass"]
-
+  styleUrls: ["./header-bar.sass"],
+  standalone: false
 })
 export class HeaderBarComponent implements OnInit, OnDestroy {
 

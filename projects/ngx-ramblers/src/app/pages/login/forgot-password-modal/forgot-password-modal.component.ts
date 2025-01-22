@@ -85,7 +85,8 @@ import { NotificationDirective } from "../../../notifications/common/notificatio
     <div class="d-none">
       <ng-template app-notification-directive/>
     </div>
-  `
+  `,
+  standalone: false
 })
 export class ForgotPasswordModalComponent implements OnInit, OnDestroy {
   public mailMessagingConfig: MailMessagingConfig;

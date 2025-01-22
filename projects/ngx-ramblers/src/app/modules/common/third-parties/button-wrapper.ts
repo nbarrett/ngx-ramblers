@@ -13,7 +13,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
         <div [ngClass]="{'disabled': disabled}" class="ml-2">{{ title }}
         </div>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 
 export class ButtonWrapperComponent implements OnInit {

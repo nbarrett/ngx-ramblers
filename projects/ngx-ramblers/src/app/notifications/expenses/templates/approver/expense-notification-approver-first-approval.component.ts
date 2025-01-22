@@ -18,7 +18,8 @@ import { BuiltInRole } from "../../../../models/committee.model";
     different person (e.g. not {{display.expenseClaimLatestEvent(expenseClaim).memberId | memberIdToFirstName : members}}).
     Then {{ display.committeeReferenceData.contactUsFieldForBuiltInRole(BuiltInRole.TREASURER, "fullName") }} will be automatically notified to organise the payment.</p>
   <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>
-  `
+  `,
+  standalone: false
 })
 export class ExpenseNotificationApproverFirstApprovalComponent extends ExpenseNotificationDetailsComponent {
   protected readonly BuiltInRole = BuiltInRole;

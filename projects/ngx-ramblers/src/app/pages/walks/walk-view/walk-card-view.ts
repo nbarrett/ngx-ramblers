@@ -124,8 +124,8 @@ import { AuthService } from "../../../auth/auth.service";
     .card-body
       position: relative
       padding-bottom: 50px
-  `]
-
+  `],
+  standalone: false
 })
 
 export class WalkCardViewComponent implements OnInit, OnDestroy {

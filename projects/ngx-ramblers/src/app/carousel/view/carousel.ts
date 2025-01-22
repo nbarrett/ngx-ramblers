@@ -25,8 +25,8 @@ import { RootFolder } from "../../models/system.model";
 @Component({
   selector: "app-carousel",
   templateUrl: "./carousel.html",
-  styleUrls: ["./carousel.sass"]
-
+  styleUrls: ["./carousel.sass"],
+  standalone: false
 })
 export class CarouselComponent implements OnInit, OnDestroy {
   private logger: Logger;

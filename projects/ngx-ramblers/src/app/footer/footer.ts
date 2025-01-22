@@ -85,7 +85,8 @@ import { SystemConfigService } from "../services/system/system-config.service";
       </div>
     </div>
   `,
-  styleUrls: ["./footer.sass"]
+  styleUrls: ["./footer.sass"],
+  standalone: false
 })
 export class FooterComponent implements OnInit, OnDestroy {
   private logger: Logger;

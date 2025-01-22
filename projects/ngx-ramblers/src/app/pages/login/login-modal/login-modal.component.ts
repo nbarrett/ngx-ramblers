@@ -71,7 +71,8 @@ import { Organisation } from "../../../models/system.model";
         </div>
       </div>
     </div>`,
-  styleUrls: ["./login-modal.component.sass"]
+  styleUrls: ["./login-modal.component.sass"],
+  standalone: false
 })
 export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild("userNameInput") userNameInput: ElementRef;

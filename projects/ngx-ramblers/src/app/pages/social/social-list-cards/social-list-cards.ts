@@ -16,7 +16,8 @@ import { PageService } from "../../../services/page.service";
 @Component({
   selector: "app-social-list-cards",
   templateUrl: "./social-list-cards.html",
-  styleUrls: ["./social-list-cards.sass"]
+  styleUrls: ["./social-list-cards.sass"],
+  standalone: false
 })
 export class SocialListCardsComponent implements OnInit {
   public socialEvents: SocialEvent[] = [];

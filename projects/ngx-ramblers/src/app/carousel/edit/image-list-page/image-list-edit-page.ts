@@ -8,7 +8,8 @@ import { NgxLoggerLevel } from "ngx-logger";
 
 @Component({
   selector: "app-list-edit-page",
-  templateUrl: "./image-list-edit-page.html"
+  templateUrl: "./image-list-edit-page.html",
+  standalone: false
 })
 export class ImageListEditPageComponent implements OnInit, OnDestroy {
   public editing = this.urlService.lastPathSegment() !== "carousel-editor";

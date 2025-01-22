@@ -17,7 +17,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
                (click)="collapse()" [icon]="faCaretDown"
                class="fa-2x markdown-preview-icon ml-1"></fa-icon>
     </div>`,
-  styleUrls: ["./walk-panel-expander.sass"]
+  styleUrls: ["./walk-panel-expander.sass"],
+  standalone: false
 })
 export class WalkPanelExpanderComponent implements OnInit {
 

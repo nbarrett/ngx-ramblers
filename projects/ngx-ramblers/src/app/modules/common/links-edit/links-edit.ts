@@ -8,6 +8,7 @@ import { remove } from "lodash-es";
 @Component({
   selector: "app-links-edit",
   templateUrl: "./links-edit.html",
+  standalone: false
 })
 export class LinksEditComponent implements OnInit {
   private logger: Logger;

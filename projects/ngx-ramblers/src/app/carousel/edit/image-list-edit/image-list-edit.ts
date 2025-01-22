@@ -291,7 +291,8 @@ import isEmpty from "lodash-es/isEmpty";
                         (moveDown)="moveDown($event)">
         </app-image-edit>
       </ng-container>
-    </ng-container>`
+    </ng-container>`,
+  standalone: false
 })
 export class ImageListEditComponent implements OnInit, OnDestroy {
 

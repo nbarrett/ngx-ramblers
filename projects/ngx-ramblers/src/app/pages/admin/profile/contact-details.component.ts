@@ -12,6 +12,7 @@ import { ProfileService } from "./profile.service";
   selector: "app-contact-details",
   templateUrl: "./contact-details.component.html",
   styleUrls: ["../admin/admin.component.sass"],
+  standalone: false
 })
 export class ContactDetailsComponent implements OnInit, OnDestroy {
   public member: Member;

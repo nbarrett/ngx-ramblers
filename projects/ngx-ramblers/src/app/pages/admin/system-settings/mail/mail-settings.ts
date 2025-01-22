@@ -313,6 +313,7 @@ import isEmpty from "lodash-es/isEmpty";
       </div>
     </app-page>
   `,
+  standalone: false
 })
 export class MailSettingsComponent implements OnInit, OnDestroy {
   public deletedConfigs: string[] = [];

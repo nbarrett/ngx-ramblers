@@ -10,7 +10,8 @@ import { ExpenseNotificationDetailsComponent } from "../common/expense-notificat
     </p>
     <app-expense-notification-details [expenseClaim]="expenseClaim"></app-expense-notification-details>
     <p>You should see funds arriving of your bank account within the next 3 days.</p>
-    <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`
+    <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`,
+  standalone: false
 })
 export class ExpenseNotificationCreatorPaidComponent extends ExpenseNotificationDetailsComponent {
 

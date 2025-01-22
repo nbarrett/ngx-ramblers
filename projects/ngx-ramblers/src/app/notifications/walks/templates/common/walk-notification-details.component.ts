@@ -69,7 +69,8 @@ import { ValueOrDefaultPipe } from "../../../../pipes/value-or-default.pipe";
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Contact Phone:</td>
         <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.contactPhone }}</td>
       </tr>
-    </table>`
+    </table>`,
+  standalone: false
 })
 export class WalkNotificationDetailsComponent implements OnInit {
 

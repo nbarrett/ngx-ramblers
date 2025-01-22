@@ -12,7 +12,8 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
 
 @Component({
   selector: "app-committee-notification-ramblers-message-item",
-  templateUrl: "./committee-notification-ramblers-message-item.html"
+  templateUrl: "./committee-notification-ramblers-message-item.html",
+  standalone: false
 })
 export class CommitteeNotificationRamblersMessageItemComponent implements OnInit, OnDestroy {
 

@@ -30,7 +30,8 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
       </p>
     </div>
     <app-contact-us [format]="'list'" [roles]="notificationConfig?.signOffRoles"></app-contact-us>
-  `
+  `,
+  standalone: false
 })
 export class ForgotPasswordNotificationDetailsComponent {
 

@@ -11,6 +11,7 @@ import { AlbumIndexService } from "../../../services/album-index.service";
     <app-action-buttons *ngIf="actions.isAlbumIndex(row)"
                         [pageContent]="albumIndexPageContent"
                         [rowIndex]="0"/>`,
+  standalone: false
 })
 export class DynamicContentViewAlbumIndexComponent implements OnInit {
 

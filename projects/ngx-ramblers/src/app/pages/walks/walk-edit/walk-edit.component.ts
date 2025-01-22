@@ -602,7 +602,8 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
         </label>
       </div>
     </div>`,
-  styleUrls: ["./walk-edit.component.sass"]
+  styleUrls: ["./walk-edit.component.sass"],
+  standalone: false
 })
 export class WalkEditComponent implements OnInit, OnDestroy {
   @Input("displayedWalk")

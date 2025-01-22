@@ -31,7 +31,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
         <div *ngIf="!icon">{{ imageText }}</div>
       </div>
     </div>`,
-  styleUrls: ["./card-image.sass"]
+  styleUrls: ["./card-image.sass"],
+  standalone: false
 })
 export class CardImageComponent implements OnInit {
   private logger: Logger;

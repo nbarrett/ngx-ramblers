@@ -11,7 +11,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
                [class]="icons.toFontAwesomeIcon(status).class"/>
       <div *ngIf="!noLabel" class="ml-2">{{ stringUtils.asTitle(status) }}</div>
     </div>`,
-  styleUrls: ["./member-bulk-load/member-bulk-load.component.sass", "./admin/admin.component.sass"]
+  styleUrls: ["./member-bulk-load/member-bulk-load.component.sass", "./admin/admin.component.sass"],
+  standalone: false
 })
 export class StatusIconComponent {
   protected noLabel: boolean;

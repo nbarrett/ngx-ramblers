@@ -25,6 +25,7 @@ import { AwsFileUploadResponseData } from "../../models/aws-object.model";
 @Component({
   selector: "app-how-to-modal",
   templateUrl: "how-to-modal.component.html",
+  standalone: false
 })
 export class HowToModalComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild("searchInput") private searchInput: ElementRef;

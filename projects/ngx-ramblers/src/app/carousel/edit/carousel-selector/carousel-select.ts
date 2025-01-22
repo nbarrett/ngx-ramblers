@@ -27,7 +27,8 @@ import { BroadcastService } from "../../../services/broadcast-service";
       </select>
       <app-badge-button *ngIf="showNewButton" [icon]="faPlus" [caption]="'new'"
                         (click)="nameEditToggle.emit(true)"/>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class CarouselSelectComponent implements OnInit {
 

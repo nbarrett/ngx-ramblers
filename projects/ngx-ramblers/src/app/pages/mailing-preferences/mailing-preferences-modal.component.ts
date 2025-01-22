@@ -17,6 +17,7 @@ import { MailMessagingService } from "../../services/mail/mail-messaging.service
 @Component({
   selector: "app-mailing-preferences-modal-component",
   templateUrl: "./mailing-preferences-modal.component.html",
+  standalone: false
 })
 export class MailingPreferencesModalComponent implements OnInit, OnDestroy {
 

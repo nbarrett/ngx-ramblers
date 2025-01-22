@@ -52,7 +52,8 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                                            (rolesChange)="this.notificationConfig.signOffRoles = $event.roles;"/>
         </div>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 
 export class SenderRepliesAndSignoffComponent implements OnInit {

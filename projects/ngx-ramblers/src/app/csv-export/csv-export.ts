@@ -50,6 +50,7 @@ export const ConfigDefaults: CsvOptions = {
 @Component({
   selector: "app-csv-export",
   template: "",
+  standalone: false
 })
 export class CsvExportComponent {
 

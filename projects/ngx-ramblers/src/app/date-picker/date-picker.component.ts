@@ -12,7 +12,8 @@ let id = 0;
 @Component({
   selector: "app-date-picker",
   templateUrl: "./date-picker.component.html",
-  styleUrls: ["./date-picker.component.sass"]
+  styleUrls: ["./date-picker.component.sass"],
+  standalone: false
 })
 export class DatePickerComponent implements OnInit, OnChanges {
 

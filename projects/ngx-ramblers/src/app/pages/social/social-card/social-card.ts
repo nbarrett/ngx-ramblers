@@ -25,7 +25,8 @@ import { SocialDisplayService } from "../social-display.service";
           <li *ngIf="socialEvent?.eventTimeStart">Time: {{ socialEvent | eventTimes }}</li>
         </ul>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class SocialCardComponent implements OnInit {
   public socialEvents: SocialEvent[] = [];

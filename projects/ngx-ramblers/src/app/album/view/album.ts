@@ -80,7 +80,8 @@ import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
                       [index]="index"></app-carousel>
       </div>
     </div>
-  `
+  `,
+  standalone: false
 })
 export class AlbumComponent implements OnInit {
 

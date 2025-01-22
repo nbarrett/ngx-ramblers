@@ -38,6 +38,7 @@ import { LazyLoadingMetadata } from "../../../models/content-metadata.model";
         </div>
       </div>
     </ng-container>`,
+  standalone: false
 })
 export class DynamicContentViewAlbumComponent implements OnInit {
   public lazyLoadingMetadata: LazyLoadingMetadata;

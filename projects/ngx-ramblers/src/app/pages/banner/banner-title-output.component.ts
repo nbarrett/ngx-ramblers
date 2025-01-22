@@ -17,7 +17,8 @@ import { UrlService } from "../../services/url.service";
           <span class="ml-2 {{titleLine.part2.class}}">{{titleLine.part2.value}}</span>
           <span class="ml-2 {{titleLine.part3.class}}">{{titleLine.part3.value}}</span>
       </div>
-  `
+  `,
+  standalone: false
 })
 
 export class BannerTitleOutputComponent implements OnInit {

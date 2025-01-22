@@ -27,7 +27,8 @@ import { ProfileService } from "../profile/profile.service";
 
 @Component({
   selector: "app-member-admin",
-  templateUrl: "./member-login-audit.component.html"
+  templateUrl: "./member-login-audit.component.html",
+  standalone: false
 })
 export class MemberLoginAuditComponent implements OnInit, OnDestroy {
 

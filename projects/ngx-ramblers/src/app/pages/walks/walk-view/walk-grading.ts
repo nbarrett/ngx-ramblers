@@ -13,6 +13,7 @@ import { WALK_GRADES, WalkGrade } from "../../../models/walk.model";
       </div>
     </div>`,
   styleUrls: ["./walk-view.sass"],
+  standalone: false
 })
 
 export class WalkGradingComponent {

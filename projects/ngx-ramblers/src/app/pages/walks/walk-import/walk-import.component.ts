@@ -95,7 +95,8 @@ import { IconService } from "../../../services/icon-service/icon-service";
                   </table>
               </div>
           </div>
-      </app-page>`
+      </app-page>`,
+  standalone: false
 })
 
 export class WalkImportComponent implements OnInit, OnDestroy {

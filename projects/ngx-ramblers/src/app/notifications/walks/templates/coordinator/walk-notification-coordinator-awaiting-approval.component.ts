@@ -12,7 +12,8 @@ import { WalkNotificationDetailsComponent } from "../common/walk-notification-de
       For your information, the walk details are as follows:</p>
     <app-walk-notification-details [data]="data"></app-walk-notification-details>
     <app-walk-notification-footer [data]="data"></app-walk-notification-footer>
-  `
+  `,
+  standalone: false
 })
 export class WalkNotificationCoordinatorAwaitingApprovalComponent extends WalkNotificationDetailsComponent {
 

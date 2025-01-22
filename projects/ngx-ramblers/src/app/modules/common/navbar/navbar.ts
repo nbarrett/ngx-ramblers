@@ -19,7 +19,8 @@ import { UrlService } from "../../../services/url.service";
 @Component({
   selector: "app-navbar",
   templateUrl: "./navbar.html",
-  styleUrls: ["./navbar.sass"]
+  styleUrls: ["./navbar.sass"],
+  standalone: false
 })
 export class NavbarComponent implements OnInit, OnDestroy {
 

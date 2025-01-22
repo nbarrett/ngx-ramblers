@@ -1,7 +1,5 @@
 import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
-import { faClose } from "@fortawesome/free-solid-svg-icons";
-import { faDownLong } from "@fortawesome/free-solid-svg-icons";
-import { faUpLong } from "@fortawesome/free-solid-svg-icons";
+import { faClose, faDownLong, faUpLong } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Link } from "../../../models/page.model";
 import { move } from "../../../functions/arrays";
@@ -12,6 +10,7 @@ let uniqueId = 0;
 @Component({
   selector: "app-link-edit",
   templateUrl: "./link-edit.html",
+  standalone: false
 })
 export class LinkEditComponent implements OnInit {
   private logger: Logger;

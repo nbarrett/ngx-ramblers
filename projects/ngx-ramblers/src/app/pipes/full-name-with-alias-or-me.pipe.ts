@@ -3,7 +3,10 @@ import { Member } from "../models/member.model";
 import { MemberLoginService } from "../services/member/member-login.service";
 import { FullNamePipe } from "./full-name.pipe";
 
-@Pipe({name: "fullNameWithAliasOrMe"})
+@Pipe({
+  name: "fullNameWithAliasOrMe",
+  standalone: false
+})
 export class FullNameWithAliasOrMePipe implements PipeTransform {
   constructor(
     private memberLoginService: MemberLoginService,

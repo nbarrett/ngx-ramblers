@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
-import { BsModalRef, BsModalService } from "ngx-bootstrap/modal";
+import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../auth/auth.service";
@@ -12,7 +12,8 @@ import { AlertInstance, NotifierService } from "../services/notifier.service";
 
 @Component({
   selector: "app-set-password",
-  template: ""
+  template: "",
+  standalone: false
 })
 
 export class SetPasswordComponent implements OnInit, OnDestroy {

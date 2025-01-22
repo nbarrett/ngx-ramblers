@@ -13,7 +13,8 @@ import { SocialDisplayService } from "../social-display.service";
 @Component({
   selector: "app-social-search",
   templateUrl: "./social-search.html",
-  styleUrls: ["./social-search.sass"]
+  styleUrls: ["./social-search.sass"],
+  standalone: false
 })
 export class SocialSearchComponent implements OnInit, OnDestroy {
 

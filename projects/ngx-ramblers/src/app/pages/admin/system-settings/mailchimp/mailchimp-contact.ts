@@ -6,6 +6,7 @@ import { Logger, LoggerFactory } from "../../../../services/logger-factory.servi
 @Component({
   selector: "app-mailchimp-contact",
   templateUrl: "./mailchimp-contact.html",
+  standalone: false
 })
 export class MailchimpContactComponent {
   private logger: Logger;

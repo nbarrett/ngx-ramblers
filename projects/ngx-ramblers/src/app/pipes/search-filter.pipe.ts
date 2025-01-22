@@ -1,6 +1,9 @@
 import { Pipe, PipeTransform } from "@angular/core";
 
-@Pipe({name: "filter"})
+@Pipe({
+  name: "filter",
+  standalone: false
+})
 export class SearchFilterPipe implements PipeTransform {
 
   transform(itemsToSearch: any[], searchText: string): any[] {

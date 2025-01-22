@@ -19,7 +19,8 @@ import { FileTypeAttributes } from "../../../../models/content-metadata.model";
 @Component({
   selector: "app-system-image-edit",
   templateUrl: "./system-image-edit.html",
-  styleUrls: ["./system-image.sass"]
+  styleUrls: ["./system-image.sass"],
+  standalone: false
 })
 export class SystemImageEditComponent implements OnInit {
   private notify: AlertInstance;

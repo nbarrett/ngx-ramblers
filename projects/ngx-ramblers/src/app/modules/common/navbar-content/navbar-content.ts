@@ -9,7 +9,8 @@ import { Subscription } from "rxjs";
 @Component({
   selector: "app-navbar-content",
   templateUrl: "./navbar-content.html",
-  styleUrls: ["./navbar-content.sass"]
+  styleUrls: ["./navbar-content.sass"],
+  standalone: false
 })
 export class NavbarContentComponent  implements OnInit, OnDestroy {
 

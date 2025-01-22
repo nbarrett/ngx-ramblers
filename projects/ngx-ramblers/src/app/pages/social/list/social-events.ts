@@ -33,7 +33,8 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
                            [filteredSocialEvents]="currentPageSocials">
     </app-social-list-cards>
   `,
-  styleUrls: ["../home/social-home.component.sass"]
+  styleUrls: ["../home/social-home.component.sass"],
+  standalone: false
 })
 export class SocialEventsComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];

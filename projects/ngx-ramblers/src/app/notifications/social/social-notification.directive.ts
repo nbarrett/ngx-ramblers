@@ -3,6 +3,7 @@ import { SocialNotificationDetailsComponent } from "./templates/social-notificat
 
 @Directive({
   selector: "[app-social-notification-template]",
+  standalone: false
 })
 export class SocialNotificationDirective {
   constructor(public viewContainerRef: ViewContainerRef) {

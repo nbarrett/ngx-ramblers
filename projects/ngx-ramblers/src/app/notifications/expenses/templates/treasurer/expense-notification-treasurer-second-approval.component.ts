@@ -48,7 +48,8 @@ import { ExpenseNotificationDetailsComponent } from "../common/expense-notificat
     <p>Once you've organised the payment, please visit the link below and mark the expense as paid and then <span
       [textContent]="display.expenseClaimCreatedEvent(expenseClaim).memberId | memberIdToFullName : members"
       ></span> will be notified by email.</p>
-    <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`
+    <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`,
+  standalone: false
 })
 export class ExpenseNotificationTreasurerSecondApprovalComponent extends ExpenseNotificationDetailsComponent {
 

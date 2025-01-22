@@ -9,7 +9,8 @@ import { ExpenseNotificationDetailsComponent } from "../common/expense-notificat
       ></strong>
       {{ group?.shortName }} expense claim is now complete and they have been sent a payment notification informing them
       that funds will arrive of their bank account within 3 days.
-      <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`
+      <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`,
+  standalone: false
 })
 export class ExpenseNotificationTreasurerPaidComponent extends ExpenseNotificationDetailsComponent {
 

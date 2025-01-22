@@ -152,7 +152,8 @@ import { PageService } from "../../../services/page.service";
         </div>
       </div>
     </div>`,
-  styleUrls: ["social-view.sass"]
+  styleUrls: ["social-view.sass"],
+  standalone: false
 })
 export class SocialViewComponent implements OnInit {
   @Input()

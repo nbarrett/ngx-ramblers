@@ -24,7 +24,8 @@ import { PageContentActionsService } from "../../../services/page-content-action
               </div>
           </div>
       </div>
-  `
+  `,
+  standalone: false
 })
 
 export class ColumnWidthComponent implements OnInit {

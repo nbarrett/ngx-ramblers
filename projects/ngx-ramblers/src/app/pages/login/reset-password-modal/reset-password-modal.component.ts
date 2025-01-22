@@ -15,7 +15,8 @@ import { Organisation } from "../../../models/system.model";
 @Component({
   selector: "app-reset-password-modal-component",
   templateUrl: "./reset-password-modal.component.html",
-  styleUrls: ["./reset-password-modal.component.sass"]
+  styleUrls: ["./reset-password-modal.component.sass"],
+  standalone: false
 })
 export class ResetPasswordModalComponent implements OnInit, OnDestroy {
   private logger: Logger;

@@ -8,7 +8,8 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
     <svg [ngStyle]="{'height.px': height, 'width.px': height || width}"
          xmlns="http://www.w3.org/2000/svg">
       <use [attr.xlink:href]="href" [attr.fill]="disabled ? 'rgb(153, 153, 153)' : colour"/>
-    </svg>`
+    </svg>`,
+  standalone: false
 })
 export class SvgComponent implements OnInit {
   @Input("icon") set iconValue(icon: string) {

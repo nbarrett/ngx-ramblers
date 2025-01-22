@@ -9,7 +9,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-aspect-ratio-selector",
-  templateUrl: "./aspect-ratio-selector.html"
+  templateUrl: "./aspect-ratio-selector.html",
+  standalone: false
 })
 
 export class AspectRatioSelectorComponent implements OnInit {

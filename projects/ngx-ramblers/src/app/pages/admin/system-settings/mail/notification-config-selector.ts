@@ -92,7 +92,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
         </div>
       </div>
     </ng-container>
-  `
+  `,
+  standalone: false
 })
 
 export class NotificationConfigSelectorComponent implements OnInit {

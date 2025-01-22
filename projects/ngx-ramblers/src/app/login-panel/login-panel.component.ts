@@ -15,7 +15,8 @@ import { UrlService } from "../services/url.service";
 @Component({
   selector: "app-login-panel",
   templateUrl: "./login-panel.component.html",
-  styleUrls: ["./login-panel.component.sass"]
+  styleUrls: ["./login-panel.component.sass"],
+  standalone: false
 })
 export class LoginPanelComponent implements OnInit, OnDestroy {
   private logger: Logger;

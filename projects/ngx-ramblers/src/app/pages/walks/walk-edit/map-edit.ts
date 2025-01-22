@@ -28,6 +28,7 @@ import { sortBy } from "../../../functions/arrays";
          (leafletMapReady)="onMapReady($event)"
          (leafletClick)="onMapClick($event)">
     </div>`,
+  standalone: false
 })
 export class MapEditComponent implements OnInit, OnDestroy {
   protected id: string;

@@ -7,7 +7,10 @@ import { AuditDeltaValuePipe } from "./audit-delta-value.pipe";
 import { FullNameWithAliasPipe } from "./full-name-with-alias.pipe";
 import { FullNamePipe } from "./full-name.pipe";
 
-@Pipe({name: "asChangedItemsTooltip"})
+@Pipe({
+  name: "asChangedItemsTooltip",
+  standalone: false
+})
 export class ChangedItemsPipe implements PipeTransform {
   constructor(private fullNamePipe: FullNamePipe,
               private fullNameWithAliasPipe: FullNameWithAliasPipe,

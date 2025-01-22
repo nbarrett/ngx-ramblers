@@ -1,7 +1,10 @@
 import { Pipe, PipeTransform } from "@angular/core";
 import { StringUtilsService } from "../services/string-utils.service";
 
-@Pipe({name: "valueOrDefault"})
+@Pipe({
+  name: "valueOrDefault",
+  standalone: false
+})
 export class ValueOrDefaultPipe implements PipeTransform {
   constructor(private stringUtils: StringUtilsService) {
   }

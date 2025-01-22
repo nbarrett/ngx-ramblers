@@ -19,7 +19,8 @@ import { BuiltInRole } from "../../../../models/committee.model";
     <p>Our Treasurer {{ display.committeeReferenceData.contactUsFieldForBuiltInRole(BuiltInRole.TREASURER, "fullName") }} has also been notified
       about this, so should now be able to process the payment.</p>
     <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>
-  `
+  `,
+  standalone: false
 })
 export class ExpenseNotificationApproverSecondApprovalComponent extends ExpenseNotificationDetailsComponent {
   protected readonly BuiltInRole = BuiltInRole;

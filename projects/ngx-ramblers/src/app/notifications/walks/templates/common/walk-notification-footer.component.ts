@@ -12,7 +12,8 @@ import { WalkNotificationDetailsComponent } from "./walk-notification-details.co
     </p>
     <p>
       Best regards
-    </p>`
+    </p>`,
+  standalone: false
 })
 export class WalkNotificationFooterComponent extends WalkNotificationDetailsComponent {
 

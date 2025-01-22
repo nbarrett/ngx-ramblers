@@ -20,6 +20,7 @@ import { AwsFileUploadResponseData } from "../../../models/aws-object.model";
   selector: "app-committee-edit-file-modal",
   styleUrls: ["committee-edit-file-modal.component.sass"],
   templateUrl: "./committee-edit-file-modal.component.html",
+  standalone: false
 })
 export class CommitteeEditFileModalComponent implements OnInit, OnDestroy {
   public notify: AlertInstance;

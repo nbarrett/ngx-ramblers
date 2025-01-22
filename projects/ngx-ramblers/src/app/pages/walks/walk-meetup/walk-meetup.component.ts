@@ -19,7 +19,8 @@ import { MeetupService } from "../../../services/meetup.service";
 @Component({
   selector: "app-walk-meetup",
   templateUrl: "./walk-meetup.component.html",
-  styleUrls: ["./walk-meetup.component.sass"]
+  styleUrls: ["./walk-meetup.component.sass"],
+  standalone: false
 })
 export class WalkMeetupComponent implements OnInit {
 

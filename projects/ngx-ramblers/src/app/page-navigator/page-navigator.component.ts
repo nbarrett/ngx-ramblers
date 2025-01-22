@@ -10,8 +10,8 @@ import { UrlService } from "../services/url.service";
 @Component({
   selector: "app-page-navigator",
   templateUrl: "./page-navigator.component.html",
-  styleUrls: ["./page-navigator.component.sass"]
-
+  styleUrls: ["./page-navigator.component.sass"],
+  standalone: false
 })
 export class PageNavigatorComponent {
   private logger: Logger;

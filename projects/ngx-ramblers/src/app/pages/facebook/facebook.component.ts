@@ -11,7 +11,8 @@ import { UrlService } from "../../services/url.service";
 @Component({
   selector: "app-facebook",
   templateUrl: "./facebook.component.html",
-  styleUrls: ["./facebook.component.sass"]
+  styleUrls: ["./facebook.component.sass"],
+  standalone: false
 })
 export class FacebookComponent implements OnInit, OnDestroy {
 

@@ -16,6 +16,7 @@ import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 @Component({
   selector: "app-walk-leader",
   templateUrl: "./walk-leader.html",
+  standalone: false
 })
 
 export class WalkLeaderComponent implements OnInit, OnDestroy {

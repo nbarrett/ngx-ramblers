@@ -12,7 +12,8 @@ import { isString } from "lodash-es";
 @Component({
   selector: "app-walk-meetup-config-parameters",
   templateUrl: "./walk-meetup-config-parameters.component.html",
-  styleUrls: ["./walk-meetup-config-parameters.component.sass"]
+  styleUrls: ["./walk-meetup-config-parameters.component.sass"],
+  standalone: false
 })
 export class WalkMeetupConfigParametersComponent implements OnInit {
 

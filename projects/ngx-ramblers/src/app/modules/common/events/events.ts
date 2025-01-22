@@ -18,7 +18,8 @@ import { UrlService } from "../../../services/url.service";
       <div class="col-sm-12">
         <app-social-events/>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class EventsComponent implements OnInit {
 

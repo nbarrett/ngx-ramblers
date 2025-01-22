@@ -68,7 +68,8 @@ import { NumberUtilsService } from "../../services/number-utils.service";
         </ul>
       </div>
     </div>`,
-  styleUrls: ["./committee-role-multi-select.sass"]
+  styleUrls: ["./committee-role-multi-select.sass"],
+  standalone: false
 })
 
 export class CommitteeRoleMultiSelectComponent implements OnInit, OnDestroy {

@@ -38,7 +38,8 @@ import { MailchimpConfigService } from "../../../services/mailchimp-config.servi
       <label class="custom-control-label"
              for="prof-subscribe-general-emails">General emails
       </label>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class EmailSubscriptionsMailchimpComponent implements OnInit, OnDestroy {
 

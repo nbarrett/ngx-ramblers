@@ -27,6 +27,7 @@ import { MediaQueryService } from "../../../services/committee/media-query.servi
       </div>
     </div>`,
   styleUrls: ["./walk-view.sass"],
+  standalone: false
 })
 
 export class WalkImagesComponent {

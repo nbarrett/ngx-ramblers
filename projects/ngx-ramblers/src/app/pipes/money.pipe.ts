@@ -1,7 +1,10 @@
 import { Pipe, PipeTransform } from "@angular/core";
 import { NumberUtilsService } from "../services/number-utils.service";
 
-@Pipe({name: "asMoney"})
+@Pipe({
+  name: "asMoney",
+  standalone: false
+})
 export class MoneyPipe implements PipeTransform {
   constructor(private    numberUtils: NumberUtilsService) {
   }

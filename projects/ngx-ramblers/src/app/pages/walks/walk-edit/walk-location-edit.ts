@@ -108,7 +108,8 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
         </ng-container>
       </div>
     </div>`,
-  styleUrls: ["./walk-edit.component.sass"]
+  styleUrls: ["./walk-edit.component.sass"],
+  standalone: false
 })
 export class WalkLocationEditComponent implements OnInit {
   @Input() public locationType!: string;

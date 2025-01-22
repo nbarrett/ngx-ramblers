@@ -16,7 +16,8 @@ import { WalkNotificationDetailsComponent } from "../common/walk-notification-de
     <p *ngIf="validationMessages.length > 0"><strong>Note:</strong> The Walk can't be approved yet because <span
       [textContent]="validationMessages | asWalkValidationsList"></span>.</p>
     <app-walk-notification-footer [data]="data"></app-walk-notification-footer>
-  `
+  `,
+  standalone: false
 })
 export class WalkNotificationCoordinatorAwaitingWalkDetailsComponent extends WalkNotificationDetailsComponent {
 

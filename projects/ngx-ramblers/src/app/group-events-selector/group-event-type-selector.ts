@@ -19,7 +19,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
         <option *ngFor="let dateSource of dataSources"
                 [ngValue]="dateSource">{{dateSource.description}}</option>
       </select>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class GroupEventTypeSelectorComponent implements OnInit {
   private includeUpload: boolean;

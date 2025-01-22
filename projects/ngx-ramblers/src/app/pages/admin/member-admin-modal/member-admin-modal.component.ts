@@ -34,7 +34,8 @@ import { NO_CHANGES_OR_DIFFERENCES } from "../../../models/ramblers-insight-hub"
 @Component({
   selector: "app-member-admin-modal",
   templateUrl: "./member-admin-modal.component.html",
-  styleUrls: ["./member-admin-modal.component.sass"]
+  styleUrls: ["./member-admin-modal.component.sass"],
+  standalone: false
 })
 export class MemberAdminModalComponent implements OnInit, OnDestroy {
 

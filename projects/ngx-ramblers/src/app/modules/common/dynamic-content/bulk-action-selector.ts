@@ -17,7 +17,8 @@ import { PageContentActionsService } from "../../../services/page-content-action
           <label class="custom-control-label"
                  [for]="id">Select Row
           </label>
-      </div>`
+      </div>`,
+  standalone: false
 })
 
 export class BulkActionSelectorComponent implements OnInit {

@@ -14,7 +14,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
       <img title class="mailchimp-image"
            src="/assets/images/local/mailchimp.jpeg"
            alt="{{title}}"/>
-    </app-button-wrapper>`
+    </app-button-wrapper>`,
+  standalone: false
 })
 
 export class MailchimpButtonComponent implements OnInit {

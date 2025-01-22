@@ -63,7 +63,8 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
           from {{ stringUtils.pluraliseWithCount(row?.albumIndex?.contentPaths?.length, 'content path match', 'content path matches') }}</h6>
       </div>
     </div>
-    <app-action-buttons [pageContent]="albumIndexPageContent" [rowIndex]="0" presentationMode/>`
+    <app-action-buttons [pageContent]="albumIndexPageContent" [rowIndex]="0" presentationMode/>`,
+  standalone: false
 })
 export class AlbumIndexSiteEditComponent implements OnInit {
   public pageContentService: PageContentService = inject(PageContentService);

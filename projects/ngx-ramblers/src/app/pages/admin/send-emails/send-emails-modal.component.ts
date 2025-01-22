@@ -211,7 +211,8 @@ import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk
     </div>
     <div class="d-none">
       <ng-template app-notification-directive/>
-    </div>`
+    </div>`,
+  standalone: false
 })
 
 export class SendEmailsModalComponent implements OnInit, OnDestroy {

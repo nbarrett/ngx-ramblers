@@ -5,6 +5,7 @@ import { UrlService } from "../../../services/url.service";
 @Component({
   selector: "app-banner-image",
   templateUrl: "./banner-logo.html",
+  standalone: false
 })
 export class BannerHeadLogoComponent implements OnInit {
 

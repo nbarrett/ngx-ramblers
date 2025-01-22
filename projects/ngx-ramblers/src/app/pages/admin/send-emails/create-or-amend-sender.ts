@@ -40,7 +40,8 @@ import { StringUtilsService } from "../../../services/string-utils.service";
             target="_blank" href="https://app.brevo.com/senders/list">See existing Senders</a></span>
         </alert>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 
 export class CreateOrAmendSenderComponent implements OnInit {

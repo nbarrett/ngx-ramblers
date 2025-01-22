@@ -214,7 +214,8 @@ import isEqual from "lodash-es/isEqual";
                [src]="urlService.imageSource(editableBanner.fileNameData.rootFolder + '/' + editableBanner.fileNameData.awsFileName)">
         </div>
       </div>
-    </app-page>`
+    </app-page>`,
+  standalone: false
 })
 
 export class BannerComponent implements OnInit, OnDestroy {

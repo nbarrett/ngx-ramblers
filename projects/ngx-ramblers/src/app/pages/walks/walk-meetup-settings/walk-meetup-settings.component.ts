@@ -20,7 +20,8 @@ import { MeetupService } from "../../../services/meetup.service";
   selector: "app-walk-meetup-settings",
   templateUrl: "./walk-meetup-settings.component.html",
   styleUrls: ["./walk-meetup-settings.component.sass"],
-  changeDetection: ChangeDetectionStrategy.Default
+  changeDetection: ChangeDetectionStrategy.Default,
+  standalone: false
 })
 export class WalkMeetupSettingsComponent implements OnInit {
   private logger: Logger;

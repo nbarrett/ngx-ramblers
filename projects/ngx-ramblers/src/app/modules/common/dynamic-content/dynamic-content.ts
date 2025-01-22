@@ -1,5 +1,5 @@
 import { Component, Input, OnDestroy, OnInit } from "@angular/core";
-import { ActivatedRoute, ParamMap, Router } from "@angular/router";
+import { ActivatedRoute, ParamMap } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
@@ -33,6 +33,7 @@ import cloneDeep from "lodash-es/cloneDeep";
                               [contentDescription]="contentDescription">
     </app-dynamic-content-view>`,
   styleUrls: ["./dynamic-content.sass"],
+  standalone: false
 })
 export class DynamicContentComponent implements OnInit, OnDestroy {
 

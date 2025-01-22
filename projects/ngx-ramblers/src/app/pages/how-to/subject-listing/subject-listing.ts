@@ -9,7 +9,14 @@ import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { ApiAction } from "../../../models/api-response.model";
-import { AccessLevelData, FilterParameters, MemberResource, MemberResourceApiResponse, MemberResourcesPermissions, ResourceSubject } from "../../../models/member-resource.model";
+import {
+  AccessLevelData,
+  FilterParameters,
+  MemberResource,
+  MemberResourceApiResponse,
+  MemberResourcesPermissions,
+  ResourceSubject
+} from "../../../models/member-resource.model";
 import { Member } from "../../../models/member.model";
 import { Confirm } from "../../../models/ui-actions";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
@@ -32,7 +39,8 @@ import { HowToModalComponent } from "../how-to-modal.component";
   selector: "app-how-to-subject-listing",
   templateUrl: "./subject-listing.html",
   styleUrls: ["./subject-listing.sass"],
-  changeDetection: ChangeDetectionStrategy.Default
+  changeDetection: ChangeDetectionStrategy.Default,
+  standalone: false
 })
 export class HowToSubjectListingComponent implements OnInit, OnDestroy {
 

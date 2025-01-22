@@ -45,7 +45,8 @@ import { StringUtilsService } from "../../services/string-utils.service";
       </tr>
       </tbody>
     </table>
-  `
+  `,
+  standalone: false
 })
 
 export class TagManagerComponent implements OnInit {

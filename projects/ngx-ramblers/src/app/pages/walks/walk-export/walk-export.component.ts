@@ -221,7 +221,8 @@ import groupBy from "lodash-es/groupBy";
     dl
       margin-bottom: 0
   `],
-  styleUrls: ["./walk-export.component.sass"]
+  styleUrls: ["./walk-export.component.sass"],
+  standalone: false
 })
 
 export class WalkExportComponent implements OnInit, OnDestroy {

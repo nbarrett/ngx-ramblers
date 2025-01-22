@@ -63,7 +63,8 @@ import { StringUtilsService } from "../services/string-utils.service";
           </ng-template>
         </ng-select>
       </div>
-    </div>`
+    </div>`,
+  standalone: false
 })
 export class GroupEventSelectorComponent implements OnInit {
 

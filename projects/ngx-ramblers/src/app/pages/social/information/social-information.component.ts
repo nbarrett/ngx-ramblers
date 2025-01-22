@@ -12,6 +12,7 @@ import { SocialDisplayService } from "../social-display.service";
   selector: "app-social-information",
   styleUrls: ["./social-information.component.sass"],
   templateUrl: "./social-information.component.html",
+  standalone: false
 })
 export class SocialInformationComponent implements OnInit {
   @Input()

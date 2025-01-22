@@ -12,7 +12,8 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
   selector: "app-login-required",
   templateUrl: "./login-required.html",
   styleUrls: ["./login-required.sass"],
-  changeDetection: ChangeDetectionStrategy.Default
+  changeDetection: ChangeDetectionStrategy.Default,
+  standalone: false
 })
 export class LoginRequiredComponent implements OnInit, OnDestroy {
   private logger: Logger;

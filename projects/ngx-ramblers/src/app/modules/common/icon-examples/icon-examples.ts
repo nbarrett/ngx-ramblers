@@ -11,6 +11,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
   selector: "app-icon-examples",
   templateUrl: "./icon-examples.html",
   styleUrls: ["./icon-examples.sass"],
+  standalone: false
 })
 
 export class IconExamplesComponent implements OnInit, OnDestroy {

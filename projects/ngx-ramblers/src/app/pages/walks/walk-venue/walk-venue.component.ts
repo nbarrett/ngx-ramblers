@@ -10,7 +10,8 @@ import { WalkDisplayService } from "../walk-display.service";
 @Component({
   selector: "app-walk-venue",
   templateUrl: "./walk-venue.component.html",
-  styleUrls: ["./walk-venue.component.sass"]
+  styleUrls: ["./walk-venue.component.sass"],
+  standalone: false
 })
 export class WalkVenueComponent implements OnInit {
 

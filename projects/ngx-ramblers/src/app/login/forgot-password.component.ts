@@ -7,7 +7,8 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
 
 @Component({
   selector: "app-forgot-password",
-  template: ""
+  template: "",
+  standalone: false
 })
 
 export class ForgotPasswordComponent implements OnInit {
