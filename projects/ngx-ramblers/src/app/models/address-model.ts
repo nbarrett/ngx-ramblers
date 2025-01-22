@@ -50,6 +50,7 @@ export interface PostcodeLookupServiceResponse {
 }
 
 export interface PostcodeLookupResponse {
+  distance: number;
   postcode: string;
   eastings: number;
   northings: number;
@@ -63,6 +64,7 @@ export interface PostcodeLookupResponse {
 export interface GridReferenceLookupResponse {
   description: string;
   latlng?: LatLngLiteral;
+  distance?: number;
   postcode?: string;
   gridReference6?: string;
   gridReference8?: string;
@@ -72,6 +74,6 @@ export interface GridReferenceLookupResponse {
 
 export interface GridReferenceLookupApiResponse extends ApiResponse {
   request: any;
-  response?: GridReferenceLookupResponse;
+  response?: GridReferenceLookupResponse | GridReferenceLookupResponse[];
 }
 

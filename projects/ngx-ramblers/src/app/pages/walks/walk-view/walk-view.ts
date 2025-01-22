@@ -45,7 +45,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                  [value]="displayedWalk?.walkAccessMode?.caption"
                  (click)="display.edit(displayedWalk)"
                  [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
-                 class="button-form button-form-edit-event mt-2 mr-2">
+                 class="btn btn-primary button-form-edit-event smr-2">
           <div *ngIf="displayedWalk?.walk?.longerDescription" class="event-description">
             <p class="list-arrow" markdown [data]="displayedWalk?.walk?.longerDescription"></p>
           </div>

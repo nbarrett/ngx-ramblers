@@ -39,7 +39,7 @@ import { ValueOrDefaultPipe } from "../../../../pipes/value-or-default.pipe";
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Starting Location:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.start_location.description | valueOrDefault }}</td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.start_location?.description | valueOrDefault }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Grade:</td>
@@ -54,8 +54,8 @@ import { ValueOrDefaultPipe } from "../../../../pipes/value-or-default.pipe";
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Postcode:</td>
         <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">
-          <a [href]="googleMapsService.urlForPostcode(walk.start_location.postcode)" target="_blank">
-            {{ walk.start_location.postcode | valueOrDefault }}</a></td>
+          <a [href]="googleMapsService.urlForPostcode(walk.start_location?.postcode)" target="_blank">
+            {{ walk.start_location?.postcode | valueOrDefault }}</a></td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Display Name:</td>

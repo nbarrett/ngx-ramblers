@@ -1,4 +1,4 @@
-import { Component, inject, Input, NgZone, OnDestroy, OnInit } from "@angular/core";
+import { Component, EventEmitter, inject, Input, NgZone, OnDestroy, OnInit, Output } from "@angular/core";
 import * as L from "leaflet";
 import { LatLng, LatLngBounds, Layer, LeafletEvent } from "leaflet";
 import { Subscription } from "rxjs";
@@ -15,6 +15,7 @@ import { AddressQueryService } from "../../../services/walks/address-query.servi
 import { GridReferenceLookupResponse } from "../../../models/address-model";
 import { LocationDetails } from "../../../models/ramblers-walks-manager";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { sortBy } from "../../../functions/arrays";
 
 @Component({
   selector: "[app-map-edit]",
@@ -45,6 +46,9 @@ export class MapEditComponent implements OnInit, OnDestroy {
   }
   @Input() class!: string;
   @Input() notify!: AlertInstance;
+  @Input() public locationType!: string;
+  @Output() postcodeOptionsChange = new EventEmitter<{ postcode: string, distance: number }[]>();
+  @Output() showPostcodeSelectChange = new EventEmitter<boolean>();
   public locationDetails: LocationDetails;
   public notifyTarget: AlertTarget = {};
   public options: any;
@@ -134,7 +138,7 @@ export class MapEditComponent implements OnInit, OnDestroy {
       layers: [
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 16,
-          attribution: "© OpenStreetMap contributors",
+          attribution: "© OpenStreetMap"
         }),
       ],
       zoom: 15,
@@ -191,31 +195,43 @@ export class MapEditComponent implements OnInit, OnDestroy {
     this.locationDetails.longitude = latlng.lng;
 
     this.addressQueryService.gridReferenceLookupFromLatLng(latlng)
-      .then((response: GridReferenceLookupResponse) => {
-        this.logger.info("Received reverseGeocode response:", response);
-        if (response?.gridReference10 && response?.postcode) {
-          const gridReference6 = response.gridReference6;
-          const gridReference8 = response.gridReference8;
-          const gridReference10 = response.gridReference10;
-          const postcode = response.postcode;
-          const description = response.description;
-          this.logger.info("Location updated:", {
-            postcode,
-            gridReference6,
-            gridReference8,
-            gridReference10,
-            description
-          });
-          this.locationDetails.postcode = postcode;
-          this.locationDetails.grid_reference_6 = gridReference6;
-          this.locationDetails.grid_reference_8 = gridReference8;
-          this.locationDetails.grid_reference_10 = gridReference10;
-          this.locationDetails.description = description;
-        } else {
+      .then((responses: GridReferenceLookupResponse[]) => {
+        const sortedResponses = responses.sort(sortBy("distance"));
+        this.logger.info("gridReferenceLookupFromLatLng: Received", this.stringUtils.pluraliseWithCount(sortedResponses.length, "response"), sortedResponses);
+        if (responses.length === 0) {
           this.notify.warning({
             title: "No grid reference found",
             message: "Try moving the pin to a different location."
           });
+        } else {
+          const closestResponse = sortedResponses[0];
+          const closestResponseMatchingPostcode = sortedResponses.find(item => item.postcode === this.locationDetails.postcode);
+          const showAlert = !closestResponseMatchingPostcode || closestResponseMatchingPostcode.postcode !== closestResponse.postcode;
+          if (showAlert) {
+            const postcodeOptions = sortedResponses.map(item => ({
+              postcode: item.postcode,
+              distance: item.distance
+            }));
+            const overrideOption = `You can optionally choose a different postcode from the ${this.locationType} Postcode dropdown.`;
+            if (!closestResponseMatchingPostcode) {
+              this.notify.warning({
+                title: "New pin location",
+                message: `The new pin location does not have the same postcode as the ${this.locationType} postcode ${this.locationDetails.postcode}. ${overrideOption}`
+              });
+              this.updateLocationWith({...closestResponse, postcode: this.locationDetails.postcode});
+              postcodeOptions.splice(0, 0, {postcode: this.locationDetails.postcode, distance: null});
+            } else {
+              this.notify.warning({
+                title: "New pin location",
+                message: `The new pin location matches the ${this.locationType} postcode ${this.locationDetails.postcode}, but other postcodes are closer to the pin. ${overrideOption}`
+              });
+              this.updateLocationWith(closestResponseMatchingPostcode);
+            }
+            this.postcodeOptionsChange.emit(postcodeOptions);
+            this.showPostcodeSelectChange.emit(true);
+          } else {
+            this.updateLocationWith(closestResponseMatchingPostcode);
+          }
         }
       })
       .catch(error => {
@@ -223,6 +239,16 @@ export class MapEditComponent implements OnInit, OnDestroy {
         return {error: error.message};
       });
   }
+
+  private updateLocationWith(response: GridReferenceLookupResponse) {
+    this.showPostcodeSelectChange.emit(false);
+    this.locationDetails.postcode = response.postcode;
+    this.locationDetails.grid_reference_6 = response.gridReference6;
+    this.locationDetails.grid_reference_8 = response.gridReference8;
+    this.locationDetails.grid_reference_10 = response.gridReference10;
+    this.locationDetails.description = response.description;
+  }
+
   onMapZoom($event: LeafletEvent) {
     this.logger.info("Map zoomed:", $event);
   }

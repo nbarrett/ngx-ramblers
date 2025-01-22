@@ -10,7 +10,8 @@ import { Member } from "../../models/member.model";
 import { RamblersUploadAuditApiResponse } from "../../models/ramblers-upload-audit.model";
 import {
   ALL_EVENT_TYPES,
-  Contact, DateFormat,
+  Contact,
+  DateFormat,
   EventsListRequest,
   GroupListRequest,
   GroupWalk,
@@ -293,7 +294,7 @@ export class RamblersWalksAndEventsService {
             this.logger.info("updating walk from", walkMatchedByDate.ramblersWalkId || "empty", "->", ramblersWalksResponse.id, "and", walkMatchedByDate.ramblersWalkUrl || "empty", "->", ramblersWalksResponse.url, "on", this.displayDate.transform(walkMatchedByDate.walkDate));
             walkMatchedByDate.ramblersWalkId = ramblersWalksResponse.id;
             walkMatchedByDate.ramblersWalkUrl = ramblersWalksResponse.url;
-            walkMatchedByDate.startLocationW3w = ramblersWalksResponse.start_location.w3w;
+            walkMatchedByDate.startLocationW3w = ramblersWalksResponse.start_location?.w3w;
             savePromises.push(this.walksService.createOrUpdate(walkMatchedByDate));
             this.logger.info("walk updated to:", walkMatchedByDate);
           }
@@ -445,6 +446,12 @@ export class RamblersWalksAndEventsService {
         validationMessages.push(`Walk leader has an old Ramblers contact Id (${walk.contactId}) setup on their member record. This needs to be updated to an Walks Manager Contact Name. ${contactIdMessage}`);
       }
 
+      if (!walk?.finishTime) {
+        validationMessages.push("Estimated Finish Time has not been entered");
+      } else if (!walk?.finishTime.includes(":")) {
+        validationMessages.push("Estimated Finish time must be entered using hh:mm format but it's been entered as " + walk?.finishTime);
+      }
+
       if (isEmpty(walk.walkType)) {
         validationMessages.push("Display Name for walk leader is missing. This can be entered manually on the Walk Leader tab");
       }
@@ -469,12 +476,12 @@ export class RamblersWalksAndEventsService {
       displayedWalk: this.walkDisplayService.toDisplayedWalk(walk),
       validationMessages,
       publishedOnRamblers: walk && !isEmpty(walk.ramblersWalkId),
-      selected: walk?.ramblersPublish && (validationMessages.length === 0 && isEmpty(walk.ramblersWalkId)) || publishedStatus.publish
+      selected: walk?.ramblersPublish && validationMessages.length === 0 && (isEmpty(walk.ramblersWalkId) || publishedStatus.publish)
     };
   }
 
   startingLocationDetails(walk: Walk) {
-    return walk.start_location.description ? `${this.NEAREST_TOWN_PREFIX}${walk.start_location.description}` : "";
+    return walk.start_location?.description ? `${this.NEAREST_TOWN_PREFIX}${walk.start_location?.description}` : "";
   }
 
   finishingLocationDetails(walk: Walk) {
