@@ -12,36 +12,52 @@ import { Subscription } from "rxjs";
 @Component({
   selector: "app-dynamic-content-view",
   template: `
-    <ng-container *ngIf="!siteEditService.active()">
-      <ng-container *ngFor="let row of viewablePageContent.rows; let rowIndex = index;">
-        <ng-container *ngIf="false">{{ 'row ' + (rowIndex + 1) + ' ' + row.type }}</ng-container>
-        <app-action-buttons *ngIf="actions.isActionButtons(row)"
-                            [pageContent]="viewablePageContent"
-                            [rowIndex]="rowIndex"/>
-        <app-dynamic-content-view-text-row *ngIf="actions.isTextRow(row)"
-                                           [row]="row"
-                                           [rowIndex]="rowIndex"
-                                           [contentPath]="contentPath"
-                                           [contentDescription]="contentDescription"/>
-        <app-dynamic-content-view-carousel *ngIf="actions.isCarousel(row)"
-                                           [row]="row"
-                                           [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
-        <app-dynamic-content-view-album-index *ngIf="actions.isAlbumIndex(row)" [row]="row"/>
-        <app-dynamic-content-view-album *ngIf="actions.isAlbum(row)"
-                                        [row]="row"
-                                        [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
-        <app-events *ngIf="actions.isEvents(row)" [row]="row" [rowIndex]="rowIndex"/>
-      </ng-container>
-      <ng-container *ngIf="!actions.pageContentFound(viewablePageContent, !!viewablePageContent?.id)">
-        <div *ngIf="notify.alertTarget.showAlert" class="col-12 alert {{notify.alertTarget.alertClass}} mt-3">
-          <fa-icon [icon]="notify.alertTarget.alert.icon"></fa-icon>
-          <strong class="ml-2">{{ notify.alertTarget.alertTitle }}</strong>
-          <span class="p-2">{{ notify.alertTarget.alertMessage }}. <a [href]="area" class="rams-text-decoration-pink"
-                                                                      type="button"> Go Back to {{ area }}
+    @if (!siteEditService.active()) {
+      @for (row of viewablePageContent.rows; track row; let rowIndex = $index) {
+        @if (false) {
+          {{ 'row ' + (rowIndex + 1) + ' ' + row.type }}
+        }
+        @if (actions.isActionButtons(row)) {
+          <app-action-buttons
+            [pageContent]="viewablePageContent"
+            [rowIndex]="rowIndex"/>
+        }
+        @if (actions.isTextRow(row)) {
+          <app-dynamic-content-view-text-row
+            [row]="row"
+            [rowIndex]="rowIndex"
+            [contentPath]="contentPath"
+            [contentDescription]="contentDescription"/>
+        }
+        @if (actions.isCarousel(row)) {
+          <app-dynamic-content-view-carousel
+            [row]="row"
+            [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
+        }
+        @if (actions.isAlbumIndex(row)) {
+          <app-dynamic-content-view-album-index [row]="row"/>
+        }
+        @if (actions.isAlbum(row)) {
+          <app-dynamic-content-view-album
+            [row]="row"
+            [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
+        }
+        @if (actions.isEvents(row)) {
+          <app-events [row]="row" [rowIndex]="rowIndex"/>
+        }
+      }
+      @if (!actions.pageContentFound(viewablePageContent, !!viewablePageContent?.id)) {
+        @if (notify.alertTarget.showAlert) {
+          <div class="col-12 alert {{notify.alertTarget.alertClass}} mt-3">
+            <fa-icon [icon]="notify.alertTarget.alert.icon"></fa-icon>
+            <strong class="ml-2">{{ notify.alertTarget.alertTitle }}</strong>
+            <span class="p-2">{{ notify.alertTarget.alertMessage }}. <a [href]="area" class="rams-text-decoration-pink"
+              type="button"> Go Back to {{ area }}
             page</a></span>
-        </div>
-      </ng-container>
-    </ng-container>`,
+          </div>
+        }
+      }
+    }`,
   styleUrls: ["./dynamic-content.sass"],
   standalone: false
 })

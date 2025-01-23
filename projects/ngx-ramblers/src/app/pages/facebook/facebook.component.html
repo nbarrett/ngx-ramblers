@@ -1,15 +1,19 @@
 <app-card-container>
-  <script *ngIf="scriptSrcUrl" async defer crossorigin="anonymous"
-          [src]="scriptSrcUrl" nonce="eTzjlWCO"></script>
+  @if (scriptSrcUrl) {
+    <script async defer crossorigin="anonymous"
+            [src]="scriptSrcUrl" nonce="eTzjlWCO"></script>
+  }
   <h5 class="card-title cta-button cta-facebook-blue rounded">
     <a [href]="facebook?.groupUrl"
        title="Visit Our Facebook Page"> Facebook</a>
   </h5>
   <div class="card-text">
-    <iframe class="text-center" *ngIf="pluginUrl"
-            [width]="width"
-            [height]="height"
-            [src]="pluginUrl">
-    </iframe>
+    @if (pluginUrl) {
+      <iframe class="text-center"
+              [width]="width"
+              [height]="height"
+              [src]="pluginUrl">
+      </iframe>
+    }
   </div>
 </app-card-container>

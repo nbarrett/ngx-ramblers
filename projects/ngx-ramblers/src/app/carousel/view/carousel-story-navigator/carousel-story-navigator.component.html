@@ -1,9 +1,13 @@
 <div class="stories d-none d-md-block ramblers-list-bg-light">
   <ul class="carousel-ul">
-    <li *ngFor="let tag of imageTagDataService.recentPhotosPlusImageTagsPlusAll(imageTags)">
-      <a *ngIf="tag" placement="bottom" [tooltip]="'Show images for ' + tag.subject"
-         [ngClass]="{'active' : imageTagDataService.isActive(tag, activeTag)}" (click)="selectTag(tag)"
-         [textContent]="tag.subject"></a>
-    </li>
+    @for (tag of imageTagDataService.recentPhotosPlusImageTagsPlusAll(imageTags); track tag) {
+      <li>
+        @if (tag) {
+          <a placement="bottom" [tooltip]="'Show images for ' + tag.subject"
+             [ngClass]="{'active' : imageTagDataService.isActive(tag, activeTag)}" (click)="selectTag(tag)"
+             [textContent]="tag.subject"></a>
+        }
+      </li>
+    }
   </ul>
 </div>

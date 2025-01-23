@@ -1,14 +1,15 @@
 <div class="row mb-3 mt-3">
   <div class="col-md-12">
     <h5>{{logoTitle()}}</h5>
-    <app-image-cropper-and-resizer
-      *ngIf="logoEditActive"
-      [rootFolder]="images?.rootFolder"
-      [preloadImage]="image.awsFileName"
-      (imageChange)="imageChange($event)"
-      (quit)="exitImageEdit()"
-      (save)="imagedSaved($event)">
-    </app-image-cropper-and-resizer>
+    @if (logoEditActive) {
+      <app-image-cropper-and-resizer
+        [rootFolder]="images?.rootFolder"
+        [preloadImage]="image.awsFileName"
+        (imageChange)="imageChange($event)"
+        (quit)="exitImageEdit()"
+        (save)="imagedSaved($event)">
+      </app-image-cropper-and-resizer>
+    }
   </div>
   <div class="col-md-6 mt-2">
     <div class="row">
@@ -41,9 +42,11 @@
     </div>
     <div class="row mt-2">
       <div class="col">
-        <app-badge-button *ngIf="logoMode" (click)="makeDefault()"
-                          [tooltip]="'Make ' + image.originalFileName + ' the default website logo'"
-                          [icon]="faSave" caption="Make this logo the website default"/>
+        @if (logoMode) {
+          <app-badge-button (click)="makeDefault()"
+                            [tooltip]="'Make ' + image.originalFileName + ' the default website logo'"
+                            [icon]="faSave" caption="Make this logo the website default"/>
+        }
         <app-badge-button (click)="toggleImageEditor()"
                           [tooltip]="fileTypeAttributes?.croppable?'Edit '+image.originalFileName:image.originalFileName + ' is not editable'"
                           [icon]="faEdit" caption="Edit image" [disabled]="!fileTypeAttributes?.croppable"/>
@@ -53,12 +56,14 @@
       </div>
     </div>
   </div>
-  <div *ngIf="imageValid(image)" class="col-md-6">
-    <div class="row">
-      <label>Image Preview</label>
+  @if (imageValid(image)) {
+    <div class="col-md-6">
+      <div class="row">
+        <label>Image Preview</label>
+      </div>
+      <img [src]="imageSourceOrPreview()" [alt]="image.originalFileName"
+           [style]="'width:' + image.width +'px; padding: '+ image.padding +'px; height: auto;'"
+           [ngClass]="image.awsFileName.endsWith('png') ? 'image-border-png':'image-border'">
     </div>
-    <img [src]="imageSourceOrPreview()" [alt]="image.originalFileName"
-         [style]="'width:' + image.width +'px; padding: '+ image.padding +'px; height: auto;'"
-         [ngClass]="image.awsFileName.endsWith('png') ? 'image-border-png':'image-border'">
-  </div>
+  }
 </div>

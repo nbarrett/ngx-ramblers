@@ -6,18 +6,20 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
   selector: "app-forgot-password-notification-details",
   template: `
     <div>
-      <div *ngIf="notificationConfig?.bannerId" class="row w-100 mx-0 mt-2">
-        <img class="card-img"
-             [src]="mailMessagingService.bannerImageSource(notificationConfig, true)">
-      </div>
+      @if (notificationConfig?.bannerId) {
+        <div class="row w-100 mx-0 mt-2">
+          <img class="card-img"
+            [src]="mailMessagingService.bannerImageSource(notificationConfig, true)">
+        </div>
+      }
       <h1>{{ params?.systemMergeFields?.APP_SHORTNAME }} {{ notificationConfig.subject }}</h1>
       <p>Hi {{ params?.memberMergeFields?.FNAME }},</p>
       <p>Sorry you are having trouble logging into the {{ params?.systemMergeFields?.APP_SHORTNAME }}
-        site.</p>
+      site.</p>
       <p>Please click the following link:
         <a href="{{params?.systemMergeFields?.APP_URL}}/admin/set-password/{{params?.memberMergeFields?.PW_RESET}}"
-           target="_blank">{{ params?.systemMergeFields?.APP_URL }}
-          /admin/set-password/{{ params?.memberMergeFields?.PW_RESET }}</a> and you will be redirected to
+          target="_blank">{{ params?.systemMergeFields?.APP_URL }}
+        /admin/set-password/{{ params?.memberMergeFields?.PW_RESET }}</a> and you will be redirected to
         a page on the site
         where you will be guided through the password reset
         process and all should be well.
@@ -30,7 +32,7 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
       </p>
     </div>
     <app-contact-us [format]="'list'" [roles]="notificationConfig?.signOffRoles"></app-contact-us>
-  `,
+    `,
   standalone: false
 })
 export class ForgotPasswordNotificationDetailsComponent {

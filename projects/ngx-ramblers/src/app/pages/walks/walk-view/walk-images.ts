@@ -9,19 +9,19 @@ import { MediaQueryService } from "../../../services/committee/media-query.servi
   selector: "app-walk-images",
   template: `
     <div class="pointer" [tooltip]="imageSource()?.alt" [placement]="'bottom'">
-      <ng-container *ngIf="displayedWalk?.walk?.media?.length > 1">
+      @if (displayedWalk?.walk?.media?.length > 1) {
         <app-svg colour="rgb(155, 200, 171)" (click)="back()"
-                 [disabled]="backDisabled()"
-                 height="20"
-                 icon="i-back-round"/>
+          [disabled]="backDisabled()"
+          height="20"
+          icon="i-back-round"/>
         <span class="sr-only">Previous slide</span>
         <span class="px-2">Image {{ imageIndex + 1 }} of {{ displayedWalk?.walk?.media?.length }}</span>
         <app-svg colour="rgb(155, 200, 171)" (click)="next()"
-                 [disabled]="forwardDisabled()"
-                 height="20"
-                 icon="i-forward-round"/>
+          [disabled]="forwardDisabled()"
+          height="20"
+          icon="i-forward-round"/>
         <span class="sr-only">Next slide</span>
-      </ng-container>
+      }
       <div [ngClass]="displayedWalk?.walk?.media?.length > 1 ? 'mt-2': 'mt-3'">
         <app-card-image fixedHeight [imageSource]="imageSource()?.url"/>
       </div>

@@ -16,17 +16,21 @@ import { BroadcastService } from "../../../services/broadcast-service";
   template: `
     <div class="form-inline">
       <select [(ngModel)]="selectedContentMetadata"
-              [id]="id"
-              (ngModelChange)="emitAndPublishMetadata(($event))"
-              class="form-control mr-2" [ngStyle]="{'max-width.px': maxWidth}">
-        <option *ngFor="let contentMetadata of allContentMetadata"
-                [ngValue]="contentMetadata">
-          {{contentMetadataService.contentMetadataName(contentMetadata)}}
-          ({{stringUtils.pluraliseWithCount(contentMetadata.files.length, "image")}})
-        </option>
+        [id]="id"
+        (ngModelChange)="emitAndPublishMetadata(($event))"
+        class="form-control mr-2" [ngStyle]="{'max-width.px': maxWidth}">
+        @for (contentMetadata of allContentMetadata; track contentMetadata) {
+          <option
+            [ngValue]="contentMetadata">
+            {{contentMetadataService.contentMetadataName(contentMetadata)}}
+            ({{stringUtils.pluraliseWithCount(contentMetadata.files.length, "image")}})
+          </option>
+        }
       </select>
-      <app-badge-button *ngIf="showNewButton" [icon]="faPlus" [caption]="'new'"
-                        (click)="nameEditToggle.emit(true)"/>
+      @if (showNewButton) {
+        <app-badge-button [icon]="faPlus" [caption]="'new'"
+          (click)="nameEditToggle.emit(true)"/>
+      }
     </div>`,
   standalone: false
 })

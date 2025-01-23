@@ -13,32 +13,38 @@ import { MailchimpConfigService } from "../../../services/mailchimp-config.servi
 @Component({
   selector: "app-email-subscriptions-mailchimp",
   template: `
-    <div class="custom-control custom-checkbox" *ngIf="mailchimpConfig?.lists?.walks">
-      <input [(ngModel)]="member.mailchimpLists.walks.subscribed" type="checkbox" class="custom-control-input"
-             name="walks-subscribed"
-             id="prof-subscribe-walks-emails">
-      <label class="custom-control-label"
-             for="prof-subscribe-walks-emails">Walks emails
-      </label>
-    </div>
-    <div class="custom-control custom-checkbox" *ngIf="mailchimpConfig?.lists?.socialEvents">
-      <input [(ngModel)]="member.mailchimpLists.socialEvents.subscribed" type="checkbox"
-             class="custom-control-input"
-             name="social-events-subscribed"
-             id="prof-subscribe-social-events-emails">
-      <label class="custom-control-label"
-             for="prof-subscribe-social-events-emails">Social events emails
-      </label>
-    </div>
-    <div class="custom-control custom-checkbox" *ngIf="mailchimpConfig?.lists?.general">
-      <input [(ngModel)]="member.mailchimpLists.general.subscribed" type="checkbox"
-             class="custom-control-input"
-             name="general-subscribed"
-             id="prof-subscribe-general-emails">
-      <label class="custom-control-label"
-             for="prof-subscribe-general-emails">General emails
-      </label>
-    </div>`,
+    @if (mailchimpConfig?.lists?.walks) {
+      <div class="custom-control custom-checkbox">
+        <input [(ngModel)]="member.mailchimpLists.walks.subscribed" type="checkbox" class="custom-control-input"
+          name="walks-subscribed"
+          id="prof-subscribe-walks-emails">
+        <label class="custom-control-label"
+          for="prof-subscribe-walks-emails">Walks emails
+        </label>
+      </div>
+    }
+    @if (mailchimpConfig?.lists?.socialEvents) {
+      <div class="custom-control custom-checkbox">
+        <input [(ngModel)]="member.mailchimpLists.socialEvents.subscribed" type="checkbox"
+          class="custom-control-input"
+          name="social-events-subscribed"
+          id="prof-subscribe-social-events-emails">
+        <label class="custom-control-label"
+          for="prof-subscribe-social-events-emails">Social events emails
+        </label>
+      </div>
+    }
+    @if (mailchimpConfig?.lists?.general) {
+      <div class="custom-control custom-checkbox">
+        <input [(ngModel)]="member.mailchimpLists.general.subscribed" type="checkbox"
+          class="custom-control-input"
+          name="general-subscribed"
+          id="prof-subscribe-general-emails">
+        <label class="custom-control-label"
+          for="prof-subscribe-general-emails">General emails
+        </label>
+      </div>
+    }`,
   standalone: false
 })
 export class EmailSubscriptionsMailchimpComponent implements OnInit, OnDestroy {

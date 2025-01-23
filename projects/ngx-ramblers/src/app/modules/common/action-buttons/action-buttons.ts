@@ -26,47 +26,49 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 @Component({
   selector: "app-action-buttons",
   template: `
-    <ng-container *ngIf="row">
+    @if (row) {
       <div class="row">
-        <div *ngIf="row.showSwiper && maxViewableSlideCount < pageContentColumns().length"
-             class="d-flex align-items-center mb-3 col">
-          <div class="flex-shrink-0">
-            <button aria-label="Previous slide" class="text-dark border-0 bg-transparent p-0 mr-1">
-              <app-svg (click)="back()"
-                       [disabled]="backDisabled()"
-                       class="icon"
-                       height="36"
-                       width="36"
-                       icon="i-back-round">
-              </app-svg>
-              <span class="sr-only">Previous slide</span></button>
-            <button aria-label="Next slide" class="text-dark border-0 bg-transparent p-0">
-              <app-svg (click)="forward()"
-                       [disabled]="forwardDisabled()"
-                       class="icon"
-                       height="36"
-                       width="36"
-                       icon="i-forward-round">
-              </app-svg>
-              <span class="sr-only">Next slide</span></button>
+        @if (row.showSwiper && maxViewableSlideCount < pageContentColumns().length) {
+          <div
+            class="d-flex align-items-center mb-3 col">
+            <div class="flex-shrink-0">
+              <button aria-label="Previous slide" class="text-dark border-0 bg-transparent p-0 mr-1">
+                <app-svg (click)="back()"
+                         [disabled]="backDisabled()"
+                         class="icon"
+                         height="36"
+                         width="36"
+                         icon="i-back-round">
+                </app-svg>
+                <span class="sr-only">Previous slide</span></button>
+              <button aria-label="Next slide" class="text-dark border-0 bg-transparent p-0">
+                <app-svg (click)="forward()"
+                         [disabled]="forwardDisabled()"
+                         class="icon"
+                         height="36"
+                         width="36"
+                         icon="i-forward-round">
+                </app-svg>
+                <span class="sr-only">Next slide</span></button>
+            </div>
           </div>
-        </div>
+        }
       </div>
       <div class="row">
-        <ng-container *ngFor="let column of viewableColumns(); let columnIndex = index;">
+        @for (column of viewableColumns(); track column; let columnIndex = $index) {
           <div [class]="slideClasses(column)"
                [id]="actions.columnIdentifierFor(columnIndex,pageContent.path + '-card')">
             <app-card-editor [presentationMode]="presentationMode"
-              [smallIconContainer]="smallIconContainer()"
-              [rowIndex]="rowIndex"
-              [column]="column"
-              [pageContent]="pageContent"
-              (pageContentEditEvents)="pageContentEditEvents = pageContentEditService.handleEvent($event, pageContentEditEvents)">
+                             [smallIconContainer]="smallIconContainer()"
+                             [rowIndex]="rowIndex"
+                             [column]="column"
+                             [pageContent]="pageContent"
+                             (pageContentEditEvents)="pageContentEditEvents = pageContentEditService.handleEvent($event, pageContentEditEvents)">
             </app-card-editor>
           </div>
-        </ng-container>
+        }
       </div>
-    </ng-container>`,
+    }`,
   standalone: false
 })
 export class ActionButtonsComponent implements OnInit {

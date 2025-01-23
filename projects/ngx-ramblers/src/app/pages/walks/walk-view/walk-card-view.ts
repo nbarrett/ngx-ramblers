@@ -23,94 +23,113 @@ import { AuthService } from "../../../auth/auth.service";
   selector: "app-walk-card-view",
   template: `
     <div (click)="toggleView()">
-      <input
-        *ngIf="display.walkPopulationLocal() && memberLoginService.memberLoggedIn() && displayedWalk?.walkAccessMode?.walkWritable"
-        id="walkAction-{{displayedWalk.walk.id}}" type="submit"
-        value="{{displayedWalk?.walkAccessMode?.caption}}"
-        (click)="display.edit(displayedWalk)"
-        class="btn btn-primary button-container">
-      <div *ngIf="display.displayMapAsImageFallback(displayedWalk.walk)" app-map-edit
-           readonly
-           class="map-card-image"
-           [locationDetails]="displayedWalk.walk.start_location"
-           [notify]="notify"></div>
-      <img *ngIf="display.displayImage(displayedWalk.walk)"
-           src="{{mediaQueryService.imageSourceWithFallback(displayedWalk.walk).url}}"
-           alt="{{mediaQueryService.imageSourceWithFallback(displayedWalk.walk).alt}}" height="150"
-           class="card-img-top"/>
+      @if (display.walkPopulationLocal() && memberLoginService.memberLoggedIn() && displayedWalk?.walkAccessMode?.walkWritable) {
+        <input
+          id="walkAction-{{displayedWalk.walk.id}}" type="submit"
+          value="{{displayedWalk?.walkAccessMode?.caption}}"
+          (click)="display.edit(displayedWalk)"
+          class="btn btn-primary button-container">
+      }
+      @if (display.displayMapAsImageFallback(displayedWalk.walk)) {
+        <div app-map-edit
+          readonly
+          class="map-card-image"
+          [locationDetails]="displayedWalk.walk.start_location"
+        [notify]="notify"></div>
+      }
+      @if (display.displayImage(displayedWalk.walk)) {
+        <img
+          src="{{mediaQueryService.imageSourceWithFallback(displayedWalk.walk).url}}"
+          alt="{{mediaQueryService.imageSourceWithFallback(displayedWalk.walk).alt}}" height="150"
+          class="card-img-top"/>
+      }
       <div class="card-body">
         <h3 class="card-title">
           <a [href]="displayedWalk.walkLink" class="rams-text-decoration-pink active"
-             target="_self">{{ displayedWalk.walk.briefDescriptionAndStartPoint || displayedWalk.latestEventType.description }}</a>
+          target="_self">{{ displayedWalk.walk.briefDescriptionAndStartPoint || displayedWalk.latestEventType.description }}</a>
         </h3>
         <dl class="d-flex mb-2">
           <dt class="font-weight-bold mr-2">Start:</dt>
           <time>{{ displayedWalk.walk.walkDate | displayDate }} {{ displayedWalk.walk.startTime }}</time>
         </dl>
-        <ng-container *ngIf="display.notAwaitingLeader(displayedWalk.walk)">
-          <dl *ngIf="displayedWalk.walk?.grade" class="d-flex mb-1">
-            <dt class="font-weight-bold mr-2">Difficulty:</dt>
-            <dd>
-              <app-walk-grading [grading]="displayedWalk.walk.grade"/>
-            </dd>
-          </dl>
-          <dl *ngIf="displayedWalk.walk?.distance" class="d-flex mb-1">
-            <dt class="font-weight-bold mr-2">Distance:</dt>
-            <dd>{{ displayedWalk.walk.distance }}</dd>
-          </dl>
-          <dl *ngIf="displayedWalk?.walk?.start_location?.postcode" (click)="ignoreClicks($event)" class="d-flex mb-1">
-            <dt class="font-weight-bold mr-2">Postcode:</dt>
-            <dd><a class="rams-text-decoration-pink"
-                   tooltip="Click to locate postcode {{displayedWalk?.walk?.start_location?.postcode}} on Google Maps"
-                   [href]="googleMapsService.urlForPostcode(displayedWalk?.walk?.start_location?.postcode)"
-                   target="_blank">
+        @if (display.notAwaitingLeader(displayedWalk.walk)) {
+          @if (displayedWalk.walk?.grade) {
+            <dl class="d-flex mb-1">
+              <dt class="font-weight-bold mr-2">Difficulty:</dt>
+              <dd>
+                <app-walk-grading [grading]="displayedWalk.walk.grade"/>
+              </dd>
+            </dl>
+          }
+          @if (displayedWalk.walk?.distance) {
+            <dl class="d-flex mb-1">
+              <dt class="font-weight-bold mr-2">Distance:</dt>
+              <dd>{{ displayedWalk.walk.distance }}</dd>
+            </dl>
+          }
+          @if (displayedWalk?.walk?.start_location?.postcode) {
+            <dl (click)="ignoreClicks($event)" class="d-flex mb-1">
+              <dt class="font-weight-bold mr-2">Postcode:</dt>
+              <dd><a class="rams-text-decoration-pink"
+                tooltip="Click to locate postcode {{displayedWalk?.walk?.start_location?.postcode}} on Google Maps"
+                [href]="googleMapsService.urlForPostcode(displayedWalk?.walk?.start_location?.postcode)"
+                target="_blank">
               {{ displayedWalk?.walk?.start_location?.postcode }}</a></dd>
-          </dl>
+            </dl>
+          }
           <dl class="d-flex mb-1">
             <dt class="font-weight-bold mr-2">Leader:</dt>
             <dd>
               <div class="row no-gutters">
-                <ng-container *ngIf="display.walkPopulationWalksManager()">
+                @if (display.walkPopulationWalksManager()) {
                   <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-6 nowrap">
                     <fa-icon title tooltip="contact walk leader {{displayedWalk?.walk?.displayName}}"
-                             [icon]="faEnvelope"
-                             class="fa-icon mr-1 pointer"/>
+                      [icon]="faEnvelope"
+                      class="fa-icon mr-1 pointer"/>
                     <a content
-                       [href]="displayedWalk?.walk?.contactEmail">{{ displayedWalk?.walk?.displayName || "Contact Via Ramblers" }}</a>
+                    [href]="displayedWalk?.walk?.contactEmail">{{ displayedWalk?.walk?.displayName || "Contact Via Ramblers" }}</a>
                   </div>
-                </ng-container>
-                <ng-container *ngIf="!display.walkPopulationWalksManager()">
-                  <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
-                       *ngIf="displayedWalk?.walk?.contactEmail" class="col-sm-6 col-md-12">
-                    <app-copy-icon [disabled]="!loggedIn" [icon]="faEnvelope" title
-                                   [value]="displayedWalk?.walk?.contactEmail"
-                                   [elementName]="'email address for '+ displayedWalk?.walk?.displayName"/>
-                    <div content>
-                      <a *ngIf="loggedIn" class="nowrap" [href]="'mailto:' + displayedWalk?.walk?.contactEmail"
-                         tooltip="Click to email {{displayedWalk?.walk?.displayName}}">
-                        {{ displayedWalk?.walk?.displayName }}
-                      </a>
-                      <div (click)="login()" *ngIf="!loggedIn" class="tooltip-link span-margin"
-                           trigger="mouseenter"
-                           tooltip="Login as an {{group?.shortName}} member and send an email to {{displayedWalk?.walk?.displayName}}">
-                        {{ displayedWalk?.walk?.displayName }}
+                }
+                @if (!display.walkPopulationWalksManager()) {
+                  @if (displayedWalk?.walk?.contactEmail) {
+                    <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
+                      class="col-sm-6 col-md-12">
+                      <app-copy-icon [disabled]="!loggedIn" [icon]="faEnvelope" title
+                        [value]="displayedWalk?.walk?.contactEmail"
+                        [elementName]="'email address for '+ displayedWalk?.walk?.displayName"/>
+                      <div content>
+                        @if (loggedIn) {
+                          <a class="nowrap" [href]="'mailto:' + displayedWalk?.walk?.contactEmail"
+                            tooltip="Click to email {{displayedWalk?.walk?.displayName}}">
+                            {{ displayedWalk?.walk?.displayName }}
+                          </a>
+                        }
+                        @if (!loggedIn) {
+                          <div (click)="login()" class="tooltip-link span-margin"
+                            trigger="mouseenter"
+                            tooltip="Login as an {{group?.shortName}} member and send an email to {{displayedWalk?.walk?.displayName}}">
+                            {{ displayedWalk?.walk?.displayName }}
+                          </div>
+                        }
                       </div>
                     </div>
-                  </div>
-                  <div *ngIf="loggedIn" app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
-                       class="col-sm-6  col-md-12">
-                    <app-copy-icon [icon]="faPhone" title [value]="displayedWalk?.walk?.contactPhone"
-                                   [elementName]="'mobile number for '+ displayedWalk?.walk?.displayName "/>
-                    <a content [href]="'tel:' + displayedWalk?.walk?.contactPhone" class="nowrap"
-                       tooltip="Click to ring {{displayedWalk?.walk?.displayName}} on {{displayedWalk?.walk?.contactPhone}} (mobile devices only)">
-                      {{ displayedWalk?.walk?.contactPhone }}
-                    </a>
-                  </div>
-                </ng-container>
+                  }
+                  @if (loggedIn) {
+                    <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
+                      class="col-sm-6  col-md-12">
+                      <app-copy-icon [icon]="faPhone" title [value]="displayedWalk?.walk?.contactPhone"
+                        [elementName]="'mobile number for '+ displayedWalk?.walk?.displayName "/>
+                      <a content [href]="'tel:' + displayedWalk?.walk?.contactPhone" class="nowrap"
+                        tooltip="Click to ring {{displayedWalk?.walk?.displayName}} on {{displayedWalk?.walk?.contactPhone}} (mobile devices only)">
+                        {{ displayedWalk?.walk?.contactPhone }}
+                      </a>
+                    </div>
+                  }
+                }
               </div>
             </dd>
           </dl>
-        </ng-container>
+        }
       </div>
     </div>`,
   styleUrls: ["./walk-view.sass"],

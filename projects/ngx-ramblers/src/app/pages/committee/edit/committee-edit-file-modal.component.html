@@ -19,9 +19,11 @@
         <div class="form-group">
           <label for="fileType">File Type</label>
           <select [(ngModel)]="committeeFile.fileType" id="fileType" class="form-control input-md">
-            <option *ngFor=" let fileType of display.fileTypes()"
-                    [ngValue]="fileType.description"
-                    [textContent]="fileType.description">
+            @for (fileType of display.fileTypes(); track fileType) {
+              <option
+                [ngValue]="fileType.description"
+                [textContent]="fileType.description">
+                }
           </select>
         </div>
       </div>
@@ -35,10 +37,12 @@
                [ngClass]="{'disabled-button-form': notifyTarget.busy}">
       </div>
       <div class="col-md-6">
-        <input *ngIf="committeeFile?.fileNameData" [disabled]="notifyTarget.busy" type="submit"
-               value="Remove attachment" (click)="removeAttachment()" title="Remove attachment"
-               class="button-form w-100"
-               [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
+        @if (committeeFile?.fileNameData) {
+          <input [disabled]="notifyTarget.busy" type="submit"
+                 value="Remove attachment" (click)="removeAttachment()" title="Remove attachment"
+                 class="button-form w-100"
+                 [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
+        }
         <input #fileElement id="browse-to-file" name="attachment" class="d-none"
                type="file" value="Upload"
                ng2FileSelect (onFileSelected)="onFileSelect($event)" [uploader]="uploader">
@@ -52,58 +56,78 @@
         </div>
       </div>
       <div class="col-md-12">
-        <div class="progress" *ngIf="notifyTarget.busy">
-          <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': uploader.progress + '%' }">
-            uploading {{uploader.progress}}%
+        @if (notifyTarget.busy) {
+          <div class="progress">
+            <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': uploader.progress + '%' }">
+              uploading {{ uploader.progress }}%
+            </div>
+          </div>
+        }
+      </div>
+      <div class="col-md-12">
+        @if (committeeFile?.fileNameData) {
+          <div class="form-group">
+            Originally uploaded as <span>{{ committeeFile.fileNameData.originalFileName }}</span>
+          </div>
+        }
+        @if (committeeFile?.fileNameData) {
+          <div class="form-group">
+            <label for="attachment">Display Title</label>
+            @if (display.allowAddCommitteeFile()) {
+              <input [(ngModel)]="committeeFile.fileNameData.title"
+                     [disabled]="notifyTarget.busy"
+                     type="text"
+                     id="attachment"
+                     class="form-control input-md"
+                     placeholder="Enter a title for this receipt">
+            }
+          </div>
+        }
+      </div>
+      @if (committeeFile?.fileNameData) {
+        <div class="col-md-12">
+          <label>Link Preview: <a target="_blank" [href]="display.fileUrl(committeeFile)">
+            {{ display.fileTitle(committeeFile) }}</a>
+          </label>
+        </div>
+      }
+    </div>
+    @if (showAlertMessage()) {
+      <div class="row mb-3">
+        <div class="col-md-12">
+          <div class="alert {{notifyTarget.alert.class}}">
+            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+            @if (notifyTarget.alertTitle) {
+              <strong>
+                {{ notifyTarget.alertTitle }}: </strong>
+            } {{ notifyTarget.alertMessage }}
           </div>
         </div>
       </div>
-      <div class="col-md-12">
-        <div *ngIf="committeeFile?.fileNameData" class="form-group">
-          Originally uploaded as <span>{{committeeFile.fileNameData.originalFileName}}</span>
-        </div>
-        <div *ngIf="committeeFile?.fileNameData" class="form-group">
-          <label for="attachment">Display Title</label>
-          <input *ngIf="display.allowAddCommitteeFile()" [(ngModel)]="committeeFile.fileNameData.title"
-                 [disabled]="notifyTarget.busy"
-                 type="text"
-                 id="attachment"
-                 class="form-control input-md"
-                 placeholder="Enter a title for this receipt">
-        </div>
-      </div>
-      <div class="col-md-12" *ngIf="committeeFile?.fileNameData">
-        <label>Link Preview: <a target="_blank" [href]="display.fileUrl(committeeFile)">
-          {{display.fileTitle(committeeFile)}}</a>
-        </label>
-      </div>
-    </div>
-    <div *ngIf="showAlertMessage()" class="row mb-3">
-      <div class="col-md-12">
-        <div class="alert {{notifyTarget.alert.class}}">
-          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-          <strong *ngIf="notifyTarget.alertTitle">
-            {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
-        </div>
-      </div>
-    </div>
+    }
   </div>
   <div class="modal-footer">
     <input type="submit" value="Save File" [disabled]="pendingCompletion()" (click)="saveCommitteeFile()"
            title="Save File"
            [ngClass]="pendingCompletion() ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
-    <input *ngIf="!this.display.confirm.deleteConfirmOutstanding() && display.allowDeleteCommitteeFile(committeeFile)" type="submit"
-           value="Delete File"
-           [disabled]="pendingCompletion()" (click)="this.display.confirm.toggleOnDeleteConfirm();" title="Delete File"
-           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
-    <input *ngIf="this.display.confirm.deleteConfirmOutstanding()" type="submit" value="Confirm Delete of File"
-           [disabled]="notifyTarget.busy" (click)="confirmDeleteCommitteeFile()"
-           title="Confirm delete of this File"
-           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left button-confirm'">
-    <input *ngIf="this.display.confirm.deleteConfirmOutstanding()" type="submit" value="Cancel Delete of File"
-           [disabled]="notifyTarget.busy" (click)="this.display.confirm.clear();"
-           title="Confirm delete of this File"
-           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left amber-confirm'">
+    @if (!display.confirm.deleteConfirmOutstanding() && display.allowDeleteCommitteeFile(committeeFile)) {
+      <input type="submit"
+             value="Delete File"
+             [disabled]="pendingCompletion()" (click)="display.confirm.toggleOnDeleteConfirm();" title="Delete File"
+             [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+    }
+    @if (display.confirm.deleteConfirmOutstanding()) {
+      <input type="submit" value="Confirm Delete of File"
+             [disabled]="notifyTarget.busy" (click)="confirmDeleteCommitteeFile()"
+             title="Confirm delete of this File"
+             [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left button-confirm'">
+    }
+    @if (display.confirm.deleteConfirmOutstanding()) {
+      <input type="submit" value="Cancel Delete of File"
+             [disabled]="notifyTarget.busy" (click)="display.confirm.clear();"
+             title="Confirm delete of this File"
+             [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left amber-confirm'">
+    }
     <input type="submit" value="Cancel Change" [disabled]="notifyTarget.busy" (click)="close()"
            title="Cancel File changes and close this dialog"
            [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">

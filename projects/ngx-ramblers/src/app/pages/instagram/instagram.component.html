@@ -6,15 +6,17 @@
   </h5>
   <p class="card-text">
     <app-dynamic-content [anchor]="'instagram-content'" contentPathReadOnly/>
-    <ng-container *ngIf="recentMedia?.length > 0">
+    @if (recentMedia?.length > 0) {
       <div class="spinner-border text-primary" role="status">
         <span class="sr-only">Loading...</span>
       </div>
-    <a *ngFor="let media of recentMedia" [href]="media.permalink" target="_blank"
-       delay="500" [tooltip]="dateUtils.displayDate( media.timestamp) + ' - ' + media.caption" [placement]="'top'">
-      <img [src]="media?.media_url" [alt]="media?.caption" class="rounded img-thumbnail"
-           [style]="'width:' + imageWidth(media)+'; height: '+ imageHeight(media)"/>
-    </a>
-    </ng-container>
+      @for (media of recentMedia; track media) {
+        <a [href]="media.permalink" target="_blank"
+           delay="500" [tooltip]="dateUtils.displayDate( media.timestamp) + ' - ' + media.caption" [placement]="'top'">
+          <img [src]="media?.media_url" [alt]="media?.caption" class="rounded img-thumbnail"
+               [style]="'width:' + imageWidth(media)+'; height: '+ imageHeight(media)"/>
+        </a>
+      }
+    }
   </p>
 </app-card-container>

@@ -14,7 +14,7 @@
          delay=500 tooltip="Delete link">
       <fa-icon [icon]="faClose"></fa-icon>
     </div>
-    <div [ngClass]="buttonClass(links.indexOf(link) < this.links.length - 1)" (click)="moveDown()"
+    <div [ngClass]="buttonClass(links.indexOf(link) < links.length - 1)" (click)="moveDown()"
          delay=500 tooltip="Move down">
       <fa-icon [icon]="faDownLong"></fa-icon>
     </div>

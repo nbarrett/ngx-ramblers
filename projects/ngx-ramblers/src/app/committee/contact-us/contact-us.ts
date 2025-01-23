@@ -11,8 +11,10 @@ import first from "lodash-es/first";
 @Component({
   selector: "app-contact-us",
   template: `
-    <ul *ngIf="format==='list'">
-      <li *ngFor="let committeeMember of committeeMembers()"
+    @if (format==='list') {
+      <ul>
+        @for (committeeMember of committeeMembers(); track committeeMember) {
+          <li
           [ngStyle]="{
           'font-weight': 'normal',
           'background-image': 'url('+ urlService.baseUrl() + '/assets/images/ramblers/icons/ramblers_icon_2_arrow_forward_rgb.png)',
@@ -21,15 +23,19 @@ import first from "lodash-es/first";
           'background-repeat': 'no-repeat',
           'background-position': '0px 7px',
           'background-size': '18px'}">
-        {{ committeeMember.fullName }} - {{ committeeMember.description }} -
-        <a [href]="'mailto:' + committeeMember.email"
-           [ngStyle]="emailStyle?{'color': '#c05711', 'font-weight': 'normal', 'text-decoration': 'underline'}:null">
-          {{ committeeMember.email }}
-        </a>
-      </li>
-    </ul>
-    <a *ngIf="format!=='list'" [href]="'mailto:' + email()">{{ text || email() }}</a>
-  `,
+            {{ committeeMember.fullName }} - {{ committeeMember.description }} -
+            <a [href]="'mailto:' + committeeMember.email"
+              [ngStyle]="emailStyle?{'color': '#c05711', 'font-weight': 'normal', 'text-decoration': 'underline'}:null">
+              {{ committeeMember.email }}
+            </a>
+          </li>
+        }
+      </ul>
+    }
+    @if (format!=='list') {
+      <a [href]="'mailto:' + email()">{{ text || email() }}</a>
+    }
+    `,
   styleUrls: ["./contact-us.sass"],
   standalone: false
 })

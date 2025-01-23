@@ -1,18 +1,28 @@
 <div class="justify-content-around panel-container mr-lg-3" [ngClass]="memberLoggedIn() ? 'd-flex': 'd-lg-flex'">
   <a class="login-text" (click)="loginOrLogout()">
-    <img *ngIf="memberLoggedIn()" class="home-logo"
-         src="/assets/images/ramblers/icons/ramblers_icon_11_home_rgb.png"
-         [alt]="memberLoginStatus()">
-    <img *ngIf="!memberLoggedIn()" class="home-logo"
-         src="/assets/images/ramblers/icons/ramblers_icon_2_arrow_forward_rgb.png"
-         [alt]="memberLoginStatus()">
+    @if (memberLoggedIn()) {
+      <img class="home-logo"
+           src="/assets/images/ramblers/icons/ramblers_icon_11_home_rgb.png"
+           [alt]="memberLoginStatus()">
+    }
+    @if (!memberLoggedIn()) {
+      <img class="home-logo"
+           src="/assets/images/ramblers/icons/ramblers_icon_2_arrow_forward_rgb.png"
+           [alt]="memberLoginStatus()">
+    }
     {{memberLoginStatus()}}
   </a>
-  <div *ngIf="!memberLoggedIn()">
-    <a (click)="forgotPassword()" class="login-text">
-      <img *ngIf="!memberLoggedIn()" class="home-logo pointer"
-           src="/assets/images/ramblers/icons/ramblers_icon_25_rain_rgb.png"
-           alt="Forgot Password">Forgot Password</a>
-  </div>
-  <app-site-edit class="form-inline" *ngIf="allowEdits()"></app-site-edit>
+  @if (!memberLoggedIn()) {
+    <div>
+      <a (click)="forgotPassword()" class="login-text">
+        @if (!memberLoggedIn()) {
+          <img class="home-logo pointer"
+               src="/assets/images/ramblers/icons/ramblers_icon_25_rain_rgb.png"
+               alt="Forgot Password">
+        }Forgot Password</a>
+    </div>
+  }
+  @if (allowEdits()) {
+    <app-site-edit class="form-inline"></app-site-edit>
+  }
 </div>

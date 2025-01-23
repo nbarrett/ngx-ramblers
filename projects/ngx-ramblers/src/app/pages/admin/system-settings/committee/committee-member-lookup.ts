@@ -10,19 +10,23 @@ import { KEY_NULL_VALUE_NONE } from "../../../../functions/enums";
 @Component({
   selector: "app-committee-member-lookup",
   template: `
-    <div *ngIf="committeeMember" class="form-group">
-      <label for="committee-member-lookup-{{committeeMember.type}}">
+    @if (committeeMember) {
+      <div class="form-group">
+        <label for="committee-member-lookup-{{committeeMember.type}}">
         Link to Committee Member</label>
-      <select [(ngModel)]="committeeMember.memberId" [compareWith]="valueComparer"
-              [disabled]="disabled"
-              (ngModelChange)="publishMember($event)"
-              class="form-control" id="committee-member-lookup-{{committeeMember.type}}">
-        <option>{{ KEY_NULL_VALUE_NONE.value }}</option>
-        <option *ngFor="let member of committeeQueryService?.committeeMembers"
-                [ngValue]="member.id">{{member | fullNameWithAlias}}</option>
-      </select>
-    </div>
-  `,
+        <select [(ngModel)]="committeeMember.memberId" [compareWith]="valueComparer"
+          [disabled]="disabled"
+          (ngModelChange)="publishMember($event)"
+          class="form-control" id="committee-member-lookup-{{committeeMember.type}}">
+          <option>{{ KEY_NULL_VALUE_NONE.value }}</option>
+          @for (member of committeeQueryService?.committeeMembers; track member.id) {
+            <option
+            [ngValue]="member.id">{{member | fullNameWithAlias}}</option>
+          }
+        </select>
+      </div>
+    }
+    `,
   standalone: false
 })
 export class CommitteeMemberLookupComponent implements OnInit {

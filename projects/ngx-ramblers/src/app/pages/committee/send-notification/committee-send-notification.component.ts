@@ -58,97 +58,107 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
     <app-page autoTitle>
       <div class="row">
         <div class="col-sm-12">
-          <tabset class="custom-tabset" *ngIf="notification">
-            <tab heading="List, Addressing, Email Type, Banner, Template and Intro Message">
-              <div class="img-thumbnail thumbnail-admin-edit">
-                <app-notification-config-selector (emailConfigChanged)="emailConfigChanged($event)"
-                                                  [notificationConfig]="notification?.content?.notificationConfig"
-                                                  [notificationConfigListing]="notificationConfigListing"/>
-                <ng-container>
-                  <div class="row">
-                    <div class="col-sm-7"><label>Send to:</label>
+          @if (notification) {
+            <tabset class="custom-tabset">
+              <tab heading="List, Addressing, Email Type, Banner, Template and Intro Message">
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  <app-notification-config-selector (emailConfigChanged)="emailConfigChanged($event)"
+                    [notificationConfig]="notification?.content?.notificationConfig"
+                    [notificationConfigListing]="notificationConfigListing"/>
+                  <ng-container>
+                    <div class="row">
+                      <div class="col-sm-7"><label>Send to:</label>
                       <div class="form-group">
                         <form>
-                          <ng-container *ngFor="let list of mailMessagingConfig?.brevo?.lists?.lists">
+                          @for (list of mailMessagingConfig?.brevo?.lists?.lists; track list) {
                             <div class="custom-control custom-radio">
                               <input class="custom-control-input"
-                                     id="send-list-{{list.id}}"
-                                     name="send-to"
-                                     type="radio"
-                                     [checked]="notification.content.listId===list.id"
-                                     [disabled]="selectionDisabled(list)"
-                                     (change)="selectList(list)"
-                                     [value]="list.id"/>
+                                id="send-list-{{list.id}}"
+                                name="send-to"
+                                type="radio"
+                                [checked]="notification.content.listId===list.id"
+                                [disabled]="selectionDisabled(list)"
+                                (change)="selectList(list)"
+                                [value]="list.id"/>
                               <label class="custom-control-label"
-                                     for="send-list-{{list.id}}">
-                                {{ listNameAndMemberCount(list) }}</label>
-                              <a class="ml-1 disabled" *ngIf="false"
-                                 (click)="editRecipientsFromList(list)">(edit)</a>
+                                for="send-list-{{list.id}}">
+                              {{ listNameAndMemberCount(list) }}</label>
+                              @if (false) {
+                                <a class="ml-1 disabled"
+                                (click)="editRecipientsFromList(list)">(edit)</a>
+                              }
                             </div>
-                          </ng-container>
+                          }
                         </form>
-                        <div *ngIf="false" class="custom-control custom-radio">
-                          <input id="custom"
-                                 type="radio"
-                                 class="custom-control-input"
-                                 name="send-to"
-                                 [disabled]="true"
-                                 [(ngModel)]="notification.content.listId"
-                                 value="custom"/>
-                          <label class="custom-control-label" for="custom">
-                            <div *ngIf="notification.content.selectedMemberIds.length===0">Choose individual
-                              recipients
-                            </div>
-                            <div
-                              *ngIf="notification.content.selectedMemberIds.length>0">
-                              {{ this.stringUtils.pluraliseWithCount(this.notification.content.selectedMemberIds.length, "recipient") }}
-                              chosen from {{ this.selectedList()?.name }} list
-                            </div>
-                          </label>
-                          <a class="ml-1" (click)="clearRecipients(this.selectedList())"> (clear)</a>
-                        </div>
+                        @if (false) {
+                          <div class="custom-control custom-radio">
+                            <input id="custom"
+                              type="radio"
+                              class="custom-control-input"
+                              name="send-to"
+                              [disabled]="true"
+                              [(ngModel)]="notification.content.listId"
+                              value="custom"/>
+                            <label class="custom-control-label" for="custom">
+                              @if (notification.content.selectedMemberIds.length===0) {
+                                <div>Choose individual
+                                  recipients
+                                </div>
+                              }
+                              @if (notification.content.selectedMemberIds.length>0) {
+                                <div
+                                  >
+                                  {{ stringUtils.pluraliseWithCount(notification.content.selectedMemberIds.length, "recipient") }}
+                                  chosen from {{ selectedList()?.name }} list
+                                </div>
+                              }
+                            </label>
+                            <a class="ml-1" (click)="clearRecipients(selectedList())"> (clear)</a>
+                          </div>
+                        }
                       </div>
                     </div>
                     <div class="col col-sm-5"><label>Address as:</label>
-                      <div class="form-group">
-                        <div class="custom-control custom-radio">
-                          <input id="addressee-first-name"
-                                 type="radio"
-                                 class="custom-control-input"
-                                 name="address-as"
-                                 [(ngModel)]="notification.content.addresseeType"
-                                 [value]="addresseeFirstName"/>
-                          <label class="custom-control-label" for="addressee-first-name">Hi <i>first name</i> </label>
-                        </div>
-                        <div class="custom-control custom-radio">
-                          <input id="addressee-all"
-                                 type="radio"
-                                 class="custom-control-input"
-                                 name="address-as"
-                                 [(ngModel)]="notification.content.addresseeType"
-                                 value="Hi all,"/>
-                          <label class="custom-control-label" for="addressee-all">Hi all,</label>
-                        </div>
+                    <div class="form-group">
+                      <div class="custom-control custom-radio">
+                        <input id="addressee-first-name"
+                          type="radio"
+                          class="custom-control-input"
+                          name="address-as"
+                          [(ngModel)]="notification.content.addresseeType"
+                          [value]="addresseeFirstName"/>
+                        <label class="custom-control-label" for="addressee-first-name">Hi <i>first name</i> </label>
+                      </div>
+                      <div class="custom-control custom-radio">
+                        <input id="addressee-all"
+                          type="radio"
+                          class="custom-control-input"
+                          name="address-as"
+                          [(ngModel)]="notification.content.addresseeType"
+                          value="Hi all,"/>
+                        <label class="custom-control-label" for="addressee-all">Hi all,</label>
                       </div>
                     </div>
                   </div>
-                  <div class="row" *ngIf="false">
+                </div>
+                @if (false) {
+                  <div class="row">
                     <div class="col-sm-12">
                       <div class="form-group" triggers="" placement="bottom"
-                           [tooltip]="helpMembers()">
+                        [tooltip]="helpMembers()">
                         <ng-select #select [items]="selectableRecipients"
-                                   bindLabel="memberInformation"
-                                   name="member-selector"
-                                   bindValue="id"
-                                   placeholder="Select one or more members"
-                                   [disabled]="notifyTarget.busy"
-                                   [dropdownPosition]="'bottom'"
-                                   [groupBy]="groupBy"
-                                   [groupValue]="groupValue"
-                                   [multiple]="true"
-                                   [closeOnSelect]="true"
-                                   (change)="onChange()"
-                                   [(ngModel)]="notification.content.selectedMemberIds">
+                          bindLabel="memberInformation"
+                          name="member-selector"
+                          bindValue="id"
+                          placeholder="Select one or more members"
+                          [disabled]="notifyTarget.busy"
+                          [dropdownPosition]="'bottom'"
+                          [groupBy]="groupBy"
+                          [groupValue]="groupValue"
+                          [multiple]="true"
+                          [closeOnSelect]="true"
+                          (change)="onChange()"
+                          [(ngModel)]="notification.content.selectedMemberIds">
                           <ng-template ng-optgroup-tmp let-item="item">
                             <span class="group-header">{{ item.name }} members</span>
                             <span class="ml-1 badge badge-secondary badge-group"> {{ item.total }} </span>
@@ -157,269 +167,295 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
                       </div>
                     </div>
                   </div>
-                </ng-container>
-                <div class="row">
-                  <div class="col-sm-12">
-                    <div class="form-group">
-                      <label for="notification-title">Email title:</label>
-                      <input [(ngModel)]="notification.content.title.value" type="text" class="form-control input-sm"
-                             id="notification-title"
-                             placeholder="This will appear as the email title to the recipient">
-                    </div>
-                  </div>
-                </div>
-                <div class="row">
-                  <div class="col-sm-12">
-                    <div class="form-group">
-                      <label for="content-text">Intro Message: <small>(no need to prefix 'Hi ...' as it's done
-                        automatically by Address as: above)</small>
-                      </label>
-                      <textarea markdown [(ngModel)]="notification.content.text.value"
-                                class="form-control input-sm" rows="5"
-                                id="content-text"
-                                placeholder="Enter free text to be included of the notification here"></textarea>
-                    </div>
-                  </div>
-                </div>
-                <div class="row" *ngIf="committeeFile">
-                  <div class="col col-sm-12"><label>Include download information for:</label>
-                    <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="notification.content.includeDownloadInformation"
-                             type="checkbox" class="custom-control-input" id="include-download-information">
-                      <label
-                        class="custom-control-label"
-                        for="include-download-information">{{ committeeFile.fileType }} -
-                        {{ display.fileTitle(committeeFile) }}
-                      </label>
-                    </div>
+                }
+              </ng-container>
+              <div class="row">
+                <div class="col-sm-12">
+                  <div class="form-group">
+                    <label for="notification-title">Email title:</label>
+                    <input [(ngModel)]="notification.content.title.value" type="text" class="form-control input-sm"
+                      id="notification-title"
+                      placeholder="This will appear as the email title to the recipient">
                   </div>
                 </div>
               </div>
-            </tab>
-            <tab heading="Auto-Include Events">
-              <div class="img-thumbnail thumbnail-admin-edit">
-                <div class="row">
-                  <div class="col-sm-4">
-                    <div class="form-group">
-                      <label for="from-date">Include Events From:</label>
-                      <app-date-picker startOfDay id="from-date"
-                                       [size]="'md round'"
-                                       (dateChange)="onFromDateChange($event)"
-                                       [value]="this.notification.groupEventsFilter.fromDate">
-                      </app-date-picker>
-                    </div>
-                    <div class="form-group">
-                      <label for="to-date">Include Events To:</label>
-                      <app-date-picker startOfDay id="to-date"
-                                       [size]="'md round'"
-                                       (dateChange)="onToDateChange($event)"
-                                       [value]="this.notification.groupEventsFilter.toDate">
-                      </app-date-picker>
-                    </div>
-                  </div>
-                  <div class="col-sm-4">
-                    <label>Include Information:</label>
-                    <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="notification.groupEventsFilter.includeDescription"
-                             (ngModelChange)="populateGroupEvents()"
-                             type="checkbox" class="custom-control-input" id="user-events-show-description">
-                      <label class="custom-control-label"
-                             for="user-events-show-description">Description
-                      </label>
-                    </div>
-                    <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="notification.groupEventsFilter.includeLocation"
-                             (ngModelChange)="populateGroupEvents()"
-                             type="checkbox" class="custom-control-input" id="user-events-show-location">
-                      <label class="custom-control-label"
-                             for="user-events-show-location">Location
-                      </label>
-                    </div>
-                    <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="notification.groupEventsFilter.includeContact"
-                             (ngModelChange)="populateGroupEvents()"
-                             type="checkbox" class="custom-control-input" id="user-events-show-contact">
-                      <label class="custom-control-label"
-                             for="user-events-show-contact">Contact
-                      </label>
-                    </div>
-                    <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="notification.groupEventsFilter.includeImage"
-                             (ngModelChange)="populateGroupEvents()"
-                             type="checkbox" class="custom-control-input" id="user-events-show-image">
-                      <label class="custom-control-label"
-                             for="user-events-show-image">Image
-                      </label>
-                    </div>
-                  </div>
-                  <div class="col-sm-4">
-                    <label>Include Event Types:</label>
-                    <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="notification.groupEventsFilter.includeWalks"
-                             (ngModelChange)="populateGroupEvents()"
-                             type="checkbox" class="custom-control-input" id="user-events-include-walks">
-                      <label class="custom-control-label"
-                             for="user-events-include-walks">Walks:
-                      </label>
-                    </div>
-                    <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="notification.groupEventsFilter.includeSocialEvents"
-                             (ngModelChange)="populateGroupEvents()"
-                             type="checkbox" class="custom-control-input" id="user-events-include-social-events">
-                      <label class="custom-control-label"
-                             for="user-events-include-social-events">Social Events:
-                      </label>
-                    </div>
-                    <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="notification.groupEventsFilter.includeCommitteeEvents"
-                             (ngModelChange)="populateGroupEvents()"
-                             type="checkbox" class="custom-control-input" id="user-events-include-committee-events"/>
-                      <label class="custom-control-label"
-                             for="user-events-include-committee-events">Committee Events:
-                      </label>
-                    </div>
-                  </div>
+              <div class="row">
+                <div class="col-sm-12">
+                  <div class="form-group">
+                    <label for="content-text">Intro Message: <small>(no need to prefix 'Hi ...' as it's done
+                    automatically by Address as: above)</small>
+                  </label>
+                  <textarea markdown [(ngModel)]="notification.content.text.value"
+                    class="form-control input-sm" rows="5"
+                    id="content-text"
+                  placeholder="Enter free text to be included of the notification here"></textarea>
                 </div>
-                <div class="row">
-                  <div class="col col-sm-12">
-                    <ul class="group-events-ul">
-                      <li class="mb-2" *ngIf="notification.groupEvents.length>0">
-                        <div class="custom-control custom-checkbox">
-                          <input [(ngModel)]="notification.groupEventsFilter.selectAll"
-                                 (click)="selectAllGroupEvents()"
-                                 id="select-all"
-                                 type="checkbox" class="custom-control-input">
-                          <label class="custom-control-label"
-                                 for="select-all"><strong>Select/Deselect All</strong> - {{ selectedCount() }} out
-                            of {{ stringUtils.pluraliseWithCount(notification.groupEvents.length, "event") }}
-                          </label>
-                        </div>
-                      </li>
-                      <li *ngFor="let groupEvent of notification.groupEvents; let index = index;"
-                          (click)="changeGroupEventSelection(groupEvent)">
-                        <div class="custom-control custom-checkbox">
-                          <input [(ngModel)]="groupEvent.selected"
-                                 (change)="toggleEvent(groupEvent)"
-                                 [id]="idForIndex(index)"
-                                 type="checkbox" class="custom-control-input">
-                          <label class="custom-control-label"
-                                 [for]="idForIndex(index)">
+              </div>
+            </div>
+            @if (committeeFile) {
+              <div class="row">
+                <div class="col col-sm-12"><label>Include download information for:</label>
+                <div class="custom-control custom-checkbox">
+                  <input [(ngModel)]="notification.content.includeDownloadInformation"
+                    type="checkbox" class="custom-control-input" id="include-download-information">
+                  <label
+                    class="custom-control-label"
+                    for="include-download-information">{{ committeeFile.fileType }} -
+                    {{ display.fileTitle(committeeFile) }}
+                  </label>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </tab>
+      <tab heading="Auto-Include Events">
+        <div class="img-thumbnail thumbnail-admin-edit">
+          <div class="row">
+            <div class="col-sm-4">
+              <div class="form-group">
+                <label for="from-date">Include Events From:</label>
+                <app-date-picker startOfDay id="from-date"
+                  [size]="'md round'"
+                  (dateChange)="onFromDateChange($event)"
+                  [value]="notification.groupEventsFilter.fromDate">
+                </app-date-picker>
+              </div>
+              <div class="form-group">
+                <label for="to-date">Include Events To:</label>
+                <app-date-picker startOfDay id="to-date"
+                  [size]="'md round'"
+                  (dateChange)="onToDateChange($event)"
+                  [value]="notification.groupEventsFilter.toDate">
+                </app-date-picker>
+              </div>
+            </div>
+            <div class="col-sm-4">
+              <label>Include Information:</label>
+              <div class="custom-control custom-checkbox">
+                <input [(ngModel)]="notification.groupEventsFilter.includeDescription"
+                  (ngModelChange)="populateGroupEvents()"
+                  type="checkbox" class="custom-control-input" id="user-events-show-description">
+                <label class="custom-control-label"
+                  for="user-events-show-description">Description
+                </label>
+              </div>
+              <div class="custom-control custom-checkbox">
+                <input [(ngModel)]="notification.groupEventsFilter.includeLocation"
+                  (ngModelChange)="populateGroupEvents()"
+                  type="checkbox" class="custom-control-input" id="user-events-show-location">
+                <label class="custom-control-label"
+                  for="user-events-show-location">Location
+                </label>
+              </div>
+              <div class="custom-control custom-checkbox">
+                <input [(ngModel)]="notification.groupEventsFilter.includeContact"
+                  (ngModelChange)="populateGroupEvents()"
+                  type="checkbox" class="custom-control-input" id="user-events-show-contact">
+                <label class="custom-control-label"
+                  for="user-events-show-contact">Contact
+                </label>
+              </div>
+              <div class="custom-control custom-checkbox">
+                <input [(ngModel)]="notification.groupEventsFilter.includeImage"
+                  (ngModelChange)="populateGroupEvents()"
+                  type="checkbox" class="custom-control-input" id="user-events-show-image">
+                <label class="custom-control-label"
+                  for="user-events-show-image">Image
+                </label>
+              </div>
+            </div>
+            <div class="col-sm-4">
+              <label>Include Event Types:</label>
+              <div class="custom-control custom-checkbox">
+                <input [(ngModel)]="notification.groupEventsFilter.includeWalks"
+                  (ngModelChange)="populateGroupEvents()"
+                  type="checkbox" class="custom-control-input" id="user-events-include-walks">
+                <label class="custom-control-label"
+                  for="user-events-include-walks">Walks:
+                </label>
+              </div>
+              <div class="custom-control custom-checkbox">
+                <input [(ngModel)]="notification.groupEventsFilter.includeSocialEvents"
+                  (ngModelChange)="populateGroupEvents()"
+                  type="checkbox" class="custom-control-input" id="user-events-include-social-events">
+                <label class="custom-control-label"
+                  for="user-events-include-social-events">Social Events:
+                </label>
+              </div>
+              <div class="custom-control custom-checkbox">
+                <input [(ngModel)]="notification.groupEventsFilter.includeCommitteeEvents"
+                  (ngModelChange)="populateGroupEvents()"
+                  type="checkbox" class="custom-control-input" id="user-events-include-committee-events"/>
+                <label class="custom-control-label"
+                  for="user-events-include-committee-events">Committee Events:
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col col-sm-12">
+              <ul class="group-events-ul">
+                @if (notification.groupEvents.length>0) {
+                  <li class="mb-2">
+                    <div class="custom-control custom-checkbox">
+                      <input [(ngModel)]="notification.groupEventsFilter.selectAll"
+                        (click)="selectAllGroupEvents()"
+                        id="select-all"
+                        type="checkbox" class="custom-control-input">
+                      <label class="custom-control-label"
+                        for="select-all"><strong>Select/Deselect All</strong> - {{ selectedCount() }} out
+                        of {{ stringUtils.pluraliseWithCount(notification.groupEvents.length, "event") }}
+                      </label>
+                    </div>
+                  </li>
+                }
+                @for (groupEvent of notification.groupEvents; track groupEvent; let index = $index) {
+                  <li
+                    (click)="changeGroupEventSelection(groupEvent)">
+                    <div class="custom-control custom-checkbox">
+                      <input [(ngModel)]="groupEvent.selected"
+                        (change)="toggleEvent(groupEvent)"
+                        [id]="idForIndex(index)"
+                        type="checkbox" class="custom-control-input">
+                      <label class="custom-control-label"
+                        [for]="idForIndex(index)">
                         <span style="font-size: 14px;font-weight: bold">
                           <span [textContent]="groupEvent.eventDate | displayDate"></span>
-                          <span *ngIf="groupEvent.eventTime"> •
+                          @if (groupEvent.eventTime) {
+                            <span> •
                               <span>{{ groupEvent.eventTime }}</span>
                             </span>
+                          }
                           •
                           <span>{{ groupEvent?.eventType?.description }}</span>
                           •
                           <app-link [area]="groupEvent?.eventType.area"
-                                    [id]="groupEvent?.id"
-                                    [text]="groupEvent?.title"></app-link>
-                          <span *ngIf="groupEvent.distance"> •
+                            [id]="groupEvent?.id"
+                          [text]="groupEvent?.title"></app-link>
+                          @if (groupEvent.distance) {
+                            <span> •
                               <span>{{ groupEvent.distance }}</span>
                             </span>
+                          }
                         </span>
-                            <span style="font-size: 14px;font-weight: bold">
-                            <span *ngIf="notification.groupEventsFilter.includeContact && groupEvent.contactName"> • Contact:
+                        <span style="font-size: 14px;font-weight: bold">
+                          @if (notification.groupEventsFilter.includeContact && groupEvent.contactName) {
+                            <span> • Contact:
                               <a
-                                [href]="'mailto:' + groupEvent.contactEmail">{{ groupEvent.contactName || groupEvent.contactEmail }}</a>
-                              <span *ngIf="groupEvent.contactPhone"> ({{ groupEvent.contactPhone }})</span></span>
-                          <span *ngIf="notification.groupEventsFilter.includeLocation && groupEvent.postcode"> • Location: <a
-                            [href]="googleMapsService.urlForPostcode(groupEvent.postcode)"
-                            target="_blank">
-                              <span [textContent]="groupEvent.postcode"></span>
-                            </a></span>
-                        </span>
+                              [href]="'mailto:' + groupEvent.contactEmail">{{ groupEvent.contactName || groupEvent.contactEmail }}</a>
+                              @if (groupEvent.contactPhone) {
+                                <span> ({{ groupEvent.contactPhone }})</span>
+                              }</span>
+                            }
+                            @if (notification.groupEventsFilter.includeLocation && groupEvent.postcode) {
+                              <span> • Location: <a
+                                [href]="googleMapsService.urlForPostcode(groupEvent.postcode)"
+                                target="_blank">
+                                <span [textContent]="groupEvent.postcode"></span>
+                              </a></span>
+                            }
+                          </span>
+                          @if (notification.groupEventsFilter.includeDescription) {
                             <span markdown [data]="groupEvent.description" style="padding: 8px 0px 0px 0px"
-                                  *ngIf="notification.groupEventsFilter.includeDescription">
-                        </span>
-                          </label>
-                        </div>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </tab>
-            <tab heading="Sender, Reply To, CCs & Sign Off">
-              <div class="img-thumbnail thumbnail-admin-edit">
-                <app-sender-replies-and-sign-off omitSignOff omitCC [mailMessagingConfig]="mailMessagingConfig"
-                                                 (senderExists)="senderExists=$event"
-                                                 [notificationConfig]="notification?.content?.notificationConfig"/>
-                <div class="row">
-                  <div class="col-sm-12">
-                    <div class="form-group">
-                      <div class="custom-control custom-checkbox">
-                        <input [(ngModel)]="notification.content.signoffText.include" type="checkbox"
-                               class="custom-control-input"
-                               id="include-signoff-text">
-                        <label for="include-signoff-text"
-                               class="custom-control-label">
-                          Include Signoff text:
+                              >
+                            </span>
+                          }
                         </label>
                       </div>
-                      <textarea [disabled]="!notification.content.signoffText.include"
-                                [(ngModel)]="notification.content.signoffText.value" type="text"
-                                class="form-control input-sm" rows="3"
-                                id="signoff-text"
-                                placeholder="Enter any signoff text to be included of the notification here"></textarea>
-                    </div>
-                  </div>
-                </div>
-                <div class="row">
-                  <div class="col col-sm-12">
-                    <div class="form-group">
-                      <div class="custom-control custom-checkbox">
-                        <input [(ngModel)]="notification.content.signoffAs.include"
-                               type="checkbox" class="custom-control-input"
-                               id="include-signoff-as">
-                        <label class="custom-control-label"
-                               for="include-signoff-as">Signoff as:
-                        </label>
-                      </div>
-                      <app-committee-role-multi-select [roles]="notification.content.signoffAs.value"
-                                                       (rolesChange)="setSignOffValue($event)"/>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </tab>
-            <tab heading="Preview">
-              <div class="img-thumbnail thumbnail-admin-edit">
-                <div class="print-preview">
-                  <div *ngIf="notification?.content?.notificationConfig?.bannerId" class="mb-2">
-                    <img class="card-img"
-                         [src]="mailMessagingService.bannerImageSource(notification?.content?.notificationConfig, false)">
-                  </div>
-                  <div #notificationContent>
-                    <app-committee-notification-details [committeeFile]="committeeFile" [members]="members"
-                                                        [notification]="notification">
-                    </app-committee-notification-details>
-                  </div>
-                </div>
-              </div>
-            </tab>
-          </tabset>
-          <div *ngIf="notifyTarget.showAlert" class="row">
-            <div class="col-sm-12 mb-10">
-              <div class="alert {{notifyTarget.alert.class}}">
-                <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                <strong *ngIf="notifyTarget.alertTitle">
-                  {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
+                    </li>
+                  }
+                </ul>
               </div>
             </div>
           </div>
-          <app-brevo-button button [disabled]="notReady()" (click)="runCampaignCreationAndSendWorkflow()"
-                            title="Send Now via {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"></app-brevo-button>
-          <app-brevo-button class="ml-2" button [disabled]="notReady()" (click)="completeInMailSystem()"
-                            title="Complete in {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"></app-brevo-button>
-          <input type="submit" value="Back" (click)="backToCommittee()"
-                 class="ml-2 btn btn-primary px-2 py-2">
+        </tab>
+        <tab heading="Sender, Reply To, CCs & Sign Off">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <app-sender-replies-and-sign-off omitSignOff omitCC [mailMessagingConfig]="mailMessagingConfig"
+              (senderExists)="senderExists=$event"
+              [notificationConfig]="notification?.content?.notificationConfig"/>
+            <div class="row">
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <div class="custom-control custom-checkbox">
+                    <input [(ngModel)]="notification.content.signoffText.include" type="checkbox"
+                      class="custom-control-input"
+                      id="include-signoff-text">
+                    <label for="include-signoff-text"
+                      class="custom-control-label">
+                      Include Signoff text:
+                    </label>
+                  </div>
+                  <textarea [disabled]="!notification.content.signoffText.include"
+                    [(ngModel)]="notification.content.signoffText.value" type="text"
+                    class="form-control input-sm" rows="3"
+                    id="signoff-text"
+                  placeholder="Enter any signoff text to be included of the notification here"></textarea>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col col-sm-12">
+                <div class="form-group">
+                  <div class="custom-control custom-checkbox">
+                    <input [(ngModel)]="notification.content.signoffAs.include"
+                      type="checkbox" class="custom-control-input"
+                      id="include-signoff-as">
+                    <label class="custom-control-label"
+                      for="include-signoff-as">Signoff as:
+                    </label>
+                  </div>
+                  <app-committee-role-multi-select [roles]="notification.content.signoffAs.value"
+                    (rolesChange)="setSignOffValue($event)"/>
+                </div>
+              </div>
+            </div>
+          </div>
+        </tab>
+        <tab heading="Preview">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="print-preview">
+              @if (notification?.content?.notificationConfig?.bannerId) {
+                <div class="mb-2">
+                  <img class="card-img"
+                    [src]="mailMessagingService.bannerImageSource(notification?.content?.notificationConfig, false)">
+                </div>
+              }
+              <div #notificationContent>
+                <app-committee-notification-details [committeeFile]="committeeFile" [members]="members"
+                  [notification]="notification">
+                </app-committee-notification-details>
+              </div>
+            </div>
+          </div>
+        </tab>
+      </tabset>
+    }
+    @if (notifyTarget.showAlert) {
+      <div class="row">
+        <div class="col-sm-12 mb-10">
+          <div class="alert {{notifyTarget.alert.class}}">
+            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+            @if (notifyTarget.alertTitle) {
+              <strong>
+              {{ notifyTarget.alertTitle }}: </strong>
+              } {{ notifyTarget.alertMessage }}
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="d-none">
-        <ng-template app-notification-directive/>
-      </div>
+      }
+      <app-brevo-button button [disabled]="notReady()" (click)="runCampaignCreationAndSendWorkflow()"
+      title="Send Now via {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"></app-brevo-button>
+      <app-brevo-button class="ml-2" button [disabled]="notReady()" (click)="completeInMailSystem()"
+      title="Complete in {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"></app-brevo-button>
+      <input type="submit" value="Back" (click)="backToCommittee()"
+        class="ml-2 btn btn-primary px-2 py-2">
+    </div>
+    </div>
+    <div class="d-none">
+      <ng-template app-notification-directive/>
+    </div>
     </app-page>`,
   standalone: false
 })

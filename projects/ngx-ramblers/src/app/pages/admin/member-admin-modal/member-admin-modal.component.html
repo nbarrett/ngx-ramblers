@@ -1,163 +1,167 @@
 <div class="modal-content">
   <div class="modal-header">
     <h4 class="modal-title">{{editMode}} <em>Member</em> Details</h4>
-    <button type="button" class="close" data-dismiss="modal" (click)="this.bsModalRef.hide();"
+    <button type="button" class="close" data-dismiss="modal" (click)="bsModalRef.hide();"
             aria-hidden="true">&times;
     </button>
   </div>
   <div class="modal-body">
-    <tabset *ngIf="systemConfig" class="custom-tabset">
-      <tab active="true" heading="Contact">
-        <div class="img-thumbnail thumbnail-admin-edit">
-          <div class="row">
-            <div class="col-sm-12">
-              <div class="form-group">
-                <p class="title-in-thumbnail">The following contact information is managed
-                  locally in the member database and is never overwritten by the monthly Ramblers head office
+    @if (systemConfig) {
+      <tabset class="custom-tabset">
+        <tab active="true" heading="Contact">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="row">
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <p class="title-in-thumbnail">The following contact information is managed
+                    locally in the member database and is never overwritten by the monthly Ramblers head office
                   data</p>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="row">
-            <div class="col-sm-2">
-              <form class="form-group">
-                <label for="title">Title</label>
-                <input autocomplete="new-password"
-                       name="title" [disabled]="!allowEdits" [(ngModel)]="member.title"
-                       type="text"
-                       class="form-control input-sm" id="title"
-                       placeholder="Enter Title here">
-              </form>
+            <div class="row">
+              <div class="col-sm-2">
+                <form class="form-group">
+                  <label for="title">Title</label>
+                  <input autocomplete="new-password"
+                         name="title" [disabled]="!allowEdits" [(ngModel)]="member.title"
+                         type="text"
+                         class="form-control input-sm" id="title"
+                         placeholder="Enter Title here">
+                </form>
+              </div>
+              <div class="col-sm-4">
+                <form class="form-group">
+                  <label for="first-name">First Name</label>
+                  <input autocomplete="new-password"
+                         name="firstName" [disabled]="!allowEdits" [(ngModel)]="member.firstName"
+                         type="text"
+                         class="form-control input-sm" id="first-name"
+                         placeholder="Enter First Name here">
+                </form>
+              </div>
+              <div class="col-sm-4">
+                <form class="form-group">
+                  <label for="last-name">Last Name</label>
+                  <input autocomplete="new-password" name="lastName" [disabled]="!allowEdits"
+                         [(ngModel)]="member.lastName"
+                         type="text"
+                         class="form-control input-sm" id="last-name"
+                         placeholder="Enter Last Name here">
+                </form>
+              </div>
+              <div class="col-sm-2">
+                <form class="form-group">
+                  <label for="name-alias">Alias</label>
+                  <input autocomplete="new-password" name="nameAlias" [disabled]="!allowEdits"
+                         [(ngModel)]="member.nameAlias"
+                         type="text"
+                         class="form-control input-sm" id="name-alias"
+                         placeholder="Enter additional name alias here to ensure name uniqueness">
+                </form>
+              </div>
             </div>
-            <div class="col-sm-4">
-              <form class="form-group">
-                <label for="first-name">First Name</label>
-                <input autocomplete="new-password"
-                       name="firstName" [disabled]="!allowEdits" [(ngModel)]="member.firstName"
-                       type="text"
-                       class="form-control input-sm" id="first-name"
-                       placeholder="Enter First Name here">
-              </form>
-            </div>
-            <div class="col-sm-4">
-              <form class="form-group">
-                <label for="last-name">Last Name</label>
-                <input autocomplete="new-password" name="lastName" [disabled]="!allowEdits" [(ngModel)]="member.lastName"
-                       type="text"
-                       class="form-control input-sm" id="last-name"
-                       placeholder="Enter Last Name here">
-              </form>
-            </div>
-            <div class="col-sm-2">
-              <form class="form-group">
-                <label for="name-alias">Alias</label>
-                <input autocomplete="new-password" name="nameAlias" [disabled]="!allowEdits" [(ngModel)]="member.nameAlias"
-                       type="text"
-                       class="form-control input-sm" id="name-alias"
-                       placeholder="Enter additional name alias here to ensure name uniqueness">
-              </form>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col-sm-6">
-              <form class="form-group">
-                <label for="mobile-number">Mobile Number</label>
-                <input autocomplete="new-password" name="mobileNumber" [disabled]="!allowEdits"
-                       [(ngModel)]="member.mobileNumber"
-                       type="text" class="form-control input-sm" id="mobile-number"
-                       placeholder="Enter mobile number here">
-              </form>
-            </div>
-            <div class="col-sm-6">
-              <form class="form-group">
-                <label for="landline-number">Land Line Number</label>
-                <input autocomplete="new-password" name="landlineTelephone" [disabled]="!allowEdits"
-                       [(ngModel)]="member.landlineTelephone"
-                       type="text" class="form-control input-sm" id="landline-number"
-                       placeholder="Enter landline number here">
-              </form>
-            </div>
-            <div class="col col-sm-6">
-              <form class="form-group">
-                <label for="contact-email">Contact Email</label>
-                <input autocomplete="new-password" name="email" [disabled]="!allowEdits" [(ngModel)]="member.email"
-                       type="text"
-                       class="form-control input-sm" id="contact-email"
-                       placeholder="Enter contact email here">
-              </form>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col col-sm-6">
-              <form class="form-group">
-                <label for="postcode">Postcode</label>
-                <input autocomplete="new-password" name="postcode" [(ngModel)]="member.postcode" type="text"
-                       class="form-control input-sm" id="postcode"
-                       placeholder="Enter home postcode">
-              </form>
-            </div>
-            <div class="col col-sm-6">
-              <form class="form-group">
-                <label for="display-name">Display Name</label>
-                <input autocomplete="new-password" name="displayName" [(ngModel)]="member.displayName" type="text"
-                       class="form-control input-sm" id="display-name"
-                       placeholder="The display name as shown in walks and social events">
-              </form>
-            </div>
-          </div>
-        </div>
-      </tab>
-      <tab heading="Login">
-        <form>
-          <div class="img-thumbnail thumbnail-admin-edit">
             <div class="row">
               <div class="col-sm-6">
                 <form class="form-group">
-                  <label for="login-user-name">Login User Name</label>
-                  <input autocomplete="new-password" name="userName" [disabled]="!allowEdits"
-                         [(ngModel)]="member.userName" type="text"
-                         class="form-control input-sm" id="login-user-name"
-                         placeholder="Enter login user name here">
+                  <label for="mobile-number">Mobile Number</label>
+                  <input autocomplete="new-password" name="mobileNumber" [disabled]="!allowEdits"
+                         [(ngModel)]="member.mobileNumber"
+                         type="text" class="form-control input-sm" id="mobile-number"
+                         placeholder="Enter mobile number here">
                 </form>
               </div>
               <div class="col-sm-6">
                 <form class="form-group">
-                  <label for="new-password">Password</label>
-                  <input autocomplete="new-password" name="new-password"
-                         [(ngModel)]="member.password"
-                         type="password" class="form-control input-sm" id="new-password"
-                         placeholder="Enter new password here">
+                  <label for="landline-number">Land Line Number</label>
+                  <input autocomplete="new-password" name="landlineTelephone" [disabled]="!allowEdits"
+                         [(ngModel)]="member.landlineTelephone"
+                         type="text" class="form-control input-sm" id="landline-number"
+                         placeholder="Enter landline number here">
                 </form>
               </div>
-              <div class="col-sm-6">
-                <div class="form-group">
-                  <label for="lastLogin">Last Login</label>
-                  <input [disabled]="true" type="text"
-                         value="{{lastLoggedIn | displayDateAndTime}}"
-                         class="form-control input-sm" id="lastLogin"
-                         placeholder="Member has not logged in yet">
-                </div>
+              <div class="col col-sm-6">
+                <form class="form-group">
+                  <label for="contact-email">Contact Email</label>
+                  <input autocomplete="new-password" name="email" [disabled]="!allowEdits" [(ngModel)]="member.email"
+                         type="text"
+                         class="form-control input-sm" id="contact-email"
+                         placeholder="Enter contact email here">
+                </form>
               </div>
-              <div class="col-sm-6">
-                <div class="custom-control custom-checkbox">
-                  <input name="expiredPassword" [disabled]="!allowEdits" [(ngModel)]="member.expiredPassword"
-                         type="checkbox" class="custom-control-input" id="is-member-ex">
-                  <label class="custom-control-label"
-                         for="is-member-ex">Expired Password
-                  </label>
-                </div>
+            </div>
+            <div class="row">
+              <div class="col col-sm-6">
+                <form class="form-group">
+                  <label for="postcode">Postcode</label>
+                  <input autocomplete="new-password" name="postcode" [(ngModel)]="member.postcode" type="text"
+                         class="form-control input-sm" id="postcode"
+                         placeholder="Enter home postcode">
+                </form>
+              </div>
+              <div class="col col-sm-6">
+                <form class="form-group">
+                  <label for="display-name">Display Name</label>
+                  <input autocomplete="new-password" name="displayName" [(ngModel)]="member.displayName" type="text"
+                         class="form-control input-sm" id="display-name"
+                         placeholder="The display name as shown in walks and social events">
+                </form>
               </div>
             </div>
           </div>
-        </form>
-      </tab>
-      <tab heading="Privileges">
-        <div class="img-thumbnail thumbnail-admin-edit">
-          <div class="row">
-            <div class="col-sm-12">
-              <p>Please select the <b>privileges</b> that should be assigned to
+        </tab>
+        <tab heading="Login">
+          <form>
+            <div class="img-thumbnail thumbnail-admin-edit">
+              <div class="row">
+                <div class="col-sm-6">
+                  <form class="form-group">
+                    <label for="login-user-name">Login User Name</label>
+                    <input autocomplete="new-password" name="userName" [disabled]="!allowEdits"
+                           [(ngModel)]="member.userName" type="text"
+                           class="form-control input-sm" id="login-user-name"
+                           placeholder="Enter login user name here">
+                  </form>
+                </div>
+                <div class="col-sm-6">
+                  <form class="form-group">
+                    <label for="new-password">Password</label>
+                    <input autocomplete="new-password" name="new-password"
+                           [(ngModel)]="member.password"
+                           type="password" class="form-control input-sm" id="new-password"
+                           placeholder="Enter new password here">
+                  </form>
+                </div>
+                <div class="col-sm-6">
+                  <div class="form-group">
+                    <label for="lastLogin">Last Login</label>
+                    <input [disabled]="true" type="text"
+                           value="{{lastLoggedIn | displayDateAndTime}}"
+                           class="form-control input-sm" id="lastLogin"
+                           placeholder="Member has not logged in yet">
+                  </div>
+                </div>
+                <div class="col-sm-6">
+                  <div class="custom-control custom-checkbox">
+                    <input name="expiredPassword" [disabled]="!allowEdits" [(ngModel)]="member.expiredPassword"
+                           type="checkbox" class="custom-control-input" id="is-member-ex">
+                    <label class="custom-control-label"
+                           for="is-member-ex">Expired Password
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
+        </tab>
+        <tab heading="Privileges">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="row">
+              <div class="col-sm-12">
+                <p>Please select the <b>privileges</b> that should be assigned to
                 {{member |
-                  fullNameWithAlias}} using the checkboxes below:</p>
+                    fullNameWithAlias
+                  }} using the checkboxes below:</p>
             </div>
           </div>
           <div class="row">
@@ -210,7 +214,6 @@
                        id="receives-walk-change-notifications">
                 <label class="custom-control-label"
                        for="receives-walk-change-notifications">Walk Change Notifications
-
                 </label>
               </div>
               <div class="custom-control custom-checkbox">
@@ -321,23 +324,27 @@
             </div>
           </div>
           <div class="row">
-            <div class="col col-sm-6" *ngIf="member?.jointWith">
-              <div class="form-group">
-                <label for="joint-with">Joint with</label>
-                <input disabled [value]="jointWith(member.jointWith)" type="text"
-                       class="form-control input-sm" id="joint-with"
-                       placeholder="(not found)">
+            @if (member?.jointWith) {
+              <div class="col col-sm-6">
+                <div class="form-group">
+                  <label for="joint-with">Joint with</label>
+                  <input disabled [value]="jointWith(member.jointWith)" type="text"
+                         class="form-control input-sm" id="joint-with"
+                         placeholder="(not found)">
+                </div>
               </div>
-            </div>
-            <div class="col col-sm-6" *ngIf="member?.jointWith">
-              <div class="form-group">
-                <label for="joint-with-membership-number">Joint Membership Number</label>
-                <input disabled [value]="member.jointWith" type="text"
-                       class="form-control input-sm" id="joint-with-membership-number"
-                       placeholder="(not found)">
+            }
+            @if (member?.jointWith) {
+              <div class="col col-sm-6">
+                <div class="form-group">
+                  <label for="joint-with-membership-number">Joint Membership Number</label>
+                  <input disabled [value]="member.jointWith" type="text"
+                         class="form-control input-sm" id="joint-with-membership-number"
+                         placeholder="(not found)">
+                </div>
               </div>
-            </div>
-        </div>
+            }
+          </div>
         </div>
       </tab>
       <tab heading="Ramblers">
@@ -369,101 +376,127 @@
           </div>
         </div>
       </tab>
-      <tab app-mailchimp-subscription-settings heading="Mailchimp" [member]="member" [mailchimpConfig]="mailchimpConfig"
-           *ngIf="systemConfig?.mailDefaults?.mailProvider=== MailProvider.MAILCHIMP"/>
-      <tab app-mail-subscription-settings heading="Brevo" [member]="member" [members]="members" [mailMessagingConfig]="mailMessagingConfig" [systemConfig]="systemConfig" [mailListAudits]="mailListAudits"
-           *ngIf="systemConfig?.mailDefaults?.mailProvider=== MailProvider.BREVO"/>
-      <tab heading="Audit">
-        <div class="img-thumbnail thumbnail-admin-edit">
-          <div class="row">
-            <div class="col-sm-6">
-              <dl class="dl-horizontal input-sm">
-                <dt>Member Created</dt>
-                <dd [textContent]="member | createdAudit : members"></dd>
-              </dl>
+        @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.MAILCHIMP) {
+          <tab app-mailchimp-subscription-settings heading="Mailchimp" [member]="member"
+               [mailchimpConfig]="mailchimpConfig"
+          />
+        }
+        @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.BREVO) {
+          <tab app-mail-subscription-settings heading="Brevo" [member]="member" [members]="members"
+               [mailMessagingConfig]="mailMessagingConfig" [systemConfig]="systemConfig"
+               [mailListAudits]="mailListAudits"
+          />
+        }
+        <tab heading="Audit">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="row">
+              <div class="col-sm-6">
+                <dl class="dl-horizontal input-sm">
+                  <dt>Member Created</dt>
+                  <dd [textContent]="member | createdAudit : members"></dd>
+                </dl>
+              </div>
+              <div class="col-sm-6">
+                <dl class="dl-horizontal input-sm">
+                  <dt>Member Updated</dt>
+                  <dd [textContent]="member | updatedAudit : members"></dd>
+                </dl>
+              </div>
             </div>
-            <div class="col-sm-6">
-              <dl class="dl-horizontal input-sm">
-                <dt>Member Updated</dt>
-                <dd [textContent]="member | updatedAudit : members"></dd>
-              </dl>
+            <div class="row">
+              <div class="col-sm-6">
+                <dl class="dl-horizontal input-sm">
+                  <dt>Last Bulk Load Date</dt>
+                  <dd [textContent]="lastBulkLoadDate | displayDateAndTime">
+                  </dd>
+                </dl>
+              </div>
+              <div class="col-sm-6">
+                <dl class="dl-horizontal input-sm">
+                  <dt>Received In Last Bulk Load</dt>
+                  <dd>
+                    <app-switch-icon [on]="receivedInLastBulkLoad"/>
+                  </dd>
+                </dl>
+              </div>
             </div>
-          </div>
-          <div class="row">
-            <div class="col-sm-6">
-              <dl class="dl-horizontal input-sm">
-                <dt>Last Bulk Load Date</dt>
-                <dd [textContent]="lastBulkLoadDate | displayDateAndTime">
-                </dd>
-              </dl>
-            </div>
-            <div class="col-sm-6">
-              <dl class="dl-horizontal input-sm">
-                <dt>Received In Last Bulk Load</dt>
-                <dd><app-switch-icon [on]="receivedInLastBulkLoad"/></dd>
-              </dl>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col col-sm-12">
-              <p>The information below is an audit of all Member bulk loads from the
+            <div class="row">
+              <div class="col col-sm-12">
+                <p>The information below is an audit of all Member bulk loads from the
                 Ramblers provided data for {{member | fullNameWithAlias}}:</p>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col col-sm-12">
+                <table
+                  class="round styled-table table-striped table-hover table-sm table-pointer">
+                  <thead>
+                  <tr>
+                    <th>Update Time</th>
+                    <th>Member Action</th>
+                    <th>Audit Message</th>
+                  </tr>
+                  </thead>
+                  <tbody>
+                    @for (memberUpdateAudit of memberUpdateAudits; track memberUpdateAudit.id) {
+                      <tr>
+                        <td>{{ memberUpdateAudit.updateTime | displayDateAndTime }}</td>
+                        <td>{{ memberUpdateAudit.memberAction }}</td>
+                        <td>{{ memberUpdateAudit.auditMessage || NO_CHANGES_OR_DIFFERENCES }}
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-          <div class="row">
-            <div class="col col-sm-12">
-              <table
-                class="round styled-table table-striped table-hover table-sm table-pointer">
-                <thead>
-                <tr>
-                  <th>Update Time</th>
-                  <th>Member Action</th>
-                  <th>Audit Message</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr *ngFor="let memberUpdateAudit of memberUpdateAudits">
-                  <td>{{memberUpdateAudit.updateTime | displayDateAndTime}}</td>
-                  <td>{{memberUpdateAudit.memberAction}}</td>
-                  <td>{{memberUpdateAudit.auditMessage || NO_CHANGES_OR_DIFFERENCES }}
-                  </td>
-                </tr>
-                </tbody>
-              </table>
+        </tab>
+        <tab heading="Member Raw Data">
+          <div class="img-thumbnail thumbnail-admin-edit">
+            <div class="row">
+              <div class="col col-sm-12"></div>
+              <pre>{{ member | json }}</pre>
             </div>
           </div>
-        </div>
-      </tab>
-      <tab heading="Member Raw Data">
-        <div class="img-thumbnail thumbnail-admin-edit">
-          <div class="row">
-            <div class="col col-sm-12"></div>
-            <pre>{{member | json}}</pre>
-          </div>
-        </div>
-      </tab>
-    </tabset>
-    <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
-      <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-      <strong *ngIf="notifyTarget.alertTitle">
-        {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
-    </div>
+        </tab>
+      </tabset>
+    }
+    @if (notifyTarget.showAlert) {
+      <div class="alert {{notifyTarget.alertClass}}">
+        <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+        @if (notifyTarget.alertTitle) {
+          <strong>
+            {{ notifyTarget.alertTitle }}: </strong>
+        } {{ notifyTarget.alertMessage }}
+      </div>
+    }
   </div>
   <div class="modal-footer">
-    <input *ngIf="allowEdits" type="submit" [disabled]="saveInProgress"
-           [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
-           (click)="saveMemberDetails()" tooltip="Save these member details" adaptivePosition value="Save">
-    <input *ngIf="allowDelete" type="submit" [disabled]="saveInProgress"
-           [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
-           (click)="deleteMemberDetails()" tooltip="Delete these member details" value="Delete">
-    <input *ngIf="allowConfirmDelete" type="submit" class="button-form button-form-left button-confirm"
-           (click)="confirmDeleteMemberDetails()" tooltip="Confirm Delete of these member details"
-           value="Confirm Deletion">
-    <input *ngIf="allowEdits" type="submit" [disabled]="saveInProgress"
-           [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
-           (click)="copyDetailsToNewMember()" tooltip="Copy details to new Member" value="Copy">
-    <input *ngIf="allowEdits" type="submit" [disabled]="saveInProgress"
-           [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
-           (click)="this.bsModalRef.hide();" tooltip="Cancel and don't save changes" value="Cancel">
+    @if (allowEdits) {
+      <input type="submit" [disabled]="saveInProgress"
+             [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
+             (click)="saveMemberDetails()" tooltip="Save these member details" adaptivePosition value="Save">
+    }
+    @if (allowDelete) {
+      <input type="submit" [disabled]="saveInProgress"
+             [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
+             (click)="deleteMemberDetails()" tooltip="Delete these member details" value="Delete">
+    }
+    @if (allowConfirmDelete) {
+      <input type="submit" class="button-form button-form-left button-confirm"
+             (click)="confirmDeleteMemberDetails()" tooltip="Confirm Delete of these member details"
+             value="Confirm Deletion">
+    }
+    @if (allowEdits) {
+      <input type="submit" [disabled]="saveInProgress"
+             [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
+             (click)="copyDetailsToNewMember()" tooltip="Copy details to new Member" value="Copy">
+    }
+    @if (allowEdits) {
+      <input type="submit" [disabled]="saveInProgress"
+             [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
+             (click)="bsModalRef.hide();" tooltip="Cancel and don't save changes" value="Cancel">
+    }
   </div>
 </div>

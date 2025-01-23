@@ -18,24 +18,30 @@ import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata
   styleUrls: ["./album-grid.sass"],
   template: `
     <div class="card-columns">
-      <div class="card"
-           *ngFor="let image of lazyLoadingMetadata?.selectedSlides">
-        <img class="card-img-top"
-             [src]="urlService.imageSourceFor(image,lazyLoadingMetadata?.contentMetadata)"
-             [alt]="image.text">
-        <div *ngIf="gridViewOptions.showTitles" class="card-body">
-          <h5 class="card-title">{{image.text}}</h5>
-          <p *ngIf="gridViewOptions.showDates" class="card-text">
-            <small class="text-muted">{{dateUtils.displayDate(image.date)}}
-              <span class="ml-2 float-right">{{slideNumber(image)}}</span></small></p>
+      @for (image of lazyLoadingMetadata?.selectedSlides; track image) {
+        <div class="card">
+          <img class="card-img-top"
+               [src]="urlService.imageSourceFor(image,lazyLoadingMetadata?.contentMetadata)"
+               [alt]="image.text">
+          @if (gridViewOptions.showTitles) {
+            <div class="card-body">
+              <h5 class="card-title">{{ image.text }}</h5>
+              @if (gridViewOptions.showDates) {
+                <p class="card-text">
+                  <small class="text-muted">{{ dateUtils.displayDate(image.date) }}
+                    <span class="ml-2 float-right">{{ slideNumber(image) }}</span></small></p>
+              }
+            </div>
+          }
         </div>
-      </div>
+      }
     </div>
-    <app-badge-button class="float-right" noRightMargin
-                      *ngIf="lazyLoadingMetadata?.availableSlides?.length>lazyLoadingMetadata?.selectedSlides?.length"
-                      [tooltip]="'load more images'"
-                      [icon]="faSearch"
-                      (click)="viewMoreImages()" caption="load more images"/>
+    @if (lazyLoadingMetadata?.availableSlides?.length > lazyLoadingMetadata?.selectedSlides?.length) {
+      <app-badge-button class="float-right" noRightMargin
+                        [tooltip]="'load more images'"
+                        [icon]="faSearch"
+                        (click)="viewMoreImages()" caption="load more images"/>
+    }
   `,
   standalone: false
 })

@@ -16,21 +16,23 @@ import { StoredValue } from "../../../models/ui-actions";
 @Component({
   selector: "app-carousel-selector",
   template: `
-    <div *ngIf="allow.edit && contentMetadataItems">
-      <div class="row">
-        <div class="col-sm-12 mb-2 mt-2">
-          <h6>Edit images from</h6>
-          <div class="form-inline">
-            <app-carousel-select [maxWidth]="250" [name]="name" (metadataChange)="metadataChange($event)"></app-carousel-select>
-            <app-badge-button [disabled]="!contentMetadata"
-                              caption="View images"
-                              (click)="navigateTo(contentMetadata.name)"
-                              [icon]="faEye">
-            </app-badge-button>
+    @if (allow.edit && contentMetadataItems) {
+      <div>
+        <div class="row">
+          <div class="col-sm-12 mb-2 mt-2">
+            <h6>Edit images from</h6>
+            <div class="form-inline">
+              <app-carousel-select [maxWidth]="250" [name]="name" (metadataChange)="metadataChange($event)"></app-carousel-select>
+              <app-badge-button [disabled]="!contentMetadata"
+                caption="View images"
+                (click)="navigateTo(contentMetadata.name)"
+                [icon]="faEye">
+              </app-badge-button>
+            </div>
           </div>
         </div>
       </div>
-    </div>`,
+    }`,
   standalone: false
 })
 export class CarouselSelectorComponent implements OnInit {

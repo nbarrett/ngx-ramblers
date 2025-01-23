@@ -4,6 +4,9 @@
         [disabled]="disabled"
         (ngModelChange)="changeAspectRatioSettings($event)"
         [id]="id">
-  <option *ngFor="let aspectRatio of dimensions"
-          [ngValue]="aspectRatio">{{formatAspectRatio(aspectRatio)}}</option>
+  @for (aspectRatio of dimensions; track aspectRatio) {
+    <option
+      [ngValue]="aspectRatio">{{ formatAspectRatio(aspectRatio) }}
+    </option>
+  }
 </select>

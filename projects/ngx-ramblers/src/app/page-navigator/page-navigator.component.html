@@ -1,5 +1,7 @@
-<li class="navigation" *ngFor="let page of pages()">
+@for (page of pages(); track page) {
+  <li class="navigation">
     <a (click)="unToggleMenu()" [ngClass]="{'active' : isOnPage(page)} "
        [routerLink]="'/' + page.href"
        [textContent]="page.title" title="{{page.title}}"></a>
-</li>
+  </li>
+}

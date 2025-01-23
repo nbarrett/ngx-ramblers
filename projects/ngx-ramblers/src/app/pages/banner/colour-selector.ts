@@ -44,24 +44,32 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
   template: `
     <div class="row">
       <div class="col-md-12">
-        <label *ngIf="!noLabel " for="colour-selector">{{ label }}</label>
-        <ng-select *ngIf="itemWithClassOrColour"
-                   [ngModel]="this.hasClass(this.itemWithClassOrColour) ? this.itemWithClassOrColour.class : this.itemWithClassOrColour.colour"
-                   (change)="change($event)"
-                   appearance="outline"
-                   [clearable]="false"
-                   labelForId="colour-selector"
-                   [virtualScroll]="true"
-                   [bufferAmount]="30">
-          <ng-option *ngFor="let colour of colours"
-                     [value]="this.hasClass(this.itemWithClassOrColour) ? colour.class : colour.colour">
-            <span [class]="colour.badgeClass">{{ colour.name }}</span>
-          </ng-option>
-        </ng-select>
-        <div *ngIf="!itemWithClassOrColour">No item to configure</div>
+        @if (!noLabel ) {
+          <label for="colour-selector">{{ label }}</label>
+        }
+        @if (itemWithClassOrColour) {
+          <ng-select
+            [ngModel]="this.hasClass(this.itemWithClassOrColour) ? this.itemWithClassOrColour.class : this.itemWithClassOrColour.colour"
+            (change)="change($event)"
+            appearance="outline"
+            [clearable]="false"
+            labelForId="colour-selector"
+            [virtualScroll]="true"
+            [bufferAmount]="30">
+            @for (colour of colours; track colour) {
+              <ng-option
+                [value]="this.hasClass(this.itemWithClassOrColour) ? colour.class : colour.colour">
+                <span [class]="colour.badgeClass">{{ colour.name }}</span>
+              </ng-option>
+            }
+          </ng-select>
+        }
+        @if (!itemWithClassOrColour) {
+          <div>No item to configure</div>
+        }
       </div>
     </div>
-  `,
+    `,
   standalone: false
 })
 

@@ -30,136 +30,152 @@ import { MemberNamingService } from "../../services/member/member-naming.service
         <button type="button" class="close" (click)="close()">&times;</button>
       </div>
       <div class="modal-body">
-        <form #contactForm="ngForm" *ngIf="committeeMember" (ngSubmit)="sendEmail()" class="p-2" novalidate>
-          <h6 class="my-3">Please complete the following details and we'll send your message to
+        @if (committeeMember) {
+          <form #contactForm="ngForm" (ngSubmit)="sendEmail()" class="p-2" novalidate>
+            <h6 class="my-3">Please complete the following details and we'll send your message to
             {{ committeeMember?.fullName }}, our {{ committeeMember?.description }}.</h6>
-          <div class="form-group">
-            <label for="contact-name">Your Name</label>
-            <input #contactNameInput [(ngModel)]="contactFormDetails.name" name="name" type="text" id="contact-name"
-                   class="form-control" required>
-            <div *ngIf="contactForm.submitted && !contactForm.controls.name?.valid" class="text-danger">
-              Name is required.
+            <div class="form-group">
+              <label for="contact-name">Your Name</label>
+              <input #contactNameInput [(ngModel)]="contactFormDetails.name" name="name" type="text" id="contact-name"
+                class="form-control" required>
+              @if (contactForm.submitted && !contactForm.controls.name?.valid) {
+                <div class="text-danger">
+                  Name is required.
+                </div>
+              }
             </div>
+            <div class="form-group">
+              <label for="contact-email">Your Email Address</label>
+              <input [(ngModel)]="contactFormDetails.email" name="email" type="email" id="contact-email"
+                class="form-control" required>
+              @if (contactForm.submitted && !contactForm.controls.email?.valid) {
+                <div class="text-danger">
+                  Valid email is required.
+                </div>
+              }
+            </div>
+            <div class="form-group">
+              <label for="contact-subject">Subject</label>
+              <input [(ngModel)]="contactFormDetails.subject" name="subject" type="text" id="contact-subject"
+                class="form-control" required>
+              @if (contactForm.submitted && !contactForm.controls.subject?.valid) {
+                <div class="text-danger">
+                  Subject is required.
+                </div>
+              }
+            </div>
+            <div class="form-group">
+              <label for="contact-message">Your Message</label>
+              <textarea [(ngModel)]="contactFormDetails.message" name="message" id="contact-message" class="form-control"
+              rows="8" required></textarea>
+              @if (contactForm.submitted && !contactForm.controls.message?.valid) {
+                <div class="text-danger">
+                  Message is required.
+                </div>
+              }
+            </div>
+            <div class="form-group">
+              <div class="custom-control custom-checkbox">
+                <input [(ngModel)]="contactFormDetails.sendCopy" name="sendCopy" type="checkbox" id="contact-email-copy"
+                  class="custom-control-input">
+                <label for="contact-email-copy" class="custom-control-label">Send a copy to yourself</label>
+              </div>
+            </div>
+            @if (config?.recaptcha?.siteKey) {
+              <div class="form-group">
+                <re-captcha (resolved)="onCaptchaResolved($event)"
+                  [siteKey]="config?.recaptcha?.siteKey"/>
+              </div>
+            }
+            <button type="submit" #hiddenSubmitButton class="d-none"></button>
+          </form>
+        }
+        @if (notifyTarget.showAlert) {
+          <div class="alert {{notifyTarget.alertClass}}">
+            <fa-icon [icon]="notifyTarget.alert.icon"/>
+            @if (notifyTarget.alertTitle) {
+              <strong>
+              {{ notifyTarget.alertTitle }}: </strong>
+              } {{ notifyTarget.alertMessage }}
+            </div>
+          }
+        </div>
+        <div class="modal-footer">
+          <div class="form-group">
+            <button class="btn btn-primary" [disabled]="emailSendDisabled()"
+              (click)="triggerSubmit()">Send
+              Email
+            </button>
           </div>
           <div class="form-group">
-            <label for="contact-email">Your Email Address</label>
-            <input [(ngModel)]="contactFormDetails.email" name="email" type="email" id="contact-email"
-                   class="form-control" required>
-            <div *ngIf="contactForm.submitted && !contactForm.controls.email?.valid" class="text-danger">
-              Valid email is required.
-            </div>
+            <button class="btn btn-primary ml-2 mr-2" (click)="close()">Close</button>
           </div>
-          <div class="form-group">
-            <label for="contact-subject">Subject</label>
-            <input [(ngModel)]="contactFormDetails.subject" name="subject" type="text" id="contact-subject"
-                   class="form-control" required>
-            <div *ngIf="contactForm.submitted && !contactForm.controls.subject?.valid" class="text-danger">
-              Subject is required.
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="contact-message">Your Message</label>
-            <textarea [(ngModel)]="contactFormDetails.message" name="message" id="contact-message" class="form-control"
-                      rows="8" required></textarea>
-            <div *ngIf="contactForm.submitted && !contactForm.controls.message?.valid" class="text-danger">
-              Message is required.
-            </div>
-          </div>
-          <div class="form-group">
-            <div class="custom-control custom-checkbox">
-              <input [(ngModel)]="contactFormDetails.sendCopy" name="sendCopy" type="checkbox" id="contact-email-copy"
-                     class="custom-control-input">
-              <label for="contact-email-copy" class="custom-control-label">Send a copy to yourself</label>
-            </div>
-          </div>
-          <div class="form-group" *ngIf="config?.recaptcha?.siteKey">
-            <re-captcha (resolved)="onCaptchaResolved($event)"
-                        [siteKey]="config?.recaptcha?.siteKey"/>
-          </div>
-          <button type="submit" #hiddenSubmitButton class="d-none"></button>
-        </form>
-        <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
-          <fa-icon [icon]="notifyTarget.alert.icon"/>
-          <strong *ngIf="notifyTarget.alertTitle">
-            {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
         </div>
       </div>
-      <div class="modal-footer">
-        <div class="form-group">
-          <button class="btn btn-primary" [disabled]="emailSendDisabled()"
-                  (click)="triggerSubmit()">Send
-            Email
-          </button>
+      <div class="d-none">
+        <ng-template app-notification-directive></ng-template>
+        <div #inboundNotificationContent>
+          <p>A message was been received via the website as follows:</p>
+          <dl>
+            <dt>
+              <b>Time:</b>
+            </dt>
+            <dd>{{ contactFormDetails.timestamp | displayDateAndTime }}</dd>
+          </dl>
+          <dl>
+            <dt>
+              <b>Route:</b>
+            </dt>
+            <dd>{{ formatRoute() }}</dd>
+          </dl>
+          <dl>
+            <dt>
+              <b>Contact Name:</b>
+            </dt>
+            <dd>{{ contactFormDetails.name }}</dd>
+          </dl>
+          <dl>
+            <dt>
+              <b>Contact Email:</b>
+            </dt>
+            <dd>{{ contactFormDetails.email }}</dd>
+          </dl>
+          <dl>
+            <dt>
+              <b>Message:</b>
+            </dt>
+            <dd markdown [data]="contactFormDetails.message"></dd>
+          </dl>
         </div>
-        <div class="form-group">
-          <button class="btn btn-primary ml-2 mr-2" (click)="close()">Close</button>
+        <div #sendCopyNotificationContent>
+          <p>This is a copy of a message that you sent via our website as follows:</p>
+          <dl>
+            <dt>
+              <b>Time:</b>
+            </dt>
+            <dd>{{ contactFormDetails.timestamp | displayDateAndTime }}</dd>
+          </dl>
+          <dl>
+            <dt>
+              <b>Contact Name:</b>
+            </dt>
+            <dd>{{ contactFormDetails.name }}</dd>
+          </dl>
+          <dl>
+            <dt>
+              <b>Contact Email:</b>
+            </dt>
+            <dd>{{ contactFormDetails.email }}</dd>
+          </dl>
+          <dl>
+            <dt>
+              <b>Message:</b>
+            </dt>
+            <dd markdown [data]="contactFormDetails.message"></dd>
+          </dl>
         </div>
       </div>
-    </div>
-    <div class="d-none">
-      <ng-template app-notification-directive></ng-template>
-      <div #inboundNotificationContent>
-        <p>A message was been received via the website as follows:</p>
-        <dl>
-          <dt>
-            <b>Time:</b>
-          </dt>
-          <dd>{{ contactFormDetails.timestamp | displayDateAndTime }}</dd>
-        </dl>
-        <dl>
-          <dt>
-            <b>Route:</b>
-          </dt>
-          <dd>{{ formatRoute() }}</dd>
-        </dl>
-        <dl>
-          <dt>
-            <b>Contact Name:</b>
-          </dt>
-          <dd>{{ contactFormDetails.name }}</dd>
-        </dl>
-        <dl>
-          <dt>
-            <b>Contact Email:</b>
-          </dt>
-          <dd>{{ contactFormDetails.email }}</dd>
-        </dl>
-        <dl>
-          <dt>
-            <b>Message:</b>
-          </dt>
-          <dd markdown [data]="contactFormDetails.message"></dd>
-        </dl>
-      </div>
-      <div #sendCopyNotificationContent>
-        <p>This is a copy of a message that you sent via our website as follows:</p>
-        <dl>
-          <dt>
-            <b>Time:</b>
-          </dt>
-          <dd>{{ contactFormDetails.timestamp | displayDateAndTime }}</dd>
-        </dl>
-        <dl>
-          <dt>
-            <b>Contact Name:</b>
-          </dt>
-          <dd>{{ contactFormDetails.name }}</dd>
-        </dl>
-        <dl>
-          <dt>
-            <b>Contact Email:</b>
-          </dt>
-          <dd>{{ contactFormDetails.email }}</dd>
-        </dl>
-        <dl>
-          <dt>
-            <b>Message:</b>
-          </dt>
-          <dd markdown [data]="contactFormDetails.message"></dd>
-        </dl>
-      </div>
-    </div>
-  `,
+    `,
   standalone: false
 })
 export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit {

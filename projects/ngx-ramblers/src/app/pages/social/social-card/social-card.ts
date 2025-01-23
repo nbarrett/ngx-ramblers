@@ -12,17 +12,19 @@ import { SocialDisplayService } from "../social-display.service";
   template: `
     <div class="card shadow clickable h-100">
       <app-card-image [imageLink]="display.socialEventLink(socialEvent, true)"
-                      [imageSource]="imageSourceOrPreview()">
+        [imageSource]="imageSourceOrPreview()">
       </app-card-image>
       <div class="card-body">
         <h4 class="card-title">
           <a class="rams-text-decoration-pink"
-             [routerLink]="urlService.routerLinkUrl(display.socialEventLink(socialEvent, true))"
-             target="_self">{{ socialEvent.briefDescription }}</a>
+            [routerLink]="urlService.routerLinkUrl(display.socialEventLink(socialEvent, true))"
+          target="_self">{{ socialEvent.briefDescription }}</a>
         </h4>
         <ul class="list-arrow">
           <li>{{ socialEvent.eventDate | displayDay }}</li>
-          <li *ngIf="socialEvent?.eventTimeStart">Time: {{ socialEvent | eventTimes }}</li>
+          @if (socialEvent?.eventTimeStart) {
+            <li>Time: {{ socialEvent | eventTimes }}</li>
+          }
         </ul>
       </div>
     </div>`,

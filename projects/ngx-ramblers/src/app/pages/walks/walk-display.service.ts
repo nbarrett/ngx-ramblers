@@ -47,7 +47,7 @@ export class WalkDisplayService {
   public expandedWalks: ExpandedWalk [] = [];
   private logger: Logger;
   public grades = WALK_GRADES.map(item => item.description);
-  public walkTypes = enumValues(WalkType);
+  public walkTypes: WalkType[] = enumValues(WalkType);
   private nextWalkId: string;
   public members: Member[] = [];
   public googleMapsConfig: GoogleMapsConfig;

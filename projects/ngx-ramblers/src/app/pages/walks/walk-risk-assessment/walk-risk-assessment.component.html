@@ -21,10 +21,12 @@
                                     [riskAssessmentSection]="'Other'">
   </app-walk-risk-assessment-section>
   <div class="form-group">
-    <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
-      <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-      <strong> {{notifyTarget.alertTitle}}: </strong>
-      {{notifyTarget.alertMessage}}
-    </div>
+    @if (notifyTarget.showAlert) {
+      <div class="alert {{notifyTarget.alertClass}}">
+        <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+        <strong> {{ notifyTarget.alertTitle }}: </strong>
+        {{ notifyTarget.alertMessage }}
+      </div>
+    }
   </div>
 </div>

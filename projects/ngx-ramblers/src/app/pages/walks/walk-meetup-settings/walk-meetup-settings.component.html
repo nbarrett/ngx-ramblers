@@ -23,10 +23,12 @@
                               (ngModelChange)="onChange($event)"
                               class="form-control"
                               id="type">
-                        <option *ngFor="let contentText of contentTextItems"
-                                [ngValue]="contentText"
-                                [textContent]="contentText.name">
-                        </option>
+                        @for (contentText of contentTextItems; track contentText) {
+                          <option
+                            [ngValue]="contentText"
+                            [textContent]="contentText.name">
+                          </option>
+                        }
                       </select>
                     </div>
                     <div class="form-group">
@@ -40,16 +42,18 @@
               <div class="row">
                 <div class="col-sm-12">
                   <div class="mt-2 mb-2 font-weight-bold">{{selectedContent?.name}} content:</div>
-                  <ng-container *ngFor="let content of contentTextItems">
-                    <div *ngIf="matching(content, selectedContent)">
-                      <app-markdown-editor [data]="content"
-                                           [editNameEnabled]="true"
-                                           [deleteEnabled]="true"
-                                           [id]="content.name"
-                                           [initialView]="View.EDIT"
-                                           [rows]="8"/>
-                    </div>
-                  </ng-container>
+                  @for (content of contentTextItems; track content) {
+                    @if (matching(content, selectedContent)) {
+                      <div>
+                        <app-markdown-editor [data]="content"
+                                             [editNameEnabled]="true"
+                                             [deleteEnabled]="true"
+                                             [id]="content.name"
+                                             [initialView]="View.EDIT"
+                                             [rows]="8"/>
+                      </div>
+                    }
+                  }
                 </div>
               </div>
             </div>
@@ -63,20 +67,26 @@
                 </li>
               </ul>
             </div>
-            <app-walk-meetup-config-parameters *ngIf="config" [config]="config"
-                                               [contentTextItems]="contentTextItems"/>
+            @if (config) {
+              <app-walk-meetup-config-parameters [config]="config"
+                                                 [contentTextItems]="contentTextItems"/>
+            }
           </div>
         </tab>
       </tabset>
       <div class="form-group">
-        <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
-          <fa-icon [icon]="notifyTarget.alert.icon"/>
-          <strong> {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
-        </div>
+        @if (notifyTarget.showAlert) {
+          <div class="alert {{notifyTarget.alertClass}}">
+            <fa-icon [icon]="notifyTarget.alert.icon"/>
+            <strong> {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
+          </div>
+        }
       </div>
-      <input *ngIf="activeTabIs(1)" type="submit" value="Save" (click)="save()"
-             title="Save"
-             class="button-form">
+      @if (activeTabIs(1)) {
+        <input type="submit" value="Save" (click)="save()"
+               title="Save"
+               class="button-form">
+      }
       <input type="submit" value="Back To Walks Admin" (click)="backToWalksAdmin()"
              title="Back to walks"
              class="button-form">

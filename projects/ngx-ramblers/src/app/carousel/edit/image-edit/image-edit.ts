@@ -43,36 +43,46 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
     <div class="card mb-3">
       <div class="card-body">
         <div class="row">
-          <div class="col-sm-12 mb-3" *ngIf="editActive">
-            <app-image-cropper-and-resizer noImageSave
-                                           [selectAspectRatio]="contentMetadata?.aspectRatio"
-                                           [rootFolder]="contentMetadataService.rootFolderAndName(contentMetadata?.rootFolder, contentMetadata?.name)"
-                                           [preloadImage]="imageSourceOrPreview()"
-                                           (imageChange)="imageChanged($event)"
-                                           (error)="imageCroppingError($event)"
-                                           (cropError)="imageCroppingError($event)"
-                                           (quit)="imageEditQuit()"
-                                           (save)="imagedSaved($event)"/>
-          </div>
+          @if (editActive) {
+            <div class="col-sm-12 mb-3">
+              <app-image-cropper-and-resizer noImageSave
+                                             [selectAspectRatio]="contentMetadata?.aspectRatio"
+                                             [rootFolder]="contentMetadataService.rootFolderAndName(contentMetadata?.rootFolder, contentMetadata?.name)"
+                                             [preloadImage]="imageSourceOrPreview()"
+                                             (imageChange)="imageChanged($event)"
+                                             (error)="imageCroppingError($event)"
+                                             (cropError)="imageCroppingError($event)"
+                                             (quit)="imageEditQuit()"
+                                             (save)="imagedSaved($event)"/>
+            </div>
+          }
           <div class="col-sm-7">
             <div class="form-group">
               <div class="row mb-2">
                 <div class="col">Image {{ index + 1 }} of {{ filteredFiles?.length }}</div>
                 <div class="col text-right">
-                  <span *ngIf="imagedIsSaved()">Image Size {{ imageSize() }}</span>
-                  <span class="ml-2"  *ngIf="imagedIsCropped()">Cropped Size {{ croppedSize() }}</span>
+                  @if (imagedIsSaved()) {
+                    <span>Image Size {{ imageSize() }}</span>
+                  }
+                  @if (imagedIsCropped()) {
+                    <span class="ml-2">Cropped Size {{ croppedSize() }}</span>
+                  }
                 </div>
               </div>
-              <img *ngIf="!imageLoadText" (load)="imageLoaded($event)" (error)="imageError(item, $event)" loading="lazy"
-                   [id]="'image-' + index" class="img-fluid w-100" [src]="imageSourceOrPreview()"
-                   [alt]="item.text"/>
-              <div *ngIf="imageLoadText" class="row no-image"
-                   [ngClass]="{'small-icon-container': true}">
-                <div class="col align-self-center text-center">
-                  <fa-icon [icon]="faImage" class="fa-icon fa-3x"/>
-                  <div>{{ imageLoadText }}</div>
+              @if (!imageLoadText) {
+                <img (load)="imageLoaded($event)" (error)="imageError(item, $event)" loading="lazy"
+                     [id]="'image-' + index" class="img-fluid w-100" [src]="imageSourceOrPreview()"
+                     [alt]="item.text"/>
+              }
+              @if (imageLoadText) {
+                <div class="row no-image"
+                     [ngClass]="{'small-icon-container': true}">
+                  <div class="col align-self-center text-center">
+                    <fa-icon [icon]="faImage" class="fa-icon fa-3x"/>
+                    <div>{{ imageLoadText }}</div>
+                  </div>
                 </div>
-              </div>
+              }
             </div>
             <div class="row no-gutters">
               <div class="col pr-1">
@@ -153,30 +163,40 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
             </div>
             <div class="form-group">
               <label [for]="'name-' + index">Image Source {{ imageUnsaved(item) }}</label>
-              <input *ngIf="!item.base64Content" [(ngModel)]="item.image" type="text"
-                     class="form-control input-sm"
-                     [id]="'name-' + index" placeholder="Image source - updated automatically"/>
+              @if (!item.base64Content) {
+                <input [(ngModel)]="item.image" type="text"
+                       class="form-control input-sm"
+                       [id]="'name-' + index" placeholder="Image source - updated automatically"/>
+              }
             </div>
-            <div *ngIf="item.originalFileName" class="form-group">
-              <label [for]="'original-name-' + index">Original Name</label>
-              <input class="form-control input-sm"
-                     [value]="item.originalFileName" disabled [id]="'original-name-' + index"/>
+            @if (item.originalFileName) {
+              <div class="form-group">
+                <label [for]="'original-name-' + index">Original Name</label>
+                <input class="form-control input-sm"
+                       [value]="item.originalFileName" disabled [id]="'original-name-' + index"/>
+              </div>
+            }
+          </div>
+          @if (item?.dateSource !== 'upload') {
+            <div class="col-sm-12">
+              <app-group-event-selector [label]="'Link to ' + groupEventType?.description"
+                                        [eventId]="item.eventId"
+                                        [dataSource]="groupEventType?.area"
+                                        (eventCleared)="item.eventId=null"
+                                        (eventChange)="eventChange($event)"/>
             </div>
-          </div>
-          <div *ngIf="item?.dateSource!=='upload'" class="col-sm-12">
-            <app-group-event-selector [label]="'Link to ' + groupEventType?.description"
-                                      [eventId]="item.eventId"
-                                      [dataSource]="groupEventType?.area"
-                                      (eventCleared)="item.eventId=null"
-                                      (eventChange)="eventChange($event)"/>
-          </div>
-          <div *ngIf="notifyTarget.showAlert" class="col-sm-12">
-            <div class="alert {{notifyTarget.alertClass}} table-pointer">
-              <fa-icon [icon]="notifyTarget.alert.icon"/>
-              <strong *ngIf="notifyTarget.alertTitle">
-                {{ notifyTarget.alertTitle }}:</strong> {{ notifyTarget.alertMessage }}
+          }
+          @if (notifyTarget.showAlert) {
+            <div class="col-sm-12">
+              <div class="alert {{notifyTarget.alertClass}} table-pointer">
+                <fa-icon [icon]="notifyTarget.alert.icon"/>
+                @if (notifyTarget.alertTitle) {
+                  <strong>
+                    {{ notifyTarget.alertTitle }}:</strong>
+                } {{ notifyTarget.alertMessage }}
+              </div>
             </div>
-          </div>
+          }
         </div>
       </div>
     </div>`,

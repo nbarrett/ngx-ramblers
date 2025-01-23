@@ -48,69 +48,94 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
       padding: 16px
   `],
   template: `
-    <div class="row" *ngIf="siteEditActive()">
-      <div class="col-12">
-        <app-badge-button *ngIf="buttonsAvailableOnlyOnFocus"
-                          (click)="componentHasFocus() ? toggleToView() : toggleToEdit()" delay=500
-                          [tooltip]="(componentHasFocus()? 'Exit edit' : 'Edit') + ' content for ' + description"
-                          [icon]="faPencil" [caption]="componentHasFocus() ? 'Exit edit' : 'Edit'">
-        </app-badge-button>
-        <ng-container *ngIf="!buttonsAvailableOnlyOnFocus || componentHasFocus()">
-          <ng-content select="[prepend]"></ng-content>
-          <app-badge-button *ngIf="editorState.view" (click)="toggleEdit()" delay=500 [tooltip]="tooltip()"
-                            [icon]="icon()"
-                            [caption]="nextActionCaption()"></app-badge-button>
-          <app-badge-button *ngIf="dirty() && canSave()" (click)="save()" [tooltip]="'Save content for ' + description"
-                            delay=500 [icon]="saving() ? faSpinner: faCircleCheck"
-                            [caption]="'save'"></app-badge-button>
-          <app-badge-button *ngIf="dirty() && !saving()" (click)="revert()"
-                            delay=500 [tooltip]="'Revert content for ' + description"
-                            [icon]="reverting() ? faSpinner: faRemove" caption="revert"></app-badge-button>
-          <app-badge-button *ngIf="canDelete() && !saving()" (click)="delete()" delay=500
-                            [tooltip]="'Delete content for ' + description" [icon]="reverting() ? faSpinner: faEraser"
-                            caption="delete">
-          </app-badge-button>
-          <app-badge-button *ngIf="canUnlink()" (click)="unlink()" delay=500
-                            [tooltip]="'Unlink and save as new content for ' + description"
-                            [icon]="reverting() ? faSpinner: faUnlink" caption="unlink">
-          </app-badge-button>
-          <ng-content select=":not([prepend])"></ng-content>
-        </ng-container>
+    @if (siteEditActive()) {
+      <div class="row">
+        <div class="col-12">
+          @if (buttonsAvailableOnlyOnFocus) {
+            <app-badge-button
+              (click)="componentHasFocus() ? toggleToView() : toggleToEdit()" delay=500
+              [tooltip]="(componentHasFocus()? 'Exit edit' : 'Edit') + ' content for ' + description"
+              [icon]="faPencil" [caption]="componentHasFocus() ? 'Exit edit' : 'Edit'">
+            </app-badge-button>
+          }
+          @if (!buttonsAvailableOnlyOnFocus || componentHasFocus()) {
+            <ng-content select="[prepend]"></ng-content>
+            @if (editorState.view) {
+              <app-badge-button (click)="toggleEdit()" delay=500 [tooltip]="tooltip()"
+                                [icon]="icon()"
+                                [caption]="nextActionCaption()"></app-badge-button>
+            }
+            @if (dirty() && canSave()) {
+              <app-badge-button (click)="save()" [tooltip]="'Save content for ' + description"
+                                delay=500 [icon]="saving() ? faSpinner: faCircleCheck"
+                                [caption]="'save'"></app-badge-button>
+            }
+            @if (dirty() && !saving()) {
+              <app-badge-button (click)="revert()"
+                                delay=500 [tooltip]="'Revert content for ' + description"
+                                [icon]="reverting() ? faSpinner: faRemove" caption="revert"></app-badge-button>
+            }
+            @if (canDelete() && !saving()) {
+              <app-badge-button (click)="delete()" delay=500
+                                [tooltip]="'Delete content for ' + description"
+                                [icon]="reverting() ? faSpinner: faEraser"
+                                caption="delete">
+              </app-badge-button>
+            }
+            @if (canUnlink()) {
+              <app-badge-button (click)="unlink()" delay=500
+                                [tooltip]="'Unlink and save as new content for ' + description"
+                                [icon]="reverting() ? faSpinner: faUnlink" caption="unlink">
+              </app-badge-button>
+            }
+            <ng-content select=":not([prepend])"></ng-content>
+          }
+        </div>
+        @if (editNameEnabled) {
+          <div class="col-12">
+            <label class="mt-2 mt-3" [for]="'input-'+ content.name | kebabCase">Content name</label>
+            <input [(ngModel)]="content.name"
+                   [id]="'input-'+ content.name | kebabCase"
+                   type="text" class="form-control input-sm"
+                   placeholder="Enter name of content">
+            <label class="mt-2 mt-3" [for]="content.name">Content for {{ content.name }}</label>
+          </div>
+        }
       </div>
-      <div class="col-12" *ngIf="editNameEnabled">
-        <label class="mt-2 mt-3" [for]="'input-'+ content.name | kebabCase">Content name</label>
-        <input [(ngModel)]="content.name"
-               [id]="'input-'+ content.name | kebabCase"
-               type="text" class="form-control input-sm"
-               placeholder="Enter name of content">
-        <label class="mt-2 mt-3" [for]="content.name">Content for {{ content.name }}</label>
-      </div>
-    </div>
-    <ng-container *ngIf="showing() && editorState.view==='view'">
-      <span *ngIf="renderInline()"
-            [class]="content?.styles?.class"
-            (click)="toggleEdit()" markdown ngPreserveWhitespaces [data]="content.text">
-      </span>
-      <div *ngIf="!renderInline()" [class]="contentStylesClass()"
+    }
+    @if (showing() && editorState.view === 'view') {
+      @if (renderInline()) {
+        <span
+          [class]="content?.styles?.class"
+          (click)="toggleEdit()" markdown ngPreserveWhitespaces [data]="content.text">
+        </span>
+      }
+      @if (!renderInline()) {
+        <div [class]="contentStylesClass()"
            [ngClass]="{
           'list-default': content?.styles?.list===ListStyle.NO_IMAGE,
           'list-arrow': content?.styles?.list===ListStyle.ARROW||!content?.styles?.list,
           'list-tick-medium': content?.styles?.list===ListStyle.TICK_MEDIUM,
           'list-tick-large': content?.styles?.list===ListStyle.TICK_LARGE}"
-           (click)="toggleEdit()" markdown ngPreserveWhitespaces [data]="content.text">
+             (click)="toggleEdit()" markdown ngPreserveWhitespaces [data]="content.text">
+        </div>
+      }
+    }
+    @if (allowHide && editorState.view === 'view') {
+      <div class="badge-button"
+           (click)="toggleShowHide()" [tooltip]="showHideCaption()">
+        <fa-icon [icon]="showing() ? faAngleUp:faAngleDown"></fa-icon>
+        <span>{{ showHideCaption() }}</span>
       </div>
-    </ng-container>
-    <div *ngIf="allowHide && editorState.view==='view'" class="badge-button"
-         (click)="toggleShowHide()" [tooltip]="showHideCaption()">
-      <fa-icon [icon]="showing() ? faAngleUp:faAngleDown"></fa-icon>
-      <span>{{ showHideCaption() }}</span>
-    </div>
-    <textarea [wrap]="'hard'" *ngIf="editorState.view==='edit'"
-              [(ngModel)]="content.text"
-              (ngModelChange)="changeText($event)"
-              class="form-control markdown-textarea" [rows]="rows"
-              placeholder="Enter {{description}} text here">
-</textarea>`,
+    }
+    @if (editorState.view === 'edit') {
+      <textarea [wrap]="'hard'"
+                [(ngModel)]="content.text"
+                (ngModelChange)="changeText($event)"
+                class="form-control markdown-textarea" [rows]="rows"
+                placeholder="Enter {{description}} text here">
+      </textarea>
+    }`,
   standalone: false
 })
 export class MarkdownEditorComponent implements OnInit {

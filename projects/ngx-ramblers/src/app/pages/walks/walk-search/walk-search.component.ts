@@ -17,29 +17,31 @@ import { WalkDisplayService } from "../walk-display.service";
 @Component({
   selector: "app-walks-search",
   template: `
-    <ng-container *ngIf="!currentWalkId">
-      <ng-container *ngIf="showPagination">
+    @if (!currentWalkId) {
+      @if (showPagination) {
         <div class="row pb-0">
           <div class="col-xs-12 mb-3 mb-md-0 col-md-4">
             <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
-                   (ngModelChange)="onSearchChange($event)"
-                   name="quickSearch"
-                   class="form-control rounded mr-3"
-                   type="text" placeholder="Quick Search">
+              (ngModelChange)="onSearchChange($event)"
+              name="quickSearch"
+              class="form-control rounded mr-3"
+              type="text" placeholder="Quick Search">
           </div>
           <div class="col-xs-12 mb-3 mb-md-0 col-md-4">
             <select [(ngModel)]="filterParameters.selectType"
-                    (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
-                    class="form-control rounded mr-3">
-              <option *ngFor="let filter of walksFilter()" [ngValue]="filter.value"
-                      [selected]="filter.selected">{{ filter.description }}
-              </option>
+              (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
+              class="form-control rounded mr-3">
+              @for (filter of walksFilter(); track filter) {
+                <option [ngValue]="filter.value"
+                  [selected]="filter.selected">{{ filter.description }}
+                </option>
+              }
             </select>
           </div>
           <div class="col-xs-12 col-md-4">
             <select [(ngModel)]="filterParameters.ascending"
-                    (ngModelChange)="refreshWalks('change filterParameters.ascending')" name="ascending"
-                    class="form-control rounded">
+              (ngModelChange)="refreshWalks('change filterParameters.ascending')" name="ascending"
+              class="form-control rounded">
               <option selected [value]="true">Sort (date ascending)</option>
               <option [value]="false">Sort (date descending)</option>
             </select>
@@ -47,58 +49,68 @@ import { WalkDisplayService } from "../walk-display.service";
         </div>
         <div class="d-flex mt-3">
           <ng-content/>
-          <div *ngIf="showAlertInline()" class="flex-grow-1">
-            <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
+          @if (showAlertInline()) {
+            <div class="flex-grow-1">
+              @if (notifyTarget.showAlert) {
+                <div class="alert {{notifyTarget.alertClass}}">
+                  <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                  <strong>{{ notifyTarget.alertTitle }}</strong>
+                  {{ notifyTarget.alertMessage }}
+                </div>
+              }
+            </div>
+          }
+        </div>
+        @if (!showAlertInline()) {
+          @if (notifyTarget.showAlert) {
+            <div class="alert {{notifyTarget.alertClass}}">
               <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
               <strong>{{ notifyTarget.alertTitle }}</strong>
               {{ notifyTarget.alertMessage }}
             </div>
-          </div>
-        </div>
-        <ng-container *ngIf="!showAlertInline()">
-          <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
-            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-            <strong>{{ notifyTarget.alertTitle }}</strong>
-            {{ notifyTarget.alertMessage }}
-          </div>
-        </ng-container>
-      </ng-container>
-      <ng-container *ngIf="!showPagination">
+          }
+        }
+      }
+      @if (!showPagination) {
         <div class="d-lg-flex pb-0">
           <div class="form-group mr-lg-3 mb-lg-0">
             <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
-                   (ngModelChange)="onSearchChange($event)"
-                   name="quickSearch"
-                   class="form-control rounded mr-3"
-                   type="text" placeholder="Quick Search">
+              (ngModelChange)="onSearchChange($event)"
+              name="quickSearch"
+              class="form-control rounded mr-3"
+              type="text" placeholder="Quick Search">
           </div>
           <div class="form-group mr-lg-3 mb-lg-0">
             <select [(ngModel)]="filterParameters.selectType"
-                    (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
-                    class="form-control rounded mr-3">
-              <option *ngFor="let filter of walksFilter()" [ngValue]="filter.value"
-                      [selected]="filter.selected">{{ filter.description }}
-              </option>
+              (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
+              class="form-control rounded mr-3">
+              @for (filter of walksFilter(); track filter) {
+                <option [ngValue]="filter.value"
+                  [selected]="filter.selected">{{ filter.description }}
+                </option>
+              }
             </select>
           </div>
           <div class="form-group mr-lg-3 mb-lg-0">
             <select [(ngModel)]="filterParameters.ascending"
-                    (ngModelChange)="refreshWalks('change filterParameters.ascending')" name="ascending"
-                    class="form-control rounded">
+              (ngModelChange)="refreshWalks('change filterParameters.ascending')" name="ascending"
+              class="form-control rounded">
               <option selected [value]="true">Sort (date ascending)</option>
               <option [value]="false">Sort (date descending)</option>
             </select>
           </div>
           <div class="form-group mb-0 flex-grow-1">
-            <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
-              <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-              <strong>{{ notifyTarget.alertTitle }}</strong>
-              {{ notifyTarget.alertMessage }}
-            </div>
+            @if (notifyTarget.showAlert) {
+              <div class="alert {{notifyTarget.alertClass}}">
+                <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                <strong>{{ notifyTarget.alertTitle }}</strong>
+                {{ notifyTarget.alertMessage }}
+              </div>
+            }
           </div>
         </div>
-      </ng-container>
-    </ng-container>`,
+      }
+    }`,
   standalone: false
 })
 export class WalkSearchComponent implements OnInit, OnDestroy {

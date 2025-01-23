@@ -12,40 +12,44 @@ import { MailService } from "projects/ngx-ramblers/src/app/services/mail/mail.se
 @Component({
   selector: "app-mail-list-settings",
   template: `
-    <ng-container *ngIf="mailMessagingConfig?.brevo?.lists?.lists">
+    @if (mailMessagingConfig?.brevo?.lists?.lists) {
       <hr/>
       <div class="row mt-3">
         <div class="col">
-          <ng-container *ngIf="!listUpdateRequest">
+          @if (!listUpdateRequest) {
             <h5>{{ mailMessagingConfig?.brevo?.lists?.lists.indexOf(list) + 1 }}: {{ list.name }}</h5>
             Subscribers: {{ list.uniqueSubscribers }}
-          </ng-container>
-          <ng-container *ngIf="listUpdateRequest">
+          }
+          @if (listUpdateRequest) {
             <app-list-editor [listCreateRequest]="listUpdateRequest"/>
             <app-brevo-button button title="Save" (click)="saveEdit()"/>
             <app-brevo-button button class="ml-2" title="Cancel" (click)="cancelEdit()"/>
-          </ng-container>
+          }
         </div>
         <div class="col-auto">
           <div class="float-right">
-            <div *ngIf="confirm.noneOutstanding()">
-              <app-brevo-button button *ngIf="!listUpdateRequest" title="Edit"
-                                (click)="beginEdit()"/>
-              <app-brevo-button class="ml-2" button title="View"
-                                (click)="viewList(list.id)"
-                                [disabled]="listEditOrDeleteDisabled()"/>
-              <app-brevo-button class="ml-2" button [title]="'Delete'"
-                                (click)="deleteList(list.id)"
-                                [disabled]="listEditOrDeleteDisabled()"/>
-            </div>
-            <ng-container *ngIf="confirm.deleteConfirmOutstanding()">
+            @if (confirm.noneOutstanding()) {
+              <div>
+                @if (!listUpdateRequest) {
+                  <app-brevo-button button title="Edit"
+                    (click)="beginEdit()"/>
+                }
+                <app-brevo-button class="ml-2" button title="View"
+                  (click)="viewList(list.id)"
+                  [disabled]="listEditOrDeleteDisabled()"/>
+                <app-brevo-button class="ml-2" button [title]="'Delete'"
+                  (click)="deleteList(list.id)"
+                  [disabled]="listEditOrDeleteDisabled()"/>
+              </div>
+            }
+            @if (confirm.deleteConfirmOutstanding()) {
               <app-brevo-button button [title]="'Confirm'"
-                                (click)="confirmDeleteList(list.id)"
-                                [disabled]="listEditOrDeleteDisabled()"/>
+                (click)="confirmDeleteList(list.id)"
+                [disabled]="listEditOrDeleteDisabled()"/>
               <app-brevo-button class="ml-2" button [title]="'Cancel'"
-                                (click)="cancelDelete()"
-                                [disabled]="listEditOrDeleteDisabled()"/>
-            </ng-container>
+                (click)="cancelDelete()"
+                [disabled]="listEditOrDeleteDisabled()"/>
+            }
           </div>
         </div>
       </div>
@@ -53,22 +57,22 @@ import { MailService } from "projects/ngx-ramblers/src/app/services/mail/mail.se
         <div class="col">
           <div class="custom-control custom-checkbox">
             <input [checked]="autoSubscribeNewMembers()"
-                   (change)="autoSubscribeNewMembersChange()"
-                   type="checkbox" class="custom-control-input" id="auto-subscribe-new-members-{{list.id}}">
+              (change)="autoSubscribeNewMembersChange()"
+              type="checkbox" class="custom-control-input" id="auto-subscribe-new-members-{{list.id}}">
             <label class="custom-control-label"
-                   for="auto-subscribe-new-members-{{list.id}}">Auto-subscribe new members
+              for="auto-subscribe-new-members-{{list.id}}">Auto-subscribe new members
             </label>
           </div>
         </div>
         <div class="col">
           <div class="custom-control custom-checkbox">
             <input [checked]="requiresMemberEmailMarketingConsent()"
-                   (change)="requiresMemberEmailMarketingConsentChange()"
-                   [disabled]="!autoSubscribeNewMembers()"
-                   type="checkbox" class="custom-control-input"
-                   id="requires-member-email-marketing-consent-{{list.id}}">
+              (change)="requiresMemberEmailMarketingConsentChange()"
+              [disabled]="!autoSubscribeNewMembers()"
+              type="checkbox" class="custom-control-input"
+              id="requires-member-email-marketing-consent-{{list.id}}">
             <label class="custom-control-label"
-                   for="requires-member-email-marketing-consent-{{list.id}}">Only Auto-subscribe members that have given email
+              for="requires-member-email-marketing-consent-{{list.id}}">Only Auto-subscribe members that have given email
               marketing consent via Ramblers Head Office Website
             </label>
           </div>
@@ -76,13 +80,13 @@ import { MailService } from "projects/ngx-ramblers/src/app/services/mail/mail.se
         <div class="col">
           <div class="custom-control custom-checkbox">
             <input [checked]="memberSubscribable()"
-                   (change)="memberSubscribableChange()"
-                   type="checkbox" class="custom-control-input" id="self-subscribable-{{list.id}}">
+              (change)="memberSubscribableChange()"
+              type="checkbox" class="custom-control-input" id="self-subscribable-{{list.id}}">
             <label class="custom-control-label" for="self-subscribable-{{list.id}}">Member-subscribable</label>
           </div>
         </div>
       </div>
-    </ng-container>`,
+    }`,
   standalone: false
 })
 export class MailListSettingsComponent implements OnInit {

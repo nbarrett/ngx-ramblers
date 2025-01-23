@@ -14,85 +14,102 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 @Component({
   selector: "app-notification-config-selector",
   template: `
-    <ng-container *ngIf="notificationConfig && notificationConfigListing?.mailMessagingConfig">
+    @if (notificationConfig && notificationConfigListing?.mailMessagingConfig) {
       <div class="row align-items-center">
         <div class="col-sm-12">
           <div class="form-group">
             <label for="contact-member">Email Type</label>
             <select [compareWith]="notificationTypeConfigComparer" class="form-control input-sm"
-                    [disabled]="busy"
-                    [(ngModel)]="notificationConfig"
-                    (ngModelChange)="emailConfigChanged.emit($event)">
-              <option
-                *ngFor="let emailConfig of mailMessagingService.notificationConfigs(notificationConfigListing)"
-                [ngValue]="emailConfig"
-                class="form-control"
-                id="contact-member">{{ emailConfig?.subject?.text }}
-              </option>
+              [disabled]="busy"
+              [(ngModel)]="notificationConfig"
+              (ngModelChange)="emailConfigChanged.emit($event)">
+              @for (emailConfig of mailMessagingService.notificationConfigs(notificationConfigListing); track emailConfig) {
+                <option
+                  [ngValue]="emailConfig"
+                  class="form-control"
+                  id="contact-member">{{ emailConfig?.subject?.text }}
+                </option>
+              }
             </select>
           </div>
         </div>
-        <div *ngIf="helpAvailable" class="col-sm-3 panel-toggle">
-          <a *ngIf="!helpInfo.showHelp"
-             (click)="toggleHelp(true)" [href]="">
-            <fa-icon [icon]="faQuestion" class="markdown-preview-icon"></fa-icon>
-            show help</a>
-          <a *ngIf="helpInfo.showHelp" (click)="toggleHelp(false)" [href]="">
-            <fa-icon [icon]="faQuestion" class="markdown-preview-icon"></fa-icon>
-            hide help</a>
-        </div>
+        @if (helpAvailable) {
+          <div class="col-sm-3 panel-toggle">
+            @if (!helpInfo.showHelp) {
+              <a
+                (click)="toggleHelp(true)" [href]="">
+                <fa-icon [icon]="faQuestion" class="markdown-preview-icon"></fa-icon>
+              show help</a>
+            }
+            @if (helpInfo.showHelp) {
+              <a (click)="toggleHelp(false)" [href]="">
+                <fa-icon [icon]="faQuestion" class="markdown-preview-icon"></fa-icon>
+              hide help</a>
+            }
+          </div>
+        }
       </div>
-      <div *ngIf="helpInfo.showHelp" class="row">
-        <div class="col-sm-12  p-4">
-          <div markdown>
-            <ul>
-              <li>{{ helpMembers() }}</li>
-              <li *ngIf="notificationConfig?.help">{{ notificationConfig?.help }}</li>
-            </ul>
+      @if (helpInfo.showHelp) {
+        <div class="row">
+          <div class="col-sm-12  p-4">
+            <div markdown>
+              <ul>
+                <li>{{ helpMembers() }}</li>
+                @if (notificationConfig?.help) {
+                  <li>{{ notificationConfig?.help }}</li>
+                }
+              </ul>
+            </div>
           </div>
         </div>
-      </div>
+      }
       <div class="row">
         <div class="col-sm-12">
           <div class="form-group">
             <label for="banner-lookup">Banner Image</label>
             <select class="form-control input-sm"
-                    id="banner-lookup"
-                    [(ngModel)]="notificationConfig.bannerId">
-              <option *ngFor="let banner of notificationConfigListing.mailMessagingConfig.banners"
-                      [ngValue]="banner.id">{{ toBannerInformation(banner) }}
-              </option>
+              id="banner-lookup"
+              [(ngModel)]="notificationConfig.bannerId">
+              @for (banner of notificationConfigListing.mailMessagingConfig.banners; track banner) {
+                <option
+                  [ngValue]="banner.id">{{ toBannerInformation(banner) }}
+                </option>
+              }
             </select>
           </div>
         </div>
-        <div *ngIf="notificationConfig?.bannerId" class="col-sm-12 mb-2">
-          <img class="card-img"
-               [src]="mailMessagingService.bannerImageSource(notificationConfig, false)">
-        </div>
+        @if (notificationConfig?.bannerId) {
+          <div class="col-sm-12 mb-2">
+            <img class="card-img"
+              [src]="mailMessagingService.bannerImageSource(notificationConfig, false)">
+          </div>
+        }
         <div class="col-sm-12">
           <div class="form-group">
             <label for="template">Brevo Template</label>
             <div class="input-group">
               <select [(ngModel)]="notificationConfig.templateId"
-                      id="template"
-                      class="form-control input-sm">
-                <option *ngFor="let template of notificationConfigListing?.mailMessagingConfig?.brevo?.mailTemplates?.templates"
-                        [ngValue]="template.id">{{ template.name }}
-                </option>
+                id="template"
+                class="form-control input-sm">
+                @for (template of notificationConfigListing?.mailMessagingConfig?.brevo?.mailTemplates?.templates; track template) {
+                  <option
+                    [ngValue]="template.id">{{ template.name }}
+                  </option>
+                }
               </select>
               <div class="input-group-append">
                 <div class="input-group-text">
                   <app-brevo-button [disabled]="!notificationConfig.templateId"
-                                    (click)="editTemplate(notificationConfig.templateId)"
-                                    [title]="'View or Edit Template'"/>
+                    (click)="editTemplate(notificationConfig.templateId)"
+                    [title]="'View or Edit Template'"/>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </ng-container>
-  `,
+    }
+    `,
   standalone: false
 })
 

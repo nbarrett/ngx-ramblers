@@ -23,7 +23,7 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
                           (click)="addNewAlbum()"/>
       </div>
     </div>
-    <ng-container *ngFor="let contentPath of row.albumIndex.contentPaths;let index=index; trackBy: trackByIndex">
+    @for (contentPath of row.albumIndex.contentPaths; track trackByIndex(index, contentPath); let index = $index) {
       <div class="row align-items-end mb-2">
         <div class="col-sm-2">
           <label
@@ -33,9 +33,11 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
                   [(ngModel)]="row.albumIndex.contentPaths[index].stringMatch"
                   (ngModelChange)="refreshContentPreview()"
                   [id]="actions.rowColumnIdentifierFor(index, 0, contentPath + '-album-index-item')">
-            <option *ngFor="let type of stringMatchingValues"
-                    [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
-            </option>
+            @for (type of stringMatchingValues; track type) {
+              <option
+                [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+              </option>
+            }
           </select>
         </div>
         <div class="col-sm-10">
@@ -56,13 +58,15 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
           </form>
         </div>
       </div>
-    </ng-container>
-    <div *ngIf="albumIndexPageContent?.rows" class="row">
-      <div class="col-sm-12 mt-2">
-        <h6>{{ stringUtils.pluraliseWithCount(albumIndexPageContent?.rows?.[0]?.columns?.length, 'album') }} found
+    }
+    @if (albumIndexPageContent?.rows) {
+      <div class="row">
+        <div class="col-sm-12 mt-2">
+          <h6>{{ stringUtils.pluraliseWithCount(albumIndexPageContent?.rows?.[0]?.columns?.length, 'album') }} found
           from {{ stringUtils.pluraliseWithCount(row?.albumIndex?.contentPaths?.length, 'content path match', 'content path matches') }}</h6>
+        </div>
       </div>
-    </div>
+    }
     <app-action-buttons [pageContent]="albumIndexPageContent" [rowIndex]="0" presentationMode/>`,
   standalone: false
 })

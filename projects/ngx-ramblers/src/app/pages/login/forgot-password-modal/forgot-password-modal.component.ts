@@ -17,75 +17,83 @@ import { NotificationDirective } from "../../../notifications/common/notificatio
 @Component({
   selector: "app-forgot-password-modal-component",
   template: `
-    <div *ngIf="mailMessagingConfig" class="modal-content">
-      <div class="modal-header">
-        <h4 class="modal-title">I've forgotten my <em>{{ mailMessagingConfig?.group?.shortName }}</em> password!</h4>
-        <button type="button" (click)="close()" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-      </div>
-      <div class="modal-body">
-        <form>
-          <div class="row">
-            <div class="col col-sm-12">
-              <p>If you are unable to login due to a forgotten or expired password, we can send you an
-                email containing a secure link that will allow you to reset your
+    @if (mailMessagingConfig) {
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title">I've forgotten my <em>{{ mailMessagingConfig?.group?.shortName }}</em> password!</h4>
+          <button type="button" (click)="close()" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form>
+            <div class="row">
+              <div class="col col-sm-12">
+                <p>If you are unable to login due to a forgotten or expired password, we can send you an
+                  email containing a secure link that will allow you to reset your
                 existing password yourself, and then choose another one.</p>
-              <p>In order to do this, please enter the following information so that we can identify you
+                <p>In order to do this, please enter the following information so that we can identify you
                 as one of our members:</p>
+              </div>
             </div>
-          </div>
-          <div class="row">
-            <div class="col col-sm-12">
-              <div class="form-group">
-                <label for="credential-one">{{ credentialOneLabel }}</label>
-                <input [disabled]="notifyTarget.busy" [(ngModel)]="credentialOne"
-                       type="text"
-                       class="form-control input-sm" id="credential-one" name="credentialOne"
-                       placeholder="Enter the username that was given to you in your original {{mailMessagingConfig?.group?.shortName}} welcome email or email address">
-              </div>
-              <div class="form-group">
-                <label for="credential-two">{{ credentialTwoLabel }}</label>
-                <input [disabled]="notifyTarget.busy" [(ngModel)]="credentialTwo"
-                       type="text"
-                       (keyup.enter)="submit()"
-                       class="form-control input-sm" id="credential-two" name="credentialTwo"
-                       placeholder="Enter your Ramblers membership number or home postcode">
-              </div>
-              <div *ngIf="notifyTarget.showAlert" class="row mb-2">
-                <div class="col col-sm-12">
-                  <div class="alert {{notifyTarget.alertClass}}">
-                    <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                    <strong *ngIf="notifyTarget.alertTitle">
-                      {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
-                    <span *ngIf="notifyTarget.showContactUs"> contact our <app-contact-us class="alert-link"
-                                                                                          [roles]="'membership'"
-                                                                                          text="Membership Administrator"></app-contact-us>.
-                  </span>
-                  </div>
+            <div class="row">
+              <div class="col col-sm-12">
+                <div class="form-group">
+                  <label for="credential-one">{{ credentialOneLabel }}</label>
+                  <input [disabled]="notifyTarget.busy" [(ngModel)]="credentialOne"
+                    type="text"
+                    class="form-control input-sm" id="credential-one" name="credentialOne"
+                    placeholder="Enter the username that was given to you in your original {{mailMessagingConfig?.group?.shortName}} welcome email or email address">
                 </div>
+                <div class="form-group">
+                  <label for="credential-two">{{ credentialTwoLabel }}</label>
+                  <input [disabled]="notifyTarget.busy" [(ngModel)]="credentialTwo"
+                    type="text"
+                    (keyup.enter)="submit()"
+                    class="form-control input-sm" id="credential-two" name="credentialTwo"
+                    placeholder="Enter your Ramblers membership number or home postcode">
+                </div>
+                @if (notifyTarget.showAlert) {
+                  <div class="row mb-2">
+                    <div class="col col-sm-12">
+                      <div class="alert {{notifyTarget.alertClass}}">
+                        <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                        @if (notifyTarget.alertTitle) {
+                          <strong>
+                          {{ notifyTarget.alertTitle }}: </strong>
+                          } {{ notifyTarget.alertMessage }}
+                          @if (notifyTarget.showContactUs) {
+                            <span> contact our <app-contact-us class="alert-link"
+                              [roles]="'membership'"
+                            text="Membership Administrator"></app-contact-us>.
+                          </span>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                }
               </div>
             </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <div class="row col-sm-12">
+            <input type="submit"
+              value="Submit"
+              [disabled]="!submittable()"
+              (keyup.enter)="submit()"
+              (click)="submit()" title="Submit"
+              [ngClass]="submittable() ? 'button-form button-form-left': 'disabled-button-form button-form-left'">
+            <input type="submit" [disabled]="notifyTarget.busy" value="Close"
+              (click)="close()"
+              title="Close forgotten password request"
+              [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
           </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <div class="row col-sm-12">
-          <input type="submit"
-                 value="Submit"
-                 [disabled]="!submittable()"
-                 (keyup.enter)="submit()"
-                 (click)="submit()" title="Submit"
-                 [ngClass]="submittable() ? 'button-form button-form-left': 'disabled-button-form button-form-left'">
-          <input type="submit" [disabled]="notifyTarget.busy" value="Close"
-                 (click)="close()"
-                 title="Close forgotten password request"
-                 [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
         </div>
       </div>
-    </div>
+    }
     <div class="d-none">
       <ng-template app-notification-directive/>
     </div>
-  `,
+    `,
   standalone: false
 })
 export class ForgotPasswordModalComponent implements OnInit, OnDestroy {

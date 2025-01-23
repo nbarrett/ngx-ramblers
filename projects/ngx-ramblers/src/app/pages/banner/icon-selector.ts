@@ -14,16 +14,18 @@ import { UrlService } from "../../services/url.service";
   styleUrls: ["./icon-selector.sass"],
   template: `
     <ng-select [compareWith]="imageComparer" [disabled]="!titleLine.showIcon" appearance="outline" [searchable]="false" [clearable]="false"
-               placeholder="Select an icon"
-               [closeOnSelect]="true"
-               (change)="onChange($event)"
-               [ngModel]="titleLine.image">
-      <ng-option *ngFor="let image of icons?.images" [value]="image">
-        <img [alt]="friendlyFileName(image?.originalFileName)" width="25" [src]="urlService.imageSource(image?.awsFileName)"/>
-        <span class="ml-2">{{friendlyFileName(image?.originalFileName)}}</span>
-      </ng-option>
+      placeholder="Select an icon"
+      [closeOnSelect]="true"
+      (change)="onChange($event)"
+      [ngModel]="titleLine.image">
+      @for (image of icons?.images; track image) {
+        <ng-option [value]="image">
+          <img [alt]="friendlyFileName(image?.originalFileName)" width="25" [src]="urlService.imageSource(image?.awsFileName)"/>
+          <span class="ml-2">{{friendlyFileName(image?.originalFileName)}}</span>
+        </ng-option>
+      }
     </ng-select>
-  `,
+    `,
   standalone: false
 })
 

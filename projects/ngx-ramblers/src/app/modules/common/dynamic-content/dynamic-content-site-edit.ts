@@ -44,22 +44,28 @@ import { StoredValue } from "../../../models/ui-actions";
 @Component({
   selector: "app-dynamic-content-site-edit",
   template: `
-    <ng-container *ngIf="siteEditService.active()">
-      <ng-container *ngIf="notify.alertTarget.showAlert || !actions.pageContentFound(pageContent, queryCompleted)">
-        <div *ngIf="notify.alertTarget.showAlert" class="col-12 alert {{notify.alertTarget.alertClass}} mt-3">
-          <fa-icon [icon]="notify.alertTarget.alert.icon"></fa-icon>
-          <strong class="ml-2">{{ notify.alertTarget.alertTitle }}</strong>
-          <span class="p-2">{{ notify.alertTarget.alertMessage }}.
-        <a *ngIf="canCreateContent()" (click)="createContent()"
-           class="rams-text-decoration-pink"
-           type="button">Create content</a>
-        <a *ngIf="canGoToThatPage()" (click)="goToOtherPage()"
-           class="rams-text-decoration-pink"
-           type="button">Go to that page</a>
-      </span>
-        </div>
-      </ng-container>
-      <ng-container *ngIf="pageContent">
+    @if (siteEditService.active()) {
+      @if (notify.alertTarget.showAlert || !actions.pageContentFound(pageContent, queryCompleted)) {
+        @if (notify.alertTarget.showAlert) {
+          <div class="col-12 alert {{notify.alertTarget.alertClass}} mt-3">
+            <fa-icon [icon]="notify.alertTarget.alert.icon"></fa-icon>
+            <strong class="ml-2">{{ notify.alertTarget.alertTitle }}</strong>
+            <span class="p-2">{{ notify.alertTarget.alertMessage }}.
+              @if (canCreateContent()) {
+                <a (click)="createContent()"
+                   class="rams-text-decoration-pink"
+                   type="button">Create content</a>
+              }
+              @if (canGoToThatPage()) {
+                <a (click)="goToOtherPage()"
+                   class="rams-text-decoration-pink"
+                   type="button">Go to that page</a>
+              }
+            </span>
+          </div>
+        }
+      }
+      @if (pageContent) {
         <div class="card mb-2">
           <div class="card-body">
             <h4 class="card-title">Page content for {{ pageContent.path }} (<small
@@ -75,52 +81,66 @@ import { StoredValue } from "../../../models/ui-actions";
                                   delay=500 [tooltip]="'Revert page changes'"
                                   [icon]="faUndo"
                                   caption="Revert page changes"/>
-                <app-badge-button *ngIf="insertableContent?.length > 0" (click)="insertData()"
-                                  delay=500 [tooltip]="'Insert missing data'"
-                                  [icon]="faAdd" caption="Insert data"/>
-                <app-badge-button *ngIf="pageContent.rows?.length === 0" (click)="createContent()"
-                                  delay=500 [tooltip]="'Add first row'"
-                                  [icon]="faAdd" caption="Add first row"/>
-                <app-badge-button *ngIf="unreferencedPaths?.length>0" (click)="toggleShowUnreferencedPages()"
-                                  [icon]="faEye"
-                                  [active]="showUnreferenced"
-                                  delay=500
-                                  caption="{{showUnreferenced? 'Hide':'Show'}} {{stringUtils.pluraliseWithCount(unreferencedPaths?.length, 'unreferenced page')}}"/>
+                @if (insertableContent?.length > 0) {
+                  <app-badge-button (click)="insertData()"
+                                    delay=500 [tooltip]="'Insert missing data'"
+                                    [icon]="faAdd" caption="Insert data"/>
+                }
+                @if (pageContent.rows?.length === 0) {
+                  <app-badge-button (click)="createContent()"
+                                    delay=500 [tooltip]="'Add first row'"
+                                    [icon]="faAdd" caption="Add first row"/>
+                }
+                @if (unreferencedPaths?.length > 0) {
+                  <app-badge-button (click)="toggleShowUnreferencedPages()"
+                                    [icon]="faEye"
+                                    [active]="showUnreferenced"
+                                    delay=500
+                                    caption="{{showUnreferenced? 'Hide':'Show'}} {{stringUtils.pluraliseWithCount(unreferencedPaths?.length, 'unreferenced page')}}"/>
+                }
                 <app-badge-button (click)="deletePageContent()"
                                   [icon]="faRemove"
                                   delay=500 caption="Delete page"
                                   [tooltip]="deletePagContentTooltip()"
                                   [disabled]="allReferringPages().length !== 0"/>
-                <ng-container *ngIf="this.allReferringPageCount() > 0">
-                  <div class="align-middle">Referred to by: <a class="ml-2 rams-text-decoration-pink"
-                                                               *ngFor="let referringPage of allReferringPages(); let linkIndex = index;"
-                                                               [href]="referringPage">{{ formatHref(referringPage) }}{{ linkIndex < allReferringPageCount() - 1 ? ',' : '' }}</a>
+                @if (this.allReferringPageCount() > 0) {
+                  <div class="align-middle">Referred to
+                    by: @for (referringPage of allReferringPages(); track referringPage; let linkIndex = $index) {
+                      <a class="ml-2 rams-text-decoration-pink"
+                         [href]="referringPage">{{ formatHref(referringPage) }}{{ linkIndex < allReferringPageCount() - 1 ? ',' : '' }}</a>
+                    }
                   </div>
-                </ng-container>
-                <ng-container *ngIf="this.allReferringPageCount() === 0">
+                }
+                @if (this.allReferringPageCount() === 0) {
                   <div class="align-middle mb-2">Not Referred to by any other pages or links</div>
-                </ng-container>
+                }
               </div>
             </ng-template>
             <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
-            <div class="row mt-2 align-items-end mb-3" *ngIf="unreferencedPaths?.length>0 && showUnreferenced">
+            @if (unreferencedPaths?.length > 0 && showUnreferenced) {
+              <div class="row mt-2 align-items-end mb-3">
               <div class="align-middle">
                 <div class="col-sm-12">
                   <div class="mb-2">Other unreferenced pages related to this area:</div>
-                  <ul *ngFor="let path of unreferencedPaths;" class="breadcrumb bg-transparent mb-1 ml-0 p-1">
-                    <span class="d-md-none">...</span>
-                    <li class="breadcrumb-item d-none d-md-inline"
-                        *ngFor="let page of pageService.linksFromPathSegments(urlService.pathSegmentsForUrl(path))">
-                      <a [routerLink]="'/' + page?.href" target="_self">{{ page?.title }}</a>
-                    </li>
-                    <li class="breadcrumb-item d-none d-md-inline">
-                      <a class="rams-text-decoration-pink"
-                         [href]="path">{{ formatHref(last(urlService.pathSegmentsForUrl(path))) }}</a>
-                    </li>
-                  </ul>
+                  @for (path of unreferencedPaths; track path) {
+                    <ul class="breadcrumb bg-transparent mb-1 ml-0 p-1">
+                      <span class="d-md-none">...</span>
+                      @for (page of pageService.linksFromPathSegments(urlService.pathSegmentsForUrl(path)); track page) {
+                        <li class="breadcrumb-item d-none d-md-inline"
+                        >
+                          <a [routerLink]="'/' + page?.href" target="_self">{{ page?.title }}</a>
+                        </li>
+                      }
+                      <li class="breadcrumb-item d-none d-md-inline">
+                        <a class="rams-text-decoration-pink"
+                           [href]="path">{{ formatHref(last(urlService.pathSegmentsForUrl(path))) }}</a>
+                      </li>
+                    </ul>
+                  }
                 </div>
               </div>
             </div>
+            }
             <div class="row mt-2 align-items-end mb-3">
               <div [ngClass]="pageContentRowService.rowsSelected()? 'col-md-10' : 'col'" class="mb-2">
                 <form>
@@ -135,15 +155,17 @@ import { StoredValue } from "../../../models/ui-actions";
                          type="text" class="form-control">
                 </form>
               </div>
-              <ng-container *ngIf="pageContentRowService.rowsSelected()">
+              @if (pageContentRowService.rowsSelected()) {
                 <div class="col-sm-4 col-md-2">
                   <label for="action">Action</label>
                   <select class="form-control input-sm"
                           [(ngModel)]="action"
                           id="action">
-                    <option *ngFor="let action of contentActions"
-                            [ngValue]="action">{{ action }}
-                    </option>
+                    @for (action of contentActions; track action) {
+                      <option
+                        [ngValue]="action">{{ action }}
+                      </option>
+                    }
                   </select>
                 </div>
                 <div class="col-md-10 mt-3">
@@ -167,9 +189,11 @@ import { StoredValue } from "../../../models/ui-actions";
                   <select class="form-control input-sm"
                           [(ngModel)]="destinationPathInsertBeforeAfterIndex"
                           id="before-after">
-                    <option *ngFor="let insertionRow of insertionRowPosition"
-                            [ngValue]="insertionRow.index">{{ insertionRow.description }}
-                    </option>
+                    @for (insertionRow of insertionRowPosition; track insertionRow) {
+                      <option
+                        [ngValue]="insertionRow.index">{{ insertionRow.description }}
+                      </option>
+                    }
                   </select>
                 </div>
                 <div class="col-md-10 mt-3">
@@ -178,9 +202,11 @@ import { StoredValue } from "../../../models/ui-actions";
                           [(ngModel)]="destinationPathInsertionRowIndex"
                           (ngModelChange)="destinationPathInsertionRowIndexChange($event)"
                           id="insert-at-row">
-                    <option *ngFor="let insertionRow of insertionRowLookup"
-                            [ngValue]="insertionRow.index">{{ insertionRow.description }}
-                    </option>
+                    @for (insertionRow of insertionRowLookup; track insertionRow) {
+                      <option
+                        [ngValue]="insertionRow.index">{{ insertionRow.description }}
+                      </option>
+                    }
                   </select>
                 </div>
                 <div class="col mt-3">
@@ -193,76 +219,92 @@ import { StoredValue } from "../../../models/ui-actions";
                     <span class="ml-2">Perform {{ action }}</span>
                   </button>
                 </div>
-              </ng-container>
+              }
             </div>
-            <div class="thumbnail-site-edit-top-bottom-margins"
-                 *ngFor="let row of pageContent?.rows; let rowIndex = index;">
-              <div class="thumbnail-heading">Row {{ rowIndex + 1 }}
-                ({{ stringUtils.pluraliseWithCount(row?.columns.length, 'column') }})
-              </div>
-              <div class="row align-items-end mb-3 d-flex">
-                <div class="col-auto">
-                  <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-type')">
+            @for (row of pageContent?.rows; track row; let rowIndex = $index) {
+              <div class="thumbnail-site-edit-top-bottom-margins"
+              >
+                <div class="thumbnail-heading">Row {{ rowIndex + 1 }}
+                  ({{ stringUtils.pluraliseWithCount(row?.columns.length, 'column') }})
+                </div>
+                <div class="row align-items-end mb-3 d-flex">
+                  <div class="col-auto">
+                    <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-type')">
                     Row Type</label>
-                  <select class="form-control input-sm"
-                          [(ngModel)]="row.type"
-                          (ngModelChange)="changePageContentRowType(row)"
-                          [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-type')">
-                    <option *ngFor="let type of enumKeyValuesForPageContentType"
-                            [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
-                    </option>
-                  </select>
-                </div>
-                <div (nameInputChange)="editAlbumName=$event" class="col" app-row-settings-carousel
-                     *ngIf="actions.isCarouselOrAlbum(row)" [row]="row">
-                </div>
-                <ng-container *ngIf="!editAlbumName">
-                  <div class="col-auto" app-row-settings-action-buttons
-                       *ngIf="actions.isActionButtons(row) || actions.isAlbumIndex(row)" [row]="row"></div>
-                  <div class="col-auto">
-                    <div class="form-inline">
-                      <div app-margin-select label="Margin Top"
-                           [data]="row"
-                           field="marginTop" class="mr-4">
-                      </div>
-                      <div app-margin-select label="Margin Bottom"
-                           [data]="row"
-                           field="marginBottom">
+                    <select class="form-control input-sm"
+                            [(ngModel)]="row.type"
+                            (ngModelChange)="changePageContentRowType(row)"
+                            [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-type')">
+                      @for (type of enumKeyValuesForPageContentType; track type) {
+                        <option
+                          [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+                        </option>
+                      }
+                    </select>
+                  </div>
+                  @if (actions.isCarouselOrAlbum(row)) {
+                    <div (nameInputChange)="editAlbumName=$event" class="col" app-row-settings-carousel
+                         [row]="row">
+                    </div>
+                  }
+                  @if (!editAlbumName) {
+                    @if (actions.isActionButtons(row) || actions.isAlbumIndex(row)) {
+                      <div class="col-auto" app-row-settings-action-buttons
+                           [row]="row"></div>
+                    }
+                    <div class="col-auto">
+                      <div class="form-inline">
+                        <div app-margin-select label="Margin Top"
+                             [data]="row"
+                             field="marginTop" class="mr-4">
+                        </div>
+                        <div app-margin-select label="Margin Bottom"
+                             [data]="row"
+                             field="marginBottom">
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div class="col-auto">
-                    <div class="form-inline float-right">
-                      <app-actions-dropdown [rowIndex]="rowIndex"
-                                            [pageContent]="pageContent"
-                                            [row]="row">
-                      </app-actions-dropdown>
-                      <app-bulk-action-selector [row]="row"></app-bulk-action-selector>
+                    <div class="col-auto">
+                      <div class="form-inline float-right">
+                        <app-actions-dropdown [rowIndex]="rowIndex"
+                                              [pageContent]="pageContent"
+                                              [row]="row">
+                        </app-actions-dropdown>
+                        <app-bulk-action-selector [row]="row"></app-bulk-action-selector>
+                      </div>
                     </div>
-                  </div>
-                </ng-container>
+                  }
+                </div>
+                @if (actions.isAlbumIndex(row)) {
+                  <app-album-index-site-edit [row]="row" [rowIndex]="rowIndex"/>
+                }
+                @if (actions.isActionButtons(row)) {
+                  <app-action-buttons
+                    [pageContent]="pageContent"
+                    [rowIndex]="rowIndex">
+                  </app-action-buttons>
+                }
+                @if (actions.isCarouselOrAlbum(row)) {
+                  <app-dynamic-content-site-edit-album
+                    [row]="row" [rowIndex]="rowIndex" [pageContent]="pageContent"/>
+                }
+                <app-dynamic-content-site-edit-text-row
+                  [row]="row"
+                  [rowIndex]="rowIndex"
+                  [contentDescription]="contentDescription"
+                  [contentPath]="contentPath"
+                  [pageContent]="pageContent">
+                </app-dynamic-content-site-edit-text-row>
+                @if (actions.isEvents(row)) {
+                  <app-events [row]="row" [rowIndex]="rowIndex"/>
+                }
               </div>
-              <app-album-index-site-edit *ngIf="actions.isAlbumIndex(row)" [row]="row" [rowIndex]="rowIndex"/>
-              <app-action-buttons *ngIf="actions.isActionButtons(row)"
-                                  [pageContent]="pageContent"
-                                  [rowIndex]="rowIndex">
-              </app-action-buttons>
-              <app-dynamic-content-site-edit-album *ngIf="actions.isCarouselOrAlbum(row)"
-                                                   [row]="row" [rowIndex]="rowIndex" [pageContent]="pageContent"/>
-              <app-dynamic-content-site-edit-text-row
-                [row]="row"
-                [rowIndex]="rowIndex"
-                [contentDescription]="contentDescription"
-                [contentPath]="contentPath"
-                [pageContent]="pageContent">
-              </app-dynamic-content-site-edit-text-row>
-              <app-events *ngIf="actions.isEvents(row)" [row]="row" [rowIndex]="rowIndex"/>
-            </div>
+            }
             <ng-container *ngTemplateOutlet="saveButtonsAndPath"></ng-container>
           </div>
         </div>
-      </ng-container>
-    </ng-container>`,
+      }
+    }`,
   styleUrls: ["./dynamic-content.sass"],
   standalone: false
 })

@@ -1,5 +1,5 @@
-<ng-container *ngIf="display.allow.admin">
-  <ng-container *ngIf="showPagination">
+@if (display.allow.admin) {
+  @if (showPagination) {
     <ng-container *ngTemplateOutlet="searchAndFilterActions"></ng-container>
     <div class="d-flex">
       <ng-content select="[pagination]"></ng-content>
@@ -7,18 +7,20 @@
         <ng-container *ngTemplateOutlet="alert"></ng-container>
       </div>
     </div>
-  </ng-container>
-  <ng-container *ngIf="!showPagination">
+  }
+  @if (!showPagination) {
     <ng-container *ngTemplateOutlet="searchAndFilterActions"></ng-container>
-  </ng-container>
-</ng-container>
+  }
+}
 
 <ng-template #alert>
-  <div *ngIf="notifyTarget.showAlert" class="alert {{notifyTarget.alertClass}}">
-    <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-    <strong>{{notifyTarget.alertTitle}}</strong>
-    {{notifyTarget.alertMessage}}
-  </div>
+  @if (notifyTarget.showAlert) {
+    <div class="alert {{notifyTarget.alertClass}}">
+      <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+      <strong>{{ notifyTarget.alertTitle }}</strong>
+      {{ notifyTarget.alertMessage }}
+    </div>
+  }
 </ng-template>
 
 <ng-template #searchAndFilterActions>
@@ -39,8 +41,11 @@
       <select [(ngModel)]="filterParameters.selectType"
               (ngModelChange)="refreshSocialEvents('change filterParameters.selectType')" name="selectType"
               class="form-control rounded mr-3">
-        <option *ngFor=" let dateCriteria of display.dateSelectionOptions()"
-                [ngValue]="dateCriteria.key">{{dateCriteria.value}}</option>
+        @for (dateCriteria of display.dateSelectionOptions(); track dateCriteria.value) {
+          <option
+            [ngValue]="dateCriteria.key">{{ dateCriteria.value }}
+          </option>
+        }
       </select>
     </div>
     <div class="form-group">

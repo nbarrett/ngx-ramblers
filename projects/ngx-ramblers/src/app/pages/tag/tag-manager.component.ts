@@ -12,40 +12,46 @@ import { StringUtilsService } from "../../services/string-utils.service";
 @Component({
   selector: "app-tag-manager",
   template: `
-    <table *ngIf="contentMetadata?.imageTags" class="styled-table table-responsive-sm table-pointer">
-      <thead>
-      <tr>
-        <th>Subject</th>
-        <th>Usages</th>
-        <th>Exclude From Recent</th>
-        <th>Sort Index</th>
-        <th>Delete</th>
-      </tr>
-      </thead>
-      <tbody>
-      <tr *ngFor="let imageTag of contentMetadata.imageTags">
-        <td><input [(ngModel)]="imageTag.subject"
-                   type="text" class="form-control"></td>
-        <td>{{filesTaggedWith(imageTag)}}</td>
-        <td>
-          <div class="custom-control custom-checkbox">
-            <input [ngModel]="imageTag.excludeFromRecent"
-                   type="checkbox" class="custom-control-input">
-            <label class="custom-control-label" (click)="toggleExcludeFromRecent(imageTag)"></label></div>
-        </td>
-        <td><input [(ngModel)]="imageTag.sortIndex"
-                   type="number" class="form-control"></td>
-        <td>
-          <div *ngIf="canDelete(imageTag)" class="badge-button" (click)="remove(imageTag)"
-               delay=500 [tooltip]="'Remove ' + imageTag.subject + ' tag'">
-            <fa-icon [icon]="faRemove"></fa-icon>
-            <span>remove</span>
-          </div>
-        </td>
-      </tr>
-      </tbody>
-    </table>
-  `,
+    @if (contentMetadata?.imageTags) {
+      <table class="styled-table table-responsive-sm table-pointer">
+        <thead>
+          <tr>
+            <th>Subject</th>
+            <th>Usages</th>
+            <th>Exclude From Recent</th>
+            <th>Sort Index</th>
+            <th>Delete</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (imageTag of contentMetadata.imageTags; track imageTag) {
+            <tr>
+              <td><input [(ngModel)]="imageTag.subject"
+              type="text" class="form-control"></td>
+              <td>{{filesTaggedWith(imageTag)}}</td>
+              <td>
+                <div class="custom-control custom-checkbox">
+                  <input [ngModel]="imageTag.excludeFromRecent"
+                    type="checkbox" class="custom-control-input">
+                  <label class="custom-control-label" (click)="toggleExcludeFromRecent(imageTag)"></label></div>
+                </td>
+                <td><input [(ngModel)]="imageTag.sortIndex"
+                type="number" class="form-control"></td>
+                <td>
+                  @if (canDelete(imageTag)) {
+                    <div class="badge-button" (click)="remove(imageTag)"
+                      delay=500 [tooltip]="'Remove ' + imageTag.subject + ' tag'">
+                      <fa-icon [icon]="faRemove"></fa-icon>
+                      <span>remove</span>
+                    </div>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    `,
   standalone: false
 })
 

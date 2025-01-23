@@ -10,12 +10,16 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
   selector: "app-walk-panel-expander",
   template: `
     <div class="form-inline" [ngClass]="display.walkMode(walk)">
-      <fa-icon *ngIf="expandable" (click)="expand()"
-               placement="auto" [tooltip]="expandAction" [icon]="faCaretUp"
-               class="markdown-preview-icon fa-2x"></fa-icon>
-      <fa-icon *ngIf="collapsable" placement="auto" [tooltip]="collapseAction"
-               (click)="collapse()" [icon]="faCaretDown"
-               class="fa-2x markdown-preview-icon ml-1"></fa-icon>
+      @if (expandable) {
+        <fa-icon (click)="expand()"
+          placement="auto" [tooltip]="expandAction" [icon]="faCaretUp"
+        class="markdown-preview-icon fa-2x"></fa-icon>
+      }
+      @if (collapsable) {
+        <fa-icon placement="auto" [tooltip]="collapseAction"
+          (click)="collapse()" [icon]="faCaretDown"
+        class="fa-2x markdown-preview-icon ml-1"></fa-icon>
+      }
     </div>`,
   styleUrls: ["./walk-panel-expander.sass"],
   standalone: false

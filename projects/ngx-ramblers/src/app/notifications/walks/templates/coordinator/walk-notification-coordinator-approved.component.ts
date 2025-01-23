@@ -5,12 +5,14 @@ import { WalkNotificationDetailsComponent } from "../common/walk-notification-de
   selector: "app-walk-notification-coordinator-approved",
   template: `
     <p>This email is a notification that at <strong [textContent]="event.date | displayDateAndTime"></strong>,
-      <strong [textContent]="event.memberId | memberIdToFullName : members"></strong>
-      approved and published on our website the walk led by <strong
-        [textContent]="walk.walkLeaderMemberId | memberIdToFullName : members : walk.displayName"></strong>
-      on <strong [textContent]="walk.walkDate | displayDate"></strong>:
+    <strong [textContent]="event.memberId | memberIdToFullName : members"></strong>
+    approved and published on our website the walk led by <strong
+    [textContent]="walk.walkLeaderMemberId | memberIdToFullName : members : walk.displayName"></strong>
+    on <strong [textContent]="walk.walkDate | displayDate"></strong>:
     </p>
-    <p *ngIf="event.reason" [textContent]="event.reason"></p>
+    @if (event.reason) {
+      <p [textContent]="event.reason"></p>
+    }
     <p>For info, the details of the walk at the moment is as follows:
       <app-walk-notification-details [data]="data"></app-walk-notification-details>
     </p>

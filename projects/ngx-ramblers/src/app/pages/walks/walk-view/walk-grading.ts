@@ -4,14 +4,16 @@ import { WALK_GRADES, WalkGrade } from "../../../models/walk.model";
 @Component({
   selector: "app-walk-grading",
   template: `
-    <div *ngIf="walkGrade" app-related-link placement="right" tooltip="Walk is graded as {{walkGrade.description}}">
-      <img title class="grading-image"
-           src="/assets/images/ramblers/gradings/{{walkGrade.image}}"
-           alt="{{walkGrade.description}}"/>
-      <div content>
-        {{ grading }}
+    @if (walkGrade) {
+      <div app-related-link placement="right" tooltip="Walk is graded as {{walkGrade.description}}">
+        <img title class="grading-image"
+          src="/assets/images/ramblers/gradings/{{walkGrade.image}}"
+          alt="{{walkGrade.description}}"/>
+        <div content>
+          {{ grading }}
+        </div>
       </div>
-    </div>`,
+    }`,
   styleUrls: ["./walk-view.sass"],
   standalone: false
 })

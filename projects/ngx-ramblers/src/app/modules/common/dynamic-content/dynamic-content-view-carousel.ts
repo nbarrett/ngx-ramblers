@@ -7,13 +7,13 @@ import { PageContentActionsService } from "../../../services/page-content-action
 @Component({
   selector: "app-dynamic-content-view-carousel",
   template: `
-      <ng-container *ngIf="actions.isCarousel(row)">
-          <div [class]="actions.rowClasses(row)">
-              <div class="col-sm-12">
-                  <app-carousel [album]="row.carousel" [index]="index"></app-carousel>
-              </div>
+      @if (actions.isCarousel(row)) {
+        <div [class]="actions.rowClasses(row)">
+          <div class="col-sm-12">
+            <app-carousel [album]="row.carousel" [index]="index"></app-carousel>
           </div>
-      </ng-container>`,
+        </div>
+      }`,
   standalone: false
 })
 export class DynamicContentViewCarouselComponent implements OnInit {

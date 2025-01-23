@@ -22,16 +22,20 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
       </tr>
       </thead>
       <tbody>
-      <tr *ngFor="let expenseItem of expenseClaim.expenseItems">
-        <td style="border:1px solid lightgrey; padding: 6px">{{ expenseItem.expenseDate | displayDate }}</td>
-        <td style="border:1px solid lightgrey; padding: 6px">
-          <div>{{display.prefixedExpenseItemDescription(expenseItem)}}</div>
-          <div *ngIf="expenseItem.receipt"> receipt: <a target="_blank"
-                                                        [href]="display.receiptUrl(expenseItem)">{{ display.receiptTitle(expenseItem) }}</a>
-          </div>
-        </td>
-        <td style="border:1px solid lightgrey; padding: 6px;text-align:right">{{ expenseItem.cost | asMoney }}</td>
-      </tr>
+        @for (expenseItem of expenseClaim.expenseItems; track expenseItem) {
+          <tr>
+            <td style="border:1px solid lightgrey; padding: 6px">{{ expenseItem.expenseDate | displayDate }}</td>
+            <td style="border:1px solid lightgrey; padding: 6px">
+              <div>{{ display.prefixedExpenseItemDescription(expenseItem) }}</div>
+              @if (expenseItem.receipt) {
+                <div> receipt: <a target="_blank"
+                                  [href]="display.receiptUrl(expenseItem)">{{ display.receiptTitle(expenseItem) }}</a>
+                </div>
+              }
+            </td>
+            <td style="border:1px solid lightgrey; padding: 6px;text-align:right">{{ expenseItem.cost | asMoney }}</td>
+          </tr>
+        }
       <tr>
         <td colspan="2" style="border:1px solid lightgrey; font-weight: bold; padding: 6px">{{ stringUtilsService.pluraliseWithCount(expenseClaim.expenseItems.length, 'item') }}</td>
         <td

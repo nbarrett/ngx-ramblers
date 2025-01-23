@@ -8,8 +8,11 @@
           <select class="form-control input-sm"
                   [(ngModel)]="size"
                   id="aspect-ratio">
-            <option *ngFor="let size of sizes"
-                    [ngValue]="size">{{size}}</option>
+            @for (size of sizes; track size) {
+              <option
+                [ngValue]="size">{{ size }}
+              </option>
+            }
           </select>
           <div class="form-group">
             <label class="form-label"
@@ -24,17 +27,19 @@
           <h6>{{filteredIcons.length}} icons matching {{filter}}</h6>
         </div>
         <div class="col-8">
-          <div class="row" *ngFor="let icon of filteredIcons">
-            <div class="col-sm-3">
-              {{icon.key}}
-            </div>
-            <div class="col-sm-3">
-              <div class="badge-button">
-                <fa-icon [icon]="icon.value" [class]="size"></fa-icon>
-                <span>{{icon.key}}</span>
+          @for (icon of filteredIcons; track icon) {
+            <div class="row">
+              <div class="col-sm-3">
+                {{ icon.key }}
+              </div>
+              <div class="col-sm-3">
+                <div class="badge-button">
+                  <fa-icon [icon]="icon.value" [class]="size"></fa-icon>
+                  <span>{{ icon.key }}</span>
+                </div>
               </div>
             </div>
-          </div>
+          }
         </div>
       </div>
     </div>

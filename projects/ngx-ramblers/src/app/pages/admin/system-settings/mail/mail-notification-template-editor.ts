@@ -25,217 +25,252 @@ import first from "lodash-es/first";
 @Component({
   selector: "app-mail-notification-template-mapping-editor",
   template: `
-    <div *ngIf="mailMessagingConfig" class="row img-thumbnail thumbnail-2">
-      <div class="thumbnail-heading-with-select">
-        <div class="form-inline">
-          <label for="template-mapping">Email Configuration
-            {{ mailMessagingConfig.notificationConfigs.indexOf(notificationConfig) + 1 }}
+    @if (mailMessagingConfig) {
+      <div class="row img-thumbnail thumbnail-2">
+        <div class="thumbnail-heading-with-select">
+          <div class="form-inline">
+            <label for="template-mapping">Email Configuration
+              {{ mailMessagingConfig.notificationConfigs.indexOf(notificationConfig) + 1 }}
             of {{ mailMessagingConfig.notificationConfigs.length }}: </label>
-          <select [(ngModel)]="notificationConfig"
-                  (ngModelChange)="select(notificationConfig)"
-                  id="template-mapping"
-                  class="ml-2 form-control input-sm">
-            <option *ngFor="let mapping of mailMessagingConfig.notificationConfigs"
-                    [ngValue]="mapping">{{ mapping?.subject?.text || '(no subject)' }}
-            </option>
-          </select>
-        </div>
-      </div>
-      <div class="col-sm-12 mt-2 mb-2">
-        <app-markdown-editor category="admin" name="mail-settings-email-configurations-help"
-                             description="Mail Settings Email Configuration Help"></app-markdown-editor>
-      </div>
-      <div class="col-sm-12">
-        <div class="row">
-          <div class="col pr-1">
-            <app-badge-button fullWidth [icon]="faBackward" caption="Previous" (click)="previousConfig()"
-                              [disabled]="previousConfigDisabled()"/>
-          </div>
-          <div class="col pr-1">
-            <app-badge-button fullWidth [icon]="faForward" caption="Next" (click)="nextConfig()"
-                              [disabled]="nextConfigDisabled()"/>
-          </div>
-          <div class="col pr-1">
-            <app-badge-button fullWidth="true" [icon]="faCopy" caption="Duplicate" (click)="duplicateConfig()"/>
-          </div>
-          <div class="col">
-            <app-badge-button fullWidth [icon]="faAdd" caption="Add New" (click)="addNewConfig()"/>
-          </div>
-          <div class="col pr-1">
-            <app-badge-button fullWidth="true" [icon]="faEraser" caption="Delete" (click)="deleteConfig()"/>
+            <select [(ngModel)]="notificationConfig"
+              (ngModelChange)="select(notificationConfig)"
+              id="template-mapping"
+              class="ml-2 form-control input-sm">
+              @for (mapping of mailMessagingConfig.notificationConfigs; track mapping) {
+                <option
+                  [ngValue]="mapping">{{ mapping?.subject?.text || '(no subject)' }}
+                </option>
+              }
+            </select>
           </div>
         </div>
-      </div>
-      <div *ngIf="notificationConfig">
-        <div class="row img-thumbnail thumbnail-2">
-          <div class="thumbnail-heading">Notification Settings</div>
-          <div *ngIf="notificationConfig?.subject" class="col-sm-12">
-            <div class="row">
-              <div class="col">
-                <div class="form-group">
-                  <label for="prefix-parameter">Subject Prefix</label>
-                  <select [(ngModel)]="notificationConfig.subject.prefixParameter"
+        <div class="col-sm-12 mt-2 mb-2">
+          <app-markdown-editor category="admin" name="mail-settings-email-configurations-help"
+          description="Mail Settings Email Configuration Help"></app-markdown-editor>
+        </div>
+        <div class="col-sm-12">
+          <div class="row">
+            <div class="col pr-1">
+              <app-badge-button fullWidth [icon]="faBackward" caption="Previous" (click)="previousConfig()"
+                [disabled]="previousConfigDisabled()"/>
+            </div>
+            <div class="col pr-1">
+              <app-badge-button fullWidth [icon]="faForward" caption="Next" (click)="nextConfig()"
+                [disabled]="nextConfigDisabled()"/>
+            </div>
+            <div class="col pr-1">
+              <app-badge-button fullWidth="true" [icon]="faCopy" caption="Duplicate" (click)="duplicateConfig()"/>
+            </div>
+            <div class="col">
+              <app-badge-button fullWidth [icon]="faAdd" caption="Add New" (click)="addNewConfig()"/>
+            </div>
+            <div class="col pr-1">
+              <app-badge-button fullWidth="true" [icon]="faEraser" caption="Delete" (click)="deleteConfig()"/>
+            </div>
+          </div>
+        </div>
+        @if (notificationConfig) {
+          <div>
+            <div class="row img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Notification Settings</div>
+              @if (notificationConfig?.subject) {
+                <div class="col-sm-12">
+                  <div class="row">
+                    <div class="col">
+                      <div class="form-group">
+                        <label for="prefix-parameter">Subject Prefix</label>
+                        <select [(ngModel)]="notificationConfig.subject.prefixParameter"
                           id="{{heading | kebabCase}-prefix-parameter"
                           class="form-control input-sm flex-grow-1 mr-2">
-                    <option *ngFor="let keyValue of parametersFrom"
-                            [ngValue]="keyValue.key">{{ formatKeyValue(keyValue) }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-              <div class="col">
-                <div class="form-group flex-grow-1">
-                  <label for="title">Subject Text</label>
-                  <input [(ngModel)]="notificationConfig.subject.text"
-                         type="text" id="title"
-                         class="form-control input-sm">
-                </div>
-              </div>
-              <div class="col">
-                <div class="form-group">
-                  <label for="suffix-parameter">Subject Suffix</label>
-                  <select [(ngModel)]="notificationConfig.subject.suffixParameter"
+                          @for (keyValue of parametersFrom; track keyValue) {
+                            <option
+                              [ngValue]="keyValue.key">{{ formatKeyValue(keyValue) }}
+                            </option>
+                          }
+                        </select>
+                      </div>
+                    </div>
+                    <div class="col">
+                      <div class="form-group flex-grow-1">
+                        <label for="title">Subject Text</label>
+                        <input [(ngModel)]="notificationConfig.subject.text"
+                          type="text" id="title"
+                          class="form-control input-sm">
+                      </div>
+                    </div>
+                    <div class="col">
+                      <div class="form-group">
+                        <label for="suffix-parameter">Subject Suffix</label>
+                        <select [(ngModel)]="notificationConfig.subject.suffixParameter"
                           id="suffix-parameter"
                           class="form-control input-sm flex-grow-1 mr-2">
-                    <option *ngFor="let keyValue of parametersFrom"
-                            [ngValue]="keyValue.key">{{ formatKeyValue(keyValue) }}
-                    </option>
-                  </select>
+                          @for (keyValue of parametersFrom; track keyValue) {
+                            <option
+                              [ngValue]="keyValue.key">{{ formatKeyValue(keyValue) }}
+                            </option>
+                          }
+                        </select>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </div>
-          <ng-container>
-            <div class="col-sm-12">
-              <div class="form-group">
-                <label for="banner-lookup">Banner Image</label>
-                <select class="form-control input-sm"
-                        id="banner-lookup"
-                        [(ngModel)]="notificationConfig.bannerId" (ngModelChange)="bannerSelected($event)">
-                  <option *ngFor="let banner of mailMessagingConfig.banners"
+              }
+              <ng-container>
+                <div class="col-sm-12">
+                  <div class="form-group">
+                    <label for="banner-lookup">Banner Image</label>
+                    <select class="form-control input-sm"
+                      id="banner-lookup"
+                      [(ngModel)]="notificationConfig.bannerId" (ngModelChange)="bannerSelected($event)">
+                      @for (banner of mailMessagingConfig.banners; track banner) {
+                        <option
                           [ngValue]="banner.id">{{ toBannerInformation(banner) }}
-                  </option>
-                </select>
+                        </option>
+                      }
+                    </select>
+                  </div>
+                </div>
+                @if (notificationConfig?.bannerId) {
+                  <div class="col-sm-12 mb-2">
+                    <img class="card-img"
+                      [src]="mailMessagingService.bannerImageSource(notificationConfig, false)">
+                  </div>
+                }
+              </ng-container>
+              <div class="col-sm-12">
+                <app-sender-replies-and-sign-off [mailMessagingConfig]="mailMessagingConfig"
+                  [notificationConfig]="notificationConfig"/>
               </div>
-            </div>
-            <div *ngIf="notificationConfig?.bannerId" class="col-sm-12 mb-2">
-              <img class="card-img"
-                   [src]="mailMessagingService.bannerImageSource(notificationConfig, false)">
-            </div>
-          </ng-container>
-          <div class="col-sm-12">
-            <app-sender-replies-and-sign-off [mailMessagingConfig]="mailMessagingConfig"
-                                             [notificationConfig]="notificationConfig"/>
-          </div>
-          <div class="col-sm-12">
-            <div class="form-group">
-              <label for="template">Brevo Template</label>
-              <div class="input-group">
-                <select [(ngModel)]="notificationConfig.templateId"
-                        id="template"
-                        class="form-control input-sm">
-                  <option *ngFor="let template of mailMessagingConfig?.brevo?.mailTemplates?.templates"
+              <div class="col-sm-12">
+                <div class="form-group">
+                  <label for="template">Brevo Template</label>
+                  <div class="input-group">
+                    <select [(ngModel)]="notificationConfig.templateId"
+                      id="template"
+                      class="form-control input-sm">
+                      @for (template of mailMessagingConfig?.brevo?.mailTemplates?.templates; track template) {
+                        <option
                           [ngValue]="template.id">{{ template.name }}
-                  </option>
-                </select>
-                <div class="input-group-append">
-                  <div class="input-group-text">
-                    <app-brevo-button [disabled]="notReady()" title="View or Edit Template"
-                                      (click)="mailLinkService.editTemplateWithNotifications(notificationConfig.templateId, this.notReady(), mailMessagingConfig)"/>
+                        </option>
+                      }
+                    </select>
+                    <div class="input-group-append">
+                      <div class="input-group-text">
+                        <app-brevo-button [disabled]="notReady()" title="View or Edit Template"
+                          (click)="mailLinkService.editTemplateWithNotifications(notificationConfig.templateId, this.notReady(), mailMessagingConfig)"/>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-        <div class="img-thumbnail thumbnail-2">
-          <div class="thumbnail-heading">Member Selection And Actions</div>
-          <div class="row"
-               *ngIf="mailMessagingService.workflowIdsFor(mailMessagingConfig?.mailConfig)?.includes(notificationConfig.id)">
-            <div class="col-sm-12">
-              <div class="form-group">
-                <label>Member Selected automatically via built-in workflow on <a (click)="tabSelected.emit(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS)">{{ MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS }}</a> tab</label>
-              </div>
-            </div>
-          </div>
-          <ng-container
-            *ngIf="!mailMessagingService.workflowIdsFor(mailMessagingConfig?.mailConfig)?.includes(notificationConfig.id)">
-            <div class="row">
-              <div class="col-sm-6">
-                <div class="form-group">
-                  <label for="member-selection">Member Selection</label>
-                  <select class="form-control input-sm"
-                          [(ngModel)]="notificationConfig.defaultMemberSelection"
-                          id="member-selection">
-                    <option *ngFor="let type of memberSelections"
+            <div class="img-thumbnail thumbnail-2">
+              <div class="thumbnail-heading">Member Selection And Actions</div>
+              @if (mailMessagingService.workflowIdsFor(mailMessagingConfig?.mailConfig)?.includes(notificationConfig.id)) {
+                <div class="row"
+                  >
+                  <div class="col-sm-12">
+                    <div class="form-group">
+                      <label>Member Selected automatically via built-in workflow on <a (click)="tabSelected.emit(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS)">{{ MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS }}</a> tab</label>
+                    </div>
+                  </div>
+                </div>
+              }
+              @if (!mailMessagingService.workflowIdsFor(mailMessagingConfig?.mailConfig)?.includes(notificationConfig.id)) {
+                <div class="row">
+                  <div class="col-sm-6">
+                    <div class="form-group">
+                      <label for="member-selection">Member Selection</label>
+                      <select class="form-control input-sm"
+                        [(ngModel)]="notificationConfig.defaultMemberSelection"
+                        id="member-selection">
+                        @for (type of memberSelections; track type) {
+                          <option
                             [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-              <div class="col-sm-6">
-                <div *ngIf="notificationConfig.defaultMemberSelection!==MemberSelection.MAILING_LIST"
-                     class="form-group">
-                  <label for="campaign-months-in-past-filter">Months In Past</label>
-                  <input [(ngModel)]="notificationConfig.monthsInPast"
-                         type="number" id="campaign-months-in-past-filter"
-                         class="form-control input-sm">
-                </div>
-                <div *ngIf="notificationConfig.defaultMemberSelection===MemberSelection.MAILING_LIST"
-                     class="form-group">
-                  <label for="default-list">
-                    Default List</label>
-                  <select [compareWith]="arrayComparer" class="form-control input-sm"
+                          </option>
+                        }
+                      </select>
+                    </div>
+                  </div>
+                  <div class="col-sm-6">
+                    @if (notificationConfig.defaultMemberSelection!==MemberSelection.MAILING_LIST) {
+                      <div
+                        class="form-group">
+                        <label for="campaign-months-in-past-filter">Months In Past</label>
+                        <input [(ngModel)]="notificationConfig.monthsInPast"
+                          type="number" id="campaign-months-in-past-filter"
+                          class="form-control input-sm">
+                      </div>
+                    }
+                    @if (notificationConfig.defaultMemberSelection===MemberSelection.MAILING_LIST) {
+                      <div
+                        class="form-group">
+                        <label for="default-list">
+                        Default List</label>
+                        <select [compareWith]="arrayComparer" class="form-control input-sm"
                           [(ngModel)]="notificationConfig.defaultListId"
                           id="default-list">
-                    <option *ngFor="let list of mailMessagingConfig.brevo.lists.lists"
-                            [ngValue]="list.id">{{ list.name }}
-                    </option>
-                  </select>
+                          @for (list of mailMessagingConfig.brevo.lists.lists; track list) {
+                            <option
+                              [ngValue]="list.id">{{ list.name }}
+                            </option>
+                          }
+                        </select>
+                      </div>
+                    }
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div class="row" *ngIf="notificationConfig.defaultMemberSelection!==MemberSelection.MAILING_LIST">
-              <div class="col-sm-6">
-                <div class="form-group">
-                  <label for="member-selection">
-                    Pre-Send Action</label>
-                  <select [compareWith]="arrayComparer" class="form-control input-sm"
+                @if (notificationConfig.defaultMemberSelection!==MemberSelection.MAILING_LIST) {
+                  <div class="row">
+                    <div class="col-sm-6">
+                      <div class="form-group">
+                        <label for="member-selection">
+                        Pre-Send Action</label>
+                        <select [compareWith]="arrayComparer" class="form-control input-sm"
                           [(ngModel)]="notificationConfig.preSendActions"
                           id="member-selection">
-                    <option *ngFor="let type of workflowActions"
-                            [ngValue]="keyValueAsArray(type)">{{ stringUtils.asTitle(type.value) }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-              <div class="col-sm-6">
-                <div class="form-group">
-                  <label for="member-selection">
-                    Post-Send Action</label>
-                  <select [compareWith]="arrayComparer" class="form-control input-sm"
+                          @for (type of workflowActions; track type) {
+                            <option
+                              [ngValue]="keyValueAsArray(type)">{{ stringUtils.asTitle(type.value) }}
+                            </option>
+                          }
+                        </select>
+                      </div>
+                    </div>
+                    <div class="col-sm-6">
+                      <div class="form-group">
+                        <label for="member-selection">
+                        Post-Send Action</label>
+                        <select [compareWith]="arrayComparer" class="form-control input-sm"
                           [(ngModel)]="notificationConfig.postSendActions"
                           id="member-selection">
-                    <option *ngFor="let type of workflowActions"
-                            [ngValue]="keyValueAsArray(type)">{{ stringUtils.asTitle(type.value) }}
-                    </option>
-                  </select>
+                          @for (type of workflowActions; track type) {
+                            <option
+                              [ngValue]="keyValueAsArray(type)">{{ stringUtils.asTitle(type.value) }}
+                            </option>
+                          }
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                }
+              }
+              @if (notificationConfig?.contentPreset) {
+                <div class="row">
+                  <div class="col-sm-12">
+                    <div class="form-group">
+                      <app-forgot-password-notification-details [params]="params"
+                        [notificationConfig]="notificationConfig"/>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </ng-container>
-          <div class="row" *ngIf="notificationConfig?.contentPreset">
-            <div class="col-sm-12">
-              <div class="form-group">
-                <app-forgot-password-notification-details [params]="params"
-                                                          [notificationConfig]="notificationConfig"/>
-              </div>
+              }
             </div>
           </div>
-        </div>
+        }
       </div>
-    </div>
-  `,
+    }
+    `,
   standalone: false
 })
 
