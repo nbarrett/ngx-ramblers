@@ -7,15 +7,17 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
   selector: "app-banner-title-part-config",
   styleUrls: ["./banner.component.sass"],
   template: `
-    <div class="row" *ngIf="titlePart">
-      <div class="col-sm-6">
-        <label class="mr-2" for="{{id}}-include">Part {{id}}:</label>
-        <input id="{{id}}-include" type="text" [(ngModel)]="titlePart.value" class="form-control mr-2">
+    @if (titlePart) {
+      <div class="row">
+        <div class="col-sm-6">
+          <label class="mr-2" for="{{id}}-include">Part {{id}}:</label>
+          <input id="{{id}}-include" type="text" [(ngModel)]="titlePart.value" class="form-control mr-2">
+        </div>
+        <div class="col-sm-6">
+          <app-colour-selector [itemWithClassOrColour]="titlePart"/>
+        </div>
       </div>
-      <div class="col-sm-6">
-        <app-colour-selector [itemWithClassOrColour]="titlePart"/>
-      </div>
-    </div>`,
+    }`,
   standalone: false
 })
 

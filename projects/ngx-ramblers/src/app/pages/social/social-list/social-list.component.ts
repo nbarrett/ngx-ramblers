@@ -12,10 +12,12 @@ import { SocialDisplayService } from "../social-display.service";
 @Component({
   selector: "app-social-list",
   template: `
-    <div class="img-thumbnail event-thumbnail" *ngFor="let socialEvent of filteredSocialEvents">
-      <app-social-view [socialEvent]="socialEvent"/>
-    </div>
-  `,
+    @for (socialEvent of filteredSocialEvents; track socialEvent) {
+      <div class="img-thumbnail event-thumbnail">
+        <app-social-view [socialEvent]="socialEvent"/>
+      </div>
+    }
+    `,
   styleUrls: ["./social-list.component.sass"],
   standalone: false
 })

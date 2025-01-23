@@ -17,23 +17,27 @@ import { UrlService } from "../../../services/url.service";
   styleUrls: ["./dynamic-content.sass"],
   template: `
     <label class="mr-2"
-           [for]="id">Album Name</label>
-    <app-carousel-select [maxWidth]="250" *ngIf="!nameInput" [id]="id" showNewButton
-                         [name]="row?.carousel?.name"
-                         (metadataChange)="metadataChange(row, $event)"
-                         (nameEditToggle)="toggleNameEdit($event)"/>
-    <div class="d-flex" *ngIf="nameInput">
-      <input autocomplete="new-password" [typeahead]="contentMetadataService?.carousels"
-             [typeaheadMinLength]="0"
-             [id]="id"
-             [ngModel]="row.carousel.name"
-             (ngModelChange)="carouselNameChange($event)"
-             name="new-password"
-             [ngModelOptions]="{standalone: true}"
-             type="text" class="form-control mr-2 flex-grow-1">
-      <app-badge-button [icon]="faSearch" [caption]="'existing'"
-                        (click)="toggleNameEdit(false)"/>
-    </div>`,
+    [for]="id">Album Name</label>
+    @if (!nameInput) {
+      <app-carousel-select [maxWidth]="250" [id]="id" showNewButton
+        [name]="row?.carousel?.name"
+        (metadataChange)="metadataChange(row, $event)"
+        (nameEditToggle)="toggleNameEdit($event)"/>
+    }
+    @if (nameInput) {
+      <div class="d-flex">
+        <input autocomplete="new-password" [typeahead]="contentMetadataService?.carousels"
+          [typeaheadMinLength]="0"
+          [id]="id"
+          [ngModel]="row.carousel.name"
+          (ngModelChange)="carouselNameChange($event)"
+          name="new-password"
+          [ngModelOptions]="{standalone: true}"
+          type="text" class="form-control mr-2 flex-grow-1">
+        <app-badge-button [icon]="faSearch" [caption]="'existing'"
+          (click)="toggleNameEdit(false)"/>
+      </div>
+    }`,
   standalone: false
 })
 export class RowSettingsCarouselComponent implements OnInit {

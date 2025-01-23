@@ -9,10 +9,10 @@
         <div class="form-group">
           <label [for]="'expense-date'">Expense Date</label>
           <app-date-picker startOfDay
-                           [disabled]="!editable"
-                           [value]="expenseItem.expenseDate"
-                           id="expense-date" size="sm"
-                           (dateChange)="onExpenseDateChange($event)">
+            [disabled]="!editable"
+            [value]="expenseItem.expenseDate"
+            id="expense-date" size="sm"
+            (dateChange)="onExpenseDateChange($event)">
           </app-date-picker>
         </div>
       </div>
@@ -20,167 +20,191 @@
         <div class="form-group">
           <label for="expenseType">Expense Type</label>
           <select [compareWith]="expenseTypeComparer" [(ngModel)]="expenseItem.expenseType"
-                  (ngModelChange)="expenseTypeChange($event)" id="expenseType"
-                  class="form-control input-sm"
-                  [disabled]="!editable">
-            <option *ngFor="let expenseType of display.expenseTypes trackBy expenseTypeTracker"
-                    [ngValue]="expenseType"
-                    [textContent]="expenseType.name">
-            </option>
+            (ngModelChange)="expenseTypeChange($event)" id="expenseType"
+            class="form-control input-sm"
+            [disabled]="!editable">
+            @for (expenseType of display.expenseTypes; track expenseTypeTracker) {
+              <option
+                [ngValue]="expenseType"
+                [textContent]="expenseType.name">
+              </option>
+            }
           </select>
         </div>
       </div>
     </div>
-    <div *ngIf="expenseItem.expenseType.travel">
-      <div class="row">
-        <div class="col-sm-6">
-          <div class="form-group">
-            <label for="from">From</label>
-            <input [disabled]="!editable" [(ngModel)]="expenseItem.travel.from" type="text"
-                   (ngModelChange)="setExpenseItemFields()" class="form-control input-sm" id="from"
-                   placeholder="Enter from location here">
+    @if (expenseItem.expenseType.travel) {
+      <div>
+        <div class="row">
+          <div class="col-sm-6">
+            <div class="form-group">
+              <label for="from">From</label>
+              <input [disabled]="!editable" [(ngModel)]="expenseItem.travel.from" type="text"
+                (ngModelChange)="setExpenseItemFields()" class="form-control input-sm" id="from"
+                placeholder="Enter from location here">
+            </div>
           </div>
-        </div>
-        <div class="col-sm-6">
-          <div class="form-group">
-            <label for="to">To</label>
-            <input [disabled]="!editable" [(ngModel)]="expenseItem.travel.to" type="text"
-                   (ngModelChange)="setExpenseItemFields()" class="form-control input-sm" id="to"
-                   placeholder="Enter to location here">
-          </div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-sm-6">
-          <br>
-
-          <div class="form-group custom-control custom-checkbox">
-            <input [disabled]="!editable" [(ngModel)]="expenseItem.travel.returnJourney"
-                   (ngModelChange)="setExpenseItemFields()" type="checkbox" class="custom-control-input"
-                   id="is-return">
-            <label class="custom-control-label" for="is-return">Return
-              Journey </label>
-          </div>
-        </div>
-
-        <div class="col-sm-6">
-          <label for="miles">Distance</label>
-          <div class="input-group">
-            <input [disabled]="!editable" [(ngModel)]="expenseItem.travel.miles" type="text"
-                   (ngModelChange)="setExpenseItemFields()"
-                   class="form-control input-sm" id="miles"
-                   placeholder="Enter miles here">
-            <div class="input-group-prepend">
-              <div class="input-group-text">miles</div>
+          <div class="col-sm-6">
+            <div class="form-group">
+              <label for="to">To</label>
+              <input [disabled]="!editable" [(ngModel)]="expenseItem.travel.to" type="text"
+                (ngModelChange)="setExpenseItemFields()" class="form-control input-sm" id="to"
+                placeholder="Enter to location here">
             </div>
           </div>
         </div>
-      </div>
-    </div>
-    <div class="row">
-      <div class="col-sm-9">
-        <div class="form-group">
-          <label for="description">Expense Description</label>
-          <input *ngIf="!expenseItem.expenseType.travel"
-                 [disabled]="!editable || expenseItem.expenseType.travel"
-                 (ngModelChange)="setExpenseItemFields()" [(ngModel)]="expenseItem.description"
-                 type="text" class="form-control input-sm" id="description"
-                 placeholder="Enter expense description here">
+        <div class="row">
+          <div class="col-sm-6">
+            <br>
+              <div class="form-group custom-control custom-checkbox">
+                <input [disabled]="!editable" [(ngModel)]="expenseItem.travel.returnJourney"
+                  (ngModelChange)="setExpenseItemFields()" type="checkbox" class="custom-control-input"
+                  id="is-return">
+                <label class="custom-control-label" for="is-return">Return
+                Journey </label>
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <label for="miles">Distance</label>
+              <div class="input-group">
+                <input [disabled]="!editable" [(ngModel)]="expenseItem.travel.miles" type="text"
+                  (ngModelChange)="setExpenseItemFields()"
+                  class="form-control input-sm" id="miles"
+                  placeholder="Enter miles here">
+                <div class="input-group-prepend">
+                  <div class="input-group-text">miles</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="form-group">
-          <a *ngIf="expenseItem.expenseType.travel" target="_blank" id="map-url"
-             [href]="'https://www.google.co.uk/maps/dir/' + expenseItem.travel.from + '/' + expenseItem.travel.to"
-             [textContent]="'Show ' + expenseItem.description + ' on google maps'"></a>
+      }
+      <div class="row">
+        <div class="col-sm-9">
+          <div class="form-group">
+            <label for="description">Expense Description</label>
+            @if (!expenseItem.expenseType.travel) {
+              <input
+                [disabled]="!editable || expenseItem.expenseType.travel"
+                (ngModelChange)="setExpenseItemFields()" [(ngModel)]="expenseItem.description"
+                type="text" class="form-control input-sm" id="description"
+                placeholder="Enter expense description here">
+            }
+          </div>
+          <div class="form-group">
+            @if (expenseItem.expenseType.travel) {
+              <a target="_blank" id="map-url"
+                [href]="'https://www.google.co.uk/maps/dir/' + expenseItem.travel.from + '/' + expenseItem.travel.to"
+              [textContent]="'Show ' + expenseItem.description + ' on google maps'"></a>
+            }
+          </div>
+        </div>
+
+        <div class="col-sm-3">
+          <label for="cost">Cost</label>
+          <div class="input-group">
+            <div class="input-group-prepend">
+              <div class="input-group-text">£</div>
+            </div>
+            <input [disabled]="!editable || expenseItem.expenseType.travel"
+              placeholder="Enter cost here" [(ngModel)]="expenseItem.cost" id="cost"
+              type="text" class="form-control input-sm"
+              aria-label="Amount">
+          </div>
         </div>
       </div>
 
-      <div class="col-sm-3">
-        <label for="cost">Cost</label>
-        <div class="input-group">
-          <div class="input-group-prepend">
-            <div class="input-group-text">£</div>
+      @if (!expenseItem.expenseType.travel) {
+        <div class="row mb-2">
+          <div class="col-sm-12">
+            <input type="submit" [disabled]="notifyTarget.busy || !editable"
+              value="Browse for receipt"
+              (click)="browseToReceipt(expenseFileUpload)"
+              class="button-form"
+              [ngClass]="{'disabled-button-form': notifyTarget.busy || !editable  }">
+            @if (expenseItem.receipt) {
+              <input [disabled]="notifyTarget.busy || !editable" type="submit"
+                value="Remove receipt" (click)="removeReceipt()" title="Remove Receipt"
+                [ngClass]="notifyTarget.busy || !editable ? 'disabled-button-form': 'button-form'">
+            }
+            <input #expenseFileUpload id="browse-to-file" class="d-none" name="receipt"
+              type="file" value="Upload"
+              ng2FileSelect (onFileSelected)="onFileSelect($event)" [uploader]="uploader">
           </div>
-          <input [disabled]="!editable || expenseItem.expenseType.travel"
-                 placeholder="Enter cost here" [(ngModel)]="expenseItem.cost" id="cost"
-                 type="text" class="form-control input-sm"
-                 aria-label="Amount">
         </div>
-      </div>
-    </div>
-
-    <ng-container *ngIf="!expenseItem.expenseType.travel">
+        <div class="row mb-2">
+          <div class="col-sm-12">
+            <div ng2FileDrop [ngClass]="{'file-over': hasFileOver && editable}"
+              (fileOver)="fileOver($event)"
+              (onFileDrop)="fileDropped($event)"
+              [uploader]="uploader"
+              class="drop-zone col">
+              Or drop file here
+            </div>
+          </div>
+        </div>
+        @if (notifyTarget.busy) {
+          <div class="progress mb-2">
+            <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': uploader.progress + '%' }">
+              uploading {{uploader.progress}}%
+            </div>
+          </div>
+        }
+        @if (uploadedFile || expenseItem.receipt) {
+          <div class="form-group">
+            <label for="receipt">Description for attached receipt: </label>
+            <a target="_blank" id="receipt" [href]="display.receiptUrl(expenseItem)"
+            [textContent]="display.receiptTitle(expenseItem)"></a>
+            @if (display.allowAddExpenseItem(expenseClaim)) {
+              <input [(ngModel)]="expenseItem.receipt.title"
+                [disabled]="notifyTarget.busy || !editable"
+                type="text"
+                class="form-control input-sm" id="receiptTitle"
+                placeholder="Enter a title for this receipt">
+            }
+          </div>
+        }
+      }
       <div class="row mb-2">
         <div class="col-sm-12">
-          <input type="submit" [disabled]="notifyTarget.busy || !editable"
-                 value="Browse for receipt"
-                 (click)="browseToReceipt(expenseFileUpload)"
-                 class="button-form"
-                 [ngClass]="{'disabled-button-form': notifyTarget.busy || !editable  }">
-          <input *ngIf="expenseItem.receipt" [disabled]="notifyTarget.busy || !editable" type="submit"
-                 value="Remove receipt" (click)="removeReceipt()" title="Remove Receipt"
-                 [ngClass]="notifyTarget.busy || !editable ? 'disabled-button-form': 'button-form'">
-          <input #expenseFileUpload id="browse-to-file" class="d-none" name="receipt"
-                 type="file" value="Upload"
-                 ng2FileSelect (onFileSelected)="onFileSelect($event)" [uploader]="uploader">
-        </div>
-      </div>
-      <div class="row mb-2">
-        <div class="col-sm-12">
-          <div ng2FileDrop [ngClass]="{'file-over': hasFileOver && editable}"
-               (fileOver)="fileOver($event)"
-               (onFileDrop)="fileDropped($event)"
-               [uploader]="uploader"
-               class="drop-zone col">
-            Or drop file here
+          @if (notifyTarget.showAlert) {
+            <div>
+              <div class="alert {{notifyTarget.alertClass}}">
+                <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                @if (notifyTarget.alertTitle) {
+                  <strong
+                  > {{notifyTarget.alertTitle}}: </strong>
+                  } {{notifyTarget.alertMessage}}
+                </div>
+              </div>
+            }
           </div>
         </div>
       </div>
-      <div class="progress mb-2" *ngIf="notifyTarget.busy">
-        <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': uploader.progress + '%' }">
-          uploading {{uploader.progress}}%
-        </div>
-      </div>
-      <div *ngIf="uploadedFile || expenseItem.receipt" class="form-group">
-        <label for="receipt">Description for attached receipt: </label>
-        <a target="_blank" id="receipt" [href]="display.receiptUrl(expenseItem)"
-           [textContent]="display.receiptTitle(expenseItem)"></a>
-        <input *ngIf="display.allowAddExpenseItem(expenseClaim)" [(ngModel)]="expenseItem.receipt.title"
-               [disabled]="notifyTarget.busy || !editable"
-               type="text"
-               class="form-control input-sm" id="receiptTitle"
-               placeholder="Enter a title for this receipt">
-      </div>
-    </ng-container>
-    <div class="row mb-2">
-      <div class="col-sm-12">
-        <div *ngIf="notifyTarget.showAlert">
-          <div class="alert {{notifyTarget.alertClass}}">
-            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-            <strong
-              *ngIf="notifyTarget.alertTitle"> {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
-          </div>
-        </div>
+      <div class="modal-footer">
+        @if (display.allowEditExpenseItem(expenseClaim) || display.allowAddExpenseItem(expenseClaim)) {
+          <input
+            [disabled]="notifyTarget.busy"
+            type="submit" value="Save Expense Item" (click)="saveExpenseClaim()"
+            title="Save expense item"
+            [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+        }
+        @if (confirm.noneOutstanding() && display.allowDeleteExpenseItem(expenseClaim)) {
+          <input
+            [disabled]="notifyTarget.busy" type="submit"
+            value="Delete Expense Item" (click)="confirm.toggleOnDeleteConfirm()" title="Delete expense Item"
+            [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+        }
+        @if (confirm.deleteConfirmOutstanding() && display.allowDeleteExpenseItem(expenseClaim)) {
+          <input
+            [disabled]="notifyTarget.busy"
+            type="submit" value="Confirm Delete of Expense Item"
+            (click)="confirmDeleteExpenseItem(expenseClaim, expenseItem, expenseItemIndex)"
+            title="Confirm delete of this expense item"
+            [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-confirm'">
+        }
+        <input type="submit" value="Cancel Change" (click)="cancelExpenseChange()"
+          [disabled]="notifyTarget.busy" title="Cancel Expense Claim changes and close this dialog"
+          [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
       </div>
     </div>
-  </div>
-  <div class="modal-footer">
-    <input *ngIf="display.allowEditExpenseItem(expenseClaim) || display.allowAddExpenseItem(expenseClaim)"
-           [disabled]="notifyTarget.busy"
-           type="submit" value="Save Expense Item" (click)="saveExpenseClaim()"
-           title="Save expense item"
-           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
-    <input *ngIf="confirm.noneOutstanding() && display.allowDeleteExpenseItem(expenseClaim)"
-           [disabled]="notifyTarget.busy" type="submit"
-           value="Delete Expense Item" (click)="confirm.toggleOnDeleteConfirm()" title="Delete expense Item"
-           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
-    <input *ngIf="confirm.deleteConfirmOutstanding() && display.allowDeleteExpenseItem(expenseClaim)"
-           [disabled]="notifyTarget.busy"
-           type="submit" value="Confirm Delete of Expense Item"
-           (click)="confirmDeleteExpenseItem(expenseClaim, expenseItem, expenseItemIndex)"
-           title="Confirm delete of this expense item"
-           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-confirm'">
-    <input type="submit" value="Cancel Change" (click)="cancelExpenseChange()"
-           [disabled]="notifyTarget.busy" title="Cancel Expense Claim changes and close this dialog"
-           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
-  </div>
-</div>

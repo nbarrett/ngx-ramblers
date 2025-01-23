@@ -20,57 +20,69 @@ import first from "lodash-es/first";
 @Component({
   selector: "app-mail-provider-settings",
   template: `
-    <div *ngIf="this.config?.mailDefaults" class="row img-thumbnail thumbnail-2">
-      <div class="thumbnail-heading">Mail</div>
-      <div class="col-md-12" *ngIf="config.mailDefaults.mailProvider===MailProvider.MAILCHIMP">
-        <div class="custom-control custom-checkbox">
-          <input [(ngModel)]="config.mailDefaults.autoSubscribeNewMembers"
-                 type="checkbox" class="custom-control-input" id="auto-subscribe-new-members">
-          <label class="custom-control-label"
-                 for="auto-subscribe-new-members">Auto-subscribe new members or initialised subscriptions
-          </label>
+    @if (this.config?.mailDefaults) {
+      <div class="row img-thumbnail thumbnail-2">
+        <div class="thumbnail-heading">Mail</div>
+        @if (config.mailDefaults.mailProvider===MailProvider.MAILCHIMP) {
+          <div class="col-md-12">
+            <div class="custom-control custom-checkbox">
+              <input [(ngModel)]="config.mailDefaults.autoSubscribeNewMembers"
+                type="checkbox" class="custom-control-input" id="auto-subscribe-new-members">
+              <label class="custom-control-label"
+                for="auto-subscribe-new-members">Auto-subscribe new members or initialised subscriptions
+              </label>
+            </div>
+          </div>
+        }
+        <div class="col-sm-12">
+          <div class="row align-items-end">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="mail-provider">Mail Provider</label>
+                <select [(ngModel)]="config.mailDefaults.mailProvider"
+                  (ngModelChange)="changeMailProvider()"
+                  class="form-control" id="mail-provider">
+                  @for (mailProvider of mailProviders; track mailProvider) {
+                    <option
+                      [ngValue]="mailProvider.value">{{ stringUtils.asTitle(mailProvider.value) }}
+                    </option>
+                  }
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="mail-provider">List</label>
+                <select [(ngModel)]="list"
+                  (ngModelChange)="calculateMailProviderStats()"
+                  class="form-control" id="list">
+                  @for (list of listKeyValues; track list) {
+                    <option
+                      [ngValue]="list">{{ stringUtils.asTitle(list.key) }}
+                    </option>
+                  }
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                @if (config?.mailDefaults?.mailProvider===MailProvider.BREVO) {
+                  <app-brevo-button button
+                    (click)="initialiseAllSubscriptions()"
+                    title="Initialise All {{stringUtils.asTitle(config.mailDefaults.mailProvider)}} subscriptions"/>
+                }
+                @if (config.mailDefaults.mailProvider===MailProvider.MAILCHIMP) {
+                  <app-mailchimp-button button
+                    (click)="initialiseAllSubscriptions()"
+                    title="Initialise All {{stringUtils.asTitle(config.mailDefaults.mailProvider)}} subscriptions"/>
+                }
+              </div>
+            </div>
+            <div class="col-md-12"><label>Mail Provider Stats: {{ mailProviderStats }}</label></div>
+          </div>
         </div>
       </div>
-      <div class="col-sm-12">
-        <div class="row align-items-end">
-          <div class="col-md-6">
-            <div class="form-group">
-              <label for="mail-provider">Mail Provider</label>
-              <select [(ngModel)]="config.mailDefaults.mailProvider"
-                      (ngModelChange)="changeMailProvider()"
-                      class="form-control" id="mail-provider">
-                <option *ngFor="let mailProvider of mailProviders"
-                        [ngValue]="mailProvider.value">{{ stringUtils.asTitle(mailProvider.value) }}
-                </option>
-              </select>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="form-group">
-              <label for="mail-provider">List</label>
-              <select [(ngModel)]="list"
-                      (ngModelChange)="calculateMailProviderStats()"
-                      class="form-control" id="list">
-                <option *ngFor="let list of listKeyValues"
-                        [ngValue]="list">{{ stringUtils.asTitle(list.key) }}
-                </option>
-              </select>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="form-group">
-              <app-brevo-button button *ngIf="config?.mailDefaults?.mailProvider===MailProvider.BREVO"
-                                (click)="initialiseAllSubscriptions()"
-                                title="Initialise All {{stringUtils.asTitle(config.mailDefaults.mailProvider)}} subscriptions"/>
-              <app-mailchimp-button button *ngIf="config.mailDefaults.mailProvider===MailProvider.MAILCHIMP"
-                                    (click)="initialiseAllSubscriptions()"
-                                    title="Initialise All {{stringUtils.asTitle(config.mailDefaults.mailProvider)}} subscriptions"/>
-            </div>
-          </div>
-          <div class="col-md-12"><label>Mail Provider Stats: {{ mailProviderStats }}</label></div>
-        </div>
-      </div>
-    </div>`,
+    }`,
   standalone: false
 })
 export class MailProviderSettingsComponent implements OnInit, OnDestroy {

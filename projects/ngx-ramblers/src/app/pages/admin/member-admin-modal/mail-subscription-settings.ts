@@ -20,56 +20,72 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
   selector: "[app-mail-subscription-settings]",
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
-      <div class="row" *ngIf="member">
-        <div class="col-sm-12">
-          <p>Please select how {{ member | fullNameWithAlias }} wants to be <b>emailed</b>
-            by using the subscription checkboxes below.</p>
+      @if (member) {
+        <div class="row">
+          <div class="col-sm-12">
+            <p>Please select how {{ member | fullNameWithAlias }} wants to be <b>emailed</b>
+          by using the subscription checkboxes below.</p>
         </div>
         <div class="col-sm-12">
-          <p *ngIf="member.emailMarketingConsent">Email Marketing Consent was provided
-            by {{ member | fullNameWithAlias }} <span
-              *ngIf="member.emailPermissionLastUpdated">via <a href="https://www.ramblers.org.uk/my-account">The Ramblers Website</a> on {{ member.emailPermissionLastUpdated | displayDate }}</span>.
-          </p>
-          <p *ngIf="!member.emailMarketingConsent">Email Marketing Consent has not been given by {{ member | fullNameWithAlias }}.
-          <span *ngIf="member.emailPermissionLastUpdated"> This was last updated via <a href="https://www.ramblers.org.uk/my-account">The Ramblers Website</a> on {{ member.emailPermissionLastUpdated | displayDate }}.</span></p>
-        </div>
-        <div class="col-sm-12 mb-3">
-          <div class="row" *ngIf="member?.mail?.subscriptions && mailMessagingConfig">
-            <div class="col-sm-4"
-                 *ngFor="let subscription of member.mail.subscriptions">
-              <app-mail-subscription-setting [member]="member" [subscription]="subscription"/>
+          @if (member.emailMarketingConsent) {
+            <p>Email Marketing Consent was provided
+              by {{ member | fullNameWithAlias }} @if (member.emailPermissionLastUpdated) {
+              <span
+                >via <a href="https://www.ramblers.org.uk/my-account">The Ramblers Website</a> on {{ member.emailPermissionLastUpdated | displayDate }}</span>
+                }.
+              </p>
+            }
+            @if (!member.emailMarketingConsent) {
+              <p>Email Marketing Consent has not been given by {{ member | fullNameWithAlias }}.
+                @if (member.emailPermissionLastUpdated) {
+                  <span> This was last updated via <a href="https://www.ramblers.org.uk/my-account">The Ramblers Website</a> on {{ member.emailPermissionLastUpdated | displayDate }}.</span>
+                }</p>
+              }
             </div>
-            <div class="col">
-              <app-brevo-button button [disabled]="!member?.mail?.id"
-                                (click)="viewBrevoContact(member?.mail?.id)"
-                                [title]="linkTitle()"/>
+            <div class="col-sm-12 mb-3">
+              @if (member?.mail?.subscriptions && mailMessagingConfig) {
+                <div class="row">
+                  @for (subscription of member.mail.subscriptions; track subscription) {
+                    <div class="col-sm-4"
+                      >
+                      <app-mail-subscription-setting [member]="member" [subscription]="subscription"/>
+                    </div>
+                  }
+                  <div class="col">
+                    <app-brevo-button button [disabled]="!member?.mail?.id"
+                      (click)="viewBrevoContact(member?.mail?.id)"
+                      [title]="linkTitle()"/>
+                  </div>
+                </div>
+              }
             </div>
           </div>
+        }
+        <div class="row">
+          <div class="col col-sm-12">
+            <table
+              class="round styled-table table-striped table-hover table-sm table-pointer">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Created By</th>
+                  <th>Audit Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (mailListAudit of mailListAudits; track mailListAudit.id) {
+                  <tr>
+                    <td>{{ mailListAudit.timestamp | displayDateAndTime }}</td>
+                    <td>{{ mailListAudit.createdBy | memberIdToFullName : members }}</td>
+                    <td>{{ mailListAudit.audit }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
-      <div class="row">
-        <div class="col col-sm-12">
-          <table
-            class="round styled-table table-striped table-hover table-sm table-pointer">
-            <thead>
-            <tr>
-              <th>Time</th>
-              <th>Created By</th>
-              <th>Audit Message</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr *ngFor="let mailListAudit of mailListAudits">
-              <td>{{ mailListAudit.timestamp | displayDateAndTime }}</td>
-              <td>{{ mailListAudit.createdBy | memberIdToFullName : members }}</td>
-              <td>{{ mailListAudit.audit }}
-              </td>
-            </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>`,
+      </div>`,
   standalone: false
 })
 export class MailSubscriptionSettingsComponent implements OnInit {

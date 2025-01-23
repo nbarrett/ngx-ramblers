@@ -10,14 +10,20 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
   template: `
     <main>
       <div class="container">
-        <ul *ngIf="pageService.nested()" class="breadcrumb bg-transparent mb-1 ml-0 p-1">
-          <span class="d-md-none">...</span>
-          <li class="breadcrumb-item d-none d-md-inline" *ngFor="let page of pageService.relativePages()">
-            <a [routerLink]="'/' + page?.href" target="_self">{{ page?.title }}</a>
-          </li>
-          <li class="breadcrumb-item d-none d-md-inline active">{{ suppliedOrDefaultPageTitle() }}</li>
-        </ul>
-        <h1 *ngIf="pageTitle">{{ pageTitle }}</h1>
+        @if (pageService.nested()) {
+          <ul class="breadcrumb bg-transparent mb-1 ml-0 p-1">
+            <span class="d-md-none">...</span>
+            @for (page of pageService.relativePages(); track page.href) {
+              <li class="breadcrumb-item d-none d-md-inline">
+                <a [routerLink]="'/' + page?.href" target="_self">{{ page?.title }}</a>
+              </li>
+            }
+            <li class="breadcrumb-item d-none d-md-inline active">{{ suppliedOrDefaultPageTitle() }}</li>
+          </ul>
+        }
+        @if (pageTitle) {
+          <h1>{{ pageTitle }}</h1>
+        }
         <ng-content></ng-content>
       </div>
     </main>

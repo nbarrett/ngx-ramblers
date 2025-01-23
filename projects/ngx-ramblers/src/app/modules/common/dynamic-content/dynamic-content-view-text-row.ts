@@ -9,33 +9,41 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 @Component({
   selector: "app-dynamic-content-view-text-row",
   template: `
-    <ng-container *ngIf="actions.isTextRow(row)">
+    @if (actions.isTextRow(row)) {
       <div [class]="actions.rowClasses(row)">
-        <div *ngFor="let column of row?.columns; let columnIndex = index;"
-             [class]="'col-sm-' + (column.columns||12)">
-          <ng-container *ngFor="let row of column.rows; let innerRowIndex = index;">
-            <div *ngIf="false">Row {{ rowIndex + 1 }}: {{ 'nested row ' + (innerRowIndex + 1) + ' ' + row.type }}
-            </div>
-            <app-dynamic-content-view-text-row *ngIf="actions.isTextRow(row)"
-                                               [row]="row"
-                                               [rowIndex]="innerRowIndex"
-                                               [contentPath]="contentPath"
-                                               [contentDescription]="contentDescription">
-            </app-dynamic-content-view-text-row>
-          </ng-container>
-          <ng-container *ngIf="!column.rows">
-            <app-markdown-editor [id]="column?.contentTextId"
-                                 queryOnlyById>
-            </app-markdown-editor>
-            <app-card-image *ngIf="column?.imageSource"
-                            [borderRadius]="column?.imageBorderRadius"
-                            unconstrainedHeight
-                            [imageSource]="column?.imageSource">
-            </app-card-image>
-          </ng-container>
-        </div>
+        @for (column of row?.columns; track column; let columnIndex = $index) {
+          <div
+            [class]="'col-sm-' + (column.columns||12)">
+            @for (row of column.rows; track row; let innerRowIndex = $index) {
+              @if (false) {
+                <div>Row {{ rowIndex + 1 }}: {{ 'nested row ' + (innerRowIndex + 1) + ' ' + row.type }}
+                </div>
+              }
+              @if (actions.isTextRow(row)) {
+                <app-dynamic-content-view-text-row
+                  [row]="row"
+                  [rowIndex]="innerRowIndex"
+                  [contentPath]="contentPath"
+                  [contentDescription]="contentDescription">
+                </app-dynamic-content-view-text-row>
+              }
+            }
+            @if (!column.rows) {
+              <app-markdown-editor [id]="column?.contentTextId"
+                queryOnlyById>
+              </app-markdown-editor>
+              @if (column?.imageSource) {
+                <app-card-image
+                  [borderRadius]="column?.imageBorderRadius"
+                  unconstrainedHeight
+                  [imageSource]="column?.imageSource">
+                </app-card-image>
+              }
+            }
+          </div>
+        }
       </div>
-    </ng-container>`,
+    }`,
   styleUrls: ["./dynamic-content.sass"],
   standalone: false
 })

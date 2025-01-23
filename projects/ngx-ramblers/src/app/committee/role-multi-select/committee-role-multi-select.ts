@@ -22,52 +22,60 @@ import { NumberUtilsService } from "../../services/number-utils.service";
 @Component({
   selector: "app-committee-role-multi-select",
   template: `
-    <label *ngIf="label" (click)="toggleExpanded()"
-           [for]="id">{{ label }}</label>
-    <div *ngIf="ready" [id]="id" (click)="toggleExpanded()">
-      <div #dropdownMenu class="dropdown b-dropdown btn-group filter-dropdown w-100 dropdown-custom"
-           [ngClass]="{'show':expanded}">
-        <button aria-haspopup="menu" [attr.aria-expanded]="expanded"
-                class="btn dropdown-toggle btn-secondary btn-sm w-100 btn-normal text-truncate">{{ roleSelection() }}
-        </button>
-        <ul role="menu" tabindex="-1" class="dropdown-menu p-3 w-100"
+    @if (label) {
+      <label (click)="toggleExpanded()"
+      [for]="id">{{ label }}</label>
+    }
+    @if (ready) {
+      <div [id]="id" (click)="toggleExpanded()">
+        <div #dropdownMenu class="dropdown b-dropdown btn-group filter-dropdown w-100 dropdown-custom"
+          [ngClass]="{'show':expanded}">
+          <button aria-haspopup="menu" [attr.aria-expanded]="expanded"
+            class="btn dropdown-toggle btn-secondary btn-sm w-100 btn-normal text-truncate">{{ roleSelection() }}
+          </button>
+          <ul role="menu" tabindex="-1" class="dropdown-menu p-3 w-100"
             [ngClass]="{'show':expanded}">
-          <li role="presentation">
-            <form tabindex="-1" class="b-dropdown-form">
-              <fieldset class="form-group">
-                <div class="custom-control custom-checkbox">
-                  <input aria-describedby="route-description"
-                         type="checkbox"
-                         (change)="selectAllRoleToggle()"
-                         [checked]="allSelected()"
-                         class="custom-control-input"
-                         value="true" [id]="stringUtils.kebabCase('select-all', id)">
-                  <label class="custom-control-label my-2" [for]="stringUtils.kebabCase('select-all', id)">
-                    {{ allSelected() ? "Select None" : "Select All" }}
-                  </label>
-                </div>
-                <div class="custom-control custom-checkbox"
-                     *ngFor="let committeeMember of display.committeeReferenceData.committeeMembers(); let roleIndex = index;">
-                  <input aria-describedby="route-description"
-                         type="checkbox"
-                         (change)="selectRole($event, committeeMember)"
-                         [checked]="roleSelected(committeeMember)"
-                         class="custom-control-input"
-                         value="true" [id]="stringUtils.kebabCase('role', roleIndex, id)">
-                  <label class="custom-control-label" [for]="stringUtils.kebabCase('role', roleIndex, id)">
-                    {{ committeeMember.fullName }}
-                    <small class="d-block">
-                      {{ committeeMember.description }}<span class="ml-1 colour-disabled"
-                                                             *ngIf="committeeMember.email">{{ committeeMember.email }}</span>
-                    </small>
-                  </label>
-                </div>
+            <li role="presentation">
+              <form tabindex="-1" class="b-dropdown-form">
+                <fieldset class="form-group">
+                  <div class="custom-control custom-checkbox">
+                    <input aria-describedby="route-description"
+                      type="checkbox"
+                      (change)="selectAllRoleToggle()"
+                      [checked]="allSelected()"
+                      class="custom-control-input"
+                      value="true" [id]="stringUtils.kebabCase('select-all', id)">
+                    <label class="custom-control-label my-2" [for]="stringUtils.kebabCase('select-all', id)">
+                      {{ allSelected() ? "Select None" : "Select All" }}
+                    </label>
+                  </div>
+                  @for (committeeMember of display.committeeReferenceData.committeeMembers(); track committeeMember; let roleIndex = $index) {
+                    <div class="custom-control custom-checkbox"
+                      >
+                      <input aria-describedby="route-description"
+                        type="checkbox"
+                        (change)="selectRole($event, committeeMember)"
+                        [checked]="roleSelected(committeeMember)"
+                        class="custom-control-input"
+                        value="true" [id]="stringUtils.kebabCase('role', roleIndex, id)">
+                      <label class="custom-control-label" [for]="stringUtils.kebabCase('role', roleIndex, id)">
+                        {{ committeeMember.fullName }}
+                        <small class="d-block">
+                          {{ committeeMember.description }}@if (committeeMember.email) {
+                          <span class="ml-1 colour-disabled"
+                          >{{ committeeMember.email }}</span>
+                        }
+                      </small>
+                    </label>
+                  </div>
+                }
               </fieldset>
             </form>
           </li>
         </ul>
       </div>
-    </div>`,
+    </div>
+    }`,
   styleUrls: ["./committee-role-multi-select.sass"],
   standalone: false
 })

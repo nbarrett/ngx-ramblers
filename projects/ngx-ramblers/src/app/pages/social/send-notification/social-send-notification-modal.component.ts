@@ -40,114 +40,129 @@ import get from "lodash-es/get";
 @Component({
   selector: "app-social-send-notification-modal",
   template: `
-    <div *ngIf="mailMessagingConfig" class="modal-content">
-      <div class="modal-header">
-        <h4 class="modal-title">Send <em>Social Event</em> Notification</h4>
-        <button (click)="bsModalRef.hide()" type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;
-        </button>
-      </div>
-      <div class="modal-body" *ngIf="socialEvent?.notification?.content?.title">
-        <tabset class="custom-tabset" *ngIf="socialEvent?.notification?.content">
-          <tab heading="Recipients & Addressing">
-            <div class="img-thumbnail thumbnail-admin-edit">
-              <app-notification-config-selector (emailConfigChanged)="emailConfigChanged($event)"
-                                                [notificationConfig]="socialEvent.notification?.content?.notificationConfig"
-                                                [notificationConfigListing]="notificationConfigListing"/>
-              <div class="row">
-                <div class="col-sm-7"><label>Send to:</label>
-                  <div class="form-group">
-                    <ng-container *ngFor="let list of mailMessagingConfig?.brevo?.lists?.lists">
-                      <div class="custom-control custom-radio">
-                        <input class="custom-control-input"
-                               id="send-list-{{list.id}}"
-                               name="send-to"
-                               type="radio"
-                               [checked]="socialEvent.notification.content.listId === list.id"
-                               [disabled]="selectionDisabled(list)"
-                               (change)="selectList(list)"
-                               [value]="list.id"/>
-                        <label class="custom-control-label"
-                               for="send-list-{{list.id}}">
-                          {{ listNameAndMemberCount(list) }}</label>
-                        <a class="ml-1 disabled" *ngIf="false"
-                           (click)="editRecipientsFromList(list)">(edit)</a>
-                      </div>
-                    </ng-container>
-                    <div class="custom-control custom-radio" *ngIf="false">
-                      <input id="custom"
-                             type="radio"
-                             class="custom-control-input"
-                             name="send-to"
-                             [(ngModel)]="socialEvent.notification.content.listId"
-                             value="custom"/>
-                      <label class="custom-control-label" for="custom"><span
-                        *ngIf="socialEvent?.notification?.content?.selectedMemberIds?.length===0">Choose individual recipients</span>
-                        <div *ngIf="socialEvent?.notification?.content?.selectedMemberIds?.length>0">
-                          {{ socialEvent?.notification?.content?.selectedMemberIds?.length }} recipient(s) chosen
+    @if (mailMessagingConfig) {
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title">Send <em>Social Event</em> Notification</h4>
+          <button (click)="bsModalRef.hide()" type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;
+          </button>
+        </div>
+        @if (socialEvent?.notification?.content?.title) {
+          <div class="modal-body">
+            @if (socialEvent?.notification?.content) {
+              <tabset class="custom-tabset">
+                <tab heading="Recipients & Addressing">
+                  <div class="img-thumbnail thumbnail-admin-edit">
+                    <app-notification-config-selector (emailConfigChanged)="emailConfigChanged($event)"
+                      [notificationConfig]="socialEvent.notification?.content?.notificationConfig"
+                      [notificationConfigListing]="notificationConfigListing"/>
+                    <div class="row">
+                      <div class="col-sm-7"><label>Send to:</label>
+                      <div class="form-group">
+                        @for (list of mailMessagingConfig?.brevo?.lists?.lists; track list) {
+                          <div class="custom-control custom-radio">
+                            <input class="custom-control-input"
+                              id="send-list-{{list.id}}"
+                              name="send-to"
+                              type="radio"
+                              [checked]="socialEvent.notification.content.listId === list.id"
+                              [disabled]="selectionDisabled(list)"
+                              (change)="selectList(list)"
+                              [value]="list.id"/>
+                            <label class="custom-control-label"
+                              for="send-list-{{list.id}}">
+                            {{ listNameAndMemberCount(list) }}</label>
+                            @if (false) {
+                              <a class="ml-1 disabled"
+                              (click)="editRecipientsFromList(list)">(edit)</a>
+                            }
+                          </div>
+                        }
+                        @if (false) {
+                          <div class="custom-control custom-radio">
+                            <input id="custom"
+                              type="radio"
+                              class="custom-control-input"
+                              name="send-to"
+                              [(ngModel)]="socialEvent.notification.content.listId"
+                              value="custom"/>
+                            <label class="custom-control-label" for="custom">@if (socialEvent?.notification?.content?.selectedMemberIds?.length===0) {
+                              <span
+                              >Choose individual recipients</span>
+                            }
+                            @if (socialEvent?.notification?.content?.selectedMemberIds?.length>0) {
+                              <div>
+                                {{ socialEvent?.notification?.content?.selectedMemberIds?.length }} recipient(s) chosen
+                              </div>
+                            }
+                          </label>
+                          @if (socialEvent.notification.content.selectedMemberIds.length>0) {
+                            <a class="ml-4"
+                            (click)="clearRecipients(this.selectedList())">(clear)</a>
+                          }
                         </div>
-                      </label>
-                      <a class="ml-4" *ngIf="socialEvent.notification.content.selectedMemberIds.length>0"
-                         (click)="clearRecipients(this.selectedList())">(clear)</a>
+                      }
                     </div>
                   </div>
-                </div>
-                <div class="col col-sm-5"><label>Address as:</label>
+                  <div class="col col-sm-5"><label>Address as:</label>
                   <div class="form-group">
                     <div class="custom-control custom-radio">
                       <input id="addressee-first-name"
-                             type="radio"
-                             class="custom-control-input"
-                             name="address-as"
-                             [(ngModel)]="socialEvent.notification.content.addresseeType"
-                             [value]="ADDRESSEE_CONTACT_FIRST_NAME"/>
+                        type="radio"
+                        class="custom-control-input"
+                        name="address-as"
+                        [(ngModel)]="socialEvent.notification.content.addresseeType"
+                        [value]="ADDRESSEE_CONTACT_FIRST_NAME"/>
                       <label class="custom-control-label" for="addressee-first-name">Hi <i>first name</i></label>
                     </div>
                     <div class="custom-control custom-radio">
                       <input id="addressee-all"
-                             type="radio"
-                             class="custom-control-input"
-                             name="address-as"
-                             [(ngModel)]="socialEvent.notification.content.addresseeType"
-                             value="Hi all,"/>
+                        type="radio"
+                        class="custom-control-input"
+                        name="address-as"
+                        [(ngModel)]="socialEvent.notification.content.addresseeType"
+                        value="Hi all,"/>
                       <label class="custom-control-label" for="addressee-all">Hi all</label>
                     </div>
                     <div class="custom-control custom-radio">
                       <input id="addressee-none"
-                             type="radio"
-                             class="custom-control-input"
-                             name="address-as"
-                             [(ngModel)]="socialEvent.notification.content.addresseeType"
-                             value=""/>
+                        type="radio"
+                        class="custom-control-input"
+                        name="address-as"
+                        [(ngModel)]="socialEvent.notification.content.addresseeType"
+                        value=""/>
                       <label class="custom-control-label" for="addressee-none">No addressing</label>
                     </div>
                   </div>
                 </div>
               </div>
-              <div class="row" *ngIf="false">
-                <div class="col-sm-12">
-                  <div class="form-group" placement="bottom"
-                       [tooltip]="helpMembers()">
-                    <ng-select [items]="display.memberFilterSelections"
-                               bindLabel="text"
-                               name="member-selector"
-                               bindValue="id"
-                               placeholder="Select one or more members"
-                               [disabled]="notifyTarget.busy"
-                               [dropdownPosition]="'bottom'"
-                               [groupBy]="groupBy"
-                               [groupValue]="groupValue"
-                               [multiple]="true"
-                               [closeOnSelect]="true"
-                               (change)="onChange($event)"
-                               [(ngModel)]="socialEvent.notification.content.selectedMemberIds">
-                      <ng-template ng-optgroup-tmp let-item="item">
-                        <span class="group-header">{{ item.name }} members</span>
-                        <span class="ml-1 badge badge-secondary badge-group"> {{ item.total }} </span>
-                      </ng-template>
-                    </ng-select>
+              @if (false) {
+                <div class="row">
+                  <div class="col-sm-12">
+                    <div class="form-group" placement="bottom"
+                      [tooltip]="helpMembers()">
+                      <ng-select [items]="display.memberFilterSelections"
+                        bindLabel="text"
+                        name="member-selector"
+                        bindValue="id"
+                        placeholder="Select one or more members"
+                        [disabled]="notifyTarget.busy"
+                        [dropdownPosition]="'bottom'"
+                        [groupBy]="groupBy"
+                        [groupValue]="groupValue"
+                        [multiple]="true"
+                        [closeOnSelect]="true"
+                        (change)="onChange($event)"
+                        [(ngModel)]="socialEvent.notification.content.selectedMemberIds">
+                        <ng-template ng-optgroup-tmp let-item="item">
+                          <span class="group-header">{{ item.name }} members</span>
+                          <span class="ml-1 badge badge-secondary badge-group"> {{ item.total }} </span>
+                        </ng-template>
+                      </ng-select>
+                    </div>
                   </div>
                 </div>
-              </div>
+              }
             </div>
           </tab>
           <tab heading="Edit Content">
@@ -157,60 +172,64 @@ import get from "lodash-es/get";
                   <div class="form-group">
                     <div class="custom-control custom-checkbox">
                       <input [(ngModel)]="socialEvent.notification.content.title.include"
-                             type="checkbox" class="custom-control-input"
-                             id="include-title">
+                        type="checkbox" class="custom-control-input"
+                        id="include-title">
                       <label class="custom-control-label"
-                             for="include-title">Include Title:
+                        for="include-title">Include Title:
                       </label>
                     </div>
                     <textarea [(ngModel)]="socialEvent.briefDescription"
-                              class="form-control input-sm"
-                              [disabled]="!socialEvent?.notification?.content?.title?.include"
-                              rows="1"
-                              id="title"
-                              placeholder="Enter the title you'd like at the top of the notification here"></textarea>
+                      class="form-control input-sm"
+                      [disabled]="!socialEvent?.notification?.content?.title?.include"
+                      rows="1"
+                      id="title"
+                    placeholder="Enter the title you'd like at the top of the notification here"></textarea>
                   </div>
                 </div>
               </div>
-              <div class="row" *ngIf="socialEvent?.notification?.content?.eventDetails">
-                <div class="col-sm-12">
-                  <div class="form-group">
-                    <div class="custom-control custom-checkbox">
-                      <input
-                        [(ngModel)]="socialEvent.notification.content.eventDetails.include"
-                        type="checkbox" class="custom-control-input"
-                        id="include-event-details">
-                      <label class="custom-control-label"
-                             for="include-event-details">Include Event details with title:
-                      </label>
+              @if (socialEvent?.notification?.content?.eventDetails) {
+                <div class="row">
+                  <div class="col-sm-12">
+                    <div class="form-group">
+                      <div class="custom-control custom-checkbox">
+                        <input
+                          [(ngModel)]="socialEvent.notification.content.eventDetails.include"
+                          type="checkbox" class="custom-control-input"
+                          id="include-event-details">
+                        <label class="custom-control-label"
+                          for="include-event-details">Include Event details with title:
+                        </label>
+                      </div>
+                      <input [(ngModel)]="socialEvent.notification.content.eventDetails.value"
+                        type="text"
+                        class="form-control input-sm"
+                        [disabled]="!socialEvent?.notification?.content?.eventDetails?.include"
+                        placeholder="Enter heading of event detail here">
                     </div>
-                    <input [(ngModel)]="socialEvent.notification.content.eventDetails.value"
-                           type="text"
-                           class="form-control input-sm"
-                           [disabled]="!socialEvent?.notification?.content?.eventDetails?.include"
-                           placeholder="Enter heading of event detail here">
-                  </div>
-                  <div class="row" *ngIf="socialEvent.attendees.length>0">
-                    <div class="col-sm-12">
-                      <div class="form-group">
-                        <div class="custom-control custom-checkbox">
-                          <input
-                            [(ngModel)]="socialEvent.notification.content.attendees.include"
-                            type="checkbox" class="custom-control-input"
-                            id="include-attendees">
-                          <label
-                            class="custom-control-label"
-                            for="include-attendees">Include List of attendees:
-                            <span
-                              style="font-weight: normal"> ({{ display.attendeeList(socialEvent, display.memberFilterSelections) }}
-                              )</span>
-                          </label>
+                    @if (socialEvent.attendees.length>0) {
+                      <div class="row">
+                        <div class="col-sm-12">
+                          <div class="form-group">
+                            <div class="custom-control custom-checkbox">
+                              <input
+                                [(ngModel)]="socialEvent.notification.content.attendees.include"
+                                type="checkbox" class="custom-control-input"
+                                id="include-attendees">
+                              <label
+                                class="custom-control-label"
+                                for="include-attendees">Include List of attendees:
+                                <span
+                                  style="font-weight: normal"> ({{ display.attendeeList(socialEvent, display.memberFilterSelections) }}
+                                )</span>
+                              </label>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    }
                   </div>
                 </div>
-              </div>
+              }
               <div class="row">
                 <div class="col-sm-12">
                   <div class="form-group">
@@ -225,10 +244,10 @@ import get from "lodash-es/get";
                       </label>
                     </div>
                     <textarea [(ngModel)]="socialEvent.notification.content.text.value"
-                              class="form-control input-sm" rows="5"
-                              id="free-text"
-                              [disabled]="!socialEvent?.notification?.content?.text?.include"
-                              placeholder="Enter free text to be included of the notification here"></textarea>
+                      class="form-control input-sm" rows="5"
+                      id="free-text"
+                      [disabled]="!socialEvent?.notification?.content?.text?.include"
+                    placeholder="Enter free text to be included of the notification here"></textarea>
                   </div>
                 </div>
               </div>
@@ -241,46 +260,48 @@ import get from "lodash-es/get";
                         type="checkbox" class="custom-control-input"
                         id="include-description">
                       <label class="custom-control-label"
-                             for="include-description">Include Social Event Description text:
+                        for="include-description">Include Social Event Description text:
                       </label>
                     </div>
                   </div>
                 </div>
               </div>
-              <div class="row" *ngIf="socialEvent.attachment">
-                <div class="col-sm-12">
-                  <div class="form-group">
-                    <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="socialEvent.notification.content.attachment.include"
-                             type="checkbox" class="custom-control-input"
-                             id="include-attachment">
-                      <label class="custom-control-label"
-                             for="include-attachment">Include link to attachment:
-                        <span
+              @if (socialEvent.attachment) {
+                <div class="row">
+                  <div class="col-sm-12">
+                    <div class="form-group">
+                      <div class="custom-control custom-checkbox">
+                        <input [(ngModel)]="socialEvent.notification.content.attachment.include"
+                          type="checkbox" class="custom-control-input"
+                          id="include-attachment">
+                        <label class="custom-control-label"
+                          for="include-attachment">Include link to attachment:
+                          <span
                           style="font-weight: normal"> {{ display.attachmentTitle(socialEvent) }}</span>
-                      </label>
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              }
               <div class="row">
                 <div class="col-sm-12">
                   <div class="form-group">
                     <div class="custom-control custom-checkbox">
                       <input [(ngModel)]="socialEvent.notification.content.signoffText.include"
-                             type="checkbox" class="custom-control-input"
-                             id="include-signoff-text">
+                        type="checkbox" class="custom-control-input"
+                        id="include-signoff-text">
                       <label
                         class="custom-control-label"
                         for="include-signoff-text">Signoff with text:
                       </label>
                     </div>
                     <textarea [(ngModel)]="socialEvent.notification.content.signoffText.value"
-                              class="form-control input-sm"
-                              [disabled]="!socialEvent?.notification?.content?.signoffText?.include"
-                              rows="3"
-                              id="signoff-text"
-                              placeholder="Enter any signoff text to be included of the notification here"></textarea>
+                      class="form-control input-sm"
+                      [disabled]="!socialEvent?.notification?.content?.signoffText?.include"
+                      rows="3"
+                      id="signoff-text"
+                    placeholder="Enter any signoff text to be included of the notification here"></textarea>
                   </div>
                 </div>
               </div>
@@ -289,19 +310,21 @@ import get from "lodash-es/get";
                   <div class="form-group">
                     <div class="custom-control custom-checkbox">
                       <input [(ngModel)]="socialEvent.notification.content.replyTo.include"
-                             type="checkbox" class="custom-control-input"
-                             id="include-reply-to">
+                        type="checkbox" class="custom-control-input"
+                        id="include-reply-to">
                       <label class="custom-control-label"
-                             for="include-reply-to">Send replies to:
+                        for="include-reply-to">Send replies to:
                       </label>
                     </div>
                     <select [(ngModel)]="socialEvent.notification.content.replyTo.value" id="replyTo"
-                            (ngModelChange)="modelChange('replyTo',$event)"
-                            [disabled]="!socialEvent?.notification?.content?.replyTo?.include"
-                            class="form-control input-sm">
-                      <option *ngFor="let role of roles.replyTo"
-                              [ngValue]="role.type">{{ role.nameAndDescription }}
-                      </option>
+                      (ngModelChange)="modelChange('replyTo',$event)"
+                      [disabled]="!socialEvent?.notification?.content?.replyTo?.include"
+                      class="form-control input-sm">
+                      @for (role of roles.replyTo; track role) {
+                        <option
+                          [ngValue]="role.type">{{ role.nameAndDescription }}
+                        </option>
+                      }
                     </select>
                   </div>
                 </div>
@@ -311,20 +334,22 @@ import get from "lodash-es/get";
                   <div class="form-group">
                     <div class="custom-control custom-checkbox">
                       <input [(ngModel)]="socialEvent.notification.content.signoffAs.include"
-                             type="checkbox" class="custom-control-input"
-                             id="include-signoff-as">
+                        type="checkbox" class="custom-control-input"
+                        id="include-signoff-as">
                       <label class="custom-control-label"
-                             for="include-signoff-as">Signoff and Send as:
+                        for="include-signoff-as">Signoff and Send as:
                       </label>
                     </div>
                     <select [(ngModel)]="socialEvent.notification.content.signoffAs.value"
-                            (ngModelChange)="socialEventSignoffChanged($event)"
-                            id="signoff-as"
-                            [disabled]="!socialEvent?.notification?.content?.signoffAs?.include"
-                            class="form-control input-sm">
-                      <option *ngFor="let role of roles.signoff"
-                              [ngValue]="role.type">{{ role.nameAndDescription }}
-                      </option>
+                      (ngModelChange)="socialEventSignoffChanged($event)"
+                      id="signoff-as"
+                      [disabled]="!socialEvent?.notification?.content?.signoffAs?.include"
+                      class="form-control input-sm">
+                      @for (role of roles.signoff; track role) {
+                        <option
+                          [ngValue]="role.type">{{ role.nameAndDescription }}
+                        </option>
+                      }
                     </select>
                   </div>
                 </div>
@@ -334,48 +359,57 @@ import get from "lodash-es/get";
           <tab heading="Preview">
             <div class="img-thumbnail thumbnail-admin-edit">
               <div id="preview" class="print-preview">
-                <div *ngIf="socialEvent.notification?.content?.notificationConfig?.bannerId" class="mb-2">
-                  <img class="card-img"
-                       [src]="mailMessagingService.bannerImageSource(socialEvent.notification?.content?.notificationConfig, false)">
-                </div>
+                @if (socialEvent.notification?.content?.notificationConfig?.bannerId) {
+                  <div class="mb-2">
+                    <img class="card-img"
+                      [src]="mailMessagingService.bannerImageSource(socialEvent.notification?.content?.notificationConfig, false)">
+                  </div>
+                }
                 <h2 class="mb-3">{{ socialEvent.notification.content.title.value }}</h2>
                 <div #notificationContent>
                   <app-committee-notification-ramblers-message-item
                     [notificationItem]="toNotificationItemFromNotification(socialEvent.notification)">
                     <app-social-notification-details [members]="toMembers()" [socialEvent]="socialEvent"
-                                                     [mailMessagingConfig]="mailMessagingConfig"/>
+                      [mailMessagingConfig]="mailMessagingConfig"/>
                   </app-committee-notification-ramblers-message-item>
                 </div>
               </div>
             </div>
           </tab>
         </tabset>
-        <div *ngIf="notifyTarget.showAlert" class="row">
+      }
+      @if (notifyTarget.showAlert) {
+        <div class="row">
           <div class="col-sm-12 mb-10">
             <div class="alert {{notifyTarget.alertClass}}">
               <fa-icon [icon]="notifyTarget.alert.icon"/>
-              <strong *ngIf="notifyTarget.alertTitle">
-                {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
+              @if (notifyTarget.alertTitle) {
+                <strong>
+                {{ notifyTarget.alertTitle }}: </strong>
+                } {{ notifyTarget.alertMessage }}
+              </div>
             </div>
           </div>
-        </div>
+        }
         <div class="row" app-create-or-amend-sender (senderExists)="setSenderExists($event)"
-             [committeeRoleSender]="signoffAs()"></div>
+        [committeeRoleSender]="signoffAs()"></div>
       </div>
-      <div class="modal-footer">
-        <app-brevo-button button [disabled]="notReady()" (click)="runCampaignCreationAndSendWorkflow()"
-                          title="Send Now via {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
-        <app-brevo-button class="ml-2" button [disabled]="notReady()" (click)="completeInMailSystem()"
-                          title="Complete in {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
-        <input type="submit" value="Save and Send Later" (click)="saveAndSendLater()"
-               class="ml-2 btn btn-primary px-2 py-2">
-        <input type="submit" value="Cancel Send" (click)="cancelSendNotification()"
-               class="ml-2 btn btn-primary px-2 py-2 mr-2">
-      </div>
-      <div class="d-none">
-        <ng-template app-notification-directive/>
-      </div>
-    </div>`,
+    }
+    <div class="modal-footer">
+      <app-brevo-button button [disabled]="notReady()" (click)="runCampaignCreationAndSendWorkflow()"
+        title="Send Now via {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
+      <app-brevo-button class="ml-2" button [disabled]="notReady()" (click)="completeInMailSystem()"
+        title="Complete in {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
+      <input type="submit" value="Save and Send Later" (click)="saveAndSendLater()"
+        class="ml-2 btn btn-primary px-2 py-2">
+      <input type="submit" value="Cancel Send" (click)="cancelSendNotification()"
+        class="ml-2 btn btn-primary px-2 py-2 mr-2">
+    </div>
+    <div class="d-none">
+      <ng-template app-notification-directive/>
+    </div>
+    </div>
+    }`,
   standalone: false
 })
 export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {

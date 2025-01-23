@@ -7,14 +7,16 @@ import { SystemConfigService } from "../services/system/system-config.service";
   selector: "app-root",
   template: `
     <div class="container-fluid">
-      <app-header-bar *ngIf="config?.header?.headerBar?.show"/>
+      @if (config?.header?.headerBar?.show) {
+        <app-header-bar/>
+      }
       <app-navbar/>
     </div>
     <div class="container">
       <router-outlet/>
     </div>
     <app-footer/>
-  `,
+    `,
   styleUrls: ["./container.sass"],
   standalone: false
 })

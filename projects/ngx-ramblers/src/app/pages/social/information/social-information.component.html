@@ -1,6 +1,8 @@
 <div class="col-sm-6">
   <app-markdown-editor name="socialEventsInformation"
                        description="social events information"></app-markdown-editor>
-§  <a *ngIf="display.allow.contentEdits" href="/admin/carousel-editor/imagesSocialEvents" title="Edit images"
+  §  @if (display.allow.contentEdits) {
+  <a href="/admin/carousel-editor/imagesSocialEvents" title="Edit images"
      class="button-form button-form-right rounded">Edit images</a>
+}
 </div>

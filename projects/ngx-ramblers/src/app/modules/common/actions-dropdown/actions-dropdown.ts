@@ -34,62 +34,84 @@ import { textStyleSelectors } from "../../../models/system.model";
       </button>
       <ul *dropdownMenu class="dropdown-menu" (click)="actionClicked($event)"
           id="dropdown-animated" role="menu">
-        <li *ngIf="allowMoveRowUp()" role="menuitem">
-          <a (click)="actions.moveRowUp(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
-            Move <b>Row</b> up
-          </a>
-        </li>
-        <li *ngIf="allowMoveRowDown()" role="menuitem">
-          <a (click)="actions.moveRowDown(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
-            Move <b>Row</b> down
-          </a>
-        </li>
-        <li *ngIf="allowDeleteRow()" role="menuitem">
-          <a (click)="actions.deleteRow(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
-            Delete <b>Row</b>
-          </a>
-        </li>
-        <li *ngIf="allowInsertNestedRows()" role="menuitem">
-          <a (click)="actions.addNestedRows(column)" class="dropdown-item">
-            Insert <b>Nested Rows</b>
-          </a>
-        </li>
-        <li *ngIf="allowDeleteNestedRows()" role="menuitem">
-          <a (click)="actions.removeNestedRows(column)" class="dropdown-item">
-            Delete <b>Nested Rows</b>
-          </a>
-        </li>
-        <li *ngIf="allowColumnActions()" role="menuitem">
-          <a (click)="actions.addColumn(row, columnIndex, pageContent)" class="dropdown-item">
-            Insert <b>Column</b> to left
-          </a>
-        </li>
-        <li *ngIf="allowColumnActions()" role="menuitem">
-          <a (click)="actions.addColumn(row, columnIndex+1, pageContent)" class="dropdown-item">
-            Insert <b>Column</b> to right
-          </a>
-        </li>
-        <li *ngIf="allowColumnMoveLeft()" role="menuitem">
-          <a (click)="actions.moveColumnLeft(row.columns, columnIndex, pageContent)" class="dropdown-item">
-            Move <b>Column</b> to left
-          </a>
-        </li>
-        <li *ngIf="allowColumnMoveRight()" role="menuitem">
-          <a (click)="actions.moveColumnRight(row.columns, columnIndex, pageContent)" class="dropdown-item">
-            Move <b>Column</b> to right
-          </a>
-        </li>
-        <li *ngIf="allowColumnActions()" role="menuitem">
-          <a (click)="actions.duplicateColumn(row, columnIndex, pageContent)" class="dropdown-item">
-            Duplicate <b>Column</b>
-          </a>
-        </li>
-        <li *ngIf="allowColumnDelete()" role="menuitem">
-          <a (click)="actions.deleteColumn(row, columnIndex, pageContent)" class="dropdown-item">
-            Delete <b>Column</b>
-          </a>
-        </li>
-        <ng-container *ngIf="allowColumnActions() && markdownEditorComponentInjected()">
+        @if (allowMoveRowUp()) {
+          <li role="menuitem">
+            <a (click)="actions.moveRowUp(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
+              Move <b>Row</b> up
+            </a>
+          </li>
+        }
+        @if (allowMoveRowDown()) {
+          <li role="menuitem">
+            <a (click)="actions.moveRowDown(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
+              Move <b>Row</b> down
+            </a>
+          </li>
+        }
+        @if (allowDeleteRow()) {
+          <li role="menuitem">
+            <a (click)="actions.deleteRow(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
+              Delete <b>Row</b>
+            </a>
+          </li>
+        }
+        @if (allowInsertNestedRows()) {
+          <li role="menuitem">
+            <a (click)="actions.addNestedRows(column)" class="dropdown-item">
+              Insert <b>Nested Rows</b>
+            </a>
+          </li>
+        }
+        @if (allowDeleteNestedRows()) {
+          <li role="menuitem">
+            <a (click)="actions.removeNestedRows(column)" class="dropdown-item">
+              Delete <b>Nested Rows</b>
+            </a>
+          </li>
+        }
+        @if (allowColumnActions()) {
+          <li role="menuitem">
+            <a (click)="actions.addColumn(row, columnIndex, pageContent)" class="dropdown-item">
+              Insert <b>Column</b> to left
+            </a>
+          </li>
+        }
+        @if (allowColumnActions()) {
+          <li role="menuitem">
+            <a (click)="actions.addColumn(row, columnIndex+1, pageContent)" class="dropdown-item">
+              Insert <b>Column</b> to right
+            </a>
+          </li>
+        }
+        @if (allowColumnMoveLeft()) {
+          <li role="menuitem">
+            <a (click)="actions.moveColumnLeft(row.columns, columnIndex, pageContent)" class="dropdown-item">
+              Move <b>Column</b> to left
+            </a>
+          </li>
+        }
+        @if (allowColumnMoveRight()) {
+          <li role="menuitem">
+            <a (click)="actions.moveColumnRight(row.columns, columnIndex, pageContent)" class="dropdown-item">
+              Move <b>Column</b> to right
+            </a>
+          </li>
+        }
+        @if (allowColumnActions()) {
+          <li role="menuitem">
+            <a (click)="actions.duplicateColumn(row, columnIndex, pageContent)" class="dropdown-item">
+              Duplicate <b>Column</b>
+            </a>
+          </li>
+        }
+        @if (allowColumnDelete()) {
+          <li role="menuitem">
+            <a (click)="actions.deleteColumn(row, columnIndex, pageContent)" class="dropdown-item">
+              Delete <b>Column</b>
+            </a>
+          </li>
+        }
+        @if (allowColumnActions() && markdownEditorComponentInjected()) {
           <hr>
           <div class="ml-2">Bullet style</div>
           <a (click)="assignListStyleTo(ListStyle.ARROW)" class="dropdown-item">
@@ -123,27 +145,35 @@ import { textStyleSelectors } from "../../../models/system.model";
               <app-colour-selector noLabel [colours]="textStyleSelectors" [itemWithClassOrColour]="styles()"/>
             </li>
           </a>
-        </ng-container>
-        <li *ngIf="allowTextRowActions()" role="menuitem">
-          <a (click)="actions.addRow(rowIndex,'text', rows())" class="dropdown-item">
-            Add <b>Row</b> above
-          </a>
-        </li>
-        <li *ngIf="allowTextRowActions()" role="menuitem">
-          <a (click)="actions.addRow(rowIndex + 1, 'text', rows())" class="dropdown-item">
-            Add <b>Row</b> below
-          </a>
-        </li>
-        <li *ngIf="allowActionButtonActions()" role="menuitem">
-          <a (click)="actions.addRow(rowIndex, 'action-buttons', rows())" class="dropdown-item">
-            Add <b>Action Buttons</b> above
-          </a>
-        </li>
-        <li *ngIf="allowActionButtonActions()" role="menuitem">
-          <a (click)="actions.addRow(rowIndex + 1, 'action-buttons', rows())" class="dropdown-item">
-            Add <b>Action Buttons</b> below
-          </a>
-        </li>
+        }
+        @if (allowTextRowActions()) {
+          <li role="menuitem">
+            <a (click)="actions.addRow(rowIndex,'text', rows())" class="dropdown-item">
+              Add <b>Row</b> above
+            </a>
+          </li>
+        }
+        @if (allowTextRowActions()) {
+          <li role="menuitem">
+            <a (click)="actions.addRow(rowIndex + 1, 'text', rows())" class="dropdown-item">
+              Add <b>Row</b> below
+            </a>
+          </li>
+        }
+        @if (allowActionButtonActions()) {
+          <li role="menuitem">
+            <a (click)="actions.addRow(rowIndex, 'action-buttons', rows())" class="dropdown-item">
+              Add <b>Action Buttons</b> above
+            </a>
+          </li>
+        }
+        @if (allowActionButtonActions()) {
+          <li role="menuitem">
+            <a (click)="actions.addRow(rowIndex + 1, 'action-buttons', rows())" class="dropdown-item">
+              Add <b>Action Buttons</b> below
+            </a>
+          </li>
+        }
       </ul>
     </div>`,
   standalone: false

@@ -14,21 +14,35 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
   selector: "app-committee-notification-group-event-message-item",
   template: `
     <span>{{ event.eventDate | displayDate }}</span>
-    <span *ngIf="event.eventTime"> • <span>{{ event.eventTime }}</span></span>
+    @if (event.eventTime) {
+      <span> • <span>{{ event.eventTime }}</span></span>
+    }
     <span> • </span>
     <span>{{ event.eventType.description }}</span>
-    <span *ngIf="event.distance"> • {{ event.distance }}</span>
+    @if (event.distance) {
+      <span> • {{ event.distance }}</span>
+    }
     <br/>
-    <span *ngIf="notification.groupEventsFilter.includeContact && event.contactName">
+    @if (notification.groupEventsFilter.includeContact && event.contactName) {
+      <span>
         Contact: <a [href]="'mailto:' + event.contactEmail">
         <span>{{ event.contactName || event.contactEmail }}</span>
       </a>
-      <span *ngIf="event.contactPhone"> ({{ event.contactPhone }})</span>
+      @if (event.contactPhone) {
+        <span> ({{ event.contactPhone }})</span>
+      }
     </span>
-    <span *ngIf="notification.groupEventsFilter.includeLocation && event.postcode">
-    <span> • </span>Location: <span *ngIf="event.location" [ngStyle]="{'margin-right': '6px'}">{{event.location}}</span>  <a [href]="googleMapsService.urlForPostcode(event.postcode)"
-                       target="_blank">{{ event.postcode }}</a></span>
-    <div markdown [data]="event.description" *ngIf="notification.groupEventsFilter.includeDescription"></div>`,
+    }
+    @if (notification.groupEventsFilter.includeLocation && event.postcode) {
+      <span>
+        <span> • </span>Location: @if (event.location) {
+        <span [ngStyle]="{'margin-right': '6px'}">{{event.location}}</span>
+        }  <a [href]="googleMapsService.urlForPostcode(event.postcode)"
+      target="_blank">{{ event.postcode }}</a></span>
+    }
+    @if (notification.groupEventsFilter.includeDescription) {
+      <div markdown [data]="event.description"></div>
+    }`,
   standalone: false
 })
 export class CommitteeNotificationGroupEventMessageItemComponent implements OnInit, OnDestroy {

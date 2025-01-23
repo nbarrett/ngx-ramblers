@@ -8,9 +8,9 @@
       <div class="col col-sm-6">
         <div class="form-group">
           <app-date-picker startOfDay [label]="'Date'"
-                           [size]="'md'"
-                           (dateChange)="resourceDateChanged($event)"
-                           [value]="resourceDate">
+            [size]="'md'"
+            (dateChange)="resourceDateChanged($event)"
+            [value]="resourceDate">
           </app-date-picker>
         </div>
       </div>
@@ -18,10 +18,12 @@
         <div class="form-group">
           <label for="resource-type">Access</label>
           <select [(ngModel)]="memberResource.accessLevel" id="visibility"
-                  class="form-control input-sm">
-            <option *ngFor="let accessLevel of memberResourcesReferenceData.accessLevels()"
-                    [textContent]="accessLevel.description"
-                    [ngValue]="accessLevel.id">
+            class="form-control input-sm">
+            @for (accessLevel of memberResourcesReferenceData.accessLevels(); track accessLevel) {
+              <option
+                [textContent]="accessLevel.description"
+              [ngValue]="accessLevel.id"></option>
+            }
           </select>
         </div>
       </div>
@@ -31,10 +33,12 @@
         <div class="form-group">
           <label for="resource-type">Type</label>
           <select [(ngModel)]="memberResource.resourceType" id="resource-type"
-                  class="form-control input-sm">
-            <option *ngFor="let resourceType of memberResourcesReferenceData.resourceTypes()"
-                    [textContent]="resourceType.description"
-                    [ngValue]="resourceType.id">
+            class="form-control input-sm">
+            @for (resourceType of memberResourcesReferenceData.resourceTypes(); track resourceType) {
+              <option
+                [textContent]="resourceType.description"
+              [ngValue]="resourceType.id"></option>
+            }
           </select>
         </div>
       </div>
@@ -42,153 +46,173 @@
         <div class="form-group">
           <label for="subject">Subject</label>
           <select [(ngModel)]="memberResource.subject" id="subject"
-                  option=""
-                  class="form-control input-sm">
-            <option *ngFor="let subject of memberResourcesReferenceData.subjects()"
-                    [textContent]="subject.description"
-                    [ngValue]="subject.id">
+            option=""
+            class="form-control input-sm">
+            @for (subject of memberResourcesReferenceData.subjects(); track subject) {
+              <option
+                [textContent]="subject.description"
+              [ngValue]="subject.id"></option>
+            }
             <option value="">(none)</option>
           </select>
         </div>
       </div>
     </div>
-    <div *ngIf="memberResource.resourceType==='email'">
-      <div class="row">
-        <div class="col-sm-12">
-          <form class="form-group">
-            <label for="campaign-search-term">Search Past Campaigns For Text</label>
-            <div class="form-inline">
-              <input id="campaign-search-term" type="text"
-                     tabindex="1"
-                     #searchInput
-                     (keyup.enter)="performCampaignSearch(searchInput.value,true)"
-                     (blur)="performCampaignSearch(searchInput.value,true)"
-                     [(ngModel)]="memberResource.data.campaignSearchTerm"
-                     [disabled]="notifyTarget.busy"
-                     name="campaignSearchTerm"
-                     class="form-control input-sm flex-grow-1 mr-2"
-                     placeholder="Enter campaign search term">
-              <input type="submit" value="Search"
-                     title="Search"
-                     (click)="performCampaignSearch(memberResource.data.campaignSearchTerm,true)"
-                     name="search"
-                     [ngClass]="notifyTarget.busy ? 'btn btn-default button-form disabled-button-form': 'btn btn-default button-form blue-confirm'">
-            </div>
-          </form>
+    @if (memberResource.resourceType==='email') {
+      <div>
+        <div class="row">
+          <div class="col-sm-12">
+            <form class="form-group">
+              <label for="campaign-search-term">Search Past Campaigns For Text</label>
+              <div class="form-inline">
+                <input id="campaign-search-term" type="text"
+                  tabindex="1"
+                  #searchInput
+                  (keyup.enter)="performCampaignSearch(searchInput.value,true)"
+                  (blur)="performCampaignSearch(searchInput.value,true)"
+                  [(ngModel)]="memberResource.data.campaignSearchTerm"
+                  [disabled]="notifyTarget.busy"
+                  name="campaignSearchTerm"
+                  class="form-control input-sm flex-grow-1 mr-2"
+                  placeholder="Enter campaign search term">
+                <input type="submit" value="Search"
+                  title="Search"
+                  (click)="performCampaignSearch(memberResource.data.campaignSearchTerm,true)"
+                  name="search"
+                  [ngClass]="notifyTarget.busy ? 'btn btn-default button-form disabled-button-form': 'btn btn-default button-form blue-confirm'">
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
-      <div class="row">
-        <div class="col-sm-12">
-          <div class="form-group">
-            <label
+        <div class="row">
+          <div class="col-sm-12">
+            <div class="form-group">
+              <label
               for="campaign">{{stringUtils.pluraliseWithCount(campaigns.length, "Campaign match", "Campaign matches")}}</label>
-            <select [disabled]="notifyTarget.busy"
-                    [(ngModel)]="memberResource.data.campaign" id="campaign"
-                    (ngModelChange)="campaignChange()"
-                    class="form-control input-sm">
-              <option *ngFor="let campaign of campaigns"
-                      [ngValue]="campaign">{{campaignTitle(campaign)}}</option>
-            </select>
+              <select [disabled]="notifyTarget.busy"
+                [(ngModel)]="memberResource.data.campaign" id="campaign"
+                (ngModelChange)="campaignChange()"
+                class="form-control input-sm">
+                @for (campaign of campaigns; track campaign) {
+                  <option
+                  [ngValue]="campaign">{{campaignTitle(campaign)}}</option>
+                }
+              </select>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-    <div class="row" *ngIf="memberResource.resourceType==='file'">
+    }
+    @if (memberResource.resourceType==='file') {
       <div class="row">
-        <div class="col-md-12">
-          <input type="submit" [disabled]="notifyTarget.busy"
-                 value="Browse for attachment"
-                 (click)="browseToFile(fileElement)"
-                 class="button-form mb-10 w-100"
-                 [ngClass]="{'disabled-button-form': notifyTarget.busy}"/>
-          <input [disabled]="notifyTarget.busy" type="submit"
-                 value="Remove attachment" (click)="removeAttachment()" title="Remove attachment"
-                 [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'"/>
-          <input #fileElement id="browse-to-file" name="attachment" class="d-none"
-                 type="file" value="Upload"
-                 ng2FileSelect (onFileSelected)="onFileSelect($event)" [uploader]="uploader"/>
-          <div ng2FileDrop [ngClass]="{'file-over': hasFileOver}"
-               (fileOver)="fileOver($event)"
-               (onFileDrop)="fileDropped($event)"
-               [uploader]="uploader"
-               class="drop-zone">Or drop file here
-          </div>
-          <div class="progress" *ngIf="notifyTarget.busy">
-            <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': uploader.progress + '%' }">
-              uploading {{uploader.progress}}%
+        <div class="row">
+          <div class="col-md-12">
+            <input type="submit" [disabled]="notifyTarget.busy"
+              value="Browse for attachment"
+              (click)="browseToFile(fileElement)"
+              class="button-form mb-10 w-100"
+              [ngClass]="{'disabled-button-form': notifyTarget.busy}"/>
+            <input [disabled]="notifyTarget.busy" type="submit"
+              value="Remove attachment" (click)="removeAttachment()" title="Remove attachment"
+              [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'"/>
+            <input #fileElement id="browse-to-file" name="attachment" class="d-none"
+              type="file" value="Upload"
+              ng2FileSelect (onFileSelected)="onFileSelect($event)" [uploader]="uploader"/>
+            <div ng2FileDrop [ngClass]="{'file-over': hasFileOver}"
+              (fileOver)="fileOver($event)"
+              (onFileDrop)="fileDropped($event)"
+              [uploader]="uploader"
+              class="drop-zone">Or drop file here
             </div>
-          </div>
-          <div *ngIf="memberResource?.data?.fileNameData">
-            <div class="form-group">Originally uploaded
-              as: {{memberResource?.data?.fileNameData.originalFileName}}</div>
-            <div class="row">
-              <div class="col-md-6">
-                <label class="form-inline" for="attachment-title">Title:
-                  <input [(ngModel)]="memberResource?.data?.fileNameData.title"
-                         [disabled]="notifyTarget.busy"
-                         type="text"
-                         id="attachment-title"
-                         class="form-control input-md"
-                         placeholder="Enter a title for this attachment"/></label>
+            @if (notifyTarget.busy) {
+              <div class="progress">
+                <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': uploader.progress + '%' }">
+                  uploading {{uploader.progress}}%
+                </div>
               </div>
-              <div class="col-md-6">
-                <label class="form-inline ml-12" for="attachment">Display: <a target="_blank"
-                                                                              [href]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).resourceUrl(memberResource)"
-                                                                              id="attachment">
-                  {{fileUtils.attachmentTitle(memberResource, 'data', 'file')}}</a></label>
+            }
+            @if (memberResource?.data?.fileNameData) {
+              <div>
+                <div class="form-group">Originally uploaded
+                as: {{memberResource?.data?.fileNameData.originalFileName}}</div>
+                <div class="row">
+                  <div class="col-md-6">
+                    <label class="form-inline" for="attachment-title">Title:
+                      <input [(ngModel)]="memberResource?.data?.fileNameData.title"
+                        [disabled]="notifyTarget.busy"
+                        type="text"
+                        id="attachment-title"
+                        class="form-control input-md"
+                      placeholder="Enter a title for this attachment"/></label>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-inline ml-12" for="attachment">Display: <a target="_blank"
+                        [href]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).resourceUrl(memberResource)"
+                        id="attachment">
+                    {{fileUtils.attachmentTitle(memberResource, 'data', 'file')}}</a></label>
+                  </div>
+                </div>
               </div>
-            </div>
+            }
           </div>
         </div>
       </div>
-    </div>
+    }
     <div class="row">
       <div class="col-sm-12">
         <div class="form-group">
           <label for="title">Title</label>
           <input [disabled]="notifyTarget.busy" [(ngModel)]="memberResource.title" id="title"
-                 class="form-control input-sm">
+            class="form-control input-sm">
         </div>
       </div>
       <div class="col-sm-12">
         <div class="form-group">
           <label for="description">Description</label>
           <textarea lines="10" [disabled]="notifyTarget.busy" [(ngModel)]="memberResource.description"
-                    id="description"
-                    class="form-control input-sm"></textarea>
+            id="description"
+          class="form-control input-sm"></textarea>
         </div>
       </div>
       <div class="col-sm-12">
         <div class="form-group">
           <label for="link-preview" class="mr-2">Link preview: </label>
           <a target="_blank" id="link-preview"
-             [href]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).resourceUrl(memberResource)">{{memberResource.title}}</a>
+          [href]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).resourceUrl(memberResource)">{{memberResource.title}}</a>
         </div>
       </div>
     </div>
-    <div *ngIf="notifyTarget.showAlert" class="row">
-      <div class="col-sm-12 mb-10">
-        <div class="alert {{notifyTarget.alert.class}}">
-          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-          <strong *ngIf="notifyTarget.alertTitle">
-            {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
+    @if (notifyTarget.showAlert) {
+      <div class="row">
+        <div class="col-sm-12 mb-10">
+          <div class="alert {{notifyTarget.alert.class}}">
+            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+            @if (notifyTarget.alertTitle) {
+              <strong>
+              {{notifyTarget.alertTitle}}: </strong>
+              } {{notifyTarget.alertMessage}}
+            </div>
+          </div>
         </div>
-      </div>
+      }
+    </div>
+    <div class="modal-footer">
+      <input type="submit" value="Save" [disabled]="notifyTarget.busy" (click)="save()"
+        title="Save"
+        [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+      @if (!confirm.deleteConfirmOutstanding()) {
+        <input type="submit" value="Delete File"
+          [disabled]="notifyTarget.busy" (click)="delete()" title="Delete File"
+          [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+      }
+      @if (confirm.deleteConfirmOutstanding()) {
+        <input type="submit" value="Confirm Delete of File"
+          [disabled]="notifyTarget.busy" (click)="confirmDelete()"
+          title="Confirm delete"
+          [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left button-confirm'">
+      }
+      <input type="submit" value="Cancel Change" [disabled]="notifyTarget.busy"
+        (click)="cancelChange()" title="Cancel changes and close this dialog"
+        [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
     </div>
   </div>
-  <div class="modal-footer">
-    <input type="submit" value="Save" [disabled]="notifyTarget.busy" (click)="save()"
-           title="Save"
-           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
-    <input *ngIf="!confirm.deleteConfirmOutstanding()" type="submit" value="Delete File"
-           [disabled]="notifyTarget.busy" (click)="delete()" title="Delete File"
-           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
-    <input *ngIf="confirm.deleteConfirmOutstanding()" type="submit" value="Confirm Delete of File"
-           [disabled]="notifyTarget.busy" (click)="confirmDelete()"
-           title="Confirm delete"
-           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left button-confirm'">
-    <input type="submit" value="Cancel Change" [disabled]="notifyTarget.busy"
-           (click)="cancelChange()" title="Cancel changes and close this dialog"
-           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
-  </div>
-</div>

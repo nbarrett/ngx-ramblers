@@ -15,9 +15,11 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
     <div class="form-group">
       <label [for]="id">{{label}}</label>
       <select [(ngModel)]="selectedDataSource" [id]="id" class="form-control"
-              (ngModelChange)="eventChange.emit($event)">
-        <option *ngFor="let dateSource of dataSources"
-                [ngValue]="dateSource">{{dateSource.description}}</option>
+        (ngModelChange)="eventChange.emit($event)">
+        @for (dateSource of dataSources; track dateSource) {
+          <option
+          [ngValue]="dateSource">{{dateSource.description}}</option>
+        }
       </select>
     </div>`,
   standalone: false

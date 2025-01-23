@@ -15,13 +15,15 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
 @Component({
   selector: "app-mail-subscription-setting",
   template: `
-    <div *ngIf="subscription && this.mailMessagingConfig" class="custom-control custom-checkbox">
-      <input [(ngModel)]="subscription.subscribed"
-             (ngModelChange)="subscriptionChange($event)"
-             type="checkbox" class="custom-control-input" id="mail-list-{{subscription.id}}-subscription">
-      <label class="custom-control-label"
-             for="mail-list-{{subscription.id}}-subscription">{{ checkboxTitle() }}</label>
-    </div>`,
+    @if (subscription && this.mailMessagingConfig) {
+      <div class="custom-control custom-checkbox">
+        <input [(ngModel)]="subscription.subscribed"
+          (ngModelChange)="subscriptionChange($event)"
+          type="checkbox" class="custom-control-input" id="mail-list-{{subscription.id}}-subscription">
+        <label class="custom-control-label"
+        for="mail-list-{{subscription.id}}-subscription">{{ checkboxTitle() }}</label>
+      </div>
+    }`,
   standalone: false
 })
 export class MailSubscriptionSettingComponent implements OnInit {

@@ -6,72 +6,74 @@
       </div>
     </div>
     <div class="col-sm-9">
-      <div class="row" *ngIf="member">
-        <div class="col-sm-6">
-          <div class="form-group">
-            <label for="membershipNumber">Ramblers Membership Number</label>
-            <input disabled [ngModel]="member.membershipNumber" type="text"
-                   class="form-control input-sm"
-                   name="firstName"
-                   id="membershipNumber"
-                   placeholder="No Membership Number held">
+      @if (member) {
+        <div class="row">
+          <div class="col-sm-6">
+            <div class="form-group">
+              <label for="membershipNumber">Ramblers Membership Number</label>
+              <input disabled [ngModel]="member.membershipNumber" type="text"
+                     class="form-control input-sm"
+                     name="firstName"
+                     id="membershipNumber"
+                     placeholder="No Membership Number held">
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="form-group">
+              <label for="membershipExpiryDate">Ramblers Membership Expiry Date</label>
+              <input disabled [ngModel]="member.membershipExpiryDate | displayDate" type="text"
+                     class="form-control input-sm"
+                     name="firstName"
+                     id="membershipExpiryDate"
+                     placeholder="No Membership Expiry Date held">
+            </div>
+          </div>
+          <div class="col-sm-12">
+            <div class="form-group">
+              <label for="prof-first-name">First Name</label>
+              <input [(ngModel)]="member.firstName" type="text" class="form-control input-sm"
+                     name="firstName"
+                     id="prof-first-name"
+                     placeholder="Enter First Name here">
+            </div>
+          </div>
+          <div class="col-sm-12">
+            <div class="form-group">
+              <label for="prof-last-name">Last Name</label>
+              <input [(ngModel)]="member.lastName" type="text" required class="form-control input-sm"
+                     id="prof-last-name"
+                     name="lastName"
+                     placeholder="Enter Last Name here">
+            </div>
+          </div>
+          <div class="col-sm-12">
+            <div class="form-group">
+              <label for="prof-mobile-number">Mobile Number</label>
+              <input [(ngModel)]="member.mobileNumber" type="text" required class="form-control input-sm"
+                     id="prof-mobile-number"
+                     name="mobileNumber"
+                     placeholder="Enter mobile number here">
+            </div>
+          </div>
+          <div class="col-sm-12">
+            <div class="form-group">
+              <label for="prof-contact-email">Contact Email</label>
+              <input [(ngModel)]="member.email" type="text" required class="form-control input-sm"
+                     id="prof-contact-email"
+                     name="email"
+                     placeholder="Enter contact email here">
+            </div>
+          </div>
+          <div class="col-sm-12">
+            <div class="form-group">
+              <label for="prof-postcode">Home postcode</label>
+              <input [(ngModel)]="member.postcode" type="text" required class="form-control input-sm"
+                     id="prof-postcode"
+                     placeholder="Enter home postcode here">
+            </div>
           </div>
         </div>
-        <div class="col-sm-6">
-          <div class="form-group">
-            <label for="membershipExpiryDate">Ramblers Membership Expiry Date</label>
-            <input disabled [ngModel]="member.membershipExpiryDate | displayDate" type="text"
-                   class="form-control input-sm"
-                   name="firstName"
-                   id="membershipExpiryDate"
-                   placeholder="No Membership Expiry Date held">
-          </div>
-        </div>
-        <div class="col-sm-12">
-          <div class="form-group">
-            <label for="prof-first-name">First Name</label>
-            <input [(ngModel)]="member.firstName" type="text" class="form-control input-sm"
-                   name="firstName"
-                   id="prof-first-name"
-                   placeholder="Enter First Name here">
-          </div>
-        </div>
-        <div class="col-sm-12">
-          <div class="form-group">
-            <label for="prof-last-name">Last Name</label>
-            <input [(ngModel)]="member.lastName" type="text" required class="form-control input-sm"
-                   id="prof-last-name"
-                   name="lastName"
-                   placeholder="Enter Last Name here">
-          </div>
-        </div>
-        <div class="col-sm-12">
-          <div class="form-group">
-            <label for="prof-mobile-number">Mobile Number</label>
-            <input [(ngModel)]="member.mobileNumber" type="text" required class="form-control input-sm"
-                   id="prof-mobile-number"
-                   name="mobileNumber"
-                   placeholder="Enter mobile number here">
-          </div>
-        </div>
-        <div class="col-sm-12">
-          <div class="form-group">
-            <label for="prof-contact-email">Contact Email</label>
-            <input [(ngModel)]="member.email" type="text" required class="form-control input-sm"
-                   id="prof-contact-email"
-                   name="email"
-                   placeholder="Enter contact email here">
-          </div>
-        </div>
-        <div class="col-sm-12">
-          <div class="form-group">
-            <label for="prof-postcode">Home postcode</label>
-            <input [(ngModel)]="member.postcode" type="text" required class="form-control input-sm"
-                   id="prof-postcode"
-                   placeholder="Enter home postcode here">
-          </div>
-        </div>
-      </div>
+      }
     </div>
   </div>
   <div class="row">
@@ -86,15 +88,21 @@
   </div>
   <div class="row">
     <div class="col-sm-12">
-      <div class="alert {{notifyTarget.alertClass}} mt-3" *ngIf="notifyTarget.showAlert">
-        <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-        <strong *ngIf="notifyTarget.alertTitle">
-          {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
-        <div *ngIf="notifyTarget.showContactUs"> contact our
-          <app-contact-us class="alert-link" roles="membership"
-                          text="Membership Administrator"></app-contact-us>
+      @if (notifyTarget.showAlert) {
+        <div class="alert {{notifyTarget.alertClass}} mt-3">
+          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+          @if (notifyTarget.alertTitle) {
+            <strong>
+              {{ notifyTarget.alertTitle }}: </strong>
+          } {{ notifyTarget.alertMessage }}
+          @if (notifyTarget.showContactUs) {
+            <div> contact our
+              <app-contact-us class="alert-link" roles="membership"
+                              text="Membership Administrator"></app-contact-us>
+            </div>
+          }
         </div>
-      </div>
+      }
     </div>
   </div>
 </app-page>

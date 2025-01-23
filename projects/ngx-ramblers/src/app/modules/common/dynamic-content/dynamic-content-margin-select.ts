@@ -12,13 +12,15 @@ import { PageContentActionsService } from "../../../services/page-content-action
   template: `
     <label [for]="id">{{label}}</label>
     <select class="form-control input-sm"
-            [id]="id"
-            (ngModelChange)="changeMargin($event)"
-            [(ngModel)]="data[field]">
-      <option *ngFor="let margin of margins; trackBy: marginTracker"
-              [ngValue]="margin.value">{{margin.description}}</option>
+      [id]="id"
+      (ngModelChange)="changeMargin($event)"
+      [(ngModel)]="data[field]">
+      @for (margin of margins; track marginTracker($index, margin)) {
+        <option
+        [ngValue]="margin.value">{{margin.description}}</option>
+      }
     </select>
-  `,
+    `,
   standalone: false
 })
 

@@ -21,33 +21,38 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
   selector: "app-email-subscriptions",
   template: `
     <app-page autoTitle>
-      <div class="row" *ngIf="member">
-        <div class="col-sm-3">
-          <div class="item-panel-heading">
-            <fa-icon [icon]="faEnvelopeOpenText" class="fa-5x ramblers"></fa-icon>
+      @if (member) {
+        <div class="row">
+          <div class="col-sm-3">
+            <div class="item-panel-heading">
+              <fa-icon [icon]="faEnvelopeOpenText" class="fa-5x ramblers"></fa-icon>
+            </div>
           </div>
-        </div>
-        <div class="col-sm-9">
-          <div class="row">
-            <div class="col-sm-12 mt-2">
-              <p>You can change your emailing preferences at any time using the subscription checkboxes
+          <div class="col-sm-9">
+            <div class="row">
+              <div class="col-sm-12 mt-2">
+                <p>You can change your emailing preferences at any time using the subscription checkboxes
                 below:</p>
-              <app-email-subscriptions-mailchimp [member]="member"
-                                                 *ngIf="systemConfig?.mailDefaults?.mailProvider=== MailProvider.MAILCHIMP"/>
-              <ng-container *ngIf="systemConfig?.mailDefaults?.mailProvider=== MailProvider.BREVO">
-                <div class="col-sm-12"
-                     *ngFor="let subscription of mailMessagingService.memberSubscribableSubscriptions(member.mail.subscriptions)">
-                  <app-mail-subscription-setting [member]="member" [subscription]="subscription"/>
-                </div>
-              </ng-container>
-              <p>If you have any other queries about your mailing preferences, please email our
-                <app-contact-us roles="membership"
-                                text="Membership Secretary"></app-contact-us>
-              </p>
+                @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.MAILCHIMP) {
+                  <app-email-subscriptions-mailchimp [member]="member"
+                  />
+                }
+                @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.BREVO) {
+                  @for (subscription of mailMessagingService.memberSubscribableSubscriptions(member.mail.subscriptions); track subscription) {
+                    <div class="col-sm-12">
+                      <app-mail-subscription-setting [member]="member" [subscription]="subscription"/>
+                    </div>
+                  }
+                }
+                <p>If you have any other queries about your mailing preferences, please email our
+                  <app-contact-us roles="membership"
+                                  text="Membership Secretary"></app-contact-us>
+                </p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      }
       <div class="row">
         <div class="col-sm-12">
           <input type="submit" [disabled]="false" value="Back to admin" (click)="profileService.backToAdmin()"
@@ -62,16 +67,22 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
       </div>
       <div class="row">
         <div class="col-sm-12">
-          <div class="alert {{notifyTarget.alertClass}} mt-3" *ngIf="notifyTarget.showAlert">
-            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-            <strong *ngIf="notifyTarget.alertTitle">
-              {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
-            <div *ngIf="notifyTarget.showContactUs"> contact our
-              <app-contact-us class="alert-link" roles="membership"
-                              text="Membership Administrator"></app-contact-us>
-              .
+          @if (notifyTarget.showAlert) {
+            <div class="alert {{notifyTarget.alertClass}} mt-3">
+              <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+              @if (notifyTarget.alertTitle) {
+                <strong>
+                  {{ notifyTarget.alertTitle }}: </strong>
+              } {{ notifyTarget.alertMessage }}
+              @if (notifyTarget.showContactUs) {
+                <div> contact our
+                  <app-contact-us class="alert-link" roles="membership"
+                                  text="Membership Administrator"></app-contact-us>
+                  .
+                </div>
+              }
             </div>
-          </div>
+          }
         </div>
       </div>
     </app-page>`,

@@ -20,14 +20,16 @@ import { sortBy } from "../../../functions/arrays";
 @Component({
   selector: "[app-map-edit]",
   template: `
-    <div [class]="class" *ngIf="mapReady()"
-         leaflet [leafletOptions]="options"
-         [leafletLayers]="layers"
-         [leafletFitBounds]="fitBounds"
-         (leafletMapZoom)="onMapZoom($event)"
-         (leafletMapReady)="onMapReady($event)"
-         (leafletClick)="onMapClick($event)">
-    </div>`,
+    @if (mapReady()) {
+      <div [class]="class"
+        leaflet [leafletOptions]="options"
+        [leafletLayers]="layers"
+        [leafletFitBounds]="fitBounds"
+        (leafletMapZoom)="onMapZoom($event)"
+        (leafletMapReady)="onMapReady($event)"
+        (leafletClick)="onMapClick($event)">
+      </div>
+    }`,
   standalone: false
 })
 export class MapEditComponent implements OnInit, OnDestroy {

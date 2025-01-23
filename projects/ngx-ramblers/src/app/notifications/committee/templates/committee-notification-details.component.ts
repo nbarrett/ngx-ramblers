@@ -14,38 +14,42 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
   selector: "app-committee-notification-details",
   template: `
 
-    <app-committee-notification-ramblers-message-item
-      [notificationItem]="toNotificationItemFromNotification(notification)">
-      <p>{{ notification?.content.addresseeType }}</p>
-      <p markdown [data]="notification.content.text.value"></p>
-      <ng-container *ngIf="notification?.content.includeDownloadInformation">
-        <p>
-          <b>File type:</b>
-          <span>{{ committeeFile.fileType }}</span>
-          <br>
-          <b>Description:</b>
-          <span>{{ display.fileTitle(committeeFile) }}</span>
-        </p>
-        <p>If you want to download this attachment you can click <a [href]="display.fileUrl(committeeFile)">here</a>,
-          alternatively
-          you can view or download it from our {{ group?.shortName }}
-          <a href="committee">Committee page</a>.
-        </p>
-      </ng-container>
-    </app-committee-notification-ramblers-message-item>
+<app-committee-notification-ramblers-message-item
+  [notificationItem]="toNotificationItemFromNotification(notification)">
+  <p>{{ notification?.content.addresseeType }}</p>
+  <p markdown [data]="notification.content.text.value"></p>
+  @if (notification?.content.includeDownloadInformation) {
+    <p>
+      <b>File type:</b>
+      <span>{{ committeeFile.fileType }}</span>
+      <br>
+        <b>Description:</b>
+        <span>{{ display.fileTitle(committeeFile) }}</span>
+      </p>
+      <p>If you want to download this attachment you can click <a [href]="display.fileUrl(committeeFile)">here</a>,
+      alternatively
+      you can view or download it from our {{ group?.shortName }}
+      <a href="committee">Committee page</a>.
+    </p>
+  }
+</app-committee-notification-ramblers-message-item>
 
-    <ng-container *ngIf="selectedGroupEvents().length > 0">
-      <ng-container *ngFor="let event of selectedGroupEvents()">
-        <app-committee-notification-ramblers-message-item [notificationItem]="toNotificationItem(event, notification)">
-          <app-committee-notification-group-event-message-item [notification]="notification" [event]="event"/>
-        </app-committee-notification-ramblers-message-item>
-      </ng-container>
-    </ng-container>
-    <app-committee-notification-ramblers-message-item *ngIf="notification.content.signoffText.include">
-      <p markdown [data]="notification?.content.signoffText.value"></p>
-      <app-contact-us *ngIf="notification?.content.signoffAs.include" format="list"
-                      [roles]="notification?.content.signoffAs.value"></app-contact-us>
-    </app-committee-notification-ramblers-message-item>`,
+@if (selectedGroupEvents().length > 0) {
+  @for (event of selectedGroupEvents(); track event) {
+    <app-committee-notification-ramblers-message-item [notificationItem]="toNotificationItem(event, notification)">
+      <app-committee-notification-group-event-message-item [notification]="notification" [event]="event"/>
+    </app-committee-notification-ramblers-message-item>
+  }
+}
+@if (notification.content.signoffText.include) {
+  <app-committee-notification-ramblers-message-item>
+    <p markdown [data]="notification?.content.signoffText.value"></p>
+    @if (notification?.content.signoffAs.include) {
+      <app-contact-us format="list"
+      [roles]="notification?.content.signoffAs.value"></app-contact-us>
+    }
+  </app-committee-notification-ramblers-message-item>
+}`,
   standalone: false
 })
 export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy {

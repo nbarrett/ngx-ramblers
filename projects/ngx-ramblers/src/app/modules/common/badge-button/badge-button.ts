@@ -11,11 +11,17 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
   template: `
       <div [ngClass]="{'badge-button': !inline, 'inline-button':inline, 'disabled' : disabled,
               'mr-0': noRightMargin, 'badge-button-active': active, 'w-100': fullWidth, 'float-right': alignRight}"
-              delay=500 tooltip="{{tooltip? null: caption}}" [ngStyle]="{'height.px': height}">
-          <fa-icon *ngIf="!iconPositionRight" [icon]="icon"></fa-icon>
-          <span *ngIf="caption">{{caption}}</span>
-          <ng-content/>
-          <fa-icon class="ml-2" *ngIf="iconPositionRight" [icon]="icon"></fa-icon>
+        delay=500 tooltip="{{tooltip? null: caption}}" [ngStyle]="{'height.px': height}">
+        @if (!iconPositionRight) {
+          <fa-icon [icon]="icon"></fa-icon>
+        }
+        @if (caption) {
+          <span>{{caption}}</span>
+        }
+        <ng-content/>
+        @if (iconPositionRight) {
+          <fa-icon class="ml-2" [icon]="icon"></fa-icon>
+        }
       </div>`,
   standalone: false
 })

@@ -24,98 +24,110 @@ import isEqual from "lodash-es/isEqual";
     <app-page autoTitle>
       <div class="row">
         <div class="col-sm-12">
-          <tabset class="custom-tabset" *ngIf="committeeConfig">
-            <tab heading="Committee Members">
-              <div *ngIf="committeeConfig" class="img-thumbnail thumbnail-admin-edit">
-                <div class="col-sm-12 mt-2 mb-2">
-                  <app-markdown-editor category="admin" name="committee-roles-help"
-                                       description="Committee roles help"></app-markdown-editor>
-                </div>
-                <div class="col-sm-12">
-                  <app-badge-button [disabled]="oneOrMoreRolesNotSaved()" [icon]="faAdd" (click)="createNewRole()"
-                                    caption="Add new role"/>
-                  <app-badge-button [icon]="faSortAlphaAsc" (click)="sortRoles()"
-                                    caption="Sort Roles"/>
-                </div>
-                <div class="col-sm-12">
-                  <ng-container *ngFor="let role of committeeConfig.roles">
-                    <app-committee-member [committeeMember]="role" [index]="committeeConfig.roles.indexOf(role)"
-                                          [roles]="committeeConfig.roles"/>
-                  </ng-container>
-                </div>
-              </div>
-            </tab>
-            <tab heading="File Types">
-              <div class="img-thumbnail thumbnail-admin-edit">
-                <div class="row">
-                  <div class="col-sm-12 mt-2 mb-2">
-                    <app-markdown-editor category="admin" name="committee-file-types-help"
-                                         description="Committee file types help"></app-markdown-editor>
-                  </div>
-                </div>
-                <div class="badge-button mb-3" (click)="addFileType()"
-                     delay=500 tooltip="Add new file type">
-                  <fa-icon [icon]="faAdd"></fa-icon>
-                  Add new file type
-                </div>
-                <div *ngFor="let fileType of committeeConfig.fileTypes; let fileTypeIndex = index;" class="row">
-                  <div class="col-sm-8">
-                    <div class="form-group">
-                      <label [for]="stringUtils.kebabCase('file-type', fileTypeIndex)">File Type</label>
-                      <input [id]="stringUtils.kebabCase('file-type', fileTypeIndex)" type="text"
-                             class="form-control input-sm"
-                             placeholder="Enter File Type Description" [(ngModel)]="fileType.description">
+          @if (committeeConfig) {
+            <tabset class="custom-tabset">
+              <tab heading="Committee Members">
+                @if (committeeConfig) {
+                  <div class="img-thumbnail thumbnail-admin-edit">
+                    <div class="col-sm-12 mt-2 mb-2">
+                      <app-markdown-editor category="admin" name="committee-roles-help"
+                                           description="Committee roles help"></app-markdown-editor>
+                    </div>
+                    <div class="col-sm-12">
+                      <app-badge-button [disabled]="oneOrMoreRolesNotSaved()" [icon]="faAdd" (click)="createNewRole()"
+                                        caption="Add new role"/>
+                      <app-badge-button [icon]="faSortAlphaAsc" (click)="sortRoles()"
+                                        caption="Sort Roles"/>
+                    </div>
+                    <div class="col-sm-12">
+                      @for (role of committeeConfig.roles; track role) {
+                        <app-committee-member [committeeMember]="role" [index]="committeeConfig.roles.indexOf(role)"
+                                              [roles]="committeeConfig.roles"/>
+                      }
                     </div>
                   </div>
-                  <div class="col-sm-3">
-                    <div class="form-group mt-5">
-                      <div class="custom-control custom-checkbox">
-                        <input [(ngModel)]="fileType.public"
-                               type="checkbox" class="custom-control-input"
-                               [id]="stringUtils.kebabCase('public', fileTypeIndex)">
-                        <label class="custom-control-label" [for]="stringUtils.kebabCase('public', fileTypeIndex)">
-                          Visible by Public</label>
+                }
+              </tab>
+              <tab heading="File Types">
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  <div class="row">
+                    <div class="col-sm-12 mt-2 mb-2">
+                      <app-markdown-editor category="admin" name="committee-file-types-help"
+                                           description="Committee file types help"></app-markdown-editor>
+                    </div>
+                  </div>
+                  <div class="badge-button mb-3" (click)="addFileType()"
+                       delay=500 tooltip="Add new file type">
+                    <fa-icon [icon]="faAdd"></fa-icon>
+                    Add new file type
+                  </div>
+                  @for (fileType of committeeConfig.fileTypes; track fileType; let fileTypeIndex = $index) {
+                    <div class="row">
+                      <div class="col-sm-8">
+                        <div class="form-group">
+                          <label [for]="stringUtils.kebabCase('file-type', fileTypeIndex)">File Type</label>
+                          <input [id]="stringUtils.kebabCase('file-type', fileTypeIndex)" type="text"
+                                 class="form-control input-sm"
+                                 placeholder="Enter File Type Description" [(ngModel)]="fileType.description">
+                        </div>
+                      </div>
+                      <div class="col-sm-3">
+                        <div class="form-group mt-5">
+                          <div class="custom-control custom-checkbox">
+                            <input [(ngModel)]="fileType.public"
+                                   type="checkbox" class="custom-control-input"
+                                   [id]="stringUtils.kebabCase('public', fileTypeIndex)">
+                            <label class="custom-control-label" [for]="stringUtils.kebabCase('public', fileTypeIndex)">
+                              Visible by Public</label>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="col-sm-1 mt-5">
+                        <div class="badge-button" (click)="deleteFileType(fileType)"
+                             delay=500 tooltip="Delete file type">
+                          <fa-icon [icon]="faClose"></fa-icon>
+                        </div>
                       </div>
                     </div>
+                  }
+                </div>
+              </tab>
+              <tab heading="Expenses">
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  <div class="row">
+                    <div class="col-sm-12 mt-2 mb-2">
+                      <app-markdown-editor category="admin" name="committee-expenses-help"
+                                           description="Committee file expenses help"></app-markdown-editor>
+                    </div>
                   </div>
-                  <div class="col-sm-1 mt-5">
-                    <div class="badge-button" (click)="deleteFileType(fileType)"
-                         delay=500 tooltip="Delete file type">
-                      <fa-icon [icon]="faClose"></fa-icon>
+                  <div class="col-sm-12">
+                    <div class="form-group">
+                      <label for="cost-per-mile">Cost Per Mile</label>
+                      @if (committeeConfig?.expenses) {
+                        <input [(ngModel)]="committeeConfig.expenses.costPerMile"
+                               type="text"
+                               class="form-control input-sm" id="cost-per-mile"
+                               placeholder="Enter cost per mile for travel expenses here">
+                      }
                     </div>
                   </div>
                 </div>
-              </div>
-            </tab>
-            <tab heading="Expenses">
-              <div class="img-thumbnail thumbnail-admin-edit">
-                <div class="row">
-                  <div class="col-sm-12 mt-2 mb-2">
-                    <app-markdown-editor category="admin" name="committee-expenses-help"
-                                         description="Committee file expenses help"></app-markdown-editor>
-                  </div>
+              </tab>
+            </tabset>
+          }
+          @if (notifyTarget.showAlert) {
+            <div class="row">
+              <div class="col-sm-12 mb-10">
+                <div class="alert {{notifyTarget.alert.class}}">
+                  <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                  @if (notifyTarget.alertTitle) {
+                    <strong>
+                      {{ notifyTarget.alertTitle }}: </strong>
+                  } {{ notifyTarget.alertMessage }}
                 </div>
-                <div class="col-sm-12">
-                  <div class="form-group">
-                    <label for="cost-per-mile">Cost Per Mile</label>
-                    <input *ngIf="committeeConfig?.expenses" [(ngModel)]="committeeConfig.expenses.costPerMile"
-                           type="text"
-                           class="form-control input-sm" id="cost-per-mile"
-                           placeholder="Enter cost per mile for travel expenses here">
-                  </div>
-                </div>
-              </div>
-            </tab>
-          </tabset>
-          <div *ngIf="notifyTarget.showAlert" class="row">
-            <div class="col-sm-12 mb-10">
-              <div class="alert {{notifyTarget.alert.class}}">
-                <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                <strong *ngIf="notifyTarget.alertTitle">
-                  {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
               </div>
             </div>
-          </div>
+          }
         </div>
         <div class="col-sm-12">
           <input type="submit" value="Save settings and exit" (click)="saveAndExit()"

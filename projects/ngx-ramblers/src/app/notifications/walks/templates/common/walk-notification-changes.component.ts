@@ -11,11 +11,13 @@ import { WalkNotificationDetailsComponent } from "./walk-notification-details.co
         <th width="40%" style="border:1px solid lightgrey; font-weight: bold; padding: 6px">From</th>
         <th width="40%" style="border:1px solid lightgrey; font-weight: bold; padding: 6px">To</th>
       </tr>
-      <tr *ngFor="let item of walkDataAudit?.changedItems">
-        <td style="border:1px solid lightgrey; padding: 6px">{{ item.fieldName | humanise }}</td>
+      @for (item of walkDataAudit?.changedItems; track item) {
+        <tr>
+          <td style="border:1px solid lightgrey; padding: 6px">{{ item.fieldName | humanise }}</td>
           <td style="border:1px solid lightgrey; padding: 6px" [innerHTML]="renderMarked(item.previousValue)"></td>
           <td style="border:1px solid lightgrey; padding: 6px" [innerHTML]="renderMarked(item.currentValue) "></td>
-      </tr>
+        </tr>
+      }
     </table>
   `,
   standalone: false

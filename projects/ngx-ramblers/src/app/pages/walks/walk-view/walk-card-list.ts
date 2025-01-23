@@ -21,38 +21,48 @@ import { LoginModalComponent } from "../../login/login-modal/login-modal.compone
   selector: "app-walk-card-list",
   template: `
     <div class="d-flex flex-column pt-2 mb-2">
-      <div *ngIf="false" class="heading d-flex align-items-center mb-3">
-        <button aria-label="Previous slide" class="text-dark border-0 bg-transparent p-0 mr-1">
-          <app-svg (click)="prevSlide()"
-                   [disabled]="backDisabled()"
-                   class="icon"
-                   height="36"
-                   width="36"
-                   icon="i-back-round">
-          </app-svg>
-          <span class="sr-only">Previous slide</span></button>
-        <button aria-label="Next slide" class="text-dark border-0 bg-transparent p-0">
-          <app-svg (click)="nextSlide()"
-                   [disabled]="forwardDisabled()"
-                   class="icon"
-                   height="36"
-                   width="36"
-                   icon="i-forward-round">
-          </app-svg>
-          <span class="sr-only">Next slide</span></button>
-      </div>
-      <div class="row">
-        <div *ngFor="let displayedWalk of currentPageWalks; let index = index; "
-             [ngClass]="{'pt-2 mb-3 col-lg-4 col-md-6 col-sm-12': !viewExpanded(displayedWalk.walk), 'w-100': viewExpanded(displayedWalk.walk)}"
-             class="d-flex flex-column">
-          <app-walk-card-view *ngIf="cardViewDisplay(displayedWalk.walk)" class="card shadow clickable h-100"
-                              [displayedWalk]="displayedWalk" [index]="index"/>
-          <app-walk-view class="mx-3" *ngIf="expandedViewDisplay(displayedWalk.walk)" [displayedWalk]="displayedWalk"/>
-          <app-walk-edit *ngIf="walkEditDisplay(displayedWalk.walk)"
-                         [displayedWalk]="displayedWalk"/>
-        </div>
-      </div>
-    </div>`,
+      @if (false) {
+        <div class="heading d-flex align-items-center mb-3">
+          <button aria-label="Previous slide" class="text-dark border-0 bg-transparent p-0 mr-1">
+            <app-svg (click)="prevSlide()"
+              [disabled]="backDisabled()"
+              class="icon"
+              height="36"
+              width="36"
+              icon="i-back-round">
+            </app-svg>
+            <span class="sr-only">Previous slide</span></button>
+            <button aria-label="Next slide" class="text-dark border-0 bg-transparent p-0">
+              <app-svg (click)="nextSlide()"
+                [disabled]="forwardDisabled()"
+                class="icon"
+                height="36"
+                width="36"
+                icon="i-forward-round">
+              </app-svg>
+              <span class="sr-only">Next slide</span></button>
+            </div>
+          }
+          <div class="row">
+            @for (displayedWalk of currentPageWalks; track displayedWalk; let index = $index) {
+              <div
+                [ngClass]="{'pt-2 mb-3 col-lg-4 col-md-6 col-sm-12': !viewExpanded(displayedWalk.walk), 'w-100': viewExpanded(displayedWalk.walk)}"
+                class="d-flex flex-column">
+                @if (cardViewDisplay(displayedWalk.walk)) {
+                  <app-walk-card-view class="card shadow clickable h-100"
+                    [displayedWalk]="displayedWalk" [index]="index"/>
+                }
+                @if (expandedViewDisplay(displayedWalk.walk)) {
+                  <app-walk-view class="mx-3" [displayedWalk]="displayedWalk"/>
+                }
+                @if (walkEditDisplay(displayedWalk.walk)) {
+                  <app-walk-edit
+                    [displayedWalk]="displayedWalk"/>
+                }
+              </div>
+            }
+          </div>
+        </div>`,
   styleUrls: ["./walk-view.sass"],
   styles: [`
   `],

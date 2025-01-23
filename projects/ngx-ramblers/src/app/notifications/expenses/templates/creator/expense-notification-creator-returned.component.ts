@@ -9,9 +9,11 @@ import { ExpenseNotificationDetailsComponent } from "../common/expense-notificat
       you:
     </p>
     <app-expense-notification-details [expenseClaim]="expenseClaim"></app-expense-notification-details>
-    <p *ngIf="display.expenseClaimLatestEvent(expenseClaim).reason">The reason we can't process your expense claim is as
-      follows: <span [textContent]="display.expenseClaimLatestEvent(expenseClaim).reason"></span>.</p>
-    <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`,
+    @if (display.expenseClaimLatestEvent(expenseClaim).reason) {
+      <p>The reason we can't process your expense claim is as
+        follows: <span [textContent]="display.expenseClaimLatestEvent(expenseClaim).reason"></span>.</p>
+      }
+      <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`,
   standalone: false
 })
 export class ExpenseNotificationCreatorReturnedComponent extends ExpenseNotificationDetailsComponent {

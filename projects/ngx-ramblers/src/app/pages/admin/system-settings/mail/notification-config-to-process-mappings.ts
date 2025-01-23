@@ -9,63 +9,71 @@ import { KEY_NULL_VALUE_NONE } from "../../../../functions/enums";
 @Component({
   selector: "app-notification-config-to-process-mapping",
   template: `
-    <div *ngIf="mailMessagingConfig" class="row img-thumbnail thumbnail-2">
-      <div class="thumbnail-heading">Process Mappings</div>
-      <div class="col-sm-12 mb-3">
-        <app-markdown-editor category="admin" name="mail-settings-process-mappings"/>
-      </div>
-      <div class="col-sm-12">
-        <div class="form-group">
-          <label for="process-mapping-contact-us">Contact Us Process Uses Email Configuration</label>
-          <select [(ngModel)]="mailMessagingConfig.mailConfig.contactUsNotificationConfigId"
-                  id="process-mapping-contact-us"
-                  class="form-control input-sm">
-            <option *ngFor="let mapping of notificationConfigsPlusNone"
-                    [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
-            </option>
-          </select>
+    @if (mailMessagingConfig) {
+      <div class="row img-thumbnail thumbnail-2">
+        <div class="thumbnail-heading">Process Mappings</div>
+        <div class="col-sm-12 mb-3">
+          <app-markdown-editor category="admin" name="mail-settings-process-mappings"/>
+        </div>
+        <div class="col-sm-12">
+          <div class="form-group">
+            <label for="process-mapping-contact-us">Contact Us Process Uses Email Configuration</label>
+            <select [(ngModel)]="mailMessagingConfig.mailConfig.contactUsNotificationConfigId"
+              id="process-mapping-contact-us"
+              class="form-control input-sm">
+              @for (mapping of notificationConfigsPlusNone; track mapping) {
+                <option
+                  [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
+                </option>
+              }
+            </select>
+          </div>
+        </div>
+        <div class="col-sm-12">
+          <div class="form-group">
+            <label for="process-mapping-forgot-password">Forgot Password Process Uses Email Configuration</label>
+            <select [(ngModel)]="mailMessagingConfig.mailConfig.forgotPasswordNotificationConfigId"
+              id="process-mapping-forgot-password"
+              class="form-control input-sm">
+              @for (mapping of notificationConfigsPlusNone; track mapping) {
+                <option
+                  [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
+                </option>
+              }
+            </select>
+          </div>
+        </div>
+        <div class="col-sm-12">
+          <div class="form-group">
+            <label for="process-mapping-walk-notification">Walk Changes Notifications Uses Email Configuration</label>
+            <select [(ngModel)]="mailMessagingConfig.mailConfig.walkNotificationConfigId"
+              id="process-mapping-walk-notification"
+              class="form-control input-sm">
+              @for (mapping of notificationConfigsPlusNone; track mapping) {
+                <option
+                  [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
+                </option>
+              }
+            </select>
+          </div>
+        </div>
+        <div class="col-sm-12">
+          <div class="form-group">
+            <label for="process-mapping-walk-notification">Expense Notifications Use Email Configuration</label>
+            <select [(ngModel)]="mailMessagingConfig.mailConfig.expenseNotificationConfigId"
+              id="process-mapping-walk-notification"
+              class="form-control input-sm">
+              @for (mapping of notificationConfigsPlusNone; track mapping) {
+                <option
+                  [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
+                </option>
+              }
+            </select>
+          </div>
         </div>
       </div>
-      <div class="col-sm-12">
-        <div class="form-group">
-          <label for="process-mapping-forgot-password">Forgot Password Process Uses Email Configuration</label>
-          <select [(ngModel)]="mailMessagingConfig.mailConfig.forgotPasswordNotificationConfigId"
-                  id="process-mapping-forgot-password"
-                  class="form-control input-sm">
-            <option *ngFor="let mapping of notificationConfigsPlusNone"
-                    [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
-            </option>
-          </select>
-        </div>
-      </div>
-      <div class="col-sm-12">
-        <div class="form-group">
-          <label for="process-mapping-walk-notification">Walk Changes Notifications Uses Email Configuration</label>
-          <select [(ngModel)]="mailMessagingConfig.mailConfig.walkNotificationConfigId"
-                  id="process-mapping-walk-notification"
-                  class="form-control input-sm">
-            <option
-              *ngFor="let mapping of notificationConfigsPlusNone"
-              [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
-            </option>
-          </select>
-        </div>
-      </div>
-      <div class="col-sm-12">
-        <div class="form-group">
-          <label for="process-mapping-walk-notification">Expense Notifications Use Email Configuration</label>
-          <select [(ngModel)]="mailMessagingConfig.mailConfig.expenseNotificationConfigId"
-                  id="process-mapping-walk-notification"
-                  class="form-control input-sm">
-            <option
-              *ngFor="let mapping of notificationConfigsPlusNone"
-              [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
-            </option>
-          </select>
-        </div>
-      </div>
-    </div>
-  `,
+    }
+    `,
   standalone: false
 })
 

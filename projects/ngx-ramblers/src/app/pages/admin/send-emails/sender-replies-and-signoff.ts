@@ -10,49 +10,61 @@ import { StringUtilsService } from "../../../services/string-utils.service";
   selector: "app-sender-replies-and-sign-off",
   template: `
     <div class="row" app-create-or-amend-sender (senderExists)="senderExists.emit($event)"
-         [committeeRoleSender]="committeeRoleSender"></div>
-    <div class="row" *ngIf="notificationConfig">
-      <div class="col-sm-6">
-        <div class="form-group">
-          <label for="sender">Sender</label>
-          <select [(ngModel)]="notificationConfig.senderRole" (ngModelChange)="senderRoleChanged()"
-                  id="sender"
-                  class="form-control input-sm">
-            <option *ngFor="let role of mailMessagingConfig.committeeReferenceData.committeeMembers()"
+    [committeeRoleSender]="committeeRoleSender"></div>
+    @if (notificationConfig) {
+      <div class="row">
+        <div class="col-sm-6">
+          <div class="form-group">
+            <label for="sender">Sender</label>
+            <select [(ngModel)]="notificationConfig.senderRole" (ngModelChange)="senderRoleChanged()"
+              id="sender"
+              class="form-control input-sm">
+              @for (role of mailMessagingConfig.committeeReferenceData.committeeMembers(); track role) {
+                <option
+                  [ngValue]="role.type">{{ role.nameAndDescription }}
+                </option>
+              }
+            </select>
+          </div>
+        </div>
+        @if (!omitCC) {
+          <div class="col-sm-6">
+            <div class="form-group">
+              <app-committee-role-multi-select [showRoleSelectionAs]="'description'"
+                [label]="'CC Roles'"
+                [roles]="notificationConfig.ccRoles"
+                (rolesChange)="this.notificationConfig.ccRoles = $event.roles;"/>
+            </div>
+          </div>
+        }
+        <div class="col-sm-6">
+          <div class="form-group">
+            <label for="reply-to">Reply To</label>
+            @if (notificationConfig) {
+              <select [(ngModel)]="notificationConfig.replyToRole"
+                id="reply-to"
+                class="form-control input-sm">
+                @for (role of mailMessagingConfig.committeeReferenceData.committeeMembers(); track role) {
+                  <option
                     [ngValue]="role.type">{{ role.nameAndDescription }}
-            </option>
-          </select>
+                  </option>
+                }
+              </select>
+            }
+          </div>
         </div>
+        @if (!omitSignOff) {
+          <div class="col-sm-6">
+            <div class="form-group">
+              <app-committee-role-multi-select [showRoleSelectionAs]="'description'"
+                [label]="'Sign Off Email With Roles'"
+                [roles]="notificationConfig.signOffRoles"
+                (rolesChange)="this.notificationConfig.signOffRoles = $event.roles;"/>
+            </div>
+          </div>
+        }
       </div>
-      <div *ngIf="!omitCC" class="col-sm-6">
-        <div class="form-group">
-          <app-committee-role-multi-select [showRoleSelectionAs]="'description'"
-                                           [label]="'CC Roles'"
-                                           [roles]="notificationConfig.ccRoles"
-                                           (rolesChange)="this.notificationConfig.ccRoles = $event.roles;"/>
-        </div>
-      </div>
-      <div class="col-sm-6">
-        <div class="form-group">
-          <label for="reply-to">Reply To</label>
-          <select *ngIf="notificationConfig" [(ngModel)]="notificationConfig.replyToRole"
-                  id="reply-to"
-                  class="form-control input-sm">
-            <option *ngFor="let role of mailMessagingConfig.committeeReferenceData.committeeMembers()"
-                    [ngValue]="role.type">{{ role.nameAndDescription }}
-            </option>
-          </select>
-        </div>
-      </div>
-      <div *ngIf="!omitSignOff" class="col-sm-6">
-        <div class="form-group">
-          <app-committee-role-multi-select [showRoleSelectionAs]="'description'"
-                                           [label]="'Sign Off Email With Roles'"
-                                           [roles]="notificationConfig.signOffRoles"
-                                           (rolesChange)="this.notificationConfig.signOffRoles = $event.roles;"/>
-        </div>
-      </div>
-    </div>`,
+    }`,
   standalone: false
 })
 

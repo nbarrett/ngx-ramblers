@@ -8,8 +8,10 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
   template: `
     <div class="form-inline">
       <fa-icon [icon]="icons.toFontAwesomeIcon(status).icon"
-               [class]="icons.toFontAwesomeIcon(status).class"/>
-      <div *ngIf="!noLabel" class="ml-2">{{ stringUtils.asTitle(status) }}</div>
+        [class]="icons.toFontAwesomeIcon(status).class"/>
+      @if (!noLabel) {
+        <div class="ml-2">{{ stringUtils.asTitle(status) }}</div>
+      }
     </div>`,
   styleUrls: ["./member-bulk-load/member-bulk-load.component.sass", "./admin/admin.component.sass"],
   standalone: false

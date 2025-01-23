@@ -22,8 +22,8 @@ import { StoredValue } from "../../../models/ui-actions";
 @Component({
   selector: "app-dynamic-content-site-edit-album",
   template: `
-    <ng-container *ngIf="!actions.editActive(rowIndex)">
-      <ng-container *ngIf="actions.isAlbum(row)">
+    @if (!actions.editActive(rowIndex)) {
+      @if (actions.isAlbum(row)) {
         <tabset class="custom-tabset">
           <tab heading="Album Settings" [active]="lastSelectedTabIndex === 3"
                (selectTab)="onTabSelect(3)">
@@ -71,48 +71,57 @@ import { StoredValue } from "../../../models/ui-actions";
                           Show Image Dates</label>
                       </div>
                     </div>
-                    <div *ngIf="actions.isAlbum(row)" class="col-sm-6">
-                      <div class="custom-control custom-checkbox">
-                        <input [(ngModel)]="row.carousel.allowSwitchView"
-                               type="checkbox" class="custom-control-input"
-                               [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-allow-switch-view')">
-                        <label class="custom-control-label"
-                               [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-allow-switch-view')">
+                    @if (actions.isAlbum(row)) {
+                      <div class="col-sm-6">
+                        <div class="custom-control custom-checkbox">
+                          <input [(ngModel)]="row.carousel.allowSwitchView"
+                                 type="checkbox" class="custom-control-input"
+                                 [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-allow-switch-view')">
+                          <label class="custom-control-label"
+                                 [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-allow-switch-view')">
                           Allow Switch View</label>
+                        </div>
                       </div>
-                    </div>
+                    }
                   </div>
                   <div class="row">
-                    <div *ngIf="actions.isAlbum(row)" class="col-auto">
-                      <div class="form-group">
-                        <label
-                          [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-album-view')">
+                    @if (actions.isAlbum(row)) {
+                      <div class="col-auto">
+                        <div class="form-group">
+                          <label
+                            [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-album-view')">
                           Album View</label>
-                        <select class="form-control input-sm"
-                                [(ngModel)]="row.carousel.albumView"
-                                [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-album-view')">
-                          <option *ngFor="let type of enumKeyValuesForAlbumView"
-                                  [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
-                          </option>
-                        </select>
+                          <select class="form-control input-sm"
+                                  [(ngModel)]="row.carousel.albumView"
+                                  [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-album-view')">
+                            @for (type of enumKeyValuesForAlbumView; track type) {
+                              <option
+                                [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+                              </option>
+                            }
+                          </select>
+                        </div>
                       </div>
-                    </div>
-                    <div
-                      *ngIf="(row.carousel.galleryViewOptions || row.carousel.allowSwitchView) && actions.isAlbum(row)"
-                      class="col-auto">
-                      <div class="form-group">
-                        <label
-                          [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-thumb-position')">
+                    }
+                    @if ((row.carousel.galleryViewOptions || row.carousel.allowSwitchView) && actions.isAlbum(row)) {
+                      <div
+                        class="col-auto">
+                        <div class="form-group">
+                          <label
+                            [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-thumb-position')">
                           Thumb Position</label>
-                        <select class="form-control input-sm"
-                                [(ngModel)]="row.carousel.galleryViewOptions.thumbPosition"
-                                [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-thumb-position')">
-                          <option *ngFor="let thumbPosition of thumbPositions"
-                                  [ngValue]="thumbPosition">{{ stringUtils.asTitle(thumbPosition) }}
-                          </option>
-                        </select>
+                          <select class="form-control input-sm"
+                                  [(ngModel)]="row.carousel.galleryViewOptions.thumbPosition"
+                                  [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-thumb-position')">
+                            @for (thumbPosition of thumbPositions; track thumbPosition) {
+                              <option
+                                [ngValue]="thumbPosition">{{ stringUtils.asTitle(thumbPosition) }}
+                              </option>
+                            }
+                          </select>
+                        </div>
                       </div>
-                    </div>
+                    }
                     <div class="col-auto">
                       <div class="form-group">
                         <label
@@ -137,22 +146,23 @@ import { StoredValue } from "../../../models/ui-actions";
                                class="form-control"
                                type="number"
                                [(ngModel)]="row.carousel.height"/>
-
                       </div>
                     </div>
                   </div>
                 </div>
                 <div class="col-sm-12">
-                  <app-album preview *ngIf="actions.isCarouselOrAlbum(row)"
-                             (lazyLoadingMetadataChange)="lazyLoadingMetadata=$event"
-                             [album]="row?.carousel"
-                             [albumView]="row?.carousel?.albumView"
-                             [index]="actions.carouselOrAlbumIndex(row, pageContent)">
-                    <app-badge-button [icon]="faChevronRight"
-                                      (click)="actions.toggleEditMode(rowIndex)"
-                                      [caption]="'Edit images in album'" iconPositionRight>
-                    </app-badge-button>
-                  </app-album>
+                  @if (actions.isCarouselOrAlbum(row)) {
+                    <app-album preview
+                               (lazyLoadingMetadataChange)="lazyLoadingMetadata=$event"
+                               [album]="row?.carousel"
+                               [albumView]="row?.carousel?.albumView"
+                               [index]="actions.carouselOrAlbumIndex(row, pageContent)">
+                      <app-badge-button [icon]="faChevronRight"
+                                        (click)="actions.toggleEditMode(rowIndex)"
+                                        [caption]="'Edit images in album'" iconPositionRight>
+                      </app-badge-button>
+                    </app-album>
+                  }
                 </div>
               </div>
             </div>
@@ -189,12 +199,14 @@ import { StoredValue } from "../../../models/ui-actions";
                                                  (initialValue)="groupEventType=$event"/>
                 </div>
                 <div class="col-sm-10">
-                  <app-group-event-selector *ngIf="groupEventType"
-                                            [label]="'Link to ' + groupEventType?.description"
-                                            [eventId]="row.carousel.eventId"
-                                            [dataSource]="groupEventType?.area"
-                                            (eventCleared)="eventCleared()"
-                                            (eventChange)="eventChange(row.carousel, $event)"/>
+                  @if (groupEventType) {
+                    <app-group-event-selector
+                      [label]="'Link to ' + groupEventType?.description"
+                      [eventId]="row.carousel.eventId"
+                      [dataSource]="groupEventType?.area"
+                      (eventCleared)="eventCleared()"
+                      (eventChange)="eventChange(row.carousel, $event)"/>
+                  }
                 </div>
               </div>
               <div class="row mt-2">
@@ -205,16 +217,18 @@ import { StoredValue } from "../../../models/ui-actions";
                          [(ngModel)]="row.carousel.subtitle"
                          type="text" class="form-control">
                 </div>
-                <div *ngIf="row.carousel.eventId" class="col-md-6">
-                  <div class="form-group">
-                    <label>Link Preview</label>
-                    <div>
-                      <a
-                        [href]="urlService.linkUrl({area: row.carousel.eventType, id: row.carousel.eventId })">{{ row.carousel.eventDate | displayDay }}
+                @if (row.carousel.eventId) {
+                  <div class="col-md-6">
+                    <div class="form-group">
+                      <label>Link Preview</label>
+                      <div>
+                        <a
+                          [href]="urlService.linkUrl({area: row.carousel.eventType, id: row.carousel.eventId })">{{ row.carousel.eventDate | displayDay }}
                         - {{ row.carousel.subtitle }}</a>
+                      </div>
                     </div>
                   </div>
-                </div>
+                }
               </div>
             </div>
           </tab>
@@ -245,7 +259,7 @@ import { StoredValue } from "../../../models/ui-actions";
                   </app-markdown-editor>
                 </div>
               </div>
-              <ng-container *ngIf="lazyLoadingMetadata?.contentMetadata?.coverImage">
+              @if (lazyLoadingMetadata?.contentMetadata?.coverImage) {
                 <div class="row mt-2">
                   <div class="col-sm-6">
                     <div class="form-group">
@@ -258,7 +272,6 @@ import { StoredValue } from "../../../models/ui-actions";
                         class="form-control"
                         type="number"
                         [(ngModel)]="row.carousel.coverImageHeight"/>
-
                     </div>
                   </div>
                   <div class="col-sm-6">
@@ -280,7 +293,7 @@ import { StoredValue } from "../../../models/ui-actions";
                                 [borderRadius]="row.carousel.coverImageBorderRadius"
                                 [imageSource]="urlService.imageSourceFor({image:lazyLoadingMetadata.contentMetadata.coverImage},
                                   lazyLoadingMetadata.contentMetadata)"/>
-              </ng-container>
+              }
             </div>
           </tab>
           <tab heading="Pre-Album Text" [active]="lastSelectedTabIndex === 2"
@@ -310,10 +323,12 @@ import { StoredValue } from "../../../models/ui-actions";
             </div>
           </tab>
         </tabset>
-      </ng-container>
-    </ng-container>
-    <app-image-list-edit *ngIf="actions.editActive(rowIndex)" [name]="row?.carousel?.name"
-                         (exit)="actions.toggleEditMode(rowIndex)"/>`,
+      }
+    }
+    @if (actions.editActive(rowIndex)) {
+      <app-image-list-edit [name]="row?.carousel?.name"
+                           (exit)="actions.toggleEditMode(rowIndex)"/>
+    }`,
   styleUrls: ["./dynamic-content.sass"],
   standalone: false
 })

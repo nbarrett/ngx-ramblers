@@ -12,53 +12,69 @@ import { SystemConfigService } from "../../services/system/system-config.service
 @Component({
   selector: "app-banner-image-selector",
   template: `
-    <div class="row" *ngIf="bannerImageItem">
-      <div class="col-md-12">
-        <h4>
-          <div class="custom-control custom-checkbox">
-            <input class="custom-control-input"
-                   [(ngModel)]="bannerImageItem.show"
-                   type="checkbox"
-                   id="include-{{imageTypeDescription}}">
-            <label class="custom-control-label"
-                   for="include-{{imageTypeDescription}}">{{imageTypeDescription}}</label>
+    @if (bannerImageItem) {
+      <div class="row">
+        <div class="col-md-12">
+          <h4>
+            <div class="custom-control custom-checkbox">
+              <input class="custom-control-input"
+                [(ngModel)]="bannerImageItem.show"
+                type="checkbox"
+                id="include-{{imageTypeDescription}}">
+              <label class="custom-control-label"
+              for="include-{{imageTypeDescription}}">{{imageTypeDescription}}</label>
+            </div>
+          </h4>
+          <select [compareWith]="imageComparer" class="form-control input-sm"
+            id="selected-logo-{{imageTypeDescription}}"
+            [(ngModel)]="bannerImageItem.image">
+            @for (image of images?.images; track image) {
+              <option
+              [ngValue]="image">{{image.originalFileName}}</option>
+            }
+          </select>
+        </div>
+      </div>
+    }
+    @if (bannerImageItem) {
+      <div class="row">
+        @if (configurePadding) {
+          <div [class]="propertyClass">
+            <label>Padding:</label>
+            <input [(ngModel)]="bannerImageItem.image.padding"
+              type="number" class="form-control input-sm">
           </div>
-        </h4>
-        <select [compareWith]="imageComparer" class="form-control input-sm"
-                id="selected-logo-{{imageTypeDescription}}"
-                [(ngModel)]="bannerImageItem.image">
-          <option *ngFor="let image of images?.images"
-                  [ngValue]="image">{{image.originalFileName}}</option>
-        </select>
+        }
+        @if (configureFontSize) {
+          <div [class]="propertyClass">
+            <label>Font Size:</label>
+            <input [(ngModel)]="bannerImageItem.fontSize"
+              type="number" class="form-control input-sm">
+          </div>
+        }
+        @if (configureColumns) {
+          <div [class]="propertyClass">
+            <label>Columns (1 - 12):</label>
+            <select class="form-control input-sm ml-2"
+              id="selected-logo-{{imageTypeDescription}}"
+              [(ngModel)]="bannerImageItem.columns">
+              @for (width of widths; track width) {
+                <option
+                [ngValue]="width">{{width}}</option>
+              }
+            </select>
+          </div>
+        }
+        @if (configureWidth) {
+          <div [class]="propertyClass">
+            <label>Width:</label>
+            <input [(ngModel)]="bannerImageItem.image.width"
+              type="number" class="form-control input-sm">
+          </div>
+        }
       </div>
-    </div>
-    <div class="row" *ngIf="bannerImageItem">
-      <div [class]="propertyClass" *ngIf="configurePadding">
-        <label>Padding:</label>
-        <input [(ngModel)]="bannerImageItem.image.padding"
-               type="number" class="form-control input-sm">
-      </div>
-      <div [class]="propertyClass" *ngIf="configureFontSize">
-        <label>Font Size:</label>
-        <input [(ngModel)]="bannerImageItem.fontSize"
-               type="number" class="form-control input-sm">
-      </div>
-      <div [class]="propertyClass" *ngIf="configureColumns">
-        <label>Columns (1 - 12):</label>
-        <select class="form-control input-sm ml-2"
-                id="selected-logo-{{imageTypeDescription}}"
-                [(ngModel)]="bannerImageItem.columns">
-          <option *ngFor="let width of widths"
-                  [ngValue]="width">{{width}}</option>
-        </select>
-      </div>
-      <div [class]="propertyClass" *ngIf="configureWidth">
-        <label>Width:</label>
-        <input [(ngModel)]="bannerImageItem.image.width"
-               type="number" class="form-control input-sm">
-      </div>
-    </div>
-  `,
+    }
+    `,
   standalone: false
 })
 

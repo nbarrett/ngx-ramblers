@@ -7,20 +7,25 @@
     [imageLink]="column.href"></app-card-image>
   <div class="card-body">
     <h4 class="card-title">
-      <a *ngIf="routerLink" class="rams-text-decoration-pink"
-         [routerLink]="routerLink"
-         target="_self">{{column.title}}</a>
-      <a *ngIf="!routerLink" class="rams-text-decoration-pink" [href]="column.href"
-         target="_self">{{column.title}}</a>
+      @if (routerLink) {
+        <a class="rams-text-decoration-pink"
+           [routerLink]="routerLink"
+           target="_self">{{ column.title }}</a>
+      }
+      @if (!routerLink) {
+        <a class="rams-text-decoration-pink" [href]="column.href"
+           target="_self">{{ column.title }}</a>
+      }
     </h4>
-    <app-image-cropper-and-resizer
-      *ngIf="pageContentEdit?.editActive"
-      [preloadImage]="column?.imageSource"
-      (imageChange)="imageChanged($event)"
-      (quit)="exitImageEdit()"
-      (save)="imagedSaved($event)">
-    </app-image-cropper-and-resizer>
-    <ng-container *ngIf="siteEditActive()">
+    @if (pageContentEdit?.editActive) {
+      <app-image-cropper-and-resizer
+        [preloadImage]="column?.imageSource"
+        (imageChange)="imageChanged($event)"
+        (quit)="exitImageEdit()"
+        (save)="imagedSaved($event)">
+      </app-image-cropper-and-resizer>
+    }
+    @if (siteEditActive()) {
       <div class="form-group">
         <label class="form-label"
                [for]="idFor('title')">Title</label>
@@ -66,32 +71,38 @@
             Use Icon</label>
         </div>
       </div>
-      <div *ngIf="imageType==='icon'" class="form-group">
-        <label class="form-label"
-               [for]="idFor('icon')">Icon</label>
-        <input [(ngModel)]="column.icon"
-               [typeahead]="iconService.iconKeys"
-               [id]="idFor('icon')"
-               class="form-control input-sm" placeholder="Enter icon value">
-      </div>
-      <div *ngIf="imageType==='image'" class="form-group">
-        <label class="form-label"
-               [for]="idFor('imageSource')">Image Source</label>
-        <input [(ngModel)]="column.imageSource"
-               [id]="idFor('imageSource')"
-               class="form-control input-sm" placeholder="Enter image source value"
-               type="text">
-      </div>
+      @if (imageType === 'icon') {
+        <div class="form-group">
+          <label class="form-label"
+                 [for]="idFor('icon')">Icon</label>
+          <input [(ngModel)]="column.icon"
+                 [typeahead]="iconService.iconKeys"
+                 [id]="idFor('icon')"
+                 class="form-control input-sm" placeholder="Enter icon value">
+        </div>
+      }
+      @if (imageType === 'image') {
+        <div class="form-group">
+          <label class="form-label"
+                 [for]="idFor('imageSource')">Image Source</label>
+          <input [(ngModel)]="column.imageSource"
+                 [id]="idFor('imageSource')"
+                 class="form-control input-sm" placeholder="Enter image source value"
+                 type="text">
+        </div>
+      }
       <div class="form-group">
         <label [for]="idFor('access-level')">Access</label>
         <select [(ngModel)]="column.accessLevel" [id]="idFor('access-level')"
                 class="form-control input-sm">
-          <option *ngFor="let accessLevel of memberResourcesReferenceData.accessLevels()"
-                  [textContent]="accessLevel.description"
-                  [ngValue]="accessLevel.id">
+          @for (accessLevel of memberResourcesReferenceData.accessLevels(); track accessLevel) {
+            <option
+              [textContent]="accessLevel.description"
+              [ngValue]="accessLevel.id">
+              }
         </select>
       </div>
-    </ng-container>
+    }
     <app-markdown-editor unlinkEnabled
                          [presentationMode]="presentationMode"
                          class="card-text"
@@ -102,12 +113,14 @@
                          [description]="idFor(pageContent.path)"
                          [id]="column?.contentTextId"
                          [name]="actions.rowColFor(rowIndex, columnIndex)">
-      <div *ngIf="!pageContentEdit?.editActive"
-           (click)="editImage()"
-           delay=500 tooltip="edit image" class="badge-button">
-        <fa-icon [icon]="faPencil"></fa-icon>
-        <span>edit image</span>
-      </div>
+      @if (!pageContentEdit?.editActive) {
+        <div
+          (click)="editImage()"
+          delay=500 tooltip="edit image" class="badge-button">
+          <fa-icon [icon]="faPencil"></fa-icon>
+          <span>edit image</span>
+        </div>
+      }
       <app-actions-dropdown [columnIndex]="columnIndex"
                             [pageContent]="pageContent"
                             [row]="row">

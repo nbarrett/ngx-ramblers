@@ -18,96 +18,101 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
 @Component({
   selector: "app-walk-location-edit",
   template: `
-    <div class="row" *ngIf="locationDetails">
-      <div class="col-sm-6">
-        <div class="form-group">
-          <label for="post-code">{{ locationType }} Postcode</label>
-          <ng-container *ngIf="showPostcodeSelect">
-            <select [disabled]="disabled" [(ngModel)]="locationDetails.postcode"
-                    (ngModelChange)="this.updateGoogleMapsUrl()"
-                    class="form-control input-sm" id="post-code">
-              <option *ngFor="let option of postcodeOptions" [value]="option.postcode">{{ option.postcode }}
-                ({{ option.distance == null ? 'keep existing' : numberUtils.asNumber(option.distance, 0)+ ' m from pin' }})
-              </option>
-            </select>
-          </ng-container>
-          <ng-container *ngIf="!showPostcodeSelect">
-            <input [disabled]="disabled" [(ngModel)]="locationDetails.postcode"
-                   (ngModelChange)="postcodeChange()"
-                   type="text" class="form-control input-sm" id="post-code"
-                   placeholder="Enter Postcode here">
-          </ng-container>
+    @if (locationDetails) {
+      <div class="row">
+        <div class="col-sm-6">
+          <div class="form-group">
+            <label for="post-code">{{ locationType }} Postcode</label>
+            @if (showPostcodeSelect) {
+              <select [disabled]="disabled" [(ngModel)]="locationDetails.postcode"
+                (ngModelChange)="this.updateGoogleMapsUrl()"
+                class="form-control input-sm" id="post-code">
+                @for (option of postcodeOptions; track option) {
+                  <option [value]="option.postcode">{{ option.postcode }}
+                    ({{ option.distance == null ? 'keep existing' : numberUtils.asNumber(option.distance, 0)+ ' m from pin' }})
+                  </option>
+                }
+              </select>
+            }
+            @if (!showPostcodeSelect) {
+              <input [disabled]="disabled" [(ngModel)]="locationDetails.postcode"
+                (ngModelChange)="postcodeChange()"
+                type="text" class="form-control input-sm" id="post-code"
+                placeholder="Enter Postcode here">
+            }
+          </div>
         </div>
-      </div>
-      <div class="col-sm-6">
-        <div class="form-group">
-          <label for="nearest-town">{{ locationType }} Location</label>
-          <input [disabled]="disabled" [(ngModel)]="locationDetails.description"
-                 type="text" class="form-control input-sm"
-                 id="nearest-town"
-                 placeholder="Enter {{locationType}} Location here">
+        <div class="col-sm-6">
+          <div class="form-group">
+            <label for="nearest-town">{{ locationType }} Location</label>
+            <input [disabled]="disabled" [(ngModel)]="locationDetails.description"
+              type="text" class="form-control input-sm"
+              id="nearest-town"
+              placeholder="Enter {{locationType}} Location here">
+          </div>
         </div>
-      </div>
-      <div class="col-sm-6">
-        <div class="form-group">
-          <label for="grid-reference">{{ locationType }} Grid Reference</label>
-          <div class="input-group">
-            <input [disabled]="disabled"
-                   [(ngModel)]="locationDetails.grid_reference_10"
-                   type="text" class="form-control input-sm" id="grid-reference"
-                   placeholder="Enter {{locationType}} Grid Reference here">
-            <div class="input-group-append">
-              <div class="input-group-text pointer">
-                <div
-                  (click)="viewGridReference(display.gridReferenceFrom(locationDetails))"
-                  placement="top"
-                  tooltip="View {{locationType}} Grid Reference position in gridreferencefinder.com">
-                  <img src="/assets/images/local/grid-reference-finder.ico"/>
+        <div class="col-sm-6">
+          <div class="form-group">
+            <label for="grid-reference">{{ locationType }} Grid Reference</label>
+            <div class="input-group">
+              <input [disabled]="disabled"
+                [(ngModel)]="locationDetails.grid_reference_10"
+                type="text" class="form-control input-sm" id="grid-reference"
+                placeholder="Enter {{locationType}} Grid Reference here">
+              <div class="input-group-append">
+                <div class="input-group-text pointer">
+                  <div
+                    (click)="viewGridReference(display.gridReferenceFrom(locationDetails))"
+                    placement="top"
+                    tooltip="View {{locationType}} Grid Reference position in gridreferencefinder.com">
+                    <img src="/assets/images/local/grid-reference-finder.ico"/>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="col-sm-6">
-        <div class="form-group">
-          <label for="post-code">{{ locationType }} Lat/Long</label>
-          <div>{{ numberUtils.asNumber(locationDetails.latitude, 4) }}
-            / {{ numberUtils.asNumber(locationDetails.longitude, 4) }}
+        <div class="col-sm-6">
+          <div class="form-group">
+            <label for="post-code">{{ locationType }} Lat/Long</label>
+            <div>{{ numberUtils.asNumber(locationDetails.latitude, 4) }}
+              / {{ numberUtils.asNumber(locationDetails.longitude, 4) }}
+            </div>
           </div>
         </div>
-      </div>
-      <div class="col-sm-12">
-        <div class="btn-group w-100 mb-2" role="group" aria-label="Toggle Google Maps View">
-          <button type="button" class="btn btn-primary" [class.active]="!showGoogleMapsView"
-                  (click)="showGoogleMapsView = false">
-            {{ locationType }} Pin Location
-          </button>
-          <button type="button" class="btn btn-primary" [class.active]="showGoogleMapsView"
-                  (click)="showGoogleMapsView = true">
-            {{ locationType }} Location Google Map
-          </button>
-        </div>
-        <ng-container *ngIf="showGoogleMapsView">
-          <p>The map below is a preview of where postcode
-            <strong>{{ locationDetails.postcode }}</strong>
+        <div class="col-sm-12">
+          <div class="btn-group w-100 mb-2" role="group" aria-label="Toggle Google Maps View">
+            <button type="button" class="btn btn-primary" [class.active]="!showGoogleMapsView"
+              (click)="showGoogleMapsView = false">
+              {{ locationType }} Pin Location
+            </button>
+            <button type="button" class="btn btn-primary" [class.active]="showGoogleMapsView"
+              (click)="showGoogleMapsView = true">
+              {{ locationType }} Location Google Map
+            </button>
+          </div>
+          @if (showGoogleMapsView) {
+            <p>The map below is a preview of where postcode
+              <strong>{{ locationDetails.postcode }}</strong>
             will appear on Google Maps. This map will be displayed in the detail view of the walk.</p>
-          <input type="number" min="1" max="20" *ngIf="false" (ngModelChange)="this.updateGoogleMapsUrl()"
-                 [(ngModel)]="display.googleMapsConfig.zoomLevel">
-          <iframe allowfullscreen class="map-walk-location-edit" style="border:0;border-radius: 10px;"
-                  [src]="googleMapsUrl"></iframe>
-        </ng-container>
-
-        <ng-container *ngIf="!showGoogleMapsView && showLeafletView">
-          <p>Use the map below to drag the pin to accurately pinpoint the location.</p>
-          <div app-map-edit class="map-walk-location-edit" [locationType]="locationType"
-               [locationDetails]="locationDetails" [notify]="notify"
-               (postcodeOptionsChange)="postcodeOptions = $event"
-               (showPostcodeSelectChange)="showPostcodeSelect = $event">
-          </div>
-        </ng-container>
+            @if (false) {
+              <input type="number" min="1" max="20" (ngModelChange)="this.updateGoogleMapsUrl()"
+                [(ngModel)]="display.googleMapsConfig.zoomLevel">
+            }
+            <iframe allowfullscreen class="map-walk-location-edit" style="border:0;border-radius: 10px;"
+            [src]="googleMapsUrl"></iframe>
+          }
+          @if (!showGoogleMapsView && showLeafletView) {
+            <p>Use the map below to drag the pin to accurately pinpoint the location.</p>
+            <div app-map-edit class="map-walk-location-edit" [locationType]="locationType"
+              [locationDetails]="locationDetails" [notify]="notify"
+              (postcodeOptionsChange)="postcodeOptions = $event"
+              (showPostcodeSelectChange)="showPostcodeSelect = $event">
+            </div>
+          }
+        </div>
       </div>
-    </div>`,
+    }`,
   styleUrls: ["./walk-edit.component.sass"],
   standalone: false
 })

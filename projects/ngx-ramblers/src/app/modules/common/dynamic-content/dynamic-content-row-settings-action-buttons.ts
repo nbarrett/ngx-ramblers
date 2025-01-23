@@ -9,30 +9,30 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
 @Component({
   selector: "[app-row-settings-action-buttons]",
   template: `
-      <ng-container *ngIf="actions.isActionButtons(row) || actions.isAlbumIndex(row)">
-          <div class="row align-items-end">
-              <div class="col-auto">
-                  <label [for]="id +'max-cols'">Max Columns</label>
-                  <input [id]="id +'max-cols'" #input (input)="actions.changeMaxColumnsFor(input, row)"
-                         [value]="row.maxColumns"
-                         autocomplete="columns"
-                         class="form-control input-sm column-input" placeholder="Enter number of viewable columns (1-4)"
-                         type="number">
-              </div>
-              <div class="col-auto">
-                  <div class="custom-control custom-checkbox">
-                      <input name="showSwiper" [(ngModel)]="row.showSwiper"
-                             [checked]="row.showSwiper"
-                             type="checkbox" class="custom-control-input"
-                             [id]="id +'-show-cols'">
-                      <label class="custom-control-label"
-                             [for]="id +'-show-cols'">Show Swiper
-                      </label>
-                  </div>
-              </div>
+      @if (actions.isActionButtons(row) || actions.isAlbumIndex(row)) {
+        <div class="row align-items-end">
+          <div class="col-auto">
+            <label [for]="id +'max-cols'">Max Columns</label>
+            <input [id]="id +'max-cols'" #input (input)="actions.changeMaxColumnsFor(input, row)"
+              [value]="row.maxColumns"
+              autocomplete="columns"
+              class="form-control input-sm column-input" placeholder="Enter number of viewable columns (1-4)"
+              type="number">
           </div>
-      </ng-container>
-  `,
+          <div class="col-auto">
+            <div class="custom-control custom-checkbox">
+              <input name="showSwiper" [(ngModel)]="row.showSwiper"
+                [checked]="row.showSwiper"
+                type="checkbox" class="custom-control-input"
+                [id]="id +'-show-cols'">
+              <label class="custom-control-label"
+                [for]="id +'-show-cols'">Show Swiper
+              </label>
+            </div>
+          </div>
+        </div>
+      }
+      `,
   standalone: false
 })
 

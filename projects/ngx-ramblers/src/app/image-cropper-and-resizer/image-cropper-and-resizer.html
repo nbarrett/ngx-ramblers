@@ -1,14 +1,18 @@
-<div *ngIf="showAlertMessage()" class="row">
-  <div class="col-md-12 mb-2">
-    <div class="alert {{notifyTarget.alert.class}}">
-      <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-      <strong *ngIf="notifyTarget.alertTitle">
-        {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
+@if (showAlertMessage()) {
+  <div class="row">
+    <div class="col-md-12 mb-2">
+      <div class="alert {{notifyTarget.alert.class}}">
+        <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+        @if (notifyTarget.alertTitle) {
+          <strong>
+            {{ notifyTarget.alertTitle }}: </strong>
+        } {{ notifyTarget.alertMessage }}
+      </div>
     </div>
   </div>
-</div>
+}
 <div class="row">
-  <ng-container *ngIf="false">
+  @if (false) {
     <div class="col">
       <label for="rotation">Rotation:</label>
     </div>
@@ -17,7 +21,7 @@
              (keyup)="updateRotation()"
              class="form-control input-sm flex-grow-1"/>
     </div>
-  </ng-container>
+  }
   <input #fileElement class="d-none" type="file" ng2FileSelect multiple (onFileSelected)="onFileSelect($event)"
          [uploader]="uploader">
   <div class="col-6">
@@ -37,25 +41,27 @@
 </div>
 <div class="row mt-2 mb-2">
   <div class="col-sm-12 img-fluid w-100">
-    <image-cropper *ngIf="fileTypeAttributes?.croppable"
-      [allowMoveImage]="true"
-      [imageFile]="originalFile"
-      [maintainAspectRatio]="maintainAspectRatio"
-      [containWithinAspectRatio]="containWithinAspectRatio"
-      [aspectRatio]="aspectRatio"
-      [canvasRotation]="canvasRotation"
-      [transform]="transform"
-      (resize)="resized($event)"
-      [alignImage]="'left'"
-      [format]="format()"
-      [imageQuality]="imageQuality"
-      (transformChange)="transformChanged($event)"
-      (imageCropped)="imageCropped($event)"
-      (imageLoaded)="imageLoaded($event)"
-      (cropperReady)="cropperReady($event)"
-      (loadImageFailed)="loadImageFailed($event)"
-      (error)="error($event)">
-    </image-cropper>
+    @if (fileTypeAttributes?.croppable) {
+      <image-cropper
+        [allowMoveImage]="true"
+        [imageFile]="originalFile"
+        [maintainAspectRatio]="maintainAspectRatio"
+        [containWithinAspectRatio]="containWithinAspectRatio"
+        [aspectRatio]="aspectRatio"
+        [canvasRotation]="canvasRotation"
+        [transform]="transform"
+        (resize)="resized($event)"
+        [alignImage]="'left'"
+        [format]="format()"
+        [imageQuality]="imageQuality"
+        (transformChange)="transformChanged($event)"
+        (imageCropped)="imageCropped($event)"
+        (imageLoaded)="imageLoaded($event)"
+        (cropperReady)="cropperReady($event)"
+        (loadImageFailed)="loadImageFailed($event)"
+        (error)="error($event)">
+      </image-cropper>
+    }
   </div>
 </div>
 <div class="row">
@@ -66,28 +72,32 @@
                                (dimensionsChanged)="changeAspectRatioSettingsAndCrop($event)"></app-aspect-ratio-selector>
   </div>
   <div class="col-sm-6 mb-2">
-    <label for="compression">Compress to size ({{imageQuality}}%):</label>
+    <label for="compression">Compress to size ({{ imageQuality }}%):</label>
     <input type="range" min="1" max="100" value="90" step="1" class="custom-range" id="compression"
            [disabled]="actionDisabled" (change)="changeRange($event, true)" (input)="changeRange($event, false)">
   </div>
 </div>
-<div class="row mb-2" *ngIf="imagePresent()">
-  <div class="col-sm-6">
-    Original Size: {{originalSize()}}
+@if (imagePresent()) {
+  <div class="row mb-2">
+    <div class="col-sm-6">
+      Original Size: {{ originalSize() }}
+    </div>
+    <div class="col-sm-6">
+      Cropped Size: {{ croppedSize() }}
+    </div>
   </div>
-  <div class="col-sm-6">
-    Cropped Size: {{croppedSize()}}
-  </div>
-</div>
-<div class="row" *ngIf="uploader.progress">
-  <div class="col-sm-12 mb-2 mt-2">
-    <div class="progress">
-      <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': uploader.progress + '%' }">
-        {{action}} {{uploader.progress}}%
+}
+@if (uploader.progress) {
+  <div class="row">
+    <div class="col-sm-12 mb-2 mt-2">
+      <div class="progress">
+        <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': uploader.progress + '%' }">
+          {{ action }} {{ uploader.progress }}%
+        </div>
       </div>
     </div>
   </div>
-</div>
+}
 <ng-template #buttonSet1>
   <div class="col pr-1">
     <app-badge-button fullWidth [disabled]="actionDisabled" (click)="rotateLeft()"
@@ -152,15 +162,17 @@
     </app-badge-button>
   </div>
 </ng-template>
-<div *ngIf="!wrapButtons" class="row no-gutters">
-  <ng-container *ngTemplateOutlet="buttonSet1"></ng-container>
-  <ng-container *ngTemplateOutlet="buttonSet2"></ng-container>
-</div>
-<ng-container *ngIf="wrapButtons">
+@if (!wrapButtons) {
+  <div class="row no-gutters">
+    <ng-container *ngTemplateOutlet="buttonSet1"></ng-container>
+    <ng-container *ngTemplateOutlet="buttonSet2"></ng-container>
+  </div>
+}
+@if (wrapButtons) {
   <div class="row no-gutters">
     <ng-container *ngTemplateOutlet="buttonSet1"></ng-container>
   </div>
   <div class="row no-gutters">
     <ng-container *ngTemplateOutlet="buttonSet2"></ng-container>
   </div>
-</ng-container>
+}

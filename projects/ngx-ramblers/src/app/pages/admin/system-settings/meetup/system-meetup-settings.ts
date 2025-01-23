@@ -20,99 +20,103 @@ import isEqual from "lodash-es/isEqual";
   template: `
     <div class="row img-thumbnail thumbnail-2">
       <div class="thumbnail-heading">Meetup</div>
-      <div class="col-sm-12" *ngIf="config?.externalSystems.meetup">
-        <div class="row">
-          <div class="col-md-6">
-            <div class="form-group">
-              <label for="meetup-group-url">Group Url</label>
-              <input [(ngModel)]="config.externalSystems.meetup.groupUrl"
-                     id="meetup-group-url"
-                     type="text" class="form-control input-sm"
-                     placeholder="Enter Meetup Group Url">
+      @if (config?.externalSystems.meetup) {
+        <div class="col-sm-12">
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="meetup-group-url">Group Url</label>
+                <input [(ngModel)]="config.externalSystems.meetup.groupUrl"
+                  id="meetup-group-url"
+                  type="text" class="form-control input-sm"
+                  placeholder="Enter Meetup Group Url">
+              </div>
             </div>
-          </div>
-          <div class="col-md-6">
-            <div class="form-group">
-              <label for="meetup-group-name">Group Name</label>
-              <input [(ngModel)]="config.externalSystems.meetup.groupName"
-                     id="meetup-group-name"
-                     type="text" class="form-control input-sm"
-                     placeholder="Enter main site link">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="meetup-group-name">Group Name</label>
+                <input [(ngModel)]="config.externalSystems.meetup.groupName"
+                  id="meetup-group-name"
+                  type="text" class="form-control input-sm"
+                  placeholder="Enter main site link">
+              </div>
             </div>
-          </div>
-          <div class="col-md-6">
-            <div class="form-group">
-              <label for="meetup-client-secret">Client Secret (Secret)</label>
-              <input [(ngModel)]="config.externalSystems.meetup.clientSecret"
-                     id="meetup-client-secret"
-                     type="text" class="form-control input-sm"
-                     placeholder="Enter Meetup OAuth Client 'Secret' value">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="meetup-client-secret">Client Secret (Secret)</label>
+                <input [(ngModel)]="config.externalSystems.meetup.clientSecret"
+                  id="meetup-client-secret"
+                  type="text" class="form-control input-sm"
+                  placeholder="Enter Meetup OAuth Client 'Secret' value">
+              </div>
             </div>
-          </div>
-          <div class="col-md-6">
-            <div class="form-group">
-              <label for="meetup-client-id">Client Id (Your Key)</label>
-              <input [(ngModel)]="config.externalSystems.meetup.clientId"
-                     id="meetup-client-id"
-                     type="text" class="form-control input-sm"
-                     placeholder="Enter Meetup OAuth Client 'Your Key' value">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="meetup-client-id">Client Id (Your Key)</label>
+                <input [(ngModel)]="config.externalSystems.meetup.clientId"
+                  id="meetup-client-id"
+                  type="text" class="form-control input-sm"
+                  placeholder="Enter Meetup OAuth Client 'Your Key' value">
+              </div>
             </div>
-          </div>
-          <div class="col-md-6">
-            <div class="form-group">
-              <label for="meetup-client-redirect-url">Redirect URL</label>
-              <input [(ngModel)]="config.externalSystems.meetup.clientRedirectUrl"
-                     id="meetup-client-redirect-url"
-                     type="text" class="form-control input-sm"
-                     placeholder="Enter Meetup OAuth Redirect URL value">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="meetup-client-redirect-url">Redirect URL</label>
+                <input [(ngModel)]="config.externalSystems.meetup.clientRedirectUrl"
+                  id="meetup-client-redirect-url"
+                  type="text" class="form-control input-sm"
+                  placeholder="Enter Meetup OAuth Redirect URL value">
+              </div>
             </div>
-          </div>
-          <div class="col-md-6">
-            <div class="form-group">
-              <label for="meetup-access-token">Access Token</label>
-              <input [(ngModel)]="config.externalSystems.meetup.accessToken"
-                     id="meetup-access-token"
-                     type="text" class="form-control input-sm"
-                     placeholder="Enter Meetup Access Token">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="meetup-access-token">Access Token</label>
+                <input [(ngModel)]="config.externalSystems.meetup.accessToken"
+                  id="meetup-access-token"
+                  type="text" class="form-control input-sm"
+                  placeholder="Enter Meetup Access Token">
+              </div>
             </div>
-          </div>
-          <div class="col-md-6">
-            <div class="form-group">
-              <label for="meetup-api-key">Refresh Token</label>
-              <input [(ngModel)]="config.externalSystems.meetup.refreshToken"
-                     id="meetup-api-key"
-                     type="text" class="form-control input-sm"
-                     placeholder="Enter Refresh Token">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="meetup-api-key">Refresh Token</label>
+                <input [(ngModel)]="config.externalSystems.meetup.refreshToken"
+                  id="meetup-api-key"
+                  type="text" class="form-control input-sm"
+                  placeholder="Enter Refresh Token">
+              </div>
             </div>
-          </div>
-          <div class="col-md-6">
-            <div class="form-group">
-              <label for="meetup-group-url">Api Url</label>
-              <input [(ngModel)]="config.externalSystems.meetup.apiUrl"
-                     id="meetup-api-url"
-                     type="text" class="form-control input-sm"
-                     placeholder="Enter Meetup API Url">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="meetup-group-url">Api Url</label>
+                <input [(ngModel)]="config.externalSystems.meetup.apiUrl"
+                  id="meetup-api-url"
+                  type="text" class="form-control input-sm"
+                  placeholder="Enter Meetup API Url">
+              </div>
             </div>
-          </div>
-          <div class="col-md-12">
-            <div class="form-inline">
-              <app-meetup-button button (click)="viewOAuthClients()"
-                                 title="View OAuth Clients"/>
-              <app-meetup-button class="ml-2" button (click)="requestMeetupAuthorisation()"
-                                 title="Initiate Request Authorisation"/>
+            <div class="col-md-12">
+              <div class="form-inline">
+                <app-meetup-button button (click)="viewOAuthClients()"
+                  title="View OAuth Clients"/>
+                <app-meetup-button class="ml-2" button (click)="requestMeetupAuthorisation()"
+                  title="Initiate Request Authorisation"/>
+              </div>
             </div>
-          </div>
-          <div *ngIf="notifyTarget.showAlert" class="col-sm-12">
-            <div class="form-group mt-3">
-              <alert [type]="notifyTarget.alert.type">
-                <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                <strong class="ml-2">{{ notifyTarget.alertTitle }}</strong>
-                <div class="p-2">{{ notifyTarget.alertMessage }}</div>
-              </alert>
-            </div>
+            @if (notifyTarget.showAlert) {
+              <div class="col-sm-12">
+                <div class="form-group mt-3">
+                  <alert [type]="notifyTarget.alert.type">
+                    <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                    <strong class="ml-2">{{ notifyTarget.alertTitle }}</strong>
+                    <div class="p-2">{{ notifyTarget.alertMessage }}</div>
+                  </alert>
+                </div>
+              </div>
+            }
           </div>
         </div>
-      </div>
+      }
     </div>`,
   standalone: false
 })

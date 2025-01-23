@@ -7,16 +7,20 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
   selector: "app-banner-logo-and-text-lines-output",
   styleUrls: ["./banner.component.sass"],
   template: `
-    <div *ngIf="banner" class="d-flex align-items-center text-center header-panel">
-      <div [class]="columnsLogo()" *ngIf="banner?.logo?.show">
-        <app-banner-image [image]="banner?.logo?.image"></app-banner-image>
+    @if (banner) {
+      <div class="d-flex align-items-center text-center header-panel">
+        @if (banner?.logo?.show) {
+          <div [class]="columnsLogo()">
+            <app-banner-image [image]="banner?.logo?.image"></app-banner-image>
+          </div>
+        }
+        <div [class]="columnsHeading()">
+          <app-banner-title-output [titleLine]="banner.line1"></app-banner-title-output>
+          <app-banner-title-output [titleLine]="banner.line2"></app-banner-title-output>
+        </div>
       </div>
-      <div [class]="columnsHeading()">
-        <app-banner-title-output [titleLine]="banner.line1"></app-banner-title-output>
-        <app-banner-title-output [titleLine]="banner.line2"></app-banner-title-output>
-      </div>
-    </div>
-  `,
+    }
+    `,
   standalone: false
 })
 

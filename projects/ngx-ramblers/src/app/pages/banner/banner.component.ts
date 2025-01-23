@@ -46,20 +46,22 @@ import isEqual from "lodash-es/isEqual";
         <div class="form-group">
           <label for="banner-lookup">Select a saved banner</label>
           <select class="form-control input-sm"
-                  id="banner-lookup"
-                  [(ngModel)]="editableBanner" (ngModelChange)="bannerSelected($event)">
-            <option *ngFor="let banner of banners"
-                    [ngValue]="banner">{{ toBannerInformation(banner) }}
-            </option>
+            id="banner-lookup"
+            [(ngModel)]="editableBanner" (ngModelChange)="bannerSelected($event)">
+            @for (banner of banners; track banner) {
+              <option
+                [ngValue]="banner">{{ toBannerInformation(banner) }}
+              </option>
+            }
           </select>
         </div>
         <div class="btn-group" dropdown>
           <button aria-controls="dropdown-banner-animated" class="dropdown-toggle btn btn-primary" dropdownToggle
-                  type="button">
+            type="button">
             <span class="ml-1">New</span><span class="caret"></span>
           </button>
           <ul *dropdownMenu class="dropdown-menu"
-              id="dropdown-banner-animated" role="menu">
+            id="dropdown-banner-animated" role="menu">
             <li role="menuitem">
               <a (click)="create(defaultPaperCutBackgroundBanner())" class="dropdown-item">
                 Based on <b>Papercut background</b> design
@@ -73,148 +75,169 @@ import isEqual from "lodash-es/isEqual";
           </ul>
         </div>
         <button [attr.aria-expanded]="!isCollapsed" (click)="isCollapsed = !isCollapsed" [disabled]="saving"
-                class="btn btn-primary ml-1"
-                type="button">{{ isCollapsed ? 'Edit' : 'Close Edit' }}
+          class="btn btn-primary ml-1"
+          type="button">{{ isCollapsed ? 'Edit' : 'Close Edit' }}
         </button>
-        <ng-container *ngIf="allowContentEdits">
-          <button *ngIf="!bannerPhotoEditActive" [disabled]="saving" class="btn btn-primary ml-1" type="button"
-                  (click)="editPhoto()">Edit
-            Photo
-          </button>
+        @if (allowContentEdits) {
+          @if (!bannerPhotoEditActive) {
+            <button [disabled]="saving" class="btn btn-primary ml-1" type="button"
+              (click)="editPhoto()">Edit
+              Photo
+            </button>
+          }
           <button (click)="duplicate()" [disabled]="saving" class="btn btn-primary ml-1"
-                  type="button">Duplicate
+            type="button">Duplicate
           </button>
           <button (click)="delete()" [disabled]="saving" class="btn btn-primary ml-1"
-                  type="button">Delete
+            type="button">Delete
           </button>
           <button class="btn btn-primary ml-1" [disabled]="saving||!this.dataChanged()" type="button" (click)="undo()">
             Undo
           </button>
           <button class="btn btn-primary ml-1" [disabled]="saving||!this.dataChanged()" type="button"
-                  (click)="saveImage()">Save
+            (click)="saveImage()">Save
           </button>
           <button class="btn btn-primary ml-1" type="button" [disabled]="saving" (click)="exportBanner()">Export
           </button>
-        </ng-container>
+        }
         <button class="btn btn-primary ml-1" name="editable" [(ngModel)]="imageDisplay.editable"
-                [class.active]="imageDisplay.editable"
-                btnCheckbox tabindex="0" role="button">Editable
+          [class.active]="imageDisplay.editable"
+          btnCheckbox tabindex="0" role="button">Editable
         </button>
         <button class="btn btn-primary ml-1" [(ngModel)]="imageDisplay.saved" [class.active]="imageDisplay.saved"
-                btnCheckbox tabindex="0" name="saved" role="button">Saved
+          btnCheckbox tabindex="0" name="saved" role="button">Saved
         </button>
         <div class="mt-3">
-          <div *ngIf="notifyTarget.showAlert" class="row">
-            <div class="col-sm-12">
-              <div class="alert {{notifyTarget.alertClass}}">
-                <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                <strong
-                  *ngIf="notifyTarget.alertTitle">
-                  {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
+          @if (notifyTarget.showAlert) {
+            <div class="row">
+              <div class="col-sm-12">
+                <div class="alert {{notifyTarget.alertClass}}">
+                  <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                  @if (notifyTarget.alertTitle) {
+                    <strong
+                      >
+                    {{ notifyTarget.alertTitle }}: </strong>
+                    } {{ notifyTarget.alertMessage }}
+                  </div>
+                </div>
+              </div>
+            }
+            <div class="collapse" [collapse]="isCollapsed" [isAnimated]="true">
+              <div class="card card-body mb-3">
+                @if (editableBanner) {
+                  <div class="row">
+                    <div class="col-6">
+                      <label for="name">Banner Name</label>
+                      <input [disabled]="!allowContentEdits" [(ngModel)]="editableBanner.name"
+                        id="name"
+                        type="text" class="form-control input-sm"
+                        placeholder="Enter name of banner">
+                    </div>
+                    <div class="col-6">
+                      <label for="banner-type">Banner Type</label>
+                      <select [disabled]="!allowContentEdits" class="form-control input-sm"
+                        id="banner-type"
+                        [(ngModel)]="editableBanner.bannerType"
+                        (ngModelChange)="changedBannerType($event)">
+                        @for (bannerType of bannerTypes; track bannerType) {
+                          <option
+                            [ngValue]="bannerType.value">{{ stringUtils.asTitle(bannerType.value) }}
+                          </option>
+                        }
+                      </select>
+                    </div>
+                  </div>
+                }
+                @if (isLogoAndTextLines()) {
+                  <div class="row mt-2">
+                    <div class="col-sm-12">
+                      <app-banner-image-selector
+                        [bannerImageItem]="editableBanner.banner.logo"
+                        [configurePadding]="true"
+                        [configureColumns]="true">
+                      </app-banner-image-selector>
+                    </div>
+                  </div>
+                  <div class="row mt-3">
+                    <div class="col-sm-6">
+                      <app-banner-title-config [titleLine]="editableBanner.banner.line1"
+                        [id]="'1'"/>
+                    </div>
+                    <div class="col-sm-6">
+                      <app-banner-title-config [titleLine]="editableBanner.banner.line2"
+                        [id]="'2'"/>
+                    </div>
+                  </div>
+                }
+                @if (isPapercutBanner()) {
+                  <div class="row mt-2">
+                    <div class="col-sm-6">
+                      <app-banner-image-selector
+                        [bannerImageItem]="editableBanner.banner?.logo"
+                        [configureWidth]="true">
+                      </app-banner-image-selector>
+                    </div>
+                    <div class="col-sm-6">
+                      <app-banner-image-selector
+                        [bannerImageItem]="editableBanner.banner?.background"
+                        [configureWidth]="true">
+                      </app-banner-image-selector>
+                    </div>
+                  </div>
+                  @if (editableBanner?.banner) {
+                    <div class="row">
+                      <div class="col-sm-6">
+                        <label>Banner Text:</label>
+                        <textarea class="form-control input-sm" rows="3"
+                        [(ngModel)]="editableBanner.banner.text.value"></textarea>
+                      </div>
+                      @if (editableBanner?.banner?.photo?.image) {
+                        <div class="col-sm-6">
+                          <label>Image Source:</label>
+                          <input class="form-control input-sm"
+                            [(ngModel)]="editableBanner.banner.photo.image.awsFileName"/>
+                        </div>
+                      }
+                      <div class="col-sm-6">
+                        <app-colour-selector [itemWithClassOrColour]="editableBanner.banner?.text"/>
+                      </div>
+                      <div class="col-sm-12 mt-4">
+                        @if (bannerPhotoEditActive) {
+                          <app-image-cropper-and-resizer
+                            [rootFolder]="bannerPhotos"
+                            [preloadImage]="preLoadImage()"
+                            (imageChange)="imageChange($event)"
+                            (quit)="exitImageEdit()"
+                            (save)="imagedSaved($event)">
+                          </app-image-cropper-and-resizer>
+                        }
+                      </div>
+                    </div>
+                  }
+                }
               </div>
             </div>
           </div>
-          <div class="collapse" [collapse]="isCollapsed" [isAnimated]="true">
-            <div class="card card-body mb-3">
-              <ng-container *ngIf="editableBanner">
-                <div class="row">
-                  <div class="col-6">
-                    <label for="name">Banner Name</label>
-                    <input [disabled]="!allowContentEdits" [(ngModel)]="editableBanner.name"
-                           id="name"
-                           type="text" class="form-control input-sm"
-                           placeholder="Enter name of banner">
-                  </div>
-                  <div class="col-6">
-                    <label for="banner-type">Banner Type</label>
-                    <select [disabled]="!allowContentEdits" class="form-control input-sm"
-                            id="banner-type"
-                            [(ngModel)]="editableBanner.bannerType"
-                            (ngModelChange)="changedBannerType($event)">
-                      <option *ngFor="let bannerType of bannerTypes"
-                              [ngValue]="bannerType.value">{{ stringUtils.asTitle(bannerType.value) }}
-                      </option>
-                    </select>
-                  </div>
-                </div>
-              </ng-container>
-              <ng-container *ngIf="isLogoAndTextLines()">
-                <div class="row mt-2">
-                  <div class="col-sm-12">
-                    <app-banner-image-selector
-                      [bannerImageItem]="editableBanner.banner.logo"
-                      [configurePadding]="true"
-                      [configureColumns]="true">
-                    </app-banner-image-selector>
-                  </div>
-                </div>
-                <div class="row mt-3">
-                  <div class="col-sm-6">
-                    <app-banner-title-config [titleLine]="editableBanner.banner.line1"
-                                             [id]="'1'"/>
-                  </div>
-                  <div class="col-sm-6">
-                    <app-banner-title-config [titleLine]="editableBanner.banner.line2"
-                                             [id]="'2'"/>
-                  </div>
-                </div>
-              </ng-container>
-              <ng-container *ngIf="isPapercutBanner()">
-                <div class="row mt-2">
-                  <div class="col-sm-6">
-                    <app-banner-image-selector
-                      [bannerImageItem]="editableBanner.banner?.logo"
-                      [configureWidth]="true">
-                    </app-banner-image-selector>
-                  </div>
-                  <div class="col-sm-6">
-                    <app-banner-image-selector
-                      [bannerImageItem]="editableBanner.banner?.background"
-                      [configureWidth]="true">
-                    </app-banner-image-selector>
-                  </div>
-                </div>
-                <div class="row" *ngIf="editableBanner?.banner">
-                  <div class="col-sm-6">
-                    <label>Banner Text:</label>
-                    <textarea class="form-control input-sm" rows="3"
-                              [(ngModel)]="editableBanner.banner.text.value"></textarea>
-                  </div>
-                  <div class="col-sm-6" *ngIf="editableBanner?.banner?.photo?.image">
-                    <label>Image Source:</label>
-                    <input class="form-control input-sm"
-                           [(ngModel)]="editableBanner.banner.photo.image.awsFileName"/>
-                  </div>
-                  <div class="col-sm-6">
-                    <app-colour-selector [itemWithClassOrColour]="editableBanner.banner?.text"/>
-                  </div>
-                  <div class="col-sm-12 mt-4">
-                    <app-image-cropper-and-resizer
-                      *ngIf="bannerPhotoEditActive"
-                      [rootFolder]="bannerPhotos"
-                      [preloadImage]="preLoadImage()"
-                      (imageChange)="imageChange($event)"
-                      (quit)="exitImageEdit()"
-                      (save)="imagedSaved($event)">
-                    </app-image-cropper-and-resizer>
-                  </div>
-                </div>
-              </ng-container>
+          @if (imageDisplay.editable) {
+            <div #bannerImage class="show-border">
+              @if (isPapercutBanner()) {
+                <app-papercut-output [banner]="editableBanner.banner"
+                  [tempImage]="bannerPhotoAwsFileData?.image"/>
+              }
+              @if (isLogoAndTextLines()) {
+                <app-banner-logo-and-text-lines-output
+                  [banner]="editableBanner.banner"/>
+              }
             </div>
+          }
+          @if (editableBanner?.fileNameData && imageDisplay.saved) {
+            <div class="row w-100 mx-0 mt-2">
+              <img class="card-img"
+                [src]="urlService.imageSource(editableBanner.fileNameData.rootFolder + '/' + editableBanner.fileNameData.awsFileName)">
+              </div>
+            }
           </div>
-        </div>
-        <div *ngIf="imageDisplay.editable" #bannerImage class="show-border">
-          <app-papercut-output *ngIf="isPapercutBanner()" [banner]="editableBanner.banner"
-                               [tempImage]="bannerPhotoAwsFileData?.image"/>
-          <app-banner-logo-and-text-lines-output *ngIf="isLogoAndTextLines()"
-                                                 [banner]="editableBanner.banner"/>
-        </div>
-        <div *ngIf="editableBanner?.fileNameData && imageDisplay.saved" class="row w-100 mx-0 mt-2">
-          <img class="card-img"
-               [src]="urlService.imageSource(editableBanner.fileNameData.rootFolder + '/' + editableBanner.fileNameData.awsFileName)">
-        </div>
-      </div>
-    </app-page>`,
+        </app-page>`,
   standalone: false
 })
 

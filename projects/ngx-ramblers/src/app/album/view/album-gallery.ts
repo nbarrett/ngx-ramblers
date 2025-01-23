@@ -17,24 +17,28 @@ import { StringUtilsService } from "../../services/string-utils.service";
   selector: "app-album-gallery",
   styleUrls: ["./album-gallery.sass"],
   template: `
-      <gallery *ngIf="galleryId" class="gallery-customise"
-               [id]="galleryId"
-               [autoPlay]="album?.slideInterval>0"
-               [playerInterval]="album?.slideInterval"
-               imageSize="cover"
-               [thumbPosition]="album.galleryViewOptions?.thumbPosition ||'left'"
-               [thumbView]="'default'"
-               [thumbImageSize]="album.galleryViewOptions?.thumbImageSize || 'cover'"
-               [loadingStrategy]="album.galleryViewOptions?.loadingStrategy || 'lazy'"
-               [dots]="album?.galleryViewOptions?.dots||true"
-               (indexChange)="indexChange($event)"
-               [dotsPosition]="album?.galleryViewOptions?.dotsPosition ||'bottom'">
+      @if (galleryId) {
+        <gallery class="gallery-customise"
+          [id]="galleryId"
+          [autoPlay]="album?.slideInterval>0"
+          [playerInterval]="album?.slideInterval"
+          imageSize="cover"
+          [thumbPosition]="album.galleryViewOptions?.thumbPosition ||'left'"
+          [thumbView]="'default'"
+          [thumbImageSize]="album.galleryViewOptions?.thumbImageSize || 'cover'"
+          [loadingStrategy]="album.galleryViewOptions?.loadingStrategy || 'lazy'"
+          [dots]="album?.galleryViewOptions?.dots||true"
+          (indexChange)="indexChange($event)"
+          [dotsPosition]="album?.galleryViewOptions?.dotsPosition ||'bottom'">
           <ng-container *galleryImageDef="let item; let active = active">
-              <div *ngIf="active" class="item-panel-heading">
-                  <div>{{item?.alt}}</div>
+            @if (active) {
+              <div class="item-panel-heading">
+                <div>{{item?.alt}}</div>
               </div>
+            }
           </ng-container>
-      </gallery>`,
+        </gallery>
+      }`,
   standalone: false
 })
 

@@ -10,7 +10,9 @@ import { Metadata } from "../../../models/ramblers-walks-manager";
   template: `
     <div class="event-panel rounded event-panel-inner">
       <h1>Features</h1>
-      <app-walk-feature *ngFor="let feature of features" [metadata]="feature"></app-walk-feature>
+      @for (feature of features; track feature) {
+        <app-walk-feature [metadata]="feature"></app-walk-feature>
+      }
     </div>`,
   standalone: false
 })

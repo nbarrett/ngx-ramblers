@@ -1,97 +1,118 @@
 <app-page [pageTitle]="resourceSubject.description">
   <h2>How-to articles – {{resourceSubject.description}}</h2>
   <app-markdown-editor class="body-text" category="how-to" [name]="'introduction'"
-                       description="Introduction"></app-markdown-editor>
+  description="Introduction"></app-markdown-editor>
   <div class="card mb-3">
     <div class="card-body">
       <div class="d-flex">
         <div class="form-group">
           <input id="quick-search" [(ngModel)]="filterParameters.quickSearch"
-                 (ngModelChange)="onSearchChange($event)"
-                 name="quickSearch"
-                 class="form-control input-md rounded"
-                 type="text" placeholder="Quick Search">
+            (ngModelChange)="onSearchChange($event)"
+            name="quickSearch"
+            class="form-control input-md rounded"
+            type="text" placeholder="Quick Search">
         </div>
         <div class="form-group">
-          <select [compareWith]='accessLevelComparer' *ngIf="allow.committee" [(ngModel)]="filterParameters.filter"
-                  (ngModelChange)="applyFilterToMemberResources()" name="filter"
-                  class="form-control input-md rounded ml-2">
-            <option
-              *ngFor="let accessLevel of memberResourcesReferenceData.accessLevelViewTypes()"
-              [textContent]="'View As ' + accessLevel.description"
-              [ngValue]="accessLevel">
-          </select>
+          @if (allow.committee) {
+            <select [compareWith]='accessLevelComparer' [(ngModel)]="filterParameters.filter"
+              (ngModelChange)="applyFilterToMemberResources()" name="filter"
+              class="form-control input-md rounded ml-2">
+              @for (accessLevel of memberResourcesReferenceData.accessLevelViewTypes(); track accessLevel) {
+                <option
+                  [textContent]="'View As ' + accessLevel.description"
+                [ngValue]="accessLevel"></option>
+              }
+            </select>
+          }
         </div>
         <div class="form-group flex-grow-1">
           <div class="alert {{notifyTarget.alert.class}} ml-3">
             <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-            <strong *ngIf="notifyTarget.alertTitle">
-              {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
+            @if (notifyTarget.alertTitle) {
+              <strong>
+              {{notifyTarget.alertTitle}}: </strong>
+              } {{notifyTarget.alertMessage}}
 
+            </div>
           </div>
         </div>
-      </div>
-      <input *ngIf="allowAdd()"
-             type="submit" value="Add new Article" (click)="add()" title="Add new Article"
-             class="button-form mb-3">
-      <div *ngFor="let memberResource of filteredMemberResources" (mouseover)="selectMemberResource(memberResource)">
-        <div class="row mb-4">
-          <div class="col-sm-10">
-            <div class="file-detail">
-              <div class="form-inline align-middle">
-                <h6><a target="_blank" [textContent]="memberResource.title"
-                       [href]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).resourceUrl(memberResource)"></a>
-                  <small class="text-muted"> – {{memberResource.resourceDate | displayDate}}
+        @if (allowAdd()) {
+          <input
+            type="submit" value="Add new Article" (click)="add()" title="Add new Article"
+            class="button-form mb-3">
+        }
+        @for (memberResource of filteredMemberResources; track memberResource) {
+          <div (mouseover)="selectMemberResource(memberResource)">
+            <div class="row mb-4">
+              <div class="col-sm-10">
+                <div class="file-detail">
+                  <div class="form-inline align-middle">
+                    <h6><a target="_blank" [textContent]="memberResource.title"
+                    [href]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).resourceUrl(memberResource)"></a>
+                    <small class="text-muted"> – {{memberResource.resourceDate | displayDate}}
                     ({{memberResourcesReferenceData.accessLevelFor(memberResource.accessLevel).description}})</small>
-                </h6>
-              </div>
-              <p class="list-arrow" markdown [data]="memberResource.description"></p>
-              <div *ngIf="isActive(memberResource)" class="row">
-                <div class="col-sm-12">
-                  <div class="action-button-group">
-                                                    <span *ngIf="!confirm.deleteConfirmOutstanding()">
-                                                        <input *ngIf="allowEdit(memberResource)"
-                                                               type="submit" value="Edit article"
-                                                               (click)="edit(memberResource)"
-                                                               title="Edit"
-                                                               class="button-form green-confirm">
-                                                        <input *ngIf="allowDelete(memberResource)"
-                                                               type="submit" value="Delete article"
-                                                               (click)="delete()" title="Delete"
-                                                               class="button-form button-confirm">
-                                                    </span>
-                    <span *ngIf="confirm.deleteConfirmOutstanding()">
-                                                        <input type="submit" value="Confirm Delete"
-                                                               (click)="confirmDelete()"
-                                                               title="Confirm Delete"
-                                                               class="button-form button-confirm">
-                                                        <input type="submit" value="Cancel Delete"
-                                                               (click)="cancelDelete()"
-                                                               title="Cancel delete"
-                                                               class="button-form green-confirm">
-                                                    </span>
+                  </h6>
+                </div>
+                <p class="list-arrow" markdown [data]="memberResource.description"></p>
+                @if (isActive(memberResource)) {
+                  <div class="row">
+                    <div class="col-sm-12">
+                      <div class="action-button-group">
+                        @if (!confirm.deleteConfirmOutstanding()) {
+                          <span>
+                            @if (allowEdit(memberResource)) {
+                              <input
+                                type="submit" value="Edit article"
+                                (click)="edit(memberResource)"
+                                title="Edit"
+                                class="button-form green-confirm">
+                            }
+                            @if (allowDelete(memberResource)) {
+                              <input
+                                type="submit" value="Delete article"
+                                (click)="delete()" title="Delete"
+                                class="button-form button-confirm">
+                            }
+                          </span>
+                        }
+                        @if (confirm.deleteConfirmOutstanding()) {
+                          <span>
+                            <input type="submit" value="Confirm Delete"
+                              (click)="confirmDelete()"
+                              title="Confirm Delete"
+                              class="button-form button-confirm">
+                            <input type="submit" value="Cancel Delete"
+                              (click)="cancelDelete()"
+                              title="Cancel delete"
+                              class="button-form green-confirm">
+                          </span>
+                        }
+                      </div>
+                    </div>
                   </div>
+                }
+              </div>
+            </div>
+            <div class="col-sm-2">
+              <div class="row">
+                <div class="col-sm-12 text-center">
+                  <img class="icon"
+                    [src]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).icon(memberResource)"
+                    [alt]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).icon(memberResource)"/>
+                </div>
+                <div class="col-sm-12 text-center">
+                  <a class="" target='_blank' title="{{memberResource.title}}"
+                    [textContent]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).action"
+                  [href]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).resourceUrl(memberResource)"></a>
                 </div>
               </div>
             </div>
           </div>
-          <div class="col-sm-2">
-            <div class="row">
-              <div class="col-sm-12 text-center">
-                <img class="icon"
-                     [src]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).icon(memberResource)"
-                     [alt]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).icon(memberResource)"/>
-              </div>
-              <div class="col-sm-12 text-center">
-                <a class="" target='_blank' title="{{memberResource.title}}"
-                   [textContent]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).action"
-                   [href]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).resourceUrl(memberResource)"></a>
-              </div>
-            </div>
+          @if (notLast(memberResource)) {
+            <hr>
+            }
           </div>
-        </div>
-        <hr *ngIf="notLast(memberResource)">
+        }
       </div>
     </div>
-  </div>
-</app-page>
+  </app-page>

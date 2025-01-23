@@ -10,14 +10,18 @@
       <div class="col-sm-4">
         <div class="form-group">
           <label for="type">Type</label>
-          <select *ngIf="venueTypes" [disabled]="disabledInput" class="form-control input-sm"
-                  [(ngModel)]="displayedWalk.walk.venue.type"
-                  id="type">
-            <option *ngFor="let type of venueTypes; trackBy: venueTracker"
-                    [ngValue]="type.type"
-                    [textContent]="type.type">
-            </option>
-          </select>
+          @if (venueTypes) {
+            <select [disabled]="disabledInput" class="form-control input-sm"
+                    [(ngModel)]="displayedWalk.walk.venue.type"
+                    id="type">
+              @for (type of venueTypes; track venueTracker($index, type)) {
+                <option
+                  [ngValue]="type.type"
+                  [textContent]="type.type">
+                </option>
+              }
+            </select>
+          }
         </div>
       </div>
       <div class="col-sm-4">
@@ -70,26 +74,34 @@
                  placeholder="Enter web address">
         </div>
       </div>
-      <div class="col-sm-6" *ngIf="allowEdits()">
-        <div class="custom-control custom-checkbox">
-          <input [(ngModel)]="displayedWalk.walk.venue.venuePublish"
-                 [disabled]="!allowEdits()"
-                 name="showDetail" class="custom-control-input" type="checkbox" class="custom-control-input" id="walk-publish-venue">
-          <label class="custom-control-label"
-                 for="walk-publish-venue">Publish venue on site
-          </label>
+      @if (allowEdits()) {
+        <div class="col-sm-6">
+          <div class="custom-control custom-checkbox">
+            <input [(ngModel)]="displayedWalk.walk.venue.venuePublish"
+                   [disabled]="!allowEdits()"
+                   name="showDetail" class="custom-control-input" type="checkbox" class="custom-control-input"
+                   id="walk-publish-venue">
+            <label class="custom-control-label"
+                   for="walk-publish-venue">Publish venue on site
+            </label>
+          </div>
         </div>
-      </div>
-      <div class="col-sm-6" *ngIf="allowEdits()">
-        <div class="form-group" *ngIf="displayedWalk.walk.venue.url">
-          <label>Link preview:
-            <fa-icon [icon]="displayedWalk.walk.venue?.type | toVenueIcon" class="fa-icon fa-lg"></fa-icon>
-            <a [href]="displayedWalk.walk.venue.url" tooltip="Click to visit {{displayedWalk.walk.venue?.name}}" class="related-links-title" target="_blank">
-            {{displayedWalk.walk.venue?.name}}
-            </a>
-          </label>
+      }
+      @if (allowEdits()) {
+        <div class="col-sm-6">
+          @if (displayedWalk.walk.venue.url) {
+            <div class="form-group">
+              <label>Link preview:
+                <fa-icon [icon]="displayedWalk.walk.venue?.type | toVenueIcon" class="fa-icon fa-lg"></fa-icon>
+                <a [href]="displayedWalk.walk.venue.url" tooltip="Click to visit {{displayedWalk.walk.venue?.name}}"
+                   class="related-links-title" target="_blank">
+                  {{ displayedWalk.walk.venue?.name }}
+                </a>
+              </label>
+            </div>
+          }
         </div>
-      </div>
+      }
     </div>
   </div>
 </div>

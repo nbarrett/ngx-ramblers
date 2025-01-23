@@ -1,102 +1,128 @@
 <app-page autoTitle>
   <div class="row">
-    <div [ngClass]="{'busy': notifyTarget.busy}" class="admin-frame rounded" *ngIf="auditFilter">
-      <div class="admin-header-background rounded">
-        <div class="admin-header-container">
-          <div class="form-inline">
-            <div class="form-group">
-              <div class="input-group">
-                <div class="input-group-prepend">
-                  <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
+    @if (auditFilter) {
+      <div [ngClass]="{'busy': notifyTarget.busy}" class="admin-frame rounded">
+        <div class="admin-header-background rounded">
+          <div class="admin-header-container">
+            <div class="form-inline">
+              <div class="form-group">
+                <div class="input-group">
+                  <div class="input-group-prepend">
+                    <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
+                  </div>
+                  <input id="quick-search" [(ngModel)]="quickSearch"
+                         (ngModelChange)="onSearchChange($event)"
+                         name="quickSearch"
+                         class="form-control input-md"
+                         type="text" placeholder="Quick Search">
                 </div>
-                <input id="quick-search" [(ngModel)]="quickSearch"
-                       (ngModelChange)="onSearchChange($event)"
-                       name="quickSearch"
-                       class="form-control input-md"
-                       type="text" placeholder="Quick Search">
+              </div>
+              <div class="form-group">
+                <app-date-picker startOfDay id="filter-audit" size="md"
+                                 label="Filter logins since"
+                                 prependLabel="true"
+                                 (dateChange)="onFilterDateChange($event)"
+                                 [value]="filterDateValue">
+                </app-date-picker>
+              </div>
+              <div class="form-group">
+                @if (confirm.noneOutstanding()) {
+                  <input type="submit" [disabled]="notifyTarget.busy"
+                         value="Back to admin"
+                         (click)="backToAdmin()"
+                         class="button-form ml-2 mr-2"
+                         [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
+                }
+                @if (confirm.noneOutstanding()) {
+                  <input type="submit"
+                         [disabled]="notifyTarget.busy || auditFilter.results.length==0"
+                         value="Delete displayed audit"
+                         (click)="confirm.as(ConfirmType.DELETE);"
+                         class="button-form mr-2"
+                         [ngClass]="{'disabled-button-form': notifyTarget.busy || auditFilter.results.length==0 }">
+                }
+                @if (confirm.deleteConfirmOutstanding()) {
+                  <input type="submit"
+                         [disabled]="notifyTarget.busy"
+                         value="Confirm delete of {{auditFilter.results.length}} audit records"
+                         (click)="deleteSelectedMemberAuditConfirm()"
+                         class="button-form button-confirm ml-2 mr-2"
+                         [ngClass]="{'disabled-button-form': notifyTarget.busy}">
+                }
+                @if (confirm.deleteConfirmOutstanding()) {
+                  <input type="submit"
+                         [disabled]="notifyTarget.busy"
+                         value="Cancel"
+                         (click)="confirm.clear();"
+                         class="button-form green-confirm" [ngClass]="{'disabled-button-form': notifyTarget.busy}">
+                }
               </div>
             </div>
-            <div class="form-group">
-              <app-date-picker startOfDay id="filter-audit" size="md"
-                               label="Filter logins since"
-                               prependLabel="true"
-                               (dateChange)="onFilterDateChange($event)"
-                               [value]="filterDateValue">
-              </app-date-picker>
-            </div>
-            <div class="form-group">
-              <input type="submit" *ngIf="confirm.noneOutstanding()" [disabled]="notifyTarget.busy"
-                     value="Back to admin"
-                     (click)="backToAdmin()"
-                     class="button-form ml-2 mr-2"
-                     [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
-              <input type="submit" *ngIf="confirm.noneOutstanding()"
-                     [disabled]="notifyTarget.busy || auditFilter.results.length==0"
-                     value="Delete displayed audit"
-                     (click)="this.confirm.as(ConfirmType.DELETE);"
-                     class="button-form mr-2"
-                     [ngClass]="{'disabled-button-form': notifyTarget.busy || auditFilter.results.length==0 }">
-              <input type="submit" *ngIf="confirm.deleteConfirmOutstanding()"
-                     [disabled]="notifyTarget.busy"
-                     value="Confirm delete of {{auditFilter.results.length}} audit records"
-                     (click)="deleteSelectedMemberAuditConfirm()"
-                     class="button-form button-confirm ml-2 mr-2"
-                     [ngClass]="{'disabled-button-form': notifyTarget.busy}">
-              <input type="submit" *ngIf="confirm.deleteConfirmOutstanding()"
-                     [disabled]="notifyTarget.busy"
-                     value="Cancel"
-                     (click)="this.confirm.clear();"
-                     class="button-form green-confirm" [ngClass]="{'disabled-button-form': notifyTarget.busy}">
+            <div class="row mt-2">
+              @if (notifyTarget.showAlert) {
+                <div class="col-md-12">
+                  <div class="alert {{notifyTarget.alertClass}} mt-8">
+                    <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                    @if (notifyTarget.alertTitle) {
+                      <strong>
+                        {{ notifyTarget.alertTitle }}: </strong>
+                    } {{ notifyTarget.alertMessage }}
+                  </div>
+                </div>
+              }
             </div>
           </div>
-          <div class="row mt-2">
-            <div class="col-md-12" *ngIf="notifyTarget.showAlert">
-              <div class="alert {{notifyTarget.alertClass}} mt-8">
-                <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                <strong *ngIf="notifyTarget.alertTitle">
-                  {{notifyTarget.alertTitle}}: </strong> {{notifyTarget.alertMessage}}
-              </div>
-            </div>
+          <div class="table-responsive">
+            <table class="round tbl-green-g table-striped table-hover table-sm">
+              <thead>
+              <tr class="white-anchor">
+                <th (click)="sortAuditBy('loginTime')">Time
+                  @if (showAuditColumn('loginTime')) {
+                    <span class="sorting-header"
+                          [textContent]="auditFilter.sortDirection"></span>
+                  }
+                </th>
+                <th (click)="sortAuditBy('userName')">User Name
+                  @if (showAuditColumn('userName')) {
+                    <span class="sorting-header"
+                          [textContent]="auditFilter.sortDirection"></span>
+                  }
+                </th>
+                <th (click)="sortAuditBy('member')">Full Name
+                  @if (showAuditColumn('member')) {
+                    <span class="sorting-header"
+                          [textContent]="auditFilter.sortDirection"></span>
+                  }
+                </th>
+                <th (click)="sortAuditBy('loginResponse.memberLoggedIn')">Login Successful
+                  @if (showAuditColumn('loginResponse.memberLoggedIn')) {
+                    <span class="sorting-header"
+                          [textContent]="auditFilter.sortDirection"></span>
+                  }
+                </th>
+                <th (click)="sortAuditBy('loginResponse.alertMessage')">Login AwsFileUploadResponseData
+                  @if (showAuditColumn('loginResponse.alertMessage')) {
+                    <span class="sorting-header"
+                          [textContent]="auditFilter.sortDirection"></span>
+                  }
+                </th>
+              </tr>
+              </thead>
+              <tbody>
+                @for (memberAudit of auditFilter.results; track memberAudit.id) {
+                  <tr>
+                    <td class="nowrap">{{ memberAudit?.loginTime | displayDateAndTime }}</td>
+                    <td>{{ memberAudit?.userName }}</td>
+                    <td>{{ memberAudit?.member | fullNameWithAlias :'' }}</td>
+                    <td [ngClass]="memberAudit?.loginResponse?.memberLoggedIn ? 'checkbox-on' : 'checkbox-off'"></td>
+                    <td>{{ memberAudit?.loginResponse?.alertMessage }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
           </div>
-        </div>
-        <div class="table-responsive">
-          <table class="round tbl-green-g table-striped table-hover table-sm">
-            <thead>
-            <tr class="white-anchor">
-              <th (click)="sortAuditBy('loginTime')">Time
-                <span class="sorting-header" *ngIf="showAuditColumn('loginTime')"
-                      [textContent]="auditFilter.sortDirection"></span>
-              </th>
-              <th (click)="sortAuditBy('userName')">User Name
-                <span class="sorting-header" *ngIf="showAuditColumn('userName')"
-                      [textContent]="auditFilter.sortDirection"></span>
-              </th>
-              <th (click)="sortAuditBy('member')">Full Name
-                <span class="sorting-header" *ngIf="showAuditColumn('member')"
-                      [textContent]="auditFilter.sortDirection"></span>
-              </th>
-              <th (click)="sortAuditBy('loginResponse.memberLoggedIn')">Login Successful
-                <span class="sorting-header" *ngIf="showAuditColumn('loginResponse.memberLoggedIn')"
-                      [textContent]="auditFilter.sortDirection"></span>
-              </th>
-              <th (click)="sortAuditBy('loginResponse.alertMessage')">Login AwsFileUploadResponseData
-                <span class="sorting-header" *ngIf="showAuditColumn('loginResponse.alertMessage')"
-                      [textContent]="auditFilter.sortDirection"></span>
-              </th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr *ngFor="let memberAudit of auditFilter.results">
-              <td class="nowrap">{{memberAudit?.loginTime | displayDateAndTime}}</td>
-              <td>{{memberAudit?.userName}}</td>
-              <td>{{memberAudit?.member | fullNameWithAlias :''}}</td>
-              <td [ngClass]="memberAudit?.loginResponse?.memberLoggedIn ? 'checkbox-on' : 'checkbox-off'"></td>
-              <td>{{memberAudit?.loginResponse?.alertMessage}}</td>
-            </tr>
-            </tbody>
-          </table>
         </div>
       </div>
-    </div>
+    }
   </div>
 </app-page>

@@ -31,288 +31,256 @@ import isEmpty from "lodash-es/isEmpty";
     <app-page autoTitle>
       <div class="row">
         <div class="col-sm-12">
-          <tabset class="custom-tabset" *ngIf="mailMessagingConfig?.mailConfig">
-            <tab [active]="tabActive(MailSettingsTab.EMAIL_CONFIGURATIONS)"
-                 (selectTab)="selectTab(MailSettingsTab.EMAIL_CONFIGURATIONS)"
-                 [heading]="MailSettingsTab.EMAIL_CONFIGURATIONS">
-              <div class="img-thumbnail thumbnail-admin-edit">
-                <app-mail-notification-template-mapping-editor (tabSelected)="selectTab($event)"
-                                                               (configDeleted)="deletedConfigs.push($event)"/>
-              </div>
-            </tab>
-            <tab [active]="tabActive(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS)"
-                 (selectTab)="selectTab(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS)"
-                 [heading]="MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS">
-              <div class="img-thumbnail thumbnail-admin-edit">
-                <app-notification-config-to-process-mapping/>
-              </div>
-            </tab>
-            <tab [active]="tabActive(MailSettingsTab.MAIL_API_SETTINGS)"
-                 (selectTab)="selectTab(MailSettingsTab.MAIL_API_SETTINGS)"
-                 [heading]="MailSettingsTab.MAIL_API_SETTINGS">
-              <div class="img-thumbnail thumbnail-admin-edit">
-                <div class="img-thumbnail thumbnail-2">
-                  <div class="thumbnail-heading">Global Settings</div>
-                  <div class="row">
-                    <div class="col-sm-12 mb-3 mx-2">
-                      <app-markdown-editor category="admin" name="mail-settings-global-help"
-                                           description="Mail Settings Global Configuration Help"/>
-                    </div>
-                  </div>
-                  <div class="col-sm-12">
-                    <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="mailMessagingConfig.mailConfig.allowSendTransactional"
-                             type="checkbox" class="custom-control-input" id="mail-enabled">
-                      <label class="custom-control-label"
-                             for="mail-enabled">Allow Send Transactional
-                      </label>
-                    </div>
-                    <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="mailMessagingConfig.mailConfig.allowSendCampaign"
-                             type="checkbox" class="custom-control-input" id="allow-send-campaign">
-                      <label class="custom-control-label"
-                             for="allow-send-campaign">Allow Send Campaign
-                      </label>
-                    </div>
-                    <div class="form-group">
-                      <label for="base-url">Base Url</label>
-                      <div class="input-group">
-                        <input [(ngModel)]="mailMessagingConfig.mailConfig.baseUrl" type="text"
-                               class="form-control input-sm"
-                               id="base-url"
-                               placeholder="The Base Url for the Mail Application">
-                        <div class="input-group-append">
-                          <div class="input-group-text">
-                            <app-brevo-button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
-                                              (click)="mailLinkService.openUrl(mailLinkService.appUrl())"
-                                              [title]="'View'"/>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <label for="my-base-url">My Base Url</label>
-                      <div class="input-group">
-                        <input [(ngModel)]="mailMessagingConfig.mailConfig.myBaseUrl" type="text"
-                               class="form-control input-sm"
-                               id="my-base-url"
-                               placeholder="The Base Url for My Mail Application">
-                        <div class="input-group-append">
-                          <div class="input-group-text">
-                            <app-brevo-button [disabled]="!mailMessagingConfig?.mailConfig.myBaseUrl"
-                                              (click)="mailLinkService.openUrl(mailLinkService.myBaseUrl())"
-                                              [title]="'View'"/>
-
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <label for="editor-url">Editor Url</label>
-                      <div class="input-group">
-                        <input [(ngModel)]="mailMessagingConfig.mailConfig.editorUrl" type="text"
-                               class="form-control input-sm"
-                               id="editor-url"
-                               placeholder="The Base Url for editor of The Mail Application">
-                        <div class="input-group-append">
-                          <div class="input-group-text">
-                            <app-brevo-button [disabled]="!mailMessagingConfig?.mailConfig.editorUrl"
-                                              (click)="mailLinkService.openUrl(mailLinkService.editorUrl())"
-                                              [title]="'View'"/>
-
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <label for="api-key">API Key</label>
-                      <div class="input-group">
-                        <input [(ngModel)]="mailMessagingConfig.mailConfig.apiKey" type="text"
-                               class="form-control input-sm"
-                               id="api-key"
-                               placeholder="The API key for the mail api">
-                        <div class="input-group-append">
-                          <div class="input-group-text">
-                            <app-brevo-button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
-                                              (click)="mailLinkService.openUrl(mailLinkService.apiKeysView())"
-                                              [title]="'View'"/>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+§          @if (mailMessagingConfig?.mailConfig) {
+            <tabset class="custom-tabset">
+              <tab [active]="tabActive(MailSettingsTab.EMAIL_CONFIGURATIONS)"
+                (selectTab)="selectTab(MailSettingsTab.EMAIL_CONFIGURATIONS)"
+                [heading]="MailSettingsTab.EMAIL_CONFIGURATIONS">
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  <app-mail-notification-template-mapping-editor (tabSelected)="selectTab($event)"
+                  (configDeleted)="deletedConfigs.push($event)"></app-mail-notification-template-mapping-editor>
                 </div>
-                <div *ngIf="mailMessagingConfig.brevo.account" class="img-thumbnail thumbnail-2">
-                  <div class="thumbnail-heading">Account Profile</div>
-                  <div class="row">
-                    <div class="col-sm-12 mt-2 mb-2">
-                      <app-markdown-editor category="admin" name="mail-settings-account-help"
-                                           description="Mail Settings Account Help"></app-markdown-editor>
-                    </div>
-                  </div>
-                  <div class="row align-items-end">
-                    <div class="col-sm-4">
-                      <div class="form-group">
-                        <label for="email">Email</label>
-                        <div class="form-control input-sm"
-                             id="email">{{ mailMessagingConfig.brevo.account?.email }}
-                        </div>
-                      </div>
-                    </div>
-                    <div class="col-sm-4">
-                      <div class="form-group">
-                        <label for="firstName">First Name</label>
-                        <div class="form-control input-sm"
-                             id="firstName">{{ mailMessagingConfig.brevo.account?.firstName }}
-                        </div>
-                      </div>
-                    </div>
-                    <div class="col-sm-4">
-                      <div class="form-group">
-                        <label for="lastName">Last Name</label>
-                        <div class="form-control input-sm"
-                             id="lastName">{{ mailMessagingConfig.brevo.account?.lastName }}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="row align-items-end">
-                    <div class="col-sm-4">
-                      <div class="form-group">
-                        <label for="companyName">Company Name</label>
-                        <div class="form-control input-sm"
-                             id="companyName">{{ mailMessagingConfig.brevo.account?.companyName }}
-                        </div>
-                      </div>
-                    </div>
-                    <div class="col-sm-4">
-                      <div class="form-group">
-                        <label for="street">Street</label>
-                        <div class="form-control input-sm"
-                             id="street">{{ mailMessagingConfig.brevo.account?.address?.street }}
-                        </div>
-                      </div>
-                    </div>
-                    <div class="col-sm-4">
-                      <div class="form-group">
-                        <label for="postcode">Postcode</label>
-                        <div class="form-control input-sm"
-                             id="postcode">{{ mailMessagingConfig.brevo.account?.address?.zipCode }}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="row align-items-end">
-                    <div class="col-sm-4">
-                      <div class="form-group">
-                        <label for="town">Town</label>
-                        <div type="text" class="form-control input-sm"
-                             id="town">{{ mailMessagingConfig.brevo.account?.address?.city }}
-                        </div>
-                      </div>
-                    </div>
-                    <div class="col-sm-4">
-                      <div class="form-group">
-                        <label for="country">Country</label>
-                        <div class="form-control input-sm">{{ mailMessagingConfig.brevo.account?.address?.country }}
-                        </div>
-                      </div>
-                    </div>
-                    <div class="col">
-                      <div class="form-group">
-                        <app-brevo-button button title="Edit Account Profile Information"
-                                          (click)="editAccountProfileInformation()"/>
-                      </div>
-                    </div>
-                  </div>
+              </tab>
+              <tab [active]="tabActive(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS)"
+                (selectTab)="selectTab(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS)"
+                [heading]="MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS">
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  <app-notification-config-to-process-mapping></app-notification-config-to-process-mapping>
                 </div>
-                <div *ngIf=mailMessagingConfig.brevo.account class="img-thumbnail thumbnail-2">
-                  <div class="thumbnail-heading">Free Email Plan Usage</div>
-                  <div class="row">
-                    <div class="col-sm-12">
-                      <p>Credits are renewed each day - {{ freeCreditsUsed() }} available out of {{ CREDITS_AVAILABLE }}
-                        emails/day ({{ percentageCreditsUsed() }}% used)
-                      </p>
-                      <div class="progress">
-                        <div class="progress-bar" role="progressbar"
-                             [ngStyle]="{ 'width': percentageCreditsUsed() + '%' }"></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </tab>
-            <tab [active]="tabActive(MailSettingsTab.MAIL_LIST_SETTINGS)"
-                 (selectTab)="selectTab(MailSettingsTab.MAIL_LIST_SETTINGS)"
-                 [heading]="MailSettingsTab.MAIL_LIST_SETTINGS">
-              <div class="img-thumbnail thumbnail-admin-edit">
-                <div class="img-thumbnail thumbnail-2">
-                  <div class="thumbnail-heading">List Settings</div>
-                  <div class="col-sm-12 mb-3">
-                    <app-markdown-editor category="admin" name="mail-settings-list-settings"/>
-                  </div>
-                  <div class="px-3">
+              </tab>
+              <tab [active]="tabActive(MailSettingsTab.MAIL_API_SETTINGS)"
+                (selectTab)="selectTab(MailSettingsTab.MAIL_API_SETTINGS)"
+                [heading]="MailSettingsTab.MAIL_API_SETTINGS">
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  <div class="img-thumbnail thumbnail-2">
+                    <div class="thumbnail-heading">Global Settings</div>
                     <div class="row">
-                      <div class="col">
-                        <h5>{{ stringUtilsService.pluraliseWithCount(mailMessagingConfig?.brevo?.lists?.count, "list") }}
-                          {{ stringUtilsService.pluralise(mailMessagingConfig?.brevo?.lists?.count, "exists", "exist") }}
-                          in Brevo
-                        </h5>
+                      <div class="col-sm-12 mb-3 mx-2">
+                        <app-markdown-editor category="admin" name="mail-settings-global-help"
+                        description="Mail Settings Global Configuration Help"></app-markdown-editor>
                       </div>
-                      <div *ngIf="!listCreateRequest" class="col-auto">
-                        <div class="float-right">
-                          <app-brevo-button button title="Create New List"
-                                            [disabled]="createNewListDisabled()"
-                                            (click)="createNewList()"/>
+                    </div>
+                    <div class="col-sm-12">
+                      <div class="custom-control custom-checkbox">
+                        <input [(ngModel)]="mailMessagingConfig.mailConfig.allowSendTransactional"
+                          type="checkbox" class="custom-control-input" id="mail-enabled">
+                        <label class="custom-control-label" for="mail-enabled">Allow Send Transactional</label>
+                      </div>
+                      <div class="custom-control custom-checkbox">
+                        <input [(ngModel)]="mailMessagingConfig.mailConfig.allowSendCampaign"
+                          type="checkbox" class="custom-control-input" id="allow-send-campaign">
+                        <label class="custom-control-label" for="allow-send-campaign">Allow Send Campaign</label>
+                      </div>
+                      <div class="form-group">
+                        <label for="base-url">Base Url</label>
+                        <div class="input-group">
+                          <input [(ngModel)]="mailMessagingConfig.mailConfig.baseUrl" type="text"
+                            class="form-control input-sm" id="base-url"
+                            placeholder="The Base Url for the Mail Application">
+                          <div class="input-group-append">
+                            <div class="input-group-text">
+                              <app-brevo-button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
+                                (click)="mailLinkService.openUrl(mailLinkService.appUrl())"
+                              [title]="'View'"></app-brevo-button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-group">
+                        <label for="my-base-url">My Base Url</label>
+                        <div class="input-group">
+                          <input [(ngModel)]="mailMessagingConfig.mailConfig.myBaseUrl" type="text"
+                            class="form-control input-sm" id="my-base-url"
+                            placeholder="The Base Url for My Mail Application">
+                          <div class="input-group-append">
+                            <div class="input-group-text">
+                              <app-brevo-button [disabled]="!mailMessagingConfig?.mailConfig.myBaseUrl"
+                                (click)="mailLinkService.openUrl(mailLinkService.myBaseUrl())"
+                              [title]="'View'"></app-brevo-button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-group">
+                        <label for="editor-url">Editor Url</label>
+                        <div class="input-group">
+                          <input [(ngModel)]="mailMessagingConfig.mailConfig.editorUrl" type="text"
+                            class="form-control input-sm" id="editor-url"
+                            placeholder="The Base Url for editor of The Mail Application">
+                          <div class="input-group-append">
+                            <div class="input-group-text">
+                              <app-brevo-button [disabled]="!mailMessagingConfig?.mailConfig.editorUrl"
+                                (click)="mailLinkService.openUrl(mailLinkService.editorUrl())"
+                              [title]="'View'"></app-brevo-button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-group">
+                        <label for="api-key">API Key</label>
+                        <div class="input-group">
+                          <input [(ngModel)]="mailMessagingConfig.mailConfig.apiKey" type="text"
+                            class="form-control input-sm" id="api-key"
+                            placeholder="The API key for the mail api">
+                          <div class="input-group-append">
+                            <div class="input-group-text">
+                              <app-brevo-button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
+                                (click)="mailLinkService.openUrl(mailLinkService.apiKeysView())"
+                              [title]="'View'"></app-brevo-button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <ng-container *ngIf="listCreateRequest">
-                      <app-list-editor [listCreateRequest]="listCreateRequest"/>
+                  </div>
+                  @if (mailMessagingConfig.brevo.account) {
+                    <div class="img-thumbnail thumbnail-2">
+                      <div class="thumbnail-heading">Account Profile</div>
+                      <div class="row">
+                        <div class="col-sm-12 mt-2 mb-2">
+                          <app-markdown-editor category="admin" name="mail-settings-account-help"
+                          description="Mail Settings Account Help"></app-markdown-editor>
+                        </div>
+                      </div>
+                      <div class="row align-items-end">
+                        <div class="col-sm-4">
+                          <div class="form-group">
+                            <label for="email">Email</label>
+                            <div class="form-control input-sm" id="email">{{ mailMessagingConfig.brevo.account?.email }}</div>
+                          </div>
+                        </div>
+                        <div class="col-sm-4">
+                          <div class="form-group">
+                            <label for="firstName">First Name</label>
+                            <div class="form-control input-sm" id="firstName">{{ mailMessagingConfig.brevo.account?.firstName }}</div>
+                          </div>
+                        </div>
+                        <div class="col-sm-4">
+                          <div class="form-group">
+                            <label for="lastName">Last Name</label>
+                            <div class="form-control input-sm" id="lastName">{{ mailMessagingConfig.brevo.account?.lastName }}</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="row align-items-end">
+                        <div class="col-sm-4">
+                          <div class="form-group">
+                            <label for="companyName">Company Name</label>
+                            <div class="form-control input-sm" id="companyName">{{ mailMessagingConfig.brevo.account?.companyName }}</div>
+                          </div>
+                        </div>
+                        <div class="col-sm-4">
+                          <div class="form-group">
+                            <label for="street">Street</label>
+                            <div class="form-control input-sm" id="street">{{ mailMessagingConfig.brevo.account?.address?.street }}</div>
+                          </div>
+                        </div>
+                        <div class="col-sm-4">
+                          <div class="form-group">
+                            <label for="postcode">Postcode</label>
+                            <div class="form-control input-sm" id="postcode">{{ mailMessagingConfig.brevo.account?.address?.zipCode }}</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="row align-items-end">
+                        <div class="col-sm-4">
+                          <div class="form-group">
+                            <label for="town">Town</label>
+                            <div type="text" class="form-control input-sm" id="town">{{ mailMessagingConfig.brevo.account?.address?.city }}</div>
+                          </div>
+                        </div>
+                        <div class="col-sm-4">
+                          <div class="form-group">
+                            <label for="country">Country</label>
+                            <div class="form-control input-sm">{{ mailMessagingConfig.brevo.account?.address?.country }}</div>
+                          </div>
+                        </div>
+                        <div class="col">
+                          <div class="form-group">
+                            <app-brevo-button button title="Edit Account Profile Information"
+                            (click)="editAccountProfileInformation()"></app-brevo-button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                  @if (mailMessagingConfig.brevo.account) {
+                    <div class="img-thumbnail thumbnail-2">
+                      <div class="thumbnail-heading">Free Email Plan Usage</div>
                       <div class="row">
                         <div class="col-sm-12">
-                          <app-brevo-button button title="Confirm Create List"
-                                            (click)="confirmCreateList()"
-                                            [disabled]="listCreateDisabled()"/>
-                          <app-brevo-button button title="Cancel Create List"
-                                            class="ml-2" (click)="listCreateRequest=null"/>
+                          <p>Credits are renewed each day - {{ freeCreditsUsed() }} available out of {{ CREDITS_AVAILABLE }} emails/day ({{ percentageCreditsUsed() }}% used)</p>
+                          <div class="progress">
+                            <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': percentageCreditsUsed() + '%' }"></div>
+                          </div>
                         </div>
                       </div>
-                    </ng-container>
-                    <ng-container *ngFor="let list of mailMessagingConfig?.brevo?.lists?.lists">
-                      <app-mail-list-settings [mailMessagingConfig]="mailMessagingConfig"
-                                              [notify]="notify"
-                                              [list]="list">
-                      </app-mail-list-settings>
-                    </ng-container>
+                    </div>
+                  }
+                </div>
+              </tab>
+              <tab [active]="tabActive(MailSettingsTab.MAIL_LIST_SETTINGS)"
+                (selectTab)="selectTab(MailSettingsTab.MAIL_LIST_SETTINGS)"
+                [heading]="MailSettingsTab.MAIL_LIST_SETTINGS">
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  <div class="img-thumbnail thumbnail-2">
+                    <div class="thumbnail-heading">List Settings</div>
+                    <div class="col-sm-12 mb-3">
+                      <app-markdown-editor category="admin" name="mail-settings-list-settings"></app-markdown-editor>
+                    </div>
+                    <div class="px-3">
+                      <div class="row">
+                        <div class="col">
+                          <h5>{{ stringUtilsService.pluraliseWithCount(mailMessagingConfig?.brevo?.lists?.count, "list") }} {{ stringUtilsService.pluralise(mailMessagingConfig?.brevo?.lists?.count, "exists", "exist") }} in Brevo</h5>
+                        </div>
+                        @if (!listCreateRequest) {
+                          <div class="col-auto">
+                            <div class="float-right">
+                              <app-brevo-button button title="Create New List" [disabled]="createNewListDisabled()" (click)="createNewList()"></app-brevo-button>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                      @if (listCreateRequest) {
+                        <app-list-editor [listCreateRequest]="listCreateRequest"></app-list-editor>
+                        <div class="row">
+                          <div class="col-sm-12">
+                            <app-brevo-button button title="Confirm Create List" (click)="confirmCreateList()" [disabled]="listCreateDisabled()"></app-brevo-button>
+                            <app-brevo-button button title="Cancel Create List" class="ml-2" (click)="listCreateRequest=null"></app-brevo-button>
+                          </div>
+                        </div>
+                      }
+                      @for (list of mailMessagingConfig?.brevo?.lists?.lists; track list) {
+                        <app-mail-list-settings [mailMessagingConfig]="mailMessagingConfig" [notify]="notify" [list]="list"></app-mail-list-settings>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </tab>
+            </tabset>
+          }
+          @if (notifyTarget.showAlert) {
+            <div class="row">
+              <div class="col-sm-12 mb-10">
+                <div class="alert {{notifyTarget.alert.class}}">
+                  <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                  @if (notifyTarget.alertTitle) {
+                    <strong>{{ notifyTarget.alertTitle }}: </strong>
+                    } {{ notifyTarget.alertMessage }}
                   </div>
                 </div>
               </div>
-            </tab>
-          </tabset>
-          <div *ngIf="notifyTarget.showAlert" class="row">
-            <div class="col-sm-12 mb-10">
-              <div class="alert {{notifyTarget.alert.class}}">
-                <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                <strong *ngIf="notifyTarget.alertTitle">
-                  {{ notifyTarget.alertTitle }}: </strong> {{ notifyTarget.alertMessage }}
-              </div>
-            </div>
+            }
+          </div>
+          <div class="col-sm-12">
+            <input type="submit" value="Save settings and exit" (click)="saveAndExit()" [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
+            <input type="submit" value="Save" (click)="save()" [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
+            <input type="submit" value="Undo Changes" (click)="undoChanges()" [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm button-form-left'">
+            <input type="submit" value="Exit Without Saving" (click)="cancel()" [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm button-form-left'">
           </div>
         </div>
-        <div class="col-sm-12">
-          <input type="submit" value="Save settings and exit" (click)="saveAndExit()"
-                 [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
-          <input type="submit" value="Save" (click)="save()"
-                 [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
-          <input type="submit" value="Undo Changes" (click)="undoChanges()"
-                 [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm button-form-left'">
-          <input type="submit" value="Exit Without Saving" (click)="cancel()"
-                 [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm button-form-left'">
-        </div>
-      </div>
-    </app-page>
-  `,
+      </app-page>
+    `,
   standalone: false
 })
 export class MailSettingsComponent implements OnInit, OnDestroy {

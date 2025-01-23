@@ -18,20 +18,22 @@ import cloneDeep from "lodash-es/cloneDeep";
         <div class="thumbnail-heading">{{ imageTypeDescription }} ({{ images?.images?.length || 0 }})</div>
         <div class="col-sm-12">
           <app-badge-button [disabled]="oneOrMoreImagesNotSaved()" [icon]="faAdd" (click)="createNewImage()"
-                            [tooltip]="oneOrMoreImagesNotSaved()? 'Save currently edited '+imageTypeDescription + ' first': 'Add to ' + imageTypeDescription"
-                            [caption]="'Add to ' + imageTypeDescription"/>
+            [tooltip]="oneOrMoreImagesNotSaved()? 'Save currently edited '+imageTypeDescription + ' first': 'Add to ' + imageTypeDescription"
+            [caption]="'Add to ' + imageTypeDescription"/>
           <app-badge-button [icon]="faSortAlphaAsc" (click)="sortImages()"
-                            caption="Sort {{ imageTypeDescription }}"/>
+            caption="Sort {{ imageTypeDescription }}"/>
         </div>
-        <div class="col-sm-12" *ngFor="let image of images?.images; let imageIndex = index;">
-          <app-system-image-edit
-            [rootFolder]="rootFolder"
-            [headerLogoDefault]="headerLogoDefault(image)"
-            [images]="images"
-            [image]="image"
-            (imageChanged)="imageChanged($event, imageIndex)">
-          </app-system-image-edit>
-        </div>
+        @for (image of images?.images; track image; let imageIndex = $index) {
+          <div class="col-sm-12">
+            <app-system-image-edit
+              [rootFolder]="rootFolder"
+              [headerLogoDefault]="headerLogoDefault(image)"
+              [images]="images"
+              [image]="image"
+              (imageChanged)="imageChanged($event, imageIndex)">
+            </app-system-image-edit>
+          </div>
+        }
       </div>
     </div>`,
   standalone: false

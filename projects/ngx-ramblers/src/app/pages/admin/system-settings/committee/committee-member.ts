@@ -14,96 +14,101 @@ import { UrlService } from "../../../../services/url.service";
 @Component({
   selector: "app-committee-member",
   template: `
-    <div *ngIf="committeeMember" class="img-thumbnail thumbnail-2">
-      <div class="thumbnail-heading">Role {{ index + 1 }} of {{ roles.length }}
-        : {{ committeeMember.nameAndDescription }}
-      </div>
-      <div class="row p-3">
-        <div class="col-sm-4">
-          <div class="form-group">
-            <label for="committee-member-description-{{index}}"
-                   class="control-label">Role Description</label>
-            <input [(ngModel)]="committeeMember.description" (ngModelChange)="changeDescription()"
-                   id="committee-member-description-{{index}}"
-                   type="text" class="form-control">
-          </div>
+    @if (committeeMember) {
+      <div class="img-thumbnail thumbnail-2">
+        <div class="thumbnail-heading">Role {{ index + 1 }} of {{ roles.length }}
+          : {{ committeeMember.nameAndDescription }}
         </div>
-        <div class="col-sm-3">
-          <div class="form-group">
-            <label for="member-selection-{{index}}">Role Type</label>
-            <select class="form-control input-sm"
-                    [(ngModel)]="committeeMember.roleType"
-                    id="member-selection-{{index}}">
-              <option *ngFor="let type of roleTypes"
-                      [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
-              </option>
-            </select>
+        <div class="row p-3">
+          <div class="col-sm-4">
+            <div class="form-group">
+              <label for="committee-member-description-{{index}}"
+              class="control-label">Role Description</label>
+              <input [(ngModel)]="committeeMember.description" (ngModelChange)="changeDescription()"
+                id="committee-member-description-{{index}}"
+                type="text" class="form-control">
+            </div>
           </div>
-        </div>
-        <div class="col-sm-3">
-          <div class="form-group">
-            <label for="member-selection-{{index}}">Maps to Built-in Role</label>
-            <select class="form-control input-sm"
-                    [(ngModel)]="committeeMember.builtInRoleMapping"
-                    id="member-selection-{{index}}">
-              <option *ngFor="let type of builtInRoles"
-                      [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
-              </option>
-            </select>
+          <div class="col-sm-3">
+            <div class="form-group">
+              <label for="member-selection-{{index}}">Role Type</label>
+              <select class="form-control input-sm"
+                [(ngModel)]="committeeMember.roleType"
+                id="member-selection-{{index}}">
+                @for (type of roleTypes; track type) {
+                  <option
+                    [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+                  </option>
+                }
+              </select>
+            </div>
           </div>
-        </div>
-        <div class="col-sm-2">
-          <div class="form-group">
-            <label for="committee-member-vacant-{{index}}" class="control-label">
-              Role is vacant
-            </label>
-            <div class="custom-control custom-checkbox">
-              <input type="checkbox" class="custom-control-input"
-                     [(ngModel)]="committeeMember.vacant"
-                     (ngModelChange)="roleChange()"
-                     id="committee-member-vacant-{{index}}">
-              <label class="custom-control-label" for="committee-member-vacant-{{index}}">
-                <app-badge-button [icon]="faRemove" (click)="deleteRole()"
-                                  caption="Delete"/>
+          <div class="col-sm-3">
+            <div class="form-group">
+              <label for="member-selection-{{index}}">Maps to Built-in Role</label>
+              <select class="form-control input-sm"
+                [(ngModel)]="committeeMember.builtInRoleMapping"
+                id="member-selection-{{index}}">
+                @for (type of builtInRoles; track type) {
+                  <option
+                    [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+                  </option>
+                }
+              </select>
+            </div>
+          </div>
+          <div class="col-sm-2">
+            <div class="form-group">
+              <label for="committee-member-vacant-{{index}}" class="control-label">
+                Role is vacant
               </label>
+              <div class="custom-control custom-checkbox">
+                <input type="checkbox" class="custom-control-input"
+                  [(ngModel)]="committeeMember.vacant"
+                  (ngModelChange)="roleChange()"
+                  id="committee-member-vacant-{{index}}">
+                <label class="custom-control-label" for="committee-member-vacant-{{index}}">
+                  <app-badge-button [icon]="faRemove" (click)="deleteRole()"
+                    caption="Delete"/>
+                </label>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="row p-3">
-        <div class="col-sm-4">
-          <app-committee-member-lookup [disabled]="committeeMember.vacant" [committeeMember]="committeeMember"
-                                       (memberChange)="setOtherMemberFields($event)"/>
-        </div>
-        <div class="col-sm-4">
-          <div class="form-group">
-            <label for="committee-member-fullName-{{index}}"
-                   class="control-label">Full Name</label>
-            <input [(ngModel)]="committeeMember.fullName" [disabled]="committeeMember.vacant"
-                   (ngModelChange)="changeNameAndDescription()"
-                   id="committee-member-fullName-{{index}}"
-                   type="text" class="form-control">
+        <div class="row p-3">
+          <div class="col-sm-4">
+            <app-committee-member-lookup [disabled]="committeeMember.vacant" [committeeMember]="committeeMember"
+              (memberChange)="setOtherMemberFields($event)"/>
+          </div>
+          <div class="col-sm-4">
+            <div class="form-group">
+              <label for="committee-member-fullName-{{index}}"
+              class="control-label">Full Name</label>
+              <input [(ngModel)]="committeeMember.fullName" [disabled]="committeeMember.vacant"
+                (ngModelChange)="changeNameAndDescription()"
+                id="committee-member-fullName-{{index}}"
+                type="text" class="form-control">
+            </div>
+          </div>
+          <div class="col-sm-4">
+            <div class="form-group">
+              <label for="committee-member-email-{{index}}"
+              class="control-label">Email Address</label>
+              <input [(ngModel)]="committeeMember.email" [disabled]="committeeMember.vacant"
+                id="committee-member-email-{{index}}"
+                type="text" class="form-control">
+            </div>
           </div>
         </div>
-        <div class="col-sm-4">
-          <div class="form-group">
-            <label for="committee-member-email-{{index}}"
-                   class="control-label">Email Address</label>
-            <input [(ngModel)]="committeeMember.email" [disabled]="committeeMember.vacant"
-                   id="committee-member-email-{{index}}"
-                   type="text" class="form-control">
-          </div>
+        <div class="row">
+          <div class="col-sm-12" app-create-or-amend-sender [committeeRoleSender]="committeeMember"></div>
         </div>
-      </div>
-      <div class="row">
-        <div class="col-sm-12" app-create-or-amend-sender [committeeRoleSender]="committeeMember"></div>
-      </div>
-      <ng-container *ngIf="committeeMember.roleType!==RoleType.SYSTEM_ROLE">
-        <div class="row mt-1">
-          <div class="col-sm-2 ml-3">Markdown Link</div>
-          <div class="col-sm-9"><code class="mr-2">{{ markdownLink(committeeMember) }}</code>
+        @if (committeeMember.roleType!==RoleType.SYSTEM_ROLE) {
+          <div class="row mt-1">
+            <div class="col-sm-2 ml-3">Markdown Link</div>
+            <div class="col-sm-9"><code class="mr-2">{{ markdownLink(committeeMember) }}</code>
             <app-copy-icon title [value]="markdownLink(committeeMember)"
-                           elementName="markdown link"/>
+              elementName="markdown link"/>
           </div>
         </div>
         <div class="row mt-2">
@@ -112,9 +117,10 @@ import { UrlService } from "../../../../services/url.service";
             <span class="as-button" markdown>{{ markdownLink(committeeMember) }}</span>
           </div>
         </div>
-      </ng-container>
+      }
     </div>
-  `,
+    }
+    `,
   styleUrls: ["./committee-member.sass"],
   standalone: false
 })

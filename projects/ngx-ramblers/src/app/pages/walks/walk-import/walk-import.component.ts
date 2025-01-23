@@ -17,85 +17,105 @@ import { IconService } from "../../../services/icon-service/icon-service";
   selector: "app-walk-import",
   template: `
       <app-page pageTitle="Walks Manager Import">
-          <div class="row">
-              <div class="col-sm-12 mb-3 mx-2">
-                  <app-markdown-editor name="ramblers-import-help-page" description="Ramblers import help page"/>
-              </div>
+        <div class="row">
+          <div class="col-sm-12 mb-3 mx-2">
+            <app-markdown-editor name="ramblers-import-help-page" description="Ramblers import help page"/>
           </div>
-          <div class="row mb-2">
-              <div class="col-sm-12 form-inline">
-                  <input type="submit" *ngIf="!walksImportPreparation"
-                         value="Collect importable walks from Walks Manager"
-                         (click)="collectAvailableWalks()"
-                         [disabled]="importInProgress || this.display.walkPopulationLocal()" class="btn btn-primary">
-                  <input type="submit" *ngIf="!!walksImportPreparation"
-                         value="Import And Save Walks Locally"
-                         (click)="importAndSaveWalksLocally()"
-                         [disabled]="importInProgress || this.display.walkPopulationLocal()" class="btn btn-primary">
-                  <input type="submit" *ngIf="!!walksImportPreparation"
-                         value="Reset"
-                         (click)="reset()"
-                         [disabled]="importInProgress" class="ml-2 btn btn-primary">
-                  <input type="submit" value="Back to Walks Admin" (click)="navigateBackToAdmin()"
-                         title="Back to walks"
-                         class="ml-2 btn btn-primary">
-              </div>
+        </div>
+        <div class="row mb-2">
+          <div class="col-sm-12 form-inline">
+            @if (!walksImportPreparation) {
+              <input type="submit"
+                value="Collect importable walks from Walks Manager"
+                (click)="collectAvailableWalks()"
+                [disabled]="importInProgress || this.display.walkPopulationLocal()" class="btn btn-primary">
+            }
+            @if (!!walksImportPreparation) {
+              <input type="submit"
+                value="Import And Save Walks Locally"
+                (click)="importAndSaveWalksLocally()"
+                [disabled]="importInProgress || this.display.walkPopulationLocal()" class="btn btn-primary">
+            }
+            @if (!!walksImportPreparation) {
+              <input type="submit"
+                value="Reset"
+                (click)="reset()"
+                [disabled]="importInProgress" class="ml-2 btn btn-primary">
+            }
+            <input type="submit" value="Back to Walks Admin" (click)="navigateBackToAdmin()"
+              title="Back to walks"
+              class="ml-2 btn btn-primary">
           </div>
-          <div class="form-group">
-              <div *ngIf="alertTarget.showAlert" class="alert {{alertTarget.alertClass}}">
-                  <fa-icon [icon]="alertTarget.alert.icon"></fa-icon>
-                  <strong *ngIf="alertTarget.alertTitle">
-                      {{ alertTarget.alertTitle }}: </strong> {{ alertTarget.alertMessage }}
+        </div>
+        <div class="form-group">
+          @if (alertTarget.showAlert) {
+            <div class="alert {{alertTarget.alertClass}}">
+              <fa-icon [icon]="alertTarget.alert.icon"></fa-icon>
+              @if (alertTarget.alertTitle) {
+                <strong>
+                {{ alertTarget.alertTitle }}: </strong>
+                } {{ alertTarget.alertMessage }}
               </div>
+            }
           </div>
-          <div class="row" *ngIf="messages.length>0">
-              <div class="col-sm-12 mb-2" *ngIf="!importInProgress">
+          @if (messages.length>0) {
+            <div class="row">
+              @if (!importInProgress) {
+                <div class="col-sm-12 mb-2">
                   <h3>Summary Import Information</h3>
-              </div>
-              <div class="col-sm-4" *ngFor="let message of messages">
+                </div>
+              }
+              @for (message of messages; track message) {
+                <div class="col-sm-4">
                   <ul class="list-arrow">
-                      <li>{{ message }}</li>
+                    <li>{{ message }}</li>
                   </ul>
-              </div>
-          </div>
-          <div class="row" *ngIf="walksImportPreparation?.bulkLoadMembersAndMatchesToWalks?.length>0">
+                </div>
+              }
+            </div>
+          }
+          @if (walksImportPreparation?.bulkLoadMembersAndMatchesToWalks?.length>0) {
+            <div class="row">
               <div class="col-sm-12">
-                  <h3>Matching of Walks to Walk Leaders and Members</h3>
-                  <table class="round styled-table table-striped table-hover table-sm table-pointer">
-                      <thead>
+                <h3>Matching of Walks to Walk Leaders and Members</h3>
+                <table class="round styled-table table-striped table-hover table-sm table-pointer">
+                  <thead>
+                    <tr>
+                      <th>Member Action</th>
+                      <th>Contact Id</th>
+                      <th>Contact Name</th>
+                      <th>Contact Mobile</th>
+                      <th>Walks Matched</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (bulkLoadMemberAndMatch of walksImportPreparation?.bulkLoadMembersAndMatchesToWalks; track bulkLoadMemberAndMatch) {
                       <tr>
-                          <th>Member Action</th>
-                          <th>Contact Id</th>
-                          <th>Contact Name</th>
-                          <th>Contact Mobile</th>
-                          <th>Walks Matched</th>
+                        <td class="form-inline">
+                          <fa-icon
+                            [icon]="icons.toFontAwesomeIcon(bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.memberMatch)?.icon"
+                            [class]="icons.toFontAwesomeIcon(bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.memberMatch)?.class"/>
+                          <div class="ml-2">{{ bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.memberMatch }}</div>
+                        </td>
+                        <td class="nowrap">{{ bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.contact?.id }}</td>
+                        <td class="nowrap">{{ bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.member | fullNameWithAlias }}</td>
+                        <td class="nowrap">{{ bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.member?.mobileNumber }}</td>
+                        <td class="nowrap">{{ bulkLoadMemberAndMatch.walks.length }}</td>
                       </tr>
-                      </thead>
-                      <tbody>
-                      <tr *ngFor="let bulkLoadMemberAndMatch of walksImportPreparation?.bulkLoadMembersAndMatchesToWalks">
-                          <td class="form-inline">
-                              <fa-icon
-                                      [icon]="icons.toFontAwesomeIcon(bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.memberMatch)?.icon"
-                                      [class]="icons.toFontAwesomeIcon(bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.memberMatch)?.class"/>
-                              <div class="ml-2">{{ bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.memberMatch }}</div>
-                          </td>
-                          <td class="nowrap">{{ bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.contact?.id }}</td>
-                          <td class="nowrap">{{ bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.member | fullNameWithAlias }}</td>
-                          <td class="nowrap">{{ bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.member?.mobileNumber }}</td>
-                          <td class="nowrap">{{ bulkLoadMemberAndMatch.walks.length }}</td>
-                      </tr>
-                      <tr>
-                          <td class="nowrap"></td>
-                          <td class="nowrap"></td>
-                          <td class="nowrap"></td>
-                          <td class="nowrap"></td>
-                          <td class="nowrap">{{ summary(walksImportPreparation.bulkLoadMembersAndMatchesToWalks) }}</td>
-                      </tr>
-                      </tbody>
-                  </table>
+                    }
+                    <tr>
+                      <td class="nowrap"></td>
+                      <td class="nowrap"></td>
+                      <td class="nowrap"></td>
+                      <td class="nowrap"></td>
+                      <td class="nowrap">{{ summary(walksImportPreparation.bulkLoadMembersAndMatchesToWalks) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-          </div>
-      </app-page>`,
+            </div>
+          }
+        </app-page>`,
   standalone: false
 })
 

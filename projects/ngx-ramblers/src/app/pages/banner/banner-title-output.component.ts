@@ -10,14 +10,16 @@ import { UrlService } from "../../services/url.service";
   selector: "app-banner-title-output",
   styleUrls: ["./banner.component.sass"],
   template: `
-      <div *ngIf="titleLine.include" class="title" [style.font-size.px]="titleLine.fontSize">
+      @if (titleLine.include) {
+        <div class="title" [style.font-size.px]="titleLine.fontSize">
           <img class="text-icon" [ngClass]="{'none': !titleLine.showIcon}"
-               [src]="urlService.imageSource(titleLine?.image?.awsFileName)"/>
+            [src]="urlService.imageSource(titleLine?.image?.awsFileName)"/>
           <span class="ml-2 {{titleLine.part1.class}}">{{titleLine.part1.value}}</span>
           <span class="ml-2 {{titleLine.part2.class}}">{{titleLine.part2.value}}</span>
           <span class="ml-2 {{titleLine.part3.class}}">{{titleLine.part3.value}}</span>
-      </div>
-  `,
+        </div>
+      }
+      `,
   standalone: false
 })
 
