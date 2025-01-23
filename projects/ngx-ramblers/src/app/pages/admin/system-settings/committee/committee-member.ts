@@ -10,10 +10,16 @@ import { faRemove } from "@fortawesome/free-solid-svg-icons";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { MemberNamingService } from "projects/ngx-ramblers/src/app/services/member/member-naming.service";
 import { UrlService } from "../../../../services/url.service";
+import { FormsModule } from "@angular/forms";
+import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
+import { CommitteeMemberLookupComponent } from "./committee-member-lookup";
+import { CreateOrAmendSenderComponent } from "../../send-emails/create-or-amend-sender";
+import { CopyIconComponent } from "../../../../modules/common/copy-icon/copy-icon";
+import { MarkdownComponent } from "ngx-markdown";
 
 @Component({
-  selector: "app-committee-member",
-  template: `
+    selector: "app-committee-member",
+    template: `
     @if (committeeMember) {
       <div class="img-thumbnail thumbnail-2">
         <div class="thumbnail-heading">Role {{ index + 1 }} of {{ roles.length }}
@@ -121,8 +127,8 @@ import { UrlService } from "../../../../services/url.service";
     </div>
     }
     `,
-  styleUrls: ["./committee-member.sass"],
-  standalone: false
+    styleUrls: ["./committee-member.sass"],
+    imports: [FormsModule, BadgeButtonComponent, CommitteeMemberLookupComponent, CreateOrAmendSenderComponent, CopyIconComponent, MarkdownComponent]
 })
 export class CommitteeMemberComponent implements OnInit {
   constructor(public stringUtils: StringUtilsService,

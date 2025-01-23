@@ -11,11 +11,14 @@ import { Logger, LoggerFactory } from "../../../../services/logger-factory.servi
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { NotificationConfig } from "../../../../models/mail.model";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { NgClass } from "@angular/common";
+import { MemberIdToFullNamePipe } from "../../../../pipes/member-id-to-full-name.pipe";
 
 @Component({
-  selector: "app-expense-paid-modal",
-  templateUrl: "./expense-paid-modal.component.html",
-  standalone: false
+    selector: "app-expense-paid-modal",
+    templateUrl: "./expense-paid-modal.component.html",
+    imports: [FontAwesomeModule, NgClass, MemberIdToFullNamePipe]
 })
 export class ExpensePaidModalComponent implements OnInit {
   private notify: AlertInstance;

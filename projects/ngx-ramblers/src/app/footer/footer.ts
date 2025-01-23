@@ -5,10 +5,12 @@ import { Footer, Ramblers } from "../models/system.model";
 import { DateUtilsService } from "../services/date-utils.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { SystemConfigService } from "../services/system/system-config.service";
+import { SocialMediaLinksComponent } from "./icons/footer-icons";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 @Component({
-  selector: "app-footer",
-  template: `
+    selector: "app-footer",
+    template: `
     @if (footer) {
       <div class="footer bg-dark text-white py-5 container-fluid">
         <div class="row">
@@ -91,8 +93,8 @@ import { SystemConfigService } from "../services/system/system-config.service";
           </div>
         }
     `,
-  styleUrls: ["./footer.sass"],
-  standalone: false
+    styleUrls: ["./footer.sass"],
+    imports: [SocialMediaLinksComponent, TooltipDirective]
 })
 export class FooterComponent implements OnInit, OnDestroy {
   private logger: Logger;

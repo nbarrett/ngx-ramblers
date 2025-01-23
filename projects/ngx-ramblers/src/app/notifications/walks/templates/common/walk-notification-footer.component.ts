@@ -1,9 +1,10 @@
 import { Component } from "@angular/core";
 import { WalkNotificationDetailsComponent } from "./walk-notification-details.component";
+import { LinkComponent } from "../../../../link/link";
 
 @Component({
-  selector: "app-walk-notification-footer",
-  template: `
+    selector: "app-walk-notification-footer",
+    template: `
     <p>
       Click
       <app-link area="walks" id="{{walk.id}}" text="here"></app-link>
@@ -13,7 +14,7 @@ import { WalkNotificationDetailsComponent } from "./walk-notification-details.co
     <p>
       Best regards
     </p>`,
-  standalone: false
+    imports: [LinkComponent]
 })
 export class WalkNotificationFooterComponent extends WalkNotificationDetailsComponent {
 

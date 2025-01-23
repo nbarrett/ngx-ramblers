@@ -6,9 +6,8 @@ import { AuthService } from "../auth/auth.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 
 @Component({
-  selector: "app-logout",
-  templateUrl: "./logout.component.html",
-  standalone: false
+    selector: "app-logout",
+    templateUrl: "./logout.component.html"
 })
 export class LogoutComponent implements OnInit, OnDestroy {
   private logger: Logger;

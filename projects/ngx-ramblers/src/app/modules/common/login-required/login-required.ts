@@ -9,11 +9,10 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { SystemConfigService } from "../../../services/system/system-config.service";
 
 @Component({
-  selector: "app-login-required",
-  templateUrl: "./login-required.html",
-  styleUrls: ["./login-required.sass"],
-  changeDetection: ChangeDetectionStrategy.Default,
-  standalone: false
+    selector: "app-login-required",
+    templateUrl: "./login-required.html",
+    styleUrls: ["./login-required.sass"],
+    changeDetection: ChangeDetectionStrategy.Default
 })
 export class LoginRequiredComponent implements OnInit, OnDestroy {
   private logger: Logger;

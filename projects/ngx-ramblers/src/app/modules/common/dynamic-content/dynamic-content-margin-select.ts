@@ -6,10 +6,11 @@ import { Margin } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
+import { FormsModule } from "@angular/forms";
 
 @Component({
-  selector: "app-margin-select,[app-margin-select]",
-  template: `
+    selector: "app-margin-select,[app-margin-select]",
+    template: `
     <label [for]="id">{{label}}</label>
     <select class="form-control input-sm"
       [id]="id"
@@ -21,7 +22,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
       }
     </select>
     `,
-  standalone: false
+    imports: [FormsModule]
 })
 
 export class MarginSelectComponent implements OnInit {

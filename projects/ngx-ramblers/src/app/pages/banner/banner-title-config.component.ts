@@ -6,11 +6,14 @@ import { TitleLine } from "../../models/banner-configuration.model";
 import { Images, SystemConfig } from "../../models/system.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
+import { FormsModule } from "@angular/forms";
+import { IconSelectorComponent } from "./icon-selector";
+import { BannerTitlePartConfigComponent } from "./banner-title-part-config.component";
 
 @Component({
-  selector: "app-banner-title-config",
-  styleUrls: ["./banner.component.sass"],
-  template: `
+    selector: "app-banner-title-config",
+    styleUrls: ["./banner.component.sass"],
+    template: `
     <h4>
       <div class="custom-control custom-checkbox">
         <input class="custom-control-input"
@@ -41,7 +44,7 @@ import { SystemConfigService } from "../../services/system/system-config.service
     <app-banner-title-part-config [titlePart]="titleLine.part2" id="2"></app-banner-title-part-config>
     <app-banner-title-part-config [titlePart]="titleLine.part3" id="3"></app-banner-title-part-config>
   `,
-  standalone: false
+    imports: [FormsModule, IconSelectorComponent, BannerTitlePartConfigComponent]
 })
 
 export class BannerTitleConfigComponent implements OnInit, OnDestroy {

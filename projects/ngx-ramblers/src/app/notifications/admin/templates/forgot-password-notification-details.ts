@@ -1,10 +1,11 @@
 import { Component, inject, Input } from "@angular/core";
 import { NotificationConfig, SendSmtpEmailParams } from "../../../models/mail.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
+import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 
 @Component({
-  selector: "app-forgot-password-notification-details",
-  template: `
+    selector: "app-forgot-password-notification-details",
+    template: `
     <div>
       @if (notificationConfig?.bannerId) {
         <div class="row w-100 mx-0 mt-2">
@@ -33,7 +34,7 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
     </div>
     <app-contact-us [format]="'list'" [roles]="notificationConfig?.signOffRoles"></app-contact-us>
     `,
-  standalone: false
+    imports: [ContactUsComponent]
 })
 export class ForgotPasswordNotificationDetailsComponent {
 

@@ -3,8 +3,7 @@ import { Member } from "../models/member.model";
 import { DateUtilsService } from "../services/date-utils.service";
 
 @Pipe({
-  name: "lastConfirmedDateDisplayed", pure: false,
-  standalone: false
+    name: "lastConfirmedDateDisplayed", pure: false
 })
 export class LastConfirmedDateDisplayed implements PipeTransform {
   constructor(private dateUtils: DateUtilsService) {

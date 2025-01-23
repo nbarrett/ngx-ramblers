@@ -4,10 +4,14 @@ import { DisplayedWalk } from "../../../models/walk.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { BasicMedia } from "../../../models/ramblers-walks-manager";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { SvgComponent } from "../../../modules/common/svg/svg";
+import { NgClass } from "@angular/common";
+import { CardImageComponent } from "../../../modules/common/card/image/card-image";
 
 @Component({
-  selector: "app-walk-images",
-  template: `
+    selector: "app-walk-images",
+    template: `
     <div class="pointer" [tooltip]="imageSource()?.alt" [placement]="'bottom'">
       @if (displayedWalk?.walk?.media?.length > 1) {
         <app-svg colour="rgb(155, 200, 171)" (click)="back()"
@@ -26,8 +30,8 @@ import { MediaQueryService } from "../../../services/committee/media-query.servi
         <app-card-image fixedHeight [imageSource]="imageSource()?.url"/>
       </div>
     </div>`,
-  styleUrls: ["./walk-view.sass"],
-  standalone: false
+    styleUrls: ["./walk-view.sass"],
+    imports: [TooltipDirective, SvgComponent, NgClass, CardImageComponent]
 })
 
 export class WalkImagesComponent {

@@ -11,12 +11,14 @@ import { MemberLoginService } from "../services/member/member-login.service";
 import { RouterHistoryService } from "../services/router-history.service";
 import { SystemConfigService } from "../services/system/system-config.service";
 import { UrlService } from "../services/url.service";
+import { NgClass } from "@angular/common";
+import { SiteEditComponent } from "../site-edit/site-edit.component";
 
 @Component({
-  selector: "app-login-panel",
-  templateUrl: "./login-panel.component.html",
-  styleUrls: ["./login-panel.component.sass"],
-  standalone: false
+    selector: "app-login-panel",
+    templateUrl: "./login-panel.component.html",
+    styleUrls: ["./login-panel.component.sass"],
+    imports: [NgClass, SiteEditComponent]
 })
 export class LoginPanelComponent implements OnInit, OnDestroy {
   private logger: Logger;

@@ -4,12 +4,13 @@ import { NamedEvent } from "../models/broadcast.model";
 import { SiteEditService } from "./site-edit.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
+import { UiSwitchModule } from "ngx-ui-switch";
 
 @Component({
-  selector: "app-site-edit",
-  templateUrl: "./site-edit.component.html",
-  styleUrls: ["./site-edit.component.sass"],
-  standalone: false
+    selector: "app-site-edit",
+    templateUrl: "./site-edit.component.html",
+    styleUrls: ["./site-edit.component.sass"],
+    imports: [UiSwitchModule]
 })
 
 export class SiteEditComponent implements OnDestroy {

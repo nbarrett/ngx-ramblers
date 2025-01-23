@@ -4,10 +4,12 @@ import { HasClass, HasColour } from "../../models/banner-configuration.model";
 import { ColourSelector, colourSelectors } from "../../models/system.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { NgSelectComponent, NgOptionComponent } from "@ng-select/ng-select";
+import { FormsModule } from "@angular/forms";
 
 @Component({
-  selector: "app-colour-selector",
-  styles: [`
+    selector: "app-colour-selector",
+    styles: [`
     @import "../../assets/styles/colours"
 
     .badge-fixed-width
@@ -41,7 +43,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
       @extend .badge-fixed-width
       @extend .text-style-granite
   `],
-  template: `
+    template: `
     <div class="row">
       <div class="col-md-12">
         @if (!noLabel ) {
@@ -70,7 +72,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
       </div>
     </div>
     `,
-  standalone: false
+    imports: [NgSelectComponent, FormsModule, NgOptionComponent]
 })
 
 export class ColourSelectorComponent implements OnInit {

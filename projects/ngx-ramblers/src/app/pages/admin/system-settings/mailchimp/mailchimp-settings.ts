@@ -19,10 +19,19 @@ import { Organisation } from "../../../../models/system.model";
 import { Subscription } from "rxjs";
 import { MailchimpListService } from "../../../../services/mailchimp/mailchimp-list.service";
 import { MailchimpCampaignService } from "projects/ngx-ramblers/src/app/services/mailchimp/mailchimp-campaign.service";
+import { PageComponent } from "../../../../page/page.component";
+import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { FormsModule } from "@angular/forms";
+import { MailchimpListSettingsComponent } from "./mailchimp-list-settings";
+import { MailchimpSegmentEditorComponent } from "./mailchimp-segment-editor";
+import { MailchimpContactComponent } from "./mailchimp-contact";
+import { MailchimpCampaignDefaultsComponent } from "./mailchimp-campaign-defaults";
+import { NgClass } from "@angular/common";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
-  selector: "app-mailchimp-settings",
-  template: `
+    selector: "app-mailchimp-settings",
+    template: `
     <app-page autoTitle>
       <div class="row">
         <div class="col-sm-12">
@@ -506,7 +515,7 @@ import { MailchimpCampaignService } from "projects/ngx-ramblers/src/app/services
         </div>
       </app-page>
     `,
-  standalone: false
+    imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, MailchimpListSettingsComponent, MailchimpSegmentEditorComponent, MailchimpContactComponent, MailchimpCampaignDefaultsComponent, NgClass, FontAwesomeModule]
 })
 export class MailchimpSettingsComponent implements OnInit, OnDestroy {
 

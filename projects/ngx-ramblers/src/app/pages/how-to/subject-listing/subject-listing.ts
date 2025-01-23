@@ -34,13 +34,19 @@ import { PageService } from "../../../services/page.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
 import { HowToModalComponent } from "../how-to-modal.component";
+import { PageComponent } from "../../../page/page.component";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { FormsModule } from "@angular/forms";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { MarkdownComponent } from "ngx-markdown";
+import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 
 @Component({
-  selector: "app-how-to-subject-listing",
-  templateUrl: "./subject-listing.html",
-  styleUrls: ["./subject-listing.sass"],
-  changeDetection: ChangeDetectionStrategy.Default,
-  standalone: false
+    selector: "app-how-to-subject-listing",
+    templateUrl: "./subject-listing.html",
+    styleUrls: ["./subject-listing.sass"],
+    changeDetection: ChangeDetectionStrategy.Default,
+    imports: [PageComponent, MarkdownEditorComponent, FormsModule, FontAwesomeModule, MarkdownComponent, DisplayDatePipe]
 })
 export class HowToSubjectListingComponent implements OnInit, OnDestroy {
 

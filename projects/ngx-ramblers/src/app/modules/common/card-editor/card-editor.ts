@@ -20,12 +20,21 @@ import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEventType } from "../../../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { CardImageComponent } from "../card/image/card-image";
+import { RouterLink } from "@angular/router";
+import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resizer/image-cropper-and-resizer";
+import { FormsModule } from "@angular/forms";
+import { TypeaheadDirective } from "ngx-bootstrap/typeahead";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { ActionsDropdownComponent } from "../actions-dropdown/actions-dropdown";
 
 @Component({
-  selector: "app-card-editor",
-  templateUrl: "./card-editor.html",
-  styleUrls: ["./card-editor.sass", "./../dynamic-content/dynamic-content.sass"],
-  standalone: false
+    selector: "app-card-editor",
+    templateUrl: "./card-editor.html",
+    styleUrls: ["./card-editor.sass", "./../dynamic-content/dynamic-content.sass"],
+    imports: [CardImageComponent, RouterLink, ImageCropperAndResizerComponent, FormsModule, TypeaheadDirective, MarkdownEditorComponent, TooltipDirective, FontAwesomeModule, ActionsDropdownComponent]
 })
 export class CardEditorComponent implements OnInit {
   @Output() pageContentEditEvents: EventEmitter<PageContentEditEvent> = new EventEmitter();

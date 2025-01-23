@@ -8,18 +8,19 @@ import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance } from "../../../services/notifier.service";
 import { SocialDisplayService } from "../social-display.service";
+import { SocialViewComponent } from "../social-view/social-view";
 
 @Component({
-  selector: "app-social-list",
-  template: `
+    selector: "app-social-list",
+    template: `
     @for (socialEvent of filteredSocialEvents; track socialEvent) {
       <div class="img-thumbnail event-thumbnail">
         <app-social-view [socialEvent]="socialEvent"/>
       </div>
     }
     `,
-  styleUrls: ["./social-list.component.sass"],
-  standalone: false
+    styleUrls: ["./social-list.component.sass"],
+    imports: [SocialViewComponent]
 })
 export class SocialListComponent implements OnInit {
   public notify: AlertInstance;

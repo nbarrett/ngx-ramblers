@@ -4,10 +4,11 @@ import { Logger, LoggerFactory } from "../../../../services/logger-factory.servi
 import map from "lodash-es/map";
 import { KeyValue } from "../../../../functions/enums";
 import { faEraser } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
-  selector: "app-mailchimp-segment-editor",
-  template: `
+    selector: "app-mailchimp-segment-editor",
+    template: `
     @if (showTitle) {
       <div class="mb-2 mt-2 font-weight-bold">Mailchimp Segments ({{ editableSegments.length }})</div>
     }
@@ -29,7 +30,7 @@ import { faEraser } from "@fortawesome/free-solid-svg-icons";
         </div>
       </div>
     }`,
-  standalone: false
+    imports: [FontAwesomeModule]
 })
 export class MailchimpSegmentEditorComponent implements OnInit {
   @Input()

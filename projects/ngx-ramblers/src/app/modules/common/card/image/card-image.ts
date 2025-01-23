@@ -7,10 +7,13 @@ import { ImageMessage } from "../../../../models/images.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { UrlService } from "../../../../services/url.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { NgStyle, NgClass } from "@angular/common";
+import { RouterLink } from "@angular/router";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
-  selector: "app-card-image",
-  template: `
+    selector: "app-card-image",
+    template: `
     @if (displayImage()) {
       @if (unconstrainedHeight) {
         <img class="card-img-top" (load)="imageLoaded($event)"
@@ -41,8 +44,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
         </div>
       </div>
     }`,
-  styleUrls: ["./card-image.sass"],
-  standalone: false
+    styleUrls: ["./card-image.sass"],
+    imports: [NgStyle, NgClass, RouterLink, FontAwesomeModule]
 })
 export class CardImageComponent implements OnInit {
   private logger: Logger;

@@ -7,10 +7,11 @@ import { CommitteeReferenceData } from "../../services/committee/committee-refer
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { UrlService } from "../../services/url.service";
 import first from "lodash-es/first";
+import { NgStyle } from "@angular/common";
 
 @Component({
-  selector: "app-contact-us",
-  template: `
+    selector: "app-contact-us",
+    template: `
     @if (format==='list') {
       <ul>
         @for (committeeMember of committeeMembers(); track committeeMember) {
@@ -36,8 +37,8 @@ import first from "lodash-es/first";
       <a [href]="'mailto:' + email()">{{ text || email() }}</a>
     }
     `,
-  styleUrls: ["./contact-us.sass"],
-  standalone: false
+    styleUrls: ["./contact-us.sass"],
+    imports: [NgStyle]
 })
 
 export class ContactUsComponent implements OnInit, OnDestroy {

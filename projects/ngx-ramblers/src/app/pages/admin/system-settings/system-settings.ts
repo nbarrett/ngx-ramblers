@@ -26,10 +26,22 @@ import kebabCase from "lodash-es/kebabCase";
 import { ActivatedRoute, Router } from "@angular/router";
 import { StoredValue } from "../../../models/ui-actions";
 import { WalkListView } from "../../../models/walk.model";
+import { PageComponent } from "../../../page/page.component";
+import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { FormsModule } from "@angular/forms";
+import { LinksEditComponent } from "../../../modules/common/links-edit/links-edit";
+import { ImageCollectionSettingsComponent } from "./image-collection/image-collection-settings";
+import { ColourSelectorComponent } from "../../banner/colour-selector";
+import { MailProviderSettingsComponent } from "./mail-provider/mail-provider-settings";
+import { SystemMeetupSettingsComponent } from "./meetup/system-meetup-settings";
+import { SystemRecaptchaSettingsComponent } from "./recaptcha/system-recaptcha-settings";
+import { SystemGoogleAnalyticsSettings } from "./google-analytics/system-google-analytics-settings";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { NgClass } from "@angular/common";
 
 @Component({
-  selector: "app-system-settings",
-  template: `
+    selector: "app-system-settings",
+    template: `
     <app-page autoTitle>
       <div class="row">
         <div class="col-sm-12">
@@ -572,7 +584,7 @@ import { WalkListView } from "../../../models/walk.model";
           </div>
         </div>
       </app-page>`,
-  standalone: false
+    imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageCollectionSettingsComponent, ColourSelectorComponent, MailProviderSettingsComponent, SystemMeetupSettingsComponent, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, FontAwesomeModule, NgClass]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 

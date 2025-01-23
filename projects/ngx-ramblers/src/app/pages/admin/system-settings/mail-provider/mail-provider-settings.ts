@@ -16,10 +16,13 @@ import { MailchimpListService } from "../../../../services/mailchimp/mailchimp-l
 import { MailchimpConfig } from "../../../../models/mailchimp.model";
 import { MailchimpConfigService } from "../../../../services/mailchimp-config.service";
 import first from "lodash-es/first";
+import { FormsModule } from "@angular/forms";
+import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
+import { MailchimpButtonComponent } from "../../../../modules/common/third-parties/mailchimp-button";
 
 @Component({
-  selector: "app-mail-provider-settings",
-  template: `
+    selector: "app-mail-provider-settings",
+    template: `
     @if (this.config?.mailDefaults) {
       <div class="row img-thumbnail thumbnail-2">
         <div class="thumbnail-heading">Mail</div>
@@ -83,7 +86,7 @@ import first from "lodash-es/first";
         </div>
       </div>
     }`,
-  standalone: false
+    imports: [FormsModule, BrevoButtonComponent, MailchimpButtonComponent]
 })
 export class MailProviderSettingsComponent implements OnInit, OnDestroy {
 

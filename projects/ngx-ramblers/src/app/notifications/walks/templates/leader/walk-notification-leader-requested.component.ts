@@ -1,9 +1,12 @@
 import { Component } from "@angular/core";
 import { WalkNotificationDetailsComponent } from "../common/walk-notification-details.component";
+import { WalkNotificationFooterComponent } from "../common/walk-notification-footer.component";
+import { DisplayDatePipe } from "../../../../pipes/display-date.pipe";
+import { WalkValidationsListPipe } from "../../../../pipes/walk-validations.pipe";
 
 @Component({
-  selector: "app-walk-notification-leader-requested",
-  template: `
+    selector: "app-walk-notification-leader-requested",
+    template: `
     <p>Thanks again for offering to lead the walk on <strong [textContent]="walk.walkDate | displayDate"
     ></strong>!</p>
     <p>Before I can publish your walk, I need more information from you as <strong
@@ -19,7 +22,7 @@ import { WalkNotificationDetailsComponent } from "../common/walk-notification-de
       I'll then give it a quick check, mark it as approved, and then it will be published on our walks programme for
     all to see.</p>
     <app-walk-notification-footer [data]="data"></app-walk-notification-footer>`,
-  standalone: false
+    imports: [WalkNotificationDetailsComponent, WalkNotificationFooterComponent, DisplayDatePipe, WalkValidationsListPipe]
 })
 export class WalkNotificationLeaderRequestedComponent extends WalkNotificationDetailsComponent {
 

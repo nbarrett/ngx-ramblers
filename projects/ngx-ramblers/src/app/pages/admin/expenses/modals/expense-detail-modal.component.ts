@@ -15,12 +15,17 @@ import { Logger, LoggerFactory } from "../../../../services/logger-factory.servi
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { NumberUtilsService } from "../../../../services/number-utils.service";
 import { AwsFileUploadResponseData } from "../../../../models/aws-object.model";
+import { DatePickerComponent } from "../../../../date-picker/date-picker.component";
+import { FormsModule } from "@angular/forms";
+import { NgClass, NgStyle } from "@angular/common";
+import { FileUploadModule } from "ng2-file-upload";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
-  selector: "app-expense-detail-modal",
-  templateUrl: "./expense-detail-modal.component.html",
-  styleUrls: ["./expense-detail-modal.component.sass"],
-  standalone: false
+    selector: "app-expense-detail-modal",
+    templateUrl: "./expense-detail-modal.component.html",
+    styleUrls: ["./expense-detail-modal.component.sass"],
+    imports: [DatePickerComponent, FormsModule, NgClass, FileUploadModule, NgStyle, FontAwesomeModule]
 })
 export class ExpenseDetailModalComponent implements OnInit, OnDestroy {
 

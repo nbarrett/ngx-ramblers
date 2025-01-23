@@ -11,11 +11,14 @@ import { Logger, LoggerFactory } from "../../../../services/logger-factory.servi
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { MailMessagingConfig, NotificationConfig } from "../../../../models/mail.model";
+import { FormsModule } from "@angular/forms";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { NgClass } from "@angular/common";
 
 @Component({
-  selector: "app-expense-submit-modal",
-  templateUrl: "./expense-submit-modal.component.html",
-  standalone: false
+    selector: "app-expense-submit-modal",
+    templateUrl: "./expense-submit-modal.component.html",
+    imports: [FormsModule, FontAwesomeModule, NgClass]
 })
 export class ExpenseSubmitModalComponent implements OnInit {
   private notify: AlertInstance;

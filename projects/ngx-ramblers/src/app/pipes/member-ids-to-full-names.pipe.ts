@@ -3,10 +3,7 @@ import { Member } from "../models/member.model";
 import { FullNameWithAliasPipe } from "./full-name-with-alias.pipe";
 import { MemberIdToFullNamePipe } from "./member-id-to-full-name.pipe";
 
-@Pipe({
-  name: "memberIdsToFullNames",
-  standalone: false
-})
+@Pipe({ name: "memberIdsToFullNames" })
 export class MemberIdsToFullNamesPipe implements PipeTransform {
   constructor(private memberIdToFullNamePipe: MemberIdToFullNamePipe,
               private fullNameWithAliasPipe: FullNameWithAliasPipe) {

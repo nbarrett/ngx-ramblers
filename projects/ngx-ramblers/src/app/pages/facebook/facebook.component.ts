@@ -7,12 +7,13 @@ import { DateUtilsService } from "../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { UrlService } from "../../services/url.service";
+import { CardContainerComponent } from "../../modules/common/card-container/card-container.component";
 
 @Component({
-  selector: "app-facebook",
-  templateUrl: "./facebook.component.html",
-  styleUrls: ["./facebook.component.sass"],
-  standalone: false
+    selector: "app-facebook",
+    templateUrl: "./facebook.component.html",
+    styleUrls: ["./facebook.component.sass"],
+    imports: [CardContainerComponent]
 })
 export class FacebookComponent implements OnInit, OnDestroy {
 

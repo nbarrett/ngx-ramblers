@@ -6,10 +6,12 @@ import { CommitteeQueryService } from "../../../../services/committee/committee-
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { KEY_NULL_VALUE_NONE } from "../../../../functions/enums";
+import { FormsModule } from "@angular/forms";
+import { FullNameWithAliasPipe } from "../../../../pipes/full-name-with-alias.pipe";
 
 @Component({
-  selector: "app-committee-member-lookup",
-  template: `
+    selector: "app-committee-member-lookup",
+    template: `
     @if (committeeMember) {
       <div class="form-group">
         <label for="committee-member-lookup-{{committeeMember.type}}">
@@ -27,7 +29,7 @@ import { KEY_NULL_VALUE_NONE } from "../../../../functions/enums";
       </div>
     }
     `,
-  standalone: false
+    imports: [FormsModule, FullNameWithAliasPipe]
 })
 export class CommitteeMemberLookupComponent implements OnInit {
   public committeeQueryService: CommitteeQueryService = inject(CommitteeQueryService);

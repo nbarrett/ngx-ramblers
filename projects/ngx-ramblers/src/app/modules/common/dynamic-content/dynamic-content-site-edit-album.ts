@@ -18,10 +18,21 @@ import { LazyLoadingMetadata } from "../../../models/content-metadata.model";
 import { UrlService } from "../../../services/url.service";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { StoredValue } from "../../../models/ui-actions";
+import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { FormsModule } from "@angular/forms";
+import { AlbumComponent } from "../../../album/view/album";
+import { BadgeButtonComponent } from "../badge-button/badge-button";
+import { GroupEventTypeSelectorComponent } from "../../../group-events-selector/group-event-type-selector";
+import { GroupEventSelectorComponent } from "../../../group-events-selector/group-event-selector";
+import { NgClass } from "@angular/common";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { CardImageComponent } from "../card/image/card-image";
+import { ImageListEditComponent } from "../../../carousel/edit/image-list-edit/image-list-edit";
+import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
 
 @Component({
-  selector: "app-dynamic-content-site-edit-album",
-  template: `
+    selector: "app-dynamic-content-site-edit-album",
+    template: `
     @if (!actions.editActive(rowIndex)) {
       @if (actions.isAlbum(row)) {
         <tabset class="custom-tabset">
@@ -329,8 +340,8 @@ import { StoredValue } from "../../../models/ui-actions";
       <app-image-list-edit [name]="row?.carousel?.name"
                            (exit)="actions.toggleEditMode(rowIndex)"/>
     }`,
-  styleUrls: ["./dynamic-content.sass"],
-  standalone: false
+    styleUrls: ["./dynamic-content.sass"],
+    imports: [TabsetComponent, TabDirective, FormsModule, AlbumComponent, BadgeButtonComponent, GroupEventTypeSelectorComponent, GroupEventSelectorComponent, NgClass, MarkdownEditorComponent, CardImageComponent, ImageListEditComponent, DisplayDayPipe]
 })
 export class DynamicContentSiteEditAlbumComponent implements OnInit {
 

@@ -6,10 +6,7 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Member } from "../models/member.model";
 
-@Pipe({
-  name: "auditDeltaValue",
-  standalone: false
-})
+@Pipe({ name: "auditDeltaValue" })
 export class AuditDeltaValuePipe implements PipeTransform {
   logger: Logger = inject(LoggerFactory).createLogger("AuditDeltaValuePipe", NgxLoggerLevel.OFF);
   private displayDatePipe: DisplayDatePipe = inject(DisplayDatePipe);

@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit, ViewChild } from "@angular/core";
-import { ActivatedRoute, ParamMap } from "@angular/router";
+import { ActivatedRoute, ParamMap, RouterLink } from "@angular/router";
 import { faCaretDown, faCaretUp, faCashRegister } from "@fortawesome/free-solid-svg-icons";
 import cloneDeep from "lodash-es/cloneDeep";
 import extend from "lodash-es/extend";
@@ -40,14 +40,24 @@ import { ExpenseReturnModalComponent } from "./modals/expense-return-modal.compo
 import { ExpenseSubmitModalComponent } from "./modals/expense-submit-modal.component";
 import { NotificationConfig } from "../../../models/mail.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
+import { PageComponent } from "../../../page/page.component";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { CollapseDirective } from "ngx-bootstrap/collapse";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { NgClass } from "@angular/common";
+import { FormsModule } from "@angular/forms";
+import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
+import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pipe";
+import { MoneyPipe } from "../../../pipes/money.pipe";
 
 const SELECTED_EXPENSE = "Expense from last email link";
 
 @Component({
-  selector: "app-expenses",
-  templateUrl: "./expenses.component.html",
-  styleUrls: ["../admin/admin.component.sass", "./expenses.component.sass"],
-  standalone: false
+    selector: "app-expenses",
+    templateUrl: "./expenses.component.html",
+    styleUrls: ["../admin/admin.component.sass", "./expenses.component.sass"],
+    imports: [PageComponent, NotificationDirective, FontAwesomeModule, TooltipDirective, CollapseDirective, MarkdownEditorComponent, NgClass, FormsModule, RouterLink, DisplayDatePipe, MemberIdToFullNamePipe, MoneyPipe]
 })
 export class ExpensesComponent implements OnInit, OnDestroy {
   faCashRegister = faCashRegister;

@@ -11,9 +11,8 @@ import { MemberService } from "../services/member/member.service";
 import { AlertInstance, NotifierService } from "../services/notifier.service";
 
 @Component({
-  selector: "app-set-password",
-  template: "",
-  standalone: false
+    selector: "app-set-password",
+    template: ""
 })
 
 export class SetPasswordComponent implements OnInit, OnDestroy {

@@ -6,10 +6,13 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
 import { ContactUsService } from "../../../contact-us/contact-us.service";
 import { AlertTarget } from "../../../../models/alert-target.model";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
+import { FormsModule } from "@angular/forms";
+import { RecaptchaModule } from "ng-recaptcha-2";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
-  selector: "app-system-recaptcha-settings",
-  template: `
+    selector: "app-system-recaptcha-settings",
+    template: `
     <div class="row img-thumbnail thumbnail-2">
       <div class="thumbnail-heading">reCAPTCHA</div>
       @if (systemConfigInternal?.recaptcha) {
@@ -75,7 +78,7 @@ import { AlertInstance, NotifierService } from "../../../../services/notifier.se
           </div>
         }
       </div>`,
-  standalone: false
+    imports: [FormsModule, RecaptchaModule, FontAwesomeModule]
 })
 export class SystemRecaptchaSettingsComponent implements OnInit, OnDestroy {
 

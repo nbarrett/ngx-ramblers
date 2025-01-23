@@ -6,11 +6,12 @@ import { CommitteeConfigService } from "../../../../services/committee/commitee-
 import { CommitteeReferenceData } from "../../../../services/committee/committee-reference-data";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { MailchimpConfigService } from "../../../../services/mailchimp-config.service";
+import { FormsModule } from "@angular/forms";
 
 @Component({
-  selector: "app-mailchimp-campaign-defaults",
-  templateUrl: "./mailchimp-campaign-defaults.html",
-  standalone: false
+    selector: "app-mailchimp-campaign-defaults",
+    templateUrl: "./mailchimp-campaign-defaults.html",
+    imports: [FormsModule]
 })
 export class MailchimpCampaignDefaultsComponent implements OnInit {
 

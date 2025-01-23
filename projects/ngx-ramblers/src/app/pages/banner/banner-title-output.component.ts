@@ -5,11 +5,12 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { UrlService } from "../../services/url.service";
+import { NgClass } from "@angular/common";
 
 @Component({
-  selector: "app-banner-title-output",
-  styleUrls: ["./banner.component.sass"],
-  template: `
+    selector: "app-banner-title-output",
+    styleUrls: ["./banner.component.sass"],
+    template: `
       @if (titleLine.include) {
         <div class="title" [style.font-size.px]="titleLine.fontSize">
           <img class="text-icon" [ngClass]="{'none': !titleLine.showIcon}"
@@ -20,7 +21,7 @@ import { UrlService } from "../../services/url.service";
         </div>
       }
       `,
-  standalone: false
+    imports: [NgClass]
 })
 
 export class BannerTitleOutputComponent implements OnInit {

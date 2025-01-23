@@ -58,10 +58,23 @@ import { WalkNotification, WalksConfig } from "../../../models/walk-notification
 import { MeetupDescriptionComponent } from "../../../notifications/walks/templates/meetup/meetup-description.component";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { WalksConfigService } from "../../../services/system/walks-config.service";
+import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
+import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { FormsModule } from "@angular/forms";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { MarkdownComponent } from "ngx-markdown";
+import { WalkLocationEditComponent } from "./walk-location-edit";
+import { WalkRiskAssessmentComponent } from "../walk-risk-assessment/walk-risk-assessment.component";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { WalkVenueComponent } from "../walk-venue/walk-venue.component";
+import { WalkMeetupComponent } from "../walk-meetup/walk-meetup.component";
+import { WalkSummaryPipe } from "../../../pipes/walk-summary.pipe";
 
 @Component({
-  selector: "app-walk-edit",
-  template: `
+    selector: "app-walk-edit",
+    template: `
     <div class="d-none">
       <ng-template app-notification-directive/>
     </div>
@@ -507,7 +520,7 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
                       </tr>
                     </thead>
                     <tbody>
-                      @for (event of walkEvents(displayedWalk.walk); track event) {
+                      @for (event of walkEvents(displayedWalk.walk); track event.date) {
                         <tr>
                           <td style="width: 25%" [textContent]="event.date"></td>
                           <td style="width: 15%"
@@ -696,8 +709,8 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
         }
       </div>
     }`,
-  styleUrls: ["./walk-edit.component.sass"],
-  standalone: false
+    styleUrls: ["./walk-edit.component.sass"],
+    imports: [NotificationDirective, WalkPanelExpanderComponent, TabsetComponent, TabDirective, DatePickerComponent, FormsModule, FontAwesomeModule, MarkdownComponent, WalkLocationEditComponent, WalkRiskAssessmentComponent, MarkdownEditorComponent, TooltipDirective, WalkVenueComponent, WalkMeetupComponent, DisplayDatePipe, WalkSummaryPipe]
 })
 export class WalkEditComponent implements OnInit, OnDestroy {
   @Input("displayedWalk")

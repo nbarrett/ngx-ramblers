@@ -12,12 +12,13 @@ import { AlertInstance } from "../../../services/notifier.service";
 import { UrlService } from "../../../services/url.service";
 import { SocialDisplayService } from "../social-display.service";
 import { PageService } from "../../../services/page.service";
+import { SocialCardComponent } from "../social-card/social-card";
 
 @Component({
-  selector: "app-social-list-cards",
-  templateUrl: "./social-list-cards.html",
-  styleUrls: ["./social-list-cards.sass"],
-  standalone: false
+    selector: "app-social-list-cards",
+    templateUrl: "./social-list-cards.html",
+    styleUrls: ["./social-list-cards.sass"],
+    imports: [SocialCardComponent]
 })
 export class SocialListCardsComponent implements OnInit {
   public socialEvents: SocialEvent[] = [];

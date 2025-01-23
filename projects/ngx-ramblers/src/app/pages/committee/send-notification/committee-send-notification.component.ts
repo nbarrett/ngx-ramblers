@@ -42,10 +42,26 @@ import { MailService } from "../../../services/mail/mail.service";
 import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
 import { MemberLoginService } from "../../../services/member/member-login.service";
+import { PageComponent } from "../../../page/page.component";
+import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { NotificationConfigSelectorComponent } from "../../admin/system-settings/mail/notification-config-selector";
+import { FormsModule } from "@angular/forms";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { NgSelectComponent, NgOptgroupTemplateDirective } from "@ng-select/ng-select";
+import { MarkdownComponent } from "ngx-markdown";
+import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { LinkComponent } from "../../../link/link";
+import { SenderRepliesAndSignoffComponent } from "../../admin/send-emails/sender-replies-and-signoff";
+import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi-select/committee-role-multi-select";
+import { CommitteeNotificationDetailsComponent } from "../../../notifications/committee/templates/committee-notification-details.component";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { BrevoButtonComponent } from "../../../modules/common/third-parties/brevo-button";
+import { TitleCasePipe } from "@angular/common";
+import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 
 @Component({
-  selector: "app-committee-send-notification",
-  styles: [`
+    selector: "app-committee-send-notification",
+    styles: [`
     .scrollable
       max-height: 500px
       overflow: scroll
@@ -54,7 +70,7 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
       @extend .scrollable
       list-style: none
   `],
-  template: `
+    template: `
     <app-page autoTitle>
       <div class="row">
         <div class="col-sm-12">
@@ -457,7 +473,7 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
       <ng-template app-notification-directive/>
     </div>
     </app-page>`,
-  standalone: false
+    imports: [PageComponent, TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, MarkdownComponent, DatePickerComponent, LinkComponent, SenderRepliesAndSignoffComponent, CommitteeRoleMultiSelectComponent, CommitteeNotificationDetailsComponent, FontAwesomeModule, BrevoButtonComponent, NotificationDirective, TitleCasePipe, DisplayDatePipe]
 })
 export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
 

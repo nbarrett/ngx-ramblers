@@ -5,10 +5,12 @@ import { PageContentColumn } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
-  selector: "app-column-width",
-  template: `
+    selector: "app-column-width",
+    template: `
       <label [for]="id">Width (1-12)</label>
       <div class="input-group">
           <input #input (input)="actions.changeColumnWidthFor(input, column)"
@@ -25,7 +27,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
           </div>
       </div>
   `,
-  standalone: false
+    imports: [TooltipDirective, FontAwesomeModule]
 })
 
 export class ColumnWidthComponent implements OnInit {

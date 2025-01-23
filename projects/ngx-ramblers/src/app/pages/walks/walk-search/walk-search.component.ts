@@ -13,10 +13,12 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { Organisation, SystemConfig } from "../../../models/system.model";
 import { WalkDisplayService } from "../walk-display.service";
+import { FormsModule } from "@angular/forms";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
-  selector: "app-walks-search",
-  template: `
+    selector: "app-walks-search",
+    template: `
     @if (!currentWalkId) {
       @if (showPagination) {
         <div class="row pb-0">
@@ -111,7 +113,7 @@ import { WalkDisplayService } from "../walk-display.service";
         </div>
       }
     }`,
-  standalone: false
+    imports: [FormsModule, FontAwesomeModule]
 })
 export class WalkSearchComponent implements OnInit, OnDestroy {
 

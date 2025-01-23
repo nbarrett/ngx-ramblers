@@ -2,10 +2,7 @@ import { Pipe, PipeTransform } from "@angular/core";
 import { StringUtilsService } from "../services/string-utils.service";
 import { FormatAuditPipe } from "./format-audit-pipe";
 
-@Pipe({
-  name: "updatedAudit",
-  standalone: false
-})
+@Pipe({ name: "updatedAudit" })
 export class UpdatedAuditPipe implements PipeTransform {
 
   constructor(

@@ -15,10 +15,16 @@ import { AscentValidationService } from "../../../services/walks/ascent-validati
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { RelatedLinkComponent } from "../../../modules/common/related-link/related-link.component";
+import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
+import { WalkGradingComponent } from "./walk-grading";
+import { MarkdownComponent } from "ngx-markdown";
 
 @Component({
-  selector: "app-walk-details",
-  template: `
+    selector: "app-walk-details",
+    template: `
     <div class="event-panel rounded">
       <h1>
         <fa-icon class="{{display.eventType(displayedWalk.walk)}}"
@@ -137,7 +143,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
             </div>
           }
         </div>`,
-  standalone: false
+    imports: [FontAwesomeModule, TooltipDirective, RelatedLinkComponent, CopyIconComponent, WalkGradingComponent, MarkdownComponent]
 })
 
 export class WalkDetailsComponent implements OnInit {

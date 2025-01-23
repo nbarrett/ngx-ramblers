@@ -8,10 +8,13 @@ import { sortBy } from "../../functions/arrays";
 import { ImageTagDataService } from "../../services/image-tag-data-service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { StringUtilsService } from "../../services/string-utils.service";
+import { FormsModule } from "@angular/forms";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
-  selector: "app-tag-manager",
-  template: `
+    selector: "app-tag-manager",
+    template: `
     @if (contentMetadata?.imageTags) {
       <table class="styled-table table-responsive-sm table-pointer">
         <thead>
@@ -52,7 +55,7 @@ import { StringUtilsService } from "../../services/string-utils.service";
         </table>
       }
     `,
-  standalone: false
+    imports: [FormsModule, TooltipDirective, FontAwesomeModule]
 })
 
 export class TagManagerComponent implements OnInit {

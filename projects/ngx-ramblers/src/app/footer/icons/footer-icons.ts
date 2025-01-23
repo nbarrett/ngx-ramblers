@@ -4,10 +4,12 @@ import { Subscription } from "rxjs";
 import { ExternalSystems, rgbColourCloudy } from "../../models/system.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { SvgComponent } from "../../modules/common/svg/svg";
 
 @Component({
-  selector: "app-social-media-links",
-  template: `
+    selector: "app-social-media-links",
+    template: `
     <ul
       class="icon-container d-inline-flex justify-content-between align-items-center list-unstyled w-100 mt-3 mb-5 mb-lg-3">
       @if (externalSystems?.facebook) {
@@ -77,8 +79,8 @@ import { SystemConfigService } from "../../services/system/system-config.service
       </a></li>
     }
     </ul>`,
-  styleUrls: ["./footer-icons.sass"],
-  standalone: false
+    styleUrls: ["./footer-icons.sass"],
+    imports: [TooltipDirective, SvgComponent]
 })
 export class SocialMediaLinksComponent implements OnInit, OnDestroy {
 

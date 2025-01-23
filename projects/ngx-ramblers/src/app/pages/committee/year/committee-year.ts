@@ -19,13 +19,14 @@ import { PageContentService } from "../../../services/page-content.service";
 import { UrlService } from "../../../services/url.service";
 import { CommitteeDisplayService } from "../committee-display.service";
 import { CommitteeEditFileModalComponent } from "../edit/committee-edit-file-modal.component";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 
 @Component({
-  selector: "app-committee-year",
-  templateUrl: "./committee-year.html",
-  styleUrls: ["./committee-year.sass"],
-  changeDetection: ChangeDetectionStrategy.Default,
-  standalone: false
+    selector: "app-committee-year",
+    templateUrl: "./committee-year.html",
+    styleUrls: ["./committee-year.sass"],
+    changeDetection: ChangeDetectionStrategy.Default,
+    imports: [MarkdownEditorComponent]
 })
 export class CommitteeYearComponent implements OnInit, OnDestroy {
 

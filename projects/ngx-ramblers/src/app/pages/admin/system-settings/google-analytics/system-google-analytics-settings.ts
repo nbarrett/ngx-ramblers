@@ -4,10 +4,11 @@ import { LoggerFactory } from "../../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { AlertTarget } from "../../../../models/alert-target.model";
+import { FormsModule } from "@angular/forms";
 
 @Component({
-  selector: "app-system-google-analytics-settings",
-  template: `
+    selector: "app-system-google-analytics-settings",
+    template: `
     <div class="row img-thumbnail thumbnail-2">
       <div class="thumbnail-heading">Google Analytics</div>
       @if (systemConfigInternal?.googleAnalytics) {
@@ -35,7 +36,7 @@ import { AlertTarget } from "../../../../models/alert-target.model";
         </div>
       }
     </div>`,
-  standalone: false
+    imports: [FormsModule]
 })
 export class SystemGoogleAnalyticsSettings implements OnInit, OnDestroy {
 

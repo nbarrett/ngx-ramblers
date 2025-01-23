@@ -36,10 +36,21 @@ import first from "lodash-es/first";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { isUndefined, set } from "lodash-es";
 import get from "lodash-es/get";
+import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { NotificationConfigSelectorComponent } from "../../admin/system-settings/mail/notification-config-selector";
+import { FormsModule } from "@angular/forms";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { NgSelectComponent, NgOptgroupTemplateDirective } from "@ng-select/ng-select";
+import { CommitteeNotificationRamblersMessageItemComponent } from "../../../notifications/committee/templates/committee-notification-ramblers-message-item";
+import { SocialNotificationDetailsComponent } from "../../../notifications/social/templates/social-notification-details.component";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { CreateOrAmendSenderComponent } from "../../admin/send-emails/create-or-amend-sender";
+import { BrevoButtonComponent } from "../../../modules/common/third-parties/brevo-button";
+import { TitleCasePipe } from "@angular/common";
 
 @Component({
-  selector: "app-social-send-notification-modal",
-  template: `
+    selector: "app-social-send-notification-modal",
+    template: `
     @if (mailMessagingConfig) {
       <div class="modal-content">
         <div class="modal-header">
@@ -410,7 +421,7 @@ import get from "lodash-es/get";
     </div>
     </div>
     }`,
-  standalone: false
+    imports: [TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, CommitteeNotificationRamblersMessageItemComponent, SocialNotificationDetailsComponent, FontAwesomeModule, CreateOrAmendSenderComponent, BrevoButtonComponent, NotificationDirective, TitleCasePipe]
 })
 export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
 

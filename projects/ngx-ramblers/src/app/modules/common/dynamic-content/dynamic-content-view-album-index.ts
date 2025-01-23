@@ -4,16 +4,17 @@ import { PageContent, PageContentRow } from "../../../models/content-text.model"
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { AlbumIndexService } from "../../../services/album-index.service";
+import { ActionButtonsComponent } from "../action-buttons/action-buttons";
 
 @Component({
-  selector: "app-dynamic-content-view-album-index",
-  template: `
+    selector: "app-dynamic-content-view-album-index",
+    template: `
     @if (actions.isAlbumIndex(row)) {
       <app-action-buttons
         [pageContent]="albumIndexPageContent"
         [rowIndex]="0"/>
     }`,
-  standalone: false
+    imports: [ActionButtonsComponent]
 })
 export class DynamicContentViewAlbumIndexComponent implements OnInit {
 

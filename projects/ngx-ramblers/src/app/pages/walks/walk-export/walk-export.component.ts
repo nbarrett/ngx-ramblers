@@ -20,15 +20,25 @@ import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-
 import { WalksQueryService } from "../../../services/walks/walks-query.service";
 import { WalksService } from "../../../services/walks/walks.service";
 import { WalkDisplayService } from "../walk-display.service";
-import { CsvOptions } from "../../../csv-export/csv-export";
+import { CsvOptions, CsvExportComponent } from "../../../csv-export/csv-export";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import groupBy from "lodash-es/groupBy";
 import { SystemConfig } from "../../../models/system.model";
+import { PageComponent } from "../../../page/page.component";
+import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { FormsModule } from "@angular/forms";
+import { NgClass } from "@angular/common";
+import { RelatedLinkComponent } from "../../../modules/common/related-link/related-link.component";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { NgSelectComponent, NgOptionComponent } from "@ng-select/ng-select";
+import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
+import { ValueOrDefaultPipe } from "../../../pipes/value-or-default.pipe";
 
 @Component({
-  selector: "app-walk-export",
-  template: `
+    selector: "app-walk-export",
+    template: `
     <app-page>
       <tabset class="custom-tabset">
         <tab active="true" [heading]="'Walk upload selection'">
@@ -252,7 +262,7 @@ import { SystemConfig } from "../../../models/system.model";
           </tab>
         </tabset>
       </app-page>`,
-  styles: [`
+    styles: [`
     .filename-select
       width: 400px
 
@@ -263,8 +273,8 @@ import { SystemConfig } from "../../../models/system.model";
     dl
       margin-bottom: 0
   `],
-  styleUrls: ["./walk-export.component.sass"],
-  standalone: false
+    styleUrls: ["./walk-export.component.sass"],
+    imports: [PageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, NgClass, RelatedLinkComponent, TooltipDirective, NgSelectComponent, NgOptionComponent, DisplayTimePipe, DisplayDatePipe, ValueOrDefaultPipe]
 })
 
 export class WalkExportComponent implements OnInit, OnDestroy {

@@ -4,10 +4,11 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { PageService } from "../services/page.service";
 import isEmpty from "lodash-es/isEmpty";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { RouterLink } from "@angular/router";
 
 @Component({
-  selector: "app-page",
-  template: `
+    selector: "app-page",
+    template: `
     <main>
       <div class="container">
         @if (pageService.nested()) {
@@ -28,8 +29,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
       </div>
     </main>
   `,
-  styleUrls: ["./page.component.sass"],
-  standalone: false
+    styleUrls: ["./page.component.sass"],
+    imports: [RouterLink]
 })
 export class PageComponent implements OnInit {
 

@@ -5,12 +5,14 @@ import { UrlService } from "../services/url.service";
 import { SystemConfig } from "../models/system.model";
 import { Subscription } from "rxjs";
 import { SystemConfigService } from "../services/system/system-config.service";
+import { LoginPanelComponent } from "../login-panel/login-panel.component";
+import { HeaderButtonsComponent } from "../header-buttons/header-buttons";
 
 @Component({
-  selector: "app-header-bar",
-  templateUrl: "./header-bar.html",
-  styleUrls: ["./header-bar.sass"],
-  standalone: false
+    selector: "app-header-bar",
+    templateUrl: "./header-bar.html",
+    styleUrls: ["./header-bar.sass"],
+    imports: [LoginPanelComponent, HeaderButtonsComponent]
 })
 export class HeaderBarComponent implements OnInit, OnDestroy {
 

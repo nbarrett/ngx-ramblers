@@ -10,10 +10,14 @@ import { UrlService } from "../../../services/url.service";
 import { CommitteeReferenceData } from "../../../services/committee/committee-reference-data";
 import { MailMessagingConfig } from "../../../models/mail.model";
 import { PageService } from "../../../services/page.service";
+import { LinkComponent } from "../../../link/link";
+import { MarkdownComponent } from "ngx-markdown";
+import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
+import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 
 @Component({
-  selector: "app-social-notification-details",
-  template: `
+    selector: "app-social-notification-details",
+    template: `
       @if (socialEvent?.thumbnail) {
         <img style="width:100%; margin-bottom: 15px"
           [src]="urlService.imageSource(socialEvent?.thumbnail, true)">
@@ -121,7 +125,7 @@ import { PageService } from "../../../services/page.service";
               [format]="'list'"
               [roles]="socialEvent?.notification?.content?.signoffAs?.value"/>
           }`,
-  standalone: false
+    imports: [LinkComponent, MarkdownComponent, ContactUsComponent, DisplayDatePipe]
 })
 export class SocialNotificationDetailsComponent implements OnInit {
 

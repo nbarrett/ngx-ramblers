@@ -21,10 +21,15 @@ import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { ImageDuplicatesService } from "../../services/image-duplicates-service";
 import { RootFolder } from "../../models/system.model";
+import { CarouselStoryNavigatorComponent } from "./carousel-story-navigator/carousel-story-navigator.component";
+import { CarouselComponent as CarouselComponent_1, SlideComponent } from "ngx-bootstrap/carousel";
+import { NgStyle } from "@angular/common";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { DisplayDatePipe } from "../../pipes/display-date.pipe";
 
 @Component({
-  selector: "app-carousel",
-  template: `
+    selector: "app-carousel",
+    template: `
     <div class="carousel-wrapper">
       <div class="slider-container">
         <div class="sc-inner">
@@ -70,8 +75,8 @@ import { RootFolder } from "../../models/system.model";
         </div>
       </div>
     </div>`,
-  styleUrls: ["./carousel.sass"],
-  standalone: false
+    styleUrls: ["./carousel.sass"],
+    imports: [CarouselStoryNavigatorComponent, CarouselComponent_1, SlideComponent, NgStyle, TooltipDirective, DisplayDatePipe]
 })
 export class CarouselComponent implements OnInit, OnDestroy {
   private logger: Logger;

@@ -9,12 +9,15 @@ import { FilterParameters } from "../../../models/social-events.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { SocialDisplayService } from "../social-display.service";
+import { NgTemplateOutlet } from "@angular/common";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { FormsModule } from "@angular/forms";
 
 @Component({
-  selector: "app-social-search",
-  templateUrl: "./social-search.html",
-  styleUrls: ["./social-search.sass"],
-  standalone: false
+    selector: "app-social-search",
+    templateUrl: "./social-search.html",
+    styleUrls: ["./social-search.sass"],
+    imports: [NgTemplateOutlet, FontAwesomeModule, FormsModule]
 })
 export class SocialSearchComponent implements OnInit, OnDestroy {
 

@@ -19,12 +19,16 @@ import { PageContentService } from "../../../services/page-content.service";
 import { PageService } from "../../../services/page.service";
 import { UrlService } from "../../../services/url.service";
 import { filter } from "rxjs/operators";
+import { PageComponent } from "../../../page/page.component";
+import { CommitteeYearComponent } from "../year/committee-year";
+import { DynamicContentComponent } from "../../../modules/common/dynamic-content/dynamic-content";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
-  selector: "app-committee-home",
-  templateUrl: "./committee-home.component.html",
-  changeDetection: ChangeDetectionStrategy.Default,
-  standalone: false
+    selector: "app-committee-home",
+    templateUrl: "./committee-home.component.html",
+    changeDetection: ChangeDetectionStrategy.Default,
+    imports: [PageComponent, CommitteeYearComponent, DynamicContentComponent, FontAwesomeModule]
 })
 export class CommitteeHomeComponent implements OnInit, OnDestroy {
   private logger: Logger;

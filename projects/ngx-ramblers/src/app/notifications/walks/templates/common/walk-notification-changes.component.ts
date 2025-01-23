@@ -1,10 +1,11 @@
 import { Component } from "@angular/core";
 import { WalkNotificationDetailsComponent } from "./walk-notification-details.component";
+import { HumanisePipe } from "../../../../pipes/humanise.pipe";
 
 
 @Component({
-  selector: "app-walk-notification-changes",
-  template: `
+    selector: "app-walk-notification-changes",
+    template: `
     <table style="cellpadding:10; border:1px solid lightgrey;border-collapse:collapse;width: 100%;border-spacing: 5px;">
       <tr>
         <th width="20%" style="border:1px solid lightgrey; font-weight: bold; padding: 6px">Item changed</th>
@@ -20,7 +21,7 @@ import { WalkNotificationDetailsComponent } from "./walk-notification-details.co
       }
     </table>
   `,
-  standalone: false
+    imports: [HumanisePipe]
 })
 export class WalkNotificationChangesComponent extends WalkNotificationDetailsComponent {
 

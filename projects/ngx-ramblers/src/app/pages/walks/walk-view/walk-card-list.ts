@@ -16,10 +16,15 @@ import { MediaQueryService } from "../../../services/committee/media-query.servi
 import { BasicMedia } from "../../../models/ramblers-walks-manager";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { LoginModalComponent } from "../../login/login-modal/login-modal.component";
+import { SvgComponent } from "../../../modules/common/svg/svg";
+import { NgClass } from "@angular/common";
+import { WalkCardViewComponent } from "./walk-card-view";
+import { WalkViewComponent } from "./walk-view";
+import { WalkEditComponent } from "../walk-edit/walk-edit.component";
 
 @Component({
-  selector: "app-walk-card-list",
-  template: `
+    selector: "app-walk-card-list",
+    template: `
     <div class="d-flex flex-column pt-2 mb-2">
       @if (false) {
         <div class="heading d-flex align-items-center mb-3">
@@ -63,10 +68,10 @@ import { LoginModalComponent } from "../../login/login-modal/login-modal.compone
             }
           </div>
         </div>`,
-  styleUrls: ["./walk-view.sass"],
-  styles: [`
+    styleUrls: ["./walk-view.sass"],
+    styles: [`
   `],
-  standalone: false
+    imports: [SvgComponent, NgClass, WalkCardViewComponent, WalkViewComponent, WalkEditComponent]
 })
 export class WalkCardListComponent implements OnInit, OnChanges, OnDestroy {
   public config: ModalOptions = {

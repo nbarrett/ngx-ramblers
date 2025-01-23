@@ -8,10 +8,17 @@ import { PageContentActionsService } from "../../../services/page-content-action
 import { UrlService } from "../../../services/url.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { Subscription } from "rxjs";
+import { ActionButtonsComponent } from "../action-buttons/action-buttons";
+import { DynamicContentViewTextRowComponent } from "./dynamic-content-view-text-row";
+import { DynamicContentViewCarouselComponent } from "./dynamic-content-view-carousel";
+import { DynamicContentViewAlbumIndexComponent } from "./dynamic-content-view-album-index";
+import { DynamicContentViewAlbumComponent } from "./dynamic-content-view-album";
+import { EventsComponent } from "../events/events";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
-  selector: "app-dynamic-content-view",
-  template: `
+    selector: "app-dynamic-content-view",
+    template: `
     @if (!siteEditService.active()) {
       @for (row of viewablePageContent.rows; track row; let rowIndex = $index) {
         @if (false) {
@@ -58,8 +65,8 @@ import { Subscription } from "rxjs";
         }
       }
     }`,
-  styleUrls: ["./dynamic-content.sass"],
-  standalone: false
+    styleUrls: ["./dynamic-content.sass"],
+    imports: [ActionButtonsComponent, DynamicContentViewTextRowComponent, DynamicContentViewCarouselComponent, DynamicContentViewAlbumIndexComponent, DynamicContentViewAlbumComponent, EventsComponent, FontAwesomeModule]
 })
 export class DynamicContentViewComponent implements OnInit, OnDestroy {
   private pageContentRawData: PageContent;

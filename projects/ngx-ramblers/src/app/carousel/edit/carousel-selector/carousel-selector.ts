@@ -12,10 +12,12 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { faEye } from "@fortawesome/free-solid-svg-icons";
 import { PageContentService } from "../../../services/page-content.service";
 import { StoredValue } from "../../../models/ui-actions";
+import { CarouselSelectComponent } from "./carousel-select";
+import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
 
 @Component({
-  selector: "app-carousel-selector",
-  template: `
+    selector: "app-carousel-selector",
+    template: `
     @if (allow.edit && contentMetadataItems) {
       <div>
         <div class="row">
@@ -33,7 +35,7 @@ import { StoredValue } from "../../../models/ui-actions";
         </div>
       </div>
     }`,
-  standalone: false
+    imports: [CarouselSelectComponent, BadgeButtonComponent]
 })
 export class CarouselSelectorComponent implements OnInit {
 

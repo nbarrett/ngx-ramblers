@@ -9,12 +9,15 @@ import { InstagramService } from "../../services/instagram.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { UrlService } from "../../services/url.service";
+import { CardContainerComponent } from "../../modules/common/card-container/card-container.component";
+import { DynamicContentComponent } from "../../modules/common/dynamic-content/dynamic-content";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 @Component({
-  selector: "app-instagram",
-  templateUrl: "./instagram.component.html",
-  styleUrls: ["./instagram.component.sass"],
-  standalone: false
+    selector: "app-instagram",
+    templateUrl: "./instagram.component.html",
+    styleUrls: ["./instagram.component.sass"],
+    imports: [CardContainerComponent, DynamicContentComponent, TooltipDirective]
 })
 export class InstagramComponent implements OnInit, OnDestroy {
   private logger: Logger;

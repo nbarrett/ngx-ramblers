@@ -6,10 +6,14 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { AlertInstance } from "../../../services/notifier.service";
 import { UrlService } from "../../../services/url.service";
 import { SocialDisplayService } from "../social-display.service";
+import { CardImageComponent } from "../../../modules/common/card/image/card-image";
+import { RouterLink } from "@angular/router";
+import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
+import { EventTimesPipe } from "../../../pipes/event-times.pipe";
 
 @Component({
-  selector: "app-social-card",
-  template: `
+    selector: "app-social-card",
+    template: `
     <div class="card shadow clickable h-100">
       <app-card-image [imageLink]="display.socialEventLink(socialEvent, true)"
         [imageSource]="imageSourceOrPreview()">
@@ -28,7 +32,7 @@ import { SocialDisplayService } from "../social-display.service";
         </ul>
       </div>
     </div>`,
-  standalone: false
+    imports: [CardImageComponent, RouterLink, DisplayDayPipe, EventTimesPipe]
 })
 export class SocialCardComponent implements OnInit {
   public socialEvents: SocialEvent[] = [];

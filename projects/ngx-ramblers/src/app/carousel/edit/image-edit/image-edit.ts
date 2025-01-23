@@ -36,10 +36,19 @@ import { KeyValue } from "../../../functions/enums";
 import { ImageMessage } from "../../../models/images.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { NumberUtilsService } from "../../../services/number-utils.service";
+import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resizer/image-cropper-and-resizer";
+import { NgClass } from "@angular/common";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
+import { FormsModule } from "@angular/forms";
+import { GroupEventTypeSelectorComponent } from "../../../group-events-selector/group-event-type-selector";
+import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { TagEditorComponent } from "../../../pages/tag/tag-editor.component";
+import { GroupEventSelectorComponent } from "../../../group-events-selector/group-event-selector";
 
 @Component({
-  selector: "app-image-edit",
-  template: `
+    selector: "app-image-edit",
+    template: `
     <div class="card mb-3">
       <div class="card-body">
         <div class="row">
@@ -200,7 +209,7 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
         </div>
       </div>
     </div>`,
-  standalone: false
+    imports: [ImageCropperAndResizerComponent, NgClass, FontAwesomeModule, BadgeButtonComponent, FormsModule, GroupEventTypeSelectorComponent, DatePickerComponent, TagEditorComponent, GroupEventSelectorComponent]
 })
 export class ImageEditComponent implements OnInit {
 

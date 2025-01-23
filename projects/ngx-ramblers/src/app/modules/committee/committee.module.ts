@@ -14,20 +14,17 @@ import {
 } from "../../notifications/committee/templates/committee-notification-group-event-message-item";
 
 @NgModule({
-  declarations: [
-    CommitteeSendNotificationComponent,
-    CommitteeNotificationDetailsComponent,
-    CommitteeYearComponent,
-    CommitteeEditFileModalComponent,
-    CommitteeHomeComponent,
-    CommitteeNotificationGroupEventMessageItemComponent,
-    CommitteeNotificationDetailsComponent
-  ],
-  imports: [
-    SharedModule,
-  ],
-  providers: [
-  ]
+    imports: [
+        SharedModule,
+        CommitteeSendNotificationComponent,
+        CommitteeNotificationDetailsComponent,
+        CommitteeYearComponent,
+        CommitteeEditFileModalComponent,
+        CommitteeHomeComponent,
+        CommitteeNotificationGroupEventMessageItemComponent,
+        CommitteeNotificationDetailsComponent,
+    ],
+    providers: []
 })
 export class CommitteeModule {
 }

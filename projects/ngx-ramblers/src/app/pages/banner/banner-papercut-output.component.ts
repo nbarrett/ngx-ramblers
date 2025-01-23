@@ -4,11 +4,13 @@ import { PapercutBackgroundBanner } from "../../models/banner-configuration.mode
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { UrlService } from "../../services/url.service";
 import { ServerFileNameData } from "../../models/aws-object.model";
+import { NgStyle } from "@angular/common";
+import { MarkdownComponent } from "ngx-markdown";
 
 @Component({
-  selector: "app-papercut-output",
-  styleUrls: ["./banner.component.sass"],
-  template: `
+    selector: "app-papercut-output",
+    styleUrls: ["./banner.component.sass"],
+    template: `
     <div class="d-flex flex-column flex-md-row position-relative">
       <div class="wrapper w-100 position-relative">
         <img class="crop"
@@ -33,7 +35,7 @@ import { ServerFileNameData } from "../../models/aws-object.model";
           </div>
         </div>
     `,
-  standalone: false
+    imports: [NgStyle, MarkdownComponent]
 })
 
 export class BannerPapercutOutputComponent implements OnInit {

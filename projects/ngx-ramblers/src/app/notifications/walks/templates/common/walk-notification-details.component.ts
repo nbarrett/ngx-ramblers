@@ -12,10 +12,11 @@ import { AuditDeltaValuePipe } from "../../../../pipes/audit-delta-value.pipe";
 import { ChangedItem } from "../../../../models/changed-item.model";
 import { marked } from "marked";
 import { ValueOrDefaultPipe } from "../../../../pipes/value-or-default.pipe";
+import { DisplayDatePipe } from "../../../../pipes/display-date.pipe";
 
 @Component({
-  selector: "app-walk-notification-details",
-  template: `
+    selector: "app-walk-notification-details",
+    template: `
     <table style="cellpadding:10; border:1px solid lightgrey;border-collapse:collapse;width: 100%;border-spacing: 5px;">
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Walk Date:</td>
@@ -70,7 +71,7 @@ import { ValueOrDefaultPipe } from "../../../../pipes/value-or-default.pipe";
         <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.contactPhone }}</td>
       </tr>
     </table>`,
-  standalone: false
+    imports: [DisplayDatePipe, ValueOrDefaultPipe]
 })
 export class WalkNotificationDetailsComponent implements OnInit {
 

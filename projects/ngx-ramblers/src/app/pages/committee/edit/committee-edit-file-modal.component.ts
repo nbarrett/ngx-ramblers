@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, OnDestroy, OnInit } from "@angular/core";
 import first from "lodash-es/first";
-import { FileUploader } from "ng2-file-upload";
+import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -15,12 +15,16 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { CommitteeDisplayService } from "../committee-display.service";
 import { AwsFileUploadResponseData } from "../../../models/aws-object.model";
+import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { FormsModule } from "@angular/forms";
+import { NgClass, NgStyle } from "@angular/common";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
-  selector: "app-committee-edit-file-modal",
-  styleUrls: ["committee-edit-file-modal.component.sass"],
-  templateUrl: "./committee-edit-file-modal.component.html",
-  standalone: false
+    selector: "app-committee-edit-file-modal",
+    styleUrls: ["committee-edit-file-modal.component.sass"],
+    templateUrl: "./committee-edit-file-modal.component.html",
+    imports: [DatePickerComponent, FormsModule, NgClass, FileUploadModule, NgStyle, FontAwesomeModule]
 })
 export class CommitteeEditFileModalComponent implements OnInit, OnDestroy {
   public notify: AlertInstance;

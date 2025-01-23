@@ -12,10 +12,14 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { textStyleSelectors } from "../../../models/system.model";
+import { BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective } from "ngx-bootstrap/dropdown";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { NgClass } from "@angular/common";
+import { ColourSelectorComponent } from "../../../pages/banner/colour-selector";
 
 @Component({
-  selector: "app-actions-dropdown",
-  styles: [`
+    selector: "app-actions-dropdown",
+    styles: [`
     .column-input
       width: 44px
       padding-left: 6px
@@ -25,7 +29,7 @@ import { textStyleSelectors } from "../../../models/system.model";
       margin-top: 0
       height: 29px
   `],
-  template: `
+    template: `
     <div class="btn-group" dropdown>
       <button aria-controls="dropdown-animated" class="dropdown-toggle badge-button" dropdownToggle
               type="button">
@@ -176,7 +180,7 @@ import { textStyleSelectors } from "../../../models/system.model";
         }
       </ul>
     </div>`,
-  standalone: false
+    imports: [BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective, NgClass, ColourSelectorComponent]
 })
 export class ActionsDropdownComponent implements OnInit {
 

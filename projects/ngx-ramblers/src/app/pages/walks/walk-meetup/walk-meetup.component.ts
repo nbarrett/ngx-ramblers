@@ -15,12 +15,17 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { WalkNotificationService } from "../../../services/walks/walk-notification.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { MeetupService } from "../../../services/meetup.service";
+import { NotificationDirective } from "../../../notifications/common/notification.directive";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { FormsModule } from "@angular/forms";
+import { WalkMeetupConfigParametersComponent } from "../walk-meetup-config-parameters/walk-meetup-config-parameters.component";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 @Component({
-  selector: "app-walk-meetup",
-  templateUrl: "./walk-meetup.component.html",
-  styleUrls: ["./walk-meetup.component.sass"],
-  standalone: false
+    selector: "app-walk-meetup",
+    templateUrl: "./walk-meetup.component.html",
+    styleUrls: ["./walk-meetup.component.sass"],
+    imports: [NotificationDirective, MarkdownEditorComponent, FormsModule, WalkMeetupConfigParametersComponent, TooltipDirective]
 })
 export class WalkMeetupComponent implements OnInit {
 

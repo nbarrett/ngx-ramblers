@@ -16,10 +16,16 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { MailListAuditService } from "../../../services/mail/mail-list-audit.service";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
+import { PageComponent } from "../../../page/page.component";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { EmailSubscriptionsMailchimpComponent } from "./email-subscriptions-mailchimp.component";
+import { MailSubscriptionSettingComponent } from "../member-admin-modal/mail-subscription-setting";
+import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
+import { NgClass } from "@angular/common";
 
 @Component({
-  selector: "app-email-subscriptions",
-  template: `
+    selector: "app-email-subscriptions",
+    template: `
     <app-page autoTitle>
       @if (member) {
         <div class="row">
@@ -86,8 +92,8 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
         </div>
       </div>
     </app-page>`,
-  styleUrls: ["../admin/admin.component.sass"],
-  standalone: false
+    styleUrls: ["../admin/admin.component.sass"],
+    imports: [PageComponent, FontAwesomeModule, EmailSubscriptionsMailchimpComponent, MailSubscriptionSettingComponent, ContactUsComponent, NgClass]
 })
 export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
 

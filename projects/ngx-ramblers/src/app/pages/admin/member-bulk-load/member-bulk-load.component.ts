@@ -7,7 +7,7 @@ import groupBy from "lodash-es/groupBy";
 import map from "lodash-es/map";
 import reduce from "lodash-es/reduce";
 import sortBy from "lodash-es/sortBy";
-import { FileUploader } from "ng2-file-upload";
+import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
@@ -49,10 +49,20 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
 import { IconService } from "../../../services/icon-service/icon-service";
 import { NO_CHANGES_OR_DIFFERENCES } from "../../../models/ramblers-insight-hub";
+import { PageComponent } from "../../../page/page.component";
+import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { NgClass, NgStyle, JsonPipe, DecimalPipe, TitleCasePipe } from "@angular/common";
+import { StatusIconComponent } from "../status-icon";
+import { FormsModule } from "@angular/forms";
+import { LinkComponent } from "../../../link/link";
+import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
+import { FullNamePipe } from "../../../pipes/full-name.pipe";
+import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pipe";
 
 @Component({
-  selector: "app-bulk-load",
-  template: `
+    selector: "app-bulk-load",
+    template: `
     <app-page autoTitle>
       <div class="row">
         <div class="col-sm-12">
@@ -473,8 +483,8 @@ import { NO_CHANGES_OR_DIFFERENCES } from "../../../models/ramblers-insight-hub"
     </div>
     </div>
     </app-page>`,
-  styleUrls: ["./member-bulk-load.component.sass", "../admin/admin.component.sass"],
-  standalone: false
+    styleUrls: ["./member-bulk-load.component.sass", "../admin/admin.component.sass"],
+    imports: [PageComponent, TabsetComponent, TabDirective, FontAwesomeModule, FileUploadModule, NgClass, NgStyle, StatusIconComponent, FormsModule, LinkComponent, JsonPipe, DecimalPipe, TitleCasePipe, DisplayDateAndTimePipe, FullNamePipe, MemberIdToFullNamePipe]
 })
 export class MemberBulkLoadComponent implements OnInit, OnDestroy {
 

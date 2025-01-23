@@ -5,10 +5,13 @@ import { Walk, WalkViewMode } from "../models/walk.model";
 import { WalkDisplayService } from "../pages/walks/walk-display.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { NgClass } from "@angular/common";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 @Component({
-  selector: "app-walk-panel-expander",
-  template: `
+    selector: "app-walk-panel-expander",
+    template: `
     <div class="form-inline" [ngClass]="display.walkMode(walk)">
       @if (expandable) {
         <fa-icon (click)="expand()"
@@ -21,8 +24,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
         class="fa-2x markdown-preview-icon ml-1"></fa-icon>
       }
     </div>`,
-  styleUrls: ["./walk-panel-expander.sass"],
-  standalone: false
+    styleUrls: ["./walk-panel-expander.sass"],
+    imports: [NgClass, FontAwesomeModule, TooltipDirective]
 })
 export class WalkPanelExpanderComponent implements OnInit {
 

@@ -7,12 +7,18 @@ import { Member, ProfileUpdateType } from "../../../models/member.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { ProfileService } from "./profile.service";
+import { PageComponent } from "../../../page/page.component";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { FormsModule } from "@angular/forms";
+import { NgClass } from "@angular/common";
+import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
+import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 
 @Component({
-  selector: "app-contact-details",
-  templateUrl: "./contact-details.component.html",
-  styleUrls: ["../admin/admin.component.sass"],
-  standalone: false
+    selector: "app-contact-details",
+    templateUrl: "./contact-details.component.html",
+    styleUrls: ["../admin/admin.component.sass"],
+    imports: [PageComponent, FontAwesomeModule, FormsModule, NgClass, ContactUsComponent, DisplayDatePipe]
 })
 export class ContactDetailsComponent implements OnInit, OnDestroy {
   public member: Member;

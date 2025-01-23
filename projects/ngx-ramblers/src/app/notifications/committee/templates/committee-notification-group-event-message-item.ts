@@ -9,10 +9,13 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { Subscription } from "rxjs";
 import { Organisation } from "../../../models/system.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
+import { NgStyle } from "@angular/common";
+import { MarkdownComponent } from "ngx-markdown";
+import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 
 @Component({
-  selector: "app-committee-notification-group-event-message-item",
-  template: `
+    selector: "app-committee-notification-group-event-message-item",
+    template: `
     <span>{{ event.eventDate | displayDate }}</span>
     @if (event.eventTime) {
       <span> • <span>{{ event.eventTime }}</span></span>
@@ -43,7 +46,7 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
     @if (notification.groupEventsFilter.includeDescription) {
       <div markdown [data]="event.description"></div>
     }`,
-  standalone: false
+    imports: [NgStyle, MarkdownComponent, DisplayDatePipe]
 })
 export class CommitteeNotificationGroupEventMessageItemComponent implements OnInit, OnDestroy {
 

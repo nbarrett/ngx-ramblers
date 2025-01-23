@@ -14,10 +14,19 @@ import { MemberResourcesReferenceDataService } from "../../../services/member/me
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { PageContentEditService } from "../../../services/page-content-edit.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { FormsModule } from "@angular/forms";
+import { ColumnWidthComponent } from "./column-width";
+import { BadgeButtonComponent } from "../badge-button/badge-button";
+import { ActionsDropdownComponent } from "../actions-dropdown/actions-dropdown";
+import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resizer/image-cropper-and-resizer";
+import { CardImageComponent } from "../card/image/card-image";
+import { NgClass } from "@angular/common";
+import { MarginSelectComponent } from "./dynamic-content-margin-select";
 
 @Component({
-  selector: "app-dynamic-content-site-edit-text-row",
-  template: `
+    selector: "app-dynamic-content-site-edit-text-row",
+    template: `
     @if (actions.isTextRow(row)) {
       <div [class]="actions.rowClasses(row)">
         @for (column of row?.columns; track column; let columnIndex = $index) {
@@ -179,8 +188,8 @@ import { StringUtilsService } from "../../../services/string-utils.service";
         }
       </div>
     }`,
-  styleUrls: ["./dynamic-content.sass"],
-  standalone: false
+    styleUrls: ["./dynamic-content.sass"],
+    imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent]
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
 

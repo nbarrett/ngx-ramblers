@@ -3,7 +3,7 @@ import { ActivatedRoute, ParamMap } from "@angular/router";
 import range from "lodash-es/range";
 import uniq from "lodash-es/uniq";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
-import { PageChangedEvent } from "ngx-bootstrap/pagination";
+import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
@@ -41,10 +41,24 @@ import { faImages, faPeopleGroup, faTableCells, faWalking } from "@fortawesome/f
 import { DataMigrationService } from "../../../services/walks/data-migration.service";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { StoredValue } from "../../../models/ui-actions";
+import { PageComponent } from "../../../page/page.component";
+import { DynamicContentComponent } from "../../../modules/common/dynamic-content/dynamic-content";
+import { WalkSearchComponent } from "../walk-search/walk-search.component";
+import { BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective } from "ngx-bootstrap/dropdown";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { FormsModule } from "@angular/forms";
+import { WalkCardListComponent } from "../walk-view/walk-card-list";
+import { WalkViewComponent } from "../walk-view/walk-view";
+import { WalkEditComponent } from "../walk-edit/walk-edit.component";
+import { NgClass } from "@angular/common";
+import { WalkGradingComponent } from "../walk-view/walk-grading";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
+import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 
 @Component({
-  selector: "app-walk-list",
-  template: `
+    selector: "app-walk-list",
+    template: `
     <app-page>
       <app-dynamic-content [anchor]="'page-header'" contentPathReadOnly/>
       <div class="row mb-n3">
@@ -225,9 +239,9 @@ import { StoredValue } from "../../../models/ui-actions";
       <app-dynamic-content [anchor]="'action-buttons'" contentPathReadOnly/>
     </app-page>
   `,
-  styleUrls: ["./walk-list.component.sass"],
-  changeDetection: ChangeDetectionStrategy.Default,
-  standalone: false
+    styleUrls: ["./walk-list.component.sass"],
+    changeDetection: ChangeDetectionStrategy.Default,
+    imports: [PageComponent, DynamicContentComponent, WalkSearchComponent, BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective, PaginationComponent, FormsModule, WalkCardListComponent, WalkViewComponent, WalkEditComponent, NgClass, WalkGradingComponent, TooltipDirective, WalkPanelExpanderComponent, DisplayDatePipe]
 })
 export class WalkListComponent implements OnInit, OnDestroy {
 

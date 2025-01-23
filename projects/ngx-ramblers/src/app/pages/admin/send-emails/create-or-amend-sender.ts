@@ -6,10 +6,13 @@ import { MailService } from "../../../services/mail/mail.service";
 import { CommitteeMember } from "../../../models/committee.model";
 import { ALERT_ERROR, ALERT_SUCCESS } from "../../../models/alert-target.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { AlertComponent } from "ngx-bootstrap/alert";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { BrevoButtonComponent } from "../../../modules/common/third-parties/brevo-button";
 
 @Component({
-  selector: "[app-create-or-amend-sender]",
-  template: `
+    selector: "[app-create-or-amend-sender]",
+    template: `
     @if (senderDoesNotExist()) {
       <div class="col-sm-12">
         <div class="d-flex align-items-start">
@@ -47,7 +50,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
         </div>
       </div>
     }`,
-  standalone: false
+    imports: [AlertComponent, FontAwesomeModule, BrevoButtonComponent]
 })
 
 export class CreateOrAmendSenderComponent implements OnInit {

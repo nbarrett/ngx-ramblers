@@ -4,17 +4,18 @@ import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { Metadata } from "../../../models/ramblers-walks-manager";
+import { WalkFeatureComponent } from "./walk-feature";
 
 @Component({
-  selector: "app-walk-features",
-  template: `
+    selector: "app-walk-features",
+    template: `
     <div class="event-panel rounded event-panel-inner">
       <h1>Features</h1>
       @for (feature of features; track feature) {
         <app-walk-feature [metadata]="feature"></app-walk-feature>
       }
     </div>`,
-  standalone: false
+    imports: [WalkFeatureComponent]
 })
 
 export class WalkFeaturesComponent implements OnInit {

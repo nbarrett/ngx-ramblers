@@ -5,10 +5,13 @@ import { MailMessagingConfig, NotificationConfig } from "../../../models/mail.mo
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { CommitteeMember } from "../../../models/committee.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { CreateOrAmendSenderComponent } from "./create-or-amend-sender";
+import { FormsModule } from "@angular/forms";
+import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi-select/committee-role-multi-select";
 
 @Component({
-  selector: "app-sender-replies-and-sign-off",
-  template: `
+    selector: "app-sender-replies-and-sign-off",
+    template: `
     <div class="row" app-create-or-amend-sender (senderExists)="senderExists.emit($event)"
     [committeeRoleSender]="committeeRoleSender"></div>
     @if (notificationConfig) {
@@ -65,7 +68,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
         }
       </div>
     }`,
-  standalone: false
+    imports: [CreateOrAmendSenderComponent, FormsModule, CommitteeRoleMultiSelectComponent]
 })
 
 export class SenderRepliesAndSignoffComponent implements OnInit {

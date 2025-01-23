@@ -4,10 +4,11 @@ import { ListCreateRequest, MailMessagingConfig, NotificationConfig } from "../.
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { Subscription } from "rxjs";
 import { NgxLoggerLevel } from "ngx-logger";
+import { FormsModule } from "@angular/forms";
 
 @Component({
-  selector: "app-list-editor",
-  template: `
+    selector: "app-list-editor",
+    template: `
     <div class="row">
       <div class="col-sm-6">
         <div class="form-group">
@@ -35,7 +36,7 @@ import { NgxLoggerLevel } from "ngx-logger";
         </div>
       </div>
     </div>`,
-  standalone: false
+    imports: [FormsModule]
 })
 export class MailListEditorComponent implements OnInit, OnDestroy {
   public mailMessagingConfig: MailMessagingConfig;

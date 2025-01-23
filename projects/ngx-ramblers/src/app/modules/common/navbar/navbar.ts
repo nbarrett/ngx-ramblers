@@ -15,12 +15,18 @@ import { BroadcastService } from "../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
+import { SvgComponent } from "../svg/svg";
+import { NavbarContentComponent } from "../navbar-content/navbar-content";
+import { HeaderButtonsComponent } from "../../../header-buttons/header-buttons";
+import { LoginPanelComponent } from "../../../login-panel/login-panel.component";
+import { NgStyle } from "@angular/common";
+import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
 
 @Component({
-  selector: "app-navbar",
-  templateUrl: "./navbar.html",
-  styleUrls: ["./navbar.sass"],
-  standalone: false
+    selector: "app-navbar",
+    templateUrl: "./navbar.html",
+    styleUrls: ["./navbar.sass"],
+    imports: [SvgComponent, NavbarContentComponent, HeaderButtonsComponent, LoginPanelComponent, NgStyle, SocialMediaLinksComponent]
 })
 export class NavbarComponent implements OnInit, OnDestroy {
 

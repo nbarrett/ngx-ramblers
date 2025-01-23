@@ -2,11 +2,13 @@ import { Component, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { BannerTextItem } from "../../models/banner-configuration.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
+import { FormsModule } from "@angular/forms";
+import { ColourSelectorComponent } from "./colour-selector";
 
 @Component({
-  selector: "app-banner-title-part-config",
-  styleUrls: ["./banner.component.sass"],
-  template: `
+    selector: "app-banner-title-part-config",
+    styleUrls: ["./banner.component.sass"],
+    template: `
     @if (titlePart) {
       <div class="row">
         <div class="col-sm-6">
@@ -18,7 +20,7 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
         </div>
       </div>
     }`,
-  standalone: false
+    imports: [FormsModule, ColourSelectorComponent]
 })
 
 export class BannerTitlePartConfigComponent implements OnInit {

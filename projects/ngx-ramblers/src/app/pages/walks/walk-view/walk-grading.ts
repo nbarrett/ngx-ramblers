@@ -1,9 +1,11 @@
 import { Component, Input } from "@angular/core";
 import { WALK_GRADES, WalkGrade } from "../../../models/walk.model";
+import { RelatedLinkComponent } from "../../../modules/common/related-link/related-link.component";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 @Component({
-  selector: "app-walk-grading",
-  template: `
+    selector: "app-walk-grading",
+    template: `
     @if (walkGrade) {
       <div app-related-link placement="right" tooltip="Walk is graded as {{walkGrade.description}}">
         <img title class="grading-image"
@@ -14,8 +16,8 @@ import { WALK_GRADES, WalkGrade } from "../../../models/walk.model";
         </div>
       </div>
     }`,
-  styleUrls: ["./walk-view.sass"],
-  standalone: false
+    styleUrls: ["./walk-view.sass"],
+    imports: [RelatedLinkComponent, TooltipDirective]
 })
 
 export class WalkGradingComponent {

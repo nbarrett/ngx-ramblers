@@ -11,10 +11,19 @@ import { UrlService } from "../../../services/url.service";
 import { SocialDisplayService } from "../social-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { PageService } from "../../../services/page.service";
+import { NgClass } from "@angular/common";
+import { MarkdownComponent } from "ngx-markdown";
+import { RelatedLinkComponent } from "../../../modules/common/related-link/related-link.component";
+import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { RouterLink } from "@angular/router";
+import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
+import { EventTimesPipe } from "../../../pipes/event-times.pipe";
 
 @Component({
-  selector: "app-social-view",
-  template: `
+    selector: "app-social-view",
+    template: `
     <div class="card mb-3">
       <div class="wrapper w-100 position-relative">
         @if (socialEvent?.thumbnail) {
@@ -183,8 +192,8 @@ import { PageService } from "../../../services/page.service";
         }
       </div>
     </div>`,
-  styleUrls: ["social-view.sass"],
-  standalone: false
+    styleUrls: ["social-view.sass"],
+    imports: [NgClass, MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, DisplayDayPipe, EventTimesPipe]
 })
 export class SocialViewComponent implements OnInit {
   @Input()

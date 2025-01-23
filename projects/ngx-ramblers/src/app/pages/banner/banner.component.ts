@@ -36,11 +36,23 @@ import { FileUtilsService } from "../../file-utils.service";
 import { IMAGE_JPEG } from "../../models/content-metadata.model";
 import cloneDeep from "lodash-es/cloneDeep";
 import isEqual from "lodash-es/isEqual";
+import { PageComponent } from "../../page/page.component";
+import { FormsModule } from "@angular/forms";
+import { BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective } from "ngx-bootstrap/dropdown";
+import { ButtonCheckboxDirective } from "ngx-bootstrap/buttons";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { CollapseDirective } from "ngx-bootstrap/collapse";
+import { BannerImageSelectorComponent } from "./banner-image-selector.component";
+import { BannerTitleConfigComponent } from "./banner-title-config.component";
+import { ColourSelectorComponent } from "./colour-selector";
+import { ImageCropperAndResizerComponent } from "../../image-cropper-and-resizer/image-cropper-and-resizer";
+import { BannerPapercutOutputComponent } from "./banner-papercut-output.component";
+import { BannerLogoAndTextLinesOutputComponent } from "./banner-logo-and-text-lines-output";
 
 @Component({
-  selector: "app-banner",
-  styleUrls: ["./banner.component.sass"],
-  template: `
+    selector: "app-banner",
+    styleUrls: ["./banner.component.sass"],
+    template: `
     <app-page autoTitle [pageTitle]="pageTitle()">
       <div class="fixed-height">
         <div class="form-group">
@@ -238,7 +250,7 @@ import isEqual from "lodash-es/isEqual";
             }
           </div>
         </app-page>`,
-  standalone: false
+    imports: [PageComponent, FormsModule, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, ButtonCheckboxDirective, FontAwesomeModule, CollapseDirective, BannerImageSelectorComponent, BannerTitleConfigComponent, ColourSelectorComponent, ImageCropperAndResizerComponent, BannerPapercutOutputComponent, BannerLogoAndTextLinesOutputComponent]
 })
 
 export class BannerComponent implements OnInit, OnDestroy {

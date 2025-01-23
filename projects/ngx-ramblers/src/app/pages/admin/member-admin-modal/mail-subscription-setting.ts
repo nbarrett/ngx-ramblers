@@ -11,10 +11,11 @@ import { AuditStatus } from "../../../models/audit";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
+import { FormsModule } from "@angular/forms";
 
 @Component({
-  selector: "app-mail-subscription-setting",
-  template: `
+    selector: "app-mail-subscription-setting",
+    template: `
     @if (subscription && this.mailMessagingConfig) {
       <div class="custom-control custom-checkbox">
         <input [(ngModel)]="subscription.subscribed"
@@ -24,7 +25,7 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
         for="mail-list-{{subscription.id}}-subscription">{{ checkboxTitle() }}</label>
       </div>
     }`,
-  standalone: false
+    imports: [FormsModule]
 })
 export class MailSubscriptionSettingComponent implements OnInit {
 

@@ -2,20 +2,21 @@ import { Component, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { ButtonWrapperComponent } from "./button-wrapper";
 
 @Component({
-  selector: "app-brevo-button",
-  styles: [`
+    selector: "app-brevo-button",
+    styles: [`
     .image
       width: 17px
   `],
-  template: `
+    template: `
     <app-button-wrapper [disabled]="disabled" [button]="button" [showTooltip]="showTooltip" [title]="title">
       <img title class="image"
            src="/assets/images/local/brevo.ico"
            alt="{{title}}"/>
     </app-button-wrapper>`,
-  standalone: false
+    imports: [ButtonWrapperComponent]
 })
 
 export class BrevoButtonComponent implements OnInit {

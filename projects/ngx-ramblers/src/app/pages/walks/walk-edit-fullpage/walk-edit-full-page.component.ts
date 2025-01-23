@@ -10,11 +10,13 @@ import { WalksReferenceService } from "../../../services/walks/walks-reference-d
 import { WalksService } from "../../../services/walks/walks.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
+import { PageComponent } from "../../../page/page.component";
+import { WalkEditComponent } from "../walk-edit/walk-edit.component";
 
 @Component({
-  selector: "app-walk-edit-full-page",
-  templateUrl: "./walk-edit-full-page.component.html",
-  standalone: false
+    selector: "app-walk-edit-full-page",
+    templateUrl: "./walk-edit-full-page.component.html",
+    imports: [PageComponent, WalkEditComponent]
 })
 
 export class WalkEditFullPageComponent implements OnInit, OnDestroy {

@@ -7,12 +7,13 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { UrlService } from "../../../services/url.service";
 import { SocialDisplayService } from "../social-display.service";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 
 @Component({
-  selector: "app-social-information",
-  styleUrls: ["./social-information.component.sass"],
-  templateUrl: "./social-information.component.html",
-  standalone: false
+    selector: "app-social-information",
+    styleUrls: ["./social-information.component.sass"],
+    templateUrl: "./social-information.component.html",
+    imports: [MarkdownEditorComponent]
 })
 export class SocialInformationComponent implements OnInit {
   @Input()

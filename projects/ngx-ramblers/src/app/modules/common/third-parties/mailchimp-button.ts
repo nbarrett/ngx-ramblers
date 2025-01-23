@@ -2,20 +2,21 @@ import { Component, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { ButtonWrapperComponent } from "./button-wrapper";
 
 @Component({
-  selector: "app-mailchimp-button",
-  styles: [`
+    selector: "app-mailchimp-button",
+    styles: [`
     .mailchimp-image
       width: 20px
       border-radius: 25px`],
-  template: `
+    template: `
     <app-button-wrapper [disabled]="disabled" [button]="button" [showTooltip]="showTooltip" [title]="title">
       <img title class="mailchimp-image"
            src="/assets/images/local/mailchimp.jpeg"
            alt="{{title}}"/>
     </app-button-wrapper>`,
-  standalone: false
+    imports: [ButtonWrapperComponent]
 })
 
 export class MailchimpButtonComponent implements OnInit {

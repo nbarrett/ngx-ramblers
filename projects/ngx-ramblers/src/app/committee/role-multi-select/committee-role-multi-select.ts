@@ -17,11 +17,13 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { CommitteeDisplayService } from "../../pages/committee/committee-display.service";
 import { NumberUtilsService } from "../../services/number-utils.service";
+import { NgClass } from "@angular/common";
+import { FormsModule } from "@angular/forms";
 
 
 @Component({
-  selector: "app-committee-role-multi-select",
-  template: `
+    selector: "app-committee-role-multi-select",
+    template: `
     @if (label) {
       <label (click)="toggleExpanded()"
       [for]="id">{{ label }}</label>
@@ -76,8 +78,8 @@ import { NumberUtilsService } from "../../services/number-utils.service";
       </div>
     </div>
     }`,
-  styleUrls: ["./committee-role-multi-select.sass"],
-  standalone: false
+    styleUrls: ["./committee-role-multi-select.sass"],
+    imports: [NgClass, FormsModule]
 })
 
 export class CommitteeRoleMultiSelectComponent implements OnInit, OnDestroy {

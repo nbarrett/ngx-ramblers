@@ -1,7 +1,7 @@
 import { Component, Input, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import range from "lodash-es/range";
-import { PageChangedEvent } from "ngx-bootstrap/pagination";
+import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -19,10 +19,13 @@ import { SocialEventsService } from "../../../services/social-events/social-even
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { SocialDisplayService } from "../social-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
+import { SocialSearchComponent } from "../social-search/social-search";
+import { FormsModule } from "@angular/forms";
+import { SocialListCardsComponent } from "../social-list-cards/social-list-cards";
 
 @Component({
-  selector: "app-social-events",
-  template: `
+    selector: "app-social-events",
+    template: `
     <app-social-search [filterParameters]="filterParameters"
                        [notifyTarget]="notifyTarget">
       <pagination pagination class="pagination rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="5"
@@ -33,8 +36,8 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
                            [filteredSocialEvents]="currentPageSocials">
     </app-social-list-cards>
   `,
-  styleUrls: ["../home/social-home.component.sass"],
-  standalone: false
+    styleUrls: ["../home/social-home.component.sass"],
+    imports: [SocialSearchComponent, PaginationComponent, FormsModule, SocialListCardsComponent]
 })
 export class SocialEventsComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];

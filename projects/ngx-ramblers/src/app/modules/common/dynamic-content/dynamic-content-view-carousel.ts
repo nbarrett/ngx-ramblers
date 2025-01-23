@@ -3,10 +3,11 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { PageContentRow } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
+import { CarouselComponent } from "../../../carousel/view/carousel";
 
 @Component({
-  selector: "app-dynamic-content-view-carousel",
-  template: `
+    selector: "app-dynamic-content-view-carousel",
+    template: `
       @if (actions.isCarousel(row)) {
         <div [class]="actions.rowClasses(row)">
           <div class="col-sm-12">
@@ -14,7 +15,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
           </div>
         </div>
       }`,
-  standalone: false
+    imports: [CarouselComponent]
 })
 export class DynamicContentViewCarouselComponent implements OnInit {
 

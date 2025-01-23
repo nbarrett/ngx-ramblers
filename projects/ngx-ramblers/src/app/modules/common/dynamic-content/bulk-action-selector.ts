@@ -7,8 +7,8 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 
 @Component({
-  selector: "app-bulk-action-selector",
-  template: `
+    selector: "app-bulk-action-selector",
+    template: `
       <div class="custom-control custom-checkbox float-right">
           <input (click)="pageContentRowService.toggleSelection(row)"
                  [checked]="pageContentRowService.isSelected(row)"
@@ -17,8 +17,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
           <label class="custom-control-label"
                  [for]="id">Select Row
           </label>
-      </div>`,
-  standalone: false
+      </div>`
 })
 
 export class BulkActionSelectorComponent implements OnInit {

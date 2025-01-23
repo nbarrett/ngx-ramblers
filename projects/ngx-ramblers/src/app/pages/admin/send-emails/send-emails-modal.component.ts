@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit, ViewChild } from "@angular/core";
-import { NgSelectComponent } from "@ng-select/ng-select";
+import { NgSelectComponent, NgOptgroupTemplateDirective } from "@ng-select/ng-select";
 import map from "lodash-es/map";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -31,10 +31,17 @@ import first from "lodash-es/first";
 import { KEY_NULL_VALUE_NONE } from "../../../functions/enums";
 import { MemberBulkDeleteService } from "../../../services/member/member-bulk-delete.service";
 import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk-load-audit.service";
+import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { NotificationConfigSelectorComponent } from "../system-settings/mail/notification-config-selector";
+import { FormsModule } from "@angular/forms";
+import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { SenderRepliesAndSignoffComponent } from "./sender-replies-and-signoff";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { NgClass } from "@angular/common";
 
 @Component({
-  selector: "app-member-admin-send-emails-modal",
-  template: `
+    selector: "app-member-admin-send-emails-modal",
+    template: `
     @if (notificationConfig) {
       <div class="modal-content">
         <div class="modal-header">
@@ -222,7 +229,7 @@ import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk
       <div class="d-none">
         <ng-template app-notification-directive/>
       </div>`,
-  standalone: false
+    imports: [TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, DatePickerComponent, NgSelectComponent, NgOptgroupTemplateDirective, SenderRepliesAndSignoffComponent, FontAwesomeModule, NgClass, NotificationDirective]
 })
 
 export class SendEmailsModalComponent implements OnInit, OnDestroy {

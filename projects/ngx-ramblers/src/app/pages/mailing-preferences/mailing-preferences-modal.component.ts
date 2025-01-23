@@ -13,11 +13,17 @@ import { MailProvider, SystemConfig } from "../../models/system.model";
 import { Subscription } from "rxjs";
 import { MailMessagingConfig } from "../../models/mail.model";
 import { MailMessagingService } from "../../services/mail/mail-messaging.service";
+import { EmailSubscriptionsMailchimpComponent } from "../admin/profile/email-subscriptions-mailchimp.component";
+import { MailSubscriptionSettingComponent } from "../admin/member-admin-modal/mail-subscription-setting";
+import { FormsModule } from "@angular/forms";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { ContactUsComponent } from "../../committee/contact-us/contact-us";
+import { NgClass } from "@angular/common";
 
 @Component({
-  selector: "app-mailing-preferences-modal-component",
-  templateUrl: "./mailing-preferences-modal.component.html",
-  standalone: false
+    selector: "app-mailing-preferences-modal-component",
+    templateUrl: "./mailing-preferences-modal.component.html",
+    imports: [EmailSubscriptionsMailchimpComponent, MailSubscriptionSettingComponent, FormsModule, FontAwesomeModule, ContactUsComponent, NgClass]
 })
 export class MailingPreferencesModalComponent implements OnInit, OnDestroy {
 

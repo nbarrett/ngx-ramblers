@@ -8,11 +8,13 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { UrlService } from "../../services/url.service";
+import { NgSelectComponent, NgOptionComponent } from "@ng-select/ng-select";
+import { FormsModule } from "@angular/forms";
 
 @Component({
-  selector: "app-icon-selector",
-  styleUrls: ["./icon-selector.sass"],
-  template: `
+    selector: "app-icon-selector",
+    styleUrls: ["./icon-selector.sass"],
+    template: `
     <ng-select [compareWith]="imageComparer" [disabled]="!titleLine.showIcon" appearance="outline" [searchable]="false" [clearable]="false"
       placeholder="Select an icon"
       [closeOnSelect]="true"
@@ -26,7 +28,7 @@ import { UrlService } from "../../services/url.service";
       }
     </ng-select>
     `,
-  standalone: false
+    imports: [NgSelectComponent, FormsModule, NgOptionComponent]
 })
 
 export class IconSelectorComponent implements OnInit, OnDestroy {

@@ -20,13 +20,16 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { PageContentService } from "../../../services/page-content.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { DataPopulationService } from "../data-population.service";
+import { PageComponent } from "../../../page/page.component";
+import { LoginRequiredComponent } from "../../../modules/common/login-required/login-required";
+import { DynamicContentComponent } from "../../../modules/common/dynamic-content/dynamic-content";
 
 @Component({
-  selector: "app-admin",
-  templateUrl: "./admin.component.html",
-  styleUrls: ["./admin.component.sass"],
-  changeDetection: ChangeDetectionStrategy.Default,
-  standalone: false
+    selector: "app-admin",
+    templateUrl: "./admin.component.html",
+    styleUrls: ["./admin.component.sass"],
+    changeDetection: ChangeDetectionStrategy.Default,
+    imports: [PageComponent, LoginRequiredComponent, DynamicContentComponent]
 })
 export class AdminComponent implements OnInit, OnDestroy, OnDestroy {
   faIdCard = faIdCard;

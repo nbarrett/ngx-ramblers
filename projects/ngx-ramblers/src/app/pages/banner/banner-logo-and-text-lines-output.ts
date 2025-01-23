@@ -2,11 +2,13 @@ import { Component, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { LogoAndTextLinesBanner } from "../../models/banner-configuration.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
+import { BannerHeadLogoComponent } from "./banner-logo/banner-logo";
+import { BannerTitleOutputComponent } from "./banner-title-output.component";
 
 @Component({
-  selector: "app-banner-logo-and-text-lines-output",
-  styleUrls: ["./banner.component.sass"],
-  template: `
+    selector: "app-banner-logo-and-text-lines-output",
+    styleUrls: ["./banner.component.sass"],
+    template: `
     @if (banner) {
       <div class="d-flex align-items-center text-center header-panel">
         @if (banner?.logo?.show) {
@@ -21,7 +23,7 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
       </div>
     }
     `,
-  standalone: false
+    imports: [BannerHeadLogoComponent, BannerTitleOutputComponent]
 })
 
 export class BannerLogoAndTextLinesOutputComponent implements OnInit {

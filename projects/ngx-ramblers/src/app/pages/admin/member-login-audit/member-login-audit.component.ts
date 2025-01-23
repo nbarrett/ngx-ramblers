@@ -24,11 +24,18 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
 import { ProfileService } from "../profile/profile.service";
+import { PageComponent } from "../../../page/page.component";
+import { NgClass } from "@angular/common";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { FormsModule } from "@angular/forms";
+import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
+import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 
 @Component({
-  selector: "app-member-admin",
-  templateUrl: "./member-login-audit.component.html",
-  standalone: false
+    selector: "app-member-admin",
+    templateUrl: "./member-login-audit.component.html",
+    imports: [PageComponent, NgClass, FontAwesomeModule, FormsModule, DatePickerComponent, DisplayDateAndTimePipe, FullNameWithAliasPipe]
 })
 export class MemberLoginAuditComponent implements OnInit, OnDestroy {
 

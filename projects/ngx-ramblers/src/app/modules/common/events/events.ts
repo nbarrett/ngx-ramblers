@@ -10,16 +10,17 @@ import { PageContentService } from "../../../services/page-content.service";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
+import { SocialEventsComponent } from "../../../pages/social/list/social-events";
 
 @Component({
-  selector: "app-events",
-  template: `
+    selector: "app-events",
+    template: `
     <div [class]="actions.rowClasses(row)">
       <div class="col-sm-12">
         <app-social-events/>
       </div>
     </div>`,
-  standalone: false
+    imports: [SocialEventsComponent]
 })
 export class EventsComponent implements OnInit {
 
