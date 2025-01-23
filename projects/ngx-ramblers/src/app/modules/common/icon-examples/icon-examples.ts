@@ -6,12 +6,15 @@ import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { KeyValue } from "../../../functions/enums";
 import { IconService } from "../../../services/icon-service/icon-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
+import { FormsModule } from "@angular/forms";
+import { TypeaheadDirective } from "ngx-bootstrap/typeahead";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
-  selector: "app-icon-examples",
-  templateUrl: "./icon-examples.html",
-  styleUrls: ["./icon-examples.sass"],
-  standalone: false
+    selector: "app-icon-examples",
+    templateUrl: "./icon-examples.html",
+    styleUrls: ["./icon-examples.sass"],
+    imports: [FormsModule, TypeaheadDirective, FontAwesomeModule]
 })
 
 export class IconExamplesComponent implements OnInit, OnDestroy {

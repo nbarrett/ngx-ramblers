@@ -5,12 +5,13 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { Dimensions } from "ngx-image-cropper";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { FormsModule } from "@angular/forms";
 
 
 @Component({
-  selector: "app-aspect-ratio-selector",
-  templateUrl: "./aspect-ratio-selector.html",
-  standalone: false
+    selector: "app-aspect-ratio-selector",
+    templateUrl: "./aspect-ratio-selector.html",
+    imports: [FormsModule]
 })
 
 export class AspectRatioSelectorComponent implements OnInit {

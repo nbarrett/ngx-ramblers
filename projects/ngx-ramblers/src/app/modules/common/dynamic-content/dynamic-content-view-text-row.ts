@@ -5,10 +5,12 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { CardImageComponent } from "../card/image/card-image";
 
 @Component({
-  selector: "app-dynamic-content-view-text-row",
-  template: `
+    selector: "app-dynamic-content-view-text-row",
+    template: `
     @if (actions.isTextRow(row)) {
       <div [class]="actions.rowClasses(row)">
         @for (column of row?.columns; track column; let columnIndex = $index) {
@@ -44,8 +46,8 @@ import { StringUtilsService } from "../../../services/string-utils.service";
         }
       </div>
     }`,
-  styleUrls: ["./dynamic-content.sass"],
-  standalone: false
+    styleUrls: ["./dynamic-content.sass"],
+    imports: [MarkdownEditorComponent, CardImageComponent]
 })
 export class DynamicContentViewTextRowComponent implements OnInit {
   @Input()

@@ -2,17 +2,18 @@ import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from "@angu
 import cloneDeep from "lodash-es/cloneDeep";
 import isEqual from "lodash-es/isEqual";
 import { NgxLoggerLevel } from "ngx-logger";
-import { TagData, TagifySettings } from "ngx-tagify";
+import { TagData, TagifySettings, TagifyModule } from "ngx-tagify";
 import { BehaviorSubject, Subscription } from "rxjs";
 import { ImageTag } from "../../models/content-metadata.model";
 import { ImageTagDataService } from "../../services/image-tag-data-service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { StringUtilsService } from "../../services/string-utils.service";
+import { FormsModule } from "@angular/forms";
 
 @Component({
-  selector: "app-tag-editor",
-  styleUrls: ["./tag-editor.component.sass"],
-  template: `
+    selector: "app-tag-editor",
+    styleUrls: ["./tag-editor.component.sass"],
+    template: `
       <label [for]="id">Image Tags</label>
       <tagify [ngModel]="editableTags"
               inputClass="round w-100"
@@ -24,7 +25,7 @@ import { StringUtilsService } from "../../services/string-utils.service";
               (remove)="onRemove($event)">
       </tagify>
   `,
-  standalone: false
+    imports: [TagifyModule, FormsModule]
 })
 
 export class TagEditorComponent implements OnInit, OnDestroy {

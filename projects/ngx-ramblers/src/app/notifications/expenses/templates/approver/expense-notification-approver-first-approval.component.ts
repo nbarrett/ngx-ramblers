@@ -1,10 +1,14 @@
 import { Component } from "@angular/core";
 import { ExpenseNotificationDetailsComponent } from "../common/expense-notification-details.component";
 import { BuiltInRole } from "../../../../models/committee.model";
+import { ExpenseNotificationFooterComponent } from "../common/expense-notification-footer-component";
+import { DisplayDatePipe } from "../../../../pipes/display-date.pipe";
+import { MemberIdToFirstNamePipe } from "../../../../pipes/member-id-to-first-name.pipe";
+import { MemberIdToFullNamePipe } from "../../../../pipes/member-id-to-full-name.pipe";
 
 @Component({
-  selector: "app-expense-notification-approver-first-approval",
-  template: `<p>This email is to notify you as an Expense Approver, that <strong
+    selector: "app-expense-notification-approver-first-approval",
+    template: `<p>This email is to notify you as an Expense Approver, that <strong
     [textContent]="display.expenseClaimLatestEvent(expenseClaim).memberId | memberIdToFullName : members"></strong>
     has just updated <strong
       [textContent]="(display.expenseClaimCreatedEvent(expenseClaim).memberId | memberIdToFullName : members) + '\\'s'"></strong>
@@ -19,7 +23,7 @@ import { BuiltInRole } from "../../../../models/committee.model";
     Then {{ display.committeeReferenceData.contactUsFieldForBuiltInRole(BuiltInRole.TREASURER, "fullName") }} will be automatically notified to organise the payment.</p>
   <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>
   `,
-  standalone: false
+    imports: [ExpenseNotificationDetailsComponent, ExpenseNotificationFooterComponent, DisplayDatePipe, MemberIdToFirstNamePipe, MemberIdToFullNamePipe]
 })
 export class ExpenseNotificationApproverFirstApprovalComponent extends ExpenseNotificationDetailsComponent {
   protected readonly BuiltInRole = BuiltInRole;

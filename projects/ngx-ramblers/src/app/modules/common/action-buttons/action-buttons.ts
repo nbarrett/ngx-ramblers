@@ -22,10 +22,12 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
 import { PageContentEditService } from "../../../services/page-content-edit.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { SvgComponent } from "../svg/svg";
+import { CardEditorComponent } from "../card-editor/card-editor";
 
 @Component({
-  selector: "app-action-buttons",
-  template: `
+    selector: "app-action-buttons",
+    template: `
     @if (row) {
       <div class="row">
         @if (row.showSwiper && maxViewableSlideCount < pageContentColumns().length) {
@@ -69,7 +71,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
         }
       </div>
     }`,
-  standalone: false
+    imports: [SvgComponent, CardEditorComponent]
 })
 export class ActionButtonsComponent implements OnInit {
 

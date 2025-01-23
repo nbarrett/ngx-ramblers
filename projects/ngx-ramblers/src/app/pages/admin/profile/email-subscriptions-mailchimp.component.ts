@@ -9,10 +9,11 @@ import { MailProvider, RootFolder, SystemConfig } from "../../../models/system.m
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
+import { FormsModule } from "@angular/forms";
 
 @Component({
-  selector: "app-email-subscriptions-mailchimp",
-  template: `
+    selector: "app-email-subscriptions-mailchimp",
+    template: `
     @if (mailchimpConfig?.lists?.walks) {
       <div class="custom-control custom-checkbox">
         <input [(ngModel)]="member.mailchimpLists.walks.subscribed" type="checkbox" class="custom-control-input"
@@ -45,7 +46,7 @@ import { MailchimpConfigService } from "../../../services/mailchimp-config.servi
         </label>
       </div>
     }`,
-  standalone: false
+    imports: [FormsModule]
 })
 export class EmailSubscriptionsMailchimpComponent implements OnInit, OnDestroy {
 

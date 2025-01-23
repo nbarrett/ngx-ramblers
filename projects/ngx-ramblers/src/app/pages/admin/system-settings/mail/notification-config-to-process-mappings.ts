@@ -5,10 +5,12 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { Subscription } from "rxjs";
 import { KEY_NULL_VALUE_NONE } from "../../../../functions/enums";
+import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
+import { FormsModule } from "@angular/forms";
 
 @Component({
-  selector: "app-notification-config-to-process-mapping",
-  template: `
+    selector: "app-notification-config-to-process-mapping",
+    template: `
     @if (mailMessagingConfig) {
       <div class="row img-thumbnail thumbnail-2">
         <div class="thumbnail-heading">Process Mappings</div>
@@ -74,7 +76,7 @@ import { KEY_NULL_VALUE_NONE } from "../../../../functions/enums";
       </div>
     }
     `,
-  standalone: false
+    imports: [MarkdownEditorComponent, FormsModule]
 })
 
 export class NotificationConfigToProcessMappingComponent implements OnInit, OnDestroy {

@@ -14,10 +14,14 @@ import { ForgotPasswordModalComponent } from "../forgot-password-modal/forgot-pa
 import { ResetPasswordModalComponent } from "../reset-password-modal/reset-password-modal.component";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { Organisation } from "../../../models/system.model";
+import { FormsModule } from "@angular/forms";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
+import { NgClass } from "@angular/common";
 
 @Component({
-  selector: "app-login-modal-component",
-  template: `
+    selector: "app-login-modal-component",
+    template: `
     <div class="modal-content">
       <div class="modal-header">
         <h4 class="modal-title" id="modal-title-heading">Login to <em>{{ group?.shortName }}</em> site</h4>
@@ -77,8 +81,8 @@ import { Organisation } from "../../../models/system.model";
         </div>
       </div>
     </div>`,
-  styleUrls: ["./login-modal.component.sass"],
-  standalone: false
+    styleUrls: ["./login-modal.component.sass"],
+    imports: [FormsModule, FontAwesomeModule, ContactUsComponent, NgClass]
 })
 export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild("userNameInput") userNameInput: ElementRef;

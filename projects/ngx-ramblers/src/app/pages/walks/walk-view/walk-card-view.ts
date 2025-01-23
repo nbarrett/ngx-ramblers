@@ -18,10 +18,17 @@ import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { LoginModalComponent } from "../../login/login-modal/login-modal.component";
 import { LoginResponse } from "../../../models/member.model";
 import { AuthService } from "../../../auth/auth.service";
+import { MapEditComponent } from "../walk-edit/map-edit";
+import { WalkGradingComponent } from "./walk-grading";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { RelatedLinkComponent } from "../../../modules/common/related-link/related-link.component";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
+import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 
 @Component({
-  selector: "app-walk-card-view",
-  template: `
+    selector: "app-walk-card-view",
+    template: `
     <div (click)="toggleView()">
       @if (display.walkPopulationLocal() && memberLoginService.memberLoggedIn() && displayedWalk?.walkAccessMode?.walkWritable) {
         <input
@@ -132,8 +139,8 @@ import { AuthService } from "../../../auth/auth.service";
         }
       </div>
     </div>`,
-  styleUrls: ["./walk-view.sass"],
-  styles: [`
+    styleUrls: ["./walk-view.sass"],
+    styles: [`
     .button-container
       position: absolute
       top: 10px
@@ -144,7 +151,7 @@ import { AuthService } from "../../../auth/auth.service";
       position: relative
       padding-bottom: 50px
   `],
-  standalone: false
+    imports: [MapEditComponent, WalkGradingComponent, TooltipDirective, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, DisplayDatePipe]
 })
 
 export class WalkCardViewComponent implements OnInit, OnDestroy {

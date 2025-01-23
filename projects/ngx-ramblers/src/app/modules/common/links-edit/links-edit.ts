@@ -4,11 +4,14 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Link } from "../../../models/page.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { remove } from "lodash-es";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { LinkEditComponent } from "../link-edit/link-edit";
 
 @Component({
-  selector: "app-links-edit",
-  templateUrl: "./links-edit.html",
-  standalone: false
+    selector: "app-links-edit",
+    templateUrl: "./links-edit.html",
+    imports: [TooltipDirective, FontAwesomeModule, LinkEditComponent]
 })
 export class LinksEditComponent implements OnInit {
   private logger: Logger;

@@ -6,10 +6,14 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { Member } from "../../../models/member.model";
 import { MailchimpLinkService } from "../../../services/mailchimp/mailchimp-link.service";
 import { MailchimpConfig, MailchimpSubscription } from "../../../models/mailchimp.model";
+import { FormsModule } from "@angular/forms";
+import { NgClass } from "@angular/common";
+import { MailchimpSegmentEditorComponent } from "../system-settings/mailchimp/mailchimp-segment-editor";
+import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 
 @Component({
-  selector: "[app-mailchimp-subscription-settings]",
-  template: `
+    selector: "[app-mailchimp-subscription-settings]",
+    template: `
     <div class="img-thumbnail thumbnail-admin-edit">
       @if (member.mailchimpLists) {
         <div class="row">
@@ -94,7 +98,7 @@ import { MailchimpConfig, MailchimpSubscription } from "../../../models/mailchim
             </div>
           }
         </div>`,
-  standalone: false
+    imports: [FormsModule, NgClass, MailchimpSegmentEditorComponent, FullNameWithAliasPipe]
 })
 export class MailChimpSubscriptionSettingsComponent implements OnInit {
 

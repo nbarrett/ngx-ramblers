@@ -3,8 +3,8 @@ import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } fro
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import min from "lodash-es/min";
 import range from "lodash-es/range";
-import { FileUploader } from "ng2-file-upload";
-import { PageChangedEvent } from "ngx-bootstrap/pagination";
+import { FileUploader, FileUploadModule } from "ng2-file-upload";
+import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
@@ -57,10 +57,18 @@ import { FileUtilsService } from "../../../file-utils.service";
 import { base64ToFile } from "ngx-image-cropper";
 import keys from "lodash-es/keys";
 import isEmpty from "lodash-es/isEmpty";
+import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
+import { NgClass, NgStyle } from "@angular/common";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { TagManagerComponent } from "../../../pages/tag/tag-manager.component";
+import { FormsModule } from "@angular/forms";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { AspectRatioSelectorComponent } from "../aspect-ratio-selector/aspect-ratio-selector";
+import { ImageEditComponent } from "../image-edit/image-edit";
 
 @Component({
-  selector: "app-image-list-edit",
-  styles: [`
+    selector: "app-image-list-edit",
+    styles: [`
     .horizontal
       display: flex
 
@@ -89,7 +97,7 @@ import isEmpty from "lodash-es/isEmpty";
       text-overflow: ellipsis
       white-space: nowrap
   `],
-  template: `
+    template: `
     @if (allow.edit && contentMetadata) {
       <input #fileElement class="d-none" type="file" ng2FileSelect multiple
         (onFileSelected)="onFileSelectOrDropped($event)"
@@ -313,7 +321,7 @@ import isEmpty from "lodash-es/isEmpty";
             </app-image-edit>
           }
         }`,
-  standalone: false
+    imports: [FileUploadModule, BadgeButtonComponent, NgClass, NgStyle, FontAwesomeModule, TagManagerComponent, FormsModule, PaginationComponent, TooltipDirective, AspectRatioSelectorComponent, ImageEditComponent]
 })
 export class ImageListEditComponent implements OnInit, OnDestroy {
 

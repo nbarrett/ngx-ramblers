@@ -7,9 +7,8 @@ import { LoginModalComponent } from "../pages/login/login-modal/login-modal.comp
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 
 @Component({
-  selector: "app-login",
-  template: "",
-  standalone: false
+    selector: "app-login",
+    template: ""
 })
 export class LoginComponent implements OnInit, OnDestroy {
   private logger: Logger;

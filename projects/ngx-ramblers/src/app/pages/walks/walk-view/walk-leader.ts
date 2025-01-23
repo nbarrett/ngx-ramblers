@@ -12,11 +12,16 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { Organisation } from "../../../models/system.model";
 import { LoginModalComponent } from "../../login/login-modal/login-modal.component";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
+import { WalkGroupComponent } from "./walk-group";
+import { RelatedLinkComponent } from "../../../modules/common/related-link/related-link.component";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
 
 @Component({
-  selector: "app-walk-leader",
-  templateUrl: "./walk-leader.html",
-  standalone: false
+    selector: "app-walk-leader",
+    templateUrl: "./walk-leader.html",
+    imports: [WalkGroupComponent, RelatedLinkComponent, FontAwesomeModule, TooltipDirective, CopyIconComponent]
 })
 
 export class WalkLeaderComponent implements OnInit, OnDestroy {

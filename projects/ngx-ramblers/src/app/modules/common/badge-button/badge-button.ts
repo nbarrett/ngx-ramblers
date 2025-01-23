@@ -5,10 +5,13 @@ import { PageContentActionsService } from "../../../services/page-content-action
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { NgClass, NgStyle } from "@angular/common";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
-  selector: "app-badge-button,[app-badge-button]",
-  template: `
+    selector: "app-badge-button,[app-badge-button]",
+    template: `
       <div [ngClass]="{'badge-button': !inline, 'inline-button':inline, 'disabled' : disabled,
               'mr-0': noRightMargin, 'badge-button-active': active, 'w-100': fullWidth, 'float-right': alignRight}"
         delay=500 tooltip="{{tooltip? null: caption}}" [ngStyle]="{'height.px': height}">
@@ -23,7 +26,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
           <fa-icon class="ml-2" [icon]="icon"></fa-icon>
         }
       </div>`,
-  standalone: false
+    imports: [NgClass, TooltipDirective, NgStyle, FontAwesomeModule]
 })
 
 export class BadgeButtonComponent {

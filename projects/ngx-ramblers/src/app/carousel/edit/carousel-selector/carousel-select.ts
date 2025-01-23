@@ -9,11 +9,14 @@ import { faPencil, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { BroadcastService } from "../../../services/broadcast-service";
+import { FormsModule } from "@angular/forms";
+import { NgStyle } from "@angular/common";
+import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
 
 @Component({
-  selector: "app-carousel-select",
-  styleUrls: ["./carousel-select.sass"],
-  template: `
+    selector: "app-carousel-select",
+    styleUrls: ["./carousel-select.sass"],
+    template: `
     <div class="form-inline">
       <select [(ngModel)]="selectedContentMetadata"
         [id]="id"
@@ -32,7 +35,7 @@ import { BroadcastService } from "../../../services/broadcast-service";
           (click)="nameEditToggle.emit(true)"/>
       }
     </div>`,
-  standalone: false
+    imports: [FormsModule, NgStyle, BadgeButtonComponent]
 })
 export class CarouselSelectComponent implements OnInit {
 

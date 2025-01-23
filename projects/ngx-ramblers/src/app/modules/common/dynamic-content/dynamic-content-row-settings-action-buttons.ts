@@ -5,10 +5,11 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
+import { FormsModule } from "@angular/forms";
 
 @Component({
-  selector: "[app-row-settings-action-buttons]",
-  template: `
+    selector: "[app-row-settings-action-buttons]",
+    template: `
       @if (actions.isActionButtons(row) || actions.isAlbumIndex(row)) {
         <div class="row align-items-end">
           <div class="col-auto">
@@ -33,7 +34,7 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
         </div>
       }
       `,
-  standalone: false
+    imports: [FormsModule]
 })
 
 export class RowSettingsActionButtonsComponent implements OnInit {

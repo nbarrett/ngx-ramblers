@@ -15,12 +15,17 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
 import { UrlService } from "../../../../services/url.service";
 import { FileUtilsService } from "../../../../file-utils.service";
 import { FileTypeAttributes } from "../../../../models/content-metadata.model";
+import { ImageCropperAndResizerComponent } from "../../../../image-cropper-and-resizer/image-cropper-and-resizer";
+import { FormsModule } from "@angular/forms";
+import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { NgClass } from "@angular/common";
 
 @Component({
-  selector: "app-system-image-edit",
-  templateUrl: "./system-image-edit.html",
-  styleUrls: ["./system-image.sass"],
-  standalone: false
+    selector: "app-system-image-edit",
+    templateUrl: "./system-image-edit.html",
+    styleUrls: ["./system-image.sass"],
+    imports: [ImageCropperAndResizerComponent, FormsModule, BadgeButtonComponent, TooltipDirective, NgClass]
 })
 export class SystemImageEditComponent implements OnInit {
   private notify: AlertInstance;

@@ -9,12 +9,13 @@ import { MemberLoginService } from "../../../../services/member/member-login.ser
 import { WalkChangesService } from "../../../../services/walks/walk-changes.service";
 import { WalksReferenceService } from "../../../../services/walks/walks-reference-data.service";
 import { WalkDisplayService } from "../../walk-display.service";
+import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
 
 @Component({
-  selector: "app-walk-risk-assessment-section",
-  templateUrl: "./walk-risk-assessment-section.component.html",
-  styleUrls: ["../walk-risk-assessment.component.sass"],
-  standalone: false
+    selector: "app-walk-risk-assessment-section",
+    templateUrl: "./walk-risk-assessment-section.component.html",
+    styleUrls: ["../walk-risk-assessment.component.sass"],
+    imports: [MarkdownEditorComponent]
 })
 export class WalkRiskAssessmentSectionComponent implements OnInit {
   public riskAssessmentKey: string;

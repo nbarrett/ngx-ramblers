@@ -12,11 +12,13 @@ import { faImages, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { AlbumData, GridViewOptions } from "../../models/content-text.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata.service";
+import { BadgeButtonComponent } from "../../modules/common/badge-button/badge-button";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 @Component({
-  selector: "app-album-grid",
-  styleUrls: ["./album-grid.sass"],
-  template: `
+    selector: "app-album-grid",
+    styleUrls: ["./album-grid.sass"],
+    template: `
     <div class="card-columns">
       @for (image of lazyLoadingMetadata?.selectedSlides; track image) {
         <div class="card">
@@ -43,7 +45,7 @@ import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata
                         (click)="viewMoreImages()" caption="load more images"/>
     }
   `,
-  standalone: false
+    imports: [BadgeButtonComponent, TooltipDirective]
 })
 export class AlbumGridComponent implements OnInit {
   loggerFactory: LoggerFactory = inject(LoggerFactory);

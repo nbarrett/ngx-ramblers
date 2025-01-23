@@ -6,10 +6,14 @@ import { PageContentActionsService } from "../../../services/page-content-action
 import { UrlService } from "../../../services/url.service";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { LazyLoadingMetadata } from "../../../models/content-metadata.model";
+import { MarkdownComponent } from "ngx-markdown";
+import { CardImageComponent } from "../card/image/card-image";
+import { AlbumComponent } from "../../../album/view/album";
+import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
 
 @Component({
-  selector: "app-dynamic-content-view-album",
-  template: `
+    selector: "app-dynamic-content-view-album",
+    template: `
     @if (actions.isAlbum(row)) {
       <div [class]="actions.rowClasses(row)">
         @if (row.carousel.showTitle) {
@@ -50,7 +54,7 @@ import { LazyLoadingMetadata } from "../../../models/content-metadata.model";
         </div>
       </div>
     }`,
-  standalone: false
+    imports: [MarkdownComponent, CardImageComponent, AlbumComponent, DisplayDayPipe]
 })
 export class DynamicContentViewAlbumComponent implements OnInit {
   public lazyLoadingMetadata: LazyLoadingMetadata;

@@ -5,12 +5,14 @@ import { UrlService } from "../../../services/url.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { SystemConfig } from "../../../models/system.model";
 import { Subscription } from "rxjs";
+import { PageNavigatorComponent } from "../../../page-navigator/page-navigator.component";
+import { HeaderButtonsComponent } from "../../../header-buttons/header-buttons";
 
 @Component({
-  selector: "app-navbar-content",
-  templateUrl: "./navbar-content.html",
-  styleUrls: ["./navbar-content.sass"],
-  standalone: false
+    selector: "app-navbar-content",
+    templateUrl: "./navbar-content.html",
+    styleUrls: ["./navbar-content.sass"],
+    imports: [PageNavigatorComponent, HeaderButtonsComponent]
 })
 export class NavbarContentComponent  implements OnInit, OnDestroy {
 

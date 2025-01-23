@@ -1,10 +1,7 @@
 import { Directive, Type, ViewContainerRef } from "@angular/core";
 import { SocialNotificationDetailsComponent } from "./templates/social-notification-details.component";
 
-@Directive({
-  selector: "[app-social-notification-template]",
-  standalone: false
-})
+@Directive({ selector: "[app-social-notification-template]" })
 export class SocialNotificationDirective {
   constructor(public viewContainerRef: ViewContainerRef) {
   }

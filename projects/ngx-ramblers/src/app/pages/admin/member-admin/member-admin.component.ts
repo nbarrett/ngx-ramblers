@@ -41,12 +41,20 @@ import { MailchimpConfig } from "../../../models/mailchimp.model";
 import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
 import { faSearch, faUserCheck, faUserXmark } from "@fortawesome/free-solid-svg-icons";
 import { MailListUpdaterService } from "../../../services/mail/mail-list-updater.service";
+import { PageComponent } from "../../../page/page.component";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { FormsModule } from "@angular/forms";
+import { NgClass, TitleCasePipe } from "@angular/common";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { SwitchIconComponent } from "../system-settings/committee/switch-icon";
+import { DisplayDateNoDayPipe } from "../../../pipes/display-date-no-day.pipe";
+import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 
 @Component({
-  selector: "app-member-admin",
-  templateUrl: "./member-admin.component.html",
-  styleUrls: ["./member-admin.component.sass"],
-  standalone: false
+    selector: "app-member-admin",
+    templateUrl: "./member-admin.component.html",
+    styleUrls: ["./member-admin.component.sass"],
+    imports: [PageComponent, FontAwesomeModule, FormsModule, NgClass, TooltipDirective, SwitchIconComponent, TitleCasePipe, DisplayDateNoDayPipe, FullNameWithAliasPipe]
 })
 export class MemberAdminComponent implements OnInit, OnDestroy {
 

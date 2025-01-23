@@ -2,10 +2,12 @@ import { Component, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { NgClass } from "@angular/common";
 
 @Component({
-  selector: "app-button-wrapper",
-  template: `
+    selector: "app-button-wrapper",
+    template: `
     <div [tooltip]="showTooltip? (disabled ? 'Not available to ' : 'Click to ') + title : null" placement="auto"
          [ngClass]="{'btn btn-primary px-2 py-2': button, 'not-allowed disabled': disabled, 'pointer': !disabled}">
       <div class="form-inline">
@@ -14,7 +16,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
         </div>
       </div>
     </div>`,
-  standalone: false
+    imports: [TooltipDirective, NgClass]
 })
 
 export class ButtonWrapperComponent implements OnInit {

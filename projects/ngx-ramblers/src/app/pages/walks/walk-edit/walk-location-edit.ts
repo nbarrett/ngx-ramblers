@@ -14,10 +14,13 @@ import { LocationDetails } from "../../../models/ramblers-walks-manager";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { GridReferenceLookupResponse } from "../../../models/address-model";
 import { NumberUtilsService } from "../../../services/number-utils.service";
+import { FormsModule } from "@angular/forms";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { MapEditComponent } from "./map-edit";
 
 @Component({
-  selector: "app-walk-location-edit",
-  template: `
+    selector: "app-walk-location-edit",
+    template: `
     @if (locationDetails) {
       <div class="row">
         <div class="col-sm-6">
@@ -113,8 +116,8 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
         </div>
       </div>
     }`,
-  styleUrls: ["./walk-edit.component.sass"],
-  standalone: false
+    styleUrls: ["./walk-edit.component.sass"],
+    imports: [FormsModule, TooltipDirective, MapEditComponent]
 })
 export class WalkLocationEditComponent implements OnInit {
   @Input() public locationType!: string;

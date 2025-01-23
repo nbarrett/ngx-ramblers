@@ -5,12 +5,13 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ClipboardService } from "../../../services/clipboard.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
-  selector: "app-copy-icon",
-  templateUrl: "./copy-icon.html",
-  styleUrls: ["./copy-icon.sass"],
-  standalone: false
+    selector: "app-copy-icon",
+    templateUrl: "./copy-icon.html",
+    styleUrls: ["./copy-icon.sass"],
+    imports: [FontAwesomeModule, TooltipDirective]
 })
 
 export class CopyIconComponent implements OnInit {

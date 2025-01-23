@@ -2,10 +2,14 @@ import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { Subscription } from "rxjs";
 import { SystemConfig } from "../models/system.model";
 import { SystemConfigService } from "../services/system/system-config.service";
+import { HeaderBarComponent } from "../header-bar/header-bar";
+import { NavbarComponent } from "../modules/common/navbar/navbar";
+import { RouterOutlet } from "@angular/router";
+import { FooterComponent } from "../footer/footer";
 
 @Component({
-  selector: "app-root",
-  template: `
+    selector: "app-root",
+    template: `
     <div class="container-fluid">
       @if (config?.header?.headerBar?.show) {
         <app-header-bar/>
@@ -17,8 +21,8 @@ import { SystemConfigService } from "../services/system/system-config.service";
     </div>
     <app-footer/>
     `,
-  styleUrls: ["./container.sass"],
-  standalone: false
+    styleUrls: ["./container.sass"],
+    imports: [HeaderBarComponent, NavbarComponent, RouterOutlet, FooterComponent]
 })
 export class ContainerComponent implements OnInit, OnDestroy {
   public systemConfigService: SystemConfigService = inject(SystemConfigService);

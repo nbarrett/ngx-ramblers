@@ -16,15 +16,8 @@ import {
   faUpDown
 } from "@fortawesome/free-solid-svg-icons";
 import first from "lodash-es/first";
-import { FileUploader } from "ng2-file-upload";
-import {
-  Dimensions,
-  ImageCroppedEvent,
-  ImageCropperComponent,
-  ImageTransform,
-  LoadedImage,
-  OutputFormat
-} from "ngx-image-cropper";
+import { FileUploader, FileUploadModule } from "ng2-file-upload";
+import { Dimensions, ImageCroppedEvent, ImageCropperComponent, ImageTransform, LoadedImage, OutputFormat, ImageCropperModule } from "ngx-image-cropper";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { FileUtilsService } from "../file-utils.service";
@@ -48,12 +41,18 @@ import { RootFolder } from "../models/system.model";
 import { Base64File, FileTypeAttributes } from "../models/content-metadata.model";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { FormsModule } from "@angular/forms";
+import { BadgeButtonComponent } from "../modules/common/badge-button/badge-button";
+import { NgClass, NgStyle, NgTemplateOutlet } from "@angular/common";
+import { AspectRatioSelectorComponent } from "../carousel/edit/aspect-ratio-selector/aspect-ratio-selector";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 @Component({
-  selector: "app-image-cropper-and-resizer",
-  templateUrl: "./image-cropper-and-resizer.html",
-  styleUrls: ["./image-cropper-and-resizer.sass"],
-  standalone: false
+    selector: "app-image-cropper-and-resizer",
+    templateUrl: "./image-cropper-and-resizer.html",
+    styleUrls: ["./image-cropper-and-resizer.sass"],
+    imports: [FontAwesomeModule, FormsModule, FileUploadModule, BadgeButtonComponent, NgClass, ImageCropperModule, AspectRatioSelectorComponent, NgStyle, TooltipDirective, NgTemplateOutlet]
 })
 
 export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, OnDestroy {

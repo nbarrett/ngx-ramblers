@@ -19,10 +19,26 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { SystemConfig } from "../../../models/system.model";
 import { WalksQueryService } from "../../../services/walks/walks-query.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { MarkdownComponent } from "ngx-markdown";
+import { WalkLeaderComponent } from "./walk-leader";
+import { WalkFeaturesComponent } from "./walk-features";
+import { RelatedLinkComponent } from "../../../modules/common/related-link/related-link.component";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
+import { RouterLink } from "@angular/router";
+import { WalkImagesComponent } from "./walk-images";
+import { MapEditComponent } from "../walk-edit/map-edit";
+import { FormsModule } from "@angular/forms";
+import { NgClass } from "@angular/common";
+import { WalkDetailsComponent } from "./walk-details";
+import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
+import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
 
 @Component({
-  selector: "app-walk-view",
-  template: `
+    selector: "app-walk-view",
+    template: `
     @if (displayedWalk) {
       <div class="event-thumbnail card shadow tabset-container">
         <app-walk-panel-expander [walk]="displayedWalk.walk" [expandable]="allowWalkAdminEdits"
@@ -253,8 +269,8 @@ import { StringUtilsService } from "../../../services/string-utils.service";
       </div>
     </div>
     }`,
-  styleUrls: ["./walk-view.sass"],
-  standalone: false
+    styleUrls: ["./walk-view.sass"],
+    imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, WalkLeaderComponent, WalkFeaturesComponent, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, RouterLink, WalkImagesComponent, MapEditComponent, FormsModule, NgClass, WalkDetailsComponent, DisplayDayPipe, VenueIconPipe]
 })
 
 export class WalkViewComponent implements OnInit, OnDestroy {

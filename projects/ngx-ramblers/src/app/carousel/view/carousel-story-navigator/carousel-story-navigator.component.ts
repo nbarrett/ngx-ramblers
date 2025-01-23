@@ -5,12 +5,14 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { ContentMetadataItem, ImageTag } from "../../../models/content-metadata.model";
 import { ActivatedRoute } from "@angular/router";
 import { Subscription } from "rxjs";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { NgClass } from "@angular/common";
 
 @Component({
-  selector: "app-carousel-story-navigator",
-  templateUrl: "./carousel-story-navigator.component.html",
-  styleUrls: ["./carousel-story-navigator.component.sass"],
-  standalone: false
+    selector: "app-carousel-story-navigator",
+    templateUrl: "./carousel-story-navigator.component.html",
+    styleUrls: ["./carousel-story-navigator.component.sass"],
+    imports: [TooltipDirective, NgClass]
 })
 export class CarouselStoryNavigatorComponent implements OnInit {
 

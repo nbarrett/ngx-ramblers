@@ -1,10 +1,7 @@
 import { Pipe, PipeTransform } from "@angular/core";
 import { DisplayDatePipe } from "./display-date.pipe";
 
-@Pipe({
-  name: "displayDates",
-  standalone: false
-})
+@Pipe({ name: "displayDates" })
 export class DisplayDatesPipe implements PipeTransform {
   constructor(private displayDatePipe: DisplayDatePipe) {
   }

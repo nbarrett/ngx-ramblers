@@ -12,11 +12,15 @@ import { ContentMetadataService } from "../../../services/content-metadata.servi
 import { UrlService } from "../../../services/url.service";
 import { AlbumIndexService } from "../../../services/album-index.service";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
+import { BadgeButtonComponent } from "../badge-button/badge-button";
+import { FormsModule } from "@angular/forms";
+import { TypeaheadDirective } from "ngx-bootstrap/typeahead";
+import { ActionButtonsComponent } from "../action-buttons/action-buttons";
 
 @Component({
-  selector: "app-album-index-site-edit",
-  styleUrls: ["./dynamic-content.sass"],
-  template: `
+    selector: "app-album-index-site-edit",
+    styleUrls: ["./dynamic-content.sass"],
+    template: `
     <div class="row align-items-end mb-3 d-flex">
       <div class="col-sm-12">
         <app-badge-button [icon]="faAdd" [caption]="'Add new Content Path Match'"
@@ -68,7 +72,7 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
       </div>
     }
     <app-action-buttons [pageContent]="albumIndexPageContent" [rowIndex]="0" presentationMode/>`,
-  standalone: false
+    imports: [BadgeButtonComponent, FormsModule, TypeaheadDirective, ActionButtonsComponent]
 })
 export class AlbumIndexSiteEditComponent implements OnInit {
   public pageContentService: PageContentService = inject(PageContentService);

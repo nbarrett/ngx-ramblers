@@ -15,10 +15,12 @@ import { NamedEventType } from "../../../models/broadcast.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import cloneDeep from "lodash-es/cloneDeep";
+import { DynamicContentSiteEditComponent } from "./dynamic-content-site-edit";
+import { DynamicContentViewComponent } from "./dynamic-content-view";
 
 @Component({
-  selector: "app-dynamic-content",
-  template: `
+    selector: "app-dynamic-content",
+    template: `
     <app-dynamic-content-site-edit [pageContent]="pageContent"
                                    [contentPathReadOnly]="contentPathReadOnly"
                                    [notify]="notify"
@@ -32,8 +34,8 @@ import cloneDeep from "lodash-es/cloneDeep";
                               [contentPath]="contentPath"
                               [contentDescription]="contentDescription">
     </app-dynamic-content-view>`,
-  styleUrls: ["./dynamic-content.sass"],
-  standalone: false
+    styleUrls: ["./dynamic-content.sass"],
+    imports: [DynamicContentSiteEditComponent, DynamicContentViewComponent]
 })
 export class DynamicContentComponent implements OnInit, OnDestroy {
 

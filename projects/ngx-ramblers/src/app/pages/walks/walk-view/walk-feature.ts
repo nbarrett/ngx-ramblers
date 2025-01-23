@@ -4,10 +4,11 @@ import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { Metadata } from "../../../models/ramblers-walks-manager";
+import { SvgComponent } from "../../../modules/common/svg/svg";
 
 @Component({
-  selector: "app-walk-feature",
-  template: `
+    selector: "app-walk-feature",
+    template: `
     <div class="row">
       <div class="col-sm-12">
         <div class="form-inline">
@@ -16,7 +17,7 @@ import { Metadata } from "../../../models/ramblers-walks-manager";
         </div>
       </div>
     </div>`,
-  standalone: false
+    imports: [SvgComponent]
 })
 
 export class WalkFeatureComponent implements OnInit {

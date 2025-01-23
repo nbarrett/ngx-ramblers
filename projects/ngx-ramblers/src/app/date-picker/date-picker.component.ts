@@ -6,14 +6,18 @@ import { DateValue } from "../models/date.model";
 import { DateUtilsService } from "../services/date-utils.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { NgClass } from "@angular/common";
+import { BsDatepickerInputDirective, BsDatepickerDirective } from "ngx-bootstrap/datepicker";
+import { FormsModule } from "@angular/forms";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 let id = 0;
 
 @Component({
-  selector: "app-date-picker",
-  templateUrl: "./date-picker.component.html",
-  styleUrls: ["./date-picker.component.sass"],
-  standalone: false
+    selector: "app-date-picker",
+    templateUrl: "./date-picker.component.html",
+    styleUrls: ["./date-picker.component.sass"],
+    imports: [NgClass, BsDatepickerInputDirective, FormsModule, BsDatepickerDirective, FontAwesomeModule]
 })
 export class DatePickerComponent implements OnInit, OnChanges {
 

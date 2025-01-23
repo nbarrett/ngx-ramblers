@@ -16,10 +16,11 @@ import { GridReferenceLookupResponse } from "../../../models/address-model";
 import { LocationDetails } from "../../../models/ramblers-walks-manager";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { sortBy } from "../../../functions/arrays";
+import { LeafletModule } from "@bluehalo/ngx-leaflet";
 
 @Component({
-  selector: "[app-map-edit]",
-  template: `
+    selector: "[app-map-edit]",
+    template: `
     @if (mapReady()) {
       <div [class]="class"
         leaflet [leafletOptions]="options"
@@ -30,7 +31,7 @@ import { sortBy } from "../../../functions/arrays";
         (leafletClick)="onMapClick($event)">
       </div>
     }`,
-  standalone: false
+    imports: [LeafletModule]
 })
 export class MapEditComponent implements OnInit, OnDestroy {
   protected id: string;

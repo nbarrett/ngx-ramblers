@@ -12,10 +12,14 @@ import { BulkLoadMemberAndMatchToWalks, WalksImportPreparation } from "../../../
 import sum from "lodash-es/sum";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { IconService } from "../../../services/icon-service/icon-service";
+import { PageComponent } from "../../../page/page.component";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 
 @Component({
-  selector: "app-walk-import",
-  template: `
+    selector: "app-walk-import",
+    template: `
       <app-page pageTitle="Walks Manager Import">
         <div class="row">
           <div class="col-sm-12 mb-3 mx-2">
@@ -116,7 +120,7 @@ import { IconService } from "../../../services/icon-service/icon-service";
             </div>
           }
         </app-page>`,
-  standalone: false
+    imports: [PageComponent, MarkdownEditorComponent, FontAwesomeModule, FullNameWithAliasPipe]
 })
 
 export class WalkImportComponent implements OnInit, OnDestroy {

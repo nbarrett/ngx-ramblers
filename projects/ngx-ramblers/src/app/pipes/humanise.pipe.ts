@@ -1,10 +1,7 @@
 import { Pipe, PipeTransform } from "@angular/core";
 import startCase from "lodash-es/startCase";
 
-@Pipe({
-  name: "humanise",
-  standalone: false
-})
+@Pipe({ name: "humanise" })
 export class HumanisePipe implements PipeTransform {
 
   transform(value: string) {

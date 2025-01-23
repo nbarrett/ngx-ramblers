@@ -3,7 +3,7 @@ import { Component, OnDestroy, OnInit } from "@angular/core";
 import { faCopy, faEye, faPencil } from "@fortawesome/free-solid-svg-icons";
 import cloneDeep from "lodash-es/cloneDeep";
 import first from "lodash-es/first";
-import { FileUploader } from "ng2-file-upload";
+import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -23,10 +23,22 @@ import { UrlService } from "../../../services/url.service";
 import { SocialSendNotificationModalComponent } from "../send-notification/social-send-notification-modal.component";
 import { SocialDisplayService } from "../social-display.service";
 import { PageService } from "../../../services/page.service";
+import { PageComponent } from "../../../page/page.component";
+import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { FormsModule } from "@angular/forms";
+import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { MarkdownComponent } from "ngx-markdown";
+import { NgTemplateOutlet, NgClass, NgStyle } from "@angular/common";
+import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resizer/image-cropper-and-resizer";
+import { SocialCardComponent } from "../social-card/social-card";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { NgSelectComponent, NgOptgroupTemplateDirective } from "@ng-select/ng-select";
+import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 
 @Component({
-  selector: "app-social-edit",
-  template: `
+    selector: "app-social-edit",
+    template: `
     <app-page [pageTitle]="pageTitle()">
       @if (socialEvent) {
         <div class="row">
@@ -400,8 +412,8 @@ import { PageService } from "../../../services/page.service";
       }
     </app-page>
   `,
-  styleUrls: ["social-edit.component.sass"],
-  standalone: false
+    styleUrls: ["social-edit.component.sass"],
+    imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, DatePickerComponent, FontAwesomeModule, MarkdownComponent, NgTemplateOutlet, ImageCropperAndResizerComponent, SocialCardComponent, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, NgClass, FileUploadModule, NgStyle, FullNameWithAliasPipe]
 })
 export class SocialEditComponent implements OnInit, OnDestroy {
 

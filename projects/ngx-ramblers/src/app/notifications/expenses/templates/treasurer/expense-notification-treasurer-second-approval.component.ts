@@ -1,9 +1,12 @@
 import { Component } from "@angular/core";
 import { ExpenseNotificationDetailsComponent } from "../common/expense-notification-details.component";
+import { ExpenseNotificationFooterComponent } from "../common/expense-notification-footer-component";
+import { DisplayDatePipe } from "../../../../pipes/display-date.pipe";
+import { MemberIdToFullNamePipe } from "../../../../pipes/member-id-to-full-name.pipe";
 
 @Component({
-  selector: "app-expense-notification-treasurer-second-approval",
-  template: `
+    selector: "app-expense-notification-treasurer-second-approval",
+    template: `
     <p>This email is to notify you that <strong
     [textContent]="display.expenseClaimLatestEvent(expenseClaim).memberId | memberIdToFullName : members"></strong>
     has just updated <strong
@@ -53,7 +56,7 @@ import { ExpenseNotificationDetailsComponent } from "../common/expense-notificat
       [textContent]="display.expenseClaimCreatedEvent(expenseClaim).memberId | memberIdToFullName : members"
     ></span> will be notified by email.</p>
     <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`,
-  standalone: false
+    imports: [ExpenseNotificationDetailsComponent, ExpenseNotificationFooterComponent, DisplayDatePipe, MemberIdToFullNamePipe]
 })
 export class ExpenseNotificationTreasurerSecondApprovalComponent extends ExpenseNotificationDetailsComponent {
 

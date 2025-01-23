@@ -13,10 +13,14 @@ import { MailService } from "../../../services/mail/mail.service";
 import { MailMessagingConfig, NotificationConfig, SendSmtpEmailRequest } from "../../../models/mail.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
+import { FormsModule } from "@angular/forms";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
+import { NgClass } from "@angular/common";
 
 @Component({
-  selector: "app-forgot-password-modal-component",
-  template: `
+    selector: "app-forgot-password-modal-component",
+    template: `
     @if (mailMessagingConfig) {
       <div class="modal-content">
         <div class="modal-header">
@@ -94,7 +98,7 @@ import { NotificationDirective } from "../../../notifications/common/notificatio
       <ng-template app-notification-directive/>
     </div>
     `,
-  standalone: false
+    imports: [FormsModule, FontAwesomeModule, ContactUsComponent, NgClass, NotificationDirective]
 })
 export class ForgotPasswordModalComponent implements OnInit, OnDestroy {
   public mailMessagingConfig: MailMessagingConfig;

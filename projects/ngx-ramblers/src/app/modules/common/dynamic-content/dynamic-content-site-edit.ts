@@ -40,10 +40,27 @@ import { AlbumIndexService } from "../../../services/album-index.service";
 import uniq from "lodash-es/uniq";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { StoredValue } from "../../../models/ui-actions";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { BadgeButtonComponent } from "../badge-button/badge-button";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { NgTemplateOutlet, NgClass } from "@angular/common";
+import { RouterLink } from "@angular/router";
+import { FormsModule } from "@angular/forms";
+import { TypeaheadDirective } from "ngx-bootstrap/typeahead";
+import { RowSettingsCarouselComponent } from "./dynamic-content-site-edit-carousel-row";
+import { RowSettingsActionButtonsComponent } from "./dynamic-content-row-settings-action-buttons";
+import { MarginSelectComponent } from "./dynamic-content-margin-select";
+import { ActionsDropdownComponent } from "../actions-dropdown/actions-dropdown";
+import { BulkActionSelectorComponent } from "./bulk-action-selector";
+import { AlbumIndexSiteEditComponent } from "./dynamic-content-site-edit-album-index";
+import { ActionButtonsComponent } from "../action-buttons/action-buttons";
+import { DynamicContentSiteEditAlbumComponent } from "./dynamic-content-site-edit-album";
+import { DynamicContentSiteEditTextRowComponent } from "./dynamic-content-site-edit-text-row";
+import { EventsComponent } from "../events/events";
 
 @Component({
-  selector: "app-dynamic-content-site-edit",
-  template: `
+    selector: "app-dynamic-content-site-edit",
+    template: `
     @if (siteEditService.active()) {
       @if (notify.alertTarget.showAlert || !actions.pageContentFound(pageContent, queryCompleted)) {
         @if (notify.alertTarget.showAlert) {
@@ -305,8 +322,8 @@ import { StoredValue } from "../../../models/ui-actions";
         </div>
       }
     }`,
-  styleUrls: ["./dynamic-content.sass"],
-  standalone: false
+    styleUrls: ["./dynamic-content.sass"],
+    imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtonsComponent, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, EventsComponent]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 

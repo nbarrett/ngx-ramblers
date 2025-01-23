@@ -1,5 +1,5 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
-import { Gallery, GalleryRef, GalleryState, ImageItem } from "ng-gallery";
+import { Gallery, GalleryRef, GalleryState, ImageItem, GalleryComponent, GalleryImageDef } from "ng-gallery";
 import { ContentMetadata, ContentMetadataItem, LazyLoadingMetadata } from "../../models/content-metadata.model";
 import { PageService } from "../../services/page.service";
 import { ContentMetadataService } from "../../services/content-metadata.service";
@@ -14,9 +14,9 @@ import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata
 import { StringUtilsService } from "../../services/string-utils.service";
 
 @Component({
-  selector: "app-album-gallery",
-  styleUrls: ["./album-gallery.sass"],
-  template: `
+    selector: "app-album-gallery",
+    styleUrls: ["./album-gallery.sass"],
+    template: `
       @if (galleryId) {
         <gallery class="gallery-customise"
           [id]="galleryId"
@@ -39,7 +39,7 @@ import { StringUtilsService } from "../../services/string-utils.service";
           </ng-container>
         </gallery>
       }`,
-  standalone: false
+    imports: [GalleryComponent, GalleryImageDef]
 })
 
 export class AlbumGalleryComponent implements OnInit {

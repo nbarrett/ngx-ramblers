@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
-import { NgSelectComponent } from "@ng-select/ng-select";
+import { NgSelectComponent, NgOptgroupTemplateDirective } from "@ng-select/ng-select";
 import {
   GroupEvent,
   GroupEventsFilter,
@@ -14,10 +14,12 @@ import { CommitteeQueryService } from "../services/committee/committee-query.ser
 import { DateUtilsService } from "../services/date-utils.service";
 import { NumberUtilsService } from "../services/number-utils.service";
 import { StringUtilsService } from "../services/string-utils.service";
+import { DatePickerComponent } from "../date-picker/date-picker.component";
+import { FormsModule } from "@angular/forms";
 
 @Component({
-  selector: "app-group-event-selector",
-  template: `
+    selector: "app-group-event-selector",
+    template: `
     <div class="row">
       <div class="col">
         <div class="form-group">
@@ -64,7 +66,7 @@ import { StringUtilsService } from "../services/string-utils.service";
         </ng-select>
       </div>
     </div>`,
-  standalone: false
+    imports: [DatePickerComponent, NgSelectComponent, FormsModule, NgOptgroupTemplateDirective]
 })
 export class GroupEventSelectorComponent implements OnInit {
 

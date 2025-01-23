@@ -1,10 +1,7 @@
 import { Pipe, PipeTransform } from "@angular/core";
 import { WalksReferenceService } from "../services/walks/walks-reference-data.service";
 
-@Pipe({
-  name: "walkEventType",
-  standalone: false
-})
+@Pipe({ name: "walkEventType" })
 export class WalkEventTypePipe implements PipeTransform {
   constructor(private walksReferenceService: WalksReferenceService) {
   }

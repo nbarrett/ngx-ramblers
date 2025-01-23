@@ -15,10 +15,16 @@ import { MailLinkService } from "../../../services/mail/mail-link.service";
 import cloneDeep from "lodash-es/cloneDeep";
 import { SystemConfig } from "../../../models/system.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
+import { MailSubscriptionSettingComponent } from "./mail-subscription-setting";
+import { BrevoButtonComponent } from "../../../modules/common/third-parties/brevo-button";
+import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
+import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
+import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
+import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pipe";
 
 @Component({
-  selector: "[app-mail-subscription-settings]",
-  template: `
+    selector: "[app-mail-subscription-settings]",
+    template: `
     <div class="img-thumbnail thumbnail-admin-edit">
       @if (member) {
         <div class="row">
@@ -86,7 +92,7 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
           </div>
         </div>
       </div>`,
-  standalone: false
+    imports: [MailSubscriptionSettingComponent, BrevoButtonComponent, DisplayDateAndTimePipe, DisplayDatePipe, FullNameWithAliasPipe, MemberIdToFullNamePipe]
 })
 export class MailSubscriptionSettingsComponent implements OnInit {
   private logger: Logger;

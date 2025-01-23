@@ -30,12 +30,26 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { MailListAuditService } from "../../../services/mail/mail-list-audit.service";
 import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
 import { NO_CHANGES_OR_DIFFERENCES } from "../../../models/ramblers-insight-hub";
+import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { FormsModule } from "@angular/forms";
+import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { MailChimpSubscriptionSettingsComponent } from "./mailchimp-subscription-settings";
+import { MailSubscriptionSettingsComponent } from "./mail-subscription-settings";
+import { SwitchIconComponent } from "../system-settings/committee/switch-icon";
+import { NgClass, JsonPipe } from "@angular/common";
+import { CreatedAuditPipe } from "../../../pipes/created-audit-pipe";
+import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
+import { LastConfirmedDateDisplayed } from "../../../pipes/last-confirmed-date-displayed.pipe";
+import { UpdatedAuditPipe } from "../../../pipes/updated-audit-pipe";
 
 @Component({
-  selector: "app-member-admin-modal",
-  templateUrl: "./member-admin-modal.component.html",
-  styleUrls: ["./member-admin-modal.component.sass"],
-  standalone: false
+    selector: "app-member-admin-modal",
+    templateUrl: "./member-admin-modal.component.html",
+    styleUrls: ["./member-admin-modal.component.sass"],
+    imports: [TabsetComponent, TabDirective, FormsModule, DatePickerComponent, MarkdownEditorComponent, TooltipDirective, FontAwesomeModule, MailChimpSubscriptionSettingsComponent, MailSubscriptionSettingsComponent, SwitchIconComponent, NgClass, JsonPipe, CreatedAuditPipe, DisplayDateAndTimePipe, FullNameWithAliasPipe, LastConfirmedDateDisplayed, UpdatedAuditPipe]
 })
 export class MemberAdminModalComponent implements OnInit, OnDestroy {
 

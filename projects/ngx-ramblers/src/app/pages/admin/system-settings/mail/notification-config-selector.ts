@@ -10,10 +10,14 @@ import first from "lodash-es/first";
 import { BannerConfig } from "../../../../models/banner-configuration.model";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { FormsModule } from "@angular/forms";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { MarkdownComponent } from "ngx-markdown";
+import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
 
 @Component({
-  selector: "app-notification-config-selector",
-  template: `
+    selector: "app-notification-config-selector",
+    template: `
     @if (notificationConfig && notificationConfigListing?.mailMessagingConfig) {
       <div class="row align-items-center">
         <div class="col-sm-12">
@@ -110,7 +114,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
       </div>
     }
     `,
-  standalone: false
+    imports: [FormsModule, FontAwesomeModule, MarkdownComponent, BrevoButtonComponent]
 })
 
 export class NotificationConfigSelectorComponent implements OnInit {

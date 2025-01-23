@@ -9,10 +9,13 @@ import { Logger, LoggerFactory } from "../../../../services/logger-factory.servi
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 import cloneDeep from "lodash-es/cloneDeep";
+import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { SystemImageEditComponent } from "../image/system-image-edit";
 
 @Component({
-  selector: "[app-image-collection-settings]",
-  template: `
+    selector: "[app-image-collection-settings]",
+    template: `
     <div class="img-thumbnail thumbnail-admin-edit">
       <div class="row img-thumbnail thumbnail-2">
         <div class="thumbnail-heading">{{ imageTypeDescription }} ({{ images?.images?.length || 0 }})</div>
@@ -36,7 +39,7 @@ import cloneDeep from "lodash-es/cloneDeep";
         }
       </div>
     </div>`,
-  standalone: false
+    imports: [BadgeButtonComponent, TooltipDirective, SystemImageEditComponent]
 })
 export class ImageCollectionSettingsComponent implements OnInit {
   public notifyTarget: AlertTarget = {};

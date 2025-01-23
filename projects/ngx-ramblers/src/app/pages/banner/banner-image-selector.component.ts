@@ -8,10 +8,11 @@ import { Image, Images, SystemConfig } from "../../models/system.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
+import { FormsModule } from "@angular/forms";
 
 @Component({
-  selector: "app-banner-image-selector",
-  template: `
+    selector: "app-banner-image-selector",
+    template: `
     @if (bannerImageItem) {
       <div class="row">
         <div class="col-md-12">
@@ -75,7 +76,7 @@ import { SystemConfigService } from "../../services/system/system-config.service
       </div>
     }
     `,
-  standalone: false
+    imports: [FormsModule]
 })
 
 export class BannerImageSelectorComponent implements OnInit, OnDestroy {

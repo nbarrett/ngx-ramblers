@@ -18,10 +18,13 @@ import { MailchimpLinkService } from "../../../../services/mailchimp/mailchimp-l
 import { MailchimpListService } from "../../../../services/mailchimp/mailchimp-list.service";
 import { AlertInstance } from "../../../../services/notifier.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
+import { FormsModule } from "@angular/forms";
+import { NgClass } from "@angular/common";
+import { MailchimpCampaignDefaultsComponent } from "./mailchimp-campaign-defaults";
 
 @Component({
-  selector: "app-mailchimp-list-settings",
-  template: `
+    selector: "app-mailchimp-list-settings",
+    template: `
     @if (mailchimpListingResponse?.lists) {
       <div class="col-sm-12">
         <div class="form-group">
@@ -144,7 +147,7 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
         </div>
       </div>
     }`,
-  standalone: false
+    imports: [FormsModule, NgClass, MailchimpCampaignDefaultsComponent]
 })
 export class MailchimpListSettingsComponent implements OnInit {
   private logger: Logger;

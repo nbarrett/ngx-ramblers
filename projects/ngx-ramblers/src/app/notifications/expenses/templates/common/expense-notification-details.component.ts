@@ -9,10 +9,12 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
 import { ExpenseClaim } from "../../expense.model";
 import { UrlService } from "../../../../services/url.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
+import { DisplayDatePipe } from "../../../../pipes/display-date.pipe";
+import { MoneyPipe } from "../../../../pipes/money.pipe";
 
 @Component({
-  selector: "app-expense-notification-details",
-  template: `
+    selector: "app-expense-notification-details",
+    template: `
     <table style="cellpadding:10; border:1px solid lightgrey;border-collapse:collapse;width: 100%;border-spacing: 5px;">
       <thead>
       <tr>
@@ -44,7 +46,7 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
       </tr>
       </tbody>
     </table>`,
-  standalone: false
+    imports: [DisplayDatePipe, MoneyPipe]
 })
 export class ExpenseNotificationDetailsComponent implements OnInit, AfterViewInit, OnDestroy {
 

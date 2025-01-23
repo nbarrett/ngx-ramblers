@@ -8,12 +8,13 @@ import { BroadcastService } from "../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MeetupService } from "../../../services/meetup.service";
 import { isString } from "lodash-es";
+import { FormsModule } from "@angular/forms";
 
 @Component({
-  selector: "app-walk-meetup-config-parameters",
-  templateUrl: "./walk-meetup-config-parameters.component.html",
-  styleUrls: ["./walk-meetup-config-parameters.component.sass"],
-  standalone: false
+    selector: "app-walk-meetup-config-parameters",
+    templateUrl: "./walk-meetup-config-parameters.component.html",
+    styleUrls: ["./walk-meetup-config-parameters.component.sass"],
+    imports: [FormsModule]
 })
 export class WalkMeetupConfigParametersComponent implements OnInit {
 

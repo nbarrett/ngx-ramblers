@@ -8,12 +8,15 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { WalkChangesService } from "../../../services/walks/walk-changes.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { RiskAssessmentService } from "../../../services/walks/risk-assessment.service";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { WalkRiskAssessmentSectionComponent } from "./section/walk-risk-assessment-section.component";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
-  selector: "app-walk-risk-assessment",
-  templateUrl: "./walk-risk-assessment.component.html",
-  styleUrls: ["./walk-risk-assessment.component.sass"],
-  standalone: false
+    selector: "app-walk-risk-assessment",
+    templateUrl: "./walk-risk-assessment.component.html",
+    styleUrls: ["./walk-risk-assessment.component.sass"],
+    imports: [MarkdownEditorComponent, WalkRiskAssessmentSectionComponent, FontAwesomeModule]
 })
 export class WalkRiskAssessmentComponent implements OnInit, OnDestroy {
 

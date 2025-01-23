@@ -11,12 +11,16 @@ import { UrlService } from "../../../services/url.service";
 import { MailingPreferencesModalComponent } from "../../mailing-preferences/mailing-preferences-modal.component";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { Organisation } from "../../../models/system.model";
+import { NgClass } from "@angular/common";
+import { FormsModule } from "@angular/forms";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 
 @Component({
-  selector: "app-reset-password-modal-component",
-  templateUrl: "./reset-password-modal.component.html",
-  styleUrls: ["./reset-password-modal.component.sass"],
-  standalone: false
+    selector: "app-reset-password-modal-component",
+    templateUrl: "./reset-password-modal.component.html",
+    styleUrls: ["./reset-password-modal.component.sass"],
+    imports: [NgClass, FormsModule, FontAwesomeModule, ContactUsComponent]
 })
 export class ResetPasswordModalComponent implements OnInit, OnDestroy {
   private logger: Logger;

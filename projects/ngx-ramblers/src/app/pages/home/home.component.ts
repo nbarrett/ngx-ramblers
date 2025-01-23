@@ -10,12 +10,15 @@ import { PageService } from "../../services/page.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { UrlService } from "../../services/url.service";
 import { SiteEditService } from "../../site-edit/site-edit.service";
+import { DynamicContentComponent } from "../../modules/common/dynamic-content/dynamic-content";
+import { FacebookComponent } from "../facebook/facebook.component";
+import { InstagramComponent } from "../instagram/instagram.component";
 
 @Component({
-  selector: "app-home",
-  templateUrl: "./home.component.html",
-  styleUrls: ["./home.component.sass"],
-  standalone: false
+    selector: "app-home",
+    templateUrl: "./home.component.html",
+    styleUrls: ["./home.component.sass"],
+    imports: [DynamicContentComponent, FacebookComponent, InstagramComponent]
 })
 export class HomeComponent implements OnInit, OnDestroy {
   private logger: Logger;

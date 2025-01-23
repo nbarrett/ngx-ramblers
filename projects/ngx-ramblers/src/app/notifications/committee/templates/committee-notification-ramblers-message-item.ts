@@ -9,11 +9,12 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { Subscription } from "rxjs";
 import { Organisation } from "../../../models/system.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
+import { NgStyle } from "@angular/common";
 
 @Component({
-  selector: "app-committee-notification-ramblers-message-item",
-  templateUrl: "./committee-notification-ramblers-message-item.html",
-  standalone: false
+    selector: "app-committee-notification-ramblers-message-item",
+    templateUrl: "./committee-notification-ramblers-message-item.html",
+    imports: [NgStyle]
 })
 export class CommitteeNotificationRamblersMessageItemComponent implements OnInit, OnDestroy {
 

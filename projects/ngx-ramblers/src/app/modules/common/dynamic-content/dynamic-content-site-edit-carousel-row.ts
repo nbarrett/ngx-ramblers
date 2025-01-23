@@ -11,11 +11,15 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageContentService } from "../../../services/page-content.service";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { UrlService } from "../../../services/url.service";
+import { CarouselSelectComponent } from "../../../carousel/edit/carousel-selector/carousel-select";
+import { FormsModule } from "@angular/forms";
+import { TypeaheadDirective } from "ngx-bootstrap/typeahead";
+import { BadgeButtonComponent } from "../badge-button/badge-button";
 
 @Component({
-  selector: "[app-row-settings-carousel]",
-  styleUrls: ["./dynamic-content.sass"],
-  template: `
+    selector: "[app-row-settings-carousel]",
+    styleUrls: ["./dynamic-content.sass"],
+    template: `
     <label class="mr-2"
     [for]="id">Album Name</label>
     @if (!nameInput) {
@@ -38,7 +42,7 @@ import { UrlService } from "../../../services/url.service";
           (click)="toggleNameEdit(false)"/>
       </div>
     }`,
-  standalone: false
+    imports: [CarouselSelectComponent, FormsModule, TypeaheadDirective, BadgeButtonComponent]
 })
 export class RowSettingsCarouselComponent implements OnInit {
 

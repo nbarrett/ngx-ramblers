@@ -23,10 +23,15 @@ import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { PageComponent } from "../../../page/page.component";
+import { FormsModule } from "@angular/forms";
+import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { NgClass } from "@angular/common";
 
 @Component({
-  selector: "app-walk-add-slots",
-  template: `
+    selector: "app-walk-add-slots",
+    template: `
     <app-page autoTitle>
       <div class="row">
         <div class="col-sm-12">
@@ -154,8 +159,8 @@ import { StringUtilsService } from "../../../services/string-utils.service";
       </div>
     </app-page>
     `,
-  styleUrls: ["./walk-add-slots.component.sass"],
-  standalone: false
+    styleUrls: ["./walk-add-slots.component.sass"],
+    imports: [PageComponent, FormsModule, DatePickerComponent, FontAwesomeModule, NgClass]
 })
 export class WalkAddSlotsComponent implements OnInit {
   public confirmAction = false;

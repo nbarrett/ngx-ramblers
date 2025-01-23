@@ -34,10 +34,17 @@ import { UiActionsService } from "../services/ui-actions.service";
 import { StoredValue } from "../models/ui-actions";
 import { StringUtilsService } from "../services/string-utils.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { BadgeButtonComponent } from "../modules/common/badge-button/badge-button";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { FormsModule } from "@angular/forms";
+import { MarkdownComponent } from "ngx-markdown";
+import { NgClass } from "@angular/common";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { KebabCasePipe } from "../pipes/kebabcase.pipe";
 
 @Component({
-  selector: "app-markdown-editor",
-  styles: [`
+    selector: "app-markdown-editor",
+    styles: [`
     .markdown-textarea
       margin-top: 6px
       margin-bottom: 12px
@@ -47,7 +54,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
       border-radius: 6px
       padding: 16px
   `],
-  template: `
+    template: `
     @if (siteEditActive()) {
       <div class="row">
         <div class="col-12">
@@ -136,7 +143,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
                 placeholder="Enter {{description}} text here">
       </textarea>
     }`,
-  standalone: false
+    imports: [BadgeButtonComponent, TooltipDirective, FormsModule, MarkdownComponent, NgClass, FontAwesomeModule, KebabCasePipe]
 })
 export class MarkdownEditorComponent implements OnInit {
   @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {

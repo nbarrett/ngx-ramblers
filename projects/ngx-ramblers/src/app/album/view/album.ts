@@ -26,10 +26,16 @@ import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata
 import { ImageDuplicatesService } from "../../services/image-duplicates-service";
 import { BroadcastService } from "../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
+import { BadgeButtonComponent } from "../../modules/common/badge-button/badge-button";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { AlbumGalleryComponent } from "./album-gallery";
+import { AlbumGridComponent } from "./album-grid";
+import { CarouselComponent } from "../../carousel/view/carousel";
 
 @Component({
-  selector: "app-album",
-  template: `
+    selector: "app-album",
+    template: `
     <div class="row h-100">
       @if (album.allowSwitchView || preview) {
         <div class="col-sm-12">
@@ -93,7 +99,7 @@ import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
       </div>
     </div>
   `,
-  standalone: false
+    imports: [BadgeButtonComponent, TooltipDirective, FontAwesomeModule, AlbumGalleryComponent, AlbumGridComponent, CarouselComponent]
 })
 export class AlbumComponent implements OnInit {
 

@@ -5,9 +5,8 @@ import { LoggerFactory } from "../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 
 @Component({
-  selector: "app-link",
-  template: `<a [href]="href" target="{{target}}">{{ linkText }}</a>`,
-  standalone: false
+    selector: "app-link",
+    template: `<a [href]="href" target="{{target}}">{{ linkText }}</a>`
 })
 export class LinkComponent implements OnInit, OnChanges {
 

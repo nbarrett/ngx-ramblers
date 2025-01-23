@@ -1,10 +1,7 @@
 import { Pipe, PipeTransform } from "@angular/core";
 import { DateUtilsService } from "../services/date-utils.service";
 
-@Pipe({
-  name: "meetupEventSummary",
-  standalone: false
-})
+@Pipe({ name: "meetupEventSummary" })
 export class MeetupEventSummaryPipe implements PipeTransform {
   constructor(private dateUtils: DateUtilsService) {
   }

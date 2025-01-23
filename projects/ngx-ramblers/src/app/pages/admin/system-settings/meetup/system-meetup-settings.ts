@@ -14,10 +14,14 @@ import { AlertInstance, NotifierService } from "../../../../services/notifier.se
 import { UrlService } from "../../../../services/url.service";
 import cloneDeep from "lodash-es/cloneDeep";
 import isEqual from "lodash-es/isEqual";
+import { FormsModule } from "@angular/forms";
+import { MeetupButtonComponent } from "../../../../modules/common/third-parties/meetup-button";
+import { AlertComponent } from "ngx-bootstrap/alert";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
-  selector: "app-system-meetup-settings",
-  template: `
+    selector: "app-system-meetup-settings",
+    template: `
     <div class="row img-thumbnail thumbnail-2">
       <div class="thumbnail-heading">Meetup</div>
       @if (config?.externalSystems.meetup) {
@@ -118,7 +122,7 @@ import isEqual from "lodash-es/isEqual";
         </div>
       }
     </div>`,
-  standalone: false
+    imports: [FormsModule, MeetupButtonComponent, AlertComponent, FontAwesomeModule]
 })
 export class SystemMeetupSettingsComponent implements OnInit, OnDestroy {
 

@@ -9,10 +9,14 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { Subscription } from "rxjs";
 import { Organisation } from "../../../models/system.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
+import { CommitteeNotificationRamblersMessageItemComponent } from "./committee-notification-ramblers-message-item";
+import { MarkdownComponent } from "ngx-markdown";
+import { CommitteeNotificationGroupEventMessageItemComponent } from "./committee-notification-group-event-message-item";
+import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 
 @Component({
-  selector: "app-committee-notification-details",
-  template: `
+    selector: "app-committee-notification-details",
+    template: `
 
 <app-committee-notification-ramblers-message-item
   [notificationItem]="toNotificationItemFromNotification(notification)">
@@ -50,7 +54,7 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
     }
   </app-committee-notification-ramblers-message-item>
 }`,
-  standalone: false
+    imports: [CommitteeNotificationRamblersMessageItemComponent, MarkdownComponent, CommitteeNotificationGroupEventMessageItemComponent, ContactUsComponent]
 })
 export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy {
 

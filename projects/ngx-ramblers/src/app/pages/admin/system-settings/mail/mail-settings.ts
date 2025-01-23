@@ -24,10 +24,21 @@ import kebabCase from "lodash-es/kebabCase";
 import { NumberUtilsService } from "../../../../services/number-utils.service";
 import first from "lodash-es/first";
 import isEmpty from "lodash-es/isEmpty";
+import { PageComponent } from "../../../../page/page.component";
+import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { MailNotificationTemplateMappingComponent } from "./mail-notification-template-editor";
+import { NotificationConfigToProcessMappingComponent } from "./notification-config-to-process-mappings";
+import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
+import { FormsModule } from "@angular/forms";
+import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
+import { NgStyle, NgClass } from "@angular/common";
+import { MailListEditorComponent } from "./list-editor";
+import { MailListSettingsComponent } from "./mail-list-settings";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
-  selector: "app-mail-settings",
-  template: `
+    selector: "app-mail-settings",
+    template: `
     <app-page autoTitle>
       <div class="row">
         <div class="col-sm-12">
@@ -281,7 +292,7 @@ import isEmpty from "lodash-es/isEmpty";
         </div>
       </app-page>
     `,
-  standalone: false
+    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateMappingComponent, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, FontAwesomeModule, NgClass]
 })
 export class MailSettingsComponent implements OnInit, OnDestroy {
   public deletedConfigs: string[] = [];

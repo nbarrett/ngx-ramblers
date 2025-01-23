@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, ViewChild } from "@angular/
 import { faMeetup } from "@fortawesome/free-brands-svg-icons";
 import first from "lodash-es/first";
 import range from "lodash-es/range";
-import { TabsetComponent } from "ngx-bootstrap/tabs";
+import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
 import { NgxLoggerLevel } from "ngx-logger";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -15,13 +15,18 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { UrlService } from "../../../services/url.service";
 import { MeetupService } from "../../../services/meetup.service";
+import { PageComponent } from "../../../page/page.component";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { FormsModule } from "@angular/forms";
+import { MarkdownComponent } from "ngx-markdown";
+import { WalkMeetupConfigParametersComponent } from "../walk-meetup-config-parameters/walk-meetup-config-parameters.component";
 
 @Component({
-  selector: "app-walk-meetup-settings",
-  templateUrl: "./walk-meetup-settings.component.html",
-  styleUrls: ["./walk-meetup-settings.component.sass"],
-  changeDetection: ChangeDetectionStrategy.Default,
-  standalone: false
+    selector: "app-walk-meetup-settings",
+    templateUrl: "./walk-meetup-settings.component.html",
+    styleUrls: ["./walk-meetup-settings.component.sass"],
+    changeDetection: ChangeDetectionStrategy.Default,
+    imports: [PageComponent, FontAwesomeModule, TabsetComponent, TabDirective, FormsModule, MarkdownEditorComponent, MarkdownComponent, WalkMeetupConfigParametersComponent]
 })
 export class WalkMeetupSettingsComponent implements OnInit {
   private logger: Logger;

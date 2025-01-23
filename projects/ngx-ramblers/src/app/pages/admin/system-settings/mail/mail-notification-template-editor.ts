@@ -21,10 +21,16 @@ import { Subscription } from "rxjs";
 import { faAdd, faBackward, faCopy, faEraser, faForward } from "@fortawesome/free-solid-svg-icons";
 import cloneDeep from "lodash-es/cloneDeep";
 import first from "lodash-es/first";
+import { FormsModule } from "@angular/forms";
+import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
+import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
+import { SenderRepliesAndSignoffComponent } from "../../send-emails/sender-replies-and-signoff";
+import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
+import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifications/admin/templates/forgot-password-notification-details";
 
 @Component({
-  selector: "app-mail-notification-template-mapping-editor",
-  template: `
+    selector: "app-mail-notification-template-mapping-editor",
+    template: `
     @if (mailMessagingConfig) {
       <div class="row img-thumbnail thumbnail-2">
         <div class="thumbnail-heading-with-select">
@@ -271,7 +277,7 @@ import first from "lodash-es/first";
       </div>
     }
     `,
-  standalone: false
+    imports: [FormsModule, MarkdownEditorComponent, BadgeButtonComponent, SenderRepliesAndSignoffComponent, BrevoButtonComponent, ForgotPasswordNotificationDetailsComponent]
 })
 
 export class MailNotificationTemplateMappingComponent implements OnInit, OnDestroy {

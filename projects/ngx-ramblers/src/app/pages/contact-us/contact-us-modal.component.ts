@@ -20,10 +20,15 @@ import { omit } from "lodash-es";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { FirstAndLastName } from "../../models/member.model";
 import { MemberNamingService } from "../../services/member/member-naming.service";
+import { FormsModule } from "@angular/forms";
+import { RecaptchaModule } from "ng-recaptcha-2";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { MarkdownComponent } from "ngx-markdown";
+import { DisplayDateAndTimePipe } from "../../pipes/display-date-and-time.pipe";
 
 @Component({
-  selector: "app-contact-modal",
-  template: `
+    selector: "app-contact-modal",
+    template: `
     <div class="modal-content">
       <div class="modal-header">
         <h4 class="modal-title">Contact <em>{{ committeeMember?.fullName }}</em></h4>
@@ -176,7 +181,7 @@ import { MemberNamingService } from "../../services/member/member-naming.service
         </div>
       </div>
     `,
-  standalone: false
+    imports: [FormsModule, RecaptchaModule, FontAwesomeModule, NotificationDirective, MarkdownComponent, DisplayDateAndTimePipe]
 })
 export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit {
   queryParams: Params;

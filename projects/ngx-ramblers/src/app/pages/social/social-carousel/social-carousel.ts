@@ -9,12 +9,14 @@ import { UrlService } from "../../../services/url.service";
 import { RootFolder } from "../../../models/system.model";
 import { HARD_CODED_SOCIAL_FOLDER } from "../../../models/social-events.model";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
+import { NgStyle } from "@angular/common";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 
 @Component({
-  selector: "app-social-carousel",
-  styleUrls: ["./social-carousel.sass"],
-  templateUrl: "./social-carousel.html",
-  standalone: false
+    selector: "app-social-carousel",
+    styleUrls: ["./social-carousel.sass"],
+    templateUrl: "./social-carousel.html",
+    imports: [NgStyle, MarkdownEditorComponent]
 })
 export class SocialCarouselComponent implements OnInit {
   public notify: AlertInstance;

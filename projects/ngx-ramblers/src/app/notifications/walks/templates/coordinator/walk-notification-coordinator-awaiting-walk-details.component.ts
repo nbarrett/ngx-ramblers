@@ -1,9 +1,14 @@
 import { Component } from "@angular/core";
 import { WalkNotificationDetailsComponent } from "../common/walk-notification-details.component";
+import { WalkNotificationFooterComponent } from "../common/walk-notification-footer.component";
+import { DisplayDateAndTimePipe } from "../../../../pipes/display-date-and-time.pipe";
+import { MemberIdToFullNamePipe } from "../../../../pipes/member-id-to-full-name.pipe";
+import { WalkEventTypePipe } from "../../../../pipes/walk-event-type.pipe";
+import { WalkValidationsListPipe } from "../../../../pipes/walk-validations.pipe";
 
 @Component({
-  selector: "app-walk-notification-coordinator-awaiting-walk-details",
-  template: `
+    selector: "app-walk-notification-coordinator-awaiting-walk-details",
+    template: `
     <p>This email is to notify you that at <strong>{{ event.date | displayDateAndTime }}</strong>, <strong
     [textContent]="event.memberId | memberIdToFullName : members"></strong>
     updated the walk on <strong>{{walk.walkDate | displayDate"</strong>
@@ -21,7 +26,7 @@ import { WalkNotificationDetailsComponent } from "../common/walk-notification-de
     }
     <app-walk-notification-footer [data]="data"></app-walk-notification-footer>
     `,
-  standalone: false
+    imports: [WalkNotificationDetailsComponent, WalkNotificationFooterComponent, DisplayDateAndTimePipe, MemberIdToFullNamePipe, WalkEventTypePipe, WalkValidationsListPipe]
 })
 export class WalkNotificationCoordinatorAwaitingWalkDetailsComponent extends WalkNotificationDetailsComponent {
 

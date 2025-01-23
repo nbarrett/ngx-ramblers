@@ -17,10 +17,19 @@ import { UrlService } from "../../../../services/url.service";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { Subscription } from "rxjs";
 import isEqual from "lodash-es/isEqual";
+import { PageComponent } from "../../../../page/page.component";
+import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
+import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
+import { CommitteeMemberComponent } from "./committee-member";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { FormsModule } from "@angular/forms";
+import { NgClass } from "@angular/common";
 
 @Component({
-  selector: "app-committee-settings",
-  template: `
+    selector: "app-committee-settings",
+    template: `
     <app-page autoTitle>
       <div class="row">
         <div class="col-sm-12">
@@ -141,7 +150,7 @@ import isEqual from "lodash-es/isEqual";
         </div>
       </div>
     </app-page>`,
-  standalone: false
+    imports: [PageComponent, TabsetComponent, TabDirective, MarkdownEditorComponent, BadgeButtonComponent, CommitteeMemberComponent, TooltipDirective, FontAwesomeModule, FormsModule, NgClass]
 })
 export class CommitteeSettingsComponent implements OnInit, OnDestroy {
 

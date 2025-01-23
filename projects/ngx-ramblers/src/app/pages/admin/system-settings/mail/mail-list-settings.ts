@@ -8,10 +8,12 @@ import { AlertInstance } from "../../../../services/notifier.service";
 import { ListInfo, ListSetting, ListUpdateRequest, MailMessagingConfig } from "../../../../models/mail.model";
 import { MailLinkService } from "../../../../services/mail/mail-link.service";
 import { MailService } from "projects/ngx-ramblers/src/app/services/mail/mail.service";
+import { MailListEditorComponent } from "./list-editor";
+import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
 
 @Component({
-  selector: "app-mail-list-settings",
-  template: `
+    selector: "app-mail-list-settings",
+    template: `
     @if (mailMessagingConfig?.brevo?.lists?.lists) {
       <hr/>
       <div class="row mt-3">
@@ -87,7 +89,7 @@ import { MailService } from "projects/ngx-ramblers/src/app/services/mail/mail.se
         </div>
       </div>
     }`,
-  standalone: false
+    imports: [MailListEditorComponent, BrevoButtonComponent]
 })
 export class MailListSettingsComponent implements OnInit {
   constructor(

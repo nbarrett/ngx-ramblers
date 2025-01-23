@@ -5,13 +5,14 @@ import { Subscription } from "rxjs";
 import { SocialEvent } from "../../../models/social-events.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { PageService } from "../../../services/page.service";
+import { SocialViewComponent } from "../social-view/social-view";
 
 @Component({
-  selector: "app-social-view-page",
-  template: `
+    selector: "app-social-view-page",
+    template: `
     <app-social-view [socialEvent]="socialEvent"/>
   `,
-  standalone: false
+    imports: [SocialViewComponent]
 })
 export class SocialViewPageComponent implements OnInit, OnDestroy {
   private logger: Logger;

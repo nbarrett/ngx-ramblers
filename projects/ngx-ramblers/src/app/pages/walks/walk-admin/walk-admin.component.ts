@@ -8,10 +8,13 @@ import { LoginResponse } from "../../../models/member.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { UrlService } from "../../../services/url.service";
+import { PageComponent } from "../../../page/page.component";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 
 @Component({
-  selector: "app-walk-admin",
-  template: `
+    selector: "app-walk-admin",
+    template: `
     <app-page>
       <div class="body-content">
         <div class="row">
@@ -59,9 +62,9 @@ import { UrlService } from "../../../services/url.service";
       </div>
     </app-page>
   `,
-  styleUrls: ["./walk-admin.component.sass"],
-  changeDetection: ChangeDetectionStrategy.Default,
-  standalone: false
+    styleUrls: ["./walk-admin.component.sass"],
+    changeDetection: ChangeDetectionStrategy.Default,
+    imports: [PageComponent, FontAwesomeModule, MarkdownEditorComponent]
 })
 export class WalkAdminComponent implements OnInit, OnDestroy {
 

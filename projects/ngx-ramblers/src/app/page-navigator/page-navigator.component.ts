@@ -6,12 +6,14 @@ import { BroadcastService } from "../services/broadcast-service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { PageService } from "../services/page.service";
 import { UrlService } from "../services/url.service";
+import { NgClass } from "@angular/common";
+import { RouterLink } from "@angular/router";
 
 @Component({
-  selector: "app-page-navigator",
-  templateUrl: "./page-navigator.component.html",
-  styleUrls: ["./page-navigator.component.sass"],
-  standalone: false
+    selector: "app-page-navigator",
+    templateUrl: "./page-navigator.component.html",
+    styleUrls: ["./page-navigator.component.sass"],
+    imports: [NgClass, RouterLink]
 })
 export class PageNavigatorComponent {
   private logger: Logger;

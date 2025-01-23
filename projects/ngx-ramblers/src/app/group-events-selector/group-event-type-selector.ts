@@ -8,10 +8,11 @@ import { CommitteeQueryService } from "../services/committee/committee-query.ser
 import { DateUtilsService } from "../services/date-utils.service";
 import { NumberUtilsService } from "../services/number-utils.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { FormsModule } from "@angular/forms";
 
 @Component({
-  selector: "app-group-event-type-selector",
-  template: `
+    selector: "app-group-event-type-selector",
+    template: `
     <div class="form-group">
       <label [for]="id">{{label}}</label>
       <select [(ngModel)]="selectedDataSource" [id]="id" class="form-control"
@@ -22,7 +23,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
         }
       </select>
     </div>`,
-  standalone: false
+    imports: [FormsModule]
 })
 export class GroupEventTypeSelectorComponent implements OnInit {
   private includeUpload: boolean;

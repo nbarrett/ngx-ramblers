@@ -10,14 +10,19 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { ProfileService } from "./profile.service";
+import { PageComponent } from "../../../page/page.component";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { FormsModule } from "@angular/forms";
+import { NgClass } from "@angular/common";
+import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 
 const pleaseTryAgain = " - please try again";
 
 @Component({
-  selector: "app-change-password",
-  templateUrl: "./change-password.component.html",
-  styleUrls: ["../admin/admin.component.sass"],
-  standalone: false
+    selector: "app-change-password",
+    templateUrl: "./change-password.component.html",
+    styleUrls: ["../admin/admin.component.sass"],
+    imports: [PageComponent, FontAwesomeModule, FormsModule, NgClass, ContactUsComponent]
 })
 export class ChangePasswordComponent implements OnInit, OnDestroy {
   public member: Member;
