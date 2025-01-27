@@ -1,25 +1,20 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DataQueryOptions } from "../../models/api-request.model";
 import { MemberUpdateAudit, MemberUpdateAuditApiResponse } from "../../models/member.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { NumberUtilsService } from "../number-utils.service";
 
 @Injectable({
   providedIn: "root"
 })
 export class MemberUpdateAuditService {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("MemberUpdateAuditService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private commonDataService = inject(CommonDataService);
   private BASE_URL = "/api/database/member-update-audit";
-  private logger: Logger;
-
-  constructor(private http: HttpClient,
-              private commonDataService: CommonDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MemberUpdateAuditService, NgxLoggerLevel.OFF);
-  }
 
   async all(dataQueryOptions?: DataQueryOptions): Promise<MemberUpdateAudit[]> {
     const params = this.commonDataService.toHttpParams(dataQueryOptions);

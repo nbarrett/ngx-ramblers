@@ -1,4 +1,4 @@
-import { Component, HostListener, OnDestroy, OnInit } from "@angular/core";
+import { Component, HostListener, inject, OnDestroy, OnInit } from "@angular/core";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -6,7 +6,6 @@ import { Facebook } from "../../models/system.model";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
-import { UrlService } from "../../services/url.service";
 import { CardContainerComponent } from "../../modules/common/card-container/card-container.component";
 
 @Component({
@@ -17,7 +16,10 @@ import { CardContainerComponent } from "../../modules/common/card-container/card
 })
 export class FacebookComponent implements OnInit, OnDestroy {
 
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("FacebookComponent", NgxLoggerLevel.ERROR);
+  private systemConfigService = inject(SystemConfigService);
+  dateUtils = inject(DateUtilsService);
+  private sanitiser = inject(DomSanitizer);
   public facebook: Facebook;
   public width = this.calculateWidth();
   public height = 642;
@@ -29,14 +31,6 @@ export class FacebookComponent implements OnInit, OnDestroy {
 
   @HostListener("window:resize", ["$event"])
   onResize(event) {
-  }
-
-  constructor(private urlService: UrlService,
-              private systemConfigService: SystemConfigService,
-              public dateUtils: DateUtilsService,
-              private sanitiser: DomSanitizer,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("FacebookComponent", NgxLoggerLevel.ERROR);
   }
 
   private calculateWidth(): number {

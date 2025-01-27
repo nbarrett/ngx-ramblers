@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
@@ -39,27 +39,21 @@ import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge
 })
 export class CarouselSelectorComponent implements OnInit {
 
-  constructor(
-    public contentMetadataService: ContentMetadataService,
-    private notifierService: NotifierService,
-    public pageContentService: PageContentService,
-    public stringUtils: StringUtilsService,
-    private memberLoginService: MemberLoginService,
-    private urlService: UrlService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("CarouselEditorComponent", NgxLoggerLevel.OFF);
-  }
-
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("CarouselSelectorComponent", NgxLoggerLevel.ERROR);
+  contentMetadataService = inject(ContentMetadataService);
+  private notifierService = inject(NotifierService);
+  pageContentService = inject(PageContentService);
+  stringUtils = inject(StringUtilsService);
+  private memberLoginService = inject(MemberLoginService);
+  private urlService = inject(UrlService);
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public allow: MemberResourcesPermissions = {};
   public contentMetadataItems: ContentMetadata[];
   public contentMetadata: ContentMetadata;
-
+  protected readonly faEye = faEye;
   @Input()
   public name: string;
-
-  protected readonly faEye = faEye;
 
   ngOnInit() {
     this.logger.debug("ngOnInit:imageSource", this.name);

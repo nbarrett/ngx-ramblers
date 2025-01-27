@@ -1,5 +1,5 @@
 import { HttpClient, HttpParams } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject } from "rxjs";
 import { ApiResponse } from "../../models/api-response.model";
@@ -28,17 +28,17 @@ import { StringUtilsService } from "../string-utils.service";
   providedIn: "root"
 })
 export class MailchimpCampaignService {
-  private readonly logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("MailchimpCampaignService", NgxLoggerLevel.ERROR);
+  private stringUtils = inject(StringUtilsService);
+  private http = inject(HttpClient);
+  private mailchimpConfigService = inject(MailchimpConfigService);
+  private commonDataService = inject(CommonDataService);
   private BASE_URL = "api/mailchimp/campaigns";
   private campaignNotifications = new Subject<ApiResponse>();
   private mailchimpConfig: MailchimpConfig;
 
-  constructor(private stringUtils: StringUtilsService,
-              private http: HttpClient,
-              private mailchimpConfigService: MailchimpConfigService,
-              private commonDataService: CommonDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MailchimpCampaignService, NgxLoggerLevel.OFF);
+  constructor() {
     this.mailchimpConfigService.getConfig().then(response => this.mailchimpConfig = response);
   }
 

@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from "@angular/common/http";
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { faUnlockAlt } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -25,26 +25,18 @@ const pleaseTryAgain = " - please try again";
     imports: [PageComponent, FontAwesomeModule, FormsModule, NgClass, ContactUsComponent]
 })
 export class ChangePasswordComponent implements OnInit, OnDestroy {
+  private logger: Logger = inject(LoggerFactory).createLogger("ChangePasswordComponent", NgxLoggerLevel.ERROR);
+  private authService = inject(AuthService);
+  private memberService = inject(MemberService);
+  private notifierService = inject(NotifierService);
+  profileService = inject(ProfileService);
+
   public member: Member;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  private logger: Logger;
   public enteredMemberCredentials: EnteredMemberCredentials = {};
   faUnlockAlt = faUnlockAlt;
   private subscriptions: Subscription[] = [];
-
-  constructor(
-    private authService: AuthService,
-    private memberService: MemberService,
-    private notifierService: NotifierService,
-    public profileService: ProfileService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ChangePasswordComponent, NgxLoggerLevel.OFF);
-  }
-
-  ngOnDestroy(): void {
-    this.subscriptions.forEach(subscription => subscription.unsubscribe());
-  }
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -56,6 +48,10 @@ export class ChangePasswordComponent implements OnInit, OnDestroy {
       this.notify.clearBusy();
     });
     this.subscriptions.push(this.profileService.subscribeToLogout(this.logger));
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   private processResetPasswordResponse(loginResponse: LoginResponse) {

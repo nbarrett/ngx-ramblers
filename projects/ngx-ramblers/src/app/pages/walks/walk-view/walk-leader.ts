@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { faEnvelope, faPhone } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -25,8 +25,13 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
 })
 
 export class WalkLeaderComponent implements OnInit, OnDestroy {
-  private logger: Logger;
 
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkLeaderComponent", NgxLoggerLevel.ERROR);
+  private memberLoginService = inject(MemberLoginService);
+  private modalService = inject(BsModalService);
+  private systemConfigService = inject(SystemConfigService);
+  private authService = inject(AuthService);
+  display = inject(WalkDisplayService);
   faEnvelope = faEnvelope;
   faPhone = faPhone;
   public loggedIn: boolean;
@@ -39,16 +44,6 @@ export class WalkLeaderComponent implements OnInit, OnDestroy {
     animated: false,
     initialState: {}
   };
-
-  constructor(
-    private memberLoginService: MemberLoginService,
-    private modalService: BsModalService,
-    private systemConfigService: SystemConfigService,
-    private authService: AuthService,
-    public display: WalkDisplayService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkLeaderComponent", NgxLoggerLevel.OFF);
-  }
 
   ngOnInit(): void {
     this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));

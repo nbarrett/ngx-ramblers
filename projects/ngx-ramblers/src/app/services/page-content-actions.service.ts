@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import first from "lodash-es/first";
 import kebabCase from "lodash-es/kebabCase";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -34,16 +34,13 @@ import { UrlService } from "./url.service";
   providedIn: "root"
 })
 export class PageContentActionsService {
-  private logger: Logger;
-  public rowsInEdit: number[] = [];
 
-  constructor(private stringUtils: StringUtilsService,
-              private broadcastService: BroadcastService<PageContent>,
-              private urlService: UrlService,
-              private numberUtils: NumberUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(PageContentActionsService, NgxLoggerLevel.ERROR);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("PageContentActionsService", NgxLoggerLevel.ERROR);
+  private stringUtils = inject(StringUtilsService);
+  private broadcastService = inject<BroadcastService<PageContent>>(BroadcastService);
+  private urlService = inject(UrlService);
+  private numberUtils = inject(NumberUtilsService);
+  public rowsInEdit: number[] = [];
 
   public actionType(columnIndex: number, rowIndex: number, rowIsNested: boolean): string {
     const actionType = rowIsNested ? columnIndex >= 0 ?

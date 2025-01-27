@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -15,17 +15,13 @@ import { SocialViewComponent } from "../social-view/social-view";
     imports: [SocialViewComponent]
 })
 export class SocialViewPageComponent implements OnInit, OnDestroy {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("SocialViewPageComponent", NgxLoggerLevel.ERROR);
+  private route = inject(ActivatedRoute);
+  private pageService = inject(PageService);
   public relativePath: string;
   public socialEvent: SocialEvent;
   private subscriptions: Subscription[] = [];
-
-  constructor(
-    private route: ActivatedRoute,
-    private pageService: PageService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SocialViewPageComponent, NgxLoggerLevel.OFF);
-  }
 
   @Input("socialEvent") set acceptSocialEventChange(socialEvent: SocialEvent) {
     this.logger.info("Input:socialEvent:", socialEvent);

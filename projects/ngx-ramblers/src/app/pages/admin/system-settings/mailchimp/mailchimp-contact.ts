@@ -1,7 +1,5 @@
 import { Component, Input } from "@angular/core";
-import { NgxLoggerLevel } from "ngx-logger";
 import { MailchimpContact } from "../../../../models/server-models";
-import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { FormsModule } from "@angular/forms";
 
 @Component({
@@ -10,13 +8,7 @@ import { FormsModule } from "@angular/forms";
     imports: [FormsModule]
 })
 export class MailchimpContactComponent {
-  private logger: Logger;
   @Input()
   mailchimpContact: MailchimpContact;
-
-
-  constructor(loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MailchimpSettingsContactComponent", NgxLoggerLevel.OFF);
-  }
 
 }

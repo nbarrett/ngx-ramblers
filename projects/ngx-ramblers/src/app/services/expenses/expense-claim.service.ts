@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
@@ -11,16 +11,11 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
   providedIn: "root"
 })
 export class ExpenseClaimService {
-
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("ExpenseClaimService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private commonDataService = inject(CommonDataService);
   private BASE_URL = "/api/database/expense-claim";
   private expenseNotifications = new Subject<ExpenseClaimApiResponse>();
-
-  constructor(private http: HttpClient,
-              private commonDataService: CommonDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ExpenseClaimService, NgxLoggerLevel.OFF);
-  }
 
   notifications(): Observable<ExpenseClaimApiResponse> {
     return this.expenseNotifications.asObservable();

@@ -1,7 +1,7 @@
 import { ScrollingModule } from "@angular/cdk/scrolling";
 import { AsyncPipe, CommonModule, NgFor } from "@angular/common";
 import { HTTP_INTERCEPTORS } from "@angular/common/http";
-import { ModuleWithProviders, NgModule, inject, provideAppInitializer } from "@angular/core";
+import { inject, ModuleWithProviders, NgModule, provideAppInitializer } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { RouteReuseStrategy, RouterModule } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -158,7 +158,6 @@ import { SocialListComponent } from "./pages/social/social-list/social-list.comp
 import {
   SocialNotificationDetailsComponent
 } from "./notifications/social/templates/social-notification-details.component";
-import { SocialNotificationDirective } from "./notifications/social/social-notification.directive";
 import { SocialSearchComponent } from "./pages/social/social-search/social-search";
 import {
   SocialSendNotificationModalComponent
@@ -313,7 +312,6 @@ import { StatusIconComponent } from "./pages/admin/status-icon";
         SocialListCardsComponent,
         SocialListComponent,
         SocialNotificationDetailsComponent,
-        SocialNotificationDirective,
         SocialSearchComponent,
         SocialSendNotificationModalComponent,
         SocialViewComponent,

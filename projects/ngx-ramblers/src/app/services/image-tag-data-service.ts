@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { Router } from "@angular/router";
 import max from "lodash-es/max";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -13,13 +13,9 @@ import { StringUtilsService } from "./string-utils.service";
   providedIn: "root"
 })
 export class ImageTagDataService {
-  private logger: Logger;
-
-  constructor(private router: Router,
-              private stringUtils: StringUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("ImageTagDataService", NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("ImageTagDataService", NgxLoggerLevel.ERROR);
+  private router = inject(Router);
+  private stringUtils = inject(StringUtilsService);
 
   recentPhotosPlusImageTagsPlusAll(imageTags: ImageTag[]): ImageTag[] {
     return [RECENT_PHOTOS].concat(this.imageTagsSorted(imageTags)).concat(ALL_PHOTOS);

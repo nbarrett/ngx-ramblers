@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { CommitteeMember } from "../../../../models/committee.model";
 import { MailchimpCampaignDefaults } from "../../../../models/mailchimp.model";
@@ -14,19 +14,13 @@ import { FormsModule } from "@angular/forms";
     imports: [FormsModule]
 })
 export class MailchimpCampaignDefaultsComponent implements OnInit {
-
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("MailchimpCampaignDefaultsComponent", NgxLoggerLevel.ERROR);
+  private committeeConfigService = inject(CommitteeConfigService);
+  private mailchimpConfigService = inject(MailchimpConfigService);
   public committeeReferenceData: CommitteeReferenceData;
   public committeeMember: CommitteeMember;
-
   @Input()
   campaignDefaults: MailchimpCampaignDefaults;
-
-  constructor(private committeeConfigService: CommitteeConfigService,
-              private mailchimpConfigService: MailchimpConfigService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MailchimpSettingsContactComponent", NgxLoggerLevel.OFF);
-  }
 
   ngOnInit(): void {
     this.committeeConfigService.committeeReferenceDataEvents().subscribe(data => {

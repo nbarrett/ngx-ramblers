@@ -1,7 +1,5 @@
-import { Component, Input } from "@angular/core";
-import { NgxLoggerLevel } from "ngx-logger";
+import { Component, inject, Input } from "@angular/core";
 import { DisplayedWalk } from "../../../models/walk.model";
-import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { BasicMedia } from "../../../models/ramblers-walks-manager";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -35,23 +33,16 @@ import { CardImageComponent } from "../../../modules/common/card/image/card-imag
 })
 
 export class WalkImagesComponent {
+  mediaQueryService = inject(MediaQueryService);
+
 
   @Input() displayedWalk: DisplayedWalk;
-  private logger: Logger;
-
-  constructor(
-    public mediaQueryService: MediaQueryService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkImagesComponent", NgxLoggerLevel.ERROR);
-  }
-
   protected imageIndex = 0;
 
   back() {
     if (this.imageIndex > 0) {
       this.imageIndex--;
     }
-
   }
 
   backDisabled() {

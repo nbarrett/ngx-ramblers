@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { faCircleInfo, faEnvelope, faEye, faRemove } from "@fortawesome/free-solid-svg-icons";
 import find from "lodash-es/find";
 import map from "lodash-es/map";
@@ -20,19 +20,19 @@ import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-
 import { WalksQueryService } from "../../../services/walks/walks-query.service";
 import { WalksService } from "../../../services/walks/walks.service";
 import { WalkDisplayService } from "../walk-display.service";
-import { CsvOptions, CsvExportComponent } from "../../../csv-export/csv-export";
+import { CsvExportComponent, CsvOptions } from "../../../csv-export/csv-export";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import groupBy from "lodash-es/groupBy";
 import { SystemConfig } from "../../../models/system.model";
 import { PageComponent } from "../../../page/page.component";
-import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
 import { NgClass } from "@angular/common";
 import { RelatedLinkComponent } from "../../../modules/common/related-link/related-link.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { NgSelectComponent, NgOptionComponent } from "@ng-select/ng-select";
+import { NgOptionComponent, NgSelectComponent } from "@ng-select/ng-select";
 import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
 import { ValueOrDefaultPipe } from "../../../pipes/value-or-default.pipe";
 
@@ -279,21 +279,18 @@ import { ValueOrDefaultPipe } from "../../../pipes/value-or-default.pipe";
 
 export class WalkExportComponent implements OnInit, OnDestroy {
 
-  constructor(private ramblersWalksAndEventsService: RamblersWalksAndEventsService,
-              private walksService: WalksService,
-              private ramblersUploadAuditService: RamblersUploadAuditService,
-              private notifierService: NotifierService,
-              private displayDate: DisplayDatePipe,
-              private systemConfigService: SystemConfigService,
-              private walksQueryService: WalksQueryService,
-              public display: WalkDisplayService,
-              private dateUtils: DateUtilsService,
-              protected stringUtils: StringUtilsService,
-              private urlService: UrlService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkExportComponent", NgxLoggerLevel.ERROR);
-  }
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkExportComponent", NgxLoggerLevel.ERROR);
+  private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
+  private walksService = inject(WalksService);
+  private ramblersUploadAuditService = inject(RamblersUploadAuditService);
+  private notifierService = inject(NotifierService);
+  private displayDate = inject(DisplayDatePipe);
+  private systemConfigService = inject(SystemConfigService);
+  private walksQueryService = inject(WalksQueryService);
+  display = inject(WalkDisplayService);
+  private dateUtils = inject(DateUtilsService);
+  protected stringUtils = inject(StringUtilsService);
+  private urlService = inject(UrlService);
   public ramblersUploadAuditData: RamblersUploadAudit[];
   public walksForExport: WalkExport[] = [];
   public fileName: FileUploadSummary;
@@ -312,7 +309,6 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   faRemove = faRemove;
   faCircleInfo = faCircleInfo;
   public walksDownloadFileContents: WalkUploadRow[] = [];
-
   protected readonly faEnvelope = faEnvelope;
 
   ngOnInit() {

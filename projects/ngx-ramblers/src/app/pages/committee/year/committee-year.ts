@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import last from "lodash-es/last";
 import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -30,6 +30,24 @@ import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-edito
 })
 export class CommitteeYearComponent implements OnInit, OnDestroy {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("CommitteeYearComponent", NgxLoggerLevel.ERROR);
+  memberLoginService = inject(MemberLoginService);
+  private apiResponseProcessor = inject(ApiResponseProcessor);
+  display = inject(CommitteeDisplayService);
+  private authService = inject(AuthService);
+  private modalService = inject(BsModalService);
+  pageContentService = inject(PageContentService);
+  actions = inject(PageContentActionsService);
+  committeeQueryService = inject(CommitteeQueryService);
+  private committeeFileService = inject(CommitteeFileService);
+  urlService = inject(UrlService);
+  public committeeYear: CommitteeYear;
+  private subscriptions: Subscription[] = [];
+  public committeeFile: CommitteeFile;
+  public committeeYearTitle = "";
+  public imageSource: string;
+
+
   @Input()
   public notify: AlertInstance;
   public filesForYear: CommitteeFile[];
@@ -38,28 +56,6 @@ export class CommitteeYearComponent implements OnInit, OnDestroy {
     this.logger.info("committeeYear:input", committeeYear);
     this.committeeYear = committeeYear;
     this.setupDataForYear();
-  }
-
-  public committeeYear: CommitteeYear;
-  private logger: Logger;
-  private subscriptions: Subscription[] = [];
-  public committeeFile: CommitteeFile;
-  public committeeYearTitle = "";
-  public imageSource: string;
-
-  constructor(
-    public memberLoginService: MemberLoginService,
-    private apiResponseProcessor: ApiResponseProcessor,
-    public display: CommitteeDisplayService,
-    private authService: AuthService,
-    private modalService: BsModalService,
-    public pageContentService: PageContentService,
-    public actions: PageContentActionsService,
-    public committeeQueryService: CommitteeQueryService,
-    private committeeFileService: CommitteeFileService,
-    public urlService: UrlService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(CommitteeYearComponent, NgxLoggerLevel.ERROR);
   }
 
   ngOnInit() {

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { faMeetup } from "@fortawesome/free-brands-svg-icons";
 import { faCalendarPlus, faFileExport, faFileImport } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -68,19 +68,15 @@ import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-edito
 })
 export class WalkAdminComponent implements OnInit, OnDestroy {
 
-  constructor(private memberLoginService: MemberLoginService,
-              private authService: AuthService,
-              private urlService: UrlService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkAdminComponent, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkAdminComponent", NgxLoggerLevel.ERROR);
+  private memberLoginService = inject(MemberLoginService);
+  private authService = inject(AuthService);
+  private urlService = inject(UrlService);
   allowAdminEdits: boolean;
-  private logger: Logger;
   private subscriptions: Subscription[] = [];
   faCalendarPlus = faCalendarPlus;
   faFileExport = faFileExport;
   faMeetup = faMeetup;
-
   protected readonly faFileImport = faFileImport;
 
   ngOnInit() {

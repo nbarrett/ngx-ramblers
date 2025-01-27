@@ -1,4 +1,4 @@
-import { Component } from "@angular/core";
+import { Component, inject } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
 import { Link } from "../models/page.model";
@@ -16,13 +16,11 @@ import { RouterLink } from "@angular/router";
     imports: [NgClass, RouterLink]
 })
 export class PageNavigatorComponent {
-  private logger: Logger;
 
-  constructor(private broadcastService: BroadcastService<boolean>,
-              private pageService: PageService,
-              private urlService: UrlService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(PageNavigatorComponent, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("PageNavigatorComponent", NgxLoggerLevel.ERROR);
+  private broadcastService = inject<BroadcastService<boolean>>(BroadcastService);
+  private pageService = inject(PageService);
+  private urlService = inject(UrlService);
 
   isOnPage(link: Link): boolean {
     const firstPathSegment: string = this.urlService.firstPathSegment() || "";

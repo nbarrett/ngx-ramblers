@@ -1,12 +1,10 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import isArray from "lodash-es/isArray";
 import sortBy from "lodash-es/sortBy";
-import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
-import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { ApiAction, ApiResponse } from "../../../models/api-response.model";
 import { DateValue } from "../../../models/date.model";
@@ -14,14 +12,11 @@ import { Member, MemberAuthAudit } from "../../../models/member.model";
 import { ASCENDING, DESCENDING, MEMBER_SORT, MemberAuthAuditTableFilter } from "../../../models/table-filtering.model";
 import { Confirm, ConfirmType } from "../../../models/ui-actions";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
-import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberAuthAuditService } from "../../../services/member/member-auth-audit.service";
-import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
-import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
 import { ProfileService } from "../profile/profile.service";
 import { PageComponent } from "../../../page/page.component";
@@ -39,28 +34,19 @@ import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe"
 })
 export class MemberLoginAuditComponent implements OnInit, OnDestroy {
 
-  constructor(private memberService: MemberService,
-              private contentMetadata: ContentMetadataService,
-              private searchFilterPipe: SearchFilterPipe,
-              private modalService: BsModalService,
-              private notifierService: NotifierService,
-              private dateUtils: DateUtilsService,
-              private urlService: UrlService,
-              private stringUtils: StringUtilsService,
-              private authService: AuthService,
-              private memberAuthAuditService: MemberAuthAuditService,
-              private profileService: ProfileService,
-              private memberLoginService: MemberLoginService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MemberLoginAuditComponent, NgxLoggerLevel.OFF);
-    this.searchChangeObservable = new Subject<string>();
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("MemberLoginAuditComponent", NgxLoggerLevel.ERROR);
+  private memberService = inject(MemberService);
+  private searchFilterPipe = inject(SearchFilterPipe);
+  private notifierService = inject(NotifierService);
+  private dateUtils = inject(DateUtilsService);
+  private urlService = inject(UrlService);
+  private memberAuthAuditService = inject(MemberAuthAuditService);
+  private profileService = inject(ProfileService);
+  private searchChangeObservable: Subject<string> = new Subject<string>();
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  private logger: Logger;
-  private members: Member[] = [];
   public quickSearch = "";
-  private searchChangeObservable: Subject<string>;
+  private members: Member[] = [];
   public auditFilter: MemberAuthAuditTableFilter;
   private memberFilterUploaded: any;
   private subscriptions: Subscription[] = [];
@@ -68,7 +54,6 @@ export class MemberLoginAuditComponent implements OnInit, OnDestroy {
   public confirm = new Confirm();
   filterDateValue: DateValue;
   faSearch = faSearch;
-
   protected readonly ConfirmType = ConfirmType;
 
   ngOnInit() {

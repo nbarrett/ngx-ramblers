@@ -1,8 +1,6 @@
-import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { faCaretDown, faCaretUp } from "@fortawesome/free-solid-svg-icons";
-import { NgxLoggerLevel } from "ngx-logger";
 import { PageContentColumn } from "../../../models/content-text.model";
-import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -31,14 +29,8 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 })
 
 export class ColumnWidthComponent implements OnInit {
-
-  constructor(loggerFactory: LoggerFactory,
-              private numberUtils: NumberUtilsService,
-              public actions: PageContentActionsService) {
-    this.logger = loggerFactory.createLogger("ColumnWidthComponent", NgxLoggerLevel.OFF);
-  }
-
-  private logger: Logger;
+  private numberUtils = inject(NumberUtilsService);
+  actions = inject(PageContentActionsService);
   @Input()
   public column: PageContentColumn;
   @Output() expandToggle: EventEmitter<boolean> = new EventEmitter();

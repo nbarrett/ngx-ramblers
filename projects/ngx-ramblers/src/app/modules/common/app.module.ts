@@ -1,7 +1,6 @@
 import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 import { ApplicationRef, DoBootstrap, NgModule } from "@angular/core";
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations";
-import { NgxLoggerLevel } from "ngx-logger";
 import { AppRoutingModule } from "../../app-routing.module";
 import { ContainerComponent } from "../../container/container";
 import { FooterComponent } from "../../footer/footer";
@@ -32,7 +31,6 @@ import { HowToSubjectListingComponent } from "../../pages/how-to/subject-listing
 import { InstagramComponent } from "../../pages/instagram/instagram.component";
 import { LoginModalComponent } from "../../pages/login/login-modal/login-modal.component";
 import { ChangedItemsPipe } from "../../pipes/changed-items.pipe";
-import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { SharedModule } from "../../shared-module";
 import { SiteEditComponent } from "../../site-edit/site-edit.component";
 import { CardContainerComponent } from "./card-container/card-container.component";
@@ -81,12 +79,6 @@ import { AdminModule } from "../admin/admin.module";
         SocialMediaLinksComponent], providers: [provideHttpClient(withInterceptorsFromDi())] })
 
 export class AppModule implements DoBootstrap {
-  private logger: Logger;
-
-  constructor(loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(AppModule, NgxLoggerLevel.OFF);
-  }
-
   ngDoBootstrap(appRef: ApplicationRef) {
     appRef.bootstrap(ContainerComponent);
   }

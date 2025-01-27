@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import escapeRegExp from "lodash-es/escapeRegExp";
 import isNumber from "lodash-es/isNumber";
 import isObject from "lodash-es/isObject";
@@ -9,7 +9,6 @@ import toLower from "lodash-es/toLower";
 import words from "lodash-es/words";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertMessage } from "../models/alert-target.model";
-import { DateUtilsService } from "./date-utils.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import isArray from "lodash-es/isArray";
 import kebabCase from "lodash-es/kebabCase";
@@ -23,12 +22,8 @@ import isEmpty from "lodash-es/isEmpty";
 })
 export class
 StringUtilsService {
-  private logger: Logger;
 
-  constructor(private dateUtils: DateUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(StringUtilsService, NgxLoggerLevel.ERROR);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("StringUtilsService", NgxLoggerLevel.ERROR);
 
   replaceAll(find: any, replace: any, str: any): string | number {
     let replacedValue;

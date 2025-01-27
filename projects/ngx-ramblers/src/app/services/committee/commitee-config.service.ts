@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
 import { CommitteeConfig, CommitteeMember, DEFAULT_COST_PER_MILE, RoleType } from "../../models/committee.model";
@@ -13,15 +13,13 @@ import map from "lodash-es/map";
   providedIn: "root"
 })
 export class CommitteeConfigService {
-
+  private logger: Logger = inject(LoggerFactory).createLogger("CommitteeConfigService", NgxLoggerLevel.ERROR);
+  private config = inject(ConfigService);
+  private memberLoginService = inject(MemberLoginService);
   private committeeReferenceDataSubject = new ReplaySubject<CommitteeReferenceData>();
   private committeeCommitteeConfigSubject = new ReplaySubject<CommitteeConfig>();
-  private logger: Logger;
 
-  constructor(private config: ConfigService,
-              private memberLoginService: MemberLoginService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("CommitteeConfigService", NgxLoggerLevel.ERROR);
+  constructor() {
     this.refreshConfig();
   }
 

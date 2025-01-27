@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import uniq from "lodash-es/uniq";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DataQueryOptions } from "../models/api-request.model";
@@ -16,16 +16,15 @@ import { fieldContainsValue } from "../functions/mongo";
   providedIn: "root"
 })
 export class PageContentService {
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("PageContentService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private commonDataService = inject(CommonDataService);
+  private pageContentActionsService = inject(PageContentActionsService);
+  memberLoginService = inject(MemberLoginService);
   private BASE_URL = "/api/database/page-content";
   public siteLinks: string[] = [];
 
-  constructor(private http: HttpClient,
-              private commonDataService: CommonDataService,
-              private pageContentActionsService: PageContentActionsService,
-              public memberLoginService: MemberLoginService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(PageContentService, NgxLoggerLevel.OFF);
+  constructor() {
     this.refreshLookups();
   }
 

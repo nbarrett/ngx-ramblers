@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import map from "lodash-es/map";
@@ -33,19 +33,15 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
     imports: [FontAwesomeModule]
 })
 export class MailchimpSegmentEditorComponent implements OnInit {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("MailchimpSegmentEditorComponent", NgxLoggerLevel.ERROR);
+  public editableSegments: KeyValue<number>[] = [];
+  protected readonly faEraser = faEraser;
   @Input()
   showTitle: boolean;
   @Input()
   segments: any;
 
-  constructor(loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MailchimpSegmentEditorComponent", NgxLoggerLevel.OFF);
-  }
-
-
-  private logger: Logger;
-  public editableSegments: KeyValue<number>[] = [];
-  protected readonly faEraser = faEraser;
 
   ngOnInit() {
     this.logger.info("constructed", "renderEditableSegments:", this.segments);

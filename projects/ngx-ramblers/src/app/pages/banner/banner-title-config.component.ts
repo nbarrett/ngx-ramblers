@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import first from "lodash-es/first";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -48,18 +48,14 @@ import { BannerTitlePartConfigComponent } from "./banner-title-part-config.compo
 })
 
 export class BannerTitleConfigComponent implements OnInit, OnDestroy {
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("BannerTitleConfigComponent", NgxLoggerLevel.ERROR);
+  private systemConfigService = inject(SystemConfigService);
   @Input()
   public titleLine: TitleLine;
   @Input()
   public id: string;
   private icons: Images;
   private subscriptions: Subscription[] = [];
-
-  constructor(loggerFactory: LoggerFactory,
-              private systemConfigService: SystemConfigService) {
-    this.logger = loggerFactory.createLogger(BannerTitleConfigComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.logger.debug("ngOnInit");

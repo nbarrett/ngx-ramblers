@@ -1,4 +1,4 @@
-import { Component, HostListener, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, HostListener, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { UrlService } from "../../services/url.service";
@@ -30,56 +30,62 @@ import { DisplayDatePipe } from "../../pipes/display-date.pipe";
 @Component({
     selector: "app-carousel",
     template: `
-    <div class="carousel-wrapper">
-      <div class="slider-container">
-        <div class="sc-inner">
-          @if (preview ? false : !hideStoryNavigator && album.showStoryNavigator) {
-            <app-carousel-story-navigator
-              [imageTags]="lazyLoadingMetadata?.contentMetadata?.imageTags"
-              [index]="index"
-              (tagChanged)="tagChanged($event)"/>
-          }
-          @if (lazyLoadingMetadata) {
-            <carousel (mouseenter)="mouseEnter($event)" (mouseleave)="mouseLeave($event)" [isAnimated]="true"
-                      [noPause]="noPause" [pauseOnFocus]="noPause"
-                      [interval]="album.slideInterval || 5000"
-                      [showIndicators]="album.showIndicators && showIndicators"
-                      [(activeSlide)]="lazyLoadingMetadata.activeSlideIndex"
-                      (activeSlideChange)="activeSlideChange(false, $event)">
-              @for (slide of lazyLoadingMetadata?.selectedSlides; track slide.image) {
-                <slide>
-                  @if (slide) {
-                    <img loading="lazy" [src]="imageSourceFor(slide)"
-                         [alt]="slide.text" [ngStyle]="{'height.px': album.height,
+      <div class="carousel-wrapper">
+        <div class="slider-container">
+          <div class="sc-inner">
+            @if (preview ? false : !hideStoryNavigator && album.showStoryNavigator) {
+              <app-carousel-story-navigator
+                [imageTags]="lazyLoadingMetadata?.contentMetadata?.imageTags"
+                [index]="index"
+                (tagChanged)="tagChanged($event)"/>
+            }
+            @if (lazyLoadingMetadata) {
+              <carousel (mouseenter)="mouseEnter($event)" (mouseleave)="mouseLeave($event)" [isAnimated]="true"
+                        [noPause]="noPause" [pauseOnFocus]="noPause"
+                        [interval]="album.slideInterval || 5000"
+                        [showIndicators]="album.showIndicators && showIndicators"
+                        [(activeSlide)]="lazyLoadingMetadata.activeSlideIndex"
+                        (activeSlideChange)="activeSlideChange(false, $event)">
+                @for (slide of lazyLoadingMetadata?.selectedSlides; track slide.image || slide.base64Content) {
+                  <slide>
+                    @if (slide) {
+                      <img loading="lazy" [src]="imageSourceFor(slide)"
+                           [alt]="slide.text" [ngStyle]="{'height.px': album.height,
                 'min-width': '100%',
                  'max-width': '100%',
                  'object-fit': 'cover',
                  'object-position': 'center'}">
-                  }
-                  <div class="carousel-caption">
-                    <h4>{{ slide.text || album.subtitle }}</h4>
-                    @if (slide.eventId || album.eventId) {
-                      <div>
-                        <a delay="500" class="badge event-date"
-                           [tooltip]="eventTooltip(slide.eventId? slide.dateSource : album.eventType)"
-                           [placement]="!showIndicators?'bottom':'right'"
-                           [href]="urlService.eventUrl(slide.eventId? slide : {dateSource:album.eventType, eventId: album.eventId})">
-                          on {{ slide.date | displayDate }}</a>
-                      </div>
                     }
-                  </div>
-                </slide>
-              }
-            </carousel>
-          }
+                    <div class="carousel-caption">
+                      <h4>{{ slide.text || album.subtitle }}</h4>
+                      @if (slide.eventId || album.eventId) {
+                        <div>
+                          <a delay="500" class="badge event-date"
+                             [tooltip]="eventTooltip(slide.eventId? slide.dateSource : album.eventType)"
+                             [placement]="!showIndicators?'bottom':'right'"
+                             [href]="urlService.eventUrl(slide.eventId? slide : {dateSource:album.eventType, eventId: album.eventId})">
+                            on {{ slide.date | displayDate }}</a>
+                        </div>
+                      }
+                    </div>
+                  </slide>
+                }
+              </carousel>
+            }
+          </div>
         </div>
-      </div>
-    </div>`,
+      </div>`,
     styleUrls: ["./carousel.sass"],
     imports: [CarouselStoryNavigatorComponent, CarouselComponent_1, SlideComponent, NgStyle, TooltipDirective, DisplayDatePipe]
 })
 export class CarouselComponent implements OnInit, OnDestroy {
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("CarouselComponent", NgxLoggerLevel.ERROR);
+  pageService = inject(PageService);
+  private memberLoginService = inject(MemberLoginService);
+  private lazyLoadingMetadataService = inject(LazyLoadingMetadataService);
+  private imageDuplicatesService = inject(ImageDuplicatesService);
+  contentMetadataService = inject(ContentMetadataService);
+  urlService = inject(UrlService);
   public showIndicators: boolean;
   private subscriptions: Subscription[] = [];
   public faPencil = faPencil;
@@ -111,16 +117,6 @@ export class CarouselComponent implements OnInit, OnDestroy {
   @HostListener("window:resize", ["$event"])
   onResize(event) {
     this.configureShowIndicators(event?.target?.innerWidth);
-  }
-
-  constructor(
-    public pageService: PageService,
-    private memberLoginService: MemberLoginService,
-    private lazyLoadingMetadataService: LazyLoadingMetadataService,
-    private imageDuplicatesService: ImageDuplicatesService,
-    public contentMetadataService: ContentMetadataService,
-    public urlService: UrlService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("CarouselComponent", NgxLoggerLevel.INFO);
   }
 
   ngOnInit() {

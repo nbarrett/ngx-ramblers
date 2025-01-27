@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import isEmpty from "lodash-es/isEmpty";
 import { NgxLoggerLevel } from "ngx-logger";
 import { MailchimpListCreateRequest } from "../../../../models/server-models";
@@ -150,7 +150,13 @@ import { MailchimpCampaignDefaultsComponent } from "./mailchimp-campaign-default
     imports: [FormsModule, NgClass, MailchimpCampaignDefaultsComponent]
 })
 export class MailchimpListSettingsComponent implements OnInit {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("MailchimpListSettingsComponent", NgxLoggerLevel.ERROR);
+  private broadcastService = inject<BroadcastService<any>>(BroadcastService);
+  private mailchimpLinkService = inject(MailchimpLinkService);
+  private mailchimpListService = inject(MailchimpListService);
+  private stringUtils = inject(StringUtilsService);
+  private mailchimpConfigService = inject(MailchimpConfigService);
   @Input()
   mailchimpConfig: MailchimpConfig;
   @Input()
@@ -166,16 +172,6 @@ export class MailchimpListSettingsComponent implements OnInit {
   public listConfigType: string;
   public listCreateRequest: MailchimpListCreateRequest;
   public confirm: Confirm = new Confirm();
-
-  constructor(
-    private broadcastService: BroadcastService<any>,
-    private mailchimpLinkService: MailchimpLinkService,
-    private mailchimpListService: MailchimpListService,
-    private stringUtils: StringUtilsService,
-    private mailchimpConfigService: MailchimpConfigService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MailchimpListMappingComponent", NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     const listId = this?.mailchimpConfig?.lists[this.listType];

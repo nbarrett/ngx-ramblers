@@ -1,5 +1,5 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
-import { faCircleInfo, faEye, faRemove } from "@fortawesome/free-solid-svg-icons";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { faRemove } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -125,18 +125,14 @@ import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe"
 
 export class WalkImportComponent implements OnInit, OnDestroy {
 
-  constructor(private notifierService: NotifierService,
-              protected icons: IconService,
-              private systemConfigService: SystemConfigService,
-              public display: WalkDisplayService,
-              private walksImportService: WalksImportService,
-              private urlService: UrlService,
-              private stringUtilsService: StringUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkImportComponent", NgxLoggerLevel.ERROR);
-  }
-
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkImportComponent", NgxLoggerLevel.ERROR);
+  private notifierService = inject(NotifierService);
+  protected icons = inject(IconService);
+  private systemConfigService = inject(SystemConfigService);
+  display = inject(WalkDisplayService);
+  private walksImportService = inject(WalksImportService);
+  private urlService = inject(UrlService);
+  private stringUtilsService = inject(StringUtilsService);
   public walksImportPreparation: WalksImportPreparation;
   public fileName: string;
   public alertTarget: AlertTarget = {};
@@ -145,9 +141,6 @@ export class WalkImportComponent implements OnInit, OnDestroy {
   faRemove = faRemove;
   public messages: string[] = [];
   public errorMessages: string[] = [];
-
-  protected readonly faEye = faEye;
-  protected readonly faCircleInfo = faCircleInfo;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");

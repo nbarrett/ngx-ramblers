@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { PageContentRow } from "../models/content-text.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";
@@ -8,19 +8,14 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 })
 
 export class PageContentRowService {
-  private logger: Logger;
 
+  private logger: Logger = inject(LoggerFactory).createLogger("PageContentRowService", NgxLoggerLevel.ERROR);
   private internalSelectedRows: PageContentRow[] = [];
-
-  constructor(loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(PageContentRowService, NgxLoggerLevel.OFF);
-  }
 
   selectRow(row: PageContentRow) {
     if (!this.isSelected(row)) {
       this.internalSelectedRows.push(row);
     }
-
   }
 
   isSelected(row: PageContentRow): boolean {

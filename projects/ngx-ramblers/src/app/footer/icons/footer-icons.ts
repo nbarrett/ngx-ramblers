@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { ExternalSystems, rgbColourCloudy } from "../../models/system.model";
@@ -84,16 +84,13 @@ import { SvgComponent } from "../../modules/common/svg/svg";
 })
 export class SocialMediaLinksComponent implements OnInit, OnDestroy {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("SocialMediaLinksComponent", NgxLoggerLevel.ERROR);
+  private systemConfigService = inject(SystemConfigService);
   public externalSystems: ExternalSystems;
-  private logger: Logger;
   private subscriptions: Subscription[] = [];
   @Input()
   colour: string = rgbColourCloudy;
   @Input() width: number;
-  constructor(private systemConfigService: SystemConfigService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("SocialMediaLinksComponent", NgxLoggerLevel.OFF);
-  }
 
   ngOnInit(): void {
     this.logger.info("subscribing to systemConfigService events");

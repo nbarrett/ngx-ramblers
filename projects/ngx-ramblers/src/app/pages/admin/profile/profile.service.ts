@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { isEmpty } from "lodash-es";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -17,16 +17,12 @@ import { UrlService } from "../../../services/url.service";
 
 export class ProfileService  {
 
-  constructor(private memberService: MemberService,
-              private urlService: UrlService,
-              private mailchimpListService: MailchimpListService,
-              private authService: AuthService,
-              private memberLoginService: MemberLoginService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ProfileService, NgxLoggerLevel.OFF);
-  }
-
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("ProfileService", NgxLoggerLevel.ERROR);
+  private memberService = inject(MemberService);
+  private urlService = inject(UrlService);
+  private mailchimpListService = inject(MailchimpListService);
+  private authService = inject(AuthService);
+  private memberLoginService = inject(MemberLoginService);
   filters: any;
 
   public subscribeToLogout(logger: Logger): Subscription {

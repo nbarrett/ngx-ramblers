@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { Title } from "@angular/platform-browser";
 import last from "lodash-es/last";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -19,17 +19,18 @@ import { shareReplay } from "rxjs/operators";
 })
 
 export class PageService {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("PageService", NgxLoggerLevel.ERROR);
+  private stringUtils = inject(StringUtilsService);
+  private titleService = inject(Title);
+  private systemConfigService = inject(SystemConfigService);
+  private urlService = inject(UrlService);
   public group: Organisation;
   private previouslySetTitles: string[] = [];
   private socialLink: Link;
   private subject = new ReplaySubject<Link>();
-  constructor(private stringUtils: StringUtilsService,
-              private titleService: Title,
-              private systemConfigService: SystemConfigService,
-              private urlService: UrlService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("PageService", NgxLoggerLevel.ERROR);
+
+  constructor() {
     this.logger.info("subscribing to systemConfigService events");
     this.systemConfigService.events().subscribe(item => {
       this.group = item.group;

@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import first from "lodash-es/first";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FirstAndLastName, HasEmailFirstAndLastName, Member, RamblersMember } from "../../models/member.model";
@@ -8,11 +8,8 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
   providedIn: "root"
 })
 export class MemberNamingService {
-  private logger: Logger;
 
-  constructor(loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MemberNamingService, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("MemberNamingService", NgxLoggerLevel.ERROR);
 
   createDisplayNameFromContactName(contactName: string): string {
     if (contactName) {

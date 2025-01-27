@@ -1,5 +1,4 @@
-import { Component, OnInit } from "@angular/core";
-import { UrlService } from "../../services/url.service";
+import { Component, inject, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { PageComponent } from "../../page/page.component";
@@ -11,11 +10,8 @@ import { MarkdownEditorComponent } from "../../markdown-editor/markdown-editor.c
     imports: [PageComponent, MarkdownEditorComponent]
 })
 export class PrivacyPolicyComponent implements OnInit {
-  private logger: Logger;
 
-  constructor(private urlService: UrlService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(PrivacyPolicyComponent, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("PrivacyPolicyComponent", NgxLoggerLevel.ERROR);
 
   ngOnInit() {
     this.logger.debug("ngOnInit");

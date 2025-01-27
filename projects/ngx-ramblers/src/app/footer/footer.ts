@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { Footer, Ramblers } from "../models/system.model";
@@ -97,17 +97,14 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
     imports: [SocialMediaLinksComponent, TooltipDirective]
 })
 export class FooterComponent implements OnInit, OnDestroy {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("FooterComponent", NgxLoggerLevel.ERROR);
+  private dateUtils = inject(DateUtilsService);
+  private systemConfigService = inject(SystemConfigService);
   public year: number;
   public footer: Footer;
   private subscriptions: Subscription[] = [];
   protected national: Ramblers;
-  constructor(private dateUtils: DateUtilsService,
-              private systemConfigService: SystemConfigService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("FooterComponent", NgxLoggerLevel.OFF);
-    this.logger.debug("constructed");
-  }
 
   ngOnInit() {
     this.logger.info("subscribing to systemConfigService events");

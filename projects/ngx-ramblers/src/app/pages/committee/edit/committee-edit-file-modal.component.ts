@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from "@angular/common/http";
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import first from "lodash-es/first";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import { BsModalRef } from "ngx-bootstrap/modal";
@@ -27,26 +27,22 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
     imports: [DatePickerComponent, FormsModule, NgClass, FileUploadModule, NgStyle, FontAwesomeModule]
 })
 export class CommitteeEditFileModalComponent implements OnInit, OnDestroy {
+  private logger: Logger = inject(LoggerFactory).createLogger("CommitteeEditFileModalComponent", NgxLoggerLevel.ERROR);
+  private fileUploadService = inject(FileUploadService);
+  display = inject(CommitteeDisplayService);
+  private committeeFileService = inject(CommitteeFileService);
+  private notifierService = inject(NotifierService);
+  protected dateUtils = inject(DateUtilsService);
+  bsModalRef = inject(BsModalRef);
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public notification: Notification;
-  private logger: Logger;
   public committeeFile: CommitteeFile;
   public hasFileOver = false;
   public eventDate: DateValue;
   private existingTitle: string;
   public uploader: FileUploader;
   private subscriptions: Subscription[] = [];
-
-  constructor(private fileUploadService: FileUploadService,
-              public display: CommitteeDisplayService,
-              private committeeFileService: CommitteeFileService,
-              private notifierService: NotifierService,
-              protected dateUtils: DateUtilsService,
-              public bsModalRef: BsModalRef,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(CommitteeEditFileModalComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.logger.debug("constructed with committeeFile", this.committeeFile);

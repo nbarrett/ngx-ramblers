@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject } from "rxjs";
 import { GridReferenceLookupApiResponse, GridReferenceLookupResponse } from "../../models/address-model";
@@ -12,15 +12,11 @@ import { LatLng, LatLngLiteral } from "leaflet";
 })
 export class AddressQueryService {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("AddressQueryService", NgxLoggerLevel.ERROR);
   private BASE_URL = "/api/addresses";
+  private http = inject(HttpClient);
+  private commonDataService = inject(CommonDataService);
   private postcodeNotifications = new Subject<GridReferenceLookupApiResponse>();
-  private logger: Logger;
-
-  constructor(private http: HttpClient,
-              private commonDataService: CommonDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("AddressQueryService", NgxLoggerLevel.ERROR);
-  }
 
   private toLatLngLiteral(latlng: LatLng): LatLngLiteral {
     return {

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import cloneDeep from "lodash-es/cloneDeep";
 import last from "lodash-es/last";
@@ -22,10 +22,8 @@ import { Confirm } from "../../../models/ui-actions";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { ApiResponseProcessor } from "../../../services/api-response-processor.service";
 import { sortBy } from "../../../functions/arrays";
-import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { MailchimpLinkService } from "../../../services/mailchimp/mailchimp-link.service";
 import { MemberResourcesService } from "../../../services/member-resources/member-resources.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
@@ -50,7 +48,21 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 })
 export class HowToSubjectListingComponent implements OnInit, OnDestroy {
 
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("HowToSubjectListingComponent", NgxLoggerLevel.ERROR);
+  private pageService = inject(PageService);
+  private memberResourcesReferenceDataService = inject(MemberResourcesReferenceDataService);
+  private authService = inject(AuthService);
+  private searchFilterPipe = inject(SearchFilterPipe);
+  private notifierService = inject(NotifierService);
+  private modalService = inject(BsModalService);
+  private route = inject(ActivatedRoute);
+  private apiResponseProcessor = inject(ApiResponseProcessor);
+  private memberLoginService = inject(MemberLoginService);
+  protected dateUtils = inject(DateUtilsService);
+  memberResourcesService = inject(MemberResourcesService);
+  memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
+  private stringUtils = inject(StringUtilsService);
+  urlService = inject(UrlService);
   public notifyTarget: AlertTarget = {};
   public confirm = new Confirm();
   public members: Member[] = [];
@@ -66,26 +78,6 @@ export class HowToSubjectListingComponent implements OnInit, OnDestroy {
   private notify: AlertInstance;
   public subject: string;
   public resourceSubject: ResourceSubject;
-
-  constructor(
-    private pageService: PageService,
-    private contentMetadataService: ContentMetadataService,
-    private memberResourcesReferenceDataService: MemberResourcesReferenceDataService,
-    private authService: AuthService,
-    private searchFilterPipe: SearchFilterPipe,
-    private notifierService: NotifierService,
-    private modalService: BsModalService,
-    private route: ActivatedRoute,
-    private apiResponseProcessor: ApiResponseProcessor,
-    private memberLoginService: MemberLoginService,
-    protected dateUtils: DateUtilsService,
-    public memberResourcesService: MemberResourcesService,
-    public memberResourcesReferenceData: MemberResourcesReferenceDataService,
-    private mailchimpLinkService: MailchimpLinkService,
-    private stringUtils: StringUtilsService,
-    public urlService: UrlService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(HowToSubjectListingComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.logger.debug("ngOnInit");

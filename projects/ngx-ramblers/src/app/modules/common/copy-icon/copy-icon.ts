@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import { faCopy } from "@fortawesome/free-solid-svg-icons";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -15,6 +15,8 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 })
 
 export class CopyIconComponent implements OnInit {
+  private logger: Logger = inject(LoggerFactory).createLogger("CopyIconComponent", NgxLoggerLevel.ERROR);
+  private clipboardService = inject(ClipboardService);
 
   @Input("elementName") set acceptChangesFrom(elementName: string) {
     this.logger.debug("elementName:input", elementName);
@@ -30,17 +32,9 @@ export class CopyIconComponent implements OnInit {
   icon: IconDefinition;
   elementName: string;
 
-  faCopy: IconDefinition = faCopy;
-  private logger: Logger;
   public tooltipPreCopy: string;
   public tooltipPostCopy: string;
   public copied: boolean;
-
-  constructor(
-    private clipboardService: ClipboardService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(CopyIconComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.logger.debug("initialised with elementName", this.elementName, "value:", this.value);

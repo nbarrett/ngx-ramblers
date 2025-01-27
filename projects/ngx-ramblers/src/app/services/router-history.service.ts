@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NavigationEnd, Router } from "@angular/router";
 import first from "lodash-es/first";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -11,12 +11,14 @@ import { UrlService } from "./url.service";
   providedIn: "root"
 })
 export class RouterHistoryService {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("RouterHistoryService", NgxLoggerLevel.ERROR);
+  private router = inject(Router);
+  private urlService = inject(UrlService);
+  private pageService = inject(PageService);
   public pageHistory: string[] = [];
 
-  constructor(private router: Router, private urlService: UrlService,
-              private pageService: PageService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(RouterHistoryService, NgxLoggerLevel.OFF);
+  constructor() {
     this.loadRouting();
   }
 

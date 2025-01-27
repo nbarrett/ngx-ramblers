@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { ContentText, ContentTextApiResponse } from "../models/content-text.model";
@@ -10,15 +10,12 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
   providedIn: "root"
 })
 export class ContentTextService {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("ContentTextService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private commonDataService = inject(CommonDataService);
   private BASE_URL = "/api/database/content-text";
   private notificationsInternal = new Subject<ContentTextApiResponse>();
-
-  constructor(private http: HttpClient,
-              private commonDataService: CommonDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ContentTextService, NgxLoggerLevel.OFF);
-  }
 
   notifications(): Observable<ContentTextApiResponse> {
     return this.notificationsInternal.asObservable();

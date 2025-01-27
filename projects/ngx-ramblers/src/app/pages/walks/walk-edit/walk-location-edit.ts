@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute } from "@angular/router";
 import { faPencil } from "@fortawesome/free-solid-svg-icons";
@@ -120,6 +120,17 @@ import { MapEditComponent } from "./map-edit";
     imports: [FormsModule, TooltipDirective, MapEditComponent]
 })
 export class WalkLocationEditComponent implements OnInit {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkLocationEditComponent", NgxLoggerLevel.ERROR);
+  googleMapsService = inject(GoogleMapsService);
+  private addressQueryService = inject(AddressQueryService);
+  route = inject(ActivatedRoute);
+  protected dateUtils = inject(DateUtilsService);
+  display = inject(WalkDisplayService);
+  stringUtils = inject(StringUtilsService);
+  numberUtils = inject(NumberUtilsService);
+  protected notifierService = inject(NotifierService);
+
   @Input() public locationType!: string;
   @Input() public notify!: AlertInstance;
   @Input("disabled") set previewValue(disabled: boolean) {
@@ -133,26 +144,12 @@ export class WalkLocationEditComponent implements OnInit {
 
   public showLeafletView = true;
   public disabled: boolean;
-  protected logger: Logger;
   public locationDetails: LocationDetails;
   public showPostcodeSelect = false;
   public postcodeOptions: {postcode: string, distance: number}[] = [];
   public googleMapsUrl: SafeResourceUrl;
   public faPencil = faPencil;
   public showGoogleMapsView = false;
-
-  constructor(
-    public googleMapsService: GoogleMapsService,
-    private addressQueryService: AddressQueryService,
-    public route: ActivatedRoute,
-    protected dateUtils: DateUtilsService,
-    public display: WalkDisplayService,
-    public stringUtils: StringUtilsService,
-    public numberUtils: NumberUtilsService,
-    protected notifierService: NotifierService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkEditComponent", NgxLoggerLevel.ERROR);
-  }
 
   async ngOnInit() {
     this.logger.info("locationType:", this.locationType, "locationDetails:", this.locationDetails);

@@ -1,12 +1,10 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { faPeopleGroup } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { RamblersGroupsApiResponse } from "../../../models/ramblers-walks-manager";
 import { DisplayedWalk } from "../../../models/walk.model";
-import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { MemberLoginService } from "../../../services/member/member-login.service";
 import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { RelatedLinkComponent } from "../../../modules/common/related-link/related-link.component";
@@ -20,21 +18,14 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 })
 
 export class WalkGroupComponent implements OnInit {
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkGroupComponent", NgxLoggerLevel.ERROR);
+  googleMapsService = inject(GoogleMapsService);
+  display = inject(WalkDisplayService);
+  ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   @Input()
   public displayedWalk: DisplayedWalk;
   faPeopleGroup = faPeopleGroup;
   private groups: RamblersGroupsApiResponse[] = [];
-
-  constructor(
-    public googleMapsService: GoogleMapsService,
-    private memberLoginService: MemberLoginService,
-    public display: WalkDisplayService,
-    public ramblersWalksAndEventsService: RamblersWalksAndEventsService,
-    private dateUtils: DateUtilsService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkGroupComponent", NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.ramblersWalksAndEventsService.groupNotifications().subscribe(item => this.groups = item.response);

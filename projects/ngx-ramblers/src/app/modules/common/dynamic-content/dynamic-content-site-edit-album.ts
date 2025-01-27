@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { faChevronRight, faPencil } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
@@ -18,7 +18,7 @@ import { LazyLoadingMetadata } from "../../../models/content-metadata.model";
 import { UrlService } from "../../../services/url.service";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { StoredValue } from "../../../models/ui-actions";
-import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FormsModule } from "@angular/forms";
 import { AlbumComponent } from "../../../album/view/album";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
@@ -345,15 +345,13 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
 })
 export class DynamicContentSiteEditAlbumComponent implements OnInit {
 
-  constructor(
-    public stringUtils: StringUtilsService,
-    public actions: PageContentActionsService,
-    public urlService: UrlService,
-    public uiActionsService: UiActionsService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("DynamicContentSiteEditAlbumComponent", NgxLoggerLevel.ERROR);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditAlbumComponent", NgxLoggerLevel.ERROR);
+  stringUtils = inject(StringUtilsService);
+  actions = inject(PageContentActionsService);
+  urlService = inject(UrlService);
+  uiActionsService = inject(UiActionsService);
   public row: PageContentRow;
+
   @Input("row") set rowValue(row: PageContentRow) {
     this.logger.info("row changed:", row);
     this.row = row
@@ -364,7 +362,6 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
   public pageContent: PageContent;
   enumKeyValuesForAlbumView: KeyValue<string>[] = enumKeyValues(AlbumView);
   thumbPositions: string[] = ["top", "left", "right", "bottom"];
-  private logger: Logger;
   faPencil = faPencil;
   groupEventType: GroupEventType;
   protected readonly faChevronRight = faChevronRight;

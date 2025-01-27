@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import range from "lodash-es/range";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
@@ -18,6 +18,13 @@ import { FormsModule } from "@angular/forms";
 })
 export class WalkMeetupConfigParametersComponent implements OnInit {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkMeetupConfigParametersComponent", NgxLoggerLevel.ERROR);
+  private meetupService = inject(MeetupService);
+  private broadcastService = inject<BroadcastService<ContentText>>(BroadcastService);
+  public selectedContentTextItem: ContentText;
+  public publishStatuses: string[] = [];
+  public guestLimits: number[];
+
   @Input()
   public config: MeetupConfig;
 
@@ -26,17 +33,6 @@ export class WalkMeetupConfigParametersComponent implements OnInit {
 
   @Input()
   public contentTextItems: ContentText[];
-
-  public selectedContentTextItem: ContentText;
-  private logger: Logger;
-  public publishStatuses: string[] = [];
-  public guestLimits: number[];
-
-  constructor(private meetupService: MeetupService,
-              private broadcastService: BroadcastService<ContentText>,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkMeetupConfigParametersComponent, NgxLoggerLevel.ERROR);
-  }
 
   ngOnInit() {
     this.logger.debug("ngOnInit:renderMarkdownField", this.renderMarkdownField);

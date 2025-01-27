@@ -1,8 +1,6 @@
-import { Component, Input, OnInit } from "@angular/core";
-import { NgxLoggerLevel } from "ngx-logger";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { PageContentRow } from "../../../models/content-text.model";
 import { PageContentRowService } from "../../../services/page-content-row.service";
-import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 
@@ -21,17 +19,13 @@ import { PageContentActionsService } from "../../../services/page-content-action
 })
 
 export class BulkActionSelectorComponent implements OnInit {
-  private logger: Logger;
+  pageContentRowService = inject(PageContentRowService);
+  private numberUtils = inject(NumberUtilsService);
+  actions = inject(PageContentActionsService);
+
   @Input()
   public row: PageContentRow;
   public id: string;
-
-  constructor(loggerFactory: LoggerFactory,
-              public pageContentRowService: PageContentRowService,
-              private numberUtils: NumberUtilsService,
-              public actions: PageContentActionsService) {
-    this.logger = loggerFactory.createLogger(BulkActionSelectorComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.id = this.numberUtils.generateUid();

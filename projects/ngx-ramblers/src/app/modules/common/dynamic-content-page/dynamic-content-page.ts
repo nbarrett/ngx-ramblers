@@ -1,6 +1,4 @@
 import { Component } from "@angular/core";
-import { NgxLoggerLevel } from "ngx-logger";
-import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { PageComponent } from "../../../page/page.component";
 import { DynamicContentComponent } from "../dynamic-content/dynamic-content";
 
@@ -11,11 +9,4 @@ import { DynamicContentComponent } from "../dynamic-content/dynamic-content";
     imports: [PageComponent, DynamicContentComponent]
 })
 export class DynamicContentPageComponent {
-  private logger: Logger;
-
-  constructor(
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(DynamicContentPageComponent, NgxLoggerLevel.OFF);
-  }
-
 }

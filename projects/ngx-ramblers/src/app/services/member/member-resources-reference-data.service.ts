@@ -1,10 +1,16 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { FileUtilsService } from "../../file-utils.service";
 import { MailchimpCampaign, MailchimpCampaignVersion2 } from "../../models/mailchimp.model";
-import { AccessLevel, AccessLevelData, MailchimpCampaignMixedVersion, MemberResource, ResourceSubject, ResourceType, ResourceTypeData } from "../../models/member-resource.model";
+import {
+  AccessLevel,
+  AccessLevelData,
+  MailchimpCampaignMixedVersion,
+  MemberResource,
+  ResourceSubject,
+  ResourceType,
+  ResourceTypeData
+} from "../../models/member-resource.model";
 import { SiteEditService } from "../../site-edit/site-edit.service";
-import { ContentMetadataService } from "../content-metadata.service";
 import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberLoginService } from "./member-login.service";
@@ -14,20 +20,10 @@ import { MemberLoginService } from "./member-login.service";
 })
 export class MemberResourcesReferenceDataService {
 
-  constructor(private fileUtilsService: FileUtilsService,
-              private siteEditService: SiteEditService,
-              protected dateUtils: DateUtilsService,
-              private contentMetadataService: ContentMetadataService,
-              private memberLoginService: MemberLoginService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MemberResourcesReferenceDataService, NgxLoggerLevel.OFF);
-  }
-
-  private logger: Logger;
-
-  static isMailchimpCampaignVersion2(campaign: MailchimpCampaignVersion2 | MailchimpCampaign): campaign is MailchimpCampaignVersion2 {
-    return (campaign as MailchimpCampaignVersion2).archive_url_long !== undefined;
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("MemberResourcesReferenceDataService", NgxLoggerLevel.ERROR);
+  private siteEditService = inject(SiteEditService);
+  protected dateUtils = inject(DateUtilsService);
+  private memberLoginService = inject(MemberLoginService);
 
   static isMailchimpCampaign(campaign: MailchimpCampaignVersion2 | MailchimpCampaign): campaign is MailchimpCampaign {
     return (campaign as MailchimpCampaign)?.long_archive_url !== undefined;

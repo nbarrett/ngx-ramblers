@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import last from "lodash-es/last";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
@@ -29,7 +29,6 @@ import { RootFolder } from "../models/system.model";
 import { StringUtilsService } from "./string-utils.service";
 import first from "lodash-es/first";
 import { MemberLoginService } from "./member/member-login.service";
-import { UrlService } from "./url.service";
 import take from "lodash-es/take";
 
 @Injectable({
@@ -37,24 +36,21 @@ import take from "lodash-es/take";
 })
 
 export class ContentMetadataService {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("ContentMetadataService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private dateUtils = inject(DateUtilsService);
+  private stringUtils = inject(StringUtilsService);
+  memberLoginService = inject(MemberLoginService);
+  private searchFilterPipe = inject(SearchFilterPipe);
+  imageTagDataService = inject(ImageTagDataService);
+  private imageDuplicatesService = inject(ImageDuplicatesService);
+  private commonDataService = inject(CommonDataService);
   private BASE_URL = "api/database/content-metadata";
-  private readonly logger: Logger;
   private contentMetadataSubject = new Subject<ContentMetadataApiResponse>();
   private contentMetadataSubjects = new Subject<ContentMetadataApiResponses>();
   private s3MetadataSubject = new Subject<S3MetadataApiResponse>();
   public carousels: string[];
-
-  constructor(private http: HttpClient,
-              private dateUtils: DateUtilsService,
-              private stringUtils: StringUtilsService,
-              private urlService: UrlService,
-              public memberLoginService: MemberLoginService,
-              private searchFilterPipe: SearchFilterPipe,
-              public imageTagDataService: ImageTagDataService,
-              private imageDuplicatesService: ImageDuplicatesService,
-              private commonDataService: CommonDataService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("ContentMetadataService", NgxLoggerLevel.OFF);
-  }
 
   contentMetadataNotifications(): Observable<ContentMetadataApiResponses> {
     return this.contentMetadataSubjects.asObservable();

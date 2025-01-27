@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
 import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -11,16 +11,14 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
     template: ""
 })
 export class LoginComponent implements OnInit, OnDestroy {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("LoginComponent", NgxLoggerLevel.ERROR);
+  private modalService = inject(BsModalService);
+  route = inject(ActivatedRoute);
   private subscriptions: Subscription[] = [];
 
-  constructor(private modalService: BsModalService,
-              public route: ActivatedRoute, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(LoginComponent, NgxLoggerLevel.OFF);
-    this.logger.debug("constructed");
-  }
-
   ngOnInit() {
+    this.logger.debug("constructed");
     this.subscriptions.push(this.route.paramMap.subscribe(() => {
       this.modalService.show(LoginModalComponent);
     }));

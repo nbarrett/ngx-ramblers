@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Member } from "../../../../models/member.model";
 import { WalkDataAudit } from "../../../../models/walk-data-audit.model";
@@ -75,10 +75,11 @@ import { DisplayDatePipe } from "../../../../pipes/display-date.pipe";
 })
 export class WalkNotificationDetailsComponent implements OnInit {
 
-  @Input("data") set walkNotificationValue(data: WalkNotification) {
-    this.data = data;
-    this.initialiseData();
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkNotificationDetailsComponent", NgxLoggerLevel.ERROR);
+  private valueOrDefaultPipe = inject(ValueOrDefaultPipe);
+  private auditDeltaValuePipe = inject(AuditDeltaValuePipe);
+  googleMapsService = inject(GoogleMapsService);
+  display = inject(WalkDisplayService);
   public data: WalkNotification;
   public walk: Walk;
   public status: EventType;
@@ -86,16 +87,11 @@ export class WalkNotificationDetailsComponent implements OnInit {
   public walkDataAudit: WalkDataAudit;
   public validationMessages: string[];
   public reason: string;
-
-  protected logger: Logger;
   public members: Member[];
-  constructor(
-    private valueOrDefaultPipe: ValueOrDefaultPipe,
-    private auditDeltaValuePipe: AuditDeltaValuePipe,
-    public googleMapsService: GoogleMapsService,
-    public display: WalkDisplayService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkNotificationDetailsComponent", NgxLoggerLevel.ERROR);
+
+  @Input("data") set walkNotificationValue(data: WalkNotification) {
+    this.data = data;
+    this.initialiseData();
   }
 
   ngOnInit() {

@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
@@ -12,15 +12,11 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 })
 export class RamblersUploadAuditService {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("RamblersUploadAuditService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private commonDataService = inject(CommonDataService);
   private BASE_URL = "/api/database/ramblers-upload-audit";
-  private logger: Logger;
   private auditNotifications = new Subject<RamblersUploadAuditApiResponse>();
-
-  constructor(private http: HttpClient,
-              private commonDataService: CommonDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(RamblersUploadAuditService, NgxLoggerLevel.OFF);
-  }
 
   notifications(): Observable<RamblersUploadAuditApiResponse> {
     return this.auditNotifications.asObservable();

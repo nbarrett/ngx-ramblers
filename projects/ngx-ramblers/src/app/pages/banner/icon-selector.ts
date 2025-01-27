@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { FileUtilsService } from "../../file-utils.service";
@@ -8,7 +8,7 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { UrlService } from "../../services/url.service";
-import { NgSelectComponent, NgOptionComponent } from "@ng-select/ng-select";
+import { NgOptionComponent, NgSelectComponent } from "@ng-select/ng-select";
 import { FormsModule } from "@angular/forms";
 
 @Component({
@@ -32,17 +32,14 @@ import { FormsModule } from "@angular/forms";
 })
 
 export class IconSelectorComponent implements OnInit, OnDestroy {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("IconSelectorComponent", NgxLoggerLevel.ERROR);
+  stringUtils = inject(StringUtilsService);
+  urlService = inject(UrlService);
+  fileUtils = inject(FileUtilsService);
+  private systemConfigService = inject(SystemConfigService);
   public icons: Images;
   private subscriptions: Subscription[] = [];
-
-  constructor(public stringUtils: StringUtilsService,
-              public urlService: UrlService,
-              public fileUtils: FileUtilsService,
-              private systemConfigService: SystemConfigService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(IconSelectorComponent, NgxLoggerLevel.OFF);
-  }
 
   @Input()
   public titleLine: TitleLine;

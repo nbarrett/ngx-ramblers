@@ -1,4 +1,4 @@
-import { Component, Inject, Input } from "@angular/core";
+import { Component, inject, Input } from "@angular/core";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DOCUMENT } from "@angular/common";
@@ -53,7 +53,8 @@ export const ConfigDefaults: CsvOptions = {
 })
 export class CsvExportComponent {
 
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("CsvExportComponent", NgxLoggerLevel.ERROR);
+  private document = inject<Document>(DOCUMENT);
   private _options: CsvOptions = ConfigDefaults;
   private data: any[];
   private csv = "";
@@ -71,12 +72,6 @@ export class CsvExportComponent {
   @Input("options") set acceptOptions(options: CsvOptions) {
     this._options = {...ConfigDefaults, ...options, filename: this._options.filename};
     this.logger.off("input:options:", options, "this._options", this._options);
-  }
-
-  constructor(
-    @Inject(DOCUMENT) private document: Document,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("CsvExportComponent", NgxLoggerLevel.OFF);
   }
 
   generateCsv(): void {

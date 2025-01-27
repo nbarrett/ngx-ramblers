@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { CommitteeFile } from "../../models/committee.model";
 import { Member } from "../../models/member.model";
@@ -14,16 +14,12 @@ import { FALLBACK_MEDIA, Walk } from "../../models/walk.model";
 })
 
 export class MediaQueryService {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("MediaQueryService", NgxLoggerLevel.ERROR);
+  private urlService = inject(UrlService);
+  display = inject(CommitteeDisplayService);
   public committeeFiles: CommitteeFile[] = [];
   public committeeMembers: Member[] = [];
-
-  constructor(
-    private urlService: UrlService,
-    public display: CommitteeDisplayService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MediaQueryService", NgxLoggerLevel.ERROR);
-  }
 
 
   public imageUrlFrom(mediaObject: HasMedia): string {

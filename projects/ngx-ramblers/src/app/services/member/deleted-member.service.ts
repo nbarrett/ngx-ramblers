@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DeletedMember, DeletedMemberApiResponse } from "../../models/member.model";
@@ -10,15 +10,12 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
   providedIn: "root"
 })
 export class DeletedMemberService {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("DeletedMemberService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private commonDataService = inject(CommonDataService);
   private BASE_URL = "/api/database/deleted-member";
   private notificationsInternal = new Subject<DeletedMemberApiResponse>();
-
-  constructor(private http: HttpClient,
-              private commonDataService: CommonDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(DeletedMemberService, NgxLoggerLevel.OFF);
-  }
 
   notifications(): Observable<DeletedMemberApiResponse> {
     return this.notificationsInternal.asObservable();

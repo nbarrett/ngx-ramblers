@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import kebabCase from "lodash-es/kebabCase";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DisplayedWalk, RiskAssessmentRecord } from "../../../../models/walk.model";
@@ -7,7 +7,6 @@ import { DateUtilsService } from "../../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../../services/member/member-login.service";
 import { WalkChangesService } from "../../../../services/walks/walk-changes.service";
-import { WalksReferenceService } from "../../../../services/walks/walks-reference-data.service";
 import { WalkDisplayService } from "../../walk-display.service";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
 
@@ -18,22 +17,19 @@ import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-ed
     imports: [MarkdownEditorComponent]
 })
 export class WalkRiskAssessmentSectionComponent implements OnInit {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkRiskAssessmentSectionComponent", NgxLoggerLevel.ERROR);
+  private memberLoginService = inject(MemberLoginService);
+  display = inject(WalkDisplayService);
+  private dateUtilsService = inject(DateUtilsService);
+  private memberIdToFullNamePipe = inject(MemberIdToFullNamePipe);
+  private walkChangesService = inject(WalkChangesService);
+
   public riskAssessmentKey: string;
   @Input()
   public displayedWalk: DisplayedWalk;
   @Input()
   public riskAssessmentSection: string;
-  private logger: Logger;
-
-  constructor(private memberLoginService: MemberLoginService,
-              public display: WalkDisplayService,
-              private walksReferenceService: WalksReferenceService,
-              private dateUtilsService: DateUtilsService,
-              private memberIdToFullNamePipe: MemberIdToFullNamePipe,
-              private walkChangesService: WalkChangesService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkRiskAssessmentSectionComponent, NgxLoggerLevel.OFF);
-  }
 
   confirmParameter(checked: boolean) {
     this.logger.debug("checked", this.riskAssessmentKey, "as", checked);

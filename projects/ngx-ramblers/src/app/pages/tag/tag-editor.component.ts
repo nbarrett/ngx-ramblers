@@ -1,8 +1,8 @@
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import cloneDeep from "lodash-es/cloneDeep";
 import isEqual from "lodash-es/isEqual";
 import { NgxLoggerLevel } from "ngx-logger";
-import { TagData, TagifySettings, TagifyModule } from "ngx-tagify";
+import { TagData, TagifyModule, TagifySettings } from "ngx-tagify";
 import { BehaviorSubject, Subscription } from "rxjs";
 import { ImageTag } from "../../models/content-metadata.model";
 import { ImageTagDataService } from "../../services/image-tag-data-service";
@@ -29,6 +29,10 @@ import { FormsModule } from "@angular/forms";
 })
 
 export class TagEditorComponent implements OnInit, OnDestroy {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("TagEditorComponent", NgxLoggerLevel.ERROR);
+  stringUtils = inject(StringUtilsService);
+  private imageTagDataService = inject(ImageTagDataService);
 
   public tagsForImage: number[];
 
@@ -66,15 +70,8 @@ export class TagEditorComponent implements OnInit, OnDestroy {
   };
   public tagLookups: BehaviorSubject<TagData[]> = new BehaviorSubject<TagData[]>([]);
   public readonly = false;
-  private logger: Logger;
   public id: string;
   private subscriptions: Subscription[] = [];
-
-  constructor(public stringUtils: StringUtilsService,
-              private imageTagDataService: ImageTagDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(TagEditorComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     if (!this.tagsForImage) {

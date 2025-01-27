@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from "@angular/common/http";
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import first from "lodash-es/first";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import { BsModalRef } from "ngx-bootstrap/modal";
@@ -32,35 +32,31 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
     imports: [DatePickerComponent, FormsModule, NgClass, FileUploadModule, NgStyle, FontAwesomeModule]
 })
 export class HowToModalComponent implements OnInit, AfterViewInit, OnDestroy {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("HowToModalComponent", NgxLoggerLevel.ERROR);
+  private mailchimpCampaignService = inject(MailchimpCampaignService);
+  private notifierService = inject(NotifierService);
+  stringUtils = inject(StringUtilsService);
+  private displayDate = inject(DisplayDatePipe);
+  memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
+  private memberResourcesService = inject(MemberResourcesService);
+  fileUtils = inject(FileUtilsService);
+  protected dateUtils = inject(DateUtilsService);
+  bsModalRef = inject(BsModalRef);
+  private fileUploadService: FileUploadService = inject(FileUploadService);
   @ViewChild("searchInput") private searchInput: ElementRef;
   public memberResource: MemberResource;
   public confirm: Confirm;
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public notification: Notification;
-  private logger: Logger;
   public hasFileOver = false;
   public resourceDate: DateValue;
   private existingTitle: string;
   public uploader: FileUploader;
-  public selectedMemberIds: string[] = [];
   public editMode: string;
   public campaigns: MailchimpCampaign[] = [];
   private subscriptions: Subscription[] = [];
-
-  constructor(private fileUploadService: FileUploadService,
-              private mailchimpCampaignService: MailchimpCampaignService,
-              private notifierService: NotifierService,
-              public stringUtils: StringUtilsService,
-              private displayDate: DisplayDatePipe,
-              public memberResourcesReferenceData: MemberResourcesReferenceDataService,
-              private memberResourcesService: MemberResourcesService,
-              public fileUtils: FileUtilsService,
-              protected dateUtils: DateUtilsService,
-              public bsModalRef: BsModalRef,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(HowToModalComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     const resourceUrl = this.memberResourcesReferenceData.resourceTypeDataFor(this.memberResource.resourceType).resourceUrl(this.memberResource);

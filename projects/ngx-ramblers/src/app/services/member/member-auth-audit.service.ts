@@ -1,28 +1,22 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
 import { MemberAuthAudit, MemberAuthAuditApiResponse } from "../../models/member.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { NumberUtilsService } from "../number-utils.service";
 
 @Injectable({
   providedIn: "root"
 })
 export class MemberAuthAuditService {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("MemberAuthAuditService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private commonDataService = inject(CommonDataService);
   private BASE_URL = "/api/database/member-auth-audit";
-  private logger: Logger;
   private authNotifications = new Subject<MemberAuthAuditApiResponse>();
-
-  constructor(private http: HttpClient,
-              private numberUtils: NumberUtilsService,
-              private commonDataService: CommonDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MemberAuthAuditService, NgxLoggerLevel.OFF);
-  }
 
   notifications(): Observable<MemberAuthAuditApiResponse> {
     return this.authNotifications.asObservable();

@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { GroupEvent, Notification } from "../../../models/committee.model";
 import { Member } from "../../../models/member.model";
@@ -49,6 +49,14 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
     imports: [NgStyle, MarkdownComponent, DisplayDatePipe]
 })
 export class CommitteeNotificationGroupEventMessageItemComponent implements OnInit, OnDestroy {
+  private logger: Logger = inject(LoggerFactory).createLogger("CommitteeNotificationGroupEventMessageItemComponent", NgxLoggerLevel.ERROR);
+  mailMessagingService = inject(MailMessagingService);
+  googleMapsService = inject(GoogleMapsService);
+  private systemConfigService = inject(SystemConfigService);
+  display = inject(CommitteeDisplayService);
+  public notification: Notification;
+  private subscriptions: Subscription[] = [];
+  public group: Organisation;
 
   @Input()
   public members: Member[];
@@ -57,20 +65,6 @@ export class CommitteeNotificationGroupEventMessageItemComponent implements OnIn
   public event: GroupEvent;
 
   @Input()
-  public notification: Notification;
-
-  protected logger: Logger;
-  private subscriptions: Subscription[] = [];
-  public group: Organisation;
-
-  constructor(
-    public mailMessagingService: MailMessagingService,
-    public googleMapsService: GoogleMapsService,
-    private systemConfigService: SystemConfigService,
-    public display: CommitteeDisplayService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("CommitteeNotificationGroupEventMessageItemComponent", NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.logger.debug("ngOnInit:event ->", this.event);

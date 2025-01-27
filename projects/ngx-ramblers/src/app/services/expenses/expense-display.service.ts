@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import cloneDeep from "lodash-es/clone";
 import find from "lodash-es/find";
 import isEmpty from "lodash-es/isEmpty";
@@ -31,8 +31,17 @@ import { DEFAULT_COST_PER_MILE } from "../../models/committee.model";
 })
 
 export class ExpenseDisplayService {
+  private logger: Logger = inject(LoggerFactory).createLogger("RowSettingsActionButtonsComponent", NgxLoggerLevel.ERROR);
+  private contentMetadata = inject(ContentMetadataService);
+  private memberService = inject(MemberService);
+  private committeeConfigService = inject(CommitteeConfigService);
+  private memberLoginService = inject(MemberLoginService);
+  private expenseClaimService = inject(ExpenseClaimService);
+  private urlService = inject(UrlService);
+  private numberUtils = inject(NumberUtilsService);
+  private dateUtils = inject(DateUtilsService);
+
   public members: Member [] = [];
-  private logger: Logger;
 
   public expenseTypes: ExpenseType[] = [
     {value: "travel-reccie", name: "Travel (walk reccie)", travel: true},
@@ -57,18 +66,8 @@ export class ExpenseDisplayService {
   private receiptBaseUrl: string;
   public committeeReferenceData: CommitteeReferenceData;
 
-  constructor(
-    private contentMetadata: ContentMetadataService,
-    private memberService: MemberService,
-    private committeeConfigService: CommitteeConfigService,
-    private memberLoginService: MemberLoginService,
-    private expenseClaimService: ExpenseClaimService,
-    private urlService: UrlService,
-    private numberUtils: NumberUtilsService,
-    private dateUtils: DateUtilsService,
-    loggerFactory: LoggerFactory) {
+  constructor() {
     this.receiptBaseUrl = this.contentMetadata.baseUrl("expenseClaims");
-    this.logger = loggerFactory.createLogger(ExpenseDisplayService, NgxLoggerLevel.OFF);
     this.populateData();
   }
 

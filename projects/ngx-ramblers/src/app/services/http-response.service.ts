@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 
@@ -6,11 +6,8 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
   providedIn: "root"
 })
 export class HttpResponseService {
-  private logger: Logger;
 
-  constructor(loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(HttpResponseService, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("HttpResponseService", NgxLoggerLevel.ERROR);
 
   returnResponse(response) {
     this.logger.debug("response.data:", response.data);

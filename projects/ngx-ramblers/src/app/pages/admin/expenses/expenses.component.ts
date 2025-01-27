@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { ActivatedRoute, ParamMap, RouterLink } from "@angular/router";
 import { faCaretDown, faCaretUp, faCashRegister } from "@fortawesome/free-solid-svg-icons";
 import cloneDeep from "lodash-es/cloneDeep";
@@ -60,10 +60,23 @@ const SELECTED_EXPENSE = "Expense from last email link";
     imports: [PageComponent, NotificationDirective, FontAwesomeModule, TooltipDirective, CollapseDirective, MarkdownEditorComponent, NgClass, FormsModule, RouterLink, DisplayDatePipe, MemberIdToFullNamePipe, MoneyPipe]
 })
 export class ExpensesComponent implements OnInit, OnDestroy {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("ExpensesComponent", NgxLoggerLevel.ERROR);
+  private authService = inject(AuthService);
+  private expenseClaimService = inject(ExpenseClaimService);
+  private memberLoginService = inject(MemberLoginService);
+  private memberService = inject(MemberService);
+  private modalService = inject(BsModalService);
+  private notifierService = inject(NotifierService);
+  private mailMessagingService = inject(MailMessagingService);
+  private route = inject(ActivatedRoute);
+  private urlService = inject(UrlService);
+  display = inject(ExpenseDisplayService);
+  notifications = inject(ExpenseNotificationService);
+
   faCashRegister = faCashRegister;
   faCaretUp = faCaretUp;
   faCaretDown = faCaretDown;
-  private logger: Logger;
   private expenseId: string;
   private dataError: boolean;
   public members: Member[];
@@ -75,10 +88,10 @@ export class ExpensesComponent implements OnInit, OnDestroy {
     filter: ExpenseFilter,
     showOnlyMine: boolean,
   };
-  public notify: AlertInstance;
-  private notifyConfirm: AlertInstance;
   public notifyTarget: AlertTarget = {};
+  public notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   public notifyConfirmTarget: AlertTarget = {};
+  private notifyConfirm: AlertInstance = this.notifierService.createAlertInstance(this.notifyConfirmTarget);
   public confirm = new Confirm();
   public filters: ExpenseFilter[];
   private subscriptions: Subscription[] = [];
@@ -86,23 +99,6 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   expandable: boolean;
   showOrHide = "hide";
-
-  constructor(private authService: AuthService,
-              private expenseClaimService: ExpenseClaimService,
-              private memberLoginService: MemberLoginService,
-              private memberService: MemberService,
-              private modalService: BsModalService,
-              private notifierService: NotifierService,
-              private mailMessagingService: MailMessagingService,
-              private route: ActivatedRoute,
-              private urlService: UrlService,
-              public display: ExpenseDisplayService,
-              public notifications: ExpenseNotificationService,
-              loggerFactory: LoggerFactory) {
-    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
-    this.notifyConfirm = this.notifierService.createAlertInstance(this.notifyConfirmTarget);
-    this.logger = loggerFactory.createLogger(ExpensesComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.mailMessagingService.events().subscribe(mailMessagingConfig => {

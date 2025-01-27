@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
@@ -15,19 +15,15 @@ import { DateUtilsService } from "../date-utils.service";
 })
 export class WalksLocalService {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("WalksLocalService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private stringUtilsService = inject(StringUtilsService);
+  private dateUtils = inject(DateUtilsService);
+  private commonDataService = inject(CommonDataService);
+  private urlService = inject(UrlService);
   private BASE_URL = "/api/database/walks";
-  private readonly logger: Logger;
   private walkNotifications = new Subject<WalkApiResponse>();
   private walkLeaderIdNotifications = new Subject<WalkLeaderIdsApiResponse>();
-
-  constructor(private http: HttpClient,
-              private stringUtilsService: StringUtilsService,
-              private dateUtils: DateUtilsService,
-              private commonDataService: CommonDataService,
-              private urlService: UrlService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalksLocalService", NgxLoggerLevel.ERROR);
-  }
 
   notifications(): Observable<WalkApiResponse> {
     return this.walkNotifications.asObservable();

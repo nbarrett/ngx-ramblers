@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute } from "@angular/router";
 import { faMagnifyingGlass, faPencil } from "@fortawesome/free-solid-svg-icons";
@@ -59,7 +59,7 @@ import { MeetupDescriptionComponent } from "../../../notifications/walks/templat
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
-import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { DatePickerComponent } from "../../../date-picker/date-picker.component";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -713,48 +713,33 @@ import { WalkSummaryPipe } from "../../../pipes/walk-summary.pipe";
     imports: [NotificationDirective, WalkPanelExpanderComponent, TabsetComponent, TabDirective, DatePickerComponent, FormsModule, FontAwesomeModule, MarkdownComponent, WalkLocationEditComponent, WalkRiskAssessmentComponent, MarkdownEditorComponent, TooltipDirective, WalkVenueComponent, WalkMeetupComponent, DisplayDatePipe, WalkSummaryPipe]
 })
 export class WalkEditComponent implements OnInit, OnDestroy {
-  @Input("displayedWalk")
-  set initialiseWalk(displayedWalk: DisplayedWalk) {
-    if (displayedWalk && !displayedWalk?.walk?.start_location) {
-      this.logger.info("initialising walk start location with:", INITIALISED_LOCATION);
-      displayedWalk.walk.start_location = cloneDeep(INITIALISED_LOCATION);
-    }
-    this.logger.debug("cloning walk for edit");
-    this.displayedWalk = cloneDeep(displayedWalk);
 
-    this.mapEditComponentDisplayedWalk = this.displayedWalk;
-  }
-  constructor(
-    private walksConfigService: WalksConfigService,
-    private mailMessagingService: MailMessagingService,
-    public googleMapsService: GoogleMapsService,
-    private walksService: WalksService,
-    private addressQueryService: AddressQueryService,
-    public ramblersWalksAndEventsService: RamblersWalksAndEventsService,
-    private memberLoginService: MemberLoginService,
-    public route: ActivatedRoute,
-    private walksQueryService: WalksQueryService,
-    private walkNotificationService: WalkNotificationService,
-    private walkEventService: WalkEventService,
-    private walksReferenceService: WalksReferenceService,
-    private memberIdToFullNamePipe: MemberIdToFullNamePipe,
-    private displayDateAndTime: DisplayDateAndTimePipe,
-    private fullNameWithAliasOrMePipe: FullNameWithAliasOrMePipe,
-    private eventNotePipe: EventNotePipe,
-    private changedItemsPipe: ChangedItemsPipe,
-    protected dateUtils: DateUtilsService,
-    public display: WalkDisplayService,
-    public stringUtils: StringUtilsService,
-    private displayDate: DisplayDatePipe,
-    protected notifierService: NotifierService,
-    private configService: ConfigService,
-    private broadcastService: BroadcastService<Walk>,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkEditComponent", NgxLoggerLevel.ERROR);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkEditComponent", NgxLoggerLevel.ERROR);
+  private walksConfigService = inject(WalksConfigService);
+  private mailMessagingService = inject(MailMessagingService);
+  googleMapsService = inject(GoogleMapsService);
+  private walksService = inject(WalksService);
+  private addressQueryService = inject(AddressQueryService);
+  ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
+  private memberLoginService = inject(MemberLoginService);
+  route = inject(ActivatedRoute);
+  private walksQueryService = inject(WalksQueryService);
+  private walkNotificationService = inject(WalkNotificationService);
+  private walkEventService = inject(WalkEventService);
+  private walksReferenceService = inject(WalksReferenceService);
+  private memberIdToFullNamePipe = inject(MemberIdToFullNamePipe);
+  private displayDateAndTime = inject(DisplayDateAndTimePipe);
+  private fullNameWithAliasOrMePipe = inject(FullNameWithAliasOrMePipe);
+  private eventNotePipe = inject(EventNotePipe);
+  private changedItemsPipe = inject(ChangedItemsPipe);
+  protected dateUtils = inject(DateUtilsService);
+  display = inject(WalkDisplayService);
+  stringUtils = inject(StringUtilsService);
+  private displayDate = inject(DisplayDatePipe);
+  protected notifierService = inject(NotifierService);
+  private configService = inject(ConfigService);
+  private broadcastService = inject<BroadcastService<Walk>>(BroadcastService);
   protected renderMapEdit: boolean;
-
-  @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   private mailMessagingConfig: MailMessagingConfig;
   public previousWalkLeaderIds: string[] = [];
   public displayedWalk: DisplayedWalk;
@@ -764,7 +749,6 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   public googleMapsUrl: SafeResourceUrl;
   public walkDate: Date;
   private priorStatus: EventType;
-  protected logger: Logger;
   public notifyTarget: AlertTarget = {};
   public notify: AlertInstance;
   public saveInProgress = false;
@@ -783,8 +767,21 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   private walksConfig: WalksConfig;
   public options: any;
   public showGoogleMapsView = false;
-
   protected readonly WalkType = WalkType;
+
+  @Input("displayedWalk")
+  set initialiseWalk(displayedWalk: DisplayedWalk) {
+    if (displayedWalk && !displayedWalk?.walk?.start_location) {
+      this.logger.info("initialising walk start location with:", INITIALISED_LOCATION);
+      displayedWalk.walk.start_location = cloneDeep(INITIALISED_LOCATION);
+    }
+    this.logger.debug("cloning walk for edit");
+    this.displayedWalk = cloneDeep(displayedWalk);
+
+    this.mapEditComponentDisplayedWalk = this.displayedWalk;
+  }
+
+  @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
 
   async ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);

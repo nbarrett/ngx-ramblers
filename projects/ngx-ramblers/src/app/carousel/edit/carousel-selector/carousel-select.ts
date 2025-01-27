@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { ContentMetadata } from "../../../models/content-metadata.model";
@@ -39,6 +39,13 @@ import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge
 })
 export class CarouselSelectComponent implements OnInit {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("CarouselSelectComponent", NgxLoggerLevel.ERROR);
+  contentMetadataService = inject(ContentMetadataService);
+  pageContentService = inject(PageContentService);
+  stringUtils = inject(StringUtilsService);
+  private broadcastService = inject<BroadcastService<ContentMetadata>>(BroadcastService);
+
+
   @Input()
   public name: string;
 
@@ -59,17 +66,6 @@ export class CarouselSelectComponent implements OnInit {
 
   protected readonly faPencil = faPencil;
   protected readonly faPlus = faPlus;
-
-  constructor(
-    public contentMetadataService: ContentMetadataService,
-    public pageContentService: PageContentService,
-    public stringUtils: StringUtilsService,
-    private broadcastService: BroadcastService<ContentMetadata>,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("CarouselSelectComponent", NgxLoggerLevel.ERROR);
-  }
-
-  private logger: Logger;
   public selectedContentMetadata: ContentMetadata;
   public allContentMetadata: ContentMetadata[];
 

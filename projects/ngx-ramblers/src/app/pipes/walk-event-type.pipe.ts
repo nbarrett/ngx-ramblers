@@ -1,10 +1,11 @@
-import { Pipe, PipeTransform } from "@angular/core";
+import { inject, Pipe, PipeTransform } from "@angular/core";
 import { WalksReferenceService } from "../services/walks/walks-reference-data.service";
 
 @Pipe({ name: "walkEventType" })
 export class WalkEventTypePipe implements PipeTransform {
-  constructor(private walksReferenceService: WalksReferenceService) {
-  }
+
+  private walksReferenceService = inject(WalksReferenceService);
+
 
   transform(eventTypeString: string, field: string) {
     const eventType = eventTypeString && this.walksReferenceService.toWalkEventType(eventTypeString);

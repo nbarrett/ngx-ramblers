@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NotificationItem } from "../../../models/committee.model";
 import { Member } from "../../../models/member.model";
@@ -17,25 +17,19 @@ import { NgStyle } from "@angular/common";
     imports: [NgStyle]
 })
 export class CommitteeNotificationRamblersMessageItemComponent implements OnInit, OnDestroy {
+  private logger: Logger = inject(LoggerFactory).createLogger("CommitteeNotificationRamblersMessageItemComponent", NgxLoggerLevel.ERROR);
+  mailMessagingService = inject(MailMessagingService);
+  googleMapsService = inject(GoogleMapsService);
+  private systemConfigService = inject(SystemConfigService);
+  display = inject(CommitteeDisplayService);
 
   @Input()
   public members: Member[];
 
   @Input()
   public notificationItem: NotificationItem;
-
-  protected logger: Logger;
   private subscriptions: Subscription[] = [];
   public group: Organisation;
-
-  constructor(
-    public mailMessagingService: MailMessagingService,
-    public googleMapsService: GoogleMapsService,
-    private systemConfigService: SystemConfigService,
-    public display: CommitteeDisplayService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("CommitteeNotificationRamblersMessageItemComponent", NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.logger.debug("ngOnInit:notificationItem ->", this.notificationItem);

@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import isEmpty from "lodash-es/isEmpty";
 import omit from "lodash-es/omit";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -36,20 +36,17 @@ import { FullNamePipe } from "../../pipes/full-name.pipe";
   providedIn: "root"
 })
 export class MemberBulkLoadService {
-  private logger: Logger;
 
-  constructor(private memberUpdateAuditService: MemberUpdateAuditService,
-              private memberBulkLoadAuditService: MemberBulkLoadAuditService,
-              private memberService: MemberService,
-              private memberDefaultsService: MemberDefaultsService,
-              private memberNamingService: MemberNamingService,
-              private fullNamePipe: FullNamePipe,
-              private dateUtils: DateUtilsService,
-              private stringUtils: StringUtilsService,
-              private numberUtils: NumberUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MemberBulkLoadService", NgxLoggerLevel.ERROR);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("MemberBulkLoadService", NgxLoggerLevel.ERROR);
+  private memberUpdateAuditService = inject(MemberUpdateAuditService);
+  private memberBulkLoadAuditService = inject(MemberBulkLoadAuditService);
+  private memberService = inject(MemberService);
+  private memberDefaultsService = inject(MemberDefaultsService);
+  private memberNamingService = inject(MemberNamingService);
+  private fullNamePipe = inject(FullNamePipe);
+  private dateUtils = inject(DateUtilsService);
+  private stringUtils = inject(StringUtilsService);
+  private numberUtils = inject(NumberUtilsService);
 
   public processResponse(mailMessagingConfig: MailMessagingConfig, systemConfig: SystemConfig, memberBulkLoadResponse: MemberBulkLoadAudit, existingMembers: Member[], notify: AlertInstance): Promise<any> {
     notify.setBusy();

@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import first from "lodash-es/first";
 import isEmpty from "lodash-es/isEmpty";
 import last from "lodash-es/last";
@@ -19,13 +19,10 @@ import { base64ToFile } from "ngx-image-cropper";
   providedIn: "root"
 })
 export class FileUtilsService {
-  private logger: Logger;
 
-  constructor(protected dateUtils: DateUtilsService,
-              private urlService: UrlService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(FileUtilsService, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("FileUtilsService", NgxLoggerLevel.ERROR);
+  protected dateUtils = inject(DateUtilsService);
+  private urlService = inject(UrlService);
 
   base64ToFileWithName(data, filename) {
     const arr = data.split(",");

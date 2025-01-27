@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -43,17 +43,19 @@ import { MailListUpdaterService } from "../../../services/mail/mail-list-updater
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { PageComponent } from "../../../page/page.component";
-import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { NotificationConfigSelectorComponent } from "../../admin/system-settings/mail/notification-config-selector";
 import { FormsModule } from "@angular/forms";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { NgSelectComponent, NgOptgroupTemplateDirective } from "@ng-select/ng-select";
+import { NgOptgroupTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { MarkdownComponent } from "ngx-markdown";
 import { DatePickerComponent } from "../../../date-picker/date-picker.component";
 import { LinkComponent } from "../../../link/link";
 import { SenderRepliesAndSignoffComponent } from "../../admin/send-emails/sender-replies-and-signoff";
 import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi-select/committee-role-multi-select";
-import { CommitteeNotificationDetailsComponent } from "../../../notifications/committee/templates/committee-notification-details.component";
+import {
+  CommitteeNotificationDetailsComponent
+} from "../../../notifications/committee/templates/committee-notification-details.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { BrevoButtonComponent } from "../../../modules/common/third-parties/brevo-button";
 import { TitleCasePipe } from "@angular/common";
@@ -477,28 +479,24 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 })
 export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
 
-  constructor(
-    private route: ActivatedRoute,
-    private pageService: PageService,
-    private memberLoginService: MemberLoginService,
-    private committeeQueryService: CommitteeQueryService,
-    private mailService: MailService,
-    protected mailMessagingService: MailMessagingService,
-    private notifierService: NotifierService,
-    public display: CommitteeDisplayService,
-    public stringUtils: StringUtilsService,
-    public googleMapsService: GoogleMapsService,
-    private memberService: MemberService,
-    private fullNameWithAlias: FullNameWithAliasPipe,
-    public mailLinkService: MailLinkService,
-    private mailListUpdaterService: MailListUpdaterService,
-    private systemConfigService: SystemConfigService,
-    private urlService: UrlService,
-    protected dateUtils: DateUtilsService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("CommitteeSendNotificationComponent", NgxLoggerLevel.OFF);
-  }
-
+  private logger: Logger = inject(LoggerFactory).createLogger("CommitteeSendNotificationComponent", NgxLoggerLevel.ERROR);
+  private route = inject(ActivatedRoute);
+  private pageService = inject(PageService);
+  private memberLoginService = inject(MemberLoginService);
+  private committeeQueryService = inject(CommitteeQueryService);
+  private mailService = inject(MailService);
+  protected mailMessagingService = inject(MailMessagingService);
+  private notifierService = inject(NotifierService);
+  display = inject(CommitteeDisplayService);
+  stringUtils = inject(StringUtilsService);
+  googleMapsService = inject(GoogleMapsService);
+  private memberService = inject(MemberService);
+  private fullNameWithAlias = inject(FullNameWithAliasPipe);
+  mailLinkService = inject(MailLinkService);
+  private mailListUpdaterService = inject(MailListUpdaterService);
+  private systemConfigService = inject(SystemConfigService);
+  private urlService = inject(UrlService);
+  protected dateUtils = inject(DateUtilsService);
   @ViewChild("notificationContent") notificationContent: ElementRef;
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   public segmentEditingSupported = false;
@@ -507,7 +505,6 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public notification: Notification;
-  private logger: Logger;
   private subscriptions: Subscription[] = [];
   public roles: { replyTo: any[]; signoff: CommitteeMember[] };
   public selectableRecipients: MemberFilterSelection[];

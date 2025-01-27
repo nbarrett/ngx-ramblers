@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import cloneDeep from "lodash-es/cloneDeep";
 import first from "lodash-es/first";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -13,14 +13,10 @@ import { WalkEventService } from "./walk-event.service";
 })
 
 export class WalksQueryService {
-  private logger: Logger;
 
-  constructor(
-    private walkEventsService: WalkEventService,
-    private dateUtils: DateUtilsService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalksQueryService, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("WalksQueryService", NgxLoggerLevel.ERROR);
+  private walkEventsService = inject(WalkEventService);
+  private dateUtils = inject(DateUtilsService);
 
   activeWalk(walk: Walk) {
     return !this.walkEventsService.latestEventWithStatusChangeIs(walk, EventType.DELETED);

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -8,7 +8,6 @@ import { AlertTarget } from "../models/alert-target.model";
 import { ResetPasswordModalComponent } from "../pages/login/reset-password-modal/reset-password-modal.component";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { MemberService } from "../services/member/member.service";
-import { AlertInstance, NotifierService } from "../services/notifier.service";
 
 @Component({
     selector: "app-set-password",
@@ -16,21 +15,16 @@ import { AlertInstance, NotifierService } from "../services/notifier.service";
 })
 
 export class SetPasswordComponent implements OnInit, OnDestroy {
-  private logger: Logger;
-  private notify: AlertInstance;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("SetPasswordComponent", NgxLoggerLevel.ERROR);
+  private modalService = inject(BsModalService);
+  private memberService = inject(MemberService);
+  private authService = inject(AuthService);
+  private route = inject(ActivatedRoute);
   public notifyTarget: AlertTarget = {};
   private subscriptions: Subscription[] = [];
 
-  constructor(private modalService: BsModalService,
-              private notifierService: NotifierService,
-              private memberService: MemberService,
-              private authService: AuthService,
-              private route: ActivatedRoute, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SetPasswordComponent, NgxLoggerLevel.OFF);
-  }
-
   ngOnInit() {
-    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.logger.debug("constructed");
     this.authService.logout();
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {

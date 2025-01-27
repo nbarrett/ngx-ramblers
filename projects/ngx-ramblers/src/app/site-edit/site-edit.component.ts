@@ -1,4 +1,4 @@
-import { Component, OnDestroy } from "@angular/core";
+import { Component, inject, OnDestroy } from "@angular/core";
 import { Subscription } from "rxjs";
 import { NamedEvent } from "../models/broadcast.model";
 import { SiteEditService } from "./site-edit.service";
@@ -14,14 +14,13 @@ import { UiSwitchModule } from "ngx-ui-switch";
 })
 
 export class SiteEditComponent implements OnDestroy {
-  private userEdits;
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("SiteEditComponent", NgxLoggerLevel.ERROR);
+  private siteEditService = inject(SiteEditService);
   private subscriptions: Subscription[] = [];
 
-  constructor(private siteEditService: SiteEditService, private loggerFactory: LoggerFactory) {
-    this.userEdits = {preview: true, saveInProgress: false, revertInProgress: false};
-    this.subscriptions.push(siteEditService.events.subscribe(item => this.onItemEvent(item)));
-    this.logger = loggerFactory.createLogger(SiteEditComponent, NgxLoggerLevel.OFF);
+  constructor() {
+    this.subscriptions.push(this.siteEditService.events.subscribe(item => this.onItemEvent(item)));
   }
 
   ngOnDestroy(): void {

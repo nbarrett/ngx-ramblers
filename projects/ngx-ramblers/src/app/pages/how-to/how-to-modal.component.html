@@ -19,7 +19,7 @@
           <label for="resource-type">Access</label>
           <select [(ngModel)]="memberResource.accessLevel" id="visibility"
             class="form-control input-sm">
-            @for (accessLevel of memberResourcesReferenceData.accessLevels(); track accessLevel) {
+            @for (accessLevel of memberResourcesReferenceData.accessLevels(); track accessLevel.description) {
               <option
                 [textContent]="accessLevel.description"
               [ngValue]="accessLevel.id"></option>

@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
@@ -117,28 +117,23 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 })
 export class WalkSearchComponent implements OnInit, OnDestroy {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkSearchComponent", NgxLoggerLevel.ERROR);
+  private route = inject(ActivatedRoute);
+  private walksReferenceService = inject(WalksReferenceService);
+  private displayService = inject(WalkDisplayService);
+  private memberLoginService = inject(MemberLoginService);
+  private broadcastService = inject<BroadcastService<any>>(BroadcastService);
+  public currentWalkId: string;
+  public showPagination = false;
+  public group: Organisation;
+  private searchChangeObservable: Subject<string> = new Subject<string>();
+  private subscriptions: Subscription[] = [];
   @Input()
   notifyTarget: AlertTarget;
 
   @Input()
   filterParameters: FilterParameters;
 
-  public currentWalkId: string;
-  public showPagination = false;
-  public group: Organisation;
-  private logger: Logger;
-  private searchChangeObservable: Subject<string>;
-  private subscriptions: Subscription[] = [];
-
-  constructor(private route: ActivatedRoute,
-              private walksReferenceService: WalksReferenceService,
-              private displayService: WalkDisplayService,
-              private memberLoginService: MemberLoginService,
-              private broadcastService: BroadcastService<any>,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkSearchComponent", NgxLoggerLevel.ERROR);
-    this.searchChangeObservable = new Subject<string>();
-  }
 
   ngOnInit(): void {
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {

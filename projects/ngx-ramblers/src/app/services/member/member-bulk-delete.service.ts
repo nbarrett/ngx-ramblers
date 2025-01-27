@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DeletedMember, Member } from "../../models/member.model";
 import { DateUtilsService } from "../date-utils.service";
@@ -11,15 +11,12 @@ import { MemberLoginService } from "./member-login.service";
   providedIn: "root"
 })
 export class MemberBulkDeleteService {
-  private logger: Logger;
 
-  constructor(private memberService: MemberService,
-              private deletedMemberService: DeletedMemberService,
-              private memberLoginService: MemberLoginService,
-              private dateUtils: DateUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MemberBulkDeleteService", NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("MemberBulkDeleteService", NgxLoggerLevel.ERROR);
+  private memberService = inject(MemberService);
+  private deletedMemberService = inject(DeletedMemberService);
+  private memberLoginService = inject(MemberLoginService);
+  private dateUtils = inject(DateUtilsService);
 
   async performBulkDelete(members: Member[], memberIds: string[]) {
     const deletedAt: number = this.dateUtils.momentNowNoTime().valueOf();

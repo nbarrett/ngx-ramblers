@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from "@angular/common/http";
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import { faEnvelopesBulk, faSearch } from "@fortawesome/free-solid-svg-icons";
 import first from "lodash-es/first";
@@ -50,9 +50,9 @@ import { MemberDefaultsService } from "../../../services/member/member-defaults.
 import { IconService } from "../../../services/icon-service/icon-service";
 import { NO_CHANGES_OR_DIFFERENCES } from "../../../models/ramblers-insight-hub";
 import { PageComponent } from "../../../page/page.component";
-import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { NgClass, NgStyle, JsonPipe, DecimalPipe, TitleCasePipe } from "@angular/common";
+import { DecimalPipe, JsonPipe, NgClass, NgStyle, TitleCasePipe } from "@angular/common";
 import { StatusIconComponent } from "../status-icon";
 import { FormsModule } from "@angular/forms";
 import { LinkComponent } from "../../../link/link";
@@ -487,30 +487,26 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
     imports: [PageComponent, TabsetComponent, TabDirective, FontAwesomeModule, FileUploadModule, NgClass, NgStyle, StatusIconComponent, FormsModule, LinkComponent, JsonPipe, DecimalPipe, TitleCasePipe, DisplayDateAndTimePipe, FullNamePipe, MemberIdToFullNamePipe]
 })
 export class MemberBulkLoadComponent implements OnInit, OnDestroy {
-
-  constructor(private mailchimpListUpdaterService: MailchimpListUpdaterService,
-              public mailMessagingService: MailMessagingService,
-              private mailListUpdaterService: MailListUpdaterService,
-              private memberBulkLoadService: MemberBulkLoadService,
-              private memberService: MemberService,
-              private searchFilterPipe: SearchFilterPipe,
-              protected icons: IconService,
-              private memberUpdateAuditService: MemberUpdateAuditService,
-              private memberDefaultsService: MemberDefaultsService,
-              private memberBulkLoadAuditService: MemberBulkLoadAuditService,
-              private systemConfigService: SystemConfigService,
-              private notifierService: NotifierService,
-              private modalService: BsModalService,
-              protected stringUtils: StringUtilsService,
-              private urlService: UrlService,
-              private authService: AuthService,
-              private route: ActivatedRoute,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MemberBulkLoadComponent", NgxLoggerLevel.ERROR);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("MemberBulkLoadComponent", NgxLoggerLevel.ERROR);
+  private mailchimpListUpdaterService = inject(MailchimpListUpdaterService);
+  mailMessagingService = inject(MailMessagingService);
+  private mailListUpdaterService = inject(MailListUpdaterService);
+  private memberBulkLoadService = inject(MemberBulkLoadService);
+  private memberService = inject(MemberService);
+  private searchFilterPipe = inject(SearchFilterPipe);
+  protected icons = inject(IconService);
+  private memberUpdateAuditService = inject(MemberUpdateAuditService);
+  private memberDefaultsService = inject(MemberDefaultsService);
+  private memberBulkLoadAuditService = inject(MemberBulkLoadAuditService);
+  private systemConfigService = inject(SystemConfigService);
+  private notifierService = inject(NotifierService);
+  private modalService = inject(BsModalService);
+  protected stringUtils = inject(StringUtilsService);
+  private urlService = inject(UrlService);
+  private authService = inject(AuthService);
+  private route = inject(ActivatedRoute);
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  private logger: Logger;
   private searchChangeObservable: Subject<string>;
   public uploadSessionStatuses: SessionStatus[] = [
     {title: "All"},

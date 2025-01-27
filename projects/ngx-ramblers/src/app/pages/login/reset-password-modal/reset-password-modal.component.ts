@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { BsModalRef, BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -23,7 +23,15 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
     imports: [NgClass, FormsModule, FontAwesomeModule, ContactUsComponent]
 })
 export class ResetPasswordModalComponent implements OnInit, OnDestroy {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("ResetPasswordModalComponent", NgxLoggerLevel.ERROR);
+  bsModalRef = inject(BsModalRef);
+  private modalService = inject(BsModalService);
+  private authService = inject(AuthService);
+  private systemConfigService = inject(SystemConfigService);
+  private memberLoginService = inject(MemberLoginService);
+  private urlService = inject(UrlService);
+  private notifierService = inject(NotifierService);
   private notify: AlertInstance;
   private subscriptions: Subscription[] = [];
   public newPassword: string;
@@ -33,16 +41,6 @@ export class ResetPasswordModalComponent implements OnInit, OnDestroy {
   public invalidPasswordLink: boolean;
   public message: string;
   public group: Organisation;
-
-  constructor(public bsModalRef: BsModalRef,
-              private modalService: BsModalService,
-              private authService: AuthService,
-              private systemConfigService: SystemConfigService,
-              private memberLoginService: MemberLoginService,
-              private urlService: UrlService,
-              private notifierService: NotifierService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ResetPasswordModalComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);

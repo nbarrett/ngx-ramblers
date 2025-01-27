@@ -1,8 +1,6 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import isEmpty from "lodash-es/isEmpty";
-import { NgxLoggerLevel } from "ngx-logger";
-import { DistanceUnit, Walk, WalkAscent, WalkDistance } from "../../models/walk.model";
-import { Logger, LoggerFactory } from "../logger-factory.service";
+import { DistanceUnit, Walk, WalkAscent } from "../../models/walk.model";
 import { NumberUtilsService } from "../number-utils.service";
 
 @Injectable({
@@ -10,14 +8,8 @@ import { NumberUtilsService } from "../number-utils.service";
 })
 
 export class AscentValidationService {
-  private logger: Logger;
+  private numberUtils = inject(NumberUtilsService);
   private FEET_TO_METRES_FACTOR = 0.3048;
-
-  constructor(
-    private numberUtils: NumberUtilsService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("DistanceService", NgxLoggerLevel.OFF);
-  }
 
   parse(walk: Walk): WalkAscent {
     return {

@@ -1,5 +1,5 @@
 import { HttpClient, HttpErrorResponse } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { share, tap } from "rxjs/operators";
@@ -15,19 +15,16 @@ import { SiteEditService } from "../site-edit/site-edit.service";
   providedIn: "root"
 })
 export class AuthService {
+
+  private logger: Logger = inject(LoggerFactory).createLogger(AuthService, NgxLoggerLevel.OFF);
+  private http = inject(HttpClient);
+  private broadcastService = inject<BroadcastService<any>>(BroadcastService);
+  private siteEditService = inject(SiteEditService);
   private BASE_URL = "/api/database/auth";
   private readonly AUTH_TOKEN = "AUTH_TOKEN";
   private readonly REFRESH_TOKEN = "REFRESH_TOKEN";
   private authPayload: {};
-  private logger: Logger;
   private authResponseSubject = new Subject<LoginResponse>();
-
-  constructor(private http: HttpClient,
-              loggerFactory: LoggerFactory,
-              private broadcastService: BroadcastService<any>,
-              private siteEditService: SiteEditService) {
-    this.logger = loggerFactory.createLogger(AuthService, NgxLoggerLevel.OFF);
-  }
 
   login(userName: string, password: string): Promise<LoginResponse> {
     const url = `${this.BASE_URL}/login`;

@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 
@@ -7,13 +7,9 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 })
 
 export class MarkdownEditorFocusService {
-  private logger: Logger;
 
+  private logger: Logger = inject(LoggerFactory).createLogger("MarkdownEditorFocusService", NgxLoggerLevel.ERROR);
   private focussedEditorInstance: object[] = [];
-
-  constructor(loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MarkdownEditorFocusService, NgxLoggerLevel.OFF);
-  }
 
   setFocusTo(editorInstance: object) {
     if (!this.hasFocus(editorInstance)) {

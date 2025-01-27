@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
 import { shareReplay } from "rxjs/operators";
@@ -31,17 +31,16 @@ import { WalkListView } from "../../models/walk.model";
 })
 export class SystemConfigService {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("SystemConfigService", NgxLoggerLevel.ERROR);
+  private config = inject(ConfigService);
+  private broadcastService = inject<BroadcastService<SystemConfig>>(BroadcastService);
+  stringUtils = inject(StringUtilsService);
   private subject = new ReplaySubject<SystemConfig>();
-  private logger: Logger;
   private cachedSystemConfig: SystemConfig;
   private dryRun = false;
   private migrate = true;
 
-  constructor(private config: ConfigService,
-              private broadcastService: BroadcastService<SystemConfig>,
-              public stringUtils: StringUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("SystemConfigService", NgxLoggerLevel.ERROR);
+  constructor() {
     this.refresh();
   }
 

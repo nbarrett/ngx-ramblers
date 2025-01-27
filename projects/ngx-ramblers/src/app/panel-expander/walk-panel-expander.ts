@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { faCaretDown, faCaretUp } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Walk, WalkViewMode } from "../models/walk.model";
@@ -29,6 +29,10 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 })
 export class WalkPanelExpanderComponent implements OnInit {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkPanelExpanderComponent", NgxLoggerLevel.ERROR);
+  public collapsable: boolean;
+  public expandable: boolean;
+  display = inject(WalkDisplayService);
   public modes = WalkViewMode;
   faCaretUp = faCaretUp;
   faCaretDown = faCaretDown;
@@ -47,14 +51,6 @@ export class WalkPanelExpanderComponent implements OnInit {
 
   @Input("collapsable") set collapsableValue(collapsable: boolean) {
     this.collapsable = coerceBooleanProperty(collapsable);
-  }
-
-  public collapsable: boolean;
-  public expandable: boolean;
-  private logger: Logger;
-
-  constructor(public display: WalkDisplayService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkPanelExpanderComponent", NgxLoggerLevel.ERROR);
   }
 
   ngOnInit() {

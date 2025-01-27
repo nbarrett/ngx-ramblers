@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import range from "lodash-es/range";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
@@ -19,19 +19,14 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 export class IconExamplesComponent implements OnInit, OnDestroy {
 
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("IconExamplesComponent", NgxLoggerLevel.ERROR);
+  iconService = inject(IconService);
   public filteredIcons: KeyValue<any>[] = [];
   filter: string;
   sizes = range(1, 6).map(size => `fa-${size}x`);
   size = "fa-3x";
   private searchChangeObservable: Subject<string>;
   private subscriptions: Subscription[] = [];
-
-  constructor(
-    public iconService: IconService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(IconExamplesComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.filteredIcons = [];

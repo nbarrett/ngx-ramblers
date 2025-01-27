@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DescribedDimensions, SelectedDescribedDimensions, SQUARE } from "../../../models/aws-object.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -15,14 +15,10 @@ import { FormsModule } from "@angular/forms";
 })
 
 export class AspectRatioSelectorComponent implements OnInit {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("AspectRatioSelectorComponent", NgxLoggerLevel.ERROR);
+  private numberUtils = inject(NumberUtilsService);
   public disabled: boolean;
-
-  constructor(private numberUtils: NumberUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("AspectRatioSelectorComponent", NgxLoggerLevel.OFF);
-  }
-
   @Input()
   public dimensionsDescription: string;
   @Input()

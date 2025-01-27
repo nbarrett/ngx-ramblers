@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { faAdd, faRemove, faSortAlphaAsc } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../../models/alert-target.model";
@@ -42,20 +42,16 @@ import { SystemImageEditComponent } from "../image/system-image-edit";
     imports: [BadgeButtonComponent, TooltipDirective, SystemImageEditComponent]
 })
 export class ImageCollectionSettingsComponent implements OnInit {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("ImageCollectionSettingsComponent", NgxLoggerLevel.ERROR);
+  private systemConfigService = inject(SystemConfigService);
+  stringUtils = inject(StringUtilsService);
+  protected dateUtils = inject(DateUtilsService);
   public notifyTarget: AlertTarget = {};
-  private logger: Logger;
   faAdd = faAdd;
   faSortAlphaAsc = faSortAlphaAsc;
   faRemove = faRemove;
   public imageTypeDescription: string;
-
-  constructor(private systemConfigService: SystemConfigService,
-              public stringUtils: StringUtilsService,
-              protected dateUtils: DateUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ImageCollectionSettingsComponent, NgxLoggerLevel.OFF);
-  }
-
   @Input() rootFolder: RootFolder;
   @Input() images: Images;
   @Input() config: SystemConfig;

@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
@@ -11,16 +11,11 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
   providedIn: "root"
 })
 export class CommitteeFileService {
-
+  private logger: Logger = inject(LoggerFactory).createLogger("CommitteeFileService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private commonDataService = inject(CommonDataService);
   private BASE_URL = "/api/database/committee-file";
-  private logger: Logger;
   private committeeFileNotifications = new Subject<CommitteeFileApiResponse>();
-
-  constructor(private http: HttpClient,
-              private commonDataService: CommonDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(CommitteeFileService, NgxLoggerLevel.OFF);
-  }
 
   notifications(): Observable<CommitteeFileApiResponse> {
     return this.committeeFileNotifications.asObservable();

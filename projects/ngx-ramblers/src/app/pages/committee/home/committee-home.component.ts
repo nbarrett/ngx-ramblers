@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, NavigationEnd, ParamMap, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -31,7 +31,18 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
     imports: [PageComponent, CommitteeYearComponent, DynamicContentComponent, FontAwesomeModule]
 })
 export class CommitteeHomeComponent implements OnInit, OnDestroy {
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("CommitteeHomeComponent", NgxLoggerLevel.ERROR);
+  private pageService = inject(PageService);
+  private memberLoginService = inject(MemberLoginService);
+  private memberService = inject(MemberService);
+  private notifierService = inject(NotifierService);
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
+  private authService = inject(AuthService);
+  private urlService = inject(UrlService);
+  pageContentService = inject(PageContentService);
+  contentTextService = inject(ContentTextService);
+  private committeeQueryService = inject(CommitteeQueryService);
   private subscriptions: Subscription[] = [];
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
@@ -42,19 +53,7 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
   private committeeFileId: string;
   public pageTitle: string;
 
-  constructor(private pageService: PageService,
-              private memberLoginService: MemberLoginService,
-              private memberService: MemberService,
-              private notifierService: NotifierService,
-              private router: Router,
-              private route: ActivatedRoute,
-              private authService: AuthService,
-              private urlService: UrlService,
-              public pageContentService: PageContentService,
-              public contentTextService: ContentTextService,
-              private committeeQueryService: CommitteeQueryService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(CommitteeHomeComponent, NgxLoggerLevel.ERROR);
+  constructor() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
   }
 

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -97,26 +97,21 @@ import { NgClass } from "@angular/common";
 })
 export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
 
-  constructor(private notifierService: NotifierService,
-              private profileConfirmationService: ProfileConfirmationService,
-              private broadcastService: BroadcastService<MailListAudit>,
-              private systemConfigService: SystemConfigService,
-              private mailListAuditService: MailListAuditService,
-              protected mailMessagingService: MailMessagingService,
-              public profileService: ProfileService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(EmailSubscriptionsComponent, NgxLoggerLevel.ERROR);
-  }
-
+  private logger: Logger = inject(LoggerFactory).createLogger("EmailSubscriptionsComponent", NgxLoggerLevel.ERROR);
+  private notifierService = inject(NotifierService);
+  private profileConfirmationService = inject(ProfileConfirmationService);
+  private broadcastService = inject<BroadcastService<MailListAudit>>(BroadcastService);
+  private systemConfigService = inject(SystemConfigService);
+  private mailListAuditService = inject(MailListAuditService);
+  protected mailMessagingService = inject(MailMessagingService);
+  profileService = inject(ProfileService);
   public pendingMailListAudits: MailListAudit[] = [];
   public member: Member;
   private subscriptions: Subscription[] = [];
   faEnvelopeOpenText = faEnvelopeOpenText;
   public systemConfig: SystemConfig;
-
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  private logger: Logger;
   public mailchimpConfig: MailchimpConfig;
 
   protected readonly MailProvider = MailProvider;

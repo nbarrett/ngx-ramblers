@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -19,15 +19,11 @@ import { WalkFeatureComponent } from "./walk-feature";
 })
 
 export class WalkFeaturesComponent implements OnInit {
-  private logger: Logger;
-  @Input() public features: Metadata[];
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkFeaturesComponent", NgxLoggerLevel.ERROR);
+  googleMapsService = inject(GoogleMapsService);
+  display = inject(WalkDisplayService);
 
-  constructor(
-    public googleMapsService: GoogleMapsService,
-    public display: WalkDisplayService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkDetailsComponent", NgxLoggerLevel.OFF);
-  }
+  @Input() public features: Metadata[];
 
   ngOnInit() {
     this.logger.info("ngOnInit:features:", this.features);

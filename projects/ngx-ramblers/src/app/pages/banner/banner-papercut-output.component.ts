@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, Input, OnInit, ViewChild } from "@angular/core";
+import { Component, ElementRef, HostListener, inject, Input, OnInit, ViewChild } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { PapercutBackgroundBanner } from "../../models/banner-configuration.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
@@ -39,6 +39,8 @@ import { MarkdownComponent } from "ngx-markdown";
 })
 
 export class BannerPapercutOutputComponent implements OnInit {
+  private logger: Logger = inject(LoggerFactory).createLogger("BannerPapercutOutputComponent", NgxLoggerLevel.ERROR);
+  urlService = inject(UrlService);
   public banner: PapercutBackgroundBanner;
   public fileNameData: ServerFileNameData;
 
@@ -51,18 +53,11 @@ export class BannerPapercutOutputComponent implements OnInit {
   @Input() public tempImage: string;
 
   @ViewChild("paperCutImage") paperCutImage: ElementRef<HTMLImageElement>;
-  private logger: Logger;
   public paperCutImageHeight: number;
 
   @HostListener("window:resize", ["$event"])
   onResize(event) {
     this.setPaperCutImageHeight();
-  }
-
-  constructor(
-    public urlService: UrlService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(BannerPapercutOutputComponent, NgxLoggerLevel.OFF);
   }
 
   ngOnInit() {

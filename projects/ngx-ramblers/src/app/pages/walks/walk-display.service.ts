@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute, Router } from "@angular/router";
 import find from "lodash-es/find";
@@ -42,10 +42,26 @@ import { MediaQueryService } from "../../services/committee/media-query.service"
 })
 
 export class WalkDisplayService {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkDisplayService", NgxLoggerLevel.ERROR);
+  mediaQueryService = inject(MediaQueryService);
+  private systemConfigService = inject(SystemConfigService);
+  private googleMapsService = inject(GoogleMapsService);
+  private memberService = inject(MemberService);
+  private memberLoginService = inject(MemberLoginService);
+  private router = inject(Router);
+  private urlService = inject(UrlService);
+  protected stringUtils = inject(StringUtilsService);
+  private route = inject(ActivatedRoute);
+  private sanitiser = inject(DomSanitizer);
+  private walkEventService = inject(WalkEventService);
+  private walksReferenceService = inject(WalksReferenceService);
+  private walksQueryService = inject(WalksQueryService);
+  private committeeConfig = inject(CommitteeConfigService);
+
   private subject = new ReplaySubject<Member[]>();
   public relatedLinksMediaWidth = 22;
   public expandedWalks: ExpandedWalk [] = [];
-  private logger: Logger;
   public grades = WALK_GRADES.map(item => item.description);
   public walkTypes: WalkType[] = enumValues(WalkType);
   private nextWalkId: string;
@@ -54,23 +70,7 @@ export class WalkDisplayService {
   public group: Organisation;
   private committeeReferenceData: CommitteeReferenceData;
 
-  constructor(
-    public mediaQueryService: MediaQueryService,
-    private systemConfigService: SystemConfigService,
-    private googleMapsService: GoogleMapsService,
-    private memberService: MemberService,
-    private memberLoginService: MemberLoginService,
-    private router: Router,
-    private urlService: UrlService,
-    protected stringUtils: StringUtilsService,
-    private route: ActivatedRoute,
-    private sanitiser: DomSanitizer,
-    private walkEventService: WalkEventService,
-    private walksReferenceService: WalksReferenceService,
-    private walksQueryService: WalksQueryService,
-    private committeeConfig: CommitteeConfigService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkDisplayService", NgxLoggerLevel.ERROR);
+  constructor() {
     this.applyConfig();
     this.refreshCachedData();
     this.logger.debug("this.memberLoginService", this.memberLoginService.loggedInMember());
