@@ -1,5 +1,15 @@
 import { HttpErrorResponse } from "@angular/common/http";
-import { AfterViewInit, Component, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from "@angular/core";
+import {
+  AfterViewInit,
+  Component,
+  EventEmitter,
+  inject,
+  Input,
+  OnDestroy,
+  OnInit,
+  Output,
+  ViewChild
+} from "@angular/core";
 import {
   faArrowRightArrowLeft,
   faClose,
@@ -17,7 +27,15 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import first from "lodash-es/first";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
-import { Dimensions, ImageCroppedEvent, ImageCropperComponent, ImageTransform, LoadedImage, OutputFormat, ImageCropperModule } from "ngx-image-cropper";
+import {
+  Dimensions,
+  ImageCroppedEvent,
+  ImageCropperComponent,
+  ImageCropperModule,
+  ImageTransform,
+  LoadedImage,
+  OutputFormat
+} from "ngx-image-cropper";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { FileUtilsService } from "../file-utils.service";
@@ -56,35 +74,13 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 })
 
 export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, OnDestroy {
-
-  constructor(private broadcastService: BroadcastService<Base64File[]>,
-              private numberUtils: NumberUtilsService,
-              private fileUploadService: FileUploadService,
-              private urlService: UrlService,
-              private notifierService: NotifierService,
-              private fileUtils: FileUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ImageCropperAndResizerComponent, NgxLoggerLevel.ERROR);
-  }
-
-  @ViewChild(ImageCropperComponent) imageCropperComponent: ImageCropperComponent;
-  @Input() selectAspectRatio: string;
-  @Input() preloadImage: string;
-  @Input() rootFolder: string;
-  @Output() quit: EventEmitter<void> = new EventEmitter();
-  @Output() cropError: EventEmitter<ErrorEvent> = new EventEmitter();
-  @Output() save: EventEmitter<AwsFileData> = new EventEmitter();
-  @Output() imageChange: EventEmitter<AwsFileData> = new EventEmitter();
-  @Output() multiImageLoad: EventEmitter<Base64File[]> = new EventEmitter();
-
-  @Input("noImageSave") set noImageSaveValue(noImageSave: boolean) {
-    this.noImageSave = coerceBooleanProperty(noImageSave);
-  }
-
-  @Input("wrapButtons") set noWrapButtonsValue(wrapButtons: boolean) {
-    this.wrapButtons = coerceBooleanProperty(wrapButtons);
-  }
-
+  private logger: Logger = inject(LoggerFactory).createLogger("ImageCropperAndResizerComponent", NgxLoggerLevel.ERROR);
+  private broadcastService = inject<BroadcastService<Base64File[]>>(BroadcastService);
+  private numberUtils = inject(NumberUtilsService);
+  private fileUploadService = inject(FileUploadService);
+  private urlService = inject(UrlService);
+  private notifierService = inject(NotifierService);
+  private fileUtils = inject(FileUtilsService);
   public wrapButtons: boolean;
   private noImageSave: boolean;
   private subscriptions: Subscription[] = [];
@@ -95,7 +91,6 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
   scale = 1;
   containWithinAspectRatio = false;
   transform: ImageTransform = {};
-  private logger: Logger;
   public fileNameData: FileNameData;
   public hasFileOver = false;
   public eventDate: DateValue;
@@ -124,6 +119,23 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
   public originalImageData: ImageData;
   public fileTypeAttributes: FileTypeAttributes = null;
   protected readonly faRemove = faRemove;
+  @ViewChild(ImageCropperComponent) imageCropperComponent: ImageCropperComponent;
+  @Input() selectAspectRatio: string;
+  @Input() preloadImage: string;
+  @Input() rootFolder: string;
+  @Output() quit: EventEmitter<void> = new EventEmitter();
+  @Output() cropError: EventEmitter<ErrorEvent> = new EventEmitter();
+  @Output() save: EventEmitter<AwsFileData> = new EventEmitter();
+  @Output() imageChange: EventEmitter<AwsFileData> = new EventEmitter();
+  @Output() multiImageLoad: EventEmitter<Base64File[]> = new EventEmitter();
+
+  @Input("noImageSave") set noImageSaveValue(noImageSave: boolean) {
+    this.noImageSave = coerceBooleanProperty(noImageSave);
+  }
+
+  @Input("wrapButtons") set noWrapButtonsValue(wrapButtons: boolean) {
+    this.wrapButtons = coerceBooleanProperty(wrapButtons);
+  }
 
   ngAfterViewInit(): void {
     this.imageCropperComponent?.loadImageFailed.subscribe(error => {

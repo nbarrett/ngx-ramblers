@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
 import { shareReplay } from "rxjs/operators";
@@ -15,15 +15,14 @@ import { WalksConfig } from "../../models/walk-notification.model";
 })
 export class WalksConfigService {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("WalksConfigService", NgxLoggerLevel.ERROR);
+  private config = inject(ConfigService);
+  private broadcastService = inject<BroadcastService<WalksConfig>>(BroadcastService);
+  stringUtils = inject(StringUtilsService);
   private subject = new ReplaySubject<WalksConfig>();
-  private logger: Logger;
   private cachedWalksConfig: WalksConfig;
 
-  constructor(private config: ConfigService,
-              private broadcastService: BroadcastService<WalksConfig>,
-              public stringUtils: StringUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalksConfigService", NgxLoggerLevel.ERROR);
+  constructor() {
     this.refresh();
   }
 

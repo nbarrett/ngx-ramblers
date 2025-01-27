@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -39,6 +39,17 @@ import { DynamicContentViewComponent } from "./dynamic-content-view";
 })
 export class DynamicContentComponent implements OnInit, OnDestroy {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentComponent", NgxLoggerLevel.ERROR);
+  private route = inject(ActivatedRoute);
+  private notifierService = inject(NotifierService);
+  private urlService = inject(UrlService);
+  stringUtils = inject(StringUtilsService);
+  private pageContentService = inject(PageContentService);
+  private pageService = inject(PageService);
+  private broadcastService = inject<BroadcastService<PageContent>>(BroadcastService);
+  private authService = inject(AuthService);
+
+
   @Input("areaAsContentPath") set areaAsContentPathValue(areaAsContentPath: boolean) {
     this.areaAsContentPath = coerceBooleanProperty(areaAsContentPath);
   }
@@ -59,7 +70,6 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
   private areaAsContentPath: boolean;
   contentPathReadOnly: boolean;
   public defaultPageContent: PageContent;
-  private logger: Logger;
   public pageContent: PageContent;
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
@@ -67,19 +77,6 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
   public contentDescription: string;
   public queryCompleted = false;
   private subscriptions: Subscription[] = [];
-
-  constructor(
-    private route: ActivatedRoute,
-    private notifierService: NotifierService,
-    private urlService: UrlService,
-    public stringUtils: StringUtilsService,
-    private pageContentService: PageContentService,
-    private pageService: PageService,
-    private broadcastService: BroadcastService<PageContent>,
-    private authService: AuthService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("DynamicContentComponent", NgxLoggerLevel.ERROR);
-  }
 
   async ngOnInit() {
     this.notify = this.notifier || this.notifierService.createAlertInstance(this.notifyTarget);

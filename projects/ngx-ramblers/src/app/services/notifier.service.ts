@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { faPencil } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
@@ -105,8 +105,8 @@ export class AlertInstance {
 
 export class NotifierService {
 
-  constructor(private stringUtils: StringUtilsService, private loggerFactory: LoggerFactory) {
-  }
+  private stringUtils = inject(StringUtilsService);
+  private loggerFactory = inject(LoggerFactory);
 
   createAlertInstance(alertTarget: AlertTarget, level?: NgxLoggerLevel): AlertInstance {
     return new AlertInstance(alertTarget, level, this.loggerFactory, this.stringUtils);

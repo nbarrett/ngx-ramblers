@@ -1,5 +1,5 @@
 import { Confirm } from "../../../../models/ui-actions";
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../../../../models/broadcast.model";
 import { BroadcastService } from "../../../../services/broadcast-service";
@@ -92,15 +92,11 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
     imports: [MailListEditorComponent, BrevoButtonComponent]
 })
 export class MailListSettingsComponent implements OnInit {
-  constructor(
-    private broadcastService: BroadcastService<any>,
-    private mailLinkService: MailLinkService,
-    private mailService: MailService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MailListSettingsComponent", NgxLoggerLevel.OFF);
-  }
 
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("MailListSettingsComponent", NgxLoggerLevel.ERROR);
+  private broadcastService = inject<BroadcastService<any>>(BroadcastService);
+  private mailLinkService = inject(MailLinkService);
+  private mailService = inject(MailService);
   @Input() mailMessagingConfig: MailMessagingConfig;
   @Input() list: ListInfo;
   @Input() notify: AlertInstance;

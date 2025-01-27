@@ -1,7 +1,5 @@
-import { Injectable } from "@angular/core";
-import { NgxLoggerLevel } from "ngx-logger";
+import { inject, Injectable } from "@angular/core";
 import { DistanceUnit, Walk, WalkDistance } from "../../models/walk.model";
-import { Logger, LoggerFactory } from "../logger-factory.service";
 import { NumberUtilsService } from "../number-utils.service";
 
 @Injectable({
@@ -9,14 +7,8 @@ import { NumberUtilsService } from "../number-utils.service";
 })
 
 export class DistanceValidationService {
-  private logger: Logger;
+  private numberUtils = inject(NumberUtilsService);
   private MILES_TO_KILOMETRES_FACTOR = 1.60934;
-
-  constructor(
-    private numberUtils: NumberUtilsService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("DistanceService", NgxLoggerLevel.OFF);
-  }
 
   parse(walk: Walk): WalkDistance {
     return {

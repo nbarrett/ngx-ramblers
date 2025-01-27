@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild } from "@angular/core";
+import { Component, ElementRef, inject, OnInit, ViewChild } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { ContentMetadata, ContentMetadataItem } from "../../../models/content-metadata.model";
@@ -19,6 +19,12 @@ import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-edito
     imports: [NgStyle, MarkdownEditorComponent]
 })
 export class SocialCarouselComponent implements OnInit {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("SocialCarouselComponent", NgxLoggerLevel.ERROR);
+  private contentMetadataService = inject(ContentMetadataService);
+  private notifierService = inject(NotifierService);
+  urlService = inject(UrlService);
+  protected dateUtils = inject(DateUtilsService);
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public contentMetadataItem: ContentMetadataItem;
@@ -28,16 +34,6 @@ export class SocialCarouselComponent implements OnInit {
   public activeSlideIndex = -1;
   public image: any;
   public contentMetadata: ContentMetadata;
-
-  constructor(private contentMetadataService: ContentMetadataService,
-              private notifierService: NotifierService,
-              public urlService: UrlService,
-              protected dateUtils: DateUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SocialCarouselComponent, NgxLoggerLevel.OFF);
-  }
-
-  private logger: Logger;
   @ViewChild("paperCutImage") paperCutImage: ElementRef<HTMLImageElement>;
 
   ngOnInit() {

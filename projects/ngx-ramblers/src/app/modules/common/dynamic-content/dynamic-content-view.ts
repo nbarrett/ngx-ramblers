@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { PageContent, PageContentColumn, PageContentRow } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -69,6 +69,11 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
     imports: [ActionButtonsComponent, DynamicContentViewTextRowComponent, DynamicContentViewCarouselComponent, DynamicContentViewAlbumIndexComponent, DynamicContentViewAlbumComponent, EventsComponent, FontAwesomeModule]
 })
 export class DynamicContentViewComponent implements OnInit, OnDestroy {
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewComponent", NgxLoggerLevel.ERROR);
+  private memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
+  private urlService = inject(UrlService);
+  actions = inject(PageContentActionsService);
+  siteEditService = inject(SiteEditService);
   private pageContentRawData: PageContent;
 
   @Input("pageContent") set acceptChangesFrom(pageContent: PageContent) {
@@ -81,18 +86,9 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
   public contentDescription: string;
   @Input()
   public notify: AlertInstance;
-  private logger: Logger;
   public area: string;
   public viewablePageContent: PageContent;
   private subscriptions: Subscription[] = [];
-  constructor(
-    private memberResourcesReferenceData: MemberResourcesReferenceDataService,
-    private urlService: UrlService,
-    public actions: PageContentActionsService,
-    public siteEditService: SiteEditService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("DynamicContentViewComponent", NgxLoggerLevel.ERROR);
-  }
 
   ngOnInit() {
     this.area = this.urlService.area();

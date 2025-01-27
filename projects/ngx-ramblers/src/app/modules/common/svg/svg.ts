@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgStyle } from "@angular/common";
@@ -13,26 +13,25 @@ import { NgStyle } from "@angular/common";
     imports: [NgStyle]
 })
 export class SvgComponent implements OnInit {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("SvgComponent", NgxLoggerLevel.ERROR);
+  public disabled: boolean;
+  public icon: string;
+  public href: string;
+  public style: { color: string; width: number; height: number };
+
+  @Input() width: number;
+  @Input() height: number;
+  @Input() colour: string;
+
   @Input("icon") set iconValue(icon: string) {
     this.icon = icon;
     this.setHfRef();
   }
-  public disabled: boolean;
-  public icon: string;
-  @Input() width: number;
-  @Input() height: number;
-  @Input() colour: string;
   @Input("disabled") set disabledValue(disabled: boolean) {
     this.disabled = disabled;
   }
 
-  private logger: Logger;
-  public href: string;
-  public style: { color: string; width: number; height: number };
-
-  constructor(loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SvgComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit(): void {
     this.setHfRef();

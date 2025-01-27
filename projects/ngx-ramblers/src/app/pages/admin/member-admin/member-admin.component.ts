@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import cloneDeep from "lodash-es/cloneDeep";
 import extend from "lodash-es/extend";
 import sortBy from "lodash-es/sortBy";
@@ -50,6 +50,7 @@ import { SwitchIconComponent } from "../system-settings/committee/switch-icon";
 import { DisplayDateNoDayPipe } from "../../../pipes/display-date-no-day.pipe";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 
+
 @Component({
     selector: "app-member-admin",
     templateUrl: "./member-admin.component.html",
@@ -58,40 +59,35 @@ import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe"
 })
 export class MemberAdminComponent implements OnInit, OnDestroy {
 
-  constructor(private mailchimpConfigService: MailchimpConfigService,
-              private memberService: MemberService,
-              private apiResponseProcessor: ApiResponseProcessor,
-              private mailListUpdaterService: MailListUpdaterService,
-              private searchFilterPipe: SearchFilterPipe,
-              private modalService: BsModalService,
-              private mailMessagingService: MailMessagingService,
-              private notifierService: NotifierService,
-              private systemConfigService: SystemConfigService,
-              private memberBulkDeleteService: MemberBulkDeleteService,
-              private memberBulkLoadAuditService: MemberBulkLoadAuditService,
-              private walksService: WalksService,
-              private dateUtils: DateUtilsService,
-              private memberDefaultsService: MemberDefaultsService,
-              private profileService: ProfileService,
-              private memberLoginService: MemberLoginService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MemberAdminComponent, NgxLoggerLevel.ERROR);
-    this.apiResponseProcessorLogger = loggerFactory.createLogger(MemberAdminComponent, NgxLoggerLevel.ERROR);
-    this.searchChangeObservable = new Subject<string>();
-  }
-
+  private loggerFactory = inject(LoggerFactory);
+  private logger: Logger = this.loggerFactory.createLogger("MemberAdminComponent", NgxLoggerLevel.ERROR);
+  private apiResponseProcessorLogger: Logger = this.loggerFactory.createLogger("MemberAdminComponentResponseProcessor", NgxLoggerLevel.ERROR);
+  private mailchimpConfigService = inject(MailchimpConfigService);
+  private memberService = inject(MemberService);
+  private apiResponseProcessor = inject(ApiResponseProcessor);
+  private mailListUpdaterService = inject(MailListUpdaterService);
+  private searchFilterPipe = inject(SearchFilterPipe);
+  private modalService = inject(BsModalService);
+  private mailMessagingService = inject(MailMessagingService);
+  private notifierService = inject(NotifierService);
+  private systemConfigService = inject(SystemConfigService);
+  private memberBulkDeleteService = inject(MemberBulkDeleteService);
+  private memberBulkLoadAuditService = inject(MemberBulkLoadAuditService);
+  private walksService = inject(WalksService);
+  private dateUtils = inject(DateUtilsService);
+  private memberDefaultsService = inject(MemberDefaultsService);
+  private profileService = inject(ProfileService);
+  private memberLoginService = inject(MemberLoginService);
+  private searchChangeObservable: Subject<string> = new Subject<string>();
   public mailchimpConfig: MailchimpConfig;
   protected mailMessagingConfig: MailMessagingConfig;
   private latestMemberBulkLoadAudit: MemberBulkLoadAudit;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  private readonly logger: Logger;
-  private readonly apiResponseProcessorLogger: Logger;
   private today: number;
   public members: Member[] = [];
   public bulkDeleteMarkedMemberIds: string[] = [];
   public quickSearch = "";
-  private searchChangeObservable: Subject<string>;
   public memberFilter: MemberTableFilter;
   filters: any;
   private subscriptions: Subscription[] = [];

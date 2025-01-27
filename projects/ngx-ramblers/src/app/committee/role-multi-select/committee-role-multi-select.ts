@@ -3,6 +3,7 @@ import {
   ElementRef,
   EventEmitter,
   HostListener,
+  inject,
   Input,
   OnDestroy,
   OnInit,
@@ -83,21 +84,16 @@ import { FormsModule } from "@angular/forms";
 })
 
 export class CommitteeRoleMultiSelectComponent implements OnInit, OnDestroy {
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("CommitteeRoleMultiSelectComponent", NgxLoggerLevel.ERROR);
+  display = inject(CommitteeDisplayService);
+  stringUtils = inject(StringUtilsService);
+  protected dateUtils = inject(DateUtilsService);
+  private numberUtils = inject(NumberUtilsService);
+
   private subscriptions: Subscription[] = [];
   expanded = false;
   ready = false;
   public roles: string[] = [];
-
-  constructor(
-    public display: CommitteeDisplayService,
-    public stringUtils: StringUtilsService,
-    protected dateUtils: DateUtilsService,
-    private numberUtils: NumberUtilsService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("CommitteeRoleMultiSelectComponent", NgxLoggerLevel.OFF);
-  }
-
   @Input() public showRoleSelectionAs: keyof CommitteeMember;
   @Input() public id: string;
 

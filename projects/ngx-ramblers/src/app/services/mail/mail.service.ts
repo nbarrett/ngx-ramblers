@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ApiResponse } from "../../models/api-response.model";
 import { CommonDataService } from "../common-data-service";
@@ -35,14 +35,11 @@ import {
   providedIn: "root"
 })
 export class MailService {
-  private readonly logger: Logger;
-  private BASE_URL = "api/mail";
 
-  constructor(private http: HttpClient,
-              private commonDataService: CommonDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MailService", NgxLoggerLevel.ERROR);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("MailService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private commonDataService = inject(CommonDataService);
+  private BASE_URL = "api/mail";
 
   async createList(listCreateRequest: ListCreateRequest): Promise<ListCreateResponse> {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/lists/create`, listCreateRequest))).response;

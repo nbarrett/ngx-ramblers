@@ -1,5 +1,5 @@
 import { HttpClient, HttpErrorResponse } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import isUndefined from "lodash-es/isUndefined";
 import { FileUploader } from "ng2-file-upload";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -20,19 +20,15 @@ import { AlertMessage } from "../models/alert-target.model";
   providedIn: "root"
 })
 export class FileUploadService {
-
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("FileUploadService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private authService = inject(AuthService);
+  protected dateUtils = inject(DateUtilsService);
+  private commonDataService = inject(CommonDataService);
+  private stringUtils = inject(StringUtilsService);
+  private fileUtilsService = inject(FileUtilsService);
+  private urlService = inject(UrlService);
   private URL_TO_FILE_URL = "api/aws/url-to-file";
-
-  constructor(private http: HttpClient,
-              private authService: AuthService, protected dateUtils: DateUtilsService,
-              private commonDataService: CommonDataService,
-              private stringUtils: StringUtilsService,
-              private fileUtilsService: FileUtilsService,
-              private urlService: UrlService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(FileUploadService, NgxLoggerLevel.ERROR);
-  }
 
   createUploaderFor(rootFolder: string, autoUpload?: boolean): FileUploader {
     return new FileUploader({

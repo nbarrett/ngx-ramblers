@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { SystemConfig } from "../models/system.model";
@@ -14,13 +14,12 @@ import { LoginPanelComponent } from "../login-panel/login-panel.component";
     imports: [LoginPanelComponent]
 })
 export class HeaderButtonsComponent implements OnInit, OnDestroy {
-  private logger: Logger;
+
+  private systemConfigService = inject(SystemConfigService);
+  urlService = inject(UrlService);
+  private logger: Logger = inject(LoggerFactory).createLogger("ForgotPasswordComponent", NgxLoggerLevel.ERROR);
   public systemConfigResponse: SystemConfig;
   private subscriptions: Subscription[] = [];
-
-  constructor(private systemConfigService: SystemConfigService, loggerFactory: LoggerFactory, public urlService: UrlService) {
-    this.logger = loggerFactory.createLogger("HeaderButtonsComponent", NgxLoggerLevel.OFF);
-  }
 
   ngOnInit(): void {
     this.logger.info("subscribing to systemConfigService events");

@@ -1,9 +1,7 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { TitleLine } from "../../models/banner-configuration.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
-import { StringUtilsService } from "../../services/string-utils.service";
-import { SystemConfigService } from "../../services/system/system-config.service";
 import { UrlService } from "../../services/url.service";
 import { NgClass } from "@angular/common";
 
@@ -25,17 +23,11 @@ import { NgClass } from "@angular/common";
 })
 
 export class BannerTitleOutputComponent implements OnInit {
+  private logger: Logger = inject(LoggerFactory).createLogger("BannerTitleOutputComponent", NgxLoggerLevel.ERROR);
+  urlService = inject(UrlService);
 
   @Input()
   public titleLine: TitleLine;
-  private logger: Logger;
-
-  constructor(private stringUtils: StringUtilsService,
-              public urlService: UrlService,
-              private systemConfigService: SystemConfigService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(BannerTitleOutputComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.logger.debug("ngOnInit:titleLine:", this.titleLine);

@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { CustomNGXLoggerService, INGXLoggerConfig, NGXLogger, NgxLoggerLevel } from "ngx-logger";
 
 export class Logger {
@@ -39,9 +39,8 @@ export class Logger {
 })
 
 export class LoggerFactory {
+  private customLogger = inject(CustomNGXLoggerService);
 
-  constructor(private customLogger: CustomNGXLoggerService) {
-  }
 
   createLogger<T extends InstanceType<any>>(classRef: T | string, loggerConfig: NgxLoggerLevel): Logger {
     const config: INGXLoggerConfig = {level: loggerConfig};

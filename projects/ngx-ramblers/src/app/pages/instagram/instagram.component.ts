@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import take from "lodash-es/take";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -8,7 +8,6 @@ import { DateUtilsService } from "../../services/date-utils.service";
 import { InstagramService } from "../../services/instagram.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
-import { UrlService } from "../../services/url.service";
 import { CardContainerComponent } from "../../modules/common/card-container/card-container.component";
 import { DynamicContentComponent } from "../../modules/common/dynamic-content/dynamic-content";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -20,18 +19,14 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
     imports: [CardContainerComponent, DynamicContentComponent, TooltipDirective]
 })
 export class InstagramComponent implements OnInit, OnDestroy {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("InstagramComponent", NgxLoggerLevel.ERROR);
+  private instagramService = inject(InstagramService);
+  private systemConfigService = inject(SystemConfigService);
+  dateUtils = inject(DateUtilsService);
   public recentMedia: InstagramMediaPost[];
   public externalSystems: ExternalSystems;
   private subscriptions: Subscription[] = [];
-
-  constructor(private urlService: UrlService,
-              private instagramService: InstagramService,
-              private systemConfigService: SystemConfigService,
-              public dateUtils: DateUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("InstagramComponent", NgxLoggerLevel.ERROR);
-  }
 
   ngOnInit() {
     this.logger.debug("ngOnInit");

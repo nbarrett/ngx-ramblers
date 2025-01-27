@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
@@ -21,7 +21,7 @@ import { ButtonWrapperComponent } from "./button-wrapper";
 
 export class MailchimpButtonComponent implements OnInit {
 
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("MailchimpButtonComponent", NgxLoggerLevel.ERROR);
   public disabled: boolean;
   public button: boolean;
   public showTooltip: boolean;
@@ -37,11 +37,6 @@ export class MailchimpButtonComponent implements OnInit {
 
   @Input("showTooltip") set showTooltipValue(value: boolean) {
     this.showTooltip = coerceBooleanProperty(value);
-  }
-
-  constructor(
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MailchimpButtonComponent", NgxLoggerLevel.OFF);
   }
 
   ngOnInit(): void {

@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -36,13 +36,17 @@ import first from "lodash-es/first";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { isUndefined, set } from "lodash-es";
 import get from "lodash-es/get";
-import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { NotificationConfigSelectorComponent } from "../../admin/system-settings/mail/notification-config-selector";
 import { FormsModule } from "@angular/forms";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { NgSelectComponent, NgOptgroupTemplateDirective } from "@ng-select/ng-select";
-import { CommitteeNotificationRamblersMessageItemComponent } from "../../../notifications/committee/templates/committee-notification-ramblers-message-item";
-import { SocialNotificationDetailsComponent } from "../../../notifications/social/templates/social-notification-details.component";
+import { NgOptgroupTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
+import {
+  CommitteeNotificationRamblersMessageItemComponent
+} from "../../../notifications/committee/templates/committee-notification-ramblers-message-item";
+import {
+  SocialNotificationDetailsComponent
+} from "../../../notifications/social/templates/social-notification-details.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { CreateOrAmendSenderComponent } from "../../admin/send-emails/create-or-amend-sender";
 import { BrevoButtonComponent } from "../../../modules/common/third-parties/brevo-button";
@@ -425,30 +429,27 @@ import { TitleCasePipe } from "@angular/common";
 })
 export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
 
-  constructor(private notifierService: NotifierService,
-              private memberService: MemberService,
-              private memberLoginService: MemberLoginService,
-              private fullNameWithAlias: FullNameWithAliasPipe,
-              protected mailMessagingService: MailMessagingService,
-              protected mailService: MailService,
-              private systemConfigService: SystemConfigService,
-              public stringUtils: StringUtilsService,
-              public display: SocialDisplayService,
-              private socialEventsService: SocialEventsService,
-              public mailLinkService: MailLinkService,
-              private mailListUpdaterService: MailListUpdaterService,
-              protected dateUtils: DateUtilsService,
-              public bsModalRef: BsModalRef,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("SocialSendNotificationModalComponent", NgxLoggerLevel.ERROR);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("SocialSendNotificationModalComponent", NgxLoggerLevel.ERROR);
+  private notifierService = inject(NotifierService);
+  private memberService = inject(MemberService);
+  private memberLoginService = inject(MemberLoginService);
+  private fullNameWithAlias = inject(FullNameWithAliasPipe);
+  protected mailMessagingService = inject(MailMessagingService);
+  protected mailService = inject(MailService);
+  private systemConfigService = inject(SystemConfigService);
+  stringUtils = inject(StringUtilsService);
+  display = inject(SocialDisplayService);
+  private socialEventsService = inject(SocialEventsService);
+  mailLinkService = inject(MailLinkService);
+  private mailListUpdaterService = inject(MailListUpdaterService);
+  protected dateUtils = inject(DateUtilsService);
+  bsModalRef = inject(BsModalRef);
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   @ViewChild("notificationContent") notificationContent: ElementRef;
   public segmentEditingSupported = false;
   public socialEvent: SocialEvent;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  private logger: Logger;
   public roles: {
     replyTo: CommitteeMember[];
     signoff: CommitteeMember[];

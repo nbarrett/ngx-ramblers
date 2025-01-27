@@ -1,4 +1,4 @@
-import { Component, OnInit } from "@angular/core";
+import { Component, inject, OnInit } from "@angular/core";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../../models/alert-target.model";
@@ -21,22 +21,19 @@ import { MemberIdToFullNamePipe } from "../../../../pipes/member-id-to-full-name
     imports: [FontAwesomeModule, NgClass, MemberIdToFullNamePipe]
 })
 export class ExpensePaidModalComponent implements OnInit {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("ExpensePaidModalComponent", NgxLoggerLevel.ERROR);
+  bsModalRef = inject(BsModalRef);
+  private notifierService = inject(NotifierService);
+  private mailMessagingService = inject(MailMessagingService);
+  private expenseNotificationService = inject(ExpenseNotificationService);
+  display = inject(ExpenseDisplayService);
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  private logger: Logger;
   public members: Member[];
   public expenseClaim: ExpenseClaim;
   private notificationDirective: NotificationDirective;
   private notificationConfig: NotificationConfig;
-
-  constructor(public bsModalRef: BsModalRef,
-              private notifierService: NotifierService,
-              private mailMessagingService: MailMessagingService,
-              private expenseNotificationService: ExpenseNotificationService,
-              public display: ExpenseDisplayService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ExpensePaidModalComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.logger.debug("constructed: expenseClaim:", this.expenseClaim);

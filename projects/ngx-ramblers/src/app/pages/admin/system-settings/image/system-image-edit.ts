@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { faAdd, faEdit, faRemove, faSave } from "@fortawesome/free-solid-svg-icons";
 import { remove } from "lodash-es";
 import { FileUploader } from "ng2-file-upload";
@@ -28,9 +28,16 @@ import { NgClass } from "@angular/common";
     imports: [ImageCropperAndResizerComponent, FormsModule, BadgeButtonComponent, TooltipDirective, NgClass]
 })
 export class SystemImageEditComponent implements OnInit {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("SystemImageEditComponent", NgxLoggerLevel.ERROR);
+  private notifierService = inject(NotifierService);
+  private stringUtils = inject(StringUtilsService);
+  private broadcastService = inject<BroadcastService<string>>(BroadcastService);
+  private fileUtils = inject(FileUtilsService);
+  private urlService = inject(UrlService);
+  protected dateUtils = inject(DateUtilsService);
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  private logger: Logger;
   faAdd = faAdd;
   faSave = faSave;
   faEdit = faEdit;
@@ -40,17 +47,6 @@ export class SystemImageEditComponent implements OnInit {
   public uploader: FileUploader;
   public logoMode: boolean;
   protected fileTypeAttributes: FileTypeAttributes;
-
-  constructor(private notifierService: NotifierService,
-              private stringUtils: StringUtilsService,
-              private broadcastService: BroadcastService<string>,
-              private fileUtils: FileUtilsService,
-              private urlService: UrlService,
-              protected dateUtils: DateUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SystemImageEditComponent, NgxLoggerLevel.ERROR);
-  }
-
   @Input() headerLogoDefault: boolean;
   @Input() rootFolder: RootFolder;
   @Input() images: Images;

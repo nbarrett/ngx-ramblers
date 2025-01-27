@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { UrlService } from "../../../services/url.service";
 import { Subscription } from "rxjs";
 import { StoredValue } from "../../../models/ui-actions";
@@ -17,15 +17,12 @@ import { ImageListEditComponent } from "../image-list-edit/image-list-edit";
     imports: [PageComponent, LoginRequiredComponent, MarkdownEditorComponent, CarouselSelectorComponent, ImageListEditComponent]
 })
 export class ImageListEditPageComponent implements OnInit, OnDestroy {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("ImageListEditPageComponent", NgxLoggerLevel.ERROR);
+  private activatedRoute = inject(ActivatedRoute);
+  private urlService = inject(UrlService);
   public editing = this.urlService.lastPathSegment() !== "carousel-editor";
   private subscriptions: Subscription[] = [];
-  private logger: Logger;
-
-  constructor(private activatedRoute: ActivatedRoute,
-              private urlService: UrlService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("ImageListEditPageComponent", NgxLoggerLevel.OFF);
-  }
-
   @Input()
   name: string;
 

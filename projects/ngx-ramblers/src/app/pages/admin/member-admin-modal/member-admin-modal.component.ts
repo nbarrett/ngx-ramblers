@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { faPaste } from "@fortawesome/free-solid-svg-icons";
 import omit from "lodash-es/omit";
 import { BsModalRef } from "ngx-bootstrap/modal";
@@ -30,7 +30,7 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { MailListAuditService } from "../../../services/mail/mail-list-audit.service";
 import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
 import { NO_CHANGES_OR_DIFFERENCES } from "../../../models/ramblers-insight-hub";
-import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FormsModule } from "@angular/forms";
 import { DatePickerComponent } from "../../../date-picker/date-picker.component";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
@@ -39,7 +39,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { MailChimpSubscriptionSettingsComponent } from "./mailchimp-subscription-settings";
 import { MailSubscriptionSettingsComponent } from "./mail-subscription-settings";
 import { SwitchIconComponent } from "../system-settings/committee/switch-icon";
-import { NgClass, JsonPipe } from "@angular/common";
+import { JsonPipe, NgClass } from "@angular/common";
 import { CreatedAuditPipe } from "../../../pipes/created-audit-pipe";
 import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
 import { LastConfirmedDateDisplayed } from "../../../pipes/last-confirmed-date-displayed.pipe";
@@ -52,34 +52,29 @@ import { UpdatedAuditPipe } from "../../../pipes/updated-audit-pipe";
     imports: [TabsetComponent, TabDirective, FormsModule, DatePickerComponent, MarkdownEditorComponent, TooltipDirective, FontAwesomeModule, MailChimpSubscriptionSettingsComponent, MailSubscriptionSettingsComponent, SwitchIconComponent, NgClass, JsonPipe, CreatedAuditPipe, DisplayDateAndTimePipe, FullNameWithAliasPipe, LastConfirmedDateDisplayed, UpdatedAuditPipe]
 })
 export class MemberAdminModalComponent implements OnInit, OnDestroy {
-
-  constructor(public systemConfigService: SystemConfigService,
-              private notifierService: NotifierService,
-              private memberUpdateAuditService: MemberUpdateAuditService,
-              private memberAuthAuditService: MemberAuthAuditService,
-              private memberNamingService: MemberNamingService,
-              private stringUtils: StringUtilsService,
-              private memberService: MemberService,
-              private fullNameWithAliasPipe: FullNameWithAliasPipe,
-              private memberLoginService: MemberLoginService,
-              private mailListAuditService: MailListAuditService,
-              private broadcastService: BroadcastService<MailListAudit>,
-              private profileConfirmationService: ProfileConfirmationService,
-              private memberDefaultsService: MemberDefaultsService,
-              private mailMessagingService: MailMessagingService,
-              private dbUtils: DbUtilsService,
-              protected dateUtils: DateUtilsService,
-              public bsModalRef: BsModalRef,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MemberAdminModalComponent, NgxLoggerLevel.ERROR);
-  }
-
+  private logger: Logger = inject(LoggerFactory).createLogger("MemberAdminModalComponent", NgxLoggerLevel.ERROR);
+  private systemConfigService = inject(SystemConfigService);
+  private notifierService = inject(NotifierService);
+  private memberUpdateAuditService = inject(MemberUpdateAuditService);
+  private memberAuthAuditService = inject(MemberAuthAuditService);
+  private memberNamingService = inject(MemberNamingService);
+  private stringUtils = inject(StringUtilsService);
+  private memberService = inject(MemberService);
+  private fullNameWithAliasPipe = inject(FullNameWithAliasPipe);
+  private memberLoginService = inject(MemberLoginService);
+  private mailListAuditService = inject(MailListAuditService);
+  private broadcastService = inject<BroadcastService<MailListAudit>>(BroadcastService);
+  private profileConfirmationService = inject(ProfileConfirmationService);
+  private memberDefaultsService = inject(MemberDefaultsService);
+  private mailMessagingService = inject(MailMessagingService);
+  private dbUtils = inject(DbUtilsService);
+  protected dateUtils = inject(DateUtilsService);
+  bsModalRef = inject(BsModalRef);
   public systemConfig: SystemConfig;
   public mailMessagingConfig: MailMessagingConfig;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public lastLoggedIn: number;
-  private logger: Logger;
   public memberUpdateAudits: MemberUpdateAudit[] = [];
   public allowEdits: boolean;
   public allowDelete: boolean;

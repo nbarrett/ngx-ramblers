@@ -1,18 +1,14 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { StoredValue } from "../models/ui-actions";
-import { DateUtilsService } from "./date-utils.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 
 @Injectable({
   providedIn: "root"
 })
 export class UiActionsService {
-  private logger: Logger;
 
-  constructor(loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(UiActionsService, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("UiActionsService", NgxLoggerLevel.ERROR);
 
   initialValueFor(parameter: string, defaultValue?: any): string {
     const localStorageValue = localStorage.getItem(parameter);

@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { Image, Organisation } from "../../../models/system.model";
 import { UrlService } from "../../../services/url.service";
 import { NgStyle } from "@angular/common";
@@ -9,12 +9,10 @@ import { NgStyle } from "@angular/common";
     imports: [NgStyle]
 })
 export class BannerHeadLogoComponent implements OnInit {
+  urlService = inject(UrlService);
+
 
   public group: Organisation;
-
-  constructor(
-    public urlService: UrlService) {
-  }
 
   @Input()
   image: Image;

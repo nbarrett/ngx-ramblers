@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { UrlService } from "../../../services/url.service";
@@ -16,12 +16,9 @@ import { HeaderButtonsComponent } from "../../../header-buttons/header-buttons";
 })
 export class NavbarContentComponent  implements OnInit, OnDestroy {
 
-  constructor(private systemConfigService: SystemConfigService,
-              loggerFactory: LoggerFactory, public urlService: UrlService) {
-    this.logger = loggerFactory.createLogger("NavbarContentComponent", NgxLoggerLevel.OFF);
-  }
-
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("NavbarContentComponent", NgxLoggerLevel.ERROR);
+  private systemConfigService = inject(SystemConfigService);
+  urlService = inject(UrlService);
   public systemConfig: SystemConfig;
   private subscriptions: Subscription[] = [];
 

@@ -1,6 +1,6 @@
 // @ts-ignore
 import mongoose from "mongoose";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import first from "lodash-es/first";
 import { NgxLoggerLevel } from "ngx-logger";
 import { chain } from "../../functions/chain";
@@ -36,27 +36,26 @@ import { MediaQueryService } from "./media-query.service";
 })
 
 export class CommitteeQueryService {
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("CommitteeQueryService", NgxLoggerLevel.ERROR);
+  display = inject(CommitteeDisplayService);
+  private dateUtils = inject(DateUtilsService);
+  private mediaQueryService = inject(MediaQueryService);
+  private walksService = inject(WalksService);
+  private memberService = inject(MemberService);
+  private walksQueryService = inject(WalksQueryService);
+  private committeeFileService = inject(CommitteeFileService);
+  private committeeDisplayService = inject(CommitteeDisplayService);
+  private socialEventsService = inject(SocialEventsService);
+  private memberLoginService = inject(MemberLoginService);
+  private displayDatePipe = inject(DisplayDatePipe);
   private committeeReferenceData: CommitteeReferenceData;
   public committeeFiles: CommitteeFile[] = [];
   public committeeMembers: Member[] = [];
+  private committeeConfig = inject(CommitteeConfigService);
+  loggerFactory = inject(LoggerFactory);
 
-  constructor(
-    public display: CommitteeDisplayService,
-    private dateUtils: DateUtilsService,
-    private mediaQueryService: MediaQueryService,
-    private walksService: WalksService,
-    private memberService: MemberService,
-    private walksQueryService: WalksQueryService,
-    private committeeFileService: CommitteeFileService,
-    private committeeDisplayService: CommitteeDisplayService,
-    private socialEventsService: SocialEventsService,
-    private memberLoginService: MemberLoginService,
-    private displayDatePipe: DisplayDatePipe,
-    committeeConfig: CommitteeConfigService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(CommitteeQueryService, NgxLoggerLevel.ERROR);
-    committeeConfig.committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data);
+  constructor() {
+    this.committeeConfig.committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data);
     this.queryCommitteeMembers();
   }
 

@@ -95,7 +95,7 @@
         <label [for]="idFor('access-level')">Access</label>
         <select [(ngModel)]="column.accessLevel" [id]="idFor('access-level')"
                 class="form-control input-sm">
-          @for (accessLevel of memberResourcesReferenceData.accessLevels(); track accessLevel) {
+          @for (accessLevel of memberResourcesReferenceData.accessLevels(); track accessLevel.description) {
             <option
               [textContent]="accessLevel.description"
               [ngValue]="accessLevel.id">

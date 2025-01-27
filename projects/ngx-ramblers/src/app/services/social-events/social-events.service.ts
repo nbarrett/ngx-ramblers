@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
@@ -14,14 +14,13 @@ import { RamblersWalksAndEventsService } from "../walks/ramblers-walks-and-event
 })
 export class SocialEventsService {
 
-  private readonly logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("SocialEventsService", NgxLoggerLevel.ERROR);
+  private systemConfigService = inject(SystemConfigService);
+  private socialEventsLocalService = inject(SocialEventsLocalService);
+  private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   public group: Organisation;
 
-  constructor(private systemConfigService: SystemConfigService,
-              private socialEventsLocalService: SocialEventsLocalService,
-              private ramblersWalksAndEventsService: RamblersWalksAndEventsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SocialEventsService, NgxLoggerLevel.ERROR);
+  constructor() {
     this.applyConfig();
   }
 

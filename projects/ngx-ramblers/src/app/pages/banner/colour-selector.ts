@@ -1,10 +1,10 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { HasClass, HasColour } from "../../models/banner-configuration.model";
 import { ColourSelector, colourSelectors } from "../../models/system.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
-import { NgSelectComponent, NgOptionComponent } from "@ng-select/ng-select";
+import { NgOptionComponent, NgSelectComponent } from "@ng-select/ng-select";
 import { FormsModule } from "@angular/forms";
 
 @Component({
@@ -76,13 +76,9 @@ import { FormsModule } from "@angular/forms";
 })
 
 export class ColourSelectorComponent implements OnInit {
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("ColourSelectorComponent", NgxLoggerLevel.ERROR);
   public itemWithClassOrColour: HasClass | HasColour;
   public noLabel: boolean;
-
-  constructor(loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ColourSelectorComponent, NgxLoggerLevel.ERROR);
-  }
 
   @Input()
   public colours: ColourSelector[] = colourSelectors;

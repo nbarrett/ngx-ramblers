@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import get from "lodash-es/get";
 import has from "lodash-es/has";
 import isEmpty from "lodash-es/isEmpty";
@@ -38,19 +38,20 @@ import { WalksConfig } from "../models/walk-notification.model";
   providedIn: "root"
 })
 export class MeetupService {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("MeetupService", NgxLoggerLevel.ERROR);
+  private dateUtils = inject(DateUtilsService);
+  private walksConfigService = inject(WalksConfigService);
+  private configService = inject(ConfigService);
+  private stringUtils = inject(StringUtilsService);
+  private commonDataService = inject(CommonDataService);
+  private http = inject(HttpClient);
   private BASE_URL = "/api/meetup";
   private receivedEvents: MeetupEventResponse[] = [];
   private eventsUpdated = new Subject<MeetupEventResponse[]>();
-  private logger: Logger;
   private walksConfig: WalksConfig;
 
-  constructor(private dateUtils: DateUtilsService,
-              private walksConfigService: WalksConfigService,
-              private configService: ConfigService,
-              private stringUtils: StringUtilsService,
-              private commonDataService: CommonDataService,
-              private http: HttpClient, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MeetupService, NgxLoggerLevel.OFF);
+  constructor() {
     this.walksConfigService.events().subscribe(walksConfig => {
       this.walksConfig = walksConfig;
       this.logger.info("walksConfigService:walksConfig:", walksConfig);

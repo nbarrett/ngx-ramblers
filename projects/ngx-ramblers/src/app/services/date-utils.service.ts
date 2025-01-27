@@ -1,5 +1,5 @@
 import { Time } from "@angular/common";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import range from "lodash-es/range";
 import moment from "moment-timezone";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -15,13 +15,9 @@ import { isDateValue } from "./type-guards";
 
 export class DateUtilsService {
 
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("DateUtilsService", NgxLoggerLevel.ERROR);
+  private numberUtils = inject(NumberUtilsService);
   MILLISECONDS_IN_ONE_DAY = 86400000;
-
-  constructor(private numberUtils: NumberUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(DateUtilsService, NgxLoggerLevel.ERROR);
-  }
 
   public formats = {
     displayTime: "h:mm a",

@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, Input, OnInit } from "@angular/core";
+import { ChangeDetectorRef, Component, inject, Input, OnInit } from "@angular/core";
 import has from "lodash-es/has";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -18,7 +18,9 @@ import { MeetupService } from "../../../services/meetup.service";
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { FormsModule } from "@angular/forms";
-import { WalkMeetupConfigParametersComponent } from "../walk-meetup-config-parameters/walk-meetup-config-parameters.component";
+import {
+  WalkMeetupConfigParametersComponent
+} from "../walk-meetup-config-parameters/walk-meetup-config-parameters.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 @Component({
@@ -29,17 +31,23 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 })
 export class WalkMeetupComponent implements OnInit {
 
-  constructor(private memberLoginService: MemberLoginService,
-              private broadcastService: BroadcastService<ContentText>,
-              private changeDetectorRef: ChangeDetectorRef,
-              private contentTextService: ContentTextService,
-              private notifierService: NotifierService,
-              private walkNotificationService: WalkNotificationService,
-              public display: WalkDisplayService,
-              public meetupService: MeetupService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkMeetupComponent, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkMeetupComponent", NgxLoggerLevel.ERROR);
+  private memberLoginService = inject(MemberLoginService);
+  private broadcastService = inject<BroadcastService<ContentText>>(BroadcastService);
+  private changeDetectorRef = inject(ChangeDetectorRef);
+  private contentTextService = inject(ContentTextService);
+  private notifierService = inject(NotifierService);
+  private walkNotificationService = inject(WalkNotificationService);
+  display = inject(WalkDisplayService);
+  meetupService = inject(MeetupService);
+  public contentTextItems: ContentText[] = [];
+  public notifyTarget: AlertTarget = {};
+  protected notify: AlertInstance;
+  public walkNotificationData: WalkNotification;
+  public config: MeetupConfig;
+  meetupEventDescription: string;
+  public view: View = View.VIEW;
+  protected readonly ContentTextCategory = ContentTextCategory;
 
   @Input()
   public displayedWalk: DisplayedWalk;
@@ -47,16 +55,6 @@ export class WalkMeetupComponent implements OnInit {
   @Input()
   public saveInProgress: boolean;
 
-  public contentTextItems: ContentText[] = [];
-  private logger: Logger;
-  public notifyTarget: AlertTarget = {};
-  protected notify: AlertInstance;
-  public walkNotificationData: WalkNotification;
-  public config: MeetupConfig;
-  meetupEventDescription: string;
-  public view: View = View.VIEW;
-
-  protected readonly ContentTextCategory = ContentTextCategory;
 
   ngOnInit() {
     this.logger.info("ngOnInit:saveInProgress", typeof this.saveInProgress, this.saveInProgress);

@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { CommitteeMember } from "../../../models/committee.model";
 import { Member, MemberFilterSelection } from "../../../models/member.model";
@@ -129,23 +129,18 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 })
 export class SocialNotificationDetailsComponent implements OnInit {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("SocialNotificationDetailsComponent", NgxLoggerLevel.ERROR);
+  protected pageService = inject(PageService);
+  urlService = inject(UrlService);
+  googleMapsService = inject(GoogleMapsService);
+  display = inject(SocialDisplayService);
+
   @Input({ required: true })
   public members: Member[];
   @Input({ required: true })
   public socialEvent: SocialEvent;
   @Input({ required: true })
   public mailMessagingConfig: MailMessagingConfig;
-
-  protected logger: Logger;
-
-  constructor(
-    protected pageService: PageService,
-    public urlService: UrlService,
-    public googleMapsService: GoogleMapsService,
-    public display: SocialDisplayService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SocialNotificationDetailsComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.logger.debug("ngOnInit:app-social-notification-details members:", this.members, "socialEvent:", this.socialEvent);

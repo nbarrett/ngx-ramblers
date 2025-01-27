@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from "@angular/common/http";
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import first from "lodash-es/first";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -29,20 +29,17 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 })
 export class ExpenseDetailModalComponent implements OnInit, OnDestroy {
 
-  constructor(private fileUploadService: FileUploadService,
-              public bsModalRef: BsModalRef,
-              private notifierService: NotifierService,
-              public display: ExpenseDisplayService,
-              protected dateUtils: DateUtilsService,
-              private numberUtils: NumberUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("ExpenseDetailModalComponent", NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("ExpenseDetailModalComponent", NgxLoggerLevel.ERROR);
+  private fileUploadService = inject(FileUploadService);
+  bsModalRef = inject(BsModalRef);
+  private notifierService = inject(NotifierService);
+  display = inject(ExpenseDisplayService);
+  protected dateUtils = inject(DateUtilsService);
+  private numberUtils = inject(NumberUtilsService);
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public expenseItem: ExpenseItem;
   public editable: boolean;
-  private readonly logger: Logger;
   public expenseClaim: ExpenseClaim;
   public editMode: EditMode;
   public confirm = new Confirm();

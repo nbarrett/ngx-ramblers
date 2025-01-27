@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import cloneDeep from "lodash-es/cloneDeep";
 import isEmpty from "lodash-es/isEmpty";
 import { ModalOptions } from "ngx-bootstrap/modal";
@@ -33,7 +33,19 @@ const SORT_BY_NAME = sortBy("order", "member.lastName", "member.firstName");
 })
 
 export class SocialDisplayService {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("SocialDisplayService", NgxLoggerLevel.ERROR);
+  private pageService = inject(PageService);
+  private systemConfigService = inject(SystemConfigService);
+  private authService = inject(AuthService);
+  private memberService = inject(MemberService);
+  private siteEditService = inject(SiteEditService);
+  private memberLoginService = inject(MemberLoginService);
+  private urlService = inject(UrlService);
+  private fullNameWithAlias = inject(FullNameWithAliasPipe);
+  private memberIdToFullNamePipe = inject(MemberIdToFullNamePipe);
+  private committeeConfigService = inject(CommitteeConfigService);
+  private contentMetadataService = inject(ContentMetadataService);
   public attachmentBaseUrl = this.contentMetadataService.baseUrl("socialEvents");
   private committeeReferenceData: CommitteeReferenceData;
   public allow: SocialEventsPermissions = {};
@@ -42,20 +54,7 @@ export class SocialDisplayService {
   private group: Organisation;
   relatedLinksMediaWidth: 22;
 
-  constructor(
-    private pageService: PageService,
-    private systemConfigService: SystemConfigService,
-    private authService: AuthService,
-    private memberService: MemberService,
-    private siteEditService: SiteEditService,
-    private memberLoginService: MemberLoginService,
-    private urlService: UrlService,
-    private fullNameWithAlias: FullNameWithAliasPipe,
-    private memberIdToFullNamePipe: MemberIdToFullNamePipe,
-    private committeeConfigService: CommitteeConfigService,
-    private contentMetadataService: ContentMetadataService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SocialDisplayService, NgxLoggerLevel.OFF);
+  constructor() {
     this.configureEventSubscriptions();
   }
 

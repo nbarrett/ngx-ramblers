@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ReplaySubject } from "rxjs";
 import { filter } from "rxjs/operators";
@@ -10,13 +10,8 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 })
 
 export class BroadcastService<T> {
-  private logger: Logger;
-  private readonly subject: ReplaySubject<NamedEvent<T>>;
-
-  constructor(loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(BroadcastService, NgxLoggerLevel.OFF);
-    this.subject = new ReplaySubject<NamedEvent<T>>();
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("BroadcastService", NgxLoggerLevel.ERROR);
+  private readonly subject = new ReplaySubject<NamedEvent<T>>();
 
   broadcast(event: NamedEvent<T>): void {
     this.logger.debug("broadcasting:event:", event);

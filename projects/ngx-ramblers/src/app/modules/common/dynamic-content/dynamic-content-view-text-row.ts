@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { PageContentRow } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -50,6 +50,11 @@ import { CardImageComponent } from "../card/image/card-image";
     imports: [MarkdownEditorComponent, CardImageComponent]
 })
 export class DynamicContentViewTextRowComponent implements OnInit {
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewTextRowComponent", NgxLoggerLevel.ERROR);
+  siteEditService = inject(SiteEditService);
+  actions = inject(PageContentActionsService);
+  stringUtils = inject(StringUtilsService);
+
   @Input()
   public row: PageContentRow;
   @Input()
@@ -60,16 +65,6 @@ export class DynamicContentViewTextRowComponent implements OnInit {
   public contentDescription: string;
   @Input()
   public bordered: boolean;
-
-  private logger: Logger;
-
-  constructor(
-    public siteEditService: SiteEditService,
-    public actions: PageContentActionsService,
-    public stringUtils: StringUtilsService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("DynamicContentViewTextRowComponent", NgxLoggerLevel.ERROR);
-  }
 
   ngOnInit() {
     this.logger.info("ngOnInit called for", this.row, "containing", this.stringUtils.pluraliseWithCount(this.row?.columns.length, "column"));

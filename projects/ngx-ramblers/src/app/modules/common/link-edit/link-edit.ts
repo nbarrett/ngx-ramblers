@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { faClose, faDownLong, faUpLong } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Link } from "../../../models/page.model";
@@ -17,7 +17,9 @@ let uniqueId = 0;
     imports: [FormsModule, TooltipDirective, FontAwesomeModule, NgClass]
 })
 export class LinkEditComponent implements OnInit {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("LinkEditComponent", NgxLoggerLevel.ERROR);
+
   @Input() link: Link;
   @Input() links: Link[];
   @Output() delete: EventEmitter<Link> = new EventEmitter();
@@ -25,11 +27,6 @@ export class LinkEditComponent implements OnInit {
   faClose = faClose;
   faDownLong = faDownLong;
   faUpLong = faUpLong;
-
-  constructor(
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(LinkEditComponent, NgxLoggerLevel.OFF);
-  }
 
   uniqueIdFor(prefix: string) {
     const uniqueIdFor = `${prefix}-${uniqueId}`;

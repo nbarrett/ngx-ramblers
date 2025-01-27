@@ -1,14 +1,14 @@
-import { Pipe, PipeTransform } from "@angular/core";
+import { inject, Pipe, PipeTransform } from "@angular/core";
 import { Member } from "../models/member.model";
 import { MemberLoginService } from "../services/member/member-login.service";
 import { FullNamePipe } from "./full-name.pipe";
 
 @Pipe({ name: "fullNameWithAliasOrMe" })
 export class FullNameWithAliasOrMePipe implements PipeTransform {
-  constructor(
-    private memberLoginService: MemberLoginService,
-    private fullNamePipe: FullNamePipe) {
-  }
+
+  private memberLoginService = inject(MemberLoginService);
+  private fullNamePipe = inject(FullNamePipe);
+
 
   transform(member: Member, defaultValue?: string) {
     return member ? (this.memberLoginService.loggedInMember().memberId === (member.id) ? "Me" :

@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { BsModalRef, BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -8,7 +8,6 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { RouterHistoryService } from "../../../services/router-history.service";
-import { UrlService } from "../../../services/url.service";
 import { MailingPreferencesModalComponent } from "../../mailing-preferences/mailing-preferences-modal.component";
 import { ForgotPasswordModalComponent } from "../forgot-password-modal/forgot-password-modal.component";
 import { ResetPasswordModalComponent } from "../reset-password-modal/reset-password-modal.component";
@@ -85,26 +84,23 @@ import { NgClass } from "@angular/common";
     imports: [FormsModule, FontAwesomeModule, ContactUsComponent, NgClass]
 })
 export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
+  private logger: Logger = inject(LoggerFactory).createLogger("LoginModalComponent", NgxLoggerLevel.ERROR);
+  bsModalRef = inject(BsModalRef);
+  private modalService = inject(BsModalService);
+  private systemConfigService = inject(SystemConfigService);
+  private authService = inject(AuthService);
+  private memberLoginService = inject(MemberLoginService);
+  private routerHistoryService = inject(RouterHistoryService);
+  private notifierService = inject(NotifierService);
+
   @ViewChild("userNameInput") userNameInput: ElementRef;
   @ViewChild("loginButton") loginButton: ElementRef;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  private logger: Logger;
   userName: string;
   password: string;
   private subscriptions: Subscription[] = [];
   public group: Organisation;
-
-  constructor(public bsModalRef: BsModalRef,
-              private modalService: BsModalService,
-              private systemConfigService: SystemConfigService,
-              private authService: AuthService,
-              private memberLoginService: MemberLoginService,
-              private urlService: UrlService,
-              private routerHistoryService: RouterHistoryService,
-              private notifierService: NotifierService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(LoginModalComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);

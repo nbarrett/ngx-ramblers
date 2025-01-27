@@ -1,5 +1,5 @@
 import { HttpErrorResponse, HttpParams } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import each from "lodash-es/each";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
@@ -13,11 +13,9 @@ import { StringUtilsService } from "./string-utils.service";
 })
 
 export class CommonDataService {
-  private logger: Logger;
 
-  constructor(loggerFactory: LoggerFactory, private stringUtils: StringUtilsService) {
-    this.logger = loggerFactory.createLogger("CommonDataService", NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("CommonDataService", NgxLoggerLevel.ERROR);
+  private stringUtils = inject(StringUtilsService);
 
   public async responseFrom<T extends ApiResponse>(logger: Logger, observable: Observable<T>, notifications?: Subject<T>, rejectOnError?: boolean): Promise<T> {
     const notificationSubject = notifications || new Subject<T>();

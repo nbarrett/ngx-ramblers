@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { range } from "lodash-es";
 import { NgxLoggerLevel } from "ngx-logger";
 import { TitleLine } from "../../../models/banner-configuration.model";
@@ -26,7 +26,10 @@ import { FormsModule } from "@angular/forms";
 })
 
 export class MarginSelectComponent implements OnInit {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("MarginSelectComponent", NgxLoggerLevel.ERROR);
+  private numberUtils = inject(NumberUtilsService);
+  actions = inject(PageContentActionsService);
   @Input()
   public label: TitleLine;
   public id: string;
@@ -34,14 +37,7 @@ export class MarginSelectComponent implements OnInit {
   public data: object;
   @Input()
   public field: any;
-
   public margins: Margin[] = [];
-
-  constructor(loggerFactory: LoggerFactory,
-              private numberUtils: NumberUtilsService,
-              public actions: PageContentActionsService) {
-    this.logger = loggerFactory.createLogger(MarginSelectComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.id = this.numberUtils.generateUid();

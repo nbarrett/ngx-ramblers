@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { PageService } from "../services/page.service";
@@ -34,6 +34,10 @@ import { RouterLink } from "@angular/router";
 })
 export class PageComponent implements OnInit {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("PageComponent", NgxLoggerLevel.ERROR);
+  pageService = inject(PageService);
+
+
   public pageTitle: string;
 
   public autoTitle: boolean;
@@ -46,13 +50,6 @@ export class PageComponent implements OnInit {
     this.logger.info("Input:pageTitle:", pageTitle);
     this.pageTitle = pageTitle;
     this.pageService.setTitle(pageTitle);
-  }
-
-  private logger: Logger;
-
-  constructor(public pageService: PageService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("PageComponent", NgxLoggerLevel.OFF);
   }
 
   ngOnInit() {

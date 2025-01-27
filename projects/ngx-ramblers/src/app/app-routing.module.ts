@@ -1,4 +1,4 @@
-import { NgModule } from "@angular/core";
+import { inject, NgModule } from "@angular/core";
 import { NoPreloading, RouterModule, Routes } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ForgotPasswordComponent } from "./login/forgot-password.component";
@@ -50,10 +50,5 @@ const routes: Routes = [
 })
 
 export class AppRoutingModule {
-  logger: Logger;
-
-  constructor(loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("AppRoutingModule", NgxLoggerLevel.OFF);
-  }
-
+  logger: Logger = inject(LoggerFactory).createLogger("AppRoutingModule", NgxLoggerLevel.OFF);
 }

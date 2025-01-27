@@ -1,6 +1,5 @@
 import { NgModule } from "@angular/core";
 import { RouterModule } from "@angular/router";
-import { NgxLoggerLevel } from "ngx-logger";
 import { WalkAddSlotsComponent } from "../../pages/walks/walk-add-slots/walk-add-slots.component";
 import { WalkAdminComponent } from "../../pages/walks/walk-admin/walk-admin.component";
 import { WalkEditFullPageComponent } from "../../pages/walks/walk-edit-fullpage/walk-edit-full-page.component";
@@ -9,10 +8,7 @@ import { WalkExportComponent } from "../../pages/walks/walk-export/walk-export.c
 import { WalkListComponent } from "../../pages/walks/walk-list/walk-list.component";
 import { WalkMeetupSettingsComponent } from "../../pages/walks/walk-meetup-settings/walk-meetup-settings.component";
 import { WalkViewComponent } from "../../pages/walks/walk-view/walk-view";
-import { Logger, LoggerFactory } from "../../services/logger-factory.service";
-import { PageService } from "../../services/page.service";
 import { hasDynamicPath, hasMongoId, hasRamblersIdOrUrl } from "../../services/path-matchers";
-import { StringUtilsService } from "../../services/string-utils.service";
 import { WalksAuthGuard } from "../../guards/walks-auth-guard";
 import { ActionButtonsComponent } from "../common/action-buttons/action-buttons";
 import { DynamicContentPageComponent } from "../common/dynamic-content-page/dynamic-content-page";
@@ -80,12 +76,5 @@ import { WalkImportComponent } from "../../pages/walks/walk-import/walk-import.c
   ])]
 })
 export class WalksRoutingModule {
-  private logger: Logger;
-
-  constructor(private pageService: PageService,
-              private stringUtils: StringUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalksRoutingModule, NgxLoggerLevel.OFF);
-  }
 }
 

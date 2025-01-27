@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { SocialEvent } from "../../../models/social-events.model";
@@ -35,16 +35,12 @@ import { EventTimesPipe } from "../../../pipes/event-times.pipe";
     imports: [CardImageComponent, RouterLink, DisplayDayPipe, EventTimesPipe]
 })
 export class SocialCardComponent implements OnInit {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("SocialCardComponent", NgxLoggerLevel.ERROR);
+  display = inject(SocialDisplayService);
+  urlService = inject(UrlService);
   public socialEvents: SocialEvent[] = [];
   public notify: AlertInstance;
-  private logger: Logger;
-
-  constructor(
-    public display: SocialDisplayService,
-    public urlService: UrlService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SocialCardComponent, NgxLoggerLevel.OFF);
-  }
 
   @Input()
   public socialEvent: SocialEvent;

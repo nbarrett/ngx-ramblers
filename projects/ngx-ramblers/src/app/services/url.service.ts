@@ -1,5 +1,5 @@
 import { DOCUMENT, Location } from "@angular/common";
-import { Inject, Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { ActivatedRoute, Params, QueryParamsHandling, Router } from "@angular/router";
 import first from "lodash-es/first";
 import last from "lodash-es/last";
@@ -29,21 +29,21 @@ import { DateUtilsService } from "./date-utils.service";
 })
 
 export class UrlService {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("UrlService", NgxLoggerLevel.ERROR);
+  private document = inject<Document>(DOCUMENT);
+  private router = inject(Router);
+  private stringUtils = inject(StringUtilsService);
+  private dateUtils = inject(DateUtilsService);
+  private systemConfigService = inject(SystemConfigService);
+  private location = inject(Location);
+  private siteEdit = inject(SiteEditService);
+  private route = inject(ActivatedRoute);
   private group: Organisation;
   private cacheBuster: number;
 
-  constructor(@Inject(DOCUMENT) private document: Document,
-              private router: Router,
-              private stringUtils: StringUtilsService,
-              private dateUtils: DateUtilsService,
-              private systemConfigService: SystemConfigService,
-              private location: Location,
-              private siteEdit: SiteEditService,
-              loggerFactory: LoggerFactory,
-              private route: ActivatedRoute) {
+  constructor() {
     this.systemConfigService.events().subscribe(item => this.group = item.group);
-    this.logger = loggerFactory.createLogger(UrlService, NgxLoggerLevel.ERROR);
     this.cacheBuster = this.dateUtils.nowAsValue();
   }
 

@@ -1,14 +1,11 @@
-import { Pipe, PipeTransform } from "@angular/core";
-import { StringUtilsService } from "../services/string-utils.service";
+import { inject, Pipe, PipeTransform } from "@angular/core";
 import { FormatAuditPipe } from "./format-audit-pipe";
 
 @Pipe({ name: "updatedAudit" })
 export class UpdatedAuditPipe implements PipeTransform {
 
-  constructor(
-    private stringUtils: StringUtilsService,
-    private formatAuditPipe: FormatAuditPipe) {
-  }
+  private formatAuditPipe = inject(FormatAuditPipe);
+
 
   transform(resource, members) {
     return this.formatAuditPipe.transform(resource.updatedBy, resource.updatedDate, members);

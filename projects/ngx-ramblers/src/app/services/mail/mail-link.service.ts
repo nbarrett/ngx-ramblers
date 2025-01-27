@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailConfigService } from "./mail-config.service";
@@ -11,12 +11,12 @@ import { BroadcastService } from "../broadcast-service";
   providedIn: "root"
 })
 export class MailLinkService {
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("MailLinkService", NgxLoggerLevel.ERROR);
+  private broadcastService = inject<BroadcastService<AlertMessageAndType>>(BroadcastService);
+  private mailConfigService = inject(MailConfigService);
   private config: MailConfig;
 
-  constructor(private broadcastService: BroadcastService<AlertMessageAndType>,
-              private mailConfigService: MailConfigService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MailLinkService", NgxLoggerLevel.OFF);
+  constructor() {
     this.queryConfig();
   }
 

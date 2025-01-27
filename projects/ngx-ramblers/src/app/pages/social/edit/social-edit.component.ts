@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from "@angular/common/http";
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { faCopy, faEye, faPencil } from "@fortawesome/free-solid-svg-icons";
 import cloneDeep from "lodash-es/cloneDeep";
 import first from "lodash-es/first";
@@ -24,16 +24,16 @@ import { SocialSendNotificationModalComponent } from "../send-notification/socia
 import { SocialDisplayService } from "../social-display.service";
 import { PageService } from "../../../services/page.service";
 import { PageComponent } from "../../../page/page.component";
-import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FormsModule } from "@angular/forms";
 import { DatePickerComponent } from "../../../date-picker/date-picker.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { MarkdownComponent } from "ngx-markdown";
-import { NgTemplateOutlet, NgClass, NgStyle } from "@angular/common";
+import { NgClass, NgStyle, NgTemplateOutlet } from "@angular/common";
 import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resizer/image-cropper-and-resizer";
 import { SocialCardComponent } from "../social-card/social-card";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { NgSelectComponent, NgOptgroupTemplateDirective } from "@ng-select/ng-select";
+import { NgOptgroupTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 
 @Component({
@@ -417,24 +417,21 @@ import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe"
 })
 export class SocialEditComponent implements OnInit, OnDestroy {
 
-  constructor(private fileUploadService: FileUploadService,
-              private pageService: PageService,
-              public display: SocialDisplayService,
-              private notifierService: NotifierService,
-              private memberService: MemberService,
-              private modalService: BsModalService,
-              public googleMapsService: GoogleMapsService,
-              private socialEventsService: SocialEventsService,
-              private urlService: UrlService,
-              protected dateUtils: DateUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SocialEditComponent, NgxLoggerLevel.ERROR);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("SocialEditComponent", NgxLoggerLevel.ERROR);
+  private fileUploadService = inject(FileUploadService);
+  private pageService = inject(PageService);
+  display = inject(SocialDisplayService);
+  private notifierService = inject(NotifierService);
+  private memberService = inject(MemberService);
+  private modalService = inject(BsModalService);
+  googleMapsService = inject(GoogleMapsService);
+  private socialEventsService = inject(SocialEventsService);
+  private urlService = inject(UrlService);
+  protected dateUtils = inject(DateUtilsService);
   public socialEvent: SocialEvent;
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public notification: Notification;
-  private logger: Logger;
   public hasFileOver = false;
   public eventDate: DateValue;
   private existingTitle: string;

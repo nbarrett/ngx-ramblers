@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { PageContentRow } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -18,6 +18,9 @@ import { CarouselComponent } from "../../../carousel/view/carousel";
     imports: [CarouselComponent]
 })
 export class DynamicContentViewCarouselComponent implements OnInit {
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewCarouselComponent", NgxLoggerLevel.ERROR);
+  actions = inject(PageContentActionsService);
+
 
   @Input()
   public row: PageContentRow;
@@ -25,15 +28,8 @@ export class DynamicContentViewCarouselComponent implements OnInit {
   @Input()
   public index: number;
 
-  private logger: Logger;
-
-  constructor(
-    public actions: PageContentActionsService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("DynamicContentViewCarouselComponent", NgxLoggerLevel.OFF);
-  }
-
   ngOnInit() {
+    this.logger.info("created for index", this.index, "row:", this.row);
   }
 
 }

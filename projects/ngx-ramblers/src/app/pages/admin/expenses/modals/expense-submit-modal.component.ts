@@ -1,4 +1,4 @@
-import { Component, OnInit } from "@angular/core";
+import { Component, inject, OnInit } from "@angular/core";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../../models/alert-target.model";
@@ -21,25 +21,21 @@ import { NgClass } from "@angular/common";
     imports: [FormsModule, FontAwesomeModule, NgClass]
 })
 export class ExpenseSubmitModalComponent implements OnInit {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("ExpenseSubmitModalComponent", NgxLoggerLevel.ERROR);
+  bsModalRef = inject(BsModalRef);
+  private mailMessagingService = inject(MailMessagingService);
+  private notifierService = inject(NotifierService);
+  private expenseNotificationService = inject(ExpenseNotificationService);
+  display = inject(ExpenseDisplayService);
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  private logger: Logger;
-
   public members: Member[];
   public resubmit: boolean;
   public expenseClaim: ExpenseClaim;
   private notificationDirective: NotificationDirective;
   public supplyBankDetailsChoice: string;
   public notificationConfig: NotificationConfig;
-
-  constructor(public bsModalRef: BsModalRef,
-              private mailMessagingService: MailMessagingService,
-              private notifierService: NotifierService,
-              private expenseNotificationService: ExpenseNotificationService,
-              public display: ExpenseDisplayService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("ExpenseSubmitModalComponent", NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { faAdd, faPencil, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DEFAULT_GRID_OPTIONS, PageContentRow } from "../../../models/content-text.model";
@@ -45,23 +45,17 @@ import { BadgeButtonComponent } from "../badge-button/badge-button";
     imports: [CarouselSelectComponent, FormsModule, TypeaheadDirective, BadgeButtonComponent]
 })
 export class RowSettingsCarouselComponent implements OnInit {
-
-  constructor(
-    public pageContentService: PageContentService,
-    public memberResourcesReferenceData: MemberResourcesReferenceDataService,
-    public contentMetadataService: ContentMetadataService,
-    public stringUtils: StringUtilsService,
-    private numberUtils: NumberUtilsService,
-    private urlService: UrlService,
-    public actions: PageContentActionsService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("RowSettingsCarouselComponent", NgxLoggerLevel.ERROR);
-  }
-
+  private logger: Logger = inject(LoggerFactory).createLogger("RowSettingsCarouselComponent", NgxLoggerLevel.ERROR);
+  pageContentService = inject(PageContentService);
+  memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
+  contentMetadataService = inject(ContentMetadataService);
+  stringUtils = inject(StringUtilsService);
+  private numberUtils = inject(NumberUtilsService);
+  private urlService = inject(UrlService);
+  actions = inject(PageContentActionsService);
   @Input()
   public row: PageContentRow;
   @Output() nameInputChange: EventEmitter<boolean> = new EventEmitter();
-  private logger: Logger;
   faPencil = faPencil;
   faAdd = faAdd;
   id: string;

@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { faImage, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -7,7 +7,7 @@ import { ImageMessage } from "../../../../models/images.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { UrlService } from "../../../../services/url.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
-import { NgStyle, NgClass } from "@angular/common";
+import { NgClass, NgStyle } from "@angular/common";
 import { RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
@@ -48,14 +48,10 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
     imports: [NgStyle, NgClass, RouterLink, FontAwesomeModule]
 })
 export class CardImageComponent implements OnInit {
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("CardImageComponent", NgxLoggerLevel.ERROR);
+  urlService = inject(UrlService);
   faImage = faImage;
   public constrainedHeight: number;
-
-  constructor(public urlService: UrlService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("CardImageComponent", NgxLoggerLevel.ERROR);
-  }
   public imageText = null;
   public imageSource: string;
 

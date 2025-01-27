@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import isNaN from "lodash-es/isNaN";
 import isNumber from "lodash-es/isNumber";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -9,11 +9,8 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
   providedIn: "root"
 })
 export class NumberUtilsService {
-  private logger: Logger;
 
-  constructor(loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(NumberUtilsService, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("NumberUtilsService", NgxLoggerLevel.ERROR);
 
   sumValues(items: any[], fieldName) {
     if (!items) {

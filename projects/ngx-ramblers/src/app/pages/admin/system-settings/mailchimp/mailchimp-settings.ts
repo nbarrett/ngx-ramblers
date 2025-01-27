@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../../models/alert-target.model";
 import { NamedEventType } from "../../../../models/broadcast.model";
@@ -20,7 +20,7 @@ import { Subscription } from "rxjs";
 import { MailchimpListService } from "../../../../services/mailchimp/mailchimp-list.service";
 import { MailchimpCampaignService } from "projects/ngx-ramblers/src/app/services/mailchimp/mailchimp-campaign.service";
 import { PageComponent } from "../../../../page/page.component";
-import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FormsModule } from "@angular/forms";
 import { MailchimpListSettingsComponent } from "./mailchimp-list-settings";
 import { MailchimpSegmentEditorComponent } from "./mailchimp-segment-editor";
@@ -519,28 +519,24 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 })
 export class MailchimpSettingsComponent implements OnInit, OnDestroy {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("MailchimpSettingsComponent", NgxLoggerLevel.ERROR);
+  private mailchimpConfigService = inject(MailchimpConfigService);
+  private mailchimpCampaignService = inject(MailchimpCampaignService);
+  private systemConfigService = inject(SystemConfigService);
+  private notifierService = inject(NotifierService);
+  private mailchimpLinkService = inject(MailchimpLinkService);
+  private mailchimpListService = inject(MailchimpListService);
+  private broadcastService = inject<BroadcastService<any>>(BroadcastService);
+  private urlService = inject(UrlService);
+  protected dateUtils = inject(DateUtilsService);
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  private logger: Logger;
   public mailchimpCampaignListResponse: MailchimpCampaignListResponse;
   public campaignSearchTerm: string;
   public mailchimpConfig: MailchimpConfig;
   public mailchimpListingResponse: MailchimpListingResponse;
   public group: Organisation;
   private subscriptions: Subscription[] = [];
-
-  constructor(private mailchimpConfigService: MailchimpConfigService,
-              private mailchimpCampaignService: MailchimpCampaignService,
-              private systemConfigService: SystemConfigService,
-              private notifierService: NotifierService,
-              private mailchimpLinkService: MailchimpLinkService,
-              private mailchimpListService: MailchimpListService,
-              private broadcastService: BroadcastService<any>,
-              private urlService: UrlService,
-              protected dateUtils: DateUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MailchimpSettingsComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.logger.debug("constructed");

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../models/alert-target.model";
@@ -26,26 +26,21 @@ import { NgClass } from "@angular/common";
     imports: [EmailSubscriptionsMailchimpComponent, MailSubscriptionSettingComponent, FormsModule, FontAwesomeModule, ContactUsComponent, NgClass]
 })
 export class MailingPreferencesModalComponent implements OnInit, OnDestroy {
-
-  constructor(private memberService: MemberService,
-              private systemConfigService: SystemConfigService,
-              private profileConfirmationService: ProfileConfirmationService,
-              private notifierService: NotifierService,
-              private routerHistoryService: RouterHistoryService,
-              protected mailMessagingService: MailMessagingService,
-              public bsModalRef: BsModalRef,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MailingPreferencesModalComponent, NgxLoggerLevel.ERROR);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("MailingPreferencesModalComponent", NgxLoggerLevel.ERROR);
+  private memberService = inject(MemberService);
+  private systemConfigService = inject(SystemConfigService);
+  private profileConfirmationService = inject(ProfileConfirmationService);
+  private notifierService = inject(NotifierService);
+  private routerHistoryService = inject(RouterHistoryService);
+  protected mailMessagingService = inject(MailMessagingService);
+  protected bsModalRef = inject(BsModalRef);
   public mailMessagingConfig: MailMessagingConfig;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  private logger: Logger;
   public memberId: string;
   public member: Member;
   private subscriptions: Subscription[] = [];
   public systemConfig: SystemConfig;
-
   protected readonly MailProvider = MailProvider;
 
   ngOnInit() {

@@ -1,6 +1,5 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import {
-  faListCheck,
   faPeopleGroup,
   faPersonWalkingArrowLoopLeft,
   faPersonWalkingDashedLineArrowRight,
@@ -148,16 +147,12 @@ import { MarkdownComponent } from "ngx-markdown";
 
 export class WalkDetailsComponent implements OnInit {
 
-  constructor(
-    public googleMapsService: GoogleMapsService,
-    public distanceValidationService: DistanceValidationService,
-    public ascentValidationService: AscentValidationService,
-    public display: WalkDisplayService,
-    protected stringUtils: StringUtilsService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalkDetailsComponent", NgxLoggerLevel.OFF);
-  }
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkDetailsComponent", NgxLoggerLevel.ERROR);
+  googleMapsService = inject(GoogleMapsService);
+  distanceValidationService = inject(DistanceValidationService);
+  ascentValidationService = inject(AscentValidationService);
+  display = inject(WalkDisplayService);
+  protected stringUtils = inject(StringUtilsService);
   @Input()
   public displayedWalk: DisplayedWalk;
   public walkDetailsMediaWidth = 70;
@@ -165,8 +160,6 @@ export class WalkDetailsComponent implements OnInit {
   protected readonly faPersonWalkingArrowLoopLeft = faPersonWalkingArrowLoopLeft;
   protected readonly faRulerHorizontal = faRulerHorizontal;
   protected readonly faRulerVertical = faRulerVertical;
-  protected readonly faListCheck = faListCheck;
-
   protected readonly faPeopleGroup = faPeopleGroup;
 
   ngOnInit() {

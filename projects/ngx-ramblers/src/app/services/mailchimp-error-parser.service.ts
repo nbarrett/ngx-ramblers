@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { StringUtilsService } from "./string-utils.service";
@@ -7,12 +7,9 @@ import { StringUtilsService } from "./string-utils.service";
   providedIn: "root"
 })
 export class MailchimpErrorParserService {
-  private logger: Logger;
 
-  constructor(private stringUtils: StringUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MailchimpErrorParserService, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("MailchimpErrorParserService", NgxLoggerLevel.ERROR);
+  private stringUtils = inject(StringUtilsService);
 
   extractError(responseData): { error: string } {
     let error;

@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { InstagramMediaPostApiResponse, InstagramRecentMediaData } from "../models/instagram.model";
@@ -11,14 +11,11 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 })
 export class InstagramService {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("InstagramService", NgxLoggerLevel.ERROR);
+  private commonDataService = inject(CommonDataService);
+  private http = inject(HttpClient);
   private BASE_URL = "/api/instagram";
-  private logger: Logger;
   private instagramNotifications = new Subject<InstagramMediaPostApiResponse>();
-
-  constructor(private commonDataService: CommonDataService,
-              private http: HttpClient, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(InstagramService, NgxLoggerLevel.OFF);
-  }
 
   notifications(): Observable<InstagramMediaPostApiResponse> {
     return this.instagramNotifications.asObservable();

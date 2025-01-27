@@ -1,11 +1,9 @@
 import { Injectable } from "@angular/core";
 import { faCutlery, faMapMarker } from "@fortawesome/free-solid-svg-icons";
-import { NgxLoggerLevel } from "ngx-logger";
 import { WalkAccessMode } from "../../models/walk-edit-mode.model";
 import { WalkEventType } from "../../models/walk-event-type.model";
 import { VenueType } from "../../models/walk-venue.model";
 import { EventType, WalkFilter } from "../../models/walk.model";
-import { Logger, LoggerFactory } from "../logger-factory.service";
 
 @Injectable({
   providedIn: "root"
@@ -28,8 +26,6 @@ export class WalksReferenceService {
     {value: 5, description: "Walks With No Details", localWalkPopulationOnly: true},
     {value: 6, description: "Deleted Walks", adminOnly: true, localWalkPopulationOnly: true}
   ];
-
-  private logger: Logger;
 
   walkEventTypeMappings = {
     awaitingLeader: {
@@ -102,10 +98,6 @@ export class WalksReferenceService {
     this.walkEventTypeMappings.approved,
     this.walkEventTypeMappings.deleted
   ];
-
-  constructor(loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalksReferenceService, NgxLoggerLevel.OFF);
-  }
 
   venueTypes(): VenueType[] {
     return [{type: "Pub", icon: faCutlery}, {type: "Meeting place", icon: faMapMarker}];

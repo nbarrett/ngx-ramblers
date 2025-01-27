@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -20,20 +20,17 @@ import { WalkEditComponent } from "../walk-edit/walk-edit.component";
 })
 
 export class WalkEditFullPageComponent implements OnInit, OnDestroy {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkEditFullPageComponent", NgxLoggerLevel.ERROR);
+  private walksService = inject(WalksService);
+  private route = inject(ActivatedRoute);
+  private walksReferenceService = inject(WalksReferenceService);
+  private dateUtils = inject(DateUtilsService);
+  private display = inject(WalkDisplayService);
   public displayedWalk: DisplayedWalk;
   public notifyTarget: AlertTarget = {};
   pageTitle: string;
   private subscriptions: Subscription[] = [];
-
-  constructor(private walksService: WalksService,
-              private route: ActivatedRoute,
-              private walksReferenceService: WalksReferenceService,
-              private dateUtils: DateUtilsService,
-              private display: WalkDisplayService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkEditFullPageComponent, NgxLoggerLevel.ERROR);
-  }
 
   ngOnInit() {
     this.logger.debug("ngOnInit");

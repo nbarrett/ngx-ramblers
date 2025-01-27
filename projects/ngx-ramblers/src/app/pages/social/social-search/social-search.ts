@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
@@ -21,23 +21,19 @@ import { FormsModule } from "@angular/forms";
 })
 export class SocialSearchComponent implements OnInit, OnDestroy {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("SocialSearchComponent", NgxLoggerLevel.ERROR);
+  display = inject(SocialDisplayService);
+  private broadcastService = inject<BroadcastService<any>>(BroadcastService);
+  faSearch = faSearch;
+  private subscriptions: Subscription[] = [];
+  public showPagination = false;
+  private searchChangeObservable: Subject<string> = new Subject<string>();
+
   @Input()
   public notifyTarget: AlertTarget;
 
   @Input()
   filterParameters: FilterParameters;
-  faSearch = faSearch;
-  private subscriptions: Subscription[] = [];
-  public showPagination = false;
-  private logger: Logger;
-  private searchChangeObservable: Subject<string>;
-
-  constructor(public display: SocialDisplayService,
-              private broadcastService: BroadcastService<any>,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SocialSearchComponent, NgxLoggerLevel.OFF);
-    this.searchChangeObservable = new Subject<string>();
-  }
 
   ngOnInit(): void {
     this.broadcastService.on(NamedEventType.SHOW_PAGINATION, (show: NamedEvent<boolean>) => {

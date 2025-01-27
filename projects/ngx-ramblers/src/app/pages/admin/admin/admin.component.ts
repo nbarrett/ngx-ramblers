@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import {
   faBook,
   faCashRegister,
@@ -32,6 +32,13 @@ import { DynamicContentComponent } from "../../../modules/common/dynamic-content
     imports: [PageComponent, LoginRequiredComponent, DynamicContentComponent]
 })
 export class AdminComponent implements OnInit, OnDestroy, OnDestroy {
+  private logger: Logger = inject(LoggerFactory).createLogger(AdminComponent, NgxLoggerLevel.OFF);
+  private memberLoginService = inject(MemberLoginService);
+  private notifierService = inject(NotifierService);
+  private pageContentService = inject(PageContentService);
+  private siteEditService = inject(SiteEditService);
+  private dataPopulationService = inject(DataPopulationService);
+  private authService = inject(AuthService);
   faIdCard = faIdCard;
   faUnlockAlt = faUnlockAlt;
   faEnvelopeOpenText = faEnvelopeOpenText;
@@ -39,23 +46,12 @@ export class AdminComponent implements OnInit, OnDestroy, OnDestroy {
   faUsersCog = faUsersCog;
   faMailBulk = faMailBulk;
   faBook = faBook;
-  private logger: Logger;
   private subscriptions: Subscription[] = [];
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public loggedIn: boolean;
   public allowAdminEdits: boolean;
   public defaultPageContent: PageContent;
-
-  constructor(private memberLoginService: MemberLoginService,
-              private notifierService: NotifierService,
-              public pageContentService: PageContentService,
-              private siteEditService: SiteEditService,
-              private dataPopulationService: DataPopulationService,
-              private authService: AuthService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(AdminComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());

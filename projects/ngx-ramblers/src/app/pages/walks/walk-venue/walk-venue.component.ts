@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { VenueType } from "../../../models/walk-venue.model";
 import { DisplayedWalk } from "../../../models/walk.model";
@@ -20,18 +20,15 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
 })
 export class WalkVenueComponent implements OnInit {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkVenueComponent", NgxLoggerLevel.ERROR);
+  private memberLoginService = inject(MemberLoginService);
+  display = inject(WalkDisplayService);
+  private walksReferenceService = inject(WalksReferenceService);
+
   @Input()
   public displayedWalk: DisplayedWalk;
   public venueTypes: VenueType[];
-  private logger: Logger;
   public disabledInput: boolean;
-
-  constructor(private memberLoginService: MemberLoginService,
-              public display: WalkDisplayService,
-              private walksReferenceService: WalksReferenceService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkVenueComponent, NgxLoggerLevel.OFF);
-  }
 
   venueTracker(index: number, venueType: VenueType) {
     return venueType?.type;

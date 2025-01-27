@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import has from "lodash-es/has";
 import isEmpty from "lodash-es/isEmpty";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -13,13 +13,10 @@ const AUDIT_CONFIG = {auditSave: true};
   providedIn: "root"
 })
 export class DbUtilsService {
-  private logger: Logger;
 
-  constructor(private memberLoginService: MemberLoginService,
-              private dateUtils: DateUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(DbUtilsService, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("DbUtilsService", NgxLoggerLevel.ERROR);
+  private memberLoginService = inject(MemberLoginService);
+  private dateUtils = inject(DateUtilsService);
 
   performAudit<T extends Auditable>(document: T): T {
     if (AUDIT_CONFIG.auditSave) {

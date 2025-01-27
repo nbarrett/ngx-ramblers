@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { CommitteeMember } from "../../models/committee.model";
@@ -42,21 +42,17 @@ import { NgStyle } from "@angular/common";
 })
 
 export class ContactUsComponent implements OnInit, OnDestroy {
+  private logger: Logger = inject(LoggerFactory).createLogger("ContactUsComponent", NgxLoggerLevel.ERROR);
+  urlService = inject(UrlService);
+  private committeeConfig = inject(CommitteeConfigService);
 
   @Input() format: string;
   @Input() emailStyle: boolean;
   @Input() text: string;
   @Input() roles: string[] | string;
   @Input() committeeReferenceDataOverride: CommitteeReferenceData;
-  private logger: Logger;
   private dataSub: Subscription;
   private committeeReferenceData: CommitteeReferenceData;
-
-  constructor(public urlService: UrlService,
-              loggerFactory: LoggerFactory,
-              private committeeConfig: CommitteeConfigService) {
-    this.logger = loggerFactory.createLogger(ContactUsComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.dataSub = this.committeeConfig.committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data);

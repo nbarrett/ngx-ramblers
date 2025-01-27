@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -23,15 +23,12 @@ import { SocialViewComponent } from "../social-view/social-view";
     imports: [SocialViewComponent]
 })
 export class SocialListComponent implements OnInit {
-  public notify: AlertInstance;
-  private logger: Logger;
 
-  constructor(public googleMapsService: GoogleMapsService,
-              public display: SocialDisplayService,
-              protected dateUtils: DateUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SocialListComponent, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("SocialListComponent", NgxLoggerLevel.ERROR);
+  googleMapsService = inject(GoogleMapsService);
+  display = inject(SocialDisplayService);
+  protected dateUtils = inject(DateUtilsService);
+  public notify: AlertInstance;
 
   @Input()
   public notifyTarget: AlertTarget;

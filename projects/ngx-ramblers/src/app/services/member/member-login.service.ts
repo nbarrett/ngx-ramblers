@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import isEmpty from "lodash-es/isEmpty";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AuthService } from "../../auth/auth.service";
@@ -11,14 +11,10 @@ import { UrlService } from "../url.service";
 })
 
 export class MemberLoginService {
-  private logger: Logger;
 
-  constructor(
-    private authService: AuthService,
-    private urlService: UrlService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MemberLoginService, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("MemberLoginService", NgxLoggerLevel.ERROR);
+  private authService = inject(AuthService);
+  private urlService = inject(UrlService);
 
   loggedInMember(): MemberCookie {
     const loggedInMember = this.authService.parseAuthPayload() as MemberCookie;

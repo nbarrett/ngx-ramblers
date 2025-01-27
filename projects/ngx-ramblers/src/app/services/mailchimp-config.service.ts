@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { MailchimpContact, MailchimpListCreateRequest } from "../models/server-models";
 import { ConfigKey } from "../models/config.model";
 import { MailchimpCampaignDefaults, MailchimpConfig } from "../models/mailchimp.model";
@@ -11,6 +11,7 @@ import map from "lodash-es/map";
 })
 export class MailchimpConfigService {
 
+  private config = inject(ConfigService);
   public campaignDefaults: MailchimpCampaignDefaults = {
     from_name: null,
     from_email: null,
@@ -27,9 +28,6 @@ export class MailchimpConfigService {
     expiredMembersSegmentId: null,
     expiredMembersWarningSegmentId: null
   };
-
-  constructor(private config: ConfigService) {
-  }
 
   async getConfig(): Promise<MailchimpConfig> {
     return await this.config.queryConfig<MailchimpConfig>(ConfigKey.MAILCHIMP, {

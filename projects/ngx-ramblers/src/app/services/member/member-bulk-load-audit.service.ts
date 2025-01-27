@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
@@ -14,16 +14,12 @@ import first from "lodash-es/first";
 })
 export class MemberBulkLoadAuditService {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("MemberBulkLoadAuditService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private dbUtils = inject(DbUtilsService);
+  private commonDataService = inject(CommonDataService);
   private BASE_URL = "/api/database/member-bulk-load-audit";
-  private logger: Logger;
   private bulkLoadNotifications = new Subject<MemberBulkLoadAuditApiResponse>();
-
-  constructor(private http: HttpClient,
-              private dbUtils: DbUtilsService,
-              private commonDataService: CommonDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MemberBulkLoadAuditService, NgxLoggerLevel.OFF);
-  }
 
   notifications(): Observable<MemberBulkLoadAuditApiResponse> {
     return this.bulkLoadNotifications.asObservable();

@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { faEnvelope, faFile, faHouse, faMapMarkerAlt, faPhone } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -196,28 +196,24 @@ import { EventTimesPipe } from "../../../pipes/event-times.pipe";
     imports: [NgClass, MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, DisplayDayPipe, EventTimesPipe]
 })
 export class SocialViewComponent implements OnInit {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("SocialViewComponent", NgxLoggerLevel.ERROR);
+  protected pageService = inject(PageService);
+  googleMapsService = inject(GoogleMapsService);
+  private notifierService = inject(NotifierService);
+  display = inject(SocialDisplayService);
+  urlService = inject(UrlService);
+  private systemConfigService = inject(SystemConfigService);
+  private socialEventsService = inject(SocialEventsService);
   @Input()
   public socialEvent: SocialEvent;
   public notifyTarget: AlertTarget = {};
   public notify: AlertInstance;
-  private logger: Logger;
   faEnvelope = faEnvelope;
   faPhone = faPhone;
   faMapMarkerAlt = faMapMarkerAlt;
   faHouse = faHouse;
   faFile = faFile;
-
-  constructor(
-    protected pageService: PageService,
-    public googleMapsService: GoogleMapsService,
-    private notifierService: NotifierService,
-    public display: SocialDisplayService,
-    public urlService: UrlService,
-    private systemConfigService: SystemConfigService,
-    private socialEventsService: SocialEventsService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(SocialViewComponent, NgxLoggerLevel.ERROR);
-  }
 
   ngOnInit() {
     this.logger.info("ngOnInit:socialEvent:", this.socialEvent);

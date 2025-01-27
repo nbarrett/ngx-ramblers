@@ -1,5 +1,5 @@
-import { Component, OnDestroy, OnInit, ViewChild } from "@angular/core";
-import { NgSelectComponent, NgOptgroupTemplateDirective } from "@ng-select/ng-select";
+import { Component, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { NgOptgroupTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import map from "lodash-es/map";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -31,7 +31,7 @@ import first from "lodash-es/first";
 import { KEY_NULL_VALUE_NONE } from "../../../functions/enums";
 import { MemberBulkDeleteService } from "../../../services/member/member-bulk-delete.service";
 import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk-load-audit.service";
-import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { NotificationConfigSelectorComponent } from "../system-settings/mail/notification-config-selector";
 import { FormsModule } from "@angular/forms";
 import { DatePickerComponent } from "../../../date-picker/date-picker.component";
@@ -234,27 +234,22 @@ import { NgClass } from "@angular/common";
 
 export class SendEmailsModalComponent implements OnInit, OnDestroy {
 
-  constructor(protected mailMessagingService: MailMessagingService,
-              private mailService: MailService,
-              private notifierService: NotifierService,
-              protected stringUtils: StringUtilsService,
-              private memberService: MemberService,
-              private memberBulkDeleteService: MemberBulkDeleteService,
-              private memberBulkLoadAuditService: MemberBulkLoadAuditService,
-              protected memberLoginService: MemberLoginService,
-              private fullNameWithAliasPipe: FullNameWithAliasPipe,
-              private systemConfigService: SystemConfigService,
-              protected dateUtils: DateUtilsService,
-              public bsModalRef: BsModalRef,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("SendEmailsModalComponent", NgxLoggerLevel.OFF);
-  }
-
+  private logger: Logger = inject(LoggerFactory).createLogger("SendEmailsModalComponent", NgxLoggerLevel.ERROR);
+  protected mailMessagingService = inject(MailMessagingService);
+  private mailService = inject(MailService);
+  private notifierService = inject(NotifierService);
+  protected stringUtils = inject(StringUtilsService);
+  private memberService = inject(MemberService);
+  private memberBulkDeleteService = inject(MemberBulkDeleteService);
+  private memberBulkLoadAuditService = inject(MemberBulkLoadAuditService);
+  protected memberLoginService = inject(MemberLoginService);
+  private fullNameWithAliasPipe = inject(FullNameWithAliasPipe);
+  private systemConfigService = inject(SystemConfigService);
+  protected dateUtils = inject(DateUtilsService);
+  bsModalRef = inject(BsModalRef);
   private latestMemberBulkLoadAudit: MemberBulkLoadAudit;
-  @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  private logger: Logger;
   members: Member[] = [];
   public selectableMembers: MemberFilterSelection[] = [];
   public selectedMemberIds: string[] = [];
@@ -268,6 +263,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   public notificationConfigListing: NotificationConfigListing;
   protected readonly MemberSelection = MemberSelection;
   protected readonly first = first;
+  @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
 
   ngOnInit() {
     this.logger.info("constructed with", this.stringUtils.pluraliseWithCount(this.members.length, "member"));

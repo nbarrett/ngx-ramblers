@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -10,16 +10,14 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
     templateUrl: "./logout.component.html"
 })
 export class LogoutComponent implements OnInit, OnDestroy {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("LogoutComponent", NgxLoggerLevel.ERROR);
+  private route = inject(ActivatedRoute);
+  private authService = inject(AuthService);
   private subscriptions: Subscription[] = [];
 
-  constructor(private route: ActivatedRoute,
-              private authService: AuthService,
-              private loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(LogoutComponent, NgxLoggerLevel.OFF);
-  }
-
   ngOnInit() {
+    this.logger.info("created");
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
         this.authService.logout();
       }

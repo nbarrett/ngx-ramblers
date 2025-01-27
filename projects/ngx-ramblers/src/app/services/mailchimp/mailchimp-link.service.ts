@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailchimpConfigService } from "../mailchimp-config.service";
@@ -7,11 +7,12 @@ import { MailchimpConfigService } from "../mailchimp-config.service";
   providedIn: "root"
 })
 export class MailchimpLinkService {
-  private mailchimpApiUrl: string;
-  private logger: Logger;
 
-  constructor(private mailchimpConfigService: MailchimpConfigService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MailchimpLinkService, NgxLoggerLevel.OFF);
+  private logger: Logger = inject(LoggerFactory).createLogger("MailchimpLinkService", NgxLoggerLevel.ERROR);
+  private mailchimpConfigService = inject(MailchimpConfigService);
+  private mailchimpApiUrl: string;
+
+  constructor() {
     this.queryData();
   }
 

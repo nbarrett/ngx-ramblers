@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { chain } from "../../functions/chain";
@@ -24,18 +24,14 @@ import { DeletionResponse, DeletionResponseApiResponse } from "../../models/mong
 })
 export class MemberService {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("MemberService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private numberUtils = inject(NumberUtilsService);
+  private dbUtils = inject(DbUtilsService);
+  private commonDataService = inject(CommonDataService);
   private BASE_URL = "/api/database/member";
-  private logger: Logger;
   private memberChanges = new Subject<MemberApiResponse>();
   private memberDeletions = new Subject<DeletionResponseApiResponse>();
-
-  constructor(private http: HttpClient,
-              private numberUtils: NumberUtilsService,
-              private dbUtils: DbUtilsService,
-              private commonDataService: CommonDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MemberService, NgxLoggerLevel.OFF);
-  }
 
   filterFor = {
     GROUP_MEMBERS: (member: Member) => member.groupMember,

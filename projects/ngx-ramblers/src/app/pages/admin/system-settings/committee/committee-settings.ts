@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { faAdd, faClose, faSortAlphaAsc } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../../models/alert-target.model";
@@ -18,7 +18,7 @@ import { CommitteeConfigService } from "../../../../services/committee/commitee-
 import { Subscription } from "rxjs";
 import isEqual from "lodash-es/isEqual";
 import { PageComponent } from "../../../../page/page.component";
-import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
 import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
 import { CommitteeMemberComponent } from "./committee-member";
@@ -154,21 +154,15 @@ import { NgClass } from "@angular/common";
 })
 export class CommitteeSettingsComponent implements OnInit, OnDestroy {
 
-  constructor(public stringUtils: StringUtilsService,
-              private urlService: UrlService,
-              private committeeConfigService: CommitteeConfigService,
-              protected dateUtils: DateUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(CommitteeSettingsComponent, NgxLoggerLevel.ERROR);
-  }
-
+  private logger: Logger = inject(LoggerFactory).createLogger("CommitteeSettingsComponent", NgxLoggerLevel.ERROR);
+  stringUtils = inject(StringUtilsService);
+  private urlService = inject(UrlService);
+  private committeeConfigService = inject(CommitteeConfigService);
+  protected dateUtils = inject(DateUtilsService);
   private subscription: Subscription;
-
-
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public notification: Notification;
-  private logger: Logger;
   public committeeConfig: CommitteeConfig;
   protected readonly faClose = faClose;
   protected readonly faAdd = faAdd;

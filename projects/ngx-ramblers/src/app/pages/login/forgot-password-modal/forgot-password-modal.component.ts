@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -101,11 +101,19 @@ import { NgClass } from "@angular/common";
     imports: [FormsModule, FontAwesomeModule, ContactUsComponent, NgClass, NotificationDirective]
 })
 export class ForgotPasswordModalComponent implements OnInit, OnDestroy {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("ForgotPasswordModalComponent", NgxLoggerLevel.ERROR);
+  private authService = inject(AuthService);
+  private mailService = inject(MailService);
+  private notifierService = inject(NotifierService);
+  private mailMessagingService = inject(MailMessagingService);
+  private routerHistoryService = inject(RouterHistoryService);
+  private stringUtils = inject(StringUtilsService);
+  bsModalRef = inject(BsModalRef);
   public mailMessagingConfig: MailMessagingConfig;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public emailRequest: SendSmtpEmailRequest;
-  private logger: Logger;
   public credentialTwo;
   public credentialOne;
   private subscriptions: Subscription[] = [];
@@ -115,16 +123,6 @@ export class ForgotPasswordModalComponent implements OnInit, OnDestroy {
   private forgottenPasswordMember: Member;
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   public notificationConfig: NotificationConfig;
-  constructor(private authService: AuthService,
-              private mailService: MailService,
-              private notifierService: NotifierService,
-              private mailMessagingService: MailMessagingService,
-              private routerHistoryService: RouterHistoryService,
-              private stringUtils: StringUtilsService,
-              public bsModalRef: BsModalRef,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("ForgotPasswordModalComponent", NgxLoggerLevel.OFF);
-  }
 
   async ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);

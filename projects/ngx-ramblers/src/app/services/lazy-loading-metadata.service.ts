@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { ContentMetadataService } from "./content-metadata.service";
@@ -20,13 +20,10 @@ import { StringUtilsService } from "./string-utils.service";
   providedIn: "root"
 })
 export class LazyLoadingMetadataService {
-  private logger: Logger;
 
-  constructor(private contentMetadataService: ContentMetadataService,
-              private stringUtils: StringUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("LazyLoadingMetadataService", NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("LazyLoadingMetadataService", NgxLoggerLevel.ERROR);
+  private contentMetadataService = inject(ContentMetadataService);
+  private stringUtils = inject(StringUtilsService);
 
   initialise(contentMetadata: ContentMetadata): LazyLoadingMetadata {
     const initialisedData = {

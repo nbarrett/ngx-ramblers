@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -10,7 +10,6 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { MemberLoginService } from "../services/member/member-login.service";
 import { RouterHistoryService } from "../services/router-history.service";
 import { SystemConfigService } from "../services/system/system-config.service";
-import { UrlService } from "../services/url.service";
 import { NgClass } from "@angular/common";
 import { SiteEditComponent } from "../site-edit/site-edit.component";
 
@@ -21,22 +20,19 @@ import { SiteEditComponent } from "../site-edit/site-edit.component";
     imports: [NgClass, SiteEditComponent]
 })
 export class LoginPanelComponent implements OnInit, OnDestroy {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("LoginPanelComponent", NgxLoggerLevel.ERROR);
+  private memberLoginService = inject(MemberLoginService);
+  private authService = inject(AuthService);
+  private modalService = inject(BsModalService);
+  private systemConfigService = inject(SystemConfigService);
+  private routerHistoryService = inject(RouterHistoryService);
   private group: Organisation;
   private subscriptions: Subscription[] = [];
   config: ModalOptions = {
     animated: false,
     initialState: {}
   };
-
-  constructor(private memberLoginService: MemberLoginService,
-              private authService: AuthService,
-              private modalService: BsModalService,
-              private systemConfigService: SystemConfigService,
-              private urlService: UrlService,
-              private routerHistoryService: RouterHistoryService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("LoginPanelComponent", NgxLoggerLevel.OFF);
-  }
 
   ngOnInit(): void {
     this.subscriptions.push(this.authService.authResponse().subscribe(() => this.routerHistoryService.navigateBackToLastMainPage()));

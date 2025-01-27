@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { ConfigService } from "../config.service";
 import { ConfigKey } from "../../models/config.model";
 import { MailConfig } from "../../models/mail.model";
@@ -8,9 +8,8 @@ import { MailConfig } from "../../models/mail.model";
 })
 export class MailConfigService {
 
+  private config = inject(ConfigService);
 
-  constructor(private config: ConfigService) {
-  }
 
   async queryConfig(): Promise<MailConfig> {
     return await this.config.queryConfig<MailConfig>(ConfigKey.BREVO, {

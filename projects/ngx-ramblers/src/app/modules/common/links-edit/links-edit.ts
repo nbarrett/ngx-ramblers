@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { faAdd } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Link } from "../../../models/page.model";
@@ -14,16 +14,12 @@ import { LinkEditComponent } from "../link-edit/link-edit";
     imports: [TooltipDirective, FontAwesomeModule, LinkEditComponent]
 })
 export class LinksEditComponent implements OnInit {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("LinksEditComponent", NgxLoggerLevel.ERROR);
   @Input() heading: string;
   @Input() links: Link[];
 
   faAdd = faAdd;
-
-  constructor(
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(LinksEditComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.logger.debug("constructed instance with page:", this.links);

@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./logger-factory.service";
@@ -9,12 +9,8 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 
 export class ClipboardService {
 
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("ClipboardService", NgxLoggerLevel.ERROR);
   private lastCopiedText: string;
-
-  constructor(loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ClipboardService, NgxLoggerLevel.OFF);
-  }
 
   private clipboardData(e: ClipboardEvent): DataTransfer {
     return e?.clipboardData || window["clipboardData"];

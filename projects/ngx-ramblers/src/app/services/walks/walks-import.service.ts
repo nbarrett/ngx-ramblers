@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { EventType, Walk } from "../../models/walk.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -33,22 +33,21 @@ import { AlertInstance } from "../notifier.service";
 })
 export class WalksImportService {
 
-  private readonly logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("WalksImportService", NgxLoggerLevel.ERROR);
+  private systemConfigService = inject(SystemConfigService);
+  private walksLocalService = inject(WalksLocalService);
+  private dateUtils = inject(DateUtilsService);
+  private numberUtils = inject(NumberUtilsService);
+  private walkEventService = inject(WalkEventService);
+  private stringUtils = inject(StringUtilsService);
+  private memberBulkLoadService = inject(MemberBulkLoadService);
+  private memberService = inject(MemberService);
+  private memberNamingService = inject(MemberNamingService);
+  private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   public group: Organisation;
   private systemConfig: SystemConfig;
 
-  constructor(private systemConfigService: SystemConfigService,
-              private walksLocalService: WalksLocalService,
-              private dateUtils: DateUtilsService,
-              private numberUtils: NumberUtilsService,
-              private walkEventService: WalkEventService,
-              private stringUtils: StringUtilsService,
-              private memberBulkLoadService: MemberBulkLoadService,
-              private memberService: MemberService,
-              private memberNamingService: MemberNamingService,
-              private ramblersWalksAndEventsService: RamblersWalksAndEventsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("WalksImportService", NgxLoggerLevel.ERROR);
+  constructor() {
     this.applyConfig();
   }
 

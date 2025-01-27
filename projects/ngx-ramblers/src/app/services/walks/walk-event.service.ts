@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import clone from "lodash-es/clone";
 import compact from "lodash-es/compact";
 import get from "lodash-es/get";
@@ -62,17 +62,13 @@ const auditedFields: string[] = [
   providedIn: "root"
 })
 export class WalkEventService {
-  private logger: Logger;
 
-  constructor(
-    private memberLoginService: MemberLoginService,
-    private dateUtils: DateUtilsService,
-    private walksReferenceService: WalksReferenceService,
-    private stringUtils: StringUtilsService,
-    private auditDeltaChangedItems: AuditDeltaChangedItemsPipePipe,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkEventService, NgxLoggerLevel.ERROR);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkEventService", NgxLoggerLevel.ERROR);
+  private memberLoginService = inject(MemberLoginService);
+  private dateUtils = inject(DateUtilsService);
+  private walksReferenceService = inject(WalksReferenceService);
+  private stringUtils = inject(StringUtilsService);
+  private auditDeltaChangedItems = inject(AuditDeltaChangedItemsPipePipe);
 
   public latestEventWithStatusChange(walk: Walk): WalkEvent {
     const eventType = this.eventsLatestFirst(walk).find((event) => {

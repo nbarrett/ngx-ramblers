@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ImageTagDataService } from "../../../services/image-tag-data-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -15,7 +15,9 @@ import { NgClass } from "@angular/common";
     imports: [TooltipDirective, NgClass]
 })
 export class CarouselStoryNavigatorComponent implements OnInit {
-
+  private logger: Logger = inject(LoggerFactory).createLogger("CarouselStoryNavigatorComponent", NgxLoggerLevel.ERROR);
+  imageTagDataService = inject(ImageTagDataService);
+  private activatedRoute = inject(ActivatedRoute);
 
   @Input("imageTags") set acceptImageTagChangesFrom(imageTags: ImageTag[]) {
     this.logger.info("imageTags change:", imageTags);
@@ -36,15 +38,8 @@ export class CarouselStoryNavigatorComponent implements OnInit {
   @Output() tagChanged: EventEmitter<ImageTag> = new EventEmitter();
   private story: string;
   public imageTags: ImageTag[];
-  private logger: Logger;
   private subscriptions: Subscription[] = [];
   public activeTag: ImageTag;
-
-  constructor(public imageTagDataService: ImageTagDataService,
-              private activatedRoute: ActivatedRoute,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("CarouselStoryNavigatorComponent", NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.logger.info("imageTags:", this.imageTags);

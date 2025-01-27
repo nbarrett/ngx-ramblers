@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { cloneDeep } from "lodash-es";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AuditStatus } from "../../models/audit";
@@ -25,16 +25,13 @@ import { MailchimpListService } from "./mailchimp-list.service";
   providedIn: "root"
 })
 export class MailchimpListSubscriptionService {
-  private logger: Logger;
 
-  constructor(private memberService: MemberService,
-              private dateUtils: DateUtilsService,
-              private mailchimpListAuditService: MailchimpListAuditService,
-              private mailchimpListService: MailchimpListService,
-              private memberLoginService: MemberLoginService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MailchimpListSubscriptionService, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("MailchimpListSubscriptionService", NgxLoggerLevel.ERROR);
+  private memberService = inject(MemberService);
+  private dateUtils = inject(DateUtilsService);
+  private mailchimpListAuditService = inject(MailchimpListAuditService);
+  private mailchimpListService = inject(MailchimpListService);
+  private memberLoginService = inject(MemberLoginService);
 
   setMailchimpSubscriptionsStateFor(members: Member[], subscribedState: boolean, notify: AlertInstance): Promise<any> {
     const endState: string = subscribedState ? "subscribe" : "unsubscribe";

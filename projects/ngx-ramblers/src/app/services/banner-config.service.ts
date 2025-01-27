@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { BannerConfig, BannerConfigApiResponse } from "../models/banner-configuration.model";
@@ -10,15 +10,11 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
   providedIn: "root"
 })
 export class BannerConfigService {
-  private readonly logger: Logger;
+  private readonly logger: Logger = inject(LoggerFactory).createLogger(BannerConfigService, NgxLoggerLevel.OFF);
+  private http = inject(HttpClient);
+  private commonDataService = inject(CommonDataService);
   private BASE_URL = "/api/database/banners";
   private notificationsInternal = new Subject<BannerConfigApiResponse>();
-
-  constructor(private http: HttpClient,
-              private commonDataService: CommonDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(BannerConfigService, NgxLoggerLevel.OFF);
-  }
 
   notifications(): Observable<BannerConfigApiResponse> {
     return this.notificationsInternal.asObservable();

@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import cloneDeep from "lodash-es/cloneDeep";
 import each from "lodash-es/each";
 import groupBy from "lodash-es/groupBy";
@@ -12,12 +12,9 @@ import { StringUtilsService } from "./string-utils.service";
   providedIn: "root"
 })
 export class ImageDuplicatesService {
-  private logger: Logger;
 
-  constructor(private stringUtils: StringUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ImageDuplicatesService, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("ImageDuplicatesService", NgxLoggerLevel.ERROR);
+  private stringUtils = inject(StringUtilsService);
 
   duplicateCount(item: ContentMetadataItem, duplicateImages: DuplicateImages): string {
     const count = this.duplicatedContentMetadataItems(item, duplicateImages)?.length || 0;

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 import { faCalendar } from "@fortawesome/free-solid-svg-icons";
 import kebabCase from "lodash-es/kebabCase";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -7,7 +7,7 @@ import { DateUtilsService } from "../services/date-utils.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { NgClass } from "@angular/common";
-import { BsDatepickerInputDirective, BsDatepickerDirective } from "ngx-bootstrap/datepicker";
+import { BsDatepickerDirective, BsDatepickerInputDirective } from "ngx-bootstrap/datepicker";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
@@ -20,6 +20,8 @@ let id = 0;
     imports: [NgClass, BsDatepickerInputDirective, FormsModule, BsDatepickerDirective, FontAwesomeModule]
 })
 export class DatePickerComponent implements OnInit, OnChanges {
+  private logger: Logger = inject(LoggerFactory).createLogger("DatePickerComponent", NgxLoggerLevel.ERROR);
+  private dateUtils = inject(DateUtilsService);
 
   dateValue: DateValue;
   @Input() value: DateValue | number;
@@ -36,13 +38,7 @@ export class DatePickerComponent implements OnInit, OnChanges {
 
   @Output() dateChange: EventEmitter<DateValue> = new EventEmitter();
   public startOfDay: boolean;
-  private logger: Logger;
   faCalendar = faCalendar;
-
-  constructor(
-    private dateUtils: DateUtilsService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("DatePickerComponent", NgxLoggerLevel.ERROR);
-  }
 
   ngOnChanges(changes: SimpleChanges) {
     this.setValue(changes?.value?.currentValue, changes);

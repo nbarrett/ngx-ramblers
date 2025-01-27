@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import isEmpty from "lodash-es/isEmpty";
 import isNaN from "lodash-es/isNaN";
 import without from "lodash-es/without";
@@ -80,38 +80,25 @@ import { AlertInstance } from "../notifier.service";
   providedIn: "root"
 })
 export class RamblersWalksAndEventsService {
-  constructor(private http: HttpClient,
-              private mediaQueryService: MediaQueryService,
-              private riskAssessmentService: RiskAssessmentService,
-              private systemConfigService: SystemConfigService,
-              private walksService: WalksLocalService,
-              private walksConfigService: WalksConfigService,
-              private memberNamingService: MemberNamingService,
-              private distanceValidationService: DistanceValidationService,
-              private ascentValidationService: AscentValidationService,
-              private stringUtilsService: StringUtilsService,
-              private urlService: UrlService,
-              private dateUtils: DateUtilsService,
-              private displayDate: DisplayDatePipe,
-              private walkDisplayService: WalkDisplayService,
-              private memberLoginService: MemberLoginService,
-              private commonDataService: CommonDataService,
-              committeeConfig: CommitteeConfigService,
-              loggerFactory: LoggerFactory) {
-    committeeConfig.committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data);
-    this.logger = loggerFactory.createLogger("RamblersWalksAndEventsService", NgxLoggerLevel.ERROR);
-    this.systemConfigService.events().subscribe(item => {
-      this.ramblers = item.national;
-      this.logger.off("systemConfigService:ramblers:", this.ramblers, "item.system", item);
-    });
-    this.walksConfigService.events().subscribe(walksConfig => {
-      this.walksConfig = walksConfig;
-      this.logger.info("walksConfigService:walksConfig:", walksConfig);
-    });
-  }
 
+  private logger: Logger = inject(LoggerFactory).createLogger("RamblersWalksAndEventsService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private mediaQueryService = inject(MediaQueryService);
+  private riskAssessmentService = inject(RiskAssessmentService);
+  private systemConfigService = inject(SystemConfigService);
+  private walksService = inject(WalksLocalService);
+  private walksConfigService = inject(WalksConfigService);
+  private memberNamingService = inject(MemberNamingService);
+  private distanceValidationService = inject(DistanceValidationService);
+  private ascentValidationService = inject(AscentValidationService);
+  private stringUtilsService = inject(StringUtilsService);
+  private urlService = inject(UrlService);
+  private dateUtils = inject(DateUtilsService);
+  private displayDate = inject(DisplayDatePipe);
+  private walkDisplayService = inject(WalkDisplayService);
+  private memberLoginService = inject(MemberLoginService);
+  private commonDataService = inject(CommonDataService);
   private walksConfig: WalksConfig;
-  private readonly logger: Logger;
   private auditSubject = new ReplaySubject<RamblersUploadAuditApiResponse>();
   private walkLeadersSubject = new ReplaySubject<WalkLeadersApiResponse>();
   private walksSubject = new ReplaySubject<RamblersWalksApiResponse>();
@@ -122,6 +109,17 @@ export class RamblersWalksAndEventsService {
   private BASE_URL = "/api/ramblers/walks-manager";
   private NEAREST_TOWN_PREFIX = "Starting Location is ";
 
+  constructor() {
+    inject(CommitteeConfigService).committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data);
+    this.systemConfigService.events().subscribe(item => {
+      this.ramblers = item.national;
+      this.logger.off("systemConfigService:ramblers:", this.ramblers, "item.system", item);
+    });
+    this.walksConfigService.events().subscribe(walksConfig => {
+      this.walksConfig = walksConfig;
+      this.logger.info("walksConfigService:walksConfig:", walksConfig);
+    });
+  }
 
   static areMongoIdsSupplied(response: any): response is MongoIdsSupplied {
     return (response as MongoIdsSupplied)?._id?.$in !== undefined;

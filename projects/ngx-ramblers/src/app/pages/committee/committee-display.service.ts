@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import cloneDeep from "lodash-es/cloneDeep";
 import last from "lodash-es/last";
 import { ModalOptions } from "ngx-bootstrap/modal";
@@ -24,21 +24,19 @@ import { RamblersEventType } from "../../models/ramblers-walks-manager";
 })
 
 export class CommitteeDisplayService {
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("CommitteeDisplayService", NgxLoggerLevel.ERROR);
+  private memberLoginService = inject(MemberLoginService);
+  urlService = inject(UrlService);
+  private valueOrDefault = inject(ValueOrDefaultPipe);
+  private dateUtils = inject(DateUtilsService);
+  private committeeFileService = inject(CommitteeFileService);
+  private contentMetadataService = inject(ContentMetadataService);
+  private committeeConfig = inject(CommitteeConfigService);
   public committeeFileBaseUrl = this.contentMetadataService.baseUrl("committeeFiles");
   public committeeReferenceData: CommitteeReferenceData;
   public confirm: Confirm = new Confirm();
 
-  constructor(
-    private memberLoginService: MemberLoginService,
-    public urlService: UrlService,
-    private valueOrDefault: ValueOrDefaultPipe,
-    private dateUtils: DateUtilsService,
-    private committeeFileService: CommitteeFileService,
-    private contentMetadataService: ContentMetadataService,
-    private committeeConfig: CommitteeConfigService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(CommitteeDisplayService, NgxLoggerLevel.OFF);
+  constructor() {
     this.committeeConfig.committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data);
     this.logger.debug("this.memberLoginService", this.memberLoginService.loggedInMember());
   }

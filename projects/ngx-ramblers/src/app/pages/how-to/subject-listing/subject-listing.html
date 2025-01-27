@@ -17,7 +17,7 @@
             <select [compareWith]='accessLevelComparer' [(ngModel)]="filterParameters.filter"
               (ngModelChange)="applyFilterToMemberResources()" name="filter"
               class="form-control input-md rounded ml-2">
-              @for (accessLevel of memberResourcesReferenceData.accessLevelViewTypes(); track accessLevel) {
+              @for (accessLevel of memberResourcesReferenceData.accessLevelViewTypes(); track accessLevel.description) {
                 <option
                   [textContent]="'View As ' + accessLevel.description"
                 [ngValue]="accessLevel"></option>

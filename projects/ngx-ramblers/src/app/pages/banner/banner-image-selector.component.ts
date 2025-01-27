@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { range } from "lodash-es";
 import first from "lodash-es/first";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -80,19 +80,16 @@ import { FormsModule } from "@angular/forms";
 })
 
 export class BannerImageSelectorComponent implements OnInit, OnDestroy {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("BannerImageSelectorComponent", NgxLoggerLevel.ERROR);
+  private stringUtils = inject(StringUtilsService);
+  private systemConfigService = inject(SystemConfigService);
   public images: Images;
   public widths: number[] = range(1, 13);
   public imageTypeDescription: string;
   public propertyClass: string;
   public propertyConfigureCount = 0;
   private subscriptions: Subscription[] = [];
-
-  constructor(private stringUtils: StringUtilsService,
-              private systemConfigService: SystemConfigService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(BannerImageSelectorComponent, NgxLoggerLevel.OFF);
-  }
 
   @Input() bannerImageItem: BannerImageItem;
   @Input() configureWidth: boolean;

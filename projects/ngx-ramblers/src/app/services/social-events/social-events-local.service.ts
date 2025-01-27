@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
@@ -12,15 +12,11 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 })
 export class SocialEventsLocalService {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("SocialEventsLocalService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private commonDataService = inject(CommonDataService);
   private BASE_URL = "/api/database/social-event";
-  private logger: Logger;
   private socialEventNotifications = new Subject<SocialEventApiResponse>();
-
-  constructor(private http: HttpClient,
-              private commonDataService: CommonDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("SocialEventsLocalService", NgxLoggerLevel.ERROR);
-  }
 
   publicFieldsDataQueryOptions: DataQueryOptions = {
     select: {

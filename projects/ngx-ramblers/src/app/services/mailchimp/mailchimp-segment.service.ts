@@ -1,9 +1,10 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   MailchimpListSegmentAddResponse,
   MailchimpSegmentUpdateResponse,
-  SaveSegmentResponse, SubscriptionRequest
+  SaveSegmentResponse,
+  SubscriptionRequest
 } from "../../models/mailchimp.model";
 import { IdentifiableOrId, MailchimpSegmentId, Member } from "../../models/member.model";
 import { DateUtilsService } from "../date-utils.service";
@@ -17,16 +18,13 @@ import { MailchimpListService } from "./mailchimp-list.service";
   providedIn: "root"
 })
 export class MailchimpSegmentService {
-  private logger: Logger;
 
-  constructor(private stringUtils: StringUtilsService,
-              private dateUtils: DateUtilsService,
-              private memberService: MemberService,
-              private mailchimpListSubscriptionService: MailchimpListSubscriptionService,
-              private mailchimpListService: MailchimpListService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MailchimpSegmentService, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("MailchimpSegmentService", NgxLoggerLevel.ERROR);
+  private stringUtils = inject(StringUtilsService);
+  private dateUtils = inject(DateUtilsService);
+  private memberService = inject(MemberService);
+  private mailchimpListSubscriptionService = inject(MailchimpListSubscriptionService);
+  private mailchimpListService = inject(MailchimpListService);
 
   createSubscriptionRequests(listType: string, memberIds: IdentifiableOrId[], members: Member[]): SubscriptionRequest[] {
     this.logger.debug("createSubscriptionRequests based on listType", listType, "memberIds:", memberIds, "members:", members);

@@ -1,4 +1,4 @@
-import { Component, OnInit } from "@angular/core";
+import { Component, inject, OnInit } from "@angular/core";
 import difference from "lodash-es/difference";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertMessage, AlertTarget } from "../../../models/alert-target.model";
@@ -163,8 +163,24 @@ import { NgClass } from "@angular/common";
     imports: [PageComponent, FormsModule, DatePickerComponent, FontAwesomeModule, NgClass]
 })
 export class WalkAddSlotsComponent implements OnInit {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkAddSlotsComponent", NgxLoggerLevel.ERROR);
+  private walksService = inject(WalksService);
+  private memberLoginService = inject(MemberLoginService);
+  private displayDate = inject(DisplayDatePipe);
+  private displayDates = inject(DisplayDatesPipe);
+  private displayDatesAndTimes = inject(DisplayDatesAndTimesPipe);
+  private walksQueryService = inject(WalksQueryService);
+  private dateUtils = inject(DateUtilsService);
+  private stringUtils = inject(StringUtilsService);
+  private notifierService = inject(NotifierService);
+  protected display = inject(WalkDisplayService);
+  private systemConfigService = inject(SystemConfigService);
+  private broadcastService = inject<BroadcastService<Walk[]>>(BroadcastService);
+  private urlService = inject(UrlService);
+  private walkEventService = inject(WalkEventService);
+  private walksReferenceService = inject(WalksReferenceService);
   public confirmAction = false;
-  private logger: Logger;
   private notify: AlertInstance;
   private requiredWalkSlots: Walk[] = [];
   public singleDate: DateValue;
@@ -174,26 +190,6 @@ export class WalkAddSlotsComponent implements OnInit {
   public notifyTarget: AlertTarget = {};
   public selectionMade: string;
   private displaySlotTimes = false;
-
-  constructor(
-    private walksService: WalksService,
-    private memberLoginService: MemberLoginService,
-    private displayDate: DisplayDatePipe,
-    private displayDates: DisplayDatesPipe,
-    private displayDatesAndTimes: DisplayDatesAndTimesPipe,
-    private walksQueryService: WalksQueryService,
-    private dateUtils: DateUtilsService,
-    private stringUtils: StringUtilsService,
-    private notifierService: NotifierService,
-    protected display: WalkDisplayService,
-    private systemConfigService: SystemConfigService,
-    private broadcastService: BroadcastService<Walk[]>,
-    private urlService: UrlService,
-    private walkEventService: WalkEventService,
-    private walksReferenceService: WalksReferenceService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkAddSlotsComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.logger.debug("ngOnInit");

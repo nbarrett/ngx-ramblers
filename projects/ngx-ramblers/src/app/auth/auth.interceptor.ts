@@ -1,5 +1,5 @@
 import { HttpErrorResponse, HttpEvent, HttpHandler, HttpInterceptor, HttpRequest } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { BehaviorSubject, Observable, throwError } from "rxjs";
 import { catchError, filter, switchMap, take } from "rxjs/operators";
@@ -10,13 +10,10 @@ import { AuthService } from "./auth.service";
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
 
+  private logger: Logger = inject(LoggerFactory).createLogger(AuthInterceptor, NgxLoggerLevel.OFF);
+  authService = inject(AuthService);
   private isRefreshing = false;
   private refreshTokenSubject: BehaviorSubject<any> = new BehaviorSubject<any>(null);
-  private logger: Logger;
-
-  constructor(public authService: AuthService, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(AuthInterceptor, NgxLoggerLevel.OFF);
-  }
 
   intercept(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
 

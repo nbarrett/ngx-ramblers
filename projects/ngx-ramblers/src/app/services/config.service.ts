@@ -1,24 +1,20 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ApiResponse } from "../models/api-response.model";
 import { ConfigDocument, ConfigKey } from "../models/config.model";
 import { CommonDataService } from "./common-data-service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
-import { StringUtilsService } from "./string-utils.service";
 
 @Injectable({
   providedIn: "root"
 })
 export class ConfigService {
-  private BASE_URL = "/api/database/config";
-  private logger: Logger;
 
-  constructor(private http: HttpClient,
-              private commonDataService: CommonDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("ConfigService", NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("ConfigService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private commonDataService = inject(CommonDataService);
+  private BASE_URL = "/api/database/config";
 
   private async queryApiForKey<T>(key: ConfigKey): Promise<T> {
     const criteria = {key};

@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { isEqual } from "lodash-es";
 import { NgxLoggerLevel } from "ngx-logger";
 import { PageContentEditEvent } from "../models/content-text.model";
@@ -10,11 +10,7 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 
 export class PageContentEditService {
 
-  private logger: Logger;
-
-  constructor(loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(PageContentEditService, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("PageContentEditService", NgxLoggerLevel.ERROR);
 
   handleEvent(pageContentEditEvent: PageContentEditEvent, pageContentEditEvents: PageContentEditEvent[]): PageContentEditEvent[] {
     const output: PageContentEditEvent[] = [];

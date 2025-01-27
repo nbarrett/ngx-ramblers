@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { GoogleMapsConfig } from "../models/walk.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";
@@ -11,12 +11,14 @@ import { shareReplay } from "rxjs/operators";
 })
 export class GoogleMapsService {
 
+  private logger: Logger = inject(LoggerFactory).createLogger("GoogleMapsService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+
+
   private BASE_URL = "/api/google-maps/config";
-  private logger: Logger;
   private subject = new ReplaySubject<GoogleMapsConfig>();
 
-  constructor(private http: HttpClient, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(GoogleMapsService, NgxLoggerLevel.OFF);
+  constructor() {
     this.refreshConfig();
   }
 

@@ -1,10 +1,9 @@
-import { Component, HostListener, OnDestroy, OnInit } from "@angular/core";
+import { Component, HostListener, inject, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import {
   classBackgroundDark,
-  classColourCloudy,
   Image,
   NavBarLocation,
   rgbColourCloudy,
@@ -30,15 +29,10 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
 })
 export class NavbarComponent implements OnInit, OnDestroy {
 
-  constructor(
-    private systemConfigService: SystemConfigService,
-    private broadcastService: BroadcastService<any>,
-    public urlService: UrlService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("NavbarComponent", NgxLoggerLevel.ERROR);
-  }
-
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("NavbarComponent", NgxLoggerLevel.ERROR);
+  private systemConfigService = inject(SystemConfigService);
+  private broadcastService = inject<BroadcastService<any>>(BroadcastService);
+  urlService = inject(UrlService);
   public navbarContentWithinCollapse: boolean;
   public logo: Image;
   public navbarExpanded = false;
@@ -46,7 +40,6 @@ export class NavbarComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
 
   protected readonly NavBarLocation = NavBarLocation;
-  protected readonly classColourCloudy = classColourCloudy;
   protected readonly colourCloudy = rgbColourCloudy;
 
   @HostListener("window:resize", ["$event"])

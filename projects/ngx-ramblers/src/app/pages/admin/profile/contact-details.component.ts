@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { faIdCard } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -21,19 +21,16 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
     imports: [PageComponent, FontAwesomeModule, FormsModule, NgClass, ContactUsComponent, DisplayDatePipe]
 })
 export class ContactDetailsComponent implements OnInit, OnDestroy {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("ContactDetailsComponent", NgxLoggerLevel.ERROR);
+  private notifierService = inject(NotifierService);
+  profileService = inject(ProfileService);
+
   public member: Member;
   faIdCard = faIdCard;
   private subscriptions: Subscription[] = [];
-
-  constructor(private notifierService: NotifierService,
-              public profileService: ProfileService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ContactDetailsComponent, NgxLoggerLevel.OFF);
-  }
-
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-  private logger: Logger;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");

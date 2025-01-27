@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { CommonDataService } from "./common-data-service";
@@ -10,15 +10,12 @@ import { NotificationConfig, NotificationConfigurationApiResponse } from "../mod
   providedIn: "root"
 })
 export class NotificationConfigService {
-  private readonly logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("NotificationConfigService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private commonDataService = inject(CommonDataService);
   private BASE_URL = "/api/database/notification-config";
   private notificationsInternal = new Subject<NotificationConfigurationApiResponse>();
-
-  constructor(private http: HttpClient,
-              private commonDataService: CommonDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("NotificationConfigService", NgxLoggerLevel.OFF);
-  }
 
   notifications(): Observable<NotificationConfigurationApiResponse> {
     return this.notificationsInternal.asObservable();

@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject } from "rxjs";
 import { MailchimpListCreateRequest } from "../../models/server-models";
@@ -40,17 +40,14 @@ import map from "lodash-es/map";
   providedIn: "root"
 })
 export class MailchimpListService {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("MailchimpListService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private dateUtils = inject(DateUtilsService);
+  private commonDataService = inject(CommonDataService);
+  private memberService = inject(MemberService);
   private BASE_URL = "api/mailchimp/lists";
   private notifications = new Subject<ApiResponse>();
-
-  constructor(private http: HttpClient,
-              private dateUtils: DateUtilsService,
-              private commonDataService: CommonDataService,
-              private memberService: MemberService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MailchimpListService", NgxLoggerLevel.OFF);
-  }
 
   async addSegment(listType: string, segmentName: string): Promise<MailchimpListSegmentAddResponse> {
     return (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/${listType}/segmentAdd`, {segmentName}), this.notifications, true)).response;

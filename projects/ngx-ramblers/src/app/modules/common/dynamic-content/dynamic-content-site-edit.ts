@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { faAdd, faEye, faPencil, faRemove, faSave, faUndo } from "@fortawesome/free-solid-svg-icons";
 import cloneDeep from "lodash-es/cloneDeep";
 import first from "lodash-es/first";
@@ -43,7 +43,7 @@ import { StoredValue } from "../../../models/ui-actions";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { NgTemplateOutlet, NgClass } from "@angular/common";
+import { NgClass, NgTemplateOutlet } from "@angular/common";
 import { RouterLink } from "@angular/router";
 import { FormsModule } from "@angular/forms";
 import { TypeaheadDirective } from "ngx-bootstrap/typeahead";
@@ -326,6 +326,20 @@ import { EventsComponent } from "../events/events";
     imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtonsComponent, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, EventsComponent]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.ERROR);
+  private systemConfigService = inject(SystemConfigService);
+  pageContentRowService = inject(PageContentRowService);
+  siteEditService = inject(SiteEditService);
+  private albumIndexService = inject(AlbumIndexService);
+  memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
+  protected urlService = inject(UrlService);
+  protected pageService = inject(PageService);
+  uiActionsService = inject(UiActionsService);
+  stringUtils = inject(StringUtilsService);
+  pageContentService = inject(PageContentService);
+  private contentTextService = inject(ContentTextService);
+  actions = inject(PageContentActionsService);
+  private broadcastService = inject<BroadcastService<any>>(BroadcastService);
 
   @Input("defaultPageContent") set acceptChangesFrom(defaultPageContent: PageContent) {
     this.logger.info("acceptChangesFrom:defaultPageContent:", defaultPageContent);
@@ -337,24 +351,6 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     this.logger.info("acceptPageContentChanges:pageContent:", pageContent);
     this.initialisePageContent(pageContent);
     this.clearAlert(pageContent);
-  }
-
-  constructor(
-    private systemConfigService: SystemConfigService,
-    public pageContentRowService: PageContentRowService,
-    public siteEditService: SiteEditService,
-    private albumIndexService: AlbumIndexService,
-    public memberResourcesReferenceData: MemberResourcesReferenceDataService,
-    protected urlService: UrlService,
-    protected pageService: PageService,
-    public uiActionsService: UiActionsService,
-    public stringUtils: StringUtilsService,
-    public pageContentService: PageContentService,
-    private contentTextService: ContentTextService,
-    public actions: PageContentActionsService,
-    private broadcastService: BroadcastService<any>,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.ERROR);
   }
 
   @Input()
@@ -375,7 +371,6 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   public insertableContent: ColumnInsertData[] = [];
   private defaultPageContent: PageContent;
   private destinationPageContent: PageContent;
-  private logger: Logger;
   public pageTitle: string;
   faPencil = faPencil;
   faRemove = faRemove;

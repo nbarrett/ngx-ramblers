@@ -1,27 +1,21 @@
 import { HttpClient } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
 import { MailchimpListAudit, MailchimpListAuditApiResponse } from "../../models/mailchimp.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { NumberUtilsService } from "../number-utils.service";
 
 @Injectable({
   providedIn: "root"
 })
 export class MailchimpListAuditService {
-
+  private logger: Logger = inject(LoggerFactory).createLogger("MailchimpListAuditService", NgxLoggerLevel.ERROR);
+  private http = inject(HttpClient);
+  private commonDataService = inject(CommonDataService);
   private BASE_URL = "api/database/mailchimp-list-audit";
-  private logger: Logger;
   private authNotifications = new Subject<MailchimpListAuditApiResponse>();
-
-  constructor(private http: HttpClient,
-              private commonDataService: CommonDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MailchimpListAuditService, NgxLoggerLevel.OFF);
-  }
 
   notifications(): Observable<MailchimpListAuditApiResponse> {
     return this.authNotifications.asObservable();

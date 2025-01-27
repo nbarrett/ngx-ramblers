@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { faRemove } from "@fortawesome/free-solid-svg-icons";
 import remove from "lodash-es/remove";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -59,6 +59,11 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 })
 
 export class TagManagerComponent implements OnInit {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("TagManagerComponent", NgxLoggerLevel.ERROR);
+  stringUtils = inject(StringUtilsService);
+  private imageTagDataService = inject(ImageTagDataService);
+
   @Input("contentMetadata") set acceptChangesFrom(contentMetadata: ContentMetadata) {
     this.logger.debug("contentMetadata:", contentMetadata);
     this.contentMetadata = contentMetadata;
@@ -66,15 +71,8 @@ export class TagManagerComponent implements OnInit {
   }
 
   public contentMetadata: ContentMetadata;
-  private logger: Logger;
   public id: string;
   faRemove = faRemove;
-
-  constructor(public stringUtils: StringUtilsService,
-              private imageTagDataService: ImageTagDataService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(TagManagerComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.id = "image-tag-manager";
@@ -94,7 +92,7 @@ export class TagManagerComponent implements OnInit {
     return this.filesTaggedWith(imageTag) === 0;
   }
 
-  private filesTaggedWith(imageTag: ImageTag) {
+  protected filesTaggedWith(imageTag: ImageTag) {
     return this.contentMetadata.files.filter(item => item.tags.includes(imageTag.key)).length;
   }
 

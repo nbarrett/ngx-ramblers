@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import range from "lodash-es/range";
 import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
@@ -40,8 +40,20 @@ import { SocialListCardsComponent } from "../social-list-cards/social-list-cards
     imports: [SocialSearchComponent, PaginationComponent, FormsModule, SocialListCardsComponent]
 })
 export class SocialEventsComponent implements OnInit, OnDestroy {
+
+  private logger: Logger = inject(LoggerFactory).createLogger("SocialEventsComponent", NgxLoggerLevel.ERROR);
+  private systemConfigService = inject(SystemConfigService);
+  pageService = inject(PageService);
+  private stringUtils = inject(StringUtilsService);
+  private searchFilterPipe = inject(SearchFilterPipe);
+  private notifierService = inject(NotifierService);
+  display = inject(SocialDisplayService);
+  private broadcastService = inject<BroadcastService<any>>(BroadcastService);
+  private route = inject(ActivatedRoute);
+  private socialEventsService = inject(SocialEventsService);
+  private memberLoginService = inject(MemberLoginService);
+  protected dateUtils = inject(DateUtilsService);
   private subscriptions: Subscription[] = [];
-  private logger: Logger;
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public socialEventId: string;
@@ -58,21 +70,6 @@ export class SocialEventsComponent implements OnInit, OnDestroy {
   public filteredSocialEvents: SocialEvent[] = [];
   public currentPageSocials: SocialEvent[] = this.filteredSocialEvents;
   @Input() rowIndex: number;
-
-  constructor(private systemConfigService: SystemConfigService,
-              public pageService: PageService,
-              private stringUtils: StringUtilsService,
-              private searchFilterPipe: SearchFilterPipe,
-              private notifierService: NotifierService,
-              public display: SocialDisplayService,
-              private broadcastService: BroadcastService<any>,
-              private route: ActivatedRoute,
-              private socialEventsService: SocialEventsService,
-              private memberLoginService: MemberLoginService,
-              protected dateUtils: DateUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("SocialEventsComponent", NgxLoggerLevel.ERROR);
-  }
 
   ngOnInit() {
     this.logger.info("ngOnInit started");

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { faPencil } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AwsFileData } from "../../../models/aws-object.model";
@@ -37,6 +37,15 @@ import { ActionsDropdownComponent } from "../actions-dropdown/actions-dropdown";
     imports: [CardImageComponent, RouterLink, ImageCropperAndResizerComponent, FormsModule, TypeaheadDirective, MarkdownEditorComponent, TooltipDirective, FontAwesomeModule, ActionsDropdownComponent]
 })
 export class CardEditorComponent implements OnInit {
+  private logger: Logger = inject(LoggerFactory).createLogger("CardEditorComponent", NgxLoggerLevel.ERROR);
+  memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
+  iconService = inject(IconService);
+  urlService = inject(UrlService);
+  siteEditService = inject(SiteEditService);
+  pageContentService = inject(PageContentService);
+  actions = inject(PageContentActionsService);
+  private broadcastService = inject<BroadcastService<number>>(BroadcastService);
+
   @Output() pageContentEditEvents: EventEmitter<PageContentEditEvent> = new EventEmitter();
   @Input()
   public pageContent: PageContent;
@@ -54,23 +63,10 @@ export class CardEditorComponent implements OnInit {
   public pageContentEdit: PageContentEditEvent;
   public row: PageContentRow;
   public awsFileData: AwsFileData;
-  private logger: Logger;
   public faPencil: IconDefinition = faPencil;
   public imageType: ImageType;
   public columnIndex: number;
   public routerLink: string;
-
-  constructor(
-    public memberResourcesReferenceData: MemberResourcesReferenceDataService,
-    public iconService: IconService,
-    public urlService: UrlService,
-    public siteEditService: SiteEditService,
-    public pageContentService: PageContentService,
-    public actions: PageContentActionsService,
-    private broadcastService: BroadcastService<number>,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(CardEditorComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.row = this.pageContent.rows[this.rowIndex];

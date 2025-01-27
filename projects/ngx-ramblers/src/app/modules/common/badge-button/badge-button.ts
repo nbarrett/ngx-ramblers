@@ -1,6 +1,4 @@
-import { Component, Input } from "@angular/core";
-import { NgxLoggerLevel } from "ngx-logger";
-import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
+import { Component, inject, Input } from "@angular/core";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
@@ -30,6 +28,9 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 })
 
 export class BadgeButtonComponent {
+  siteEditService = inject(SiteEditService);
+  actions = inject(PageContentActionsService);
+
 
   @Input() public tooltip: string;
   @Input() public caption: string;
@@ -72,13 +73,6 @@ export class BadgeButtonComponent {
   public fullWidth: boolean;
   public inline: boolean;
   public iconPositionRight: boolean;
-  private logger: Logger;
-
-  constructor(loggerFactory: LoggerFactory,
-              public siteEditService: SiteEditService,
-              public actions: PageContentActionsService) {
-    this.logger = loggerFactory.createLogger("BadgeButtonComponent", NgxLoggerLevel.OFF);
-  }
 
 }
 

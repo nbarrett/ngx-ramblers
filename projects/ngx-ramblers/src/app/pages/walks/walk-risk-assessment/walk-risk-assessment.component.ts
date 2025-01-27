@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -20,20 +20,17 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 })
 export class WalkRiskAssessmentComponent implements OnInit, OnDestroy {
 
-  @Input()
-  public displayedWalk: DisplayedWalk;
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkRiskAssessmentComponent", NgxLoggerLevel.ERROR);
+  display = inject(WalkDisplayService);
+  private riskAssessmentService = inject(RiskAssessmentService);
+  private notifierService = inject(NotifierService);
+  private walkChangesService = inject(WalkChangesService);
   public notifyTarget: AlertTarget = {};
   public notify: AlertInstance;
-  private logger: Logger;
   private subscriptions: Subscription[] = [];
 
-  constructor(public display: WalkDisplayService,
-              private riskAssessmentService: RiskAssessmentService,
-              private notifierService: NotifierService,
-              private walkChangesService: WalkChangesService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkRiskAssessmentComponent, NgxLoggerLevel.OFF);
-  }
+  @Input()
+  public displayedWalk: DisplayedWalk;
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);

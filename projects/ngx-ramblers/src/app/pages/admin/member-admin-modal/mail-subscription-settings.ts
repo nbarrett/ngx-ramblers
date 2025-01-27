@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
@@ -95,7 +95,12 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
     imports: [MailSubscriptionSettingComponent, BrevoButtonComponent, DisplayDateAndTimePipe, DisplayDatePipe, FullNameWithAliasPipe, MemberIdToFullNamePipe]
 })
 export class MailSubscriptionSettingsComponent implements OnInit {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("MailSubscriptionSettingsComponent", NgxLoggerLevel.ERROR);
+  stringUtils = inject(StringUtilsService);
+  mailLinkService = inject(MailLinkService);
+  protected mailMessagingService = inject(MailMessagingService);
+  protected dateUtils = inject(DateUtilsService);
   public member: Member;
   public systemConfig: SystemConfig;
   public mailMessagingConfig: MailMessagingConfig;
@@ -115,15 +120,6 @@ export class MailSubscriptionSettingsComponent implements OnInit {
 
   @Input() public mailListAudits: MailListAudit[];
   @Input() public members: Member[];
-
-  constructor(public stringUtils: StringUtilsService,
-              public mailLinkService: MailLinkService,
-              protected mailMessagingService: MailMessagingService,
-              protected dateUtils: DateUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MailSubscriptionSettingsComponent", NgxLoggerLevel.ERROR);
-  }
-
 
   ngOnInit() {
     this.initialiseSubscriptions();

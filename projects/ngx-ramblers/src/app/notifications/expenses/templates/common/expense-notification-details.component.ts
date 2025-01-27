@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, Input, OnDestroy, OnInit } from "@angular/core";
+import { AfterViewInit, Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { Member } from "../../../../models/member.model";
@@ -49,22 +49,16 @@ import { MoneyPipe } from "../../../../pipes/money.pipe";
     imports: [DisplayDatePipe, MoneyPipe]
 })
 export class ExpenseNotificationDetailsComponent implements OnInit, AfterViewInit, OnDestroy {
-
+  private logger: Logger = inject(LoggerFactory).createLogger("ExpenseNotificationDetailsComponent", NgxLoggerLevel.ERROR);
+  display = inject(ExpenseDisplayService);
+  urlService = inject(UrlService);
+  stringUtilsService = inject(StringUtilsService);
+  private systemConfigService = inject(SystemConfigService);
   @Input()
   public expenseClaim: ExpenseClaim;
-  protected logger: Logger;
   public members: Member[];
   public group: Organisation;
   private subscriptions: Subscription[] = [];
-
-  constructor(
-    public display: ExpenseDisplayService,
-    public urlService: UrlService,
-    public stringUtilsService: StringUtilsService,
-    private systemConfigService: SystemConfigService,
-    loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("ExpenseNotificationDetailsComponent", NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.logger.debug("ngOnInit:data ->", this.expenseClaim);

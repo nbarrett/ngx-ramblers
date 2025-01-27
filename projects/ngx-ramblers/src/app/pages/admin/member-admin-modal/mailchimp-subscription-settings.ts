@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
@@ -102,25 +102,19 @@ import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe"
 })
 export class MailChimpSubscriptionSettingsComponent implements OnInit {
 
-  private logger: Logger;
+  private logger: Logger = inject(LoggerFactory).createLogger("MailChimpSubscriptionSettingsComponent", NgxLoggerLevel.ERROR);
+  stringUtils = inject(StringUtilsService);
+  private mailchimpLinkService = inject(MailchimpLinkService);
+  protected dateUtils = inject(DateUtilsService);
   public member: Member;
   public mailchimpConfig: MailchimpConfig;
 
   @Input("member") set memberValue(member: Member) {
     this.member = member;
   }
-
   @Input("mailchimpConfig") set mailConfigValue(mailchimpConfig: MailchimpConfig) {
     this.mailchimpConfig = mailchimpConfig;
   }
-
-  constructor(public stringUtils: StringUtilsService,
-              private mailchimpLinkService: MailchimpLinkService,
-              protected dateUtils: DateUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("MailChimpSubscriptionSettingsComponent", NgxLoggerLevel.OFF);
-  }
-
 
   ngOnInit() {
   }

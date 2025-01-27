@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Member } from "../models/member.model";
 import { FullNamePipe } from "../pipes/full-name.pipe";
@@ -10,13 +10,12 @@ import { MemberLoginService } from "./member/member-login.service";
   providedIn: "root"
 })
 export class ProfileConfirmationService {
-  private logger: Logger;
 
-  constructor(private memberLoginService: MemberLoginService,
-              private dateUtils: DateUtilsService,
-              private fullName: FullNamePipe, loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(ProfileConfirmationService, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("ProfileConfirmationService", NgxLoggerLevel.ERROR);
+  private memberLoginService = inject(MemberLoginService);
+  private dateUtils = inject(DateUtilsService);
+  private fullName = inject(FullNamePipe);
+
 
   confirmProfile(member: Member) {
     if (member) {

@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { MailchimpConfig } from "../../models/mailchimp.model";
 import { Member } from "../../models/member.model";
@@ -13,15 +13,12 @@ import { MailchimpListService } from "./mailchimp-list.service";
   providedIn: "root"
 })
 export class MailchimpListUpdaterService {
-  private logger: Logger;
 
-  constructor(private mailchimpConfigService: MailchimpConfigService,
-              private mailchimpListService: MailchimpListService,
-              private stringUtils: StringUtilsService,
-              private mailchimpListSubscriptionService: MailchimpListSubscriptionService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(MailchimpListUpdaterService, NgxLoggerLevel.OFF);
-  }
+  private logger: Logger = inject(LoggerFactory).createLogger("MailchimpListUpdaterService", NgxLoggerLevel.ERROR);
+  private mailchimpConfigService = inject(MailchimpConfigService);
+  private mailchimpListService = inject(MailchimpListService);
+  private stringUtils = inject(StringUtilsService);
+  private mailchimpListSubscriptionService = inject(MailchimpListSubscriptionService);
 
   updateMailchimpLists(notify: AlertInstance, members: Member[]): Promise<any> {
     this.logger.info("updateMailchimpLists:members:", members);

@@ -1,5 +1,5 @@
-import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
-import { NgSelectComponent, NgOptgroupTemplateDirective } from "@ng-select/ng-select";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
+import { NgOptgroupTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import {
   GroupEvent,
   GroupEventsFilter,
@@ -69,6 +69,12 @@ import { FormsModule } from "@angular/forms";
     imports: [DatePickerComponent, NgSelectComponent, FormsModule, NgOptgroupTemplateDirective]
 })
 export class GroupEventSelectorComponent implements OnInit {
+  private logger: Logger = inject(LoggerFactory).createLogger("GroupEventSelectorComponent", NgxLoggerLevel.ERROR);
+  numberUtilsService = inject(NumberUtilsService);
+  private committeeQueryService = inject(CommitteeQueryService);
+  dateUtils = inject(DateUtilsService);
+  stringUtils = inject(StringUtilsService);
+
 
   @Input() eventId: string;
   @Input() label: string;
@@ -84,22 +90,12 @@ export class GroupEventSelectorComponent implements OnInit {
   @Output() eventCleared: EventEmitter<void> = new EventEmitter();
 
   public dataSource: string;
-  private logger: Logger;
   public groupEvents: GroupEvent[] = [];
   private search: string;
   public fromDate: number = this.dateUtils.asMoment().subtract(2, "weeks").valueOf();
   public toDate: number = this.dateUtils.asMoment().add(1, "day").valueOf();
   public id: string;
   public groupEventType: GroupEventType;
-
-  constructor(public numberUtilsService: NumberUtilsService,
-              private committeeQueryService: CommitteeQueryService,
-              public dateUtils: DateUtilsService,
-              public stringUtils: StringUtilsService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger("GroupEventSelectorComponent", NgxLoggerLevel.OFF);
-  }
-
 
   async ngOnInit() {
     this.logger.info("ngOnInit:search", this.search, "eventId:", this.eventId);

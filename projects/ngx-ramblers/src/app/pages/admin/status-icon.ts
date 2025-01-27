@@ -1,4 +1,4 @@
-import { Component, Input } from "@angular/core";
+import { Component, inject, Input } from "@angular/core";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { IconService } from "../../services/icon-service/icon-service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
@@ -18,11 +18,10 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
     imports: [FontAwesomeModule]
 })
 export class StatusIconComponent {
-  protected noLabel: boolean;
 
-  constructor(protected icons: IconService,
-              protected stringUtils: StringUtilsService) {
-  }
+  protected icons = inject(IconService);
+  protected stringUtils = inject(StringUtilsService);
+  protected noLabel: boolean;
 
   @Input() status: string;
 

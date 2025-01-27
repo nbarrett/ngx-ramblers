@@ -1,8 +1,8 @@
-import { ChangeDetectionStrategy, Component, OnInit, ViewChild } from "@angular/core";
+import { ChangeDetectionStrategy, Component, inject, OnInit, ViewChild } from "@angular/core";
 import { faMeetup } from "@fortawesome/free-brands-svg-icons";
 import first from "lodash-es/first";
 import range from "lodash-es/range";
-import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { NgxLoggerLevel } from "ngx-logger";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -19,7 +19,9 @@ import { PageComponent } from "../../../page/page.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
 import { MarkdownComponent } from "ngx-markdown";
-import { WalkMeetupConfigParametersComponent } from "../walk-meetup-config-parameters/walk-meetup-config-parameters.component";
+import {
+  WalkMeetupConfigParametersComponent
+} from "../walk-meetup-config-parameters/walk-meetup-config-parameters.component";
 
 @Component({
     selector: "app-walk-meetup-settings",
@@ -29,7 +31,13 @@ import { WalkMeetupConfigParametersComponent } from "../walk-meetup-config-param
     imports: [PageComponent, FontAwesomeModule, TabsetComponent, TabDirective, FormsModule, MarkdownEditorComponent, MarkdownComponent, WalkMeetupConfigParametersComponent]
 })
 export class WalkMeetupSettingsComponent implements OnInit {
-  private logger: Logger;
+
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkMeetupSettingsComponent", NgxLoggerLevel.ERROR);
+  private urlService = inject(UrlService);
+  private contentTextService = inject(ContentTextService);
+  private meetupService = inject(MeetupService);
+  private broadcastService = inject<BroadcastService<ContentText>>(BroadcastService);
+  protected notifierService = inject(NotifierService);
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public contentTextItems: ContentText[] = [];
@@ -41,14 +49,6 @@ export class WalkMeetupSettingsComponent implements OnInit {
   private guestLimits: number[];
   faMeetup = faMeetup;
   public view: View = View.VIEW;
-  constructor(private urlService: UrlService,
-              private contentTextService: ContentTextService,
-              private meetupService: MeetupService,
-              private broadcastService: BroadcastService<ContentText>,
-              protected notifierService: NotifierService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(WalkMeetupSettingsComponent, NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.logger.debug("ngOnInit");

@@ -1,7 +1,5 @@
-import { Component, Input, OnInit } from "@angular/core";
-import { NgxLoggerLevel } from "ngx-logger";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { PageContentRow } from "../../../models/content-text.model";
-import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
@@ -38,17 +36,12 @@ import { FormsModule } from "@angular/forms";
 })
 
 export class RowSettingsActionButtonsComponent implements OnInit {
-  private logger: Logger;
+  siteEditService = inject(SiteEditService);
+  private numberUtils = inject(NumberUtilsService);
+  actions = inject(PageContentActionsService);
   @Input()
   public row: PageContentRow;
   protected id: string;
-
-  constructor(loggerFactory: LoggerFactory,
-              public siteEditService: SiteEditService,
-              private numberUtils: NumberUtilsService,
-              public actions: PageContentActionsService) {
-    this.logger = loggerFactory.createLogger("RowSettingsActionButtonsComponent", NgxLoggerLevel.OFF);
-  }
 
   ngOnInit() {
     this.id = this.numberUtils.generateUid();

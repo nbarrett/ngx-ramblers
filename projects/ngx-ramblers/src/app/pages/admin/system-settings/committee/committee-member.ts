@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { BuiltInRole, CommitteeMember, RoleType } from "../../../../models/committee.model";
 import { Member } from "../../../../models/member.model";
@@ -131,19 +131,14 @@ import { MarkdownComponent } from "ngx-markdown";
     imports: [FormsModule, BadgeButtonComponent, CommitteeMemberLookupComponent, CreateOrAmendSenderComponent, CopyIconComponent, MarkdownComponent]
 })
 export class CommitteeMemberComponent implements OnInit {
-  constructor(public stringUtils: StringUtilsService,
-              private fullNamePipe: FullNamePipe,
-              private urlService: UrlService,
-              private memberNamingService: MemberNamingService,
-              private committeeConfigService: CommitteeConfigService,
-              loggerFactory: LoggerFactory) {
-    this.logger = loggerFactory.createLogger(CommitteeMemberComponent, NgxLoggerLevel.ERROR);
-  }
-
+  private logger: Logger = inject(LoggerFactory).createLogger("CommitteeMemberComponent", NgxLoggerLevel.ERROR);
+  stringUtils = inject(StringUtilsService);
+  private fullNamePipe = inject(FullNamePipe);
+  private urlService = inject(UrlService);
+  private memberNamingService = inject(MemberNamingService);
+  private committeeConfigService = inject(CommitteeConfigService);
   @Input()
   public committeeMember: CommitteeMember;
-
-  private logger: Logger;
   @Input() roles!: CommitteeMember[];
   @Input() index!: number;
   roleTypes: KeyValue<string>[] = enumKeyValues(RoleType);
