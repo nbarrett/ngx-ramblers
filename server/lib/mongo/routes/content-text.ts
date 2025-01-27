@@ -3,7 +3,7 @@ import * as authConfig from "../../auth/auth-config";
 import * as crudController from "../controllers/crud-controller";
 import { contentText } from "../models/content-text";
 
-const controller = crudController.create(contentText, true);
+const controller = crudController.create(contentText);
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);
