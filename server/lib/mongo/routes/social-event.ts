@@ -3,7 +3,7 @@ import * as authConfig from "../../auth/auth-config";
 import { socialEvent } from "../models/social-event";
 import * as crudController from "../controllers/crud-controller";
 
-const controller = crudController.create(socialEvent, true);
+const controller = crudController.create(socialEvent);
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);

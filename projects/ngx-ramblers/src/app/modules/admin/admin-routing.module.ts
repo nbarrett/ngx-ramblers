@@ -1,49 +1,103 @@
 import { NgModule } from "@angular/core";
 import { RouterModule } from "@angular/router";
 import { LoggedInGuard } from "../../guards/admin-login-guard";
-import { SetPasswordComponent } from "../../login/set-password.component";
-import { AdminComponent } from "../../pages/admin/admin/admin.component";
-import { ExpensesComponent } from "../../pages/admin/expenses/expenses.component";
-import { MemberAdminComponent } from "../../pages/admin/member-admin/member-admin.component";
-import { MemberBulkLoadComponent } from "../../pages/admin/member-bulk-load/member-bulk-load.component";
-import { MemberLoginAuditComponent } from "../../pages/admin/member-login-audit/member-login-audit.component";
-import { ChangePasswordComponent } from "../../pages/admin/profile/change-password.component";
-import { ContactDetailsComponent } from "../../pages/admin/profile/contact-details.component";
-import { EmailSubscriptionsComponent } from "../../pages/admin/profile/email-subscriptions.component";
-import { CommitteeSettingsComponent } from "../../pages/admin/system-settings/committee/committee-settings";
-import { MailchimpSettingsComponent } from "../../pages/admin/system-settings/mailchimp/mailchimp-settings";
-import { SystemSettingsComponent } from "../../pages/admin/system-settings/system-settings";
-import { BannerComponent } from "../../pages/banner/banner.component";
-import { MailingPreferencesModalComponent } from "../../pages/mailing-preferences/mailing-preferences-modal.component";
 import { hasDynamicPath } from "../../services/path-matchers";
-import { DynamicContentPageComponent } from "../common/dynamic-content-page/dynamic-content-page";
 import { AdminModule } from "./admin.module";
 import { AreaExistsGuard } from "../../guards/area-exists-guard";
-import { ImageListEditPageComponent } from "../../carousel/edit/image-list-page/image-list-edit-page";
 import { AdminAuthGuard } from "../../guards/admin-auth-guard";
-import { MailSettingsComponent } from "../../pages/admin/system-settings/mail/mail-settings";
 
 @NgModule({
   imports: [AdminModule, RouterModule.forChild([
-    {path: "", component: AdminComponent, canActivate: [AreaExistsGuard]},
-    {path: "expenses", component: ExpensesComponent, canActivate: [LoggedInGuard]},
-    {path: "expenses/:expense-id", component: ExpensesComponent, canActivate: [LoggedInGuard]},
-    {path: "mailing-preferences", component: MailingPreferencesModalComponent, canActivate: [AdminAuthGuard]},
-    {path: "member-login-audit", component: MemberLoginAuditComponent, canActivate: [AdminAuthGuard]},
-    {path: "member-admin", component: MemberAdminComponent, canActivate: [AdminAuthGuard]},
-    {path: "change-password", component: ChangePasswordComponent, canActivate: [LoggedInGuard]},
-    {path: "email-subscriptions", component: EmailSubscriptionsComponent, canActivate: [LoggedInGuard]},
-    {path: "contact-details", component: ContactDetailsComponent, canActivate: [LoggedInGuard]},
-    {path: "member-bulk-load/:tab", component: MemberBulkLoadComponent, canActivate: [AdminAuthGuard]},
-    {path: "member-bulk-load", component: MemberBulkLoadComponent, canActivate: [AdminAuthGuard]},
-    {path: "system-settings", component: SystemSettingsComponent, canActivate: [AdminAuthGuard]},
-    {path: "set-password/:password-reset-id", component: SetPasswordComponent},
-    {path: "mailchimp-settings", component: MailchimpSettingsComponent, canActivate: [AdminAuthGuard]},
-    {path: "mail-settings", component: MailSettingsComponent, canActivate: [AdminAuthGuard]},
-    {path: "committee-settings", component: CommitteeSettingsComponent, canActivate: [AdminAuthGuard]},
-    {path: "banners", component: BannerComponent},
-    {path: "carousel-editor", component: ImageListEditPageComponent},
-    {matcher: hasDynamicPath, component: DynamicContentPageComponent},
+    {
+      path: "", loadComponent: () => import("../../pages/admin/admin/admin.component")
+        .then(m => m.AdminComponent), canActivate: [AreaExistsGuard]
+    },
+    {
+      path: "expenses", loadComponent: () => import("../../pages/admin/expenses/expenses.component")
+        .then(m => m.ExpensesComponent), canActivate: [LoggedInGuard]
+    },
+    {
+      path: "expenses/:expense-id", loadComponent: () => import("../../pages/admin/expenses/expenses.component")
+        .then(m => m.ExpensesComponent), canActivate: [LoggedInGuard]
+    },
+    {
+      path: "mailing-preferences",
+      loadComponent: () => import("../../pages/mailing-preferences/mailing-preferences-modal.component")
+        .then(m => m.MailingPreferencesModalComponent),
+      canActivate: [AdminAuthGuard]
+    },
+    {
+      path: "member-login-audit",
+      loadComponent: () => import("../../pages/admin/member-login-audit/member-login-audit.component")
+        .then(m => m.MemberLoginAuditComponent),
+      canActivate: [AdminAuthGuard]
+    },
+    {
+      path: "member-admin", loadComponent: () => import("../../pages/admin/member-admin/member-admin.component")
+        .then(m => m.MemberAdminComponent), canActivate: [AdminAuthGuard]
+    },
+    {
+      path: "change-password", loadComponent: () => import("../../pages/admin/profile/change-password.component")
+        .then(m => m.ChangePasswordComponent), canActivate: [LoggedInGuard]
+    },
+    {
+      path: "email-subscriptions",
+      loadComponent: () => import("../../pages/admin/profile/email-subscriptions.component")
+        .then(m => m.EmailSubscriptionsComponent),
+      canActivate: [LoggedInGuard]
+    },
+    {
+      path: "contact-details", loadComponent: () => import("../../pages/admin/profile/contact-details.component")
+        .then(m => m.ContactDetailsComponent), canActivate: [LoggedInGuard]
+    },
+    {
+      path: "member-bulk-load/:tab",
+      loadComponent: () => import("../../pages/admin/member-bulk-load/member-bulk-load.component")
+        .then(m => m.MemberBulkLoadComponent),
+      canActivate: [AdminAuthGuard]
+    },
+    {
+      path: "member-bulk-load",
+      loadComponent: () => import("../../pages/admin/member-bulk-load/member-bulk-load.component")
+        .then(m => m.MemberBulkLoadComponent),
+      canActivate: [AdminAuthGuard]
+    },
+    {
+      path: "system-settings", loadComponent: () => import("../../pages/admin/system-settings/system-settings")
+        .then(m => m.SystemSettingsComponent), canActivate: [AdminAuthGuard]
+    },
+    {
+      path: "set-password/:password-reset-id", loadComponent: () => import("../../login/set-password.component")
+        .then(m => m.SetPasswordComponent)
+    },
+    {
+      path: "mailchimp-settings",
+      loadComponent: () => import("../../pages/admin/system-settings/mailchimp/mailchimp-settings")
+        .then(m => m.MailchimpSettingsComponent),
+      canActivate: [AdminAuthGuard]
+    },
+    {
+      path: "mail-settings", loadComponent: () => import("../../pages/admin/system-settings/mail/mail-settings")
+        .then(m => m.MailSettingsComponent), canActivate: [AdminAuthGuard]
+    },
+    {
+      path: "committee-settings",
+      loadComponent: () => import("../../pages/admin/system-settings/committee/committee-settings")
+        .then(m => m.CommitteeSettingsComponent),
+      canActivate: [AdminAuthGuard]
+    },
+    {
+      path: "banners", loadComponent: () => import("../../pages/banner/banner.component")
+        .then(m => m.BannerComponent)
+    },
+    {
+      path: "carousel-editor", loadComponent: () => import("../../carousel/edit/image-list-page/image-list-edit-page")
+        .then(m => m.ImageListEditPageComponent)
+    },
+    {
+      matcher: hasDynamicPath, loadComponent: () => import("../common/dynamic-content-page/dynamic-content-page")
+        .then(m => m.DynamicContentPageComponent)
+    },
   ])]
 })
 export class AdminRoutingModule {

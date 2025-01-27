@@ -1,77 +1,78 @@
 import { NgModule } from "@angular/core";
 import { RouterModule } from "@angular/router";
-import { WalkAddSlotsComponent } from "../../pages/walks/walk-add-slots/walk-add-slots.component";
-import { WalkAdminComponent } from "../../pages/walks/walk-admin/walk-admin.component";
-import { WalkEditFullPageComponent } from "../../pages/walks/walk-edit-fullpage/walk-edit-full-page.component";
-import { WalkEditComponent } from "../../pages/walks/walk-edit/walk-edit.component";
-import { WalkExportComponent } from "../../pages/walks/walk-export/walk-export.component";
-import { WalkListComponent } from "../../pages/walks/walk-list/walk-list.component";
-import { WalkMeetupSettingsComponent } from "../../pages/walks/walk-meetup-settings/walk-meetup-settings.component";
-import { WalkViewComponent } from "../../pages/walks/walk-view/walk-view";
 import { hasDynamicPath, hasMongoId, hasRamblersIdOrUrl } from "../../services/path-matchers";
 import { WalksAuthGuard } from "../../guards/walks-auth-guard";
-import { ActionButtonsComponent } from "../common/action-buttons/action-buttons";
-import { DynamicContentPageComponent } from "../common/dynamic-content-page/dynamic-content-page";
 import { WalksModule } from "./walks.module";
 import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-guard";
-import { WalkImportComponent } from "../../pages/walks/walk-import/walk-import.component";
 
 @NgModule({
   imports: [WalksModule, RouterModule.forChild([
     {
       path: "add",
-      component: WalkEditComponent,
+      loadComponent: () => import("../../pages/walks/walk-edit/walk-edit.component")
+        .then(m => m.WalkEditComponent),
       canActivate: [WalksAuthGuard, WalksPopulationLocalGuard]
     },
     {
       path: "admin",
-      component: WalkAdminComponent,
+      loadComponent: () => import("../../pages/walks/walk-admin/walk-admin.component")
+        .then(m => m.WalkAdminComponent),
       canActivate: [WalksAuthGuard]
     },
     {
       path: "admin/add-walk-slots",
-      component: WalkAddSlotsComponent,
+      loadComponent: () => import("../../pages/walks/walk-add-slots/walk-add-slots.component")
+        .then(m => m.WalkAddSlotsComponent),
       canActivate: [WalksAuthGuard]
     },
     {
       path: "admin/export",
-      component: WalkExportComponent,
+      loadComponent: () => import("../../pages/walks/walk-export/walk-export.component")
+        .then(m => m.WalkExportComponent),
       canActivate: [WalksAuthGuard]
     },
     {
       path: "admin/import",
-      component: WalkImportComponent,
+      loadComponent: () => import("../../pages/walks/walk-import/walk-import.component")
+        .then(m => m.WalkImportComponent),
       canActivate: [WalksAuthGuard]
     },
     {
       path: "admin/meetup-settings",
-      component: WalkMeetupSettingsComponent,
+      loadComponent: () => import("../../pages/walks/walk-meetup-settings/walk-meetup-settings.component")
+        .then(m => m.WalkMeetupSettingsComponent),
       canActivate: [WalksAuthGuard]
     },
     {
       path: "edit/:walk-id",
-      component: WalkEditFullPageComponent,
+      loadComponent: () => import("../../pages/walks/walk-edit-fullpage/walk-edit-full-page.component")
+        .then(m => m.WalkEditFullPageComponent),
       canActivate: [WalksPopulationLocalGuard]
     },
     {
       path: "carousel",
-      component: ActionButtonsComponent
+      loadComponent: () => import("../common/action-buttons/action-buttons")
+        .then(m => m.ActionButtonsComponent)
     },
     {
       matcher: hasMongoId,
-      component: WalkViewComponent
+      loadComponent: () => import("../../pages/walks/walk-view/walk-view")
+        .then(m => m.WalkViewComponent)
     },
     {
       matcher: hasRamblersIdOrUrl,
-      component: WalkViewComponent
+      loadComponent: () => import("../../pages/walks/walk-view/walk-view")
+        .then(m => m.WalkViewComponent)
     },
     {
       matcher: hasDynamicPath,
-      component: DynamicContentPageComponent
+      loadComponent: () => import("../common/dynamic-content-page/dynamic-content-page")
+        .then(m => m.DynamicContentPageComponent)
     },
     {
       path: "**",
-      component: WalkListComponent
+      loadComponent: () => import("../../pages/walks/walk-list/walk-list.component")
+        .then(m => m.WalkListComponent)
     },
   ])]
 })
