@@ -1,15 +1,12 @@
 import { NgModule } from "@angular/core";
 import { RouterModule } from "@angular/router";
-
 import { hasDynamicPath, hasMongoId } from "../../services/path-matchers";
-
 import { AreaExistsGuard } from "../../guards/area-exists-guard";
 import { SocialPopulationLocalGuard } from "../../guards/social-population-local-guard";
-import { SharedModule } from "../../shared-module";
 
 
 @NgModule({
-  imports: [SharedModule, RouterModule.forChild([
+  imports: [RouterModule.forChild([
     {
       path: "new", loadComponent: () => import("../../pages/social/edit/social-edit.component")
         .then(m => m.SocialEditComponent), canActivate: [AreaExistsGuard, SocialPopulationLocalGuard]

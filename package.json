@@ -14,7 +14,7 @@
     "lint": "ng lint",
     "lintfix": "ng lint --fix",
     "postbuild": "npm install --prefix server",
-    "serve": "ng serve --project ngx-ramblers --configuration development",
+    "serve": "ng serve --project ngx-ramblers --configuration development --verbose",
     "test": "ng test"
   },
   "cacheDirectories": [

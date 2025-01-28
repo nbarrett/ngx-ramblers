@@ -1,10 +1,9 @@
 import { NgModule } from "@angular/core";
 import { RouterModule } from "@angular/router";
 import { hasDynamicPathAndNonNumericLastPathSegment } from "../../services/path-matchers";
-import { CommitteeModule } from "./committee.module";
 
 @NgModule({
-  imports: [CommitteeModule, RouterModule.forChild([
+  imports: [RouterModule.forChild([
     {
       path: "send-notification/:committee-event-id",
       loadComponent: () => import("../../pages/committee/send-notification/committee-send-notification.component")

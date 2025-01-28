@@ -1,86 +1,151 @@
-import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
-import { ApplicationRef, DoBootstrap, NgModule } from "@angular/core";
+import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
+import { ApplicationRef, DoBootstrap, inject, NgModule, provideAppInitializer } from "@angular/core";
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations";
 import { AppRoutingModule } from "../../app-routing.module";
 import { ContainerComponent } from "../../container/container";
-import { FooterComponent } from "../../footer/footer";
-import { SocialMediaLinksComponent } from "../../footer/icons/footer-icons";
-import { HeaderBarComponent } from "../../header-bar/header-bar";
-import { HeaderButtonsComponent } from "../../header-buttons/header-buttons";
-import { LoginPanelComponent } from "../../login-panel/login-panel.component";
-import { ForgotPasswordComponent } from "../../login/forgot-password.component";
-import { LoginComponent } from "../../login/login.component";
-import { SetPasswordComponent } from "../../login/set-password.component";
-import { LogoutComponent } from "../../logout/logout.component";
-import { MeetupDescriptionComponent } from "../../notifications/walks/templates/meetup/meetup-description.component";
-import { PageNavigatorComponent } from "../../page-navigator/page-navigator.component";
-import { BannerImageSelectorComponent } from "../../pages/banner/banner-image-selector.component";
-import { BannerLogoAndTextLinesOutputComponent } from "../../pages/banner/banner-logo-and-text-lines-output";
-import { BannerHeadLogoComponent } from "../../pages/banner/banner-logo/banner-logo";
-import { BannerPapercutOutputComponent } from "../../pages/banner/banner-papercut-output.component";
-import { BannerTitleConfigComponent } from "../../pages/banner/banner-title-config.component";
-import { BannerTitleOutputComponent } from "../../pages/banner/banner-title-output.component";
-import { BannerTitlePartConfigComponent } from "../../pages/banner/banner-title-part-config.component";
-import { BannerComponent } from "../../pages/banner/banner.component";
-import { IconSelectorComponent } from "../../pages/banner/icon-selector";
-import { FacebookComponent } from "../../pages/facebook/facebook.component";
-import { HomeComponent } from "../../pages/home/home.component";
-import { PrivacyPolicyComponent } from "../../pages/home/privacy-policy.component";
-import { HowToModalComponent } from "../../pages/how-to/how-to-modal.component";
-import { HowToSubjectListingComponent } from "../../pages/how-to/subject-listing/subject-listing";
-import { InstagramComponent } from "../../pages/instagram/instagram.component";
-import { LoginModalComponent } from "../../pages/login/login-modal/login-modal.component";
 import { ChangedItemsPipe } from "../../pipes/changed-items.pipe";
-import { SharedModule } from "../../shared-module";
-import { SiteEditComponent } from "../../site-edit/site-edit.component";
-import { CardContainerComponent } from "./card-container/card-container.component";
-import { NavbarContentComponent } from "./navbar-content/navbar-content";
-import { NavbarComponent } from "./navbar/navbar";
 import { RecaptchaModule } from "ng-recaptcha-2";
-import { AdminModule } from "../admin/admin.module";
+import { ScrollingModule } from "@angular/cdk/scrolling";
+import { AsyncPipe, CommonModule } from "@angular/common";
+import { FormsModule } from "@angular/forms";
+import { RouteReuseStrategy, RouterModule } from "@angular/router";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { NgSelectModule } from "@ng-select/ng-select";
+import { FileUploadModule } from "ng2-file-upload";
+import { AccordionModule } from "ngx-bootstrap/accordion";
+import { AlertModule } from "ngx-bootstrap/alert";
+import { CarouselModule } from "ngx-bootstrap/carousel";
+import { CollapseModule } from "ngx-bootstrap/collapse";
+import { BsDatepickerModule } from "ngx-bootstrap/datepicker";
+import { BsDropdownModule } from "ngx-bootstrap/dropdown";
+import { ModalModule } from "ngx-bootstrap/modal";
+import { PaginationModule } from "ngx-bootstrap/pagination";
+import { PopoverModule } from "ngx-bootstrap/popover";
+import { TabsModule } from "ngx-bootstrap/tabs";
+import { TooltipModule } from "ngx-bootstrap/tooltip";
+import { TypeaheadModule } from "ngx-bootstrap/typeahead";
+import { ImageCropperModule } from "ngx-image-cropper";
+import { LeafletModule } from "@bluehalo/ngx-leaflet";
+import { CustomNGXLoggerService, LoggerModule, NgxLoggerLevel } from "ngx-logger";
+import { MarkdownModule } from "ngx-markdown";
+import { TagifyModule } from "ngx-tagify";
+import { UiSwitchModule } from "ngx-ui-switch";
+import { AuthInterceptor } from "../../auth/auth.interceptor";
+import { GALLERY_CONFIG, GalleryConfig, GalleryModule } from "ng-gallery";
+import { LIGHTBOX_CONFIG, LightboxConfig, LightboxModule } from "ng-gallery/lightbox";
+import { NgxCaptureModule } from "ngx-capture";
+import { ButtonsModule } from "ngx-bootstrap/buttons";
+import { NgxGoogleAnalyticsModule, NgxGoogleAnalyticsRouterModule } from "ngx-google-analytics";
+import { CustomReuseStrategy } from "../../routing/custom-reuse-strategy";
+import { initializeGtag } from "../../pages/admin/system-settings/google-analytics/tag-manager";
+import { SystemConfigService } from "../../services/system/system-config.service";
+import { LoggerFactory } from "../../services/logger-factory.service";
+import { LastConfirmedDateDisplayed } from "../../pipes/last-confirmed-date-displayed.pipe";
+import { LineFeedsToBreaksPipe } from "../../pipes/line-feeds-to-breaks.pipe";
+import { FullNamePipe } from "../../pipes/full-name.pipe";
+import { FullNameWithAliasOrMePipe } from "../../pipes/full-name-with-alias-or-me.pipe";
+import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
+import { HumanisePipe } from "../../pipes/humanise.pipe";
+import { KebabCasePipe } from "../../pipes/kebabcase.pipe";
+import { MeetupEventSummaryPipe } from "../../pipes/meetup-event-summary.pipe";
+import { MemberIdToFullNamePipe } from "../../pipes/member-id-to-full-name.pipe";
+import { MemberIdsToFullNamesPipe } from "../../pipes/member-ids-to-full-names.pipe";
+import { SearchFilterPipe } from "../../pipes/search-filter.pipe";
+import { SnakeCasePipe } from "../../pipes/snakecase.pipe";
+import { UpdatedAuditPipe } from "../../pipes/updated-audit-pipe";
+import { ValueOrDefaultPipe } from "../../pipes/value-or-default.pipe";
+import { AuditDeltaChangedItemsPipePipe } from "../../pipes/audit-delta-changed-items.pipe";
+import { AuditDeltaValuePipe } from "../../pipes/audit-delta-value.pipe";
+import { BroadcastService } from "../../services/broadcast-service";
+import { DisplayDateAndTimePipe } from "../../pipes/display-date-and-time.pipe";
+import { DisplayTimePipe } from "../../pipes/display-time.pipe";
+import { DisplayDateNoDayPipe } from "../../pipes/display-date-no-day.pipe";
+import { DisplayDatePipe } from "../../pipes/display-date.pipe";
+import { DisplayDatesAndTimesPipe } from "../../pipes/display-dates-and-times.pipe";
+import { DisplayDatesPipe } from "../../pipes/display-dates.pipe";
+import { DisplayDayPipe } from "../../pipes/display-day.pipe";
+import { EventNotePipe } from "../../pipes/event-note.pipe";
 
 @NgModule({
-    imports: [AppRoutingModule,
-        BrowserAnimationsModule,
-        RecaptchaModule,
-        SharedModule.forRoot(),
-        AdminModule, BannerComponent,
-        BannerHeadLogoComponent,
-        BannerImageSelectorComponent,
-        BannerLogoAndTextLinesOutputComponent,
-        BannerPapercutOutputComponent,
-        BannerTitleConfigComponent,
-        BannerTitleOutputComponent,
-        BannerTitlePartConfigComponent,
-        CardContainerComponent,
-        ChangedItemsPipe,
-        ContainerComponent,
-        FacebookComponent,
-        FooterComponent,
-        ForgotPasswordComponent,
-        HeaderBarComponent,
-        HeaderButtonsComponent,
-        HomeComponent,
-        HowToModalComponent,
-        HowToSubjectListingComponent,
-        IconSelectorComponent,
-        InstagramComponent,
-        LoginComponent,
-        LoginModalComponent,
-        LoginPanelComponent,
-        LogoutComponent,
-        MeetupDescriptionComponent,
-        NavbarComponent,
-        NavbarContentComponent,
-        PageNavigatorComponent,
-        PrivacyPolicyComponent,
-        SetPasswordComponent,
-        SiteEditComponent,
-        SocialMediaLinksComponent], providers: [provideHttpClient(withInterceptorsFromDi())] })
-
+  imports: [
+    AppRoutingModule,
+    BrowserAnimationsModule,
+    RecaptchaModule,
+    ScrollingModule,
+    AsyncPipe,
+    CommonModule,
+    FormsModule,
+    RouterModule,
+    FontAwesomeModule,
+    NgSelectModule,
+    FileUploadModule,
+    AccordionModule.forRoot(),
+    AlertModule.forRoot(),
+    CarouselModule.forRoot(),
+    CollapseModule.forRoot(),
+    BsDatepickerModule.forRoot(),
+    BsDropdownModule.forRoot(),
+    ModalModule.forRoot(),
+    PaginationModule.forRoot(),
+    PopoverModule.forRoot(),
+    TabsModule.forRoot(),
+    TooltipModule.forRoot(),
+    TypeaheadModule.forRoot(),
+    ImageCropperModule,
+    LeafletModule,
+    LoggerModule.forRoot({serverLoggingUrl: "api/logs", level: NgxLoggerLevel.OFF, serverLogLevel: NgxLoggerLevel.OFF}),
+    MarkdownModule.forRoot(),
+    TagifyModule.forRoot(),
+    UiSwitchModule,
+    GalleryModule,
+    LightboxModule,
+    NgxCaptureModule,
+    ButtonsModule,
+    NgxGoogleAnalyticsModule,
+    NgxGoogleAnalyticsRouterModule,
+    ChangedItemsPipe,
+  ],
+  providers: [
+    provideHttpClient(withInterceptorsFromDi()),
+    AuditDeltaChangedItemsPipePipe,
+    AuditDeltaValuePipe,
+    BroadcastService,
+    ChangedItemsPipe,
+    CustomNGXLoggerService,
+    DisplayDateAndTimePipe,
+    DisplayTimePipe,
+    DisplayDateNoDayPipe,
+    DisplayDatePipe,
+    DisplayDatesAndTimesPipe,
+    DisplayDatesPipe,
+    DisplayDayPipe,
+    EventNotePipe,
+    FullNamePipe,
+    FullNameWithAliasOrMePipe,
+    FullNameWithAliasPipe,
+    HumanisePipe,
+    KebabCasePipe,
+    LastConfirmedDateDisplayed,
+    LineFeedsToBreaksPipe,
+    MeetupEventSummaryPipe,
+    MemberIdToFullNamePipe,
+    MemberIdsToFullNamesPipe,
+    SearchFilterPipe,
+    SnakeCasePipe,
+    UpdatedAuditPipe,
+    ValueOrDefaultPipe,
+    {provide: RouteReuseStrategy, useClass: CustomReuseStrategy},
+    {provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true},
+    {provide: GALLERY_CONFIG, useValue: {imageSize: "cover"} as GalleryConfig},
+    {provide: LIGHTBOX_CONFIG, useValue: {keyboardShortcuts: false, exitAnimationTime: 1000} as LightboxConfig},
+    provideAppInitializer(() => {
+      const initializerFn = (initializeGtag)(inject(SystemConfigService), inject(LoggerFactory));
+      return initializerFn();
+    })
+  ]
+})
 export class AppModule implements DoBootstrap {
   ngDoBootstrap(appRef: ApplicationRef) {
     appRef.bootstrap(ContainerComponent);
   }
-
 }

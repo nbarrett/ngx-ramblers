@@ -2,11 +2,10 @@ import { NgModule } from "@angular/core";
 import { RouterModule } from "@angular/router";
 import { hasDynamicPath, hasMongoId, hasRamblersIdOrUrl } from "../../services/path-matchers";
 import { WalksAuthGuard } from "../../guards/walks-auth-guard";
-import { WalksModule } from "./walks.module";
 import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-guard";
 
 @NgModule({
-  imports: [WalksModule, RouterModule.forChild([
+  imports: [RouterModule.forChild([
     {
       path: "add",
       loadComponent: () => import("../../pages/walks/walk-edit/walk-edit.component")
