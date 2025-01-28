@@ -44,12 +44,16 @@ import { CreatedAuditPipe } from "../../../pipes/created-audit-pipe";
 import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
 import { LastConfirmedDateDisplayed } from "../../../pipes/last-confirmed-date-displayed.pipe";
 import { UpdatedAuditPipe } from "../../../pipes/updated-audit-pipe";
+import { FormatAuditPipe } from "../../../pipes/format-audit-pipe";
 
 @Component({
-    selector: "app-member-admin-modal",
-    templateUrl: "./member-admin-modal.component.html",
-    styleUrls: ["./member-admin-modal.component.sass"],
-    imports: [TabsetComponent, TabDirective, FormsModule, DatePickerComponent, MarkdownEditorComponent, TooltipDirective, FontAwesomeModule, MailChimpSubscriptionSettingsComponent, MailSubscriptionSettingsComponent, SwitchIconComponent, NgClass, JsonPipe, CreatedAuditPipe, DisplayDateAndTimePipe, FullNameWithAliasPipe, LastConfirmedDateDisplayed, UpdatedAuditPipe]
+  selector: "app-member-admin-modal",
+  templateUrl: "./member-admin-modal.component.html",
+  styleUrls: ["./member-admin-modal.component.sass"],
+  providers: [FormatAuditPipe],
+  imports: [TabsetComponent, TabDirective, FormsModule, DatePickerComponent, MarkdownEditorComponent, TooltipDirective,
+    FontAwesomeModule, MailChimpSubscriptionSettingsComponent, MailSubscriptionSettingsComponent, SwitchIconComponent,
+    NgClass, JsonPipe, CreatedAuditPipe, DisplayDateAndTimePipe, FullNameWithAliasPipe, LastConfirmedDateDisplayed, UpdatedAuditPipe]
 })
 export class MemberAdminModalComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MemberAdminModalComponent", NgxLoggerLevel.ERROR);
@@ -85,7 +89,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   public receivedInLastBulkLoad: boolean;
   public lastBulkLoadDate: number;
   public editMode: EditMode;
-  public NO_CHANGES_OR_DIFFERENCES= NO_CHANGES_OR_DIFFERENCES;
+  public NO_CHANGES_OR_DIFFERENCES = NO_CHANGES_OR_DIFFERENCES;
   public members: Member[] = [];
   public pendingMailListAudits: MailListAudit[] = [];
   public mailListAudits: MailListAudit[] = [];
@@ -221,8 +225,8 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     let notifyMessage;
     if (duplicate) {
       notifyMessage = `You've entered duplicate data: ${this.dbUtils.duplicateErrorFields(message)}.
-       A member record must have a unique Email Address, Display Name, Ramblers Membership Number and combination of First Name,
-        Last Name and Alias. Please amend the current details and try again.`;
+         A member record must have a unique Email Address, Display Name, Ramblers Membership Number and combination of First Name,
+          Last Name and Alias. Please amend the current details and try again.`;
     } else {
       notifyMessage = errorResponse;
     }

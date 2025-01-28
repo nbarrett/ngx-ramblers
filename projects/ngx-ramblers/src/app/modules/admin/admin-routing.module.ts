@@ -2,12 +2,11 @@ import { NgModule } from "@angular/core";
 import { RouterModule } from "@angular/router";
 import { LoggedInGuard } from "../../guards/admin-login-guard";
 import { hasDynamicPath } from "../../services/path-matchers";
-import { AdminModule } from "./admin.module";
 import { AreaExistsGuard } from "../../guards/area-exists-guard";
 import { AdminAuthGuard } from "../../guards/admin-auth-guard";
 
 @NgModule({
-  imports: [AdminModule, RouterModule.forChild([
+  imports: [RouterModule.forChild([
     {
       path: "", loadComponent: () => import("../../pages/admin/admin/admin.component")
         .then(m => m.AdminComponent), canActivate: [AreaExistsGuard]
