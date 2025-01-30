@@ -27,7 +27,7 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
               [disabled]="busy"
               [(ngModel)]="notificationConfig"
               (ngModelChange)="emailConfigChanged.emit($event)">
-              @for (emailConfig of mailMessagingService.notificationConfigs(notificationConfigListing); track emailConfig) {
+              @for (emailConfig of mailMessagingService.notificationConfigs(notificationConfigListing); track emailConfig.id) {
                 <option
                   [ngValue]="emailConfig"
                   class="form-control"
@@ -74,7 +74,7 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
             <select class="form-control input-sm"
               id="banner-lookup"
               [(ngModel)]="notificationConfig.bannerId">
-              @for (banner of notificationConfigListing.mailMessagingConfig.banners; track banner) {
+              @for (banner of notificationConfigListing.mailMessagingConfig.banners; track banner.id) {
                 <option
                   [ngValue]="banner.id">{{ toBannerInformation(banner) }}
                 </option>
@@ -95,7 +95,7 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
               <select [(ngModel)]="notificationConfig.templateId"
                 id="template"
                 class="form-control input-sm">
-                @for (template of notificationConfigListing?.mailMessagingConfig?.brevo?.mailTemplates?.templates; track template) {
+                @for (template of notificationConfigListing?.mailMessagingConfig?.brevo?.mailTemplates?.templates; track template.id) {
                   <option
                     [ngValue]="template.id">{{ template.name }}
                   </option>

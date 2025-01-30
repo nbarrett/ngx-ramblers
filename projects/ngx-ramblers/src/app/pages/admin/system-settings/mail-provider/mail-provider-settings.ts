@@ -45,7 +45,7 @@ import { MailchimpButtonComponent } from "../../../../modules/common/third-parti
                 <select [(ngModel)]="config.mailDefaults.mailProvider"
                   (ngModelChange)="changeMailProvider()"
                   class="form-control" id="mail-provider">
-                  @for (mailProvider of mailProviders; track mailProvider) {
+                  @for (mailProvider of mailProviders; track mailProvider.key) {
                     <option
                       [ngValue]="mailProvider.value">{{ stringUtils.asTitle(mailProvider.value) }}
                     </option>
@@ -59,7 +59,7 @@ import { MailchimpButtonComponent } from "../../../../modules/common/third-parti
                 <select [(ngModel)]="list"
                   (ngModelChange)="calculateMailProviderStats()"
                   class="form-control" id="list">
-                  @for (list of listKeyValues; track list) {
+                  @for (list of listKeyValues; track list.key) {
                     <option
                       [ngValue]="list">{{ stringUtils.asTitle(list.key) }}
                     </option>

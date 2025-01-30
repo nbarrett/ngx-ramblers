@@ -51,7 +51,7 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
             <div class="col-sm-12 mb-3">
               @if (member?.mail?.subscriptions && mailMessagingConfig) {
                 <div class="row">
-                  @for (subscription of member.mail.subscriptions; track subscription) {
+                  @for (subscription of member.mail.subscriptions; track subscription.id) {
                     <div class="col-sm-4"
                       >
                       <app-mail-subscription-setting [member]="member" [subscription]="subscription"/>

@@ -49,7 +49,7 @@ import { NgClass } from "@angular/common";
                                         caption="Sort Roles"/>
                     </div>
                     <div class="col-sm-12">
-                      @for (role of committeeConfig.roles; track role) {
+                      @for (role of committeeConfig.roles; track role.nameAndDescription) {
                         <app-committee-member [committeeMember]="role" [index]="committeeConfig.roles.indexOf(role)"
                                               [roles]="committeeConfig.roles"/>
                       }
@@ -70,7 +70,7 @@ import { NgClass } from "@angular/common";
                     <fa-icon [icon]="faAdd"></fa-icon>
                     Add new file type
                   </div>
-                  @for (fileType of committeeConfig.fileTypes; track fileType; let fileTypeIndex = $index) {
+                  @for (fileType of committeeConfig.fileTypes; track fileType.description; let fileTypeIndex = $index) {
                     <div class="row">
                       <div class="col-sm-8">
                         <div class="form-group">

@@ -41,7 +41,7 @@ import { MarkdownComponent } from "ngx-markdown";
               <select class="form-control input-sm"
                 [(ngModel)]="committeeMember.roleType"
                 id="member-selection-{{index}}">
-                @for (type of roleTypes; track type) {
+                @for (type of roleTypes; track type.value) {
                   <option
                     [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
                   </option>
@@ -55,7 +55,7 @@ import { MarkdownComponent } from "ngx-markdown";
               <select class="form-control input-sm"
                 [(ngModel)]="committeeMember.builtInRoleMapping"
                 id="member-selection-{{index}}">
-                @for (type of builtInRoles; track type) {
+                @for (type of builtInRoles; track type.value) {
                   <option
                     [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
                   </option>

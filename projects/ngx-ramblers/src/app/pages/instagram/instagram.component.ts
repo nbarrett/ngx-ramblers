@@ -21,10 +21,11 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 export class InstagramComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("InstagramComponent", NgxLoggerLevel.ERROR);
+  private instagramServiceActive = false;
   private instagramService = inject(InstagramService);
   private systemConfigService = inject(SystemConfigService);
   dateUtils = inject(DateUtilsService);
-  public recentMedia: InstagramMediaPost[];
+  public recentMedia: InstagramMediaPost[] = [];
   public externalSystems: ExternalSystems;
   private subscriptions: Subscription[] = [];
 
@@ -32,12 +33,14 @@ export class InstagramComponent implements OnInit, OnDestroy {
     this.logger.debug("ngOnInit");
     this.logger.info("subscribing to systemConfigService events");
     this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.externalSystems = item.externalSystems));
-    this.instagramService.recentMedia()
+    if (this.instagramServiceActive) {
+      this.instagramService.recentMedia()
       .then((recentMedia: InstagramRecentMediaData) => {
         this.logger.debug("Refreshed instagram recent media:recentMedia:", recentMedia);
         this.recentMedia = take(recentMedia?.data, 14);
         this.logger.info("Refreshed instagram recent media", this.recentMedia, "count =", this.recentMedia?.length);
       });
+    }
   }
 
   ngOnDestroy(): void {

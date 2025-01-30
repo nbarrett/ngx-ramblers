@@ -131,7 +131,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <select id="walks-campaign"
                             [(ngModel)]="mailchimpConfig.campaigns.walkNotification.campaignId"
                             class="form-control input-sm flex-grow-1 mr-2">
-                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign) {
+                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
                               [textContent]="campaign.settings.title"></option>
@@ -166,7 +166,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <select [(ngModel)]="mailchimpConfig.campaigns.socialEvents.campaignId"
                             id="social-events-campaign"
                             class="form-control input-sm flex-grow-1 mr-2">
-                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign) {
+                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
                               [textContent]="campaign.settings.title"></option>
@@ -201,7 +201,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <select [(ngModel)]="mailchimpConfig.campaigns.committee.campaignId"
                             id="committee-campaign-master"
                             class="form-control input-sm flex-grow-1 mr-2">
-                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign) {
+                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
                               [textContent]="campaign.settings.title"></option>
@@ -232,7 +232,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <select [(ngModel)]="mailchimpConfig.campaigns.newsletter.campaignId"
                             id="newsletter-campaign"
                             class="form-control input-sm flex-grow-1 mr-2">
-                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign) {
+                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
                               [textContent]="campaign.settings.title"></option>
@@ -268,7 +268,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                             [(ngModel)]="mailchimpConfig.campaigns.expenseNotification.campaignId"
                             id="expenses-campaign"
                             class="form-control input-sm flex-grow-1 mr-2">
-                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign) {
+                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
                               [textContent]="campaign.settings.title"></option>
@@ -303,7 +303,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <select [(ngModel)]="mailchimpConfig.campaigns.passwordReset.campaignId"
                             id="password-reset-campaign"
                             class="form-control input-sm flex-grow-1 mr-2">
-                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign) {
+                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
                               [textContent]="campaign.settings.title"></option>
@@ -378,7 +378,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <select [(ngModel)]="mailchimpConfig.campaigns.welcome.campaignId"
                             id="welcome-campaign"
                             class="form-control input-sm flex-grow-1 mr-2">
-                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign) {
+                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
                               [textContent]="campaign.settings.title"></option>
@@ -417,7 +417,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <select [(ngModel)]="mailchimpConfig.campaigns.expiredMembersWarning.campaignId"
                             id="expired-members-campaign-initial"
                             class="form-control input-sm flex-grow-1 mr-2">
-                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign) {
+                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
                               [textContent]="campaign.settings.title"></option>
@@ -456,7 +456,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <select [(ngModel)]="mailchimpConfig.campaigns.expiredMembers.campaignId"
                             id="expired-members-campaign"
                             class="form-control input-sm flex-grow-1 mr-2">
-                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign) {
+                            @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
                               [textContent]="campaign.settings.title"></option>

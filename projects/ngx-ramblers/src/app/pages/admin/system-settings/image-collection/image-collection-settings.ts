@@ -26,7 +26,7 @@ import { SystemImageEditComponent } from "../image/system-image-edit";
           <app-badge-button [icon]="faSortAlphaAsc" (click)="sortImages()"
             caption="Sort {{ imageTypeDescription }}"/>
         </div>
-        @for (image of images?.images; track image; let imageIndex = $index) {
+        @for (image of images?.images; track image.awsFileName; let imageIndex = $index) {
           <div class="col-sm-12">
             <app-system-image-edit
               [rootFolder]="rootFolder"

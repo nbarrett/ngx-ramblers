@@ -23,7 +23,7 @@
                               (ngModelChange)="onChange($event)"
                               class="form-control"
                               id="type">
-                        @for (contentText of contentTextItems; track contentText) {
+                        @for (contentText of contentTextItems; track contentText.id) {
                           <option
                             [ngValue]="contentText"
                             [textContent]="contentText.name">
@@ -42,7 +42,7 @@
               <div class="row">
                 <div class="col-sm-12">
                   <div class="mt-2 mb-2 font-weight-bold">{{selectedContent?.name}} content:</div>
-                  @for (content of contentTextItems; track content) {
+                  @for (content of contentTextItems; track content.id) {
                     @if (matching(content, selectedContent)) {
                       <div>
                         <app-markdown-editor [data]="content"

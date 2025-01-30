@@ -61,8 +61,8 @@ import { FullNamePipe } from "../../../pipes/full-name.pipe";
 import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pipe";
 
 @Component({
-    selector: "app-bulk-load",
-    template: `
+  selector: "app-bulk-load",
+  template: `
     <app-page autoTitle>
       <div class="row">
         <div class="col-sm-12">
@@ -82,409 +82,399 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                         <ul class="list-arrow">
                           <b>The following data format is supported</b>
                           <li>Since September 2020, Ramblers have switched to Using <a
-                          href="https://insight.ramblers.org.uk">InsightHub</a> for providing member data to
-                          Membership
-                          Secretaries. The format that is compatible with Member Admin is <a
-                          href="https://insight.ramblers.org.uk/#/views/MembershipSecretariesV4-AZURE/FullList">Explore/Membership/Membership
-                        Secretaries V4/FullList</a>.
-                        The file that needs to be downloaded is named <b>Full List.xlsx</b></li>
-                        <li> Click the <b>New Upload Tab</b> to continue.
-                      </li>
-                    </ul>
+                            href="https://insight.ramblers.org.uk">InsightHub</a> for providing member data to
+                            Membership
+                            Secretaries. The format that is compatible with Member Admin is <a
+                              href="https://insight.ramblers.org.uk/#/views/MembershipSecretariesV4-AZURE/FullList">Explore/Membership/Membership
+                              Secretaries V4/FullList</a>.
+                            The file that needs to be downloaded is named <b>Full List.xlsx</b></li>
+                          <li> Click the <b>New Upload Tab</b> to continue.
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </tab>
-          <tab active heading="New Upload">
-            <div class="admin-frame round-except-top-left">
-              <div class="admin-header-white-background rounded">
-                <div class="row">
-                  <div class="col-md-12">
-                    <ul class="list-arrow ml-0">
-                      <b>To load the members, follow these steps:</b>
-                      <li>Download the <a
-                        href="https://insight.ramblers.org.uk/#/views/MembershipSecretariesV4-AZURE/FullList">Explore/Membership/Membership
-                      Secretaries V4/FullList</a> from <a
-                    href="https://insight.ramblers.org.uk">InsightHub</a> to a folder on your computer.
-                  </li>
-                  <li>Click the <b>Browse for member import file</b> button below, then navigate to the
-                  downloaded file and then click <b>Open</b>. Alternatively you can drop the file on the <i>Or
-                drop file here</i> zone.
-              </li>
-              <li>The data will be loaded automatically. If the member does not match an existing member
-                based
-                on their membership number, a new member will be created with the
-                following fields populated: membership number,
-                forename, surname, postcode, private email, telephone, expiry date.
-              </li>
-              <li>If the member does match based on the membership number, the expiry date will be
-                updated.
-                Other fields will only be updated if they are blank.
-              </li>
-              <li>If all updates are performed
-                successfully, {{ systemConfig?.mailDefaults?.mailProvider | titlecase }} mailing list
-                updates will be performed automatically.
-              </li>
-              <li>If one or more errors occur during the Bulk Load, you can see the details of these errors
-                by clicking on the <b>Upload History</b> tab, Choose Status 'Error' where you will be able
-                to view the members that could not be imported.
-              </li>
-            </ul>
-          </div>
-          <div class="col-md-4">
-            <input type="submit" [disabled]="notifyTarget.busy"
-              value="Browse for member import file"
-              (click)="bulkUploadRamblersDataStart(fileElement)"
-              class="btn btn-primary w-100"
-              [disabled]="notifyTarget.busy">
-            <input #fileElement class="d-none" id="browse-to-file" name="bulkUploadRamblersDataFile"
-              type="file" value="Upload"
-              ng2FileSelect [uploader]="fileUploader">
-            <div ng2FileDrop [ngClass]="{'file-over': hasFileOver}"
-              (fileOver)="fileOver($event)"
-              [uploader]="fileUploader"
-              class="drop-zone">
-              Or drop file here
-            </div>
-          </div>
-          <div class="col-md-8">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th width="50%">Name</th>
-                  <th>Size</th>
-                  <th>Progress</th>
-                  <th>Uploaded</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (item of fileUploader.queue; track item) {
-                  <tr>
-                    <td><strong>{{ item?.file?.name }}</strong></td>
-                    @if (fileUploader.options.isHTML5) {
-                      <td
-                        nowrap>{{ item?.file?.size / 1024 / 1024 | number:'.2' }}MB
-                      </td>
-                    }
-                    @if (fileUploader.options.isHTML5) {
-                      <td>
-                        <div class="progress" style="margin-bottom: 0;">
-                          <div class="progress-bar" role="progressbar"
-                          [ngStyle]="{ 'width': item.progress + '%' }"></div>
+              </tab>
+              <tab active heading="New Upload">
+                <div class="admin-frame round-except-top-left">
+                  <div class="admin-header-white-background rounded">
+                    <div class="row">
+                      <div class="col-md-12">
+                        <ul class="list-arrow ml-0">
+                          <b>To load the members, follow these steps:</b>
+                          <li>Download the <a
+                            href="https://insight.ramblers.org.uk/#/views/MembershipSecretariesV4-AZURE/FullList">Explore/Membership/Membership
+                            Secretaries V4/FullList</a> from <a
+                            href="https://insight.ramblers.org.uk">InsightHub</a> to a folder on your computer.
+                          </li>
+                          <li>Click the <b>Browse for member import file</b> button below, then navigate to the
+                            downloaded file and then click <b>Open</b>. Alternatively you can drop the file on the <i>Or
+                              drop file here</i> zone.
+                          </li>
+                          <li>The data will be loaded automatically. If the member does not match an existing member
+                            based
+                            on their membership number, a new member will be created with the
+                            following fields populated: membership number,
+                            forename, surname, postcode, private email, telephone, expiry date.
+                          </li>
+                          <li>If the member does match based on the membership number, the expiry date will be
+                            updated.
+                            Other fields will only be updated if they are blank.
+                          </li>
+                          <li>If all updates are performed
+                            successfully, {{ systemConfig?.mailDefaults?.mailProvider | titlecase }} mailing list
+                            updates will be performed automatically.
+                          </li>
+                          <li>If one or more errors occur during the Bulk Load, you can see the details of these
+                            errors
+                            by clicking on the <b>Upload History</b> tab, Choose Status 'Error' where you will be able
+                            to view the members that could not be imported.
+                          </li>
+                        </ul>
+                      </div>
+                      <div class="col-md-4">
+                        <input type="submit" [disabled]="notifyTarget.busy"
+                               value="Browse for member import file"
+                               (click)="bulkUploadRamblersDataStart(fileElement)"
+                               class="btn btn-primary w-100"
+                               [disabled]="notifyTarget.busy">
+                        <input #fileElement class="d-none" id="browse-to-file" name="bulkUploadRamblersDataFile"
+                               type="file" value="Upload"
+                               ng2FileSelect [uploader]="fileUploader">
+                        <div ng2FileDrop [ngClass]="{'file-over': hasFileOver}"
+                             (fileOver)="fileOver($event)"
+                             [uploader]="fileUploader"
+                             class="drop-zone">
+                          Or drop file here
                         </div>
-                      </td>
+                      </div>
+                      <div class="col-md-8">
+                        <table class="table">
+                          <thead>
+                          <tr>
+                            <th width="50%">Name</th>
+                            <th>Size</th>
+                            <th>Progress</th>
+                            <th>Uploaded</th>
+                          </tr>
+                          </thead>
+                          <tbody>
+                            @for (item of fileUploader.queue; track item._file) {
+                              <tr>
+                                <td><strong>{{ item?.file?.name }}</strong></td>
+                                @if (fileUploader.options.isHTML5) {
+                                  <td class="nowrap">{{ item?.file?.size / 1024 / 1024 | number:'.2' }}MB
+                                  </td>
+                                }
+                                @if (fileUploader.options.isHTML5) {
+                                  <td>
+                                    <div class="progress" style="margin-bottom: 0;">
+                                      <div class="progress-bar" role="progressbar"
+                                           [ngStyle]="{ 'width': item.progress + '%' }"></div>
+                                    </div>
+                                  </td>
+                                }
+                                <td class="text-center">
+                                  <app-status-icon
+                                    [status]="item.isSuccess ? 'success' : item.isError ? 'error' : item.isCancel?'cancelled':'info'"/>
+                                </td>
+                              </tr>
+                            }
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    @if (notifyTarget.showAlert) {
+                      <div class="row">
+                        <div class="col-sm-12">
+                          <div class="form-group">
+                            <div class="alert {{notifyTarget.alertClass}}">
+                              <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                              @if (notifyTarget.alertTitle) {
+                                <strong> {{ notifyTarget.alertTitle }}: </strong>
+                              }
+                              {{ notifyTarget.alertMessage }}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     }
-                    <td class="text-center">
-                      <app-status-icon
-                        [status]="item.isSuccess ? 'success' : item.isError ? 'error' : item.isCancel?'cancelled':'info'"/>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
+                  </div>
+                </div>
+              </tab>
+              <tab heading="Upload History">
+                <div class="admin-frame round-except-top-left">
+                  <div class="admin-header-background rounded">
+                    <div class="admin-header-container-with-tabs">
+                      @if (memberBulkLoadAudits.length == 0) {
+                        <div class="admin-session-loading">
+                          <div class="col-sm-12 text-center mt-3">
+                            <h3>No Upload History Exists</h3>
+                          </div>
+                        </div>
+                      }
+                      @if (uploadSession) {
+                        <div class="row quick-search d-flex">
+                          <div class="col">
+                            <div class="input-group">
+                              <div class="input-group-prepend">
+                                <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
+                              </div>
+                              <input id="quick-search" [(ngModel)]="quickSearch"
+                                     (ngModelChange)="onSearchChange($event)"
+                                     name="quickSearch"
+                                     class="form-control input-sm rounded"
+                                     type="text" placeholder="Quick Search">
+                            </div>
+                          </div>
+                          <div class="col-auto">
+                            <div class="form-inline">
+                              <label class="inline-label nowrap" for="filter-upload-sessions">Uploaded at:</label>
+                              <select class="form-control input-sm" id="filter-upload-sessions"
+                                      [(ngModel)]="uploadSession"
+                                      (ngModelChange)="uploadSessionChanged()">
+                                @for (uploadSession of memberBulkLoadAudits; track uploadSession.id) {
+                                  <option
+                                    [ngValue]="uploadSession">{{ uploadSession.createdDate | displayDateAndTime }}
+                                  </option>
+                                }
+                              </select>
+                            </div>
+                          </div>
+                          <div class="col">
+                            <div class="form-inline float-right">
+                              <label class="inline-label nowrap" for="filter-by-audit-status">Member Action:</label>
+                              <select class="form-control input-sm"
+                                      [(ngModel)]="filters.memberUpdateAudit.query"
+                                      (ngModelChange)="uploadSessionChanged()"
+                                      id="filter-by-audit-status">
+                                @for (uploadSessionStatus of uploadSessionStatuses; track uploadSessionStatus.title) {
+                                  <option
+                                    [ngValue]="uploadSessionStatus">{{ uploadSessionStatus.title }}
+                                  </option>
+                                }
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      }
+                      @if (uploadSession) {
+                        <tabset class="custom-tabset">
+                          <tab [heading]="memberTabHeading" class="table-responsive">
+                            <table class="round tbl-green-g table-striped table-hover table-sm">
+                              <thead>
+                              <tr class="pointer">
+                                <th colspan="2">File upload information</th>
+                              </tr>
+                              </thead>
+                              <tbody>
+                                @if (uploadSession?.files.archive) {
+                                  <tr>
+                                    <td>Zip file:</td>
+                                    <td>
+                                      <app-link
+                                        name="{{uploadSession.files.archive}}"/>
+                                    </td>
+                                  </tr>
+                                }
+                                @if (uploadSession?.files?.data) {
+                                  <tr>
+                                    <td>Data file:</td>
+                                    <td>
+                                      <app-link [name]="uploadSession?.files?.data"/>
+                                    </td>
+                                  </tr>
+                                }
+                              <tr>
+                                <td>Uploaded by:</td>
+                                <td>{{ uploadSession.createdBy | memberIdToFullName : members : '(none)' }}</td>
+                              </tr>
+                              <tr>
+                                <td>Uploaded on:</td>
+                                <td>{{ uploadSession.createdDate | displayDateAndTime }}</td>
+                              </tr>
+                              </tbody>
+                            </table>
+                            <div class="table-responsive">
+                              <table class="round tbl-green-g table-striped table-hover table-sm">
+                                <thead>
+                                <tr class="pointer">
+                                  <th>Status</th>
+                                  <th>Message</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                  @for (auditLog of uploadSession.auditLog; track auditLog.message) {
+                                    <tr>
+                                      <td>
+                                        <app-status-icon [status]="auditLog.status"/>
+                                      </td>
+                                      <td>{{ auditLog.message }}</td>
+                                    </tr>
+                                  }
+                                </tbody>
+                              </table>
+                            </div>
+                            <div class="table-responsive">
+                              <table class="round tbl-green-g table-striped table-hover table-sm">
+                                <thead>
+                                <tr class="pointer">
+                                  <th>
+                                    <div (click)="sortMembersUploadedBy('membershipNumber')">Membership
+                                      Number
+                                      @if (showMembersUploadedColumn('membershipNumber')) {
+                                        <span
+                                          class="sorting-header">{{ filters.membersUploaded.sortDirection }}</span>
+                                      }
+                                    </div>
+                                  </th>
+                                  <th>
+                                    <div (click)="sortMembersUploadedBy('mobileNumber')">Mobile Number
+                                      @if (showMembersUploadedColumn('mobileNumber')) {
+                                        <span
+                                          class="sorting-header">{{ filters.membersUploaded.sortDirection }}</span>
+                                      }
+                                    </div>
+                                  </th>
+                                  <th>
+                                    <div (click)="sortMembersUploadedBy('email')">Email
+                                      @if (showMembersUploadedColumn('email')) {
+                                        <span
+                                          class="sorting-header">{{ filters.membersUploaded.sortDirection }}</span>
+                                      }
+                                    </div>
+                                  </th>
+                                  <th>
+                                    <div (click)="sortMembersUploadedBy('firstName')">First Name
+                                      @if (showMembersUploadedColumn('firstName')) {
+                                        <span class="sorting-header">{{ filters.membersUploaded.sortDirection }}</span>
+                                      }
+                                    </div>
+                                  </th>
+                                  <th>
+                                    <div (click)="sortMembersUploadedBy('lastName')">Last Number
+                                      @if (showMembersUploadedColumn('lastName')) {
+                                        <span class="sorting-header">{{ filters.membersUploaded.sortDirection }}</span>
+                                      }
+                                    </div>
+                                  </th>
+                                  <th>
+                                    <div (click)="sortMembersUploadedBy('postcode')">Postcode
+                                      @if (showMembersUploadedColumn('postcode')) {
+                                        <span class="sorting-header">{{ filters.membersUploaded.sortDirection }}</span>
+                                      }
+                                    </div>
+                                  </th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                  @for (member of filters.membersUploaded.results; track member.id) {
+                                    <tr>
+                                      <td>{{ member.membershipNumber }}</td>
+                                      <td>{{ member.mobileNumber }}</td>
+                                      <td>{{ member.email }}</td>
+                                      <td>{{ member.firstName }}</td>
+                                      <td>{{ member.lastName }}</td>
+                                      <td>{{ member.postcode }}</td>
+                                    </tr>
+                                  }
+                                </tbody>
+                              </table>
+                            </div>
+                          </tab>
+                          <tab [heading]="auditTabHeading" class="table-responsive">
+                            <table class="round tbl-green-g table-striped table-hover table-sm">
+                              <thead>
+                              <tr class="pointer">
+                                <th>
+                                  <div (click)="sortMemberUpdateAuditBy('updateTime')">Update Time
+                                    @if (showMemberUpdateAuditColumn('updateTime')) {
+                                      <span class="sorting-header">{{ filters.memberUpdateAudit.sortDirection }}</span>
+                                    }
+                                  </div>
+                                </th>
+                                <th width="10%">
+                                  <div (click)="sortMemberUpdateAuditBy('memberAction')">Status
+                                    @if (showMemberUpdateAuditColumn('memberAction')) {
+                                      <span class="sorting-header">{{ filters.memberUpdateAudit.sortDirection }}</span>
+                                    }
+                                  </div>
+                                </th>
+                                <th>
+                                  <div (click)="sortMemberUpdateAuditBy('rowNumber')">Row Number
+                                    @if (showMemberUpdateAuditColumn('rowNumber')) {
+                                      <span class="sorting-header">{{ filters.memberUpdateAudit.sortDirection }}</span>
+                                    }
+                                  </div>
+                                </th>
+                                <th>
+                                  <div
+                                    (click)="sortMemberUpdateAuditBy('member')">Member Name
+                                    @if (showMemberUpdateAuditColumn('member')) {
+                                      <span class="sorting-header">{{ filters.memberUpdateAudit.sortDirection }}</span>
+                                    }
+                                  </div>
+                                </th>
+                                <th>
+                                  <div (click)="sortMemberUpdateAuditBy('changes')"> Changes
+                                    @if (showMemberUpdateAuditColumn('changes')) {
+                                      <span class="sorting-header">{{ filters.memberUpdateAudit.sortDirection }}</span>
+                                    }
+                                  </div>
+                                </th>
+                                <th>
+                                  <div (click)="sortMemberUpdateAuditBy('auditMessage')">Audit Message
+                                    @if (showMemberUpdateAuditColumn('auditMessage')) {
+                                      <span class="sorting-header">{{ filters.memberUpdateAudit.sortDirection }}</span>
+                                    }
+                                  </div>
+                                </th>
+                              </tr>
+                              </thead>
+                              <tbody>
+                                @for (memberUpdateAudit of filters.memberUpdateAudit.results; track memberUpdateAudit.id) {
+                                  <tr>
+                                    <td class="text-nowrap">{{ memberUpdateAudit.updateTime | displayDateAndTime }}
+                                    </td>
+                                    <td class="text-nowrap">
+                                      <app-status-icon [status]="memberUpdateAudit.memberAction"/>
+                                    </td>
+                                    <td>{{ memberUpdateAudit.rowNumber }}</td>
+                                    <td>{{ memberUpdateAudit.memberId || (memberUpdateAudit.member && memberUpdateAudit.member.id) | memberIdToFullName : members : '': true }}</td>
+                                    <td>{{ memberUpdateAudit.changes }}</td>
+                                    <td>{{ memberUpdateAudit.auditMessage || NO_CHANGES_OR_DIFFERENCES }}
+                                      @if (memberUpdateAudit.auditErrorMessage) {
+                                        <span>
+                                    <strong>Error Message: </strong>
+                                    <span>{{ memberUpdateAudit.auditErrorMessage | json }}</span>
+                                    <br>
+                                      <input type="submit" [disabled]="notifyTarget.busy"
+                                             class="btn btn-primary"
+                                             value="Reattempt creation of {{memberUpdateAudit.member | fullName}}"
+                                             (click)="createMemberFromAudit(memberUpdateAudit.member)"
+                                             title="Reattempt creation of {{memberUpdateAudit.member | fullName}}">
+                                    </span>
+                                      }
+                                    </td>
+                                  </tr>
+                                }
+                              </tbody>
+                            </table>
+                          </tab>
+                        </tabset>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </tab>
+            </tabset>
           </div>
         </div>
-        @if (notifyTarget.showAlert) {
-          <div class="row">
-            <div class="col-sm-12">
-              <div class="form-group">
-                <div class="alert {{notifyTarget.alertClass}}">
-                  <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                  @if (notifyTarget.alertTitle) {
-                    <strong> {{ notifyTarget.alertTitle }}: </strong>
-                  }
-                  {{ notifyTarget.alertMessage }}
-                </div>
-              </div>
-            </div>
-          </div>
-        }
       </div>
-    </div>
-    </tab>
-    <tab heading="Upload History">
-      <div class="admin-frame round-except-top-left">
-        <div class="admin-header-background rounded">
-          <div class="admin-header-container-with-tabs">
-            @if (memberBulkLoadAudits.length==0) {
-              <div class="admin-session-loading">
-                <div class="col-sm-12 text-center mt-3">
-                  <h3>No Upload History Exists</h3>
-                </div>
-              </div>
-            }
-            @if (uploadSession) {
-              <div class="row quick-search d-flex">
-                <div class="col">
-                  <div class="input-group">
-                    <div class="input-group-prepend">
-                      <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
-                    </div>
-                    <input id="quick-search" [(ngModel)]="quickSearch"
-                      (ngModelChange)="onSearchChange($event)"
-                      name="quickSearch"
-                      class="form-control input-sm rounded"
-                      type="text" placeholder="Quick Search">
-                  </div>
-                </div>
-                <div class="col-auto">
-                  <div class="form-inline">
-                    <label class="inline-label nowrap" for="filter-upload-sessions">Uploaded at:</label>
-                    <select class="form-control input-sm" id="filter-upload-sessions"
-                      [(ngModel)]="uploadSession"
-                      (ngModelChange)="uploadSessionChanged()">
-                      @for (uploadSession of memberBulkLoadAudits; track uploadSession) {
-                        <option
-                          [ngValue]="uploadSession"
-                          [textContent]="uploadSession.createdDate | displayDateAndTime">
-                        </option>
-                      }
-                    </select>
-                  </div>
-                </div>
-                <div class="col">
-                  <div class="form-inline float-right">
-                    <label class="inline-label nowrap" for="filter-by-audit-status">Member Action:</label>
-                    <select class="form-control input-sm"
-                      [(ngModel)]="filters.memberUpdateAudit.query"
-                      (ngModelChange)="uploadSessionChanged()"
-                      id="filter-by-audit-status">
-                      @for (uploadSessionStatus of uploadSessionStatuses; track uploadSessionStatus) {
-                        <option
-                          [ngValue]="uploadSessionStatus"
-                          [textContent]="uploadSessionStatus.title">
-                        </option>
-                      }
-                    </select>
-                  </div>
-                </div>
-              </div>
-            }
-            @if (uploadSession) {
-              <tabset class="custom-tabset">
-                <tab [heading]="memberTabHeading" class="table-responsive">
-                  <table class="round tbl-green-g table-striped table-hover table-sm">
-                    <thead>
-                      <tr class="white-anchor">
-                        <th colspan="2">File upload information</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        @if (uploadSession.files && uploadSession.files.archive) {
-                          <tr>
-                            <td>Zip file:</td>
-                            <td>
-                              <app-link
-                                name="{{uploadSession.files.archive}}"/>
-                            </td>
-                          </tr>
-                        }
-                        @if (uploadSession.files && uploadSession.files.data) {
-                          <tr>
-                            <td>Data file:</td>
-                            <td>
-                              <app-link [name]="uploadSession?.files?.data"/>
-                            </td>
-                          </tr>
-                        }
-                        <tr>
-                          <td>Uploaded by:</td>
-                          <td
-                          [textContent]="uploadSession.createdBy | memberIdToFullName : members : '(none)'"></td>
-                        </tr>
-                        <tr>
-                          <td>Uploaded on:</td>
-                          <td [textContent]="uploadSession.createdDate | displayDateAndTime"></td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <div class="table-responsive">
-                      <table class="round tbl-green-g table-striped table-hover table-sm">
-                        <thead>
-                          <tr class="white-anchor">
-                            <th>Status</th>
-                            <th>Message</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          @for (auditLog of uploadSession.auditLog; track auditLog) {
-                            <tr>
-                              <td>
-                                <app-status-icon [status]="auditLog.status"/>
-                              </td>
-                              <td [textContent]="auditLog.message"></td>
-                            </tr>
-                          }
-                        </tbody>
-                      </table>
-                    </div>
-                    <div class="table-responsive">
-                      <table class="round tbl-green-g table-striped table-hover table-sm">
-                        <thead>
-                          <tr class="white-anchor">
-                            <th>
-                              <div (click)="sortMembersUploadedBy('membershipNumber')">Membership
-                                Number
-                                @if (showMembersUploadedColumn('membershipNumber')) {
-                                  <span class="sorting-header"
-                                  [textContent]="filters.membersUploaded.sortDirection"></span>
-                                }
-                              </div>
-                            </th>
-                            <th>
-                              <div (click)="sortMembersUploadedBy('mobileNumber')">Mobile Number
-                                @if (showMembersUploadedColumn('mobileNumber')) {
-                                  <span class="sorting-header"
-                                  [textContent]="filters.membersUploaded.sortDirection"></span>
-                                }
-                              </div>
-                            </th>
-                            <th>
-                              <div (click)="sortMembersUploadedBy('email')">Email
-                                @if (showMembersUploadedColumn('email')) {
-                                  <span class="sorting-header"
-                                  [textContent]="filters.membersUploaded.sortDirection"></span>
-                                }
-                              </div>
-                            </th>
-                            <th>
-                              <div (click)="sortMembersUploadedBy('firstName')">First Name
-                                @if (showMembersUploadedColumn('firstName')) {
-                                  <span class="sorting-header"
-                                  [textContent]="filters.membersUploaded.sortDirection"></span>
-                                }
-                              </div>
-                            </th>
-                            <th>
-                              <div (click)="sortMembersUploadedBy('lastName')">Last Number
-                                @if (showMembersUploadedColumn('lastName')) {
-                                  <span class="sorting-header"
-                                  [textContent]="filters.membersUploaded.sortDirection"></span>
-                                }
-                              </div>
-                            </th>
-                            <th>
-                              <div (click)="sortMembersUploadedBy('postcode')">Postcode
-                                @if (showMembersUploadedColumn('postcode')) {
-                                  <span class="sorting-header"
-                                  [textContent]="filters.membersUploaded.sortDirection"></span>
-                                }
-                              </div>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          @for (member of filters.membersUploaded.results; track member.id) {
-                            <tr>
-                              <td>{{ member.membershipNumber }}</td>
-                              <td>{{ member.mobileNumber }}</td>
-                              <td>{{ member.email }}</td>
-                              <td>{{ member.firstName }}</td>
-                              <td>{{ member.lastName }}</td>
-                              <td>{{ member.postcode }}</td>
-                            </tr>
-                          }
-                        </tbody>
-                      </table>
-                    </div>
-                  </tab>
-                  <tab [heading]="auditTabHeading" class="table-responsive">
-                    <table class="round tbl-green-g table-striped table-hover table-sm">
-                      <thead>
-                        <tr class="white-anchor">
-                          <th>
-                            <div (click)="sortMemberUpdateAuditBy('updateTime')">Update Time
-                              @if (showMemberUpdateAuditColumn('updateTime')) {
-                                <span class="sorting-header"
-                                [textContent]="filters.memberUpdateAudit.sortDirection"></span>
-                              }
-                            </div>
-                          </th>
-                          <th width="10%">
-                            <div (click)="sortMemberUpdateAuditBy('memberAction')">Status
-                              @if (showMemberUpdateAuditColumn('memberAction')) {
-                                <span class="sorting-header"
-                                [textContent]="filters.memberUpdateAudit.sortDirection"></span>
-                              }
-                            </div>
-                          </th>
-                          <th>
-                            <div (click)="sortMemberUpdateAuditBy('rowNumber')">Row Number
-                              @if (showMemberUpdateAuditColumn('rowNumber')) {
-                                <span class="sorting-header"
-                                [textContent]="filters.memberUpdateAudit.sortDirection"></span>
-                              }
-                            </div>
-                          </th>
-                          <th>
-                            <div
-                              (click)="sortMemberUpdateAuditBy('member')">Member Name
-                              @if (showMemberUpdateAuditColumn('member')) {
-                                <span class="sorting-header"
-                                [textContent]="filters.memberUpdateAudit.sortDirection"></span>
-                              }
-                            </div>
-                          </th>
-                          <th>
-                            <div (click)="sortMemberUpdateAuditBy('changes')"> Changes
-                              @if (showMemberUpdateAuditColumn('changes')) {
-                                <span class="sorting-header"
-                                [textContent]="filters.memberUpdateAudit.sortDirection"></span>
-                              }
-                            </div>
-                          </th>
-                          <th>
-                            <div (click)="sortMemberUpdateAuditBy('auditMessage')">Audit Message
-                              @if (showMemberUpdateAuditColumn('auditMessage')) {
-                                <span class="sorting-header"
-                                [textContent]="filters.memberUpdateAudit.sortDirection"></span>
-                              }
-                            </div>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        @for (memberUpdateAudit of filters.memberUpdateAudit.results; track memberUpdateAudit.id) {
-                          <tr>
-                            <td class="text-nowrap">{{ memberUpdateAudit.updateTime | displayDateAndTime }}</td>
-                            <td class="text-nowrap"><app-status-icon [status]="memberUpdateAudit.memberAction"/></td>
-                            <td>{{ memberUpdateAudit.rowNumber }}</td>
-                            <td>{{ memberUpdateAudit.memberId || (memberUpdateAudit.member && memberUpdateAudit.member.id) | memberIdToFullName : members : '': true }}</td>
-                            <td>{{ memberUpdateAudit.changes }}</td>
-                            <td>{{ memberUpdateAudit.auditMessage || NO_CHANGES_OR_DIFFERENCES }}
-                              @if (memberUpdateAudit.auditErrorMessage) {
-                                <span>
-                                  <strong>Error Message: </strong>
-                                  <span [textContent]="memberUpdateAudit.auditErrorMessage | json"></span>
-                                  <br>
-                                    <input type="submit" [disabled]="notifyTarget.busy"
-                                      class="btn btn-primary"
-                                      value="Reattempt creation of {{memberUpdateAudit.member | fullName}}"
-                                      (click)="createMemberFromAudit(memberUpdateAudit.member)"
-                                      title="Reattempt creation of {{memberUpdateAudit.member | fullName}}">
-                                  </span>
-                                }
-                              </td>
-                            </tr>
-                          }
-                        </tbody>
-                      </table>
-                    </tab>
-                  </tabset>
-                }
-              </div>
-            </div>
-          </div>
-        </tab>
-      </tabset>
-    </div>
-    </div>
-    </div>
     </app-page>`,
-    styleUrls: ["./member-bulk-load.component.sass", "../admin/admin.component.sass"],
-    imports: [PageComponent, TabsetComponent, TabDirective, FontAwesomeModule, FileUploadModule, NgClass, NgStyle, StatusIconComponent, FormsModule, LinkComponent, JsonPipe, DecimalPipe, TitleCasePipe, DisplayDateAndTimePipe, FullNamePipe, MemberIdToFullNamePipe]
+  styleUrls: ["./member-bulk-load.component.sass", "../admin/admin.component.sass"],
+  imports: [PageComponent, TabsetComponent, TabDirective, FontAwesomeModule, FileUploadModule, NgClass, NgStyle, StatusIconComponent, FormsModule, LinkComponent, JsonPipe, DecimalPipe, TitleCasePipe, DisplayDateAndTimePipe, FullNamePipe, MemberIdToFullNamePipe]
 })
 export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MemberBulkLoadComponent", NgxLoggerLevel.ERROR);

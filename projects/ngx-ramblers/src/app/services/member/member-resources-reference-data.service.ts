@@ -62,7 +62,7 @@ export class MemberResourcesReferenceDataService {
         description: "Email",
         action: "View email",
         icon() {
-          return "/assets/images/local/mailchimp.ico";
+          return "/assets/images/local/mailchimp.jpeg";
         },
         resourceUrl(memberResource: MemberResource) {
           const campaign: MailchimpCampaignMixedVersion = memberResource?.data?.campaign;

@@ -28,55 +28,56 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
 
 @Component({
-    selector: "app-carousel",
-    template: `
-      <div class="carousel-wrapper">
-        <div class="slider-container">
-          <div class="sc-inner">
-            @if (preview ? false : !hideStoryNavigator && album.showStoryNavigator) {
-              <app-carousel-story-navigator
-                [imageTags]="lazyLoadingMetadata?.contentMetadata?.imageTags"
-                [index]="index"
-                (tagChanged)="tagChanged($event)"/>
-            }
-            @if (lazyLoadingMetadata) {
-              <carousel (mouseenter)="mouseEnter($event)" (mouseleave)="mouseLeave($event)" [isAnimated]="true"
-                        [noPause]="noPause" [pauseOnFocus]="noPause"
-                        [interval]="album.slideInterval || 5000"
-                        [showIndicators]="album.showIndicators && showIndicators"
-                        [(activeSlide)]="lazyLoadingMetadata.activeSlideIndex"
-                        (activeSlideChange)="activeSlideChange(false, $event)">
-                @for (slide of lazyLoadingMetadata?.selectedSlides; track slide.image || slide.base64Content) {
-                  <slide>
-                    @if (slide) {
-                      <img loading="lazy" [src]="imageSourceFor(slide)"
-                           [alt]="slide.text" [ngStyle]="{'height.px': album.height,
-                'min-width': '100%',
-                 'max-width': '100%',
-                 'object-fit': 'cover',
-                 'object-position': 'center'}">
+  selector: "app-carousel",
+  template: `
+    <div class="carousel-wrapper">
+      <div class="slider-container">
+        <div class="sc-inner">
+          @if (preview ? false : !hideStoryNavigator && album.showStoryNavigator) {
+            <app-carousel-story-navigator
+              [imageTags]="lazyLoadingMetadata?.contentMetadata?.imageTags"
+              [index]="index"
+              (tagChanged)="tagChanged($event)"/>
+          }
+          @if (lazyLoadingMetadata?.selectedSlides.length > 0) {
+            <carousel (mouseenter)="mouseEnter($event)" (mouseleave)="mouseLeave($event)" [isAnimated]="true"
+                      [noPause]="noPause" [pauseOnFocus]="noPause"
+                      [interval]="album.slideInterval || 5000"
+                      [showIndicators]="album.showIndicators && showIndicators"
+                      [(activeSlide)]="lazyLoadingMetadata.activeSlideIndex"
+                      (activeSlideChange)="activeSlideChange(false, $event)">
+              @for (slide of lazyLoadingMetadata?.selectedSlides; track slide.image || slide.base64Content) {
+                <slide>
+                  @if (slide) {
+                    <img loading="lazy" [src]="imageSourceFor(slide)"
+                         [alt]="slide.text" [ngStyle]="{
+                 'height.px': album.height,
+                  'min-width': '100%',
+                   'max-width': '100%',
+                   'object-fit': 'cover',
+                   'object-position': 'center'}">
+                  }
+                  <div class="carousel-caption">
+                    <h4>{{ slide.text || album.subtitle }}</h4>
+                    @if (slide.eventId || album.eventId) {
+                      <div>
+                        <a delay="500" class="badge event-date"
+                           [tooltip]="eventTooltip(slide.eventId? slide.dateSource : album.eventType)"
+                           [placement]="!showIndicators?'bottom':'right'"
+                           [href]="urlService.eventUrl(slide.eventId? slide : {dateSource:album.eventType, eventId: album.eventId})">
+                          on {{ slide.date | displayDate }}</a>
+                      </div>
                     }
-                    <div class="carousel-caption">
-                      <h4>{{ slide.text || album.subtitle }}</h4>
-                      @if (slide.eventId || album.eventId) {
-                        <div>
-                          <a delay="500" class="badge event-date"
-                             [tooltip]="eventTooltip(slide.eventId? slide.dateSource : album.eventType)"
-                             [placement]="!showIndicators?'bottom':'right'"
-                             [href]="urlService.eventUrl(slide.eventId? slide : {dateSource:album.eventType, eventId: album.eventId})">
-                            on {{ slide.date | displayDate }}</a>
-                        </div>
-                      }
-                    </div>
-                  </slide>
-                }
-              </carousel>
-            }
-          </div>
+                  </div>
+                </slide>
+              }
+            </carousel>
+          }
         </div>
-      </div>`,
-    styleUrls: ["./carousel.sass"],
-    imports: [CarouselStoryNavigatorComponent, CarouselComponent_1, SlideComponent, NgStyle, TooltipDirective, DisplayDatePipe]
+      </div>
+    </div>`,
+  styleUrls: ["./carousel.sass"],
+  imports: [CarouselStoryNavigatorComponent, CarouselComponent_1, SlideComponent, NgStyle, TooltipDirective, DisplayDatePipe]
 })
 export class CarouselComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("CarouselComponent", NgxLoggerLevel.ERROR);

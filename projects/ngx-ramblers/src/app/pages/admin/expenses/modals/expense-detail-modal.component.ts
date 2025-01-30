@@ -20,6 +20,7 @@ import { FormsModule } from "@angular/forms";
 import { NgClass, NgStyle } from "@angular/common";
 import { FileUploadModule } from "ng2-file-upload";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { expenseTypeTracker } from "../../../../functions/trackers";
 
 @Component({
     selector: "app-expense-detail-modal",
@@ -48,6 +49,7 @@ export class ExpenseDetailModalComponent implements OnInit, OnDestroy {
   public hasFileOver = false;
   public uploader;
   private subscriptions: Subscription[] = [];
+  protected readonly expenseTypeTracker = expenseTypeTracker;
 
   public fileOver(e: any): void {
     this.hasFileOver = e;
@@ -79,10 +81,6 @@ export class ExpenseDetailModalComponent implements OnInit, OnDestroy {
 
   expenseTypeComparer(item1: ExpenseType, item2: ExpenseType): boolean {
     return item1 && item2 ? item1.value === item2.value : item1 === item2;
-  }
-
-  expenseTypeTracker(expenseType: ExpenseType) {
-    return expenseType.value;
   }
 
   browseToReceipt(expenseFileUpload: HTMLInputElement) {

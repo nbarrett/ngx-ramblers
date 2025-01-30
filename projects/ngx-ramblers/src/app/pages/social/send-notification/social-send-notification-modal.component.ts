@@ -74,7 +74,7 @@ import { TitleCasePipe } from "@angular/common";
                     <div class="row">
                       <div class="col-sm-7"><label>Send to:</label>
                       <div class="form-group">
-                        @for (list of mailMessagingConfig?.brevo?.lists?.lists; track list) {
+                        @for (list of mailMessagingConfig?.brevo?.lists?.lists; track list.id) {
                           <div class="custom-control custom-radio">
                             <input class="custom-control-input"
                               id="send-list-{{list.id}}"

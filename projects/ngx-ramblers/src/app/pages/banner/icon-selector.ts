@@ -20,7 +20,7 @@ import { FormsModule } from "@angular/forms";
       [closeOnSelect]="true"
       (change)="onChange($event)"
       [ngModel]="titleLine.image">
-      @for (image of icons?.images; track image) {
+      @for (image of icons?.images; track image.awsFileName) {
         <ng-option [value]="image">
           <img [alt]="friendlyFileName(image?.originalFileName)" width="25" [src]="urlService.imageSource(image?.awsFileName)"/>
           <span class="ml-2">{{friendlyFileName(image?.originalFileName)}}</span>

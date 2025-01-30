@@ -25,13 +25,13 @@ import { NumberUtilsService } from "../../../../services/number-utils.service";
 import first from "lodash-es/first";
 import isEmpty from "lodash-es/isEmpty";
 import { PageComponent } from "../../../../page/page.component";
-import { TabsetComponent, TabDirective } from "ngx-bootstrap/tabs";
+import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { MailNotificationTemplateMappingComponent } from "./mail-notification-template-editor";
 import { NotificationConfigToProcessMappingComponent } from "./notification-config-to-process-mappings";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";
 import { FormsModule } from "@angular/forms";
 import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
-import { NgStyle, NgClass } from "@angular/common";
+import { NgClass, NgStyle } from "@angular/common";
 import { MailListEditorComponent } from "./list-editor";
 import { MailListSettingsComponent } from "./mail-list-settings";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -42,7 +42,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
     <app-page autoTitle>
       <div class="row">
         <div class="col-sm-12">
-§          @if (mailMessagingConfig?.mailConfig) {
+          @if (mailMessagingConfig?.mailConfig) {
             <tabset class="custom-tabset">
               <tab [active]="tabActive(MailSettingsTab.EMAIL_CONFIGURATIONS)"
                 (selectTab)="selectTab(MailSettingsTab.EMAIL_CONFIGURATIONS)"
@@ -261,7 +261,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           </div>
                         </div>
                       }
-                      @for (list of mailMessagingConfig?.brevo?.lists?.lists; track list) {
+                      @for (list of mailMessagingConfig?.brevo?.lists?.lists; track list.id) {
                         <app-mail-list-settings [mailMessagingConfig]="mailMessagingConfig" [notify]="notify" [list]="list"></app-mail-list-settings>
                       }
                     </div>

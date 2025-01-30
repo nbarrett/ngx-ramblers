@@ -29,7 +29,7 @@ import { FormsModule } from "@angular/forms";
           <select [compareWith]="imageComparer" class="form-control input-sm"
             id="selected-logo-{{imageTypeDescription}}"
             [(ngModel)]="bannerImageItem.image">
-            @for (image of images?.images; track image) {
+            @for (image of images?.images; track image.awsFileName) {
               <option
               [ngValue]="image">{{image.originalFileName}}</option>
             }
