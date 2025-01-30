@@ -48,7 +48,7 @@ import { MailchimpCampaignDefaultsComponent } from "./mailchimp-campaign-default
                   name="listId"
                   (ngModelChange)="listChange($event)"
                   class="form-control input-sm flex-grow-1 mr-2">
-                  @for (list of mailchimpListingResponse.lists; track list) {
+                  @for (list of mailchimpListingResponse.lists; track list.id) {
                     <option
                       [ngValue]="list.id">{{ list.name }}
                     </option>

@@ -27,7 +27,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
           </tr>
         </thead>
         <tbody>
-          @for (imageTag of contentMetadata.imageTags; track imageTag) {
+          @for (imageTag of contentMetadata.imageTags; track imageTag.key) {
             <tr>
               <td><input [(ngModel)]="imageTag.subject"
               type="text" class="form-control"></td>

@@ -224,7 +224,7 @@ import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe"
                                 class="form-control input-sm"
                                 [(ngModel)]="socialEvent.eventContactMemberId">
                           <option value="">(no event organiser yet)</option>
-                          @for (selection of display.memberFilterSelections; track selection) {
+                          @for (selection of display.memberFilterSelections; track selection.id) {
                             <option
                               [ngValue]="selection.id"
                               [textContent]="selection.member | fullNameWithAlias"

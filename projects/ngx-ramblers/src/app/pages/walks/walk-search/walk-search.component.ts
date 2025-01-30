@@ -33,7 +33,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
             <select [(ngModel)]="filterParameters.selectType"
               (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
               class="form-control rounded mr-3">
-              @for (filter of walksFilter(); track filter) {
+              @for (filter of walksFilter(); track filter.value) {
                 <option [ngValue]="filter.value"
                   [selected]="filter.selected">{{ filter.description }}
                 </option>
@@ -86,7 +86,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
             <select [(ngModel)]="filterParameters.selectType"
               (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
               class="form-control rounded mr-3">
-              @for (filter of walksFilter(); track filter) {
+              @for (filter of walksFilter(); track filter.value) {
                 <option [ngValue]="filter.value"
                   [selected]="filter.selected">{{ filter.description }}
                 </option>

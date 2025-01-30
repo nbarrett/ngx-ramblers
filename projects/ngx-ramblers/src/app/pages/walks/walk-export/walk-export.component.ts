@@ -84,7 +84,7 @@ import { ValueOrDefaultPipe } from "../../../pipes/value-or-default.pipe";
                 <div class="col-lg-6 d-sm-none"></div>
               </div>
               <div class="row">
-                @for (walkExport of walksForExport; track walkExport) {
+                @for (walkExport of walksForExport; track walkExport.displayedWalk.walk.id) {
                   <div
                     class="py-2 col-lg-4 col-md-6 col-sm-12 d-flex flex-column">
                     <div (click)="toggleWalkExportSelection(walkExport)" class="card mb-0 h-100 pointer">

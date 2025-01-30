@@ -12,7 +12,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
     @if (showTitle) {
       <div class="mb-2 mt-2 font-weight-bold">Mailchimp Segments ({{ editableSegments.length }})</div>
     }
-    @for (segment of editableSegments; track segment) {
+    @for (segment of editableSegments; track segment.key) {
       <div class="row">
         <div class="col-sm-6">
           {{ segment.key }}:

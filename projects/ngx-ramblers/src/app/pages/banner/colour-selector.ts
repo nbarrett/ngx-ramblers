@@ -58,7 +58,7 @@ import { FormsModule } from "@angular/forms";
             labelForId="colour-selector"
             [virtualScroll]="true"
             [bufferAmount]="30">
-            @for (colour of colours; track colour) {
+            @for (colour of colours; track colour.colour) {
               <ng-option
                 [value]="this.hasClass(this.itemWithClassOrColour) ? colour.class : colour.colour">
                 <span [class]="colour.badgeClass">{{ colour.name }}</span>

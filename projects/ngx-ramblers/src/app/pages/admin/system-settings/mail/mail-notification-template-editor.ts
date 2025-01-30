@@ -42,7 +42,7 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
               (ngModelChange)="select(notificationConfig)"
               id="template-mapping"
               class="ml-2 form-control input-sm">
-              @for (mapping of mailMessagingConfig.notificationConfigs; track mapping) {
+              @for (mapping of mailMessagingConfig.notificationConfigs; track mapping.subject.text) {
                 <option
                   [ngValue]="mapping">{{ mapping?.subject?.text || '(no subject)' }}
                 </option>
@@ -88,7 +88,7 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
                         <select [(ngModel)]="notificationConfig.subject.prefixParameter"
                           id="{{heading | kebabCase}-prefix-parameter"
                           class="form-control input-sm flex-grow-1 mr-2">
-                          @for (keyValue of parametersFrom; track keyValue) {
+                          @for (keyValue of parametersFrom; track keyValue.key) {
                             <option
                               [ngValue]="keyValue.key">{{ formatKeyValue(keyValue) }}
                             </option>
@@ -110,7 +110,7 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
                         <select [(ngModel)]="notificationConfig.subject.suffixParameter"
                           id="suffix-parameter"
                           class="form-control input-sm flex-grow-1 mr-2">
-                          @for (keyValue of parametersFrom; track keyValue) {
+                          @for (keyValue of parametersFrom; track keyValue.key) {
                             <option
                               [ngValue]="keyValue.key">{{ formatKeyValue(keyValue) }}
                             </option>
@@ -128,7 +128,7 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
                     <select class="form-control input-sm"
                       id="banner-lookup"
                       [(ngModel)]="notificationConfig.bannerId" (ngModelChange)="bannerSelected($event)">
-                      @for (banner of mailMessagingConfig.banners; track banner) {
+                      @for (banner of mailMessagingConfig.banners; track banner.id) {
                         <option
                           [ngValue]="banner.id">{{ toBannerInformation(banner) }}
                         </option>
@@ -154,7 +154,7 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
                     <select [(ngModel)]="notificationConfig.templateId"
                       id="template"
                       class="form-control input-sm">
-                      @for (template of mailMessagingConfig?.brevo?.mailTemplates?.templates; track template) {
+                      @for (template of mailMessagingConfig?.brevo?.mailTemplates?.templates; track template.id) {
                         <option
                           [ngValue]="template.id">{{ template.name }}
                         </option>
@@ -190,7 +190,7 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
                       <select class="form-control input-sm"
                         [(ngModel)]="notificationConfig.defaultMemberSelection"
                         id="member-selection">
-                        @for (type of memberSelections; track type) {
+                        @for (type of memberSelections; track type.key) {
                           <option
                             [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
                           </option>
@@ -216,7 +216,7 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
                         <select [compareWith]="arrayComparer" class="form-control input-sm"
                           [(ngModel)]="notificationConfig.defaultListId"
                           id="default-list">
-                          @for (list of mailMessagingConfig.brevo.lists.lists; track list) {
+                          @for (list of mailMessagingConfig.brevo.lists.lists; track list.id) {
                             <option
                               [ngValue]="list.id">{{ list.name }}
                             </option>
@@ -235,7 +235,7 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
                         <select [compareWith]="arrayComparer" class="form-control input-sm"
                           [(ngModel)]="notificationConfig.preSendActions"
                           id="member-selection">
-                          @for (type of workflowActions; track type) {
+                          @for (type of workflowActions; track type.key) {
                             <option
                               [ngValue]="keyValueAsArray(type)">{{ stringUtils.asTitle(type.value) }}
                             </option>
@@ -250,7 +250,7 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
                         <select [compareWith]="arrayComparer" class="form-control input-sm"
                           [(ngModel)]="notificationConfig.postSendActions"
                           id="member-selection">
-                          @for (type of workflowActions; track type) {
+                          @for (type of workflowActions; track type.key) {
                             <option
                               [ngValue]="keyValueAsArray(type)">{{ stringUtils.asTitle(type.value) }}
                             </option>

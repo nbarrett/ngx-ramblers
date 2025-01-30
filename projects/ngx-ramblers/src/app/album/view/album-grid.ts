@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { Component, inject, Input } from "@angular/core";
 import { Gallery } from "ng-gallery";
 import { ContentMetadataItem, LazyLoadingMetadata } from "../../models/content-metadata.model";
 import { PageService } from "../../services/page.service";
@@ -14,13 +14,14 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata.service";
 import { BadgeButtonComponent } from "../../modules/common/badge-button/badge-button";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { imageTracker } from "../../functions/trackers";
 
 @Component({
     selector: "app-album-grid",
     styleUrls: ["./album-grid.sass"],
     template: `
     <div class="card-columns">
-      @for (image of lazyLoadingMetadata?.selectedSlides; track image) {
+      @for (image of lazyLoadingMetadata?.selectedSlides; track imageTracker) {
         <div class="card">
           <img class="card-img-top"
                [src]="urlService.imageSourceFor(image,lazyLoadingMetadata?.contentMetadata)"
@@ -47,15 +48,17 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
   `,
     imports: [BadgeButtonComponent, TooltipDirective]
 })
-export class AlbumGridComponent implements OnInit {
-  loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger = this.loggerFactory.createLogger("AlbumGridComponent", NgxLoggerLevel.OFF);
-  public preview: boolean;
+export class AlbumGridComponent {
 
   @Input("preview") set previewValue(value: boolean) {
     this.preview = coerceBooleanProperty(value);
     this.logger.info("preview:", this.preview);
   }
+
+  loggerFactory: LoggerFactory = inject(LoggerFactory);
+  protected readonly imageTracker = imageTracker;
+  private logger = this.loggerFactory.createLogger("AlbumGridComponent", NgxLoggerLevel.OFF);
+  public preview: boolean;
 
   @Input()
   public lazyLoadingMetadata: LazyLoadingMetadata;
@@ -72,9 +75,6 @@ export class AlbumGridComponent implements OnInit {
   protected readonly take = take;
   protected readonly faImages = faImages;
   protected readonly faSearch = faSearch;
-
-  ngOnInit() {
-  }
 
   viewMoreImages() {
     this.lazyLoadingMetadataService.add(this.lazyLoadingMetadata, 5);

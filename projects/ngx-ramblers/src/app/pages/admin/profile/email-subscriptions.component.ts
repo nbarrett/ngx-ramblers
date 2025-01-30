@@ -44,7 +44,7 @@ import { NgClass } from "@angular/common";
                   />
                 }
                 @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.BREVO) {
-                  @for (subscription of mailMessagingService.memberSubscribableSubscriptions(member.mail.subscriptions); track subscription) {
+                  @for (subscription of mailMessagingService.memberSubscribableSubscriptions(member.mail.subscriptions); track subscription.id) {
                     <div class="col-sm-12">
                       <app-mail-subscription-setting [member]="member" [subscription]="subscription"/>
                     </div>

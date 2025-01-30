@@ -72,7 +72,7 @@
                     <select class="form-control input-sm rounded spaced-controls" id="filter-expenses"
                             (ngModelChange)="changeFilter($event)"
                             [ngModel]="selected.filter">
-                      @for (filter of filters; track filter) {
+                      @for (filter of filters; track filter.description) {
                         <option
                             [ngValue]="filter"
                             [textContent]="filter.description"
@@ -95,7 +95,7 @@
                   }
                 </div>
               </div>
-              @for (expenseClaim of expenseClaims; track claimTracker) {
+              @for (expenseClaim of expenseClaims; track expenseClaim.id) {
                 <div>
                   @if (expenseClaim) {
                     <div class="row" (mouseenter)="selectFirstItem(expenseClaim)">

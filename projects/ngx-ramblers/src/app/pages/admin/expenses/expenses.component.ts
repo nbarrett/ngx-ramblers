@@ -21,7 +21,6 @@ import { Confirm, ConfirmType } from "../../../models/ui-actions";
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
 import {
   ExpenseClaim,
-  ExpenseEvent,
   ExpenseFilter,
   ExpenseItem,
   ExpenseNotificationRequest
@@ -50,6 +49,7 @@ import { FormsModule } from "@angular/forms";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pipe";
 import { MoneyPipe } from "../../../pipes/money.pipe";
+import { eventTracker, itemTracker } from "../../../functions/trackers";
 
 const SELECTED_EXPENSE = "Expense from last email link";
 
@@ -99,10 +99,12 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   expandable: boolean;
   showOrHide = "hide";
+  protected readonly itemTracker = itemTracker;
+  protected readonly eventTracker = eventTracker;
 
   ngOnInit() {
     this.mailMessagingService.events().subscribe(mailMessagingConfig => {
-      this.notificationConfig = this.notificationConfig = this.mailMessagingService.queryNotificationConfig(this.notify, mailMessagingConfig, "expenseNotificationConfigId");;
+      this.notificationConfig = this.notificationConfig = this.mailMessagingService.queryNotificationConfig(this.notify, mailMessagingConfig, "expenseNotificationConfigId");
     });
     this.notify.setBusy();
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse) => {
@@ -348,18 +350,6 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   allowPaidExpenseClaim() {
     return this.memberLoginService.allowTreasuryAdmin() && [this.display.eventTypes["first-approval"].description]
       .includes(this.display.expenseClaimLatestEvent(this.selected.expenseClaim).eventType.description);
-  }
-
-  eventTracker(index: number, event: ExpenseEvent) {
-    return event.date && event.eventType;
-  }
-
-  itemTracker(index: number, item: ExpenseItem) {
-    return item.expenseDate && item.expenseType;
-  }
-
-  claimTracker(index: number, item: ExpenseClaim) {
-    return item.id;
   }
 
   showExpenseDeleted() {

@@ -22,7 +22,7 @@ import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi
             <select [(ngModel)]="notificationConfig.senderRole" (ngModelChange)="senderRoleChanged()"
               id="sender"
               class="form-control input-sm">
-              @for (role of mailMessagingConfig.committeeReferenceData.committeeMembers(); track role) {
+              @for (role of mailMessagingConfig.committeeReferenceData.committeeMembers(); track role.nameAndDescription) {
                 <option
                   [ngValue]="role.type">{{ role.nameAndDescription }}
                 </option>
@@ -47,7 +47,7 @@ import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi
               <select [(ngModel)]="notificationConfig.replyToRole"
                 id="reply-to"
                 class="form-control input-sm">
-                @for (role of mailMessagingConfig.committeeReferenceData.committeeMembers(); track role) {
+                @for (role of mailMessagingConfig.committeeReferenceData.committeeMembers(); track role.nameAndDescription) {
                   <option
                     [ngValue]="role.type">{{ role.nameAndDescription }}
                   </option>

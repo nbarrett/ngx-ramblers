@@ -93,7 +93,7 @@ import { NgClass } from "@angular/common";
                         <label for="walk-population">Walk Population</label>
                         <select [(ngModel)]="config.group.walkPopulation"
                           class="form-control" id="walk-population">
-                          @for (walkPopulation of populationMethods; track walkPopulation) {
+                          @for (walkPopulation of populationMethods; track walkPopulation.key) {
                             <option
                               [ngValue]="walkPopulation.value">{{ stringUtils.asTitle(walkPopulation.value) }}
                             </option>
@@ -124,7 +124,7 @@ import { NgClass } from "@angular/common";
                         <select class="form-control input-sm"
                           [(ngModel)]="config.group.defaultWalkListView"
                           id="navbar-location">
-                          @for (type of walkListViews; track type) {
+                          @for (type of walkListViews; track type.key) {
                             <option
                               [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
                             </option>
@@ -137,7 +137,7 @@ import { NgClass } from "@angular/common";
                         <label for="social-event-population">Social Event Population</label>
                         <select [(ngModel)]="config.group.socialEventPopulation"
                           class="form-control" id="social-event-population">
-                          @for (walkPopulation of populationMethods; track walkPopulation) {
+                          @for (walkPopulation of populationMethods; track walkPopulation.key) {
                             <option
                               [ngValue]="walkPopulation.value">{{ stringUtils.asTitle(walkPopulation.value) }}
                             </option>
@@ -281,7 +281,7 @@ import { NgClass } from "@angular/common";
                         <select class="form-control input-sm"
                           [(ngModel)]="config.header.navBar.location"
                           id="navbar-location">
-                          @for (type of navbarLocations; track type) {
+                          @for (type of navbarLocations; track type.key) {
                             <option
                               [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
                             </option>

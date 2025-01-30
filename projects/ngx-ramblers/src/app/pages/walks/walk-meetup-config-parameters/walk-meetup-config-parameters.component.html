@@ -5,7 +5,7 @@
           (ngModelChange)="changeDefaultContent($event)"
           class="form-control"
           id="default-prefix">
-    @for (contentTextItem of contentTextItems; track contentTextItem) {
+    @for (contentTextItem of contentTextItems; track contentTextItem.id) {
       <option
         [ngValue]="contentTextItem.name"
         [textContent]="contentTextItem.name">

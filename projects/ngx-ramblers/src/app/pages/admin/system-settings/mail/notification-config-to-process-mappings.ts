@@ -23,7 +23,7 @@ import { FormsModule } from "@angular/forms";
             <select [(ngModel)]="mailMessagingConfig.mailConfig.contactUsNotificationConfigId"
               id="process-mapping-contact-us"
               class="form-control input-sm">
-              @for (mapping of notificationConfigsPlusNone; track mapping) {
+              @for (mapping of notificationConfigsPlusNone; track mapping.id) {
                 <option
                   [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
                 </option>
@@ -37,7 +37,7 @@ import { FormsModule } from "@angular/forms";
             <select [(ngModel)]="mailMessagingConfig.mailConfig.forgotPasswordNotificationConfigId"
               id="process-mapping-forgot-password"
               class="form-control input-sm">
-              @for (mapping of notificationConfigsPlusNone; track mapping) {
+              @for (mapping of notificationConfigsPlusNone; track mapping.id) {
                 <option
                   [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
                 </option>
@@ -51,7 +51,7 @@ import { FormsModule } from "@angular/forms";
             <select [(ngModel)]="mailMessagingConfig.mailConfig.walkNotificationConfigId"
               id="process-mapping-walk-notification"
               class="form-control input-sm">
-              @for (mapping of notificationConfigsPlusNone; track mapping) {
+              @for (mapping of notificationConfigsPlusNone; track mapping.id) {
                 <option
                   [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
                 </option>
@@ -65,7 +65,7 @@ import { FormsModule } from "@angular/forms";
             <select [(ngModel)]="mailMessagingConfig.mailConfig.expenseNotificationConfigId"
               id="process-mapping-walk-notification"
               class="form-control input-sm">
-              @for (mapping of notificationConfigsPlusNone; track mapping) {
+              @for (mapping of notificationConfigsPlusNone; track mapping.id) {
                 <option
                   [ngValue]="mapping.id">{{ mapping?.subject?.text || '(no subject)' }}
                 </option>

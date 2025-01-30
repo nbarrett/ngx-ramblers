@@ -60,7 +60,7 @@ import { BannerLogoAndTextLinesOutputComponent } from "./banner-logo-and-text-li
           <select class="form-control input-sm"
             id="banner-lookup"
             [(ngModel)]="editableBanner" (ngModelChange)="bannerSelected($event)">
-            @for (banner of banners; track banner) {
+            @for (banner of banners; track banner.id) {
               <option
                 [ngValue]="banner">{{ toBannerInformation(banner) }}
               </option>
@@ -151,7 +151,7 @@ import { BannerLogoAndTextLinesOutputComponent } from "./banner-logo-and-text-li
                         id="banner-type"
                         [(ngModel)]="editableBanner.bannerType"
                         (ngModelChange)="changedBannerType($event)">
-                        @for (bannerType of bannerTypes; track bannerType) {
+                        @for (bannerType of bannerTypes; track bannerType.key) {
                           <option
                             [ngValue]="bannerType.value">{{ stringUtils.asTitle(bannerType.value) }}
                           </option>

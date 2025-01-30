@@ -405,7 +405,7 @@ import { WalkSummaryPipe } from "../../../pipes/walk-summary.pipe";
                         [(ngModel)]="displayedWalk.status"
                         (change)="walkStatusChange()"
                         class="form-control input-sm" id="walk-status">
-                        @for (status of walkStatuses(); track status) {
+                        @for (status of walkStatuses(); track status.eventType) {
                           <option
                             [ngValue]="status.eventType"
                             [textContent]="status.description">

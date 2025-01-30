@@ -11,8 +11,8 @@ import { WalkFeatureComponent } from "./walk-feature";
     template: `
     <div class="event-panel rounded event-panel-inner">
       <h1>Features</h1>
-      @for (feature of features; track feature) {
-        <app-walk-feature [metadata]="feature"></app-walk-feature>
+      @for (feature of features; track feature.code) {
+        <app-walk-feature [metadata]="feature"/>
       }
     </div>`,
     imports: [WalkFeatureComponent]

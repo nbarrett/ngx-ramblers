@@ -26,7 +26,7 @@ import { FormsModule } from "@angular/forms";
               [(ngModel)]="listCreateRequest.folderId"
               name="folderId"
               class="form-control input-sm flex-grow-1 mr-2">
-              @for (folder of mailMessagingConfig?.brevo?.folders?.folders; track folder) {
+              @for (folder of mailMessagingConfig?.brevo?.folders?.folders; track folder.name) {
                 <option
                   [ngValue]="folder.id">{{ folder.name }}
                 </option>

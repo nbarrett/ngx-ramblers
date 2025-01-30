@@ -20,9 +20,7 @@
           <select [(ngModel)]="memberResource.accessLevel" id="visibility"
             class="form-control input-sm">
             @for (accessLevel of memberResourcesReferenceData.accessLevels(); track accessLevel.description) {
-              <option
-                [textContent]="accessLevel.description"
-              [ngValue]="accessLevel.id"></option>
+              <option [ngValue]="accessLevel.id">{{accessLevel.description}}</option>
             }
           </select>
         </div>
@@ -34,10 +32,8 @@
           <label for="resource-type">Type</label>
           <select [(ngModel)]="memberResource.resourceType" id="resource-type"
             class="form-control input-sm">
-            @for (resourceType of memberResourcesReferenceData.resourceTypes(); track resourceType) {
-              <option
-                [textContent]="resourceType.description"
-              [ngValue]="resourceType.id"></option>
+            @for (resourceType of memberResourcesReferenceData.resourceTypes(); track resourceType.description) {
+              <option [ngValue]="resourceType.id">{{resourceType.description}}</option>
             }
           </select>
         </div>
@@ -45,13 +41,9 @@
       <div class="col-sm-6">
         <div class="form-group">
           <label for="subject">Subject</label>
-          <select [(ngModel)]="memberResource.subject" id="subject"
-            option=""
-            class="form-control input-sm">
-            @for (subject of memberResourcesReferenceData.subjects(); track subject) {
-              <option
-                [textContent]="subject.description"
-              [ngValue]="subject.id"></option>
+          <select [(ngModel)]="memberResource.subject" id="subject" class="form-control input-sm">
+            @for (subject of memberResourcesReferenceData.subjects(); track subject.description) {
+              <option [ngValue]="subject.id">{{subject.description}}</option>
             }
             <option value="">(none)</option>
           </select>
@@ -93,7 +85,7 @@
                 [(ngModel)]="memberResource.data.campaign" id="campaign"
                 (ngModelChange)="campaignChange()"
                 class="form-control input-sm">
-                @for (campaign of campaigns; track campaign) {
+                @for (campaign of campaigns; track campaign.id) {
                   <option
                   [ngValue]="campaign">{{campaignTitle(campaign)}}</option>
                 }
