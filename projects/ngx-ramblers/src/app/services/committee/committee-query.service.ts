@@ -30,6 +30,7 @@ import { toMongoIds } from "../mongo-utils";
 import { SocialEvent } from "../../models/social-events.model";
 import { isNumericRamblersId } from "../path-matchers";
 import { MediaQueryService } from "./media-query.service";
+import { RamblersEventType } from "../../models/ramblers-walks-manager";
 
 @Injectable({
   providedIn: "root"
@@ -84,7 +85,7 @@ export class CommitteeQueryService {
               $lte: toDate
             }
           }
-        })
+        }, [], [RamblersEventType.GROUP_WALK])
           .then(walks => this.walksQueryService.activeWalks(walks))
           .then(walks => walks?.forEach(walk => events.push({
             id: walk.id,

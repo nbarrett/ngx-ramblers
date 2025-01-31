@@ -1,18 +1,19 @@
 import { NgModule } from "@angular/core";
 import { RouterModule } from "@angular/router";
 import { hasDynamicPathAndNonNumericLastPathSegment } from "../../services/path-matchers";
+import { CommitteeAuthGuard } from "../../guards/committee-auth-guard";
 
 @NgModule({
   imports: [RouterModule.forChild([
     {
       path: "send-notification/:committee-event-id",
       loadComponent: () => import("../../pages/committee/send-notification/committee-send-notification.component")
-        .then(m => m.CommitteeSendNotificationComponent)
+        .then(m => m.CommitteeSendNotificationComponent), canActivate: [CommitteeAuthGuard]
     },
     {
       path: "send-notification",
       loadComponent: () => import("../../pages/committee/send-notification/committee-send-notification.component")
-        .then(m => m.CommitteeSendNotificationComponent)
+        .then(m => m.CommitteeSendNotificationComponent), canActivate: [CommitteeAuthGuard]
     },
     {
       matcher: hasDynamicPathAndNonNumericLastPathSegment,

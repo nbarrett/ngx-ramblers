@@ -118,15 +118,14 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                               [(ngModel)]="notification.content.listId"
                               value="custom"/>
                             <label class="custom-control-label" for="custom">
-                              @if (notification.content.selectedMemberIds.length===0) {
+                              @if (notification?.content?.selectedMemberIds?.length === 0) {
                                 <div>Choose individual
                                   recipients
                                 </div>
                               }
-                              @if (notification.content.selectedMemberIds.length>0) {
-                                <div
-                                  >
-                                  {{ stringUtils.pluraliseWithCount(notification.content.selectedMemberIds.length, "recipient") }}
+                              @if (notification?.content?.selectedMemberIds?.length > 0) {
+                                <div>
+                                  {{ stringUtils.pluraliseWithCount(notification?.content?.selectedMemberIds?.length, "recipient") }}
                                   chosen from {{ selectedList()?.name }} list
                                 </div>
                               }
@@ -314,7 +313,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
           <div class="row">
             <div class="col col-sm-12">
               <ul class="group-events-ul">
-                @if (notification.groupEvents.length>0) {
+                @if (notification?.groupEvents?.length>0) {
                   <li class="mb-2">
                     <div class="custom-control custom-checkbox">
                       <input [(ngModel)]="notification.groupEventsFilter.selectAll"
@@ -358,15 +357,15 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                           }
                         </span>
                         <span style="font-size: 14px;font-weight: bold">
-                          @if (notification.groupEventsFilter.includeContact && groupEvent.contactName) {
+                          @if (notification?.groupEventsFilter?.includeContact && groupEvent?.contactName) {
                             <span> • Contact:
                               <a
-                              [href]="'mailto:' + groupEvent.contactEmail">{{ groupEvent.contactName || groupEvent.contactEmail }}</a>
-                              @if (groupEvent.contactPhone) {
+                              [href]="'mailto:' + groupEvent?.contactEmail">{{ groupEvent?.contactName || groupEvent?.contactEmail }}</a>
+                              @if (groupEvent?.contactPhone) {
                                 <span> ({{ groupEvent.contactPhone }})</span>
                               }</span>
                             }
-                            @if (notification.groupEventsFilter.includeLocation && groupEvent.postcode) {
+                            @if (notification?.groupEventsFilter?.includeLocation && groupEvent?.postcode) {
                               <span> • Location: <a
                                 [href]="googleMapsService.urlForPostcode(groupEvent.postcode)"
                                 target="_blank">
@@ -374,9 +373,8 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                               </a></span>
                             }
                           </span>
-                          @if (notification.groupEventsFilter.includeDescription) {
-                            <span markdown [data]="groupEvent.description" style="padding: 8px 0px 0px 0px"
-                              >
+                          @if (notification?.groupEventsFilter?.includeDescription) {
+                            <span markdown [data]="groupEvent.description" style="padding: 8px 0px 0px 0px">
                             </span>
                           }
                         </label>
@@ -442,8 +440,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
               }
               <div #notificationContent>
                 <app-committee-notification-details [committeeFile]="committeeFile" [members]="members"
-                  [notification]="notification">
-                </app-committee-notification-details>
+                  [notification]="notification"/>
               </div>
             </div>
           </div>
@@ -454,7 +451,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
       <div class="row">
         <div class="col-sm-12 mb-10">
           <div class="alert {{notifyTarget.alert.class}}">
-            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+            <fa-icon [icon]="notifyTarget.alert.icon"/>
             @if (notifyTarget.alertTitle) {
               <strong>
               {{ notifyTarget.alertTitle }}: </strong>
@@ -464,9 +461,9 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
         </div>
       }
       <app-brevo-button button [disabled]="notReady()" (click)="runCampaignCreationAndSendWorkflow()"
-      title="Send Now via {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"></app-brevo-button>
+      title="Send Now via {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
       <app-brevo-button class="ml-2" button [disabled]="notReady()" (click)="completeInMailSystem()"
-      title="Complete in {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"></app-brevo-button>
+      title="Complete in {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
       <input type="submit" value="Back" (click)="backToCommittee()"
         class="ml-2 btn btn-primary px-2 py-2">
     </div>

@@ -8,6 +8,7 @@ import { WalksLocalService } from "./walks-local.service";
 import { RamblersWalksAndEventsService } from "./ramblers-walks-and-events.service";
 import { EventPopulation, Organisation } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
+import { RamblersEventType } from "../../models/ramblers-walks-manager";
 
 @Injectable({
   providedIn: "root"
@@ -36,11 +37,11 @@ export class WalksService {
     return this.walksLocalService.notifications();
   }
 
-  async all(dataQueryOptions?: DataQueryOptions): Promise<Walk[]> {
+  async all(dataQueryOptions?: DataQueryOptions, ids?: string[], types?: RamblersEventType[]): Promise<Walk[]> {
     this.logger.info("all called with walkPopulation:", this.group?.walkPopulation, "dataQueryOptions:", dataQueryOptions);
     switch (this.group?.walkPopulation) {
       case EventPopulation.WALKS_MANAGER:
-        return this.ramblersWalksAndEventsService.all(dataQueryOptions);
+        return this.ramblersWalksAndEventsService.all(dataQueryOptions, ids, types);
       case EventPopulation.LOCAL:
         return this.walksLocalService.all(dataQueryOptions);
     }
