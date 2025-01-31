@@ -12,7 +12,7 @@ import { HumanisePipe } from "../../../../pipes/humanise.pipe";
         <th width="40%" style="border:1px solid lightgrey; font-weight: bold; padding: 6px">From</th>
         <th width="40%" style="border:1px solid lightgrey; font-weight: bold; padding: 6px">To</th>
       </tr>
-      @for (item of walkDataAudit?.changedItems; track item) {
+      @for (item of walkDataAudit?.changedItems; track item.fieldName) {
         <tr>
           <td style="border:1px solid lightgrey; padding: 6px">{{ item.fieldName | humanise }}</td>
           <td style="border:1px solid lightgrey; padding: 6px" [innerHTML]="renderMarked(item.previousValue)"></td>
