@@ -49,12 +49,11 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
     imports: [NgStyle, MarkdownComponent, DisplayDatePipe]
 })
 export class CommitteeNotificationGroupEventMessageItemComponent implements OnInit, OnDestroy {
-  private logger: Logger = inject(LoggerFactory).createLogger("CommitteeNotificationGroupEventMessageItemComponent", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("CommitteeNotificationGroupEventMessageItemComponent", NgxLoggerLevel.ERROR);
   mailMessagingService = inject(MailMessagingService);
   googleMapsService = inject(GoogleMapsService);
   private systemConfigService = inject(SystemConfigService);
   display = inject(CommitteeDisplayService);
-  public notification: Notification;
   private subscriptions: Subscription[] = [];
   public group: Organisation;
 
@@ -65,6 +64,7 @@ export class CommitteeNotificationGroupEventMessageItemComponent implements OnIn
   public event: GroupEvent;
 
   @Input()
+  public notification: Notification;
 
   ngOnInit() {
     this.logger.info("ngOnInit:event ->", this.event);
