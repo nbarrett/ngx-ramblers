@@ -10,3 +10,6 @@ export interface FontAwesomeIcon {
   icon: IconDefinition;
   class: string;
 }
+
+export const SQUARE = "Square";
+export const RAMBLERS_LANDING_PAGE = "Ramblers Landing page";

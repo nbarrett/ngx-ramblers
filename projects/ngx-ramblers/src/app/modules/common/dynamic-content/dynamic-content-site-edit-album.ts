@@ -42,7 +42,7 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
               <div class="row mt-2">
                 <div class="col-sm-12">
                   <div class="row">
-                    <div class="col-sm-12">
+                    <div class="col-sm-6">
                       <div class="custom-control custom-checkbox">
                         <input [(ngModel)]="row.carousel.showStoryNavigator"
                                type="checkbox" class="custom-control-input"
@@ -70,6 +70,16 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
                         <label class="custom-control-label"
                                [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-image-titles')">
                           Show Image Titles</label>
+                      </div>
+                    </div>
+                    <div class="col-sm-6">
+                      <div class="custom-control custom-checkbox">
+                        <input [(ngModel)]="row.carousel.galleryViewOptions.thumb"
+                               type="checkbox" class="custom-control-input"
+                               [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-hide-thumbnail-selector')">
+                        <label class="custom-control-label"
+                               [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-hide-thumbnail-selector')">
+                          Hide Thumbnail Selector</label>
                       </div>
                     </div>
                     <div class="col-sm-6">
@@ -122,6 +132,7 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
                             [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-thumb-position')">
                           Thumb Position</label>
                           <select class="form-control input-sm"
+                                  [disabled]="row.carousel.galleryViewOptions.thumb"
                                   [(ngModel)]="row.carousel.galleryViewOptions.thumbPosition"
                                   [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-thumb-position')">
                             @for (thumbPosition of thumbPositions; track thumbPosition) {

@@ -3,7 +3,7 @@
     <app-markdown-editor allowHide="true" name="image-editor-help"
                          description="Image Editor help"/>
     @if (!editing) {
-      <app-carousel-selector [name]="name"/>
+      <app-image-list-selector [name]="name"/>
     }
     @if (editing) {
       <app-image-list-edit [name]="name" (exit)="backToEditorHome()"/>

@@ -2,7 +2,7 @@ import express from "express";
 import multer from "multer";
 import * as authConfig from "../auth/auth-config";
 import { envConfig } from "../env-config/env-config";
-import  * as controller from "./aws-controllers";
+import * as controller from "./aws-controllers";
 import { uploadFile } from "./file-upload";
 
 const router = express.Router();

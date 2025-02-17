@@ -108,6 +108,19 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
     return response;
   }
 
+  async function findDocumentById(id: string): Promise<T> {
+    debugLog("findDocumentById:", id);
+    return model.findById(id)
+      .then(result => transforms.toObjectWithId(result))
+      .catch(error => {
+        return {
+          message: `${model.modelName} query failed`,
+          request: id,
+          error: transforms.parseError(error)
+        };
+      });
+  }
+
   return {
     create: (req: ControllerRequest, res: Response) => {
       createDocument(req)
@@ -219,6 +232,7 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
       findOne(req, res, parameters);
     },
     findOne,
+    findDocumentById,
     deleteDocument,
     createOrUpdateAll,
     updateDocument,

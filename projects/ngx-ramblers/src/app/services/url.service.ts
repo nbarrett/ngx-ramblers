@@ -106,6 +106,16 @@ export class UrlService {
     }
   }
 
+  websocketHost(): string {
+    const url = new URL(this.absoluteUrl());
+    return url.protocol === "https:" ? url.host.split(":")[0] : url.host;
+  }
+
+  websocketProtocol() {
+    const url = new URL(this.absoluteUrl());
+    return url.protocol === "https:" ? "wss" : "ws";
+  }
+
   relativeUrl(optionalUrl?: string): string {
     return "/" + this.urlPath(optionalUrl);
   }
