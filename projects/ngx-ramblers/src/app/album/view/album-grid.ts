@@ -15,38 +15,40 @@ import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata
 import { BadgeButtonComponent } from "../../modules/common/badge-button/badge-button";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { imageTracker } from "../../functions/trackers";
+import { LazyLoadDirective } from "../../notifications/common/lazy-load.directive";
 
 @Component({
     selector: "app-album-grid",
     styleUrls: ["./album-grid.sass"],
     template: `
-    <div class="card-columns">
-      @for (image of lazyLoadingMetadata?.selectedSlides; track imageTracker) {
-        <div class="card">
-          <img class="card-img-top"
-               [src]="urlService.imageSourceFor(image,lazyLoadingMetadata?.contentMetadata)"
-               [alt]="image.text">
-          @if (gridViewOptions.showTitles) {
-            <div class="card-body">
-              <h5 class="card-title">{{ image.text }}</h5>
-              @if (gridViewOptions.showDates) {
-                <p class="card-text">
-                  <small class="text-muted">{{ dateUtils.displayDate(image.date) }}
-                    <span class="ml-2 float-right">{{ slideNumber(image) }}</span></small></p>
-              }
-            </div>
-          }
-        </div>
+      <div class="card-columns">
+        @for (image of lazyLoadingMetadata?.selectedSlides; track image._id) {
+          <div class="card">
+            <img class="card-img-top"
+                 (load)="loaded(image)"
+                 lazyLoad="{{ urlService.imageSourceFor(image, lazyLoadingMetadata?.contentMetadata) }}"
+                 [alt]="image.text">
+            @if (gridViewOptions.showTitles) {
+              <div class="card-body">
+                <h5 class="card-title">{{ image.text }}</h5>
+                @if (gridViewOptions.showDates) {
+                  <p class="card-text">
+                    <small class="text-muted">{{ dateUtils.displayDate(image.date) }}
+                      <span class="ml-2 float-right">{{ slideNumber(image) }}</span></small></p>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+      @if (lazyLoadingMetadata?.availableSlides?.length > lazyLoadingMetadata?.selectedSlides?.length) {
+        <app-badge-button class="float-right" noRightMargin
+                          [tooltip]="'load more images'"
+                          [icon]="faSearch"
+                          (click)="viewMoreImages()" caption="load more images"/>
       }
-    </div>
-    @if (lazyLoadingMetadata?.availableSlides?.length > lazyLoadingMetadata?.selectedSlides?.length) {
-      <app-badge-button class="float-right" noRightMargin
-                        [tooltip]="'load more images'"
-                        [icon]="faSearch"
-                        (click)="viewMoreImages()" caption="load more images"/>
-    }
-  `,
-    imports: [BadgeButtonComponent, TooltipDirective]
+    `,
+  imports: [BadgeButtonComponent, TooltipDirective, LazyLoadDirective]
 })
 export class AlbumGridComponent {
 
@@ -56,8 +58,7 @@ export class AlbumGridComponent {
   }
 
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  protected readonly imageTracker = imageTracker;
-  private logger = this.loggerFactory.createLogger("AlbumGridComponent", NgxLoggerLevel.OFF);
+  private logger = this.loggerFactory.createLogger("AlbumGridComponent", NgxLoggerLevel.ERROR);
   public preview: boolean;
 
   @Input()
@@ -82,5 +83,9 @@ export class AlbumGridComponent {
 
   slideNumber(image: ContentMetadataItem): string {
     return `${this.lazyLoadingMetadata?.selectedSlides.indexOf(image) + 1} of ${this.lazyLoadingMetadata?.selectedSlides.length}`;
+  }
+
+  loaded(item: ContentMetadataItem) {
+    this.logger.info("loadedevent:", imageTracker(item), "index position:", this.lazyLoadingMetadata?.selectedSlides.indexOf(item));
   }
 }

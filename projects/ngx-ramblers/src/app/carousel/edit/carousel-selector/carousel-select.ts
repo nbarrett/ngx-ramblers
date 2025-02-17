@@ -14,8 +14,8 @@ import { NgStyle } from "@angular/common";
 import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
 
 @Component({
-    selector: "app-carousel-select",
-    styleUrls: ["./carousel-select.sass"],
+  selector: "app-image-list-select",
+  styleUrls: ["./image-list-select.sass"],
     template: `
     <div class="form-inline">
       <select [(ngModel)]="selectedContentMetadata"
@@ -37,7 +37,7 @@ import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge
     </div>`,
     imports: [FormsModule, NgStyle, BadgeButtonComponent]
 })
-export class CarouselSelectComponent implements OnInit {
+export class ImageListSelectComponent implements OnInit {
 
   private logger: Logger = inject(LoggerFactory).createLogger("CarouselSelectComponent", NgxLoggerLevel.ERROR);
   contentMetadataService = inject(ContentMetadataService);

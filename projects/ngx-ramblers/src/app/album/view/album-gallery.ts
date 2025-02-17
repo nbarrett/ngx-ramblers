@@ -1,5 +1,5 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
-import { Gallery, GalleryRef, GalleryState, ImageItem, GalleryComponent, GalleryImageDef } from "ng-gallery";
+import { Gallery, GalleryComponent, GalleryImageDef, GalleryRef, GalleryState, ImageItem } from "ng-gallery";
 import { ContentMetadata, ContentMetadataItem, LazyLoadingMetadata } from "../../models/content-metadata.model";
 import { PageService } from "../../services/page.service";
 import { ContentMetadataService } from "../../services/content-metadata.service";
@@ -19,21 +19,22 @@ import { StringUtilsService } from "../../services/string-utils.service";
     template: `
       @if (galleryId) {
         <gallery class="gallery-customise"
-          [id]="galleryId"
-          [autoPlay]="album?.slideInterval>0"
-          [playerInterval]="album?.slideInterval"
-          imageSize="cover"
-          [thumbPosition]="album.galleryViewOptions?.thumbPosition ||'left'"
-          [thumbView]="'default'"
-          [thumbImageSize]="album.galleryViewOptions?.thumbImageSize || 'cover'"
-          [loadingStrategy]="album.galleryViewOptions?.loadingStrategy || 'lazy'"
-          [dots]="album?.galleryViewOptions?.dots||true"
-          (indexChange)="indexChange($event)"
-          [dotsPosition]="album?.galleryViewOptions?.dotsPosition ||'bottom'">
+                 [id]="galleryId"
+                 [autoPlay]="album?.slideInterval>0"
+                 [playerInterval]="album?.slideInterval"
+                 imageSize="cover"
+                 [thumbPosition]="album.galleryViewOptions?.thumbPosition ||'left'"
+                 [thumbView]="'default'"
+                 [thumbImageSize]="album.galleryViewOptions?.thumbImageSize || 'cover'"
+                 [thumb]="!album.galleryViewOptions?.thumb"
+                 [loadingStrategy]="album.galleryViewOptions?.loadingStrategy || 'lazy'"
+                 [dots]="album?.galleryViewOptions?.dots||true"
+                 (indexChange)="indexChange($event)"
+                 [dotsPosition]="album?.galleryViewOptions?.dotsPosition ||'bottom'">
           <ng-container *galleryImageDef="let item; let active = active">
             @if (active) {
               <div class="item-panel-heading">
-                <div>{{item?.alt}}</div>
+                <div>{{ item?.alt }}</div>
               </div>
             }
           </ng-container>
@@ -44,7 +45,7 @@ import { StringUtilsService } from "../../services/string-utils.service";
 
 export class AlbumGalleryComponent implements OnInit {
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger = this.loggerFactory.createLogger("AlbumGalleryComponent", NgxLoggerLevel.OFF);
+  private logger = this.loggerFactory.createLogger("AlbumGalleryComponent", NgxLoggerLevel.ERROR);
   public preview: boolean;
   private galleryRef: GalleryRef;
 

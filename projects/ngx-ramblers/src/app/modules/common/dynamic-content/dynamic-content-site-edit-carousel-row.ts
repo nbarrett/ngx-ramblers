@@ -11,7 +11,7 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageContentService } from "../../../services/page-content.service";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { UrlService } from "../../../services/url.service";
-import { CarouselSelectComponent } from "../../../carousel/edit/carousel-selector/carousel-select";
+import { ImageListSelectComponent } from "../../../carousel/edit/carousel-selector/carousel-select";
 import { FormsModule } from "@angular/forms";
 import { TypeaheadDirective } from "ngx-bootstrap/typeahead";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
@@ -23,7 +23,7 @@ import { BadgeButtonComponent } from "../badge-button/badge-button";
     <label class="mr-2"
     [for]="id">Album Name</label>
     @if (!nameInput) {
-      <app-carousel-select [maxWidth]="250" [id]="id" showNewButton
+      <app-image-list-select [maxWidth]="250" [id]="id" showNewButton
         [name]="row?.carousel?.name"
         (metadataChange)="metadataChange(row, $event)"
         (nameEditToggle)="toggleNameEdit($event)"/>
@@ -42,7 +42,7 @@ import { BadgeButtonComponent } from "../badge-button/badge-button";
           (click)="toggleNameEdit(false)"/>
       </div>
     }`,
-    imports: [CarouselSelectComponent, FormsModule, TypeaheadDirective, BadgeButtonComponent]
+  imports: [ImageListSelectComponent, FormsModule, TypeaheadDirective, BadgeButtonComponent]
 })
 export class RowSettingsCarouselComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("RowSettingsCarouselComponent", NgxLoggerLevel.ERROR);

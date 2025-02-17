@@ -8,13 +8,13 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { PageComponent } from "../../../page/page.component";
 import { LoginRequiredComponent } from "../../../modules/common/login-required/login-required";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
-import { CarouselSelectorComponent } from "../carousel-selector/carousel-selector";
+import { ImageListSelectorComponent } from "../carousel-selector/image-list-selector";
 import { ImageListEditComponent } from "../image-list-edit/image-list-edit";
 
 @Component({
     selector: "app-list-edit-page",
     templateUrl: "./image-list-edit-page.html",
-    imports: [PageComponent, LoginRequiredComponent, MarkdownEditorComponent, CarouselSelectorComponent, ImageListEditComponent]
+  imports: [PageComponent, LoginRequiredComponent, MarkdownEditorComponent, ImageListSelectorComponent, ImageListEditComponent]
 })
 export class ImageListEditPageComponent implements OnInit, OnDestroy {
 

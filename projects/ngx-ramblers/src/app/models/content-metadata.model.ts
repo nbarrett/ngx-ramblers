@@ -1,4 +1,4 @@
-import { ApiResponse } from "./api-response.model";
+import { ApiResponse, Identifiable } from "./api-response.model";
 import { RootFolder } from "./system.model";
 import { WithMongoId } from "./mongo-models";
 import { OutputFormat } from "ngx-image-cropper/lib/interfaces/cropper-options.interface";
@@ -52,8 +52,7 @@ export const fileTypeAttributes: FileTypeAttributes[] = [
     croppable: false
   }];
 
-export interface ContentMetadata {
-  id: string;
+export interface ContentMetadata extends Identifiable {
   rootFolder?: RootFolder;
   name?: string;
   files: ContentMetadataItem[];
@@ -61,6 +60,17 @@ export interface ContentMetadata {
   imageTags: ImageTag[];
   aspectRatio?: string;
   defaultImage?: string;
+  maxImageSize?: number;
+}
+
+export interface ContentMetadataResizeRequest {
+  maxFileSize: number;
+  id?: string;
+  input?: ContentMetadataItem[];
+  output?: {
+    rootFolder: RootFolder;
+    name: string;
+  };
 }
 
 export interface S3Metadata {
@@ -95,6 +105,11 @@ export interface DuplicateImages {
 export interface ContentMetadataApiResponse extends ApiResponse {
   request: any;
   response?: ContentMetadata;
+}
+
+export interface ContentMetadataItemsApiResponse extends ApiResponse {
+  request: any;
+  response: ContentMetadataItem[];
 }
 
 export interface ContentMetadataApiResponses extends ApiResponse {

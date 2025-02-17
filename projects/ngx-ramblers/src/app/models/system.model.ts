@@ -1,13 +1,13 @@
 import { Link } from "./page.model";
 import { HasClass, HasColour } from "./banner-configuration.model";
-import { AccessLevel } from "./member-resource.model";
 import { WalkListView } from "./walk.model";
 
 export enum SystemSettingsTab {
-  GROUP_DETAILS = "Group Details",
+  GROUP_DETAILS = "Group",
   BACKGROUNDS = "Backgrounds",
   ICONS = "Icons",
   LOGOS = "Logos",
+  IMAGES = "Images",
   WEBSITE_HEADER = "Website Header",
   WEBSITE_FOOTER = "Website Footer",
   RAMBLERS_DETAILS = "Ramblers Details",
@@ -171,6 +171,7 @@ export interface SystemConfig {
   national: Ramblers;
   externalSystems: ExternalSystems
   recaptcha: ReCaptchaConfig
+  images: ImageConfig
   googleAnalytics: GoogleAnalyticsConfig
   mailDefaults: {
     mailProvider: MailProvider;
@@ -286,6 +287,13 @@ export const defaultRightPanel: RightPanel = {
 export interface ReCaptchaConfig {
   siteKey: string;
   secretKey: string;
+}
+
+export interface ImageConfig {
+  imageLists: {
+    defaultMaxImageSize: number;
+    defaultAspectRatio: string;
+  };
 }
 
 export interface CaptchaVerificationResponse {

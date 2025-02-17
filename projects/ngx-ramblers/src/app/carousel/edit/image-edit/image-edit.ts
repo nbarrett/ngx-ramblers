@@ -49,166 +49,164 @@ import { GroupEventSelectorComponent } from "../../../group-events-selector/grou
 @Component({
     selector: "app-image-edit",
     template: `
-    <div class="card mb-3">
-      <div class="card-body">
-        <div class="row">
-          @if (editActive) {
-            <div class="col-sm-12 mb-3">
-              <app-image-cropper-and-resizer noImageSave
-                                             [selectAspectRatio]="contentMetadata?.aspectRatio"
-                                             [rootFolder]="contentMetadataService.rootFolderAndName(contentMetadata?.rootFolder, contentMetadata?.name)"
-                                             [preloadImage]="imageSourceOrPreview()"
-                                             (imageChange)="imageChanged($event)"
-                                             (error)="imageCroppingError($event)"
-                                             (cropError)="imageCroppingError($event)"
-                                             (quit)="imageEditQuit()"
-                                             (save)="imagedSaved($event)"/>
-            </div>
-          }
-          <div class="col-sm-7">
-            <div class="form-group">
-              <div class="row mb-2">
-                <div class="col">Image {{ index + 1 }} of {{ filteredFiles?.length }}</div>
-                <div class="col text-right">
-                  @if (imagedIsSaved()) {
-                    <span>Image Size {{ imageSize() }}</span>
-                  }
-                  @if (imagedIsCropped()) {
-                    <span class="ml-2">Cropped Size {{ croppedSize() }}</span>
-                  }
-                </div>
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="row">
+            @if (editActive) {
+              <div class="col-sm-12 mb-3">
+                <app-image-cropper-and-resizer noImageSave
+                                               [selectAspectRatio]="contentMetadata?.aspectRatio"
+                                               [rootFolder]="contentMetadataService.rootFolderAndName(contentMetadata?.rootFolder, contentMetadata?.name)"
+                                               [preloadImage]="imageSourceOrPreview()"
+                                               (imageChange)="imageChanged($event)"
+                                               (error)="imageCroppingError($event)"
+                                               (cropError)="imageCroppingError($event)"
+                                               (quit)="imageEditQuit()"
+                                               (save)="imagedSaved($event)"/>
               </div>
-              @if (!imageLoadText) {
-                <img (load)="imageLoaded($event)" (error)="imageError(item, $event)" loading="lazy"
-                     [id]="'image-' + index" class="img-fluid w-100" [src]="imageSourceOrPreview()"
-                     [alt]="item.text"/>
-              }
-              @if (imageLoadText) {
-                <div class="row no-image"
-                     [ngClass]="{'small-icon-container': true}">
-                  <div class="col align-self-center text-center">
-                    <fa-icon [icon]="faImage" class="fa-icon fa-3x"/>
-                    <div>{{ imageLoadText }}</div>
+            }
+            <div class="col-sm-7">
+              <div class="form-group">
+                <div class="row mb-2">
+                  <div class="col">Image {{ index + 1 }} of {{ filteredFiles?.length }}</div>
+                  <div class="col text-right">
+                    <div>Image Size {{ imageSize() }}</div>
+                    @if (imagedIsCropped()) {
+                      <div class="ml-2">Cropped Size {{ croppedSize() }}</div>
+                    }
                   </div>
                 </div>
-              }
-            </div>
-            <div class="row no-gutters">
-              <div class="col pr-1">
-                <app-badge-button fullWidth [disabled]="editActive" [icon]="faRemove" caption="Delete"
-                                  (click)="callDelete()"/>
+                @if (!imageLoadText) {
+                  <img (load)="imageLoaded($event)" (error)="imageError(item, $event)" loading="lazy"
+                       [id]="'image-' + index" class="img-fluid w-100" [src]="imageSourceOrPreview()"
+                       [alt]="item.text"/>
+                }
+                @if (imageLoadText) {
+                  <div class="row no-image"
+                       [ngClass]="{'small-icon-container': true}">
+                    <div class="col align-self-center text-center">
+                      <fa-icon [icon]="faImage" class="fa-icon fa-3x"/>
+                      <div>{{ imageLoadText }}</div>
+                    </div>
+                  </div>
+                }
               </div>
-              <div class="col pr-1">
-                <app-badge-button fullWidth [disabled]="editActive" [icon]="faAdd" caption="Insert"
-                                  (click)="callInsert()"/>
+              <div class="row no-gutters">
+                <div class="col pr-1">
+                  <app-badge-button fullWidth [disabled]="editActive" [icon]="faRemove" caption="Delete"
+                                    (click)="callDelete()"/>
+                </div>
+                <div class="col pr-1">
+                  <app-badge-button fullWidth [disabled]="editActive" [icon]="faAdd" caption="Insert"
+                                    (click)="callInsert()"/>
+                </div>
+                <div class="col">
+                  <app-badge-button fullWidth [disabled]="editActive" [icon]="faPencil" caption="Edit image"
+                                    (click)="editImage()"/>
+                </div>
               </div>
-              <div class="col">
-                <app-badge-button fullWidth [disabled]="editActive" [icon]="faPencil" caption="Edit image"
-                                  (click)="editImage()"/>
+              <div class="row no-gutters">
+                <div class="col pr-1">
+                  <app-badge-button fullWidth [disabled]="editActive|| !canMoveUp" [icon]="faAngleUp" caption="Move up"
+                                    (click)="callMoveUp()"/>
+                </div>
+                <div class="col pr-1">
+                  <app-badge-button fullWidth [disabled]="editActive|| !canMoveDown" [icon]="faAngleDown"
+                                    caption="Move down"
+                                    (click)="callMoveDown()"/>
+                </div>
+                <div class="col">
+                  <app-badge-button fullWidth [disabled]="editActive" [icon]="faBook"
+                                    [caption]="item.image && item.image===contentMetadata.coverImage? 'Clear Cover image':'Cover Image'"
+                                    [active]="item.image && item.image===contentMetadata.coverImage"
+                                    (click)="coverImageSet()"/>
+                </div>
               </div>
-            </div>
-            <div class="row no-gutters">
-              <div class="col pr-1">
-                <app-badge-button fullWidth [disabled]="editActive|| !canMoveUp" [icon]="faAngleUp" caption="Move up"
-                                  (click)="callMoveUp()"/>
-              </div>
-              <div class="col pr-1">
-                <app-badge-button fullWidth [disabled]="editActive|| !canMoveDown" [icon]="faAngleDown"
-                                  caption="Move down"
-                                  (click)="callMoveDown()"/>
-              </div>
-              <div class="col">
-                <app-badge-button fullWidth [disabled]="editActive" [icon]="faBook"
-                                  [caption]="item.image && item.image===contentMetadata.coverImage? 'Clear Cover image':'Cover Image'"
-                                  [active]="item.image && item.image===contentMetadata.coverImage"
-                                  (click)="coverImageSet()"/>
-              </div>
-            </div>
-            <div class="row no-gutters mb-2">
-              <div class="col pr-1">
-                <app-badge-button fullWidth [disabled]="!canMoveUp" [icon]="faLink" caption="Image Data as Previous"
-                                  (click)="imageDataAsPrevious()"/>
-              </div>
-              <div class="col pr-1">
-                <app-badge-button fullWidth [disabled]="editActive|| !canMoveDown" [icon]="faLink"
-                                  caption="Image Data As Next"
-                                  (click)="imageDataAsNext()"/>
-              </div>
-              <div class="col">
-                <app-badge-button fullWidth [disabled]="editActive" [icon]="faLinkSlash"
-                                  caption="Clear Image Data"
-                                  (click)="clearImageData()"/>
-              </div>
-            </div>
-          </div>
-          <div class="col-sm-5">
-            <div class="form-group">
-              <label [for]="stringUtils.kebabCase('image-title', index)">Image Title</label>
-              <textarea [(ngModel)]="item.text" (ngModelChange)="callImageChange()" type="text"
-                        class="form-control input-sm"
-                        rows="2" [id]="stringUtils.kebabCase('image-title', index)"
-                        placeholder="Enter title for image"></textarea>
-            </div>
-            <div class="row">
-              <div class="col-sm-5">
-                <app-group-event-type-selector [dataSource]="item.dateSource" label="Date Source" includeUpload
-                                               (eventChange)="eventTypeChange($event)"
-                                               (initialValue)="groupEventType=$event"/>
-              </div>
-              <div class="col-sm-7 no-left-padding">
-                <div class="form-group no-left-padding">
-                  <app-date-picker startOfDay [label]="'Image Date'"
-                                   [size]="'md'"
-                                   (dateChange)="dateChange($event)"
-                                   [value]="item?.date"/>
+              <div class="row no-gutters mb-2">
+                <div class="col pr-1">
+                  <app-badge-button fullWidth [disabled]="!canMoveUp" [icon]="faLink" caption="Image Data as Previous"
+                                    (click)="imageDataAsPrevious()"/>
+                </div>
+                <div class="col pr-1">
+                  <app-badge-button fullWidth [disabled]="editActive|| !canMoveDown" [icon]="faLink"
+                                    caption="Image Data As Next"
+                                    (click)="imageDataAsNext()"/>
+                </div>
+                <div class="col">
+                  <app-badge-button fullWidth [disabled]="editActive" [icon]="faLinkSlash"
+                                    caption="Clear Image Data"
+                                    (click)="clearImageData()"/>
                 </div>
               </div>
             </div>
-            <div class="form-group">
-              <app-tag-editor [tagsForImage]="item?.tags"
-                              [contentMetadataImageTags]="contentMetadataImageTags"
-                              [text]="item?.text"
-                              (tagsChange)="tagsChange($event)"/>
-            </div>
-            <div class="form-group">
-              <label [for]="'name-' + index">Image Source {{ imageUnsaved(item) }}</label>
-              @if (!item.base64Content) {
-                <input [(ngModel)]="item.image" type="text"
-                       class="form-control input-sm"
-                       [id]="'name-' + index" placeholder="Image source - updated automatically"/>
+            <div class="col-sm-5">
+              <div class="form-group">
+                <label [for]="stringUtils.kebabCase('image-title', index)">Image Title</label>
+                <textarea [(ngModel)]="item.text" (ngModelChange)="callImageChange()" type="text"
+                          class="form-control input-sm"
+                          rows="2" [id]="stringUtils.kebabCase('image-title', index)"
+                          placeholder="Enter title for image"></textarea>
+              </div>
+              <div class="row">
+                <div class="col-sm-5">
+                  <app-group-event-type-selector [dataSource]="item.dateSource" label="Date Source" includeUpload
+                                                 (eventChange)="eventTypeChange($event)"
+                                                 (initialValue)="groupEventType=$event"/>
+                </div>
+                <div class="col-sm-7 no-left-padding">
+                  <div class="form-group no-left-padding">
+                    <app-date-picker startOfDay [label]="'Image Date'"
+                                     [size]="'md'"
+                                     (dateChange)="dateChange($event)"
+                                     [value]="item?.date"/>
+                  </div>
+                </div>
+              </div>
+              <div class="form-group">
+                <app-tag-editor [tagsForImage]="item?.tags"
+                                [contentMetadataImageTags]="contentMetadataImageTags"
+                                [text]="item?.text"
+                                (tagsChange)="tagsChange($event)"/>
+              </div>
+              <div class="form-group">
+                <label [for]="'name-' + index">Image Source {{ imageUnsaved(item) }}</label>
+                @if (!item.base64Content) {
+                  <input [(ngModel)]="item.image" type="text"
+                         class="form-control input-sm"
+                         [id]="'name-' + index" placeholder="Image source - updated automatically"/>
+                }
+              </div>
+              @if (item.originalFileName) {
+                <div class="form-group">
+                  <label [for]="'original-name-' + index">Original Name</label>
+                  <input class="form-control input-sm"
+                         [value]="item.originalFileName" disabled [id]="'original-name-' + index"/>
+                </div>
               }
             </div>
-            @if (item.originalFileName) {
-              <div class="form-group">
-                <label [for]="'original-name-' + index">Original Name</label>
-                <input class="form-control input-sm"
-                       [value]="item.originalFileName" disabled [id]="'original-name-' + index"/>
+            @if (item?.dateSource !== 'upload') {
+              <div class="col-sm-12">
+                <app-group-event-selector [label]="'Link to ' + groupEventType?.description"
+                                          [eventId]="item.eventId"
+                                          [dataSource]="groupEventType?.area"
+                                          (eventCleared)="item.eventId=null"
+                                          (eventChange)="eventChange($event)"/>
+              </div>
+            }
+            @if (notifyTarget.showAlert) {
+              <div class="col-sm-12">
+                <div class="alert {{notifyTarget.alertClass}} table-pointer">
+                  <fa-icon [icon]="notifyTarget.alert.icon"/>
+                  @if (notifyTarget.alertTitle) {
+                    <strong>
+                      {{ notifyTarget.alertTitle }}:</strong>
+                  } {{ notifyTarget.alertMessage }}
+                </div>
               </div>
             }
           </div>
-          @if (item?.dateSource !== 'upload') {
-            <div class="col-sm-12">
-              <app-group-event-selector [label]="'Link to ' + groupEventType?.description"
-                                        [eventId]="item.eventId"
-                                        [dataSource]="groupEventType?.area"
-                                        (eventCleared)="item.eventId=null"
-                                        (eventChange)="eventChange($event)"/>
-            </div>
-          }
-          @if (notifyTarget.showAlert) {
-            <div class="col-sm-12">
-              <div class="alert {{notifyTarget.alertClass}} table-pointer">
-                <fa-icon [icon]="notifyTarget.alert.icon"/>
-                @if (notifyTarget.alertTitle) {
-                  <strong>
-                    {{ notifyTarget.alertTitle }}:</strong>
-                } {{ notifyTarget.alertMessage }}
-              </div>
-            </div>
-          }
         </div>
-      </div>
-    </div>`,
+      </div>`,
     imports: [ImageCropperAndResizerComponent, NgClass, FontAwesomeModule, BadgeButtonComponent, FormsModule, GroupEventTypeSelectorComponent, DatePickerComponent, TagEditorComponent, GroupEventSelectorComponent]
 })
 export class ImageEditComponent implements OnInit {
@@ -222,7 +220,7 @@ export class ImageEditComponent implements OnInit {
   public dateUtils: DateUtilsService = inject(DateUtilsService);
   private urlService: UrlService = inject(UrlService);
   private loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger = this.loggerFactory.createLogger("ImageEditComponent", NgxLoggerLevel.OFF);
+  private logger = this.loggerFactory.createLogger("ImageEditComponent", NgxLoggerLevel.ERROR);
   public notifyTarget: AlertTarget = {};
   public notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   private s3Metadata: S3Metadata;
@@ -506,7 +504,7 @@ export class ImageEditComponent implements OnInit {
   }
 
   imageSize() {
-    return this.numberUtils.humanFileSize(this.s3Metadata?.size);
+    return this.s3Metadata?.size ? this.numberUtils.humanFileSize(this.s3Metadata?.size) : this.numberUtils.humanFileSize(this.item?.base64Content?.length);
   }
 
 }

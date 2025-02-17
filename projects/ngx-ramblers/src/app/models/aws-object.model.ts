@@ -84,8 +84,6 @@ export interface ImageData {
   size: Dimensions;
 }
 
-export const SQUARE = "Square";
-
 export interface DescribedDimensions extends Dimensions {
   description?: string;
 }
@@ -100,3 +98,11 @@ export interface BucketConfig {
     region: string;
     include?: boolean;
 }
+
+export interface AWSConfig {
+  accessKeyId: string;
+  secretAccessKey: string;
+  region: string;
+  bucket: string;
+}
+

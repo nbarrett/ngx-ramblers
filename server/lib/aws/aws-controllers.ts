@@ -14,23 +14,33 @@ import {
   S3MetadataApiResponse
 } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
 import { envConfig } from "../env-config/env-config";
-import { AwsInfo, AwsUploadErrorResponse } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
+import {
+  AWSConfig,
+  AwsInfo,
+  AwsUploadErrorResponse
+} from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
+import { contentTypeFrom } from "./aws-utils";
 
 const logObject = false;
-const s3Config = {
+const s3Config: AWSConfig = {
   accessKeyId: envConfig.aws.accessKeyId,
   secretAccessKey: envConfig.aws.secretAccessKey,
-  region: envConfig.aws.region
+  region: envConfig.aws.region,
+  bucket: envConfig.aws.bucket
 };
 const s3: S3 = new AWS.S3(s3Config);
 const debugLog = debug(envConfig.logNamespace("aws"));
 debugLog.enabled = false;
 debugLog("configured with", s3Config, "Proxying S3 requests to", envConfig.aws.uploadUrl, "http.globalAgent.maxSockets:", https.globalAgent.maxSockets);
 
+export function queryAWSConfig(): AWSConfig {
+  return s3Config;
+}
+
 export function listObjects(req: Request, res: Response) {
   const bucketParams = {
-    Bucket: envConfig.aws.bucket,
+    Bucket: s3Config.bucket,
     Prefix: req.query.prefix.toString(),
     MaxKeys: 20000
   };
@@ -86,7 +96,7 @@ export function listBuckets(req: Request, res: Response) {
 
 export function putObjectDirect(rootFolder: string, fileName: string, localFileName: string): Promise<AwsInfo | AwsUploadErrorResponse> {
   debugLog("configured with", s3Config);
-  const bucket = envConfig.aws.bucket;
+  const bucket = s3Config.bucket;
   const objectKey = `${rootFolder}/${path.basename(fileName)}`;
   const data = fs.readFileSync(localFileName);
   const params = {
@@ -127,31 +137,9 @@ function expiryTime() {
   return expiryDate;
 }
 
-function extensionFrom(key: string): string {
-  const extension = path.extname(key).toLowerCase();
-  return extension.length <= 5 ? extension : ".jpeg";
-}
-
-function contentTypeFrom(fileName: string): string {
-  const extension = extensionFrom(fileName);
-  if ([".jpg", ".jpeg"].includes(extension)) {
-    return "image/jpeg";
-  } else if ([".png", ".x-png"].includes(extension)) {
-    return "image/png";
-  } else if ([".svg"].includes(extension)) {
-    return "image/svg+xml";
-  } else if ([".pdf"].includes(extension)) {
-    return "application/pdf";
-  } else if ([".doc", ".docx", ".dot"].includes(extension)) {
-    return "application/msword";
-  } else {
-    return "image/jpeg";
-  }
-}
-
 function optionsFrom(req: Request): GetObjectRequest {
   const key = `${req.params.bucket}${req.params[0]}`;
-  return {Bucket: envConfig.aws.bucket, Key: key};
+  return {Bucket: s3Config.bucket, Key: key};
 }
 
 async function getObjectAsBase64(req: Request, res: Response) {
@@ -189,7 +177,7 @@ function s3Policy(req: Request, res: Response) {
     "expiration": expiryTime(),
     "conditions": [
       ["starts-with", "$key", `${req.query.objectKey ? req.query.objectKey : ""}/`],
-      {"bucket": envConfig.aws.bucket},
+      {"bucket": s3Config.bucket},
       {"acl": "public-read"},
       ["starts-with", "$Content-Type", req.query.mimeType ? req.query.mimeType : ""],
       {"success_action_status": "201"},

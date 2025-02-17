@@ -75,640 +75,653 @@ import { WalkSummaryPipe } from "../../../pipes/walk-summary.pipe";
 @Component({
     selector: "app-walk-edit",
     template: `
-    <div class="d-none">
-      <ng-template app-notification-directive/>
-    </div>
-    <div class="tabset-container">
-      <app-walk-panel-expander [walk]="displayedWalk.walk" [collapsable]="true" [collapseAction]="'exit edit'"
-        [expandAction]="'edit walk full-screen'" [expandable]="isExpandable()">
-      </app-walk-panel-expander>
-      @if (displayedWalk.walk) {
-        <tabset class="custom-tabset">
-          <tab heading="Main Details">
-            <div class="img-thumbnail thumbnail-admin-edit">
-              <div class="row">
-                <div class="col-sm-4">
-                  <div class="form-group">
-                    <label for="walk-date">Walk Date</label>
-                    <app-date-picker startOfDay id="walk-date" size="md"
-                      placeholder="enter date of walk"
-                      [disabled]="!display.allowAdminEdits() || inputDisabled()"
-                      class="w-100"
-                      (dateChange)="onDateChange($event)"
-                      [value]="displayedWalk.walk.walkDate">
-                    </app-date-picker>
-                  </div>
-                </div>
-                <div class="col-sm-2">
-                  <div class="form-group">
-                    <label for="start-time">Start Time</label>
-                    <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.startTime"
-                      (ngModelChange)="calculateAndSetFinishTime()"
-                      type="text" class="form-control input-sm" id="start-time"
-                      placeholder="Enter Start time here">
-                  </div>
-                </div>
-                <div class="col-sm-2">
-                  <div class="form-group">
-                    <label for="distance">Distance</label>
-                    <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.distance"
-                      (ngModelChange)="calculateAndSetFinishTime()"
-                      type="text" class="form-control input-sm" id="distance"
-                      placeholder="Enter Distance here">
-                  </div>
-                </div>
-                <div class="col-sm-2">
-                  <div class="form-group">
-                    <label for="miles-per-hour">Miles Per Hour</label>
-                    <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.milesPerHour"
-                      (ngModelChange)="calculateAndSetFinishTime()"
-                      type="number" step="0.25" class="form-control input-sm" id="miles-per-hour"
-                      placeholder="Enter Estimated MPH of walk">
-                  </div>
-                </div>
-                <div class="col-sm-2">
-                  <div class="form-group">
-                    <label for="finish-time">Finish Time</label>
-                    <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.finishTime"
-                      type="text" class="form-control input-sm" id="finish-time"
-                      placeholder="Enter Estimated finish time here">
-                  </div>
-                </div>
-              </div>
-              <div class="row">
-                <div class="col-sm-12">
-                  <div class="form-group">
-                    <label for="brief-description-and-start-point">Walk Title</label>
-                    <textarea [disabled]="inputDisabled()"
-                      [(ngModel)]="displayedWalk.walk.briefDescriptionAndStartPoint" type="text"
-                      class="form-control input-sm" rows="3"
-                      id="brief-description-and-start-point"
-                    placeholder="Enter walk title here"></textarea>
-                  </div>
-                </div>
-              </div>
-              <div class="row">
-                <div class="col-sm-12">
-                  <div class="form-group">
-                    <label for="longer-description">Longer Description <a
-                      [hidden]="longerDescriptionPreview"
-                      (click)="previewLongerDescription()" [href]="">
-                      <fa-icon [icon]="faMagnifyingGlass" class="markdown-preview-icon"></fa-icon>
-                    preview</a>
-                    @if (longerDescriptionPreview) {
-                      <a
-                        (click)="editLongerDescription()" [href]="">
-                        <fa-icon [icon]="faPencil" class="markdown-preview-icon"></fa-icon>
-                      edit</a>
-                    } </label>
-                    @if (longerDescriptionPreview) {
-                      <p
-                        (click)="editLongerDescription()"
-                        class="list-arrow" markdown [data]="displayedWalk.walk.longerDescription" type="text"
-                      id="longer-description-formatted"></p>
-                    }
-                    @if (!longerDescriptionPreview) {
-                      <textarea
-                        [disabled]="inputDisabled()"
-                        [(ngModel)]="displayedWalk.walk.longerDescription" type="text"
-                        class="form-control input-sm" rows="5" id="longer-description"
-                      placeholder="Enter Longer Description here"></textarea>
-                    }
-                  </div>
-                </div>
-              </div>
-            </div>
-          </tab>
-          <tab (selectTab)="onTabSelect(true)" heading="Walk Details">
-            <div class="img-thumbnail thumbnail-admin-edit">
-              <div class="row">
-                <div class="col-sm-12">
-                  <div class="row">
-                    <div class="col-sm-4">
-                      <div class="form-group">
-                        <label for="grade">Grade</label>
-                        @if (allowDetailView()) {
-                          <select [disabled]="inputDisabled()"
-                            placeholder="Enter Grade here"
-                            [(ngModel)]="displayedWalk.walk.grade"
-                            class="form-control input-sm" id="grade">
-                            @for (grade of display.grades; track grade) {
-                              <option
-                                [ngValue]="grade">{{ grade }}
-                              </option>
-                            }
-                          </select>
-                        }
-                      </div>
-                    </div>
-                    <div class="col-sm-4">
-                      <div class="form-group">
-                        <label for="walkType">Walk Type</label>
-                        @if (allowDetailView()) {
-                          <select [disabled]="inputDisabled()"
-                            [(ngModel)]="displayedWalk.walk.walkType"
-                            (ngModelChange)="walkTypeChange()"
-                            class="form-control input-sm" id="walkType">
-                            @for (type of display.walkTypes; track type) {
-                              <option [ngValue]="type"
-                                [attr.selected]="type == display.walkTypes[0]">{{ type }}
-                              </option>
-                            }
-                          </select>
-                        }
-                      </div>
-                    </div>
-                    <div class="col-sm-4">
-                      <div class="form-group">
-                        <label for="ascent">Ascent</label>
-                        <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.ascent"
-                          type="text" class="form-control input-sm" id="ascent"
-                          placeholder="Enter Ascent here">
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              @if (renderMapEdit) {
+      <div class="d-none">
+        <ng-template app-notification-directive/>
+      </div>
+      <div class="tabset-container">
+        <app-walk-panel-expander [walk]="displayedWalk.walk" [collapsable]="true" [collapseAction]="'exit edit'"
+                                 [expandAction]="'edit walk full-screen'" [expandable]="isExpandable()">
+        </app-walk-panel-expander>
+        @if (displayedWalk.walk) {
+          <tabset class="custom-tabset">
+            <tab heading="Main Details">
+              <div class="img-thumbnail thumbnail-admin-edit">
                 <div class="row">
-                  <div class="col">
-                    <app-walk-location-edit locationType="Starting" [locationDetails]="displayedWalk.walk.start_location"
-                      [notify]="notify"/>
+                  <div class="col-sm-4">
+                    <div class="form-group">
+                      <label for="walk-date">Walk Date</label>
+                      <app-date-picker startOfDay id="walk-date" size="md"
+                                       placeholder="enter date of walk"
+                                       [disabled]="!display.allowAdminEdits() || inputDisabled()"
+                                       class="w-100"
+                                       (dateChange)="onDateChange($event)"
+                                       [value]="displayedWalk.walk.walkDate">
+                      </app-date-picker>
+                    </div>
                   </div>
-                  @if (displayedWalk.walk.walkType ===WalkType.LINEAR) {
+                  <div class="col-sm-2">
+                    <div class="form-group">
+                      <label for="start-time">Start Time</label>
+                      <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.startTime"
+                             (ngModelChange)="calculateAndSetFinishTime()"
+                             type="text" class="form-control input-sm" id="start-time"
+                             placeholder="Enter Start time here">
+                    </div>
+                  </div>
+                  <div class="col-sm-2">
+                    <div class="form-group">
+                      <label for="distance">Distance</label>
+                      <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.distance"
+                             (ngModelChange)="calculateAndSetFinishTime()"
+                             type="text" class="form-control input-sm" id="distance"
+                             placeholder="Enter Distance here">
+                    </div>
+                  </div>
+                  <div class="col-sm-2">
+                    <div class="form-group">
+                      <label for="miles-per-hour">Miles Per Hour</label>
+                      <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.milesPerHour"
+                             (ngModelChange)="calculateAndSetFinishTime()"
+                             type="number" step="0.25" class="form-control input-sm" id="miles-per-hour"
+                             placeholder="Enter Estimated MPH of walk">
+                    </div>
+                  </div>
+                  <div class="col-sm-2">
+                    <div class="form-group">
+                      <label for="finish-time">Finish Time</label>
+                      <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.finishTime"
+                             type="text" class="form-control input-sm" id="finish-time"
+                             placeholder="Enter Estimated finish time here">
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-sm-12">
+                    <div class="form-group">
+                      <label for="brief-description-and-start-point">Walk Title</label>
+                      <textarea [disabled]="inputDisabled()"
+                                [(ngModel)]="displayedWalk.walk.briefDescriptionAndStartPoint" type="text"
+                                class="form-control input-sm" rows="3"
+                                id="brief-description-and-start-point"
+                                placeholder="Enter walk title here"></textarea>
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-sm-12">
+                    <div class="form-group">
+                      <label for="longer-description">Longer Description <a
+                        [hidden]="longerDescriptionPreview"
+                        (click)="previewLongerDescription()" [href]="">
+                        <fa-icon [icon]="faMagnifyingGlass" class="markdown-preview-icon"></fa-icon>
+                        preview</a>
+                        @if (longerDescriptionPreview) {
+                          <a
+                            (click)="editLongerDescription()" [href]="">
+                            <fa-icon [icon]="faPencil" class="markdown-preview-icon"></fa-icon>
+                            edit</a>
+                        } </label>
+                      @if (longerDescriptionPreview) {
+                        <p
+                          (click)="editLongerDescription()"
+                          class="list-arrow" markdown [data]="displayedWalk.walk.longerDescription" type="text"
+                          id="longer-description-formatted"></p>
+                      }
+                      @if (!longerDescriptionPreview) {
+                        <textarea
+                          [disabled]="inputDisabled()"
+                          [(ngModel)]="displayedWalk.walk.longerDescription" type="text"
+                          class="form-control input-sm" rows="5" id="longer-description"
+                          placeholder="Enter Longer Description here"></textarea>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </tab>
+            <tab (selectTab)="onTabSelect(true)" heading="Walk Details">
+              <div class="img-thumbnail thumbnail-admin-edit">
+                <div class="row">
+                  <div class="col-sm-12">
+                    <div class="row">
+                      <div class="col-sm-4">
+                        <div class="form-group">
+                          <label for="grade">Grade</label>
+                          @if (allowDetailView()) {
+                            <select [disabled]="inputDisabled()"
+                                    placeholder="Enter Grade here"
+                                    [(ngModel)]="displayedWalk.walk.grade"
+                                    class="form-control input-sm" id="grade">
+                              @for (grade of display.grades; track grade) {
+                                <option
+                                  [ngValue]="grade">{{ grade }}
+                                </option>
+                              }
+                            </select>
+                          }
+                        </div>
+                      </div>
+                      <div class="col-sm-4">
+                        <div class="form-group">
+                          <label for="walkType">Walk Type</label>
+                          @if (allowDetailView()) {
+                            <select [disabled]="inputDisabled()"
+                                    [(ngModel)]="displayedWalk.walk.walkType"
+                                    (ngModelChange)="walkTypeChange()"
+                                    class="form-control input-sm" id="walkType">
+                              @for (type of display.walkTypes; track type) {
+                                <option [ngValue]="type"
+                                        [attr.selected]="type == display.walkTypes[0]">{{ type }}
+                                </option>
+                              }
+                            </select>
+                          }
+                        </div>
+                      </div>
+                      <div class="col-sm-4">
+                        <div class="form-group">
+                          <label for="ascent">Ascent</label>
+                          <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.ascent"
+                                 type="text" class="form-control input-sm" id="ascent"
+                                 placeholder="Enter Ascent here">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                @if (renderMapEdit) {
+                  <div class="row">
                     <div class="col">
-                      <app-walk-location-edit locationType="Finishing"
-                        [locationDetails]="displayedWalk?.walk?.end_location"
-                        [notify]="notify"/>
+                      <app-walk-location-edit locationType="Starting"
+                                              [locationDetails]="displayedWalk.walk.start_location"
+                                              [notify]="notify"/>
+                    </div>
+                    @if (displayedWalk.walk.walkType === WalkType.LINEAR) {
+                      <div class="col">
+                        <app-walk-location-edit locationType="Finishing"
+                                                [locationDetails]="displayedWalk?.walk?.end_location"
+                                                [notify]="notify"/>
+                      </div>
+                    }
+                  </div>
+                  @if (displayedWalk.walk.walkType === WalkType.LINEAR) {
+                    <div class="row mt-2">
+                      <div class="col d-flex justify-content-center">
+                        <button type="button" class="btn btn-primary"
+                                (click)="swapStartAndEndLocations()">
+                          Swap Start & End Locations
+                        </button>
+                      </div>
                     </div>
                   }
-                </div>
-              }
-            </div>
-          </tab>
-          @if (display.allowEdits(displayedWalk.walk)) {
-            <tab heading="Risk Assessment">
-              <app-walk-risk-assessment [displayedWalk]="displayedWalk"/>
-            </tab>
-          }
-          <tab heading="Related Links">
-            <div class="img-thumbnail thumbnail-admin-edit">
-              <div class="row">
-                <div class="col-sm-12">
-                  <div class="img-thumbnail thumbnail-walk-edit">
-                    <div class="thumbnail-heading">Ramblers</div>
-                    <div class="form-group">
-                      @if (!insufficientDataToUploadToRamblers() && !ramblersWalkExists()) {
-                        <p>
-                          This walk has not been
-                          uploaded to Ramblers yet - check back when date is closer to
-                          <b>{{ displayedWalk.walk.walkDate | displayDate }}</b>.
-                        </p>
-                      }
-                      @if (insufficientDataToUploadToRamblers()) {
-                        <p>
-                          {{ walkValidations() }}
-                        </p>
-                      }
-                      @if (canUnlinkRamblers()) {
-                        <div>
-                          <div class="row">
-                            <div class="col-sm-2">
-                              <input type="submit" value="Unlink"
-                                (click)="unlinkRamblersDataFromCurrentWalk()"
-                                title="Remove link between this walk and Ramblers"
-                                class="btn btn-primary">
-                            </div>
-                            <div class="col-sm-10">
-                              <app-markdown-editor name="ramblers-help"
-                              description="Linking to Ramblers"></app-markdown-editor>
-                            </div>
-                          </div>
-                        </div>
-                      }
-                    </div>
-                    <div class="row">
-                      @if (display.allowEdits(displayedWalk.walk)) {
-                        <div class="col-sm-6">
-                          <div class="custom-control custom-checkbox">
-                            <input [disabled]="inputDisabled() || saveInProgress"
-                              [(ngModel)]="displayedWalk.walk.ramblersPublish"
-                              type="checkbox" class="custom-control-input" id="publish-ramblers">
-                            <label class="custom-control-label" for="publish-ramblers">Publish to Ramblers
-                            </label>
-                          </div>
-                        </div>
-                      }
-                      @if (ramblersWalkExists()) {
-                        <div class="col-sm-6">
-                          <div class="form-group">
-                            <label class="mr-2">Link preview:</label>
-                            <img class="related-links-ramblers-image"
-                              src="favicon.ico"
-                              alt="Click to view on Ramblers Walks and Events Manager"/>
-                            <a target="_blank"
-                              class="ml-2"
-                              tooltip="Click to view on Ramblers Walks and Events Manager"
-                            [href]="display.ramblersLink(displayedWalk.walk)">Ramblers</a>
-                          </div>
-                        </div>
-                      }
-                    </div>
-                  </div>
-                </div>
-                @if (displayedWalk.walk.venue) {
-                  <app-walk-venue [displayedWalk]="displayedWalk"/>
                 }
-                <app-walk-meetup [displayedWalk]="displayedWalk" [saveInProgress]="saveInProgress"/>
-                <div class="col-sm-12">
-                  <div class="row img-thumbnail thumbnail-walk-edit">
-                    <div class="thumbnail-heading">OS Maps</div>
-                    <div class="row">
-                      <div class="col-sm-12">
-                        <app-markdown-editor name="os-maps-help" description="Linking to OS Maps"/>
-                      </div>
-                    </div>
-                    <div class="row">
-                      <div class="col-sm-6">
-                        <div class="form-group">
-                          <label for="os-maps-route">Url</label>
-                          <input [(ngModel)]="displayedWalk.walk.osMapsRoute"
-                            [disabled]="inputDisabled()"
-                            type="text" value="" class="form-control input-sm"
-                            id="os-maps-route"
-                            placeholder="Enter URL to OS Maps Route">
-                        </div>
-                      </div>
-                      <div class="col-sm-6">
-                        <div class="form-group">
-                          <label for="related-links-title">Title</label>
-                          <input [(ngModel)]="displayedWalk.walk.osMapsTitle"
-                            [disabled]="inputDisabled()"
-                            type="text" value="" class="form-control input-sm"
-                            id="related-links-title"
-                            placeholder="Enter optional title for OS Maps link">
-                        </div>
-                      </div>
-                      <div class="col-sm-12">
-                        @if (displayedWalk.walk.osMapsRoute) {
-                          <div class="form-inline">
-                            <label>Link preview:</label>
-                            <img class="related-links-image ml-2"
-                              src="/assets/images/local/ordnance-survey.ico"
-                              alt=""/>
-                            <a target="_blank"
-                              class="ml-2"
-                              [href]="displayedWalk.walk.osMapsRoute"
-                              tooltip="Click to view the route for this walk on Ordnance Survey Maps">
-                              {{ displayedWalk.walk.osMapsTitle || displayedWalk.walk.briefDescriptionAndStartPoint }}
-                            </a>
-                            <input type="submit" value="Unlink"
-                              (click)="unlinkOSMapsFromCurrentWalk()"
-                              title="Remove link between this walk and OS Maps"
-                              [disabled]="!canUnlinkOSMaps()|| inputDisabled()"
-                              class="btn btn-primary ml-2">
+              </div>
+            </tab>
+            @if (display.allowEdits(displayedWalk.walk)) {
+              <tab heading="Risk Assessment">
+                <app-walk-risk-assessment [displayedWalk]="displayedWalk"/>
+              </tab>
+            }
+            <tab heading="Related Links">
+              <div class="img-thumbnail thumbnail-admin-edit">
+                <div class="row">
+                  <div class="col-sm-12">
+                    <div class="img-thumbnail thumbnail-walk-edit">
+                      <div class="thumbnail-heading">Ramblers</div>
+                      <div class="form-group">
+                        @if (!insufficientDataToUploadToRamblers() && !ramblersWalkExists()) {
+                          <p>
+                            This walk has not been
+                            uploaded to Ramblers yet - check back when date is closer to
+                            <b>{{ displayedWalk.walk.walkDate | displayDate }}</b>.
+                          </p>
+                        }
+                        @if (insufficientDataToUploadToRamblers()) {
+                          <p>
+                            {{ walkValidations() }}
+                          </p>
+                        }
+                        @if (canUnlinkRamblers()) {
+                          <div>
+                            <div class="row">
+                              <div class="col-sm-2">
+                                <input type="submit" value="Unlink"
+                                       (click)="unlinkRamblersDataFromCurrentWalk()"
+                                       title="Remove link between this walk and Ramblers"
+                                       class="btn btn-primary">
+                              </div>
+                              <div class="col-sm-10">
+                                <app-markdown-editor name="ramblers-help"
+                                                     description="Linking to Ramblers"></app-markdown-editor>
+                              </div>
+                            </div>
                           </div>
                         }
+                      </div>
+                      <div class="row">
+                        @if (display.allowEdits(displayedWalk.walk)) {
+                          <div class="col-sm-6">
+                            <div class="custom-control custom-checkbox">
+                              <input [disabled]="inputDisabled() || saveInProgress"
+                                     [(ngModel)]="displayedWalk.walk.ramblersPublish"
+                                     type="checkbox" class="custom-control-input" id="publish-ramblers">
+                              <label class="custom-control-label" for="publish-ramblers">Publish to Ramblers
+                              </label>
+                            </div>
+                          </div>
+                        }
+                        @if (ramblersWalkExists()) {
+                          <div class="col-sm-6">
+                            <div class="form-group">
+                              <label class="mr-2">Link preview:</label>
+                              <img class="related-links-ramblers-image"
+                                   src="favicon.ico"
+                                   alt="Click to view on Ramblers Walks and Events Manager"/>
+                              <a target="_blank"
+                                 class="ml-2"
+                                 tooltip="Click to view on Ramblers Walks and Events Manager"
+                                 [href]="display.ramblersLink(displayedWalk.walk)">Ramblers</a>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                  @if (displayedWalk.walk.venue) {
+                    <app-walk-venue [displayedWalk]="displayedWalk"/>
+                  }
+                  <app-walk-meetup [displayedWalk]="displayedWalk" [saveInProgress]="saveInProgress"/>
+                  <div class="col-sm-12">
+                    <div class="row img-thumbnail thumbnail-walk-edit">
+                      <div class="thumbnail-heading">OS Maps</div>
+                      <div class="row">
+                        <div class="col-sm-12">
+                          <app-markdown-editor name="os-maps-help" description="Linking to OS Maps"/>
+                        </div>
+                      </div>
+                      <div class="row">
+                        <div class="col-sm-6">
+                          <div class="form-group">
+                            <label for="os-maps-route">Url</label>
+                            <input [(ngModel)]="displayedWalk.walk.osMapsRoute"
+                                   [disabled]="inputDisabled()"
+                                   type="text" value="" class="form-control input-sm"
+                                   id="os-maps-route"
+                                   placeholder="Enter URL to OS Maps Route">
+                          </div>
+                        </div>
+                        <div class="col-sm-6">
+                          <div class="form-group">
+                            <label for="related-links-title">Title</label>
+                            <input [(ngModel)]="displayedWalk.walk.osMapsTitle"
+                                   [disabled]="inputDisabled()"
+                                   type="text" value="" class="form-control input-sm"
+                                   id="related-links-title"
+                                   placeholder="Enter optional title for OS Maps link">
+                          </div>
+                        </div>
+                        <div class="col-sm-12">
+                          @if (displayedWalk.walk.osMapsRoute) {
+                            <div class="form-inline">
+                              <label>Link preview:</label>
+                              <img class="related-links-image ml-2"
+                                   src="/assets/images/local/ordnance-survey.ico"
+                                   alt=""/>
+                              <a target="_blank"
+                                 class="ml-2"
+                                 [href]="displayedWalk.walk.osMapsRoute"
+                                 tooltip="Click to view the route for this walk on Ordnance Survey Maps">
+                                {{ displayedWalk.walk.osMapsTitle || displayedWalk.walk.briefDescriptionAndStartPoint }}
+                              </a>
+                              <input type="submit" value="Unlink"
+                                     (click)="unlinkOSMapsFromCurrentWalk()"
+                                     title="Remove link between this walk and OS Maps"
+                                     [disabled]="!canUnlinkOSMaps()|| inputDisabled()"
+                                     class="btn btn-primary ml-2">
+                            </div>
+                          }
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </tab>
-          <tab heading="Walk Leader">
-            <div class="img-thumbnail thumbnail-admin-edit">
-              @if (display.allowAdminEdits()) {
-                <div class="row">
-                  <div class="col-sm-12">
-                    <div class="form-group">
-                      <div class="custom-control custom-radio custom-control-inline">
-                        <input id="showOnlyWalkLeadersTrue" type="radio" class="custom-control-input"
-                          name="showOnlyWalkLeaders"
-                          [(ngModel)]="showOnlyWalkLeaders" [value]="true">
-                        <label class="custom-control-label" for="showOnlyWalkLeadersTrue">
-                        Show Only Walk Leaders ({{ previousWalkLeadersWithAliasOrMe().length }})</label>
-                      </div>
-                      <div class="custom-control custom-radio custom-control-inline">
-                        <input id="showOnlyWalkLeadersFalse" type="radio" class="custom-control-input"
-                          name="showOnlyWalkLeaders"
-                          [(ngModel)]="showOnlyWalkLeaders" [value]="false">
-                        <label class="custom-control-label" for="showOnlyWalkLeadersFalse">
-                        Show All Members ({{ membersWithAliasOrMe().length }})</label>
+            </tab>
+            <tab heading="Walk Leader">
+              <div class="img-thumbnail thumbnail-admin-edit">
+                @if (display.allowAdminEdits()) {
+                  <div class="row">
+                    <div class="col-sm-12">
+                      <div class="form-group">
+                        <div class="custom-control custom-radio custom-control-inline">
+                          <input id="showOnlyWalkLeadersTrue" type="radio" class="custom-control-input"
+                                 name="showOnlyWalkLeaders"
+                                 [(ngModel)]="showOnlyWalkLeaders" [value]="true">
+                          <label class="custom-control-label" for="showOnlyWalkLeadersTrue">
+                            Show Only Walk Leaders ({{ previousWalkLeadersWithAliasOrMe().length }})</label>
+                        </div>
+                        <div class="custom-control custom-radio custom-control-inline">
+                          <input id="showOnlyWalkLeadersFalse" type="radio" class="custom-control-input"
+                                 name="showOnlyWalkLeaders"
+                                 [(ngModel)]="showOnlyWalkLeaders" [value]="false">
+                          <label class="custom-control-label" for="showOnlyWalkLeadersFalse">
+                            Show All Members ({{ membersWithAliasOrMe().length }})</label>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div class="col-sm-12">
-                    <div class="form-group">
-                      <label for="walk-status">Walk Status</label>
-                      <select [disabled]="!display.allowAdminEdits()"
-                        [(ngModel)]="displayedWalk.status"
-                        (change)="walkStatusChange()"
-                        class="form-control input-sm" id="walk-status">
-                        @for (status of walkStatuses(); track status.eventType) {
-                          <option
-                            [ngValue]="status.eventType"
-                            [textContent]="status.description">
-                          </option>
-                        }
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              }
-              @if (display.allowAdminEdits()) {
-                <div class="row">
-                  <div class="col-sm-10">
-                    <div class="form-group">
-                      <label for="contact-member">Walk Leader</label>
-                      @if (allowDetailView()) {
+                    <div class="col-sm-12">
+                      <div class="form-group">
+                        <label for="walk-status">Walk Status</label>
                         <select [disabled]="!display.allowAdminEdits()"
-                          (change)="walkLeaderMemberIdChanged()"
-                          [(ngModel)]="displayedWalk.walk.walkLeaderMemberId"
-                          class="form-control" id="contact-member">
-                          <option value="">(no walk leader selected)</option>
-                          @for (member of memberLookup(); track member.memberId) {
+                                [(ngModel)]="displayedWalk.status"
+                                (change)="walkStatusChange()"
+                                class="form-control input-sm" id="walk-status">
+                          @for (status of walkStatuses(); track status.eventType) {
                             <option
-                              [ngValue]="member.memberId">{{ member.name }}
+                              [ngValue]="status.eventType"
+                              [textContent]="status.description">
                             </option>
                           }
                         </select>
+                      </div>
+                    </div>
+                  </div>
+                }
+                @if (display.allowAdminEdits()) {
+                  <div class="row">
+                    <div class="col-sm-10">
+                      <div class="form-group">
+                        <label for="contact-member">Walk Leader</label>
+                        @if (allowDetailView()) {
+                          <select [disabled]="!display.allowAdminEdits()"
+                                  (change)="walkLeaderMemberIdChanged()"
+                                  [(ngModel)]="displayedWalk.walk.walkLeaderMemberId"
+                                  class="form-control" id="contact-member">
+                            <option value="">(no walk leader selected)</option>
+                            @for (member of memberLookup(); track member.memberId) {
+                              <option
+                                [ngValue]="member.memberId">{{ member.name }}
+                              </option>
+                            }
+                          </select>
+                        }
+                      </div>
+                    </div>
+                    <div class="col-sm-2">
+                      <div class="form-group">
+                        <input type="submit" [disabled]="saveInProgress" value="Me" (click)="setWalkLeaderToMe()"
+                               class="btn btn-primary button-bottom-aligned w-100">
+                      </div>
+                    </div>
+                  </div>
+                }
+                @if (display.allowAdminEdits()) {
+                  <div class="row">
+                    <div class="col-sm-5">
+                      <div class="form-group">
+                        <label for="display-name">Display Name (how it will be published on this walk)</label>
+                        <input [(ngModel)]="displayedWalk.walk.displayName"
+                               type="text"
+                               class="form-control input-sm" id="display-name"
+                               placeholder="Name as displayed to the public and sent to Ramblers in CSV export file">
+                      </div>
+                    </div>
+                    <div class="col-sm-5">
+                      <div class="form-group">
+                        <label for="walk-leader-contact-id">Walks Manager Contact Name</label>
+                        <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.contactId"
+                               type="text"
+                               class="form-control input-sm flex-grow-1 mr-2" id="walk-leader-contact-id"
+                               placeholder="Name that matches the User Details in Assemble. This will be sent in Ramblers in CSV export file">
+                      </div>
+                    </div>
+                    <div class="col-sm-2">
+                      <div class="form-group">
+                        <input type="submit" [value]="toggleRamblersAssembleNameCaption()"
+                               (click)="toggleRamblersAssembleName()"
+                               [disabled]="saveInProgress"
+                               class="btn btn-primary button-bottom-aligned w-100">
+                      </div>
+                    </div>
+                  </div>
+                }
+                <div class="row">
+                  <div class="col-sm-12">
+                    <div class="form-group">
+                      <label for="contact-phone">Contact Phone</label>
+                      <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.contactPhone"
+                             type="text" class="form-control input-sm" id="contact-phone"
+                             placeholder="Enter contact phone here">
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-sm-12">
+                    <div class="form-group">
+                      <label for="contact-email">Contact Email</label>
+                      @if (allowDetailView()) {
+                        <input [disabled]="inputDisabled()"
+                               [(ngModel)]="displayedWalk.walk.contactEmail" type="text"
+                               class="form-control input-sm" id="contact-email"
+                               placeholder="Enter contact email here">
+                      }
+                      @if (!allowDetailView()) {
+                        <input [disabled]="true"
+                               value="(login to see this)" type="text"
+                               class="form-control input-sm"
+                               id="contact-email-hidden">
                       }
                     </div>
                   </div>
-                  <div class="col-sm-2">
-                    <div class="form-group">
-                      <input type="submit" [disabled]="saveInProgress" value="Me" (click)="setWalkLeaderToMe()"
-                        class="btn btn-primary button-bottom-aligned w-100">
-                    </div>
-                  </div>
-                </div>
-              }
-              @if (display.allowAdminEdits()) {
-                <div class="row">
-                  <div class="col-sm-5">
-                    <div class="form-group">
-                      <label for="display-name">Display Name (how it will be published on this walk)</label>
-                      <input [(ngModel)]="displayedWalk.walk.displayName"
-                        type="text"
-                        class="form-control input-sm" id="display-name"
-                        placeholder="Name as displayed to the public and sent to Ramblers in CSV export file">
-                    </div>
-                  </div>
-                  <div class="col-sm-5">
-                    <div class="form-group">
-                      <label for="walk-leader-contact-id">Walks Manager Contact Name</label>
-                      <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.contactId"
-                        type="text"
-                        class="form-control input-sm flex-grow-1 mr-2" id="walk-leader-contact-id"
-                        placeholder="Name that matches the User Details in Assemble. This will be sent in Ramblers in CSV export file">
-                    </div>
-                  </div>
-                  <div class="col-sm-2">
-                    <div class="form-group">
-                      <input type="submit" [value]="toggleRamblersAssembleNameCaption()"
-                        (click)="toggleRamblersAssembleName()"
-                        [disabled]="saveInProgress"
-                        class="btn btn-primary button-bottom-aligned w-100">
-                    </div>
-                  </div>
-                </div>
-              }
-              <div class="row">
-                <div class="col-sm-12">
-                  <div class="form-group">
-                    <label for="contact-phone">Contact Phone</label>
-                    <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.contactPhone"
-                      type="text" class="form-control input-sm" id="contact-phone"
-                      placeholder="Enter contact phone here">
-                  </div>
                 </div>
               </div>
-              <div class="row">
-                <div class="col-sm-12">
+            </tab>
+            @if (display.walkLeaderOrAdmin(displayedWalk.walk)) {
+              <tab heading="History">
+                <div class="img-thumbnail thumbnail-admin-edit">
                   <div class="form-group">
-                    <label for="contact-email">Contact Email</label>
-                    @if (allowDetailView()) {
-                      <input [disabled]="inputDisabled()"
-                        [(ngModel)]="displayedWalk.walk.contactEmail" type="text"
-                        class="form-control input-sm" id="contact-email"
-                        placeholder="Enter contact email here">
-                    }
-                    @if (!allowDetailView()) {
-                      <input [disabled]="true"
-                        value="(login to see this)" type="text"
-                        class="form-control input-sm"
-                        id="contact-email-hidden">
-                    }
-                  </div>
-                </div>
-              </div>
-            </div>
-          </tab>
-          @if (display.walkLeaderOrAdmin(displayedWalk.walk)) {
-            <tab heading="History">
-              <div class="img-thumbnail thumbnail-admin-edit">
-                <div class="form-group">
-                  <table
-                    class="round styled-table table-striped table-hover table-sm table-pointer">
-                    <thead>
+                    <table
+                      class="round styled-table table-striped table-hover table-sm table-pointer">
+                      <thead>
                       <tr>
                         <th>Date</th>
                         <th>Who</th>
                         <th>Description</th>
                         <th>Notes</th>
                       </tr>
-                    </thead>
-                    <tbody>
-                      @for (event of walkEvents(displayedWalk.walk); track event.date) {
-                        <tr>
-                          <td style="width: 25%" [textContent]="event.date"></td>
-                          <td style="width: 15%"
-                          [textContent]="event.member"></td>
-                          <td style="width: 20%"
-                          [textContent]="event.eventType"></td>
-                          <td style="width: 40%"><span
-                          tooltip="Details: {{event.changedItems}}">{{ event.notes }}</span>
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </tab>
-        }
-        @if (displayedWalk.walk.walkLeaderMemberId) {
-          <tab heading="Copy From...">
-            @if (display.allowEdits(displayedWalk.walk) && displayedWalk?.walk?.walkLeaderMemberId) {
-              <div class="img-thumbnail thumbnail-admin-edit"
-                >
-                <div class="row">
-                  <div class="col-sm-12">
-                    <div class="img-thumbnail thumbnail-walk-edit">
-                      <div class="thumbnail-heading">Create {{ myOrWalkLeader() }} walk based on an existing one</div>
-                      <ng-container>
-                        <div class="row">
-                          <div class="col-sm-12">
-                            <div class="custom-control custom-radio custom-control-inline">
-                              <input id="copy-selected-walk-leader"
-                                type="radio"
-                                class="custom-control-input"
-                                [(ngModel)]="copySource"
-                                (change)="populateWalkTemplates()"
-                                value="copy-selected-walk-leader"/>
-                              <label class="custom-control-label" for="copy-selected-walk-leader">Previously led by:
-                                <select
-                                  [disabled]="copySource!=='copy-selected-walk-leader'"
-                                  class="input-md input-led-by"
-                                  [(ngModel)]="copySourceFromWalkLeaderMemberId"
-                                  (ngModelChange)="copySelectedWalkLeader()"
-                                  id="copy-member-walks">
-                                  <option value="">(no walk leader selected)</option>
-                                  @for (member of previousWalkLeadersWithAliasOrMe(); track member.memberId) {
+                      </thead>
+                      <tbody>
+                        @for (event of walkEvents(displayedWalk.walk); track event.date) {
+                          <tr>
+                            <td style="width: 25%" [textContent]="event.date"></td>
+                            <td style="width: 15%"
+                                [textContent]="event.member"></td>
+                            <td style="width: 20%"
+                                [textContent]="event.eventType"></td>
+                            <td style="width: 40%"><span
+                              tooltip="Details: {{event.changedItems}}">{{ event.notes }}</span>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </tab>
+            }
+            @if (displayedWalk.walk.walkLeaderMemberId) {
+              <tab heading="Copy From...">
+                @if (display.allowEdits(displayedWalk.walk) && displayedWalk?.walk?.walkLeaderMemberId) {
+                  <div class="img-thumbnail thumbnail-admin-edit"
+                  >
+                    <div class="row">
+                      <div class="col-sm-12">
+                        <div class="img-thumbnail thumbnail-walk-edit">
+                          <div class="thumbnail-heading">Create {{ myOrWalkLeader() }} walk based on an existing one
+                          </div>
+                          <ng-container>
+                            <div class="row">
+                              <div class="col-sm-12">
+                                <div class="custom-control custom-radio custom-control-inline">
+                                  <input id="copy-selected-walk-leader"
+                                         type="radio"
+                                         class="custom-control-input"
+                                         [(ngModel)]="copySource"
+                                         (change)="populateWalkTemplates()"
+                                         value="copy-selected-walk-leader"/>
+                                  <label class="custom-control-label" for="copy-selected-walk-leader">Previously led by:
+                                    <select
+                                      [disabled]="copySource!=='copy-selected-walk-leader'"
+                                      class="input-md input-led-by"
+                                      [(ngModel)]="copySourceFromWalkLeaderMemberId"
+                                      (ngModelChange)="copySelectedWalkLeader()"
+                                      id="copy-member-walks">
+                                      <option value="">(no walk leader selected)</option>
+                                      @for (member of previousWalkLeadersWithAliasOrMe(); track member.memberId) {
+                                        <option
+                                          [ngValue]="member.memberId">{{ member.name }}
+                                        </option>
+                                      }
+                                    </select>
+                                  </label>
+                                </div>
+                                <div class="custom-control custom-radio custom-control-inline">
+                                  <input id="copy-with-os-maps-route-selected"
+                                         type="radio"
+                                         class="custom-control-input"
+                                         [(ngModel)]="copySource"
+                                         (change)="populateWalkTemplates()"
+                                         value="copy-with-os-maps-route-selected"/>
+                                  <label class="custom-control-label" for="copy-with-os-maps-route-selected">With an OS
+                                    Maps
+                                    route I
+                                    can
+                                    follow</label>
+                                </div>
+                              </div>
+                            </div>
+                            <div class="row">
+                              <div class="col-sm-12 mt-2">
+                                <label for="copy-walks-list">
+                                  Copy from {{ copyFrom?.walkTemplates?.length || 0 }} available walk(s): </label>
+                                <select [disabled]="inputDisabled()" class="form-control input-sm"
+                                        [(ngModel)]="copyFrom.walkTemplate"
+                                        (ngModelChange)="populateCurrentWalkFromTemplate()"
+                                        id="copy-walks-list">
+                                  <option value="">(none selected)</option>
+                                  @for (walkTemplate of copyFrom.walkTemplates; track walkTemplate) {
                                     <option
-                                      [ngValue]="member.memberId">{{ member.name }}
+                                      [ngValue]="walkTemplate">{{ walkTemplate | walkSummary }}
                                     </option>
                                   }
                                 </select>
-                              </label>
+                              </div>
                             </div>
-                            <div class="custom-control custom-radio custom-control-inline">
-                              <input id="copy-with-os-maps-route-selected"
-                                type="radio"
-                                class="custom-control-input"
-                                [(ngModel)]="copySource"
-                                (change)="populateWalkTemplates()"
-                                value="copy-with-os-maps-route-selected"/>
-                              <label class="custom-control-label" for="copy-with-os-maps-route-selected">With an OS Maps
-                                route I
-                                can
-                              follow</label>
-                            </div>
-                          </div>
+                          </ng-container>
                         </div>
-                        <div class="row">
-                          <div class="col-sm-12 mt-2">
-                            <label for="copy-walks-list">
-                            Copy from {{ copyFrom?.walkTemplates?.length || 0 }} available walk(s): </label>
-                            <select [disabled]="inputDisabled()" class="form-control input-sm"
-                              [(ngModel)]="copyFrom.walkTemplate"
-                              (ngModelChange)="populateCurrentWalkFromTemplate()"
-                              id="copy-walks-list">
-                              <option value="">(none selected)</option>
-                              @for (walkTemplate of copyFrom.walkTemplates; track walkTemplate) {
-                                <option
-                                  [ngValue]="walkTemplate">{{ walkTemplate | walkSummary }}
-                                </option>
-                              }
-                            </select>
-                          </div>
-                        </div>
-                      </ng-container>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
+                }
+              </tab>
             }
-          </tab>
+          </tabset>
         }
-      </tabset>
-    }
-    </div>
-    <div class="form-group">
-      @if (notifyTarget.showAlert) {
-        <div class="alert {{notifyTarget.alertClass}}">
-          <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-          <strong> {{ notifyTarget.alertTitle }}: </strong>
-          {{ notifyTarget.alertMessage }}
-        </div>
-      }
-    </div>
-    @if (displayedWalk.walk) {
-      <div class="form-inline mb-4 align-middle">
-        @if (allowClose()) {
-          <input [disabled]="saveInProgress" type="submit"
-            value="Close"
-            (click)="closeEditView()" title="Close and go back to walks list"
-            class="btn btn-primary mr-2">
-        }
-        @if (allowSave()) {
-          <input [disabled]="saveInProgress" type="submit" value="Save"
-            (click)="saveWalkDetails()" title="Save these walk details"
-            class="btn btn-primary mr-2">
-        }
-        @if (allowCancel()) {
-          <input [disabled]="saveInProgress" type="submit"
-            value="Cancel"
-            (click)="cancelWalkDetails()" title="Cancel and don't save"
-            class="btn btn-primary mr-2">
-        }
-        @if (pendingCancel()) {
-          <input [disabled]="saveInProgress" type="submit"
-            value="Confirm" (click)="confirmCancelWalkDetails()"
-            title="Confirm losing my changes and closing this form"
-            class="btn btn-primary mr-2">
-        }
-        @if (allowDelete()) {
-          <input [disabled]="saveInProgress" type="submit"
-            value="Delete"
-            (click)="deleteWalkDetails()" title="Delete these walk details"
-            class="btn btn-primary mr-2">
-        }
-        @if (pendingDelete()) {
-          <input [disabled]="saveInProgress" type="submit"
-            value="Confirm Deletion" (click)="confirmDeleteWalkDetails()"
-            title="Confirm Delete of these walk details"
-            class="btn btn-primary mr-2">
-        }
-        @if (allowRequestApproval()) {
-          <input [disabled]="saveInProgress" type="submit"
-            value="Request Approval" (click)="requestApproval()"
-            title="Mark walk details complete and request approval"
-            class="btn btn-primary mr-2">
-        }
-        @if (allowApprove()) {
-          <input [disabled]="saveInProgress" type="submit"
-            value="Approve" (click)="approveWalkDetails()"
-            title="Approve walk and publish"
-            class="btn btn-primary mr-2">
-        }
-        @if (pendingRequestApproval()) {
-          <input [disabled]="saveInProgress"
-            type="submit"
-            value="Confirm Request Approval" (click)="confirmRequestApproval()"
-            title="Confirm walk details complete and request approval"
-            class="btn btn-primary mr-2">
-        }
-        @if (allowContactOther()) {
-          <input [disabled]="saveInProgress" type="submit"
-            value=""
-            (click)="contactOther()" title="Contact {{personToNotify()}}"
-            class="btn btn-primary mr-2">
-        }
-        @if (pendingContactOther()) {
-          <input [disabled]="saveInProgress" type="submit"
-            value="Contact {{personToNotify()}}" (click)="confirmContactOther()"
-            title="Contact {{personToNotify()}} via email"
-            class="btn btn-primary mr-2">
-        }
-        @if (pendingConfirmation()) {
-          <input type="submit" value="Cancel" (click)="cancelConfirmableAction()"
-            title="Cancel this action"
-            class="btn btn-primary mr-2">
-        }
-        @if (allowNotifyConfirmation() && !saveInProgress) {
-          <div class="custom-control custom-checkbox">
-            <input [disabled]="!display.allowAdminEdits() ||saveInProgress "
-              [(ngModel)]="sendNotifications"
-              type="checkbox" class="custom-control-input" id="send-notification">
-            <label class="custom-control-label ml-2"
-              for="send-notification">Notify {{ personToNotify() }} about this change
-            </label>
+      </div>
+      <div class="form-group">
+        @if (notifyTarget.showAlert) {
+          <div class="alert {{notifyTarget.alertClass}}">
+            <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+            <strong> {{ notifyTarget.alertTitle }}: </strong>
+            {{ notifyTarget.alertMessage }}
           </div>
         }
       </div>
-    }`,
+      @if (displayedWalk.walk) {
+        <div class="form-inline mb-4 align-middle">
+          @if (allowClose()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Close"
+                   (click)="closeEditView()" title="Close and go back to walks list"
+                   class="btn btn-primary mr-2">
+          }
+          @if (allowSave()) {
+            <input [disabled]="saveInProgress" type="submit" value="Save"
+                   (click)="saveWalkDetails()" title="Save these walk details"
+                   class="btn btn-primary mr-2">
+          }
+          @if (allowCancel()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Cancel"
+                   (click)="cancelWalkDetails()" title="Cancel and don't save"
+                   class="btn btn-primary mr-2">
+          }
+          @if (pendingCancel()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Confirm" (click)="confirmCancelWalkDetails()"
+                   title="Confirm losing my changes and closing this form"
+                   class="btn btn-primary mr-2">
+          }
+          @if (allowDelete()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Delete"
+                   (click)="deleteWalkDetails()" title="Delete these walk details"
+                   class="btn btn-primary mr-2">
+          }
+          @if (pendingDelete()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Confirm Deletion" (click)="confirmDeleteWalkDetails()"
+                   title="Confirm Delete of these walk details"
+                   class="btn btn-primary mr-2">
+          }
+          @if (allowRequestApproval()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Request Approval" (click)="requestApproval()"
+                   title="Mark walk details complete and request approval"
+                   class="btn btn-primary mr-2">
+          }
+          @if (allowApprove()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Approve" (click)="approveWalkDetails()"
+                   title="Approve walk and publish"
+                   class="btn btn-primary mr-2">
+          }
+          @if (pendingRequestApproval()) {
+            <input [disabled]="saveInProgress"
+                   type="submit"
+                   value="Confirm Request Approval" (click)="confirmRequestApproval()"
+                   title="Confirm walk details complete and request approval"
+                   class="btn btn-primary mr-2">
+          }
+          @if (allowContactOther()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value=""
+                   (click)="contactOther()" title="Contact {{personToNotify()}}"
+                   class="btn btn-primary mr-2">
+          }
+          @if (pendingContactOther()) {
+            <input [disabled]="saveInProgress" type="submit"
+                   value="Contact {{personToNotify()}}" (click)="confirmContactOther()"
+                   title="Contact {{personToNotify()}} via email"
+                   class="btn btn-primary mr-2">
+          }
+          @if (pendingConfirmation()) {
+            <input type="submit" value="Cancel" (click)="cancelConfirmableAction()"
+                   title="Cancel this action"
+                   class="btn btn-primary mr-2">
+          }
+          @if (allowNotifyConfirmation() && !saveInProgress) {
+            <div class="custom-control custom-checkbox">
+              <input [disabled]="!display.allowAdminEdits() ||saveInProgress "
+                     [(ngModel)]="sendNotifications"
+                     type="checkbox" class="custom-control-input" id="send-notification">
+              <label class="custom-control-label ml-2"
+                     for="send-notification">Notify {{ personToNotify() }} about this change
+              </label>
+            </div>
+          }
+        </div>
+      }`,
     styleUrls: ["./walk-edit.component.sass"],
     imports: [NotificationDirective, WalkPanelExpanderComponent, TabsetComponent, TabDirective, DatePickerComponent, FormsModule, FontAwesomeModule, MarkdownComponent, WalkLocationEditComponent, WalkRiskAssessmentComponent, MarkdownEditorComponent, TooltipDirective, WalkVenueComponent, WalkMeetupComponent, DisplayDatePipe, WalkSummaryPipe]
 })
@@ -1159,6 +1172,11 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     return this.ramblersWalksAndEventsService.validateWalk({localWalk: this.displayedWalk.walk, ramblersWalk: null});
   }
 
+  swapStartAndEndLocations() {
+    const startLocation = this.displayedWalk.walk.start_location;
+    this.displayedWalk.walk.start_location = this.displayedWalk.walk.end_location;
+    this.displayedWalk.walk.end_location = startLocation;
+  }
   walkValidations() {
     const walkValidations = this.validateWalk().validationMessages;
     return "This walk cannot be included in the Ramblers Walks and Events Manager export due to the following "

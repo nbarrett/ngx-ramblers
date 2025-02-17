@@ -170,7 +170,7 @@ export class AlbumComponent implements OnInit {
   private applyContentMetadata(contentMetadata: ContentMetadata) {
     this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata);
     this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
-    this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS, 10);
+    this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS, this?.lazyLoadingMetadata?.contentMetadata?.files?.length);
     this.noImages = !contentMetadata;
     this.lazyLoadingMetadataChange.emit(this.lazyLoadingMetadata);
     this.logger.info("initialised with", this?.lazyLoadingMetadata?.contentMetadata?.files?.length, "slides in total", "lazyLoadingMetadata:", this.lazyLoadingMetadata, "duplicateImages:", this.duplicateImages);
