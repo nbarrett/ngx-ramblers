@@ -12,7 +12,7 @@ import { envConfig } from "../env-config/env-config";
 import { generateUid, uidFormat } from "../shared/string-utils";
 import * as aws from "./aws-controllers";
 import debug from "debug";
-import { isAwsUploadErrorResponse } from "./aws-utils";
+import { extensionFrom, isAwsUploadErrorResponse } from "./aws-utils";
 import { Request, Response } from "express";
 import path = require("path");
 
@@ -70,16 +70,11 @@ function uploadFile(req: Request, res: Response) {
     };
   };
 
-  function determineExtension(name: string): string {
-    const extension = path.extname(name);
-    return extension.length <= 5 && name.includes(".") ? extension : ".jpeg";
-  }
-
   function generateFileNameData(uploadedFile: UploadedFile): ServerFileNameData {
     const parsedPath = path.parse(uploadedFile.originalname);
     const name = parsedPath.name;
     const alreadyGuid = name.length === uidFormat.length;
-    const awsFileName = alreadyGuid ? uploadedFile.originalname : generateUid() + determineExtension(uploadedFile.originalname);
+    const awsFileName = alreadyGuid ? uploadedFile.originalname : generateUid() + extensionFrom(uploadedFile.originalname);
     debugLog("generateFileNameData:uploadedFile:", uploadedFile, "name:", name, "alreadyGuid:", alreadyGuid, "awsFileName:", awsFileName);
     return {
       rootFolder,

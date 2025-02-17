@@ -40,16 +40,20 @@ import path = require("path");
 import favicon = require("serve-favicon");
 import committeeFile = require("./mongo/routes/committee-file");
 import memberResource = require("./mongo/routes/member-resource");
+import { createWebSocketServer } from "./websockets/websocket-server";
+import http from "http";
+import { Server } from "node:http";
 
 install();
 const debugLog = debug(envConfig.logNamespace("server"));
-debugLog.enabled = false;
+debugLog.enabled = true;
 const folderNavigationsUp = process.env.NODE_ENV === "production" ? "../../" : "";
 const distFolder = path.resolve(__dirname, folderNavigationsUp, "../../dist/ngx-ramblers/browser");
 const currentDir = path.resolve(__dirname);
 const port: number = +envConfig.server.listenPort;
 debugLog("currentDir:", currentDir, "distFolder:", distFolder, "NODE_ENV:", process.env.NODE_ENV, "port:", port);
 const app = express();
+const server: Server = http.createServer(app);
 app.use(compression());
 app.set("port", port);
 app.disable("view cache");
@@ -96,7 +100,8 @@ app.use((req, res, next) => {
 if (app.get("env") === "dev") {
   app.use(errorHandler());
 }
-mongooseClient.connect(debugLog);
-app.listen(port, "0.0.0.0", () => {
-  debugLog("Server is listening on port", port);
+mongooseClient.connect();
+server.listen(port, "0.0.0.0", () => {
+  debugLog(`Server is listening on port for ${envConfig.env} environment`, port);
 });
+createWebSocketServer(server, port);

@@ -2,6 +2,15 @@
   "/api": {
     "target": "http://localhost:5001",
     "secure": false,
+    "changeOrigin": true,
+    "ws": true,
+    "logLevel": "debug"
+  },
+  "/ws": {
+    "target": "ws://localhost:5001",
+    "secure": false,
+    "changeOrigin": true,
+    "ws": true,
     "logLevel": "debug"
   }
 }

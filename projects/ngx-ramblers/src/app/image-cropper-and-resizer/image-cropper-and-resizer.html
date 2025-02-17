@@ -59,8 +59,7 @@
         (imageLoaded)="imageLoaded($event)"
         (cropperReady)="cropperReady($event)"
         (loadImageFailed)="loadImageFailed($event)"
-        (error)="error($event)">
-      </image-cropper>
+        (error)="error($event)"/>
     }
   </div>
 </div>
@@ -69,7 +68,7 @@
     <app-aspect-ratio-selector [dimensionsDescription]="selectAspectRatio"
                                [disabled]="actionDisabled"
                                (initialised)="initialiseAspectRatioSettings($event)"
-                               (dimensionsChanged)="changeAspectRatioSettingsAndCrop($event)"></app-aspect-ratio-selector>
+                               (dimensionsChanged)="changeAspectRatioSettingsAndCrop($event)"/>
   </div>
   <div class="col-sm-6 mb-2">
     <label for="compression">Compress to size ({{ imageQuality }}%):</label>
@@ -151,28 +150,26 @@
     <app-badge-button fullWidth (click)="quit.next()"
                       delay=500 tooltip="quit without saving"
                       [icon]="faClose"
-                      caption="quit">
-    </app-badge-button>
+                      caption="quit"/>
   </div>
   <div class="col">
     <app-badge-button fullWidth (click)="saveImage()"
                       delay=500 tooltip="save changes" [disabled]="!fileTypeAttributes"
                       [icon]="faSave"
-                      caption="save">
-    </app-badge-button>
+                      caption="save"/>
   </div>
 </ng-template>
 @if (!wrapButtons) {
   <div class="row no-gutters">
-    <ng-container *ngTemplateOutlet="buttonSet1"></ng-container>
-    <ng-container *ngTemplateOutlet="buttonSet2"></ng-container>
+    <ng-container *ngTemplateOutlet="buttonSet1"/>
+    <ng-container *ngTemplateOutlet="buttonSet2"/>
   </div>
 }
 @if (wrapButtons) {
   <div class="row no-gutters">
-    <ng-container *ngTemplateOutlet="buttonSet1"></ng-container>
+    <ng-container *ngTemplateOutlet="buttonSet1"/>
   </div>
   <div class="row no-gutters">
-    <ng-container *ngTemplateOutlet="buttonSet2"></ng-container>
+    <ng-container *ngTemplateOutlet="buttonSet2"/>
   </div>
 }

@@ -12,6 +12,7 @@ import {
   EventPopulation,
   ExternalSystems,
   GoogleAnalyticsConfig,
+  ImageConfig,
   Images,
   MailProvider,
   Organisation,
@@ -25,6 +26,7 @@ import { StringUtilsService } from "../string-utils.service";
 import cloneDeep from "lodash-es/cloneDeep";
 import isEqual from "lodash-es/isEqual";
 import { WalkListView } from "../../models/walk.model";
+import { RAMBLERS_LANDING_PAGE } from "../../models/images.model";
 
 @Injectable({
   providedIn: "root"
@@ -124,6 +126,10 @@ export class SystemConfigService {
       config.header.rightPanel = defaultRightPanel;
       this.logger.info("config.header.rightPanel initialised as:", config.header.rightPanel);
     }
+    if (!config?.images) {
+      config.images = this.imagesDefaults();
+      this.logger.info("config.images initialised as:", config.images);
+    }
     if (externalSystemsMigrate || facebookMigrate || instagramMigrate || meetupMigrate || !isEqual(preMigrationConfig, config)) {
       if (this.dryRun) {
         this.logger.info("Would normally save here but dry run for config:", config);
@@ -201,6 +207,14 @@ export class SystemConfigService {
     return {rootFolder: imageType, images: []};
   }
 
+  public imagesDefaults(): ImageConfig {
+    return {
+      imageLists: {
+        defaultMaxImageSize: 0,
+        defaultAspectRatio: RAMBLERS_LANDING_PAGE
+      },
+    };
+  }
   default(): SystemConfig {
     return {
       googleAnalytics: this.googleAnalyticsDefaults(),
@@ -209,6 +223,7 @@ export class SystemConfigService {
       backgrounds: this.defaultImages(RootFolder.backgrounds),
       icons: this.defaultImages(RootFolder.icons),
       logos: this.defaultImages(RootFolder.logos),
+      images: this.imagesDefaults(),
       externalSystems: {
         facebook: {appId: null, pagesUrl: null, groupUrl: null},
         meetup: null,

@@ -97,6 +97,14 @@ export class ContentMetadataService {
     }
   }
 
+  async delete(contentMetadata: ContentMetadata): Promise<any> {
+    const apiResponse = await this.http.delete<{
+      response: ContentMetadata
+    }>(this.BASE_URL + "/" + contentMetadata.id).toPromise();
+    this.logger.debug("delete", contentMetadata, "- received", apiResponse);
+    return Promise.resolve(apiResponse);
+  }
+
   async create(contentMetaData: ContentMetadata): Promise<ContentMetadata> {
     this.logger.debug("creating", contentMetaData);
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<ContentMetadataApiResponse>(this.BASE_URL, contentMetaData), this.contentMetadataSubject);

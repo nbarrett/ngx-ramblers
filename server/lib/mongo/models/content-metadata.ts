@@ -27,7 +27,8 @@ const contentMetadataSchema = new mongoose.Schema({
   contentMetaDataType: {type: String},
   files: [contentMetadataItem],
   coverImage:  {type: String},
-  imageTags: [imageTag]
+  imageTags: [imageTag],
+  maxImageSize: {type: Number},
 }, {collection: "contentMetaData"});
 
 contentMetadataSchema.plugin(uniqueValidator);

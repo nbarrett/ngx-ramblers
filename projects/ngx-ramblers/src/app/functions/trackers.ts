@@ -2,7 +2,7 @@ import { ContentMetadataItem } from "../models/content-metadata.model";
 import { ExpenseEvent, ExpenseItem, ExpenseType } from "../notifications/expenses/expense.model";
 
 export function imageTracker(image: ContentMetadataItem) {
-  return image?.image || image?.base64Content;
+  return image?._id || image?.image || image?.base64Content;
 }
 
 export function itemTracker(index: number, item: ExpenseItem) {

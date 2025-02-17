@@ -46,18 +46,19 @@ export function create<T>(model: mongoose.Model<mongoose.Document>, data: T) {
   }
 }
 
-export function connect(debug: debug.Debugger) {
+export function connect(debug?: debug.Debugger) {
   const mongoUri = envConfig.mongo.uri.replace(/^"|"$/g, ""); ;
   debugLog("MongoDB URI:", mongoUri);
+  const debugConnect = debug || debugLog;
   return mongoose.connect(mongoUri, {
     useUnifiedTopology: true,
     useNewUrlParser: true,
   }).then(response => {
-    debug("Connected to database:", mongoUri, "configured models:", response.models);
+    debugConnect("Connected to database:", mongoUri, "configured models:", response.models);
     connected = true;
     return true;
   }).catch(error => {
-    debug("Connection failed:", mongoUri, "error:", error);
+    debugConnect("Connection failed:", mongoUri, "error:", error);
     throw error;
   });
 }

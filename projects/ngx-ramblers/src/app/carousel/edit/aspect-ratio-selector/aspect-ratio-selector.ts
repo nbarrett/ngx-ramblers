@@ -1,16 +1,27 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { DescribedDimensions, SelectedDescribedDimensions, SQUARE } from "../../../models/aws-object.model";
+import { DescribedDimensions, SelectedDescribedDimensions } from "../../../models/aws-object.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { Dimensions } from "ngx-image-cropper";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { FormsModule } from "@angular/forms";
+import { RAMBLERS_LANDING_PAGE, SQUARE } from "../../../models/images.model";
 
 
 @Component({
     selector: "app-aspect-ratio-selector",
-    templateUrl: "./aspect-ratio-selector.html",
+  template: `
+    <label [for]="id">{{ label || 'Aspect Ratio' }}</label>
+    <select class="form-control input-sm"
+            [(ngModel)]="dimension"
+            [disabled]="disabled"
+            (ngModelChange)="changeAspectRatioSettings($event)"
+            [id]="id">
+      @for (aspectRatio of dimensions; track aspectRatio) {
+        <option [ngValue]="aspectRatio">{{ formatAspectRatio(aspectRatio) }}</option>
+      }
+    </select>`,
     imports: [FormsModule]
 })
 
@@ -40,7 +51,7 @@ export class AspectRatioSelectorComponent implements OnInit {
     {width: 16, height: 10, description: "A common computer screen ratio"},
     {width: 16, height: 9, description: "HD video standard"},
     {width: 940, height: 300, description: "Home page"},
-    {width: 1116, height: 470, description: "Ramblers Landing page"},
+    {width: 1116, height: 470, description: RAMBLERS_LANDING_PAGE},
   ];
   id: any;
 

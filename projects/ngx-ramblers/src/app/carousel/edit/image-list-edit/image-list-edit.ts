@@ -11,6 +11,7 @@ import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { AlertTarget } from "../../../models/alert-target.model";
 import {
   faAdd,
+  faCompress,
   faEraser,
   faFile,
   faPencil,
@@ -18,6 +19,7 @@ import {
   faSave,
   faSortNumericDown,
   faSortNumericUp,
+  faTableCells,
   faTags,
   faUndo
 } from "@fortawesome/free-solid-svg-icons";
@@ -27,6 +29,7 @@ import {
   Base64File,
   ContentMetadata,
   ContentMetadataItem,
+  ContentMetadataResizeRequest,
   DuplicateImages,
   ImageFilterType,
   ImageTag,
@@ -41,13 +44,13 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { FileUploadService } from "../../../services/file-upload.service";
 import { ImageDuplicatesService } from "../../../services/image-duplicates-service";
 import { ImageTagDataService } from "../../../services/image-tag-data-service";
-import { LoggerFactory } from "../../../services/logger-factory.service";
+import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
-import { RootFolder } from "../../../models/system.model";
+import { RootFolder, SystemConfig } from "../../../models/system.model";
 import {
   AwsFileUploadResponse,
   AwsFileUploadResponseData,
@@ -65,6 +68,13 @@ import { FormsModule } from "@angular/forms";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { AspectRatioSelectorComponent } from "../aspect-ratio-selector/aspect-ratio-selector";
 import { ImageEditComponent } from "../image-edit/image-edit";
+import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
+import { FileSizeSelectorComponent } from "../file-size-selector/file-size-selector";
+import { SystemConfigService } from "../../../services/system/system-config.service";
+import isUndefined from "lodash-es/isUndefined";
+import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
+import { ApiResponse } from "../../../models/api-response.model";
+import isArray from "lodash-es/isArray";
 
 @Component({
     selector: "app-image-list-edit",
@@ -98,96 +108,138 @@ import { ImageEditComponent } from "../image-edit/image-edit";
       white-space: nowrap
   `],
     template: `
-    @if (allow.edit && contentMetadata) {
-      <input #fileElement class="d-none" type="file" ng2FileSelect multiple
-        (onFileSelected)="onFileSelectOrDropped($event)"
-        [uploader]="uploader">
-      <div class="row no-gutters">
-        <div class="col pr-1">
-          <app-badge-button fullWidth="true" [icon]="faSave" caption="Save changes and exit"
-            (click)="requestSaveChangesAndExit()"
-            [disabled]="uploader.isUploading"/>
-        </div>
-        <div class="col pr-1">
-          <app-badge-button fullWidth="true" [icon]="faSave" caption="Save" (click)="requestSaveChanges()"
-            [disabled]="uploader.isUploading"/>
-        </div>
-        <div class="col pr-1">
-          <app-badge-button fullWidth="true" [icon]="faUndo" caption="Exit without saving"
-            [disabled]="uploader.isUploading"
-            (click)="exitBackWithoutSaving()"/>
-        </div>
-        <div class="col pr-1">
-          <app-badge-button fullWidth [icon]="faUndo" [caption]="'Undo'" (click)="undoChanges()"
-            [disabled]="uploader.isUploading"/>
-        </div>
-        <div class="col pr-1">
-          <app-badge-button fullWidth [icon]="faSortNumericDown" caption="Sort by image date"
-            [disabled]="uploader.isUploading"
-            (click)="sortByDate()"/>
-        </div>
-        @if (imagesExist()) {
-          <div class="col pr-1">
-            <app-badge-button fullWidth [icon]="faSortNumericUp" caption="Reverse sort order"
-              [disabled]="uploader.isUploading"
-              (click)="reverseSortOrder()"/>
-          </div>
-        }
-        @if (imagesExist()) {
-          <div class="col pr-1">
-            <app-badge-button fullWidth [icon]="faEraser" caption="Clear images"
-              [disabled]="uploader.isUploading"
-              (click)="clearImages()"/>
-          </div>
-        }
-        @if (!imagesExist()) {
-          <div class="col pr-1">
-            <app-badge-button fullWidth [icon]="faAdd" caption="Create First Image"
-              [disabled]="uploader.isUploading"
-              (click)="insertToEmptyList()"/>
-          </div>
-        }
-        @if (contentMetadata?.imageTags?.length>0) {
-          <div class="col pr-1">
-            <app-badge-button fullWidth
-              [icon]="faTags"
-              [disabled]="uploader.isUploading"
-              [caption]="manageTags?'Close Tags': 'Manage Tags'"
-              (click)="toggleManageTags()"/>
-          </div>
-        }
-        <div class="col-auto">
-          <app-badge-button fullWidth [disabled]="uploader.isUploading"
-            [icon]="faFile"
-            caption="Choose Files"
-            (click)="browseToFile(fileElement)"/>
-        </div>
-      </div>
-      <div class="row mt-2">
-        <div class="col-sm-12">
-          <div ng2FileDrop [ngClass]="{'file-over': !uploader.isUploading && hasFileOver}"
-            (fileOver)="fileOver($event)"
-            (onFileDrop)="onFileSelectOrDropped($event)"
-            [uploader]="uploader"
-            class="badge-drop-zone">Drop new files here to add them
-          </div>
-        </div>
-        @if (uploader.isUploading) {
-          <div class="col-sm-12 mb-2 mt-2">
-            <div class="progress">
-              <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': uploader.progress + '%' }">
-                {{ uploader.progress }} %
-              </div>
+      @if (allow.edit && contentMetadata) {
+        <div class="row mb-4 px-1">
+          <div class="col-sm-12">
+            <div class="form-group">
+              <label for="name">Album Name</label>
+              <input [delay]="1000"
+                     [tooltip]="imagesExist() ? 'Album name cannot be changed after images have been created in it':''"
+                     [disabled]="imagesExist()" type="text" [ngModel]="contentMetadata.name" id="name"
+                     (ngModelChange)="albumNameChange($event)"
+                     class="form-control">
             </div>
           </div>
-        }
-        <div class="col-sm-12 mt-4">
-          @if (warningTarget.showAlert) {
-            <div class="flex-grow-1 alert {{warningTarget.alertClass}}">
-              <fa-icon [icon]="warningTarget.alert.icon"></fa-icon>
-              @if (warningTarget.alertTitle) {
-                <strong>
-                {{ warningTarget.alertTitle }}: </strong>
+          <div class="col-sm-6">
+            <app-aspect-ratio-selector label="Default Aspect Ratio"
+                                       [dimensionsDescription]="contentMetadata.aspectRatio"
+                                       (dimensionsChanged)="dimensionsChanged($event)"/>
+          </div>
+          <div class="col-sm-6">
+            <app-file-size-selector label="Auto-resize New Images To Maximum Size"
+                                    [fileSize]="contentMetadata.maxImageSize"
+                                    (fileSizeChanged)="contentMetadata.maxImageSize=$event"/>
+          </div>
+        </div>
+        <input #fileElement class="d-none" type="file" ng2FileSelect multiple
+               (onFileSelected)="onFileSelectOrDropped($event)"
+               [uploader]="uploader">
+        <div class="row no-gutters">
+          <div class="col pr-1">
+            <app-badge-button fullWidth="true" [icon]="faSave" caption="Save changes and exit"
+                              (click)="requestSaveChangesAndExit()"
+                              [disabled]="disabled()"/>
+          </div>
+          <div class="col pr-1">
+            <app-badge-button fullWidth="true" [icon]="faSave" caption="Save" (click)="requestSaveChanges()"
+                              [disabled]="disabled()"/>
+          </div>
+          <div class="col pr-1">
+            <app-badge-button fullWidth="true" [icon]="faUndo" caption="Exit without saving"
+                              [disabled]="disabled()"
+                              (click)="exitBackWithoutSaving()"/>
+          </div>
+          <div class="col pr-1">
+            <app-badge-button fullWidth [icon]="faUndo" [caption]="'Undo'" (click)="undoChanges()"
+                              [disabled]="disabled()"/>
+          </div>
+          <div class="btn-group" dropdown>
+            <button [disabled]="disabled()" aria-controls="dropdown-animated"
+                    class="dropdown-toggle badge-button"
+                    [ngClass]="{'disabled': disabled()}"
+                    dropdownToggle
+                    type="button">
+              <fa-icon [icon]="faTableCells"/>
+              <span class="ml-2">Image Actions</span><span class="caret"></span>
+            </button>
+            <ul *dropdownMenu class="dropdown-menu" role="menu">
+              @if (imagesExist()) {
+                @if (contentMetadata?.maxImageSize > 0) {
+                <li role="menuitem">
+                  <a (click)="callResizeSavedImages()" class="dropdown-item">
+                    <fa-icon [icon]="faCompress"/>
+                    Resize Existing Images To {{ numberUtils.humanFileSize(contentMetadata.maxImageSize) }}
+                  </a>
+                </li>
+                }
+                <li role="menuitem">
+                  <a (click)="sortByDate()" class="dropdown-item">
+                    <fa-icon [icon]="faSortNumericDown"/>
+                    Sort by image date
+                  </a>
+                </li>
+                <li role="menuitem">
+                  <a (click)="reverseSortOrder()" class="dropdown-item">
+                    <fa-icon [icon]="faSortNumericUp"/>
+                    Reverse sort order
+                  </a>
+                </li>
+                <li role="menuitem">
+                  <a (click)="clearImages()" class="dropdown-item">
+                    <fa-icon [icon]="faEraser"/>
+                    Clear images
+                  </a>
+                </li>
+              } @else {
+                <li role="menuitem">
+                  <a (click)="insertToEmptyList()" class="dropdown-item">
+                    <fa-icon [icon]="faAdd"/>
+                    Create First Image
+                  </a>
+                </li>
+              }
+              @if (contentMetadata?.imageTags?.length > 0) {
+                <li role="menuitem">
+                  <a (click)="toggleManageTags()" class="dropdown-item">
+                    <fa-icon [icon]="faTags"/>
+                    {{ manageTags ? "Close Tags" : "Manage Tags" }}
+                  </a>
+                </li>
+              }
+            </ul>
+          </div>
+          <div class="col-auto">
+            <app-badge-button fullWidth [disabled]="disabled()"
+                              [icon]="faFile"
+                              caption="Choose Files"
+                              (click)="browseToFile(fileElement)"/>
+          </div>
+        </div>
+        <div class="row mt-2">
+          <div class="col-sm-12">
+            <div ng2FileDrop [ngClass]="{'file-over': !uploader.isUploading && hasFileOver}"
+                 (fileOver)="fileOver($event)"
+                 (onFileDrop)="onFileSelectOrDropped($event)"
+                 [uploader]="uploader"
+                 class="badge-drop-zone">Drop new files here to add them
+            </div>
+          </div>
+          @if (uploader.isUploading) {
+            <div class="col-sm-12 mb-2 mt-2">
+              <div class="progress">
+                <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': uploader.progress + '%' }">
+                  {{ uploader.progress }} %
+                </div>
+              </div>
+            </div>
+          }
+          <div class="col-sm-12 mt-4">
+            @if (warningTarget.showAlert) {
+              <div class="flex-grow-1 alert {{warningTarget.alertClass}}">
+                <fa-icon [icon]="warningTarget.alert.icon"></fa-icon>
+                @if (warningTarget.alertTitle) {
+                  <strong>
+                    {{ warningTarget.alertTitle }}: </strong>
                 } {{ warningTarget.alertMessage }}
               </div>
             }
@@ -197,50 +249,51 @@ import { ImageEditComponent } from "../image-edit/image-edit";
           <div class="row mb-2">
             <div class="col-sm-12">
               <h6>Tag Management</h6>
-              <app-tag-manager [contentMetadata]="contentMetadata"></app-tag-manager>
+              <app-tag-manager [contentMetadata]="contentMetadata"/>
             </div>
           </div>
         }
         <h6>Image Filtering</h6>
         <div class="custom-control custom-radio custom-control-inline">
-          <input [disabled]="notifyTarget.busy" id="recent-photos-filter"
-            type="radio"
-            class="custom-control-input"
-            [(ngModel)]="filterType"
-            (ngModelChange)="filterFor('recent')"
-            value="recent"/>
+          <input [disabled]="disabled()" id="recent-photos-filter"
+                 type="radio"
+                 class="custom-control-input"
+                 [(ngModel)]="filterType"
+                 (ngModelChange)="filterFor('recent')"
+                 value="recent"/>
           <label class="custom-control-label" for="recent-photos-filter">Show recent photos</label>
         </div>
         <div class="custom-control custom-radio custom-control-inline">
-          <input [disabled]="notifyTarget.busy" id="all-photos-filter"
-            type="radio"
-            class="custom-control-input"
-            [(ngModel)]="filterType"
-            (ngModelChange)="filterFor('all')"
-            value="all"/>
+          <input [disabled]="disabled()" id="all-photos-filter"
+                 type="radio"
+                 class="custom-control-input"
+                 [(ngModel)]="filterType"
+                 (ngModelChange)="filterFor('all')"
+                 value="all"/>
           <label class="custom-control-label" for="all-photos-filter">Show all photos</label>
         </div>
-        @if (selectableTags()?.length>0) {
+        @if (selectableTags()?.length > 0) {
           <div
             class="custom-control custom-radio custom-control-inline">
-            <input [disabled]="notifyTarget.busy" id="tag-filter"
-              type="radio"
-              class="custom-control-input"
-              [(ngModel)]="filterType"
-              (ngModelChange)="filterFor('tag')"
-              value="tag"/>
+            <input [disabled]="disabled()" id="tag-filter"
+                   type="radio"
+                   class="custom-control-input"
+                   [(ngModel)]="filterType"
+                   (ngModelChange)="filterFor('tag')"
+                   value="tag"/>
             <label class="custom-control-label" for="tag-filter">Show images tagged with:</label>
           </div>
           <div
             class="custom-control custom-radio custom-control-inline">
             <select [compareWith]="imageTagComparer" [disabled]="filterType !== 'tag'"
-              [(ngModel)]="activeTag"
-              id="filterByTag"
-              class="form-control"
-              (ngModelChange)="filterByTag($event)">
+                    [(ngModel)]="activeTag"
+                    id="filterByTag"
+                    class="form-control"
+                    (ngModelChange)="filterByTag($event)">
               @for (imageTag of selectableTags(); track tagTracker($index, imageTag)) {
                 <option
-                [ngValue]="imageTag">{{ imageTag.subject }}</option>
+                  [ngValue]="imageTag">{{ imageTag.subject }}
+                </option>
               }
             </select>
           </div>
@@ -249,9 +302,9 @@ import { ImageEditComponent } from "../image-edit/image-edit";
           <div class="col-sm-6">
             <label for="search">Filter images for text</label>
             <input [(ngModel)]="filterText" type="text"
-              (ngModelChange)="onSearchChange($event)" class="form-control input-md rounded ml-8 w-100"
-              id="search"
-              placeholder="any text">
+                   (ngModelChange)="onSearchChange($event)" class="form-control input-md rounded ml-8 w-100"
+                   id="search"
+                   placeholder="any text">
           </div>
           <div class="col-sm-6 mt-auto">
             <div class="custom-control custom-checkbox">
@@ -268,68 +321,57 @@ import { ImageEditComponent } from "../image-edit/image-edit";
         <div class="row">
           <div class="col-sm-12 mt-3 d-flex">
             <pagination class="pagination rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="maxSize()"
-              [totalItems]="filteredFiles.length" [(ngModel)]="pageNumber"
-            (pageChanged)="pageChanged($event)"></pagination>
+                        [totalItems]="filteredFiles.length" [(ngModel)]="pageNumber"
+                        (pageChanged)="pageChanged($event)"></pagination>
             @if (notifyTarget.showAlert) {
               <div class="flex-grow-1 alert {{notifyTarget.alertClass}}">
-                <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                <fa-icon [icon]="notifyTarget.alert.icon"/>
                 @if (notifyTarget.alertTitle) {
                   <strong>
-                  {{ notifyTarget.alertTitle }}: </strong>
-                  } {{ notifyTarget.alertMessage }}
-                </div>
-              }
-            </div>
-          </div>
-          <div class="card mb-3">
-            <div class="card-body">
-              <div class="row">
-                <div class="col-sm-6">
-                  <div class="form-group">
-                    <label for="name">Album Name</label>
-                    <input [delay]="1000"
-                      [tooltip]="imagesExist()? 'Album name cannot be changed after images have been created in it':''"
-                      [disabled]="imagesExist()" type="text" [ngModel]="contentMetadata.name" id="name"
-                      (ngModelChange)="albumNameChange($event)"
-                      class="form-control">
-                  </div>
-                </div>
-                <div class="col-sm-6">
-                  <app-aspect-ratio-selector [label]="'Default Aspect Ratio'"
-                    [dimensionsDescription]="contentMetadata.aspectRatio"
-                  (dimensionsChanged)="dimensionsChanged($event)"></app-aspect-ratio-selector>
-                </div>
+                    {{ notifyTarget.alertTitle }}: </strong>
+                } {{ notifyTarget.alertMessage }}
               </div>
-            </div>
+            }
           </div>
-          @for (imageMetaDataItem of currentPageImages; track metadataItemTracker(index, imageMetaDataItem); let index = $index) {
-            <app-image-edit noImageSave
-              [index]="index"
-              [duplicateImages]="duplicateImages"
-              [contentMetadata]="contentMetadata"
-              [s3Metadata]="metaDataFor(imageMetaDataItem)"
-              [contentMetadataImageTags]="contentMetadata.imageTags"
-              [filteredFiles]="currentPageImages"
-              [item]="imageMetaDataItem"
-              (imageInsert)="imageInsert($event)"
-              (imageEdit)="imageEdit($event)"
-              (imageChange)="imageChange($event)"
-              (imagedSavedOrReverted)="imagedSavedOrReverted($event)"
-              (delete)="delete($event)"
-              (moveUp)="moveUp($event)"
-              (moveDown)="moveDown($event)">
-            </app-image-edit>
-          }
-        }`,
-    imports: [FileUploadModule, BadgeButtonComponent, NgClass, NgStyle, FontAwesomeModule, TagManagerComponent, FormsModule, PaginationComponent, TooltipDirective, AspectRatioSelectorComponent, ImageEditComponent]
+        </div>
+        @for (imageMetaDataItem of currentPageImages; track metadataItemTracker(index, imageMetaDataItem); let index = $index) {
+          <app-image-edit noImageSave
+                          [index]="index"
+                          [duplicateImages]="duplicateImages"
+                          [contentMetadata]="contentMetadata"
+                          [s3Metadata]="metaDataFor(imageMetaDataItem)"
+                          [contentMetadataImageTags]="contentMetadata.imageTags"
+                          [filteredFiles]="currentPageImages"
+                          [item]="imageMetaDataItem"
+                          (imageInsert)="imageInsert($event)"
+                          (imageEdit)="imageEdit($event)"
+                          (imageChange)="imageChange($event)"
+                          (imagedSavedOrReverted)="imagedSavedOrReverted($event)"
+                          (delete)="delete($event)"
+                          (moveUp)="moveUp($event)"
+                          (moveDown)="moveDown($event)">
+          </app-image-edit>
+        }
+      }`,
+  imports: [FileUploadModule, BadgeButtonComponent, NgClass, NgStyle, FontAwesomeModule, TagManagerComponent,
+    FormsModule, PaginationComponent, TooltipDirective, AspectRatioSelectorComponent, ImageEditComponent,
+    BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, FileSizeSelectorComponent]
 })
 export class ImageListEditComponent implements OnInit, OnDestroy {
 
-  private loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger = this.loggerFactory.createLogger("ImageListEditComponent", NgxLoggerLevel.ERROR);
+  @Input("name") set nameValue(name: string) {
+    this.logger.info("name changed:", name);
+    this.initialiseImagesForName(name);
+  }
+
+  @Output() exit: EventEmitter<ContentMetadata> = new EventEmitter();
+
+  private logger: Logger = inject(LoggerFactory).createLogger("ImageListEditComponent", NgxLoggerLevel.ERROR);
   public notifyTarget: AlertTarget = {};
   private notifierService: NotifierService = inject(NotifierService);
+  private webSocketClientService: WebSocketClientService = inject(WebSocketClientService);
   public notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
+  public systemConfigService: SystemConfigService = inject(SystemConfigService);
   public stringUtils: StringUtilsService = inject(StringUtilsService);
   public imageTagDataService: ImageTagDataService = inject(ImageTagDataService);
   public numberUtils: NumberUtilsService = inject(NumberUtilsService);
@@ -384,14 +426,10 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   protected readonly faAdd = faAdd;
   protected readonly faTags = faTags;
   protected readonly faFile = faFile;
-
-  @Input("name") set nameValue(name: string) {
-    this.logger.info("name changed:", name);
-    this.initialiseImagesForName(name);
-  }
-
-  @Output() exit: EventEmitter<ContentMetadata> = new EventEmitter();
-
+  protected readonly faTableCells = faTableCells;
+  protected readonly faCompress = faCompress;
+  protected readonly saveToNew = false;
+  private systemConfig: SystemConfig;
   ngOnInit() {
     this.logger.info("ngOnInit:this.contentMetadata", this.contentMetadata, "name:", this.name, "story:", this.story);
     this.notify.setBusy();
@@ -409,6 +447,26 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
       this.logger.info("paramMap:subscribe:", paramMap, "name from paramMap:", name, "existing name:", this.name);
       this.initialiseImagesForName(name);
     }));
+    this.subscriptions.push(this.systemConfigService.events().subscribe((systemConfig: SystemConfig) => this.systemConfig = systemConfig));
+    this.subscriptions.push(this.webSocketClientService.receiveMessages("progress").subscribe(message => {
+      this.logger.info(`Progress: ${message}`);
+      this.notify.success({title: "Progress", message});
+    }));
+    this.subscriptions.push(this.webSocketClientService.receiveMessages("error").subscribe(error => {
+        this.logger.error(`Error: ${error}%`);
+        this.notify.error({title: "Error", message: error});
+      })
+    );
+    this.subscriptions.push(this.webSocketClientService.receiveMessages("complete").subscribe((message: ApiResponse) => {
+        this.logger.info(`Task completed:`, message);
+        if (isArray(message.response)) {
+          this.processResizeItemsResponse(message.response);
+          this.notify.clearBusy();
+        } else {
+          this.postSaveContentMetadata(Promise.resolve(message.response)).then(() => this.notify.clearBusy());
+        }
+      })
+    );
     this.applyFilter();
     this.applyAllowEdits();
     this.searchChangeObservable.pipe(debounceTime(500))
@@ -462,7 +520,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   private initialiseImageList() {
     this.logger.info("initialiseImageList for name:", this.name);
-    this.refreshImageMetaData(this.name);
+    this.refreshContentAndS3Metadata(this.name);
     this.uploader = this.fileUploadService.createUploaderFor(RootFolder.carousels + "/" + this.name, false);
     this.uploader.response.subscribe((response: string | HttpErrorResponse) => {
         const awsFileUploadResponse: AwsFileUploadResponse = this.fileUploadService.handleAwsFileUploadResponse(response, this.notify, this.logger);
@@ -476,7 +534,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
               title: "File upload success",
               message: `${this.stringUtils.pluraliseWithCount(responses.length, "file")} ${this.stringUtils.pluraliseWithCount(responses.length, "was", "were")} uploaded`
             });
-            const matches = responses.map(response => {
+            const matches: ContentMetadataItem[] = responses.map(response => {
               const metadataItem: ContentMetadataItem = this.contentMetadata.files.find(item => item.originalFileName === response.uploadedFile.originalname);
               if (metadataItem) {
                 metadataItem.image = response.fileNameData.awsFileName;
@@ -625,23 +683,17 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.logger.info("filteredFiles:", this.filteredFiles);
   }
 
-  refreshImageMetaData(name: string) {
+  refreshContentAndS3Metadata(name: string) {
     this.notify.setBusy();
     this.name = name;
     this.logger.info("image metadata refresh started for name:", name);
-    const metadataPrefix = this.contentMetadataService.rootFolderAndName(RootFolder.carousels, this.name);
     return Promise.all([
         this.contentMetadataService.items(RootFolder.carousels, this.name)
           .then((contentMetaData: ContentMetadata) => {
             this.contentMetadata = contentMetaData;
             this.logger.info("this.contentMetadataService:returned:", contentMetaData);
           }),
-        this.contentMetadataService.listMetaData(metadataPrefix)
-          .then((s3Metadata: S3Metadata[]) => {
-            this.s3Metadata = s3Metadata;
-            this.logger.info("listMetaData:metadataPrefix:", metadataPrefix, "returned:", s3Metadata);
-          })
-      ]
+      this.refreshS3Metadata()]
     )
       .then(() => {
         this.logger.info("metadata query complete for:", this.name);
@@ -650,8 +702,24 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
       .catch(response => this.notify.error({title: "Failed to refresh images", message: response}));
   }
 
+  private refreshS3Metadata() {
+    const metadataPrefix = this.contentMetadataService.rootFolderAndName(RootFolder.carousels, this.name);
+    return this.contentMetadataService.listMetaData(metadataPrefix)
+      .then((s3Metadata: S3Metadata[]) => {
+        this.s3Metadata = s3Metadata;
+        this.logger.info("listMetaData:metadataPrefix:", metadataPrefix, "returned:", s3Metadata);
+      });
+  }
+
   private postMetadataRetrieveMapping() {
     this.syncTagWithStory();
+    this.logger.info("postMetadataRetrieveMapping for:", this.name, "this.contentMetadata.maxImageSize", this.contentMetadata.maxImageSize, "this.contentMetadata.aspectRatio", this.contentMetadata.aspectRatio);
+    if (isUndefined(this.contentMetadata.maxImageSize)) {
+      this.contentMetadata.maxImageSize = this.systemConfig.images.imageLists.defaultMaxImageSize;
+    }
+    if (isUndefined(this.contentMetadata.aspectRatio)) {
+      this.contentMetadata.aspectRatio = this.systemConfig.images.imageLists.defaultAspectRatio;
+    }
     if (this.contentMetadata.files) {
       this.contentMetadata.files = this.contentMetadata.files.map(file => {
         return {
@@ -726,10 +794,16 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   saveChanges(): Promise<ContentMetadata> {
-    return this.contentMetadataService.createOrUpdate(this.contentMetadata)
-      .then((savedContent: ContentMetadata) => {
+    return this.postSaveContentMetadata(this.contentMetadataService.createOrUpdate(this.contentMetadata));
+  }
+
+  postSaveContentMetadata(savedContent: Promise<ContentMetadata>): Promise<ContentMetadata> {
+    return savedContent
+      .then(async (savedContent: ContentMetadata) => {
         this.saveOrUpdateSuccessful();
+        this.logger.info("postSaveContentMetadata:saved content:", savedContent);
         this.contentMetadata = savedContent;
+        await this.refreshS3Metadata();
         this.postMetadataRetrieveMapping();
         return savedContent;
       })
@@ -746,7 +820,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   public undoChanges() {
     this.clearUpload();
     this.nonImageFiles = [];
-    return this.refreshImageMetaData(this.name)
+    return this.refreshContentAndS3Metadata(this.name)
       .catch(response => this.notify.error({title: "Failed to undo changes", message: response}));
   }
 
@@ -755,7 +829,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   saveOrUpdateSuccessful() {
-    this.notify.success(`${`${this.stringUtils.pluraliseWithCount(this.contentMetadata?.files?.length, "image")} ${this.stringUtils.pluralise(this.contentMetadata?.files?.length, "was", "were")}`} saved successfully`);
+    this.notify.success(`${this.stringUtils.pluraliseWithCount(this.contentMetadata?.files?.length, "image")} ${this.stringUtils.pluralise(this.contentMetadata?.files?.length, "was", "were")} saved successfully`);
   }
 
   moveUp(item: ContentMetadataItem) {
@@ -822,16 +896,17 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   imageInsert(...items: ContentMetadataItem[]) {
-    this.logger.debug("insert:new items", items, "before:", this.contentMetadata.files);
+    this.logger.info("insert:new items", items, "before:", this.contentMetadata.files);
     if (this.contentMetadata.files) {
       this.contentMetadata.files.splice(0, 0, ...items);
     } else {
       this.contentMetadata.files = items;
     }
 
-    this.logger.debug("insert:new items", items, "after:", this.contentMetadata.files);
+    this.logger.info("insert:new items", items, "after:", this.contentMetadata.files);
     this.addToChangedItems(...items);
     this.detectDuplicates();
+    this.resizeUnsavedImages(items);
   }
 
   alertWarnings() {
@@ -920,8 +995,8 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
         title: "Uploading Files",
         message: "Processing " + this.stringUtils.pluraliseWithCount(fileList?.length, "file")
       });
-      const allBase64Files = await this.fileUtils.fileListToBase64Files(fileList);
-      const checkedResults = allBase64Files.map(file => ({
+      const allBase64Files: Base64File[] = await this.fileUtils.fileListToBase64Files(fileList);
+      const checkedResults: { file: Base64File; isImage: boolean }[] = allBase64Files.map(file => ({
         file,
         isImage: this.urlService.isBase64Image(file.base64Content)
       }));
@@ -967,5 +1042,51 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   readyToSaveMetadata() {
     return this.unsavedImages().length === 0;
+  }
+
+  public callResizeSavedImages(): void {
+    const contentMetadataResizeRequest: ContentMetadataResizeRequest = {
+      maxFileSize: this.contentMetadata.maxImageSize,
+      id: this.contentMetadata.id,
+      output: this.saveToNew ? {
+        name: this.contentMetadata.name + "-resized",
+        rootFolder: this.contentMetadata.rootFolder
+      } : null
+    };
+    this.notify.setBusy();
+    this.webSocketClientService.connect().then(() => this.webSocketClientService.sendMessage("resizeSavedImages", contentMetadataResizeRequest));
+  }
+
+  private resizeUnsavedImages(items: ContentMetadataItem[]) {
+    if (this.contentMetadata.maxImageSize || 0 > 0 && items?.length > 0) {
+      this.notify.setBusy();
+      const contentMetadataResizeRequest: ContentMetadataResizeRequest = {
+        maxFileSize: this.contentMetadata.maxImageSize,
+        input: items
+      };
+      this.webSocketClientService.connect().then(() => this.webSocketClientService.sendMessage("resizeUnsavedImages", contentMetadataResizeRequest));
+    } else {
+      this.logger.info("image list not configured for auto-resizing or no images supplied for resizing");
+    }
+  }
+
+  private processResizeItemsResponse(resizedItems: ContentMetadataItem[]) {
+    resizedItems.forEach(resizedItem => {
+      const metadataItem: ContentMetadataItem = this.contentMetadata.files.find(file => file.originalFileName === resizedItem.originalFileName);
+      if (metadataItem) {
+        this.logger.info("received resizedItems image related to :", metadataItem?.originalFileName, "with content", resizedItem.base64Content);
+        metadataItem.base64Content = resizedItem.base64Content;
+      } else {
+        this.logger.warn("could not find match in metadata items for:", resizedItem);
+      }
+    });
+    this.notify.success({
+      title: "Task completed",
+      message: `Resized ${this.stringUtils.pluraliseWithCount(resizedItems.length, "image")}`
+    });
+  }
+
+  disabled() {
+    return this.uploader.isUploading || this.notifyTarget.busy;
   }
 }
