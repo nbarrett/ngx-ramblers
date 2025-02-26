@@ -504,7 +504,7 @@ export class ImageEditComponent implements OnInit {
   }
 
   imageSize() {
-    return this.s3Metadata?.size ? this.numberUtils.humanFileSize(this.s3Metadata?.size) : this.numberUtils.humanFileSize(this.item?.base64Content?.length);
+    return this.s3Metadata?.size ? this.numberUtils.humanFileSize(this.s3Metadata?.size) : this.item?.base64Content?.length ? this.numberUtils.humanFileSize(this.item?.base64Content?.length) : "unknown";
   }
 
 }
