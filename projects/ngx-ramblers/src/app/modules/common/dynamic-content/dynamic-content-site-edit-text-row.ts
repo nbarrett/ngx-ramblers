@@ -64,27 +64,23 @@ import { MarginSelectComponent } from "./dynamic-content-margin-select";
                       </div>
                       <app-badge-button (click)="editImage(rowIndex, columnIndex)"
                                         [icon]="column.imageSource? faPencil : faAdd"
-                                        [caption]="(column?.imageSource ? 'edit' : 'add') + ' image'">
-                      </app-badge-button>
+                                        [caption]="(column?.imageSource ? 'edit' : 'add') + ' image'"/>
                       @if (column.imageSource) {
                         <app-badge-button (click)="removeImage(column)"
                                           [icon]="faRemove"
-                                          [caption]="'remove image'">
-                        </app-badge-button>
+                                          [caption]="'remove image'"/>
                       }
                       @if (column.imageSource) {
                         <app-badge-button (click)="replaceImage(column, rowIndex, columnIndex)"
                                           [icon]="faAdd"
-                                          [caption]="'replace image'">
-                        </app-badge-button>
+                                          [caption]="'replace image'"/>
                       }
                       <app-actions-dropdown
                         [markdownEditorComponent]="markdownEditorComponent"
                         [columnIndex]="columnIndex"
                         [pageContent]="pageContent"
                         [column]="column"
-                        [row]="row">
-                      </app-actions-dropdown>
+                        [row]="row"/>
                     </ng-container>
                   </app-markdown-editor>
                   @if (imageSource(rowIndex, columnIndex, column?.imageSource) || editActive(rowIndex, columnIndex)) {

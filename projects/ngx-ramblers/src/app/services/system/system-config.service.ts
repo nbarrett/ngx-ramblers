@@ -126,7 +126,7 @@ export class SystemConfigService {
       config.header.rightPanel = defaultRightPanel;
       this.logger.info("config.header.rightPanel initialised as:", config.header.rightPanel);
     }
-    if (!config?.images) {
+    if (!config?.images?.imageLists) {
       config.images = this.imagesDefaults();
       this.logger.info("config.images initialised as:", config.images);
     }
