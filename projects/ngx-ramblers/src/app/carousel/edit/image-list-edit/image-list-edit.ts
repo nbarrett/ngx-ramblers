@@ -715,10 +715,10 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.syncTagWithStory();
     this.logger.info("postMetadataRetrieveMapping for:", this.name, "this.contentMetadata.maxImageSize", this.contentMetadata.maxImageSize, "this.contentMetadata.aspectRatio", this.contentMetadata.aspectRatio);
     if (isUndefined(this.contentMetadata.maxImageSize)) {
-      this.contentMetadata.maxImageSize = this.systemConfig.images.imageLists.defaultMaxImageSize;
+      this.contentMetadata.maxImageSize = this.systemConfig.images?.imageLists?.defaultMaxImageSize;
     }
     if (isUndefined(this.contentMetadata.aspectRatio)) {
-      this.contentMetadata.aspectRatio = this.systemConfig.images.imageLists.defaultAspectRatio;
+      this.contentMetadata.aspectRatio = this.systemConfig.images?.imageLists?.defaultAspectRatio;
     }
     if (this.contentMetadata.files) {
       this.contentMetadata.files = this.contentMetadata.files.map(file => {

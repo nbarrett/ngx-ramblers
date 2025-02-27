@@ -40,6 +40,8 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgClass } from "@angular/common";
 import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-ratio-selector/aspect-ratio-selector";
 import { FileSizeSelectorComponent } from "../../../carousel/edit/file-size-selector/file-size-selector";
+import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
+import { faAdd, faPencil } from "@fortawesome/free-solid-svg-icons";
 
 @Component({
     selector: "app-system-settings",
@@ -191,6 +193,7 @@ import { FileSizeSelectorComponent } from "../../../carousel/edit/file-size-sele
                   <div class="img-thumbnail thumbnail-admin-edit">
                     <div class="row img-thumbnail thumbnail-2">
                       <div class="thumbnail-heading">Image List Defaults</div>
+                      @if (config?.images?.imageLists) {
                         <div class="col-sm-12">
                           <app-aspect-ratio-selector label="Default Aspect Ratio"
                                                      [dimensionsDescription]="config.images.imageLists.defaultAspectRatio"
@@ -201,6 +204,12 @@ import { FileSizeSelectorComponent } from "../../../carousel/edit/file-size-sele
                                                   [fileSize]="config.images.imageLists.defaultMaxImageSize"
                                                   (fileSizeChanged)="config.images.imageLists.defaultMaxImageSize=$event"/>
                         </div>
+                      } @else {
+                        <div class="col-sm-12">
+                        <app-badge-button (click)="config.images=systemConfigService.imagesDefaults()"
+                                          [icon]="faAdd" caption="No Image List Defaults - Create"/>
+                        </div>
+                      }
                     </div>
                   </div>
                 </tab>
@@ -609,7 +618,7 @@ import { FileSizeSelectorComponent } from "../../../carousel/edit/file-size-sele
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageCollectionSettingsComponent, ColourSelectorComponent, MailProviderSettingsComponent, SystemMeetupSettingsComponent, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, FontAwesomeModule, NgClass, AspectRatioSelectorComponent, FileSizeSelectorComponent]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageCollectionSettingsComponent, ColourSelectorComponent, MailProviderSettingsComponent, SystemMeetupSettingsComponent, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, FontAwesomeModule, NgClass, AspectRatioSelectorComponent, FileSizeSelectorComponent, BadgeButtonComponent]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 
@@ -641,6 +650,8 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   private tab: any;
   protected readonly SystemSettingsTab = SystemSettingsTab;
   protected readonly enumValueForKey = enumValueForKey;
+  protected readonly faAdd = faAdd;
+  protected readonly faPencil = faPencil;
 
   ngOnInit() {
     this.logger.info("constructed");
