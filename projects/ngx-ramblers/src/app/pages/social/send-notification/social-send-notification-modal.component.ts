@@ -2,7 +2,7 @@ import { Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@an
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { CommitteeMember, Notification, NotificationItem } from "../../../models/committee.model";
+import { BuiltInRole, CommitteeMember, Notification, NotificationItem } from "../../../models/committee.model";
 import { Member, MemberFilterSelection, SORT_BY_NAME } from "../../../models/member.model";
 import { SocialEvent } from "../../../models/social-events.model";
 import { ConfirmType } from "../../../models/ui-actions";
@@ -485,7 +485,7 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   }
 
   notReady(): boolean {
-    return !this.senderExists || this.roles.replyTo.length === 0 || this.notifyTarget.busy || !this.socialEvent?.notification?.content?.listId;
+    return !this.senderExists || this.roles.replyTo.length === 0 || this.notifyTarget.busy || !this.socialEvent?.notification?.content?.listId || !this.socialEvent.notification.content.replyTo.value || !this.socialEvent.notification.content.signoffAs.value;
   }
 
   initialiseNotification() {
@@ -494,37 +494,38 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
       this.logger.info("initialiseNotification:content created");
     }
     if (!this.socialEvent.notification.content.notificationConfig) {
-      this.socialEvent.notification.content.notificationConfig = first(this.mailMessagingService.notificationConfigs(this.notificationConfigListing));
+      const notificationConfigs = this.mailMessagingService.notificationConfigs(this.notificationConfigListing);
+      this.socialEvent.notification.content.notificationConfig = notificationConfigs.find(item => item.subject?.text?.toLowerCase()?.includes("social")) || first(notificationConfigs);
       this.logger.info("initialiseNotification:notificationConfig created");
     }
     this.logger.info("initialiseNotification:notification content:", this.socialEvent.notification.content);
-    this.defaultNotificationField(["addresseeType"], ADDRESSEE_CONTACT_FIRST_NAME);
-    this.defaultNotificationField(["title"], {include: true});
-    this.defaultNotificationField(["text"], {include: true, value: ""});
-    this.defaultNotificationField(["eventDetails"], {
+    this.defaultNotificationContentField(["addresseeType"], ADDRESSEE_CONTACT_FIRST_NAME);
+    this.defaultNotificationContentField(["title"], {include: true});
+    this.defaultNotificationContentField(["text"], {include: true, value: ""});
+    this.defaultNotificationContentField(["eventDetails"], {
       include: true,
       value: "Social Event details"
     });
-    this.defaultNotificationField(["description"], {include: true});
-    this.defaultNotificationField(["attendees"], {include: this.socialEvent.attendees.length > 0});
-    this.defaultNotificationField(["attachment"], {include: !!this.socialEvent.attachment});
-    this.defaultNotificationField(["replyTo"], {
+    this.defaultNotificationContentField(["description"], {include: true});
+    this.defaultNotificationContentField(["attendees"], {include: this.socialEvent.attendees.length > 0});
+    this.defaultNotificationContentField(["attachment"], {include: !!this.socialEvent.attachment});
+    this.defaultNotificationContentField(["replyTo"], {
       include: true,
-      value: this.roleForType(this.socialEvent.displayName ? "organiser" : "social")?.type
+      value: this.committeeMemberForTypeOrBuiltInRole(this.socialEvent.displayName ? "organiser" : BuiltInRole.SOCIAL_CO_ORDINATOR)?.type
     });
-    this.defaultNotificationField(["signoffText"], {
+    this.defaultNotificationContentField(["signoffText"], {
       include: true,
       value: "If you have any questions about the above, please don't hesitate to contact me.\n\nBest regards,"
     });
-    this.defaultNotificationField(["signoffAs"], {
+    this.defaultNotificationContentField(["signoffAs"], {
       include: true,
-      value: this.roleForType("social")?.type
+      value: this.committeeMemberForTypeOrBuiltInRole(BuiltInRole.SOCIAL_CO_ORDINATOR)?.type
     });
     this.emailConfigChanged(this.socialEvent.notification.content.notificationConfig);
     this.logger.info("initialiseNotification:socialEvent.notification ->", this.socialEvent.notification);
   }
 
-  defaultNotificationField(path: string[], value: any) {
+  defaultNotificationContentField(path: string[], value: any) {
     const target = get(this.socialEvent?.notification?.content, path);
     if (isUndefined(target)) {
       this.logger.info("existing target:", target, "setting path:", path, "to value:", value,);
@@ -563,10 +564,10 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
     };
   }
 
-  roleForType(type: string): CommitteeMember {
-    const role = this.roles.replyTo.find(role => role.type === type);
-    this.logger.info("roleForType for", type, "->", role);
-    return role;
+  committeeMemberForTypeOrBuiltInRole(type: string): CommitteeMember {
+    const committeeMember = this.roles.replyTo.find(role => [role.type, role.builtInRoleMapping].includes(type));
+    this.logger.info("committeeMemberForTypeOrBuiltInRole for", type, "->", committeeMember);
+    return committeeMember;
   }
 
   initialiseRoles(members: Member[]) {
@@ -653,8 +654,9 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
 
   async createThenEditOrSendEmailCampaign(bodyContent: string, campaignName: string, createAsDraft: boolean) {
     this.notify.progress(createAsDraft ? (`Preparing to complete ${campaignName} in ${this.stringUtils.asTitle(this.systemConfig?.mailDefaults?.mailProvider)}`) : ("Sending " + campaignName));
-    const replyToRole: CommitteeMember = this.replyToRole() || this.roleForType("social");
+    const replyToRole: CommitteeMember = this.replyToRole() || this.committeeMemberForTypeOrBuiltInRole(BuiltInRole.SOCIAL_CO_ORDINATOR);
     const senderRole: CommitteeMember = this.signoffAs();
+    this.logger.info("replyToRole:", replyToRole, "senderRole:", senderRole);
     const signoffRoles: string[] = [senderRole.type];
     this.logger.info("signoffRoles:", signoffRoles);
     const member: Member = await this.memberService.getById(this.memberLoginService.loggedInMember().memberId);
@@ -739,8 +741,8 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
     this.logger.info("emailConfigChanged:notificationConfig", notificationConfig, "notification.content.listId:", this.socialEvent.notification.content.listId);
   }
 
-  socialEventSignoffChanged(memberId: any) {
-    this.logger.info("socialEventSignoffChanged:memberId", memberId);
+  socialEventSignoffChanged(type: any) {
+    this.logger.info("socialEventSignoffChanged:type", type);
   }
 
   selectionDisabled(list: ListInfo): boolean {
