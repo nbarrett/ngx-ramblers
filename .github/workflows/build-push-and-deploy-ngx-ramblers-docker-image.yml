@@ -35,12 +35,18 @@ jobs:
       - name: Install Flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Deploy App
+      - name: Verify fly.toml existence
+        run: |
+          ls -la
+          if [ -f "fly.toml" ]; then echo "fly.toml found"; else echo "fly.toml not found" && exit 1; fi
+
+      - name: Sync fly.toml to Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          flyctl deploy --remote-only --app ${{ secrets.APP_NAME }} --image ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest
+          flyctl config validate --config fly.toml --app ${{ secrets.APP_NAME }}
+          flyctl deploy --app ${{ secrets.APP_NAME }} --config fly.toml --image ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest --detach
       - name: Scale App to 1
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl scale count 1  --app ${{ secrets.APP_NAME }}
+        run: flyctl scale count 1 --app ${{ secrets.APP_NAME }}
