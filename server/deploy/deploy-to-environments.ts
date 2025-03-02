@@ -39,18 +39,18 @@ function runCommand(command: string): void {
 
 function deployApps(configFilePath: string, filterEnvironments: string[]): void {
   const config: DeploymentConfig = readConfigFile(configFilePath);
-
-  let environmentsToDeploy;
-  if (filterEnvironments.includes("all")) {
-    environmentsToDeploy = config.environments;
-  } else {
-    environmentsToDeploy = config.environments.filter(environmentConfig =>
-      filterEnvironments.includes(environmentConfig.name)
-    );
-  }
+  const flyTomlPath = path.resolve(__dirname, "fly.toml");
+  const environmentsToDeploy = filterEnvironments.includes("all")
+    ? config.environments
+    : config.environments.filter(env => filterEnvironments.includes(env.name));
 
   if (environmentsToDeploy.length === 0) {
     debugLog("No valid environments found for deployment.");
+    process.exit(1);
+  }
+
+  if (!fs.existsSync(flyTomlPath)) {
+    debugLog(`fly.toml not found at: ${flyTomlPath}`);
     process.exit(1);
   }
 
@@ -58,16 +58,17 @@ function deployApps(configFilePath: string, filterEnvironments: string[]): void 
     process.env.FLY_API_TOKEN = environmentConfig.apiKey;
     process.env.APP_NAME = environmentConfig.appName;
     process.env.IMAGE = config.dockerImage;
-    debugLog(`Deploying ${config.dockerImage} to ${environmentConfig.appName} environment`);
+    debugLog(`Deploying ${config.dockerImage} to ${environmentConfig.appName}`);
 
-    const secretsFilePath = path.resolve(currentDir, `../../non-vcs/secrets/secrets.${environmentConfig.appName}.env`);
+    runCommand(`flyctl config validate --config ${flyTomlPath}`);
+    runCommand(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --detach`);
+
+    const secretsFilePath = path.resolve(__dirname, `../../non-vcs/secrets/secrets.${environmentConfig.appName}.env`);
     if (fs.existsSync(secretsFilePath)) {
       runCommand(`flyctl secrets import --app ${environmentConfig.appName} < ${secretsFilePath}`);
     } else {
       debugLog(`Secrets file not found: ${secretsFilePath}`);
     }
-
-    runCommand(`flyctl deploy --remote-only --app ${environmentConfig.appName} --image ${config.dockerImage}`);
     runCommand(`fly scale count 1 --app ${environmentConfig.appName}`);
     runCommand(`fly scale memory 1024 --app ${environmentConfig.appName}`);
   });
