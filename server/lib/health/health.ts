@@ -8,9 +8,14 @@ const debugLog = debug(envConfig.logNamespace("health"));
 debugLog.enabled = true;
 
 export async function health(req: Request, res: Response) {
-  const awsConfig = queryAWSConfig();
-  const config = await systemConfig();
-  debugLog("AWS config retrieved with region:", awsConfig?.region, "bucket:", awsConfig?.bucket,
-    "database config retrieved for:", config.group.shortName, "with group code:", config.group.groupCode);
-  res.status(200).send("OK");
+  try {
+    const awsConfig = queryAWSConfig();
+    const config = await systemConfig();
+    debugLog("AWS config retrieved with region:", awsConfig?.region, "bucket:", awsConfig?.bucket,
+      "database config retrieved for:", config.group.shortName, "with group code:", config.group.groupCode);
+    res.status(200).send("OK");
+  } catch (error) {
+    debugLog("Caught error", error.message);
+    res.status(500).send(error.message);
+  }
 }

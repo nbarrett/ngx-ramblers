@@ -39,7 +39,7 @@ function runCommand(command: string): void {
 
 function deployApps(configFilePath: string, filterEnvironments: string[]): void {
   const config: DeploymentConfig = readConfigFile(configFilePath);
-  const flyTomlPath = path.resolve(__dirname, "fly.toml");
+  const flyTomlPath = path.resolve(__dirname, "../..", "fly.toml");
   const environmentsToDeploy = filterEnvironments.includes("all")
     ? config.environments
     : config.environments.filter(env => filterEnvironments.includes(env.name));
@@ -60,7 +60,7 @@ function deployApps(configFilePath: string, filterEnvironments: string[]): void 
     process.env.IMAGE = config.dockerImage;
     debugLog(`Deploying ${config.dockerImage} to ${environmentConfig.appName}`);
 
-    runCommand(`flyctl config validate --config ${flyTomlPath}`);
+    runCommand(`flyctl config validate --config ${flyTomlPath} --app ${environmentConfig.appName}`);
     runCommand(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --detach`);
 
     const secretsFilePath = path.resolve(__dirname, `../../non-vcs/secrets/secrets.${environmentConfig.appName}.env`);
