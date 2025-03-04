@@ -132,12 +132,6 @@ export class WalkDisplayService {
     return mapviewReady;
   }
 
-  public shouldShowFullDetails(displayedWalk: DisplayedWalk): boolean {
-    return true || this.walkPopulationWalksManager()
-      || !!(displayedWalk?.walkAccessMode?.walkWritable && displayedWalk?.walk?.start_location?.postcode)
-      || displayedWalk?.latestEventType?.showDetails;
-  }
-
   public walkPopulationWalksManager(): boolean {
     const result = this.group?.walkPopulation === EventPopulation.WALKS_MANAGER;
     this.logger.debug("walkPopulationWalksManager:walkPopulation:", this.group?.walkPopulation, "result:", result);
@@ -300,7 +294,7 @@ export class WalkDisplayService {
   }
 
   public walksCoordinatorName() {
-    return this.committeeReferenceData.contactUsFieldForBuiltInRole(BuiltInRole.WALKS_CO_ORDINATOR, "fullName");
+    return this.committeeReferenceData?.contactUsFieldForBuiltInRole(BuiltInRole.WALKS_CO_ORDINATOR, "fullName");
   }
 
   private applyConfig() {

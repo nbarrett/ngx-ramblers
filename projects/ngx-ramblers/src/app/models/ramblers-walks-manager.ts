@@ -18,6 +18,7 @@ export interface RamblersWalksUploadRequest {
 
 export interface PublishStatus {
   messages: string[];
+  actionRequired: boolean;
   publish: boolean;
 }
 

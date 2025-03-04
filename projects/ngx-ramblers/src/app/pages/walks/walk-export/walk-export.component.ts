@@ -1,5 +1,5 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faCircleInfo, faEnvelope, faEye, faRemove } from "@fortawesome/free-solid-svg-icons";
+import { faCheckCircle, faCircleInfo, faEnvelope, faExclamationCircle, faEye, faRemove } from "@fortawesome/free-solid-svg-icons";
 import find from "lodash-es/find";
 import map from "lodash-es/map";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -35,26 +35,27 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgOptionComponent, NgSelectComponent } from "@ng-select/ng-select";
 import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
 import { ValueOrDefaultPipe } from "../../../pipes/value-or-default.pipe";
+import { sortBy } from "../../../functions/arrays";
 
 @Component({
     selector: "app-walk-export",
     template: `
-    <app-page>
-      <tabset class="custom-tabset">
-        <tab active="true" [heading]="'Walk upload selection'">
-          <app-csv-export hidden #csvComponent
-            [data]="walksDownloadFileContents"
-            [filename]="walksDownloadFileName()"
-            [options]="options()">
-          </app-csv-export>
-          <div class="img-thumbnail thumbnail-admin-edit">
-            <div class="form-group">
-              @if (walkExportTarget.showAlert) {
-                <div class="alert {{walkExportTarget.alertClass}}">
-                  <fa-icon [icon]="walkExportTarget.alert.icon"></fa-icon>
-                  @if (walkExportTarget.alertTitle) {
-                    <strong>
-                    {{ walkExportTarget.alertTitle }}: </strong>
+      <app-page>
+        <tabset class="custom-tabset">
+          <tab active="true" [heading]="'Walk upload selection'">
+            <app-csv-export hidden #csvComponent
+                            [data]="walksDownloadFileContents"
+                            [filename]="walksDownloadFileName()"
+                            [options]="options()">
+            </app-csv-export>
+            <div class="img-thumbnail thumbnail-admin-edit">
+              <div class="form-group">
+                @if (walkExportTarget.showAlert) {
+                  <div class="alert {{walkExportTarget.alertClass}}">
+                    <fa-icon [icon]="walkExportTarget.alert.icon"></fa-icon>
+                    @if (walkExportTarget.alertTitle) {
+                      <strong>
+                        {{ walkExportTarget.alertTitle }}: </strong>
                     } {{ walkExportTarget.alertMessage }}
                   </div>
                 }
@@ -63,45 +64,45 @@ import { ValueOrDefaultPipe } from "../../../pipes/value-or-default.pipe";
                 @if (!display.walkPopulationWalksManager()) {
                   <div class="col mb-2">
                     <input type="submit"
-                      value="Upload {{stringUtils.pluraliseWithCount(walksDownloadFileContents.length, 'walk')}} directly to Ramblers"
-                      (click)="uploadToRamblers()"
-                      [disabled]="(walksDownloadFileContents.length === 0) || exportInProgress"
-                      class="btn btn-primary w-100"/>
+                           value="Upload {{stringUtils.pluraliseWithCount(walksDownloadFileContents.length, 'walk')}} directly to Ramblers"
+                           (click)="uploadToRamblers()"
+                           [disabled]="(walksDownloadFileContents.length === 0) || exportInProgress"
+                           class="btn btn-primary w-100"/>
                   </div>
                   <div class="col mb-2">
                     <input type="submit"
-                      (click)="csvComponent.generateCsv();"
-                      value="Export {{stringUtils.pluraliseWithCount(walksDownloadFileContents.length, 'walk')}} file as CSV format"
-                      [disabled]="walksDownloadFileContents.length === 0 || exportInProgress"
-                      class="btn btn-primary w-100"/>
+                           (click)="csvComponent.generateCsv();"
+                           value="Export {{stringUtils.pluraliseWithCount(walksDownloadFileContents.length, 'walk')}} file as CSV format"
+                           [disabled]="walksDownloadFileContents.length === 0 || exportInProgress"
+                           class="btn btn-primary w-100"/>
                   </div>
                 }
                 <div class="col mb-2">
                   <input type="submit" value="Back To Walks Admin" (click)="navigatebackToWalksAdmin()"
-                    title="Back to walks"
-                    class="btn btn-primary w-100"/>
+                         title="Back to walks"
+                         class="btn btn-primary w-100"/>
                 </div>
                 <div class="col-lg-6 d-sm-none"></div>
               </div>
               <div class="row">
                 @for (walkExport of walksForExport; track walkExport.displayedWalk.walk.id) {
-                  <div
-                    class="py-2 col-lg-4 col-md-6 col-sm-12 d-flex flex-column">
-                    <div (click)="toggleWalkExportSelection(walkExport)" class="card mb-0 h-100 pointer">
+                  <div class="py-2 col-lg-4 col-md-6 col-sm-12 d-flex flex-column">
+                    <div class="card mb-0 h-100 pointer">
                       <div class="card-body shadow">
-                        <dl class="d-flex pointer checkbox-toggle my-2">
+                        <dl (click)="toggleWalkExportSelection(walkExport)" class="d-flex pointer checkbox-toggle my-2">
                           <dt class="font-weight-bold mr-2 flex-nowrap checkbox-toggle">Publish this walk:</dt>
                           <div class="custom-control custom-checkbox">
                             <input [ngModel]="walkExport.selected"
-                              type="checkbox" class="custom-control-input"/>
+                                   type="checkbox" class="custom-control-input"/>
                             <label class="custom-control-label"></label>
                           </div>
                         </dl>
+                        <h3 class="card-title">
+                          <a tooltip="View this walk in another tab" placement="auto"
+                             [href]="walkExport.displayedWalk.walkLink" class="rams-text-decoration-pink active"
+                             target="_blank">{{ walkExport.displayedWalk.walk.briefDescriptionAndStartPoint || walkExport.displayedWalk.latestEventType.description }}</a>
+                        </h3>
                         <div (click)="ignoreClicks($event)" [ngClass]="{'card-disabled': !walkExport.selected}">
-                          <h3 class="card-title">
-                            <a [href]="walkExport.displayedWalk.walkLink" class="rams-text-decoration-pink active"
-                            target="_blank">{{ walkExport.displayedWalk.walk.briefDescriptionAndStartPoint || walkExport.displayedWalk.latestEventType.description }}</a>
-                          </h3>
                           <dl class="d-flex">
                             <dt class="font-weight-bold mr-2">Date and time:</dt>
                             <time>{{ walkExport.displayedWalk.walk.walkDate | displayDate }} {{ walkExport.displayedWalk.walk.startTime }}</time>
@@ -117,18 +118,18 @@ import { ValueOrDefaultPipe } from "../../../pipes/value-or-default.pipe";
                             <dd>
                               <div class="row no-gutters">
                                 <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
-                                  class="col-sm-6 nowrap">
+                                     class="col-sm-6 nowrap">
                                   <fa-icon title
-                                    tooltip="contact walk leader {{walkExport.displayedWalk?.walk?.displayName}}"
-                                    [icon]="faEnvelope"
-                                    class="fa-icon mr-1"/>
+                                           tooltip="contact walk leader {{walkExport.displayedWalk?.walk?.displayName}}"
+                                           [icon]="faEnvelope"
+                                           class="fa-icon mr-1"/>
                                   <a content
-                                  [href]="'mailto:' + walkExport.displayedWalk?.walk?.contactEmail">{{ walkExport.displayedWalk?.walk?.displayName || "Contact Via Ramblers" }}</a>
+                                     [href]="'mailto:' + walkExport.displayedWalk?.walk?.contactEmail">{{ walkExport.displayedWalk?.walk?.displayName || "Contact Via Ramblers" }}</a>
                                 </div>
                               </div>
                             </dd>
                           </dl>
-                          @if (walkExport.validationMessages.length>0) {
+                          @if (walkExport.validationMessages.length > 0) {
                             <dl class="d-flex">
                               <dt class="font-weight-bold mr-2">Problems:</dt>
                             </dl>
@@ -139,118 +140,123 @@ import { ValueOrDefaultPipe } from "../../../pipes/value-or-default.pipe";
                             @if (walkExport.displayedWalk.walk.ramblersWalkId) {
                               <dd>
                                 <a target="_blank"
-                                  class="ml-2"
-                                  tooltip="Click to view on Ramblers Walks and Events Manager"
-                                  [href]="display.ramblersLink(walkExport.displayedWalk.walk)">
+                                   class="ml-2"
+                                   tooltip="Click to view on Ramblers Walks and Events Manager"
+                                   [href]="display.ramblersLink(walkExport.displayedWalk.walk)">
                                   <img class="related-links-ramblers-image" src="favicon.ico"
-                                  alt="Click to view on Ramblers Walks and Events Manager"/></a>
-                                </dd>
-                              }
-                            </dl>
-                            <div>{{ walkExport.publishedStatus }}</div>
+                                       alt="Click to view on Ramblers Walks and Events Manager"/></a>
+                              </dd>
+                            }
+                          </dl>
+                          <div>
+                            <fa-icon class="mr-1"
+                                     [ngClass]="walkExport.publishStatus.actionRequired? 'yellow-icon':'green-icon'"
+                                     [icon]="walkExport.publishStatus.actionRequired?faExclamationCircle:faCheckCircle"/>
+                            {{ walkExport.publishStatus.messages.join(", ") }}
                           </div>
                         </div>
                       </div>
                     </div>
-                  }
-                </div>
-              </div>
-            </tab>
-            <tab [heading]="'Walk upload audit'">
-              <div class="img-thumbnail thumbnail-admin-edit">
-                <div class="form-group">
-                  @if (auditTarget.showAlert) {
-                    <div class="alert {{auditTarget.alertClass}}">
-                      <fa-icon [icon]="auditTarget.alert.icon"></fa-icon>
-                      @if (auditTarget.alertTitle) {
-                        <strong>
-                        {{ auditTarget.alertTitle }}: </strong>
-                        } {{ auditTarget.alertMessage }}
-                      </div>
-                    }
-                  </div>
-                  @if (!display.walkPopulationWalksManager()) {
-                    <div class="row">
-                      <div class="col-sm-12">
-                        <div class="button-group">
-                          <form class="form-inline">
-                            <div class="form-group">
-                              <label for="fileName" class="inline-label">Show upload session: </label>
-                              <ng-select [clearable]="false" name="fileName" [(ngModel)]="fileName" (change)="fileNameChanged()"
-                                class="filename-select rounded">
-                              @for (fileName of fileNames; track fileName) {
-                                <ng-option [value]="fileName">
-                                  <div class="form-inline">
-                                    <fa-icon [icon]="fileName.error ? faRemove : faCircleInfo"
-                                    [ngClass]="fileName.error ? 'red-icon' : 'green-icon'"></fa-icon>
-                                    {{ fileName.fileName }}
-                                  </div>
-                                </ng-option>
-                              }
-                            </ng-select>
-                          </div>
-                          <div class="form-group">
-                            <div class="custom-control custom-checkbox">
-                              <input [(ngModel)]="showDetail"
-                                name="showDetail" type="checkbox" class="custom-control-input"
-                                id="show-detailed-audit-messages"/>
-                              <label class="custom-control-label"
-                                (click)="fileNameChanged()"
-                                for="show-detailed-audit-messages">Show details
-                              </label>
-                            </div>
-                          </div>
-                          <div class="form-group">
-                            <input type="submit" value="Back To Walks Admin" (click)="navigatebackToWalksAdmin()"
-                              title="Back to walks"
-                              class="btn btn-primary"/>
-                          </div>
-                        </form>
-                      </div>
-                    </div>
                   </div>
                 }
+              </div>
+            </div>
+          </tab>
+          <tab [heading]="'Walk upload audit'">
+            <div class="img-thumbnail thumbnail-admin-edit">
+              <div class="form-group">
+                @if (auditTarget.showAlert) {
+                  <div class="alert {{auditTarget.alertClass}}">
+                    <fa-icon [icon]="auditTarget.alert.icon"></fa-icon>
+                    @if (auditTarget.alertTitle) {
+                      <strong>
+                        {{ auditTarget.alertTitle }}: </strong>
+                    } {{ auditTarget.alertMessage }}
+                  </div>
+                }
+              </div>
+              @if (!display.walkPopulationWalksManager()) {
                 <div class="row">
-                  <div class="col col-sm-12">
-                    <table class="round styled-table table-striped table-hover table-sm table-pointer">
-                      <thead>
-                        <tr>
-                          <th>Time</th>
-                          <th>Status</th>
-                          <th>Audit Message</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        @for (audit of ramblersUploadAuditData; track audit) {
-                          <tr>
-                            <td class="nowrap">{{ audit.auditTime | displayTime }}</td>
-                            <td>
-                              @if (audit.status === 'complete') {
-                                <fa-icon
-                                  [icon]="finalStatusError ? faRemove : faCircleInfo"
-                                [ngClass]="finalStatusError ? 'red-icon' : 'green-icon'"></fa-icon>
-                              }
-                              @if (audit.status === 'success') {
-                                <fa-icon
-                                  [icon]="faEye"
-                                class="green-icon"></fa-icon>
-                              }
-                              @if (audit.status === 'info') {
-                                <fa-icon
-                                  [icon]="faCircleInfo"
-                                class="blue-icon"></fa-icon>
-                              }
-                              @if (audit.status === 'error') {
-                                <fa-icon
-                                  [icon]="faRemove"
-                                class="red-icon"></fa-icon>
-                              }
-                            </td>
-                            <td>
-                              {{ audit.message }}@if (audit.errorResponse) {
-                              <span
-                              >: {{ audit.errorResponse | valueOrDefault }}</span>
+                  <div class="col-sm-12">
+                    <div class="button-group">
+                      <form class="form-inline">
+                        <div class="form-group">
+                          <label for="fileName" class="inline-label">Show upload session: </label>
+                          <ng-select [clearable]="false" name="fileName" [(ngModel)]="fileName"
+                                     (change)="fileNameChanged()"
+                                     class="filename-select rounded">
+                            @for (fileName of fileNames; track fileName) {
+                              <ng-option [value]="fileName">
+                                <div class="form-inline">
+                                  <fa-icon [icon]="fileName.error ? faRemove : faCircleInfo"
+                                           [ngClass]="fileName.error ? 'red-icon' : 'green-icon'"></fa-icon>
+                                  {{ fileName.fileName }}
+                                </div>
+                              </ng-option>
                             }
+                          </ng-select>
+                        </div>
+                        <div class="form-group">
+                          <div class="custom-control custom-checkbox">
+                            <input [(ngModel)]="showDetail"
+                                   name="showDetail" type="checkbox" class="custom-control-input"
+                                   id="show-detailed-audit-messages"/>
+                            <label class="custom-control-label"
+                                   (click)="fileNameChanged()"
+                                   for="show-detailed-audit-messages">Show details
+                            </label>
+                          </div>
+                        </div>
+                        <div class="form-group">
+                          <input type="submit" value="Back To Walks Admin" (click)="navigatebackToWalksAdmin()"
+                                 title="Back to walks"
+                                 class="btn btn-primary"/>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              }
+              <div class="row">
+                <div class="col col-sm-12">
+                  <table class="round styled-table table-striped table-hover table-sm table-pointer">
+                    <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Status</th>
+                      <th>Audit Message</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                      @for (audit of ramblersUploadAuditData; track audit) {
+                        <tr>
+                          <td class="nowrap">{{ audit.auditTime | displayTime }}</td>
+                          <td>
+                            @if (audit.status === 'complete') {
+                              <fa-icon
+                                [icon]="finalStatusError ? faRemove : faCircleInfo"
+                                [ngClass]="finalStatusError ? 'red-icon' : 'green-icon'"></fa-icon>
+                            }
+                            @if (audit.status === 'success') {
+                              <fa-icon
+                                [icon]="faEye"
+                                class="green-icon"></fa-icon>
+                            }
+                            @if (audit.status === 'info') {
+                              <fa-icon
+                                [icon]="faCircleInfo"
+                                class="blue-icon"></fa-icon>
+                            }
+                            @if (audit.status === 'error') {
+                              <fa-icon
+                                [icon]="faRemove"
+                                class="red-icon"></fa-icon>
+                            }
+                          </td>
+                          <td>
+                            {{ audit.message }}@if (audit.errorResponse) {
+                            <div>: {{ audit.errorResponse | valueOrDefault }}</div>
+                          }
                           </td>
                         </tr>
                       }
@@ -274,23 +280,24 @@ import { ValueOrDefaultPipe } from "../../../pipes/value-or-default.pipe";
       margin-bottom: 0
   `],
     styleUrls: ["./walk-export.component.sass"],
-    imports: [PageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, NgClass, RelatedLinkComponent, TooltipDirective, NgSelectComponent, NgOptionComponent, DisplayTimePipe, DisplayDatePipe, ValueOrDefaultPipe]
+  imports: [PageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, NgClass, RelatedLinkComponent, TooltipDirective, NgSelectComponent, NgOptionComponent, DisplayTimePipe, DisplayDatePipe, ValueOrDefaultPipe]
 })
 
 export class WalkExportComponent implements OnInit, OnDestroy {
-
+  faExclamationCircle = faExclamationCircle;
+  faCheckCircle = faCheckCircle;
   private logger: Logger = inject(LoggerFactory).createLogger("WalkExportComponent", NgxLoggerLevel.ERROR);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
-  private walksService = inject(WalksService);
-  private ramblersUploadAuditService = inject(RamblersUploadAuditService);
-  private notifierService = inject(NotifierService);
-  private displayDate = inject(DisplayDatePipe);
-  private systemConfigService = inject(SystemConfigService);
-  private walksQueryService = inject(WalksQueryService);
-  display = inject(WalkDisplayService);
-  private dateUtils = inject(DateUtilsService);
-  protected stringUtils = inject(StringUtilsService);
-  private urlService = inject(UrlService);
+  private walksService: WalksService = inject(WalksService);
+  private ramblersUploadAuditService: RamblersUploadAuditService = inject(RamblersUploadAuditService);
+  private notifierService: NotifierService = inject(NotifierService);
+  private displayDate: DisplayDatePipe = inject(DisplayDatePipe);
+  private systemConfigService: SystemConfigService = inject(SystemConfigService);
+  private walksQueryService: WalksQueryService = inject(WalksQueryService);
+  public display: WalkDisplayService = inject(WalkDisplayService);
+  private dateUtils: DateUtilsService = inject(DateUtilsService);
+  protected stringUtils: StringUtilsService = inject(StringUtilsService);
+  private urlService: UrlService = inject(UrlService);
   public ramblersUploadAuditData: RamblersUploadAudit[];
   public walksForExport: WalkExport[] = [];
   public fileName: FileUploadSummary;
@@ -417,8 +424,9 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   }
 
   populateWalkExport(walksForExport: WalkExport[]): WalkExport[] {
-    this.logger.debug("populateWalkExport: found", walksForExport.length, "walks:", walksForExport);
+    this.logger.info("populateWalkExport: found", walksForExport.length, "walks:", walksForExport);
     this.walksForExport = walksForExport;
+    this.sortWalksForExport();
     this.walkExportNotifier.success({
       title: "Export status", message: `Found total of ${this.stringUtils.pluraliseWithCount(this.walksForExport.length,"walk")}, ${this.walksDownloadFileContents.length} preselected for export`
     });
@@ -475,6 +483,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     if (walkExport.validationMessages.length === 0) {
       walkExport.selected = !walkExport.selected;
       this.logWalkSelected(walkExport);
+      this.sortWalksForExport();
       this.populateWalksDownloadFileContents();
       this.walkExportNotifier.hide();
     } else {
@@ -516,4 +525,9 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     $event.stopPropagation();
   }
 
+  sortWalksForExport(): void {
+    const sorted = this.walksForExport.sort(sortBy("-selected", "displayedWalk.walk.walkDate"));
+    this.logger.info("walksForExportSorted:", this.walksForExport, "sorted:", sorted);
+    this.walksForExport = sorted;
+  }
 }
