@@ -43,7 +43,7 @@ export const envConfig = {
     uri: validatedEnvironmentVariable("MONGODB_URI"),
   },
   server: {
-    listenPort: process.env.PORT || 5001,
+    listenPort: 5001,
     staticUrl: "/",
     uploadDir: "/tmp/uploads",
   },
