@@ -12,7 +12,7 @@ import {
   BasicMedia,
   Contact,
   LocationDetails,
-  Metadata,
+  Metadata, PublishStatus,
   RamblersEventType,
   RamblersWalkResponse
 } from "./ramblers-walks-manager";
@@ -129,7 +129,7 @@ export interface WalkExport {
   displayedWalk: DisplayedWalk;
   validationMessages: string[];
   publishedOnRamblers: boolean;
-  publishedStatus: string;
+  publishStatus: PublishStatus;
   selected: boolean;
 }
 

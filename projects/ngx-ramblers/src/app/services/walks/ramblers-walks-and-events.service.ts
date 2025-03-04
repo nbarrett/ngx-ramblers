@@ -31,6 +31,7 @@ import {
 } from "../../models/ramblers-walks-manager";
 import { Ramblers } from "../../models/system.model";
 import {
+  EventType,
   FileUploadSummary,
   LocalAndRamblersWalk,
   LocalContact,
@@ -75,6 +76,8 @@ import { WalksConfigService } from "../system/walks-config.service";
 import { WalksConfig } from "../../models/walk-notification.model";
 import { BuiltInRole } from "../../models/committee.model";
 import { AlertInstance } from "../notifier.service";
+import { WalkEventService } from "./walk-event.service";
+import { WalksReferenceService } from "./walks-reference-data.service";
 
 @Injectable({
   providedIn: "root"
@@ -83,21 +86,23 @@ export class RamblersWalksAndEventsService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("RamblersWalksAndEventsService", NgxLoggerLevel.ERROR);
   private http = inject(HttpClient);
-  private mediaQueryService = inject(MediaQueryService);
-  private riskAssessmentService = inject(RiskAssessmentService);
-  private systemConfigService = inject(SystemConfigService);
-  private walksService = inject(WalksLocalService);
-  private walksConfigService = inject(WalksConfigService);
-  private memberNamingService = inject(MemberNamingService);
-  private distanceValidationService = inject(DistanceValidationService);
-  private ascentValidationService = inject(AscentValidationService);
-  private stringUtilsService = inject(StringUtilsService);
-  private urlService = inject(UrlService);
-  private dateUtils = inject(DateUtilsService);
-  private displayDate = inject(DisplayDatePipe);
-  private walkDisplayService = inject(WalkDisplayService);
-  private memberLoginService = inject(MemberLoginService);
-  private commonDataService = inject(CommonDataService);
+  private mediaQueryService: MediaQueryService = inject(MediaQueryService);
+  private riskAssessmentService: RiskAssessmentService = inject(RiskAssessmentService);
+  private systemConfigService: SystemConfigService = inject(SystemConfigService);
+  private walksService: WalksLocalService = inject(WalksLocalService);
+  private walksConfigService: WalksConfigService = inject(WalksConfigService);
+  private memberNamingService: MemberNamingService = inject(MemberNamingService);
+  private distanceValidationService: DistanceValidationService = inject(DistanceValidationService);
+  private ascentValidationService: AscentValidationService = inject(AscentValidationService);
+  private stringUtilsService: StringUtilsService = inject(StringUtilsService);
+  private urlService: UrlService = inject(UrlService);
+  private dateUtils: DateUtilsService = inject(DateUtilsService);
+  private displayDate: DisplayDatePipe = inject(DisplayDatePipe);
+  private walkDisplayService: WalkDisplayService = inject(WalkDisplayService);
+  private memberLoginService: MemberLoginService = inject(MemberLoginService);
+  private commonDataService: CommonDataService = inject(CommonDataService);
+  private walkEventService: WalkEventService = inject(WalkEventService);
+  private walksReferenceService: WalksReferenceService = inject(WalksReferenceService);
   private walksConfig: WalksConfig;
   private auditSubject = new ReplaySubject<RamblersUploadAuditApiResponse>();
   private walkLeadersSubject = new ReplaySubject<WalkLeadersApiResponse>();
@@ -343,7 +348,6 @@ export class RamblersWalksAndEventsService {
     const todayValue = this.dateUtils.momentNowNoTime().valueOf();
     return localAndRamblersWalks
       .filter(walk => (walk.localWalk.walkDate >= todayValue) && walk.localWalk.briefDescriptionAndStartPoint)
-      .sort(walk => walk.localWalk.walkDate)
       .map(walk => this.validateWalk(walk));
   }
 
@@ -468,13 +472,13 @@ export class RamblersWalksAndEventsService {
         validationMessages.push(`${alertMessage.title}. ${alertMessage.message}`);
       }
     }
-    const publishedStatus = this.publishedStatus(localAndRamblersWalk);
+    const publishStatus = this.publishStatus(localAndRamblersWalk);
     return {
-      publishedStatus: publishedStatus.messages.join(", "),
+      publishStatus,
       displayedWalk: this.walkDisplayService.toDisplayedWalk(walk),
       validationMessages,
       publishedOnRamblers: walk && !isEmpty(walk.ramblersWalkId),
-      selected: walk?.ramblersPublish && validationMessages.length === 0 && (isEmpty(walk.ramblersWalkId) || publishedStatus.publish)
+      selected: publishStatus.publish
     };
   }
 
@@ -546,7 +550,7 @@ export class RamblersWalksAndEventsService {
   }
 
   walkFinishGridReference(walk: Walk): string {
-    return walk?.end_location?.grid_reference_10  || "";
+    return walk?.end_location?.grid_reference_10 || "";
   }
 
   walkFinishPostcode(walk: Walk): string {
@@ -624,7 +628,7 @@ export class RamblersWalksAndEventsService {
       },
       features: (groupWalk.facilities || []).concat(groupWalk.transport || []).concat(groupWalk.accessibility || []).sort(sortBy("description")),
       additionalDetails: groupWalk.additional_details,
-      organiser:groupWalk?.event_organiser?.name
+      organiser: groupWalk?.event_organiser?.name
     };
     this.logger.info("groupWalk:", groupWalk, "walk:", walk, "contactName:", contact.contactName, "displayName:", contact.displayName);
     return walk;
@@ -635,7 +639,7 @@ export class RamblersWalksAndEventsService {
     const contact: LocalContact = this.localContact(groupWalk);
     const socialEvent: SocialEvent = {
       id: groupWalk.id,
-      displayName:contact.displayName,
+      displayName: contact.displayName,
       briefDescription: groupWalk.title,
       contactEmail: contact?.email,
       contactPhone: contact?.telephone,
@@ -782,50 +786,61 @@ export class RamblersWalksAndEventsService {
     return {code: feature, description: this.stringUtilsService.asTitle(feature)};
   }
 
-  private publishedStatus(localAndRamblersWalk: LocalAndRamblersWalk): PublishStatus {
+  private publishStatus(localAndRamblersWalk: LocalAndRamblersWalk): PublishStatus {
     const validateGridReferences = false;
-    const publishStatus: PublishStatus = {publish: false, messages: []};
+    const publishStatus: PublishStatus = {actionRequired: false, publish: false, messages: []};
     const walk: Walk = localAndRamblersWalk.localWalk;
     const ramblersWalk: RamblersWalkResponse = localAndRamblersWalk.ramblersWalk;
+    const eventType: EventType = this.walkEventService.latestEventWithStatusChange(walk).eventType;
+    const isApproved = this.walkEventService.latestEventWithStatusChangeIs(walk, EventType.APPROVED);
+    const publishRequired = true;
+    const actionRequired = true;
     if (walk.ramblersPublish) {
       if (!ramblersWalk) {
-        publishStatus.messages.push("Walk is not yet published");
-        publishStatus.publish = true;
+        if (!isApproved) {
+          publishStatus.messages.push("Walk is " + this.walksReferenceService.toWalkEventType(eventType)?.description);
+          publishStatus.actionRequired = actionRequired;
+        } else {
+          publishStatus.messages.push("Walk is not yet published");
+          publishStatus.publish = publishRequired;
+        }
       } else {
         if (walk?.start_location?.postcode && walk?.start_location?.postcode !== ramblersWalk?.start_location?.postcode) {
           publishStatus.messages.push("Ramblers postcode is " + ramblersWalk?.start_location?.postcode + " but website postcode is " + walk?.start_location?.postcode);
-          publishStatus.publish = true;
+          publishStatus.publish = publishRequired;
         }
         if (validateGridReferences && walk?.start_location?.grid_reference_10 && walk?.start_location?.grid_reference_10 !== ramblersWalk?.start_location?.grid_reference_10) {
           publishStatus.messages.push("Ramblers grid reference is " + ramblersWalk?.start_location?.grid_reference_10 + " but website grid reference is " + walk?.start_location?.grid_reference_10);
-          publishStatus.publish = true;
+          publishStatus.publish = publishRequired;
         }
         if (walk?.end_location?.postcode && walk?.end_location?.postcode !== ramblersWalk?.end_location?.postcode) {
           publishStatus.messages.push("Ramblers postcode is " + ramblersWalk?.end_location?.postcode + " but website postcode is " + walk?.end_location?.postcode);
-          publishStatus.publish = true;
+          publishStatus.publish = publishRequired;
         }
         if (validateGridReferences && walk?.end_location?.grid_reference_10 && walk?.end_location?.grid_reference_10 !== ramblersWalk?.end_location?.grid_reference_10) {
           publishStatus.messages.push("Ramblers grid reference is " + ramblersWalk?.end_location?.grid_reference_10 + " but website grid reference is " + walk?.end_location?.grid_reference_10);
-          publishStatus.publish = true;
+          publishStatus.publish = publishRequired;
         }
         if (walk?.briefDescriptionAndStartPoint && walk?.briefDescriptionAndStartPoint !== ramblersWalk?.title) {
           publishStatus.messages.push("Ramblers title is " + ramblersWalk?.title + " but website title is " + walk?.briefDescriptionAndStartPoint);
-          publishStatus.publish = true;
+          publishStatus.publish = publishRequired;
         }
         if (publishStatus.messages.length === 0) {
           publishStatus.messages.push("Walk is published to Ramblers and details are correct");
         }
       }
-
     } else {
       if (ramblersWalk) {
         publishStatus.messages.push("Walk needs to be unpublished from Ramblers");
-        publishStatus.publish = true;
+        publishStatus.publish = publishRequired;
       } else {
         publishStatus.messages.push("Walk is not to be published");
       }
     }
-    this.logger.off("publishedStatus:walk:", walk, "ramblersWalk:", ramblersWalk, "publishStatus:", publishStatus);
+    if (publishStatus.publish && !publishStatus.actionRequired) {
+      publishStatus.actionRequired = actionRequired;
+    }
+    this.logger.off("publishStatus:walk:", walk, "ramblersWalk:", ramblersWalk, "publishStatus:", publishStatus);
     return publishStatus;
   }
 }

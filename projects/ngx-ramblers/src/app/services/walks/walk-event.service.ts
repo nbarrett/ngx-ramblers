@@ -97,7 +97,7 @@ export class WalkEventService {
     }
   }
 
-  public latestEventWithStatusChangeIs(walk, eventType) {
+  public latestEventWithStatusChangeIs(walk: Walk, eventType: EventType) {
     if (!walk) {
       return false;
     }
