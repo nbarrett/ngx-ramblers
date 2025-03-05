@@ -177,8 +177,7 @@ export class WalkDisplayService {
   }
 
   statusFor(walk: Walk): EventType {
-    const walkEvent = this.walkEventService.latestEventWithStatusChange(walk);
-    return walkEvent && walkEvent.eventType;
+    return this.walkEventService.latestEventWithStatusChange(walk)?.eventType;
   }
 
   editFullscreen(walk: Walk): Promise<ExpandedWalk> {
