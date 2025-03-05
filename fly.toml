@@ -16,6 +16,5 @@ method = "GET"
 path = "/api/health"
 
 [[vm]]
-memory = "1gb"
 cpu_kind = "shared"
 cpus = 1

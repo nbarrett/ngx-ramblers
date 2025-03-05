@@ -10,6 +10,7 @@ export interface EnvironmentConfig {
   name: string;
   apiKey: string;
   appName: string;
+  memory: string;
 }
 
 export interface DeploymentConfig {
@@ -61,7 +62,7 @@ function deployApps(configFilePath: string, filterEnvironments: string[]): void 
     debugLog(`Deploying ${config.dockerImage} to ${environmentConfig.appName}`);
 
     runCommand(`flyctl config validate --config ${flyTomlPath} --app ${environmentConfig.appName}`);
-    runCommand(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --detach`);
+    runCommand(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --strategy rolling`);
 
     const secretsFilePath = path.resolve(__dirname, `../../non-vcs/secrets/secrets.${environmentConfig.appName}.env`);
     if (fs.existsSync(secretsFilePath)) {
@@ -70,7 +71,7 @@ function deployApps(configFilePath: string, filterEnvironments: string[]): void 
       debugLog(`Secrets file not found: ${secretsFilePath}`);
     }
     runCommand(`fly scale count 1 --app ${environmentConfig.appName}`);
-    runCommand(`fly scale memory 1024 --app ${environmentConfig.appName}`);
+    runCommand(`fly scale memory ${environmentConfig.memory} --app ${environmentConfig.appName}`);
   });
 }
 
