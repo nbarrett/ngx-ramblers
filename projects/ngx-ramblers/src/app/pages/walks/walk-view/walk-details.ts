@@ -35,9 +35,6 @@ import { MarkdownComponent } from "ngx-markdown";
           {{ display.eventTypeTitle(displayedWalk.walk) }}
           {{ display.isWalk(displayedWalk.walk) ? 'Starting Point &' : '' }} Details
         </h1>
-        <div class="col-sm-12">
-          <p>{{ displayedWalk?.latestEventType?.description }}</p>
-        </div>
         <div class="row">
           <div app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6">
             <div title>
