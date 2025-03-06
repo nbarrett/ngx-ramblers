@@ -4,17 +4,18 @@ import { envConfig } from "../env-config/env-config";
 import { resizeSavedImages, resizeUnsavedImages } from "../aws/bulk-image-resizer";
 import { ContentMetadataResizeRequest } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
 import { Server } from "node:http";
+import {
+  EventType,
+  MessageHandlers,
+  WebSocketRequest
+} from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 
 const debugLog = debug(envConfig.logNamespace("websocket-server"));
 debugLog.enabled = true;
 
-interface MessageHandlers {
-  [key: string]: (ws: WebSocket, data: any) => void;
-}
-
 const messageHandlers: MessageHandlers = {
-  resizeSavedImages: (ws: WebSocket, data: ContentMetadataResizeRequest) => resizeSavedImages(ws, data),
-  resizeUnsavedImages: (ws: WebSocket, data: ContentMetadataResizeRequest) => resizeUnsavedImages(ws, data),
+  [EventType.RESIZE_SAVED_IMAGES]: (ws: WebSocket, data: ContentMetadataResizeRequest) => resizeSavedImages(ws, data),
+  [EventType.RESIZE_UNSAVED_IMAGES]: (ws: WebSocket, data: ContentMetadataResizeRequest) => resizeUnsavedImages(ws, data),
 };
 
 export function createWebSocketServer(server: Server, port: number): void {
@@ -26,7 +27,7 @@ export function createWebSocketServer(server: Server, port: number): void {
     ws.on("message", (message: string) => {
       debugLog(`✅ Message received:`, message);
       try {
-        const request = JSON.parse(message);
+        const request: WebSocketRequest = JSON.parse(message);
         const handler = messageHandlers[request.type];
         if (handler) {
           handler(ws, request.data);

@@ -21,6 +21,7 @@ import { humanFileSize } from "../../../projects/ngx-ramblers/src/app/functions/
 import { AWSConfig } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { Buffer } from "node:buffer";
 import WebSocket from "ws";
+import { MessageType, ProgressResponse } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 
 const debugLog = debug(envConfig.logNamespace("s3-image-resize"));
 debugLog.enabled = true;
@@ -35,11 +36,12 @@ export async function resizeSavedImages(ws: WebSocket, contentMetadataResizeRequ
     const controller = crudController.create<ContentMetadata>(contentMetadataModel, true);
     const contentMetadataSource: ContentMetadata = await controller.findDocumentById(contentMetadataResizeRequest.id);
     const imagePaths: string[] = await listImages(contentMetadataSource);
+    const totalImages = imagePaths.length;
     debugLog(`Found ${pluraliseWithCount(imagePaths.length, "image")} to resize`);
     const contentMetadata: ContentMetadata = contentMetadataResizeRequest.output
       ? {...cloneDeep(contentMetadataSource), ...contentMetadataResizeRequest.output, id: null}
       : contentMetadataSource;
-    if (imagePaths.length === 0) {
+    if (totalImages === 0) {
       ws.send(JSON.stringify({
         type: "error",
         data: "No images to resize",
@@ -50,14 +52,14 @@ export async function resizeSavedImages(ws: WebSocket, contentMetadataResizeRequ
       for (const imagePath of imagePaths) {
         try {
           const downloadedImage: Buffer = await downloadImage(imagePath);
-          const resizedImage: Buffer = await resizeImage(downloadedImage, imagePath, contentMetadataResizeRequest.maxFileSize, 1200, ws);
+          const itemNumber = imagePaths.indexOf(imagePath) + 1;
+          const resizedImage: Buffer = await resizeImage(downloadedImage, imagePath, contentMetadataResizeRequest.maxFileSize, 1200, ws, totalImages, itemNumber);
           if (resizedImage) {
-            await uploadContentMetadataItem(contentMetadata, lastItemFrom(imagePath), resizedImage, ws);
+            await uploadContentMetadataItem(contentMetadata, lastItemFrom(imagePath), resizedImage, ws, totalImages, itemNumber);
           }
         } catch (error) {
-          debugLog(`❌ Error processing ${imagePath}:`, error);
           ws.send(JSON.stringify({
-            type: "complete",
+            type: MessageType.COMPLETE,
             data: {
               message: `Image resize operation failed`,
               request: contentMetadataResizeRequest,
@@ -73,7 +75,7 @@ export async function resizeSavedImages(ws: WebSocket, contentMetadataResizeRequ
         ? await controller.updateDocument({body: contentMetadata})
         : await controller.createDocument({body: contentMetadata});
       ws.send(JSON.stringify({
-        type: "complete",
+        type: MessageType.COMPLETE,
         data: {
           request: contentMetadataResizeRequest,
           action: contentMetadata.id ? ApiAction.CREATE : ApiAction.UPDATE,
@@ -113,12 +115,14 @@ export async function resizeUnsavedImages(ws: WebSocket, contentMetadataResizeRe
   try {
     const outputItems: ContentMetadataItem[] = cloneDeep(contentMetadataResizeRequest?.input);
     debugLog(`Found ${pluraliseWithCount(contentMetadataResizeRequest?.input?.length, "unsaved image")} to resize`);
-    if (contentMetadataResizeRequest?.input?.length > 0) {
+    const totalImages = contentMetadataResizeRequest?.input?.length;
+    if (totalImages > 0) {
       for (const outputItem of outputItems) {
+        const itemNumber = outputItems.indexOf(outputItem) + 1;
         try {
           const base64Content: string = outputItem.base64Content;
           const downloadedImage: Buffer = bufferFromBase64(base64Content);
-          const resizedImage: Buffer = await resizeImage(downloadedImage, outputItem.originalFileName, contentMetadataResizeRequest.maxFileSize, 1200, ws);
+          const resizedImage: Buffer = await resizeImage(downloadedImage, outputItem.originalFileName, contentMetadataResizeRequest.maxFileSize, 1200, ws, totalImages, itemNumber);
           if (resizedImage) {
             outputItem.base64Content = bufferToBase64(resizedImage);
           }
@@ -135,9 +139,9 @@ export async function resizeUnsavedImages(ws: WebSocket, contentMetadataResizeRe
           ws.close();
         }
       }
-      debugLog(`✅ Image resize complete for ${pluraliseWithCount(contentMetadataResizeRequest?.input?.length, "unsaved image")} - returning response`, outputItems);
+      debugLog(`✅ Image resize complete for ${pluraliseWithCount(contentMetadataResizeRequest?.input?.length, "unsaved image")} - returning ${pluraliseWithCount(outputItems?.length, "response item")}`);
       ws.send(JSON.stringify({
-        type: "complete",
+        type: MessageType.COMPLETE,
         data: {
           request: contentMetadataResizeRequest,
           action: ApiAction.UPDATE,
@@ -158,7 +162,7 @@ export async function resizeUnsavedImages(ws: WebSocket, contentMetadataResizeRe
   } catch (error) {
     debugLog(`❌ Resize operation failed:`, (error as Error).message);
     ws.send(JSON.stringify({
-      type: "error",
+      type: MessageType.ERROR,
       data: {
         message: "Image resize operation failed",
         error: transforms.parseError(error),
@@ -213,36 +217,51 @@ async function uploadImage(imageName: string, buffer: Buffer, contentMetadata: C
   return uploadImageName;
 }
 
-async function uploadContentMetadataItem(contentMetadata: ContentMetadata, imageName: string, buffer: Buffer, ws: WebSocket) {
+async function uploadContentMetadataItem(contentMetadata: ContentMetadata, imageName: string, buffer: Buffer, ws: WebSocket, totalImages: number, itemNumber: number) {
   const contentMetadataItem = contentMetadata.files.find(file => lastItemFrom(file.image) === imageName);
   if (contentMetadataItem) {
     debugLog(`✅ Resized ${imageName} to ${humanFileSize(buffer.length)} - now uploading to s3`);
+    const percent = Math.round((itemNumber / totalImages) * 100);
+    const progressMessage: ProgressResponse = {
+      message: `Resized ${imageName} to ${humanFileSize(buffer.length)} - now uploading to s3`,
+      percent
+    };
     ws.send(JSON.stringify({
-      type: "progress",
-      data: `Resized ${imageName} to ${humanFileSize(buffer.length)} - now uploading to s3`,
+      type: MessageType.PROGRESS,
+      data: progressMessage,
     }));
     const newFileName = await uploadImage(imageName, buffer, contentMetadata);
     debugLog(`✅ Updating content metadata ${contentMetadataItem.image} to ${newFileName}`);
+    const updateMessage: ProgressResponse = {
+      message: `Updating content metadata ${contentMetadataItem.image} to ${newFileName}`,
+      percent
+    };
     ws.send(JSON.stringify({
-      type: "progress",
-      data: `Updating content metadata ${contentMetadataItem.image} to ${newFileName}`,
+      type: MessageType.PROGRESS,
+      data: updateMessage,
     }));
     contentMetadataItem.image = lastItemFrom(newFileName);
   } else {
     debugLog(`❌ Error: Unable to find ${imageName} in content metadata files:`, contentMetadata.files);
     ws.send(JSON.stringify({
-      type: "error",
-      data: `Unable to find ${imageName} in content metadata files`,
+      type: MessageType.ERROR,
+      data: `Unable to find ${imageName} in content metadata files`
     }));
   }
 }
 
-async function resizeImage(initialImage: Buffer, imagePath: string, maxFileSize: number, maxWidth = 1200, ws: WebSocket): Promise<Buffer> {
+async function resizeImage(initialImage: Buffer, imagePath: string, maxFileSize: number, maxWidth = 1200,
+                           ws: WebSocket, totalImages: number, itemNumber: number): Promise<Buffer> {
   if (initialImage.length <= maxFileSize) {
     debugLog(`ℹ️ Skipping ${imagePath} as existing size of ${humanFileSize(initialImage.length)} already under ${humanFileSize(maxFileSize)}`);
+    const percent = Math.round((itemNumber / totalImages) * 100);
+    const skipMessage: ProgressResponse = {
+      message: `Skipping ${lastItemFrom(imagePath)} as existing size of ${humanFileSize(initialImage.length)} already under ${humanFileSize(maxFileSize)}`,
+      percent
+    };
     ws.send(JSON.stringify({
-      type: "progress",
-      data: `Skipping ${lastItemFrom(imagePath)} as existing size of ${humanFileSize(initialImage.length)} already under ${humanFileSize(maxFileSize)}`
+      type: MessageType.PROGRESS,
+      data: skipMessage
     }));
     return Promise.resolve(null);
   } else {
@@ -258,6 +277,15 @@ async function resizeImage(initialImage: Buffer, imagePath: string, maxFileSize:
         .resize({width: maxWidth})
         .toFormat(outputFormat, {quality})
         .toBuffer();
+      const percent = Math.round((itemNumber / totalImages) * 100);
+      const resizeMessage: ProgressResponse = {
+        message: `Resize attempt ${resizeAttempt} for ${imageName} from ${humanFileSize(initialImage.length)} to ${humanFileSize(buffer.length)} with maxWidth ${maxWidth}px, ${outputFormat} format with quality ${quality}`,
+        percent
+      };
+      ws.send(JSON.stringify({
+        type: MessageType.PROGRESS,
+        data: resizeMessage
+      }));
       debugLog(`✅ Resize attempt ${resizeAttempt} for ${imageName} from ${humanFileSize(initialImage.length)} to ${humanFileSize(buffer.length)} with maxWidth ${maxWidth}px, ${outputFormat} format with quality ${quality}`);
       quality -= 5;
     } while (buffer.length > maxFileSize && quality > 10);

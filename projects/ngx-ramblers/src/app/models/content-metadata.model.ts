@@ -9,6 +9,7 @@ export const S3_BASE_URL = "api/aws/s3";
 export const S3_METADATA_URL = "api/aws/metadata/list-objects";
 export const BASE64_PREFIX_JPEG = "data:image/jpeg;base64";
 export const IMAGE_JPEG = "image/jpeg";
+export const IMAGE_HEIC = "image/heic";
 export const IMAGE_PNG = "image/png";
 export const BASE64_PREFIX_PNG = "data:image/png;base64";
 
@@ -143,6 +144,11 @@ export enum SlideInitialisation {
 export interface Base64File {
   file: File
   base64Content: string;
+}
+
+export interface CheckedImage {
+  file: Base64File;
+  isImage: boolean;
 }
 
 export interface LazyLoadingMetadata {

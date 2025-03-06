@@ -8,12 +8,14 @@ import { Logger, LoggerFactory } from "./services/logger-factory.service";
 import { UrlService } from "./services/url.service";
 import {
   Base64File,
+  CheckedImage,
   ContentMetadataItem,
   FileTypeAttributes,
   fileTypeAttributes
 } from "./models/content-metadata.model";
 import { AwsFileData } from "./models/aws-object.model";
 import { base64ToFile } from "ngx-image-cropper";
+import heic2any from "heic2any";
 
 @Injectable({
   providedIn: "root"
@@ -23,6 +25,30 @@ export class FileUtilsService {
   private logger: Logger = inject(LoggerFactory).createLogger("FileUtilsService", NgxLoggerLevel.ERROR);
   protected dateUtils = inject(DateUtilsService);
   private urlService = inject(UrlService);
+
+  public async convertHEICFile(file: Base64File): Promise<CheckedImage> {
+    try {
+      this.logger.info("heic file detected:", file.file, "attempting conversion to jpeg");
+      const convertedBlob = await heic2any({blob: file.file, toType: "image/jpeg"});
+      const reader = new FileReader();
+      reader.readAsDataURL(convertedBlob as Blob);
+      return new Promise<CheckedImage>((resolve) => {
+        reader.onloadend = () => {
+          const base64Content: string = reader.result as string;
+          const newFile = this.applyBase64ToFile(base64Content, file.file, file.file.name.toLowerCase().replace(".heic", ".jpeg"));
+          const convertedBase64File = {
+            file: newFile,
+            base64Content
+          };
+          this.logger.info("heic file conversion complete:", convertedBase64File);
+          resolve({file: convertedBase64File, isImage: true});
+        };
+      });
+    } catch (error) {
+      this.logger.error("Error converting heic file:", error);
+      return {file, isImage: false};
+    }
+  }
 
   base64ToFileWithName(data, filename) {
     const arr = data.split(",");
@@ -98,8 +124,15 @@ export class FileUtilsService {
     return {
       awsFileName,
       image,
-      file: new File([base64ToFile(image)], originalFile?.name, {lastModified: originalFile?.lastModified, type: originalFile?.type})
+      file: this.applyBase64ToFile(image, originalFile)
     };
+  }
+
+  public applyBase64ToFile(base64Image: string, originalFile: File, renamedFile?: string): File {
+    return new File([base64ToFile(base64Image)], renamedFile || originalFile?.name, {
+      lastModified: originalFile?.lastModified,
+      type: originalFile?.type
+    });
   }
 
   basename(path:string) {

@@ -3,6 +3,7 @@ import { Observable, Subject } from "rxjs";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { UrlService } from "../url.service";
+import { EventType } from "../../models/websocket.model";
 
 @Injectable({
   providedIn: "root"
@@ -40,13 +41,15 @@ export class WebSocketClientService {
     });
   }
 
-  sendMessage(type: string, data: any): void {
+  sendMessage(type: EventType, data: any): void {
+    this.logger.info("sendMessage:type", type, "data:", data);
     this.socket.send(JSON.stringify({type, data}));
   }
 
-  receiveMessages(type: string): Observable<any> {
+  receiveMessages<T>(type: string): Observable<T> {
+    this.logger.info("receiveMessages:type", type);
     if (!this.subjects[type]) {
-      this.subjects[type] = new Subject<any>();
+      this.subjects[type] = new Subject<T>();
     }
     return this.subjects[type].asObservable();
   }
