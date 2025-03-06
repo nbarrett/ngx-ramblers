@@ -27,10 +27,12 @@ import {
 import {
   ALL_PHOTOS,
   Base64File,
+  CheckedImage,
   ContentMetadata,
   ContentMetadataItem,
   ContentMetadataResizeRequest,
   DuplicateImages,
+  IMAGE_HEIC,
   ImageFilterType,
   ImageTag,
   RECENT_PHOTOS,
@@ -75,10 +77,11 @@ import isUndefined from "lodash-es/isUndefined";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { ApiResponse } from "../../../models/api-response.model";
 import isArray from "lodash-es/isArray";
+import { EventType, MessageType, ProgressResponse } from "../../../models/websocket.model";
 
 @Component({
-    selector: "app-image-list-edit",
-    styles: [`
+  selector: "app-image-list-edit",
+  styles: [`
     .horizontal
       display: flex
 
@@ -107,252 +110,261 @@ import isArray from "lodash-es/isArray";
       text-overflow: ellipsis
       white-space: nowrap
   `],
-    template: `
-      @if (allow.edit && contentMetadata) {
-        <div class="row mb-4 px-1">
-          <div class="col-sm-12">
-            <div class="form-group">
-              <label for="name">Album Name</label>
-              <input [delay]="1000"
-                     [tooltip]="imagesExist() ? 'Album name cannot be changed after images have been created in it':''"
-                     [disabled]="imagesExist()" type="text" [ngModel]="contentMetadata.name" id="name"
-                     (ngModelChange)="albumNameChange($event)"
-                     class="form-control">
-            </div>
-          </div>
-          <div class="col-sm-6">
-            <app-aspect-ratio-selector label="Default Aspect Ratio"
-                                       [dimensionsDescription]="contentMetadata.aspectRatio"
-                                       (dimensionsChanged)="dimensionsChanged($event)"/>
-          </div>
-          <div class="col-sm-6">
-            <app-file-size-selector label="Auto-resize New Images To Maximum Size"
-                                    [fileSize]="contentMetadata.maxImageSize"
-                                    (fileSizeChanged)="contentMetadata.maxImageSize=$event"/>
+  template: `
+    @if (allow.edit && contentMetadata) {
+      <div class="row mb-4 px-1">
+        <div class="col-sm-12">
+          <div class="form-group">
+            <label for="name">Album Name</label>
+            <input [delay]="1000"
+                   [tooltip]="imagesExist() ? 'Album name cannot be changed after images have been created in it':''"
+                   [disabled]="imagesExist()" type="text" [ngModel]="contentMetadata.name" id="name"
+                   (ngModelChange)="albumNameChange($event)"
+                   class="form-control">
           </div>
         </div>
-        <input #fileElement class="d-none" type="file" ng2FileSelect multiple
-               (onFileSelected)="onFileSelectOrDropped($event)"
-               [uploader]="uploader">
-        <div class="row no-gutters">
-          <div class="col pr-1">
-            <app-badge-button fullWidth="true" [icon]="faSave" caption="Save changes and exit"
-                              (click)="requestSaveChangesAndExit()"
-                              [disabled]="disabled()"/>
-          </div>
-          <div class="col pr-1">
-            <app-badge-button fullWidth="true" [icon]="faSave" caption="Save" (click)="requestSaveChanges()"
-                              [disabled]="disabled()"/>
-          </div>
-          <div class="col pr-1">
-            <app-badge-button fullWidth="true" [icon]="faUndo" caption="Exit without saving"
-                              [disabled]="disabled()"
-                              (click)="exitBackWithoutSaving()"/>
-          </div>
-          <div class="col pr-1">
-            <app-badge-button fullWidth [icon]="faUndo" [caption]="'Undo'" (click)="undoChanges()"
-                              [disabled]="disabled()"/>
-          </div>
-          <div class="btn-group" dropdown>
-            <button [disabled]="disabled()" aria-controls="dropdown-animated"
-                    class="dropdown-toggle badge-button"
-                    [ngClass]="{'disabled': disabled()}"
-                    dropdownToggle
-                    type="button">
-              <fa-icon [icon]="faTableCells"/>
-              <span class="ml-2">Image Actions</span><span class="caret"></span>
-            </button>
-            <ul *dropdownMenu class="dropdown-menu" role="menu">
-              @if (imagesExist()) {
-                @if (contentMetadata?.maxImageSize > 0) {
+        <div class="col-sm-6">
+          <app-aspect-ratio-selector label="Default Aspect Ratio"
+                                     [dimensionsDescription]="contentMetadata.aspectRatio"
+                                     (dimensionsChanged)="dimensionsChanged($event)"/>
+        </div>
+        <div class="col-sm-6">
+          <app-file-size-selector label="Auto-resize New Images To Maximum Size"
+                                  [fileSize]="contentMetadata.maxImageSize"
+                                  (fileSizeChanged)="contentMetadata.maxImageSize=$event"/>
+        </div>
+      </div>
+      <input #fileElement class="d-none" type="file" ng2FileSelect multiple
+             (onFileSelected)="onFileSelectOrDropped($event)"
+             [uploader]="uploader">
+      <div class="row no-gutters">
+        <div class="col pr-1">
+          <app-badge-button fullWidth="true" [icon]="faSave" caption="Save changes and exit"
+                            (click)="requestSaveChangesAndExit()"
+                            [disabled]="disabled()"/>
+        </div>
+        <div class="col pr-1">
+          <app-badge-button fullWidth="true" [icon]="faSave" caption="Save" (click)="requestSaveChanges()"
+                            [disabled]="disabled()"/>
+        </div>
+        <div class="col pr-1">
+          <app-badge-button fullWidth="true" [icon]="faUndo" caption="Exit without saving"
+                            [disabled]="disabled()"
+                            (click)="exitBackWithoutSaving()"/>
+        </div>
+        <div class="col pr-1">
+          <app-badge-button fullWidth [icon]="faUndo" [caption]="'Undo'" (click)="undoChanges()"
+                            [disabled]="disabled()"/>
+        </div>
+        <div class="btn-group" dropdown>
+          <button [disabled]="disabled()" aria-controls="dropdown-animated"
+                  class="dropdown-toggle badge-button"
+                  [ngClass]="{'disabled': disabled()}"
+                  dropdownToggle
+                  type="button">
+            <fa-icon [icon]="faTableCells"/>
+            <span class="ml-2">Image Actions</span><span class="caret"></span>
+          </button>
+          <ul *dropdownMenu class="dropdown-menu" role="menu">
+            @if (imagesExist()) {
+              @if (contentMetadata?.maxImageSize > 0) {
                 <li role="menuitem">
-                  <a (click)="callResizeSavedImages()" class="dropdown-item">
+                  <a (click)="resizeSavedImages()" class="dropdown-item">
                     <fa-icon [icon]="faCompress"/>
                     Resize Existing Images To {{ numberUtils.humanFileSize(contentMetadata.maxImageSize) }}
                   </a>
                 </li>
-                }
-                <li role="menuitem">
-                  <a (click)="sortByDate()" class="dropdown-item">
-                    <fa-icon [icon]="faSortNumericDown"/>
-                    Sort by image date
-                  </a>
-                </li>
-                <li role="menuitem">
-                  <a (click)="reverseSortOrder()" class="dropdown-item">
-                    <fa-icon [icon]="faSortNumericUp"/>
-                    Reverse sort order
-                  </a>
-                </li>
-                <li role="menuitem">
-                  <a (click)="clearImages()" class="dropdown-item">
-                    <fa-icon [icon]="faEraser"/>
-                    Clear images
-                  </a>
-                </li>
-              } @else {
-                <li role="menuitem">
-                  <a (click)="insertToEmptyList()" class="dropdown-item">
-                    <fa-icon [icon]="faAdd"/>
-                    Create First Image
-                  </a>
-                </li>
               }
-              @if (contentMetadata?.imageTags?.length > 0) {
-                <li role="menuitem">
-                  <a (click)="toggleManageTags()" class="dropdown-item">
-                    <fa-icon [icon]="faTags"/>
-                    {{ manageTags ? "Close Tags" : "Manage Tags" }}
-                  </a>
-                </li>
-              }
-            </ul>
-          </div>
-          <div class="col-auto">
-            <app-badge-button fullWidth [disabled]="disabled()"
-                              [icon]="faFile"
-                              caption="Choose Files"
-                              (click)="browseToFile(fileElement)"/>
+              <li role="menuitem">
+                <a (click)="sortByDate()" class="dropdown-item">
+                  <fa-icon [icon]="faSortNumericDown"/>
+                  Sort by image date
+                </a>
+              </li>
+              <li role="menuitem">
+                <a (click)="reverseSortOrder()" class="dropdown-item">
+                  <fa-icon [icon]="faSortNumericUp"/>
+                  Reverse sort order
+                </a>
+              </li>
+              <li role="menuitem">
+                <a (click)="clearImages()" class="dropdown-item">
+                  <fa-icon [icon]="faEraser"/>
+                  Clear images
+                </a>
+              </li>
+            } @else {
+              <li role="menuitem">
+                <a (click)="insertToEmptyList()" class="dropdown-item">
+                  <fa-icon [icon]="faAdd"/>
+                  Create First Image
+                </a>
+              </li>
+            }
+            @if (contentMetadata?.imageTags?.length > 0) {
+              <li role="menuitem">
+                <a (click)="toggleManageTags()" class="dropdown-item">
+                  <fa-icon [icon]="faTags"/>
+                  {{ manageTags ? "Close Tags" : "Manage Tags" }}
+                </a>
+              </li>
+            }
+          </ul>
+        </div>
+        <div class="col-auto">
+          <app-badge-button fullWidth [disabled]="disabled()"
+                            [icon]="faFile"
+                            caption="Choose Files"
+                            (click)="browseToFile(fileElement)"/>
+        </div>
+      </div>
+      <div class="row mt-2">
+        <div class="col-sm-12">
+          <div ng2FileDrop [ngClass]="{'file-over': !uploader.isUploading && hasFileOver}"
+               (fileOver)="fileOver($event)"
+               (onFileDrop)="onFileSelectOrDropped($event)"
+               [uploader]="uploader"
+               class="badge-drop-zone">Drop new files here to add them
           </div>
         </div>
-        <div class="row mt-2">
-          <div class="col-sm-12">
-            <div ng2FileDrop [ngClass]="{'file-over': !uploader.isUploading && hasFileOver}"
-                 (fileOver)="fileOver($event)"
-                 (onFileDrop)="onFileSelectOrDropped($event)"
-                 [uploader]="uploader"
-                 class="badge-drop-zone">Drop new files here to add them
+        @if (progressResponse) {
+          <div class="col-sm-12 mt-2">
+            <div class="progress">
+              <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': progressResponse.percent + '%' }">
+                {{ progressResponse.percent }}%
+              </div>
             </div>
           </div>
-          @if (uploader.isUploading) {
-            <div class="col-sm-12 mb-2 mt-2">
-              <div class="progress">
-                <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': uploader.progress + '%' }">
-                  {{ uploader.progress }} %
-                </div>
+        }
+        @if (uploader.isUploading) {
+          <div class="col-sm-12 mb-2 mt-2">
+            <div class="progress">
+              <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': uploader.progress + '%' }">
+                {{ uploader.progress }} %
               </div>
+            </div>
+          </div>
+        }
+        <div class="col-sm-12 mt-4">
+          @if (warningTarget.showAlert) {
+            <div class="flex-grow-1 alert {{warningTarget.alertClass}}">
+              <fa-icon [icon]="warningTarget.alert.icon"></fa-icon>
+              @if (warningTarget.alertTitle) {
+                <strong>
+                  {{ warningTarget.alertTitle }}: </strong>
+              } {{ warningTarget.alertMessage }}
             </div>
           }
-          <div class="col-sm-12 mt-4">
-            @if (warningTarget.showAlert) {
-              <div class="flex-grow-1 alert {{warningTarget.alertClass}}">
-                <fa-icon [icon]="warningTarget.alert.icon"></fa-icon>
-                @if (warningTarget.alertTitle) {
-                  <strong>
-                    {{ warningTarget.alertTitle }}: </strong>
-                } {{ warningTarget.alertMessage }}
-              </div>
-            }
+        </div>
+      </div>
+      @if (manageTags) {
+        <div class="row mb-2">
+          <div class="col-sm-12">
+            <h6>Tag Management</h6>
+            <app-tag-manager [contentMetadata]="contentMetadata"/>
           </div>
         </div>
-        @if (manageTags) {
-          <div class="row mb-2">
-            <div class="col-sm-12">
-              <h6>Tag Management</h6>
-              <app-tag-manager [contentMetadata]="contentMetadata"/>
-            </div>
-          </div>
-        }
-        <h6>Image Filtering</h6>
-        <div class="custom-control custom-radio custom-control-inline">
-          <input [disabled]="disabled()" id="recent-photos-filter"
+      }
+      <h6>Image Filtering</h6>
+      <div class="custom-control custom-radio custom-control-inline">
+        <input [disabled]="disabled()" id="recent-photos-filter"
+               type="radio"
+               class="custom-control-input"
+               [(ngModel)]="filterType"
+               (ngModelChange)="filterFor('recent')"
+               value="recent"/>
+        <label class="custom-control-label" for="recent-photos-filter">Show recent photos</label>
+      </div>
+      <div class="custom-control custom-radio custom-control-inline">
+        <input [disabled]="disabled()" id="all-photos-filter"
+               type="radio"
+               class="custom-control-input"
+               [(ngModel)]="filterType"
+               (ngModelChange)="filterFor('all')"
+               value="all"/>
+        <label class="custom-control-label" for="all-photos-filter">Show all photos</label>
+      </div>
+      @if (selectableTags()?.length > 0) {
+        <div
+          class="custom-control custom-radio custom-control-inline">
+          <input [disabled]="disabled()" id="tag-filter"
                  type="radio"
                  class="custom-control-input"
                  [(ngModel)]="filterType"
-                 (ngModelChange)="filterFor('recent')"
-                 value="recent"/>
-          <label class="custom-control-label" for="recent-photos-filter">Show recent photos</label>
+                 (ngModelChange)="filterFor('tag')"
+                 value="tag"/>
+          <label class="custom-control-label" for="tag-filter">Show images tagged with:</label>
         </div>
-        <div class="custom-control custom-radio custom-control-inline">
-          <input [disabled]="disabled()" id="all-photos-filter"
-                 type="radio"
-                 class="custom-control-input"
-                 [(ngModel)]="filterType"
-                 (ngModelChange)="filterFor('all')"
-                 value="all"/>
-          <label class="custom-control-label" for="all-photos-filter">Show all photos</label>
-        </div>
-        @if (selectableTags()?.length > 0) {
-          <div
-            class="custom-control custom-radio custom-control-inline">
-            <input [disabled]="disabled()" id="tag-filter"
-                   type="radio"
-                   class="custom-control-input"
-                   [(ngModel)]="filterType"
-                   (ngModelChange)="filterFor('tag')"
-                   value="tag"/>
-            <label class="custom-control-label" for="tag-filter">Show images tagged with:</label>
-          </div>
-          <div
-            class="custom-control custom-radio custom-control-inline">
-            <select [compareWith]="imageTagComparer" [disabled]="filterType !== 'tag'"
-                    [(ngModel)]="activeTag"
-                    id="filterByTag"
-                    class="form-control"
-                    (ngModelChange)="filterByTag($event)">
-              @for (imageTag of selectableTags(); track tagTracker($index, imageTag)) {
-                <option
-                  [ngValue]="imageTag">{{ imageTag.subject }}
-                </option>
-              }
-            </select>
-          </div>
-        }
-        <div class="row mb-3">
-          <div class="col-sm-6">
-            <label for="search">Filter images for text</label>
-            <input [(ngModel)]="filterText" type="text"
-                   (ngModelChange)="onSearchChange($event)" class="form-control input-md rounded ml-8 w-100"
-                   id="search"
-                   placeholder="any text">
-          </div>
-          <div class="col-sm-6 mt-auto">
-            <div class="custom-control custom-checkbox">
-              <input
-                [(ngModel)]="showDuplicates"
-                (ngModelChange)="applyFilter()"
-                type="checkbox" class="custom-control-input"
-                id="show-duplicates">
-              <label class="custom-control-label" for="show-duplicates">Show duplicate images</label>
-            </div>
-          </div>
-        </div>
-        <h6>Pagination</h6>
-        <div class="row">
-          <div class="col-sm-12 mt-3 d-flex">
-            <pagination class="pagination rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="maxSize()"
-                        [totalItems]="filteredFiles.length" [(ngModel)]="pageNumber"
-                        (pageChanged)="pageChanged($event)"></pagination>
-            @if (notifyTarget.showAlert) {
-              <div class="flex-grow-1 alert {{notifyTarget.alertClass}}">
-                <fa-icon [icon]="notifyTarget.alert.icon"/>
-                @if (notifyTarget.alertTitle) {
-                  <strong>
-                    {{ notifyTarget.alertTitle }}: </strong>
-                } {{ notifyTarget.alertMessage }}
-              </div>
+        <div
+          class="custom-control custom-radio custom-control-inline">
+          <select [compareWith]="imageTagComparer" [disabled]="filterType !== 'tag'"
+                  [(ngModel)]="activeTag"
+                  id="filterByTag"
+                  class="form-control"
+                  (ngModelChange)="filterByTag($event)">
+            @for (imageTag of selectableTags(); track tagTracker($index, imageTag)) {
+              <option
+                [ngValue]="imageTag">{{ imageTag.subject }}
+              </option>
             }
+          </select>
+        </div>
+      }
+      <div class="row mb-3">
+        <div class="col-sm-6">
+          <label for="search">Filter images for text</label>
+          <input [(ngModel)]="filterText" type="text"
+                 (ngModelChange)="onSearchChange($event)" class="form-control input-md rounded ml-8 w-100"
+                 id="search"
+                 placeholder="any text">
+        </div>
+        <div class="col-sm-6 mt-auto">
+          <div class="custom-control custom-checkbox">
+            <input
+              [(ngModel)]="showDuplicates"
+              (ngModelChange)="applyFilter()"
+              type="checkbox" class="custom-control-input"
+              id="show-duplicates">
+            <label class="custom-control-label" for="show-duplicates">Show duplicate images</label>
           </div>
         </div>
-        @for (imageMetaDataItem of currentPageImages; track metadataItemTracker(index, imageMetaDataItem); let index = $index) {
-          <app-image-edit noImageSave
-                          [index]="index"
-                          [duplicateImages]="duplicateImages"
-                          [contentMetadata]="contentMetadata"
-                          [s3Metadata]="metaDataFor(imageMetaDataItem)"
-                          [contentMetadataImageTags]="contentMetadata.imageTags"
-                          [filteredFiles]="currentPageImages"
-                          [item]="imageMetaDataItem"
-                          (imageInsert)="imageInsert($event)"
-                          (imageEdit)="imageEdit($event)"
-                          (imageChange)="imageChange($event)"
-                          (imagedSavedOrReverted)="imagedSavedOrReverted($event)"
-                          (delete)="delete($event)"
-                          (moveUp)="moveUp($event)"
-                          (moveDown)="moveDown($event)">
-          </app-image-edit>
-        }
-      }`,
+      </div>
+      <h6>Pagination</h6>
+      <div class="row">
+        <div class="col-sm-12 mt-3 d-flex">
+          <pagination class="pagination rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="maxSize()"
+                      [totalItems]="filteredFiles.length" [(ngModel)]="pageNumber"
+                      (pageChanged)="pageChanged($event)"></pagination>
+          @if (notifyTarget.showAlert) {
+            <div class="flex-grow-1 alert {{notifyTarget.alertClass}}">
+              <fa-icon [icon]="notifyTarget.alert.icon"/>
+              @if (notifyTarget.alertTitle) {
+                <strong>
+                  {{ notifyTarget.alertTitle }}: </strong>
+              } {{ notifyTarget.alertMessage }}
+            </div>
+          }
+        </div>
+      </div>
+      @for (imageMetaDataItem of currentPageImages; track metadataItemTracker(index, imageMetaDataItem); let index = $index) {
+        <app-image-edit noImageSave
+                        [index]="index"
+                        [duplicateImages]="duplicateImages"
+                        [contentMetadata]="contentMetadata"
+                        [s3Metadata]="metaDataFor(imageMetaDataItem)"
+                        [contentMetadataImageTags]="contentMetadata.imageTags"
+                        [filteredFiles]="currentPageImages"
+                        [item]="imageMetaDataItem"
+                        (imageInsert)="imageInsert($event)"
+                        (imageEdit)="imageEdit($event)"
+                        (imageChange)="imageChange($event)"
+                        (imagedSavedOrReverted)="imagedSavedOrReverted($event)"
+                        (delete)="delete($event)"
+                        (moveUp)="moveUp($event)"
+                        (moveDown)="moveDown($event)">
+        </app-image-edit>
+      }
+    }`,
   imports: [FileUploadModule, BadgeButtonComponent, NgClass, NgStyle, FontAwesomeModule, TagManagerComponent,
     FormsModule, PaginationComponent, TooltipDirective, AspectRatioSelectorComponent, ImageEditComponent,
     BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, FileSizeSelectorComponent]
@@ -430,6 +442,8 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   protected readonly faCompress = faCompress;
   protected readonly saveToNew = false;
   private systemConfig: SystemConfig;
+  protected progressResponse: ProgressResponse;
+
   ngOnInit() {
     this.logger.info("ngOnInit:this.contentMetadata", this.contentMetadata, "name:", this.name, "story:", this.story);
     this.notify.setBusy();
@@ -448,22 +462,24 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
       this.initialiseImagesForName(name);
     }));
     this.subscriptions.push(this.systemConfigService.events().subscribe((systemConfig: SystemConfig) => this.systemConfig = systemConfig));
-    this.subscriptions.push(this.webSocketClientService.receiveMessages("progress").subscribe(message => {
-      this.logger.info(`Progress: ${message}`);
-      this.notify.success({title: "Progress", message});
+    this.subscriptions.push(this.webSocketClientService.receiveMessages<ProgressResponse>(MessageType.PROGRESS).subscribe((progressResponse: ProgressResponse) => {
+      this.progressResponse = progressResponse;
+      this.logger.info(`Progress: ${progressResponse.message}`);
+      this.notify.success({title: "Progress", message: progressResponse.message});
     }));
     this.subscriptions.push(this.webSocketClientService.receiveMessages("error").subscribe(error => {
         this.logger.error(`Error: ${error}%`);
         this.notify.error({title: "Error", message: error});
       })
     );
-    this.subscriptions.push(this.webSocketClientService.receiveMessages("complete").subscribe((message: ApiResponse) => {
+    this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.COMPLETE).subscribe((message: ApiResponse) => {
         this.logger.info(`Task completed:`, message);
+      this.progressResponse = null;
         if (isArray(message.response)) {
           this.processResizeItemsResponse(message.response);
-          this.notify.clearBusy();
+          this.clearBusy();
         } else {
-          this.postSaveContentMetadata(Promise.resolve(message.response)).then(() => this.notify.clearBusy());
+          this.postSaveContentMetadata(Promise.resolve(message.response)).then(() => this.clearBusy());
         }
       })
     );
@@ -472,6 +488,16 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.searchChangeObservable.pipe(debounceTime(500))
       .pipe(distinctUntilChanged())
       .subscribe(() => this.applyFilter());
+  }
+
+  private clearBusy() {
+    this.logger.info("clearBusy called");
+    this.notify.clearBusy();
+  }
+
+  private setBusy() {
+    this.logger.info("setBusy called");
+    this.notify.setBusy();
   }
 
   albumNameChange(albumName: string) {
@@ -568,7 +594,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
                 } else {
                   this.notify.warning({
                     title: "File upload",
-                    message: `Save cannot take place as out of the ${this.stringUtils.pluraliseWithCount(this.queuedFileCount, "saved file")}), ${this.unsavedImages().length} appear to not have been saved`
+                    message: `Save cannot take place as out of the ${this.stringUtils.pluraliseWithCount(this.queuedFileCount, "saved file")}, ${this.stringUtils.pluraliseWithCount(this.unsavedImages().length, "appears", "appear")} to not have been saved`
                   });
                 }
               }
@@ -684,15 +710,15 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   refreshContentAndS3Metadata(name: string) {
-    this.notify.setBusy();
+    this.setBusy();
     this.name = name;
     this.logger.info("image metadata refresh started for name:", name);
     return Promise.all([
-        this.contentMetadataService.items(RootFolder.carousels, this.name)
-          .then((contentMetaData: ContentMetadata) => {
-            this.contentMetadata = contentMetaData;
-            this.logger.info("this.contentMetadataService:returned:", contentMetaData);
-          }),
+      this.contentMetadataService.items(RootFolder.carousels, this.name)
+        .then((contentMetaData: ContentMetadata) => {
+          this.contentMetadata = contentMetaData;
+          this.logger.info("this.contentMetadataService:returned:", contentMetaData);
+        }),
       this.refreshS3Metadata()]
     )
       .then(() => {
@@ -734,7 +760,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.logger.debug("refreshImageMetaData:name", this.name, "returning", this.contentMetadata?.files?.length, "ContentMetadataItem items");
     this.base64Files = [];
     this.applyFilter();
-    this.notify.clearBusy();
+    this.clearBusy();
   }
 
   fileDate(file: ContentMetadataItem): number {
@@ -905,7 +931,6 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
     this.logger.info("insert:new items", items, "after:", this.contentMetadata.files);
     this.addToChangedItems(...items);
-    this.detectDuplicates();
     this.resizeUnsavedImages(items);
   }
 
@@ -995,18 +1020,22 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
         title: "Uploading Files",
         message: "Processing " + this.stringUtils.pluraliseWithCount(fileList?.length, "file")
       });
+      this.setBusy();
       const allBase64Files: Base64File[] = await this.fileUtils.fileListToBase64Files(fileList);
-      const checkedResults: { file: Base64File; isImage: boolean }[] = allBase64Files.map(file => ({
-        file,
-        isImage: this.urlService.isBase64Image(file.base64Content)
+      const checkedResults: CheckedImage[] = await Promise.all(allBase64Files.map(async file => {
+        if (file.file.type === IMAGE_HEIC) {
+          return await this.fileUtils.convertHEICFile(file);
+        } else {
+          return {file, isImage: this.urlService.isBase64Image(file.base64Content)};
+        }
       }));
       this.logger.debug("checkedResults:", checkedResults);
       this.base64Files = checkedResults.filter(result => result.isImage).map(result => result.file);
       this.nonImageFiles = checkedResults.filter(result => !result.isImage).map(result => result.file);
-      this.logger.debug("there are", this.stringUtils.pluraliseWithCount(this.base64Files.length, "image"), "and", this.stringUtils.pluraliseWithCount(this.nonImageFiles.length, "non-image"));
-      this.notify.setBusy();
+      this.logger.info("there are", this.stringUtils.pluraliseWithCount(this.base64Files.length, "image"), "and", this.stringUtils.pluraliseWithCount(this.nonImageFiles.length, "non-image"), "non-images:", this.nonImageFiles);
+      this.setBusy();
       this.imageInsert(...this.base64Files.map(item => this.fileUtils.contentMetadataItemFromBase64File(item)));
-      this.notify.clearBusy();
+      this.clearBusy();
     }
   }
 
@@ -1044,7 +1073,8 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     return this.unsavedImages().length === 0;
   }
 
-  public callResizeSavedImages(): void {
+  public async resizeSavedImages(): Promise<void> {
+    await this.saveChanges();
     const contentMetadataResizeRequest: ContentMetadataResizeRequest = {
       maxFileSize: this.contentMetadata.maxImageSize,
       id: this.contentMetadata.id,
@@ -1053,18 +1083,18 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
         rootFolder: this.contentMetadata.rootFolder
       } : null
     };
-    this.notify.setBusy();
-    this.webSocketClientService.connect().then(() => this.webSocketClientService.sendMessage("resizeSavedImages", contentMetadataResizeRequest));
+    this.setBusy();
+    this.webSocketClientService.connect().then(() => this.webSocketClientService.sendMessage(EventType.RESIZE_SAVED_IMAGES, contentMetadataResizeRequest));
   }
 
   private resizeUnsavedImages(items: ContentMetadataItem[]) {
     if (this.contentMetadata.maxImageSize || 0 > 0 && items?.length > 0) {
-      this.notify.setBusy();
+      this.setBusy();
       const contentMetadataResizeRequest: ContentMetadataResizeRequest = {
         maxFileSize: this.contentMetadata.maxImageSize,
         input: items
       };
-      this.webSocketClientService.connect().then(() => this.webSocketClientService.sendMessage("resizeUnsavedImages", contentMetadataResizeRequest));
+      this.webSocketClientService.connect().then(() => this.webSocketClientService.sendMessage(EventType.RESIZE_UNSAVED_IMAGES, contentMetadataResizeRequest));
     } else {
       this.logger.info("image list not configured for auto-resizing or no images supplied for resizing");
     }
@@ -1074,7 +1104,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     resizedItems.forEach(resizedItem => {
       const metadataItem: ContentMetadataItem = this.contentMetadata.files.find(file => file.originalFileName === resizedItem.originalFileName);
       if (metadataItem) {
-        this.logger.info("received resizedItems image related to :", metadataItem?.originalFileName, "with content", resizedItem.base64Content);
+        this.logger.info("received resizedItems image related to :", metadataItem?.originalFileName, "with content", this.numberUtils.humanFileSize(resizedItem.base64Content.length));
         metadataItem.base64Content = resizedItem.base64Content;
       } else {
         this.logger.warn("could not find match in metadata items for:", resizedItem);
