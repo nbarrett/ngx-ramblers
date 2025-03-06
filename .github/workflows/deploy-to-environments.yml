@@ -1,0 +1,58 @@
+name: Deploy to Selected Environments
+
+on:
+  workflow_dispatch:
+    inputs:
+      environments:
+        description: 'Select environments to deploy to (space-separated or "all")'
+        required: true
+        default: 'all'
+        type: string
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install server dependencies
+        run: npm ci
+        working-directory: ./server
+
+      - name: Create configs directory
+        run: mkdir -p non-vcs/fly-io
+
+      - name: Create configs.json from secrets
+        env:
+          CONFIGS_JSON: ${{ secrets.CONFIGS_JSON }}
+        run: |
+          echo "$CONFIGS_JSON" > non-vcs/fly-io/configs.json
+
+      - name: Install ts-node
+        run: npm install -g ts-node
+
+      - name: Deploy to selected environments
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          if [ "${{ github.event.inputs.environments }}" = "all" ]; then
+            ts-node server/deploy/deploy-to-environments.ts
+          else
+            ts-node server/deploy/deploy-to-environments.ts --environment "${{ github.event.inputs.environments }}"
+          fi
+
+      - name: Cleanup sensitive files
+        if: always()
+        run: rm -f non-vcs/fly-io/configs.json
