@@ -64,11 +64,13 @@ function deployApps(configFilePath: string, filterEnvironments: string[]): void 
     runCommand(`flyctl config validate --config ${flyTomlPath} --app ${environmentConfig.appName}`);
     runCommand(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --strategy rolling`);
 
-    const secretsFilePath = path.resolve(__dirname, `../../non-vcs/secrets/secrets.${environmentConfig.appName}.env`);
-    if (fs.existsSync(secretsFilePath)) {
-      runCommand(`flyctl secrets import --app ${environmentConfig.appName} < ${secretsFilePath}`);
-    } else {
-      debugLog(`Secrets file not found: ${secretsFilePath}`);
+    if (!(process.env.GITHUB_ACTIONS === "true")) {
+      const secretsFilePath = path.resolve(__dirname, `../../non-vcs/secrets/secrets.${environmentConfig.appName}.env`);
+      if (fs.existsSync(secretsFilePath)) {
+        runCommand(`flyctl secrets import --app ${environmentConfig.appName} < ${secretsFilePath}`);
+      } else {
+        debugLog(`Secrets file not found: ${secretsFilePath}`);
+      }
     }
     runCommand(`fly scale count 1 --app ${environmentConfig.appName}`);
     runCommand(`fly scale memory ${environmentConfig.memory} --app ${environmentConfig.appName}`);
