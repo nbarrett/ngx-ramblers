@@ -45,11 +45,6 @@ function deployApps(configFilePath: string, filterEnvironments: string[]): void 
     ? config.environments
     : config.environments.filter(env => filterEnvironments.includes(env.name));
 
-  if (environmentsToDeploy.length === 0) {
-    debugLog("No valid environments found for deployment.");
-    process.exit(1);
-  }
-
   if (!fs.existsSync(flyTomlPath)) {
     debugLog(`fly.toml not found at: ${flyTomlPath}`);
     process.exit(1);
