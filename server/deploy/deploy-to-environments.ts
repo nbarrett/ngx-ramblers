@@ -77,14 +77,20 @@ function deployApps(configFilePath: string, filterEnvironments: string[]): void 
   });
 }
 
-const filterEnvironments = process.argv.slice(2);
-const currentDir = path.resolve(__dirname);
-const configFilePath = path.resolve(currentDir, "../../non-vcs/fly-io/configs.json");
+const filterEnvironments: string[] = process.argv.slice(2).reduce((acc: string[], arg, index, args) => {
+  if (arg === "--environment" && index + 1 < args.length) {
+    return args[index + 1].split(" ").filter(env => env.trim() !== "");
+  }
+  return acc;
+}, []);
 
 if (filterEnvironments.length === 0) {
   debugLog("No environments provided. Please specify the environments to deploy or use 'all'.");
   process.exit(1);
 }
+
+const currentDir = path.resolve(__dirname);
+const configFilePath = path.resolve(currentDir, "../../non-vcs/fly-io/configs.json");
 
 debugLog("Deploying to specified environments:", filterEnvironments);
 deployApps(configFilePath, filterEnvironments);
