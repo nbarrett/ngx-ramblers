@@ -72,8 +72,8 @@ function deployApps(configFilePath: string, filterEnvironments: string[]): void 
         debugLog(`Secrets file not found: ${secretsFilePath}`);
       }
     }
-    runCommand(`fly scale count 1 --app ${environmentConfig.appName}`);
-    runCommand(`fly scale memory ${environmentConfig.memory} --app ${environmentConfig.appName}`);
+    runCommand(`flyctl scale count 1 --app ${environmentConfig.appName}`);
+    runCommand(`flyctl scale memory ${environmentConfig.memory} --app ${environmentConfig.appName}`);
   });
 }
 

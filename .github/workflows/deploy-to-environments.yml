@@ -46,6 +46,12 @@ jobs:
       - name: Install Flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
+      - name: Verify Flyctl Installation
+        run: |
+          echo "Flyctl path: $(which flyctl)"
+          flyctl version
+          echo "FLYCTL_PATH=$(which flyctl)" >> $GITHUB_ENV
+
       - name: Deploy to selected environments
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
