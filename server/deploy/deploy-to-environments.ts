@@ -84,11 +84,6 @@ const filterEnvironments: string[] = process.argv.slice(2).reduce((acc: string[]
   return acc;
 }, []);
 
-if (filterEnvironments.length === 0) {
-  debugLog("No environments provided. Please specify the environments to deploy or use 'all'.");
-  process.exit(1);
-}
-
 const currentDir = path.resolve(__dirname);
 const configFilePath = path.resolve(currentDir, "../../non-vcs/fly-io/configs.json");
 
