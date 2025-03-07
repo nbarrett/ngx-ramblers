@@ -38,12 +38,12 @@ function runCommand(command: string): void {
   }
 }
 
-function deployApps(configFilePath: string, filterEnvironments: string[]): void {
+function deployApps(configFilePath: string, environmentsFilter: string[]): void {
   const config: DeploymentConfig = readConfigFile(configFilePath);
   const flyTomlPath = path.resolve(__dirname, "../..", "fly.toml");
-  const environmentsToDeploy = filterEnvironments.includes("all")
+  const environmentsToDeploy = environmentsFilter.length === 0
     ? config.environments
-    : config.environments.filter(env => filterEnvironments.includes(env.name));
+    : config.environments.filter(environmentConfig => environmentsFilter.includes(environmentConfig.name));
 
   if (!fs.existsSync(flyTomlPath)) {
     debugLog(`fly.toml not found at: ${flyTomlPath}`);
