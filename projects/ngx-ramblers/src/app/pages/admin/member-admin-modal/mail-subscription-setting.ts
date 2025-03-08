@@ -40,13 +40,13 @@ export class MailSubscriptionSettingComponent implements OnInit {
   private mailMessagingService: MailMessagingService = inject(MailMessagingService);
   private broadcastService: BroadcastService<MailListAudit> = inject(BroadcastService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger = this.loggerFactory.createLogger("MailSubscriptionSettingComponent", NgxLoggerLevel.OFF);
+  private logger = this.loggerFactory.createLogger("MailSubscriptionSettingComponent", NgxLoggerLevel.INFO);
   protected mailMessagingConfig: MailMessagingConfig;
 
   async ngOnInit() {
     this.mailMessagingService.events().subscribe(mailMessagingConfig => {
       this.mailMessagingConfig = mailMessagingConfig;
-      this.logger.info("ngOnInit:mailSubscription:", this.subscription, "listType:", this.listNameFor(this.subscription));
+      this.logger.info("ngOnInit:mail subscription:", this.subscription, "list name:", this.listNameFor(this.subscription));
     });
   }
 

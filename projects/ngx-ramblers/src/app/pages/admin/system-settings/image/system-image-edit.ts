@@ -23,13 +23,83 @@ import { NgClass } from "@angular/common";
 
 @Component({
     selector: "app-system-image-edit",
-    templateUrl: "./system-image-edit.html",
+    template: `
+      <div class="row mb-3 mt-3">
+        <div class="col-md-12">
+          <h5>{{ imageTitle() }}</h5>
+          @if (logoEditActive) {
+            <app-image-cropper-and-resizer
+              [rootFolder]="images?.rootFolder"
+              [preloadImage]="image.awsFileName"
+              (imageChange)="imageChange($event)"
+              (quit)="exitImageEdit()"
+              (save)="imagedSaved($event)">
+            </app-image-cropper-and-resizer>
+          }
+        </div>
+        <div class="col-md-6 mt-2">
+          <div class="row">
+            <div class="col-md-12">
+              <label>Original Name</label>
+              <input [(ngModel)]="image.originalFileName"
+                     type="text" value="" class="form-control input-sm w-100" [id]="uniqueIdFor('originalFileName')">
+            </div>
+          </div>
+          <div class="row mt-2">
+            <div class="col-md-12">
+              <label>Image Source Name</label>
+              <input [(ngModel)]="image.awsFileName"
+                     type="text" value="" class="form-control input-sm w-100" [id]="uniqueIdFor('awsFileName')">
+            </div>
+          </div>
+          <div class="row mt-2">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>Height:</label>
+                <input [(ngModel)]="image.width"
+                       type="number" class="form-control input-sm">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label>Padding:</label>
+              <input [(ngModel)]="image.padding"
+                     type="number" class="form-control input-sm">
+            </div>
+          </div>
+          <div class="row mt-2">
+            <div class="col">
+              @if (logoMode) {
+                <app-badge-button (click)="makeDefault()"
+                                  [tooltip]="'Make ' + image.originalFileName + ' the default website logo'"
+                                  [icon]="faSave" caption="Make this logo the website default"/>
+              }
+              <app-badge-button (click)="toggleImageEditor()"
+                                [tooltip]="fileTypeAttributes?.croppable?'Edit '+image.originalFileName:image.originalFileName + ' is not editable'"
+                                [icon]="faEdit" caption="Edit image" [disabled]="!fileTypeAttributes?.croppable"/>
+              <app-badge-button (click)="delete()"
+                                [tooltip]="headerLogoDefault?'Cant delete image that is set as the logo default':'Delete ' + image.originalFileName + ' from collection of ' + rootFolder"
+                                [icon]="faRemove" [caption]="'Delete image'" [disabled]="headerLogoDefault"/>
+            </div>
+          </div>
+        </div>
+        @if (imageValid(image)) {
+          <div class="col-md-6">
+            <div class="row">
+              <label>Image Preview</label>
+            </div>
+            <img [src]="imageSourceOrPreview()" [alt]="image.originalFileName"
+                 [style]="'width:' + image.width +'px; padding: '+ image.padding +'px; height: auto;'"
+                 [ngClass]="image.awsFileName.endsWith('png') ? 'image-border-png':'image-border'">
+          </div>
+        }
+      </div>
+    `,
     styleUrls: ["./system-image.sass"],
     imports: [ImageCropperAndResizerComponent, FormsModule, BadgeButtonComponent, TooltipDirective, NgClass]
 })
 export class SystemImageEditComponent implements OnInit {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("SystemImageEditComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("SystemImageEditComponent", NgxLoggerLevel.INFO);
   private notifierService = inject(NotifierService);
   private stringUtils = inject(StringUtilsService);
   private broadcastService = inject<BroadcastService<string>>(BroadcastService);
@@ -73,7 +143,9 @@ export class SystemImageEditComponent implements OnInit {
   }
 
   delete() {
-    remove(this.images.images, this.image);
+    if (!this.headerLogoDefault) {
+      remove(this.images.images, this.image);
+    }
   }
 
   imageChange(awsFileData: AwsFileData) {
@@ -114,7 +186,7 @@ export class SystemImageEditComponent implements OnInit {
     return this.urlService.imageSource(this.awsFileData?.image || this.image.awsFileName || this.image.originalFileName);
   }
 
-  logoTitle() {
+  imageTitle() {
     return this?.images?.images ? `${this?.images.images.indexOf(this.image) + 1} of ${this.images.images.length} — ${this.image.originalFileName || "not named yet"} ${this.headerLogoDefault ? " (header logo default)" : ""}` : "";
   }
 

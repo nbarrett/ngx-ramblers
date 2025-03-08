@@ -40,8 +40,7 @@ import { NgClass } from "@angular/common";
                 <p>You can change your emailing preferences at any time using the subscription checkboxes
                 below:</p>
                 @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.MAILCHIMP) {
-                  <app-email-subscriptions-mailchimp [member]="member"
-                  />
+                  <app-email-subscriptions-mailchimp [member]="member"/>
                 }
                 @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.BREVO) {
                   @for (subscription of mailMessagingService.memberSubscribableSubscriptions(member.mail.subscriptions); track subscription.id) {

@@ -121,7 +121,7 @@ export class MailMessagingService {
     const configType = "Mail config";
     try {
       this.mailMessagingConfig.mailConfig = await this.mailConfigService.queryConfig();
-      this.logger.info("config:", this.mailMessagingConfig?.mailConfig);
+      this.logger.info("mailConfig:", this.mailMessagingConfig?.mailConfig);
       if (!this.mailMessagingConfig?.mailConfig?.allowSendTransactional) {
         this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.NOTIFY_MESSAGE, {
           message: {
@@ -166,6 +166,7 @@ export class MailMessagingService {
       const lists = await this.mailService.queryLists();
       this.mailMessagingConfig.brevo.lists = {count: lists.count, lists: lists.lists.sort(sortBy("id"))};
       const message = `Found ${this.stringUtilsService.pluraliseWithCount(lists.count, "list")}`;
+      this.logger.info(message, lists);
       return this.broadcastSuccess(configType, message);
     } catch (error) {
       this.broadcastError(error, configType);
@@ -202,6 +203,7 @@ export class MailMessagingService {
       this.mailMessagingConfig.notificationConfigs) {
       this.migrateTemplateMappings();
       this.migrateMailConfig();
+      this.syncMailConfigListsWithBrevo();
       this.logger.info("received", reason, "emitting mailMessagingConfig:", this.mailMessagingConfig);
       this.subject.next(this.mailMessagingConfig);
     } else {
@@ -455,4 +457,7 @@ export class MailMessagingService {
   }
 
 
+  private syncMailConfigListsWithBrevo() {
+    this.mailMessagingConfig.mailConfig.listSettings = this.mailMessagingConfig.mailConfig.listSettings.filter(item => this.mailMessagingConfig.brevo.lists.lists.map(list => list.id).includes(item.id));
+  }
 }
