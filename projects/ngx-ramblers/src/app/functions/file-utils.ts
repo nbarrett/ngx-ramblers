@@ -8,3 +8,7 @@ export function humanFileSize(size: number) {
   num = round < 10 ? num.toFixed(2) : round < 100 ? num.toFixed(1) : round;
   return `${num} ${"kmgtpezy"[i - 1]}b`;
 }
+
+export function basename(path: string) {
+  return path?.split(/[\\/]/)?.pop();
+}

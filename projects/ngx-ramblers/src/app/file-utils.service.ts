@@ -16,6 +16,7 @@ import {
 import { AwsFileData } from "./models/aws-object.model";
 import { base64ToFile } from "ngx-image-cropper";
 import heic2any from "heic2any";
+import { basename } from "./functions/file-utils";
 
 @Injectable({
   providedIn: "root"
@@ -136,7 +137,7 @@ export class FileUtilsService {
   }
 
   basename(path:string) {
-    return path?.split(/[\\/]/)?.pop();
+    return basename(path);
   }
 
   fileNameNoExtension(path): string {

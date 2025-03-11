@@ -44,6 +44,7 @@ import path = require("path");
 import favicon = require("serve-favicon");
 import committeeFile = require("./mongo/routes/committee-file");
 import memberResource = require("./mongo/routes/member-resource");
+import { migrationRoutes } from "./migration/migration-routes";
 
 install();
 const debugLog = debug(envConfig.logNamespace("server"));
@@ -69,6 +70,7 @@ app.get("/api/health", health);
 app.use("/api/ramblers", ramblersRoutes);
 app.use("/api/aws", awsRoutes);
 app.use("/api/contact-us", contactUsRoutes);
+app.use("/api/migration", migrationRoutes);
 app.use("/api/google-maps", googleMapsRoutes);
 app.use("/api/instagram", instagramRoutes);
 app.use("/api/mailchimp", mailchimpRoutes);

@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { AlbumIndex } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 
 const PageContentColumn = new mongoose.Schema({
   href: {type: String},
