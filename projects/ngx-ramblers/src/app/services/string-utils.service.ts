@@ -16,6 +16,7 @@ import isBoolean from "lodash-es/isBoolean";
 import isNull from "lodash-es/isNull";
 import isUndefined from "lodash-es/isUndefined";
 import isEmpty from "lodash-es/isEmpty";
+import { toKebabCase } from "../functions/strings";
 
 @Injectable({
   providedIn: "root"
@@ -136,10 +137,7 @@ StringUtilsService {
   }
 
   kebabCase(...strings: any[]): string {
-    const returnValue = strings
-      .filter(item => item)
-      .map(item => kebabCase(item))
-      .join("-");
+    const returnValue = toKebabCase(strings);
     this.logger.debug("input:", strings, "output:", returnValue);
     return returnValue;
   }

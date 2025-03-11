@@ -20,7 +20,7 @@ export function execute(mongoFunction: () => any): Promise<any> {
   }
 }
 
-export function create<T>(model: mongoose.Model<mongoose.Document>, data: T) {
+export function create<T>(model: mongoose.Model<mongoose.Document>, data: T): Promise<T> {
   const debugCreate: debug.Debugger = createDebugFor(model);
   debugCreate.enabled = false;
   const performCreate = () => {
