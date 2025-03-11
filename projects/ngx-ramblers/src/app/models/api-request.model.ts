@@ -9,6 +9,7 @@ export interface DataQueryOptions {
   criteria?: object;
   select?: object;
   sort?: object;
+  update?: object;
 }
 
 export interface MongoId {

@@ -78,6 +78,56 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
     return response;
   }
 
+  async function updateMany(req: Request, res: Response) {
+    try {
+      const dataQueryOptions: DataQueryOptions = req.body;
+      const filter = dataQueryOptions?.criteria || {};
+      const update = dataQueryOptions?.update || {};
+      const message = `Update many documents in ${model.modelName}`;
+
+      debugLog("updateMany:received request body:",
+        JSON.stringify(req.body, null, 2),
+        "for", message,
+        "with filter:", JSON.stringify(filter, null, 2),
+        "and update:", JSON.stringify(update, null, 2));
+
+      const originalDocuments = await model.find(filter);
+      if (!originalDocuments.length) {
+        debugLog("updateMany:No documents matched the criteria");
+        debugLog.enabled = false;
+        return res.status(200).json({
+          action: ApiAction.UPDATE,
+          message: "No documents matched the criteria",
+          response: []
+        });
+      }
+
+      const updatedDocuments = await Promise.all(
+        originalDocuments.map(doc =>
+          model.findOneAndUpdate(
+            {_id: doc._id},
+            update,
+            {new: true, useFindAndModify: false}
+          )
+        )
+      );
+
+      debugLog("updateMany:updated documents:",
+        JSON.stringify(updatedDocuments, null, 2));
+      res.status(200).json({
+        action: ApiAction.UPDATE,
+        message,
+        response: updatedDocuments
+      });
+    } catch (error) {
+      debugLog(`updateMany failed with error: ${error}`);
+      res.status(500).json({
+        request: req.body,
+        error: transforms.parseError(error)
+      });
+    }
+  }
+
   async function updateDocument(requestDocument: ControllerRequest): Promise<T> {
     const {criteria, document} = transforms.criteriaAndDocument<T>(requestDocument);
     debugLog("pre-update:criteria:", criteria, "document:", document);
@@ -236,6 +286,7 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
     deleteDocument,
     createOrUpdateAll,
     updateDocument,
+    updateMany,
     createDocument,
   };
 }

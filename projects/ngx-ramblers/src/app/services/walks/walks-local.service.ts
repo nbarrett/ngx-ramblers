@@ -102,4 +102,20 @@ export class WalksLocalService {
     Promise.all(walksWithFixedDate.map(walk => this.update(walk))).then((updated) => this.logger.info("update complete with", this.stringUtilsService.pluraliseWithCount(updated.length, "updated walk"), updated));
     return walksWithFixedDate;
   }
+
+  async updateMany(dataQueryOptions: DataQueryOptions): Promise<Walk[]> {
+    this.logger.info("updateMany called with dataQueryOptions:", dataQueryOptions);
+    try {
+      const apiResponse = await this.commonDataService.responseFrom(
+        this.logger,
+        this.http.post<WalkApiResponse>(`${this.BASE_URL}/update-many`, dataQueryOptions),
+        this.walkNotifications
+      );
+      this.logger.info("updateMany: updated documents:", apiResponse);
+      return apiResponse.response as Walk[];
+    } catch (error) {
+      this.logger.error("updateMany: error:", error);
+      throw error;
+    }
+  }
 }

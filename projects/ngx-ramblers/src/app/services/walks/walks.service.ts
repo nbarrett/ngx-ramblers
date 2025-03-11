@@ -82,6 +82,18 @@ export class WalksService {
     }
   }
 
+  async updateMany(dataQueryOptions: DataQueryOptions): Promise<Walk[]> {
+    this.logger.info("updateMany called with dataQueryOptions:", dataQueryOptions);
+    try {
+      const result = await this.walksLocalService.updateMany(dataQueryOptions);
+      this.logger.info("updateMany: updated documents:", result);
+      return result;
+    } catch (error) {
+      this.logger.error("updateMany: error:", error);
+      throw error;
+    }
+  }
+
   fixIncorrectWalkDates() {
     return this.walksLocalService.fixIncorrectWalkDates();
   }

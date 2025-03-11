@@ -4,13 +4,14 @@ import { walk } from "../models/walk";
 import * as crudController from "../controllers/crud-controller";
 import * as walkController from "../controllers/walk";
 
-const controller = crudController.create(walk);
+const controller = crudController.create(walk, true);
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);
 router.get("", controller.findByConditions);
 router.get("/all", controller.all);
 router.put("/:id", authConfig.authenticate(), controller.update);
+router.post("/update-many", authConfig.authenticate(), controller.updateMany);
 router.get("/walk-leaders", authConfig.authenticate(), walkController.queryWalkLeaders);
 router.get("/:id", controller.findById);
 router.delete("/:id", authConfig.authenticate(), controller.deleteOne);

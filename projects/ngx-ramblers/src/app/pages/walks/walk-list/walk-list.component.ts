@@ -250,7 +250,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 })
 export class WalkListComponent implements OnInit, OnDestroy {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkListComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkListComponent", NgxLoggerLevel.INFO);
   private uiActionsService = inject(UiActionsService);
   private systemConfigService = inject(SystemConfigService);
   private modalService = inject(BsModalService);
@@ -293,9 +293,13 @@ export class WalkListComponent implements OnInit, OnDestroy {
   protected readonly WalkListView = WalkListView;
   protected walkListView: WalkListView;
   protected readonly faImages = faImages;
+  private migrateOSMapsRoute = false;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
+    if (this.migrateOSMapsRoute) {
+      this.updateOsMapsRoute();
+    }
     this.subscriptions.push(this.systemConfigService.events().subscribe(item => {
       this.group = item.group;
       this.walkListView = this.uiActionsService.initialValueFor(StoredValue.WALK_LIST_VIEW, this.group.defaultWalkListView) as WalkListView;
@@ -316,6 +320,11 @@ export class WalkListComponent implements OnInit, OnDestroy {
     this.display.refreshCachedData();
     this.pageService.setTitle("Home");
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => this.refreshWalks(loginResponse)));
+  }
+
+  private async updateOsMapsRoute() {
+    const updatedWalks: Walk[] = await this.dataMigrationService.updateOsMapsRoute();
+    this.logger.info("updatedWalks:updateOsMapsRoute:", updatedWalks);
   }
 
   ngOnDestroy(): void {
@@ -360,7 +369,6 @@ export class WalkListComponent implements OnInit, OnDestroy {
     const alertMessage = this.currentPageWalks.length > 0 ? `Showing ${offset} to ${toWalkNumber} of ${this.stringUtils.pluraliseWithCount(this.walks.length, "walk")}${pageIndicator ? " - " + pageIndicator : ""}` : "No walks found";
     this.notify.progress(alertMessage);
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SHOW_PAGINATION, this.pageCount > 1));
-    this.dataMigrationService.migrateWalkLocations(this.walks);
   }
 
   allowDetailView() {
