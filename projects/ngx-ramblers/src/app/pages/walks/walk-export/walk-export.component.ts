@@ -40,9 +40,9 @@ import { NgClass } from "@angular/common";
 import { RelatedLinkComponent } from "../../../modules/common/related-link/related-link.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgOptionComponent, NgSelectComponent } from "@ng-select/ng-select";
-import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
 import { ValueOrDefaultPipe } from "../../../pipes/value-or-default.pipe";
 import { sortBy } from "../../../functions/arrays";
+import { DisplayTimeWithSecondsPipe } from "../../../pipes/display-time.pipe-with-seconds";
 
 @Component({
     selector: "app-walk-export",
@@ -237,6 +237,7 @@ import { sortBy } from "../../../functions/arrays";
                     <thead>
                     <tr>
                       <th>Time</th>
+                      <th>Record</th>
                       <th>Status</th>
                       <th>Audit Message</th>
                     </tr>
@@ -244,7 +245,8 @@ import { sortBy } from "../../../functions/arrays";
                     <tbody>
                       @for (audit of ramblersUploadAuditData; track audit.id) {
                         <tr>
-                          <td class="nowrap">{{ audit.auditTime | displayTime }}</td>
+                          <td class="nowrap">{{ audit.auditTime | displayTimeWithSeconds }}</td>
+                          <td class="nowrap">{{ audit.record }}</td>
                           <td>
                             @if (audit.status === 'complete') {
                               <fa-icon
@@ -294,7 +296,7 @@ import { sortBy } from "../../../functions/arrays";
       margin-bottom: 0
   `],
     styleUrls: ["./walk-export.component.sass"],
-  imports: [PageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, NgClass, RelatedLinkComponent, TooltipDirective, NgSelectComponent, NgOptionComponent, DisplayTimePipe, DisplayDatePipe, ValueOrDefaultPipe]
+  imports: [PageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, NgClass, RelatedLinkComponent, TooltipDirective, NgSelectComponent, NgOptionComponent, DisplayTimeWithSecondsPipe, DisplayDatePipe, ValueOrDefaultPipe]
 })
 
 export class WalkExportComponent implements OnInit, OnDestroy {
@@ -400,7 +402,9 @@ export class WalkExportComponent implements OnInit, OnDestroy {
 
   refreshRamblersUploadAudit() {
     this.walkExportNotifier.setBusy();
-    return this.ramblersUploadAuditService.all({criteria: {fileName: this.fileName.fileName}, sort: {auditTime: -1}})
+    return this.ramblersUploadAuditService.all({
+      criteria: {fileName: this.fileName.fileName}, sort: {auditTime: -1, record: -1}
+    })
       .then((auditItems: RamblersUploadAuditApiResponse) => {
         this.ramblersUploadAuditData = auditItems.response
           .filter(auditItem => {
