@@ -21,8 +21,8 @@ import map from "lodash/map";
 import { systemConfig } from "../config/system-config";
 import { Request, Response } from "express";
 import { WalkLeadersApiResponse } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
-import { pluraliseWithCount } from "../../serenity-js/screenplay/util/util";
 import omit from "lodash/omit";
+import { pluraliseWithCount } from "../shared/string-utils";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));

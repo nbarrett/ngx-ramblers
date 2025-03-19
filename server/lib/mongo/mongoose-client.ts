@@ -47,7 +47,7 @@ export function create<T>(model: mongoose.Model<mongoose.Document>, data: T): Pr
 }
 
 export function connect(debug?: debug.Debugger) {
-  const mongoUri = envConfig.mongo.uri.replace(/^"|"$/g, ""); ;
+  const mongoUri = envConfig.mongo.uri.replace(/^"|"$/g, "");
   debugLog("MongoDB URI:", mongoUri);
   const debugConnect = debug || debugLog;
   return mongoose.connect(mongoUri, {

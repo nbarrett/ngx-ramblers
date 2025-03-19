@@ -33,7 +33,6 @@ WORKDIR /usr/src/app/server
 COPY server/package*.json ./
 COPY server/ts*.json ./
 COPY server/lib* ./
-COPY server/serenity-js ./
 COPY server/.mocharc.yml ./
 COPY server/protractor.conf.js ./
 COPY server /usr/src/app/server

@@ -7,8 +7,8 @@ import * as transforms from "./transforms";
 import * as querystring from "querystring";
 import * as authConfig from "../../auth/auth-config";
 import { Member } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
-import { pluraliseWithCount } from "../../../serenity-js/screenplay/util/util";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
+import { pluraliseWithCount } from "../../shared/string-utils";
 
 const debugLog = debug(envConfig.logNamespace("member"));
 debugLog.enabled = false;
