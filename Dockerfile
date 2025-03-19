@@ -43,8 +43,8 @@ WORKDIR /usr/src/app/server
 COPY server/package*.json ./
 COPY server/ts*.json ./
 COPY server/lib* ./
-COPY server/serenity-js ./
 COPY server/.mocharc.yml ./
+COPY server/wdio.conf.ts ./
 COPY server/protractor.conf.js ./
 COPY server /usr/src/app/server
 
@@ -53,9 +53,6 @@ RUN npm install
 
 # Update the Serenity BDD dependencies so it doesn't have to run in the step before serenity is run
 RUN npm run serenity-bdd-update
-# Custom step to download the latest Serenity CLI jar as serenity-cli-2.1.10-all.jar no longer gets downloaded by above command
-RUN mkdir -p node_modules/@serenity-js/serenity-bdd/cache
-RUN wget -O node_modules/@serenity-js/serenity-bdd/cache/serenity-cli-2.1.10-all.jar https://repo1.maven.org/maven2/net/serenity-bdd/serenity-cli/4.2.9/serenity-cli-4.2.9.jar
 
 # Set environment variables for Chrome and Chromedriver
 ENV CHROME_BIN=/usr/src/app/server/chrome/linux-${CHROME_VERSION}/chrome-linux64/chrome

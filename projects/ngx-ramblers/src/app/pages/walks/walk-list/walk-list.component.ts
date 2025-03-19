@@ -250,7 +250,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 })
 export class WalkListComponent implements OnInit, OnDestroy {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkListComponent", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkListComponent", NgxLoggerLevel.ERROR);
   private uiActionsService = inject(UiActionsService);
   private systemConfigService = inject(SystemConfigService);
   private modalService = inject(BsModalService);

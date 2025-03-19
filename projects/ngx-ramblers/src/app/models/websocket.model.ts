@@ -1,4 +1,5 @@
 import WebSocket from "ws";
+import { RamblersUploadAudit } from "./ramblers-upload-audit.model";
 
 export interface WebSocketRequest {
   type: EventType;
@@ -12,7 +13,12 @@ export interface ProgressResponse {
   percent?: number;
 }
 
+export interface RamblersUploadAuditProgressResponse {
+  audits: RamblersUploadAudit[];
+}
+
 export enum EventType {
+  RAMBLERS_WALKS_UPLOAD = "ramblers-walks-upload",
   RESIZE_SAVED_IMAGES = "resize-saved-images",
   RESIZE_UNSAVED_IMAGES = "resize-unsaved-images",
 }

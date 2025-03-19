@@ -9,11 +9,14 @@ import {
   MessageHandlers,
   WebSocketRequest
 } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
+import { RamblersWalksUploadRequest } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { uploadWalks } from "../ramblers/ramblers-upload-walks";
 
 const debugLog = debug(envConfig.logNamespace("websocket-server"));
 debugLog.enabled = true;
 
 const messageHandlers: MessageHandlers = {
+  [EventType.RAMBLERS_WALKS_UPLOAD]: (ws: WebSocket, data: RamblersWalksUploadRequest) => uploadWalks(ws, data),
   [EventType.RESIZE_SAVED_IMAGES]: (ws: WebSocket, data: ContentMetadataResizeRequest) => resizeSavedImages(ws, data),
   [EventType.RESIZE_UNSAVED_IMAGES]: (ws: WebSocket, data: ContentMetadataResizeRequest) => resizeUnsavedImages(ws, data),
 };

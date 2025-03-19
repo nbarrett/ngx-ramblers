@@ -12,7 +12,8 @@ import {
   BasicMedia,
   Contact,
   LocationDetails,
-  Metadata, PublishStatus,
+  Metadata,
+  PublishStatus,
   RamblersEventType,
   RamblersWalkResponse
 } from "./ramblers-walks-manager";
@@ -133,10 +134,6 @@ export interface WalkExport {
   selected: boolean;
 }
 
-export interface FileUploadSummary {
-  fileName: string,
-  error: boolean
-}
 
 export interface WalkApiResponse extends ApiResponse {
   request: any;
