@@ -7,6 +7,7 @@ import {
   faCirclePlus,
   faPencil,
   faRemove,
+  faSpinner,
   faThumbsUp
 } from "@fortawesome/free-solid-svg-icons";
 import map from "lodash-es/map";
@@ -18,7 +19,6 @@ import { FontAwesomeIcon } from "../../models/images.model";
 @Injectable({
   providedIn: "root"
 })
-
 export class IconService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("IconService", NgxLoggerLevel.ERROR);
@@ -69,8 +69,10 @@ export class IconService {
     if (status === "skipped") {
       return {icon: faThumbsUp, class: "green-icon"};
     }
+    if (status === "active") {
+      return {icon: faSpinner, class: "yellow-icon fa-spin"};
+    }
     this.logger.warn("no icon for status:", status);
     return {icon: faCircleInfo, class: "blue-icon"};
   }
-
 }

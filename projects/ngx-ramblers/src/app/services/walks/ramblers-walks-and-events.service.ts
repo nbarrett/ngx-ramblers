@@ -5,8 +5,6 @@ import isNaN from "lodash-es/isNaN";
 import without from "lodash-es/without";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
-import { ApiResponse } from "../../models/api-response.model";
-import { Member } from "../../models/member.model";
 import { RamblersUploadAuditApiResponse } from "../../models/ramblers-upload-audit.model";
 import {
   ALL_EVENT_TYPES,
@@ -32,7 +30,6 @@ import {
 import { Ramblers } from "../../models/system.model";
 import {
   EventType,
-  FileUploadSummary,
   LocalAndRamblersWalk,
   LocalContact,
   MongoIdsSupplied,
@@ -144,10 +141,6 @@ export class RamblersWalksAndEventsService {
 
   groupNotifications(): Observable<RamblersGroupsApiResponseApiResponse> {
     return this.groupsSubject.asObservable();
-  }
-
-  uploadRamblersWalks(data: RamblersWalksUploadRequest): Promise<ApiResponse> {
-    return this.commonDataService.responseFrom(this.logger, this.http.post<RamblersUploadAuditApiResponse>(`${this.BASE_URL}/upload-walks`, data), this.auditSubject);
   }
 
   async queryWalkLeaders(): Promise<Contact[]> {
@@ -351,42 +344,25 @@ export class RamblersWalksAndEventsService {
       .map(walk => this.toWalkExport(walk));
   }
 
-  uploadToRamblers(walkExports: WalkExport[], members: Member[], notify: AlertInstance): Promise<FileUploadSummary> {
-    notify.setBusy();
+  public notifyWalkUploadStarted(notify: AlertInstance, walksUploadRequest: RamblersWalksUploadRequest) {
+    notify.warning({
+      title: "Ramblers walks upload",
+      message: `Upload of ${this.stringUtilsService.pluraliseWithCount(walksUploadRequest.rows.length, "walk")} to Ramblers has been submitted. Monitor the Walk upload audit tab for progress`
+    });
+  }
+
+  public createWalksUploadRequest(walkExports: WalkExport[]): RamblersWalksUploadRequest {
     const walkIdDeletionList = this.walkDeletionList(walkExports);
     this.logger.debug("sourceData", walkExports);
     const rows = this.walkUploadRows(walkExports);
     const fileName = this.exportWalksFileName();
-    const walksUploadRequest: RamblersWalksUploadRequest = {
+    return {
       headings: this.walkUploadHeadings(),
       rows,
       fileName,
       walkIdDeletionList,
       ramblersUser: this.memberLoginService.loggedInMember().firstName
     };
-    this.logger.info("exporting", walksUploadRequest);
-    notify.warning({
-      title: "Ramblers walks upload",
-      message: `Uploading ${this.stringUtilsService.pluraliseWithCount(rows.length, "walk")} to Ramblers...`
-    });
-    return this.uploadRamblersWalks(walksUploadRequest)
-      .then(response => {
-        notify.warning({
-          title: "Ramblers walks upload",
-          message: `Upload of ${this.stringUtilsService.pluraliseWithCount(rows.length, "walk")} to Ramblers has been submitted. Monitor the Walk upload audit tab for progress`
-        });
-        this.logger.debug("success response data", response);
-        notify.clearBusy();
-        return {fileName, error: false};
-      })
-      .catch(response => {
-        this.logger.debug("error response data", response);
-        notify.error({
-          title: "Ramblers walks upload failed",
-          message: response
-        });
-        return {fileName, error: true};
-      });
   }
 
   public walkDeletionList(walkExports: WalkExport[]): string[] {

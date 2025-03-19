@@ -1,62 +1,62 @@
-const path = require("path"),
-  { ConsoleReporter } = require("@serenity-js/console-reporter"),
-  { ArtifactArchiver } = require("@serenity-js/core"),
-  { Photographer, TakePhotosOfFailures } = require("@serenity-js/protractor"),
-  { SerenityBDDReporter } = require("@serenity-js/serenity-bdd");
-
+const {Duration} = require('@serenity-js/core');
+const featuresDirectory = "lib/serenity-js/features";
+const outputDirectory = "target/site/serenity";
+const TWO_MINUTES_IN_MILLIS = 2 * 600 * 1000;
+const FIVE_MINUTES_IN_MILLIS = 5 * 600 * 1000;
 exports.config = {
-  chromeDriver: process.env["CHROMEDRIVER_PATH"],
+  chromeDriver: process.env.CHROMEDRIVER_PATH,
   SELENIUM_PROMISE_MANAGER: false,
   directConnect: true,
-  baseUrl: process.env["BASE_URL"],
-  allScriptsTimeout: 110000,
-  getPageTimeout: 60000,
+  baseUrl: process.env.BASE_URL,
+  allScriptsTimeout: FIVE_MINUTES_IN_MILLIS,
+  getPageTimeout: TWO_MINUTES_IN_MILLIS,
 
   specs: [
-    "serenity-js/features/" + (process.env["RAMBLERS_FEATURE"] || "walks-upload.ts"),
+    featuresDirectory + "/" + (process.env.RAMBLERS_FEATURE || "walks-upload.ts"),
   ],
 
   framework: "custom",
   frameworkPath: require.resolve("@serenity-js/protractor/adapter"),
 
   serenity: {
-    runner: "jasmine",
+    runner: "mocha",
     crew: [
-      ArtifactArchiver.storingArtifactsAt("./target/site/serenity"),
-      Photographer.whoWill(TakePhotosOfFailures),
-      new SerenityBDDReporter(),
-      ConsoleReporter.withDefaultColourSupport(),
-    ]
+      "@serenity-js/console-reporter",
+      ["@serenity-js/serenity-bdd", {specDirectory: featuresDirectory}],
+      ["@serenity-js/web:Photographer", {strategy: "TakePhotosOfFailures"}],
+      ["@serenity-js/core:ArtifactArchiver", {outputDirectory}]
+    ],
+    interactionTimeout: Duration.ofSeconds(20),
+    cueTimeout: Duration.ofSeconds(20),
   },
 
-  jasmineNodeOpts: {
-    requires: [
+  mochaOpts: {
+    require: [
       "ts-node/register",
-      path.resolve(__dirname, "node_modules/@serenity-js/jasmine"),
     ],
-    helpers: [
-      "serenity-js/features/config/*.ts"
-    ]
+    timeout: FIVE_MINUTES_IN_MILLIS,
   },
 
   capabilities: {
     browserName: "chrome",
+    chromeOptions: {
+      binary: process.env.CHROME_BIN,
+      args: [
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--disable-infobars",
+        "--headless",
+        "--log-level=ALL",
+        "--log-path=/tmp/user_data/chrome.log",
+        "--no-sandbox",
+        "--remote-debugging-port=9222",
+        "--user-data-dir=/tmp/user_data",
+        "--window-size=2056x1329",
+      ],
+    },
     loggingPrefs: {
       driver: "INFO",
       browser: "INFO",
-    },
-    chromeOptions: {
-      args: [
-        "--headless",
-        "--no-sandbox",
-        "--disable-dev-shm-usage",
-        "--remote-debugging-port=9222",
-        "--window-size=1280,800",
-        "user-data-dir=/tmp/user_data",
-        "--log-level=ALL",
-        "--log-path=/tmp/user_data/chrome.log"
-      ],
-      binary: process.env.CHROME_BIN,
     }
   },
 

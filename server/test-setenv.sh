@@ -15,6 +15,5 @@ export INSTAGRAM_CLIENT_ID=123
 export INSTAGRAM_CLIENT_SECRET=123
 export NODE_CONFIG_DIR=lib/env-config
 export CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-export WALKS_NPM_COMMAND="npm run e2e 'process command parameters'"
 export DEBUG_COLORS=true
 export DEBUG=ekwg:*

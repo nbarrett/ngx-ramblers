@@ -13,6 +13,10 @@
       "dom"
     ],
     "module": "commonjs",
+    "types": [
+      "node",
+      "@wdio/globals/types"
+    ],
     "moduleResolution": "node",
     "outDir": "ts-gen",
     "skipLibCheck": true,
@@ -24,7 +28,7 @@
     "node_modules"
   ],
   "include": [
-    "serenity-js/**/*.ts",
+    "lib/serenity-js/**/*.ts",
     "lib/**/*.*",
     "../projects/ngx-ramblers/src/app/models/**/*.*",
     "../projects/ngx-ramblers/src/app/common/**/*.*"

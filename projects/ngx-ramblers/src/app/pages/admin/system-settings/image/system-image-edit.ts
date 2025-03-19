@@ -99,7 +99,7 @@ import { NgClass } from "@angular/common";
 })
 export class SystemImageEditComponent implements OnInit {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("SystemImageEditComponent", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("SystemImageEditComponent", NgxLoggerLevel.ERROR);
   private notifierService = inject(NotifierService);
   private stringUtils = inject(StringUtilsService);
   private broadcastService = inject<BroadcastService<string>>(BroadcastService);

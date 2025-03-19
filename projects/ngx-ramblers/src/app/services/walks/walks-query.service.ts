@@ -30,11 +30,11 @@ export class WalksQueryService {
     return this.walkEventsService.latestEventWithStatusChangeIs(walk, EventType.APPROVED);
   }
 
-  activeWalks(walks: Walk[]) {
+  activeWalks(walks: Walk[]): Walk[] {
     return walks?.filter(walk => this.activeWalk(walk));
   }
 
-  deletedWalks(walks: Walk[]) {
+  deletedWalks(walks: Walk[]): Walk[] {
     return walks?.filter(walk => this.deletedWalk(walk));
   }
 

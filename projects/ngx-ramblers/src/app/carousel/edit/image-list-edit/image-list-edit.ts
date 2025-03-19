@@ -467,7 +467,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
       this.logger.info(`Progress: ${progressResponse.message}`);
       this.notify.success({title: "Progress", message: progressResponse.message});
     }));
-    this.subscriptions.push(this.webSocketClientService.receiveMessages("error").subscribe(error => {
+    this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.ERROR).subscribe(error => {
         this.logger.error(`Error: ${error}%`);
         this.notify.error({title: "Error", message: error});
       })
