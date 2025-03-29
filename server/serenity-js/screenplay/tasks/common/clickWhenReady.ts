@@ -15,8 +15,7 @@ export class ClickWhenReady implements Task {
 
   performAs(actor: PerformsActivities): Promise<void> {
     return actor.attemptsTo(
-      // WaitFor.ramblersToFinishProcessing(),
-      Wait.upTo(Duration.ofSeconds(10)).until(this.target, isClickable()),
+      Wait.upTo(Duration.ofSeconds(20)).until(this.target, isClickable()),
       Click.on(this.target));
   }
 

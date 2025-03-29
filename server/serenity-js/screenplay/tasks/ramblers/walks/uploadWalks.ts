@@ -27,14 +27,13 @@ export class UploadWalksSpecifiedWalks implements Task {
   }
 
   performAs(actor: PerformsActivities): Promise<void> {
-    console.log(`Uploading file ${this.fileName} containing ${pluraliseWithCount(this.expectedWalks, "walk")}`);
     return actor.attemptsTo(
       ClickWhenReady.on(WalksTargets.createDropdown),
       ClickWhenReady.on(WalksTargets.uploadAWalksCSV),
       Enter.theValue(this.fileName).into(WalksTargets.chooseFilesButton),
       ClickWhenReady.on(WalksTargets.uploadWalksButton),
-      Wait.upTo(Duration.ofSeconds(10)).until(WalksTargets.progressIndicator, isVisible()),
-      Wait.upTo(Duration.ofSeconds(10)).until(WalksTargets.alertMessage, isVisible()),
+      Wait.upTo(Duration.ofSeconds(20)).until(WalksTargets.progressIndicator, isVisible()),
+      Wait.upTo(Duration.ofSeconds(20)).until(WalksTargets.alertMessage, isVisible()),
       Check.whether(WalksTargets.errorAlert, isVisible())
         .andIfSo(ReportOn.uploadErrors())
         .otherwise(WaitFor.successAlertToContainMessage(`${pluraliseWithCount(this.expectedWalks, "walk")} ${pluralise(this.expectedWalks, "has", "have")} been created`)));

@@ -3,7 +3,7 @@ import * as authConfig from "../../auth/auth-config";
 import * as crudController from "../controllers/crud-controller";
 import { mailListAudit } from "../models/mail-list-audit";
 
-const controller = crudController.create(mailListAudit, true);
+const controller = crudController.create(mailListAudit);
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);

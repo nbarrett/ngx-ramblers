@@ -22,10 +22,8 @@ class SelectCheckboxValue implements Activity {
     return CheckedValue.of(this.target).answeredBy(actor)
       .then(checked => {
         if (checked !== this.value) {
-          // console.log(`checked value of ${this.target} is ${checked} -> checking`);
           return actor.attemptsTo(Click.on(this.target));
         } else {
-          // console.log(`checked value of ${this.target} already ${this.value} -> no action`);
           return Promise.resolve();
         }
       })

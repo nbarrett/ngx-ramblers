@@ -3,7 +3,6 @@ import parse from "csv-parse/sync";
 import debug from "debug";
 import * as fs from "fs";
 import { find, first, isEmpty, isObject, trim } from "lodash";
-import moment from "moment-timezone";
 import * as path from "path";
 import * as xlsx from "xlsx";
 import { UploadedFile } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
@@ -15,6 +14,7 @@ import {
 import * as aws from "../aws/aws-controllers";
 import { envConfig } from "../env-config/env-config";
 import { isAwsUploadErrorResponse } from "../aws/aws-utils";
+import { momentNow } from "../shared/dates";
 
 const BULK_LOAD_SUFFIX = "MemberList.csv";
 const NEW_MEMBER_SUFFIX = "new.csv";
@@ -22,7 +22,7 @@ const EXCEL_SUFFIX = ".xls";
 const debugLog = debug(envConfig.logNamespace("ramblers:memberBulkLoad"));
 
 export function uploadRamblersData(req, res) {
-  const momentInstance = moment().tz("Europe/London");
+  const momentInstance = momentNow();
   const uploadSessionFolder = `memberAdmin/${momentInstance.format("YYYY-MM-DD-HH-mm-ss")}`;
   const uploadedFile = uploadedFileInfo();
   const bulkUploadResponse: MemberBulkLoadAudit = {members: [], files: {archive: null, data: null}, auditLog: []};

@@ -28,7 +28,6 @@ export class WalkSummaries implements Question<Promise<WalkSummary[]>> {
     return promiseOf(WalksTargets.walkListviewTableRows.answeredBy(actor)
       .all(by.tagName("td")).getText()
       .then(columns => {
-        console.log("columns", columns);
         return ({
           action: columns[0],
           walkDate: columns[1],
@@ -50,9 +49,7 @@ export class WalkSummaries implements Question<Promise<WalkSummary[]>> {
 export const showsAWalkOn = (expectedDate: string) => showWalksOnAllOf([expectedDate]);
 export const showWalksOnAllOf = (expectedDates: string[]) => foundWalks => {
   return foundWalks.then(walks => {
-    console.log("walks:", walks);
     const walkDates = walks.map(walk => walk.walkDate);
-    console.log("walks dates:", walkDates);
     Ensure.that(walkDates, contain(expectedDates));
   });
 };

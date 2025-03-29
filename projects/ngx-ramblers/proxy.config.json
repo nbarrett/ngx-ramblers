@@ -12,5 +12,11 @@
     "changeOrigin": true,
     "ws": true,
     "logLevel": "debug"
+  },
+  "/reports": {
+    "target": "http://localhost:5001",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
   }
 }

@@ -1,4 +1,4 @@
-primary_region = "lhr"
+primary_region = "ams"
 
 [http_service]
 auto_start_machines = true
@@ -14,6 +14,10 @@ timeout = "2s"
 grace_period = "5s"
 method = "GET"
 path = "/api/health"
+
+[mounts]
+source = "serenity_data"
+destination = "/usr/src/app/server/target/site"
 
 [[vm]]
 cpu_kind = "shared"

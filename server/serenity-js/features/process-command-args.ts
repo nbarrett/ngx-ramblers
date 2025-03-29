@@ -7,11 +7,12 @@ import { DeleteWalks } from "../screenplay/tasks/ramblers/walks/deleteWalks";
 import { FilterWalks } from "../screenplay/tasks/ramblers/walks/filterWalks";
 import { UploadWalks } from "../screenplay/tasks/ramblers/walks/uploadWalks";
 import { Actors } from "./config/actors";
+import { THREE_MINUTES_MILLIS } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 
 describe("Walks and Events Manager", function () {
 
   beforeEach(() => {
-    jasmine.DEFAULT_TIMEOUT_INTERVAL = 120000;
+    jasmine.DEFAULT_TIMEOUT_INTERVAL = THREE_MINUTES_MILLIS;
     engage(new Actors());
   });
 

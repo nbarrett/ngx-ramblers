@@ -8,14 +8,12 @@ export class ListContacts implements Task {
   }
 
   performAs(actor: PerformsActivities & UsesAbilities & AnswersQuestions): Promise<void> {
-    console.log("now attempting to list contacts");
     return ContactListing.displayed().answeredBy(actor).then(contacts => {
       const mapped = contacts.map(contact => {
         const {displayName, contactId} = contact;
         this.results.push({displayName, contactId});
         return {displayName, contactId};
       });
-      console.log("found", this.results.length, "contacts so far");
     });
   }
 
