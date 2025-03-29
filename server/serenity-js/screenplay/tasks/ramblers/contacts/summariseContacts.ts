@@ -8,7 +8,6 @@ export class SummariseContacts implements Task {
   }
 
   performAs(actor: PerformsActivities & UsesAbilities): Promise<void> {
-    console.log("Saving", this.results.length, "contacts");
     new FileSystem(new Path("./")).store(new Path("all-contacts.json"), JSON.stringify(this.results));
     return Promise.resolve();
   }

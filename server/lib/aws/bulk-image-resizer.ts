@@ -13,8 +13,7 @@ import { contentTypeFrom, extensionFrom } from "./aws-utils";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { cloneDeep } from "lodash";
-import { generateUid } from "../shared/string-utils";
-import { pluraliseWithCount } from "../../serenity-js/screenplay/util/util";
+import { generateUid, lastItemFrom, pluraliseWithCount } from "../shared/string-utils";
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import * as transforms from "../mongo/controllers/transforms";
 import { humanFileSize } from "../../../projects/ngx-ramblers/src/app/functions/file-utils";
@@ -171,10 +170,6 @@ export async function resizeUnsavedImages(ws: WebSocket, contentMetadataResizeRe
     }));
     ws.close();
   }
-}
-
-export function lastItemFrom(key: string) {
-  return key?.split("/")?.pop();
 }
 
 async function listImages(contentMetadata: ContentMetadata): Promise<string[]> {

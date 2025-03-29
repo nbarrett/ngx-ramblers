@@ -11,7 +11,6 @@ export class SelectWalksWithStatus implements Task {
   }
 
   performAs(actor: PerformsActivities & UsesAbilities & AnswersQuestions): Promise<any> {
-    console.log(`selecting walks with status "${this.statuses}"`);
     return RamblersWalkSummaries.displayed().answeredBy(actor)
       .then(walks => actor.attemptsTo(
         SelectWalks.none(),

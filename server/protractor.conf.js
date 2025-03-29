@@ -68,7 +68,8 @@ exports.config = {
   debug: true,
   restartBrowserBetweenTests: false,
 
-  onPrepare: function () {
+  onPrepare: async function () {
     browser.waitForAngularEnabled(false);
+    await browser.driver.manage().window().setSize(2056, 1329);
   },
 };

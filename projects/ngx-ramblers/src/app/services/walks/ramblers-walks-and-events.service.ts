@@ -364,7 +364,7 @@ export class RamblersWalksAndEventsService {
       walkIdDeletionList,
       ramblersUser: this.memberLoginService.loggedInMember().firstName
     };
-    this.logger.off("exporting", walksUploadRequest);
+    this.logger.info("exporting", walksUploadRequest);
     notify.warning({
       title: "Ramblers walks upload",
       message: `Uploading ${this.stringUtilsService.pluraliseWithCount(rows.length, "walk")} to Ramblers...`

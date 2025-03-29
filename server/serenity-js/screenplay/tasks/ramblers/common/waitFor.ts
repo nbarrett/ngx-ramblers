@@ -9,8 +9,7 @@ import { WalksHaveCountOrErrorDisplayed } from "../../../questions/ramblers/walk
 import { WalksWithStatus } from "../../../questions/ramblers/walksHaveStatus";
 import { WalksTargets } from "../../../ui/ramblers/walksTargets";
 
-const TIMEOUT_IN_SECONDS = 10;
-
+const TIMEOUT_IN_SECONDS = 20;
 export class WaitFor {
 
   static ramblersToFinishProcessing() {
@@ -20,12 +19,12 @@ export class WaitFor {
 
   static successAlertToContainMessage(message: string) {
     return Task.where(`#actor waits for success alert to contain message '${message}'`,
-      Wait.upTo(Duration.ofSeconds(10)).until(WalksTargets.successAlert, isVisible()),
+      Wait.upTo(Duration.ofSeconds(TIMEOUT_IN_SECONDS)).until(WalksTargets.successAlert, isVisible()),
       Ensure.that(WalksAndEventsManagerQuestions.AlertMessage, includes(message)));
   }
   static errorAlertToContainMessage(message: string) {
     return Task.where(`#actor waits for error alert to contain message '${message}'`,
-      Wait.upTo(Duration.ofSeconds(10)).until(WalksTargets.errorAlert, isVisible()),
+      Wait.upTo(Duration.ofSeconds(TIMEOUT_IN_SECONDS)).until(WalksTargets.errorAlert, isVisible()),
       Ensure.that(WalksAndEventsManagerQuestions.AlertMessage, includes(message)));
   }
 

@@ -7,6 +7,16 @@ ARG CHROME_VERSION
 # Install dependencies for Chrome installation
 RUN apt-get update && apt-get install -y wget curl unzip gnupg2 ca-certificates
 
+# Install OpenJDK 21 JRE manually
+RUN wget https://download.java.net/java/GA/jdk21.0.2/f2283984656d49d69e91c558476027ac/13/GPL/openjdk-21.0.2_linux-x64_bin.tar.gz -O /tmp/openjdk-21.tar.gz \
+  && mkdir -p /usr/local/openjdk-21 \
+  && tar -xzf /tmp/openjdk-21.tar.gz -C /usr/local/openjdk-21 --strip-components=1 \
+  && rm /tmp/openjdk-21.tar.gz \
+  && ln -s /usr/local/openjdk-21/bin/java /usr/bin/java
+
+# Verify Java installation
+RUN java -version && echo "Java installed successfully"
+
 # Set the working directory inside the container
 WORKDIR /usr/src/app
 
@@ -43,6 +53,9 @@ RUN npm install
 
 # Update the Serenity BDD dependencies so it doesn't have to run in the step before serenity is run
 RUN npm run serenity-bdd-update
+# Custom step to download the latest Serenity CLI jar as serenity-cli-2.1.10-all.jar no longer gets downloaded by above command
+RUN mkdir -p node_modules/@serenity-js/serenity-bdd/cache
+RUN wget -O node_modules/@serenity-js/serenity-bdd/cache/serenity-cli-2.1.10-all.jar https://repo1.maven.org/maven2/net/serenity-bdd/serenity-cli/4.2.9/serenity-cli-4.2.9.jar
 
 # Set environment variables for Chrome and Chromedriver
 ENV CHROME_BIN=/usr/src/app/server/chrome/linux-${CHROME_VERSION}/chrome-linux64/chrome

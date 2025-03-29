@@ -7,8 +7,8 @@ import debug from "debug";
 import * as mongoose from "mongoose";
 import { ControllerRequest, DeletionResponse } from "../../../../projects/ngx-ramblers/src/app/models/mongo-models";
 import { ApiAction, Identifiable } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
-import { pluraliseWithCount } from "../../../serenity-js/screenplay/util/util";
 import { DeleteDocumentsRequest } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
+import { pluraliseWithCount } from "../../shared/string-utils";
 
 export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Document>, debugEnabled?: boolean) {
   const debugLog: debug.Debugger = debug(envConfig.logNamespace(`database:${model.modelName}`));

@@ -3,7 +3,7 @@ import * as authConfig from "../../auth/auth-config";
 import { deletedMember } from "../models/deleted-member";
 import express from "express";
 
-const controller = crudController.create(deletedMember, true);
+const controller = crudController.create(deletedMember);
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);

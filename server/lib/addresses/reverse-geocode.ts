@@ -13,7 +13,7 @@ import url = require("url");
 
 export async function reverseGeocode(req, res) {
   const debugLog: debug.Debugger = debug(envConfig.logNamespace("reverse-gecode"));
-  debugLog.enabled = true;
+  debugLog.enabled = false;
 
   const baseUrl = url.parse(ENDPOINT, false);
   const body: LatLngLiteral = req.body;

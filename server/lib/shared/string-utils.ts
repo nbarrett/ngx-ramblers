@@ -28,3 +28,20 @@ export function replaceAll(find: string, replace: string, str: string): string |
 export function asBoolean(val: any): boolean {
   return val === true || ["true", "yes"].includes(val?.toString().toLowerCase());
 }
+
+export function tail<T>(results: T[]) {
+  const [headItem, ...tailItems] = results;
+  return tailItems;
+}
+
+export function pluraliseWithCount(count: number, singular: string, plural?: string) {
+  return `${count} ${pluralise(count, singular, plural)}`;
+}
+
+export function pluralise(count: number, singular: string, plural?: string) {
+  return `${count === 1 ? singular : plural || (singular + "s")}`;
+}
+
+export function lastItemFrom(key: string) {
+  return key?.split("/").filter(item => item)?.pop();
+}

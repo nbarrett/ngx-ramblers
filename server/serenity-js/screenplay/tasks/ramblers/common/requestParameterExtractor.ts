@@ -10,7 +10,6 @@ export class ExtractTask implements Task {
 
   performAs(actor: PerformsActivities): Promise<void> {
     const extractedParameters: WalkRequestParameters = RequestParameterExtractor.extract();
-    console.log("extractedParameters", extractedParameters);
     return actor.attemptsTo(
       Log.message(`parameters supplied were ${JSON.stringify(extractedParameters)}`),
     );

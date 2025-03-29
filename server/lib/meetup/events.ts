@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
 import debugLib from "debug";
-import moment from "moment-timezone";
 import * as messageHandlers from "../shared/message-handlers";
 import * as requestDefaults from "./request-defaults";
 import { Meetup } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { configuredMeetup } from "./meetup-config";
+import { momentInTimezone } from "../shared/dates";
 
 const debug = debugLib(envConfig.logNamespace("meetup:events"));
 debug.enabled = false;
@@ -61,9 +61,6 @@ export async function single(req: Request, res: Response): Promise<void> {
     .catch(error => res.json(error));
 }
 
-function momentInTimezone(time: string, format?: string) {
-  return moment(time, format).tz("Europe/London");
-}
 
 function toConciseResponse(jsonData: any[]): any[] {
   return jsonData.map(result => {

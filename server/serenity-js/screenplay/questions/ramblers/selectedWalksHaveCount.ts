@@ -15,7 +15,6 @@ export class SelectedWalksHaveCount implements Question<Promise<boolean>> {
     return RamblersWalkSummaries.displayed().answeredBy(actor)
       .then(walks => walks.filter(walk => WalkFilters.currentlySelected(walk)))
       .then(walks => {
-        // console.log(`waiting for ${this} - current count ${walks.length}`);
         return walks.length === this.walkCount;
       });
   }

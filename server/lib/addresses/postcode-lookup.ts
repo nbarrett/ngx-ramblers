@@ -12,7 +12,7 @@ import { gridReference10From, gridReference6From, gridReference8From } from "./g
 import { ENDPOINT, postcodeLookupServiceResponseMapper } from "./shared";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("postcode-lookup"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function postcodeLookup(req, res) {
   const baseUrl = url.parse(ENDPOINT, false);

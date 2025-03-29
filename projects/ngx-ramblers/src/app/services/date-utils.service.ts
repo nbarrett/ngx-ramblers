@@ -21,6 +21,7 @@ export class DateUtilsService {
 
   public formats = {
     displayTime: "h:mm a",
+    displayTimeWithSeconds: "h:mm:ss a",
     displayDateAndTime: "dddd, D MMMM YYYY, h:mm:ss a",
     displayDateTh: "MMMM Do YYYY",
     displayDate: "dddd, D MMMM YYYY",
@@ -80,6 +81,10 @@ export class DateUtilsService {
 
   displayTime(dateValue: any): string {
     return this.asString(dateValue, undefined, this.formats.displayTime);
+  }
+
+  displayTimeWithSeconds(dateValue: any): string {
+    return this.asString(dateValue, undefined, this.formats.displayTimeWithSeconds);
   }
 
   asDateValue(dateValue?: any, inputFormat?: string): DateValue {

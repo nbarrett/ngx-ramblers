@@ -21,8 +21,9 @@ import map from "lodash/map";
 import { systemConfig } from "../config/system-config";
 import { Request, Response } from "express";
 import { WalkLeadersApiResponse } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
-import { pluraliseWithCount } from "../../serenity-js/screenplay/util/util";
 import omit from "lodash/omit";
+import { pluraliseWithCount } from "../shared/string-utils";
+import { momentNow } from "../shared/dates";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
@@ -159,7 +160,7 @@ function dateParameter(body: EventsListRequest): string {
 
 function dateEndParameter(body: EventsListRequest): string {
   if (body?.ids?.length > 0) {
-    const dateEndParameter = moment().tz("Europe/London").add(12, "month").format(DateFormat.WALKS_MANAGER_API);
+    const dateEndParameter = momentNow().add(12, "month").format(DateFormat.WALKS_MANAGER_API);
     debugLog("returning dateEndParameter:", dateEndParameter, "given id request:", body.ids, "and dateEnd:", body.dateEnd);
     return dateEndParameter;
   } else {

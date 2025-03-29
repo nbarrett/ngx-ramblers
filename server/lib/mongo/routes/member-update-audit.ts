@@ -3,7 +3,7 @@ import * as authConfig from "../../auth/auth-config";
 import { memberUpdateAudit } from "../models/member-update-audit";
 import * as crudController from "../controllers/crud-controller";
 
-const controller = crudController.create(memberUpdateAudit, true);
+const controller = crudController.create(memberUpdateAudit);
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);

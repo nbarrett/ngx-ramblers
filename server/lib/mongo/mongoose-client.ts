@@ -8,7 +8,9 @@ debugLog.enabled = false;
 let connected = false;
 
 function createDebugFor(model: any): debug.Debugger {
-  return debug(envConfig.logNamespace(`local-database:${model.modelName}`));
+  const debugLog = debug(envConfig.logNamespace(`local-database:${model.modelName}`));
+  debugLog.enabled = false;
+  return debugLog;
 }
 
 export function execute(mongoFunction: () => any): Promise<any> {
@@ -20,9 +22,8 @@ export function execute(mongoFunction: () => any): Promise<any> {
   }
 }
 
-export function create<T>(model: mongoose.Model<mongoose.Document>, data: T): Promise<T> {
-  const debugCreate: debug.Debugger = createDebugFor(model);
-  debugCreate.enabled = false;
+export function create<T>(model: mongoose.Model<mongoose.Document>, data: T, debugLog?: debug.Debugger): Promise<T> {
+  const debugCreate: debug.Debugger = debugLog || createDebugFor(model);
   const performCreate = () => {
     const document = transforms.createDocumentRequest<T>(data);
     debugCreate("create:data:", data, "document:", document);
@@ -47,7 +48,7 @@ export function create<T>(model: mongoose.Model<mongoose.Document>, data: T): Pr
 }
 
 export function connect(debug?: debug.Debugger) {
-  const mongoUri = envConfig.mongo.uri.replace(/^"|"$/g, ""); ;
+  const mongoUri = envConfig.mongo.uri.replace(/^"|"$/g, "");
   debugLog("MongoDB URI:", mongoUri);
   const debugConnect = debug || debugLog;
   return mongoose.connect(mongoUri, {
