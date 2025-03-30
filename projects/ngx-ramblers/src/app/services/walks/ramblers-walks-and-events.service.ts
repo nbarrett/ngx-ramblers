@@ -348,7 +348,7 @@ export class RamblersWalksAndEventsService {
     const todayValue = this.dateUtils.momentNowNoTime().valueOf();
     return localAndRamblersWalks
       .filter(walk => (walk.localWalk.walkDate >= todayValue) && walk.localWalk.briefDescriptionAndStartPoint)
-      .map(walk => this.validateWalk(walk));
+      .map(walk => this.toWalkExport(walk));
   }
 
   uploadToRamblers(walkExports: WalkExport[], members: Member[], notify: AlertInstance): Promise<FileUploadSummary> {
@@ -404,7 +404,7 @@ export class RamblersWalksAndEventsService {
     return enumValues(WalkUploadColumnHeading);
   }
 
-  validateWalk(localAndRamblersWalk: LocalAndRamblersWalk): WalkExport {
+  public toWalkExport(localAndRamblersWalk: LocalAndRamblersWalk): WalkExport {
     const validationMessages = [];
     const walk: Walk = localAndRamblersWalk.localWalk;
     const walkDistance: WalkDistance = this.distanceValidationService.parse(walk);
@@ -472,13 +472,13 @@ export class RamblersWalksAndEventsService {
         validationMessages.push(`${alertMessage.title}. ${alertMessage.message}`);
       }
     }
-    const publishStatus = this.publishStatus(localAndRamblersWalk);
+    const publishStatus = this.toPublishStatus(localAndRamblersWalk);
     return {
       publishStatus,
       displayedWalk: this.walkDisplayService.toDisplayedWalk(walk),
       validationMessages,
       publishedOnRamblers: walk && !isEmpty(walk.ramblersWalkId),
-      selected: publishStatus.publish
+      selected: publishStatus.publish && validationMessages.length === 0
     };
   }
 
@@ -786,7 +786,7 @@ export class RamblersWalksAndEventsService {
     return {code: feature, description: this.stringUtilsService.asTitle(feature)};
   }
 
-  private publishStatus(localAndRamblersWalk: LocalAndRamblersWalk): PublishStatus {
+  private toPublishStatus(localAndRamblersWalk: LocalAndRamblersWalk): PublishStatus {
     const validateGridReferences = false;
     const publishStatus: PublishStatus = {actionRequired: false, publish: false, messages: []};
     const walk: Walk = localAndRamblersWalk.localWalk;
@@ -840,7 +840,7 @@ export class RamblersWalksAndEventsService {
     if (publishStatus.publish && !publishStatus.actionRequired) {
       publishStatus.actionRequired = actionRequired;
     }
-    this.logger.off("publishStatus:walk:", walk, "ramblersWalk:", ramblersWalk, "publishStatus:", publishStatus);
+    this.logger.off("toPublishStatus:walk:", walk, "ramblersWalk:", ramblersWalk, "toPublishStatus:", publishStatus);
     return publishStatus;
   }
 }

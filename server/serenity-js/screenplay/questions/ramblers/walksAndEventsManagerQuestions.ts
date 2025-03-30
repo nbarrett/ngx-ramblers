@@ -4,5 +4,4 @@ import { WalksTargets } from "../../ui/ramblers/walksTargets";
 
 export class WalksAndEventsManagerQuestions {
   public static CreateButton: Question<Promise<string>> = Text.of(WalksTargets.createDropdown);
-  public static AlertMessage: Question<Promise<string>> = Text.of(WalksTargets.alertMessage);
 }

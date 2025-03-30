@@ -1,14 +1,18 @@
 import { Check } from "@serenity-js/assertions";
 import { Duration, PerformsActivities, Task } from "@serenity-js/core";
-import { Enter, isVisible, Wait } from "@serenity-js/protractor";
+import { Enter, isPresent, isVisible, Wait } from "@serenity-js/protractor";
 import { WalksTargets } from "../../../ui/ramblers/walksTargets";
-import { pluralise, pluraliseWithCount } from "../../../util/util";
+import { pluraliseWithCount } from "../../../util/util";
 import { ClickWhenReady } from "../../common/clickWhenReady";
 import { RequestParameterExtractor } from "../common/requestParameterExtractor";
 import { WaitFor } from "../common/waitFor";
 import { ReportOn } from "./reportOnUpload";
 
 export class UploadWalks {
+
+  public static createdAlertMessage() {
+    return `been created`;
+  }
 
   static fileWithNameAndCount(fileName: string, expectedWalks: number) {
     return new UploadWalksSpecifiedWalks(fileName, expectedWalks);
@@ -32,11 +36,11 @@ export class UploadWalksSpecifiedWalks implements Task {
       ClickWhenReady.on(WalksTargets.uploadAWalksCSV),
       Enter.theValue(this.fileName).into(WalksTargets.chooseFilesButton),
       ClickWhenReady.on(WalksTargets.uploadWalksButton),
-      Wait.upTo(Duration.ofSeconds(20)).until(WalksTargets.progressIndicator, isVisible()),
-      Wait.upTo(Duration.ofSeconds(20)).until(WalksTargets.alertMessage, isVisible()),
+      WaitFor.ramblersToFinishProcessing(),
+      Wait.upTo(Duration.ofSeconds(20)).until(WalksTargets.alertMessage, isPresent()),
       Check.whether(WalksTargets.errorAlert, isVisible())
         .andIfSo(ReportOn.uploadErrors())
-        .otherwise(WaitFor.successAlertToContainMessage(`${pluraliseWithCount(this.expectedWalks, "walk")} ${pluralise(this.expectedWalks, "has", "have")} been created`)));
+        .otherwise(WaitFor.successAlertToContainMessage(UploadWalks.createdAlertMessage())));
   }
 
   toString() {
