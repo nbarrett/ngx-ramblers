@@ -1,6 +1,6 @@
-import { ApiResponse } from "./api-response.model";
+import { ApiResponse, Identifiable } from "./api-response.model";
 
-export interface RamblersUploadAudit {
+export interface RamblersUploadAudit extends Identifiable {
   auditTime: number;
   fileName: string;
   type: string;

@@ -1,5 +1,12 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faCheckCircle, faCircleInfo, faEnvelope, faExclamationCircle, faEye, faRemove } from "@fortawesome/free-solid-svg-icons";
+import {
+  faCheckCircle,
+  faCircleInfo,
+  faEnvelope,
+  faExclamationCircle,
+  faEye,
+  faRemove
+} from "@fortawesome/free-solid-svg-icons";
 import find from "lodash-es/find";
 import map from "lodash-es/map";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -64,7 +71,7 @@ import { sortBy } from "../../../functions/arrays";
                 @if (!display.walkPopulationWalksManager()) {
                   <div class="col mb-2">
                     <input type="submit"
-                           value="Upload {{stringUtils.pluraliseWithCount(walksDownloadFileContents.length, 'walk')}} directly to Ramblers"
+                           value="Upload {{stringUtils.pluraliseWithCount(walksDownloadFileContents.length, 'walk')}} to Ramblers"
                            (click)="uploadToRamblers()"
                            [disabled]="(walksDownloadFileContents.length === 0) || exportInProgress"
                            class="btn btn-primary w-100"/>
@@ -72,7 +79,7 @@ import { sortBy } from "../../../functions/arrays";
                   <div class="col mb-2">
                     <input type="submit"
                            (click)="csvComponent.generateCsv();"
-                           value="Export {{stringUtils.pluraliseWithCount(walksDownloadFileContents.length, 'walk')}} file as CSV format"
+                           value="Export {{stringUtils.pluraliseWithCount(walksDownloadFileContents.length, 'walk')}} file to CSV"
                            [disabled]="walksDownloadFileContents.length === 0 || exportInProgress"
                            class="btn btn-primary w-100"/>
                   </div>
@@ -177,42 +184,49 @@ import { sortBy } from "../../../functions/arrays";
               </div>
               @if (!display.walkPopulationWalksManager()) {
                 <div class="row">
-                  <div class="col-sm-12">
-                    <div class="button-group">
-                      <form class="form-inline">
-                        <div class="form-group">
-                          <label for="fileName" class="inline-label">Show upload session: </label>
-                          <ng-select [clearable]="false" name="fileName" [(ngModel)]="fileName"
-                                     (change)="fileNameChanged()"
-                                     class="filename-select rounded">
-                            @for (fileName of fileNames; track fileName) {
-                              <ng-option [value]="fileName">
-                                <div class="form-inline">
-                                  <fa-icon [icon]="fileName.error ? faRemove : faCircleInfo"
-                                           [ngClass]="fileName.error ? 'red-icon' : 'green-icon'"></fa-icon>
-                                  {{ fileName.fileName }}
-                                </div>
-                              </ng-option>
-                            }
-                          </ng-select>
+                  <div class="col-auto">
+                    <div class="form-inline">
+                      <div class="form-group">
+                        <label for="fileName" class="inline-label">Upload: </label>
+                        <ng-select [clearable]="false" name="fileName" [(ngModel)]="fileName"
+                                   (change)="fileNameChanged()"
+                                   class="filename-select rounded">
+                          @for (fileName of fileNames; track fileName) {
+                            <ng-option [value]="fileName">
+                              <div class="form-inline">
+                                <fa-icon [icon]="fileName.error ? faRemove : faCircleInfo"
+                                         [ngClass]="fileName.error ? 'red-icon' : 'green-icon'"></fa-icon>
+                                {{ fileName.fileName }}
+                              </div>
+                            </ng-option>
+                          }
+                        </ng-select>
+                      </div>
+                      <div class="form-group">
+                        <div class="custom-control custom-checkbox">
+                          <input [(ngModel)]="showDetail"
+                                 name="showDetail" type="checkbox" class="custom-control-input"
+                                 id="show-detailed-audit-messages"/>
+                          <label class="custom-control-label"
+                                 (click)="fileNameChanged()"
+                                 for="show-detailed-audit-messages">Show details
+                          </label>
                         </div>
-                        <div class="form-group">
-                          <div class="custom-control custom-checkbox">
-                            <input [(ngModel)]="showDetail"
-                                   name="showDetail" type="checkbox" class="custom-control-input"
-                                   id="show-detailed-audit-messages"/>
-                            <label class="custom-control-label"
-                                   (click)="fileNameChanged()"
-                                   for="show-detailed-audit-messages">Show details
-                            </label>
-                          </div>
-                        </div>
-                        <div class="form-group">
-                          <input type="submit" value="Back To Walks Admin" (click)="navigatebackToWalksAdmin()"
-                                 title="Back to walks"
-                                 class="btn btn-primary"/>
-                        </div>
-                      </form>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col">
+                    <div class="form-group">
+                      <input type="submit" value="Last Import Report" (click)="navigateToLastReport($event)"
+                             title="Back to walks"
+                             class="btn btn-primary w-100"/>
+                    </div>
+                  </div>
+                  <div class="col">
+                    <div class="form-group">
+                      <input type="submit" value="Back To Walks Admin" (click)="navigatebackToWalksAdmin()"
+                             title="Back to walks"
+                             class="btn btn-primary w-100"/>
                     </div>
                   </div>
                 </div>
@@ -228,7 +242,7 @@ import { sortBy } from "../../../functions/arrays";
                     </tr>
                     </thead>
                     <tbody>
-                      @for (audit of ramblersUploadAuditData; track audit) {
+                      @for (audit of ramblersUploadAuditData; track audit.id) {
                         <tr>
                           <td class="nowrap">{{ audit.auditTime | displayTime }}</td>
                           <td>
@@ -270,7 +284,7 @@ import { sortBy } from "../../../functions/arrays";
       </app-page>`,
     styles: [`
     .filename-select
-      width: 400px
+      width: 350px
 
     .card-disabled
       opacity: 0.5
@@ -403,6 +417,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
             return auditItem;
           });
         this.auditNotifier.warning(`Showing ${this.ramblersUploadAuditData.length} audit items`);
+        this.logger.info("this.ramblersUploadAuditData:", this.ramblersUploadAuditData);
         this.finalStatusError = find(this.ramblersUploadAuditData, {status: "error"});
       });
   }
@@ -421,6 +436,10 @@ export class WalkExportComponent implements OnInit, OnDestroy {
 
   navigatebackToWalksAdmin() {
     this.urlService.navigateTo(["walks", "admin"]);
+  }
+
+  navigateToLastReport(event) {
+    this.urlService.navigateToUrl("reports/target/site/serenity/index.html", event);
   }
 
   populateWalkExport(walksForExport: WalkExport[]): WalkExport[] {

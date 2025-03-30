@@ -14,7 +14,7 @@ export class SaveBrowserSource implements Interaction {
   performAs(actor: UsesAbilities): Promise<void> {
     return protractor.browser.getPageSource()
       .then((htmlSource: string) => {
-        new FileSystem(new Path("./"))
+        new FileSystem(new Path("./target/site/serenity"))
           .store(Path.fromSanitisedString(this.relativePathToFile), htmlSource);
       }) as Promise<void>;
   }

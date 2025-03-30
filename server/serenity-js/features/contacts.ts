@@ -1,5 +1,5 @@
 import { actorCalled } from "@serenity-js/core";
-import { Click, UseAngular } from "@serenity-js/protractor";
+import { Click } from "@serenity-js/protractor";
 import { Contact } from "../screenplay/questions/ramblers/contactListing";
 import { Start } from "../screenplay/tasks/common/start";
 import { Login } from "../screenplay/tasks/ramblers/common/login";
@@ -16,7 +16,6 @@ describe("Ramblers contacts", function () {
 
   beforeEach(() =>
     actor.attemptsTo(
-      UseAngular.disableSynchronisation(),
       Start.onContacts(),
       Login.toRamblers()));
 

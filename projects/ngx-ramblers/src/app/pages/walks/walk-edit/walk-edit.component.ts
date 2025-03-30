@@ -1169,7 +1169,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   validateWalk(): WalkExport {
-    return this.ramblersWalksAndEventsService.validateWalk({localWalk: this.displayedWalk.walk, ramblersWalk: null});
+    return this.ramblersWalksAndEventsService.toWalkExport({localWalk: this.displayedWalk.walk, ramblersWalk: null});
   }
 
   swapStartAndEndLocations() {

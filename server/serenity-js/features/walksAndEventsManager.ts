@@ -1,5 +1,4 @@
 import { actorCalled } from "@serenity-js/core";
-import { UseAngular } from "@serenity-js/protractor";
 import { Start } from "../screenplay/tasks/common/start";
 import { Login } from "../screenplay/tasks/ramblers/common/login";
 import { DeleteWalks } from "../screenplay/tasks/ramblers/walks/deleteWalks";
@@ -14,7 +13,6 @@ describe("Walks and Events Manager", function () {
   const fileName = "/Users/nick/dev/git-personal/ekwg/non-vcs/walk-exports/walks-export-07-February-2018-08-39.csv";
   const expectedWalks = 4;
   it("allows a file to be uploaded and published that replaces all existing walks", () => actor.attemptsTo(
-    UseAngular.disableSynchronisation(),
     Start.onWalksAndEventsManager(),
     Login.toRamblers(),
     FilterWalks.toShowAll(),
@@ -24,7 +22,6 @@ describe("Walks and Events Manager", function () {
   ));
 
   it("allows a file to be uploaded, replacing supplied walk ids", () => actor.attemptsTo(
-    UseAngular.disableSynchronisation(),
     Start.onWalksAndEventsManager(),
     Login.toRamblers(),
     FilterWalks.toShowAll(),
@@ -34,7 +31,6 @@ describe("Walks and Events Manager", function () {
   ));
 
   it("test question", () => actor.attemptsTo(
-    UseAngular.disableSynchronisation(),
     Start.onWalksAndEventsManager(),
     Login.toRamblers(),
     SelectWalks.withStatus("Published"),
