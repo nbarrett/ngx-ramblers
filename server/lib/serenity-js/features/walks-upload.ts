@@ -28,7 +28,7 @@ describe("Walks Upload", () => {
     actorCalled(actor).attemptsTo(SaveBrowserSource.toFile("after-all.html"));
   });
 
-  it(`Walks Upload to Ramblers Walks Manager using WEBDRIVER_FRAMEWORK=${process.env.WEBDRIVER_FRAMEWORK}`, () => {
+  it(`Walks Upload to Ramblers Walks Manager`, () => {
     const today = momentNow().startOf("day").format("YYYY-MM-DD");
     return actorCalled(actor).attemptsTo(
       Start.onWalksAndEventsManager(),

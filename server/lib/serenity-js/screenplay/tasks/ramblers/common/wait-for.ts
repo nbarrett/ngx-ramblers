@@ -21,6 +21,11 @@ export class WaitFor {
       Wait.until(TextThatMightNotYetBeThere.of(WalksPageElements.successAlert), includes(message)));
   }
 
+  static successAlertToNotContainMessage(message: string) {
+    return Task.where(`#actor waits for the success alert to contain message '${message}'`,
+      Wait.until(TextThatMightNotYetBeThere.of(WalksPageElements.successAlert), not(includes(message))));
+  }
+
   static ramblersToFinishProcessingEventually() {
     return Task.where(`#actor waits for processing to complete`,
       Ensure.eventually(WalksPageElements.progressIndicator, not(isVisible())));

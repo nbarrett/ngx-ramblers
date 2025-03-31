@@ -3,7 +3,11 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
-import { RamblersUploadAuditApiResponse } from "../../models/ramblers-upload-audit.model";
+import {
+  FileUploadSummary,
+  RamblersUploadAuditApiResponse,
+  RamblersUploadSummaryResponse
+} from "../../models/ramblers-upload-audit.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 
@@ -26,6 +30,13 @@ export class RamblersUploadAuditService {
     const params = this.commonDataService.toHttpParams(dataQueryOptions);
     this.logger.debug("all:dataQueryOptions", dataQueryOptions, "params", params.toString());
     return this.commonDataService.responseFrom(this.logger, this.http.get<RamblersUploadAuditApiResponse>(`${this.BASE_URL}/all`, {params}), this.auditNotifications);
+  }
+
+  async uniqueUploadSessions(): Promise<FileUploadSummary[]> {
+    const uploadSessionsResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<RamblersUploadSummaryResponse>(`${this.BASE_URL}/upload-sessions`));
+    const sessions = uploadSessionsResponse.response;
+    this.logger.info("uniqueUploadSessions:", sessions);
+    return sessions;
   }
 
 }

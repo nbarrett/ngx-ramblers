@@ -3,9 +3,6 @@ const featuresDirectory = "lib/serenity-js/features";
 const outputDirectory = "target/site/serenity";
 const TWO_MINUTES_IN_MILLIS = 2 * 600 * 1000;
 const FIVE_MINUTES_IN_MILLIS = 5 * 600 * 1000;
-console.log("CHROMEDRIVER_PATH:", process.env.CHROMEDRIVER_PATH);
-console.log("CHROME_BIN:", process.env.CHROME_BIN);
-console.log("WEBDRIVER_RUNNER:", process.env.WEBDRIVER_RUNNER);
 exports.config = {
   chromeDriver: process.env.CHROMEDRIVER_PATH,
   SELENIUM_PROMISE_MANAGER: false,
@@ -22,7 +19,7 @@ exports.config = {
   frameworkPath: require.resolve("@serenity-js/protractor/adapter"),
 
   serenity: {
-    runner: process.env.WEBDRIVER_RUNNER || "mocha",
+    runner: "mocha",
     crew: [
       "@serenity-js/console-reporter",
       ["@serenity-js/serenity-bdd", {specDirectory: featuresDirectory}],

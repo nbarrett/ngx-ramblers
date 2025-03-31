@@ -1,7 +1,11 @@
 import { envConfig } from "../env-config/env-config";
 import debug from "debug";
 import { includes, isEmpty, isUndefined, some } from "lodash";
-import { ParsedRamblersUploadAudit } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
+import {
+  AuditType,
+  ParsedRamblersUploadAudit,
+  Status
+} from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
 import { momentNowAsValue } from "../shared/dates";
 
 const errorIcons = ["⨯", "✗", "✖"];
@@ -33,22 +37,22 @@ export function removeTokensFromMessage(auditMessage: string): string {
   return trimTokensFrom(auditMessage, successIcons.concat(errorIcons).concat(ansiTokens));
 }
 
-export function toStatusFromNpmMessage(auditMessageItem: string): string {
-  return anyMatch(auditMessageItem, npmErrorTokens) ? "error" : "info";
+export function toStatusFromNpmMessage(auditMessageItem: string): Status {
+  return anyMatch(auditMessageItem, npmErrorTokens) ? Status.ERROR : Status.INFO;
 }
 
-export function toStatusFromIcon(auditMessageItem: string): string {
+export function toStatusFromIcon(auditMessageItem: string): Status {
   if (anyMatch(auditMessageItem, successIcons)) {
-    return "success";
+    return Status.SUCCESS;
   } else if (anyMatch(auditMessageItem, errorIcons)) {
-    return "error";
+    return Status.ERROR;
   } else {
-    return "info";
+    return Status.INFO;
   }
 }
 
 function splitIntoItems(auditMessage: string) {
-  return auditMessage.split(/\[serenity-run-[^\]]*]/).map(item => item.trim());
+  return auditMessage.split(/\[(?:serenity-run-[^\]]*|0-0)]/).map(item => item.trim());
 }
 
 export function parseStandardOut(auditMessage: string): ParsedRamblersUploadAudit[] {
@@ -59,18 +63,19 @@ export function parseStandardOut(auditMessage: string): ParsedRamblersUploadAudi
       || isEmpty(auditMessageItem)
       || isUndefined(auditMessageItem)
       || auditMessageItem.length <= 2
-      || anyMatch(auditMessageItem, [envConfig.logNamespace(logNamespace), "SceneTagged", "ActivityStarts"]);
+      || anyMatch(auditMessageItem, [envConfig.logNamespace(logNamespace), "SceneTagged", "ActivityStarts", "[report]"]);
     debugLog("parseStandardOut:auditMessageItem:", auditMessageItems.indexOf(auditMessageItem) + 1, "of", auditMessageItems.length, "messageItemIgnored:", messageItemIgnored, "data:", auditMessageItem);
     if (messageItemIgnored) {
       return {audit: false};
     } else if (auditMessageItem.includes("ActivityFinished: ")) {
       const messageAndResult = auditMessageItem.split("ActivityFinished: ")[1].split("1");
-      const status = messageAndResult[1].replace(")", "").toLowerCase().split("\n")[0].trim();
+      const status = messageAndResult[1].replace(")", "").toLowerCase().split("\n")[0].trim() as Status;
       const message = messageAndResult[0].trim();
+      debugLog("parseStandardOut:messageAndResult ->", messageAndResult, "status ->", status, "message ->", message);
       return {
         audit: true,
         auditTime: momentNowAsValue(),
-        type: "step",
+        type: AuditType.STEP,
         status,
         message
       };
@@ -78,7 +83,7 @@ export function parseStandardOut(auditMessage: string): ParsedRamblersUploadAudi
       return {
         audit: true,
         auditTime: momentNowAsValue(),
-        type: "step",
+        type: AuditType.STEP,
         status: toStatusFromIcon(auditMessageItem),
         message: removeTokensFromMessage(auditMessageItem)
       };
@@ -86,7 +91,7 @@ export function parseStandardOut(auditMessage: string): ParsedRamblersUploadAudi
       return {
         audit: true,
         auditTime: momentNowAsValue(),
-        type: "step",
+        type: AuditType.STEP,
         status: toStatusFromNpmMessage(auditMessageItem),
         message: removeTokensFromMessage(auditMessageItem)
       };
@@ -111,19 +116,19 @@ export function parseStandardError(auditMessage: string): ParsedRamblersUploadAu
         return {
           audit: true,
           auditTime: momentNowAsValue(),
-          type: "stderr",
-          status: "error",
+          type: AuditType.STDERR,
+          status: Status.ERROR,
           message: removeTokensFromMessage(auditMessageItem)
         };
       } else if (auditMessageItem.includes("ActivityFinished: ")) {
         const messageAndResult = auditMessageItem.split("ActivityFinished: ")[1].split(" (result: ");
-        const status = messageAndResult[1].replace(")", "").toLowerCase().split("\n")[0].trim();
+        const status = messageAndResult[1].replace(")", "").toLowerCase().split("\n")[0].trim() as Status;
         const message = removeTokensFromMessage(messageAndResult[0]);
-        debugLog("messageAndResult ->", messageAndResult, "status ->", status, "message ->", message);
+        debugLog("parseStandardError:messageAndResult ->", messageAndResult, "status ->", status, "message ->", message);
         return {
           audit: true,
           auditTime: momentNowAsValue(),
-          type: "step",
+          type: AuditType.STEP,
           status,
           message
         };
@@ -131,8 +136,8 @@ export function parseStandardError(auditMessage: string): ParsedRamblersUploadAu
         return {
           audit: true,
           auditTime: momentNowAsValue(),
-          type: "stderr",
-          status: "info",
+          type: AuditType.STDERR,
+          status: Status.INFO,
           message: removeTokensFromMessage(auditMessageItem)
         };
       }
@@ -140,13 +145,13 @@ export function parseStandardError(auditMessage: string): ParsedRamblersUploadAu
   });
 }
 
-export function parseExit(auditMessage: string): ParsedRamblersUploadAudit[] {
-  debugLog("parseExit:auditMessage", auditMessage);
+export function parseExit(auditMessage: string, status: Status): ParsedRamblersUploadAudit[] {
+  debugLog("parseExit:auditMessage:", auditMessage, "status:", status);
   return [{
     audit: true,
     auditTime: momentNowAsValue(),
-    type: "step",
-    status: "complete",
+    type: AuditType.SUMMARY,
+    status,
     message: removeTokensFromMessage(auditMessage)
   }];
 }

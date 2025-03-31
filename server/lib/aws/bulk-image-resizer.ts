@@ -23,7 +23,7 @@ import WebSocket from "ws";
 import { MessageType, ProgressResponse } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 
 const debugLog = debug(envConfig.logNamespace("s3-image-resize"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 const debugNoLog = debug(envConfig.logNamespace("s3-image-resize-no-log"));
 debugNoLog.enabled = false;
 
@@ -32,7 +32,7 @@ const config: AWSConfig = queryAWSConfig();
 
 export async function resizeSavedImages(ws: WebSocket, contentMetadataResizeRequest: ContentMetadataResizeRequest): Promise<void> {
   try {
-    const controller = crudController.create<ContentMetadata>(contentMetadataModel, true);
+    const controller = crudController.create<ContentMetadata>(contentMetadataModel);
     const contentMetadataSource: ContentMetadata = await controller.findDocumentById(contentMetadataResizeRequest.id);
     const imagePaths: string[] = await listImages(contentMetadataSource);
     const totalImages = imagePaths.length;
@@ -42,7 +42,7 @@ export async function resizeSavedImages(ws: WebSocket, contentMetadataResizeRequ
       : contentMetadataSource;
     if (totalImages === 0) {
       ws.send(JSON.stringify({
-        type: "error",
+        type:  MessageType.ERROR,
         data: "No images to resize",
         request: contentMetadataResizeRequest,
       }));
@@ -86,7 +86,7 @@ export async function resizeSavedImages(ws: WebSocket, contentMetadataResizeRequ
   } catch (error) {
     debugLog(`❌ Resize operation failed:`, (error as Error).message);
     ws.send(JSON.stringify({
-      type: "error",
+      type:  MessageType.ERROR,
       data: {
         message: "Image resize operation failed",
         error: transforms.parseError(error),
@@ -128,7 +128,7 @@ export async function resizeUnsavedImages(ws: WebSocket, contentMetadataResizeRe
         } catch (error) {
           debugLog(`❌ Error processing item:`, outputItem, error);
           ws.send(JSON.stringify({
-            type: "error",
+            type:  MessageType.ERROR,
             data: {
               message: "Image resize operation failed",
               error: transforms.parseError(error),
@@ -150,7 +150,7 @@ export async function resizeUnsavedImages(ws: WebSocket, contentMetadataResizeRe
       ws.close();
     } else {
       ws.send(JSON.stringify({
-        type: "error",
+        type:  MessageType.ERROR,
         data: {
           message: "No images to resize",
           request: contentMetadataResizeRequest

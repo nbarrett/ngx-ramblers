@@ -7,20 +7,29 @@ import * as auditParser from "./ramblers-audit-parser";
 import debug from "debug";
 import { ramblersUploadAudit } from "../mongo/models/ramblers-upload-audit";
 import * as mongooseClient from "../mongo/mongoose-client";
-import { ParsedRamblersUploadAudit } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
+import {
+  AuditRamblersUploadParams,
+  ParsedRamblersUploadAudit,
+  RamblersUploadAudit,
+  Status
+} from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
 import { momentNowAsValue } from "../shared/dates";
+import WebSocket from "ws";
+import {
+  MessageType,
+  RamblersUploadAuditProgressResponse
+} from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import fs = require("fs");
 import stringDecoder = require("string_decoder");
 import json2csv = require("json2csv");
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 const path = "/tmp/ramblers/";
 const StringDecoder = stringDecoder.StringDecoder;
 const decoder = new StringDecoder("utf8");
 
-export function uploadWalks(req, res) {
-  const walksUploadRequest: RamblersWalksUploadRequest = req.body;
+export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWalksUploadRequest): Promise<void> {
   debugLog("request made with walksUploadRequest:", walksUploadRequest);
   const csvData = json2csv({data: walksUploadRequest.rows, fields: walksUploadRequest.headings});
   const fileName = walksUploadRequest.fileName;
@@ -31,22 +40,31 @@ export function uploadWalks(req, res) {
     fs.mkdirSync(path);
   }
 
+  function reportErrorAndClose(error) {
+    debugLog(`❌ Ramblers walks upload failed via ${fileName}:`, (error as Error).message);
+    ws.send(JSON.stringify({
+      type: MessageType.ERROR,
+      data: {
+        responseData: [],
+        error,
+        information: "Ramblers walks upload failed via " + fileName
+      }
+    }));
+    ws.close();
+  }
+
   try {
     fs.writeFileSync(filePath, csvData);
-  } catch (e) {
-    res.status(500).send({
-      responseData: [],
-      error: e,
-      information: "Ramblers walks upload failed via " + fileName
-    });
+  } catch (error) {
+    reportErrorAndClose(error);
   }
   debugLog("file", filePath, "saved");
 
-  function auditRamblersUpload(auditMessage: string, parserFunction: (auditMessage: string) => ParsedRamblersUploadAudit[]) {
-    parserFunction(auditMessage).forEach((uploadAudit: ParsedRamblersUploadAudit) => {
+  function auditRamblersUpload(props: AuditRamblersUploadParams) {
+    return Promise.all(props.parserFunction(props.auditMessage, props.status).map((uploadAudit: ParsedRamblersUploadAudit) => {
       if (uploadAudit.audit) {
         recordCounter.record++;
-        mongooseClient.create(ramblersUploadAudit, {
+        return mongooseClient.create<RamblersUploadAudit>(ramblersUploadAudit, {
           auditTime: uploadAudit.auditTime || momentNowAsValue(),
           record: recordCounter.record,
           fileName,
@@ -54,8 +72,18 @@ export function uploadWalks(req, res) {
           status: uploadAudit.status,
           message: uploadAudit.message,
         }, debugLog);
+      } else {
+        return Promise.resolve(null);
       }
-    });
+    })).then((unfilteredAuditRecords: any[]) => {
+      const audits: RamblersUploadAudit[] = unfilteredAuditRecords.filter(item => item);
+      const response: RamblersUploadAuditProgressResponse = {audits};
+      ws.send(JSON.stringify({
+        type: MessageType.PROGRESS,
+        data: response
+      }));
+      return response;
+    }).catch(error => reportErrorAndClose(error));
   }
 
   const webdriverFramework = process.env.WEBDRIVER_FRAMEWORK || "protractor";
@@ -67,7 +95,6 @@ export function uploadWalks(req, res) {
   const spawn = require("child_process").spawn;
   debugLog("Running RAMBLERS_FEATURE:", process.env.RAMBLERS_FEATURE,
     "WEBDRIVER_FRAMEWORK:", process.env.WEBDRIVER_FRAMEWORK,
-    "WEBDRIVER_RUNNER:", process.env.WEBDRIVER_RUNNER,
     "CHROMEDRIVER_PATH:", process.env.CHROMEDRIVER_PATH,
     "CHROME_BIN:", process.env.CHROME_BIN,
     "CHROME_VERSION:", process.env.CHROME_VERSION);
@@ -79,29 +106,32 @@ export function uploadWalks(req, res) {
   subprocess.unref();
 
   subprocess.stdout.on("data", (data: any) => {
-    auditRamblersUpload(decoder.write(data), auditParser.parseStandardOut);
+    auditRamblersUpload({auditMessage: decoder.write(data), parserFunction: auditParser.parseStandardOut});
   });
 
   subprocess.stderr.on("data", (data: any) => {
-    auditRamblersUpload(decoder.write(data), auditParser.parseStandardError);
+    auditRamblersUpload({auditMessage: decoder.write(data), parserFunction: auditParser.parseStandardError});
   });
 
-  subprocess.on("error", (err: any) => {
-    debugLog(`Subprocess error: ${err.message}`);
-    res.status(500).send({
-      responseData: [],
-      error: err.message,
-      information: "Ramblers walks upload failed due to subprocess error"
-    });
+  subprocess.on("error", (error: any) => {
+    debugLog(`Subprocess error: ${error.message}`);
+    reportErrorAndClose(error);
   });
 
-  subprocess.on("exit", (code, signal) => {
-    auditRamblersUpload(`Upload completed for ${fileName} with code ${code}`, auditParser.parseExit);
-    if (signal) {
-      debugLog(`Process terminated by signal: ${signal}`);
-    } else {
-      debugLog(`Process exited with code: ${code}`);
-    }
+  subprocess.on("exit", (code: number, signal) => {
+    const auditMessage = `Upload completed for ${fileName} with code ${code}`;
+    const signalMessage = signal ? `Subprocess exit: Process terminated by signal: ${signal}` : `Process exited with code: ${code}`;
+    const status: Status = code === 0 ? Status.SUCCESS : Status.ERROR;
+    debugLog(signalMessage);
+    auditRamblersUpload({auditMessage, parserFunction: auditParser.parseExit, status});
+    ws.send(JSON.stringify({
+      type: MessageType.COMPLETE,
+      data: {
+        message: auditMessage,
+        status
+      }
+    }));
+    ws.close();
   });
 
   subprocess.on("close", (code, signal) => {
@@ -112,7 +142,4 @@ export function uploadWalks(req, res) {
     debugLog(`NEW IPC message from subprocess: ${JSON.stringify(msg)}`);
   });
 
-  res.status(200).send({
-    responseData: "Ramblers walks upload was successfully submitted via " + fileName
-  });
 }

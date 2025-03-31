@@ -1,5 +1,5 @@
 import { isPresent } from "@serenity-js/assertions";
-import { AnswersQuestions, Check, PerformsActivities, Task, UsesAbilities, Wait } from "@serenity-js/core";
+import { AnswersQuestions, Check, PerformsActivities, Task, UsesAbilities } from "@serenity-js/core";
 import debug from "debug";
 import { envConfig } from "../../../../../env-config/env-config";
 import { WalksPageElements } from "../../../ui/ramblers/walks-page-elements";
@@ -8,10 +8,9 @@ import { pluralise, pluraliseWithCount } from "../../../../../shared/string-util
 import { RequestParameterExtractor } from "../common/request-parameter-extractor";
 import { WalkRequestParameters } from "../../../../models/walk-request-parameters";
 import { ReportOn } from "./report-on-upload";
-import { SaveBrowserSource } from "../../common/save-browser-source";
 
 const debugLog = debug(envConfig.logNamespace("report-upload-errors"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export class CheckAndReportOn extends Task {
   private walkParameters: WalkRequestParameters;
@@ -23,10 +22,10 @@ export class CheckAndReportOn extends Task {
   }
 
   async performAs(actor: PerformsActivities & UsesAbilities & AnswersQuestions): Promise<void> {
+    const message = `${pluraliseWithCount(this.walkParameters.walkCount, "walk")} ${pluralise(this.walkParameters.walkCount, "has", "have")} been created`;
     return actor.attemptsTo(
-      Wait.until(WalksPageElements.alertMessage, isPresent()),
       Check.whether(WalksPageElements.errorAlert, isPresent())
         .andIfSo(ReportOn.uploadErrors())
-        .otherwise(WaitFor.successAlertToEventuallyContain(`${pluraliseWithCount(this.walkParameters.walkCount, "walk")} ${pluralise(this.walkParameters.walkCount, "has", "have")} been created`)));
+        .otherwise(WaitFor.successAlertToEventuallyContain(message)));
   }
 }
