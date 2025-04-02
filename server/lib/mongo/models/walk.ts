@@ -48,16 +48,29 @@ const walkVenue = {
   url: {type: String}
 };
 
-const mediaStyle = {
+const mediaStyle = new mongoose.Schema({
   style: {type: String},
   url: {type: String},
   width: {type: Number},
   height: {type: Number}
+}, {_id: false});
+
+const media = new mongoose.Schema({
+  alt: {type: String},
+  title: {type: String},
+  credit: {type: String},
+  caption: {type: String},
+  styles: [mediaStyle]
+}, {_id: false});
+
+const filterParameters = {
+  selectType: {type: Number},
+  ascending: {type: Boolean},
 };
 
-const media = {
-  alt: {type: String},
-  styles: [mediaStyle]
+const imageConfig = {
+  source: {type: String},
+  importFrom: {areaCode: {type: String}, groupCode: {type: String}, filterParameters, walkId: {type: String}}
 };
 
 const walkSchema = new mongoose.Schema({
@@ -97,7 +110,6 @@ const walkSchema = new mongoose.Schema({
   postcodeFinish: {type: String},
   ramblersWalkId: {type: String},
   ramblersWalkUrl: {type: String},
-  startLocationW3w: {type: String},
   ramblersPublish: {type: Boolean},
   startTime: {type: String},
   walkDate: {type: Number},
@@ -109,6 +121,7 @@ const walkSchema = new mongoose.Schema({
   start_location: locationDetails,
   meeting_location: locationDetails,
   end_location: locationDetails,
+  imageConfig
 }, {collection: "walks"});
 
 walkSchema.plugin(uniqueValidator);

@@ -1,7 +1,6 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { faAdd, faRemove, faSortAlphaAsc } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { AlertTarget } from "../../../../models/alert-target.model";
 import { defaultImage, Image, Images, RootFolder, SystemConfig } from "../../../../models/system.model";
 import { sortBy } from "../../../../functions/arrays";
 import { DateUtilsService } from "../../../../services/date-utils.service";
@@ -29,6 +28,7 @@ import { SystemImageEditComponent } from "../image/system-image-edit";
         @for (image of images?.images; track image.awsFileName; let imageIndex = $index) {
           <div class="col-sm-12">
             <app-system-image-edit
+              [index]="imageIndex"
               [rootFolder]="rootFolder"
               [headerLogoDefault]="headerLogoDefault(image)"
               [images]="images"
@@ -47,7 +47,6 @@ export class ImageCollectionSettingsComponent implements OnInit {
   private systemConfigService = inject(SystemConfigService);
   stringUtils = inject(StringUtilsService);
   protected dateUtils = inject(DateUtilsService);
-  public notifyTarget: AlertTarget = {};
   faAdd = faAdd;
   faSortAlphaAsc = faSortAlphaAsc;
   faRemove = faRemove;

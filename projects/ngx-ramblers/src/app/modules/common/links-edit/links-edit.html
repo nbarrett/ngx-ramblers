@@ -23,8 +23,8 @@
           <label>Link Preview</label>
         </div>
       </div>
-      @for (link of links; track link) {
-        <app-link-edit [link]="link" [links]="links" (delete)="deleteLink($event)"></app-link-edit>
+      @for (link of links; track link.href) {
+        <app-link-edit [link]="link" [links]="links" (delete)="deleteLink($event)"/>
       }
     </div>
   </div>

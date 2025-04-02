@@ -1,4 +1,5 @@
 import { ApiResponse } from "./api-response.model";
+import { DataQueryOptions } from "./api-request.model";
 
 
 export enum DateFormat {
@@ -43,6 +44,13 @@ export interface RamblersWalksApiResponse extends ApiResponse {
   response?: RamblersWalkResponse[];
 }
 
+export interface EventQueryParameters {
+  groupCode?: string;
+  dataQueryOptions?: DataQueryOptions;
+  ids?: string[];
+  types?: RamblersEventType[];
+}
+
 export enum RamblersEventType {
   GROUP_WALK = "group-walk",
   GROUP_EVENT = "group-event",
@@ -63,6 +71,9 @@ export interface MediaStyle {
 
 export interface Media {
   alt: string;
+  title: string;
+  credit: string;
+  caption: string;
   styles: MediaStyle[];
 }
 
@@ -167,6 +178,7 @@ export interface EventsListRequest {
   ids?: string[];
   rawData?: boolean;
   limit?: number;
+  groupCode?: string;
   sort?: "date" | "distance";
   order?: "asc" | "desc";
   date?: string;
@@ -176,6 +188,13 @@ export interface EventsListRequest {
 export interface RamblersGroupsApiResponseApiResponse extends ApiResponse {
   request: any;
   response?: RamblersGroupsApiResponse[];
+}
+
+export interface HasNgSelectAttributes {
+  ngSelectAttributes: { label: string; };
+}
+
+export interface RamblersGroupWithLabel extends RamblersGroupsApiResponse, HasNgSelectAttributes {
 }
 
 export interface RamblersGroupsApiResponse {
@@ -244,5 +263,3 @@ export type WalkUploadRow = {
 }
 
 export const ALL_EVENT_TYPES: RamblersEventType[] = [RamblersEventType.GROUP_WALK, RamblersEventType.GROUP_EVENT, RamblersEventType.WELLBEING_WALK];
-
-export const FIVE_MINUTES_MILLIS = 5 * 60 * 1000;

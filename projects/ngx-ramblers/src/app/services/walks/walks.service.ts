@@ -41,7 +41,7 @@ export class WalksService {
     this.logger.info("all called with walkPopulation:", this.group?.walkPopulation, "dataQueryOptions:", dataQueryOptions);
     switch (this.group?.walkPopulation) {
       case EventPopulation.WALKS_MANAGER:
-        return this.ramblersWalksAndEventsService.all(dataQueryOptions, ids, types);
+        return this.ramblersWalksAndEventsService.all({dataQueryOptions, ids, types});
       case EventPopulation.LOCAL:
         return this.walksLocalService.all(dataQueryOptions);
     }

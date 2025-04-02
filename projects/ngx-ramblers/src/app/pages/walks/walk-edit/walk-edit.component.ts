@@ -71,6 +71,10 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { WalkVenueComponent } from "../walk-venue/walk-venue.component";
 import { WalkMeetupComponent } from "../walk-meetup/walk-meetup.component";
 import { WalkSummaryPipe } from "../../../pipes/walk-summary.pipe";
+import { SystemConfig } from "../../../models/system.model";
+import { SystemConfigService } from "../../../services/system/system-config.service";
+import { WalkImagesEditComponent } from "./walk-images-edit";
+import { JsonPipe } from "@angular/common";
 
 @Component({
     selector: "app-walk-edit",
@@ -516,6 +520,10 @@ import { WalkSummaryPipe } from "../../../pipes/walk-summary.pipe";
                 </div>
               </div>
             </tab>
+            <tab app-walk-images heading="Images"
+                 [displayedWalk]="displayedWalk"
+                 [config]="config">
+            </tab>
             @if (display.walkLeaderOrAdmin(displayedWalk.walk)) {
               <tab heading="History">
                 <div class="img-thumbnail thumbnail-admin-edit">
@@ -552,8 +560,7 @@ import { WalkSummaryPipe } from "../../../pipes/walk-summary.pipe";
             @if (displayedWalk.walk.walkLeaderMemberId) {
               <tab heading="Copy From...">
                 @if (display.allowEdits(displayedWalk.walk) && displayedWalk?.walk?.walkLeaderMemberId) {
-                  <div class="img-thumbnail thumbnail-admin-edit"
-                  >
+                  <div class="img-thumbnail thumbnail-admin-edit">
                     <div class="row">
                       <div class="col-sm-12">
                         <div class="img-thumbnail thumbnail-walk-edit">
@@ -639,6 +646,9 @@ import { WalkSummaryPipe } from "../../../pipes/walk-summary.pipe";
       </div>
       @if (displayedWalk.walk) {
         <div class="form-inline mb-4 align-middle">
+          @if (this.showChangedItems) {
+            changedItems: {{ this.walkEventService.walkDataAuditFor(this.displayedWalk.walk, this.status(), true)?.changedItems | json }}
+          }
           @if (allowClose()) {
             <input [disabled]="saveInProgress" type="submit"
                    value="Close"
@@ -723,10 +733,23 @@ import { WalkSummaryPipe } from "../../../pipes/walk-summary.pipe";
         </div>
       }`,
     styleUrls: ["./walk-edit.component.sass"],
-    imports: [NotificationDirective, WalkPanelExpanderComponent, TabsetComponent, TabDirective, DatePickerComponent, FormsModule, FontAwesomeModule, MarkdownComponent, WalkLocationEditComponent, WalkRiskAssessmentComponent, MarkdownEditorComponent, TooltipDirective, WalkVenueComponent, WalkMeetupComponent, DisplayDatePipe, WalkSummaryPipe]
+  imports: [NotificationDirective, WalkPanelExpanderComponent, TabsetComponent, TabDirective, DatePickerComponent, FormsModule, FontAwesomeModule, MarkdownComponent, WalkLocationEditComponent, WalkRiskAssessmentComponent, MarkdownEditorComponent, TooltipDirective, WalkVenueComponent, WalkMeetupComponent, DisplayDatePipe, WalkSummaryPipe, WalkImagesEditComponent, JsonPipe]
 })
 export class WalkEditComponent implements OnInit, OnDestroy {
+  showChangedItems: false;
 
+  @Input("displayedWalk")
+  set initialiseWalk(displayedWalk: DisplayedWalk) {
+    if (displayedWalk && !displayedWalk?.walk?.start_location) {
+      this.logger.info("initialising walk start location with:", INITIALISED_LOCATION);
+      displayedWalk.walk.start_location = cloneDeep(INITIALISED_LOCATION);
+    }
+    this.logger.debug("cloning walk for edit");
+    this.displayedWalk = cloneDeep(displayedWalk);
+    this.mapEditComponentDisplayedWalk = this.displayedWalk;
+  }
+
+  public systemConfigService: SystemConfigService = inject(SystemConfigService);
   private logger: Logger = inject(LoggerFactory).createLogger("WalkEditComponent", NgxLoggerLevel.ERROR);
   private walksConfigService = inject(WalksConfigService);
   private mailMessagingService = inject(MailMessagingService);
@@ -738,7 +761,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   route = inject(ActivatedRoute);
   private walksQueryService = inject(WalksQueryService);
   private walkNotificationService = inject(WalkNotificationService);
-  private walkEventService = inject(WalkEventService);
+  protected walkEventService = inject(WalkEventService);
   private walksReferenceService = inject(WalksReferenceService);
   private memberIdToFullNamePipe = inject(MemberIdToFullNamePipe);
   private displayDateAndTime = inject(DisplayDateAndTimePipe);
@@ -751,6 +774,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   private displayDate = inject(DisplayDatePipe);
   protected notifierService = inject(NotifierService);
   private configService = inject(ConfigService);
+  public config: SystemConfig;
   private broadcastService = inject<BroadcastService<Walk>>(BroadcastService);
   protected renderMapEdit: boolean;
   private mailMessagingConfig: MailMessagingConfig;
@@ -782,22 +806,15 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   public showGoogleMapsView = false;
   protected readonly WalkType = WalkType;
 
-  @Input("displayedWalk")
-  set initialiseWalk(displayedWalk: DisplayedWalk) {
-    if (displayedWalk && !displayedWalk?.walk?.start_location) {
-      this.logger.info("initialising walk start location with:", INITIALISED_LOCATION);
-      displayedWalk.walk.start_location = cloneDeep(INITIALISED_LOCATION);
-    }
-    this.logger.debug("cloning walk for edit");
-    this.displayedWalk = cloneDeep(displayedWalk);
-
-    this.mapEditComponentDisplayedWalk = this.displayedWalk;
-  }
-
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
 
   async ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.subscriptions.push(this.systemConfigService.events()
+      .subscribe((config: SystemConfig) => {
+        this.config = config;
+        this.logger.info("retrieved config", config);
+      }));
     this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
       this.mailMessagingConfig = mailMessagingConfig;
       if (this.mailMessagingConfig?.mailConfig.allowSendTransactional) {
@@ -1061,7 +1078,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   walkEvents(walk: Walk): DisplayedEvent[] {
     return walk.events
-      .sort((event: WalkEvent) => event.date)
+      .sort(sortBy("date"))
       .map((event: WalkEvent) => ({
         member: this.memberIdToFullNamePipe.transform(event.memberId, this.display.members),
         date: this.displayDateAndTime.transform(event.date),

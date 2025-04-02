@@ -12,18 +12,9 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { LoginResponse } from "../../../models/member.model";
 import { DeviceSize } from "../../../models/page.model";
 import { Organisation } from "../../../models/system.model";
-import {
-  DisplayedWalk,
-  EventType,
-  FilterParameters,
-  Walk,
-  WalkDateAscending,
-  WalkDateDescending,
-  WalkListView
-} from "../../../models/walk.model";
+import { DisplayedWalk, Walk, WalkListView } from "../../../models/walk.model";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { BroadcastService } from "../../../services/broadcast-service";
-import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
@@ -55,6 +46,7 @@ import { WalkGradingComponent } from "../walk-view/walk-grading";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
+import { DEFAULT_FILTER_PARAMETERS, FilterParameters } from "../../../models/search.model";
 
 @Component({
     selector: "app-walk-list",
@@ -109,8 +101,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
             }
             @if (!walkListView || walkListView === WalkListView.TABLE) {
               @for (displayedWalk of currentPageWalks; track walkTracker(index, displayedWalk); let index = $index) {
-                <div class="table-responsive"
-                >
+                <div class="table-responsive">
                   @if (display.isExpanded(displayedWalk.walk)) {
                     <div>
                       @if (!display.isEdit(displayedWalk.walk)) {
@@ -266,17 +257,15 @@ export class WalkListComponent implements OnInit, OnDestroy {
   private searchFilterPipe = inject(SearchFilterPipe);
   private route = inject(ActivatedRoute);
   private walksQueryService = inject(WalksQueryService);
-  private dateUtils = inject(DateUtilsService);
   private notifierService = inject(NotifierService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   protected readonly faWalking = faWalking;
   protected readonly faPeopleGroup = faPeopleGroup;
   public currentWalkId: string;
-  private todayValue: number;
   public walks: Walk[];
   public filteredWalks: DisplayedWalk[] = [];
   public currentPageWalks: DisplayedWalk[] = [];
-  public filterParameters: FilterParameters = {quickSearch: "", selectType: 1, ascending: true};
+  public filterParameters: FilterParameters = DEFAULT_FILTER_PARAMETERS();
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   private pageSize: number;
@@ -304,7 +293,6 @@ export class WalkListComponent implements OnInit, OnDestroy {
       this.group = item.group;
       this.walkListView = this.uiActionsService.initialValueFor(StoredValue.WALK_LIST_VIEW, this.group.defaultWalkListView) as WalkListView;
     }));
-    this.todayValue = this.dateUtils.momentNowNoTime().valueOf();
     this.pageSize = 10;
     this.pageNumber = 1;
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -347,9 +335,10 @@ export class WalkListComponent implements OnInit, OnDestroy {
 
   applyFilterToWalks(searchTerm?: NamedEvent<string>): void {
     this.notify.setBusy();
-    this.logger.info("applyFilterToWalks:searchTerm:", searchTerm, "filterParameters:", this.filterParameters, "localWalksSortObject:", this.localWalksSortObject());
+    const sort = this.walksQueryService.localWalksSortObject(this.filterParameters);
+    this.logger.info("applyFilterToWalks:searchTerm:", searchTerm, "filterParameters:", this.filterParameters, "localWalksSortObject:", sort);
     this.filteredWalks = this.searchFilterPipe.transform(this.walks, this.filterParameters.quickSearch)
-      .map(walk => this.display.toDisplayedWalk(walk)).sort(sortBy(this.localWalksSortObject()));
+      .map(walk => this.display.toDisplayedWalk(walk)).sort(sortBy(sort));
     this.pageNumber = 1;
     this.applyPagination();
     if (this.currentPageWalks.length > 0 && this.display.expandedWalks.length === 0) {
@@ -375,48 +364,9 @@ export class WalkListComponent implements OnInit, OnDestroy {
     return this.memberLoginService.memberLoggedIn();
   }
 
-  walksCriteriaObject() {
-    switch (this.filterParameters.selectType) {
-      case 1:
-        return {walkDate: {$gte: this.todayValue}};
-      case 2:
-        return {walkDate: {$lt: this.todayValue}};
-      case 3:
-        return {};
-      case 4:
-        return {displayName: {$exists: false}};
-      case 5:
-        return {briefDescriptionAndStartPoint: {$exists: false}};
-      case 6:
-        return {"events.eventType": {$eq: EventType.DELETED.toString()}};
-    }
-  }
-
-  walksSortObject() {
-    this.logger.info("walksSortObject:", this.filterParameters);
-    switch (this.stringUtils.asBoolean(this.filterParameters.ascending)) {
-      case true:
-        return WalkDateAscending;
-      case false:
-        return WalkDateDescending;
-    }
-  }
-
-  localWalksSortObject() {
-    this.logger.info("localWalksSortObject:walksSortObject:", this.filterParameters);
-    switch (this.stringUtils.asBoolean(this.filterParameters.ascending)) {
-      case true:
-        return "walk.walkDate";
-      case false:
-        return "-walk.walkDate";
-    }
-  }
 
   query() {
-    const criteria = this.walksCriteriaObject();
-    const sort = this.walksSortObject();
-    this.logger.debug("walksCriteriaObject:this.filterParameters.criteria", criteria, "sort:", sort);
-    return this.walksService.all({criteria, sort});
+    return this.walksService.all(this.walksQueryService.dataQueryOptions(this.filterParameters));
   }
 
   showTableHeader(walk: DisplayedWalk) {

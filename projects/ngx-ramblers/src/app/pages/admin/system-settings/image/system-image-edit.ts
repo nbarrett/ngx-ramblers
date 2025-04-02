@@ -122,6 +122,7 @@ export class SystemImageEditComponent implements OnInit {
   @Input() images: Images;
   @Input() image: Image;
   @Output() imageChanged: EventEmitter<Image> = new EventEmitter();
+  @Input() index!: number;
 
   ngOnInit() {
     this.logger.debug("constructed with imageType:", this.rootFolder, "image:", this.image);
@@ -173,7 +174,7 @@ export class SystemImageEditComponent implements OnInit {
   }
 
   uniqueIdFor(prefix: string) {
-    const uniqueIdFor = this.stringUtils.kebabCase(prefix, this.image.originalFileName || 0);
+    const uniqueIdFor = this.stringUtils.kebabCase(prefix, this.image.originalFileName || 0, this.index);
     this.logger.debug("uniqueIdFor:", prefix, "returning:", uniqueIdFor);
     return uniqueIdFor;
   }

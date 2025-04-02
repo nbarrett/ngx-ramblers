@@ -5,11 +5,11 @@ import isNaN from "lodash-es/isNaN";
 import without from "lodash-es/without";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
-import { RamblersUploadAuditApiResponse } from "../../models/ramblers-upload-audit.model";
 import {
   ALL_EVENT_TYPES,
   Contact,
   DateFormat,
+  EventQueryParameters,
   EventsListRequest,
   GroupListRequest,
   GroupWalk,
@@ -66,7 +66,7 @@ import { isNumericRamblersId } from "../path-matchers";
 import { RiskAssessmentService } from "./risk-assessment.service";
 import { AlertMessage } from "../../models/alert-target.model";
 import { sortBy } from "../../functions/arrays";
-import { SocialEvent } from "../../models/social-events.model";
+import { HasMedia, SocialEvent } from "../../models/social-events.model";
 import { MediaQueryService } from "../committee/media-query.service";
 import { UrlService } from "../url.service";
 import { WalksConfigService } from "../system/walks-config.service";
@@ -101,7 +101,6 @@ export class RamblersWalksAndEventsService {
   private walkEventService: WalkEventService = inject(WalkEventService);
   private walksReferenceService: WalksReferenceService = inject(WalksReferenceService);
   private walksConfig: WalksConfig;
-  private auditSubject = new ReplaySubject<RamblersUploadAuditApiResponse>();
   private walkLeadersSubject = new ReplaySubject<WalkLeadersApiResponse>();
   private walksSubject = new ReplaySubject<RamblersWalksApiResponse>();
   private rawWalksSubject = new ReplaySubject<RamblersWalksRawApiResponseApiResponse>();
@@ -155,7 +154,7 @@ export class RamblersWalksAndEventsService {
 
   async walkForId(walkId: string): Promise<Walk> {
     this.logger.debug("getByIdIfPossible:walkId", walkId, "is valid MongoId");
-    const walks = await this.listRamblersWalksRawData(null, [walkId])
+    const walks = await this.listRamblersWalksRawData({ids: [walkId]})
       .then((ramblersWalksRawApiResponse: RamblersWalksRawApiResponse) => ramblersWalksRawApiResponse.data.map(remoteWalk => this.toWalk(remoteWalk)));
     if (walks?.length === 1) {
       return walks[0];
@@ -167,7 +166,10 @@ export class RamblersWalksAndEventsService {
 
   async socialEventForId(socialEventId: string): Promise<SocialEvent> {
     this.logger.debug("getByIdIfPossible:socialEventId", socialEventId, "is valid MongoId");
-    const socialEvents = await this.listRamblersWalksRawData(null, [socialEventId])
+    const socialEvents = await this.listRamblersWalksRawData({
+      types: [RamblersEventType.GROUP_EVENT],
+      ids: [socialEventId]
+    })
       .then((ramblersWalksRawApiResponse: RamblersWalksRawApiResponse) => ramblersWalksRawApiResponse.data.map(remoteWalk => this.toSocialEvent(remoteWalk)));
     if (socialEvents?.length === 1) {
       return socialEvents[0];
@@ -195,24 +197,25 @@ export class RamblersWalksAndEventsService {
     return apiResponse.response;
   }
 
-  async listRamblersWalksRawData(dataQueryOptions: DataQueryOptions, ids?: string[], types?: RamblersEventType[]): Promise<RamblersWalksRawApiResponse> {
-    const walkIdsFromCriteria = this.extractWalkIds(dataQueryOptions?.criteria);
-    const usedIds = ids || walkIdsFromCriteria;
-    const order = isEqual(dataQueryOptions?.sort, WalkDateDescending) ? "desc" : "asc";
-    const sort = isEqual(dataQueryOptions?.sort, WalkDateDescending) || isEqual(dataQueryOptions?.sort, WalkDateAscending) ? "date" : "date";
-    const date = usedIds.length > 0 ? null : this.createStartDate(dataQueryOptions?.criteria);
-    const dateEnd = usedIds.length > 0 ? null : this.createEndDate(dataQueryOptions?.criteria);
+  async listRamblersWalksRawData(eventQueryParameters: EventQueryParameters): Promise<RamblersWalksRawApiResponse> {
+    const walkIdsFromCriteria = this.extractWalkIds(eventQueryParameters.dataQueryOptions?.criteria);
+    const usedIds = eventQueryParameters.ids || walkIdsFromCriteria;
+    const order = isEqual(eventQueryParameters.dataQueryOptions?.sort, WalkDateDescending) ? "desc" : "asc";
+    const sort = isEqual(eventQueryParameters.dataQueryOptions?.sort, WalkDateDescending) || isEqual(eventQueryParameters.dataQueryOptions?.sort, WalkDateAscending) ? "date" : "date";
+    const date = usedIds.length > 0 ? null : this.createStartDate(eventQueryParameters.dataQueryOptions?.criteria);
+    const dateEnd = usedIds.length > 0 ? null : this.createEndDate(eventQueryParameters.dataQueryOptions?.criteria);
     const body: EventsListRequest = {
-      types: types || ALL_EVENT_TYPES,
+      types: eventQueryParameters.types || ALL_EVENT_TYPES,
       date,
       dateEnd,
       order,
       sort,
       rawData: true,
       limit: 300,
-      ids: usedIds
+      ids: usedIds,
+      groupCode: eventQueryParameters.groupCode
     };
-    this.logger.off("listRamblersWalksRawData:dataQueryOptions:", dataQueryOptions, "ids:", ids, "usedIds:", usedIds, "body:", body);
+    this.logger.info("listRamblersWalksRawData:eventQueryParameters:", eventQueryParameters, "body:", body);
     const rawData = await this.commonDataService.responseFrom(this.logger, this.http.post<RamblersWalksRawApiResponseApiResponse>(`${this.BASE_URL}/list-events`, body), this.rawWalksSubject);
     return rawData.response;
   }
@@ -251,7 +254,7 @@ export class RamblersWalksAndEventsService {
   async listRamblersGroups(groups: string[]): Promise<RamblersGroupsApiResponse[]> {
     const body: GroupListRequest = {limit: 1000, groups};
     const rawData = await this.commonDataService.responseFrom(this.logger, this.http.post<RamblersGroupsApiResponseApiResponse>(`${this.BASE_URL}/list-groups`, body), this.groupsSubject);
-    return rawData.response;
+    return rawData.response.sort(sortBy("name"));
   }
 
   exportWalksFileName(omitExtension?: boolean): string {
@@ -290,13 +293,11 @@ export class RamblersWalksAndEventsService {
             this.logger.info("updating walk from", walkMatchedByDate.ramblersWalkId || "empty", "->", ramblersWalksResponse.id, "and", walkMatchedByDate.ramblersWalkUrl || "empty", "->", ramblersWalksResponse.url, "on", this.displayDate.transform(walkMatchedByDate.walkDate));
             walkMatchedByDate.ramblersWalkId = ramblersWalksResponse.id;
             walkMatchedByDate.ramblersWalkUrl = ramblersWalksResponse.url;
-            walkMatchedByDate.startLocationW3w = ramblersWalksResponse.start_location?.w3w;
             savePromises.push(this.walksService.createOrUpdate(walkMatchedByDate));
             this.logger.info("walk updated to:", walkMatchedByDate);
           }
-          if (this.mediaExistsOnWalksManagerNotLocal(walkMatchedByDate, ramblersWalksResponse)) {
+          if (this.copyMediaIfApplicable(walkMatchedByDate, ramblersWalksResponse)) {
             this.logger.info("mediaMismatch:updating walk from", walkMatchedByDate.media || "empty", "->", ramblersWalksResponse.media, "on", this.displayDate.transform(walkMatchedByDate.walkDate));
-            walkMatchedByDate.media = ramblersWalksResponse.media;
             savePromises.push(this.walksService.createOrUpdate(walkMatchedByDate));
             this.logger.info("walk updated to:", walkMatchedByDate);
           }
@@ -349,6 +350,17 @@ export class RamblersWalksAndEventsService {
       title: "Ramblers walks upload",
       message: `Upload of ${this.stringUtilsService.pluraliseWithCount(walksUploadRequest.rows.length, "walk")} to Ramblers has been submitted. Monitor the Walk upload audit tab for progress`
     });
+  }
+
+  public copyMediaIfApplicable(localWalk: Walk, ramblersWalk: HasMedia, alwaysCopy?: boolean) {
+    if (alwaysCopy ? this.mediaExistsOnWalksManager(ramblersWalk) : this.mediaExistsOnWalksManagerNotLocal(localWalk, ramblersWalk)) {
+      this.logger.info("mediaMismatch:updating walk from", localWalk.media || "empty", "->", ramblersWalk.media, "on", this.displayDate.transform(localWalk.walkDate));
+      localWalk.media = ramblersWalk.media;
+      return true;
+    } else {
+      return false;
+    }
+
   }
 
   public createWalksUploadRequest(walkExports: WalkExport[]): RamblersWalksUploadRequest {
@@ -541,13 +553,13 @@ export class RamblersWalksAndEventsService {
     return this.walkToWalkUploadRow(walk);
   }
 
-  async all(dataQueryOptions?: DataQueryOptions, ids?: string[], types?: RamblersEventType[]): Promise<Walk[]> {
-    return this.listRamblersWalksRawData(dataQueryOptions, ids, types)
+  async all(eventQueryParameters: EventQueryParameters): Promise<Walk[]> {
+    return this.listRamblersWalksRawData(eventQueryParameters)
       .then((ramblersWalksRawApiResponse: RamblersWalksRawApiResponse) => ramblersWalksRawApiResponse.data.map(remoteWalk => this.toWalk(remoteWalk)));
   }
 
   async allSocialEvents(dataQueryOptions?: DataQueryOptions): Promise<SocialEvent[]> {
-    return this.listRamblersWalksRawData(dataQueryOptions, null, [RamblersEventType.GROUP_EVENT])
+    return this.listRamblersWalksRawData({dataQueryOptions, types: [RamblersEventType.GROUP_EVENT]})
       .then((ramblersWalksRawApiResponse: RamblersWalksRawApiResponse) => ramblersWalksRawApiResponse.data.map(remoteWalk => this.toSocialEvent(remoteWalk)));
   }
 
@@ -592,7 +604,6 @@ export class RamblersWalksAndEventsService {
       ramblersWalkId: groupWalk.id,
       ramblersWalkUrl: groupWalk.url,
       riskAssessment: [],
-      startLocationW3w: groupWalk.start_location?.w3w,
       startTime: this.dateUtils.asString(startMoment, undefined, this.dateUtils.formats.displayTime),
       venue: undefined,
       walkDate: this.dateUtils.asValueNoTime(startMoment),
@@ -606,7 +617,7 @@ export class RamblersWalksAndEventsService {
       additionalDetails: groupWalk.additional_details,
       organiser: groupWalk?.event_organiser?.name
     };
-    this.logger.info("groupWalk:", groupWalk, "walk:", walk, "contactName:", contact.contactName, "displayName:", contact.displayName);
+    this.logger.off("groupWalk:", groupWalk, "walk:", walk, "contactName:", contact.contactName, "displayName:", contact.displayName);
     return walk;
   }
 
@@ -636,7 +647,7 @@ export class RamblersWalksAndEventsService {
       thumbnail: this.mediaQueryService.imageUrlFrom(groupWalk),
       media: groupWalk.media,
     };
-    this.logger.info("groupWalk:", groupWalk, "socialEvent:", socialEvent, "contactName:", contact.contactName, "displayName:", contact.displayName);
+    this.logger.off("groupWalk:", groupWalk, "socialEvent:", socialEvent, "contactName:", contact.contactName, "displayName:", contact.displayName);
     return socialEvent;
   }
 
@@ -754,8 +765,12 @@ export class RamblersWalksAndEventsService {
     return csvRecord;
   }
 
-  private mediaExistsOnWalksManagerNotLocal(walkMatchedByDate: Walk, ramblersWalksResponse: RamblersWalkResponse) {
-    return ramblersWalksResponse?.media?.length > 0 && (walkMatchedByDate?.media?.length || 0) === 0;
+  private mediaExistsOnWalksManagerNotLocal(localWalk: HasMedia, ramblersWalk: HasMedia) {
+    return this.mediaExistsOnWalksManager(ramblersWalk) && (localWalk?.media?.length || 0) === 0;
+  }
+
+  private mediaExistsOnWalksManager(ramblersWalk: HasMedia) {
+    return ramblersWalk?.media?.length > 0;
   }
 
   private toFeature(feature: string): Metadata {

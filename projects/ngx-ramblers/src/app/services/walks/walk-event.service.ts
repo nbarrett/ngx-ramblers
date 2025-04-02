@@ -34,6 +34,7 @@ const auditedFields: string[] = [
   "finishTime",
   "grade",
   "group",
+  "imageConfig",
   "longerDescription",
   "media",
   "meetupEventDescription",

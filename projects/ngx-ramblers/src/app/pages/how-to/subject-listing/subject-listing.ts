@@ -11,7 +11,6 @@ import { AlertTarget } from "../../../models/alert-target.model";
 import { ApiAction } from "../../../models/api-response.model";
 import {
   AccessLevelData,
-  FilterParameters,
   MemberResource,
   MemberResourceApiResponse,
   MemberResourcesPermissions,
@@ -38,6 +37,7 @@ import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { MarkdownComponent } from "ngx-markdown";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
+import { AccessFilterParameters } from "../../../models/search.model";
 
 @Component({
     selector: "app-how-to-subject-listing",
@@ -73,7 +73,7 @@ export class HowToSubjectListingComponent implements OnInit, OnDestroy {
   public memberResource: MemberResource;
   private subscriptions: Subscription[] = [];
   private searchChangeObservable: Subject<string>;
-  public filterParameters: FilterParameters = {quickSearch: ""};
+  public filterParameters: AccessFilterParameters = {quickSearch: ""};
   public allow: MemberResourcesPermissions = {};
   private notify: AlertInstance;
   public subject: string;

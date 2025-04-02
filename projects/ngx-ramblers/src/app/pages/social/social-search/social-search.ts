@@ -5,13 +5,13 @@ import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
-import { FilterParameters } from "../../../models/social-events.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { SocialDisplayService } from "../social-display.service";
 import { NgTemplateOutlet } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
+import { DateFilterParameters } from "../../../models/search.model";
 
 @Component({
     selector: "app-social-search",
@@ -33,7 +33,7 @@ export class SocialSearchComponent implements OnInit, OnDestroy {
   public notifyTarget: AlertTarget;
 
   @Input()
-  filterParameters: FilterParameters;
+  filterParameters: DateFilterParameters;
 
   ngOnInit(): void {
     this.broadcastService.on(NamedEventType.SHOW_PAGINATION, (show: NamedEvent<boolean>) => {

@@ -18,9 +18,9 @@ import { FormsModule } from "@angular/forms";
               <div class="row">
                 <div class="col-md-12">
                   <div class="form-group">
-                    <label for="site-key">Tracking Id</label>
+                    <label for="tracking-key">Tracking Id</label>
                     <input [(ngModel)]="systemConfigInternal.googleAnalytics.trackingId"
-                      id="site-key"
+                           id="tracking-key"
                       type="text" class="form-control input-sm"
                       placeholder="Enter Tracking Id">
                     @if (!systemConfigInternal?.googleAnalytics?.trackingId) {

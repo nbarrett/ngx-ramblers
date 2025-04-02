@@ -7,7 +7,7 @@ import * as requestDefaults from "./request-defaults";
 import { systemConfig } from "../config/system-config";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:groups"));
-debugLog.enabled = false;
+debugLog.enabled = true;
 
 export function listGroups(req, res): void {
   systemConfig()

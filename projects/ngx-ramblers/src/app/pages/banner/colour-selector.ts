@@ -6,6 +6,7 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { NgOptionComponent, NgSelectComponent } from "@ng-select/ng-select";
 import { FormsModule } from "@angular/forms";
+import { NumberUtilsService } from "../../services/number-utils.service";
 
 @Component({
     selector: "app-colour-selector",
@@ -47,7 +48,7 @@ import { FormsModule } from "@angular/forms";
     <div class="row">
       <div class="col-md-12">
         @if (!noLabel ) {
-          <label for="colour-selector">{{ label }}</label>
+          <label for="{{uniqueId}}">{{ label }}</label>
         }
         @if (itemWithClassOrColour) {
           <ng-select
@@ -55,7 +56,7 @@ import { FormsModule } from "@angular/forms";
             (change)="change($event)"
             appearance="outline"
             [clearable]="false"
-            labelForId="colour-selector"
+            labelForId="{{uniqueId}}"
             [virtualScroll]="true"
             [bufferAmount]="30">
             @for (colour of colours; track colour.colour) {
@@ -79,7 +80,8 @@ export class ColourSelectorComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("ColourSelectorComponent", NgxLoggerLevel.ERROR);
   public itemWithClassOrColour: HasClass | HasColour;
   public noLabel: boolean;
-
+  private numberUtilsService: NumberUtilsService = inject(NumberUtilsService);
+  public uniqueId: string = this.numberUtilsService.generateUid();
   @Input()
   public colours: ColourSelector[] = colourSelectors;
   @Input()

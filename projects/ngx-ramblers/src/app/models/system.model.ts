@@ -3,13 +3,13 @@ import { HasClass, HasColour } from "./banner-configuration.model";
 import { WalkListView } from "./walk.model";
 
 export enum SystemSettingsTab {
-  GROUP_DETAILS = "Group",
+  AREA_AND_GROUP = "Area & Group",
   BACKGROUNDS = "Backgrounds",
   ICONS = "Icons",
   LOGOS = "Logos",
   IMAGES = "Images",
-  WEBSITE_HEADER = "Website Header",
-  WEBSITE_FOOTER = "Website Footer",
+  WEBSITE_HEADER = "Header",
+  WEBSITE_FOOTER = "Footer",
   RAMBLERS_DETAILS = "Ramblers Details",
   EXTERNAL_SYSTEMS = "External Systems",
 }
