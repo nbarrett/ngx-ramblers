@@ -4,6 +4,7 @@ import debug from "debug";
 
 const router = express.Router();
 const debugLog = debug(envConfig.logNamespace("google-maps"));
+debugLog.enabled = false;
 
 router.get("/config", (req, res) => {
   debugLog(envConfig.googleMaps);

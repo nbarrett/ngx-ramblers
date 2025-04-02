@@ -6,7 +6,6 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import {
   colourSelectors,
   colourSelectorsDarkLight,
-  EventPopulation,
   NavBarLocation,
   RootFolder,
   SystemConfig,
@@ -25,12 +24,10 @@ import { MemberService } from "../../../services/member/member.service";
 import kebabCase from "lodash-es/kebabCase";
 import { ActivatedRoute, Router } from "@angular/router";
 import { StoredValue } from "../../../models/ui-actions";
-import { WalkListView } from "../../../models/walk.model";
 import { PageComponent } from "../../../page/page.component";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FormsModule } from "@angular/forms";
 import { LinksEditComponent } from "../../../modules/common/links-edit/links-edit";
-import { ImageCollectionSettingsComponent } from "./image-collection/image-collection-settings";
 import { ColourSelectorComponent } from "../../banner/colour-selector";
 import { MailProviderSettingsComponent } from "./mail-provider/mail-provider-settings";
 import { SystemMeetupSettingsComponent } from "./meetup/system-meetup-settings";
@@ -42,6 +39,8 @@ import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-rati
 import { FileSizeSelectorComponent } from "../../../carousel/edit/file-size-selector/file-size-selector";
 import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
 import { faAdd, faPencil } from "@fortawesome/free-solid-svg-icons";
+import { ImageCollectionSettingsComponent } from "./image-collection/image-collection-settings";
+import { AreaAndGroupSettingsComponent } from "./group/area-and-group-settings";
 
 @Component({
     selector: "app-system-settings",
@@ -51,117 +50,11 @@ import { faAdd, faPencil } from "@fortawesome/free-solid-svg-icons";
           <div class="col-sm-12">
             @if (config) {
               <tabset class="custom-tabset">
-                <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.GROUP_DETAILS)}}"
-                     [active]="tabActive(SystemSettingsTab.GROUP_DETAILS)"
-                     (selectTab)="selectTab(SystemSettingsTab.GROUP_DETAILS)">
-                  <div class="img-thumbnail thumbnail-admin-edit">
-                    <div class="row">
-                      <div class="col-md-6">
-                        <div class="form-group">
-                          <label for="group-href">Web Url</label>
-                          <input [(ngModel)]="config.group.href"
-                                 type="text" class="form-control input-sm"
-                                 id="group-href"
-                                 placeholder="Enter a link">
-                        </div>
-                      </div>
-                      <div class="col-md-6">
-                        <div class="form-group">
-                          <label for="group-long-name">Long Name</label>
-                          <input [(ngModel)]="config.group.longName"
-                                 type="text" class="form-control input-sm"
-                                 id="group-long-name"
-                                 placeholder="Enter a title for group long name">
-                        </div>
-                      </div>
-                      <div class="col-md-6">
-                        <div class="form-group">
-                          <label for="group-short-name">Short Name</label>
-                          <input [(ngModel)]="config.group.shortName"
-                                 type="text" class="form-control input-sm"
-                                 id="group-short-name"
-                                 placeholder="Enter a title for group short name">
-                        </div>
-                      </div>
-                      <div class="col-md-6">
-                        <div class="form-group">
-                          <label for="group-group-code">Ramblers Group Code</label>
-                          <input [(ngModel)]="config.group.groupCode"
-                                 type="text" class="form-control input-sm"
-                                 id="group-group-code"
-                                 placeholder="Enter the Ramblers group code">
-                        </div>
-                      </div>
-                      <div class="col-md-6">
-                        <div class="form-group">
-                          <label for="walk-population">Walk Population</label>
-                          <select [(ngModel)]="config.group.walkPopulation"
-                                  class="form-control" id="walk-population">
-                            @for (walkPopulation of populationMethods; track walkPopulation.key) {
-                              <option
-                                [ngValue]="walkPopulation.value">{{ stringUtils.asTitle(walkPopulation.value) }}
-                              </option>
-                            }
-                          </select>
-                        </div>
-                        <div class="form-group">
-                          <div class="custom-control custom-checkbox">
-                            <input [(ngModel)]="config.group.walkContactDetailsPublic"
-                                   type="checkbox" class="custom-control-input"
-                                   id="walk-contact-details-public-viewable">
-                            <label class="custom-control-label"
-                                   for="walk-contact-details-public-viewable">Walk Contact Details Public Viewable
-                            </label>
-                          </div>
-                        </div>
-                        <div class="form-group">
-                          <div class="custom-control custom-checkbox">
-                            <input [(ngModel)]="config.group.allowSwitchWalkView"
-                                   type="checkbox" class="custom-control-input" id="allow-walk-listing-to-be-switched">
-                            <label class="custom-control-label"
-                                   for="allow-walk-listing-to-be-switched">
-                              Allow Walk Listing to be switched between {{ walkListViewsJoined }}
-                            </label>
-                          </div>
-                        </div>
-                        <div class="form-group">
-                          <label for="navbar-location">Default Walk List View</label>
-                          <select class="form-control input-sm"
-                                  [(ngModel)]="config.group.defaultWalkListView"
-                                  id="navbar-location">
-                            @for (type of walkListViews; track type.key) {
-                              <option
-                                [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
-                              </option>
-                            }
-                          </select>
-                        </div>
-                      </div>
-                      <div class="col-md-6">
-                        <div class="form-group">
-                          <label for="social-event-population">Social Event Population</label>
-                          <select [(ngModel)]="config.group.socialEventPopulation"
-                                  class="form-control" id="social-event-population">
-                            @for (walkPopulation of populationMethods; track walkPopulation.key) {
-                              <option
-                                [ngValue]="walkPopulation.value">{{ stringUtils.asTitle(walkPopulation.value) }}
-                              </option>
-                            }
-                          </select>
-                        </div>
-                        <div class="form-group">
-                          <div class="custom-control custom-checkbox">
-                            <input [(ngModel)]="config.group.socialDetailsPublic"
-                                   type="checkbox" class="custom-control-input" id="social-details-public-viewable">
-                            <label class="custom-control-label"
-                                   for="social-details-public-viewable">Social Details Public Viewable
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <app-links-edit [heading]='"Pages on Site"' [links]="config.group.pages"></app-links-edit>
-                  </div>
+                <tab app-area-and-group-settings
+                     heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.AREA_AND_GROUP)}}"
+                     [config]="config"
+                     [active]="tabActive(SystemSettingsTab.AREA_AND_GROUP)"
+                     (selectTab)="selectTab(SystemSettingsTab.AREA_AND_GROUP)">
                 </tab>
                 <tab app-image-collection-settings
                      heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.BACKGROUNDS)}}"
@@ -206,8 +99,8 @@ import { faAdd, faPencil } from "@fortawesome/free-solid-svg-icons";
                         </div>
                       } @else {
                         <div class="col-sm-12">
-                        <app-badge-button (click)="config.images=systemConfigService.imagesDefaults()"
-                                          [icon]="faAdd" caption="No Image List Defaults - Create"/>
+                          <app-badge-button (click)="config.images=systemConfigService.imagesDefaults()"
+                                            [icon]="faAdd" caption="No Image List Defaults - Create"/>
                         </div>
                       }
                     </div>
@@ -618,7 +511,7 @@ import { faAdd, faPencil } from "@fortawesome/free-solid-svg-icons";
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageCollectionSettingsComponent, ColourSelectorComponent, MailProviderSettingsComponent, SystemMeetupSettingsComponent, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, FontAwesomeModule, NgClass, AspectRatioSelectorComponent, FileSizeSelectorComponent, BadgeButtonComponent]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageCollectionSettingsComponent, ColourSelectorComponent, MailProviderSettingsComponent, SystemMeetupSettingsComponent, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, FontAwesomeModule, NgClass, AspectRatioSelectorComponent, FileSizeSelectorComponent, BadgeButtonComponent, AreaAndGroupSettingsComponent]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 
@@ -629,7 +522,6 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   public logos: RootFolder = RootFolder.logos;
   public backgrounds: RootFolder = RootFolder.backgrounds;
   private subscriptions: Subscription[] = [];
-  public populationMethods: KeyValue<string>[] = enumKeyValues(EventPopulation);
   public membersPendingSave: Member[] = [];
   private memberService: MemberService = inject(MemberService);
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
@@ -643,8 +535,6 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("SystemSettingsComponent", NgxLoggerLevel.ERROR);
   navbarLocations: KeyValue<string>[] = enumKeyValues(NavBarLocation);
-  walkListViews: KeyValue<string>[] = enumKeyValues(WalkListView).filter(item => item.value !== WalkListView.MAP);
-  walkListViewsJoined = this.walkListViews.map(item => this.stringUtils.asTitle(item.value)).join(" and ");
   protected readonly colourSelectorsDarkLight = colourSelectorsDarkLight;
   protected readonly colourSelectors = colourSelectors;
   private tab: any;
@@ -661,7 +551,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
       this.headerLogoChanged(namedEvent.data);
     });
     this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
-      const defaultValue = kebabCase(SystemSettingsTab.GROUP_DETAILS);
+      const defaultValue = kebabCase(SystemSettingsTab.AREA_AND_GROUP);
       const tabParameter = params["tab"];
       const tab = tabParameter || defaultValue;
       this.logger.info("received tab value of:", tabParameter, "defaultValue:", defaultValue, "selectTab:", tab);

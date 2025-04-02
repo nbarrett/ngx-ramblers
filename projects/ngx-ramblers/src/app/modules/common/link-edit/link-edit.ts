@@ -8,8 +8,7 @@ import { FormsModule } from "@angular/forms";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgClass } from "@angular/common";
-
-let uniqueId = 0;
+import { NumberUtilsService } from "../../../services/number-utils.service";
 
 @Component({
     selector: "app-link-edit",
@@ -19,24 +18,23 @@ let uniqueId = 0;
 export class LinkEditComponent implements OnInit {
 
   private logger: Logger = inject(LoggerFactory).createLogger("LinkEditComponent", NgxLoggerLevel.ERROR);
-
+  private numberUtilsService: NumberUtilsService = inject(NumberUtilsService);
   @Input() link: Link;
   @Input() links: Link[];
   @Output() delete: EventEmitter<Link> = new EventEmitter();
-
+  uniqueId: string = this.numberUtilsService.generateUid();
   faClose = faClose;
   faDownLong = faDownLong;
   faUpLong = faUpLong;
 
   uniqueIdFor(prefix: string) {
-    const uniqueIdFor = `${prefix}-${uniqueId}`;
+    const uniqueIdFor = `${prefix}-${this.uniqueId}`;
     this.logger.debug("uniqueIdFor:", prefix, "returning:", uniqueIdFor);
     return uniqueIdFor;
   }
 
   ngOnInit() {
-    uniqueId = uniqueId++;
-    this.logger.debug("constructed", uniqueId, "instance with link:", this.link);
+    this.logger.debug("constructed", this.uniqueId, "instance with link:", this.link);
   }
 
   deleteLink() {

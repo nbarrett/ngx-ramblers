@@ -1,14 +1,7 @@
-import { DateCriteria } from "./api-request.model";
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { FileNameData } from "./aws-object.model";
 import { Notification } from "./committee.model";
-import { FilterParametersSearch } from "./member-resource.model";
 import { Media, RamblersEventType } from "./ramblers-walks-manager";
-
-export interface FilterParameters extends FilterParametersSearch {
-  selectType: DateCriteria;
-  fieldSort: number;
-}
 
 export interface SocialEvent extends Identifiable, HasMedia {
   attachment?: FileNameData;

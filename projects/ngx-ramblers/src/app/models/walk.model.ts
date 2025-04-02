@@ -2,7 +2,6 @@
 import mongoose from "mongoose";
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { MeetupConfig } from "./meetup-config.model";
-import { FilterParametersSearch } from "./member-resource.model";
 import { Group } from "./system.model";
 import { WalkAccessMode } from "./walk-edit-mode.model";
 import { WalkEventType } from "./walk-event-type.model";
@@ -11,6 +10,7 @@ import { WalkVenue } from "./walk-venue.model";
 import {
   BasicMedia,
   Contact,
+  HasNgSelectAttributes,
   LocationDetails,
   Metadata,
   PublishStatus,
@@ -18,6 +18,7 @@ import {
   RamblersWalkResponse
 } from "./ramblers-walks-manager";
 import { HasMedia } from "./social-events.model";
+import { HasBasicEventSelection } from "./search.model";
 
 export interface GoogleMapsConfig {
   apiKey: string;
@@ -36,6 +37,12 @@ export enum DistanceUnit {
   METRES,
   MILES,
   UNKNOWN,
+}
+
+export enum ImageSource {
+  NONE = "NONE",
+  LOCAL = "LOCAL",
+  WALKS_MANAGER = "WALKS_MANAGER"
 }
 
 export interface WalkDistance {
@@ -69,6 +76,11 @@ export interface LocalAndRamblersWalk {
   localWalk: Walk;
   ramblersWalk: RamblersWalkResponse;
 }
+
+export interface WalkForSelect extends Walk, HasNgSelectAttributes {
+
+}
+
 export interface Walk extends Identifiable, HasMedia {
   contactName?: string;
   walkType?: WalkType;
@@ -104,17 +116,13 @@ export interface Walk extends Identifiable, HasMedia {
   features?: Metadata[];
   additionalDetails?: string;
   organiser?: string;
+  imageConfig?: {
+    source: ImageSource;
+    importFrom: { areaCode: string, groupCode: string; filterParameters: HasBasicEventSelection; walkId: string; }
+  };
   start_location?: LocationDetails;
   meeting_location?: LocationDetails;
   end_location?: LocationDetails;
-  // deprecated fields
-  postcode?: string; // maps to start_location.postcode
-  gridReference?: string; // maps to start_location.grid_reference_10 (e.g. TR 05559 46726)
-  nearestTown?: string; // maps to start_location.description
-  startLocation?: string;// maps to start_location.description if nearestTown not populated
-  postcodeFinish?: string; // maps to end_location.postcode
-  gridReferenceFinish?: string; // maps to end_location.grid_reference_10 (e.g. TR 05559 46726)
-  startLocationW3w?: string; // maps to start_location.w3w
 }
 
 export interface RiskAssessmentRecord {
@@ -217,11 +225,6 @@ export interface DisplayedWalk {
   walkLink?: string;
   ramblersLink?: string;
   showEndpoint: boolean;
-}
-
-export interface FilterParameters extends FilterParametersSearch {
-  selectType: number;
-  ascending: boolean;
 }
 
 export interface LocalContact {

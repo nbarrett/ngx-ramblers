@@ -108,7 +108,7 @@ export function listEvents(req: Request, res: Response): void {
       const defaultOptions = requestDefaults.createApiRequestOptions(systemConfig);
       debugLog("listEvents:defaultOptions:", defaultOptions);
       const optionalParameters = [
-        optionalParameter("groups", systemConfig?.group?.groupCode),
+        optionalParameter("groups", body.groupCode || systemConfig?.group?.groupCode),
         optionalParameter("types", body.types),
         optionalParameter("ids", ids),
         optionalParameter("limit", limit),

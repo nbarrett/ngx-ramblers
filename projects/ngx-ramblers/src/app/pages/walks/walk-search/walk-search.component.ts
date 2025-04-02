@@ -6,7 +6,6 @@ import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { DeviceSize } from "../../../models/page.model";
-import { FilterParameters } from "../../../models/walk.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
@@ -15,6 +14,7 @@ import { Organisation, SystemConfig } from "../../../models/system.model";
 import { WalkDisplayService } from "../walk-display.service";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { FilterParameters } from "../../../models/search.model";
 
 @Component({
     selector: "app-walks-search",

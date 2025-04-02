@@ -7,7 +7,7 @@ import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { DataQueryOptions, DateCriteria } from "../../../models/api-request.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
-import { FilterParameters, SocialEvent } from "../../../models/social-events.model";
+import { SocialEvent } from "../../../models/social-events.model";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -22,6 +22,7 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { SocialSearchComponent } from "../social-search/social-search";
 import { FormsModule } from "@angular/forms";
 import { SocialListCardsComponent } from "../social-list-cards/social-list-cards";
+import { DateFilterParameters } from "../../../models/search.model";
 
 @Component({
     selector: "app-social-events",
@@ -57,7 +58,7 @@ export class SocialEventsComponent implements OnInit, OnDestroy {
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public socialEventId: string;
-  public filterParameters: FilterParameters = {
+  public filterParameters: DateFilterParameters = {
     fieldSort: 1,
     quickSearch: "",
     selectType: DateCriteria.CURRENT_OR_FUTURE_DATES

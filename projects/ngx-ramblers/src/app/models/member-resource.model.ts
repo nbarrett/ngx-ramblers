@@ -2,14 +2,6 @@ import { ApiResponse, Identifiable } from "./api-response.model";
 import { FileNameData } from "./aws-object.model";
 import { MailchimpCampaign, MailchimpCampaignVersion2 } from "./mailchimp.model";
 
-export interface FilterParametersSearch {
-  quickSearch: string;
-}
-
-export interface FilterParameters extends FilterParametersSearch {
-  filter?: AccessLevelData;
-}
-
 export enum AccessLevel {
   hidden = "hidden",
   committee = "committee",

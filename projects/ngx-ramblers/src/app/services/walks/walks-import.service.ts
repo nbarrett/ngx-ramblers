@@ -60,10 +60,12 @@ export class WalksImportService {
   }
 
   async prepareImport(messages: string[]): Promise<WalksImportPreparation> {
-    // const searchString = "Dave M";
     const searchString = "Penny";
     const dataQueryOptions: DataQueryOptions = {criteria: {}, sort: {walkDate: 1}};
-    const walksToImport = await this.ramblersWalksAndEventsService.all(dataQueryOptions, null, [RamblersEventType.GROUP_WALK]);
+    const walksToImport = await this.ramblersWalksAndEventsService.all({
+      dataQueryOptions,
+      types: [RamblersEventType.GROUP_WALK]
+    });
     messages.push(`Found ${this.stringUtils.pluraliseWithCount(walksToImport.length, "walk")} to import`);
     const walkLeaders = await this.ramblersWalksAndEventsService.queryWalkLeaders();
     messages.push(`Found ${this.stringUtils.pluraliseWithCount(walkLeaders.length, "walk leader")} to import`);
