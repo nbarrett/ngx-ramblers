@@ -28,6 +28,7 @@ import { WalkImageSelectionWalksManagerComponent } from "./walk-images-selection
                            name="image-source"
                            type="radio"
                            [value]="source.key"
+                           (ngModelChange)="imageSourceChanged($event)"
                            [(ngModel)]="displayedWalk.walk.imageConfig.source"/>
                     <label class="custom-control-label"
                            for="image-source-{{source.key}}">
@@ -63,6 +64,7 @@ export class WalkImagesEditComponent implements OnInit {
   @Input() config: SystemConfig;
   @Input() displayedWalk!: DisplayedWalk;
   imageSources: KeyValue<string>[] = enumKeyValues(ImageSource);
+  ImageSource = ImageSource;
 
   async ngOnInit() {
     this.logger.info("constructed with:config:", this.config, "this.displayedWalk:", this.displayedWalk);
@@ -97,5 +99,14 @@ export class WalkImagesEditComponent implements OnInit {
     }
   }
 
-  protected readonly ImageSource = ImageSource;
+  imageSourceChanged(imageSource: ImageSource) {
+    this.logger.info("imageSourceChanged:", imageSource, "this.displayedWalk?.walk?.imageConfig.source", this.displayedWalk?.walk?.imageConfig.source);
+    if (imageSource === ImageSource.NONE && this.displayedWalk.walk.media.length > 0) {
+      this.logger.info("Clearing images:", this.displayedWalk.walk.media);
+      this.displayedWalk.walk.media = [];
+      this.displayedWalk.walk.imageConfig.importFrom.walkId = null;
+    } else {
+      this.logger.info("No change to media required:", this.displayedWalk.walk.media);
+    }
+  }
 }
