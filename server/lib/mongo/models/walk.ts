@@ -1,20 +1,20 @@
 import mongoose from "mongoose";
 import uniqueValidator from "mongoose-unique-validator";
 
-const riskAssessmentRecord = {
+const riskAssessmentRecord = new mongoose.Schema({
   confirmationText: {type: String},
   memberId: {type: String},
   confirmed: {type: Boolean},
   confirmationDate: {type: Number},
-  riskAssessmentKey: {type: String},
-};
+  riskAssessmentKey: {type: String}
+}, {_id: false});
 
-const metaData = {
+const metaData = new mongoose.Schema({
   code: {type: String},
-  description: {type: String},
-};
+  description: {type: String}
+}, {_id: false});
 
-const locationDetails = {
+const locationDetails = new mongoose.Schema({
   latitude: {type: Number},
   longitude: {type: Number},
   grid_reference_6: {type: String},
@@ -22,11 +22,11 @@ const locationDetails = {
   grid_reference_10: {type: String},
   postcode: {type: String},
   description: {type: String},
-  w3w: {type: String},
-};
+  w3w: {type: String}
+}, {_id: false});
 
 
-const walkEvent = {
+const walkEvent = new mongoose.Schema({
   data: {type: Object},
   eventType: {type: String},
   date: {type: Number},
@@ -34,9 +34,9 @@ const walkEvent = {
   notes: {type: String},
   description: {type: String},
   reason: {type: String}
-};
+}, {_id: false});
 
-const walkVenue = {
+const walkVenue = new mongoose.Schema({
   venuePublish: {type: Boolean},
   type: {type: String},
   name: {type: String},
@@ -46,7 +46,7 @@ const walkVenue = {
   lat: {type: Number},
   lon: {type: Number},
   url: {type: String}
-};
+}, {_id: false});
 
 const mediaStyle = new mongoose.Schema({
   style: {type: String},
