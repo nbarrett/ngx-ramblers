@@ -75,7 +75,7 @@ import { BuiltInRole } from "../../models/committee.model";
 import { AlertInstance } from "../notifier.service";
 import { WalkEventService } from "./walk-event.service";
 import { WalksReferenceService } from "./walks-reference-data.service";
-import { Feature } from "../../models/walk-feature.model";
+import { ALL_DESCRIBED_FEATURES, Feature } from "../../models/walk-feature.model";
 
 @Injectable({
   providedIn: "root"
@@ -716,11 +716,11 @@ export class RamblersWalksAndEventsService {
   }
 
   allFeatures(): Metadata[] {
-    return enumKeyValues(Feature).map(feature => this.toFeature(feature.value));
+    return enumKeyValues(Feature).map(feature => this.toFeature(feature.value as Feature));
   }
 
-  toFeature(feature: string): Metadata {
-    return {code: feature, description: this.stringUtilsService.asTitle(feature)};
+  toFeature(feature: Feature): Metadata {
+    return {code: feature, description: ALL_DESCRIBED_FEATURES.find(item => item.code === feature)?.description};
   }
 
   private toPublishStatus(localAndRamblersWalk: LocalAndRamblersWalk): PublishStatus {

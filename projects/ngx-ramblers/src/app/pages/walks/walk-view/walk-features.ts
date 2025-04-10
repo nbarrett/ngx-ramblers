@@ -12,7 +12,7 @@ import { WalkEditFeatureCategoryComponent } from "./walk-feature";
     <div class="event-panel rounded event-panel-inner">
       <h1>Features</h1>
       @for (feature of features; track feature.code) {
-        <app-walk-feature [metadata]="feature"/>
+        <app-walk-feature [feature]="feature"/>
       }
     </div>`,
     imports: [WalkEditFeatureCategoryComponent]

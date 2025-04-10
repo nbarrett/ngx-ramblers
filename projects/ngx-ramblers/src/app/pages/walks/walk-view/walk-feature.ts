@@ -7,18 +7,18 @@ import { Metadata } from "../../../models/ramblers-walks-manager";
 import { SvgComponent } from "../../../modules/common/svg/svg";
 
 @Component({
-    selector: "app-walk-feature",
-    template: `
+  selector: "app-walk-feature",
+  template: `
     <div class="row">
       <div class="col-sm-12">
         <div class="form-inline">
-          <app-svg [disabled]="disabled" [height]="17" [width]="17" [icon]="'i-' + metadata.code"
+          <app-svg [disabled]="disabled" [height]="17" [width]="17" [icon]="'i-' + feature.code"
                    colour="rgb(155, 200, 171)"/>
-          <div class="ml-3">{{ metadata.description }}</div>
+          <div class="ml-3">{{ feature.description }}</div>
         </div>
       </div>
     </div>`,
-    imports: [SvgComponent]
+  imports: [SvgComponent]
 })
 
 export class WalkEditFeatureCategoryComponent implements OnInit {
@@ -26,11 +26,11 @@ export class WalkEditFeatureCategoryComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("WalkFeatureComponent", NgxLoggerLevel.ERROR);
   googleMapsService = inject(GoogleMapsService);
   display = inject(WalkDisplayService);
-  @Input() public metadata: Metadata;
+  @Input() public feature: Metadata;
   @Input() public disabled: boolean;
 
   ngOnInit() {
-    this.logger.info("ngOnInit", this.metadata);
+    this.logger.info("ngOnInit", this.feature);
   }
 
 }
