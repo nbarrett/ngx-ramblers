@@ -4,7 +4,7 @@ import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { Metadata } from "../../../models/ramblers-walks-manager";
-import { WalkFeatureComponent } from "./walk-feature";
+import { WalkEditFeatureCategoryComponent } from "./walk-feature";
 
 @Component({
     selector: "app-walk-features",
@@ -15,7 +15,7 @@ import { WalkFeatureComponent } from "./walk-feature";
         <app-walk-feature [metadata]="feature"/>
       }
     </div>`,
-    imports: [WalkFeatureComponent]
+    imports: [WalkEditFeatureCategoryComponent]
 })
 
 export class WalkFeaturesComponent implements OnInit {

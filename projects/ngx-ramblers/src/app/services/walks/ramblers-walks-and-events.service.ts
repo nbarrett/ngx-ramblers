@@ -51,7 +51,7 @@ import { CommitteeConfigService } from "../committee/commitee-config.service";
 import { CommitteeReferenceData } from "../committee/committee-reference-data";
 import { CommonDataService } from "../common-data-service";
 import { DateUtilsService } from "../date-utils.service";
-import { enumForKey, enumValues } from "../../functions/enums";
+import { enumForKey, enumKeyValues, enumValues } from "../../functions/enums";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberLoginService } from "../member/member-login.service";
 import { MemberNamingService } from "../member/member-naming.service";
@@ -75,6 +75,7 @@ import { BuiltInRole } from "../../models/committee.model";
 import { AlertInstance } from "../notifier.service";
 import { WalkEventService } from "./walk-event.service";
 import { WalksReferenceService } from "./walks-reference-data.service";
+import { Feature } from "../../models/walk-feature.model";
 
 @Injectable({
   providedIn: "root"
@@ -651,73 +652,6 @@ export class RamblersWalksAndEventsService {
     return socialEvent;
   }
 
-  generateAllFeatures(): Metadata[] {
-    return [
-      "assistance-dogs",
-      "back",
-      "back-link",
-      "back-round",
-      "car-parking",
-      "car-sharing",
-      "chat",
-      "clock",
-      "coach-trip",
-      "component-tick-desktop",
-      "component-tick-mobile",
-      "copyright",
-      "cross",
-      "cursor",
-      "dog-friendly",
-      "down",
-      "email-icon",
-      "external-link",
-      "facebook",
-      "facebook-icon",
-      "family-friendly",
-      "fast-pace",
-      "footprint",
-      "forward",
-      "forward-round",
-      "gate",
-      "hat",
-      "hiking",
-      "home",
-      "information",
-      "instagram",
-      "introductory-walk",
-      "linkedin-in",
-      "location",
-      "mail",
-      "may-be-muddy",
-      "meetup",
-      "menu",
-      "no-car",
-      "no-stiles",
-      "play",
-      "public-transport",
-      "pushchair-friendly",
-      "quote-end",
-      "quote-start",
-      "rain",
-      "refreshments",
-      "rest-stop-available",
-      "search",
-      "signpost",
-      "slower-pace",
-      "some-inclines",
-      "sun",
-      "tick",
-      "toilets",
-      "tree",
-      "twitter",
-      "twitter-icon",
-      "uneven-ground",
-      "up",
-      "whatsapp",
-      "wheelchair-accessible",
-      "youtube"].map(feature => this.toFeature(feature));
-  }
-
   walkToWalkUploadRow(walk: Walk): WalkUploadRow {
     const csvRecord: WalkUploadRow = {};
     const walkDistance: WalkDistance = this.distanceValidationService.parse(walk);
@@ -751,17 +685,17 @@ export class RamblersWalksAndEventsService {
     csvRecord[WalkUploadColumnHeading.DISTANCE_MILES] = walkDistance.miles.valueAsString;
     csvRecord[WalkUploadColumnHeading.ASCENT_METRES] = walkAscent.metres.valueAsString;
     csvRecord[WalkUploadColumnHeading.ASCENT_FEET] = walkAscent.feet.valueAsString;
-    csvRecord[WalkUploadColumnHeading.DOG_FRIENDLY] = "";
-    csvRecord[WalkUploadColumnHeading.INTRODUCTORY_WALK] = "";
-    csvRecord[WalkUploadColumnHeading.NO_STILES] = "";
-    csvRecord[WalkUploadColumnHeading.FAMILY_FRIENDLY] = "";
-    csvRecord[WalkUploadColumnHeading.WHEELCHAIR_ACCESSIBLE] = "";
-    csvRecord[WalkUploadColumnHeading.ACCESSIBLE_BY_PUBLIC_TRANSPORT] = "";
-    csvRecord[WalkUploadColumnHeading.CAR_PARKING_AVAILABLE] = "";
-    csvRecord[WalkUploadColumnHeading.CAR_SHARING_AVAILABLE] = "";
-    csvRecord[WalkUploadColumnHeading.COACH_TRIP] = "";
-    csvRecord[WalkUploadColumnHeading.REFRESHMENTS_AVAILABLE_PUB_CAFE] = "";
-    csvRecord[WalkUploadColumnHeading.TOILETS_AVAILABLE] = "";
+    csvRecord[WalkUploadColumnHeading.DOG_FRIENDLY] = this.featureTrueOrFalseSelection(Feature.DOG_FRIENDLY, walk);
+    csvRecord[WalkUploadColumnHeading.INTRODUCTORY_WALK] = this.featureTrueOrFalseSelection(Feature.INTRODUCTORY_WALK, walk);
+    csvRecord[WalkUploadColumnHeading.NO_STILES] = this.featureTrueOrFalseSelection(Feature.NO_STILES, walk);
+    csvRecord[WalkUploadColumnHeading.FAMILY_FRIENDLY] = this.featureTrueOrFalseSelection(Feature.FAMILY_FRIENDLY, walk);
+    csvRecord[WalkUploadColumnHeading.WHEELCHAIR_ACCESSIBLE] = this.featureTrueOrFalseSelection(Feature.WHEELCHAIR_ACCESSIBLE, walk);
+    csvRecord[WalkUploadColumnHeading.ACCESSIBLE_BY_PUBLIC_TRANSPORT] = this.featureTrueOrFalseSelection(Feature.PUBLIC_TRANSPORT, walk);
+    csvRecord[WalkUploadColumnHeading.CAR_PARKING_AVAILABLE] = this.featureTrueOrFalseSelection(Feature.CAR_PARKING, walk);
+    csvRecord[WalkUploadColumnHeading.CAR_SHARING_AVAILABLE] = this.featureTrueOrFalseSelection(Feature.CAR_SHARING, walk);
+    csvRecord[WalkUploadColumnHeading.COACH_TRIP] = this.featureTrueOrFalseSelection(Feature.COACH_TRIP, walk);
+    csvRecord[WalkUploadColumnHeading.REFRESHMENTS_AVAILABLE_PUB_CAFE] = this.featureTrueOrFalseSelection(Feature.REFRESHMENTS, walk);
+    csvRecord[WalkUploadColumnHeading.TOILETS_AVAILABLE] = this.featureTrueOrFalseSelection(Feature.TOILETS, walk);
     return csvRecord;
   }
 
@@ -773,7 +707,19 @@ export class RamblersWalksAndEventsService {
     return ramblersWalk?.media?.length > 0;
   }
 
-  private toFeature(feature: string): Metadata {
+  featureTrueOrFalseSelection(featureCode: Feature, walk: Walk): string {
+    return this.featureSelected(featureCode, walk) ? "TRUE" : "FALSE";
+  }
+
+  featureSelected(featureCode: Feature, walk: Walk): boolean {
+    return walk.features.some(feature => feature.code === featureCode);
+  }
+
+  allFeatures(): Metadata[] {
+    return enumKeyValues(Feature).map(feature => this.toFeature(feature.value));
+  }
+
+  toFeature(feature: string): Metadata {
     return {code: feature, description: this.stringUtilsService.asTitle(feature)};
   }
 

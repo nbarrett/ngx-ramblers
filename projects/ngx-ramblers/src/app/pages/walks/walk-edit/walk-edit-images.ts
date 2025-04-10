@@ -12,7 +12,7 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { WalkImageSelectionWalksManagerComponent } from "./walk-images-selection-walks-manager";
 
 @Component({
-  selector: "[app-walk-images]",
+  selector: "[app-walk-edit-images]",
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
       <div class="row">
@@ -56,8 +56,8 @@ import { WalkImageSelectionWalksManagerComponent } from "./walk-images-selection
     </div>`,
   imports: [UiSwitchModule, WalkImagesComponent, WalkImageSelectionWalksManagerComponent]
 })
-export class WalkImagesEditComponent implements OnInit {
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkImagesComponent", NgxLoggerLevel.ERROR);
+export class WalkEditImagesComponent implements OnInit {
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkEditImagesComponent", NgxLoggerLevel.ERROR);
   stringUtils = inject(StringUtilsService);
   dateUtils = inject(DateUtilsService);
 

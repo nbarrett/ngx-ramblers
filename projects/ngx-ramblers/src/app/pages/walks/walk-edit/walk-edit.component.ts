@@ -73,8 +73,9 @@ import { WalkMeetupComponent } from "../walk-meetup/walk-meetup.component";
 import { WalkSummaryPipe } from "../../../pipes/walk-summary.pipe";
 import { SystemConfig } from "../../../models/system.model";
 import { SystemConfigService } from "../../../services/system/system-config.service";
-import { WalkImagesEditComponent } from "./walk-images-edit";
+import { WalkEditImagesComponent } from "./walk-edit-images";
 import { JsonPipe } from "@angular/common";
+import { WalkEditFeaturesComponent } from "./walk-edit-features";
 
 @Component({
     selector: "app-walk-edit",
@@ -84,8 +85,7 @@ import { JsonPipe } from "@angular/common";
       </div>
       <div class="tabset-container">
         <app-walk-panel-expander [walk]="displayedWalk.walk" [collapsable]="true" [collapseAction]="'exit edit'"
-                                 [expandAction]="'edit walk full-screen'" [expandable]="isExpandable()">
-        </app-walk-panel-expander>
+                                 [expandAction]="'edit walk full-screen'" [expandable]="isExpandable()"/>
         @if (displayedWalk.walk) {
           <tabset class="custom-tabset">
             <tab heading="Main Details">
@@ -99,8 +99,7 @@ import { JsonPipe } from "@angular/common";
                                        [disabled]="!display.allowAdminEdits() || inputDisabled()"
                                        class="w-100"
                                        (dateChange)="onDateChange($event)"
-                                       [value]="displayedWalk.walk.walkDate">
-                      </app-date-picker>
+                                       [value]="displayedWalk.walk.walkDate"/>
                     </div>
                   </div>
                   <div class="col-sm-2">
@@ -162,7 +161,7 @@ import { JsonPipe } from "@angular/common";
                         @if (longerDescriptionPreview) {
                           <a
                             (click)="editLongerDescription()" [href]="">
-                            <fa-icon [icon]="faPencil" class="markdown-preview-icon"></fa-icon>
+                            <fa-icon [icon]="faPencil" class="markdown-preview-icon"/>
                             edit</a>
                         } </label>
                       @if (longerDescriptionPreview) {
@@ -520,10 +519,12 @@ import { JsonPipe } from "@angular/common";
                 </div>
               </div>
             </tab>
-            <tab app-walk-images heading="Images"
+            <tab app-walk-edit-features heading="Features"
                  [displayedWalk]="displayedWalk"
-                 [config]="config">
-            </tab>
+                 [config]="config"/>
+            <tab app-walk-edit-images heading="Images"
+                 [displayedWalk]="displayedWalk"
+                 [config]="config"/>
             @if (display.walkLeaderOrAdmin(displayedWalk.walk)) {
               <tab heading="History">
                 <div class="img-thumbnail thumbnail-admin-edit">
@@ -733,7 +734,7 @@ import { JsonPipe } from "@angular/common";
         </div>
       }`,
     styleUrls: ["./walk-edit.component.sass"],
-  imports: [NotificationDirective, WalkPanelExpanderComponent, TabsetComponent, TabDirective, DatePickerComponent, FormsModule, FontAwesomeModule, MarkdownComponent, WalkLocationEditComponent, WalkRiskAssessmentComponent, MarkdownEditorComponent, TooltipDirective, WalkVenueComponent, WalkMeetupComponent, DisplayDatePipe, WalkSummaryPipe, WalkImagesEditComponent, JsonPipe]
+  imports: [NotificationDirective, WalkPanelExpanderComponent, TabsetComponent, TabDirective, DatePickerComponent, FormsModule, FontAwesomeModule, MarkdownComponent, WalkLocationEditComponent, WalkRiskAssessmentComponent, MarkdownEditorComponent, TooltipDirective, WalkVenueComponent, WalkMeetupComponent, DisplayDatePipe, WalkSummaryPipe, WalkEditImagesComponent, JsonPipe, WalkEditFeaturesComponent]
 })
 export class WalkEditComponent implements OnInit, OnDestroy {
   showChangedItems: false;
