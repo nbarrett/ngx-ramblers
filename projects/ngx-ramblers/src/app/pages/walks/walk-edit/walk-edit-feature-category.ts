@@ -4,6 +4,8 @@ import { WalkEditFeatureCategoryComponent } from "../walk-view/walk-feature";
 import { DisplayedWalk } from "../../../models/walk.model";
 import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
 import { sortBy } from "../../../functions/arrays";
+import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
+import { NgxLoggerLevel } from "ngx-logger";
 
 @Component({
   selector: "app-walk-edit-feature-category",
@@ -24,7 +26,7 @@ import { sortBy } from "../../../functions/arrays";
                    (change)="toggleFeature(feature.code)"
                    class="form-checkbox custom-control-input">
             <label for="feature-{{ feature.code }}" class="custom-control-label">
-              <app-walk-feature [metadata]="feature"
+              <app-walk-feature [feature]="feature"
                                 [disabled]="!ramblersWalksAndEventsService.featureSelected(feature.code, displayedWalk.walk)"/>
             </label>
           </div>
@@ -34,6 +36,7 @@ import { sortBy } from "../../../functions/arrays";
   `
 })
 export class WalkFeatureListComponent {
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkFeatureListComponent", NgxLoggerLevel.ERROR);
   ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   allFeatures = this.ramblersWalksAndEventsService.allFeatures();
   @Input() categorisedFeatures: CategorisedFeatures[] = [];
@@ -50,6 +53,7 @@ export class WalkFeatureListComponent {
       }
     }
     this.displayedWalk.walk.features = this.displayedWalk.walk.features.sort(sortBy("code"));
+    this.logger.info("toggleFeature", featureCode, this.displayedWalk.walk.features);
   }
 
 }

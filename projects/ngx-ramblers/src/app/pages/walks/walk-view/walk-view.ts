@@ -124,7 +124,7 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
                         </a>
                       </div>
                     }
-                    @if (displayedWalk.walk.startLocationW3w) {
+                    @if (displayedWalk?.walk?.start_location?.w3w) {
                       <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
                            class="col-sm-12">
                         <img title class="w3w-image"
@@ -132,7 +132,7 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
                              alt="View start location in what3words"/>
                         <a content tooltip="Click to view the start location in what3words"
                            target="_blank"
-                           [href]="'https://what3words.com/'+displayedWalk.walk.startLocationW3w">
+                           [href]="'https://what3words.com/'+displayedWalk.walk.start_location.w3w">
                           View start location in what3words
                         </a>
                       </div>

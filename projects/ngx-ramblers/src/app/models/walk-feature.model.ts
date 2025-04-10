@@ -169,3 +169,5 @@ export const UNUSED_FEATURE_CATEGORIES: CategorisedFeatures[] = [
     ]
   }
 ];
+
+export const ALL_DESCRIBED_FEATURES: DescribedFeature[] = (FEATURE_CATEGORIES.concat(UNUSED_FEATURE_CATEGORIES)).map(value => value.features).flat(2);
