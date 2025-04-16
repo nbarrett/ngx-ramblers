@@ -75,7 +75,8 @@ import { BuiltInRole } from "../../models/committee.model";
 import { AlertInstance } from "../notifier.service";
 import { WalkEventService } from "./walk-event.service";
 import { WalksReferenceService } from "./walks-reference-data.service";
-import { ALL_DESCRIBED_FEATURES, Feature } from "../../models/walk-feature.model";
+import { ALL_DESCRIBED_FEATURES, DescribedFeature, Feature } from "../../models/walk-feature.model";
+import { marked } from "marked";
 
 @Injectable({
   providedIn: "root"
@@ -110,6 +111,7 @@ export class RamblersWalksAndEventsService {
   private ramblers: Ramblers;
   private BASE_URL = "/api/ramblers/walks-manager";
   private NEAREST_TOWN_PREFIX = "Starting Location is ";
+  private conversionOptions = {markdownToHtml: false, markdownLinksToText: true};
 
   constructor() {
     inject(CommitteeConfigService).committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data);
@@ -267,14 +269,14 @@ export class RamblersWalksAndEventsService {
       .sort(walkExport => walkExport.displayedWalk.walk.walkDate);
   }
 
-  walkUploadRows(walkExports: WalkExport[]): WalkUploadRow[] {
-    return this.selectedExportableWalks(walkExports).map(walkExport => walkExport.displayedWalk.walk).map((walk: Walk) => this.walkToUploadRow(walk));
+  async walkUploadRows(walkExports: WalkExport[]): Promise<WalkUploadRow[]> {
+    return await Promise.all(this.selectedExportableWalks(walkExports).map(walkExport => walkExport.displayedWalk.walk).map((walk: Walk) => this.walkToUploadRow(walk)));
   }
 
-  createWalksForExportPrompt(walks): Promise<WalkExport[]> {
-    return this.listRamblersWalks()
-      .then((ramblersWalksResponses: RamblersWalkResponse[]) => this.updateWalksWithRamblersWalkData(ramblersWalksResponses, walks))
-      .then((updatedWalks: LocalAndRamblersWalk[]) => this.returnWalksExport(updatedWalks));
+  async createWalksForExportPrompt(walks: Walk[]): Promise<WalkExport[]> {
+    const ramblersWalksResponses = await this.listRamblersWalks();
+    const updatedWalks: LocalAndRamblersWalk[] = await this.updateWalksWithRamblersWalkData(ramblersWalksResponses, walks);
+    return this.returnWalksExport(updatedWalks);
   }
 
   updateWalksWithRamblersWalkData(ramblersWalksResponses: RamblersWalkResponse[], walks: Walk[]): Promise<LocalAndRamblersWalk[]> {
@@ -364,10 +366,10 @@ export class RamblersWalksAndEventsService {
 
   }
 
-  public createWalksUploadRequest(walkExports: WalkExport[]): RamblersWalksUploadRequest {
+  public async createWalksUploadRequest(walkExports: WalkExport[]): Promise<RamblersWalksUploadRequest> {
     const walkIdDeletionList = this.walkDeletionList(walkExports);
     this.logger.debug("sourceData", walkExports);
-    const rows = this.walkUploadRows(walkExports);
+    const rows: WalkUploadRow[] = await this.walkUploadRows(walkExports);
     const fileName = this.exportWalksFileName();
     return {
       headings: this.walkUploadHeadings(),
@@ -487,12 +489,35 @@ export class RamblersWalksAndEventsService {
     return walkDescription.map(this.replaceSpecialCharacters).join(". ");
   }
 
-  walkDescription(walk: Walk): string {
-    return this.replaceSpecialCharacters(walk.longerDescription);
+  async walkDescription(walk: Walk): Promise<string> {
+    return this.renderValueAsHtml(this.replaceSpecialCharacters(this.longerDescriptionPlusSuffixes(walk)));
+  }
+
+  private longerDescriptionPlusSuffixes(walk: Walk) {
+    const assistanceDogsDescribedFeature: DescribedFeature = ALL_DESCRIBED_FEATURES.find(item => item.code === Feature.ASSISTANCE_DOGS);
+    const walkDescription = walk.longerDescription.trim();
+    if (this.featureSelected(Feature.ASSISTANCE_DOGS, walk) && !walk.longerDescription.includes(assistanceDogsDescribedFeature.description)) {
+      const delimiter = this.stringUtilsService.right(walkDescription, 1) === "." ? " " : ". ";
+      return `${walkDescription}${delimiter}${assistanceDogsDescribedFeature.description}.`;
+    } else {
+      return walkDescription;
+    }
+  }
+
+  private transformMarkdownLinks(input: string): string {
+    const markdownLinkRegex = /\[([^\]]+)]\((https?:\/\/[^)]+)\)/g;
+    return input.replace(markdownLinkRegex, "$1: $2");
+  }
+
+  private async renderValueAsHtml(markdownValue: string): Promise<string> {
+    const input = (this.conversionOptions.markdownLinksToText ? this.transformMarkdownLinks(markdownValue) : markdownValue) || "";
+    const renderedMarkdown = this.conversionOptions.markdownToHtml ? await marked(input) : input;
+    this.logger.info("renderMarked: markdownValue:", markdownValue, "renderedMarkdown:", renderedMarkdown);
+    return renderedMarkdown;
   }
 
   walkType(walk: Walk): string {
-    return walk.walkType || "Circular";
+    return walk.walkType || WalkType.CIRCULAR;
   }
 
   asString(value): string {
@@ -505,16 +530,14 @@ export class RamblersWalksAndEventsService {
 
   replaceSpecialCharacters(value: string): string {
     return value ? value
-      ?.replace("’", "")
-      ?.replace("é", "e")
-      ?.replace("â€™", "")
-      ?.replace("â€¦", "…")
-      ?.replace("â€“", "–")
-      ?.replace("â€™", "’")
-      ?.replace("â€œ", "“")
-      ?.replace(/(\r\n|\n|\r)/gm, " ") : "";
+      ?.replace(/’/g, "")
+      ?.replace(/é/g, "e")
+      ?.replace(/â€™/g, "")
+      ?.replace(/â€¦/g, "…")
+      ?.replace(/â€“/g, "–")
+      ?.replace(/â€™/g, "’")
+      ?.replace(/â€œ/g, "“") : "";
   }
-
 
   walkStartTime(walk: Walk): string {
     return walk.startTime ? this.dateUtils.asString(this.dateUtils.startTime(walk), null, "HH:mm") : "";
@@ -550,7 +573,7 @@ export class RamblersWalksAndEventsService {
     return this.dateUtils.asString(walk.walkDate, null, format);
   }
 
-  walkToUploadRow(walk: Walk): WalkUploadRow {
+  walkToUploadRow(walk: Walk): Promise<WalkUploadRow> {
     return this.walkToWalkUploadRow(walk);
   }
 
@@ -652,15 +675,16 @@ export class RamblersWalksAndEventsService {
     return socialEvent;
   }
 
-  walkToWalkUploadRow(walk: Walk): WalkUploadRow {
+  async walkToWalkUploadRow(walk: Walk): Promise<WalkUploadRow> {
     const csvRecord: WalkUploadRow = {};
     const walkDistance: WalkDistance = this.distanceValidationService.parse(walk);
     this.logger.debug("walkDistance:", walkDistance);
     const walkAscent: WalkAscent = this.ascentValidationService.parse(walk);
     this.logger.debug("walkAscent:", walkAscent);
+    const walkDescription = await this.walkDescription(walk);
     csvRecord[WalkUploadColumnHeading.DATE] = this.walkDate(walk, DateFormat.WALKS_MANAGER_CSV);
     csvRecord[WalkUploadColumnHeading.TITLE] = this.walkTitle(walk);
-    csvRecord[WalkUploadColumnHeading.DESCRIPTION] = this.walkDescription(walk);
+    csvRecord[WalkUploadColumnHeading.DESCRIPTION] = walkDescription;
     csvRecord[WalkUploadColumnHeading.ADDITIONAL_DETAILS] = "";
     csvRecord[WalkUploadColumnHeading.WEBSITE_LINK] = this.walkDisplayService.walkLink(walk);
     csvRecord[WalkUploadColumnHeading.WALK_LEADERS] = this.walkLeader(walk);

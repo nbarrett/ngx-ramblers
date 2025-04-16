@@ -32,6 +32,24 @@ describe("StringUtilsService", () => {
     service = TestBed.inject(StringUtilsService);
   });
 
+  describe("left", () => {
+    it("should return the left X characters of a string", () => {
+      expect(service.left("Hello Mum", 5)).toBe("Hello");
+      expect(service.left("the quick brown fox", 10)).toBe("the quick ");
+      expect(service.left("short", 10)).toBe("short");
+      expect(service.left("", 5)).toBe("");
+    });
+  });
+
+  describe("right", () => {
+    it("should return the right X characters of a string", () => {
+      expect(service.right("Hello Mum", 3)).toBe("Mum");
+      expect(service.right("the quick brown fox", 9)).toBe("brown fox");
+      expect(service.right("short", 10)).toBe("short");
+      expect(service.right("", 5)).toBe("");
+    });
+  });
+
   describe("stringifyObject", () => {
     it("should return an object with humanised key, values", () => {
       expect(service.stringifyObject({

@@ -377,11 +377,11 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
-  uploadToRamblers() {
+  async uploadToRamblers() {
     this.logger.debug("Refreshing audit trail for file", this.fileName, "count =", this.ramblersUploadAuditData.length);
     this.ramblersUploadAuditData = [];
     this.exportInProgress = true;
-    const ramblersWalksUploadRequest: RamblersWalksUploadRequest = this.ramblersWalksAndEventsService.createWalksUploadRequest(this.walksForExport);
+    const ramblersWalksUploadRequest: RamblersWalksUploadRequest = await this.ramblersWalksAndEventsService.createWalksUploadRequest(this.walksForExport);
     this.webSocketClientService.connect().then(() => {
       this.webSocketClientService.sendMessage(EventType.RAMBLERS_WALKS_UPLOAD, ramblersWalksUploadRequest);
       this.fileName = {fileName: ramblersWalksUploadRequest.fileName, status: Status.ACTIVE};
@@ -478,8 +478,8 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     return walksForExport;
   }
 
-  createWalksDownloadFileContents(): WalkUploadRow[] {
-    const walkUploadRows = this.ramblersWalksAndEventsService.walkUploadRows(this.exportableWalks());
+  async createWalksDownloadFileContents(): Promise<WalkUploadRow[]> {
+    const walkUploadRows = await this.ramblersWalksAndEventsService.walkUploadRows(this.exportableWalks());
     this.logger.info("createWalksDownloadFileContents:", walkUploadRows);
     return walkUploadRows;
   }
@@ -538,8 +538,8 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     }
   }
 
-  private populateWalksDownloadFileContents() {
-    this.walksDownloadFileContents = this.createWalksDownloadFileContents();
+  private async populateWalksDownloadFileContents() {
+    this.walksDownloadFileContents = await this.createWalksDownloadFileContents();
   }
 
   walksDownloadFileName() {

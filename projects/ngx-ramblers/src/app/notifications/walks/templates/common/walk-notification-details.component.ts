@@ -117,7 +117,7 @@ export class WalkNotificationDetailsComponent implements OnInit {
     }
   }
 
-  renderMarked(markdownValue: any) {
+  renderMarked(markdownValue: string) {
     if (markdownValue) {
       const renderedMarkdown = marked(markdownValue.toString() || "");
       this.logger.info("renderMarked: markdownValue:", markdownValue, "renderedMarkdown:", renderedMarkdown);

@@ -101,6 +101,7 @@ export const FEATURE_CATEGORIES: CategorisedFeatures[] = [
   {
     category: FeatureCategory.ACCESSIBILITY,
     features: [
+      {code: Feature.ASSISTANCE_DOGS, description: "Assistance dogs only"},
       {code: Feature.DOG_FRIENDLY, description: "Dog friendly"},
       {code: Feature.INTRODUCTORY_WALK, description: "Introductory walk"},
       {code: Feature.NO_CAR, description: "No car needed"},
@@ -116,7 +117,6 @@ export const UNUSED_FEATURE_CATEGORIES: CategorisedFeatures[] = [
   {
     category: FeatureCategory.UNUSED_FEATURES,
     features: [
-      {code: Feature.ASSISTANCE_DOGS, description: "Assistance dogs allowed"},
       {code: Feature.BACK, description: "Back button"},
       {code: Feature.BACK_LINK, description: "Back link"},
       {code: Feature.BACK_ROUND, description: "Back round icon"},
