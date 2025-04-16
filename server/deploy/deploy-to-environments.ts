@@ -2,7 +2,7 @@ import debug from "debug";
 import {
   configureEnvironment,
   createRuntimeConfig,
-  createVolume,
+  createVolumeIfNotExists,
   DeploymentConfig,
   EnvironmentConfig,
   readConfigFile,
@@ -33,7 +33,7 @@ function deployToEnvironments(configFilePath: string, environmentsFilter: string
     configureEnvironment(environmentConfig, config);
     debugLog(`Deploying ${config.dockerImage} to ${environmentConfig.appName}`);
 
-    createVolume(environmentConfig.appName, "serenity_data", config.region);
+    createVolumeIfNotExists(environmentConfig.appName, "serenity_data", config.region);
 
     runCommand(`flyctl config validate --config ${flyTomlPath} --app ${environmentConfig.appName}`);
     runCommand(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --strategy rolling`);
