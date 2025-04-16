@@ -1,4 +1,4 @@
-import kebabCase from "lodash-es/kebabCase";
+import kebabCase from "lodash/kebabCase";
 
 export function toKebabCase(...strings: any[]) {
   return strings
