@@ -112,8 +112,12 @@ StringUtilsService {
     return andTrim && replacedValue ? replacedValue.trim() : replacedValue;
   }
 
-  left(str, chars) {
-    return str.substr(0, chars);
+  left(str: string, chars: number): string {
+    return str.slice(0, chars);
+  }
+
+  right(str: string, chars: number): string {
+    return str.slice(-chars);
   }
 
   asTitle(str: string) {

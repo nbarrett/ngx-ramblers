@@ -136,6 +136,11 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
               </div>
             </dd>
           </dl>
+          @if (display.walkPopulationLocal() && displayedWalk.status !== EventType.APPROVED) {
+            <div id="{{displayedWalk.walk.id}}-status"
+                 class="badge event-badge sunset-badge ml-0">{{ displayedWalk?.latestEventType?.description }}
+            </div>
+          }
         }
       </div>
     </div>`,
