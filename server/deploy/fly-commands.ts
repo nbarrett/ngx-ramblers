@@ -60,7 +60,7 @@ export function createRuntimeConfig(): RuntimeConfig {
 
 function queryExistingVolumeName(appName: string, region: string): string | null {
   try {
-    const output = execSync(`flyctl volumes list --app ${appName}`, {encoding: "utf-8"});
+    const output = execSync(`flyctl volumes list --app ${appName}`, { encoding: "utf-8" });
     const outputLines = output.split("\n").filter(line => line.trim() !== ""); // Remove empty lines
     debugLog(`queryExistingVolumeName:outputLines:`, outputLines);
 
@@ -76,8 +76,8 @@ function queryExistingVolumeName(appName: string, region: string): string | null
 
     for (const line of outputLines.slice(1)) {
       const columns = line.split("\t").map(col => col.trim());
-      if (columns[regionIndex] === region && !columns[attachedVmIndex]) {
-        return columns[idIndex]; // Return the volume ID
+      if (columns[regionIndex] === region) {
+        return columns[idIndex];
       }
     }
 
@@ -85,16 +85,6 @@ function queryExistingVolumeName(appName: string, region: string): string | null
   } catch (error) {
     debugLog(`Error retrieving existing volume name: ${error}`);
     return null;
-  }
-}
-function isVolumeUnattached(appName: string, volumeName: string): boolean {
-  try {
-    const output = execSync(`flyctl volumes list --app ${appName}`, {encoding: "utf-8"});
-    const volumeLine = output.split("\n").find(line => line.includes(volumeName));
-    return volumeLine && volumeLine.includes("Unattached");
-  } catch (error) {
-    debugLog(`Error checking if volume is unattached: ${error}`);
-    return false;
   }
 }
 
@@ -117,8 +107,9 @@ export function createVolumeIfNotExists(appName: string, volumeName: string, reg
   const existingVolumeName = queryExistingVolumeName(appName, region);
 
   if (!existingVolumeName) {
-    debugLog(`No existing volume found. Creating '${volumeName}' in region '${region}'...`);
+    debugLog(`No existing volume found in region '${region}'. Creating '${volumeName}'...`);
     runCommand(`flyctl volumes create ${volumeName} --app ${appName} --region ${region}`);
+    return;
   }
 
   const currentRegion = getVolumeRegion(appName, existingVolumeName);
@@ -135,24 +126,10 @@ export function createVolumeIfNotExists(appName: string, volumeName: string, reg
       }
     }
     runCommand(`flyctl volumes create ${volumeName} --app ${appName} --region ${region}`);
+    return;
   }
 
-  if (!isVolumeUnattached(appName, existingVolumeName)) {
-    debugLog(`Volume '${existingVolumeName}' is attached. Detaching it for use as '${volumeName}'...`);
-    try {
-      runCommand(`flyctl volumes delete ${existingVolumeName} --app ${appName} -y`);
-    } catch (error) {
-      if (error.message.includes("volume not found")) {
-        debugLog(`Volume '${existingVolumeName}' not found during deletion. Proceeding to recreate '${volumeName}'.`);
-      } else {
-        debugLog(`Failed to delete volume '${existingVolumeName}': ${error}.`);
-        process.exit(1);
-      }
-    }
-    runCommand(`flyctl volumes create ${volumeName} --app ${appName} --region ${region}`);
-  }
-
-  debugLog(`Volume '${existingVolumeName}' exists, is unattached, and in the correct region '${region}'. Using it as '${volumeName}'.`);
+  debugLog(`Volume '${existingVolumeName}' exists in the correct region '${region}'. Using it as '${volumeName}'.`);
 }
 
 export function configureEnvironment(environmentConfig: EnvironmentConfig, config: DeploymentConfig) {
