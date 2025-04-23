@@ -5,7 +5,13 @@ import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { CommitteeYear } from "../../../models/committee.model";
-import { PageContent, PageContentColumn, PageContentPath, PageContentType } from "../../../models/content-text.model";
+import {
+  BuiltInAnchor,
+  PageContent,
+  PageContentColumn,
+  PageContentPath,
+  PageContentType
+} from "../../../models/content-text.model";
 import { AccessLevel } from "../../../models/member-resource.model";
 import { LoginResponse, Member } from "../../../models/member.model";
 import { Confirm } from "../../../models/ui-actions";
@@ -31,6 +37,10 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
     imports: [PageComponent, CommitteeYearComponent, DynamicContentComponent, FontAwesomeModule]
 })
 export class CommitteeHomeComponent implements OnInit, OnDestroy {
+
+  constructor() {
+    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+  }
   private logger: Logger = inject(LoggerFactory).createLogger("CommitteeHomeComponent", NgxLoggerLevel.ERROR);
   private pageService = inject(PageService);
   private memberLoginService = inject(MemberLoginService);
@@ -52,10 +62,7 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
   public committeeYear: CommitteeYear;
   private committeeFileId: string;
   public pageTitle: string;
-
-  constructor() {
-    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
-  }
+  protected readonly BuiltInAnchor = BuiltInAnchor;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -164,5 +171,4 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
         this.logger.debug("error:", error);
       });
   }
-
 }

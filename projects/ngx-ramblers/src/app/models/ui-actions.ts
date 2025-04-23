@@ -76,3 +76,7 @@ export class Confirm {
     return this.type;
   }
 }
+
+export interface HasTrackingAttribute {
+  tracking: string;
+}

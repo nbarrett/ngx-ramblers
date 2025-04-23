@@ -19,6 +19,8 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
 import {
   ContentText,
+  ContentTextUsage,
+  ContentTextUsageWithTracking,
   DataAction,
   EditorInstanceState,
   EditorState,
@@ -41,10 +43,13 @@ import { MarkdownComponent } from "ngx-markdown";
 import { NgClass } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { KebabCasePipe } from "../pipes/kebabcase.pipe";
+import { DuplicateContentDetectionService } from "../services/duplicate-content-detection-service";
+import { ALERT_WARNING } from "../models/alert-target.model";
+import { UrlService } from "../services/url.service";
 
 @Component({
-    selector: "app-markdown-editor",
-    styles: [`
+  selector: "app-markdown-editor",
+  styles: [`
     .markdown-textarea
       margin-top: 6px
       margin-bottom: 12px
@@ -54,105 +59,112 @@ import { KebabCasePipe } from "../pipes/kebabcase.pipe";
       border-radius: 6px
       padding: 16px
   `],
-    template: `
-      @if (siteEditActive()) {
-        <div class="row">
-          <div class="col-12">
-            @if (buttonsAvailableOnlyOnFocus) {
-              <app-badge-button
-                (click)="componentHasFocus() ? toggleToView() : toggleToEdit()" delay=500
-                [tooltip]="(componentHasFocus()? 'Exit edit' : 'Edit') + ' content for ' + description"
-                [icon]="faPencil" [caption]="componentHasFocus() ? 'Exit edit' : 'Edit'">
-              </app-badge-button>
+  template: `
+    @if (siteEditActive()) {
+      <div class="row">
+        <div class="col-12">
+          @if (buttonsAvailableOnlyOnFocus) {
+            <app-badge-button
+              (click)="componentHasFocus() ? toggleToView() : toggleToEdit()" delay=500
+              [tooltip]="(componentHasFocus()? 'Exit edit' : 'Edit') + ' content for ' + description"
+              [icon]="faPencil" [caption]="componentHasFocus() ? 'Exit edit' : 'Edit'">
+            </app-badge-button>
+          }
+          @if (!buttonsAvailableOnlyOnFocus || componentHasFocus()) {
+            <ng-content select="[prepend]"></ng-content>
+            @if (editorState.view) {
+              <app-badge-button (click)="toggleEdit()" delay=500 [tooltip]="tooltip()"
+                                [icon]="icon()"
+                                [caption]="nextActionCaption()"/>
             }
-            @if (!buttonsAvailableOnlyOnFocus || componentHasFocus()) {
-              <ng-content select="[prepend]"></ng-content>
-              @if (editorState.view) {
-                <app-badge-button (click)="toggleEdit()" delay=500 [tooltip]="tooltip()"
-                                  [icon]="icon()"
-                                  [caption]="nextActionCaption()"></app-badge-button>
-              }
-              @if (dirty() && canSave()) {
-                <app-badge-button (click)="save()" [tooltip]="'Save content for ' + description"
-                                  delay=500 [icon]="saving() ? faSpinner: faCircleCheck"
-                                  [caption]="'save'"></app-badge-button>
-              }
-              @if (dirty() && !saving()) {
-                <app-badge-button (click)="revert()"
-                                  delay=500 [tooltip]="'Revert content for ' + description"
-                                  [icon]="reverting() ? faSpinner: faRemove" caption="revert"></app-badge-button>
-              }
-              @if (canDelete() && !saving()) {
-                <app-badge-button (click)="delete()" delay=500
-                                  [tooltip]="'Delete content for ' + description"
-                                  [icon]="reverting() ? faSpinner: faEraser"
-                                  caption="delete">
-                </app-badge-button>
-              }
-              @if (canUnlink()) {
-                <app-badge-button (click)="unlink()" delay=500
-                                  [tooltip]="'Unlink and save as new content for ' + description"
-                                  [icon]="reverting() ? faSpinner: faUnlink" caption="unlink">
-                </app-badge-button>
-              }
-              <ng-content select=":not([prepend])"></ng-content>
+            @if (dirty() && canSave()) {
+              <app-badge-button (click)="save()" [tooltip]="'Save content for ' + description"
+                                delay=500 [icon]="saving() ? faSpinner: faCircleCheck"
+                                [caption]="'save'"/>
             }
-          </div>
-          @if (editNameEnabled) {
-            <div class="col-12">
-              <label class="mt-2 mt-3" [for]="'input-'+ content.name | kebabCase">Content name</label>
-              <input [(ngModel)]="content.name"
-                     [id]="'input-'+ content.name | kebabCase"
-                     type="text" class="form-control input-sm"
-                     placeholder="Enter name of content">
-              <label class="mt-2 mt-3" [for]="content.name">Content for {{ content.name }}</label>
-            </div>
+            @if (dirty() && !saving()) {
+              <app-badge-button (click)="revert()"
+                                delay=500 [tooltip]="'Revert content for ' + description"
+                                [icon]="reverting() ? faSpinner: faRemove" caption="revert"/>
+            }
+            @if (canDelete() && !saving()) {
+              <app-badge-button (click)="delete()" delay=500
+                                [tooltip]="'Delete content for ' + description"
+                                [icon]="reverting() ? faSpinner: faEraser"
+                                caption="delete"/>
+            }
+            <ng-content select=":not([prepend])"/>
           }
         </div>
-      }
-      @if (showing() && editorState.view === 'view') {
-        @if (renderInline()) {
-          <span
-            [class]="content?.styles?.class"
-            (click)="toggleEdit()" markdown ngPreserveWhitespaces [data]="content.text">
-        </span>
-        }
-        @if (!renderInline()) {
-          <div [class]="contentStylesClass()"
-               [ngClass]="{
-          'list-default': content?.styles?.list===ListStyle.NO_IMAGE,
-          'list-arrow': content?.styles?.list===ListStyle.ARROW||!content?.styles?.list,
-          'list-tick-medium': content?.styles?.list===ListStyle.TICK_MEDIUM,
-          'list-tick-large': content?.styles?.list===ListStyle.TICK_LARGE}"
-               (click)="toggleEdit()" markdown ngPreserveWhitespaces [data]="content.text">
+        @if (editNameEnabled) {
+          <div class="col-12">
+            <label class="mt-2 mt-3" [for]="'input-'+ content.name | kebabCase">Content name</label>
+            <input [(ngModel)]="content.name"
+                   [id]="'input-'+ content.name | kebabCase"
+                   type="text" class="form-control input-sm"
+                   placeholder="Enter name of content">
+            <label class="mt-2 mt-3" [for]="content.name">Content for {{ content.name }}</label>
           </div>
         }
+      </div>
+    }
+    @if (showing() && editorState.view === 'view') {
+      @if (renderInline()) {
+        <span [class]="content?.styles?.class"
+              (click)="toggleEdit()" markdown ngPreserveWhitespaces [data]="content.text">
+          </span>
       }
-      @if (allowHide && editorState.view === 'view') {
-        <div class="badge-button"
-             (click)="toggleShowHide()" [tooltip]="showHideCaption()">
-          <fa-icon [icon]="showing() ? faAngleUp:faAngleDown"></fa-icon>
-          <span>{{ showHideCaption() }}</span>
+      @if (!renderInline()) {
+        <div [class]="contentStylesClass()"
+             [ngClass]="{
+            'list-default': content?.styles?.list===ListStyle.NO_IMAGE,
+            'list-arrow': content?.styles?.list===ListStyle.ARROW||!content?.styles?.list,
+            'list-tick-medium': content?.styles?.list===ListStyle.TICK_MEDIUM,
+            'list-tick-large': content?.styles?.list===ListStyle.TICK_LARGE}"
+             (click)="toggleEdit()" markdown ngPreserveWhitespaces [data]="content.text">
         </div>
       }
-      @if (editorState.view === 'edit') {
-        <textarea [wrap]="'hard'"
-                  [(ngModel)]="content.text"
-                  (ngModelChange)="changeText($event)"
-                  class="form-control markdown-textarea" [rows]="rows"
-                  placeholder="Enter {{description}} text here">
-      </textarea>
-      }`,
-    imports: [BadgeButtonComponent, TooltipDirective, FormsModule, MarkdownComponent, NgClass, FontAwesomeModule, KebabCasePipe]
+    }
+    @if (allowHide && editorState.view === 'view') {
+      <div class="badge-button"
+           (click)="toggleShowHide()" [tooltip]="showHideCaption()">
+        <fa-icon [icon]="showing() ? faAngleUp:faAngleDown"></fa-icon>
+        <span>{{ showHideCaption() }}</span>
+      </div>
+    }
+    @if (editorState.view === 'edit') {
+      <textarea [wrap]="'hard'"
+                [(ngModel)]="content.text"
+                (ngModelChange)="changeText($event)"
+                class="form-control markdown-textarea" [rows]="rows"
+                placeholder="Enter {{description}} text here">
+        </textarea>
+    }
+    @if (siteEditActive() && duplicateContentDetectionService.isDuplicate(content?.id)) {
+      <div class="alert alert-warning">
+        <fa-icon [icon]="ALERT_WARNING.icon"/>
+        <b class="ml-2">Content duplicated in</b>
+        <ul>
+          @for (usage of contentTextUsageTrackerMapper(duplicateContentDetectionService.contentTextUsages(content?.id)); track usage.tracking) {
+            <li>
+              @if (isOnThisPage(usage.contentPath)) {
+                <div>Row {{ usage.row }}, Column {{ usage.column }} on {{ clarifyPage(usage.contentPath) }}</div>
+              } @else {
+                Row {{ usage.row }}, Column {{ usage.column }} on
+                <a (click)="navigateToUsage(usage)" [href]="usage.contentPath">{{ clarifyPage(usage.contentPath) }}</a>
+              }
+            </li>
+          }
+        </ul>
+        <app-badge-button class="ml-2" (click)="unlink()" delay=500
+                          [tooltip]="'Unlink and save as new content for ' + description"
+                          [icon]="reverting() ? faSpinner: faUnlink" caption="unlink"/>
+      </div>
+    }
+  `,
+  imports: [BadgeButtonComponent, TooltipDirective, FormsModule, MarkdownComponent, NgClass, FontAwesomeModule, KebabCasePipe]
 })
 export class MarkdownEditorComponent implements OnInit {
-  private logger: Logger = inject(LoggerFactory).createLogger("MarkdownEditorComponent", NgxLoggerLevel.ERROR);
-  private uiActionsService = inject(UiActionsService);
-  private broadcastService = inject<BroadcastService<ContentText>>(BroadcastService);
-  private contentTextService = inject(ContentTextService);
-  private markdownEditorFocusService = inject(MarkdownEditorFocusService);
-  stringUtilsService = inject(StringUtilsService);
-  siteEditService = inject(SiteEditService);
 
   @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {
     this.presentationMode = coerceBooleanProperty(presentationMode);
@@ -210,13 +222,19 @@ export class MarkdownEditorComponent implements OnInit {
     this.deleteEnabled = coerceBooleanProperty(deleteEnabled);
   }
 
-  @Input("unlinkEnabled") set unlinkEnabledValue(unlinkEnabled: boolean) {
-    this.unlinkEnabled = coerceBooleanProperty(unlinkEnabled);
-  }
-
   @Input("queryOnlyById") set queryOnlyByIdValue(queryOnlyById: boolean) {
     this.queryOnlyById = coerceBooleanProperty(queryOnlyById);
   }
+
+  private logger: Logger = inject(LoggerFactory).createLogger("MarkdownEditorComponent", NgxLoggerLevel.ERROR);
+  private uiActionsService = inject(UiActionsService);
+  private broadcastService = inject<BroadcastService<ContentText>>(BroadcastService);
+  private contentTextService = inject(ContentTextService);
+  private markdownEditorFocusService = inject(MarkdownEditorFocusService);
+  protected duplicateContentDetectionService = inject(DuplicateContentDetectionService);
+  protected stringUtilsService = inject(StringUtilsService);
+  protected siteEditService = inject(SiteEditService);
+  private urlService = inject(UrlService);
 
   @Input() id: string;
   @Input() rows: number;
@@ -234,11 +252,9 @@ export class MarkdownEditorComponent implements OnInit {
   public buttonsAvailableOnlyOnFocus: boolean;
   public allowHide: boolean;
   public deleteEnabled: boolean;
-  public unlinkEnabled: boolean;
   public queryOnlyById: boolean;
   private show = true;
   public editNameEnabled: boolean;
-  private initialised: boolean;
   faSpinner = faSpinner;
   faPencil = faPencil;
   faCircleCheck = faCircleCheck;
@@ -256,11 +272,10 @@ export class MarkdownEditorComponent implements OnInit {
   public text: string;
   public category: string;
   private hideParameterName: string;
-
   protected readonly ListStyle = ListStyle;
+  protected readonly ALERT_WARNING = ALERT_WARNING;
 
-
-  ngOnInit() {
+  async ngOnInit() {
     this.logger.info("ngOnInit:name", this.name, "data:", this.data, "description:", this.description);
     this.hideParameterName = this.stringUtilsService.kebabCase(StoredValue.MARKDOWN_FIELD_HIDDEN, this.name);
     this.editorState = {
@@ -274,19 +289,22 @@ export class MarkdownEditorComponent implements OnInit {
       this.originalContent = cloneDeep(this.content);
       this.logger.debug("editing injected content", this.content, "editorState:", this.editorState);
     } else {
-      this.queryContent().then(() => {
-        this.setDescription();
-      });
+      await this.queryContent();
+      this.setDescription();
     }
     this.siteEditService.events.subscribe((item: NamedEvent<boolean>) => {
       this.logger.info("siteEditService.events.subscribe:", this.name, "this.editorState.view", this.editorState.view, "siteEditService:event", item);
       this.editorState.view = item.data ? View.EDIT : View.VIEW;
     });
-    this.initialised = true;
     if (this.allowHide) {
       const currentlyHidden = this.uiActionsService.initialBooleanValueFor(this.hideParameterName, false);
       this.show = !currentlyHidden;
     }
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_EDITOR_CREATED, this));
+  }
+
+  ngOnDestroy(): void {
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_EDITOR_DESTROYED, this));
   }
 
   public assignListStyleTo(listStyle: ListStyle) {
@@ -368,7 +386,7 @@ export class MarkdownEditorComponent implements OnInit {
   }
 
   private calculateRows() {
-      this.rows = this.calculateRowsFrom(this.content);
+    this.rows = this.calculateRowsFrom(this.content);
   }
 
   private syncContent() {
@@ -380,11 +398,11 @@ export class MarkdownEditorComponent implements OnInit {
     this.logger.debug("reverting " + this.name, "content");
     this.content = cloneDeep(this.originalContent);
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_CONTENT_SYNCED, this));
-    this.changed.emit(this.content)
+    this.changed.emit(this.content);
   }
 
   dirty(): boolean {
-    const fields = ["name", "category", "text", "styles"];
+    const fields = ["id", "name", "category", "text", "styles"];
     const isDirty = !isEqual(pick(this.content, fields), pick(this.originalContent, fields));
     this.logger.debug("dirty:content", this.content, "originalContent", this.originalContent, "isDirty ->", isDirty);
     return isDirty;
@@ -502,6 +520,7 @@ export class MarkdownEditorComponent implements OnInit {
 
   unlink() {
     delete this.content.id;
+    this.publishUnsavedChanges();
   }
 
   delete() {
@@ -514,10 +533,6 @@ export class MarkdownEditorComponent implements OnInit {
     return this.deleteEnabled && this.content.id;
   }
 
-  canUnlink() {
-    return this.unlinkEnabled && this.content.id;
-  }
-
   canSave() {
     return this.saveEnabled;
   }
@@ -525,9 +540,13 @@ export class MarkdownEditorComponent implements OnInit {
   changeText($event: any) {
     this.logger.debug("name:", this.name, "content name:", this.content.name, "changeText:", $event);
     this.renameIfRequired();
+    this.broadcastChange();
+    this.publishUnsavedChanges();
+  }
+
+  private broadcastChange() {
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_CONTENT_CHANGED, this.content));
     this.changed.emit(this.content);
-    this.publishUnsavedChanges();
   }
 
   private publishUnsavedChanges() {
@@ -568,5 +587,32 @@ export class MarkdownEditorComponent implements OnInit {
 
   contentStylesClass() {
     return this.content?.styles?.class ? `${this.content?.styles?.class} background-panel` : null;
+  }
+
+  navigateToUsage(usage: ContentTextUsage) {
+    if (usage.contentPath) {
+      // Navigate to another page
+      this.markdownEditorFocusService.setFocusTo(usage?.editorInstance);
+    } else {
+      // Focus on the current page
+      this.markdownEditorFocusService.setFocusTo(usage?.editorInstance);
+    }
+  }
+
+  contentTextUsageTrackerMapper(usages: ContentTextUsage[]): ContentTextUsageWithTracking[] {
+    return usages.map(usage => this.contentTextUsageTracker(usage));
+  }
+
+  contentTextUsageTracker(usage: ContentTextUsage): ContentTextUsageWithTracking {
+    const tracking = this.stringUtilsService.kebabCase("column", usage.column, "row", usage.row, "path", usage.contentPath);
+    return {...usage, tracking};
+  }
+
+  clarifyPage(contentPath: string) {
+    return this.urlService.pathContains(contentPath) ? "this page" : contentPath;
+  }
+
+  isOnThisPage(contentPath: string): boolean {
+    return this.urlService.pathContains(contentPath);
   }
 }

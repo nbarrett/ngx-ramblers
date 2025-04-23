@@ -47,12 +47,13 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DEFAULT_FILTER_PARAMETERS, FilterParameters } from "../../../models/search.model";
+import { BuiltInAnchor } from "../../../models/content-text.model";
 
 @Component({
     selector: "app-walk-list",
     template: `
       <app-page>
-        <app-dynamic-content [anchor]="'page-header'" contentPathReadOnly/>
+        <app-dynamic-content [anchor]="BuiltInAnchor.PAGE_HEADER" contentPathReadOnly/>
         <div class="row mb-n3">
           <div class="mb-3 col-sm-12">
             <app-walks-search [filterParameters]="filterParameters" [notifyTarget]="notifyTarget">
@@ -232,7 +233,7 @@ import { DEFAULT_FILTER_PARAMETERS, FilterParameters } from "../../../models/sea
             }
           </div>
         </div>
-        <app-dynamic-content [anchor]="'action-buttons'" contentPathReadOnly/>
+        <app-dynamic-content [anchor]="BuiltInAnchor.ACTION_BUTTONS" contentPathReadOnly/>
       </app-page>
     `,
     styleUrls: ["./walk-list.component.sass"],
@@ -283,6 +284,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
   protected walkListView: WalkListView;
   protected readonly faImages = faImages;
   private migrateOSMapsRoute = false;
+  protected readonly BuiltInAnchor = BuiltInAnchor;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");

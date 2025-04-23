@@ -1,10 +1,10 @@
-<div class="card shadow clickable h-100 mb-4 xcompressed-view">
+<div class="card shadow clickable h-100 mb-4">
   <app-card-image
     [smallIconContainer]="smallIconContainer"
     [imageType]="imageType"
     [icon]="iconService.iconForName(column.icon)"
     [imageSource]="imageSourceOrPreview()"
-    [imageLink]="column.href"></app-card-image>
+    [imageLink]="column.href"/>
   <div class="card-body">
     <h4 class="card-title">
       @if (routerLink) {
@@ -22,8 +22,7 @@
         [preloadImage]="column?.imageSource"
         (imageChange)="imageChanged($event)"
         (quit)="exitImageEdit()"
-        (save)="imagedSaved($event)">
-      </app-image-cropper-and-resizer>
+        (save)="imagedSaved($event)"/>
     }
     @if (siteEditActive()) {
       <div class="form-group">
@@ -103,10 +102,9 @@
         </select>
       </div>
     }
-    <app-markdown-editor unlinkEnabled
-                         [presentationMode]="presentationMode"
+    <app-markdown-editor [presentationMode]="presentationMode"
                          class="card-text"
-                         (saved)="actions.saveContentTextId($event, rowIndex, column, pageContent)"
+                         (saved)="actions.saveContentTextId($event, column)"
                          [text]="column?.contentText"
                          [actionCaptionSuffix]="'text'"
                          [category]="pageContent.path"
@@ -123,8 +121,7 @@
       }
       <app-actions-dropdown [columnIndex]="columnIndex"
                             [pageContent]="pageContent"
-                            [row]="row">
-      </app-actions-dropdown>
+                            [row]="row"/>
     </app-markdown-editor>
   </div>
 </div>

@@ -27,13 +27,11 @@ import { DynamicContentViewComponent } from "./dynamic-content-view";
                                    [queryCompleted]="queryCompleted"
                                    [contentPath]="contentPath"
                                    [contentDescription]="contentDescription"
-                                   [defaultPageContent]="defaultPageContent">
-    </app-dynamic-content-site-edit>
+                                   [defaultPageContent]="defaultPageContent"/>
     <app-dynamic-content-view [pageContent]="pageContent"
                               [notify]="notify"
                               [contentPath]="contentPath"
-                              [contentDescription]="contentDescription">
-    </app-dynamic-content-view>`,
+                              [contentDescription]="contentDescription"/>`,
     styleUrls: ["./dynamic-content.sass"],
     imports: [DynamicContentSiteEditComponent, DynamicContentViewComponent]
 })
