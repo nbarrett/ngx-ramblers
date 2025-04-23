@@ -11,6 +11,7 @@ import { SystemConfigService } from "../../services/system/system-config.service
 import { CardContainerComponent } from "../../modules/common/card-container/card-container.component";
 import { DynamicContentComponent } from "../../modules/common/dynamic-content/dynamic-content";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { BuiltInAnchor } from "../../models/content-text.model";
 
 @Component({
     selector: "app-instagram",
@@ -28,6 +29,7 @@ export class InstagramComponent implements OnInit, OnDestroy {
   public recentMedia: InstagramMediaPost[] = [];
   public externalSystems: ExternalSystems;
   private subscriptions: Subscription[] = [];
+  protected readonly BuiltInAnchor = BuiltInAnchor;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -54,5 +56,4 @@ export class InstagramComponent implements OnInit, OnDestroy {
   imageHeight(media: InstagramMediaPost): string {
     return this.recentMedia.indexOf(media) <= 1 ? "250px" : "130px";
   }
-
 }

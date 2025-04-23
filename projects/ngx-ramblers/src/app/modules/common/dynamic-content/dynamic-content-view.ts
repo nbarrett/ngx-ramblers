@@ -3,7 +3,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { PageContent, PageContentColumn, PageContentRow } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
-import { AlertInstance } from "../../../services/notifier.service";
+import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { UrlService } from "../../../services/url.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
@@ -15,6 +15,7 @@ import { DynamicContentViewAlbumIndexComponent } from "./dynamic-content-view-al
 import { DynamicContentViewAlbumComponent } from "./dynamic-content-view-album";
 import { EventsComponent } from "../events/events";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { AlertTarget } from "../../../models/alert-target.model";
 
 @Component({
     selector: "app-dynamic-content-view",

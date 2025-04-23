@@ -29,7 +29,7 @@ import { MarginSelectComponent } from "./dynamic-content-margin-select";
     template: `
       @if (actions.isTextRow(row)) {
         <div [class]="actions.rowClasses(row)">
-          @for (column of row?.columns; track column.contentTextId || column.contentText; let columnIndex = $index) {
+          @for (column of row?.columns; let columnIndex = $index; track columnIndex) {
             <div
               [class]="'col-sm-' + (focusSensitiveColumns(column))">
               <!-- beginning of row content editing-->
@@ -37,9 +37,9 @@ import { MarginSelectComponent } from "./dynamic-content-margin-select";
                 <div class="thumbnail-site-edit h-100">
                   <div class="thumbnail-heading">Col {{ columnIndex + 1 }}</div>
                   <app-markdown-editor #markdownEditorComponent
-                                       (saved)="actions.saveContentTextId($event, rowIndex, column, pageContent)"
+                                       (saved)="actions.saveContentTextId($event, column)"
                                        (focusChange)="markdownEditorFocusChange($event)"
-                                       buttonsAvailableOnlyOnFocus queryOnlyById allowMaximise unlinkEnabled
+                                       buttonsAvailableOnlyOnFocus queryOnlyById allowMaximise
                                        [description]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentDescription)"
                                        [id]="column?.contentTextId"
                                        [initialView]="actions.view()"

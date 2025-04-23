@@ -124,7 +124,7 @@ import { BannerLogoAndTextLinesOutputComponent } from "./banner-logo-and-text-li
             <div class="row">
               <div class="col-sm-12">
                 <div class="alert {{notifyTarget.alertClass}}">
-                  <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                  <fa-icon [icon]="notifyTarget.alert.icon"/>
                   @if (notifyTarget.alertTitle) {
                     <strong
                       >
