@@ -29,6 +29,7 @@ import { KeyValue } from "../functions/enums";
 import remove from "lodash-es/remove";
 import cloneDeep from "lodash-es/cloneDeep";
 import { UrlService } from "./url.service";
+import { ContentTextService } from "./content-text.service";
 
 @Injectable({
   providedIn: "root"
@@ -38,6 +39,7 @@ export class PageContentActionsService {
   private logger: Logger = inject(LoggerFactory).createLogger("PageContentActionsService", NgxLoggerLevel.ERROR);
   private stringUtils = inject(StringUtilsService);
   private broadcastService = inject<BroadcastService<PageContent>>(BroadcastService);
+  private contentTextService = inject(ContentTextService);
   private urlService = inject(UrlService);
   private numberUtils = inject(NumberUtilsService);
   public rowsInEdit: number[] = [];
@@ -74,7 +76,8 @@ export class PageContentActionsService {
     return (pageContent?.rows?.map(row => row.columns.map(col => this.urlService.pathOnlyFrom(col?.href))?.filter(item => item)))?.flat(2) || [];
   }
 
-  saveContentTextId(contentText: ContentText, rowIndex: number, column: PageContentColumn, pageContent: PageContent) {
+  saveContentTextId(contentText: ContentText, column: PageContentColumn) {
+    this.logger.info("saveContentTextId:", contentText, "for column:", column, "existing contentTextId:", column.contentTextId, "new contentTextId:", contentText?.id);
     if (column.contentTextId !== contentText?.id) {
       column.contentTextId = contentText?.id;
     }
@@ -169,11 +172,36 @@ export class PageContentActionsService {
     this.notifyPageContentChanges(pageContent);
   }
 
-  duplicateColumn(row: PageContentRow, columnIndex: number, pageContent: PageContent) {
-    const columnData: PageContentColumn = cloneDeep(row.columns[columnIndex]);
+  async duplicateColumn(row: PageContentRow, columnIndex: number, pageContent: PageContent) {
+    const columnData: PageContentColumn = await this.duplicateContentItemsInColumn(row, columnIndex);
     row.columns.splice(columnIndex, 0, columnData);
     this.logger.debug("pageContent:", pageContent);
     this.notifyPageContentChanges(pageContent);
+  }
+
+  async duplicateRow(row: PageContentRow, rowIndex: number, pageContent: PageContent) {
+    const pageContentRow: PageContentRow = await this.duplicateContentItemsInRow(row);
+    pageContent.rows.splice(rowIndex, 0, pageContentRow);
+    this.logger.debug("pageContent:", pageContent);
+    this.notifyPageContentChanges(pageContent);
+  }
+
+  private async duplicateContentItemsInColumn(row: PageContentRow, columnIndex: number): Promise<PageContentColumn> {
+    const pageContentColumn = cloneDeep(row.columns[columnIndex]);
+    this.logger.info("About to duplicate content items in:", row, "columnIndex:", columnIndex, "pageContentColumn:", pageContentColumn);
+    if (pageContentColumn?.contentTextId) {
+      const copiedContentText: ContentText = await this.contentTextService.copy(pageContentColumn?.contentTextId);
+      this.logger.info("Duplicated content text item for:", pageContentColumn?.contentTextId, "is:", copiedContentText, "setting copied Id:", copiedContentText.id);
+      pageContentColumn.contentTextId = copiedContentText.id;
+    }
+    return pageContentColumn;
+  }
+
+  private async duplicateContentItemsInRow(row: PageContentRow): Promise<PageContentRow> {
+    const pageContentRow = cloneDeep(row);
+    await this.copyContentTextItemsInRow(pageContentRow);
+    this.logger.info("Duplicated content items in input row:", row, "output row:", pageContentRow);
+    return pageContentRow;
   }
 
   deleteColumn(row: PageContentRow, columnIndex: number, pageContent: PageContent) {
@@ -374,6 +402,26 @@ export class PageContentActionsService {
       this.rowsInEdit.push(rowIndex);
       this.logger.debug("adding", rowIndex, "to edit mode -> now:", this.rowsInEdit);
     }
+  }
+
+  public async copyContentTextItemsInRow(row: PageContentRow): Promise<void> {
+    for (const column of row.columns) {
+      if (column.contentTextId) {
+        const copiedContentText: ContentText = await this.contentTextService.copy(column.contentTextId);
+        column.contentTextId = copiedContentText.id;
+      }
+      if (column.rows) {
+        column.rows = await this.copyContentTextIdsInRows(column.rows);
+      }
+    }
+  }
+
+  public async copyContentTextIdsInRows(rows: PageContentRow[]): Promise<PageContentRow[]> {
+    const clonedRows = cloneDeep(rows);
+    for (const row of clonedRows) {
+      await this.copyContentTextItemsInRow(row);
+    }
+    return clonedRows;
   }
 
 

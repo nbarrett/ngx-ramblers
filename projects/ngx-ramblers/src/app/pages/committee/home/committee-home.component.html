@@ -1,7 +1,7 @@
 <app-page [pageTitle]="pageTitle">
   <app-committee-year [committeeYear]="committeeYear" [notify]="notify"></app-committee-year>
-  <app-dynamic-content [anchor]="'committee-years'" areaAsContentPath contentPathReadOnly></app-dynamic-content>
-  <app-dynamic-content [anchor]="'action-buttons'" areaAsContentPath contentPathReadOnly></app-dynamic-content>
+  <app-dynamic-content [anchor]="BuiltInAnchor.COMMITTEE_YEARS" areaAsContentPath contentPathReadOnly/>
+  <app-dynamic-content [anchor]="BuiltInAnchor.ACTION_BUTTONS" areaAsContentPath contentPathReadOnly/>
   <div class="row">
     <div class="col-sm-12">
       @if (showAlertMessage()) {

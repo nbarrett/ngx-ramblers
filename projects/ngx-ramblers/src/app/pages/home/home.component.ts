@@ -9,6 +9,7 @@ import { SystemConfigService } from "../../services/system/system-config.service
 import { DynamicContentComponent } from "../../modules/common/dynamic-content/dynamic-content";
 import { FacebookComponent } from "../facebook/facebook.component";
 import { InstagramComponent } from "../instagram/instagram.component";
+import { BuiltInAnchor } from "../../models/content-text.model";
 
 @Component({
     selector: "app-home",
@@ -22,10 +23,10 @@ export class HomeComponent implements OnInit, OnDestroy {
   pageService = inject(PageService);
   private systemConfigService = inject(SystemConfigService);
   public feeds: { facebook: {} };
-
   faPencil = faPencil;
   private subscriptions: Subscription[] = [];
   public externalSystems: ExternalSystems;
+  protected readonly BuiltInAnchor = BuiltInAnchor;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -36,5 +37,4 @@ export class HomeComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
-
 }

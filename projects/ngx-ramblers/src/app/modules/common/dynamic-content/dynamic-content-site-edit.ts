@@ -13,6 +13,7 @@ import {
   Action,
   ColumnInsertData,
   ContentText,
+  DuplicateUsageMessage,
   InsertionPosition,
   InsertionRow,
   PageContent,
@@ -35,7 +36,6 @@ import { UrlService } from "../../../services/url.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { fieldStartsWithValue } from "../../../functions/mongo";
 import { PageService } from "../../../services/page.service";
-import last from "lodash-es/last";
 import { AlbumIndexService } from "../../../services/album-index.service";
 import uniq from "lodash-es/uniq";
 import { UiActionsService } from "../../../services/ui-actions.service";
@@ -57,302 +57,307 @@ import { ActionButtonsComponent } from "../action-buttons/action-buttons";
 import { DynamicContentSiteEditAlbumComponent } from "./dynamic-content-site-edit-album";
 import { DynamicContentSiteEditTextRowComponent } from "./dynamic-content-site-edit-text-row";
 import { EventsComponent } from "../events/events";
+import { DuplicateContentDetectionService } from "../../../services/duplicate-content-detection-service";
+import last from "lodash-es/last";
+import { ALERT_ERROR } from "../../../models/alert-target.model";
 
 @Component({
     selector: "app-dynamic-content-site-edit",
     template: `
-    @if (siteEditService.active()) {
-      @if (notify.alertTarget.showAlert || !actions.pageContentFound(pageContent, queryCompleted)) {
-        @if (notify.alertTarget.showAlert) {
-          <div class="col-12 alert {{notify.alertTarget.alertClass}} mt-3">
-            <fa-icon [icon]="notify.alertTarget.alert.icon"></fa-icon>
-            <strong class="ml-2">{{ notify.alertTarget.alertTitle }}</strong>
-            <span class="p-2">{{ notify.alertTarget.alertMessage }}.
-              @if (canCreateContent()) {
-                <a (click)="createContent()"
-                   class="rams-text-decoration-pink"
-                   type="button">Create content</a>
-              }
-              @if (canGoToThatPage()) {
-                <a (click)="goToOtherPage()"
-                   class="rams-text-decoration-pink"
-                   type="button">Go to that page</a>
-              }
-            </span>
+      @if (siteEditService.active()) {
+        @if (duplicateUsageMessages.length > 0) {
+          <div class="alert alert-warning">
+            <fa-icon [icon]="ALERT_ERROR.icon"/>
+            <strong class="ml-2">Duplicate content usage on this page has been detected
+              in {{ stringUtils.pluraliseWithCount(duplicateUsageMessages.length, "item") }}</strong>
+            <div class="ml-3 mb-2">Scroll down to editable content panels below where content can be unlinked and optionally updated. When you have finished, click <strong>Save page changes</strong>.</div>
           </div>
         }
-      }
-      @if (pageContent) {
-        <div class="card mb-2">
-          <div class="card-body">
-            <h4 class="card-title">Page content for {{ pageContent.path }} (<small
-              class="text-muted">{{ stringUtils.pluraliseWithCount(pageContent?.rows.length, 'row') }}</small>)</h4>
-            <ng-template #saveButtonsAndPath>
-              <div class="form-inline">
-                <app-badge-button [disabled]="actions.rowsInEdit.length>0" (click)="savePageContent()"
-                                  delay=500
-                                  [tooltip]="actions.rowsInEdit.length>0?'Finish current row edit before saving':'Save page changes'"
-                                  [icon]="faSave"
-                                  caption="Save page changes"/>
-                <app-badge-button (click)="revertPageContent()"
-                                  delay=500 [tooltip]="'Revert page changes'"
-                                  [icon]="faUndo"
-                                  caption="Revert page changes"/>
-                @if (insertableContent?.length > 0) {
-                  <app-badge-button (click)="insertData()"
-                                    delay=500 [tooltip]="'Insert missing data'"
-                                    [icon]="faAdd" caption="Insert data"/>
+        @if (notify.alertTarget.showAlert || !actions.pageContentFound(pageContent, queryCompleted)) {
+          @if (notify.alertTarget.showAlert) {
+            <div class="col-12 alert {{notify.alertTarget.alertClass}} mt-3">
+              <fa-icon [icon]="notify.alertTarget.alert.icon"></fa-icon>
+              <strong class="ml-2">{{ notify.alertTarget.alertTitle }}</strong>
+              <div class="p-2">{{ notify.alertTarget.alertMessage }}.
+                @if (canCreateContent()) {
+                  <a (click)="createContent()"
+                     class="rams-text-decoration-pink"
+                     type="button">Create content</a>
                 }
-                @if (pageContent.rows?.length === 0) {
-                  <app-badge-button (click)="createContent()"
-                                    delay=500 [tooltip]="'Add first row'"
-                                    [icon]="faAdd" caption="Add first row"/>
+                @if (canGoToThatPage()) {
+                  <a (click)="goToOtherPage()"
+                     class="rams-text-decoration-pink"
+                     type="button">Go to that page</a>
                 }
-                @if (unreferencedPaths?.length > 0) {
-                  <app-badge-button (click)="toggleShowUnreferencedPages()"
-                                    [icon]="faEye"
-                                    [active]="showUnreferenced"
-                                    delay=500
-                                    caption="{{showUnreferenced? 'Hide':'Show'}} {{stringUtils.pluraliseWithCount(unreferencedPaths?.length, 'unreferenced page')}}"/>
-                }
-                <app-badge-button (click)="deletePageContent()"
-                                  [icon]="faRemove"
-                                  delay=500 caption="Delete page"
-                                  [tooltip]="deletePagContentTooltip()"
-                                  [disabled]="allReferringPages().length !== 0"/>
-                @if (this.allReferringPageCount() > 0) {
-                  <div class="align-middle">Referred to
-                    by: @for (referringPage of allReferringPages(); track referringPage; let linkIndex = $index) {
-                      <a class="ml-2 rams-text-decoration-pink"
-                         [href]="referringPage">{{ formatHref(referringPage) }}{{ linkIndex < allReferringPageCount() - 1 ? ',' : '' }}</a>
-                    }
-                  </div>
-                }
-                @if (this.allReferringPageCount() === 0) {
-                  <div class="align-middle mb-2">Not Referred to by any other pages or links</div>
-                }
-              </div>
-            </ng-template>
-            <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
-            @if (unreferencedPaths?.length > 0 && showUnreferenced) {
-              <div class="row mt-2 align-items-end mb-3">
-              <div class="align-middle">
-                <div class="col-sm-12">
-                  <div class="mb-2">Other unreferenced pages related to this area:</div>
-                  @for (path of unreferencedPaths; track path) {
-                    <ul class="breadcrumb bg-transparent mb-1 ml-0 p-1">
-                      <span class="d-md-none">...</span>
-                      @for (page of pageService.linksFromPathSegments(urlService.pathSegmentsForUrl(path)); track page) {
-                        <li class="breadcrumb-item d-none d-md-inline"
-                        >
-                          <a [routerLink]="'/' + page?.href" target="_self">{{ page?.title }}</a>
-                        </li>
-                      }
-                      <li class="breadcrumb-item d-none d-md-inline">
-                        <a class="rams-text-decoration-pink"
-                           [href]="path">{{ formatHref(last(urlService.pathSegmentsForUrl(path))) }}</a>
-                      </li>
-                    </ul>
-                  }
-                </div>
               </div>
             </div>
-            }
-            <div class="row mt-2 align-items-end mb-3">
-              <div [ngClass]="pageContentRowService.rowsSelected()? 'col-md-10' : 'col'" class="mb-2">
-                <form>
-                  <label class="mr-2" for="path">Content Path
-                    <span>{{ contentPathReadOnly ? "(not editable as this content is part of internal page)" : "" }}</span></label>
-                  <input [disabled]="contentPathReadOnly" autocomplete="off" [typeahead]="pageContentService.siteLinks"
-                         (ngModelChange)="contentPathChange($event)"
-                         [typeaheadMinLength]="0" id="path"
-                         [ngModel]="pageContent.path"
-                         name="path"
-                         [ngModelOptions]="{standalone: true}"
-                         type="text" class="form-control">
-                </form>
-              </div>
-              @if (pageContentRowService.rowsSelected()) {
-                <div class="col-sm-4 col-md-2">
-                  <label for="action">Action</label>
-                  <select class="form-control input-sm"
-                          [(ngModel)]="action"
-                          id="action">
-                    @for (action of contentActions; track action) {
-                      <option
-                        [ngValue]="action">{{ action }}
-                      </option>
-                    }
-                  </select>
+          }
+        }
+        @if (pageContent) {
+          <div class="card mb-2">
+            <div class="card-body">
+              <h4 class="card-title">Page content for {{ pageContent.path }} (<small
+                class="text-muted">{{ stringUtils.pluraliseWithCount(pageContent?.rows.length, 'row') }}</small>)</h4>
+              <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
+              @if (unreferencedPaths?.length > 0 && showUnreferenced) {
+                <div class="row mt-2 align-items-end mb-3">
+                  <div class="align-middle">
+                    <div class="col-sm-12">
+                      <div class="mb-2">Other unreferenced pages related to this area:</div>
+                      @for (path of unreferencedPaths; track path) {
+                        <ul class="breadcrumb bg-transparent mb-1 ml-0 p-1">
+                          <span class="d-md-none">...</span>
+                          @for (page of pageService.linksFromPathSegments(urlService.pathSegmentsForUrl(path)); track page) {
+                            <li class="breadcrumb-item d-none d-md-inline"
+                            >
+                              <a [routerLink]="'/' + page?.href" target="_self">{{ page?.title }}</a>
+                            </li>
+                          }
+                          <li class="breadcrumb-item d-none d-md-inline">
+                            <a class="rams-text-decoration-pink"
+                               [href]="path">{{ formatHref(last(urlService.pathSegmentsForUrl(path))) }}</a>
+                          </li>
+                        </ul>
+                      }
+                    </div>
+                  </div>
                 </div>
-                <div class="col-md-10 mt-3">
+              }
+              <div class="row mt-2 align-items-end mb-3">
+                <div [ngClass]="pageContentRowService.rowsSelected()? 'col-md-10' : 'col'" class="mb-2">
                   <form>
-                    <label class="mr-2" for="move-or-copy-to-path">
-                      {{ action }}
-                      {{ stringUtils.pluraliseWithCount(pageContentRowService.selectedRowCount(), "row") }} to</label>
-                    <input id="move-or-copy-to-path"
+                    <label class="mr-2" for="path">Content Path
+                      <span>{{ contentPathReadOnly ? "(not editable as this content is part of internal page)" : "" }}</span></label>
+                    <input [disabled]="contentPathReadOnly" autocomplete="off"
                            [typeahead]="pageContentService.siteLinks"
-                           name="destinationPath"
-                           autocomplete="nope"
-                           [typeaheadMinLength]="0"
-                           [disabled]="!pageContentRowService.rowsSelected()"
-                           (ngModelChange)="destinationPathLookupChange($event)"
-                           [ngModel]="destinationPath"
+                           (ngModelChange)="contentPathChange($event)"
+                           [typeaheadMinLength]="0" id="path"
+                           [ngModel]="pageContent.path"
+                           name="path"
+                           [ngModelOptions]="{standalone: true}"
                            type="text" class="form-control">
                   </form>
                 </div>
-                <div class="col-sm-4 col-md-2 mt-3">
-                  <label for="before-after">Position</label>
-                  <select class="form-control input-sm"
-                          [(ngModel)]="destinationPathInsertBeforeAfterIndex"
-                          id="before-after">
-                    @for (insertionRow of insertionRowPosition; track insertionRow) {
-                      <option
-                        [ngValue]="insertionRow.index">{{ insertionRow.description }}
-                      </option>
-                    }
-                  </select>
-                </div>
-                <div class="col-md-10 mt-3">
-                  <label for="insert-at-row">Row</label>
-                  <select class="form-control input-sm"
-                          [(ngModel)]="destinationPathInsertionRowIndex"
-                          (ngModelChange)="destinationPathInsertionRowIndexChange($event)"
-                          id="insert-at-row">
-                    @for (insertionRow of insertionRowLookup; track insertionRow) {
-                      <option
-                        [ngValue]="insertionRow.index">{{ insertionRow.description }}
-                      </option>
-                    }
-                  </select>
-                </div>
-                <div class="col mt-3">
-                  <button [disabled]="actionDisabled()"
-                          delay=500 tooltip="{{action}} rows to {{destinationPath}}"
-                          type="submit"
-                          (click)="performCopyOrMoveAction()"
-                          [ngClass]="buttonClass(!actionDisabled())">
-                    <fa-icon [icon]="faSave"></fa-icon>
-                    <span class="ml-2">Perform {{ action }}</span>
-                  </button>
-                </div>
-              }
-            </div>
-            @for (row of pageContent?.rows; track row; let rowIndex = $index) {
-              <div class="thumbnail-site-edit-top-bottom-margins"
-              >
-                <div class="thumbnail-heading">Row {{ rowIndex + 1 }}
-                  ({{ stringUtils.pluraliseWithCount(row?.columns.length, 'column') }})
-                </div>
-                <div class="row align-items-end mb-3 d-flex">
-                  <div class="col-auto">
-                    <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-type')">
-                    Row Type</label>
+                @if (pageContentRowService.rowsSelected()) {
+                  <div class="col-sm-4 col-md-2">
+                    <label for="action">Action</label>
                     <select class="form-control input-sm"
-                            [(ngModel)]="row.type"
-                            (ngModelChange)="changePageContentRowType(row)"
-                            [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-type')">
-                      @for (type of enumKeyValuesForPageContentType; track type) {
-                        <option
-                          [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+                            [(ngModel)]="action"
+                            id="action">
+                      @for (action of contentActions; track action) {
+                        <option [ngValue]="action">{{ action }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="col-md-10 mt-3">
+                    <form>
+                      <label class="mr-2" for="move-or-copy-to-path">
+                        {{ action }}
+                        {{ stringUtils.pluraliseWithCount(pageContentRowService.selectedRowCount(), "row") }} to</label>
+                      <input id="move-or-copy-to-path"
+                             [typeahead]="pageContentService.siteLinks"
+                             name="destinationPath"
+                             autocomplete="nope"
+                             [typeaheadMinLength]="0"
+                             [disabled]="!pageContentRowService.rowsSelected()"
+                             (ngModelChange)="destinationPathLookupChange($event)"
+                             [ngModel]="destinationPath"
+                             type="text" class="form-control">
+                    </form>
+                  </div>
+                  <div class="col-sm-4 col-md-2 mt-3">
+                    <label for="before-after">Position</label>
+                    <select class="form-control input-sm"
+                            [(ngModel)]="destinationPathInsertBeforeAfterIndex"
+                            id="before-after">
+                      @for (insertionRow of insertionRowPosition; track insertionRow) {
+                        <option [ngValue]="insertionRow.index">{{ insertionRow.description }}
                         </option>
                       }
                     </select>
                   </div>
-                  @if (actions.isCarouselOrAlbum(row)) {
-                    <div (nameInputChange)="editAlbumName=$event" class="col" app-row-settings-carousel
-                         [row]="row">
+                  <div class="col-md-10 mt-3">
+                    <label for="insert-at-row">Row</label>
+                    <select class="form-control input-sm"
+                            [(ngModel)]="destinationPathInsertionRowIndex"
+                            (ngModelChange)="destinationPathInsertionRowIndexChange($event)"
+                            id="insert-at-row">
+                      @for (insertionRow of insertionRowLookup; track insertionRow) {
+                        <option
+                          [ngValue]="insertionRow.index">{{ insertionRow.description }}
+                        </option>
+                      }
+                    </select>
+                  </div>
+                  <div class="col mt-3">
+                    <button [disabled]="actionDisabled()"
+                            delay=500 tooltip="{{action}} rows to {{destinationPath}}"
+                            type="submit"
+                            (click)="performCopyOrMoveAction()"
+                            [ngClass]="buttonClass(!actionDisabled())">
+                      <fa-icon [icon]="faSave"></fa-icon>
+                      <span class="ml-2">Perform {{ action }}</span>
+                    </button>
+                  </div>
+                }
+              </div>
+              @for (row of pageContent?.rows; track row; let rowIndex = $index) {
+                <div class="thumbnail-site-edit-top-bottom-margins">
+                  <div class="thumbnail-heading">Row {{ rowIndex + 1 }}
+                    ({{ stringUtils.pluraliseWithCount(row?.columns.length, 'column') }})
+                  </div>
+                  <div class="row align-items-end mb-3 d-flex">
+                    <div class="col-auto">
+                      <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-type')">
+                        Row Type</label>
+                      <select class="form-control input-sm"
+                              [(ngModel)]="row.type"
+                              (ngModelChange)="changePageContentRowType(row)"
+                              [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-type')">
+                        @for (type of enumKeyValuesForPageContentType; track type) {
+                          <option
+                            [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+                          </option>
+                        }
+                      </select>
                     </div>
-                  }
-                  @if (!editAlbumName) {
-                    @if (actions.isActionButtons(row) || actions.isAlbumIndex(row)) {
-                      <div class="col-auto" app-row-settings-action-buttons
-                           [row]="row"></div>
+                    @if (actions.isCarouselOrAlbum(row)) {
+                      <div (nameInputChange)="editAlbumName=$event" class="col" app-row-settings-carousel
+                           [row]="row">
+                      </div>
                     }
-                    <div class="col-auto">
-                      <div class="form-inline">
-                        <div app-margin-select label="Margin Top"
-                             [data]="row"
-                             field="marginTop" class="mr-4">
-                        </div>
-                        <div app-margin-select label="Margin Bottom"
-                             [data]="row"
-                             field="marginBottom">
+                    @if (!editAlbumName) {
+                      @if (actions.isActionButtons(row) || actions.isAlbumIndex(row)) {
+                        <div class="col-auto" app-row-settings-action-buttons
+                             [row]="row"></div>
+                      }
+                      <div class="col-auto">
+                        <div class="form-inline">
+                          <div app-margin-select label="Margin Top"
+                               [data]="row"
+                               field="marginTop" class="mr-4">
+                          </div>
+                          <div app-margin-select label="Margin Bottom"
+                               [data]="row"
+                               field="marginBottom">
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div class="col-auto">
-                      <div class="form-inline float-right">
-                        <app-actions-dropdown [rowIndex]="rowIndex"
-                                              [pageContent]="pageContent"
-                                              [row]="row">
-                        </app-actions-dropdown>
-                        <app-bulk-action-selector [row]="row"></app-bulk-action-selector>
+                      <div class="col-auto">
+                        <div class="form-inline float-right">
+                          <app-actions-dropdown [rowIndex]="rowIndex"
+                                                [pageContent]="pageContent"
+                                                [row]="row"/>
+                          <app-bulk-action-selector [row]="row"/>
+                        </div>
                       </div>
-                    </div>
+                    }
+                  </div>
+                  @if (actions.isAlbumIndex(row)) {
+                    <app-album-index-site-edit [row]="row" [rowIndex]="rowIndex"/>
+                  }
+                  @if (actions.isActionButtons(row)) {
+                    <app-action-buttons [pageContent]="pageContent"
+                                        [rowIndex]="rowIndex"/>
+                  }
+                  @if (actions.isCarouselOrAlbum(row)) {
+                    <app-dynamic-content-site-edit-album [row]="row"
+                                                         [rowIndex]="rowIndex"
+                                                         [pageContent]="pageContent"/>
+                  }
+                  <app-dynamic-content-site-edit-text-row [row]="row"
+                                                          [rowIndex]="rowIndex"
+                                                          [contentDescription]="contentDescription"
+                                                          [contentPath]="contentPath"
+                                                          [pageContent]="pageContent"/>
+                  @if (actions.isEvents(row)) {
+                    <app-events [row]="row" [rowIndex]="rowIndex"/>
                   }
                 </div>
-                @if (actions.isAlbumIndex(row)) {
-                  <app-album-index-site-edit [row]="row" [rowIndex]="rowIndex"/>
-                }
-                @if (actions.isActionButtons(row)) {
-                  <app-action-buttons
-                    [pageContent]="pageContent"
-                    [rowIndex]="rowIndex">
-                  </app-action-buttons>
-                }
-                @if (actions.isCarouselOrAlbum(row)) {
-                  <app-dynamic-content-site-edit-album
-                    [row]="row" [rowIndex]="rowIndex" [pageContent]="pageContent"/>
-                }
-                <app-dynamic-content-site-edit-text-row
-                  [row]="row"
-                  [rowIndex]="rowIndex"
-                  [contentDescription]="contentDescription"
-                  [contentPath]="contentPath"
-                  [pageContent]="pageContent">
-                </app-dynamic-content-site-edit-text-row>
-                @if (actions.isEvents(row)) {
-                  <app-events [row]="row" [rowIndex]="rowIndex"/>
+              }
+              <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
+            </div>
+          </div>
+        }
+        <ng-template #saveButtonsAndPath>
+          <div class="form-inline">
+            <app-badge-button [disabled]="actions.rowsInEdit.length>0" (click)="savePageContent()"
+                              [tooltip]="actions.rowsInEdit.length>0?'Finish current row edit before saving':'Save page changes'"
+                              [icon]="faSave"
+                              caption="Save page changes"/>
+            <app-badge-button (click)="revertPageContent()"
+                              [tooltip]="'Revert page changes'"
+                              [icon]="faUndo"
+                              caption="Revert page changes"/>
+            @if (insertableContent?.length > 0) {
+              <app-badge-button (click)="insertData()"
+
+                                [tooltip]="'Insert missing data'"
+                                [icon]="faAdd" caption="Insert data"/>
+            }
+            @if (pageContent.rows?.length === 0) {
+              <app-badge-button (click)="createContent()"
+                                [tooltip]="'Add first row'"
+                                [icon]="faAdd" caption="Add first row"/>
+            }
+            @if (unreferencedPaths?.length > 0) {
+              <app-badge-button (click)="toggleShowUnreferencedPages()"
+                                [icon]="faEye"
+                                [active]="showUnreferenced"
+                                caption="{{showUnreferenced? 'Hide':'Show'}} {{stringUtils.pluraliseWithCount(unreferencedPaths?.length, 'unreferenced page')}}"/>
+            }
+            <app-badge-button (click)="deletePageContent()"
+                              [icon]="faRemove"
+                              delay=500 caption="Delete page"
+                              [tooltip]="deletePagContentTooltip()"
+                              [disabled]="allReferringPages().length !== 0"/>
+            @if (this.allReferringPageCount() > 0) {
+              <div class="align-middle">Referred to
+                by: @for (referringPage of allReferringPages(); track referringPage; let linkIndex = $index) {
+                  <a class="ml-2 rams-text-decoration-pink"
+                     [href]="referringPage">{{ formatHref(referringPage) }}{{ linkIndex < allReferringPageCount() - 1 ? ',' : '' }}</a>
                 }
               </div>
             }
-            <ng-container *ngTemplateOutlet="saveButtonsAndPath"></ng-container>
+            @if (this.allReferringPageCount() === 0) {
+              <div class="align-middle mb-2">Not Referred to by any other pages or links</div>
+            }
           </div>
-        </div>
-      }
-    }`,
+        </ng-template>
+      }`,
     styleUrls: ["./dynamic-content.sass"],
-    imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtonsComponent, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, EventsComponent]
+  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtonsComponent, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, EventsComponent]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
-  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.ERROR);
-  private systemConfigService = inject(SystemConfigService);
-  pageContentRowService = inject(PageContentRowService);
-  siteEditService = inject(SiteEditService);
-  private albumIndexService = inject(AlbumIndexService);
-  memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
-  protected urlService = inject(UrlService);
-  protected pageService = inject(PageService);
-  uiActionsService = inject(UiActionsService);
-  stringUtils = inject(StringUtilsService);
-  pageContentService = inject(PageContentService);
-  private contentTextService = inject(ContentTextService);
-  actions = inject(PageContentActionsService);
-  private broadcastService = inject<BroadcastService<any>>(BroadcastService);
+  protected duplicateUsageMessages: DuplicateUsageMessage[] = [];
 
   @Input("defaultPageContent") set acceptChangesFrom(defaultPageContent: PageContent) {
-    this.logger.info("acceptChangesFrom:defaultPageContent:", defaultPageContent);
+    this.logger.debug("acceptChangesFrom:defaultPageContent:", defaultPageContent);
     this.defaultPageContent = defaultPageContent;
     this.deriveInsertableData();
   }
 
   @Input("pageContent") set acceptPageContentChanges(pageContent: PageContent) {
-    this.logger.info("acceptPageContentChanges:pageContent:", pageContent);
+    this.logger.debug("acceptPageContentChanges:pageContent:", pageContent);
     this.initialisePageContent(pageContent);
     this.clearAlert(pageContent);
   }
 
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.ERROR);
+  private systemConfigService = inject(SystemConfigService);
+  protected pageContentRowService = inject(PageContentRowService);
+  protected siteEditService = inject(SiteEditService);
+  private albumIndexService = inject(AlbumIndexService);
+  protected memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
+  protected urlService = inject(UrlService);
+  protected duplicateContentDetectionService = inject(DuplicateContentDetectionService);
+  protected pageService = inject(PageService);
+  protected uiActionsService = inject(UiActionsService);
+  protected stringUtils = inject(StringUtilsService);
+  protected pageContentService = inject(PageContentService);
+  private contentTextService = inject(ContentTextService);
+  protected actions = inject(PageContentActionsService);
+  private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   @Input()
   contentPathReadOnly: boolean;
   @Input()
@@ -395,12 +400,65 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   private copyOrMoveActionComplete: boolean;
   private subscriptions: Subscription[] = [];
   public editAlbumName: boolean;
-  protected readonly last = last;
-
   protected readonly faEye = faEye;
+  protected readonly last = last;
+  protected readonly ALERT_ERROR = ALERT_ERROR;
 
   ngOnInit() {
-    this.logger.info("ngOnInit");
+    this.logger.debug("ngOnInit");
+    this.systemConfigService.events().subscribe(item => {
+      const pageHrefs: string[] = item.group.pages.map(link => link.href).filter(item => item);
+      this.logger.debug("pageHrefs received as:", pageHrefs);
+      if (pageHrefs.length > 0) {
+        this.pageHrefs = pageHrefs;
+      }
+    });
+    this.broadcastService.on(NamedEventType.SAVE_PAGE_CONTENT, (namedEvent: NamedEvent<PageContent>) => {
+      this.logger.debug("event received:", namedEvent);
+      if (namedEvent.data.id === this.pageContent.id) {
+        this.savePageContent();
+      }
+    });
+    this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_DELETED, (namedEvent: NamedEvent<PageContent>) => {
+      this.logger.debug("event received:", namedEvent);
+      this.pageContent?.rows?.forEach(row => row.columns.forEach(column => {
+        if (column.contentTextId === namedEvent?.data?.id) {
+          this.logger.debug("removing link to content " + namedEvent.data.id);
+          delete column.contentTextId;
+        }
+      }));
+      this.savePageContent();
+    });
+    this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_UNSAVED, (namedEvent: NamedEvent<MarkdownEditorComponent>) => {
+      this.logger.info("event received:", namedEvent);
+      this.unsavedMarkdownComponents.add(namedEvent.data);
+      this.logger.info("added:", namedEvent.data, "to unsavedMarkdownComponents:", this.unsavedMarkdownComponents);
+    });
+    this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_SYNCED, (namedEvent: NamedEvent<MarkdownEditorComponent>) => {
+      this.logger.debug("event received:", namedEvent);
+      this.unsavedMarkdownComponents.delete(namedEvent.data);
+      this.logger.debug("unsavedMarkdownComponents removed:", namedEvent.data, "result:", this.unsavedMarkdownComponents);
+    });
+    this.destinationPathLookup.pipe(debounceTime(250))
+      .pipe(distinctUntilChanged())
+      .subscribe(() => {
+        this.pageContentService.findByPath(this.destinationPath)
+          .then(response => {
+            this.logger.debug("find by path:", this.destinationPath, "resulted in:", response);
+            this.destinationPageContent = response;
+            if (response) {
+              const contentTextIds = response.rows.map((row: PageContentRow) => first(row.columns)?.contentTextId || first(first(first(row.columns)?.rows)?.columns)?.contentTextId);
+              this.logger.debug("found contentTextIds:", contentTextIds);
+              Promise.all(contentTextIds.map(contentTextId => this.contentTextService.getById(contentTextId))).then(contentTextItems => {
+                const textRowInformation: string[] = contentTextItems.map(contentTextItem => this.firstTextLineFrom(contentTextItem));
+                this.logger.debug("found contentTextItems:", textRowInformation);
+                this.insertionRowLookup = textRowInformation.map((row, index) => ({index, description: `Row ${index + 1}: ${row}`}));
+              });
+            } else {
+              this.insertionRowLookup = [{index: 0, description: `Row 1: In new page`}];
+            }
+          });
+      });
     if (this.siteEditService.active()) {
       this.runInitCode();
     }
@@ -416,14 +474,14 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
       this.insertableContent = this.actions.calculateInsertableContent(this.pageContent, this.defaultPageContent);
       const message = `Insert ${this.stringUtils.pluraliseWithCount(this.insertableContent.length, "new item")}: ${this.insertableContent?.map(item => item.data.title)?.join(", ")}`;
       if (this.insertableContent.length > 0) {
-        this.logger.info("deriveInsertableData:insertableContent:from:defaultData", this.defaultPageContent, "returned missing data to insert:", this.insertableContent);
+        this.logger.debug("deriveInsertableData:insertableContent:from:defaultData", this.defaultPageContent, "returned missing data to insert:", this.insertableContent);
         this.notify.warning({title: "Additional content available for page:", message});
       } else {
-        this.logger.info("deriveInsertableData:insertableContent:from:defaultData", this.defaultPageContent, "no data to insert");
+        this.logger.debug("deriveInsertableData:insertableContent:from:defaultData", this.defaultPageContent, "no data to insert");
         this.notify.hide();
       }
     } else {
-      this.logger.info("deriveInsertableData:not calculating insertable data as pageContent:", this.pageContent, "defaultPageContent:", this.defaultPageContent);
+      this.logger.debug("deriveInsertableData:not calculating insertable data as pageContent:", this.pageContent, "defaultPageContent:", this.defaultPageContent);
     }
   }
 
@@ -432,7 +490,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
       const pageContentColumns: PageContentColumn[] = this.actions.findPageContentColumnsOfType(this.pageContent, item.type);
       if (pageContentColumns) {
         pageContentColumns.splice(item.index, 0, item.data);
-        this.logger.info("pageContentColumns after insert:", pageContentColumns);
+        this.logger.debug("pageContentColumns after insert:", pageContentColumns);
       } else {
         this.logger.warn("could not find  pageContentColumns of type:", item.type, "in pageContent:", this.pageContent);
       }
@@ -446,69 +504,16 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   private async runInitCode() {
     this.showUnreferenced = this.uiActionsService.initialBooleanValueFor(StoredValue.SHOW_UNREFERENCED_PAGES, false);
-    this.logger.info("ngOnInit:runInitCode:pageContent:", this.pageContent, "path:", this.urlService.urlPath());
-    this.systemConfigService.events().subscribe(item => {
-      const pageHrefs: string[] = item.group.pages.map(link => link.href).filter(item => item);
-      this.logger.info("pageHrefs received as:", pageHrefs);
-      if (pageHrefs.length > 0) {
-        this.pageHrefs = pageHrefs;
-      }
-    });
-    this.pageContentService.allReferringPages(this.contentPath)
+    this.logger.debug("ngOnInit:runInitCode:pageContent:", this.pageContent, "path:", this.urlService.urlPath());
+    await this.pageContentService.allReferringPages(this.contentPath)
       .then(referringPages => {
         const referringPagesFilteredForExactPath = referringPages.filter(pageContent => this.actions.allPageHrefs(pageContent).includes(this.urlService.urlPath()));
-        this.logger.info("referringPages for:", this.contentPath, "referringPages:", referringPages, "referringPagesFilteredForExactPath:", referringPagesFilteredForExactPath);
+        this.logger.debug("referringPages for:", this.contentPath, "referringPages:", referringPages, "referringPagesFilteredForExactPath:", referringPagesFilteredForExactPath);
         this.referringPages = referringPagesFilteredForExactPath;
       }).catch(error => {
-      this.notify.error({title: "Failed to query referring pages:", message: error});
-      this.queryCompleted = true;
-      this.error = error;
-    });
-    this.broadcastService.on(NamedEventType.SAVE_PAGE_CONTENT, (namedEvent: NamedEvent<PageContent>) => {
-      this.logger.debug("event received:", namedEvent);
-      if (namedEvent.data.id === this.pageContent.id) {
-        this.savePageContent();
-      }
-    });
-    this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_DELETED, (namedEvent: NamedEvent<PageContent>) => {
-      this.logger.debug("event received:", namedEvent);
-      this.pageContent.rows.forEach(row => row.columns.forEach(column => {
-        if (column.contentTextId === namedEvent?.data?.id) {
-          this.logger.debug("removing link to content " + namedEvent.data.id);
-          delete column.contentTextId;
-        }
-      }));
-      this.savePageContent();
-    });
-    this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_UNSAVED, (namedEvent: NamedEvent<MarkdownEditorComponent>) => {
-      this.logger.debug("event received:", namedEvent);
-      this.unsavedMarkdownComponents.add(namedEvent.data);
-      this.logger.debug("added:", namedEvent.data, "to unsavedMarkdownComponents:", this.unsavedMarkdownComponents);
-    });
-    this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_SYNCED, (namedEvent: NamedEvent<MarkdownEditorComponent>) => {
-      this.logger.debug("event received:", namedEvent);
-      this.unsavedMarkdownComponents.delete(namedEvent.data);
-      this.logger.debug("unsavedMarkdownComponents removed:", namedEvent.data, "result:", this.unsavedMarkdownComponents);
-    });
-    this.destinationPathLookup.pipe(debounceTime(250))
-      .pipe(distinctUntilChanged())
-      .subscribe(() => {
-        this.pageContentService.findByPath(this.destinationPath)
-          .then(response => {
-            this.logger.info("find by path:", this.destinationPath, "resulted in:", response);
-            this.destinationPageContent = response;
-            if (response) {
-              const contentTextIds = response.rows.map((row: PageContentRow) => first(row.columns)?.contentTextId || first(first(first(row.columns)?.rows)?.columns)?.contentTextId);
-              this.logger.info("found contentTextIds:", contentTextIds);
-              Promise.all(contentTextIds.map(contentTextId => this.contentTextService.getById(contentTextId))).then(contentTextItems => {
-                const textRowInformation: string[] = contentTextItems.map(contentTextItem => this.firstTextLineFrom(contentTextItem));
-                this.logger.info("found contentTextItems:", textRowInformation);
-                this.insertionRowLookup = textRowInformation.map((row, index) => ({index, description: `Row ${index + 1}: ${row}`}));
-              });
-            } else {
-              this.insertionRowLookup = [{index: 0, description: `Row 1: In new page`}];
-            }
-          });
+        this.notify.error({title: "Failed to query referring pages:", message: error});
+        this.queryCompleted = true;
+        this.error = error;
       });
   }
 
@@ -539,12 +544,12 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   private initialiseRowIfRequired(row: PageContentRow) {
-    this.logger.info("row:", row);
+    this.logger.debug("row:", row);
     if (this.actions.isCarouselOrAlbum(row)) {
       const defaultAlbum = this.actions.defaultAlbum(this.contentPathWithIndex(row));
       if (!row.carousel?.name) {
         const carousel = defaultAlbum;
-        this.logger.info("initialising carousel data:", carousel);
+        this.logger.debug("initialising carousel data:", carousel);
         row.carousel = carousel;
       } else if (!row.carousel.albumView) {
         row.carousel.albumView = defaultAlbum.albumView;
@@ -553,10 +558,10 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     } else if (this.actions.isAlbumIndex(row)) {
       if (!row?.albumIndex?.contentPaths) {
         row.albumIndex = this.actions.defaultAlbumIndex();
-        this.logger.info("initialising albumIndex to:", row.albumIndex);
+        this.logger.debug("initialising albumIndex to:", row.albumIndex);
       }
     } else {
-      this.logger.info("not initialising data for ", row.type);
+      this.logger.debug("not initialising data for ", row.type);
     }
   }
 
@@ -567,7 +572,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   public savePageContent(): Promise<boolean> {
     if (this.actions.rowsInEdit.length === 0) {
-      this.logger.info("saving", this.stringUtils.pluraliseWithCount(this.unsavedMarkdownComponents.size, "markdown component"), "before saving page content");
+      this.logger.debug("saving", this.stringUtils.pluraliseWithCount(this.unsavedMarkdownComponents.size, "markdown component"), "before saving page content");
       return Promise.all(Array.from(this.unsavedMarkdownComponents.values()).map(component => component.save())).then(() => {
         return this.pageContentService.createOrUpdate(this.pageContent)
           .then(async pageContent => {
@@ -575,14 +580,13 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
             return this.urlService.redirectToNormalisedUrl(this.pageContent.path);
           });
       });
-    } else {
     }
   }
 
   public revertPageContent() {
     this.actions.rowsInEdit = [];
     const revertPath = this.queriedContentPath || this.pageContent.path;
-    this.logger.info("reverting page content to:", revertPath);
+    this.logger.debug("reverting page content to:", revertPath);
     this.pageContentService.findByPath(revertPath)
       .then(async pageContent => {
         await this.initialisePageContent(pageContent);
@@ -593,7 +597,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   public deletePageContent() {
     if (!this.deletePagContentDisabled()) {
-      this.pageContentService.delete(this.pageContent)
+      this.pageContentService.delete(this.pageContent.id)
         .then(() => this.urlService.navigateUnconditionallyTo([this.urlService.area()]));
     }
   }
@@ -626,13 +630,13 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     const pagePathsBelow: string[] = this.pagesBelow.map(page => this.urlService.pathOnlyFrom(page.path));
     const unreferencedPaths: string[] = uniq(pagePathsBelow.filter(path => !allReferencedHrefs.includes(path))).sort();
     this.unreferencedPaths = unreferencedPaths;
-    this.logger.info("calculateOtherPagesStartingWith:path:", pageContent.path, "albumIndexHrefs:", albumIndexHrefs, "currentPageHrefs:", currentPageHrefs, "allReferencedHrefs:", allReferencedHrefs, "pagesBelowPath:", this.pagesBelow, "pagePathsBelow:", pagePathsBelow, "unreferencedPaths:", unreferencedPaths);
+    this.logger.debug("calculateOtherPagesStartingWith:path:", pageContent.path, "albumIndexHrefs:", albumIndexHrefs, "currentPageHrefs:", currentPageHrefs, "allReferencedHrefs:", allReferencedHrefs, "pagesBelowPath:", this.pagesBelow, "pagePathsBelow:", pagePathsBelow, "unreferencedPaths:", unreferencedPaths);
   }
 
   private async collectNestedAlbumIndexes() {
     const albumIndexRows: PageContentRow[] = this.pagesBelow.map(item => item.rows.filter(row => this.actions.isAlbumIndex(row))).flat(3);
     const albums = await Promise.all(albumIndexRows.map(albumIndexRow => this.albumIndexService.albumIndexToPageContent(albumIndexRow, albumIndexRows.indexOf(albumIndexRow))));
-    this.logger.info("collectNestedAlbumIndexes:albums:", albums);
+    this.logger.debug("collectNestedAlbumIndexes:albums:", albums);
     albums.forEach(album => this.collectAlbumIndexData(album));
   }
 
@@ -640,22 +644,30 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     return this.allReferringPages().length > 0;
   }
 
-  performCopyOrMoveAction() {
+  async performCopyOrMoveAction() {
     const createNewPage: boolean = !this.destinationPageContent;
     if (createNewPage) {
       const newPageContent: PageContent = {
         path: this.destinationPath,
-        rows: this.pageContentRowService.selectedRows()
+        rows: await this.actions.copyContentTextIdsInRows(this.pageContentRowService.selectedRows())
       };
-      this.logger.info("newPageContent:", newPageContent);
+      this.logger.debug("newPageContent:", newPageContent);
       this.performAction(newPageContent, createNewPage);
     } else {
-      this.logger.info("destinationPageContent.rows before:", cloneDeep(this.destinationPageContent.rows));
-      this.destinationPageContent.rows.splice(this.destinationPathInsertionRowIndex + this.destinationPathInsertBeforeAfterIndex, 0, ...this.pageContentRowService.selectedRows());
-      this.logger.info("destinationPageContent.rows after:", cloneDeep(this.destinationPageContent.rows));
+      this.logger.debug("destinationPageContent.rows before:", cloneDeep(this.destinationPageContent.rows));
+      const duplicatedRows: PageContentRow[] = this.action === Action.COPY
+        ? await this.actions.copyContentTextIdsInRows(this.pageContentRowService.selectedRows())
+        : this.pageContentRowService.selectedRows();
+      this.destinationPageContent.rows.splice(
+        this.destinationPathInsertionRowIndex + this.destinationPathInsertBeforeAfterIndex,
+        0,
+        ...duplicatedRows
+      );
+      this.logger.debug("destinationPageContent.rows after:", cloneDeep(this.destinationPageContent.rows));
       this.performAction(this.destinationPageContent, createNewPage);
     }
   }
+
 
   private performAction(newPageContent: PageContent, createNewPage: boolean) {
     this.copyOrMoveActionComplete = false;
@@ -693,12 +705,12 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   contentPathChange(contentPath: string) {
     const reformattedPath = this.urlService.reformatLocalHref(contentPath);
-    this.logger.info("contentPathChange:", contentPath, "reformattedPath:", reformattedPath);
+    this.logger.debug("contentPathChange:", contentPath, "reformattedPath:", reformattedPath);
     this.pageContent.path = reformattedPath;
   }
 
   destinationPathInsertionRowIndexChange($event: any) {
-    this.logger.info("destinationPathInsertionRowIndexChange:", $event);
+    this.logger.debug("destinationPathInsertionRowIndexChange:", $event);
   }
 
   actionDisabled() {
@@ -706,7 +718,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   destinationPathLookupChange(value: string) {
-    this.logger.info("destinationPathLookupChange:", value);
+    this.logger.debug("destinationPathLookupChange:", value);
     this.destinationPathLookup.next(value);
     this.destinationPath = value;
   }
@@ -726,6 +738,10 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
       await this.collectPagesBelowPath(pageContent);
       await this.collectNestedAlbumIndexes();
       await this.unreferencedPagesStartingWith(pageContent);
+      const usageMapForPageContent = this.duplicateContentDetectionService.contentTextUsageMapForPageContent(pageContent);
+      await this.duplicateContentDetectionService.initialiseForAll();
+      this.duplicateUsageMessages = this.duplicateContentDetectionService.usageMessages().filter(item => usageMapForPageContent.has(item.id));
+      this.logger.info("initialisePageContent.duplicateUsageMessages:", this.duplicateUsageMessages, "usageMapForPageContent:", usageMapForPageContent);
     }
   }
 
@@ -733,13 +749,13 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     const path = pageContent.path;
     const dataQueryOptions = {criteria: {path: fieldStartsWithValue(path)}};
     this.pagesBelow = await this.pageContentService.all(dataQueryOptions);
-    this.logger.info("initialisePageContent:path:", path, "dataQueryOptions:", dataQueryOptions, "pagesBelowPath:", this.pagesBelow);
+    this.logger.debug("initialisePageContent:path:", path, "dataQueryOptions:", dataQueryOptions, "pagesBelowPath:", this.pagesBelow);
   }
 
   collectAlbumIndexData(albumIndexDataRow: PageContent) {
     if (albumIndexDataRow) {
       this.albumIndexDataRows = this.albumIndexDataRows.filter(item => item.path !== albumIndexDataRow.path).concat(albumIndexDataRow);
-      this.logger.info("collectAlbumIndexData:albumIndexDataRow:", albumIndexDataRow, "albumIndexDataRows:", this.albumIndexDataRows);
+      this.logger.debug("collectAlbumIndexData:albumIndexDataRow:", albumIndexDataRow, "albumIndexDataRows:", this.albumIndexDataRows);
     }
   }
 

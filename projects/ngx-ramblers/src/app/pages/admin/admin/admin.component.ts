@@ -12,7 +12,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { PageContent } from "../../../models/content-text.model";
+import { BuiltInAnchor, PageContent } from "../../../models/content-text.model";
 import { LoginResponse } from "../../../models/member.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
@@ -26,7 +26,17 @@ import { DynamicContentComponent } from "../../../modules/common/dynamic-content
 
 @Component({
     selector: "app-admin",
-    templateUrl: "./admin.component.html",
+    template: `
+      <app-page>
+        <app-login-required/>
+        @if (loggedIn) {
+          <app-dynamic-content [anchor]="BuiltInAnchor.ACTION_BUTTONS" contentPathReadOnly
+                               [defaultPageContent]="defaultPageContent"
+                               [notifier]="notify">
+          </app-dynamic-content>
+        }
+      </app-page>
+    `,
     styleUrls: ["./admin.component.sass"],
     changeDetection: ChangeDetectionStrategy.Default,
     imports: [PageComponent, LoginRequiredComponent, DynamicContentComponent]
@@ -52,6 +62,8 @@ export class AdminComponent implements OnInit, OnDestroy, OnDestroy {
   public loggedIn: boolean;
   public allowAdminEdits: boolean;
   public defaultPageContent: PageContent;
+
+  protected readonly BuiltInAnchor = BuiltInAnchor;
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());

@@ -78,6 +78,16 @@ export class DataPopulationService {
         category: "admin"
       },
       {
+        name: "duplicate-content-text-navigator",
+        text: "This page allows the content administrator to navigate to the content text items that are referenced from multiple locations on the site. It's not normal for this to be the case, because content changes from one page on the site will cause another page on the site to be updated with the same content. This page allows potentially duplicated content to be identified and to be navigated to, so that it can be unlinked and created as new separate content, or for the duplicate content to be deleted.",
+        category: "admin"
+      },
+      {
+        name: "duplicate-page-content-navigator",
+        text: "This page allows the content administrator to navigate to the page content items where more than one item has the same content path. It's not normal for this to be the case, as the system should prevent duplicates from being created. This page allows potentially duplicated content for the same content path to be identified, with an option to delete the one(s) that are incorrect.",
+        category: "admin"
+      },
+      {
         name: "ramblers-import-help-page",
         text: "This page should be used to prepare your group for when you wish to switch from using Walks Manager as your data source to your local database. There are several reasons why this can be beneficial, including providing better control over the walk leader information published on walks, email-backed workflow such as advertising walk slots and email notifications on change of walk details and the ability to provide more informative fields on the walk that are not supported by Walks Manager. The steps for using this page are to :\n" +
           "* Click the **Collect importable walks from Walks Manager** button below to query all walks that are held in Walks manager. This data is then analysed for walk leaders and attempts are made to match them to existing members in your database.\n" +
@@ -129,7 +139,7 @@ export class DataPopulationService {
         title: "Change Password",
         icon: "faUnlockAlt",
         href: "admin/change-password",
-        contentTextId: (await this.contentTextService.findByNameAndCategory("member-login-audit-help", "admin"))?.id
+        contentTextId: (await this.contentTextService.findByNameAndCategory("change-password-help", "admin"))?.id
       },
       {
         accessLevel: AccessLevel.loggedInMember,
@@ -195,6 +205,20 @@ export class DataPopulationService {
         icon: "faImages",
         href: "admin/carousel-editor",
         contentTextId: null
+      },
+      {
+        accessLevel: AccessLevel.committee,
+        title: "Duplicate Content Text",
+        icon: "faPencil",
+        href: "admin/duplicate-content-text-navigator",
+        contentTextId: (await this.contentTextService.findOrCreateByNameAndCategory("duplicate-content-text-navigator-help", "admin", "Allows the user to navigate to the content text items that are duplicated in the system."))?.id
+      },
+      {
+        accessLevel: AccessLevel.committee,
+        title: "Duplicate Page Content",
+        icon: "faPencil",
+        href: "admin/duplicate-page-content-navigator",
+        contentTextId: (await this.contentTextService.findOrCreateByNameAndCategory("duplicate-page-content-navigator-help", "admin", "Allows the user to navigate to the page content that is duplicated in the system."))?.id
       }];
     const defaultPageContent: PageContent = {
       path: PageContentPath.ADMIN_ACTION_BUTTONS, rows: [

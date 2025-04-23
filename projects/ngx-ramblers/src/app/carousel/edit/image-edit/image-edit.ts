@@ -216,11 +216,11 @@ export class ImageEditComponent implements OnInit {
   public imageDuplicatesService: ImageDuplicatesService = inject(ImageDuplicatesService);
   public broadcastService: BroadcastService<KeyValue<boolean>> = inject(BroadcastService);
   public contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
-  private notifierService: NotifierService = inject(NotifierService);
   public dateUtils: DateUtilsService = inject(DateUtilsService);
   private urlService: UrlService = inject(UrlService);
   private loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("ImageEditComponent", NgxLoggerLevel.ERROR);
+  private notifierService: NotifierService = inject(NotifierService);
   public notifyTarget: AlertTarget = {};
   public notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   private s3Metadata: S3Metadata;

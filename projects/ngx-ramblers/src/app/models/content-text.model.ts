@@ -5,6 +5,11 @@ import { BezierEasingOptions } from "ng-gallery/lib/smooth-scroll";
 import { fieldContainsValue, fieldEqualsValue, fieldStartsWithValue, MongoRegex } from "../functions/mongo";
 import { HasClass } from "./banner-configuration.model";
 import { EventsData } from "./social-events.model";
+import { MarkdownEditorComponent } from "../markdown-editor/markdown-editor.component";
+import { HasTrackingAttribute } from "./ui-actions";
+
+export const EM_DASH = " — ";
+export const EM_DASH_WITH_SPACES = ` ${EM_DASH} `;
 
 export enum ContentTextCategory {
   MEETUP_DESCRIPTION_PREFIX = "meetup-description-prefix"
@@ -124,9 +129,48 @@ export interface AlbumIndex {
   contentPaths: ContentPathMatch[];
 }
 
+export enum BuiltInAnchor {
+  ACTION_BUTTONS = "action-buttons",
+  COMMITTEE_YEARS = "committee-years",
+  HOME_CONTENT = "home-content",
+  INSTAGRAM_CONTENT = "instagram-content",
+  PAGE_HEADER = "page-header",
+}
+
+export enum BuiltInPath {
+  ADMIN = "admin",
+  COMMITTEE = "committee",
+  HOME = "home",
+  WALKS = "walks",
+}
+
+export interface BuiltInPageContentConfig {
+  contentPath: string;
+  anchors: BuiltInAnchor[];
+}
+
+export const BuiltInContentConfigs: { [key in BuiltInPath]: BuiltInPageContentConfig } = {
+  [BuiltInPath.HOME]: {
+    contentPath: BuiltInPath.ADMIN,
+    anchors: [BuiltInAnchor.HOME_CONTENT, BuiltInAnchor.INSTAGRAM_CONTENT]
+  },
+  [BuiltInPath.ADMIN]: {
+    contentPath: BuiltInPath.ADMIN,
+    anchors: [BuiltInAnchor.ACTION_BUTTONS]
+  },
+  [BuiltInPath.COMMITTEE]: {
+    contentPath: BuiltInPath.COMMITTEE,
+    anchors: [BuiltInAnchor.ACTION_BUTTONS, BuiltInAnchor.COMMITTEE_YEARS]
+  },
+  [BuiltInPath.WALKS]: {
+    contentPath: BuiltInPath.WALKS,
+    anchors: [BuiltInAnchor.PAGE_HEADER, BuiltInAnchor.ACTION_BUTTONS]
+  }
+};
+
 export enum PageContentPath {
-  ADMIN_ACTION_BUTTONS = "admin#action-buttons",
-  COMMITTEE_ACTION_BUTTONS_YEARS = "committee#committee-years"
+  ADMIN_ACTION_BUTTONS = `${BuiltInPath.ADMIN}#${BuiltInAnchor.ACTION_BUTTONS}`,
+  COMMITTEE_ACTION_BUTTONS_YEARS = `${BuiltInPath.COMMITTEE}#${BuiltInAnchor.COMMITTEE_YEARS}`,
 }
 
 export enum PageContentType {
@@ -275,3 +319,39 @@ export const DEFAULT_GALLERY_OPTIONS: GalleryViewOptions = {
 };
 
 export const DEFAULT_GRID_OPTIONS = {showTitles: true, showDates: true};
+
+
+export interface ContentTextUsage {
+  row: number;
+  column: number,
+  contentPath: string
+  editorInstance: MarkdownEditorComponent;
+}
+
+export type ContentTextUsageMap = Map<string, ContentTextUsage[]>;
+
+export interface ContentTextUsageWarning {
+  message: string;
+  links: Link[];
+}
+
+export interface DuplicateUsageMessage {
+  id: string;
+  message: string;
+}
+
+export interface ContentTextUsageWithTracking extends HasTrackingAttribute, ContentTextUsage {
+}
+
+export interface DuplicateTextNavigation {
+  id: string;
+  occurrence: number;
+  contentText: ContentText;
+  usages: ContentTextUsage[];
+}
+
+
+export interface DuplicatePageContent {
+  path: string;
+  duplicatePageContents: PageContent[];
+}

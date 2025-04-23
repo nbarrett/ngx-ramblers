@@ -52,6 +52,13 @@ import { ColourSelectorComponent } from "../../../pages/banner/colour-selector";
             </a>
           </li>
         }
+        @if (allowTextRowActions()) {
+          <li role="menuitem">
+            <a (click)="actions.duplicateRow(row, rowIndex, pageContent)" class="dropdown-item">
+              Duplicate <b>Row</b>
+            </a>
+          </li>
+        }
         @if (allowDeleteRow()) {
           <li role="menuitem">
             <a (click)="actions.deleteRow(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">

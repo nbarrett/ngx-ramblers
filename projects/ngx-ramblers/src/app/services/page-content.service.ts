@@ -51,6 +51,14 @@ export class PageContentService {
     return apiResponse.response;
   }
 
+  async findById(id: string): Promise<PageContent> {
+    this.logger.debug("findById:", id);
+    const apiResponse = await this.http.get<PageContentApiResponse>(`${this.BASE_URL}/${id}`).toPromise();
+    ;
+    this.logger.debug("findById", id, "- received", apiResponse);
+    return apiResponse.response as PageContent;
+  }
+
   async create(pageContent: PageContent): Promise<PageContent> {
     this.logger.debug("creating", pageContent);
     const apiResponse = await this.http.post<{ response: PageContent }>(this.BASE_URL, pageContent).toPromise();
@@ -73,9 +81,9 @@ export class PageContentService {
     }
   }
 
-  async delete(pageContent: PageContent): Promise<PageContent> {
-    const apiResponse = await this.http.delete<{ response: PageContent }>(`${this.BASE_URL}/${pageContent.id}`).toPromise();
-    this.logger.debug("delete", pageContent, "- received", apiResponse);
+  async delete(pageContentId: string): Promise<PageContent> {
+    const apiResponse = await this.http.delete<{ response: PageContent }>(`${this.BASE_URL}/${pageContentId}`).toPromise();
+    this.logger.debug("delete", pageContentId, "- received", apiResponse);
     return apiResponse.response;
   }
 

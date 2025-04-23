@@ -4,6 +4,7 @@ import { LoggedInGuard } from "../../guards/admin-login-guard";
 import { hasDynamicPath } from "../../services/path-matchers";
 import { AreaExistsGuard } from "../../guards/area-exists-guard";
 import { AdminAuthGuard } from "../../guards/admin-auth-guard";
+import { DuplicateContentTextNavigatorComponent } from "../../pages/admin/content/duplicate-content-text-navigator";
 
 @NgModule({
   imports: [RouterModule.forChild([
@@ -14,6 +15,14 @@ import { AdminAuthGuard } from "../../guards/admin-auth-guard";
     {
       path: "expenses", loadComponent: () => import("../../pages/admin/expenses/expenses.component")
         .then(m => m.ExpensesComponent), canActivate: [LoggedInGuard]
+    },
+    {
+      path: "duplicate-content-text-navigator", loadComponent: () => import("../../pages/admin/content/duplicate-content-text-navigator")
+        .then(m => m.DuplicateContentTextNavigatorComponent), canActivate: [AdminAuthGuard]
+    },
+    {
+      path: "duplicate-page-content-navigator", loadComponent: () => import("../../pages/admin/content/duplicate-page-content-navigator")
+        .then(m => m.DuplicatePageContentNavigatorComponent), canActivate: [AdminAuthGuard]
     },
     {
       path: "expenses/:expense-id", loadComponent: () => import("../../pages/admin/expenses/expenses.component")
