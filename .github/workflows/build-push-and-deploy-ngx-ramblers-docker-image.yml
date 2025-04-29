@@ -35,18 +35,6 @@ jobs:
       - name: Install Flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Create Fly.io volume (serenity_data)
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: |
-          # Check if the volume already exists
-          if flyctl volumes list --app ${{ secrets.APP_NAME }} | grep -q serenity_data; then
-            echo "Volume serenity_data already exists"
-          else
-            echo "Creating volume serenity_datas in region ${{ secrets.FLY_REGION }}"
-            flyctl volumes create serenity_data --app ${{ secrets.APP_NAME }} --region ${{ secrets.FLY_REGION }} --size 1 --yes
-          fi
-
       - name: Verify fly.toml existence
         run: |
           ls -la
