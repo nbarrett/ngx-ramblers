@@ -81,17 +81,21 @@ function findAttributeForIndex(outputLines: string[], columnHeading: string, hea
   }
 }
 
+function cleanId(id: string): string {
+  return (id || "").replace("*", "");
+}
+
 function queryExistingVolume(appName: string): VolumeInformation {
   try {
     const output = execSync(`flyctl volumes list --app ${appName}`, { encoding: "utf-8" });
-    const outputLines = output.split("\n").filter(line => line.trim() !== ""); // Remove empty lines
-    debugNoLog(`queryExistingVolumeName:outputLines:`, outputLines);
+    const outputLines = output.split("\n").filter(line => line);
+    debugLog(`queryExistingVolumeName:outputLines:`, outputLines);
     const header = outputLines[0].split("\t").map(col => col.trim());
     const id = findAttributeForIndex(outputLines, "ID", header);
     const region = findAttributeForIndex(outputLines, "REGION", header);
     const attachedVM = findAttributeForIndex(outputLines, "ATTACHED VM", header);
-    const isUnreachable: boolean = outputLines.some(line => line.includes("could not be reached"));
-    return {region, id, reachable: !isUnreachable, attachedVM};
+    const oneOrMoreUnreachable: boolean = outputLines.some(line => line.includes("could not be reached"));
+    return {region, id: cleanId(id), reachable: !oneOrMoreUnreachable && id.endsWith("*"), attachedVM};
   } catch (error) {
     debugLog(`Error retrieving existing volume name: ${error}`);
     return null;
@@ -115,12 +119,16 @@ export function deleteVolumeIfExists(appName: string, region: string): void {
     debugLog(`No existing volume found in region ${region} for app ${appName}`);
   } else {
     debugLog(`Volume information queried`, volumeInformation);
-    debugLog(`Existing volume found in region ${region} - deleting it...`);
     try {
       if (volumeInformation.attachedVM) {
         destroyMachineAttachedToVolume(appName, volumeInformation.id, volumeInformation.attachedVM);
       }
-      runCommand(`flyctl volumes destroy ${volumeInformation.id} --app ${appName} --yes`);
+      if (volumeInformation.reachable) {
+        debugLog(`Existing reachable volume ${volumeInformation.id} found in region ${region} - deleting it...`);
+        runCommand(`flyctl volumes destroy ${volumeInformation.id} --app ${appName} --yes`);
+      } else {
+        debugLog(`Existing volume ${volumeInformation.id} is not reachable - skipping delete... deploy still should work`);
+      }
     } catch (error) {
       debugLog(`Failed to delete volume '${volumeInformation}': `, error);
       process.exit(1);
