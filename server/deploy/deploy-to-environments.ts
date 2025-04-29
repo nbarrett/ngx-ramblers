@@ -2,7 +2,7 @@ import debug from "debug";
 import {
   configureEnvironment,
   createRuntimeConfig,
-  createVolumeIfNotExists,
+  deleteVolumeIfExists,
   DeploymentConfig,
   EnvironmentConfig,
   readConfigFile,
@@ -32,12 +32,9 @@ function deployToEnvironments(configFilePath: string, environmentsFilter: string
   environmentsToDeploy.forEach((environmentConfig: EnvironmentConfig) => {
     configureEnvironment(environmentConfig, config);
     debugLog(`Deploying ${config.dockerImage} to ${environmentConfig.appName}`);
-
-    createVolumeIfNotExists(environmentConfig.appName, "serenity_data", config.region);
-
+    deleteVolumeIfExists(environmentConfig.appName, config.region);
     runCommand(`flyctl config validate --config ${flyTomlPath} --app ${environmentConfig.appName}`);
     runCommand(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --strategy rolling`);
-
     if (!(process.env.GITHUB_ACTIONS === "true")) {
       const secretsFilePath = path.resolve(__dirname, `../../non-vcs/secrets/secrets.${environmentConfig.appName}.env`);
       if (fs.existsSync(secretsFilePath)) {
@@ -46,7 +43,7 @@ function deployToEnvironments(configFilePath: string, environmentsFilter: string
         debugLog(`Secrets file not found: ${secretsFilePath}`);
       }
     }
-    runCommand(`flyctl scale count 1 --app ${environmentConfig.appName}`);
+    runCommand(`flyctl scale count ${environmentConfig.scaleCount} --app ${environmentConfig.appName} --yes`);
     runCommand(`flyctl scale memory ${environmentConfig.memory} --app ${environmentConfig.appName}`);
   });
 }

@@ -4,6 +4,7 @@ import debug from "debug";
 import { execSync } from "child_process";
 
 const debugLog = debug("deploy-environments");
+const debugNoLog = debug("deploy-environments-nolog");
 debugLog.enabled = true;
 
 export interface EnvironmentConfig {
@@ -11,6 +12,7 @@ export interface EnvironmentConfig {
   apiKey: string;
   appName: string;
   memory: string;
+  scaleCount: number;
 }
 
 export interface DeploymentConfig {
@@ -23,6 +25,13 @@ export interface RuntimeConfig {
   currentDir: string;
   configFilePath: string;
   targetEnvironments: string[];
+}
+
+export interface VolumeInformation {
+  id: string;
+  region: string;
+  attachedVM: string;
+  reachable: boolean;
 }
 
 export function readConfigFile(filePath: string): DeploymentConfig {
@@ -58,70 +67,85 @@ export function createRuntimeConfig(): RuntimeConfig {
   return {currentDir, configFilePath, targetEnvironments: filterEnvironments};
 }
 
-function queryExistingVolumeName(appName: string, region: string): string | null {
+function findAttributeForIndex(outputLines: string[], columnHeading: string, header: string[]) {
+  const index = header.indexOf(columnHeading);
+  if (index === -1) {
+    debugLog("Warning: Could not parse " + columnHeading + " header from output" + header.join(", "));
+  } else {
+    return outputLines.slice(1).map(line => {
+      const columns = line.split("\t").map(col => col.trim());
+      const returnData = columns[index];
+      debugNoLog("findAttributeForIndex:line:", line, "columns:", columns, "columnHeading:", columnHeading, "index:", index, "returnData:", returnData);
+      return returnData;
+    })?.[0];
+  }
+}
+
+function queryExistingVolume(appName: string): VolumeInformation {
   try {
     const output = execSync(`flyctl volumes list --app ${appName}`, { encoding: "utf-8" });
     const outputLines = output.split("\n").filter(line => line.trim() !== ""); // Remove empty lines
-    debugLog(`queryExistingVolumeName:outputLines:`, outputLines);
-
+    debugNoLog(`queryExistingVolumeName:outputLines:`, outputLines);
     const header = outputLines[0].split("\t").map(col => col.trim());
-    const regionIndex = header.indexOf("REGION");
-    const attachedVmIndex = header.indexOf("ATTACHED VM");
-    const idIndex = header.indexOf("ID");
-
-    if (regionIndex === -1 || attachedVmIndex === -1 || idIndex === -1) {
-      debugLog("Error: Could not parse volume list header.");
-      return null;
-    }
-
-    for (const line of outputLines.slice(1)) {
-      const columns = line.split("\t").map(col => col.trim());
-      if (columns[regionIndex] === region) {
-        return columns[idIndex];
-      }
-    }
-
-    return null;
+    const id = findAttributeForIndex(outputLines, "ID", header);
+    const region = findAttributeForIndex(outputLines, "REGION", header);
+    const attachedVM = findAttributeForIndex(outputLines, "ATTACHED VM", header);
+    const isUnreachable: boolean = outputLines.some(line => line.includes("could not be reached"));
+    return {region, id, reachable: !isUnreachable, attachedVM};
   } catch (error) {
     debugLog(`Error retrieving existing volume name: ${error}`);
     return null;
   }
 }
 
-function getVolumeRegion(appName: string, volumeName: string): string | null {
+function destroyMachineAttachedToVolume(appName: string, volumeName: string, machineId: string): void {
   try {
-    const output = execSync(`flyctl volumes list --app ${appName}`, {encoding: "utf-8"});
-    const volumeLine = output.split("\n").find(line => line.includes(volumeName));
-    if (volumeLine) {
-      const regionMatch = volumeLine.match(/\b[A-Za-z]{3}\b/); // Match region code (e.g., "ams", "lhr")
-      return regionMatch ? regionMatch[0] : null;
-    }
-    return null;
+    debugLog(`Volume ${volumeName} is attached to machine ${machineId}, therefore machine must be stopped and destroyed before volume can be deleted`);
+    runCommand(`flyctl machine stop ${machineId} --app ${appName}`);
+    runCommand(`flyctl machine destroy ${machineId} --app ${appName} --force`);
   } catch (error) {
-    debugLog(`Error retrieving volume region: ${error}`);
-    return null;
+    debugLog(`Failed to detach volume '${volumeName}' from machine '${machineId}':`, error);
+    process.exit(1);
   }
 }
 
+export function deleteVolumeIfExists(appName: string, region: string): void {
+  const volumeInformation: VolumeInformation = queryExistingVolume(appName);
+  if (!volumeInformation.id) {
+    debugLog(`No existing volume found in region ${region} for app ${appName}`);
+  } else {
+    debugLog(`Volume information queried`, volumeInformation);
+    debugLog(`Existing volume found in region ${region} - deleting it...`);
+    try {
+      if (volumeInformation.attachedVM) {
+        destroyMachineAttachedToVolume(appName, volumeInformation.id, volumeInformation.attachedVM);
+      }
+      runCommand(`flyctl volumes destroy ${volumeInformation.id} --app ${appName} --yes`);
+    } catch (error) {
+      debugLog(`Failed to delete volume '${volumeInformation}': `, error);
+      process.exit(1);
+    }
+  }
+}
 export function createVolumeIfNotExists(appName: string, volumeName: string, region: string): void {
-  const existingVolumeName = queryExistingVolumeName(appName, region);
+  const existingVolume: VolumeInformation = queryExistingVolume(appName);
 
-  if (!existingVolumeName) {
+  if (!existingVolume) {
     debugLog(`No existing volume found in region '${region}'. Creating '${volumeName}'...`);
     runCommand(`flyctl volumes create ${volumeName} --app ${appName} --region ${region}`);
     return;
   }
 
-  const currentRegion = getVolumeRegion(appName, existingVolumeName);
+  const currentRegion = existingVolume.region;
   if (currentRegion !== region) {
-    debugLog(`Volume '${existingVolumeName}' is in region '${currentRegion}', but '${region}' is required. Recreating it as '${volumeName}'...`);
+    debugLog(`Volume '${existingVolume}' is in region '${currentRegion}', but '${region}' is required. Recreating it as '${volumeName}'...`);
     try {
-      runCommand(`flyctl volumes delete ${existingVolumeName} --app ${appName} -y`);
+      runCommand(`flyctl volumes delete ${existingVolume} --app ${appName} -y`);
     } catch (error) {
       if (error.message.includes("volume not found")) {
-        debugLog(`Volume '${existingVolumeName}' not found during deletion. Proceeding to recreate '${volumeName}'.`);
+        debugLog(`Volume '${existingVolume}' not found during deletion. Proceeding to recreate '${volumeName}'.`);
       } else {
-        debugLog(`Failed to delete volume '${existingVolumeName}': ${error}.`);
+        debugLog(`Failed to delete volume '${existingVolume}': ${error}.`);
         process.exit(1);
       }
     }
@@ -129,7 +153,7 @@ export function createVolumeIfNotExists(appName: string, volumeName: string, reg
     return;
   }
 
-  debugLog(`Volume '${existingVolumeName}' exists in the correct region '${region}'. Using it as '${volumeName}'.`);
+  debugLog(`Volume '${existingVolume.id}' exists in the correct region '${region}'. Using it as '${volumeName}'.`);
 }
 
 export function configureEnvironment(environmentConfig: EnvironmentConfig, config: DeploymentConfig) {
