@@ -95,7 +95,7 @@ function queryExistingVolume(appName: string): VolumeInformation {
     const region = findAttributeForIndex(outputLines, "REGION", header);
     const attachedVM = findAttributeForIndex(outputLines, "ATTACHED VM", header);
     const oneOrMoreUnreachable: boolean = outputLines.some(line => line.includes("could not be reached"));
-    return {region, id: cleanId(id), reachable: !oneOrMoreUnreachable && id.endsWith("*"), attachedVM};
+    return {region, id: cleanId(id), reachable: !oneOrMoreUnreachable && id && !id?.endsWith("*"), attachedVM};
   } catch (error) {
     debugLog(`Error retrieving existing volume name: ${error}`);
     return null;
@@ -115,10 +115,10 @@ function destroyMachineAttachedToVolume(appName: string, volumeName: string, mac
 
 export function deleteVolumeIfExists(appName: string, region: string): void {
   const volumeInformation: VolumeInformation = queryExistingVolume(appName);
-  if (!volumeInformation.id) {
+  if (!volumeInformation?.id) {
     debugLog(`No existing volume found in region ${region} for app ${appName}`);
   } else {
-    debugLog(`Volume information queried`, volumeInformation);
+    debugLog(`Volume information queried:`, volumeInformation, `for app ${appName}`);
     try {
       if (volumeInformation.attachedVM) {
         destroyMachineAttachedToVolume(appName, volumeInformation.id, volumeInformation.attachedVM);

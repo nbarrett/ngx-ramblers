@@ -15,7 +15,11 @@ import fs from "fs";
 const debugLog = debug("deploy-environments");
 debugLog.enabled = true;
 const config: RuntimeConfig = createRuntimeConfig();
-debugLog("Deploying to specified environments:", config.targetEnvironments);
+if (config.targetEnvironments.length > 0) {
+  debugLog("Deploying to specified environments:", config.targetEnvironments);
+} else {
+  debugLog("Deploying to all environments");
+}
 
 function deployToEnvironments(configFilePath: string, environmentsFilter: string[]): void {
   const config: DeploymentConfig = readConfigFile(configFilePath);
