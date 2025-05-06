@@ -6,8 +6,7 @@ import { ContentMetadataService } from "../../../services/content-metadata.servi
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { UrlService } from "../../../services/url.service";
-import { RootFolder } from "../../../models/system.model";
-import { HARD_CODED_SOCIAL_FOLDER } from "../../../models/social-events.model";
+import { BuiltInAlbumName, RootFolder } from "../../../models/system.model";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { NgStyle } from "@angular/common";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
@@ -55,14 +54,9 @@ export class SocialCarouselComponent implements OnInit {
     this.slideChanged(this.activeSlideIndex);
   }
 
-  imageSourceOrPreview(): string {
-    this.logger.debug("activeSlideIndex:", this.activeSlideIndex, "contentMetadataItem:", this.contentMetadataItem);
-    return this.contentMetadataItem?.image;
-  }
-
-  refreshImages() {
+ refreshImages() {
     this.logger.debug("slides:", this.slides);
-    this.contentMetadataService.items(RootFolder.carousels, HARD_CODED_SOCIAL_FOLDER)
+    this.contentMetadataService.items(RootFolder.carousels, BuiltInAlbumName.socialEventsImages)
       .then((contentMetadata) => {
         this.slides = contentMetadata.files;
         this.contentMetadata = contentMetadata;

@@ -44,8 +44,6 @@ export interface SocialEventsPermissions {
   contentEdits?: boolean;
 }
 
-export const HARD_CODED_SOCIAL_FOLDER = "images-social-events";
-
 export interface EventsData {
   eventTypes: RamblersEventType[];
 }

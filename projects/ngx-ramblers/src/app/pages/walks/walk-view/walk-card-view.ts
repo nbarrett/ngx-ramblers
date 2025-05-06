@@ -113,7 +113,6 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                         }
                         @if (!loggedIn) {
                           <div (click)="login()" class="tooltip-link span-margin"
-                            trigger="mouseenter"
                             tooltip="Login as an {{group?.shortName}} member and send an email to {{displayedWalk?.walk?.displayName}}">
                             {{ displayedWalk?.walk?.displayName }}
                           </div>
@@ -146,12 +145,6 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
     </div>`,
     styleUrls: ["./walk-view.sass"],
     styles: [`
-    .button-container
-      position: absolute
-      top: 10px
-      right: 10px
-      z-index: 10000
-
     .card-body
       position: relative
       padding-bottom: 50px

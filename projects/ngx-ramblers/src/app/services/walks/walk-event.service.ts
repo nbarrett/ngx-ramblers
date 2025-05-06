@@ -48,8 +48,6 @@ const auditedFields: string[] = [
   "ramblersWalkId",
   "ramblersWalkUrl",
   "riskAssessment",
-  "startLocation",
-  "startLocationW3w",
   "startTime",
   "start_location",
   "venue",
@@ -57,7 +55,6 @@ const auditedFields: string[] = [
   "walkLeaderMemberId",
   "walkType",
 ];
-
 
 @Injectable({
   providedIn: "root"

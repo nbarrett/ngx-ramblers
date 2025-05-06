@@ -1,9 +1,8 @@
 @if (justCopied()) {
-  <fa-icon container="body" [tooltip]="justCopied()?tooltipPostCopy:null"
+  <fa-icon container="body" [tooltip]="justCopied()? tooltipPostCopy:null"
            [icon]="icon"
            class="fa-icon fa-icon-copied mr-1 pointer"></fa-icon>
-}
-@if (!justCopied()) {
+} @else {
   <fa-icon container="body" [tooltip]="tooltipPreCopy"
            (click)="copyToClipboard(value)" [icon]="icon"
            class="fa-icon mr-1 pointer"></fa-icon>

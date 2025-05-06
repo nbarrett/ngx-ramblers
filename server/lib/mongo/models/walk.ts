@@ -70,7 +70,12 @@ const filterParameters = {
 
 const imageConfig = {
   source: {type: String},
-  importFrom: {areaCode: {type: String}, groupCode: {type: String}, filterParameters, walkId: {type: String}}
+  importFrom: {
+    areaCode: {type: String},
+    groupCode: {type: String},
+    filterParameters,
+    walkId: {type: String}
+  }
 };
 
 const walkSchema = new mongoose.Schema({
@@ -87,8 +92,6 @@ const walkSchema = new mongoose.Schema({
   ascent: {type: String},
   events: [walkEvent],
   grade: {type: String},
-  gridReference: {type: String},
-  gridReferenceFinish: {type: String},
   location: {type: String},
   longerDescription: {type: String},
   config: {
@@ -106,8 +109,6 @@ const walkSchema = new mongoose.Schema({
   nearestTown: {type: String},
   osMapsRoute: {type: String},
   osMapsTitle: {type: String},
-  postcode: {type: String},
-  postcodeFinish: {type: String},
   ramblersWalkId: {type: String},
   ramblersWalkUrl: {type: String},
   ramblersPublish: {type: Boolean},

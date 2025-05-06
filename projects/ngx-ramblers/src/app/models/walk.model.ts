@@ -118,7 +118,12 @@ export interface Walk extends Identifiable, HasMedia {
   organiser?: string;
   imageConfig?: {
     source: ImageSource;
-    importFrom: { areaCode: string, groupCode: string; filterParameters: HasBasicEventSelection; walkId: string; }
+    importFrom: {
+      areaCode: string;
+      groupCode: string;
+      filterParameters: HasBasicEventSelection;
+      walkId?: string;
+    }
   };
   start_location?: LocationDetails;
   meeting_location?: LocationDetails;

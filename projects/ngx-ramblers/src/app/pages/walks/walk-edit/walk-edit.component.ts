@@ -153,7 +153,7 @@ import { WalkEditFeaturesComponent } from "./walk-edit-features";
                 <div class="row">
                   <div class="col-sm-12">
                     <div class="form-group">
-                      <label for="longer-description">Longer Description <a
+                      <label for="longer-description">Walk Description <a
                         [hidden]="longerDescriptionPreview"
                         (click)="previewLongerDescription()" [href]="">
                         <fa-icon [icon]="faMagnifyingGlass" class="markdown-preview-icon"></fa-icon>
@@ -175,7 +175,7 @@ import { WalkEditFeaturesComponent } from "./walk-edit-features";
                           [disabled]="inputDisabled()"
                           [(ngModel)]="displayedWalk.walk.longerDescription" type="text"
                           class="form-control input-sm" rows="5" id="longer-description"
-                          placeholder="Enter Longer Description here"></textarea>
+                          placeholder="Enter Walk Description here"></textarea>
                       }
                     </div>
                   </div>

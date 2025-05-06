@@ -7,16 +7,18 @@ export const RECENT_PHOTOS: ImageTag = {key: 0, sortIndex: 0, subject: "Recent P
 export const ALL_PHOTOS: ImageTag = {key: -1, sortIndex: -1, subject: "All Photos"};
 export const S3_BASE_URL = "api/aws/s3";
 export const S3_METADATA_URL = "api/aws/metadata/list-objects";
+export const BASE64_PREFIX_HEIC = "data:image/heic;base64";
 export const BASE64_PREFIX_JPEG = "data:image/jpeg;base64";
-export const IMAGE_JPEG = "image/jpeg";
-export const IMAGE_HEIC = "image/heic";
-export const IMAGE_PNG = "image/png";
 export const BASE64_PREFIX_PNG = "data:image/png;base64";
-
+export const IMAGE_HEIC = "image/heic";
+export const IMAGE_JPEG = "image/jpeg";
+export const IMAGE_PNG = "image/png";
+export const IMAGE_SVG = "image/svg+xml";
 export enum FileType {
   JPEG = "JPEG",
   PNG = "PNG",
   SVG = "SVG",
+  HEIC = "HEIC",
 }
 
 export interface FileTypeAttributes {
@@ -31,7 +33,7 @@ export interface FileTypeAttributes {
 export const fileTypeAttributes: FileTypeAttributes[] = [
   {
     key: FileType.JPEG,
-    contentType: "image/jpeg",
+    contentType: IMAGE_JPEG,
     fileExtensions: ["jpeg", "jpg"],
     base64Prefix: BASE64_PREFIX_JPEG,
     croppable: true,
@@ -39,15 +41,23 @@ export const fileTypeAttributes: FileTypeAttributes[] = [
   },
   {
     key: FileType.PNG,
-    contentType: "image/png",
+    contentType: IMAGE_PNG,
     fileExtensions: ["png"],
     base64Prefix: BASE64_PREFIX_PNG,
     croppable: false,
     cropperFormat: "png"
   },
   {
+    key: FileType.HEIC,
+    contentType: IMAGE_HEIC,
+    fileExtensions: ["heic"],
+    base64Prefix: BASE64_PREFIX_HEIC,
+    croppable: true,
+    cropperFormat: "jpeg"
+  },
+  {
     key: FileType.SVG,
-    contentType: "image/svg+xml",
+    contentType: IMAGE_SVG,
     fileExtensions: ["svg"],
     base64Prefix: "",
     croppable: false
