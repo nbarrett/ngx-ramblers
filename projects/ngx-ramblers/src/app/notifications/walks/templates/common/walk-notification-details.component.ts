@@ -31,7 +31,7 @@ import { DisplayDatePipe } from "../../../../pipes/display-date.pipe";
         <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.briefDescriptionAndStartPoint | valueOrDefault }}</td>
       </tr>
       <tr>
-        <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Longer Description:</td>
+        <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Walk Description:</td>
         <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px" [innerHTML]="renderMarked(walk.longerDescription)"></td>
       </tr>
       <tr>

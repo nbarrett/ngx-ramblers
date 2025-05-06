@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faCopy, faEye, faPencil } from "@fortawesome/free-solid-svg-icons";
+import { faCopy, faEnvelope, faEye, faPencil } from "@fortawesome/free-solid-svg-icons";
 import cloneDeep from "lodash-es/cloneDeep";
 import first from "lodash-es/first";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
@@ -11,7 +11,7 @@ import { AlertTarget } from "../../../models/alert-target.model";
 import { AwsFileData, AwsFileUploadResponseData } from "../../../models/aws-object.model";
 import { DateValue } from "../../../models/date.model";
 import { MemberFilterSelection } from "../../../models/member.model";
-import { HARD_CODED_SOCIAL_FOLDER, SocialEvent } from "../../../models/social-events.model";
+import { SocialEvent } from "../../../models/social-events.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { FileUploadService } from "../../../services/file-upload.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
@@ -35,385 +35,385 @@ import { SocialCardComponent } from "../social-card/social-card";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgOptgroupTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
+import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
+import { RootFolder } from "../../../models/system.model";
 
 @Component({
     selector: "app-social-edit",
     template: `
-    <app-page [pageTitle]="pageTitle()">
-      @if (socialEvent) {
-        <div class="row">
-          <div class="col-sm-12">
-            <tabset class="custom-tabset">
-              <tab heading="Social Event Details">
-                <div class="img-thumbnail thumbnail-admin-edit">
-                  <div class="row">
-                    <div class="col-sm-12">
-                      <div class="form-group">
-                        <label for="title">Title</label>
-                        <input [disabled]="!display.allow.edits"
-                               [(ngModel)]="socialEvent.briefDescription" type="text"
-                               class="form-control input-sm"
-                               id="title"
-                               placeholder="Enter title for social event here"/>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="row">
-                    <div class="col-sm-6">
-                      <div class="form-group">
-                        <app-date-picker startOfDay [label]="'Social Event Date'"
-                                         [size]="'md'"
-                                         (dateChange)="eventDateChanged($event)"
-                                         [value]="eventDate">
-                        </app-date-picker>
-                      </div>
-                    </div>
-                    <div class="col-sm-3">
-                      <div class="form-group">
-                        <label for="start-time">Start Time</label>
-                        <input [disabled]="!display.allow.edits"
-                               [(ngModel)]="socialEvent.eventTimeStart" type="text"
-                               class="form-control input-sm" id="start-time"
-                               placeholder="Enter Start time here"/>
-                      </div>
-                    </div>
-                    <div class="col-sm-3">
-                      <div class="form-group">
-                        <label for="end-time">End Time</label>
-                        <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.eventTimeEnd"
-                               type="text" class="form-control input-sm" id="end-time"
-                               placeholder="Enter End time here"/>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="row">
-                    <div class="col-sm-8">
-                      <div class="form-group">
-                        <label for="location">Location</label>
-                        <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.location"
-                               type="text" class="form-control input-sm" id="location"
-                               placeholder="Enter Location here">
-                      </div>
-                    </div>
-                    <div class="col-sm-4">
-                      <div class="form-group">
-                        <label for="post-code">Postcode</label>
-                        <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.postcode"
-                               type="text" class="form-control input-sm" id="post-code"
-                               placeholder="Enter Postcode here">
-                      </div>
-                    </div>
-                  </div>
-                  <div class="row">
-                    <div class="col-sm-12">
-                      <div class="event-description">
-                        <div class="form-group">
-                          <label for="longer-description">Description
-                            @if (!longerDescriptionPreview) {
-                              <a (click)="previewLongerDescription()" [href]="">
-                                <fa-icon [icon]="faEye" class="markdown-preview-icon"></fa-icon>
-                                preview</a>
-                            }
-                            @if (longerDescriptionPreview) {
-                              <a (click)="editLongerDescription()" [href]="">
-                                <fa-icon [icon]="faPencil" class="markdown-preview-icon"></fa-icon>
-                                edit</a>
-                            }
-                          </label>
-                          <div>
-                            @if (longerDescriptionPreview) {
-                              <p class="list-arrow"
-                                 (click)="editLongerDescription()"
-                                 markdown [data]="socialEvent.longerDescription"
-                                 id="longer-description-preview"></p>
-                            }
-                          </div>
-                          @if (!longerDescriptionPreview) {
-                            <textarea
-                              [disabled]="!display.allow.edits"
-                              (blur)="previewLongerDescription()"
-                              [(ngModel)]="socialEvent.longerDescription"
-                              type="text"
-                              class="form-control input-sm"
-                              rows="{{socialEvent.thumbnail ? 20 : 5}}"
-                              id="longer-description"
-                              placeholder="Enter description for social event here"></textarea>
-                          }
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </tab>
-              <tab heading="Thumbnail Image">
-                <ng-template #linkAndThumbnail>
-                  <div class="form-group">
-                    <label for="img-thumbnail">Thumbnail</label>
-                    <input [disabled]="!display.allow.edits || editActive"
-                           [(ngModel)]="socialEvent.thumbnail"
-                           type="text" value="" class="form-control input-sm"
-                           id="img-thumbnail"
-                           placeholder="Enter a thumbnail image">
-                  </div>
-                  <div class="form-group">
-                    <label for="link">Link</label>
-                    <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.link"
-                           type="text" value="" class="form-control input-sm" id="link"
-                           placeholder="Enter a link">
-                  </div>
-                  <div class="form-group">
-                    <label for="linkTitle">Display title for link</label>
-                    <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.linkTitle"
-                           type="text" value="" class="form-control input-sm" id="linkTitle"
-                           placeholder="Enter a title for link">
-                  </div>
-                  <div class="form-group">
-                    <label for="linkTitle" class="mr-2">Link Preview: </label>
-                    <a [href]="socialEvent.link">{{ socialEvent.linkTitle || socialEvent.link }}</a>
-                  </div>
-                </ng-template>
-                <div class="img-thumbnail thumbnail-admin-edit">
-                  <div class="row">
-                    @if (!editActive) {
-                      <div class="col-sm-6">
-                        <ng-container *ngTemplateOutlet="linkAndThumbnail"></ng-container>
-                      </div>
-                    }
-                    @if (editActive) {
-                      <div class="col-sm-6">
-                        <app-image-cropper-and-resizer
-                          wrapButtons
-                          [rootFolder]="HARD_CODED_SOCIAL_FOLDER"
-                          [preloadImage]="socialEvent.thumbnail"
-                          (imageChange)="imageChanged($event)"
-                          (error)="imageCroppingError($event)"
-                          (cropError)="imageCroppingError($event)"
-                          (quit)="exitImageEdit()"
-                          (save)="imagedSaved($event)">
-                        </app-image-cropper-and-resizer>
-                      </div>
-                    }
-                    <div class="col-sm-6">
-                      <div class="position-relative">
-                        <app-social-card [socialEvent]="socialEvent"
-                                         [imagePreview]="awsFileData?.image"></app-social-card>
-                        @if (!editActive) {
-                          <div (click)="editImage()"
-                               delay=500 tooltip="edit image" class="button-form-right badge-button edit-image">
-                            <fa-icon [icon]="faPencil"></fa-icon>
-                            <span>edit image</span>
-                          </div>
-                        }
-                      </div>
-                      @if (editActive) {
-                        <div class="mt-3">
-                          <ng-container *ngTemplateOutlet="linkAndThumbnail"></ng-container>
-                        </div>
-                      }
-                    </div>
-                  </div>
-                </div>
-              </tab>
-              <tab heading="Organiser">
-                <div class="img-thumbnail thumbnail-admin-edit">
-                  <div class="row">
-                    <div class="col-sm-12">
-                      <div class="form-group">
-                        <label for="contact-member">Event Organiser</label>
-                        <select [disabled]="!display.allow.edits" (ngModelChange)="selectMemberContactDetails($event)"
-                                class="form-control input-sm"
-                                [(ngModel)]="socialEvent.eventContactMemberId">
-                          <option value="">(no event organiser yet)</option>
-                          @for (selection of display.memberFilterSelections; track selection.id) {
-                            <option
-                              [ngValue]="selection.id"
-                              [textContent]="selection.member | fullNameWithAlias"
-                              class="form-control rounded spaced-controls" id="contact-member">
-                              }
-                        </select>
-                      </div>
-                      <div class="form-group">
-                        <label for="contact-display-name">Display Name</label>
-                        <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.displayName"
-                               type="text" class="form-control input-sm"
-                               id="contact-display-name"/>
-                      </div>
-                      <div class="form-group">
-                        <label for="contact-phone">Contact Phone</label>
-                        <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.contactPhone"
-                               type="text" class="form-control input-sm" id="contact-phone"
-                               placeholder="Enter contact phone here"/>
-                      </div>
-                      <div class="form-group">
-                        <label for="contact-email">Contact Email</label>
-                        <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.contactEmail"
-                               type="text" class="form-control input-sm" id="contact-email"
-                               placeholder="Enter contact email here"/>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </tab>
-              <tab heading="Attendees">
-                <div class="img-thumbnail thumbnail-admin-edit">
-                  <div class="row">
-                    <div class="col-sm-12" delay="2000"
-                         [tooltip]="attendeeCaption()">
-                      @if (display.allow.edits) {
-                        <ng-select [items]="display.memberFilterSelections"
-                                   bindLabel="text"
-                                   bindValue="id"
-                                   placeholder="Select one or more members"
-                                   [disabled]="notifyTarget.busy"
-                                   [dropdownPosition]="'bottom'"
-                                   [groupBy]="groupBy"
-                                   [groupValue]="groupValue"
-                                   [multiple]="true"
-                                   [closeOnSelect]="true"
-                                   (change)="onChange()"
-                                   [(ngModel)]="selectedMemberIds">
-                          <ng-template ng-optgroup-tmp let-item="item">
-                            <span class="group-header">{{ item.name }}</span>
-                            <span class="ml-1 badge badge-secondary badge-group"> {{ item.total }}</span>
-                          </ng-template>
-                        </ng-select>
-                      }
-                    </div>
-                    @if (!display.allow.edits) {
-                      <p
-                        class="col-sm-12 rounded">{{ display.attendeeList(socialEvent, display.memberFilterSelections) }}</p>
-                    }
-                  </div>
-                </div>
-              </tab>
-              @if (display.allow.edits) {
-                <tab heading="Attachment">
+      <app-page [pageTitle]="pageTitle()">
+        @if (socialEvent) {
+          <div class="row">
+            <div class="col-sm-12">
+              <tabset class="custom-tabset">
+                <tab heading="Social Event Details">
                   <div class="img-thumbnail thumbnail-admin-edit">
                     <div class="row">
-                      <div class="col-md-12">
-                        <input type="submit" [disabled]="notifyTarget.busy"
-                               value="Browse for attachment"
-                               (click)="browseToFile(fileElement)"
-                               class="button-form mb-10"
-                               [ngClass]="{'disabled-button-form': notifyTarget.busy}"/>
-                        <input [disabled]="notifyTarget.busy" type="submit"
-                               value="Remove attachment" (click)="removeAttachment()" title="Remove attachment"
-                               [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'"/>
-                        <input #fileElement id="browse-to-file" name="attachment" class="d-none"
-                               type="file" value="Upload"
-                               ng2FileSelect (onFileSelected)="onFileSelect($event)" [uploader]="uploader"/>
-                        <div ng2FileDrop [ngClass]="{'file-over': hasFileOver}"
-                             (fileOver)="fileOver($event)"
-                             (onFileDrop)="fileDropped($event)"
-                             [uploader]="uploader"
-                             class="drop-zone">Or drop file here
+                      <div class="col-sm-12">
+                        <div class="form-group">
+                          <label for="title">Title</label>
+                          <input [disabled]="!display.allow.edits"
+                                 [(ngModel)]="socialEvent.briefDescription" type="text"
+                                 class="form-control input-sm"
+                                 id="title"
+                                 placeholder="Enter title for social event here"/>
                         </div>
-                        @if (notifyTarget.busy) {
-                          <div class="progress">
-                            <div class="progress-bar" role="progressbar"
-                                 [ngStyle]="{ 'width': uploader.progress + '%' }">
-                              uploading {{ uploader.progress }}%
+                      </div>
+                    </div>
+                    <div class="row">
+                      <div class="col-sm-6">
+                        <div class="form-group">
+                          <app-date-picker startOfDay [label]="'Social Event Date'"
+                                           [size]="'md'"
+                                           (dateChange)="eventDateChanged($event)"
+                                           [value]="eventDate">
+                          </app-date-picker>
+                        </div>
+                      </div>
+                      <div class="col-sm-3">
+                        <div class="form-group">
+                          <label for="start-time">Start Time</label>
+                          <input [disabled]="!display.allow.edits"
+                                 [(ngModel)]="socialEvent.eventTimeStart" type="text"
+                                 class="form-control input-sm" id="start-time"
+                                 placeholder="Enter Start time here"/>
+                        </div>
+                      </div>
+                      <div class="col-sm-3">
+                        <div class="form-group">
+                          <label for="end-time">End Time</label>
+                          <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.eventTimeEnd"
+                                 type="text" class="form-control input-sm" id="end-time"
+                                 placeholder="Enter End time here"/>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="row">
+                      <div class="col-sm-8">
+                        <div class="form-group">
+                          <label for="location">Location</label>
+                          <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.location"
+                                 type="text" class="form-control input-sm" id="location"
+                                 placeholder="Enter Location here">
+                        </div>
+                      </div>
+                      <div class="col-sm-4">
+                        <div class="form-group">
+                          <label for="post-code">Postcode</label>
+                          <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.postcode"
+                                 type="text" class="form-control input-sm" id="post-code"
+                                 placeholder="Enter Postcode here">
+                        </div>
+                      </div>
+                    </div>
+                    <div class="row">
+                      <div class="col-sm-12">
+                        <div class="event-description">
+                          <div class="form-group">
+                            <label for="longer-description">Description
+                              @if (!longerDescriptionPreview) {
+                                <a (click)="previewLongerDescription()" [href]="">
+                                  <fa-icon [icon]="faEye" class="markdown-preview-icon"></fa-icon>
+                                  preview</a>
+                              }
+                              @if (longerDescriptionPreview) {
+                                <a (click)="editLongerDescription()" [href]="">
+                                  <fa-icon [icon]="faPencil" class="markdown-preview-icon"></fa-icon>
+                                  edit</a>
+                              }
+                            </label>
+                            <div>
+                              @if (longerDescriptionPreview) {
+                                <p class="list-arrow"
+                                   (click)="editLongerDescription()"
+                                   markdown [data]="socialEvent.longerDescription"
+                                   id="longer-description-preview"></p>
+                              }
                             </div>
+                            @if (!longerDescriptionPreview) {
+                              <textarea
+                                [disabled]="!display.allow.edits"
+                                (blur)="previewLongerDescription()"
+                                [(ngModel)]="socialEvent.longerDescription"
+                                type="text"
+                                class="form-control input-sm"
+                                rows="{{socialEvent.thumbnail ? 20 : 5}}"
+                                id="longer-description"
+                                placeholder="Enter description for social event here"></textarea>
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </tab>
+                <tab heading="Image">
+                  <ng-template #linkAndThumbnail>
+                    <div class="form-group">
+                      <label for="img-thumbnail">Thumbnail</label>
+                      <input [disabled]="!display.allow.edits || editActive"
+                             [(ngModel)]="socialEvent.thumbnail"
+                             type="text" value="" class="form-control input-sm"
+                             id="img-thumbnail"
+                             placeholder="Enter a thumbnail image">
+                    </div>
+                    <div class="form-group">
+                      <label for="link">Link</label>
+                      <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.link"
+                             type="text" value="" class="form-control input-sm" id="link"
+                             placeholder="Enter a link">
+                    </div>
+                    <div class="form-group">
+                      <label for="linkTitle">Display title for link</label>
+                      <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.linkTitle"
+                             type="text" value="" class="form-control input-sm" id="linkTitle"
+                             placeholder="Enter a title for link">
+                    </div>
+                    <div class="form-group">
+                      <label for="linkTitle" class="mr-2">Link Preview: </label>
+                      <a [href]="socialEvent.link">{{ socialEvent.linkTitle || socialEvent.link }}</a>
+                    </div>
+                  </ng-template>
+                  <div class="img-thumbnail thumbnail-admin-edit">
+                    <div class="row">
+                      @if (!editActive) {
+                        <div class="col-sm-6">
+                          <ng-container *ngTemplateOutlet="linkAndThumbnail"/>
+                        </div>
+                      }
+                      @if (editActive) {
+                        <div class="col-sm-6">
+                          <app-image-cropper-and-resizer
+                            wrapButtons
+                            [rootFolder]="RootFolder.socialEventsImages"
+                            [preloadImage]="socialEvent.thumbnail"
+                            (imageChange)="imageChanged($event)"
+                            (error)="imageCroppingError($event)"
+                            (cropError)="imageCroppingError($event)"
+                            (quit)="exitImageEdit()"
+                            (save)="imagedSaved($event)"/>
+                        </div>
+                      }
+                      <div class="col-sm-6">
+                        <div class="position-relative">
+                          <app-social-card [socialEvent]="socialEvent"
+                                           [imagePreview]="awsFileData?.image"/>
+                          @if (!editActive) {
+                            <div (click)="editImage()"
+                                 delay=500 tooltip="edit image" class="button-form-right badge-button edit-image">
+                              <fa-icon [icon]="faPencil"/>
+                              <span>edit image</span>
+                            </div>
+                          }
+                        </div>
+                        @if (editActive) {
+                          <div class="mt-3">
+                            <ng-container *ngTemplateOutlet="linkAndThumbnail"/>
                           </div>
                         }
                       </div>
-                      @if (display.attachmentExists(socialEvent)) {
-                        <div class="col-md-12">
-                          <div class="form-group">
-                            <label class="mt-2">Originally uploaded
-                              as: {{ socialEvent.attachment.originalFileName }}</label>
-                          </div>
-                          <div class="form-group">
-                            <label class="form-inline" for="attachment-title">Title</label>
-                            @if (display.allow.edits) {
-                              <input [(ngModel)]="socialEvent.attachment.title"
-                                     [disabled]="notifyTarget.busy"
-                                     type="text"
-                                     id="attachment-title"
-                                     class="form-control input-md"
-                                     placeholder="Enter a title for this attachment"/>
-                            }
-                          </div>
-                          <div class="form-group">
-                            <label class="form-inline" for="attachment">Display:
-                              <a class="ml-2" target="_blank" [href]="display.attachmentUrl(socialEvent)"
-                                 id="attachment">
-                                {{ display.attachmentTitle(socialEvent) }}</a></label>
-                          </div>
+                    </div>
+                  </div>
+                </tab>
+                <tab heading="Organiser">
+                  <div class="img-thumbnail thumbnail-admin-edit">
+                    <div class="row">
+                      <div class="col-sm-12">
+                        <div class="form-group">
+                          <label for="contact-member">Event Organiser</label>
+                          <select [disabled]="!display.allow.edits" (ngModelChange)="selectMemberContactDetails($event)"
+                                  class="form-control input-sm"
+                                  [(ngModel)]="socialEvent.eventContactMemberId">
+                            <option value="">(no event organiser yet)</option>
+                            @for (selection of display.memberFilterSelections; track selection.id) {
+                              <option
+                                [ngValue]="selection.id"
+                                [textContent]="selection.member | fullNameWithAlias"
+                                class="form-control rounded spaced-controls" id="contact-member">
+                                }
+                          </select>
                         </div>
+                        <div class="form-group">
+                          <label for="contact-display-name">Display Name</label>
+                          <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.displayName"
+                                 type="text" class="form-control input-sm"
+                                 id="contact-display-name"/>
+                        </div>
+                        <div class="form-group">
+                          <label for="contact-phone">Contact Phone</label>
+                          <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.contactPhone"
+                                 type="text" class="form-control input-sm" id="contact-phone"
+                                 placeholder="Enter contact phone here"/>
+                        </div>
+                        <div class="form-group">
+                          <label for="contact-email">Contact Email</label>
+                          <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.contactEmail"
+                                 type="text" class="form-control input-sm" id="contact-email"
+                                 placeholder="Enter contact email here"/>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </tab>
+                <tab heading="Attendees">
+                  <div class="img-thumbnail thumbnail-admin-edit">
+                    <div class="row">
+                      <div class="col-sm-12" delay="2000"
+                           [tooltip]="attendeeCaption()">
+                        @if (display.allow.edits) {
+                          <ng-select [items]="display.memberFilterSelections"
+                                     bindLabel="text"
+                                     bindValue="id"
+                                     placeholder="Select one or more members"
+                                     [disabled]="notifyTarget.busy"
+                                     [dropdownPosition]="'bottom'"
+                                     [groupBy]="groupBy"
+                                     [groupValue]="groupValue"
+                                     [multiple]="true"
+                                     [closeOnSelect]="true"
+                                     (change)="onChange()"
+                                     [(ngModel)]="selectedMemberIds">
+                            <ng-template ng-optgroup-tmp let-item="item">
+                              <span class="group-header">{{ item.name }}</span>
+                              <span class="ml-1 badge badge-secondary badge-group"> {{ item.total }}</span>
+                            </ng-template>
+                          </ng-select>
+                        }
+                      </div>
+                      @if (!display.allow.edits) {
+                        <p class="col-sm-12 rounded">
+                          {{ display.attendeeList(socialEvent, display.memberFilterSelections) }}</p>
                       }
                     </div>
                   </div>
                 </tab>
+                @if (display.allow.edits) {
+                  <tab heading="Attachment">
+                    <div class="img-thumbnail thumbnail-admin-edit">
+                      <div class="row">
+                        <div class="col-md-12">
+                          <input type="submit" [disabled]="notifyTarget.busy"
+                                 value="Browse for attachment"
+                                 (click)="browseToFile(fileElement)"
+                                 class="button-form mb-10"
+                                 [ngClass]="{'disabled-button-form': notifyTarget.busy}"/>
+                          <input [disabled]="notifyTarget.busy" type="submit"
+                                 value="Remove attachment" (click)="removeAttachment()" title="Remove attachment"
+                                 [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'"/>
+                          <input #fileElement id="browse-to-file" name="attachment" class="d-none"
+                                 type="file" value="Upload"
+                                 ng2FileSelect (onFileSelected)="onFileSelect($event)" [uploader]="uploader"/>
+                          <div ng2FileDrop [ngClass]="{'file-over': hasFileOver}"
+                               (fileOver)="fileOver($event)"
+                               (onFileDrop)="fileDropped($event)"
+                               [uploader]="uploader"
+                               class="drop-zone">Or drop file here
+                          </div>
+                          @if (notifyTarget.busy) {
+                            <div class="progress">
+                              <div class="progress-bar" role="progressbar"
+                                   [ngStyle]="{ 'width': uploader.progress + '%' }">
+                                uploading {{ uploader.progress }}%
+                              </div>
+                            </div>
+                          }
+                        </div>
+                        @if (display.attachmentExists(socialEvent)) {
+                          <div class="col-md-12">
+                            <div class="form-group">
+                              <label class="mt-2">Originally uploaded
+                                as: {{ socialEvent.attachment.originalFileName }}</label>
+                            </div>
+                            <div class="form-group">
+                              <label class="form-inline" for="attachment-title">Title</label>
+                              @if (display.allow.edits) {
+                                <input [(ngModel)]="socialEvent.attachment.title"
+                                       [disabled]="notifyTarget.busy"
+                                       type="text"
+                                       id="attachment-title"
+                                       class="form-control input-md"
+                                       placeholder="Enter a title for this attachment"/>
+                              }
+                            </div>
+                            <div class="form-group">
+                              <label class="form-inline" for="attachment">Display:
+                                <a class="ml-2" target="_blank" [href]="display.attachmentUrl(socialEvent)"
+                                   id="attachment">
+                                  {{ display.attachmentTitle(socialEvent) }}</a>
+                              </label>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  </tab>
+                }
+              </tabset>
+            </div>
+            <div class="col-sm-12">
+              @if (notifyTarget.showAlert) {
+                <div class="alert {{notifyTarget.alertClass}}">
+                  <fa-icon [icon]="notifyTarget.alert.icon"/>
+                  @if (notifyTarget.alertTitle) {
+                    <strong>
+                      {{ notifyTarget.alertTitle }}: </strong>
+                  } {{ notifyTarget.alertMessage }}
+                </div>
               }
-            </tabset>
-          </div>
-          <div class="col-sm-12">
-            @if (notifyTarget.showAlert) {
-              <div class="alert {{notifyTarget.alertClass}}">
-                <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                @if (notifyTarget.alertTitle) {
-                  <strong>
-                    {{ notifyTarget.alertTitle }}: </strong>
-                } {{ notifyTarget.alertMessage }}
+            </div>
+            @if (display.socialEventLink(socialEvent, true)) {
+              <div class="col-sm-12">
+                <label><app-copy-icon [icon]="faCopy" title [value]="display.socialEventLink(socialEvent, false)"
+                                      [elementName]="'event link'">copy link to this</app-copy-icon>
+                  <a class="ml-1" [href]="display.socialEventLink(socialEvent, true)"
+                     target="_blank">social event</a></label>
               </div>
             }
-          </div>
-          @if (display.socialEventLink(socialEvent, true)) {
             <div class="col-sm-12">
-              <label> <a (click)="display.copyToClipboard(socialEvent, null)">
-                <fa-icon [icon]="faCopy" class="markdown-preview-icon fa-lg"><span
-                  placement="left" tooltip="Click to copy link to clipboard"></span></fa-icon>
-                copy link </a> to this
-                <a [href]="display.socialEventLink(socialEvent, true)"
-                   target="_blank">social event</a> </label>
+              @if (display.allow.edits) {
+                <input type="submit" value="Save" (click)="saveSocialEventDetails()"
+                       [ngClass]="{'disabled-button-form': notifyTarget.busy}"
+                       title="Save this social event" class="button-form button-form-left"/>
+              }
+              @if (display.allow.edits) {
+                <input type="submit" value="Send Notification"
+                       (click)="sendSocialEventNotification()" title="Send social event notification"
+                       [ngClass]="{'disabled-button-form': notifyTarget.busy}"
+                       class="button-form yellow-confirm"/>
+              }
+              @if (display.allow.delete) {
+                <input type="submit" value="Delete" (click)="deleteSocialEventDetails()"
+                       [ngClass]="{'disabled-button-form': notifyTarget.busy}"
+                       title="Delete this social event" class="button-form button-form-left"/>
+              }
+              @if (display.confirm.deleteConfirmOutstanding()) {
+                <input type="submit" value="Confirm Deletion"
+                       [ngClass]="{'disabled-button-form': notifyTarget.busy}"
+                       (click)="confirmDeleteSocialEventDetails()" title="Confirm delete of this social event"
+                       class="button-form button-form-left button-confirm"/>
+              }
+              @if (display.allow.edits) {
+                <input type="submit" value="Cancel" (click)="cancelSocialEventDetails()"
+                       [ngClass]="{'disabled-button-form': notifyTarget.busy}"
+                       title="Cancel and don't save social event" class="button-form button-form-left"/>
+              }
+              @if (display.allow.copy) {
+                <input type="submit" value="Copy" (click)="copyDetailsToNewSocialEvent()"
+                       [ngClass]="{'disabled-button-form': notifyTarget.busy}"
+                       title="Copy details to new social event" class="button-form button-form-left"/>
+              }
+              @if (!display.allow.edits) {
+                <input type="submit" value="Close" (click)="cancelSocialEventDetails()"
+                       [ngClass]="{'disabled-button-form': notifyTarget.busy}"
+                       title="Close this social event without saving" class="button-form button-form-left"/>
+              }
             </div>
-          }
-          <div class="col-sm-12">
-            @if (display.allow.edits) {
-              <input type="submit" value="Save" (click)="saveSocialEventDetails()"
-                     [ngClass]="{'disabled-button-form': notifyTarget.busy}"
-                     title="Save this social event" class="button-form button-form-left"/>
-            }
-            @if (display.allow.edits) {
-              <input type="submit" value="Send Notification"
-                     (click)="sendSocialEventNotification()" title="Send social event notification"
-                     [ngClass]="{'disabled-button-form': notifyTarget.busy}"
-                     class="button-form yellow-confirm"/>
-            }
-            @if (display.allow.delete) {
-              <input type="submit" value="Delete" (click)="deleteSocialEventDetails()"
-                     [ngClass]="{'disabled-button-form': notifyTarget.busy}"
-                     title="Delete this social event" class="button-form button-form-left"/>
-            }
-            @if (display.confirm.deleteConfirmOutstanding()) {
-              <input type="submit" value="Confirm Deletion"
-                     [ngClass]="{'disabled-button-form': notifyTarget.busy}"
-                     (click)="confirmDeleteSocialEventDetails()" title="Confirm delete of this social event"
-                     class="button-form button-form-left button-confirm"/>
-            }
-            @if (display.allow.edits) {
-              <input type="submit" value="Cancel" (click)="cancelSocialEventDetails()"
-                     [ngClass]="{'disabled-button-form': notifyTarget.busy}"
-                     title="Cancel and don't save social event" class="button-form button-form-left"/>
-            }
-            @if (display.allow.copy) {
-              <input type="submit" value="Copy" (click)="copyDetailsToNewSocialEvent()"
-                     [ngClass]="{'disabled-button-form': notifyTarget.busy}"
-                     title="Copy details to new social event" class="button-form button-form-left"/>
-            }
-            @if (!display.allow.edits) {
-              <input type="submit" value="Close" (click)="cancelSocialEventDetails()"
-                     [ngClass]="{'disabled-button-form': notifyTarget.busy}"
-                     title="Close this social event without saving" class="button-form button-form-left"/>
-            }
           </div>
-        </div>
-      }
-    </app-page>
-  `,
+        }
+      </app-page>
+    `,
     styleUrls: ["social-edit.component.sass"],
-    imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, DatePickerComponent, FontAwesomeModule, MarkdownComponent, NgTemplateOutlet, ImageCropperAndResizerComponent, SocialCardComponent, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, NgClass, FileUploadModule, NgStyle, FullNameWithAliasPipe]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, DatePickerComponent, FontAwesomeModule, MarkdownComponent, NgTemplateOutlet, ImageCropperAndResizerComponent, SocialCardComponent, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, NgClass, FileUploadModule, NgStyle, FullNameWithAliasPipe, CopyIconComponent]
 })
 export class SocialEditComponent implements OnInit, OnDestroy {
 
@@ -444,8 +444,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
   editActive: boolean;
   public awsFileData: AwsFileData;
   private subscriptions: Subscription[] = [];
-
-  protected readonly HARD_CODED_SOCIAL_FOLDER = HARD_CODED_SOCIAL_FOLDER;
+  protected readonly RootFolder = RootFolder;
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);

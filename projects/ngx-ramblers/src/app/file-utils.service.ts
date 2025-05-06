@@ -11,7 +11,7 @@ import {
   CheckedImage,
   ContentMetadataItem,
   FileTypeAttributes,
-  fileTypeAttributes
+  fileTypeAttributes, IMAGE_JPEG
 } from "./models/content-metadata.model";
 import { AwsFileData } from "./models/aws-object.model";
 import { base64ToFile } from "ngx-image-cropper";
@@ -30,13 +30,13 @@ export class FileUtilsService {
   public async convertHEICFile(file: Base64File): Promise<CheckedImage> {
     try {
       this.logger.info("heic file detected:", file.file, "attempting conversion to jpeg");
-      const convertedBlob = await heic2any({blob: file.file, toType: "image/jpeg"});
+      const convertedBlob = await heic2any({blob: file.file, toType: IMAGE_JPEG});
       const reader = new FileReader();
       reader.readAsDataURL(convertedBlob as Blob);
       return new Promise<CheckedImage>((resolve) => {
         reader.onloadend = () => {
           const base64Content: string = reader.result as string;
-          const newFile = this.applyBase64ToFile(base64Content, file.file, file.file.name.toLowerCase().replace(".heic", ".jpeg"));
+          const newFile = this.applyBase64ToFile(base64Content, file.file, file.file.name.toLowerCase().replace(".heic", ".jpeg"), IMAGE_JPEG);
           const convertedBase64File = {
             file: newFile,
             base64Content
@@ -129,10 +129,10 @@ export class FileUtilsService {
     };
   }
 
-  public applyBase64ToFile(base64Image: string, originalFile: File, renamedFile?: string): File {
+  public applyBase64ToFile(base64Image: string, originalFile: File, renamedFile?: string, newType?: string): File {
     return new File([base64ToFile(base64Image)], renamedFile || originalFile?.name, {
       lastModified: originalFile?.lastModified,
-      type: originalFile?.type
+      type: newType || originalFile?.type
     });
   }
 

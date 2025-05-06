@@ -50,8 +50,31 @@ export class MediaQueryService {
   }
 
   imageSourceWithFallback(walk: Walk): BasicMedia {
-    return this.imageSource(walk) || FALLBACK_MEDIA;
+    const basicMedia = this.imageSource(walk);
+    return basicMedia ? {...basicMedia, url:this.urlService.imageSource(basicMedia.url, false, true)} : FALLBACK_MEDIA;
   }
 
-
+  applyImageSource(hasMedia: HasMedia, title: string, imageUrl: string): void {
+    const media: Media = {
+      caption: null,
+      credit: null,
+      title,
+      alt: title,
+      styles: [{
+        style: "medium", url: imageUrl,
+        width: 0,
+        height: 0
+      }]
+    };
+    const mediaItem: Media = hasMedia.media.find(item => item.styles.find(style => style.url === imageUrl));
+    if (!mediaItem) {
+      this.logger.info("no media exists - adding first item:", media);
+      if (!hasMedia?.media) {
+        hasMedia.media = [media];
+      } else {
+        hasMedia.media.push(media);
+        this.logger.info("Added media item", hasMedia.media.length, ":", media, "all media:", hasMedia.media);
+      }
+    }
+  }
 }

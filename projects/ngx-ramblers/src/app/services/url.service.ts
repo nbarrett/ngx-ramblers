@@ -6,6 +6,7 @@ import last from "lodash-es/last";
 import tail from "lodash-es/tail";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
+  BASE64_PREFIX_HEIC,
   BASE64_PREFIX_JPEG,
   BASE64_PREFIX_PNG,
   ContentMetadata,
@@ -274,7 +275,7 @@ export class UrlService {
   }
 
   isBase64Image(url: string): boolean {
-    return url?.startsWith(BASE64_PREFIX_JPEG) || url?.startsWith(BASE64_PREFIX_PNG);
+    return [BASE64_PREFIX_HEIC, BASE64_PREFIX_JPEG, BASE64_PREFIX_PNG].some(prefix => url?.startsWith(prefix));
   }
 
   reformatLocalHref(url: string): string {

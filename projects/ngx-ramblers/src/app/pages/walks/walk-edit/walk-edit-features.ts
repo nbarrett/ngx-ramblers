@@ -41,5 +41,4 @@ export class WalkEditFeaturesComponent implements OnInit {
       this.displayedWalk.walk.features = [];
     }
   }
-
 }

@@ -495,10 +495,6 @@ export class ImageEditComponent implements OnInit {
     return !this.editActive && !!this?.awsFileDataFromEdit;
   }
 
-  imagedIsSaved() {
-    return this.s3Metadata && !!this.item.image;
-  }
-
   croppedSize() {
     return this.numberUtils.humanFileSize(this.awsFileDataFromEdit?.file?.size);
   }

@@ -2,7 +2,6 @@ import { inject, Injectable } from "@angular/core";
 import cloneDeep from "lodash-es/cloneDeep";
 import isEmpty from "lodash-es/isEmpty";
 import { ModalOptions } from "ngx-bootstrap/modal";
-import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AuthService } from "../../auth/auth.service";
 import { DateCriteria } from "../../models/api-request.model";
@@ -138,10 +137,6 @@ export class SocialDisplayService {
 
   socialEventLink(socialEvent: SocialEvent, relative: boolean) {
     return socialEvent?.id ? this.urlService.linkUrl({area: this.pageService.socialPage()?.href, id: socialEvent?.id, relative}) : undefined;
-  }
-
-  copyToClipboard(socialEvent: SocialEvent, pop: TooltipDirective) {
-    // this.clipboardService.copyToClipboardWithTooltip(this.socialEventLink(socialEvent), pop);
   }
 
   attachmentUrl(socialEvent) {

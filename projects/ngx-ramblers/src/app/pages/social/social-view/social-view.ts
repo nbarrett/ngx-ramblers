@@ -136,8 +136,7 @@ import { EventTimesPipe } from "../../../pipes/event-times.pipe";
                     </div>
                   }
                   @if (display.socialPopulationLocal()) {
-                    <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12"
-                    >
+                    <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
                       <app-copy-icon [icon]="faEnvelope" title [value]="socialEvent?.contactEmail"
                                      [elementName]="'email address for '+ socialEvent?.displayName "/>
                       <div content>

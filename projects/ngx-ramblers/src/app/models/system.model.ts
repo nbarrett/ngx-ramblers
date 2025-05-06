@@ -145,7 +145,13 @@ export enum RootFolder {
   carousels = "carousels",
   icons = "icons",
   logos = "logos",
-  siteContent = "site-content"
+  siteContent = "site-content",
+  walkImages = "walk-images",
+  socialEventsImages = "images-social-events"
+}
+
+export enum BuiltInAlbumName {
+  socialEventsImages = "images-social-events"
 }
 
 export enum NavBarLocation {

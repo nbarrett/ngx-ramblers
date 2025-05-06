@@ -56,7 +56,7 @@ import { AlertInstance, NotifierService } from "../services/notifier.service";
 import { NumberUtilsService } from "../services/number-utils.service";
 import { UrlService } from "../services/url.service";
 import { RootFolder } from "../models/system.model";
-import { Base64File, FileTypeAttributes } from "../models/content-metadata.model";
+import { Base64File, FileType, FileTypeAttributes } from "../models/content-metadata.model";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -185,13 +185,22 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     return this.fileTypeAttributes?.cropperFormat;
   }
 
-  private async calculateImageTypeAttributes() {
-    this.fileTypeAttributes = this.fileUtils.fileTypeAttributesForFile(this?.originalFile);
+  private async calculateImageTypeAttributes(): Promise<void> {
+    const initialFileAttributes = this.fileUtils.fileTypeAttributesForFile(this?.originalFile);
+    if (initialFileAttributes.key === FileType.HEIC) {
+      const heicBase64File: Base64File = await this.fileUtils.loadBase64ImageFromFile(this?.originalFile);
+      const checkedImage = await this.fileUtils.convertHEICFile(heicBase64File);
+      const jpegBase64File = checkedImage.file;
+      this.logger.info("calculateImageTypeAttributes:replacing originalFile:", this?.originalFile, "with:", jpegBase64File.file);
+      this.originalFile = jpegBase64File.file;
+      this.fileTypeAttributes = this.fileUtils.fileTypeAttributesForFile(jpegBase64File.file);
+    } else {
+      this.fileTypeAttributes = initialFileAttributes;
+    }
     this.logger.info("calculateImageTypeAttributes:originalFile:", this?.originalFile, "fileTypeAttributes:", this.fileTypeAttributes);
     if (!this.fileTypeAttributes?.croppable) {
       const base64File: Base64File = await this.fileUtils.loadBase64ImageFromFile(this?.originalFile);
-      const awsFileData: AwsFileData = this.fileUtils.awsFileData(this.preloadImage, base64File.base64Content, this.originalFile);
-      this.croppedFile = awsFileData;
+      this.croppedFile = this.fileUtils.awsFileData(this.preloadImage, base64File.base64Content, this.originalFile);
       this.imageChange.emit(this.croppedFile);
       this.logger.info("calculateImageTypeAttributes:fileExtension", this.fileTypeAttributes?.contentType, "is not croppable so auto-generating and imageChange.emit(croppedFile):", this.croppedFile);
     }
