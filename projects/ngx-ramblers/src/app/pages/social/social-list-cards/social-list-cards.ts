@@ -2,7 +2,7 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import min from "lodash-es/min";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { SocialEvent } from "../../../models/social-events.model";
+import { EventsData, SocialEvent } from "../../../models/social-events.model";
 import { CARD_MARGIN_BOTTOM, cardClasses } from "../../../services/card-utils";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
@@ -15,7 +15,29 @@ import { DateFilterParameters } from "../../../models/search.model";
 
 @Component({
     selector: "app-social-list-cards",
-    templateUrl: "./social-list-cards.html",
+  template: `
+    <div class="row">
+      @if (!eventsData || eventsData?.allow?.autoTitle) {
+        <div class="col-sm-8"><h2>{{ display.socialEventsTitle(filterParameters.selectType) }}</h2></div>
+      }
+      @if (display.allow.edits && (!eventsData || eventsData?.allow?.addNew)) {
+        <div class="col-lg-4 col-xs-12">
+          @if (display.confirm.noneOutstanding()) {
+            <input type="submit" [disabled]="notifyTarget.busy"
+                   class="float-lg-right mb-3"
+                   value="Add New Social Event"
+                   (click)="addSocialEvent()"/>
+          }
+        </div>
+      }
+    </div>
+    <div class="row">
+      @for (socialEvent of filteredSocialEvents; track socialEvent) {
+        <div [class]="slideClasses()">
+          <app-social-card [socialEvent]="socialEvent"></app-social-card>
+        </div>
+      }
+    </div>`,
     styleUrls: ["./social-list-cards.sass"],
     imports: [SocialCardComponent]
 })
@@ -40,6 +62,7 @@ export class SocialListCardsComponent implements OnInit {
   public notifyTarget: AlertTarget;
   @Input()
   public filteredSocialEvents: SocialEvent[];
+  @Input() eventsData: EventsData;
 
 
   ngOnInit() {
@@ -50,7 +73,7 @@ export class SocialListCardsComponent implements OnInit {
   }
 
   slideClasses() {
-    return cardClasses(min([this.filteredSocialEvents.length, 2]), CARD_MARGIN_BOTTOM);
+    return cardClasses(min([this.filteredSocialEvents.length, this.eventsData?.maxColumns || 2]), CARD_MARGIN_BOTTOM);
   }
 
 }

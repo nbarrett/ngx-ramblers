@@ -3,7 +3,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { PageContent, PageContentColumn, PageContentRow } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
-import { AlertInstance, NotifierService } from "../../../services/notifier.service";
+import { AlertInstance } from "../../../services/notifier.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { UrlService } from "../../../services/url.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
@@ -15,59 +15,60 @@ import { DynamicContentViewAlbumIndexComponent } from "./dynamic-content-view-al
 import { DynamicContentViewAlbumComponent } from "./dynamic-content-view-album";
 import { EventsComponent } from "../events/events";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { AlertTarget } from "../../../models/alert-target.model";
+import { JsonPipe } from "@angular/common";
 
 @Component({
     selector: "app-dynamic-content-view",
     template: `
-    @if (!siteEditService.active()) {
-      @for (row of viewablePageContent.rows; track row; let rowIndex = $index) {
-        @if (false) {
-          {{ 'row ' + (rowIndex + 1) + ' ' + row.type }}
+      @if (!siteEditService.active()) {
+        @for (row of viewablePageContent.rows; let rowIndex = $index; track rowIndex) {
+          @if (false) {
+            {{ 'row ' + (rowIndex + 1) + ' ' + row.type + ' of ' + viewablePageContent.rows.length }}
+          }
+          @if (actions.isActionButtons(row)) {
+            <app-action-buttons
+              [pageContent]="viewablePageContent"
+              [rowIndex]="rowIndex"/>
+          }
+          @if (actions.isTextRow(row)) {
+            <app-dynamic-content-view-text-row
+              [row]="row"
+              [rowIndex]="rowIndex"
+              [contentPath]="contentPath"
+              [contentDescription]="contentDescription"/>
+          }
+          @if (actions.isCarousel(row)) {
+            <app-dynamic-content-view-carousel
+              [row]="row"
+              [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
+          }
+          @if (actions.isAlbumIndex(row)) {
+            <app-dynamic-content-view-album-index [row]="row"/>
+          }
+          @if (actions.isAlbum(row)) {
+            <app-dynamic-content-view-album
+              [row]="row"
+              [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
+          }
+          @if (actions.isEvents(row)) {
+            <app-events [row]="row" [rowIndex]="rowIndex"/>
+          }
         }
-        @if (actions.isActionButtons(row)) {
-          <app-action-buttons
-            [pageContent]="viewablePageContent"
-            [rowIndex]="rowIndex"/>
+        @if (!actions.pageContentFound(viewablePageContent, !!viewablePageContent?.id)) {
+          @if (notify.alertTarget.showAlert) {
+            <div class="col-12 alert {{notify.alertTarget.alertClass}} mt-3">
+              <fa-icon [icon]="notify.alertTarget.alert.icon"></fa-icon>
+              <strong class="ml-2">{{ notify.alertTarget.alertTitle }}</strong>
+              <span class="p-2">{{ notify.alertTarget.alertMessage }}. <a [href]="area"
+                                                                          class="rams-text-decoration-pink"
+                                                                          type="button"> Go Back to {{ area }}
+                page</a></span>
+            </div>
+          }
         }
-        @if (actions.isTextRow(row)) {
-          <app-dynamic-content-view-text-row
-            [row]="row"
-            [rowIndex]="rowIndex"
-            [contentPath]="contentPath"
-            [contentDescription]="contentDescription"/>
-        }
-        @if (actions.isCarousel(row)) {
-          <app-dynamic-content-view-carousel
-            [row]="row"
-            [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
-        }
-        @if (actions.isAlbumIndex(row)) {
-          <app-dynamic-content-view-album-index [row]="row"/>
-        }
-        @if (actions.isAlbum(row)) {
-          <app-dynamic-content-view-album
-            [row]="row"
-            [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
-        }
-        @if (actions.isEvents(row)) {
-          <app-events [row]="row" [rowIndex]="rowIndex"/>
-        }
-      }
-      @if (!actions.pageContentFound(viewablePageContent, !!viewablePageContent?.id)) {
-        @if (notify.alertTarget.showAlert) {
-          <div class="col-12 alert {{notify.alertTarget.alertClass}} mt-3">
-            <fa-icon [icon]="notify.alertTarget.alert.icon"></fa-icon>
-            <strong class="ml-2">{{ notify.alertTarget.alertTitle }}</strong>
-            <span class="p-2">{{ notify.alertTarget.alertMessage }}. <a [href]="area" class="rams-text-decoration-pink"
-              type="button"> Go Back to {{ area }}
-            page</a></span>
-          </div>
-        }
-      }
-    }`,
+      }`,
     styleUrls: ["./dynamic-content.sass"],
-    imports: [ActionButtonsComponent, DynamicContentViewTextRowComponent, DynamicContentViewCarouselComponent, DynamicContentViewAlbumIndexComponent, DynamicContentViewAlbumComponent, EventsComponent, FontAwesomeModule]
+  imports: [ActionButtonsComponent, DynamicContentViewTextRowComponent, DynamicContentViewCarouselComponent, DynamicContentViewAlbumIndexComponent, DynamicContentViewAlbumComponent, EventsComponent, FontAwesomeModule, JsonPipe]
 })
 export class DynamicContentViewComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewComponent", NgxLoggerLevel.ERROR);
@@ -135,7 +136,7 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
   }
 
   private rowIsVisible(row: PageContentRow): boolean {
-    return this.columnsFilteredForAccessLevel(row.columns).length > 0;
+    return row.columns.length === 0 || this.columnsFilteredForAccessLevel(row.columns).length > 0;
   }
 
 }

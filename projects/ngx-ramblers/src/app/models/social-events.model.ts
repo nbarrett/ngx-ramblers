@@ -2,6 +2,7 @@ import { ApiResponse, Identifiable } from "./api-response.model";
 import { FileNameData } from "./aws-object.model";
 import { Notification } from "./committee.model";
 import { Media, RamblersEventType } from "./ramblers-walks-manager";
+import { HasMaxColumns } from "./content-text.model";
 
 export interface SocialEvent extends Identifiable, HasMedia {
   attachment?: FileNameData;
@@ -44,6 +45,14 @@ export interface SocialEventsPermissions {
   contentEdits?: boolean;
 }
 
-export interface EventsData {
+export interface EventsData extends HasMaxColumns {
+  fromDate: number;
+  toDate: number;
+  allow: {
+    autoTitle?: boolean;
+    quickSearch?: boolean,
+    pagination?: boolean,
+    addNew?: boolean
+  };
   eventTypes: RamblersEventType[];
 }

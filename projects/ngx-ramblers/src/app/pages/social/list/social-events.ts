@@ -7,7 +7,7 @@ import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { DataQueryOptions, DateCriteria } from "../../../models/api-request.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
-import { SocialEvent } from "../../../models/social-events.model";
+import { EventsData, SocialEvent } from "../../../models/social-events.model";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -27,16 +27,18 @@ import { DateFilterParameters } from "../../../models/search.model";
 @Component({
     selector: "app-social-events",
     template: `
-    <app-social-search [filterParameters]="filterParameters"
-                       [notifyTarget]="notifyTarget">
-      <pagination pagination class="pagination rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="5"
-                  [totalItems]="filteredSocialEvents?.length" [(ngModel)]="pageNumber"
-                  (pageChanged)="pageChanged($event)"/>
-    </app-social-search>
-    <app-social-list-cards [filterParameters]="filterParameters" [notifyTarget]="notifyTarget"
-                           [filteredSocialEvents]="currentPageSocials">
-    </app-social-list-cards>
-  `,
+      @if (!eventsData || eventsData?.allow?.quickSearch) {
+        <app-social-search [filterParameters]="filterParameters"
+                           [notifyTarget]="notifyTarget">
+          <pagination pagination class="pagination rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="5"
+                      [totalItems]="filteredSocialEvents?.length" [(ngModel)]="pageNumber"
+                      (pageChanged)="pageChanged($event)"/>
+        </app-social-search>
+      }
+      <app-social-list-cards [eventsData]="eventsData" [filterParameters]="filterParameters"
+                             [notifyTarget]="notifyTarget"
+                             [filteredSocialEvents]="currentPageSocials"/>
+    `,
     styleUrls: ["../home/social-home.component.sass"],
     imports: [SocialSearchComponent, PaginationComponent, FormsModule, SocialListCardsComponent]
 })
@@ -71,6 +73,7 @@ export class SocialEventsComponent implements OnInit, OnDestroy {
   public filteredSocialEvents: SocialEvent[] = [];
   public currentPageSocials: SocialEvent[] = this.filteredSocialEvents;
   @Input() rowIndex: number;
+  @Input() eventsData: EventsData;
 
   ngOnInit() {
     this.logger.info("ngOnInit started");
@@ -132,13 +135,22 @@ export class SocialEventsComponent implements OnInit, OnDestroy {
   }
 
   criteria() {
-    switch (Number(this.filterParameters.selectType)) {
-      case DateCriteria.CURRENT_OR_FUTURE_DATES:
-        return {eventDate: {$gte: this.todayValue()}};
-      case DateCriteria.PAST_DATES:
-        return {eventDate: {$lt: this.todayValue()}};
-      case DateCriteria.ALL_DATES:
-        return {};
+    if (this.eventsData) {
+      return {
+        eventDate: {
+          $gte: this.eventsData.fromDate,
+          $lte: this.eventsData.toDate
+        }
+      };
+    } else {
+      switch (Number(this.filterParameters.selectType)) {
+        case DateCriteria.CURRENT_OR_FUTURE_DATES:
+          return {eventDate: {$gte: this.todayValue()}};
+        case DateCriteria.PAST_DATES:
+          return {eventDate: {$lt: this.todayValue()}};
+        case DateCriteria.ALL_DATES:
+          return {};
+      }
     }
   }
 

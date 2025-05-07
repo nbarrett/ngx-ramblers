@@ -17,7 +17,7 @@ import { SocialEventsComponent } from "../../../pages/social/list/social-events"
     template: `
     <div [class]="actions.rowClasses(row)">
       <div class="col-sm-12">
-        <app-social-events/>
+        <app-social-events [eventsData]="row.events"/>
       </div>
     </div>`,
     imports: [SocialEventsComponent]

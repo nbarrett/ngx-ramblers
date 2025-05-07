@@ -17,8 +17,8 @@ import first from "lodash-es/first";
     selector: "app-walk-images",
     template: `
       <div class="pointer" [tooltip]="currentBasicMedia()?.alt" [placement]="'bottom'">
-        @if (displayedWalk?.walk?.media?.length > 0) {
-          <div class="d-flex align-items-center">
+        <div class="d-flex align-items-center">
+          @if (displayedWalk?.walk?.media?.length > 1) {
             <div>
               <app-svg colour="rgb(155, 200, 171)" (click)="back()"
                        [disabled]="backDisabled()"
@@ -33,17 +33,18 @@ import first from "lodash-es/first";
 
               <span class="sr-only">Next slide</span>
             </div>
-            @if (allowEditImage) {
-              <div class="d-flex justify-content-center align-items-center mx-3">
-                <span class="px-2">Remove image {{ imageIndex + 1 }}</span>
-                <app-svg colour="rgb(255, 0, 0)" (click)="removeImage()"
-                         [disabled]="deleteDisabled()"
-                         height="20"
-                         icon="i-cross"
-                         [tooltip]="'Remove this image'"/>
-              </div>
+          }
+          @if (allowEditImage) {
+            <div class="d-flex justify-content-center align-items-center mx-3">
+              <span class="px-2">Remove image {{ imageIndex + 1 }}</span>
+              <app-svg colour="rgb(255, 0, 0)" (click)="removeImage()"
+                       [disabled]="deleteDisabled()"
+                       height="20"
+                       icon="i-cross"
+                       [tooltip]="'Remove this image'"/>
+            </div>
+            @if (displayedWalk?.walk?.media?.length > 1) {
               <div class="ml-auto">
-
                 <app-svg [tooltip]="backDisabled()? '':'move this image back to position '+ imageIndex"
                          colour="rgb(155, 200, 171)" (click)="moveImageBack()"
                          [disabled]="backDisabled()"
@@ -58,8 +59,8 @@ import first from "lodash-es/first";
                          icon="i-down"/>
               </div>
             }
-          </div>
-        }
+          }
+        </div>
         @if (allowEditImage) {
           <input id="edit-image-{{displayedWalk.walk.id}}" type="submit"
                  value="edit"

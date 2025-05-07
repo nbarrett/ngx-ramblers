@@ -11,7 +11,7 @@ import {
   ColumnInsertData,
   ContentText,
   DEFAULT_GALLERY_OPTIONS,
-  DEFAULT_GRID_OPTIONS,
+  DEFAULT_GRID_OPTIONS, HasMaxColumns,
   HasPageContentRows,
   PageContent,
   PageContentColumn,
@@ -223,7 +223,7 @@ export class PageContentActionsService {
     column.columns = this.constrainInput(inputElement, 1, 12);
   }
 
-  changeMaxColumnsFor(inputElement: HTMLInputElement, row: PageContentRow) {
+  changeMaxColumnsFor(inputElement: HTMLInputElement, row: HasMaxColumns) {
     row.maxColumns = this.constrainInput(inputElement, 1, 4);
   }
 

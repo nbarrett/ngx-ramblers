@@ -49,6 +49,10 @@ export interface HasPageContentRows {
   rows?: PageContentRow[];
 }
 
+export interface HasMaxColumns {
+  maxColumns: number;
+}
+
 export interface PageContent extends HasPageContentRows {
   id?: string;
   path?: string;
@@ -64,9 +68,8 @@ export interface PageContentApiResponse extends ApiResponse {
   response?: PageContent | PageContent[];
 }
 
-export interface PageContentRow {
+export interface PageContentRow extends HasMaxColumns {
   type: PageContentType;
-  maxColumns: number;
   showSwiper: boolean;
   columns: PageContentColumn[];
   marginTop?: number;
