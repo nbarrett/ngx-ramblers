@@ -56,10 +56,10 @@ import { AlbumIndexSiteEditComponent } from "./dynamic-content-site-edit-album-i
 import { ActionButtonsComponent } from "../action-buttons/action-buttons";
 import { DynamicContentSiteEditAlbumComponent } from "./dynamic-content-site-edit-album";
 import { DynamicContentSiteEditTextRowComponent } from "./dynamic-content-site-edit-text-row";
-import { EventsComponent } from "../events/events";
 import { DuplicateContentDetectionService } from "../../../services/duplicate-content-detection-service";
 import last from "lodash-es/last";
 import { ALERT_ERROR } from "../../../models/alert-target.model";
+import { EventsSiteEditComponent } from "./dynamic-content-site-edit-events";
 
 @Component({
     selector: "app-dynamic-content-site-edit",
@@ -70,7 +70,9 @@ import { ALERT_ERROR } from "../../../models/alert-target.model";
             <fa-icon [icon]="ALERT_ERROR.icon"/>
             <strong class="ml-2">Duplicate content usage on this page has been detected
               in {{ stringUtils.pluraliseWithCount(duplicateUsageMessages.length, "item") }}</strong>
-            <div class="ml-3 mb-2">Scroll down to editable content panels below where content can be unlinked and optionally updated. When you have finished, click <strong>Save page changes</strong>.</div>
+            <div class="ml-3 mb-2">Scroll down to editable content panels below where content can be unlinked and
+              optionally updated. When you have finished, click <strong>Save page changes</strong>.
+            </div>
           </div>
         }
         @if (notify.alertTarget.showAlert || !actions.pageContentFound(pageContent, queryCompleted)) {
@@ -228,8 +230,7 @@ import { ALERT_ERROR } from "../../../models/alert-target.model";
                     }
                     @if (!editAlbumName) {
                       @if (actions.isActionButtons(row) || actions.isAlbumIndex(row)) {
-                        <div class="col-auto" app-row-settings-action-buttons
-                             [row]="row"></div>
+                        <div class="col-auto" app-row-settings-action-buttons [row]="row"></div>
                       }
                       <div class="col-auto">
                         <div class="form-inline">
@@ -271,7 +272,7 @@ import { ALERT_ERROR } from "../../../models/alert-target.model";
                                                           [contentPath]="contentPath"
                                                           [pageContent]="pageContent"/>
                   @if (actions.isEvents(row)) {
-                    <app-events [row]="row" [rowIndex]="rowIndex"/>
+                    <app-dynamic-content-site-edit-events [row]="row" [rowIndex]="rowIndex"/>
                   }
                 </div>
               }
@@ -326,7 +327,7 @@ import { ALERT_ERROR } from "../../../models/alert-target.model";
         </ng-template>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtonsComponent, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, EventsComponent]
+  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtonsComponent, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, EventsSiteEditComponent]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   protected duplicateUsageMessages: DuplicateUsageMessage[] = [];

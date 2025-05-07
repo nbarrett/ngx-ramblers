@@ -267,7 +267,7 @@ export class ActionsDropdownComponent implements OnInit {
   }
 
   allowColumnDelete() {
-    return this.columnIndex > 0;
+    return this.columnIndex >= 0;
   }
 
   assignListStyleTo(listStyle: ListStyle) {

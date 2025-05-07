@@ -140,8 +140,7 @@ import { MarginSelectComponent } from "./dynamic-content-margin-select";
                     </div>
                   </div>
                   @for (nestedRow of column.rows; track nestedRow; let nestedRowIndex = $index) {
-                    <div class="thumbnail-site-edit mt-3"
-                    >
+                    <div class="thumbnail-site-edit mt-3">
                       <div class="thumbnail-heading">Row {{ rowIndex + 1 }} (nested row {{ nestedRowIndex + 1 }}
                         column {{ columnIndex + 1 }}
                         ({{ stringUtils.pluraliseWithCount(nestedRow?.columns.length, 'column') }}))
