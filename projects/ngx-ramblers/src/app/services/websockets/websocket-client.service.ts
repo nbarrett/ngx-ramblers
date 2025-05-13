@@ -3,7 +3,10 @@ import { Observable, Subject } from "rxjs";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { UrlService } from "../url.service";
-import { EventType } from "../../models/websocket.model";
+import { EventType, MappedCloseMessage, MessageType } from "../../models/websocket.model";
+import { NumberUtilsService } from "../number-utils.service";
+import { mapStatusCode } from "../../functions/websockets";
+
 
 @Injectable({
   providedIn: "root"
@@ -13,6 +16,7 @@ export class WebSocketClientService {
   private subjects: { [key: string]: Subject<any> } = {};
   private logger: Logger = inject(LoggerFactory).createLogger("WebSocketClientService", NgxLoggerLevel.ERROR);
   private urlService = inject(UrlService);
+  private numberUtilsService = inject(NumberUtilsService);
 
   connect(): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -31,8 +35,15 @@ export class WebSocketClientService {
           this.subjects[message.type].next(message.data);
         }
       };
-      this.socket.onclose = () => {
-        this.logger.info(`onclose event occurred`);
+      this.socket.onclose = (closeEvent: CloseEvent) => {
+        const code = closeEvent.code;
+        const mappedCloseMessage: MappedCloseMessage = mapStatusCode(code);
+        if (mappedCloseMessage.success) {
+          this.logger.info(`onclose event occurred with allowable status code:`, mappedCloseMessage);
+        } else {
+          this.logger.error(`onclose event occurred with error:`, closeEvent);
+          this.subjects[MessageType.ERROR].next(mappedCloseMessage);
+        }
       };
       this.socket.onerror = (error) => {
         this.logger.error(`onerror event occurred:`, error);
@@ -42,8 +53,10 @@ export class WebSocketClientService {
   }
 
   sendMessage(type: EventType, data: any): void {
-    this.logger.info("sendMessage:type", type, "data:", data);
-    this.socket.send(JSON.stringify({type, data}));
+    this.logger.info("sendMessage:type", type, "data:", data, "with size:", this.numberUtilsService.humanFileSize(this.numberUtilsService.estimateObjectSize(data)));
+    const payload = JSON.stringify({type, data});
+    this.logger.info("sendMessage:type", type, "data:", data, "with size:", this.numberUtilsService.humanFileSize(payload.length));
+    this.socket.send(payload);
   }
 
   receiveMessages<T>(type: string): Observable<T> {
@@ -53,4 +66,6 @@ export class WebSocketClientService {
     }
     return this.subjects[type].asObservable();
   }
+
+
 }

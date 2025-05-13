@@ -29,3 +29,10 @@ export enum MessageType {
   ERROR = "error",
 }
 
+export const allowableStatusCodes: number[] = [1000, 1005];
+
+export interface MappedCloseMessage {
+  message: string;
+  code: number;
+  success: boolean;
+}

@@ -4,6 +4,12 @@ import isNumber from "lodash-es/isNumber";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { humanFileSize } from "../functions/file-utils";
+import isString from "lodash-es/isString";
+import isBoolean from "lodash-es/isBoolean";
+import isArray from "lodash-es/isArray";
+import isObject from "lodash-es/isObject";
+import isUndefined from "lodash-es/isUndefined";
+import isNull from "lodash-es/isNull";
 
 @Injectable({
   providedIn: "root"
@@ -46,6 +52,24 @@ export class NumberUtilsService {
     const returnValue: number = decimalPlacesSupplied ? +parseFloat(numberValue).toFixed(decimalPlaces) : parseFloat(numberValue);
     this.logger.debug("asNumber:", numberString, decimalPlaces, "->", returnValue);
     return returnValue;
+  }
+
+  estimateObjectSize(obj: any): number {
+    let size = 0;
+    if (isNull(obj) || isUndefined(obj)) {
+      return size;
+    } else if (isString(obj)) {
+      size = new TextEncoder().encode(obj).length;
+    } else if (isNumber(obj)) {
+      size = 8; // Approximate size for numbers (double precision)
+    } else if (isBoolean(obj)) {
+      size = 4; // Approximate size for booleans
+    } else if (isArray(obj)) {
+      size = obj.reduce((acc, item) => acc + this.estimateObjectSize(item), 0);
+    } else if (isObject(obj)) {
+      size = Object.values(obj).reduce((acc: number, value: any) => acc + this.estimateObjectSize(value), 0) as number;
+    }
+    return size;
   }
 
   humanFileSize(size: number) {
