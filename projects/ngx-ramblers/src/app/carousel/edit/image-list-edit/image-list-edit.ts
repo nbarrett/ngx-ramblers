@@ -468,8 +468,8 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
       this.notify.success({title: "Progress", message: progressResponse.message});
     }));
     this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.ERROR).subscribe(error => {
-        this.logger.error(`Error: ${error}%`);
-        this.notify.error({title: "Error", message: error});
+      this.logger.error(`Error:`, error);
+      this.notify.error({title: "Error", message: error});
       })
     );
     this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.COMPLETE).subscribe((message: ApiResponse) => {
@@ -1035,7 +1035,6 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
       this.logger.info("there are", this.stringUtils.pluraliseWithCount(this.base64Files.length, "image"), "and", this.stringUtils.pluraliseWithCount(this.nonImageFiles.length, "non-image"), "non-images:", this.nonImageFiles);
       this.setBusy();
       this.imageInsert(...this.base64Files.map(item => this.fileUtils.contentMetadataItemFromBase64File(item)));
-      this.clearBusy();
     }
   }
 
@@ -1084,20 +1083,40 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
       } : null
     };
     this.setBusy();
-    this.webSocketClientService.connect().then(() => this.webSocketClientService.sendMessage(EventType.RESIZE_SAVED_IMAGES, contentMetadataResizeRequest));
+    this.webSocketClientService.connect()
+      .then(() => this.webSocketClientService.sendMessage(EventType.RESIZE_SAVED_IMAGES, contentMetadataResizeRequest))
+      .catch(error => this.handleResizeError(error));
   }
 
   private resizeUnsavedImages(items: ContentMetadataItem[]) {
-    if (this.contentMetadata.maxImageSize || 0 > 0 && items?.length > 0) {
-      this.setBusy();
-      const contentMetadataResizeRequest: ContentMetadataResizeRequest = {
-        maxFileSize: this.contentMetadata.maxImageSize,
-        input: items
-      };
-      this.webSocketClientService.connect().then(() => this.webSocketClientService.sendMessage(EventType.RESIZE_UNSAVED_IMAGES, contentMetadataResizeRequest));
-    } else {
-      this.logger.info("image list not configured for auto-resizing or no images supplied for resizing");
+    try {
+      this.logger.info("resizeUnsavedImages called with items:", items);
+      if (this.contentMetadata.maxImageSize || 0 > 0 && items?.length > 0) {
+        this.setBusy();
+        this.notify.success({
+          title: "Auto-Resizing Uploaded Files",
+          message: "Processing " + this.stringUtils.pluraliseWithCount(items?.length, "file")
+        });
+        const contentMetadataResizeRequest: ContentMetadataResizeRequest = {
+          maxFileSize: this.contentMetadata.maxImageSize,
+          input: items
+        };
+        this.logger.info("about to sendMessage:", EventType.RESIZE_UNSAVED_IMAGES, "with data:", contentMetadataResizeRequest);
+        this.webSocketClientService.connect()
+          .then(() => this.webSocketClientService.sendMessage(EventType.RESIZE_UNSAVED_IMAGES, contentMetadataResizeRequest))
+          .catch(error => this.handleResizeError(error));
+      } else {
+        this.logger.info("image list not configured for auto-resizing or no images supplied for resizing");
+        this.clearBusy();
+      }
+    } catch (error) {
+      this.handleResizeError(error);
     }
+  }
+
+  private handleResizeError(error: Error) {
+    this.logger.error(error);
+    this.notify.error({title: "Image Resizing failed", message: error});
   }
 
   private processResizeItemsResponse(resizedItems: ContentMetadataItem[]) {

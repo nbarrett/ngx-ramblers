@@ -6,11 +6,14 @@ import { ContentMetadataResizeRequest } from "../../../projects/ngx-ramblers/src
 import { Server } from "node:http";
 import {
   EventType,
+  MappedCloseMessage,
   MessageHandlers,
   WebSocketRequest
 } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { RamblersWalksUploadRequest } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { uploadWalks } from "../ramblers/ramblers-upload-walks";
+import { humanFileSize } from "../../../projects/ngx-ramblers/src/app/functions/file-utils";
+import { mapStatusCode } from "../../../projects/ngx-ramblers/src/app/functions/websockets";
 
 const debugLog = debug(envConfig.logNamespace("websocket-server"));
 debugLog.enabled = true;
@@ -22,17 +25,21 @@ const messageHandlers: MessageHandlers = {
 };
 
 export function createWebSocketServer(server: Server, port: number): void {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({
+    noServer: true,
+    maxPayload: 1024 * 1024 * 500
+  });
 
   wss.on("connection", (ws: WebSocket) => {
     debugLog("✅ Client connected");
 
     ws.on("message", (message: string) => {
-      debugLog(`✅ Message received:`, message);
+      debugLog(`✅ Message received of size: ${humanFileSize(message.length)}`);
       try {
         const request: WebSocketRequest = JSON.parse(message);
         const handler = messageHandlers[request.type];
         if (handler) {
+          debugLog(`✅ About to invoke handler for message type: ${request.type}`);
           handler(ws, request.data);
         } else {
           debugLog(`❌ No handler for message type: ${request.type}`);
@@ -44,6 +51,15 @@ export function createWebSocketServer(server: Server, port: number): void {
 
     ws.on("error", (error: Error) => {
       debugLog("❌ WebSocket connection error:", error);
+    });
+
+    ws.on("close", (code: number) => {
+      const mappedCloseMessage: MappedCloseMessage = mapStatusCode(code);
+      if (mappedCloseMessage.success) {
+        debugLog("✅ WebSocket success close event with code:", mappedCloseMessage);
+      } else {
+        debugLog("❌ WebSocket failure close event with code:", mappedCloseMessage);
+      }
     });
   });
 
