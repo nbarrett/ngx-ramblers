@@ -1,18 +1,19 @@
 import type { WebdriverIOConfig } from "@serenity-js/webdriverio";
 import { Duration } from "@serenity-js/core";
 import { browser } from "@wdio/globals";
+import { ConsoleReporter } from "@serenity-js/console-reporter";
+import { DomainEventPublisher } from "./lib/serenity-js/screenplay/crew/DomainEventPublisher";
 
 const featuresDirectory = "lib/serenity-js/features";
 const outputDirectory = "target/site/serenity";
 const TWO_MINUTES_IN_MILLIS = 2 * 600 * 1000;
 export const config: WebdriverIOConfig = {
-
   framework: "@serenity-js/webdriverio",
-
   serenity: {
     runner: "mocha",
     crew: [
-      "@serenity-js/console-reporter",
+      ConsoleReporter.forDarkTerminals(),
+      DomainEventPublisher.withDefaults(),
       ["@serenity-js/serenity-bdd", {specDirectory: featuresDirectory}],
       ["@serenity-js/web:Photographer", {strategy: "TakePhotosOfFailures"}],
       ["@serenity-js/core:ArtifactArchiver", {outputDirectory}],
@@ -44,7 +45,6 @@ export const config: WebdriverIOConfig = {
     }
   }],
   logLevel: "info",
-
   bail: 0,
   baseUrl: process.env.BASE_URL,
   waitforTimeout: TWO_MINUTES_IN_MILLIS,

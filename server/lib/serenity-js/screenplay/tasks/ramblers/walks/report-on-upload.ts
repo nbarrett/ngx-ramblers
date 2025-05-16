@@ -23,7 +23,6 @@ export class ReportOn extends Task {
     debugLog("Upload errors contains:", errors);
     return actor.attemptsTo(
       SaveAuditRecord.followingUpload(errors),
-      Log.the("Upload errors contains:", errors),
       Ensure.that(CountOfErrors.displayed(errors.length), equals(0)));
   }
 }

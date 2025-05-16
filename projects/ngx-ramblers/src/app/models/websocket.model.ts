@@ -21,6 +21,7 @@ export enum EventType {
   RAMBLERS_WALKS_UPLOAD = "ramblers-walks-upload",
   RESIZE_SAVED_IMAGES = "resize-saved-images",
   RESIZE_UNSAVED_IMAGES = "resize-unsaved-images",
+  TEST_STEP_REPORTER = "test-step-reporter",
 }
 
 export enum MessageType {
@@ -35,4 +36,8 @@ export interface MappedCloseMessage {
   message: string;
   code: number;
   success: boolean;
+}
+
+export interface WebSocketInstance {
+  instance: WebSocket;
 }

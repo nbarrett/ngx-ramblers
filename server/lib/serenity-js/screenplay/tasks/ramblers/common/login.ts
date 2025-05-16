@@ -1,5 +1,5 @@
 import { Ensure, equals, isPresent } from "@serenity-js/assertions";
-import { AnswersQuestions, Check, Duration, Masked, PerformsActivities, Task, Wait } from "@serenity-js/core";
+import { AnswersQuestions, Check, Masked, PerformsActivities, Task, Wait } from "@serenity-js/core";
 import { Enter, isClickable, isVisible, Text } from "@serenity-js/web";
 import { SystemConfig } from "../../../../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { WalksPageElements } from "../../../ui/ramblers/walks-page-elements";
@@ -7,6 +7,7 @@ import { ClickWhenReady } from "../../common/click-when-ready";
 import * as mongooseClient from "../../../../../mongo/mongoose-client";
 import { systemConfig } from "../../../../../config/system-config";
 import { Log } from "./log";
+import { AuthErrorOrCreateMenuDropdown } from "../../../questions/ramblers/auth-error-or-create-menu-dropdown";
 
 export class Login extends Task {
 
@@ -20,7 +21,7 @@ export class Login extends Task {
         const username = systemConfig?.national?.walksManager?.userName;
         const password = systemConfig?.national?.walksManager?.password;
         return actor.attemptsTo(
-          Check.whether(WalksPageElements.createDropdown, isPresent())
+          Check.whether(WalksPageElements.createMenuDropdown, isPresent())
             .andIfSo(Log.message("Session is already logged in so no need to login again"))
             .otherwise(
               Wait.until(WalksPageElements.authHeader, isVisible()),
@@ -28,9 +29,10 @@ export class Login extends Task {
               Enter.theValue(username).into(WalksPageElements.userName),
               Enter.theValue(Masked.valueOf(password)).into(WalksPageElements.password),
               ClickWhenReady.on(WalksPageElements.loginSubmitButton),
-              Wait.upTo(Duration.ofSeconds(20)).until(WalksPageElements.createDropdown, isVisible()),
-              Ensure.that(Text.of(WalksPageElements.createDropdown), equals("Create"))),
-        );
+              Wait.until(AuthErrorOrCreateMenuDropdown.isDisplayed(), equals(true)),
+              Check.whether(WalksPageElements.createMenuDropdown, isVisible())
+                .andIfSo(Ensure.that(Text.of(WalksPageElements.createMenuDropdown), equals("Create")))
+                .otherwise(Ensure.that(Text.of(WalksPageElements.authErrorMessage), equals("")))));
       }));
   }
 

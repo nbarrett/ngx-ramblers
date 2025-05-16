@@ -1,22 +1,25 @@
 import { ApiResponse, Identifiable } from "./api-response.model";
+import { MessageType } from "./websocket.model";
 
-export interface AuditRamblersUploadParams {
-  auditMessage: string;
+export interface AuditRamblersUploadParams<T> {
+  messageType: MessageType;
+  auditMessage: T;
   status?: Status,
-  parserFunction: (auditMessage: string, status?: Status) => ParsedRamblersUploadAudit[];
+  parserFunction: (auditMessage: T, status?: Status) => ParsedRamblersUploadAudit[];
 }
 
-export interface ParsedRamblersUploadAudit extends RamblersUploadAudit {
+export interface ParsedRamblersUploadAudit {
   audit: boolean;
+  data?: RamblersUploadAudit;
 }
 export interface RamblersUploadAudit extends Identifiable {
   auditTime?: number;
+  type: AuditType;
+  status: Status;
+  message?: string;
   record?: number;
   fileName?: string;
-  type?: AuditType;
-  status?: Status;
-  message?: string;
-  errorResponse?: object;
+  errorResponse?: any;
 }
 
 export interface RamblersUploadAuditApiResponse extends ApiResponse {
@@ -46,4 +49,34 @@ export enum Status {
 export interface FileUploadSummary {
   fileName: string,
   status: Status
+}
+
+export interface DomainEventDataWithFinished {
+  eventData: DomainEventData,
+  finished: boolean
+}
+
+export interface DomainEventData {
+  finished: boolean;
+  activityId: string;
+  details: {
+    name: string;
+    location: {
+      column: number;
+      line: number;
+      path: string
+    }
+  };
+  outcome: {
+    code: number;
+    error?: string
+  };
+  sceneId: string;
+  timestamp: string;
+}
+
+export interface CurrentUploadSession {
+  logStandardOut: boolean;
+  record: number;
+  fileName: string;
 }

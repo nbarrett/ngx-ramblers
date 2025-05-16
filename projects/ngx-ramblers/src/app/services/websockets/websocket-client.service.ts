@@ -60,8 +60,8 @@ export class WebSocketClientService {
   }
 
   receiveMessages<T>(type: string): Observable<T> {
-    this.logger.info("receiveMessages:type", type);
     if (!this.subjects[type]) {
+      this.logger.info("Message receive initialised for:", type);
       this.subjects[type] = new Subject<T>();
     }
     return this.subjects[type].asObservable();

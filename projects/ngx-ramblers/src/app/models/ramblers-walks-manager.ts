@@ -9,10 +9,6 @@ export enum DateFormat {
 
 export const WALKS_MANAGER_GO_LIVE_DATE = "2023-04-01";
 
-export interface RecordCounter {
-  record: number;
-}
-
 export interface RamblersWalksUploadRequest {
   fileName: string;
   walkIdDeletionList: string[];
