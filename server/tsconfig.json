@@ -8,8 +8,7 @@
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "lib": [
-      "es5",
-      "es6",
+      "es2021",
       "dom"
     ],
     "module": "commonjs",
@@ -21,14 +20,13 @@
     "outDir": "ts-gen",
     "skipLibCheck": true,
     "sourceMap": true,
-    "target": "es2015"
+    "target": "es2021"
   },
   "exclude": [
     "..node_modules",
     "node_modules"
   ],
   "include": [
-    "lib/serenity-js/**/*.ts",
     "lib/**/*.*",
     "../projects/ngx-ramblers/src/app/models/**/*.*",
     "../projects/ngx-ramblers/src/app/common/**/*.*"

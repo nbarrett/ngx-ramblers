@@ -347,7 +347,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
       }
     }));
     this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.ERROR).subscribe(error => {
-        this.logger.error(`Error: ${error}%`);
+        this.logger.error(`Error:`, error);
         this.exportInProgress = false;
         this.auditNotifier.error({title: "Error", message: error});
         this.fileName.status = Status.ERROR;
@@ -424,7 +424,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
       const uploadAudits: RamblersUploadAudit[] = auditItems.response;
       this.ramblersUploadAuditData = this.notifyAuditCountAndReturnAudits(uploadAudits);
       this.walkExportNotifier.clearBusy();
-      });
+    });
   }
 
   showDetailChanged() {

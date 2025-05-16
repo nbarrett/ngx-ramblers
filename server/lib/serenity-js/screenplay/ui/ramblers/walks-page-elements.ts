@@ -2,8 +2,8 @@ import { By, PageElement, PageElements } from "@serenity-js/web";
 
 export class WalksPageElements {
 
-  public static loginTab = PageElement.located(By.css(".auth0-lock-tabs-current"))
-    .describedAs("login tab");
+  public static authErrorMessage = PageElement.located(By.css(".auth0-global-message.auth0-global-message-error"))
+    .describedAs("auth error message");
 
   public static userName = PageElement.located(By.css("input[type=email][name=email]"))
     .describedAs("user name");
@@ -14,11 +14,11 @@ export class WalksPageElements {
   public static loginSubmitButton = PageElement.located(By.css(".auth0-label-submit"))
     .describedAs("login submit button");
 
-  public static createDropdown = PageElement.located(By.id("walks_manager_create"))
-    .describedAs("Create Menu dropdown");
+  public static createMenuDropdown = PageElement.located(By.id("walks_manager_create"))
+    .describedAs("create menu dropdown");
 
   public static authHeader = PageElement.located(By.css(".auth0-lock-header-welcome"))
-    .describedAs("Auth Header Frame");
+    .describedAs("auth header Frame");
 
   public static itemsPerPagePopup = PageElement.located(By.css("_lstPageSize-button > span.ui-selectmenu-status"))
     .describedAs("items per page popup");
@@ -56,6 +56,9 @@ export class WalksPageElements {
   public static chooseFilesButton = PageElement.located(By.id("edit-walk-csv-upload"))
     .describedAs("Choose Files button");
 
+  public static modalError = PageElement.located(By.css(".form-item--error-message"))
+    .describedAs("Choose Files button");
+
   public static uploadAWalksCSV = PageElement.located(By.id("uploadWalkModal_open"))
     .describedAs("Upload a walk CSV");
 
@@ -79,9 +82,6 @@ export class WalksPageElements {
 
   public static uploadErrorListItems = PageElements.located(By.css(".alert-error .item-list ul li"))
     .describedAs("Upload Error List Items");
-
-  public static uploadErrorSummaries = PageElements.located(By.css(".alert-error .item-list h3"))
-    .describedAs("Upload result table rows");
 
   public static columnsForRow(result: PageElement) {
     return PageElements.located(By.css(".views-field-views-bulk-operations-bulk-form,.views-field-ramled-title-field,.views-field-field-date,.views-field-ram-content-moderation-views-field-states")

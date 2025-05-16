@@ -236,7 +236,7 @@ export class UrlService {
       return url;
     } else {
       const imageSource = (absolute ? this.absolutePathForAWSFileName(url) : this.resourceRelativePathForAWSFileName(url)) + (cacheBuster ? `?${this.cacheBuster}` : "");
-      this.logger.debug("imageSource:url", url, "absolute:", absolute, "returning", imageSource);
+      this.logger.info("imageSource:url", url, "absolute:", absolute, "returning", imageSource);
       return imageSource;
     }
   }
