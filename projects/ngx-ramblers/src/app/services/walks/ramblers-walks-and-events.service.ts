@@ -192,9 +192,7 @@ export class RamblersWalksAndEventsService {
   }
 
   async listRamblersWalks(): Promise<RamblersWalkResponse[]> {
-    const body: EventsListRequest = {
-      types: ALL_EVENT_TYPES
-    };
+    const body: EventsListRequest = {types: ALL_EVENT_TYPES};
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<RamblersWalksApiResponse>(`${this.BASE_URL}/list-events`, body), this.walksSubject);
     this.logger.debug("received", apiResponse);
     return apiResponse.response;
@@ -282,9 +280,9 @@ export class RamblersWalksAndEventsService {
   updateWalksWithRamblersWalkData(ramblersWalksResponses: RamblersWalkResponse[], walks: Walk[]): Promise<LocalAndRamblersWalk[]> {
     let unreferencedUrls: string[] = this.collectExistingRamblersUrlsFrom(walks);
     this.logger.info(this.stringUtilsService.pluraliseWithCount(unreferencedUrls.length, "existing ramblers walk url"), "found:", unreferencedUrls);
-    this.logger.info(this.stringUtilsService.pluraliseWithCount(walks.length, "saved walk"), "found:", walks);
+    this.logger.info(this.stringUtilsService.pluraliseWithCount(walks.length, "local walk"), "found:", walks);
     const savePromises = [];
-    this.logger.info("ramblersWalksResponses:", ramblersWalksResponses);
+    this.logger.info(this.stringUtilsService.pluraliseWithCount(ramblersWalksResponses.length, "walks manager walk"), "found:", ramblersWalksResponses);
     ramblersWalksResponses.forEach((ramblersWalksResponse: RamblersWalkResponse) => {
       const walkMatchedByDate: Walk = walks.find(walk => this.dateUtils.asString(walk.walkDate, undefined, "dddd, Do MMMM YYYY") === ramblersWalksResponse.startDate);
       if (!walkMatchedByDate) {

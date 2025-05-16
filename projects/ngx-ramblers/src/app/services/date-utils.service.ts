@@ -188,4 +188,17 @@ export class DateUtilsService {
   currentYear(): number {
     return +this.asString(this.momentNow().valueOf(), undefined, "YYYY");
   }
+
+  formatDuration(fromTime: number, toTime: number) {
+    const duration = moment.duration(toTime - fromTime);
+    const seconds = duration.asSeconds();
+    if (seconds < 1) {
+      return `${(seconds * 1000)} ms`;
+    } else if (seconds < 60) {
+      return `${seconds.toFixed(0)} secs`;
+    } else {
+      const minutes = duration.asMinutes();
+      return `${minutes.toFixed(1)} mins`;
+    }
+  }
 }

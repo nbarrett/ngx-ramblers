@@ -4,9 +4,10 @@ import { includes, isEmpty, isUndefined, some } from "lodash";
 import {
   AuditType,
   ParsedRamblersUploadAudit,
-  Status
+  Status,
+  DomainEventData
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
-import { momentNowAsValue } from "../shared/dates";
+import { momentInTimezone, momentNowAsValue } from "../shared/dates";
 
 const errorIcons = ["⨯", "✗", "✖"];
 const successIcons = ["✓", "✓", "✓"];
@@ -33,15 +34,15 @@ export function trimTokensFrom(input: string, tokens: string[]) {
   return returnValue.trim();
 }
 
-export function removeTokensFromMessage(auditMessage: string): string {
+function removeTokensFromMessage(auditMessage: string): string {
   return trimTokensFrom(auditMessage, successIcons.concat(errorIcons).concat(ansiTokens));
 }
 
-export function toStatusFromNpmMessage(auditMessageItem: string): Status {
+function toStatusFromNpmMessage(auditMessageItem: string): Status {
   return anyMatch(auditMessageItem, npmErrorTokens) ? Status.ERROR : Status.INFO;
 }
 
-export function toStatusFromIcon(auditMessageItem: string): Status {
+function toStatusFromIcon(auditMessageItem: string): Status {
   if (anyMatch(auditMessageItem, successIcons)) {
     return Status.SUCCESS;
   } else if (anyMatch(auditMessageItem, errorIcons)) {
@@ -74,29 +75,52 @@ export function parseStandardOut(auditMessage: string): ParsedRamblersUploadAudi
       debugLog("parseStandardOut:messageAndResult ->", messageAndResult, "status ->", status, "message ->", message);
       return {
         audit: true,
+        data: {
         auditTime: momentNowAsValue(),
         type: AuditType.STEP,
         status,
         message
+        }
       };
     } else if (anyMatch(auditMessageItem, successIcons.concat(errorIcons))) {
       return {
         audit: true,
+        data: {
         auditTime: momentNowAsValue(),
         type: AuditType.STEP,
         status: toStatusFromIcon(auditMessageItem),
         message: removeTokensFromMessage(auditMessageItem)
+        }
       };
     } else {
       return {
         audit: true,
+        data: {
         auditTime: momentNowAsValue(),
         type: AuditType.STEP,
         status: toStatusFromNpmMessage(auditMessageItem),
         message: removeTokensFromMessage(auditMessageItem)
+        }
       };
     }
   });
+}
+
+export function parseTestStepEvent(testStepEvent: DomainEventData): ParsedRamblersUploadAudit[] {
+  debugLog("parseStandardOut:testStepEvent:", testStepEvent);
+  const status: Status = testStepEvent.outcome.code === 64 ? Status.SUCCESS : Status.ERROR;
+  const parsedRamblersUploadAudit: ParsedRamblersUploadAudit = {
+    audit: true,
+    data: {
+      auditTime: momentInTimezone(testStepEvent.timestamp).valueOf(),
+      type: AuditType.STEP,
+      status,
+      message: testStepEvent.details.name,
+      errorResponse: testStepEvent.outcome.error
+    }
+  };
+  debugLog("parseTestStepEvent:testStepEvent ->", testStepEvent, "status ->", status, "message ->", parsedRamblersUploadAudit);
+  return [parsedRamblersUploadAudit];
 }
 
 export function parseStandardError(auditMessage: string): ParsedRamblersUploadAudit[] {
@@ -115,10 +139,12 @@ export function parseStandardError(auditMessage: string): ParsedRamblersUploadAu
       if (anyMatch(auditMessageItem, errorIcons)) {
         return {
           audit: true,
+          data: {
           auditTime: momentNowAsValue(),
           type: AuditType.STDERR,
           status: Status.ERROR,
           message: removeTokensFromMessage(auditMessageItem)
+          }
         };
       } else if (auditMessageItem.includes("ActivityFinished: ")) {
         const messageAndResult = auditMessageItem.split("ActivityFinished: ")[1].split(" (result: ");
@@ -127,18 +153,22 @@ export function parseStandardError(auditMessage: string): ParsedRamblersUploadAu
         debugLog("parseStandardError:messageAndResult ->", messageAndResult, "status ->", status, "message ->", message);
         return {
           audit: true,
+          data: {
           auditTime: momentNowAsValue(),
           type: AuditType.STEP,
           status,
           message
+          }
         };
       } else {
         return {
           audit: true,
+          data: {
           auditTime: momentNowAsValue(),
           type: AuditType.STDERR,
           status: Status.INFO,
           message: removeTokensFromMessage(auditMessageItem)
+          }
         };
       }
     }
@@ -149,9 +179,11 @@ export function parseExit(auditMessage: string, status: Status): ParsedRamblersU
   debugLog("parseExit:auditMessage:", auditMessage, "status:", status);
   return [{
     audit: true,
-    auditTime: momentNowAsValue(),
-    type: AuditType.SUMMARY,
-    status,
-    message: removeTokensFromMessage(auditMessage)
+    data: {
+      auditTime: momentNowAsValue(),
+      type: AuditType.SUMMARY,
+      status,
+      message: removeTokensFromMessage(auditMessage)
+    }
   }];
 }

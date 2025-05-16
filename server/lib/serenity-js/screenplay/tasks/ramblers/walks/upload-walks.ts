@@ -29,7 +29,7 @@ export class UploadWalksSpecifiedWalks {
     const message = `${pluraliseWithCount(walkCount, "walk")} ${pluralise(walkCount, "has", "have")} been created`;
     return Task.where(`#actor uploads file ${fileName} containing ${pluraliseWithCount(walkCount, "walk")}`,
       Log.message(`Uploading file ${fileName} containing ${pluraliseWithCount(walkCount, "walk")}`),
-      ClickWhenReady.on(WalksPageElements.createDropdown),
+      ClickWhenReady.on(WalksPageElements.createMenuDropdown),
       ClickWhenReady.on(WalksPageElements.uploadAWalksCSV),
       Enter.theValue(fileName).into(WalksPageElements.chooseFilesButton),
       ClickWhenReady.on(WalksPageElements.uploadWalksButton),

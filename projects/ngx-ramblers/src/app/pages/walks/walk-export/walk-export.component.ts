@@ -5,6 +5,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import {
+  AuditType,
   FileUploadSummary,
   RamblersUploadAudit,
   RamblersUploadAuditApiResponse,
@@ -41,6 +42,7 @@ import { EventType, MessageType, RamblersUploadAuditProgressResponse } from "../
 import { ApiResponse } from "../../../models/api-response.model";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { StatusIconComponent } from "../../admin/status-icon";
+import last from "lodash-es/last";
 
 @Component({
   selector: "app-walk-export",
@@ -140,25 +142,25 @@ import { StatusIconComponent } from "../../admin/status-icon";
                           </dl>
                         }
                         <div>{{ walkExport.validationMessages.join(", ") }}</div>
-                        <dl class="d-flex">
-                          <dt class="font-weight-bold mr-2 nowrap">Publish status:</dt>
-                          @if (walkExport.displayedWalk.walk.ramblersWalkId) {
-                            <dd>
-                              <a target="_blank"
-                                 class="ml-2"
-                                 tooltip="Click to view on Ramblers Walks and Events Manager"
-                                 [href]="display.ramblersLink(walkExport.displayedWalk.walk)">
-                                <img class="related-links-ramblers-image" src="favicon.ico"
-                                     alt="Click to view on Ramblers Walks and Events Manager"/></a>
-                            </dd>
-                          }
-                        </dl>
-                        <div>
-                          <fa-icon class="mr-1"
-                                   [ngClass]="walkExport.publishStatus.actionRequired? 'yellow-icon':'green-icon'"
-                                   [icon]="walkExport.publishStatus.actionRequired?faExclamationCircle:faCheckCircle"/>
-                          {{ walkExport.publishStatus.messages.join(", ") }}
-                        </div>
+                      </div>
+                      <dl class="d-flex">
+                        <dt class="font-weight-bold mr-2 nowrap">Publish status:</dt>
+                        @if (walkExport.displayedWalk.walk.ramblersWalkId) {
+                          <dd>
+                            <a [href]="display.ramblersLink(walkExport.displayedWalk.walk)"
+                               target="_blank"
+                               class="ml-2"
+                               tooltip="Click to view on Ramblers Walks and Events Manager">
+                              <img class="related-links-ramblers-image" src="favicon.ico"
+                                   alt="Click to view on Ramblers Walks and Events Manager"/></a>
+                          </dd>
+                        }
+                      </dl>
+                      <div>
+                        <fa-icon class="mr-1"
+                                 [ngClass]="walkExport.publishStatus.actionRequired? 'yellow-icon':'green-icon'"
+                                 [icon]="walkExport.publishStatus.actionRequired?faExclamationCircle:faCheckCircle"/>
+                        {{ walkExport.publishStatus.messages.join(", ") }}
                       </div>
                     </div>
                   </div>
@@ -213,7 +215,7 @@ import { StatusIconComponent } from "../../admin/status-icon";
                     <div class="form-group">
                       <div class="custom-control custom-checkbox">
                         <input [(ngModel)]="showDetail"
-                               (ngModelChange)="showDetailChanged()"
+                               (ngModelChange)="applyFilter()"
                                name="showDetail" type="checkbox" class="custom-control-input"
                                id="show-detailed-audit-messages"/>
                         <label class="custom-control-label"
@@ -245,24 +247,22 @@ import { StatusIconComponent } from "../../admin/status-icon";
                   <thead>
                   <tr>
                     <th>Time</th>
-                    <th>Record</th>
+                    <th>Duration</th>
                     <th>Status</th>
                     <th>Audit Message</th>
                   </tr>
                   </thead>
                   <tbody>
-                    @for (audit of filteredRamblersUploadAudits(); track audit.id) {
+                    @for (audit of filteredAudits; track audit.id) {
                       <tr>
                         <td class="nowrap">{{ audit.auditTime | displayTimeWithSeconds }}</td>
-                        <td class="nowrap">{{ audit.record }}</td>
+                        <td class="nowrap">{{ timing(audit) }}</td>
                         <td>
                           <app-status-icon noLabel [status]="audit.status"/>
                         </td>
-                        <td>
-                          {{ audit.message }}@if (audit.errorResponse) {
+                        <td>{{ audit.message }}@if (audit.errorResponse) {
                           <div>: {{ audit.errorResponse | valueOrDefault }}</div>
-                        }
-                        </td>
+                        }</td>
                       </tr>
                     }
                   </tbody>
@@ -304,7 +304,8 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   private dateUtils: DateUtilsService = inject(DateUtilsService);
   protected stringUtils: StringUtilsService = inject(StringUtilsService);
   private urlService: UrlService = inject(UrlService);
-  public ramblersUploadAuditData: RamblersUploadAudit[];
+  public audits: RamblersUploadAudit[];
+  public filteredAudits: RamblersUploadAudit[];
   public walksForExport: WalkExport[] = [];
   public fileName: FileUploadSummary;
   public fileNames: FileUploadSummary[] = [];
@@ -323,10 +324,10 @@ export class WalkExportComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
-    this.ramblersUploadAuditData = [];
+    this.audits = [];
     this.walkExportNotifier = this.notifierService.createAlertInstance(this.walkExportTarget);
     this.auditNotifier = this.notifierService.createAlertInstance(this.auditTarget);
-    this.systemConfigService.events().subscribe(async (item: SystemConfig) => {
+    this.systemConfigService.events().subscribe(async (_unused: SystemConfig) => {
       if (this.display.walkPopulationWalksManager()) {
         const message = {
           title: "Walks Export Initialisation",
@@ -342,12 +343,13 @@ export class WalkExportComponent implements OnInit, OnDestroy {
       this.logger.info("Progress response received:", progressResponse);
       if (progressResponse?.audits?.length > 0) {
         this.logger.info("Progress response received:", progressResponse.audits);
-        this.ramblersUploadAuditData = (this.ramblersUploadAuditData.concat(progressResponse?.audits)).sort(sortBy("-auditTime", "-record"));
-        this.auditNotifier.warning(`Total of ${this.stringUtils.pluraliseWithCount(this.ramblersUploadAuditData.length, "audit item")} - ${this.stringUtils.pluraliseWithCount(progressResponse.audits.length, "audit record")} just received`);
+        this.audits = (this.audits.concat(progressResponse?.audits)).sort(sortBy("-auditTime", "-record"));
+        this.applyFilter();
+        this.auditNotifier.warning(`Total of ${this.stringUtils.pluraliseWithCount(this.audits.length, "audit item")} - ${this.stringUtils.pluraliseWithCount(progressResponse.audits.length, "audit record")} just received`);
       }
     }));
     this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.ERROR).subscribe(error => {
-        this.logger.error(`Error: ${error}%`);
+        this.logger.error(`Error:`, error);
         this.exportInProgress = false;
         this.auditNotifier.error({title: "Error", message: error});
         this.fileName.status = Status.ERROR;
@@ -356,7 +358,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     );
     this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.COMPLETE).subscribe(async (message: ApiResponse) => {
         this.exportInProgress = false;
-        this.fileName.status = this.ramblersUploadAuditData.find(item => item.status === Status.ERROR) ? Status.ERROR : Status.SUCCESS;
+      this.fileName.status = this.audits.find(item => item.status === Status.ERROR) ? Status.ERROR : Status.SUCCESS;
         this.logger.info(`Task completed:`, message, "set file status:", this.fileName);
         this.renderInitialView();
       })
@@ -378,8 +380,8 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   }
 
   async uploadToRamblers() {
-    this.logger.debug("Refreshing audit trail for file", this.fileName, "count =", this.ramblersUploadAuditData.length);
-    this.ramblersUploadAuditData = [];
+    this.logger.debug("Refreshing audit trail for file", this.fileName, "count =", this.audits.length);
+    this.audits = [];
     this.exportInProgress = true;
     const ramblersWalksUploadRequest: RamblersWalksUploadRequest = await this.ramblersWalksAndEventsService.createWalksUploadRequest(this.walksForExport);
     this.webSocketClientService.connect().then(() => {
@@ -421,37 +423,22 @@ export class WalkExportComponent implements OnInit, OnDestroy {
       criteria: {fileName: this.fileName.fileName},
       sort: {auditTime: -1, record: -1}
     }).then((auditItems: RamblersUploadAuditApiResponse) => {
-      const uploadAudits: RamblersUploadAudit[] = auditItems.response;
-      this.ramblersUploadAuditData = this.notifyAuditCountAndReturnAudits(uploadAudits);
+      this.audits = auditItems.response;
+      this.applyFilter();
       this.walkExportNotifier.clearBusy();
-      });
+    });
   }
 
-  showDetailChanged() {
-    this.notifyAuditCountAndReturnAudits(this.ramblersUploadAuditData);
-  }
-
-  private notifyAuditCountAndReturnAudits(uploadAudits: RamblersUploadAudit[]): RamblersUploadAudit[] {
-    const filteredUploadAudits: RamblersUploadAudit[] = this.applyFilter(uploadAudits);
-    if (uploadAudits.length === filteredUploadAudits.length) {
-      this.auditNotifier.warning(`Showing ${this.stringUtils.pluraliseWithCount(uploadAudits.length, "audit item")}`);
-    } else {
-      this.auditNotifier.warning(`Showing ${filteredUploadAudits.length}${uploadAudits.length === filteredUploadAudits.length ? "" : ` of ${this.stringUtils.pluraliseWithCount(uploadAudits.length, "audit item")}`}`);
-    }
-    this.logger.info("this.ramblersUploadAuditData:", filteredUploadAudits);
-    return uploadAudits;
-  }
-
-  public filteredRamblersUploadAudits(): RamblersUploadAudit[] {
-    return this.applyFilter(this.ramblersUploadAuditData);
-  }
-
-  private applyFilter(unfiltered: RamblersUploadAudit[]): RamblersUploadAudit[] {
-    const filtered = unfiltered.filter(auditItem => {
+  protected applyFilter(): void {
+    this.filteredAudits = this.audits.filter(auditItem => {
       return this.showDetail || [Status.COMPLETE, Status.ERROR, Status.SUCCESS].includes(auditItem.status);
     });
-    this.logger.off("applyFilter:filtered:", filtered.length, "unfiltered:", unfiltered.length);
-    return filtered;
+    if (this.filteredAudits.length === this.audits.length) {
+      this.auditNotifier.warning(`Showing ${this.stringUtils.pluraliseWithCount(this.audits.length, "audit item")}`);
+    } else {
+      this.auditNotifier.warning(`Showing ${this.filteredAudits.length} of ${this.stringUtils.pluraliseWithCount(this.audits.length, "audit item")}`);
+    }
+    this.logger.off("applyFilter:filtered:", this.filteredAudits.length, "unfiltered:", this.audits.length);
   }
 
   exportableWalks(): WalkExport[] {
@@ -558,5 +545,16 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     const sorted = this.walksForExport.sort(sortBy("-selected", "displayedWalk.walk.walkDate"));
     this.logger.info("walksForExportSorted:", this.walksForExport, "sorted:", sorted);
     this.walksForExport = sorted;
+  }
+
+  timing(audit: RamblersUploadAudit): string {
+    const summary = audit.type === AuditType.SUMMARY;
+    const currentIndex = this.filteredAudits.findIndex(item => item.id === audit.id);
+    if (summary) {
+      return this.dateUtils.formatDuration(last(this?.audits)?.auditTime, audit?.auditTime);
+    } else {
+      const previousAudit = this.filteredAudits?.[currentIndex + 1];
+      return this.dateUtils.formatDuration(previousAudit?.auditTime, audit?.auditTime);
+    }
   }
 }
