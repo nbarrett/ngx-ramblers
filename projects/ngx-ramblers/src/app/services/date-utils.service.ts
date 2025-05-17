@@ -192,12 +192,17 @@ export class DateUtilsService {
   formatDuration(fromTime: number, toTime: number) {
     const duration = moment.duration(toTime - fromTime);
     const seconds = duration.asSeconds();
-    if (seconds < 1) {
+    if (!fromTime || !toTime) {
+      return "0 secs";
+    } else if (seconds < 1) {
       return `${(seconds * 1000)} ms`;
     } else if (seconds < 60) {
       return `${seconds.toFixed(0)} secs`;
     } else {
       const minutes = duration.asMinutes();
+      if (isNaN(minutes)) {
+        this.logger.error("formatDuration:fromTime", fromTime, "toTime", toTime, "duration", duration, "seconds", seconds, "minutes", minutes);
+      }
       return `${minutes.toFixed(1)} mins`;
     }
   }
