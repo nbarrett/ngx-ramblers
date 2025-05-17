@@ -6,9 +6,9 @@ import { Status } from "../../../projects/ngx-ramblers/src/app/models/ramblers-u
 import WebSocket from "ws";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import * as auditNotifier from "./ramblers-upload-audit-notifier";
-import fs = require("fs");
-import stringDecoder = require("string_decoder");
-import json2csv = require("json2csv");
+import * as fs from "fs";
+import * as stringDecoder from "string_decoder";
+import json2csv from "json2csv";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload"));
 debugLog.enabled = true;
@@ -42,7 +42,7 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
   process.env.RAMBLERS_WALKCOUNT = walksUploadRequest.rows.length.toString();
   process.env.RAMBLERS_FEATURE = "walks-upload.ts";
   const spawn = require("child_process").spawn;
-  auditNotifier.registerUploadFileName(fileName);
+  auditNotifier.registerUploadStart(fileName, ws);
   debugLog("Running RAMBLERS_FEATURE:", process.env.RAMBLERS_FEATURE,
     "WEBDRIVER_FRAMEWORK:", process.env.WEBDRIVER_FRAMEWORK,
     "CHROMEDRIVER_PATH:", process.env.CHROMEDRIVER_PATH,
@@ -77,9 +77,10 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
   });
 
   subprocess.on("exit", (code: number, signal) => {
-    const auditMessage = `Upload completed for ${fileName} with code ${code}`;
-    const signalMessage = signal ? `Subprocess exit: Process terminated by signal: ${signal}` : `Process exited with code: ${code}`;
     const status: Status = code === 0 ? Status.SUCCESS : Status.ERROR;
+    const codeSuffix = code === 0 ? "" : ` with code ${code}`;
+    const auditMessage = `Upload completed with ${status} for ${fileName}${codeSuffix}`;
+    const signalMessage = signal ? `Subprocess exit: Process terminated by signal: ${signal}` : `Process exited with code: ${code}`;
     debugLog(signalMessage);
     auditNotifier.sendAudit(ws, {
       messageType: MessageType.COMPLETE,

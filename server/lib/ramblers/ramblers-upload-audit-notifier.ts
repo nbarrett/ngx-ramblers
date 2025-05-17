@@ -6,7 +6,8 @@ import {
   AuditRamblersUploadParams,
   CurrentUploadSession,
   ParsedRamblersUploadAudit,
-  RamblersUploadAudit
+  RamblersUploadAudit,
+  Status
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
 import { momentNowAsValue } from "../shared/dates";
 import WebSocket from "ws";
@@ -14,6 +15,7 @@ import {
   MessageType,
   RamblersUploadAuditProgressResponse
 } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
+import * as auditParser from "./ramblers-audit-parser";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload"));
 debugLog.enabled = true;
@@ -64,11 +66,18 @@ export function reportErrorAndClose(error, ws: WebSocket) {
   ws.close();
 }
 
-export function registerUploadFileName(fileName: string): void {
+export function registerUploadStart(fileName: string, ws: WebSocket): void {
   debugLog("✅ registered upload file name:", fileName);
   currentUploadSession.fileName = fileName;
   currentUploadSession.record = 0;
   currentUploadSession.logStandardOut = true;
+  sendAudit(ws, {
+    messageType: MessageType.PROGRESS,
+    status: Status.INFO,
+    auditMessage: `Upload started with file name ${fileName}`,
+    parserFunction: auditParser.parseStandardOut
+  });
+
 }
 
 export function queryCurrentUploadSession() {
