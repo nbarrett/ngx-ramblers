@@ -1,5 +1,4 @@
 import { Component, EventEmitter, inject, Input, Output } from "@angular/core";
-import { DisplayedWalk } from "../../../models/walk.model";
 import { BasicMedia, Media } from "../../../models/ramblers-walks-manager";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -12,20 +11,22 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { move } from "../../../functions/arrays";
 import last from "lodash-es/last";
 import first from "lodash-es/first";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
 
 @Component({
     selector: "app-walk-images",
     template: `
       <div class="pointer" [tooltip]="currentBasicMedia()?.alt" [placement]="'bottom'">
         <div class="d-flex align-items-center">
-          @if (displayedWalk?.walk?.media?.length > 1) {
+          @if (extendedGroupEvent?.groupEvent?.media?.length > 1) {
             <div>
               <app-svg colour="rgb(155, 200, 171)" (click)="back()"
                        [disabled]="backDisabled()"
                        height="20"
                        icon="i-back-round"/>
               <span class="sr-only">Previous slide</span>
-              <span class="px-2">Image {{ imageIndex + 1 }} of {{ displayedWalk?.walk?.media?.length }}</span>
+              <span class="px-2">Image {{ imageIndex + 1 }}
+                of {{ extendedGroupEvent?.groupEvent?.media?.length }}</span>
               <app-svg colour="rgb(155, 200, 171)" (click)="next()"
                        [disabled]="forwardDisabled()"
                        height="20"
@@ -43,7 +44,7 @@ import first from "lodash-es/first";
                        icon="i-cross"
                        [tooltip]="'Remove this image'"/>
             </div>
-            @if (displayedWalk?.walk?.media?.length > 1) {
+            @if (extendedGroupEvent?.groupEvent?.media?.length > 1) {
               <div class="ml-auto">
                 <app-svg [tooltip]="backDisabled()? '':'move this image back to position '+ imageIndex"
                          colour="rgb(155, 200, 171)" (click)="moveImageBack()"
@@ -62,12 +63,12 @@ import first from "lodash-es/first";
           }
         </div>
         @if (allowEditImage) {
-          <input id="edit-image-{{displayedWalk.walk.id}}" type="submit"
+          <input id="edit-image-{{extendedGroupEvent.id}}" type="submit"
                  value="edit"
                  (click)="this.mediaChanged.emit(currentMedia())"
                  class="btn btn-primary button-edit-image">
         }
-        <div [ngClass]="displayedWalk?.walk?.media?.length > 1 ? 'mt-2': 'mt-3'">
+        <div [ngClass]="extendedGroupEvent?.groupEvent?.media?.length > 1 ? 'mt-2': 'mt-3'">
           <app-card-image fixedHeight [imageSource]="imageSourceOrPreview()"/>
         </div>
       </div>`,
@@ -76,10 +77,10 @@ import first from "lodash-es/first";
 })
 
 export class WalkImagesComponent {
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkImagesComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkImagesComponent", NgxLoggerLevel.INFO);
   mediaQueryService = inject(MediaQueryService);
   @Output() mediaChanged = new EventEmitter<Media>();
-  @Input() displayedWalk: DisplayedWalk;
+  @Input() extendedGroupEvent!: ExtendedGroupEvent;
 
   @Input("imagePreview") set imagePreviewValue(imagePreview: string) {
     this.imagePreview = imagePreview;
@@ -95,8 +96,8 @@ export class WalkImagesComponent {
   protected imageIndex = 0;
 
   removeImage() {
-    this.logger.info("removing image:", this.displayedWalk?.walk?.media[this.imageIndex]);
-    this.displayedWalk.walk.media.splice(this.imageIndex, 1);
+    this.logger.info("removing image:", this.extendedGroupEvent?.groupEvent?.media[this.imageIndex]);
+    this.extendedGroupEvent?.groupEvent.media.splice(this.imageIndex, 1);
     this.imageIndex = Math.max(0, this.imageIndex - 1);
   }
 
@@ -111,7 +112,7 @@ export class WalkImagesComponent {
   }
 
   forwardDisabled() {
-    return this.imageIndex >= this.displayedWalk?.walk?.media?.length - 1;
+    return this.imageIndex >= this.extendedGroupEvent?.groupEvent?.media?.length - 1;
   }
 
   imageSourceOrPreview(): string {
@@ -119,26 +120,26 @@ export class WalkImagesComponent {
   }
 
   currentBasicMedia(): BasicMedia {
-    return this.mediaQueryService.basicMediaFrom(this.displayedWalk.walk)[this.imageIndex];
+    return this.mediaQueryService.basicMediaFrom(this.extendedGroupEvent?.groupEvent)?.[this.imageIndex];
   }
 
   currentMedia(): Media {
-    return this.displayedWalk?.walk?.media[this.imageIndex];
+    return this.extendedGroupEvent?.groupEvent?.media[this.imageIndex];
   }
 
   next() {
-    if (this.imageIndex < this.displayedWalk?.walk?.media?.length - 1) {
+    if (this.imageIndex < this.extendedGroupEvent?.groupEvent?.media?.length - 1) {
       this.imageIndex++;
     }
   }
 
   moveImageForward() {
     const item = this.currentMedia();
-    if (this.canMoveForward(this.displayedWalk?.walk?.media, item)) {
-      this.logger.info("about to move forward image:", item, "with index:", this.imageIndex, "in media:", this.displayedWalk?.walk?.media);
-      move(this.displayedWalk?.walk?.media, this.imageIndex, this.imageIndex + 1);
-      this.logger.info("moved forward image:", item, "in index:", this.displayedWalk?.walk?.media.indexOf(item), "in media:", this.displayedWalk?.walk?.media);
-      this.imageIndex = this.displayedWalk?.walk?.media.indexOf(item);
+    if (this.canMoveForward(this.extendedGroupEvent?.groupEvent?.media, item)) {
+      this.logger.info("about to move forward image:", item, "with index:", this.imageIndex, "in media:", this.extendedGroupEvent?.groupEvent?.media);
+      move(this.extendedGroupEvent?.groupEvent?.media, this.imageIndex, this.imageIndex + 1);
+      this.logger.info("moved forward image:", item, "in index:", this.extendedGroupEvent?.groupEvent?.media.indexOf(item), "in media:", this.extendedGroupEvent?.groupEvent?.media);
+      this.imageIndex = this.extendedGroupEvent?.groupEvent?.media.indexOf(item);
     }
   }
 
@@ -148,10 +149,10 @@ export class WalkImagesComponent {
 
   moveImageBack() {
     const item = this.currentMedia();
-    if (this.canMoveBack(this.displayedWalk?.walk?.media, item)) {
+    if (this.canMoveBack(this.extendedGroupEvent?.groupEvent?.media, item)) {
       this.logger.info("about to move back image:", item, "in index:", this.imageIndex);
-      move(this.displayedWalk?.walk?.media, this.imageIndex, this.imageIndex - 1);
-      this.imageIndex = this.displayedWalk?.walk?.media.indexOf(item);
+      move(this.extendedGroupEvent?.groupEvent?.media, this.imageIndex, this.imageIndex - 1);
+      this.imageIndex = this.extendedGroupEvent?.groupEvent?.media.indexOf(item);
     }
   }
 
@@ -160,6 +161,6 @@ export class WalkImagesComponent {
   }
 
   deleteDisabled() {
-    return this.imageIndex < 0 || this.displayedWalk?.walk?.media.length === 0;
+    return this.imageIndex < 0 || this.extendedGroupEvent?.groupEvent?.media.length === 0;
   }
 }

@@ -2,16 +2,18 @@ import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
 import { RouterTestingModule } from "@angular/router/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
-import { EventType, Walk } from "../../models/walk.model";
+import { EventType } from "../../models/walk.model";
 import { AuditDeltaChangedItemsPipePipe } from "../../pipes/audit-delta-changed-items.pipe";
 import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
 import { MemberIdToFullNamePipe } from "../../pipes/member-id-to-full-name.pipe";
 import { StringUtilsService } from "../string-utils.service";
 
-import { WalkEventService } from "./walk-event.service";
+import { GroupEventService } from "./group-event.service";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
 import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
+
+import { Walk } from "../../models/deprecated";
 
 describe("WalksEventService", () => {
   const MemberLoginService = {
@@ -30,8 +32,8 @@ describe("WalksEventService", () => {
 
   describe("dataAuditDelta", () => {
     it("changedItems should correctly calculate difference", () => {
-      const service: WalkEventService = TestBed.inject(WalkEventService);
-      const walk: Walk = {
+      const service: GroupEventService = TestBed.inject(GroupEventService);
+      const walk: ExtendedGroupEvent = {
         eventType: RamblersEventType.GROUP_WALK,
         walkDate: 12,
         start_location: {
@@ -64,8 +66,8 @@ describe("WalksEventService", () => {
 
   describe("latestEventWithStatusChangeIs", () => {
     it("should return a value if there is no existing event with status change", () => {
-      const service: WalkEventService = TestBed.inject(WalkEventService);
-      const walk: Walk = {
+      const service: GroupEventService = TestBed.inject(GroupEventService);
+      const walk: ExtendedGroupEvent = {
         eventType: RamblersEventType.GROUP_WALK,
         walkDate: 12,
         start_location: {

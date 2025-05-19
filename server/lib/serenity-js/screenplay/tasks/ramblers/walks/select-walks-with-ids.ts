@@ -16,6 +16,6 @@ export class SelectWalksWithIds extends Task {
         SelectWalks.none(),
         ...walks
           .filter((walk, index) => WalkFilters.withIds(walk, ...this.walkIds))
-          .map(walk => SelectCheckbox.checked().from(WalksPageElements.checkboxSelector(walk.tableRow, walk.walkDate)))));
+          .map(walk => SelectCheckbox.checked().from(WalksPageElements.checkboxSelector(walk.tableRow, walk.groupEvent.start_date_time)))));
   }
 }

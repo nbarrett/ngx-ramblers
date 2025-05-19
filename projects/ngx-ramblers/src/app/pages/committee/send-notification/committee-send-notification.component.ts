@@ -7,7 +7,7 @@ import {
   CommitteeFile,
   CommitteeMember,
   CommitteeRolesChangeEvent,
-  GroupEvent,
+  GroupEventSummary,
   Notification
 } from "../../../models/committee.model";
 import { DateValue } from "../../../models/date.model";
@@ -348,9 +348,9 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                             </span>
                           }
                           •
-                          <span>{{ groupEvent?.eventType?.description }}</span>
+                          <span>{{ groupEvent?.item_type?.description }}</span>
                           •
-                          <app-link [area]="groupEvent?.eventType.area"
+                          <app-link [area]="groupEvent?.item_type.area"
                                     [id]="groupEvent?.id"
                                     [text]="groupEvent?.title"></app-link>
                           @if (groupEvent.distance) {
@@ -641,7 +641,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     }
   }
 
-  populateGroupEvents(): Promise<GroupEvent[]> {
+  populateGroupEvents(): Promise<GroupEventSummary[]> {
     return this.committeeQueryService.groupEvents(this.notification?.groupEventsFilter)
       .then(events => {
         this.notification.groupEvents = events;
@@ -650,7 +650,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
       });
   }
 
-  changeGroupEventSelection(groupEvent: GroupEvent) {
+  changeGroupEventSelection(groupEvent: GroupEventSummary) {
     groupEvent.selected = !groupEvent.selected;
   }
 
@@ -854,7 +854,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     return id;
   }
 
-  toggleEvent(groupEvent: GroupEvent) {
+  toggleEvent(groupEvent: GroupEventSummary) {
     this.logger.info("toggleEvent:", groupEvent);
     groupEvent.selected = !groupEvent.selected;
   }

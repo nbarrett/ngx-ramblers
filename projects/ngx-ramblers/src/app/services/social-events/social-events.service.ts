@@ -2,12 +2,12 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
-import { SocialEvent, SocialEventApiResponse } from "../../models/social-events.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { EventPopulation, Organisation } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
 import { SocialEventsLocalService } from "./social-events-local.service";
 import { RamblersWalksAndEventsService } from "../walks/ramblers-walks-and-events.service";
+import { ExtendedGroupEvent, ExtendedGroupEventApiResponse } from "../../models/group-event.model";
 
 @Injectable({
   providedIn: "root"
@@ -33,11 +33,11 @@ export class SocialEventsService {
   }
 
 
-  notifications(): Observable<SocialEventApiResponse> {
+  notifications(): Observable<ExtendedGroupEventApiResponse> {
     return this.socialEventsLocalService.notifications();
   }
 
-  async all(dataQueryOptions?: DataQueryOptions): Promise<SocialEvent[]> {
+  async all(dataQueryOptions?: DataQueryOptions): Promise<ExtendedGroupEvent[]> {
     this.logger.info("all called with socialEventPopulation:", this.group?.socialEventPopulation);
     switch (this.group?.socialEventPopulation) {
       case EventPopulation.WALKS_MANAGER:
@@ -47,7 +47,7 @@ export class SocialEventsService {
     }
   }
 
-  async allPublic(dataQueryOptions?: DataQueryOptions): Promise<SocialEvent[]> {
+  async allPublic(dataQueryOptions?: DataQueryOptions): Promise<ExtendedGroupEvent[]> {
     switch (this.group?.socialEventPopulation) {
       case EventPopulation.WALKS_MANAGER:
         return this.ramblersWalksAndEventsService.allSocialEvents(dataQueryOptions);
@@ -56,7 +56,7 @@ export class SocialEventsService {
     }
   }
 
-  async createOrUpdate(socialEvent: SocialEvent): Promise<SocialEvent> {
+  async createOrUpdate(socialEvent: ExtendedGroupEvent): Promise<ExtendedGroupEvent> {
     if (socialEvent.id) {
       return this.update(socialEvent);
     } else {
@@ -64,7 +64,7 @@ export class SocialEventsService {
     }
   }
 
-  async queryForId(socialEventId: string): Promise<SocialEvent> {
+  async queryForId(socialEventId: string): Promise<ExtendedGroupEvent> {
     this.logger.info("getById called with socialEventId:", socialEventId, "with socialEventPopulation:", this.group?.socialEventPopulation);
     switch (this.group?.socialEventPopulation) {
       case EventPopulation.WALKS_MANAGER:
@@ -74,7 +74,7 @@ export class SocialEventsService {
     }
   }
 
-  async update(socialEvent: SocialEvent): Promise<SocialEvent> {
+  async update(socialEvent: ExtendedGroupEvent): Promise<ExtendedGroupEvent> {
     switch (this.group?.socialEventPopulation) {
       case EventPopulation.WALKS_MANAGER:
         return Promise.reject("cannot update social event as socialEventPopulation is " + this.group?.socialEventPopulation);
@@ -83,7 +83,7 @@ export class SocialEventsService {
     }
   }
 
-  async create(socialEvent: SocialEvent): Promise<SocialEvent> {
+  async create(socialEvent: ExtendedGroupEvent): Promise<ExtendedGroupEvent> {
     switch (this.group?.socialEventPopulation) {
       case EventPopulation.WALKS_MANAGER:
         return Promise.reject("cannot create social event as socialEventPopulation is " + this.group?.socialEventPopulation);
@@ -92,7 +92,7 @@ export class SocialEventsService {
     }
   }
 
-  async delete(socialEvent: SocialEvent): Promise<SocialEvent> {
+  async delete(socialEvent: ExtendedGroupEvent): Promise<ExtendedGroupEvent> {
     switch (this.group?.socialEventPopulation) {
       case EventPopulation.WALKS_MANAGER:
         return Promise.reject("cannot delete social event as socialEventPopulation is " + this.group?.socialEventPopulation);

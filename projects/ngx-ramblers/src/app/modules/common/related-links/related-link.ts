@@ -3,7 +3,15 @@ import { NgStyle } from "@angular/common";
 
 @Component({
     selector: "[app-related-link]",
-    templateUrl: "./related-link.component.html",
+    template: `
+      <div class="media">
+        <div [ngStyle]="{'min-width.px': mediaWidth}">
+          <ng-content select="[title]"/>
+        </div>
+        <div class="media-body ml-2">
+          <ng-content select="[content]"/>
+        </div>
+      </div>`,
     imports: [NgStyle]
 })
 export class RelatedLinkComponent implements OnInit {

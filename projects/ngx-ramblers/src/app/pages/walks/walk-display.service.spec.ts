@@ -15,7 +15,7 @@ import { WalksReferenceService } from "../../services/walks/walks-reference-data
 import { WalkDisplayService } from "./walk-display.service";
 import { EventPopulation, Organisation } from "../../models/system.model";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
-import { WalkEventService } from "../../services/walks/walk-event.service";
+import { GroupEventService } from "../../services/walks/group-event.service";
 import { EventType } from "../../models/walk.model";
 import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 import { SearchFilterPipe } from "../../pipes/search-filter.pipe";
@@ -137,7 +137,7 @@ describe("WalkDisplayService", () => {
       spy = spyOn(memberLoginService, "allowWalkAdminEdits").and.returnValue(false);
       spy = spyOn(memberLoginService, "loggedInMember").and.returnValue({memberId: "leader-id"} as any);
       const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
-      const walkEventService = TestBed.inject(WalkEventService);
+      const walkEventService = TestBed.inject(GroupEventService);
       spyOn(service, "walkPopulationLocal").and.returnValue(true);
       spyOn(walkEventService, "latestEvent").and.returnValue({
         eventType: EventType.APPROVED,

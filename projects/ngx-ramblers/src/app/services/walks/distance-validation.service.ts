@@ -1,66 +1,59 @@
-import { inject, Injectable } from "@angular/core";
-import { DistanceUnit, Walk, WalkDistance } from "../../models/walk.model";
-import { NumberUtilsService } from "../number-utils.service";
+import { Injectable } from "@angular/core";
+import { DistanceUnit, WalkDistance } from "../../models/walk.model";
+import { ExtendedGroupEvent } from "../../models/group-event.model";
 
 @Injectable({
   providedIn: "root"
 })
 
 export class DistanceValidationService {
-  private numberUtils = inject(NumberUtilsService);
   private MILES_TO_KILOMETRES_FACTOR = 1.60934;
 
-  parse(walk: Walk): WalkDistance {
+  parse(walk: ExtendedGroupEvent): WalkDistance {
     return {
-      rawData: walk.distance,
+      rawData: this.rawData(walk),
       miles: {
         value: this.walkDistanceMiles(walk),
-        valueAsString: (this.walkDistanceMiles(walk) || "").toString(),
+        valueAsString: (this.walkDistanceMiles(walk)).toString(),
         formatted: this.walkDistanceMilesAsString(walk)
       },
       kilometres: {
         value: this.walkDistanceKilometres(walk),
-        valueAsString: (this.walkDistanceKilometres(walk) || "").toString(),
+        valueAsString: (this.walkDistanceKilometres(walk)).toString(),
         formatted: this.walkDistanceKilometresAsString(walk)
       },
       validationMessage: this.validationMessage(walk),
     };
   }
-
-  walkDistanceMiles(walk: Walk): number {
-    const distanceItems = this.distanceItems(walk);
-    const units: DistanceUnit = this.distanceUnits(distanceItems);
-    const numericDistance = this.numberUtils.asNumber(distanceItems[0]);
-    switch (units) {
-      case DistanceUnit.MILES:
-        return this.numberUtils.asNumber(numericDistance, 1);
-      case DistanceUnit.KILOMETRES:
-        return this.numberUtils.asNumber(numericDistance / this.MILES_TO_KILOMETRES_FACTOR, 1);
-      case DistanceUnit.UNKNOWN:
-        break;
-    }
+  convertMilesToKm(miles: number): number {
+    return parseFloat((miles * this.MILES_TO_KILOMETRES_FACTOR).toFixed(2));
   }
 
-  walkDistanceKilometres(walk: Walk): number {
-    const distanceItems = this.distanceItems(walk);
-    const units: DistanceUnit = this.distanceUnits(distanceItems);
-    const numericDistance = this.numberUtils.asNumber(distanceItems[0]);
-    switch (units) {
-      case DistanceUnit.MILES:
-        return this.numberUtils.asNumber(numericDistance * this.MILES_TO_KILOMETRES_FACTOR, 1);
-      case DistanceUnit.KILOMETRES:
-        return this.numberUtils.asNumber(numericDistance, 1);
-      case DistanceUnit.UNKNOWN:
-        break;
-    }
+  convertKmToMiles(km: number): number {
+    return parseFloat((km / this.MILES_TO_KILOMETRES_FACTOR).toFixed(2));
+  }
+  walkDistanceMiles(walk: ExtendedGroupEvent): number {
+    if (walk.groupEvent.distance_miles > 0) {
+      return walk.groupEvent.distance_miles;
+    } else if (walk.groupEvent.distance_km > 0) {
+      return walk.groupEvent.distance_km / this.MILES_TO_KILOMETRES_FACTOR;
+    } else return 0;
   }
 
-  private validationMessage(walk: Walk) {
-    const distanceItems = this.distanceItems(walk);
-    const units: DistanceUnit = this.distanceUnits(distanceItems);
-    if (walk?.distance?.length > 0) {
+  walkDistanceKilometres(walk: ExtendedGroupEvent): number {
+    if (walk.groupEvent.distance_km > 0) {
+      return walk.groupEvent.distance_km;
+    } else if (walk.groupEvent.distance_miles > 0) {
+      return walk.groupEvent.distance_miles * this.MILES_TO_KILOMETRES_FACTOR;
+    } else return 0;
+  }
+
+  private validationMessage(walk: ExtendedGroupEvent) {
+    const units: DistanceUnit = this.distanceUnits(walk);
+    if (walk?.groupEvent?.distance_miles > 0) {
       if (units === DistanceUnit.UNKNOWN) {
-        return `Distance in miles should be entered or miles or kilometres can be entered after the distance, but "${distanceItems[1]}" was entered`;
+        const distance = this.rawData(walk);
+        return `Distance in miles should be entered or miles or kilometres can be entered after the distance, but "${distance}" was entered`;
       } else {
         return null;
       }
@@ -69,31 +62,30 @@ export class DistanceValidationService {
     }
   }
 
-  private distanceUnits(distanceItems: string[]): DistanceUnit {
-    const units = distanceItems.length > 1 ? distanceItems[1] : null;
-    if (units === null || units.toLowerCase().startsWith("m")) {
+  private rawData(walk: ExtendedGroupEvent): string {
+    return walk.groupEvent?.distance_miles ? (`${walk.groupEvent.distance_miles} miles`) : walk.groupEvent?.distance_km ? (`${walk.groupEvent.distance_km} km`) : "nothing";
+  }
+
+  private distanceUnits(walk: ExtendedGroupEvent): DistanceUnit {
+    if (walk?.groupEvent?.distance_miles > 0) {
       return DistanceUnit.MILES;
-    } else if (units.toLowerCase().startsWith("k")) {
+    } else if (walk.groupEvent.distance_km > 0) {
       return DistanceUnit.KILOMETRES;
     } else {
       return DistanceUnit.UNKNOWN;
     }
   }
 
-  walkDistances(walk: Walk) {
+  walkDistances(walk: ExtendedGroupEvent) {
     return `${this.walkDistanceMilesAsString(walk)} / ${this.walkDistanceKilometresAsString(walk)}`;
   }
 
-  private distanceItems(walk: Walk): string[] {
-    return walk?.distance?.split(" ")?.map(item => item.trim())?.filter(item => item) || [];
-  }
-
   walkDistanceMilesAsString(walk) {
-    return this.walkDistanceMiles(walk) !== null ? `${this.walkDistanceMiles(walk)} mi` : "";
+    return this.walkDistanceMiles(walk) > 0 ? `${this.walkDistanceMiles(walk)} mi` : "";
   }
 
   walkDistanceKilometresAsString(walk) {
-    return this.walkDistanceMiles(walk) !== null ? `${this.walkDistanceKilometres(walk)} km` : "";
+    return this.walkDistanceKilometres(walk) > 0 ? `${this.walkDistanceKilometres(walk)} km` : "";
   }
 
 }

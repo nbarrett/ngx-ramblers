@@ -16,8 +16,8 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { AlertInstance } from "../../services/notifier.service";
 import { UrlService } from "../../services/url.service";
-import { Walk } from "../../models/walk.model";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
+import { ExtendedGroupEvent } from "../../models/group-event.model";
 
 @Injectable({
   providedIn: "root"
@@ -120,11 +120,11 @@ export class CommitteeDisplayService {
     }
   }
 
-  ramblersEventType(walk: Walk): RamblersEventType {
-    return walk?.eventType || RamblersEventType.GROUP_WALK;
+  ramblersEventType(walk: ExtendedGroupEvent): RamblersEventType {
+    return walk?.groupEvent.item_type || RamblersEventType.GROUP_WALK;
   }
 
-  groupEventType(walk: Walk): GroupEventType {
+  groupEventType(walk: ExtendedGroupEvent): GroupEventType {
     switch (this.ramblersEventType(walk)) {
       case RamblersEventType.GROUP_WALK:
         return groupEventTypeFor("walk");

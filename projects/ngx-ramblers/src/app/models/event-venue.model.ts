@@ -1,6 +1,6 @@
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 
-export interface WalkVenue {
+export interface Venue {
   venuePublish?: boolean;
   type?: string;
   name?: string;

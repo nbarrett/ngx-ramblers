@@ -2,10 +2,10 @@ import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { SocialEvent } from "../../../models/social-events.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { PageService } from "../../../services/page.service";
 import { SocialViewComponent } from "../social-view/social-view";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
 
 @Component({
     selector: "app-social-view-page",
@@ -20,10 +20,10 @@ export class SocialViewPageComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private pageService = inject(PageService);
   public relativePath: string;
-  public socialEvent: SocialEvent;
+  public socialEvent: ExtendedGroupEvent;
   private subscriptions: Subscription[] = [];
 
-  @Input("socialEvent") set acceptSocialEventChange(socialEvent: SocialEvent) {
+  @Input("socialEvent") set acceptSocialEventChange(socialEvent: ExtendedGroupEvent) {
     this.logger.info("Input:socialEvent:", socialEvent);
     this.socialEvent = socialEvent;
   }

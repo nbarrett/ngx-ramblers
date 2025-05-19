@@ -7,7 +7,7 @@ import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { DataQueryOptions, DateCriteria } from "../../../models/api-request.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
-import { EventsData, SocialEvent } from "../../../models/social-events.model";
+import { EventsData } from "../../../models/social-events.model";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -23,6 +23,7 @@ import { SocialSearchComponent } from "../social-search/social-search";
 import { FormsModule } from "@angular/forms";
 import { SocialListCardsComponent } from "../social-list-cards/social-list-cards";
 import { DateFilterParameters } from "../../../models/search.model";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
 
 @Component({
     selector: "app-social-events",
@@ -69,9 +70,9 @@ export class SocialEventsComponent implements OnInit, OnDestroy {
   public pageNumber = 1;
   public pageCount: number;
   public pages: number[] = [];
-  public socialEvents: SocialEvent[] = [];
-  public filteredSocialEvents: SocialEvent[] = [];
-  public currentPageSocials: SocialEvent[] = this.filteredSocialEvents;
+  public socialEvents: ExtendedGroupEvent[] = [];
+  public filteredSocialEvents: ExtendedGroupEvent[] = [];
+  public currentPageSocials: ExtendedGroupEvent[] = this.filteredSocialEvents;
   @Input() rowIndex: number;
   @Input() eventsData: EventsData;
 
@@ -106,7 +107,7 @@ export class SocialEventsComponent implements OnInit, OnDestroy {
     const dataQueryOptions = {criteria: this.criteria(), sort: this.sort()};
     this.logger.info("refreshSocialEvents:dataQueryOptions", dataQueryOptions);
     this.queryAndReturnSocialEvents(dataQueryOptions)
-      .then((socialEvents: SocialEvent[]) => {
+      .then((socialEvents: ExtendedGroupEvent[]) => {
         this.logger.info("received socialEvents:", socialEvents);
         this.display.confirm.clear();
         this.socialEvents = socialEvents;
@@ -122,7 +123,7 @@ export class SocialEventsComponent implements OnInit, OnDestroy {
       });
   }
 
-  private queryAndReturnSocialEvents(dataQueryOptions: DataQueryOptions): Promise<SocialEvent[]> {
+  private queryAndReturnSocialEvents(dataQueryOptions: DataQueryOptions): Promise<ExtendedGroupEvent[]> {
     if (this.memberLoginService.memberLoggedIn()) {
       return this.socialEventsService.all(dataQueryOptions);
     } else {
@@ -199,7 +200,7 @@ export class SocialEventsComponent implements OnInit, OnDestroy {
     this.applyPagination();
   }
 
-  paginate(walks: SocialEvent[], pageSize, pageNumber): SocialEvent[] {
+  paginate(walks: ExtendedGroupEvent[], pageSize, pageNumber): ExtendedGroupEvent[] {
     return walks.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
   }
 

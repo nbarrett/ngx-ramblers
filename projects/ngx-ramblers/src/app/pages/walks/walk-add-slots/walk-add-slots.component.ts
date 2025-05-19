@@ -4,7 +4,6 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { AlertMessage, AlertTarget } from "../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { DateValue } from "../../../models/date.model";
-import { Walk } from "../../../models/walk.model";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -12,14 +11,13 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { UrlService } from "../../../services/url.service";
-import { WalkEventService } from "../../../services/walks/walk-event.service";
+import { GroupEventService } from "../../../services/walks/group-event.service";
 import { WalksQueryService } from "../../../services/walks/walks-query.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
-import { WalksService } from "../../../services/walks/walks.service";
+import { WalksAndEventsService } from "../../../services/walks/walks-and-events.service";
 import { DisplayDatesAndTimesPipe } from "../../../pipes/display-dates-and-times.pipe";
 import uniq from "lodash-es/uniq";
 import { DisplayDatesPipe } from "../../../pipes/display-dates.pipe";
-import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
@@ -28,6 +26,8 @@ import { FormsModule } from "@angular/forms";
 import { DatePickerComponent } from "../../../date-picker/date-picker.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgClass } from "@angular/common";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { EventDefaultsService } from "../../../services/event-defaults.service";
 
 @Component({
     selector: "app-walk-add-slots",
@@ -165,7 +165,7 @@ import { NgClass } from "@angular/common";
 export class WalkAddSlotsComponent implements OnInit {
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkAddSlotsComponent", NgxLoggerLevel.ERROR);
-  private walksService = inject(WalksService);
+  private walksAndEventsService = inject(WalksAndEventsService);
   private memberLoginService = inject(MemberLoginService);
   private displayDate = inject(DisplayDatePipe);
   private displayDates = inject(DisplayDatesPipe);
@@ -176,13 +176,14 @@ export class WalkAddSlotsComponent implements OnInit {
   private notifierService = inject(NotifierService);
   protected display = inject(WalkDisplayService);
   private systemConfigService = inject(SystemConfigService);
-  private broadcastService = inject<BroadcastService<Walk[]>>(BroadcastService);
+  private broadcastService = inject<BroadcastService<ExtendedGroupEvent[]>>(BroadcastService);
   private urlService = inject(UrlService);
-  private walkEventService = inject(WalkEventService);
+  private walkEventService = inject(GroupEventService);
   private walksReferenceService = inject(WalksReferenceService);
+  private eventDefaultsService = inject(EventDefaultsService);
   public confirmAction = false;
   private notify: AlertInstance;
-  private requiredWalkSlots: Walk[] = [];
+  private requiredWalkSlots: ExtendedGroupEvent[] = [];
   public singleDate: DateValue;
   public untilDate: DateValue;
   private todayValue: number;
@@ -216,14 +217,8 @@ export class WalkAddSlotsComponent implements OnInit {
 
   createSlots(requiredSlots: number[], message: AlertMessage) {
     this.requiredWalkSlots = requiredSlots.map(date => {
-      const walk: Walk = {
-        eventType: RamblersEventType.GROUP_WALK,
-        walkDate: date,
-        ramblersPublish: true,
-        events: []
-      };
-      walk.events = [this.walkEventService.createEventIfRequired(walk,
-        this.walksReferenceService.walkEventTypeMappings.awaitingLeader.eventType, "Walk slot created")];
+      const walk = this.eventDefaultsService.createDefault({start_date_time: this.dateUtils.isoDateTimeString(date)});
+      walk.events = [this.walkEventService.createEventIfRequired(walk, this.walksReferenceService.walkEventTypeMappings.awaitingLeader.eventType, "Walk slot created")];
       return walk;
     });
     this.logger.debug("requiredWalkSlots", this.requiredWalkSlots);
@@ -241,12 +236,17 @@ export class WalkAddSlotsComponent implements OnInit {
 
   }
 
+
   addWalkSlots() {
     this.notify.setBusy();
     this.notify.hide();
-    this.walksService.all({criteria: {walkDate: {$gte: this.todayValue}}, select: {events: 1, walkDate: 1}, sort: {walkDate: 1}})
-      .then((walks: Walk[]) => this.walksQueryService.activeWalks(walks))
-      .then((walks: Walk[]) => {
+    this.walksAndEventsService.all({
+      criteria: {walkDate: {$gte: this.todayValue}},
+      select: {events: 1, walkDate: 1},
+      sort: {walkDate: 1}
+    })
+      .then((walks: ExtendedGroupEvent[]) => this.walksQueryService.activeWalks(walks))
+      .then((walks: ExtendedGroupEvent[]) => {
         this.notify.clearBusy();
         const sunday = this.dateUtils.momentNowNoTime().day(7);
         const until = this.dateUtils.asMoment(this.untilDate).startOf("day");
@@ -254,7 +254,7 @@ export class WalkAddSlotsComponent implements OnInit {
           .filter(item => this.dateUtils.asMoment(item).day() === 0).filter((date) => {
             return this.dateUtils.asString(date, undefined, "DD-MMM") !== "25-Dec";
           });
-        const existingDates: number[] = this.walksQueryService.activeWalks(walks).map(walk => walk.walkDate);
+        const existingDates: number[] = this.walksQueryService.activeWalks(walks).map(walk => this.dateUtils.asValueNoTime(walk.groupEvent.start_date_time));
         this.logger.debug("sunday", sunday, "until", until);
         this.logger.debug("existingDatesAsStrings", existingDates.map(date => this.displayDate.transform(date)));
         this.logger.debug("allGeneratedSlotsAsStrings", allGeneratedSlots.map(date => this.displayDate.transform(date)));
@@ -271,7 +271,7 @@ export class WalkAddSlotsComponent implements OnInit {
   addWalkSlot() {
     this.notify.setBusy();
     this.notify.hide();
-    this.walksService.all({
+    this.walksAndEventsService.all({
       criteria: {walkDate: {$eq: this.dateUtils.asValueNoTime(this.singleDate.value)}},
       select: {events: 1, walkDate: 1},
       sort: {walkDate: 1}
@@ -323,8 +323,8 @@ export class WalkAddSlotsComponent implements OnInit {
       title: "Add walk slots - ", message: "now creating " + this.requiredWalkSlots.length
         + " empty walk slots up to " + this.displayDate.transform(this.untilDate)
     });
-    Promise.all(this.requiredWalkSlots.map((walk: Walk) => {
-      return this.walksService.createOrUpdate(walk);
+    Promise.all(this.requiredWalkSlots.map((walk: ExtendedGroupEvent) => {
+      return this.walksAndEventsService.createOrUpdate(walk);
     })).then((walkSlots) => {
       this.notify.success({title: "Done!", message: "Choose Back to walks to see your newly created slots"});
       delete this.confirmAction;
@@ -337,7 +337,7 @@ export class WalkAddSlotsComponent implements OnInit {
   }
 
   fixWalkDates() {
-    this.walksService.fixIncorrectWalkDates();
+    this.walksAndEventsService.fixIncorrectWalkDates();
   }
 
   onUntilDateChange(date: DateValue) {

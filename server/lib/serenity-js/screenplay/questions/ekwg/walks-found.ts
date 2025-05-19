@@ -53,7 +53,7 @@ const WalkSummaryDetails: MetaQuestion<PageElement, Question<Promise<WalkSummary
 export const showsAWalkOn = (expectedDate: string) => showWalksOnAllOf([expectedDate]);
 export const showWalksOnAllOf = (expectedDates: string[]) => foundWalks => {
   return foundWalks.then(walks => {
-    const walkDates = walks.map(walk => walk.walkDate);
+    const walkDates = walks.map(walk => walk.groupEvent.start_date_time);
     Ensure.that(walkDates, contain(expectedDates));
   });
 };

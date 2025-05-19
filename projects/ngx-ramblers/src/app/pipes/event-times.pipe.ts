@@ -1,12 +1,12 @@
 import { Pipe, PipeTransform } from "@angular/core";
-import { SocialEvent } from "../models/social-events.model";
+import { ExtendedGroupEvent } from "../models/group-event.model";
 
 @Pipe({ name: "eventTimes" })
 export class EventTimesPipe implements PipeTransform {
 
-  transform(socialEvent: SocialEvent) {
-    const eventTimes = socialEvent.eventTimeStart;
-    return eventTimes + (socialEvent.eventTimeEnd ? " - " + socialEvent.eventTimeEnd : "");
+  transform(socialEvent: ExtendedGroupEvent) {
+    const eventTimes = socialEvent.groupEvent.start_date_time;
+    return eventTimes + (socialEvent.groupEvent.end_date_time ? " - " + socialEvent.groupEvent.end_date_time : "");
   }
 
 }

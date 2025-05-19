@@ -6,7 +6,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { UiSwitchModule } from "ngx-ui-switch";
 import { DEFAULT_BASIC_EVENT_SELECTION } from "../../../models/search.model";
-import { DisplayedWalk, ImageSource } from "../../../models/walk.model";
+import { ImageSource } from "../../../models/walk.model";
 import { WalkImagesComponent } from "../walk-view/walk-images";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { WalkImageSelectionWalksManagerComponent } from "./walk-images-selection-walks-manager";
@@ -16,50 +16,56 @@ import { AlertInstance } from "../../../services/notifier.service";
 import { Media } from "../../../models/ramblers-walks-manager";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
 import { EditMode } from "../../../models/ui-actions";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { JsonPipe } from "@angular/common";
 
 @Component({
-  selector: "[app-walk-edit-images]",
+  selector: "[app-edit-group-event-images]",
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
       <div class="row">
-        <div class="col-md-6">
-          <div class="form-group">
-            <div class="d-flex align-items-center">
-              <label class="label mr-2" for="radio-selections">Image Selection:</label>
-              <div id="radio-selections">
-                @for (source of imageSources; track source.key) {
-                  <div class="custom-control custom-radio custom-control-inline">
-                    <input class="custom-control-input"
-                           id="image-source-{{source.key}}"
-                           name="image-source"
-                           type="radio"
-                           [value]="source.key"
-                           (ngModelChange)="imageSourceChanged($event)"
-                           [(ngModel)]="displayedWalk.walk.imageConfig.source"/>
-                    <label class="custom-control-label"
-                           for="image-source-{{source.key}}">
-                      {{ stringUtils.asTitle(source.value) }}
-                    </label>
-                  </div>
-                }
+        @if (extendedGroupEvent?.fields?.imageConfig?.source) {
+          <div class="col-md-6">
+            <div class="form-group">
+              <div class="d-flex align-items-center">
+                <label class="label mr-2" for="radio-selections">Image Selection:</label>
+                <div id="radio-selections">
+                  @for (source of imageSources; track source.key) {
+                    <!--                  <div>source:{{ source|json }}</div>-->
+                      <!--                  <div>image config source:{{ extendedGroupEvent?.fields?.imageConfig?.source }}</div>-->
+                    <div class="custom-control custom-radio custom-control-inline">
+                      <input class="custom-control-input"
+                             id="image-source-{{source.key}}"
+                             name="image-source"
+                             type="radio"
+                             [value]="source.key"
+                             (ngModelChange)="imageSourceChanged($event)"
+                             [(ngModel)]="extendedGroupEvent.fields.imageConfig.source"/>
+                      <label class="custom-control-label"
+                             for="image-source-{{source.key}}">
+                        {{ stringUtils.asTitle(source.value) }}
+                      </label>
+                    </div>
+                  }
+                </div>
               </div>
             </div>
+            @if (extendedGroupEvent?.fields?.imageConfig?.source === ImageSource.LOCAL) {
+              <input id="add-image-{{extendedGroupEvent.id}}" type="submit"
+                     value="add"
+                     (click)="createNewImage()"
+                     class="btn btn-primary">
+            }
+            @if (extendedGroupEvent?.fields?.imageConfig?.source === ImageSource.WALKS_MANAGER) {
+              <app-walk-images-selection-walks-manager [groupEvent]="extendedGroupEvent"/>
+            }
           </div>
-          @if (displayedWalk?.walk?.imageConfig.source === ImageSource.LOCAL) {
-            <input id="add-image-{{displayedWalk.walk.id}}" type="submit"
-                   value="add"
-                   (click)="createNewImage()"
-                   class="btn btn-primary">
-          }
-          @if (displayedWalk?.walk?.imageConfig.source === ImageSource.WALKS_MANAGER) {
-            <app-walk-images-selection-walks-manager [displayedWalk]="displayedWalk"/>
-          }
-        </div>
+        }
         <div class="col-md-6">
           <div class="row">
             <div class="col-sm-12">
-              @if (displayedWalk?.walk?.media?.length > 0 || awsFileData?.image) {
-                <app-walk-images [imagePreview]="awsFileData?.image" [displayedWalk]="displayedWalk"
+              @if (extendedGroupEvent?.groupEvent?.media?.length > 0 || awsFileData?.image) {
+                <app-walk-images [imagePreview]="awsFileData?.image" [extendedGroupEvent]="extendedGroupEvent"
                                  (mediaChanged)="mediaChanged($event)" allowEditImage/>
               }
             </div>
@@ -79,15 +85,15 @@ import { EditMode } from "../../../models/ui-actions";
         }
       </div>
     </div>`,
-  imports: [UiSwitchModule, WalkImagesComponent, WalkImageSelectionWalksManagerComponent, ImageCropperAndResizerComponent]
+  imports: [UiSwitchModule, WalkImagesComponent, WalkImageSelectionWalksManagerComponent, ImageCropperAndResizerComponent, JsonPipe]
 })
-export class WalkEditImagesComponent implements OnInit {
+export class EditGropuEventImagesComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("WalkEditImagesComponent", NgxLoggerLevel.ERROR);
   stringUtils = inject(StringUtilsService);
   dateUtils = inject(DateUtilsService);
   mediaQueryService = inject(MediaQueryService);
   @Input() config: SystemConfig;
-  @Input() displayedWalk!: DisplayedWalk;
+  @Input() extendedGroupEvent!: ExtendedGroupEvent;
   @Input() private notify: AlertInstance;
   imageSources: KeyValue<string>[] = enumKeyValues(ImageSource);
   ImageSource = ImageSource;
@@ -97,7 +103,7 @@ export class WalkEditImagesComponent implements OnInit {
   protected readonly RootFolder = RootFolder;
 
   async ngOnInit() {
-    this.logger.info("constructed with:config:", this.config, "this.displayedWalk:", this.displayedWalk);
+    this.logger.info("constructed with:config:", this.config, "this.groupEvent:", this.extendedGroupEvent);
     const defaultImageConfig = {
       source: ImageSource.NONE,
       importFrom: {
@@ -121,10 +127,10 @@ export class WalkEditImagesComponent implements OnInit {
       }
     };
 
-    if (!this.displayedWalk.walk.imageConfig) {
-      this.displayedWalk.walk.imageConfig = {...defaultImageConfig};
+    if (!this.extendedGroupEvent.fields.imageConfig) {
+      this.extendedGroupEvent.fields.imageConfig = {...defaultImageConfig};
     } else {
-      setDefaults(this.displayedWalk.walk.imageConfig, defaultImageConfig);
+      setDefaults(this.extendedGroupEvent.fields.imageConfig, defaultImageConfig);
     }
   }
 
@@ -155,18 +161,18 @@ export class WalkEditImagesComponent implements OnInit {
   imagedSaved(awsFileData: AwsFileData) {
     const imageSource = awsFileData.awsFileName;
     this.logger.info("imagedSaved:", awsFileData, "setting imageSource to", imageSource);
-    this.mediaQueryService.applyImageSource(this.displayedWalk.walk, this.displayedWalk.walk.briefDescriptionAndStartPoint, imageSource);
+    this.mediaQueryService.applyImageSource(this.extendedGroupEvent?.groupEvent, this.extendedGroupEvent?.groupEvent.title, imageSource);
     this.exitImageEdit();
   }
 
   imageSourceChanged(imageSource: ImageSource) {
-    this.logger.info("imageSourceChanged:", imageSource, "this.displayedWalk?.walk?.imageConfig.source", this.displayedWalk?.walk?.imageConfig.source);
-    if (imageSource === ImageSource.NONE && this.displayedWalk.walk.media.length > 0) {
-      this.logger.info("Clearing images:", this.displayedWalk.walk.media);
-      this.displayedWalk.walk.media = [];
-      this.displayedWalk.walk.imageConfig.importFrom.walkId = null;
+    this.logger.info("imageSourceChanged:", imageSource, "this.groupEvent?.fields?.imageConfig.source", this.extendedGroupEvent?.fields?.imageConfig?.source);
+    if (imageSource === ImageSource.NONE && this.extendedGroupEvent?.groupEvent?.media?.length > 0) {
+      this.logger.info("Clearing images:", this.extendedGroupEvent?.groupEvent?.media);
+      this.extendedGroupEvent.groupEvent.media = [];
+      this.extendedGroupEvent.fields.imageConfig.importFrom.walkId = null;
     } else {
-      this.logger.info("No change to media required:", this.displayedWalk.walk.media);
+      this.logger.info("No change to media required:", this.extendedGroupEvent?.groupEvent.media);
     }
   }
 
@@ -177,7 +183,7 @@ export class WalkEditImagesComponent implements OnInit {
   }
 
   imageSourceOrPreview(): string {
-    return this.editMode === EditMode.ADD_NEW ? null : (this.awsFileData?.awsFileName || this.mediaQueryService.basicMediaFrom(this.displayedWalk.walk)?.[0]?.url);
+    return this.editMode === EditMode.ADD_NEW ? null : (this.awsFileData?.awsFileName || this.mediaQueryService.basicMediaFrom(this.extendedGroupEvent?.groupEvent)?.[0]?.url);
   }
 
 }

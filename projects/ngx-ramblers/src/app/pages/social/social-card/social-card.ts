@@ -1,7 +1,6 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { SocialEvent } from "../../../models/social-events.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance } from "../../../services/notifier.service";
 import { UrlService } from "../../../services/url.service";
@@ -10,28 +9,29 @@ import { CardImageComponent } from "../../../modules/common/card/image/card-imag
 import { RouterLink } from "@angular/router";
 import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
 import { EventTimesPipe } from "../../../pipes/event-times.pipe";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { BasicMedia } from "../../../models/ramblers-walks-manager";
+import { MediaQueryService } from "../../../services/committee/media-query.service";
 
 @Component({
     selector: "app-social-card",
     template: `
-    <div class="card shadow clickable h-100">
-      <app-card-image [imageLink]="display.socialEventLink(socialEvent, true)"
-        [imageSource]="imageSourceOrPreview()">
-      </app-card-image>
-      <div class="card-body">
-        <h4 class="card-title">
-          <a class="rams-text-decoration-pink"
-            [routerLink]="urlService.routerLinkUrl(display.socialEventLink(socialEvent, true))"
-          target="_self">{{ socialEvent.briefDescription }}</a>
-        </h4>
-        <ul class="list-arrow">
-          <li>{{ socialEvent.eventDate | displayDay }}</li>
-          @if (socialEvent?.eventTimeStart) {
+      <div class="card shadow clickable h-100">
+        <app-card-image [imageLink]="display.socialEventLink(socialEvent, true)"
+                        [imageSource]="imageSourceOrPreview()">
+        </app-card-image>
+        <div class="card-body">
+          <h4 class="card-title">
+            <a class="rams-text-decoration-pink"
+               [routerLink]="urlService.routerLinkUrl(display.socialEventLink(socialEvent, true))"
+               target="_self">{{ socialEvent.groupEvent.title }}</a>
+          </h4>
+          <ul class="list-arrow">
+            <li>{{ socialEvent.groupEvent.start_date_time | displayDay }}</li>
             <li>Time: {{ socialEvent | eventTimes }}</li>
-          }
-        </ul>
-      </div>
-    </div>`,
+          </ul>
+        </div>
+      </div>`,
     imports: [CardImageComponent, RouterLink, DisplayDayPipe, EventTimesPipe]
 })
 export class SocialCardComponent implements OnInit {
@@ -39,11 +39,11 @@ export class SocialCardComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("SocialCardComponent", NgxLoggerLevel.ERROR);
   display = inject(SocialDisplayService);
   urlService = inject(UrlService);
-  public socialEvents: SocialEvent[] = [];
+  mediaQueryService = inject(MediaQueryService);
   public notify: AlertInstance;
 
   @Input()
-  public socialEvent: SocialEvent;
+  public socialEvent: ExtendedGroupEvent;
   @Input()
   public imagePreview: string;
 
@@ -53,8 +53,13 @@ export class SocialCardComponent implements OnInit {
     this.logger.info("socialEvent:", this.socialEvent);
   }
 
+  currentBasicMedia(): BasicMedia {
+    return this.mediaQueryService.basicMediaFrom(this.socialEvent.groupEvent)[0];
+  }
+
+
   imageSourceOrPreview(): string {
-    return this.imagePreview || this.socialEvent?.thumbnail;
+    return this.imagePreview || this.currentBasicMedia()?.url;
   }
 
 }

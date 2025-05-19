@@ -1,6 +1,6 @@
 import { Component, Input } from "@angular/core";
-import { WALK_GRADES, WalkGrade } from "../../../models/walk.model";
-import { RelatedLinkComponent } from "../../../modules/common/related-link/related-link.component";
+import { WalkGrade, walkGradeFrom } from "../../../models/walk.model";
+import { RelatedLinkComponent } from "../../../modules/common/related-links/related-link";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 @Component({
@@ -26,7 +26,7 @@ export class WalkGradingComponent {
 
   @Input("grading") set init(grading: string) {
     this.grading = grading;
-    this.walkGrade = WALK_GRADES.find((grade) => grade.description.toLowerCase() === grading?.toLowerCase());
+    this.walkGrade = walkGradeFrom(grading);
   }
 
 

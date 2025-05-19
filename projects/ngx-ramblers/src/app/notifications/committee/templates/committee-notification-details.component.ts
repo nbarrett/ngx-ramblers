@@ -1,6 +1,6 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { CommitteeFile, GroupEvent, Notification, NotificationItem } from "../../../models/committee.model";
+import { CommitteeFile, GroupEventSummary, Notification, NotificationItem } from "../../../models/committee.model";
 import { Member } from "../../../models/member.model";
 import { CommitteeDisplayService } from "../../../pages/committee/committee-display.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
@@ -73,7 +73,7 @@ export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy 
   private subscriptions: Subscription[] = [];
   public group: Organisation;
 
-  selectedGroupEvents(): GroupEvent[] {
+  selectedGroupEvents(): GroupEventSummary[] {
     return this.notification.groupEvents.filter(item => item.selected);
   }
 
@@ -86,7 +86,7 @@ export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy 
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
-  toNotificationItem(event: GroupEvent, notification: Notification): NotificationItem {
+  toNotificationItem(event: GroupEventSummary, notification: Notification): NotificationItem {
     const href = this.display.urlService.linkUrl({area: event.eventType.area, id: event.id});
     const title = "View " + event.eventType.description;
     const image = notification.groupEventsFilter.includeImage ? {

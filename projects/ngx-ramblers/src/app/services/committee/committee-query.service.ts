@@ -8,8 +8,8 @@ import {
   CommitteeFile,
   CommitteeMember,
   CommitteeYear,
-  GroupEvent,
   GroupEventsFilter,
+  GroupEventSummary,
   GroupEventTypes
 } from "../../models/committee.model";
 import { Member } from "../../models/member.model";
@@ -22,15 +22,15 @@ import { MemberLoginService } from "../member/member-login.service";
 import { MemberService } from "../member/member.service";
 import { SocialEventsService } from "../social-events/social-events.service";
 import { WalksQueryService } from "../walks/walks-query.service";
-import { WalksService } from "../walks/walks.service";
+import { WalksAndEventsService } from "../walks/walks-and-events.service";
 import { CommitteeConfigService } from "./commitee-config.service";
 import { CommitteeFileService } from "./committee-file.service";
 import { CommitteeReferenceData } from "./committee-reference-data";
 import { toMongoIds } from "../mongo-utils";
-import { SocialEvent } from "../../models/social-events.model";
 import { isNumericRamblersId } from "../path-matchers";
 import { MediaQueryService } from "./media-query.service";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
+import { ExtendedGroupEvent } from "../../models/group-event.model";
 
 @Injectable({
   providedIn: "root"
@@ -41,7 +41,7 @@ export class CommitteeQueryService {
   display = inject(CommitteeDisplayService);
   private dateUtils = inject(DateUtilsService);
   private mediaQueryService = inject(MediaQueryService);
-  private walksService = inject(WalksService);
+  private walksAndEventsService = inject(WalksAndEventsService);
   private memberService = inject(MemberService);
   private walksQueryService = inject(WalksQueryService);
   private committeeFileService = inject(CommitteeFileService);
@@ -60,12 +60,12 @@ export class CommitteeQueryService {
     this.queryCommitteeMembers();
   }
 
-  groupEvents(groupEventsFilter: GroupEventsFilter): Promise<GroupEvent[]> {
+  groupEvents(groupEventsFilter: GroupEventsFilter): Promise<GroupEventSummary[]> {
     this.logger.info("groupEventsFilter", groupEventsFilter);
     const fromDate = groupEventsFilter.fromDate.value;
     const toDate = groupEventsFilter.toDate.value;
     this.logger.info("groupEventsFilter:fromDate", this.displayDatePipe.transform(fromDate), "toDate", this.displayDatePipe.transform(toDate));
-    const events: GroupEvent[] = [];
+    const events: GroupEventSummary[] = [];
     const promises = [];
     const committeeContactDetails: CommitteeMember = first(this.committeeReferenceData?.committeeMembersForRole("secretary"));
     const mongoIds = this.mongoOrRawIdsFrom(groupEventsFilter);
@@ -76,9 +76,9 @@ export class CommitteeQueryService {
     };
 
     if (groupEventsFilter.includeWalks) {
-      const textBasedCriteria = groupEventsFilter.search?.length > 0 ? {briefDescriptionAndStartPoint: regex} : null;
+      const textBasedCriteria = groupEventsFilter.search?.length > 0 ? {["groupEvent.title"]: regex} : null;
       promises.push(
-        this.walksService.all({
+        this.walksAndEventsService.all({
           criteria: textBasedCriteria || idBasedCriteria || {
             walkDate: {
               $gte: fromDate,
@@ -86,22 +86,22 @@ export class CommitteeQueryService {
             }
           }
         }, [], [RamblersEventType.GROUP_WALK])
-          .then(walks => this.walksQueryService.activeWalks(walks))
-          .then(walks => walks?.forEach(walk => events.push({
+          .then((walks: ExtendedGroupEvent[]) => this.walksQueryService.activeWalks(walks))
+          .then((walks: ExtendedGroupEvent[]) => walks?.forEach(walk => events.push({
             id: walk.id,
             selected: true,
             eventType: this.display.groupEventType(walk),
-            eventDate: walk.walkDate,
-            eventTime: walk.startTime,
-            distance: walk.distance,
+            eventDate: this.dateUtils.asMoment(walk.groupEvent.start_date_time),
+            eventTime: walk.groupEvent.start_date_time,
+            distance: walk.groupEvent.distance_miles.toString(),
             location: null,
-            postcode: walk.start_location?.postcode,
-            title: walk.briefDescriptionAndStartPoint || "Awaiting walk details",
-            description: walk.longerDescription,
-            contactName: walk.displayName || "Awaiting walk leader",
-            contactPhone: walk.contactPhone,
-            contactEmail: walk.contactEmail,
-            image: this.mediaQueryService.imageUrlFrom(walk)
+            postcode: walk.groupEvent.start_location?.postcode,
+            title: walk.groupEvent.title || "Awaiting walk details",
+            description: walk.groupEvent.description,
+            contactName: walk.fields.contactDetails.phone || "Awaiting walk leader",
+            contactPhone: walk.fields.contactDetails.phone,
+            contactEmail: walk.fields.contactDetails.email,
+            image: this.mediaQueryService.imageUrlFrom(walk.groupEvent)
           }))));
     }
     if (groupEventsFilter.includeCommitteeEvents) {
@@ -139,22 +139,22 @@ export class CommitteeQueryService {
             }
           }
         })
-          .then((socialEvents: SocialEvent[]) => socialEvents.forEach(socialEvent => {
+          .then((socialEvents: ExtendedGroupEvent[]) => socialEvents.forEach(socialEvent => {
             this.logger.info("social event:", socialEvent);
             events.push({
               id: socialEvent.id,
               selected: true,
               eventType: GroupEventTypes.SOCIAL,
-              eventDate: socialEvent.eventDate,
-              eventTime: socialEvent.eventTimeStart,
-              location: socialEvent.location,
-              postcode: socialEvent.postcode,
-              title: socialEvent.briefDescription,
-              description: socialEvent.longerDescription,
-              contactName: socialEvent.displayName,
-              contactPhone: socialEvent.contactPhone,
-              contactEmail: socialEvent.contactEmail,
-              image: this.mediaQueryService.imageFromSocialEvent(socialEvent)
+              eventDate: this.dateUtils.asMoment(socialEvent.groupEvent.start_date_time).valueOf(),
+              eventTime: socialEvent.groupEvent.start_date_time,
+              location: socialEvent.groupEvent.location.description,
+              postcode: socialEvent.groupEvent.location.postcode,
+              title: socialEvent.groupEvent.title,
+              description: socialEvent.groupEvent.description,
+              contactName: socialEvent.fields.contactDetails.displayName,
+              contactPhone: socialEvent.fields.contactDetails.phone,
+              contactEmail: socialEvent.fields.contactDetails.email,
+              image: this.mediaQueryService.imageSource(socialEvent)?.url
             });
           })));
     }

@@ -2,7 +2,7 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { WalksQueryService } from "../../../services/walks/walks-query.service";
-import { DisplayedWalk, ImageSource, WalkForSelect } from "../../../models/walk.model";
+import { ImageSource, WalkForSelect } from "../../../models/walk.model";
 import { RamblersGroupsApiResponse, RamblersGroupWithLabel } from "../../../models/ramblers-walks-manager";
 import { sortBy } from "../../../functions/arrays";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -12,6 +12,7 @@ import { FormsModule } from "@angular/forms";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { HasBasicEventSelection } from "../../../models/search.model";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
 
 @Component({
   selector: "app-walk-images-selection-walks-manager",
@@ -31,14 +32,14 @@ import { HasBasicEventSelection } from "../../../models/search.model";
                    [clearable]="true"
                    [loading]="loadingGroups"
                    placeholder="Select one or more groups..."
-                   [ngModel]="displayedWalk.walk.imageConfig.importFrom.groupCode"
+                   [ngModel]="groupEvent.fields.imageConfig.importFrom.groupCode"
                    (ngModelChange)="groupChange($event)">
         </ng-select>
       </div>
       <div class="form-group">
         <label for="walk-filter">Walk Selection</label>
         <select id="walk-filter"
-                [(ngModel)]="displayedWalk.walk.imageConfig.importFrom.filterParameters.selectType"
+                [(ngModel)]="groupEvent.fields.imageConfig.importFrom.filterParameters.selectType"
                 (ngModelChange)="refreshWalks()"
                 name="selectType"
                 class="form-control rounded">
@@ -59,7 +60,7 @@ import { HasBasicEventSelection } from "../../../models/search.model";
                    [dropdownPosition]="'bottom'"
                    [clearAllText]="'clear current selection'"
                    [closeOnSelect]="true"
-                   [(ngModel)]="displayedWalk.walk.imageConfig.importFrom.walkId"
+                   [(ngModel)]="groupEvent.fields.imageConfig.importFrom.walkId"
                    (ngModelChange)="walkChange($event)">
         </ng-select>
       </div>
@@ -79,19 +80,18 @@ export class WalkImageSelectionWalksManagerComponent implements OnInit {
   areaGroup: RamblersGroupsApiResponse;
   public walks: WalkForSelect[] = [];
   public walk: WalkForSelect;
-  @Input() displayedWalk: DisplayedWalk;
-  protected readonly ImageSource = ImageSource;
+  @Input() groupEvent!: ExtendedGroupEvent;
 
   async ngOnInit() {
     await this.refreshGroupsAndWalksIfApplicable();
   }
 
   private async refreshGroupsAndWalksIfApplicable() {
-    if (this.displayedWalk?.walk?.imageConfig.source === ImageSource.WALKS_MANAGER && this.displayedWalk?.walk?.imageConfig?.importFrom?.areaCode) {
-      await this.queryGroups(this.displayedWalk.walk.imageConfig.importFrom.areaCode);
+    if (this.groupEvent?.fields?.imageConfig?.source === ImageSource.WALKS_MANAGER && this.groupEvent?.fields?.imageConfig?.importFrom?.areaCode) {
+      await this.queryGroups(this.groupEvent.fields.imageConfig.importFrom.areaCode);
       this.updateSelectedGroupCodes();
     } else {
-      this.logger.info("Not querying groups and walks - areaCode:", this.displayedWalk?.walk?.imageConfig?.importFrom?.areaCode, "imageConfig.source:", this.displayedWalk?.walk?.imageConfig.source);
+      this.logger.info("Not querying groups and walks - areaCode:", this.groupEvent?.fields?.imageConfig?.importFrom?.areaCode, "imageConfig.source:", this.groupEvent?.fields?.imageConfig.source);
     }
   }
 
@@ -100,7 +100,7 @@ export class WalkImageSelectionWalksManagerComponent implements OnInit {
   }
 
   private updateSelectedGroupCodes() {
-    this.selectedGroup = this.availableGroups.find(group => group.group_code === this.displayedWalk?.walk?.imageConfig?.importFrom?.groupCode);
+    this.selectedGroup = this.availableGroups.find(group => group.group_code === this.groupEvent?.fields?.imageConfig?.importFrom?.groupCode);
   }
 
   public async queryGroups(group: string): Promise<void> {
@@ -127,18 +127,18 @@ export class WalkImageSelectionWalksManagerComponent implements OnInit {
   }
 
   refreshWalks() {
-    const {groupCode, filterParameters} = this.displayedWalk.walk.imageConfig.importFrom;
+    const {groupCode, filterParameters} = this.groupEvent.fields.imageConfig.importFrom;
     const parameters = {
       groupCode,
       dataQueryOptions: this.walksQueryService.dataQueryOptions(filterParameters)
     };
     this.ramblersWalksAndEventsService.all(parameters).then(walks => {
       this.walks = walks
-        .filter(walk => walk.media?.length > 0)
+        .filter(walk => walk.groupEvent?.media?.length > 0)
         .sort(sortBy(this.sortColumn(filterParameters)))
         .map(walk => ({
           ...walk,
-          ngSelectAttributes: {label: `${this.dateUtils.displayDate(walk.walkDate)} - ${walk.briefDescriptionAndStartPoint} - ${walk.contactName || "no walk leader found"}`}
+          ngSelectAttributes: {label: `${this.dateUtils.displayDate(walk.groupEvent.start_date_time)} - ${walk.groupEvent.title} - ${walk.fields.contactDetails.displayName || "no walk leader found"}`}
         }));
     });
   }
@@ -148,13 +148,13 @@ export class WalkImageSelectionWalksManagerComponent implements OnInit {
   }
 
   walkChange(walkId: string) {
-    this.logger.info("onChange of walkId:", walkId, "imageConfig:", this.displayedWalk.walk.imageConfig);
+    this.logger.info("onChange of walkId:", walkId, "imageConfig:", this.groupEvent.fields.imageConfig);
     const ramblersWalk = this.walks.find(walk => walk.id === walkId);
-    this.ramblersWalksAndEventsService.copyMediaIfApplicable(this.displayedWalk.walk, ramblersWalk, true);
+    this.ramblersWalksAndEventsService.copyMediaIfApplicable(this.groupEvent, ramblersWalk.groupEvent, true);
   }
 
   groupChange(groupCode: string) {
-    this.displayedWalk.walk.imageConfig.importFrom.groupCode = groupCode;
+    this.groupEvent.fields.imageConfig.importFrom.groupCode = groupCode;
     this.refreshWalks();
   }
 }

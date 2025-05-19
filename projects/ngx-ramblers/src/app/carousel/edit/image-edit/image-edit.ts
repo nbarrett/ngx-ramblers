@@ -3,7 +3,12 @@ import isArray from "lodash-es/isArray";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { AwsFileData } from "../../../models/aws-object.model";
-import { GroupEvent, GroupEventType, groupEventTypeFor, uploadGroupEventType } from "../../../models/committee.model";
+import {
+  GroupEventSummary,
+  GroupEventType,
+  groupEventTypeFor,
+  uploadGroupEventType
+} from "../../../models/committee.model";
 import {
   ContentMetadata,
   ContentMetadataItem,
@@ -276,7 +281,7 @@ export class ImageEditComponent implements OnInit {
   public duplicateImages: DuplicateImages;
   public groupEventType: GroupEventType;
   public contentMetadataImageTags: ImageTag[];
-  public groupEvents: GroupEvent[] = [];
+  public groupEvents: GroupEventSummary[] = [];
   public item: ContentMetadataItem;
   public index: number;
   public filteredFiles: ContentMetadataItem[];
@@ -433,7 +438,7 @@ export class ImageEditComponent implements OnInit {
     this.item.dateSource = groupEventType.area;
   }
 
-  eventChange(groupEvent: GroupEvent) {
+  eventChange(groupEvent: GroupEventSummary) {
     this.item.date = groupEvent.eventDate;
     this.item.text = groupEvent.title;
     this.item.eventId = groupEvent.id;

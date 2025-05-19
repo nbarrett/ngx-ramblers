@@ -17,7 +17,7 @@ export class SelectWalksWithStatus extends Task {
         ...walks
           .filter((walk, index) => WalkFilters.withStatus(walk, ...this.statuses))
           .map(walk =>
-            SelectCheckbox.checked().from(WalksPageElements.checkboxSelector(walk.tableRow, walk.walkDate)))));
+            SelectCheckbox.checked().from(WalksPageElements.checkboxSelector(walk.tableRow, walk.groupEvent.start_date_time)))));
   }
 
 }

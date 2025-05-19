@@ -2,8 +2,8 @@ import { ApiResponse, Identifiable } from "./api-response.model";
 import { MailchimpSubscription } from "./mailchimp.model";
 import { MailIdentifiers, MailSubscription } from "./mail.model";
 import { sortBy } from "../functions/arrays";
-import { Walk } from "./walk.model";
 import { Contact } from "./ramblers-walks-manager";
+import { ExtendedGroupEvent } from "./group-event.model";
 
 export enum ProfileUpdateType {
   LOGIN_DETAILS = "login details",
@@ -150,12 +150,12 @@ export interface BulkLoadMemberAndMatch {
 
 export interface WalksImportPreparation {
   bulkLoadMembersAndMatchesToWalks: BulkLoadMemberAndMatchToWalks[];
-  existingWalksWithinRange: Walk[];
+  existingWalksWithinRange: ExtendedGroupEvent[];
 }
 
 export interface BulkLoadMemberAndMatchToWalks {
   bulkLoadMemberAndMatch: BulkLoadMemberAndMatch;
-  walks: Walk[];
+  walks: ExtendedGroupEvent[];
 }
 
 export interface RamblersMemberAndContact {

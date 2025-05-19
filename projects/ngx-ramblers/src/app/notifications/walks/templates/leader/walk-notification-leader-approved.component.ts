@@ -6,7 +6,7 @@ import { DisplayDatePipe } from "../../../../pipes/display-date.pipe";
 @Component({
     selector: "app-walk-notification-leader-approved",
     template: `
-    <p>This message is just to let you know that your walk on <strong [textContent]="walk.walkDate | displayDate"
+    <p>This message is just to let you know that your walk on <strong [textContent]="walk.groupEvent.start_date_time | displayDate"
     ></strong> has been approved and is
     now published on our website!</p>
     @if (event.reason) {

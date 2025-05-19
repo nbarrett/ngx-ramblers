@@ -12,7 +12,7 @@
           <label for="type">Type</label>
           @if (venueTypes) {
             <select [disabled]="disabledInput" class="form-control input-sm"
-                    [(ngModel)]="displayedWalk.walk.venue.type"
+                    [(ngModel)]="displayedWalk.walk.fields.venue.type"
                     id="type">
               @for (type of venueTypes; track venueTracker($index, type)) {
                 <option
@@ -28,7 +28,7 @@
         <div class="form-group">
           <label for="name">Name</label>
           <input [disabled]="disabledInput"
-                 [(ngModel)]="displayedWalk.walk.venue.name"
+                 [(ngModel)]="displayedWalk.walk.fields.venue.name"
                  type="text" class="form-control input-sm"
                  id="name"
                  placeholder="Enter name of venue or pub">
@@ -38,7 +38,7 @@
         <div class="form-group">
           <label for="address1">Address 1</label>
           <input [disabled]="disabledInput"
-                 [(ngModel)]="displayedWalk.walk.venue.address1"
+                 [(ngModel)]="displayedWalk.walk.fields.venue.address1"
                  type="text" class="form-control input-sm"
                  id="address1"
                  placeholder="Enter first line of the address">
@@ -48,7 +48,7 @@
         <div class="form-group">
           <label for="address2">Address 2</label>
           <input [disabled]="disabledInput"
-                 [(ngModel)]="displayedWalk.walk.venue.address2"
+                 [(ngModel)]="displayedWalk.walk.fields.venue.address2"
                  type="text" class="form-control input-sm"
                  id="address2"
                  placeholder="Enter second line of the address">
@@ -58,7 +58,7 @@
         <div class="form-group">
           <label for="postcode">Postcode</label>
           <input [disabled]="disabledInput"
-                 [(ngModel)]="displayedWalk.walk.venue.postcode"
+                 [(ngModel)]="displayedWalk.walk.fields.venue.postcode"
                  type="text" class="form-control input-sm"
                  id="postcode"
                  placeholder="Enter postcode">
@@ -68,7 +68,7 @@
         <div class="form-group">
           <label for="url">Web address</label>
           <input [disabled]="disabledInput"
-                 [(ngModel)]="displayedWalk.walk.venue.url"
+                 [(ngModel)]="displayedWalk.walk.fields.venue.url"
                  type="text" class="form-control input-sm"
                  id="url"
                  placeholder="Enter web address">
@@ -77,7 +77,7 @@
       @if (allowEdits()) {
         <div class="col-sm-6">
           <div class="custom-control custom-checkbox">
-            <input [(ngModel)]="displayedWalk.walk.venue.venuePublish"
+            <input [(ngModel)]="displayedWalk.walk.fields.venue.venuePublish"
                    [disabled]="!allowEdits()"
                    name="showDetail" class="custom-control-input" type="checkbox" class="custom-control-input"
                    id="walk-publish-venue">
@@ -89,13 +89,13 @@
       }
       @if (allowEdits()) {
         <div class="col-sm-6">
-          @if (displayedWalk.walk.venue.url) {
+          @if (displayedWalk.walk.fields.venue.url) {
             <div class="form-group">
               <label>Link preview:
-                <fa-icon [icon]="displayedWalk.walk.venue?.type | toVenueIcon" class="fa-icon fa-lg"></fa-icon>
-                <a [href]="displayedWalk.walk.venue.url" tooltip="Click to visit {{displayedWalk.walk.venue?.name}}"
+                <fa-icon [icon]="displayedWalk.walk.fields.venue?.type | toVenueIcon" class="fa-icon fa-lg"></fa-icon>
+                <a [href]="displayedWalk.walk.fields.venue.url" tooltip="Click to visit {{displayedWalk.walk.fields.venue?.name}}"
                    class="related-links-title" target="_blank">
-                  {{ displayedWalk.walk.venue?.name }}
+                  {{ displayedWalk.walk.fields.venue?.name }}
                 </a>
               </label>
             </div>

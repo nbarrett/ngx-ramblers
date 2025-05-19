@@ -12,7 +12,7 @@ import {
   Status
 } from "../../../models/ramblers-upload-audit.model";
 import { RamblersWalksUploadRequest, WalkUploadRow } from "../../../models/ramblers-walks-manager";
-import { Walk, WalkExport } from "../../../models/walk.model";
+import { WalkExport } from "../../../models/walk.model";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -21,7 +21,7 @@ import { UrlService } from "../../../services/url.service";
 import { RamblersUploadAuditService } from "../../../services/walks/ramblers-upload-audit.service";
 import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
 import { WalksQueryService } from "../../../services/walks/walks-query.service";
-import { WalksService } from "../../../services/walks/walks.service";
+import { WalksAndEventsService } from "../../../services/walks/walks-and-events.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { CsvExportComponent, CsvOptions } from "../../../csv-export/csv-export";
 import { SystemConfigService } from "../../../services/system/system-config.service";
@@ -32,7 +32,7 @@ import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
 import { NgClass } from "@angular/common";
-import { RelatedLinkComponent } from "../../../modules/common/related-link/related-link.component";
+import { RelatedLinkComponent } from "../../../modules/common/related-links/related-link";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgOptionComponent, NgSelectComponent } from "@ng-select/ng-select";
 import { ValueOrDefaultPipe } from "../../../pipes/value-or-default.pipe";
@@ -43,6 +43,7 @@ import { ApiResponse } from "../../../models/api-response.model";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { StatusIconComponent } from "../../admin/status-icon";
 import last from "lodash-es/last";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
 
 @Component({
   selector: "app-walk-export",
@@ -107,17 +108,17 @@ import last from "lodash-es/last";
                       <h3 class="card-title">
                         <a tooltip="View this walk in another tab" placement="auto"
                            [href]="walkExport.displayedWalk.walkLink" class="rams-text-decoration-pink active"
-                           target="_blank">{{ walkExport.displayedWalk.walk.briefDescriptionAndStartPoint || walkExport.displayedWalk.latestEventType.description }}</a>
+                           target="_blank">{{ walkExport.displayedWalk.walk.groupEvent.title || walkExport.displayedWalk.latestEventType.description }}</a>
                       </h3>
                       <div (click)="ignoreClicks($event)" [ngClass]="{'card-disabled': !walkExport.selected}">
                         <dl class="d-flex">
                           <dt class="font-weight-bold mr-2">Date and time:</dt>
-                          <time>{{ walkExport.displayedWalk.walk.walkDate | displayDate }} {{ walkExport.displayedWalk.walk.startTime }}</time>
+                          <time>{{ walkExport.displayedWalk.walk.groupEvent.start_date_time | displayDate }} {{ walkExport.displayedWalk.walk.groupEvent.start_date_time }}</time>
                         </dl>
-                        @if (walkExport.displayedWalk.walk?.distance) {
+                        @if (walkExport.displayedWalk.walk?.groupEvent?.distance_miles) {
                           <dl class="d-flex mb-1">
                             <dt class="font-weight-bold mr-2">Distance:</dt>
-                            <dd>{{ walkExport.displayedWalk.walk.distance }}</dd>
+                            <dd>{{ walkExport.displayedWalk.walk.groupEvent.distance_miles }}</dd>
                           </dl>
                         }
                         <dl class="d-flex">
@@ -127,11 +128,11 @@ import last from "lodash-es/last";
                               <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
                                    class="col-sm-6 nowrap">
                                 <fa-icon title
-                                         tooltip="contact walk leader {{walkExport.displayedWalk?.walk?.displayName}}"
+                                         tooltip="contact walk leader {{walkExport.displayedWalk?.walk?.fields?.contactDetails?.displayName}}"
                                          [icon]="faEnvelope"
                                          class="fa-icon mr-1"/>
                                 <a content
-                                   [href]="'mailto:' + walkExport.displayedWalk?.walk?.contactEmail">{{ walkExport.displayedWalk?.walk?.displayName || "Contact Via Ramblers" }}</a>
+                                   [href]="'mailto:' + walkExport.displayedWalk?.walk?.fields?.contactDetails?.email">{{ walkExport.displayedWalk?.walk?.fields?.contactDetails?.displayName || "Contact Via Ramblers" }}</a>
                               </div>
                             </div>
                           </dd>
@@ -145,7 +146,7 @@ import last from "lodash-es/last";
                       </div>
                       <dl class="d-flex">
                         <dt class="font-weight-bold mr-2 nowrap">Publish status:</dt>
-                        @if (walkExport.displayedWalk.walk.ramblersWalkId) {
+                        @if (walkExport.displayedWalk.walk.groupEvent.id) {
                           <dd>
                             <a [href]="display.ramblersLink(walkExport.displayedWalk.walk)"
                                target="_blank"
@@ -294,7 +295,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("WalkExportComponent", NgxLoggerLevel.ERROR);
   private webSocketClientService: WebSocketClientService = inject(WebSocketClientService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
-  private walksService: WalksService = inject(WalksService);
+  private walksAndEventsService: WalksAndEventsService = inject(WalksAndEventsService);
   private ramblersUploadAuditService: RamblersUploadAuditService = inject(RamblersUploadAuditService);
   private notifierService: NotifierService = inject(NotifierService);
   private displayDate: DisplayDatePipe = inject(DisplayDatePipe);
@@ -490,12 +491,12 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   showAvailableWalkExports() {
     this.walksForExport = [];
     this.walkExportNotifier.warning("Refreshing export status of future walks", false, true);
-    return this.walksService.all({
+    return this.walksAndEventsService.all({
       criteria: {walkDate: {$gte: this.dateUtils.momentNowNoTime().valueOf()}},
       sort: {walkDate: -1}
     })
-      .then((walks: Walk[]) => this.walksQueryService.activeWalks(walks))
-      .then((walks: Walk[]) => {
+      .then((walks: ExtendedGroupEvent[]) => this.walksQueryService.activeWalks(walks))
+      .then((walks: ExtendedGroupEvent[]) => {
         return this.ramblersWalksAndEventsService.createWalksForExportPrompt(walks)
           .then((walksForExport: WalkExport[]) => this.populateWalkExport(walksForExport))
           .catch(error => {
@@ -519,7 +520,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
       this.walkExportNotifier.hide();
     } else {
       this.walkExportNotifier.error({
-        title: `You can't export the walk for ${this.displayDate.transform(walkExport.displayedWalk.walk.walkDate)}`,
+        title: `You can't export the walk for ${this.displayDate.transform(walkExport.displayedWalk.walk.groupEvent.start_date_time)}`,
         message: walkExport.validationMessages.join(", ")
       });
     }
@@ -542,7 +543,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   }
 
   sortWalksForExport(): void {
-    const sorted = this.walksForExport.sort(sortBy("-selected", "displayedWalk.walk.walkDate"));
+    const sorted = this.walksForExport.sort(sortBy("-selected", "displayedWalk.walk.groupEvent.start_date_time"));
     this.logger.info("walksForExportSorted:", this.walksForExport, "sorted:", sorted);
     this.walksForExport = sorted;
   }

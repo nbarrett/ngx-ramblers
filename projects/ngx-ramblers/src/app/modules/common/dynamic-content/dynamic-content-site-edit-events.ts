@@ -17,9 +17,8 @@ import { DatePickerComponent } from "../../../date-picker/date-picker.component"
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { CommitteeQueryService } from "../../../services/committee/committee-query.service";
-import { GroupEvent, GroupEventsFilter } from "../../../models/committee.model";
+import { GroupEventsFilter, GroupEventSummary } from "../../../models/committee.model";
 import { NgSelectComponent } from "@ng-select/ng-select";
-import { RowSettingsActionButtonsComponent } from "./dynamic-content-row-settings-action-buttons";
 import { DynamicContentMaxColumnsEditorComponent } from "./dynamic-content-max-columns-editor";
 
 @Component({
@@ -76,7 +75,7 @@ import { DynamicContentMaxColumnsEditorComponent } from "./dynamic-content-max-c
       </div>
     }
     <app-events [row]="row" [rowIndex]="rowIndex"/>`,
-  imports: [FormsModule, EventsComponent, DatePickerComponent, NgSelectComponent, RowSettingsActionButtonsComponent, DynamicContentMaxColumnsEditorComponent]
+  imports: [FormsModule, EventsComponent, DatePickerComponent, NgSelectComponent, DynamicContentMaxColumnsEditorComponent]
 })
 export class EventsSiteEditComponent implements OnInit {
   public pageContentService: PageContentService = inject(PageContentService);
@@ -98,7 +97,7 @@ export class EventsSiteEditComponent implements OnInit {
   faAdd = faAdd;
   id: string;
   protected readonly faSearch = faSearch;
-  public groupEvents: GroupEvent[] = [];
+  public groupEvents: GroupEventSummary[] = [];
   public eventTypes: KeyValue<string>[] = enumValues(RamblersEventType).map(item => ({
     key: item,
     value: this.stringUtils.asTitle(item)
@@ -112,7 +111,7 @@ export class EventsSiteEditComponent implements OnInit {
     this.logger.info("ngOnInit:groupEvents:", this.groupEvents);
   }
 
-  queryGroupEvents(): Promise<GroupEvent[]> {
+  queryGroupEvents(): Promise<GroupEventSummary[]> {
     const groupEventsFilter: GroupEventsFilter = {
       search: null,
       selectAll: true,

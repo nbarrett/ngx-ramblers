@@ -47,6 +47,7 @@ import path = require("path");
 import favicon = require("serve-favicon");
 import committeeFile = require("./mongo/routes/committee-file");
 import memberResource = require("./mongo/routes/member-resource");
+import { extendedGroupEventRoutes } from "./mongo/routes/extended-group-event";
 
 install();
 const debugLog = debug(envConfig.logNamespace("server"));
@@ -100,6 +101,7 @@ app.use("/api/database/ramblers-upload-audit", ramblersUploadAuditRoutes);
 app.use("/api/database/social-event", socialEventsRoutes);
 app.use("/api/database/config", configRoutes);
 app.use("/api/database/walks", walksRoutes);
+app.use("/api/database/group-event", extendedGroupEventRoutes);
 setupSerenityReports(app);
 app.use("/", express.static(distFolder));
 app.use((req, res, next) => {

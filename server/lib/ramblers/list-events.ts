@@ -6,10 +6,9 @@ import {
   Contact,
   DateFormat,
   EventsListRequest,
-  GroupWalk,
   RamblersWalkResponse,
-  RamblersWalksRawApiResponse,
-  RamblersWalksRawApiResponseApiResponse,
+  RamblersGroupEventsRawApiResponse,
+  RamblersEventsApiResponse,
   WALKS_MANAGER_GO_LIVE_DATE
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -24,6 +23,7 @@ import { WalkLeadersApiResponse } from "../../../projects/ngx-ramblers/src/app/m
 import omit from "lodash/omit";
 import { pluraliseWithCount } from "../shared/string-utils";
 import { momentNow } from "../shared/dates";
+import { GroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
@@ -31,14 +31,14 @@ noopDebugLog.enabled = false;
 debugLog.enabled = false;
 
 
-function identity(walkLeader: Contact) {
+function identity(walkLeader: Contact): string {
   return walkLeader.id || walkLeader.telephone || walkLeader.name;
 }
 
-function toWalkLeaders(response: RamblersWalksRawApiResponse): Contact[] {
+function toWalkLeaders(response: RamblersGroupEventsRawApiResponse): Contact[] {
   let unNamedIndex = 0;
   noopDebugLog("transformListWalksResponse:", response);
-  const filteredWalkLeaders: Contact[] = response.data.map((walk: GroupWalk) => omit(walk.walk_leader, ["email_form"])).filter(item => !isEmpty(identity(item)));
+  const filteredWalkLeaders: Contact[] = response.data.map((groupEvent: GroupEvent) => omit(groupEvent.walk_leader, ["email_form"])).filter(item => !isEmpty(identity(item)));
   const groupedWalkLeaders = groupBy(filteredWalkLeaders, (walkLeader => identity(walkLeader)));
   noopDebugLog("groupedWalkLeaders:", groupedWalkLeaders);
   return map(groupedWalkLeaders, (items, key, index) => {
@@ -135,7 +135,7 @@ export function listEvents(req: Request, res: Response): void {
     })
     .then(response => {
       if (rawData) {
-        const rawResponse = response as RamblersWalksRawApiResponseApiResponse;
+        const rawResponse = response as RamblersEventsApiResponse;
         debugLog("returned response summary:", rawResponse?.response?.summary);
       } else {
         const rawResponse = response as unknown as RamblersWalkResponse[];
@@ -170,7 +170,7 @@ function dateEndParameter(body: EventsListRequest): string {
 }
 
 function transformListWalksResponse(systemConfig: SystemConfig) {
-  return function (response: RamblersWalksRawApiResponse): RamblersWalkResponse[] {
+  return function (response: RamblersGroupEventsRawApiResponse): RamblersWalkResponse[] {
     debugLog("transformListWalksResponse:", response);
     return response.data.map(walk => {
       debugLog("transformListWalksResponse:walk:", response);
@@ -182,8 +182,8 @@ function transformListWalksResponse(systemConfig: SystemConfig) {
         title: walk.title,
         startDate: walkMoment.format("dddd, Do MMMM YYYY"),
         startDateValue: walkMoment.valueOf(),
-        start_location: walk.start_location,
-        end_location: walk.end_location,
+        start_location: walk.groupEvent.start_location,
+        end_location: walk.groupEvent.end_location,
         media: walk.media
       };
     });

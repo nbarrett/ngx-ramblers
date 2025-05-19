@@ -4,10 +4,11 @@ import { CommitteeFile } from "../../models/committee.model";
 import { Member } from "../../models/member.model";
 import { CommitteeDisplayService } from "../../pages/committee/committee-display.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { HasMedia, SocialEvent } from "../../models/social-events.model";
+import { HasMedia } from "../../models/social-events.model";
 import { BasicMedia, Media } from "../../models/ramblers-walks-manager";
 import { UrlService } from "../url.service";
-import { FALLBACK_MEDIA, Walk } from "../../models/walk.model";
+import { FALLBACK_MEDIA } from "../../models/walk.model";
+import { ExtendedGroupEvent } from "../../models/group-event.model";
 
 @Injectable({
   providedIn: "root"
@@ -41,16 +42,12 @@ export class MediaQueryService {
     return media;
   }
 
-  imageFromSocialEvent(socialEvent: SocialEvent) {
-    return this.urlService.imageSource(socialEvent?.thumbnail, true);
+  imageSource(walk: ExtendedGroupEvent): BasicMedia {
+    return this.basicMediaFrom(walk.groupEvent)?.[0];
   }
 
-  imageSource(walk: Walk): BasicMedia {
-    return this.basicMediaFrom(walk)?.[0];
-  }
-
-  imageSourceWithFallback(walk: Walk): BasicMedia {
-    const basicMedia = this.imageSource(walk);
+  imageSourceWithFallback(extendedGroupEvent: ExtendedGroupEvent): BasicMedia {
+    const basicMedia = this.imageSource(extendedGroupEvent);
     return basicMedia ? {...basicMedia, url:this.urlService.imageSource(basicMedia.url, false, true)} : FALLBACK_MEDIA;
   }
 

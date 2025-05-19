@@ -1,6 +1,6 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { VenueType } from "../../../models/walk-venue.model";
+import { VenueType } from "../../../models/event-venue.model";
 import { DisplayedWalk } from "../../../models/walk.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
@@ -36,8 +36,8 @@ export class WalkVenueComponent implements OnInit {
 
   ngOnInit() {
     this.venueTypes = this.walksReferenceService.venueTypes();
-    this.logger.debug("venue is", this.displayedWalk.walk.venue, "venueTypes", this.venueTypes);
-    this.disabledInput = !this.allowEdits() && !this.displayedWalk?.walk?.venue?.venuePublish;
+    this.logger.debug("venue is", this.displayedWalk.walk.fields.venue, "venueTypes", this.venueTypes);
+    this.disabledInput = !this.allowEdits() && !this.displayedWalk?.walk?.fields?.venue?.venuePublish;
   }
 
   allowEdits() {
