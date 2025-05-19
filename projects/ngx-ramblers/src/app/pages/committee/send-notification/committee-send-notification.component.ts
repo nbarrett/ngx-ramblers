@@ -7,7 +7,7 @@ import {
   CommitteeFile,
   CommitteeMember,
   CommitteeRolesChangeEvent,
-  GroupEvent,
+  GroupEventSummary,
   Notification
 } from "../../../models/committee.model";
 import { DateValue } from "../../../models/date.model";
@@ -49,7 +49,7 @@ import { FormsModule } from "@angular/forms";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgOptgroupTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { MarkdownComponent } from "ngx-markdown";
-import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { DatePicker } from "../../../date-and-time/date-picker";
 import { LinkComponent } from "../../../link/link";
 import { SenderRepliesAndSignoffComponent } from "../../admin/send-emails/sender-replies-and-signoff";
 import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi-select/committee-role-multi-select";
@@ -236,7 +236,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                           <label for="from-date">Include Events From:</label>
                           <app-date-picker startOfDay id="from-date"
                                            [size]="'md round'"
-                                           (dateChange)="onFromDateChange($event)"
+                                           (change)="onFromDateChange($event)"
                                            [value]="notification.groupEventsFilter.fromDate">
                           </app-date-picker>
                         </div>
@@ -244,7 +244,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                           <label for="to-date">Include Events To:</label>
                           <app-date-picker startOfDay id="to-date"
                                            [size]="'md round'"
-                                           (dateChange)="onToDateChange($event)"
+                                           (change)="onToDateChange($event)"
                                            [value]="notification.groupEventsFilter.toDate">
                           </app-date-picker>
                         </div>
@@ -350,7 +350,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                           •
                           <span>{{ groupEvent?.eventType?.description }}</span>
                           •
-                          <app-link [area]="groupEvent?.eventType.area"
+                          <app-link [area]="groupEvent?.eventType?.area"
                                     [id]="groupEvent?.id"
                                     [text]="groupEvent?.title"></app-link>
                           @if (groupEvent.distance) {
@@ -475,7 +475,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
           <ng-template app-notification-directive/>
         </div>
       </app-page>`,
-    imports: [PageComponent, TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, MarkdownComponent, DatePickerComponent, LinkComponent, SenderRepliesAndSignoffComponent, CommitteeRoleMultiSelectComponent, CommitteeNotificationDetailsComponent, FontAwesomeModule, BrevoButtonComponent, NotificationDirective, TitleCasePipe, DisplayDatePipe]
+  imports: [PageComponent, TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, MarkdownComponent, DatePicker, LinkComponent, SenderRepliesAndSignoffComponent, CommitteeRoleMultiSelectComponent, CommitteeNotificationDetailsComponent, FontAwesomeModule, BrevoButtonComponent, NotificationDirective, TitleCasePipe, DisplayDatePipe]
 })
 export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
 
@@ -641,7 +641,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     }
   }
 
-  populateGroupEvents(): Promise<GroupEvent[]> {
+  populateGroupEvents(): Promise<GroupEventSummary[]> {
     return this.committeeQueryService.groupEvents(this.notification?.groupEventsFilter)
       .then(events => {
         this.notification.groupEvents = events;
@@ -650,7 +650,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
       });
   }
 
-  changeGroupEventSelection(groupEvent: GroupEvent) {
+  changeGroupEventSelection(groupEvent: GroupEventSummary) {
     groupEvent.selected = !groupEvent.selected;
   }
 
@@ -854,7 +854,7 @@ export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
     return id;
   }
 
-  toggleEvent(groupEvent: GroupEvent) {
+  toggleEvent(groupEvent: GroupEventSummary) {
     this.logger.info("toggleEvent:", groupEvent);
     groupEvent.selected = !groupEvent.selected;
   }

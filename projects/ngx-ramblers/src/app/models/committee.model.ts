@@ -53,7 +53,7 @@ export interface CommitteeFileApiResponse extends ApiResponse {
   response?: CommitteeFile[] | CommitteeFile;
 }
 
-export interface GroupEvent extends Identifiable {
+export interface GroupEventSummary extends Identifiable {
   image?: string;
   selected: boolean;
   eventType: GroupEventType;
@@ -183,7 +183,7 @@ export interface Notification {
   cancelled?: boolean;
   content?: NotificationContent;
   groupEventsFilter?: GroupEventsFilter;
-  groupEvents?: GroupEvent[];
+  groupEvents?: GroupEventSummary[];
 }
 
 export interface CommitteeYear {

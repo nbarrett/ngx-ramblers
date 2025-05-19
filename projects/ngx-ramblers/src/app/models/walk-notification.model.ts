@@ -1,13 +1,15 @@
 import { WalkDataAudit } from "./walk-data-audit.model";
 import { WalkEvent } from "./walk-event.model";
-import { EventType, Walk } from "./walk.model";
+import { EventType } from "./walk.model";
 import { NotificationDirective } from "../notifications/common/notification.directive";
 import { AlertInstance } from "../services/notifier.service";
 import { WalkEventType } from "./walk-event-type.model";
 import { NotificationConfig } from "./mail.model";
+import { ExtendedGroupEvent } from "./group-event.model";
+import { Walk } from "./deprecated";
 
 export interface WalkNotification {
-  walk: Walk;
+  walk: ExtendedGroupEvent;
   status: EventType;
   event: WalkEvent;
   walkDataAudit: WalkDataAudit;

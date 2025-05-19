@@ -3,15 +3,16 @@ import { ActivatedRoute, ParamMap } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { DisplayedWalk, EventType, Walk } from "../../../models/walk.model";
+import { DisplayedWalk, EventType } from "../../../models/walk.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
-import { WalksService } from "../../../services/walks/walks.service";
+import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { WalkDisplayService } from "../walk-display.service";
-import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { PageComponent } from "../../../page/page.component";
 import { WalkEditComponent } from "../walk-edit/walk-edit.component";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { EventDefaultsService } from "../../../services/event-defaults.service";
 
 @Component({
     selector: "app-walk-edit-full-page",
@@ -22,11 +23,12 @@ import { WalkEditComponent } from "../walk-edit/walk-edit.component";
 export class WalkEditFullPageComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkEditFullPageComponent", NgxLoggerLevel.ERROR);
-  private walksService = inject(WalksService);
+  private walksAndEventsService = inject(WalksAndEventsService);
   private route = inject(ActivatedRoute);
   private walksReferenceService = inject(WalksReferenceService);
   private dateUtils = inject(DateUtilsService);
   private display = inject(WalkDisplayService);
+  private eventDefaultsService = inject(EventDefaultsService);
   public displayedWalk: DisplayedWalk;
   public notifyTarget: AlertTarget = {};
   pageTitle: string;
@@ -37,13 +39,9 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       if (paramMap.has("add")) {
         this.displayedWalk = {
+          hasFeatures: false,
           walkAccessMode: WalksReferenceService.walkAccessModes.add,
-          walk: {
-            eventType: RamblersEventType.GROUP_WALK,
-            walkType: this.display.walkTypes[0],
-            walkDate: this.dateUtils.momentNowNoTime().valueOf(),
-            events: []
-          },
+          walk: this.eventDefaultsService.createDefault({start_date_time: this.dateUtils.momentNowNoTime().valueOf()}),
           status: EventType.AWAITING_LEADER,
           showEndpoint: false
         };
@@ -51,8 +49,8 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
       } else {
         const walkId = paramMap.get("walk-id");
         this.logger.debug("querying walk-id", walkId);
-        this.walksService.getById(walkId)
-          .then((walk: Walk) => {
+        this.walksAndEventsService.queryById(walkId)
+          .then((walk: ExtendedGroupEvent) => {
             this.logger.info("found walk", walk);
             this.displayedWalk = this.display.toDisplayedWalk(walk);
             if (this.displayedWalk.latestEventType) {

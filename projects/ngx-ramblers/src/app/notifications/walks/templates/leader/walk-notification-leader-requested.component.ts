@@ -7,7 +7,7 @@ import { WalkValidationsListPipe } from "../../../../pipes/walk-validations.pipe
 @Component({
     selector: "app-walk-notification-leader-requested",
     template: `
-    <p>Thanks again for offering to lead the walk on <strong [textContent]="walk.walkDate | displayDate"
+    <p>Thanks again for offering to lead the walk on <strong [textContent]="walk.groupEvent.start_date_time | displayDate"
     ></strong>!</p>
     <p>Before I can publish your walk, I need more information from you as <strong
     [textContent]="validationMessages | asWalkValidationsList"></strong>

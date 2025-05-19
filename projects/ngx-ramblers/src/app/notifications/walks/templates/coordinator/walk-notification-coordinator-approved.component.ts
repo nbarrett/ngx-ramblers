@@ -11,8 +11,8 @@ import { MemberIdToFullNamePipe } from "../../../../pipes/member-id-to-full-name
     <p>This email is a notification that at <strong [textContent]="event.date | displayDateAndTime"></strong>,
     <strong [textContent]="event.memberId | memberIdToFullName : members"></strong>
     approved and published on our website the walk led by <strong
-    [textContent]="walk.walkLeaderMemberId | memberIdToFullName : members : walk.displayName"></strong>
-    on <strong [textContent]="walk.walkDate | displayDate"></strong>:
+    [textContent]="walk?.fields?.contactDetails?.memberId | memberIdToFullName : members : walk?.fields?.contactDetails?.displayName"></strong>
+    on <strong [textContent]="walk.groupEvent.start_date_time | displayDate"></strong>:
     </p>
     @if (event.reason) {
       <p [textContent]="event.reason"></p>

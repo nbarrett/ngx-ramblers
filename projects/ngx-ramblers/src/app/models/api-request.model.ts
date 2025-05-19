@@ -4,6 +4,10 @@ export interface ApiRequest {
   body: object;
 }
 
+export interface MongoCriteria {
+  [field: string]: any;
+}
+
 export interface DataQueryOptions {
   limit?: number;
   criteria?: object;

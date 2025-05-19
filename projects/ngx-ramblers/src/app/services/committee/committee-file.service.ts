@@ -23,7 +23,7 @@ export class CommitteeFileService {
 
   async all(dataQueryOptions?: DataQueryOptions): Promise<CommitteeFile[]> {
     const params = this.commonDataService.toHttpParams(dataQueryOptions);
-    this.logger.debug("all:dataQueryOptions", dataQueryOptions, "params", params.toString());
+    this.logger.info("all:dataQueryOptions", dataQueryOptions, "params", params.toString());
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<CommitteeFileApiResponse>(`${this.BASE_URL}/all`, {params}), this.committeeFileNotifications);
     return apiResponse.response as CommitteeFile[];
   }

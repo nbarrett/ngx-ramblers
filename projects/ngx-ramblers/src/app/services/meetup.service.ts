@@ -1,9 +1,6 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import get from "lodash-es/get";
 import has from "lodash-es/has";
-import isEmpty from "lodash-es/isEmpty";
-import last from "lodash-es/last";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { mergeMap } from "rxjs/operators";
@@ -18,7 +15,7 @@ import { MeetupEventResponse } from "../models/meetup-event-response.model";
 import { MeetupLocationResponse } from "../models/meetup-location-response.model";
 import { MeetupVenueRequest } from "../models/meetup-venue-request.model";
 import { MeetupVenueConflictResponse, MeetupVenueResponse } from "../models/meetup-venue-response.model";
-import { DisplayedWalk, EventType, Walk } from "../models/walk.model";
+import { DisplayedWalk, EventType, LinkSource, LinkWithSource } from "../models/walk.model";
 import { ConfigService } from "./config.service";
 import { DateUtilsService } from "./date-utils.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
@@ -33,6 +30,8 @@ import {
 } from "../models/meetup-authorisation.model";
 import { WalksConfigService } from "./system/walks-config.service";
 import { WalksConfig } from "../models/walk-notification.model";
+import { ExtendedGroupEvent } from "../models/group-event.model";
+import { LinksService } from "./links.service";
 
 @Injectable({
   providedIn: "root"
@@ -43,6 +42,7 @@ export class MeetupService {
   private dateUtils = inject(DateUtilsService);
   private walksConfigService = inject(WalksConfigService);
   private configService = inject(ConfigService);
+  private linksService = inject(LinksService);
   private stringUtils = inject(StringUtilsService);
   private commonDataService = inject(CommonDataService);
   private http = inject(HttpClient);
@@ -129,16 +129,16 @@ export class MeetupService {
   async synchroniseWalkWithEvent(notify: AlertInstance, displayedWalk: DisplayedWalk, meetupDescription: string): Promise<any> {
     try {
       if (displayedWalk.status === EventType.APPROVED
-        && displayedWalk.walk.walkDate > this.dateUtils.momentNowNoTime().valueOf()
-        && has(displayedWalk.walk, ["config", "meetup"])
-        && displayedWalk.walk.meetupPublish) {
+        && this.dateUtils.asMoment(displayedWalk.walk.groupEvent.start_date_time).valueOf() > this.dateUtils.momentNowNoTime().valueOf()
+        && displayedWalk.walk.fields?.meetup
+        && displayedWalk.walk.fields?.publishing?.meetup?.publish) {
         const eventExists: boolean = await this.eventExists(notify, displayedWalk.walk);
         if (eventExists) {
           return this.updateEvent(notify, displayedWalk.walk, meetupDescription);
         } else {
           return this.createEvent(notify, displayedWalk.walk, meetupDescription);
         }
-      } else if (displayedWalk.walk.meetupEventUrl) {
+      } else if (this.meetupLink(displayedWalk.walk)) {
         return this.deleteEvent(notify, displayedWalk.walk);
       } else {
         const reason = "no action taken as meetupPublish was false and walk had no existing publish status";
@@ -150,7 +150,7 @@ export class MeetupService {
     }
   }
 
-  async deleteEvent(notify: AlertInstance, walk: Walk): Promise<boolean> {
+  async deleteEvent(notify: AlertInstance, walk: ExtendedGroupEvent): Promise<boolean> {
     try {
       const eventDeletable = await this.eventDeletable(notify, walk);
       if (eventDeletable) {
@@ -159,31 +159,38 @@ export class MeetupService {
         const apiResponse: ApiResponse = await this.http.delete<ApiResponse>(`${this.BASE_URL}/events/delete/${eventId}`).toPromise();
         this.logger.debug("delete event API response", apiResponse);
       }
-      walk.meetupPublish = false;
-      walk.meetupEventUrl = "";
-      walk.meetupEventTitle = "";
+      walk.fields.publishing.meetup.publish = false;
+      this.deleteLink(walk, LinkSource.MEETUP);
       return eventDeletable;
     } catch (error) {
       return Promise.reject(`Event deletion failed: '${this.extractErrorsFrom(error)}'.`);
     }
   }
 
-  async createEvent(notify: AlertInstance, walk: Walk, description: string): Promise<MeetupEventResponse> {
+  private deleteLink(walk: ExtendedGroupEvent, linkSource: LinkSource.MEETUP) {
+    walk.fields.links = walk.fields.links.filter(item => item.source !== linkSource);
+  }
+
+  async createEvent(notify: AlertInstance, walk: ExtendedGroupEvent, description: string): Promise<MeetupEventResponse> {
     try {
       notify.progress({title: "Meetup", message: "Creating new event"});
       const eventRequest = await this.eventRequestFor(notify, walk, description);
       const apiResponse = await this.http.post<ApiResponse>(`${this.BASE_URL}/events/create`, eventRequest).toPromise();
       this.logger.debug("create event API response", apiResponse);
       const eventResponse: MeetupEventResponse = apiResponse.response;
-      walk.meetupEventUrl = eventResponse.link;
-      walk.meetupEventTitle = eventResponse.title;
+      const linkWithSource: LinkWithSource = {
+        source: LinkSource.MEETUP,
+        href: eventResponse.link,
+        title: eventResponse.title
+      };
+      this.linksService.createOrUpdateLink(walk.fields, linkWithSource);
       return eventResponse;
     } catch (error) {
       return Promise.reject(`Event creation failed: '${this.extractErrorsFrom(error)}'.`);
     }
   }
 
-  async createOrMatchVenue(notify: AlertInstance, walk: Walk): Promise<NumericIdentifier> {
+  async createOrMatchVenue(notify: AlertInstance, walk: ExtendedGroupEvent): Promise<NumericIdentifier> {
     notify.progress({title: "Meetup", message: "Creating new venue"});
     const venueRequest = this.venueRequestFor(walk);
     try {
@@ -210,7 +217,7 @@ export class MeetupService {
     return httpErrorResponse;
   }
 
-  async updateEvent(notify: AlertInstance, walk: Walk, description: string): Promise<MeetupEventResponse> {
+  async updateEvent(notify: AlertInstance, walk: ExtendedGroupEvent, description: string): Promise<MeetupEventResponse> {
     try {
       notify.progress({title: "Meetup", message: "Updating existing event"});
       this.logger.debug("updateEvent for", walk);
@@ -224,7 +231,7 @@ export class MeetupService {
     }
   }
 
-  async eventExists(notify: AlertInstance, walk: Walk): Promise<boolean> {
+  async eventExists(notify: AlertInstance, walk: ExtendedGroupEvent): Promise<boolean> {
     notify.progress({title: "Meetup", message: "Checking for existence of event"});
     const eventId = this.eventIdFrom(walk);
     if (eventId) {
@@ -236,7 +243,7 @@ export class MeetupService {
     }
   }
 
-  async eventDeletable(notify: AlertInstance, walk: Walk): Promise<boolean> {
+  async eventDeletable(notify: AlertInstance, walk: ExtendedGroupEvent): Promise<boolean> {
     notify.progress({title: "Meetup", message: "Checking whether event can be deleted"});
     const eventId = this.eventIdFrom(walk);
     if (eventId) {
@@ -253,46 +260,50 @@ export class MeetupService {
     }
   }
 
-  async eventRequestFor(notify: AlertInstance, walk: Walk, description: string): Promise<MeetupEventRequest> {
+  async eventRequestFor(notify: AlertInstance, walk: ExtendedGroupEvent, description: string): Promise<MeetupEventRequest> {
     const venueResponse: NumericIdentifier = await this.createOrMatchVenue(notify, walk);
-    this.logger.debug("venue for", walk.start_location?.postcode, "is", venueResponse);
+    this.logger.debug("venue for", walk.groupEvent.start_location?.postcode, "is", venueResponse);
 
     const eventRequest = {
       venue_id: venueResponse.id,
-      time: this.dateUtils.startTime(walk),
-      duration: this.dateUtils.durationForDistanceInMiles(walk.distance, this.walksConfig.milesPerHour),
-      guest_limit: walk.config.meetup.guestLimit,
-      announce: walk.config.meetup.announce,
+      time: this.dateUtils.startTimeAsValue(walk),
+      duration: this.dateUtils.durationInMsecsForDistanceInMiles(walk.groupEvent.distance_miles, this.walksConfig.milesPerHour),
+      guest_limit: walk.fields.meetup.guestLimit,
+      announce: walk.fields.meetup.announce,
       venue_visibility: "public",
-      publish_status: walk.config.meetup.publishStatus,
-      name: walk.briefDescriptionAndStartPoint,
+      publish_status: walk.fields.meetup.publishStatus,
+      name: walk.groupEvent.title,
       description
     };
     this.logger.debug("request about to be submitted for walk is", eventRequest);
     return eventRequest;
   }
 
-  venueRequestFor(walk: Walk): MeetupVenueRequest {
+  venueRequestFor(walk: ExtendedGroupEvent): MeetupVenueRequest {
     const venueRequest: MeetupVenueRequest = {
-      name: walk.venue.name || walk.briefDescriptionAndStartPoint,
-      address_1: walk.venue.address1 || walk.start_location?.description,
-      city: walk.venue.postcode || walk.start_location?.postcode,
-      web_url: walk.venue.url,
+      name: walk.fields.venue.name || walk.groupEvent.title,
+      address_1: walk.fields.venue.address1 || walk.groupEvent.start_location?.description,
+      city: walk.fields.venue.postcode || walk.groupEvent.start_location?.postcode,
+      web_url: walk.fields.venue.url,
       country: "gb",
     };
-    if (walk.venue.address2) {
-      venueRequest.address_2 = walk.venue.address2;
+    if (walk.fields.venue.address2) {
+      venueRequest.address_2 = walk.fields.venue.address2;
     }
     this.logger.debug("venue request prepared for walk is", venueRequest);
     return venueRequest;
   }
 
-  meetupPublishedStatus(displayedWalk: DisplayedWalk) {
-    return get(displayedWalk, ["walk", "config", "meetup", "publishStatus"]) || "";
+  meetupPublishedStatus(displayedWalk: DisplayedWalk): string {
+    return displayedWalk?.walk?.fields?.meetup?.publishStatus || "";
   }
 
-  private eventIdFrom(walk: Walk) {
-    return walk.meetupEventUrl && last(walk.meetupEventUrl.split("/").filter(pathParameter => !isEmpty(pathParameter)));
+  private eventIdFrom(walk: ExtendedGroupEvent): string {
+    return this.stringUtils.lastItemFrom(this.meetupLink(walk)?.href);
+  }
+
+  private meetupLink(walk: ExtendedGroupEvent): LinkWithSource {
+    return this.linksService.linkWithSourceFrom(walk.fields, LinkSource.MEETUP);
   }
 
   private extractMatchedVenue(response: MeetupVenueConflictResponse): NumericIdentifier {

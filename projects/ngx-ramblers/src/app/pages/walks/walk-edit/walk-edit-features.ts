@@ -37,8 +37,8 @@ export class WalkEditFeaturesComponent implements OnInit {
   accessibility: CategorisedFeatures[] = this.featureCategories.filter(item => [FeatureCategory.ACCESSIBILITY].includes(item.category));
 
   ngOnInit() {
-    if (!this.displayedWalk.walk.features) {
-      this.displayedWalk.walk.features = [];
+    if (!this.displayedWalk.walk.groupEvent.accessibility) {
+      this.displayedWalk.walk.groupEvent.accessibility = [];
     }
   }
 }

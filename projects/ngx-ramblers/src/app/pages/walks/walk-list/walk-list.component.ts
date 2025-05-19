@@ -11,8 +11,8 @@ import { AlertTarget } from "../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { LoginResponse } from "../../../models/member.model";
 import { DeviceSize } from "../../../models/page.model";
-import { Organisation } from "../../../models/system.model";
-import { DisplayedWalk, Walk, WalkListView } from "../../../models/walk.model";
+import { SystemConfig } from "../../../models/system.model";
+import { DisplayedWalk, WalkListView } from "../../../models/walk.model";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
@@ -21,15 +21,14 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { PageService } from "../../../services/page.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
-import { WalksQueryService } from "../../../services/walks/walks-query.service";
-import { WalksService } from "../../../services/walks/walks.service";
+import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
+import { ExtendedGroupEventQueryService } from "../../../services/walks-and-events/extended-group-event-query.service";
+import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { LoginModalComponent } from "../../login/login-modal/login-modal.component";
 import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { sortBy } from "../../../functions/arrays";
 import { faImages, faPeopleGroup, faTableCells, faWalking } from "@fortawesome/free-solid-svg-icons";
-import { DataMigrationService } from "../../../services/walks/data-migration.service";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { StoredValue } from "../../../models/ui-actions";
 import { PageComponent } from "../../../page/page.component";
@@ -41,13 +40,17 @@ import { FormsModule } from "@angular/forms";
 import { WalkCardListComponent } from "../walk-view/walk-card-list";
 import { WalkViewComponent } from "../walk-view/walk-view";
 import { WalkEditComponent } from "../walk-edit/walk-edit.component";
-import { NgClass } from "@angular/common";
+import { JsonPipe, NgClass } from "@angular/common";
 import { WalkGradingComponent } from "../walk-view/walk-grading";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DEFAULT_FILTER_PARAMETERS, FilterParameters } from "../../../models/search.model";
 import { BuiltInAnchor } from "../../../models/content-text.model";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { EventsMigrationService } from "../../../services/migration/events-migration.service";
+import { RamblersEventType } from "../../../models/ramblers-walks-manager";
+import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
 
 @Component({
     selector: "app-walk-list",
@@ -55,16 +58,23 @@ import { BuiltInAnchor } from "../../../models/content-text.model";
       <app-page>
         <app-dynamic-content [anchor]="BuiltInAnchor.PAGE_HEADER" contentPathReadOnly/>
         <div class="row mb-n3">
+          @if (systemConfig?.enableMigration?.events) {
+            <div class="mb-3 col-sm-12">
+              <button (click)="performMigration()" class="btn btn-primary mr-2"
+                      type="button">Migrate
+              </button>
+            </div>
+          }
           <div class="mb-3 col-sm-12">
             <app-walks-search [filterParameters]="filterParameters" [notifyTarget]="notifyTarget">
               <div class="row no-gutters">
                 <div class="col">
-                  @if (group?.allowSwitchWalkView) {
+                  @if (systemConfig?.group?.allowSwitchWalkView) {
                     <div class="btn-group w-100 mb-3 btn-group-custom" dropdown>
                       <button aria-controls="dropdown-animated" class="dropdown-toggle btn btn-primary mr-2"
                               dropdownToggle
                               type="button">
-                        <fa-icon [icon]="walkListView===WalkListView.CARDS ? faImages : faTableCells"/>
+                        <fa-icon [icon]="walkListView === WalkListView.CARDS ? faImages : faTableCells"/>
                         <span class="ml-2">{{ stringUtils.asTitle(walkListView) }} View</span><span
                         class="caret"></span>
                       </button>
@@ -159,7 +169,7 @@ import { BuiltInAnchor } from "../../../models/content-text.model";
                             (click)="display.view(displayedWalk.walk)"
                             id="eventType-{{index}}">
                           @if (display.isWalk(displayedWalk.walk)) {
-                            <app-walk-grading [grading]="displayedWalk.walk.grade"/>
+                            <app-walk-grading [grading]="displayedWalk.walk.groupEvent?.difficulty?.code"/>
                           }
                           @if (!display.isWalk(displayedWalk.walk)) {
                             <fa-icon
@@ -170,36 +180,37 @@ import { BuiltInAnchor } from "../../../models/content-text.model";
                         </td>
                         <td width="13%" (click)="display.view(displayedWalk.walk)" id="walkDate-{{index}}"
                             class="nowrap walk-date">
-                          {{ displayedWalk.walk.walkDate|displayDate }}
+                          {{ displayedWalk.walk.groupEvent.start_date_time|displayDate }}
                         </td>
                         <td width="7%" class="d-none d-lg-table-cell start-time"
                             (click)="display.view(displayedWalk.walk)"
-                            id="startTime-{{index}}">{{ displayedWalk.walk.startTime }}
+                            id="startTime-{{index}}">{{ displayedWalk.walk.groupEvent.start_date_time| displayTime }}
                         </td>
-                        <td width="25%" name="briefDescriptionAndStartPoint"
+                        <td width="25%" name="title"
                             (click)="display.view(displayedWalk.walk)"
-                            id="briefDescription-{{index}}">{{ displayedWalk.walk.briefDescriptionAndStartPoint || displayedWalk?.latestEventType?.description }}
+                            id="briefDescription-{{index}}">{{ displayedWalk.walk.groupEvent.title || displayedWalk?.latestEventType?.description }}
                         </td>
                         <td width="7%" class="d-none d-lg-table-cell distance"
                             (click)="display.view(displayedWalk.walk)"
-                            id="distance-{{index}}">{{ displayedWalk.walk.distance }}
+                            id="distance-{{index}}">{{ displayedWalk.walk.groupEvent.distance_miles }}
                         </td>
                         <td width="8%" class="d-none d-lg-table-cell postcode" id="postcode-{{index}}">
-                          <a [href]="'http://maps.google.co.uk/maps?q=' + displayedWalk.walk.start_location?.postcode"
-                             target="_blank" name="postcode"
-                             tooltip="Click to locate postcode {{displayedWalk.walk.start_location?.postcode}} on Google Maps"
-                             placement="left">{{ displayedWalk.walk.start_location?.postcode }}</a></td>
+                          <a
+                            [href]="'http://maps.google.co.uk/maps?q=' + displayedWalk.walk.groupEvent.start_location?.postcode"
+                            target="_blank" name="postcode"
+                            tooltip="Click to locate postcode {{displayedWalk.walk.groupEvent.start_location?.postcode}} on Google Maps"
+                            placement="left">{{ displayedWalk.walk.groupEvent.start_location?.postcode }}</a></td>
                         <td width="12%" class="d-none d-lg-table-cell walk-leader" id="contactEmail-{{index}}">
                           @if (allowDetailView()) {
-                            <a [href]="'mailto:'+ displayedWalk.walk.contactEmail"
-                               tooltip="Click to email {{displayedWalk.walk.displayName}} at {{displayedWalk.walk.contactEmail}}"
-                               placement="left">{{ displayedWalk.walk.displayName }}</a>
+                            <a [href]="'mailto:'+ displayedWalk.walk?.fields?.contactDetails?.email"
+                               tooltip="Click to email {{displayedWalk.walk?.fields?.contactDetails?.phone}} at {{displayedWalk.walk?.fields?.contactDetails?.email}}"
+                               placement="left">{{ displayedWalk.walk?.fields?.contactDetails?.phone }}</a>
                           }
                           @if (!allowDetailView()) {
                             <div class="tooltip-link" placement="left"
                                  (click)="login()"
-                                 tooltip="Click to login as an {{group?.shortName}} member and send an email to {{displayedWalk.walk.displayName}}">
-                              {{ displayedWalk.walk.displayName }}
+                                 tooltip="Click to login as an {{systemConfig?.group?.shortName}} member and send an email to {{displayedWalk.walk?.fields?.contactDetails?.displayName}}">
+                              {{ displayedWalk.walk?.fields?.contactDetails?.displayName }}
                             </div>
                           }
                         </td>
@@ -208,15 +219,15 @@ import { BuiltInAnchor } from "../../../models/content-text.model";
                               class="d-none d-lg-table-cell contact-phone"
                               id="contactPhone-{{index}}" name="contactPhone">
                             @if (allowDetailView()) {
-                              <a [href]="'tel:' + displayedWalk.walk.contactPhone"
-                                 [textContent]="displayedWalk.walk.contactPhone"
-                                 tooltip="Click to ring {{displayedWalk.walk.displayName}} on {{displayedWalk.walk.contactPhone}} (mobile devices only)"
+                              <a [href]="'tel:' + displayedWalk.walk?.fields?.contactDetails?.phone"
+                                 [textContent]="displayedWalk.walk?.fields?.contactDetails?.displayName"
+                                 tooltip="Click to ring {{displayedWalk.walk?.fields?.contactDetails?.displayName}} on {{displayedWalk.walk?.fields?.contactDetails?.phone}} (mobile devices only)"
                                  placement="left"></a>
                             }
                             @if (!allowDetailView()) {
-                              <a [href]="'tel:' + displayedWalk.walk.contactPhone">
-                    <span [textContent]="displayedWalk.walk.contactPhone"
-                          tooltip="Click to ring {{displayedWalk.walk.displayName}} on {{displayedWalk.walk.contactPhone}} (mobile devices only)"
+                              <a [href]="'tel:' + displayedWalk.walk?.fields?.contactDetails?.phone">
+                    <span [textContent]="displayedWalk.walk?.fields?.contactDetails?.phone"
+                          tooltip="Click to ring {{displayedWalk.walk?.fields?.contactDetails?.displayName}} on {{displayedWalk.walk?.fields?.contactDetails?.phone}} (mobile devices only)"
                           placement="left"></span></a>
                             }
                             <app-walk-panel-expander class="d-none d-lg-inline" [walk]="displayedWalk.walk"
@@ -238,7 +249,7 @@ import { BuiltInAnchor } from "../../../models/content-text.model";
     `,
     styleUrls: ["./walk-list.component.sass"],
     changeDetection: ChangeDetectionStrategy.Default,
-    imports: [PageComponent, DynamicContentComponent, WalkSearchComponent, BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective, PaginationComponent, FormsModule, WalkCardListComponent, WalkViewComponent, WalkEditComponent, NgClass, WalkGradingComponent, TooltipDirective, WalkPanelExpanderComponent, DisplayDatePipe]
+  imports: [PageComponent, DynamicContentComponent, WalkSearchComponent, BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective, PaginationComponent, FormsModule, WalkCardListComponent, WalkViewComponent, WalkEditComponent, NgClass, WalkGradingComponent, TooltipDirective, WalkPanelExpanderComponent, DisplayDatePipe, JsonPipe, DisplayTimePipe]
 })
 export class WalkListComponent implements OnInit, OnDestroy {
 
@@ -248,8 +259,8 @@ export class WalkListComponent implements OnInit, OnDestroy {
   private modalService = inject(BsModalService);
   private pageService = inject(PageService);
   googleMapsService = inject(GoogleMapsService);
-  protected walksService = inject(WalksService);
-  protected dataMigrationService = inject(DataMigrationService);
+  protected walksAndEventsService = inject(WalksAndEventsService);
+  protected eventsMigrationService = inject(EventsMigrationService);
   private authService = inject(AuthService);
   ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   memberLoginService = inject(MemberLoginService);
@@ -257,13 +268,13 @@ export class WalkListComponent implements OnInit, OnDestroy {
   protected stringUtils = inject(StringUtilsService);
   private searchFilterPipe = inject(SearchFilterPipe);
   private route = inject(ActivatedRoute);
-  private walksQueryService = inject(WalksQueryService);
+  private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private notifierService = inject(NotifierService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   protected readonly faWalking = faWalking;
   protected readonly faPeopleGroup = faPeopleGroup;
   public currentWalkId: string;
-  public walks: Walk[];
+  public walks: ExtendedGroupEvent[];
   public filteredWalks: DisplayedWalk[] = [];
   public currentPageWalks: DisplayedWalk[] = [];
   public filterParameters: FilterParameters = DEFAULT_FILTER_PARAMETERS();
@@ -278,22 +289,18 @@ export class WalkListComponent implements OnInit, OnDestroy {
     initialState: {}
   };
   private subscriptions: Subscription[] = [];
-  public group: Organisation;
   protected readonly faTableCells = faTableCells;
   protected readonly WalkListView = WalkListView;
   protected walkListView: WalkListView;
   protected readonly faImages = faImages;
-  private migrateOSMapsRoute = false;
   protected readonly BuiltInAnchor = BuiltInAnchor;
+  protected systemConfig: SystemConfig;
 
-  ngOnInit() {
+  async ngOnInit() {
     this.logger.debug("ngOnInit");
-    if (this.migrateOSMapsRoute) {
-      this.updateOsMapsRoute();
-    }
-    this.subscriptions.push(this.systemConfigService.events().subscribe(item => {
-      this.group = item.group;
-      this.walkListView = this.uiActionsService.initialValueFor(StoredValue.WALK_LIST_VIEW, this.group.defaultWalkListView) as WalkListView;
+    this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
+      this.systemConfig = systemConfig;
+      this.walkListView = this.uiActionsService.initialValueFor(StoredValue.WALK_LIST_VIEW, this.systemConfig.group.defaultWalkListView) as WalkListView;
     }));
     this.pageSize = 10;
     this.pageNumber = 1;
@@ -302,7 +309,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
     this.broadcastService.on(NamedEventType.WALK_SLOTS_CREATED, () => this.refreshWalks(NamedEventType.WALK_SLOTS_CREATED));
     this.broadcastService.on(NamedEventType.REFRESH, () => this.refreshWalks(NamedEventType.REFRESH));
     this.broadcastService.on(NamedEventType.APPLY_FILTER, (searchTerm?: NamedEvent<string>) => this.applyFilterToWalks(searchTerm));
-    this.broadcastService.on(NamedEventType.WALK_SAVED, (event: NamedEvent<Walk>) => this.replaceWalkInList(event.data));
+    this.broadcastService.on(NamedEventType.WALK_SAVED, (event: NamedEvent<ExtendedGroupEvent>) => this.replaceWalkInList(event.data));
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       this.currentWalkId = paramMap.get("walk-id");
       this.logger.debug("walk-id from route params:", this.currentWalkId);
@@ -312,9 +319,9 @@ export class WalkListComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => this.refreshWalks(loginResponse)));
   }
 
-  private async updateOsMapsRoute() {
-    const updatedWalks: Walk[] = await this.dataMigrationService.updateOsMapsRoute();
-    this.logger.info("updatedWalks:updateOsMapsRoute:", updatedWalks);
+  public async performMigration() {
+    const migrated = await this.eventsMigrationService.migrateWalks(true);
+    this.applyWalks(migrated);
   }
 
   ngOnDestroy(): void {
@@ -337,7 +344,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
 
   applyFilterToWalks(searchTerm?: NamedEvent<string>): void {
     this.notify.setBusy();
-    const sort = this.walksQueryService.localWalksSortObject(this.filterParameters);
+    const sort = this.extendedGroupEventQueryService.localWalksSortObject(this.filterParameters);
     this.logger.info("applyFilterToWalks:searchTerm:", searchTerm, "filterParameters:", this.filterParameters, "localWalksSortObject:", sort);
     this.filteredWalks = this.searchFilterPipe.transform(this.walks, this.filterParameters.quickSearch)
       .map(walk => this.display.toDisplayedWalk(walk)).sort(sortBy(sort));
@@ -353,7 +360,8 @@ export class WalkListComponent implements OnInit, OnDestroy {
     this.pageCount = Math.ceil(this.filteredWalks.length / this.pageSize);
     this.currentPageWalks = this.paginate(this.filteredWalks, this.pageSize, this.pageNumber);
     this.pages = range(1, this.pageCount + 1);
-    this.logger.info("total walks count", this.walks.length, "walks:", this.walks, "filteredWalks count", this.filteredWalks.length, "currentPageWalks count", this.currentPageWalks.length, "pageSize:", this.pageSize, "pageCount", this.pageCount, "pages", this.pages);
+    this.logger.debug("total walks count", this.walks.length, "walks:", this.walks, "filteredWalks count", this.filteredWalks.length, "currentPageWalks count", this.currentPageWalks.length, "pageSize:", this.pageSize, "pageCount", this.pageCount, "pages", this.pages);
+    this.logger.info("total walks count", this.walks.length, "filteredWalks count", this.filteredWalks.length, "currentPageWalks:", this.currentPageWalks, "pageSize:", this.pageSize, "pageCount", this.pageCount);
     const offset = (this.pageNumber - 1) * this.pageSize + 1;
     const pageIndicator = this.pages.length > 1 ? `page ${this.pageNumber} of ${this.pageCount}` : "";
     const toWalkNumber = Math.min(offset + this.pageSize - 1, this.currentPageWalks.length);
@@ -368,7 +376,10 @@ export class WalkListComponent implements OnInit, OnDestroy {
 
 
   query() {
-    return this.walksService.all(this.walksQueryService.dataQueryOptions(this.filterParameters));
+    return this.walksAndEventsService.all({
+      types: [RamblersEventType.GROUP_WALK],
+      dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions(this.filterParameters)
+    });
   }
 
   showTableHeader(walk: DisplayedWalk) {
@@ -384,9 +395,9 @@ export class WalkListComponent implements OnInit, OnDestroy {
     return !this.tableRowOdd(walk);
   }
 
-  private replaceWalkInList(walk: Walk) {
+  private replaceWalkInList(walk: ExtendedGroupEvent) {
     this.logger.debug("Received updated walk", walk);
-    const existingWalk: Walk = this.walks?.find(listedWalk => listedWalk?.id === walk?.id);
+    const existingWalk: ExtendedGroupEvent = this.walks?.find(listedWalk => listedWalk?.id === walk?.id);
     if (existingWalk) {
       this.walks[(this.walks.indexOf(existingWalk))] = walk;
       this.applyFilterToWalks();
@@ -401,7 +412,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
         this.display.setNextWalkId(walks);
         this.queryGroups(walks);
         this.logger.info("refreshWalks", "hasWalksId", this.currentWalkId, "walks:", walks);
-        this.applyWalks(this.currentWalkId || this.filterParameters.selectType === 6 ? walks : this.walksQueryService.activeWalks(walks));
+        this.applyWalks(this.currentWalkId || this.filterParameters.selectType === 6 ? walks : this.extendedGroupEventQueryService.activeEvents(walks));
         this.applyFilterToWalks();
         this.notify.clearBusy();
       }).catch(error => {
@@ -414,7 +425,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
       });
   }
 
-  private applyWalks(walks: Walk[]) {
+  private applyWalks(walks: ExtendedGroupEvent[]) {
     this.walks = walks;
     this.applyFilterToWalks();
     this.notify.clearBusy();
@@ -438,8 +449,8 @@ export class WalkListComponent implements OnInit, OnDestroy {
     this.applyPagination();
   }
 
-  private queryGroups(walks: Walk[]): void {
-    const groups: string[] = uniq(walks.map((groupWalk: Walk) => groupWalk?.group?.groupCode)).filter(item => item);
+  private queryGroups(walks: ExtendedGroupEvent[]): void {
+    const groups: string[] = uniq(walks.map((groupWalk: ExtendedGroupEvent) => groupWalk?.groupEvent?.group_code)).filter(item => item);
     if (groups.length > 0) {
       this.logger.info("finding groups:", groups);
       this.ramblersWalksAndEventsService.listRamblersGroups(groups);

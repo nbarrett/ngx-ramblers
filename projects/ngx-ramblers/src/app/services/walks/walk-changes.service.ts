@@ -1,19 +1,20 @@
 import { Injectable } from "@angular/core";
 import { Observable, Subject } from "rxjs";
-import { Walk } from "../../models/walk.model";
+
+import { ExtendedGroupEvent } from "../../models/group-event.model";
 
 @Injectable({
   providedIn: "root"
 })
 export class WalkChangesService {
 
-  private walkNotifications = new Subject<Walk>();
+  private walkNotifications = new Subject<ExtendedGroupEvent>();
 
-  notifications(): Observable<Walk> {
+  notifications(): Observable<ExtendedGroupEvent> {
     return this.walkNotifications.asObservable();
   }
 
-  notifyChange(walk: Walk): void {
+  notifyChange(walk: ExtendedGroupEvent): void {
     this.walkNotifications.next(walk);
   }
 

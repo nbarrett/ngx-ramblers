@@ -13,10 +13,12 @@ import { pluraliseWithCount } from "../../shared/string-utils";
 export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Document>, debugEnabled?: boolean) {
   const debugLog: debug.Debugger = debug(envConfig.logNamespace(`database:${model.modelName}`));
   debugLog.enabled = debugEnabled;
+  const errorDebugLog: debug.Debugger = debug("ERROR:" + envConfig.logNamespace(`database:${model.modelName}`));
+  errorDebugLog.enabled = true;
 
   async function createOrUpdateAll(req: Request, res: Response) {
     const documents: T[] = req.body;
-    const message = `Create or update of ${pluraliseWithCount(documents.length, model.modelName)}`;
+    const message = `Create or update of ${documents.length} ${model.modelName}`;
     createOrUpdateAllDocuments(req).then((response: T[]) => {
       res.status(200).json({
         action: ApiAction.UPSERT,
@@ -24,7 +26,7 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
         response
       });
     }).catch(error => {
-      debugLog(`createOrUpdateAll: ${message} error: ${error}`);
+      errorDebugLog(`createOrUpdateAll: ${message} error:`, error);
       res.status(500).json({
         message,
         request: message,
@@ -43,7 +45,7 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
         });
       })
       .catch(error => {
-        debugLog(`findByConditions: ${model.modelName} error: ${error}`);
+        errorDebugLog(`findByConditions: ${model.modelName} error:`, error);
         res.status(500).json({
           message: `${model.modelName} query failed`,
           request: req.query,
@@ -54,13 +56,13 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
 
   async function createOrUpdateAllDocuments(req: Request): Promise<T[]> {
     const documents: T[] = req.body;
-    const message = `Create or update of ${pluraliseWithCount(documents.length, model.modelName)}`;
+    const message = `Create or update of ${documents.length} ${model.modelName}`;
     debugLog("createOrUpdateAll:received request for", message);
-    const response = await Promise.all(documents.map(member => {
-      if (member.id) {
-        return updateDocument({body: member});
+    const response = await Promise.all(documents.map(document => {
+      if (document.id) {
+        return updateDocument({body: document});
       } else {
-        return createDocument({body: member});
+        return createDocument({body: document});
       }
     }));
     debugLog("createOrUpdateAll:received request for", message, "returned:", pluraliseWithCount(response.length, model.modelName), response);
@@ -69,7 +71,7 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
 
   async function deleteAllDocuments(req: Request): Promise<DeletionResponse[]> {
     const deleteDocumentsRequest: DeleteDocumentsRequest = req.body;
-    const message = `Deletion of ${pluraliseWithCount(deleteDocumentsRequest.ids.length, model.modelName)}`;
+    const message = `Deletion of ${deleteDocumentsRequest.ids.length} ${model.modelName}`;
     debugLog("deleteAllDocuments:received request for", message);
     const response = await Promise.all(deleteDocumentsRequest.ids.map(id => {
       return deleteDocument({body: {id}});
@@ -120,7 +122,7 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
         response: updatedDocuments
       });
     } catch (error) {
-      debugLog(`updateMany failed with error: ${error}`);
+      errorDebugLog(`updateMany failed with error:`, error);
       res.status(500).json({
         request: req.body,
         error: transforms.parseError(error)
@@ -193,10 +195,12 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
             response
           });
         }).catch(error => {
-          res.status(500).json({
-            message: `Update of ${model.modelName} failed`,
-            error: transforms.parseError(error)
-          });
+        const errorMessage = {
+          message: `Update of ${model.modelName} failed`,
+          error: transforms.parseError(error)
+        };
+        errorDebugLog("error:", error);
+        res.status(500).json(errorMessage);
         });
     },
     deleteOne: (req: Request, res: Response) => {
@@ -223,7 +227,7 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
           response
         });
       }).catch(error => {
-        debugLog(`deleteAll: ${message} error: ${error}`);
+        errorDebugLog(`deleteAll: ${message} error:`, error);
         res.status(500).json({
           message,
           request: message,
@@ -258,6 +262,7 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
       model.findById(req.params.id)
         .then(result => {
           if (result) {
+            debugLog(req.query, "find - id:", req.params.id, "- criteria:found", result);
             res.status(200).json({
               action: ApiAction.QUERY,
               response: transforms.toObjectWithId(result)

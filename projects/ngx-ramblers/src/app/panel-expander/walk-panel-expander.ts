@@ -1,13 +1,14 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { faCaretDown, faCaretUp } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Walk, WalkViewMode } from "../models/walk.model";
+import { WalkViewMode } from "../models/walk.model";
 import { WalkDisplayService } from "../pages/walks/walk-display.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { NgClass } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { ExtendedGroupEvent } from "../models/group-event.model";
 
 @Component({
     selector: "app-walk-panel-expander",
@@ -38,7 +39,7 @@ export class WalkPanelExpanderComponent implements OnInit {
   faCaretDown = faCaretDown;
 
   @Input()
-  walk: Walk;
+  walk: ExtendedGroupEvent;
 
   @Input()
   expandAction: string;

@@ -2,13 +2,13 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { SocialEvent } from "../../../models/social-events.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance } from "../../../services/notifier.service";
 import { SocialDisplayService } from "../social-display.service";
 import { SocialViewComponent } from "../social-view/social-view";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
 
 @Component({
     selector: "app-social-list",
@@ -33,19 +33,11 @@ export class SocialListComponent implements OnInit {
   @Input()
   public notifyTarget: AlertTarget;
   @Input()
-  public filteredSocialEvents: SocialEvent[];
+  public filteredSocialEvents: ExtendedGroupEvent[];
   faSearch = faSearch;
 
   ngOnInit() {
     this.logger.info("ngOnInit:filteredSocialEvents:", this.filteredSocialEvents);
-  }
-
-  todayValue(): number {
-    return this.dateUtils.momentNowNoTime().valueOf();
-  }
-
-  socialEventTracker(index: number, socialEvent: SocialEvent) {
-    return socialEvent?.id;
   }
 
 

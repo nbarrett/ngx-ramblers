@@ -13,8 +13,8 @@ import { WalkValidationsListPipe } from "../../../../pipes/walk-validations.pipe
     <p>This email is a notification that at <strong [textContent]="event.date | displayDateAndTime"></strong>,
     <strong [textContent]="event.memberId | memberIdToFullName : members"></strong>
     made the following changes to the walk led by <strong
-    [textContent]="walk.walkLeaderMemberId | memberIdToFullName : members : walk.displayName"></strong>
-    on <strong [textContent]="walk.walkDate | displayDate"></strong>:
+    [textContent]="walk?.fields?.contactDetails?.memberId | memberIdToFullName : members : walk?.fields?.contactDetails?.displayName"></strong>
+    on <strong [textContent]="walk.groupEvent.start_date_time | displayDate"></strong>:
     </p>
     <app-walk-notification-changes [data]="data"/>
     @if (event.reason) {
@@ -24,9 +24,9 @@ import { WalkValidationsListPipe } from "../../../../pipes/walk-validations.pipe
       <p><strong>Note:</strong> The Walk can't be approved yet because <span
     [textContent]="validationMessages | asWalkValidationsList"></span>.</p>
     }
-    @if (walk.ramblersWalkId) {
+    @if (walk.groupEvent.id) {
       <p><strong>Note:</strong> Now the walk is published on Ramblers, if you or <strong
-    [textContent]="walk.walkLeaderMemberId | memberIdToFullName : members : walk.displayName"></strong> makes
+    [textContent]="walk?.fields?.contactDetails?.memberId | memberIdToFullName : members : walk?.fields?.contactDetails?.phone"></strong> makes
     any further changes to this walk,
     you will need to decide whether to re-publish <a [href]="display.ramblersLink(walk)">this
     walk on the Ramblers site</a>.</p>

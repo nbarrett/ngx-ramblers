@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqueValidator from "mongoose-unique-validator";
 
-const riskAssessmentRecord = new mongoose.Schema({
+export const riskAssessmentRecord = new mongoose.Schema({
   confirmationText: {type: String},
   memberId: {type: String},
   confirmed: {type: Boolean},
@@ -9,7 +9,7 @@ const riskAssessmentRecord = new mongoose.Schema({
   riskAssessmentKey: {type: String}
 }, {_id: false});
 
-const metaData = new mongoose.Schema({
+export const metaData = new mongoose.Schema({
   code: {type: String},
   description: {type: String}
 }, {_id: false});
@@ -26,7 +26,7 @@ const locationDetails = new mongoose.Schema({
 }, {_id: false});
 
 
-const walkEvent = new mongoose.Schema({
+export const walkEvent = new mongoose.Schema({
   data: {type: Object},
   eventType: {type: String},
   date: {type: Number},
@@ -36,7 +36,7 @@ const walkEvent = new mongoose.Schema({
   reason: {type: String}
 }, {_id: false});
 
-const walkVenue = new mongoose.Schema({
+export const walkVenue = new mongoose.Schema({
   venuePublish: {type: Boolean},
   type: {type: String},
   name: {type: String},
@@ -55,7 +55,7 @@ const mediaStyle = new mongoose.Schema({
   height: {type: Number}
 }, {_id: false});
 
-const media = new mongoose.Schema({
+export const media = new mongoose.Schema({
   alt: {type: String},
   title: {type: String},
   credit: {type: String},

@@ -15,7 +15,7 @@ import { Logger, LoggerFactory } from "../../../../services/logger-factory.servi
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { NumberUtilsService } from "../../../../services/number-utils.service";
 import { AwsFileUploadResponseData } from "../../../../models/aws-object.model";
-import { DatePickerComponent } from "../../../../date-picker/date-picker.component";
+import { DatePicker } from "../../../../date-and-time/date-picker";
 import { FormsModule } from "@angular/forms";
 import { NgClass, NgStyle } from "@angular/common";
 import { FileUploadModule } from "ng2-file-upload";
@@ -26,7 +26,7 @@ import { expenseTypeTracker } from "../../../../functions/trackers";
     selector: "app-expense-detail-modal",
     templateUrl: "./expense-detail-modal.component.html",
     styleUrls: ["./expense-detail-modal.component.sass"],
-    imports: [DatePickerComponent, FormsModule, NgClass, FileUploadModule, NgStyle, FontAwesomeModule]
+    imports: [DatePicker, FormsModule, NgClass, FileUploadModule, NgStyle, FontAwesomeModule]
 })
 export class ExpenseDetailModalComponent implements OnInit, OnDestroy {
 

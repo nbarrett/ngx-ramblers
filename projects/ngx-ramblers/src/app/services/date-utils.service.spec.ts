@@ -2,8 +2,9 @@ import { TestBed } from "@angular/core/testing";
 import moment from "moment-timezone";
 import { LoggerTestingModule } from "ngx-logger/testing";
 import { DateUtilsService } from "./date-utils.service";
-import { Walk } from "../models/walk.model";
 import { DateValue } from "../models/date.model";
+
+import { ExtendedGroupEvent } from "../models/group-event.model";
 
 function momentFor(startDate: string) {
   return moment(startDate).tz("Europe/London");
@@ -18,15 +19,16 @@ describe("DateUtilsService", () => {
 
   describe("startTime for every day of 2024 (which is a leap year)", () => {
     it("should produce the correct start time for each day of 2024", () => {
-      const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      const startTime = "10:00 am";
       const expectedStartTime = {hours: 10, minutes: 0};
       for (let day = 1; day <= 366; day++) {
-        const date = momentFor("2024-01-01").add(day - 1, "days").toDate();
-        const walk: Walk = {walkDate: date, startTime} as Walk;
-        const calculatedStartTime = dateUtils.startTime(walk);
-        const expectedMoment = momentFor(date).hours(expectedStartTime.hours).minutes(expectedStartTime.minutes).valueOf();
-        expect(calculatedStartTime).withContext(`Failed on date: ${momentFor(date).format("YYYY-MM-DD")}`).toEqual(expectedMoment);
+        const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
+        const date: string =  dateUtils.asMoment("2024-01-01").add(day - 1, "days").hours(expectedStartTime.hours).minutes(expectedStartTime.minutes).toISOString();
+        const walk: ExtendedGroupEvent = {
+          groupEvent: {start_date_time: date}
+        } as ExtendedGroupEvent;
+        const calculatedValue: number = dateUtils.startTimeAsValue(walk);
+        const expectedValue = dateUtils.asMoment(date).valueOf();
+        expect(calculatedValue).withContext(`Failed on date: ${momentFor(date).format("YYYY-MM-DD")}: calculatedValue:${dateUtils.isoDateTimeString(calculatedValue)}, expectedValue:${dateUtils.isoDateTimeString(expectedValue)}`).toEqual(expectedValue);
       }
     });
   });
@@ -138,16 +140,16 @@ describe("DateUtilsService", () => {
   });
 
 
-  describe("durationForDistance", () => {
+  describe("durationInMsecsForDistanceInMiles", () => {
 
     it("should calculate distance in ms based on miles where 2.5 miles covered per hour distance/2.5*60*60*1000", () => {
       const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      expect(dateUtils.durationForDistanceInMiles("12 miles", 2.5)).toBe(17280000);
+      expect(dateUtils.durationInMsecsForDistanceInMiles("12 miles", 2.5)).toBe(17280000);
     });
 
     it("should accept a numeric input", () => {
       const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      expect(dateUtils.durationForDistanceInMiles(10, 2.5)).toBe(14400000);
+      expect(dateUtils.durationInMsecsForDistanceInMiles(10, 2.5)).toBe(14400000);
     });
 
   });
@@ -162,54 +164,5 @@ describe("DateUtilsService", () => {
 
   });
 
-  describe("parseTime", () => {
-
-    it("should format morning time without minutes and optionally am suffix", () => {
-      const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      const testMoment = moment();
-      expect(dateUtils.parseTime("10 am")).toEqual({hours: 10, minutes: 0});
-      expect(dateUtils.parseTime("10.00")).toEqual({hours: 10, minutes: 0});
-    });
-
-    it("should format morning time with minutes and optionally am suffix", () => {
-      const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      const testMoment = moment();
-      expect(dateUtils.parseTime("9.45")).toEqual({hours: 9, minutes: 45});
-      expect(dateUtils.parseTime("9.45 am")).toEqual({hours: 9, minutes: 45});
-    });
-
-    it("should format evening time without minutes and pm suffix", () => {
-      const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      const testMoment = moment();
-      expect(dateUtils.parseTime("10 pm")).toEqual({hours: 22, minutes: 0});
-    });
-
-    it("should format afternoon time without minutes", () => {
-      const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      const testMoment = moment();
-      expect(dateUtils.parseTime("14:00")).toEqual({hours: 14, minutes: 0});
-    });
-
-    it("should format afternoon time with minutes", () => {
-      const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      const testMoment = moment();
-      expect(dateUtils.parseTime("14:45")).toEqual({hours: 14, minutes: 45});
-    });
-
-    it("should parse morning time with minutes", () => {
-      const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      const testMoment = moment();
-      expect(dateUtils.parseTime("5:30")).toEqual({hours: 5, minutes: 30});
-    });
-
-    it("should format evening time with minutes", () => {
-      const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
-      const testMoment = moment();
-      expect(dateUtils.parseTime("17:49")).toEqual({hours: 17, minutes: 49});
-      expect(dateUtils.parseTime("9.45 pm")).toEqual({hours: 21, minutes: 45});
-      expect(dateUtils.parseTime("11.27 PM")).toEqual({hours: 23, minutes: 27});
-    });
-
-  });
 
 });

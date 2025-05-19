@@ -47,10 +47,10 @@ import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberService } from "../member/member.service";
 import { AlertInstance } from "../notifier.service";
-import { RamblersWalksAndEventsService } from "./ramblers-walks-and-events.service";
-import { WalkEventService } from "./walk-event.service";
+import { RamblersWalksAndEventsService } from "../walks-and-events/ramblers-walks-and-events.service";
+import { GroupEventService } from "../walks-and-events/group-event.service";
 import { WalksReferenceService } from "./walks-reference-data.service";
-import { WalksService } from "./walks.service";
+import { WalksAndEventsService } from "../walks-and-events/walks-and-events.service";
 import { NotificationComponent } from "../../notifications/common/notification.component";
 import { NotificationDirective } from "../../notifications/common/notification.directive";
 import { MailMessagingService } from "../mail/mail-messaging.service";
@@ -68,9 +68,9 @@ export class WalkNotificationService {
   private mailService: MailService = inject(MailService);
   protected memberService: MemberService = inject(MemberService);
   private display: WalkDisplayService = inject(WalkDisplayService);
-  private walkEventService: WalkEventService = inject(WalkEventService);
+  private walkEventService: GroupEventService = inject(GroupEventService);
   private walksReferenceService: WalksReferenceService = inject(WalksReferenceService);
-  private walksService: WalksService = inject(WalksService);
+  private walksAndEventsService: WalksAndEventsService = inject(WalksAndEventsService);
   private fullNameWithAliasPipe: FullNameWithAliasPipe = inject(FullNameWithAliasPipe);
   private displayDatePipe: DisplayDatePipe = inject(DisplayDatePipe);
   private markdownService: MarkdownService = inject(MarkdownService);
@@ -91,7 +91,7 @@ export class WalkNotificationService {
         const walkEventType = this.walksReferenceService.toWalkEventType(event.eventType);
         this.logger.info("walkEventType", walkEventType, "from event:", event);
         this.walkEventService.writeEventIfRequired(displayedWalk.walk, event);
-        displayedWalk.walk = await this.walksService.createOrUpdate(displayedWalk.walk);
+        displayedWalk.walk = await this.walksAndEventsService.createOrUpdate(displayedWalk.walk);
         this.display.refreshDisplayedWalk(displayedWalk);
         await this.sendNotificationsToAllRoles(notificationConfig, members, notificationDirective, displayedWalk, walkEventType, notify);
         return true;
@@ -153,8 +153,7 @@ export class WalkNotificationService {
     const componentAndData = new NotificationComponent<WalkNotificationDetailsComponent>(component);
     const viewContainerRef = notificationDirective.viewContainerRef;
     viewContainerRef.clear();
-    const componentType: Type<WalkNotificationDetailsComponent> = componentAndData.component;
-    const componentRef = viewContainerRef.createComponent(componentType);
+    const componentRef = viewContainerRef.createComponent(componentAndData.component);
     componentRef.instance.data = walkNotification;
     componentRef.changeDetectorRef.detectChanges();
     const html = componentRef.location.nativeElement.innerHTML;
@@ -179,10 +178,10 @@ export class WalkNotificationService {
 
   private async sendNotificationsToAllRoles(notificationConfig: NotificationConfig, members: Member[], notificationDirective: NotificationDirective, displayedWalk: DisplayedWalk, walkEventType: WalkEventType, notify: AlertInstance): Promise<void> {
     const walkNotification: WalkNotification = this.toWalkNotification(displayedWalk, members);
-    const walkLeaderMember = await this.memberService.getById(displayedWalk.walk.walkLeaderMemberId);
-    this.logger.info("sendNotification:", "memberId", displayedWalk.walk.walkLeaderMemberId, "member", walkLeaderMember);
+    const walkLeaderMember = await this.memberService.getById(displayedWalk.walk?.fields?.contactDetails?.memberId);
+    this.logger.info("sendNotification:", "memberId", displayedWalk.walk?.fields?.contactDetails?.memberId, "member", walkLeaderMember);
     const walkLeaderName = this.fullNameWithAliasPipe.transform(walkLeaderMember);
-    const walkDate = this.displayDatePipe.transform(displayedWalk.walk.walkDate);
+    const walkDate = this.displayDatePipe.transform(displayedWalk.walk.groupEvent.start_date_time);
     await this.sendLeaderNotifications(notificationConfig, notify, notificationDirective, walkNotification, walkEventType, walkDate);
     return await this.sendCoordinatorNotifications(notificationConfig, notify, walkLeaderMember, members, notificationDirective, walkNotification, walkEventType, walkLeaderName, walkDate);
   }
@@ -196,7 +195,7 @@ export class WalkNotificationService {
         notify,
         walkEventType,
         notificationConfig,
-        memberIds: [walkNotification.walk.walkLeaderMemberId],
+        memberIds: [walkNotification.walk?.fields?.contactDetails?.memberId],
         notificationText,
         emailSubject: `Your walk on ${walkDate}`,
         destination: "walk leader"

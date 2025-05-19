@@ -177,6 +177,7 @@ export interface SystemConfig {
   national: Ramblers;
   externalSystems: ExternalSystems
   recaptcha: ReCaptchaConfig
+  enableMigration: { events: boolean }
   images: ImageConfig
   googleAnalytics: GoogleAnalyticsConfig
   mailDefaults: {
@@ -205,7 +206,6 @@ export const rgbColourRosyCheeks = "rgb(246, 176, 157)";
 export const rgbColourSunrise = "rgb(249, 177, 4)";
 export const rgbColourSunset = "rgb(240, 128, 80)";
 export const rgbColourGrey = "rgb(222, 226, 230)";
-
 export const classBackgroundLight = "bg-light";
 export const classBackgroundDark = "bg-dark";
 export const classColourCloudy = "colour-cloudy";

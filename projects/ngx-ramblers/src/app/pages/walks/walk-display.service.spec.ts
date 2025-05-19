@@ -14,12 +14,12 @@ import { MemberLoginService } from "../../services/member/member-login.service";
 import { WalksReferenceService } from "../../services/walks/walks-reference-data.service";
 import { WalkDisplayService } from "./walk-display.service";
 import { EventPopulation, Organisation } from "../../models/system.model";
-import { RamblersEventType } from "../../models/ramblers-walks-manager";
-import { WalkEventService } from "../../services/walks/walk-event.service";
+import { LocationDetails, RamblersEventType, WalkStatus } from "../../models/ramblers-walks-manager";
+import { GroupEventService } from "../../services/walks-and-events/group-event.service";
 import { EventType } from "../../models/walk.model";
 import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 import { SearchFilterPipe } from "../../pipes/search-filter.pipe";
-
+import { DateUtilsService } from "../../services/date-utils.service";
 const anyWalkDate = 123364;
 const walkLeaderMemberId = "walk-leader-id";
 const dontCare = [];
@@ -44,6 +44,62 @@ const memberService = {
   allLimitedFields: () => Promise.resolve({email: "test@example.com"}),
   filterFor: {GROUP_MEMBERS: ""}
 };
+
+export function createExtendedGroupEvent(dateUtilsService: DateUtilsService, dateValue: number, expectedEvent: any, walkLeaderMemberId: string, startLocation?: LocationDetails) {
+  return {
+    fields: {
+      contactDetails: {
+        email: "",
+        contactId: "",
+        memberId: walkLeaderMemberId,
+        displayName: "",
+        phone: ""
+      },
+      attendees: [],
+      links: [],
+      meetup: null,
+      milesPerHour: 0,
+      notifications: [],
+      publishing: null,
+      riskAssessment: []
+    },
+    groupEvent: {
+      item_type: RamblersEventType.GROUP_WALK,
+      start_date_time: dateUtilsService.isoDateTimeString(dateValue),
+      title: "",
+      group_code: "",
+      area_code: "",
+      group_name: "",
+      description: "",
+      additional_details: "",
+      end_date_time: "",
+      meeting_date_time: "",
+      start_location: startLocation,
+      meeting_location: null,
+      end_location: null,
+      distance_km: 0,
+      distance_miles: 0,
+      ascent_feet: 0,
+      ascent_metres: 0,
+      difficulty: null,
+      shape: "",
+      duration: 0,
+      walk_leader: null,
+      url: "",
+      external_url: "",
+      status: WalkStatus.DRAFT,
+      cancellation_reason: "",
+      accessibility: [],
+      facilities: [],
+      transport: [],
+      media: [],
+      linked_event: "",
+      date_created: "",
+      date_updated: ""
+    },
+    events: [expectedEvent]
+  };
+}
 
 describe("WalkDisplayService", () => {
   let spy: jasmine.Spy<any>;
@@ -84,12 +140,11 @@ describe("WalkDisplayService", () => {
       spy = spyOn(memberLoginService, "allowWalkAdminEdits").and.returnValue(true);
       const val = {memberId: "some-other-id"} as any;
       spy = spyOn(memberLoginService, "loggedInMember").and.returnValue(val);
+      const dateUtilsService: DateUtilsService = TestBed.inject(DateUtilsService);
       const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
       service.group = {walkPopulation: EventPopulation.LOCAL} as Organisation;
-      expect(service.toWalkAccessMode({
-        eventType: RamblersEventType.GROUP_WALK,
-        walkLeaderMemberId: "any-walk-id", events: dontCare, walkDate: anyWalkDate
-      })).toEqual(WalksReferenceService.walkAccessModes.edit);
+      expect(service.toWalkAccessMode(createExtendedGroupEvent(dateUtilsService, anyWalkDate, dontCare, "any-walk-id")))
+        .toEqual(WalksReferenceService.walkAccessModes.edit);
     });
 
     it("should return edit if user is logged in and not admin but is leader", () => {
@@ -97,39 +152,32 @@ describe("WalkDisplayService", () => {
       spy = spyOn(memberLoginService, "allowWalkAdminEdits").and.returnValue(false);
       spy = spyOn(memberLoginService, "loggedInMember").and.returnValue({memberId: "leader-id"} as any);
       const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
+      const dateUtilsService: DateUtilsService = TestBed.inject(DateUtilsService);
       service.group = {walkPopulation: EventPopulation.LOCAL} as Organisation;
-      expect(service.toWalkAccessMode({
-        eventType: RamblersEventType.GROUP_WALK,
-        walkLeaderMemberId: "leader-id",
-        events: dontCare,
-        walkDate: anyWalkDate
-      })).toEqual(WalksReferenceService.walkAccessModes.edit);
+      expect(service.toWalkAccessMode(createExtendedGroupEvent(dateUtilsService, anyWalkDate, dontCare, "leader-id")))
+        .toEqual(WalksReferenceService.walkAccessModes.edit);
     });
 
     it("should return lead if user is logged in and not admin and walk doest have a leader", () => {
       spy = spyOn(memberLoginService, "memberLoggedIn").and.returnValue(true);
       spy = spyOn(memberLoginService, "allowWalkAdminEdits").and.returnValue(false);
       spy = spyOn(memberLoginService, "loggedInMember").and.returnValue({memberId: "leader-id"} as any);
+      const dateUtilsService: DateUtilsService = TestBed.inject(DateUtilsService);
       const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
       const expectedEvent: any = {eventType: EventType.AWAITING_LEADER};
       service.group = {walkPopulation: EventPopulation.LOCAL} as Organisation;
-      expect(service.toWalkAccessMode({
-        eventType: RamblersEventType.GROUP_WALK,
-        events: [expectedEvent],
-        walkDate: 0,
-      })).toEqual(WalksReferenceService.walkAccessModes.lead);
+      const dateValue = 0;
+      expect(service.toWalkAccessMode(createExtendedGroupEvent(dateUtilsService, dateValue, expectedEvent, walkLeaderMemberId)))
+        .toEqual(WalksReferenceService.walkAccessModes.lead);
     });
 
     it("should return view if user is not logged in", () => {
       spy = spyOn(memberLoginService, "memberLoggedIn").and.returnValue(false);
       spy = spyOn(memberLoginService, "allowWalkAdminEdits").and.returnValue(false);
+      const dateUtilsService: DateUtilsService = TestBed.inject(DateUtilsService);
       const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
-      expect(service.toWalkAccessMode({
-        eventType: RamblersEventType.GROUP_WALK,
-        walkLeaderMemberId,
-        events: dontCare,
-        walkDate: anyWalkDate
-      })).toEqual(WalksReferenceService.walkAccessModes.view);
+      expect(service.toWalkAccessMode(createExtendedGroupEvent(dateUtilsService, anyWalkDate, dontCare, walkLeaderMemberId)))
+        .toEqual(WalksReferenceService.walkAccessModes.view);
     });
 
     it("should return view if user is not member admin and not leading the walk", () => {
@@ -137,7 +185,8 @@ describe("WalkDisplayService", () => {
       spy = spyOn(memberLoginService, "allowWalkAdminEdits").and.returnValue(false);
       spy = spyOn(memberLoginService, "loggedInMember").and.returnValue({memberId: "leader-id"} as any);
       const service: WalkDisplayService = TestBed.inject(WalkDisplayService);
-      const walkEventService = TestBed.inject(WalkEventService);
+      const dateUtilsService: DateUtilsService = TestBed.inject(DateUtilsService);
+      const walkEventService = TestBed.inject(GroupEventService);
       spyOn(service, "walkPopulationLocal").and.returnValue(true);
       spyOn(walkEventService, "latestEvent").and.returnValue({
         eventType: EventType.APPROVED,
@@ -145,13 +194,8 @@ describe("WalkDisplayService", () => {
         date: 0,
         memberId: ""
       });
-      const actual = service.toWalkAccessMode({
-        eventType: RamblersEventType.GROUP_WALK,
-        walkLeaderMemberId: "another-walk-leader-id",
-        events: dontCare,
-        walkDate: anyWalkDate
-      });
-      console.log("actual", JSON.stringify(actual));
+      const actual = service.toWalkAccessMode(createExtendedGroupEvent(dateUtilsService, anyWalkDate, dontCare, "another-walk-leader-id"));
+      // console.log("actual", JSON.stringify(actual));
       expect(actual).toEqual(WalksReferenceService.walkAccessModes.view);
     });
   });

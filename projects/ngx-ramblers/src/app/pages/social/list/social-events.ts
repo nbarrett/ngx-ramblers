@@ -7,7 +7,7 @@ import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { DataQueryOptions, DateCriteria } from "../../../models/api-request.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
-import { EventsData, SocialEvent } from "../../../models/social-events.model";
+import { EventsData } from "../../../models/social-events.model";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -15,7 +15,6 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { PageService } from "../../../services/page.service";
-import { SocialEventsService } from "../../../services/social-events/social-events.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { SocialDisplayService } from "../social-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
@@ -23,6 +22,10 @@ import { SocialSearchComponent } from "../social-search/social-search";
 import { FormsModule } from "@angular/forms";
 import { SocialListCardsComponent } from "../social-list-cards/social-list-cards";
 import { DateFilterParameters } from "../../../models/search.model";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
+import { GROUP_EVENT_START_DATE } from "../../../models/walk.model";
+import { EventQueryParameters, RamblersEventType } from "../../../models/ramblers-walks-manager";
 
 @Component({
     selector: "app-social-events",
@@ -53,7 +56,7 @@ export class SocialEventsComponent implements OnInit, OnDestroy {
   display = inject(SocialDisplayService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   private route = inject(ActivatedRoute);
-  private socialEventsService = inject(SocialEventsService);
+  private walksAndEventsService = inject(WalksAndEventsService);
   private memberLoginService = inject(MemberLoginService);
   protected dateUtils = inject(DateUtilsService);
   private subscriptions: Subscription[] = [];
@@ -69,9 +72,9 @@ export class SocialEventsComponent implements OnInit, OnDestroy {
   public pageNumber = 1;
   public pageCount: number;
   public pages: number[] = [];
-  public socialEvents: SocialEvent[] = [];
-  public filteredSocialEvents: SocialEvent[] = [];
-  public currentPageSocials: SocialEvent[] = this.filteredSocialEvents;
+  public socialEvents: ExtendedGroupEvent[] = [];
+  public filteredSocialEvents: ExtendedGroupEvent[] = [];
+  public currentPageSocials: ExtendedGroupEvent[] = this.filteredSocialEvents;
   @Input() rowIndex: number;
   @Input() eventsData: EventsData;
 
@@ -106,7 +109,7 @@ export class SocialEventsComponent implements OnInit, OnDestroy {
     const dataQueryOptions = {criteria: this.criteria(), sort: this.sort()};
     this.logger.info("refreshSocialEvents:dataQueryOptions", dataQueryOptions);
     this.queryAndReturnSocialEvents(dataQueryOptions)
-      .then((socialEvents: SocialEvent[]) => {
+      .then((socialEvents: ExtendedGroupEvent[]) => {
         this.logger.info("received socialEvents:", socialEvents);
         this.display.confirm.clear();
         this.socialEvents = socialEvents;
@@ -122,22 +125,23 @@ export class SocialEventsComponent implements OnInit, OnDestroy {
       });
   }
 
-  private queryAndReturnSocialEvents(dataQueryOptions: DataQueryOptions): Promise<SocialEvent[]> {
+  private queryAndReturnSocialEvents(dataQueryOptions: DataQueryOptions): Promise<ExtendedGroupEvent[]> {
+    const eventQueryParameters: EventQueryParameters = {types: [RamblersEventType.GROUP_EVENT], dataQueryOptions};
     if (this.memberLoginService.memberLoggedIn()) {
-      return this.socialEventsService.all(dataQueryOptions);
+      return this.walksAndEventsService.all(eventQueryParameters);
     } else {
-      return this.socialEventsService.allPublic(dataQueryOptions);
+      return this.walksAndEventsService.allPublic(eventQueryParameters);
     }
   }
 
-  todayValue(): number {
-    return this.dateUtils.momentNowNoTime().valueOf();
+  todayValue(): string {
+    return this.dateUtils.momentNowNoTime().format();
   }
 
   criteria() {
     if (this.eventsData) {
       return {
-        eventDate: {
+        [GROUP_EVENT_START_DATE]: {
           $gte: this.eventsData.fromDate,
           $lte: this.eventsData.toDate
         }
@@ -145,9 +149,9 @@ export class SocialEventsComponent implements OnInit, OnDestroy {
     } else {
       switch (Number(this.filterParameters.selectType)) {
         case DateCriteria.CURRENT_OR_FUTURE_DATES:
-          return {eventDate: {$gte: this.todayValue()}};
+          return {[GROUP_EVENT_START_DATE]: {$gte: this.todayValue()}};
         case DateCriteria.PAST_DATES:
-          return {eventDate: {$lt: this.todayValue()}};
+          return {[GROUP_EVENT_START_DATE]: {$lt: this.todayValue()}};
         case DateCriteria.ALL_DATES:
           return {};
       }
@@ -155,7 +159,7 @@ export class SocialEventsComponent implements OnInit, OnDestroy {
   }
 
   sort() {
-    return {eventDate: this.filterParameters.fieldSort};
+    return {[GROUP_EVENT_START_DATE]: this.filterParameters.fieldSort};
   }
 
   applyFilterToSocialEvents(searchTerm?: NamedEvent<string>) {
@@ -199,7 +203,7 @@ export class SocialEventsComponent implements OnInit, OnDestroy {
     this.applyPagination();
   }
 
-  paginate(walks: SocialEvent[], pageSize, pageNumber): SocialEvent[] {
+  paginate(walks: ExtendedGroupEvent[], pageSize, pageNumber): ExtendedGroupEvent[] {
     return walks.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
   }
 

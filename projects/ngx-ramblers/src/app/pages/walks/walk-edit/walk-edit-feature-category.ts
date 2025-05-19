@@ -2,7 +2,7 @@ import { Component, inject, Input } from "@angular/core";
 import { CategorisedFeatures } from "../../../models/walk-feature.model";
 import { WalkEditFeatureCategoryComponent } from "../walk-view/walk-feature";
 import { DisplayedWalk } from "../../../models/walk.model";
-import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
+import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { sortBy } from "../../../functions/arrays";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -43,17 +43,17 @@ export class WalkFeatureListComponent {
   @Input() displayedWalk!: DisplayedWalk;
 
   toggleFeature(featureCode: string): void {
-    const index = this.displayedWalk.walk.features.findIndex(feature => feature.code === featureCode);
+    const index = this.displayedWalk.walk.groupEvent.accessibility.findIndex(feature => feature.code === featureCode);
     if (index > -1) {
-      this.displayedWalk.walk.features.splice(index, 1);
+      this.displayedWalk.walk.groupEvent.accessibility.splice(index, 1);
     } else {
       const feature = this.allFeatures.find(f => f.code === featureCode);
       if (feature) {
-        this.displayedWalk.walk.features.push(feature);
+        this.displayedWalk.walk.groupEvent.accessibility.push(feature);
       }
     }
-    this.displayedWalk.walk.features = this.displayedWalk.walk.features.sort(sortBy("code"));
-    this.logger.info("toggleFeature", featureCode, this.displayedWalk.walk.features);
+    this.displayedWalk.walk.groupEvent.accessibility = this.displayedWalk.walk.groupEvent.accessibility.sort(sortBy("code"));
+    this.logger.info("toggleFeature", featureCode, this.displayedWalk.walk.groupEvent.accessibility);
   }
 
 }

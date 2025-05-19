@@ -5,9 +5,9 @@ import { RamblersGroupsApiResponse } from "../../../models/ramblers-walks-manage
 import { DisplayedWalk } from "../../../models/walk.model";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
+import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { WalkDisplayService } from "../walk-display.service";
-import { RelatedLinkComponent } from "../../../modules/common/related-link/related-link.component";
+import { RelatedLinkComponent } from "../../../modules/common/related-links/related-link";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 

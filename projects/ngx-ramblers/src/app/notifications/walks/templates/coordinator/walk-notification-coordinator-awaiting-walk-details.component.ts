@@ -11,7 +11,7 @@ import { WalkValidationsListPipe } from "../../../../pipes/walk-validations.pipe
     template: `
     <p>This email is to notify you that at <strong>{{ event.date | displayDateAndTime }}</strong>, <strong
     [textContent]="event.memberId | memberIdToFullName : members"></strong>
-    updated the walk on <strong>{{walk.walkDate | displayDate"</strong>
+    updated the walk on <strong>{{walk.groupEvent.start_date_time | displayDate"</strong>
     to <strong>{{ event.eventType | walkEventType: 'description' }}</strong>.
     </p>
     @if (walkDataAudit.dataChanged) {

@@ -1,5 +1,5 @@
 export interface ChangedItem {
   fieldName: string;
-  previousValue: any;
+  previousValue?: any;
   currentValue: any;
 }

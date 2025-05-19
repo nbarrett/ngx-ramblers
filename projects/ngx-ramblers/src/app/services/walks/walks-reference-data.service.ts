@@ -2,7 +2,7 @@ import { Injectable } from "@angular/core";
 import { faCutlery, faMapMarker } from "@fortawesome/free-solid-svg-icons";
 import { WalkAccessMode } from "../../models/walk-edit-mode.model";
 import { WalkEventType } from "../../models/walk-event-type.model";
-import { VenueType } from "../../models/walk-venue.model";
+import { VenueType } from "../../models/event-venue.model";
 import { EventType, WalkFilter } from "../../models/walk.model";
 
 @Injectable({

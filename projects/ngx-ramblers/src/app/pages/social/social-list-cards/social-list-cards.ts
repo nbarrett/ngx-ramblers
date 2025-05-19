@@ -2,7 +2,7 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import min from "lodash-es/min";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { EventsData, SocialEvent } from "../../../models/social-events.model";
+import { EventsData } from "../../../models/social-events.model";
 import { CARD_MARGIN_BOTTOM, cardClasses } from "../../../services/card-utils";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
@@ -12,6 +12,7 @@ import { SocialDisplayService } from "../social-display.service";
 import { PageService } from "../../../services/page.service";
 import { SocialCardComponent } from "../social-card/social-card";
 import { DateFilterParameters } from "../../../models/search.model";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
 
 @Component({
     selector: "app-social-list-cards",
@@ -49,7 +50,7 @@ export class SocialListCardsComponent implements OnInit {
   private pageService = inject(PageService);
   protected dateUtils = inject(DateUtilsService);
 
-  public socialEvents: SocialEvent[] = [];
+  public socialEvents: ExtendedGroupEvent[] = [];
   public notify: AlertInstance;
   faSearch = faSearch;
   public filterParameters: DateFilterParameters;
@@ -61,7 +62,7 @@ export class SocialListCardsComponent implements OnInit {
   @Input()
   public notifyTarget: AlertTarget;
   @Input()
-  public filteredSocialEvents: SocialEvent[];
+  public filteredSocialEvents: ExtendedGroupEvent[];
   @Input() eventsData: EventsData;
 
 

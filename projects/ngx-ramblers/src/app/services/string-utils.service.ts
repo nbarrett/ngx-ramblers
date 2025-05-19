@@ -11,7 +11,6 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { AlertMessage } from "../models/alert-target.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import isArray from "lodash-es/isArray";
-import kebabCase from "lodash-es/kebabCase";
 import isBoolean from "lodash-es/isBoolean";
 import isNull from "lodash-es/isNull";
 import isUndefined from "lodash-es/isUndefined";
@@ -89,17 +88,25 @@ StringUtilsService {
     };
   }
 
-  stringifyObject(inputValue, defaultValue?: string): string {
+  stringifyObject(inputValue: any, defaultValue?: string): string {
     if (typeof inputValue === "object") {
       return map(inputValue, (value, key) => {
         if (isObject(value)) {
           return `${startCase(key)} -> ${this.stringifyObject(value, defaultValue)}`;
         } else {
-          return `${startCase(key)}: ${value || defaultValue || "(none)"}`;
+          return `${startCase(key)}: ${(this.stringifiedValue(value, defaultValue))}`;
         }
       }).sort().join(", ");
     } else {
       return inputValue || defaultValue || "(none)";
+    }
+  }
+
+  private stringifiedValue(value: any, defaultValue: string):string {
+    if (isBoolean(value)) {
+      return value.toString();
+    } else {
+      return value || defaultValue || "(none)";
     }
   }
 
@@ -145,4 +152,9 @@ StringUtilsService {
     this.logger.debug("input:", strings, "output:", returnValue);
     return returnValue;
   }
+
+  lastItemFrom(key: string): string {
+    return key?.split("/").filter(item => item)?.pop();
+  }
+
 }

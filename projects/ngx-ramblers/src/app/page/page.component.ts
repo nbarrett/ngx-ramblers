@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { booleanAttribute, Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { PageService } from "../services/page.service";
@@ -40,11 +40,7 @@ export class PageComponent implements OnInit {
 
   public pageTitle: string;
 
-  public autoTitle: boolean;
-
-  @Input("autoTitle") set autoTitleValue(value: boolean) {
-    this.autoTitle = coerceBooleanProperty(value);
-  }
+  @Input({ transform: booleanAttribute }) autoTitle = false;
 
   @Input("pageTitle") set acceptPageTitleChange(pageTitle: string) {
     this.logger.info("Input:pageTitle:", pageTitle);

@@ -2,7 +2,7 @@ import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { DisplayedWalk, Walk } from "../../../models/walk.model";
+import { DisplayedWalk } from "../../../models/walk.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { WalkChangesService } from "../../../services/walks/walk-changes.service";
@@ -11,10 +11,44 @@ import { RiskAssessmentService } from "../../../services/walks/risk-assessment.s
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { WalkRiskAssessmentSectionComponent } from "./section/walk-risk-assessment-section.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
 
 @Component({
     selector: "app-walk-risk-assessment",
-    templateUrl: "./walk-risk-assessment.component.html",
+    template: `
+      <div class="img-thumbnail thumbnail-admin-edit">
+        <app-markdown-editor [category]="'risk-assessments'" [name]="'risk-assessments-heading'"
+                             [description]="'Risk Assessments Heading'"></app-markdown-editor>
+        <app-walk-risk-assessment-section [displayedWalk]="displayedWalk"
+                                          [riskAssessmentSection]="'Traffic'">
+
+        </app-walk-risk-assessment-section>
+        <app-walk-risk-assessment-section [displayedWalk]="displayedWalk"
+                                          [riskAssessmentSection]="'Path surface and obstacles'">
+
+        </app-walk-risk-assessment-section>
+        <app-walk-risk-assessment-section [displayedWalk]="displayedWalk"
+                                          [riskAssessmentSection]="'Animals'">
+
+        </app-walk-risk-assessment-section>
+        <app-walk-risk-assessment-section [displayedWalk]="displayedWalk"
+                                          [riskAssessmentSection]="'Communications'">
+
+        </app-walk-risk-assessment-section>
+        <app-walk-risk-assessment-section [displayedWalk]="displayedWalk"
+                                          [riskAssessmentSection]="'Other'">
+        </app-walk-risk-assessment-section>
+        <div class="form-group">
+          @if (notifyTarget.showAlert) {
+            <div class="alert {{notifyTarget.alertClass}}">
+              <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+              <strong> {{ notifyTarget.alertTitle }}: </strong>
+              {{ notifyTarget.alertMessage }}
+            </div>
+          }
+        </div>
+      </div>
+    `,
     styleUrls: ["./walk-risk-assessment.component.sass"],
     imports: [MarkdownEditorComponent, WalkRiskAssessmentSectionComponent, FontAwesomeModule]
 })
@@ -42,12 +76,12 @@ export class WalkRiskAssessmentComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
-  private updateCompletionStatus(walk: Walk) {
+  private updateCompletionStatus(walk: ExtendedGroupEvent) {
     this.logger.debug("updateCompletionStatus:walk:", walk);
-    if (this.riskAssessmentService.unconfirmedRiskAssessmentsExist(walk.riskAssessment)) {
-      this.notify.warning(this.riskAssessmentService.warningMessage(walk.riskAssessment));
+    if (this.riskAssessmentService.unconfirmedRiskAssessmentsExist(walk.fields.riskAssessment)) {
+      this.notify.warning(this.riskAssessmentService.warningMessage(walk.fields.riskAssessment));
     } else {
-      this.notify.success(this.riskAssessmentService.successMessage(walk.riskAssessment));
+      this.notify.success(this.riskAssessmentService.successMessage(walk.fields.riskAssessment));
     }
   };
 }

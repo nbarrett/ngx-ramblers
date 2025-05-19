@@ -30,3 +30,8 @@ export const sortBy = (...properties: string[]) => (nextItem, currentItem) => pr
     return nextValue > currentValue ? dir : nextValue < currentValue ? -(dir) : 0;
   })
   .reduce((previous, next) => previous ? previous : next, 0);
+
+export function firstPopulated<T>(...values: T[][]): T[] {
+  return values?.find(item => item?.length > 0) || [];
+}
+

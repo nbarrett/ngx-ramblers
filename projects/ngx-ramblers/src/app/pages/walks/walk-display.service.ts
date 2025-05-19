@@ -14,8 +14,8 @@ import {
   DisplayedWalk,
   EventType,
   GoogleMapsConfig,
-  Walk,
   WALK_GRADES,
+  WalkGrade,
   WalkType,
   WalkViewMode
 } from "../../models/walk.model";
@@ -26,16 +26,18 @@ import { MemberLoginService } from "../../services/member/member-login.service";
 import { MemberService } from "../../services/member/member.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { UrlService } from "../../services/url.service";
-import { WalkEventService } from "../../services/walks/walk-event.service";
-import { WalksQueryService } from "../../services/walks/walks-query.service";
+import { GroupEventService } from "../../services/walks-and-events/group-event.service";
+import { ExtendedGroupEventQueryService } from "../../services/walks-and-events/extended-group-event-query.service";
 import { WalksReferenceService } from "../../services/walks/walks-reference-data.service";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 import { Observable, ReplaySubject } from "rxjs";
 import { StringUtilsService } from "../../services/string-utils.service";
-import { LocationDetails, RamblersEventType } from "../../models/ramblers-walks-manager";
+import { Difficulty, LocationDetails, RamblersEventType } from "../../models/ramblers-walks-manager";
 import { BuiltInRole } from "../../models/committee.model";
 import { MediaQueryService } from "../../services/committee/media-query.service";
+import { ExtendedGroupEvent } from "../../models/group-event.model";
+import { FeaturesService } from "../../services/features.service";
 
 @Injectable({
   providedIn: "root"
@@ -45,6 +47,7 @@ export class WalkDisplayService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkDisplayService", NgxLoggerLevel.ERROR);
   mediaQueryService = inject(MediaQueryService);
+  featuresService = inject(FeaturesService);
   private systemConfigService = inject(SystemConfigService);
   private googleMapsService = inject(GoogleMapsService);
   private memberService = inject(MemberService);
@@ -54,15 +57,13 @@ export class WalkDisplayService {
   protected stringUtils = inject(StringUtilsService);
   private route = inject(ActivatedRoute);
   private sanitiser = inject(DomSanitizer);
-  private walkEventService = inject(WalkEventService);
+  private walkEventService = inject(GroupEventService);
   private walksReferenceService = inject(WalksReferenceService);
-  private walksQueryService = inject(WalksQueryService);
+  private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private committeeConfig = inject(CommitteeConfigService);
-
   private subject = new ReplaySubject<Member[]>();
   public relatedLinksMediaWidth = 22;
   public expandedWalks: ExpandedWalk [] = [];
-  public grades = WALK_GRADES.map(item => item.description);
   public walkTypes: WalkType[] = enumValues(WalkType);
   private nextWalkId: string;
   public members: Member[] = [];
@@ -74,13 +75,14 @@ export class WalkDisplayService {
     this.applyConfig();
     this.refreshCachedData();
     this.logger.debug("this.memberLoginService", this.memberLoginService.loggedInMember());
+
   }
 
-  public notAwaitingLeader(walk: Walk): boolean {
+  public notAwaitingLeader(walk: ExtendedGroupEvent): boolean {
     return this.walkEventService.latestEvent(walk)?.eventType !== EventType.AWAITING_LEADER;
   }
 
-  public awaitingLeader(walk: Walk): boolean {
+  public awaitingLeader(walk: ExtendedGroupEvent): boolean {
     return this.walkEventService.latestEvent(walk)?.eventType === EventType.AWAITING_LEADER;
   }
 
@@ -92,22 +94,22 @@ export class WalkDisplayService {
     return this.memberLoginService.memberLoggedIn();
   }
 
-  findWalk(walk: Walk): ExpandedWalk {
+  findWalk(walk: ExtendedGroupEvent): ExpandedWalk {
     return find(this.expandedWalks, {walkId: walk.id}) as ExpandedWalk;
   }
 
-  walkMode(walk: Walk): WalkViewMode {
+  walkMode(walk: ExtendedGroupEvent): WalkViewMode {
     const expandedWalk = find(this.expandedWalks, {walkId: walk?.id}) as ExpandedWalk;
     const walkViewMode = expandedWalk ? expandedWalk.mode : this.urlService.pathContainsEventId() ? WalkViewMode.VIEW_SINGLE : this.urlService.pathContains("edit") ? WalkViewMode.EDIT_FULL_SCREEN : WalkViewMode.LIST;
     this.logger.debug("walkMode:", walkViewMode, "expandedWalk:", expandedWalk);
     return walkViewMode;
   }
 
-  isExpanded(walk: Walk): boolean {
+  isExpanded(walk: ExtendedGroupEvent): boolean {
     return !!this.findWalk(walk);
   }
 
-  isEdit(walk: Walk) {
+  isEdit(walk: ExtendedGroupEvent) {
     const expandedWalk = this.findWalk(walk);
     return expandedWalk && expandedWalk.mode === WalkViewMode.EDIT;
   }
@@ -144,12 +146,12 @@ export class WalkDisplayService {
     return result;
   }
 
-  walkLeaderOrAdmin(walk: Walk) {
+  walkLeaderOrAdmin(walk: ExtendedGroupEvent) {
     return this.loggedInMemberIsLeadingWalk(walk) || this.allowAdminEdits();
   }
 
-  loggedInMemberIsLeadingWalk(walk: Walk) {
-    return this.memberLoginService.memberLoggedIn() && walk && walk.walkLeaderMemberId === this.memberLoginService.loggedInMember().memberId;
+  loggedInMemberIsLeadingWalk(walk: ExtendedGroupEvent) {
+    return this.memberLoginService.memberLoggedIn() && walk?.fields?.contactDetails?.memberId === this.memberLoginService.loggedInMember()?.memberId;
   }
 
   async refreshCachedData() {
@@ -167,20 +169,20 @@ export class WalkDisplayService {
     return this.toggleExpandedViewFor(walkDisplay.walk, WalkViewMode.EDIT);
   }
 
-  list(walk: Walk): ExpandedWalk {
+  list(walk: ExtendedGroupEvent): ExpandedWalk {
     this.logger.debug("listing walk:", walk);
     return this.toggleExpandedViewFor(walk, WalkViewMode.LIST);
   }
 
-  view(walk: Walk): ExpandedWalk {
+  view(walk: ExtendedGroupEvent): ExpandedWalk {
     return this.toggleExpandedViewFor(walk, WalkViewMode.VIEW);
   }
 
-  statusFor(walk: Walk): EventType {
+  statusFor(walk: ExtendedGroupEvent): EventType {
     return this.walkEventService.latestEventWithStatusChange(walk)?.eventType;
   }
 
-  editFullscreen(walk: Walk): Promise<ExpandedWalk> {
+  editFullscreen(walk: ExtendedGroupEvent): Promise<ExpandedWalk> {
     this.logger.debug("editing walk fullscreen:", walk);
     return this.router.navigate(["walks/edit/" + walk.id], {relativeTo: this.route}).then(() => {
       this.logger.debug("area is now", this.urlService.area());
@@ -188,7 +190,7 @@ export class WalkDisplayService {
     });
   }
 
-  toggleExpandedViewFor(walk: Walk, toggleTo: WalkViewMode): ExpandedWalk {
+  toggleExpandedViewFor(walk: ExtendedGroupEvent, toggleTo: WalkViewMode): ExpandedWalk {
     const walkId = walk.id;
     const existingWalk: ExpandedWalk = this.findWalk(walk);
     if (existingWalk && toggleTo === WalkViewMode.LIST) {
@@ -208,7 +210,7 @@ export class WalkDisplayService {
     return existingWalk;
   }
 
-  latestEventTypeFor(walk: Walk): WalkEventType {
+  latestEventTypeFor(walk: ExtendedGroupEvent): WalkEventType {
     const latestEventWithStatusChange = this.walkEventService.latestEventWithStatusChange(walk);
     let lookupType: EventType;
     if (latestEventWithStatusChange) {
@@ -228,15 +230,15 @@ export class WalkDisplayService {
     return `https://gridreferencefinder.com/?gr=${gridReference}`;
   }
 
-  toWalkAccessMode(walk: Walk): WalkAccessMode {
+  toWalkAccessMode(walk: ExtendedGroupEvent): WalkAccessMode {
     let returnValue = WalksReferenceService.walkAccessModes.view;
     if (this.memberLoginService.memberLoggedIn()) {
       if (this.loggedInMemberIsLeadingWalk(walk) || this.memberLoginService.allowWalkAdminEdits()) {
         returnValue = {...WalksReferenceService.walkAccessModes.edit, walkWritable: this.walkPopulationLocal()};
       } else {
         const walkEvent = this.walkEventService.latestEventWithStatusChange(walk);
-        console.log("walk is ", JSON.stringify(walk));
-        console.log("walkEvent is ", JSON.stringify(walkEvent));
+        // console.log("walk is ", JSON.stringify(walk));
+        // console.log("walkEvent is ", JSON.stringify(walkEvent));
         if (walkEvent?.eventType === EventType.AWAITING_LEADER) {
           returnValue = {...WalksReferenceService.walkAccessModes.lead, walkWritable: this.walkPopulationLocal()};
         }
@@ -246,15 +248,16 @@ export class WalkDisplayService {
     return returnValue;
   }
 
-  toDisplayedWalk(walk: Walk): DisplayedWalk {
+  toDisplayedWalk(walk: ExtendedGroupEvent): DisplayedWalk {
     return {
+      hasFeatures: this.featuresService.combinedFeatures(walk.groupEvent).length > 0,
       walk,
       walkAccessMode: this.toWalkAccessMode(walk),
       status: this.statusFor(walk),
       latestEventType: this.latestEventTypeFor(walk),
       walkLink: this.walkLink(walk),
       ramblersLink: this.ramblersLink(walk),
-      showEndpoint: walk.walkType === WalkType.LINEAR && !isEmpty(walk?.end_location?.postcode)
+      showEndpoint: walk.groupEvent.shape === WalkType.LINEAR && !isEmpty(walk?.groupEvent?.end_location?.postcode)
     };
   }
 
@@ -265,27 +268,28 @@ export class WalkDisplayService {
     displayedWalk.walkLink = this.walkLink(displayedWalk.walk);
     displayedWalk.ramblersLink = this.ramblersLink(displayedWalk.walk);
   }
-  walkLink(walk: Walk): string {
-    return walk?.id ? this.urlService.linkUrl({area: "walks", id: walk.id}) : null;
+
+  walkLink(walk: ExtendedGroupEvent): string {
+    return this.urlService.linkUrl({area: "walks", id: walk?.id || walk.groupEvent.id});
   }
 
-  ramblersLink(walk: Walk): string {
-    return walk.ramblersWalkUrl || (walk.ramblersWalkId ? `https://www.ramblers.org.uk/go-walking/find-a-walk-or-route/walk-detail.aspx?walkID=${walk.ramblersWalkId}` : null);
+  ramblersLink(walk: ExtendedGroupEvent): string {
+    return walk.groupEvent.url || (walk.groupEvent.id ? `https://www.ramblers.org.uk/go-walking/find-a-walk-or-route/walk-detail.aspx?walkID=${walk.groupEvent.id}` : null);
   }
 
-  isNextWalk(walk: Walk): boolean {
+  isNextWalk(walk: ExtendedGroupEvent): boolean {
     return walk && walk.id === this.nextWalkId;
   }
 
-  setNextWalkId(walks: Walk[]) {
-    this.nextWalkId = this.walksQueryService.nextWalkId(walks);
+  setNextWalkId(walks: ExtendedGroupEvent[]) {
+    this.nextWalkId = this.extendedGroupEventQueryService.nextWalkId(walks);
   }
 
   setExpandedWalks(expandedWalks: ExpandedWalk[]) {
     this.expandedWalks = expandedWalks;
   }
 
-  closeEditView(walk: Walk) {
+  closeEditView(walk: ExtendedGroupEvent) {
     if (this.urlService.pathContains("edit")) {
       this.urlService.navigateTo(["walks"]);
     }
@@ -298,7 +302,10 @@ export class WalkDisplayService {
 
   private applyConfig() {
     this.logger.debug("applyConfig called");
-    this.committeeConfig.committeeReferenceDataEvents().subscribe(committeeReferenceData => this.committeeReferenceData = committeeReferenceData);
+    this.committeeConfig.committeeReferenceDataEvents().subscribe(committeeReferenceData => {
+      this.logger.info("applyConfig: committeeReferenceData:", committeeReferenceData);
+      return this.committeeReferenceData = committeeReferenceData;
+    });
     this.systemConfigService.events().subscribe(item => {
       this.group = item.group;
       this.logger.debug("group:", this.group);
@@ -309,7 +316,7 @@ export class WalkDisplayService {
     });
   }
 
-  allowEdits(walk: Walk) {
+  allowEdits(walk: ExtendedGroupEvent) {
     return this.loggedInMemberIsLeadingWalk(walk) || this.allowAdminEdits();
   }
 
@@ -317,16 +324,16 @@ export class WalkDisplayService {
     return this.memberLoginService.allowWalkAdminEdits();
   }
 
-  eventType(walk: Walk): string {
-    return walk?.eventType || RamblersEventType.GROUP_WALK;
+  eventType(walk: ExtendedGroupEvent): string {
+    return walk?.groupEvent?.item_type || RamblersEventType.GROUP_WALK;
   }
 
-  eventTypeTitle(walk: Walk): string {
-    return this.stringUtils.asTitle(walk?.eventType) || "Walk";
+  eventTypeTitle(walk: ExtendedGroupEvent): string {
+    return this.stringUtils.asTitle(walk?.groupEvent?.item_type) || RamblersEventType.GROUP_WALK;
   }
 
-  isWalk(walk: Walk): boolean {
-    return !walk?.eventType || walk.eventType === RamblersEventType.GROUP_WALK;
+  isWalk(walk: ExtendedGroupEvent): boolean {
+    return !walk?.groupEvent?.item_type || walk.groupEvent.item_type === RamblersEventType.GROUP_WALK;
   }
 
   gridReferenceFrom(location: LocationDetails) {
@@ -337,15 +344,40 @@ export class WalkDisplayService {
     return this.group?.walkContactDetailsPublic;
   }
 
-  displayMapAsImageFallback(walk: Walk): boolean {
-    return !!(!this.mediaQueryService.imageSource(walk) && walk?.start_location?.postcode);
+  displayMapAsImageFallback(walk: ExtendedGroupEvent): boolean {
+    return !!(!this.mediaQueryService.imageSource(walk) && walk?.groupEvent?.start_location?.postcode);
   }
 
-  displayMap(walk: Walk): boolean {
-    return !!walk?.start_location?.postcode;
+  displayMap(walk: ExtendedGroupEvent): boolean {
+    return !!walk?.groupEvent?.start_location?.postcode;
   }
 
-  displayImage(walk: Walk): boolean {
-    return !!(this.mediaQueryService.imageSource(walk) || !walk?.start_location?.postcode);
+  displayImage(walk: ExtendedGroupEvent): boolean {
+    return !!(this.mediaQueryService.imageSource(walk) || !walk?.groupEvent?.start_location?.postcode);
   }
+
+  walkGradeFrom(gradeValue: string): WalkGrade {
+    return WALK_GRADES.find((grade) => grade.description.toLowerCase() === gradeValue?.toLowerCase());
+  }
+
+  isWalkGrade(object: any): object is WalkGrade {
+    const walkGrade: WalkGrade = object as WalkGrade;
+    return walkGrade?.code !== undefined && walkGrade?.description !== undefined;
+  }
+
+  public toDifficulty(grade: string | WalkGrade): Difficulty {
+    const gradeValue: string = this.isWalkGrade(grade) ? grade.code : grade;
+    this.logger.info("toDifficulty:grade:", grade, "gradeValue:", gradeValue);
+    if (gradeValue) {
+      const {code, description} = this.walkGradeFrom(gradeValue);
+      return {code, description};
+    } else {
+      return null;
+    }
+  }
+
+  public difficulties(): Difficulty[] {
+    return WALK_GRADES.map(item => ({code: item.code, description: item.description}));
+  }
+
 }

@@ -1,8 +1,8 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { NgOptgroupTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import {
-  GroupEvent,
   GroupEventsFilter,
+  GroupEventSummary,
   GroupEventType,
   groupEventTypeFor,
   GroupEventTypes
@@ -14,7 +14,7 @@ import { CommitteeQueryService } from "../services/committee/committee-query.ser
 import { DateUtilsService } from "../services/date-utils.service";
 import { NumberUtilsService } from "../services/number-utils.service";
 import { StringUtilsService } from "../services/string-utils.service";
-import { DatePickerComponent } from "../date-picker/date-picker.component";
+import { DatePicker } from "../date-and-time/date-picker";
 import { FormsModule } from "@angular/forms";
 
 @Component({
@@ -27,7 +27,7 @@ import { FormsModule } from "@angular/forms";
           <app-date-picker startOfDay
                            id="from-date"
                            [size]="'md round'"
-                           (dateChange)="fromDate=$event.value;queryGroupEvents()"
+                           (change)="fromDate=$event.value;queryGroupEvents()"
                            [value]="fromDate">
           </app-date-picker>
         </div>
@@ -38,7 +38,7 @@ import { FormsModule } from "@angular/forms";
           <app-date-picker startOfDay
                            id="to-date"
                            [size]="'md round'"
-                           (dateChange)="toDate=$event.value;queryGroupEvents()"
+                           (change)="toDate=$event.value;queryGroupEvents()"
                            [value]="toDate">
           </app-date-picker>
         </div>
@@ -66,7 +66,7 @@ import { FormsModule } from "@angular/forms";
         </ng-select>
       </div>
     </div>`,
-    imports: [DatePickerComponent, NgSelectComponent, FormsModule, NgOptgroupTemplateDirective]
+    imports: [DatePicker, NgSelectComponent, FormsModule, NgOptgroupTemplateDirective]
 })
 export class GroupEventSelectorComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("GroupEventSelectorComponent", NgxLoggerLevel.ERROR);
@@ -86,11 +86,11 @@ export class GroupEventSelectorComponent implements OnInit {
   }
 
   @Output() imagedSavedOrReverted: EventEmitter<ContentMetadataItem> = new EventEmitter();
-  @Output() eventChange: EventEmitter<GroupEvent> = new EventEmitter();
+  @Output() eventChange: EventEmitter<GroupEventSummary> = new EventEmitter();
   @Output() eventCleared: EventEmitter<void> = new EventEmitter();
 
   public dataSource: string;
-  public groupEvents: GroupEvent[] = [];
+  public groupEvents: GroupEventSummary[] = [];
   private search: string;
   public fromDate: number = this.dateUtils.asMoment().subtract(2, "weeks").valueOf();
   public toDate: number = this.dateUtils.asMoment().add(1, "day").valueOf();
@@ -114,7 +114,7 @@ export class GroupEventSelectorComponent implements OnInit {
     this.toDate = this.dateUtils.asMoment(referenceDate).add(2, "weeks").valueOf();
   }
 
-  queryGroupEvents(): Promise<GroupEvent[]> {
+  queryGroupEvents(): Promise<GroupEventSummary[]> {
     this.logger.info("filterEventsBySourceAndDate:", this.dataSource);
     const groupEventsFilter: GroupEventsFilter = {
       search: this.search,
@@ -149,7 +149,7 @@ export class GroupEventSelectorComponent implements OnInit {
   }
 
   onChange() {
-    const event: GroupEvent = this.groupEvents.find(event => event.id === this.eventId);
+    const event: GroupEventSummary = this.groupEvents.find(event => event.id === this.eventId);
     if (event) {
       this.logger.info("onChange:", this.dateUtils.displayDate(event.eventDate), "emitting event:", event);
       this.eventChange.emit(event);

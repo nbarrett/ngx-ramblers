@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqueValidator from "mongoose-unique-validator";
 
-const fileNameData = new mongoose.Schema({
+export const fileNameData = new mongoose.Schema({
     rootFolder: {type: String},
     originalFileName: {type: String},
     awsFileName: {type: String},

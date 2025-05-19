@@ -1,6 +1,6 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { GroupEvent, Notification } from "../../../models/committee.model";
+import { GroupEventSummary, Notification } from "../../../models/committee.model";
 import { Member } from "../../../models/member.model";
 import { CommitteeDisplayService } from "../../../pages/committee/committee-display.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
@@ -61,7 +61,7 @@ export class CommitteeNotificationGroupEventMessageItemComponent implements OnIn
   public members: Member[];
 
   @Input()
-  public event: GroupEvent;
+  public event: GroupEventSummary;
 
   @Input()
   public notification: Notification;
