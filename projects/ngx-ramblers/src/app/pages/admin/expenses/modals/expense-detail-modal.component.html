@@ -12,7 +12,7 @@
             [disabled]="!editable"
             [value]="expenseItem.expenseDate"
             id="expense-date" size="sm"
-            (dateChange)="onExpenseDateChange($event)">
+            (change)="onExpenseDateChange($event)">
           </app-date-picker>
         </div>
       </div>

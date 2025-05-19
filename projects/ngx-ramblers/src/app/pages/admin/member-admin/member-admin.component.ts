@@ -28,7 +28,7 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { MemberAdminModalComponent } from "../member-admin-modal/member-admin-modal.component";
 import { ProfileService } from "../profile/profile.service";
 import { SendEmailsModalComponent } from "../send-emails/send-emails-modal.component";
-import { WalksService } from "../../../services/walks/walks.service";
+import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MemberBulkDeleteService } from "../../../services/member/member-bulk-delete.service";
 import { MailProvider, SystemConfig } from "../../../models/system.model";
@@ -73,7 +73,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private systemConfigService = inject(SystemConfigService);
   private memberBulkDeleteService = inject(MemberBulkDeleteService);
   private memberBulkLoadAuditService = inject(MemberBulkLoadAuditService);
-  private walksService = inject(WalksService);
+  private walksAndEventsService = inject(WalksAndEventsService);
   private dateUtils = inject(DateUtilsService);
   private memberDefaultsService = inject(MemberDefaultsService);
   private profileService = inject(ProfileService);
@@ -106,7 +106,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.systemConfigService.events().subscribe(async (systemConfig: SystemConfig) => {
       this.systemConfig = systemConfig;
       this.logger.debug("retrieved systemConfig", systemConfig);
-      this.walkLeaders = await this.walksService.queryWalkLeaders();
+      this.walkLeaders = await this.walksAndEventsService.queryWalkLeaders();
       this.logger.info("walkLeaders:", this.walkLeaders);
     }));
     this.subscriptions.push(this.profileService.subscribeToLogout(this.logger));

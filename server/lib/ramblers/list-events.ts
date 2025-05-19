@@ -6,10 +6,9 @@ import {
   Contact,
   DateFormat,
   EventsListRequest,
-  GroupWalk,
   RamblersWalkResponse,
-  RamblersWalksRawApiResponse,
-  RamblersWalksRawApiResponseApiResponse,
+  RamblersGroupEventsRawApiResponse,
+  RamblersEventsApiResponse,
   WALKS_MANAGER_GO_LIVE_DATE
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -24,21 +23,22 @@ import { WalkLeadersApiResponse } from "../../../projects/ngx-ramblers/src/app/m
 import omit from "lodash/omit";
 import { pluraliseWithCount } from "../shared/string-utils";
 import { momentNow } from "../shared/dates";
+import { GroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:walks-and-events"));
 noopDebugLog.enabled = false;
-debugLog.enabled = false;
+debugLog.enabled = true;
 
 
-function identity(walkLeader: Contact) {
+function identity(walkLeader: Contact): string {
   return walkLeader.id || walkLeader.telephone || walkLeader.name;
 }
 
-function toWalkLeaders(response: RamblersWalksRawApiResponse): Contact[] {
+function toWalkLeaders(response: RamblersGroupEventsRawApiResponse): Contact[] {
   let unNamedIndex = 0;
   noopDebugLog("transformListWalksResponse:", response);
-  const filteredWalkLeaders: Contact[] = response.data.map((walk: GroupWalk) => omit(walk.walk_leader, ["email_form"])).filter(item => !isEmpty(identity(item)));
+  const filteredWalkLeaders: Contact[] = response.data.map((groupEvent: GroupEvent) => omit(groupEvent.walk_leader, ["email_form"])).filter(item => !isEmpty(identity(item)));
   const groupedWalkLeaders = groupBy(filteredWalkLeaders, (walkLeader => identity(walkLeader)));
   noopDebugLog("groupedWalkLeaders:", groupedWalkLeaders);
   return map(groupedWalkLeaders, (items, key, index) => {
@@ -97,54 +97,59 @@ export function listEvents(req: Request, res: Response): void {
   const body: EventsListRequest = req.body;
   const rawData: boolean = body.rawData;
   debugLog("listEvents:body:", body);
-  systemConfig()
-    .then((systemConfig: SystemConfig) => {
-      const limit = body.limit;
-      const ids = body.ids?.join(",");
-      const sort = body.sort;
-      const order = body.order;
-      const date = dateParameter(body);
-      const dateEnd = dateEndParameter(body);
-      const defaultOptions = requestDefaults.createApiRequestOptions(systemConfig);
-      debugLog("listEvents:defaultOptions:", defaultOptions);
-      const optionalParameters = [
-        optionalParameter("groups", body.groupCode || systemConfig?.group?.groupCode),
-        optionalParameter("types", body.types),
-        optionalParameter("ids", ids),
-        optionalParameter("limit", limit),
-        optionalParameter("sort", sort),
-        optionalParameter("order", order),
-        optionalParameter("date", date),
-        optionalParameter("date_end", dateEnd)]
-        .filter(item => !isEmpty(item))
-        .join("&");
-      debugLog("optionalParameters:", optionalParameters);
-      return httpRequest({
-        apiRequest: {
-          hostname: defaultOptions.hostname,
-          protocol: defaultOptions.protocol,
-          headers: defaultOptions.headers,
-          method: "get",
-          path: `/api/volunteers/walksevents?api-key=${systemConfig?.national?.walksManager?.apiKey}&${optionalParameters}`
-        },
-        debug: noopDebugLog,
-        res,
-        req,
-        mapper: rawData ? null : transformListWalksResponse(systemConfig)
-      });
-    })
-    .then(response => {
-      if (rawData) {
-        const rawResponse = response as RamblersWalksRawApiResponseApiResponse;
-        debugLog("returned response summary:", rawResponse?.response?.summary);
-      } else {
-        const rawResponse = response as unknown as RamblersWalkResponse[];
-        debugLog("returned response summary:", rawResponse.length, "results");
-      }
-      return response;
-    })
-    .then(response => res.json(response))
-    .catch(error => res.json(error));
+  try {
+    systemConfig()
+      .then((systemConfig: SystemConfig) => {
+        const limit = body.limit;
+        const ids = body.ids?.join(",");
+        const sort = body.sort;
+        const order = body.order;
+        const date = dateParameter(body);
+        const dateEnd = dateEndParameter(body);
+        const defaultOptions = requestDefaults.createApiRequestOptions(systemConfig);
+        debugLog("listEvents:defaultOptions:", defaultOptions);
+        const optionalParameters = [
+          optionalParameter("groups", body.groupCode || systemConfig?.group?.groupCode),
+          optionalParameter("types", body.types),
+          optionalParameter("ids", ids),
+          optionalParameter("limit", limit),
+          optionalParameter("sort", sort),
+          optionalParameter("order", order),
+          optionalParameter("date", date),
+          optionalParameter("date_end", dateEnd)]
+          .filter(item => !isEmpty(item))
+          .join("&");
+        debugLog("optionalParameters:", optionalParameters);
+        return httpRequest({
+          apiRequest: {
+            hostname: defaultOptions.hostname,
+            protocol: defaultOptions.protocol,
+            headers: defaultOptions.headers,
+            method: "get",
+            path: `/api/volunteers/walksevents?api-key=${systemConfig?.national?.walksManager?.apiKey}&${optionalParameters}`
+          },
+          debug: noopDebugLog,
+          res,
+          req,
+          mapper: rawData ? null : transformListWalksResponse(systemConfig)
+        });
+      })
+      .then(response => {
+        if (rawData) {
+          const rawResponse = response as RamblersEventsApiResponse;
+          debugLog("returned response summary:", rawResponse?.response?.summary);
+        } else {
+          const rawResponse = response as unknown as RamblersWalkResponse[];
+          debugLog("returned response summary:", rawResponse.length, "results");
+        }
+        return response;
+      })
+      .then(response => res.json(response))
+      .catch(error => res.json(error));
+  } catch (error) {
+    debugLog("error:", error);
+    res.json(error)
+  }
 }
 
 function dateParameter(body: EventsListRequest): string {
@@ -170,7 +175,7 @@ function dateEndParameter(body: EventsListRequest): string {
 }
 
 function transformListWalksResponse(systemConfig: SystemConfig) {
-  return function (response: RamblersWalksRawApiResponse): RamblersWalkResponse[] {
+  return function (response: RamblersGroupEventsRawApiResponse): RamblersWalkResponse[] {
     debugLog("transformListWalksResponse:", response);
     return response.data.map(walk => {
       debugLog("transformListWalksResponse:walk:", response);

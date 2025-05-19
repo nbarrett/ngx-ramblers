@@ -23,14 +23,14 @@ import { PageComponent } from "../../../page/page.component";
 import { NgClass } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
-import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { DatePicker } from "../../../date-and-time/date-picker";
 import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 
 @Component({
     selector: "app-member-admin",
     templateUrl: "./member-login-audit.component.html",
-    imports: [PageComponent, NgClass, FontAwesomeModule, FormsModule, DatePickerComponent, DisplayDateAndTimePipe, FullNameWithAliasPipe]
+    imports: [PageComponent, NgClass, FontAwesomeModule, FormsModule, DatePicker, DisplayDateAndTimePipe, FullNameWithAliasPipe]
 })
 export class MemberLoginAuditComponent implements OnInit, OnDestroy {
 

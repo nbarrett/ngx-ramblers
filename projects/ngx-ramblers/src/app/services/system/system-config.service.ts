@@ -217,6 +217,7 @@ export class SystemConfigService {
   }
   default(): SystemConfig {
     return {
+      enableMigration: {events: false},
       googleAnalytics: this.googleAnalyticsDefaults(),
       recaptcha: this.recaptchaDefaults(),
       mailDefaults: this.mailDefaults(),

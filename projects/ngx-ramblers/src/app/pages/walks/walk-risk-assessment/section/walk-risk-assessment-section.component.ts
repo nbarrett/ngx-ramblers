@@ -52,11 +52,11 @@ export class WalkRiskAssessmentSectionComponent implements OnInit {
 
   private findOrCreateRiskAssessmentRecord(): RiskAssessmentRecord {
 
-    if (!this.displayedWalk.walk?.riskAssessment) {
-      this.displayedWalk.walk.riskAssessment = [];
+    if (!this.displayedWalk.walk?.fields?.riskAssessment) {
+      this.displayedWalk.walk.fields.riskAssessment = [];
     }
 
-    const riskAssessmentRecord: RiskAssessmentRecord = this.displayedWalk.walk.riskAssessment
+    const riskAssessmentRecord: RiskAssessmentRecord = this.displayedWalk.walk.fields.riskAssessment
       .find(item => item.riskAssessmentKey === this.riskAssessmentKey);
 
     if (!riskAssessmentRecord) {
@@ -66,7 +66,7 @@ export class WalkRiskAssessmentSectionComponent implements OnInit {
         riskAssessmentSection: this.riskAssessmentSection,
         confirmed: undefined, confirmationDate: undefined
       };
-      this.displayedWalk.walk.riskAssessment.push(newRecord);
+      this.displayedWalk.walk.fields.riskAssessment.push(newRecord);
       return newRecord;
     } else {
       if (!riskAssessmentRecord.riskAssessmentSection) {

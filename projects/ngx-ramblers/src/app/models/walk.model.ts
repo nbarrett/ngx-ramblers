@@ -1,24 +1,24 @@
 // @ts-ignore
 import mongoose from "mongoose";
-import { ApiResponse, Identifiable } from "./api-response.model";
-import { MeetupConfig } from "./meetup-config.model";
-import { Group } from "./system.model";
+import { ApiResponse } from "./api-response.model";
 import { WalkAccessMode } from "./walk-edit-mode.model";
 import { WalkEventType } from "./walk-event-type.model";
-import { WalkEvent } from "./walk-event.model";
-import { WalkVenue } from "./walk-venue.model";
+import { Venue } from "./event-venue.model";
 import {
   BasicMedia,
   Contact,
+  Difficulty,
   HasNgSelectAttributes,
   LocationDetails,
-  Metadata,
+  MetadataDescription,
   PublishStatus,
-  RamblersEventType,
   RamblersWalkResponse
 } from "./ramblers-walks-manager";
-import { HasMedia } from "./social-events.model";
 import { HasBasicEventSelection } from "./search.model";
+import { Link } from "./page.model";
+import { faHouse } from "@fortawesome/free-solid-svg-icons";
+import { IconDefinition } from "@fortawesome/fontawesome-common-types";
+import { ExtendedGroupEvent } from "./group-event.model";
 
 export interface GoogleMapsConfig {
   apiKey: string;
@@ -29,14 +29,14 @@ export interface ValueAndFormatted {
   value: number;
   valueAsString: string;
   formatted: string;
-};
+}
 
 export enum DistanceUnit {
-  FEET,
-  KILOMETRES,
-  METRES,
-  MILES,
-  UNKNOWN,
+  FEET = "ft",
+  KILOMETRES = "km",
+  METRES = "m",
+  MILES = "mi",
+  UNKNOWN = "unknown",
 }
 
 export enum ImageSource {
@@ -53,81 +53,82 @@ export interface WalkDistance {
 }
 
 export interface WalkAscent {
-  rawData: string;
+  rawData: number;
   feet: ValueAndFormatted;
   metres: ValueAndFormatted;
   validationMessage?: string;
 }
 
-export interface WalkGrade {
-  description: string;
+export interface Links {
+  meetup: Link;
+  osMapsRoute: Link;
+  venue: Link;
+}
+
+export interface EventLinkConfig extends MetadataDescription {
+  code: LinkSource;
+  image?: string;
+  icon?: IconDefinition;
+}
+
+export interface WalkGrade extends Difficulty {
   image: string;
 }
 
+export const MODERATE: WalkGrade = {code: "moderate", description: "Moderate", image: "moderate.png"};
 export const WALK_GRADES: WalkGrade[] = [
-  {description: "Easy access", image: "easy.png"},
-  {description: "Easy", image: "easy.png"},
-  {description: "Leisurely", image: "leisurely.png"},
-  {description: "Moderate", image: "moderate.png"},
-  {description: "Strenuous", image: "strenuous.png"},
-  {description: "Technical", image: "strenuous.png"}];
+  {code: "easy-access", description: "Easy access", image: "easy.png"},
+  {code: "easy", description: "Easy", image: "easy.png"},
+  {code: "leisurely", description: "Leisurely", image: "leisurely.png"},
+  MODERATE,
+  {code: "strenuous", description: "Strenuous", image: "strenuous.png"},
+  {code: "technical", description: "Technical", image: "strenuous.png"}];
+
+export enum LinkSource {
+  FACEBOOK = "facebook",
+  LOCAL = "local",
+  MEETUP = "meetup",
+  OS_MAPS = "os-maps",
+  RAMBLERS = "ramblers",
+  VENUE = "venue",
+  W3W = "w3w",
+}
+
+export const LINK_CONFIG: EventLinkConfig[] = [
+  {code: LinkSource.FACEBOOK, description: "Facebook", image: "ordnance-survey.png"},
+  {code: LinkSource.OS_MAPS, description: "OS Maps", image: "ordnance-survey.png"},
+  {code: LinkSource.RAMBLERS, description: "Ramblers", image: "favico.ico"},
+  {code: LinkSource.MEETUP, description: "Meetup", image: "meetup.ico"},
+  {code: LinkSource.W3W, description: "What3Words", image: "w3w.png"},
+  {code: LinkSource.VENUE, description: "Venue", icon: faHouse}
+];
 
 export interface LocalAndRamblersWalk {
-  localWalk: Walk;
+  localWalk: ExtendedGroupEvent;
   ramblersWalk: RamblersWalkResponse;
 }
 
-export interface WalkForSelect extends Walk, HasNgSelectAttributes {
+export interface WalkForSelect extends ExtendedGroupEvent, HasNgSelectAttributes {
 
 }
 
-export interface Walk extends Identifiable, HasMedia {
-  contactName?: string;
-  walkType?: WalkType;
-  eventType: RamblersEventType;
-  briefDescriptionAndStartPoint?: string;
-  contactEmail?: string;
-  contactId?: string;
-  contactPhone?: string;
-  displayName?: string;
-  distance?: string;
-  milesPerHour?: number;
-  ascent?: string;
-  events: WalkEvent[];
-  grade?: string;
-  longerDescription?: string;
-  config?: { meetup: MeetupConfig };
-  meetupEventTitle?: string;
-  meetupEventDescription?: string;
-  meetupEventUrl?: string;
-  meetupPublish?: boolean;
-  osMapsRoute?: string;
-  osMapsTitle?: string;
-  ramblersWalkId?: string;
-  ramblersWalkUrl?: string;
-  ramblersPublish?: boolean;
-  startTime?: string;
-  finishTime?: string;
-  walkDate?: number;
-  walkLeaderMemberId?: string;
-  venue?: WalkVenue;
-  riskAssessment?: RiskAssessmentRecord[];
-  group?: Group;
-  features?: Metadata[];
-  additionalDetails?: string;
-  organiser?: string;
-  imageConfig?: {
-    source: ImageSource;
-    importFrom: {
-      areaCode: string;
-      groupCode: string;
-      filterParameters: HasBasicEventSelection;
-      walkId?: string;
-    }
+export interface LinkWithSource extends Link {
+  source: LinkSource;
+}
+
+export interface Publish {
+  contactName: string;
+  publish: boolean;
+}
+
+export interface ImageConfig {
+  source: ImageSource;
+  importFrom: {
+    areaCode: string;
+    groupCode: string;
+    filterParameters: HasBasicEventSelection;
+    walkId?: string;
   };
-  start_location?: LocationDetails;
-  meeting_location?: LocationDetails;
-  end_location?: LocationDetails;
 }
 
 export interface RiskAssessmentRecord {
@@ -147,11 +148,6 @@ export interface WalkExport {
   selected: boolean;
 }
 
-
-export interface WalkApiResponse extends ApiResponse {
-  request: any;
-  response?: Walk | Walk[];
-}
 
 export interface WalkLeaderIdsApiResponse extends ApiResponse {
   request: any;
@@ -203,33 +199,38 @@ export enum WalkViewMode {
   LIST = "list"
 }
 
-export const WalkDateAscending = {walkDate: 1};
-export const WalkDateDescending = {walkDate: -1};
+export const GROUP_EVENT_START_DATE = "groupEvent.start_date_time";
+export const GROUP_EVENT_ITEM_TYPE = "groupEvent.item_type";
+export const ID = "_id";
+export const GROUP_EVENT_MIGRATED_FROM_ID = "fields.migratedFromId";
+export const EventStartDateAscending = {[GROUP_EVENT_START_DATE]: 1};
 
+export const EventStartDateDescending = {[GROUP_EVENT_START_DATE]: -1};
 export interface MongoIdsSupplied {
   _id: { $in: mongoose.Types.ObjectId[] };
 }
 
-export interface WalkDateGreaterThanOrEqualTo {
-  walkDate: { $gte: number };
+export interface EventStartDateGreaterThanOrEqualTo {
+  [GROUP_EVENT_START_DATE]: { $gte: string };
 }
 
-export interface WalkDateLessThan {
-  walkDate: { $lt: number };
+export interface EventStartDateLessThan {
+  [GROUP_EVENT_START_DATE]: { $lt: string };
 }
 
-export interface WalkDateLessThanOrEqualTo {
-  walkDate: { $lte: number };
+export interface EventStartDateLessThanOrEqualTo {
+  [GROUP_EVENT_START_DATE]: { $lte: string };
 }
 
 export interface DisplayedWalk {
-  walk: Walk;
+  walk: ExtendedGroupEvent;
   walkAccessMode: WalkAccessMode;
   status: EventType;
   latestEventType?: WalkEventType;
   walkLink?: string;
   ramblersLink?: string;
   showEndpoint: boolean;
+  hasFeatures: boolean;
 }
 
 export interface LocalContact {

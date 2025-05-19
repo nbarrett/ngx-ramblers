@@ -8,8 +8,8 @@ import {
   CommitteeFile,
   CommitteeMember,
   CommitteeYear,
-  GroupEvent,
   GroupEventsFilter,
+  GroupEventSummary,
   GroupEventTypes
 } from "../../models/committee.model";
 import { Member } from "../../models/member.model";
@@ -20,17 +20,20 @@ import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberLoginService } from "../member/member-login.service";
 import { MemberService } from "../member/member.service";
-import { SocialEventsService } from "../social-events/social-events.service";
-import { WalksQueryService } from "../walks/walks-query.service";
-import { WalksService } from "../walks/walks.service";
+import { ExtendedGroupEventQueryService } from "../walks-and-events/extended-group-event-query.service";
+import { WalksAndEventsService } from "../walks-and-events/walks-and-events.service";
 import { CommitteeConfigService } from "./commitee-config.service";
 import { CommitteeFileService } from "./committee-file.service";
 import { CommitteeReferenceData } from "./committee-reference-data";
 import { toMongoIds } from "../mongo-utils";
-import { SocialEvent } from "../../models/social-events.model";
 import { isNumericRamblersId } from "../path-matchers";
 import { MediaQueryService } from "./media-query.service";
-import { RamblersEventType } from "../../models/ramblers-walks-manager";
+import { EventQueryParameters, RamblersEventType } from "../../models/ramblers-walks-manager";
+import { ExtendedGroupEvent } from "../../models/group-event.model";
+import { GROUP_EVENT_START_DATE } from "../../models/walk.model";
+import { DateValue } from "../../models/date.model";
+import { DisplayTimePipe } from "../../pipes/display-time.pipe";
+import { DistanceValidationService } from "../walks/distance-validation.service";
 
 @Injectable({
   providedIn: "root"
@@ -38,17 +41,18 @@ import { RamblersEventType } from "../../models/ramblers-walks-manager";
 
 export class CommitteeQueryService {
   private logger: Logger = inject(LoggerFactory).createLogger("CommitteeQueryService", NgxLoggerLevel.ERROR);
-  display = inject(CommitteeDisplayService);
+  private display = inject(CommitteeDisplayService);
   private dateUtils = inject(DateUtilsService);
   private mediaQueryService = inject(MediaQueryService);
-  private walksService = inject(WalksService);
   private memberService = inject(MemberService);
-  private walksQueryService = inject(WalksQueryService);
+  private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private committeeFileService = inject(CommitteeFileService);
   private committeeDisplayService = inject(CommitteeDisplayService);
-  private socialEventsService = inject(SocialEventsService);
+  private walksAndEventsService = inject(WalksAndEventsService);
   private memberLoginService = inject(MemberLoginService);
   private displayDatePipe = inject(DisplayDatePipe);
+  private displayTimePipe = inject(DisplayTimePipe);
+  public distanceValidationService = inject(DistanceValidationService);
   private committeeReferenceData: CommitteeReferenceData;
   public committeeFiles: CommitteeFile[] = [];
   public committeeMembers: Member[] = [];
@@ -60,12 +64,12 @@ export class CommitteeQueryService {
     this.queryCommitteeMembers();
   }
 
-  groupEvents(groupEventsFilter: GroupEventsFilter): Promise<GroupEvent[]> {
+  groupEvents(groupEventsFilter: GroupEventsFilter): Promise<GroupEventSummary[]> {
     this.logger.info("groupEventsFilter", groupEventsFilter);
-    const fromDate = groupEventsFilter.fromDate.value;
-    const toDate = groupEventsFilter.toDate.value;
+    const fromDate: DateValue = groupEventsFilter.fromDate;
+    const toDate: DateValue = groupEventsFilter.toDate;
     this.logger.info("groupEventsFilter:fromDate", this.displayDatePipe.transform(fromDate), "toDate", this.displayDatePipe.transform(toDate));
-    const events: GroupEvent[] = [];
+    const events: GroupEventSummary[] = [];
     const promises = [];
     const committeeContactDetails: CommitteeMember = first(this.committeeReferenceData?.committeeMembersForRole("secretary"));
     const mongoIds = this.mongoOrRawIdsFrom(groupEventsFilter);
@@ -75,33 +79,37 @@ export class CommitteeQueryService {
       $options: "i"
     };
 
-    if (groupEventsFilter.includeWalks) {
-      const textBasedCriteria = groupEventsFilter.search?.length > 0 ? {briefDescriptionAndStartPoint: regex} : null;
-      promises.push(
-        this.walksService.all({
+    if (groupEventsFilter.includeWalks || groupEventsFilter.includeSocialEvents) {
+      const textBasedCriteria = groupEventsFilter.search?.length > 0 ? {["groupEvent.title"]: regex} : null;
+      const eventQueryParameters: EventQueryParameters = {
+        dataQueryOptions: {
           criteria: textBasedCriteria || idBasedCriteria || {
-            walkDate: {
-              $gte: fromDate,
-              $lte: toDate
+            [GROUP_EVENT_START_DATE]: {
+              $gte: fromDate.date,
+              $lte: toDate.date
             }
           }
-        }, [], [RamblersEventType.GROUP_WALK])
-          .then(walks => this.walksQueryService.activeWalks(walks))
-          .then(walks => walks?.forEach(walk => events.push({
-            id: walk.id,
+        },
+        types: [groupEventsFilter.includeSocialEvents ? RamblersEventType.GROUP_EVENT : null, groupEventsFilter.includeWalks ? RamblersEventType.GROUP_WALK : null].filter(Boolean)
+      };
+      promises.push(
+        this.walksAndEventsService.all(eventQueryParameters)
+          .then((extendedGroupEvents: ExtendedGroupEvent[]) => this.extendedGroupEventQueryService.activeEvents(extendedGroupEvents))
+          .then((extendedGroupEvents: ExtendedGroupEvent[]) => extendedGroupEvents?.forEach(event => events.push({
+            id: event.id || event.groupEvent.id,
             selected: true,
-            eventType: this.display.groupEventType(walk),
-            eventDate: walk.walkDate,
-            eventTime: walk.startTime,
-            distance: walk.distance,
-            location: null,
-            postcode: walk.start_location?.postcode,
-            title: walk.briefDescriptionAndStartPoint || "Awaiting walk details",
-            description: walk.longerDescription,
-            contactName: walk.displayName || "Awaiting walk leader",
-            contactPhone: walk.contactPhone,
-            contactEmail: walk.contactEmail,
-            image: this.mediaQueryService.imageUrlFrom(walk)
+            eventType: this.display.groupEventType(event),
+            eventDate: this.dateUtils.asMoment(event.groupEvent.start_date_time).valueOf(),
+            eventTime: this.displayTimePipe.transform(event.groupEvent.start_date_time),
+            distance: this.distanceValidationService.walkDistances(event),
+            location: (event.groupEvent.start_location || event.groupEvent.location)?.description,
+            postcode: (event.groupEvent.start_location || event.groupEvent.location)?.postcode,
+            title: event.groupEvent.title || "Awaiting " + event.groupEvent.item_type + " details",
+            description: event.groupEvent.description,
+            contactName: event.fields?.contactDetails?.displayName || "Awaiting " + event.groupEvent.item_type + " leader",
+            contactPhone: event.fields?.contactDetails?.phone,
+            contactEmail: event.fields?.contactDetails?.email,
+            image: this.mediaQueryService.imageUrlFrom(event.groupEvent)
           }))));
     }
     if (groupEventsFilter.includeCommitteeEvents) {
@@ -110,8 +118,8 @@ export class CommitteeQueryService {
         this.committeeFileService.all({
           criteria: textBasedCriteria || idBasedCriteria || {
             eventDate: {
-              $gte: fromDate,
-              $lte: toDate
+              $gte: fromDate.value,
+              $lte: toDate.value
             }
           }
         })
@@ -128,37 +136,6 @@ export class CommitteeQueryService {
             contactEmail: committeeContactDetails?.email
           }))));
     }
-    if (groupEventsFilter.includeSocialEvents) {
-      const textBasedCriteria = groupEventsFilter.search?.length > 0 ? {briefDescription: regex} : null;
-      promises.push(
-        this.socialEventsService.all({
-          criteria: textBasedCriteria || idBasedCriteria || {
-            eventDate: {
-              $gte: fromDate,
-              $lte: toDate
-            }
-          }
-        })
-          .then((socialEvents: SocialEvent[]) => socialEvents.forEach(socialEvent => {
-            this.logger.info("social event:", socialEvent);
-            events.push({
-              id: socialEvent.id,
-              selected: true,
-              eventType: GroupEventTypes.SOCIAL,
-              eventDate: socialEvent.eventDate,
-              eventTime: socialEvent.eventTimeStart,
-              location: socialEvent.location,
-              postcode: socialEvent.postcode,
-              title: socialEvent.briefDescription,
-              description: socialEvent.longerDescription,
-              contactName: socialEvent.displayName,
-              contactPhone: socialEvent.contactPhone,
-              contactEmail: socialEvent.contactEmail,
-              image: this.mediaQueryService.imageFromSocialEvent(socialEvent)
-            });
-          })));
-    }
-
     return Promise.all(promises).then(() => {
       this.logger.info("queried total of", promises.length, "events types containing total of", events.length, "events:", events);
       return events.sort(sortBy(groupEventsFilter.sortBy || "eventDate"));

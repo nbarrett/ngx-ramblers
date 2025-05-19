@@ -1,5 +1,6 @@
 import { ApiResponse } from "./api-response.model";
 import { DataQueryOptions } from "./api-request.model";
+import { GroupEvent } from "./group-event.model";
 
 
 export enum DateFormat {
@@ -54,6 +55,7 @@ export enum RamblersEventType {
 }
 
 export enum WalkStatus {
+  DRAFT = "draft",
   CONFIRMED = "confirmed",
   CANCELLED = "cancelled"
 }
@@ -97,7 +99,7 @@ export interface Metadata extends MetadataCode, MetadataDescription {
 }
 
 export interface Contact {
-  id: string;
+  id?: string;
   name: string;
   telephone: string;
   has_email: boolean;
@@ -116,52 +118,11 @@ export interface LocationDetails {
   w3w: string;
 }
 
-export interface Difficulty {
-  code: string;
-  description: string;
-}
+export type Difficulty = Metadata
 
-export interface GroupWalk {
-  item_type: RamblersEventType;
-  id: string;
-  title: string;
-  group_code: string;
-  area_code: string;
-  group_name: string;
-  description: string;
-  additional_details: string;
-  start_date_time: string;
-  end_date_time: string;
-  meeting_date_time: string;
-  event_organiser?: Contact,
-  location?: LocationDetails;
-  start_location: LocationDetails;
-  meeting_location: LocationDetails;
-  end_location: LocationDetails;
-  distance_km: number;
-  distance_miles: number;
-  ascent_feet: number;
-  ascent_metres: number;
-  difficulty: Difficulty;
-  shape: string;
-  duration: number;
-  walk_leader: Contact;
-  url: string;
-  external_url: string;
-  status: WalkStatus;
-  cancellation_reason: string;
-  accessibility: Metadata[];
-  facilities: Metadata[];
-  transport: Metadata[];
-  media: Media[];
-  linked_event: string;
-  date_created: string;
-  date_updated: string;
-}
-
-export interface RamblersWalksRawApiResponse {
+export interface RamblersGroupEventsRawApiResponse {
   summary: SearchResultsSummary;
-  data: GroupWalk[];
+  data: GroupEvent[];
 }
 
 export interface GroupListRequest {
@@ -208,9 +169,9 @@ export interface RamblersGroupsApiResponse {
   date_walks_events_updated: string;
 }
 
-export interface RamblersWalksRawApiResponseApiResponse extends ApiResponse {
+export interface RamblersEventsApiResponse extends ApiResponse {
   request: any;
-  response?: RamblersWalksRawApiResponse;
+  response?: RamblersGroupEventsRawApiResponse;
 }
 
 export enum WalkUploadColumnHeading {

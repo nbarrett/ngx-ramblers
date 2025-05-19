@@ -122,7 +122,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
   @ViewChild(ImageCropperComponent) imageCropperComponent: ImageCropperComponent;
   @Input() selectAspectRatio: string;
   @Input() preloadImage: string;
-  @Input() rootFolder: string;
+  @Input() rootFolder: RootFolder;
   @Output() quit: EventEmitter<void> = new EventEmitter();
   @Output() cropError: EventEmitter<ErrorEvent> = new EventEmitter();
   @Output() save: EventEmitter<AwsFileData> = new EventEmitter();

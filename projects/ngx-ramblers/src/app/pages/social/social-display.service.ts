@@ -7,7 +7,7 @@ import { AuthService } from "../../auth/auth.service";
 import { DateCriteria } from "../../models/api-request.model";
 import { CommitteeMember, RoleType } from "../../models/committee.model";
 import { Member, MemberFilterSelection } from "../../models/member.model";
-import { SocialEvent, SocialEventsPermissions } from "../../models/social-events.model";
+import { SocialEventsPermissions } from "../../models/social-events.model";
 import { Confirm } from "../../models/ui-actions";
 import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
 import { MemberIdToFullNamePipe } from "../../pipes/member-id-to-full-name.pipe";
@@ -24,6 +24,7 @@ import { SiteEditService } from "../../site-edit/site-edit.service";
 import { EventPopulation, Organisation } from "../../models/system.model";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { PageService } from "../../services/page.service";
+import { ExtendedGroupEvent } from "../../models/group-event.model";
 
 const SORT_BY_NAME = sortBy("order", "member.lastName", "member.firstName");
 
@@ -91,6 +92,7 @@ export class SocialDisplayService {
     this.allow.copy = this.memberLoginService.allowSocialAdminEdits() && this.socialPopulationLocal();
     this.allow.contentEdits = this.siteEditService.active() && this.memberLoginService.allowContentEdits();
     this.allow.admin = this.memberLoginService.allowSocialAdminEdits();
+    this.allow.delete = this.memberLoginService.allowSocialAdminEdits();
     this.logger.debug("permissions:", this.allow);
   }
 
@@ -103,12 +105,12 @@ export class SocialDisplayService {
     }
   }
 
-  attachmentExists(socialEvent: SocialEvent): boolean {
-    return !isEmpty(socialEvent?.attachment);
+  attachmentExists(socialEvent: ExtendedGroupEvent): boolean {
+    return !isEmpty(socialEvent?.fields?.attachment);
   }
 
-  committeeMembersPlusOrganiser(socialEvent: SocialEvent, members: Member[]): CommitteeMember[] {
-    const committeeMembers = socialEvent.eventContactMemberId ?
+  committeeMembersPlusOrganiser(socialEvent: ExtendedGroupEvent, members: Member[]): CommitteeMember[] {
+    const committeeMembers = socialEvent?.fields?.contactDetails?.memberId ?
       [this.committeeMemberFromSocialEvent(socialEvent, members)].concat(this.committeeReferenceData?.committeeMembers()) : this.committeeReferenceData?.committeeMembers();
     this.logger.debug("committeeMembersPlusOrganiser:", committeeMembers);
     return committeeMembers;
@@ -118,34 +120,39 @@ export class SocialDisplayService {
     return this.committeeReferenceData?.committeeMembers();
   }
 
-  committeeMemberFromSocialEvent(socialEvent: SocialEvent, members: Member[]): CommitteeMember {
-    const fullName = this.memberIdToFullNamePipe.transform(socialEvent.eventContactMemberId, members);
+  committeeMemberFromSocialEvent(socialEvent: ExtendedGroupEvent, members: Member[]): CommitteeMember {
+    const fullName = this.memberIdToFullNamePipe.transform(socialEvent?.fields?.contactDetails?.memberId, members);
     return {
       type: "organiser",
       fullName,
-      memberId: socialEvent.eventContactMemberId,
+      memberId: socialEvent?.fields?.contactDetails?.memberId,
       description: "Organiser",
       nameAndDescription: `Organiser (${fullName})`,
-      email: socialEvent.contactEmail,
+      email: socialEvent?.fields?.contactDetails?.email,
       roleType: RoleType.GROUP_MEMBER
     };
   }
 
-  attachmentTitle(socialEvent: SocialEvent) {
-    return socialEvent?.attachment ? (socialEvent.attachment.title || `Attachment: ${socialEvent.attachment.originalFileName}`) : "";
+  attachmentTitle(socialEvent: ExtendedGroupEvent) {
+    return socialEvent?.fields?.attachment ? (socialEvent.fields.attachment.title || `Attachment: ${socialEvent.fields.attachment.originalFileName}`) : "";
   }
 
-  socialEventLink(socialEvent: SocialEvent, relative: boolean) {
-    return socialEvent?.id ? this.urlService.linkUrl({area: this.pageService.socialPage()?.href, id: socialEvent?.id, relative}) : undefined;
+  socialEventLink(socialEvent: ExtendedGroupEvent, relative: boolean) {
+    const eventId: string = socialEvent?.id || socialEvent?.groupEvent?.id;
+    return eventId ? this.urlService.linkUrl({
+      area: this.pageService.socialPage()?.href,
+      id: eventId,
+      relative
+    }) : null;
   }
 
-  attachmentUrl(socialEvent) {
-    return socialEvent?.attachment ? `${this.urlService.baseUrl()}/${this.attachmentBaseUrl}/${socialEvent.attachment.awsFileName}` : "";
+  attachmentUrl(socialEvent: ExtendedGroupEvent) {
+    return socialEvent?.fields?.attachment ? `${this.urlService.baseUrl()}/${this.attachmentBaseUrl}/${socialEvent.fields.attachment.awsFileName}` : "";
   }
 
-  attendeeList(socialEvent: SocialEvent, members: MemberFilterSelection[]) {
-    return socialEvent?.attendees.map(memberId => members.find(member => member.id === memberId.id))
-      .sort(sortBy("text")).map(item => item?.text).join(", ");
+  attendeeList(socialEvent: ExtendedGroupEvent, members: MemberFilterSelection[]) {
+    return socialEvent?.fields?.attendees?.map(memberId => members.find(member => member.id === memberId.id))
+      ?.sort(sortBy("text")).map(item => item?.text).join(", ");
   }
 
   socialEventsTitle(filterType: number) {

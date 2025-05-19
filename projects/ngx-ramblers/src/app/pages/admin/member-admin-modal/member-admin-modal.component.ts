@@ -32,7 +32,7 @@ import { MemberDefaultsService } from "../../../services/member/member-defaults.
 import { NO_CHANGES_OR_DIFFERENCES } from "../../../models/ramblers-insight-hub";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FormsModule } from "@angular/forms";
-import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { DatePicker } from "../../../date-and-time/date-picker";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -51,7 +51,7 @@ import { FormatAuditPipe } from "../../../pipes/format-audit-pipe";
   templateUrl: "./member-admin-modal.component.html",
   styleUrls: ["./member-admin-modal.component.sass"],
   providers: [FormatAuditPipe],
-  imports: [TabsetComponent, TabDirective, FormsModule, DatePickerComponent, MarkdownEditorComponent, TooltipDirective,
+  imports: [TabsetComponent, TabDirective, FormsModule, DatePicker, MarkdownEditorComponent, TooltipDirective,
     FontAwesomeModule, MailChimpSubscriptionSettingsComponent, MailSubscriptionSettingsComponent, SwitchIconComponent,
     NgClass, JsonPipe, CreatedAuditPipe, DisplayDateAndTimePipe, FullNameWithAliasPipe, LastConfirmedDateDisplayed, UpdatedAuditPipe]
 })

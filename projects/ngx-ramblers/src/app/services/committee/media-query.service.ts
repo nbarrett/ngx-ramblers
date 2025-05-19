@@ -4,10 +4,11 @@ import { CommitteeFile } from "../../models/committee.model";
 import { Member } from "../../models/member.model";
 import { CommitteeDisplayService } from "../../pages/committee/committee-display.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { HasMedia, SocialEvent } from "../../models/social-events.model";
+import { HasMedia } from "../../models/social-events.model";
 import { BasicMedia, Media } from "../../models/ramblers-walks-manager";
 import { UrlService } from "../url.service";
-import { FALLBACK_MEDIA, Walk } from "../../models/walk.model";
+import { FALLBACK_MEDIA } from "../../models/walk.model";
+import { ExtendedGroupEvent } from "../../models/group-event.model";
 
 @Injectable({
   providedIn: "root"
@@ -41,20 +42,30 @@ export class MediaQueryService {
     return media;
   }
 
-  imageFromSocialEvent(socialEvent: SocialEvent) {
-    return this.urlService.imageSource(socialEvent?.thumbnail, true);
+  imageSource(walk: ExtendedGroupEvent): BasicMedia {
+    return this.basicMediaFrom(walk?.groupEvent)?.[0];
   }
 
-  imageSource(walk: Walk): BasicMedia {
-    return this.basicMediaFrom(walk)?.[0];
-  }
-
-  imageSourceWithFallback(walk: Walk): BasicMedia {
-    const basicMedia = this.imageSource(walk);
+  imageSourceWithFallback(extendedGroupEvent: ExtendedGroupEvent): BasicMedia {
+    const basicMedia = this.imageSource(extendedGroupEvent);
     return basicMedia ? {...basicMedia, url:this.urlService.imageSource(basicMedia.url, false, true)} : FALLBACK_MEDIA;
   }
 
   applyImageSource(hasMedia: HasMedia, title: string, imageUrl: string): void {
+    const media = this.mediaFrom(title, imageUrl);
+    const mediaItem: Media = hasMedia.media.find(item => item.styles.find(style => style.url === imageUrl));
+    if (!mediaItem) {
+      this.logger.info("no media exists - adding first item:", media);
+      if (!hasMedia?.media) {
+        hasMedia.media = [media];
+      } else {
+        hasMedia.media.push(media);
+        this.logger.info("Added media item", hasMedia.media.length, ":", media, "all media:", hasMedia.media);
+      }
+    }
+  }
+
+  public mediaFrom(title: string, imageUrl: string) {
     const media: Media = {
       caption: null,
       credit: null,
@@ -66,15 +77,6 @@ export class MediaQueryService {
         height: 0
       }]
     };
-    const mediaItem: Media = hasMedia.media.find(item => item.styles.find(style => style.url === imageUrl));
-    if (!mediaItem) {
-      this.logger.info("no media exists - adding first item:", media);
-      if (!hasMedia?.media) {
-        hasMedia.media = [media];
-      } else {
-        hasMedia.media.push(media);
-        this.logger.info("Added media item", hasMedia.media.length, ":", media, "all media:", hasMedia.media);
-      }
-    }
+    return media;
   }
 }

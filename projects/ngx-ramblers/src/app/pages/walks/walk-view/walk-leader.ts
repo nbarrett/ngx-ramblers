@@ -13,15 +13,67 @@ import { Organisation } from "../../../models/system.model";
 import { LoginModalComponent } from "../../login/login-modal/login-modal.component";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { WalkGroupComponent } from "./walk-group";
-import { RelatedLinkComponent } from "../../../modules/common/related-link/related-link.component";
+import { RelatedLinkComponent } from "../../../modules/common/related-links/related-link";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
+import { JsonPipe } from "@angular/common";
 
 @Component({
     selector: "app-walk-leader",
-    templateUrl: "./walk-leader.html",
-    imports: [WalkGroupComponent, RelatedLinkComponent, FontAwesomeModule, TooltipDirective, CopyIconComponent]
+    template: `
+      <div class="event-panel rounded event-panel-inner">
+        <app-walk-group [displayedWalk]="displayedWalk"/>
+        <h1>{{ display.isWalk(displayedWalk.walk) ? 'Walk Leader' : (display.eventTypeTitle(displayedWalk.walk) + " Organiser") }}</h1>
+        <div>
+          <div class="row">
+            @if (display.walkPopulationWalksManager()) {
+              <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
+                <fa-icon title
+                         tooltip="contact walk leader {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}"
+                         [icon]="faEnvelope"
+                         class="fa-icon mr-1 pointer"></fa-icon>
+                <a content
+                   [href]="displayedWalk?.walk?.fields?.contactDetails?.email">{{ displayedWalk?.walk?.fields?.contactDetails?.displayName || "Contact Via Ramblers" }}</a>
+              </div>
+            }
+            @if (!display.walkPopulationWalksManager()) {
+              @if (displayedWalk?.walk?.fields?.contactDetails?.email) {
+                <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
+                     class="col-sm-12">
+                  <app-copy-icon [disabled]="!loggedIn" [icon]="faEnvelope" title
+                                 [value]="displayedWalk?.walk?.fields?.contactDetails?.email"
+                                 [elementName]="'email address for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"></app-copy-icon>
+                  <div content>
+                    @if (loggedIn) {
+                      <a [href]="'mailto:' + displayedWalk?.walk?.fields?.contactDetails?.email"
+                         tooltip="Click to email {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}">
+                        {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}
+                      </a>
+                    }
+                    @if (!loggedIn) {
+                      <span (click)="login()" class="tooltip-link span-margin"
+                            trigger="mouseenter"
+                            tooltip="Login as an {{group?.shortName}} member and send an email to {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}">
+                    {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}</span>
+                    }</div>
+                </div>
+              }
+              @if (loggedIn) {
+                <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
+                  <app-copy-icon [icon]="faPhone" title [value]="displayedWalk?.walk?.fields?.contactDetails?.phone"
+                                 [elementName]="'mobile number for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName "></app-copy-icon>
+                  <a content [href]="'tel:' + displayedWalk?.walk?.fields?.contactDetails?.phone"
+                     tooltip="Click to ring {{displayedWalk?.walk?.fields?.contactDetails?.displayName}} on {{displayedWalk?.walk?.fields?.contactDetails?.phone}} (mobile devices only)">
+                    {{ displayedWalk?.walk?.fields?.contactDetails?.phone }}
+                  </a>
+                </div>
+              }
+            }
+          </div>
+        </div>
+      </div>`,
+  imports: [WalkGroupComponent, RelatedLinkComponent, FontAwesomeModule, TooltipDirective, CopyIconComponent]
 })
 
 export class WalkLeaderComponent implements OnInit, OnDestroy {

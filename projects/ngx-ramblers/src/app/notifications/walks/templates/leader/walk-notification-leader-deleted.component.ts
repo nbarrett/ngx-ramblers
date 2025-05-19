@@ -12,8 +12,8 @@ import { MemberIdToFullNamePipe } from "../../../../pipes/member-id-to-full-name
     ></strong>,
     <strong [textContent]="event.memberId | memberIdToFullName : members"></strong>
     deleted the walk led by <strong
-    [textContent]="walk.walkLeaderMemberId | memberIdToFullName : members : walk.displayName"></strong>
-    on <strong [textContent]="walk.walkDate | displayDate" ></strong>.
+    [textContent]="walk?.fields?.contactDetails?.memberId | memberIdToFullName : members : walk?.fields?.contactDetails?.displayName"></strong>
+    on <strong [textContent]="walk.groupEvent.start_date_time | displayDate" ></strong>.
     @if (event.reason) {
       <span [textContent]="event.reason"></span>
     }</p>

@@ -4,7 +4,7 @@ import { Member } from "../../../../models/member.model";
 import { WalkDataAudit } from "../../../../models/walk-data-audit.model";
 import { WalkEvent } from "../../../../models/walk-event.model";
 import { WalkNotification } from "../../../../models/walk-notification.model";
-import { EventType, Walk } from "../../../../models/walk.model";
+import { EventType } from "../../../../models/walk.model";
 import { WalkDisplayService } from "../../../../pages/walks/walk-display.service";
 import { GoogleMapsService } from "../../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
@@ -13,6 +13,7 @@ import { ChangedItem } from "../../../../models/changed-item.model";
 import { marked } from "marked";
 import { ValueOrDefaultPipe } from "../../../../pipes/value-or-default.pipe";
 import { DisplayDatePipe } from "../../../../pipes/display-date.pipe";
+import { ExtendedGroupEvent } from "../../../../models/group-event.model";
 
 @Component({
     selector: "app-walk-notification-details",
@@ -20,55 +21,55 @@ import { DisplayDatePipe } from "../../../../pipes/display-date.pipe";
     <table style="cellpadding:10; border:1px solid lightgrey;border-collapse:collapse;width: 100%;border-spacing: 5px;">
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Walk Date:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.walkDate | displayDate }}</td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.groupEvent.start_date_time | displayDate }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Start Time:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.startTime | valueOrDefault }}</td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.groupEvent.start_date_time | valueOrDefault }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Description:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.briefDescriptionAndStartPoint | valueOrDefault }}</td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.groupEvent.title | valueOrDefault }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Walk Description:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px" [innerHTML]="renderMarked(walk.longerDescription)"></td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px" [innerHTML]="renderMarked(walk.groupEvent.description)"></td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Distance:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.distance | valueOrDefault }}</td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.groupEvent.distance_miles | valueOrDefault }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Starting Location:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.start_location?.description | valueOrDefault }}</td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.groupEvent.start_location?.description | valueOrDefault }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Grade:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.grade | valueOrDefault }}</td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.groupEvent.difficulty | valueOrDefault }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Grid Ref:</td>
         <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">
-          <a [href]="'http://gridreferencefinder.com/?gr=' + display.gridReferenceFrom(walk.start_location)" target="_blank">
-            {{ display.gridReferenceFrom(walk.start_location) | valueOrDefault }}</a></td>
+          <a [href]="'http://gridreferencefinder.com/?gr=' + display.gridReferenceFrom(walk.groupEvent.start_location)" target="_blank">
+            {{ display.gridReferenceFrom(walk.groupEvent.start_location) | valueOrDefault }}</a></td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Postcode:</td>
         <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">
-          <a [href]="googleMapsService.urlForPostcode(walk.start_location?.postcode)" target="_blank">
-            {{ walk.start_location?.postcode | valueOrDefault }}</a></td>
+          <a [href]="googleMapsService.urlForPostcode(walk.groupEvent.start_location?.postcode)" target="_blank">
+            {{ walk.groupEvent.start_location?.postcode | valueOrDefault }}</a></td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Display Name:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.displayName | valueOrDefault }}</td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk?.fields?.contactDetails?.displayName | valueOrDefault }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Contact Email:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px"><a [href]="'mailto:'+ walk.contactEmail"><span>{{ walk.contactEmail | valueOrDefault }}</span></a></td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px"><a [href]="'mailto:'+ walk?.fields?.contactDetails?.email"><span>{{ walk?.fields?.contactDetails?.email | valueOrDefault }}</span></a></td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Contact Phone:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.contactPhone }}</td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk?.fields?.contactDetails?.phone }}</td>
       </tr>
     </table>`,
     imports: [DisplayDatePipe, ValueOrDefaultPipe]
@@ -81,7 +82,7 @@ export class WalkNotificationDetailsComponent implements OnInit {
   googleMapsService = inject(GoogleMapsService);
   display = inject(WalkDisplayService);
   public data: WalkNotification;
-  public walk: Walk;
+  public walk: ExtendedGroupEvent;
   public status: EventType;
   public event: WalkEvent;
   public walkDataAudit: WalkDataAudit;

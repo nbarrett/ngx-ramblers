@@ -3,7 +3,12 @@ import isArray from "lodash-es/isArray";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { AwsFileData } from "../../../models/aws-object.model";
-import { GroupEvent, GroupEventType, groupEventTypeFor, uploadGroupEventType } from "../../../models/committee.model";
+import {
+  GroupEventSummary,
+  GroupEventType,
+  groupEventTypeFor,
+  uploadGroupEventType
+} from "../../../models/committee.model";
 import {
   ContentMetadata,
   ContentMetadataItem,
@@ -42,7 +47,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
 import { FormsModule } from "@angular/forms";
 import { GroupEventTypeSelectorComponent } from "../../../group-events-selector/group-event-type-selector";
-import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { DatePicker } from "../../../date-and-time/date-picker";
 import { TagEditorComponent } from "../../../pages/tag/tag-editor.component";
 import { GroupEventSelectorComponent } from "../../../group-events-selector/group-event-selector";
 
@@ -157,7 +162,7 @@ import { GroupEventSelectorComponent } from "../../../group-events-selector/grou
                   <div class="form-group no-left-padding">
                     <app-date-picker startOfDay [label]="'Image Date'"
                                      [size]="'md'"
-                                     (dateChange)="dateChange($event)"
+                                     (change)="dateChange($event)"
                                      [value]="item?.date"/>
                   </div>
                 </div>
@@ -207,7 +212,7 @@ import { GroupEventSelectorComponent } from "../../../group-events-selector/grou
           </div>
         </div>
       </div>`,
-    imports: [ImageCropperAndResizerComponent, NgClass, FontAwesomeModule, BadgeButtonComponent, FormsModule, GroupEventTypeSelectorComponent, DatePickerComponent, TagEditorComponent, GroupEventSelectorComponent]
+    imports: [ImageCropperAndResizerComponent, NgClass, FontAwesomeModule, BadgeButtonComponent, FormsModule, GroupEventTypeSelectorComponent, DatePicker, TagEditorComponent, GroupEventSelectorComponent]
 })
 export class ImageEditComponent implements OnInit {
 
@@ -276,7 +281,7 @@ export class ImageEditComponent implements OnInit {
   public duplicateImages: DuplicateImages;
   public groupEventType: GroupEventType;
   public contentMetadataImageTags: ImageTag[];
-  public groupEvents: GroupEvent[] = [];
+  public groupEvents: GroupEventSummary[] = [];
   public item: ContentMetadataItem;
   public index: number;
   public filteredFiles: ContentMetadataItem[];
@@ -433,7 +438,7 @@ export class ImageEditComponent implements OnInit {
     this.item.dateSource = groupEventType.area;
   }
 
-  eventChange(groupEvent: GroupEvent) {
+  eventChange(groupEvent: GroupEventSummary) {
     this.item.date = groupEvent.eventDate;
     this.item.text = groupEvent.title;
     this.item.eventId = groupEvent.id;

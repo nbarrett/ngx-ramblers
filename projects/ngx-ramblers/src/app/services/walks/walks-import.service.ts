@@ -1,16 +1,16 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { EventType, Walk } from "../../models/walk.model";
+import { EventType } from "../../models/walk.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { WalksLocalService } from "./walks-local.service";
-import { RamblersWalksAndEventsService } from "./ramblers-walks-and-events.service";
+import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-events.service";
+import { RamblersWalksAndEventsService } from "../walks-and-events/ramblers-walks-and-events.service";
 import { Organisation, SystemConfig } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
 import first from "lodash-es/first";
 import last from "lodash-es/last";
 import { DateUtilsService } from "../date-utils.service";
 import omit from "lodash-es/omit";
-import { WalkEventService } from "./walk-event.service";
+import { GroupEventService } from "../walks-and-events/group-event.service";
 import { MemberService } from "../member/member.service";
 import { NumberUtilsService } from "../number-utils.service";
 import { MemberBulkLoadService } from "../member/member-bulk-load.service";
@@ -27,6 +27,7 @@ import { DataQueryOptions } from "../../models/api-request.model";
 import { StringUtilsService } from "../string-utils.service";
 import { Contact, RamblersEventType } from "../../models/ramblers-walks-manager";
 import { AlertInstance } from "../notifier.service";
+import { ExtendedGroupEvent } from "../../models/group-event.model";
 
 @Injectable({
   providedIn: "root"
@@ -35,10 +36,10 @@ export class WalksImportService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalksImportService", NgxLoggerLevel.ERROR);
   private systemConfigService = inject(SystemConfigService);
-  private walksLocalService = inject(WalksLocalService);
+  private localWalksAndEventsService = inject(LocalWalksAndEventsService);
   private dateUtils = inject(DateUtilsService);
   private numberUtils = inject(NumberUtilsService);
-  private walkEventService = inject(WalkEventService);
+  private walkEventService = inject(GroupEventService);
   private stringUtils = inject(StringUtilsService);
   private memberBulkLoadService = inject(MemberBulkLoadService);
   private memberService = inject(MemberService);
@@ -71,13 +72,13 @@ export class WalksImportService {
     messages.push(`Found ${this.stringUtils.pluraliseWithCount(walkLeaders.length, "walk leader")} to import`);
     const firstWalk = first(walksToImport);
     const lastWalk = last(walksToImport);
-    const walksWithContactId: Walk[] = walksToImport.filter(item => item.contactId);
-    const walksWithContactNameSearchString: Walk[] = walksToImport.filter(item => JSON.stringify(item).includes(searchString));
-    this.logger.info("firstWalk:", firstWalk, "on", this.dateUtils.displayDate(firstWalk.walkDate), "lastWalk:", lastWalk, "on", this.dateUtils.displayDate(lastWalk.walkDate), "walksWithContactId:", walksWithContactId, "walksWithContactNameSearchString:", `${searchString}:`, walksWithContactNameSearchString);
-    messages.push(`First walk is on ${this.dateUtils.displayDate(firstWalk.walkDate)}`);
-    messages.push(`Last walk is on ${this.dateUtils.displayDate(lastWalk.walkDate)}`);
-    const existingWalks: Walk[] = await this.walksLocalService.all();
-    const existingWalksWithinRange: Walk[] = existingWalks.filter(walk => walk.walkDate >= firstWalk.walkDate && walk.walkDate <= lastWalk.walkDate);
+    const walksWithContactId: ExtendedGroupEvent[] = walksToImport.filter(item => item?.fields?.contactDetails?.contactId);
+    const walksWithContactNameSearchString: ExtendedGroupEvent[] = walksToImport.filter(item => JSON.stringify(item).includes(searchString));
+    this.logger.info("firstWalk:", firstWalk, "on", this.dateUtils.displayDate(firstWalk.groupEvent.start_date_time), "lastWalk:", lastWalk, "on", this.dateUtils.displayDate(lastWalk.groupEvent.start_date_time), "walksWithContactId:", walksWithContactId, "walksWithContactNameSearchString:", `${searchString}:`, walksWithContactNameSearchString);
+    messages.push(`First walk is on ${this.dateUtils.displayDate(firstWalk.groupEvent.start_date_time)}`);
+    messages.push(`Last walk is on ${this.dateUtils.displayDate(lastWalk.groupEvent.start_date_time)}`);
+    const existingWalks: ExtendedGroupEvent[] = await this.localWalksAndEventsService.all();
+    const existingWalksWithinRange: ExtendedGroupEvent[] = existingWalks.filter(walk => walk.groupEvent.start_date_time >= firstWalk.groupEvent.start_date_time && walk.groupEvent.start_date_time <= lastWalk.groupEvent.start_date_time);
     messages.push(`${this.stringUtils.pluraliseWithCount(existingWalksWithinRange.length, "existing walk")} within date range`);
     this.logger.info("existingWalks:", existingWalks, "walks to import within range",);
     this.logger.info("walkLeaders:", walkLeaders);
@@ -123,11 +124,11 @@ export class WalksImportService {
       const matchToWalk: BulkLoadMemberAndMatchToWalks = bulkLoadMembersAndMatchesToWalks
         .find(bulkLoadMemberAndMatch => {
           if (bulkLoadMemberAndMatch.bulkLoadMemberAndMatch?.contact?.name) {
-            return bulkLoadMemberAndMatch.bulkLoadMemberAndMatch?.contact?.name === walk.contactName;
+            return bulkLoadMemberAndMatch.bulkLoadMemberAndMatch?.contact?.name === walk?.fields?.contactDetails?.displayName;
           } else if (bulkLoadMemberAndMatch.bulkLoadMemberAndMatch?.member?.mobileNumber) {
-            return this.numberUtils.asNumber(bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.member.mobileNumber) === this.numberUtils.asNumber(walk.contactPhone);
+            return this.numberUtils.asNumber(bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.member.mobileNumber) === this.numberUtils.asNumber(walk?.fields?.contactDetails?.phone);
           } else if (bulkLoadMemberAndMatch.bulkLoadMemberAndMatch?.contact?.id) {
-            return bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.contact.id === walk.contactId;
+            return bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.contact.id === walk.fields.publishing.ramblers.contactName;
           }
         });
       if (matchToWalk) {
@@ -153,7 +154,7 @@ export class WalksImportService {
     const errorMessages: string[]=[];
     let createdWalks = 0;
     let createdMembers = 0;
-    const deletions = await Promise.all(walksImportPreparation.existingWalksWithinRange.map(walk => this.walksLocalService.delete(walk)));
+    const deletions = await Promise.all(walksImportPreparation.existingWalksWithinRange.map(walk => this.localWalksAndEventsService.delete(walk)));
     messages.push(`${deletions.length} existing walks deleted`);
     const imports = await Promise.all(walksImportPreparation.bulkLoadMembersAndMatchesToWalks.map(async bulkLoadMemberAndMatchToWalks => {
       const member = bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.member;
@@ -200,13 +201,13 @@ export class WalksImportService {
     return errorMessages;
   }
 
-  private applyWalkLeaderIfSuppliedAndSaveWalk(walk: Walk, member?: Member): Promise<Walk> {
-    const unsavedWalk: Walk = omit(walk, ["_id", "id"]) as Walk;
+  private applyWalkLeaderIfSuppliedAndSaveWalk(walk: ExtendedGroupEvent, member?: Member): Promise<ExtendedGroupEvent> {
+    const unsavedWalk: ExtendedGroupEvent = omit(walk, ["_id", "id"]) as ExtendedGroupEvent;
     if (member) {
-      unsavedWalk.walkLeaderMemberId = member.id;
+      unsavedWalk.fields.contactDetails.memberId = member.id;
     }
     const event = this.walkEventService.createEventIfRequired(unsavedWalk, EventType.APPROVED, "Imported from Walks Manager");
     this.walkEventService.writeEventIfRequired(unsavedWalk, event);
-    return this.walksLocalService.createOrUpdate(unsavedWalk);
+    return this.localWalksAndEventsService.createOrUpdate(unsavedWalk);
   }
 }

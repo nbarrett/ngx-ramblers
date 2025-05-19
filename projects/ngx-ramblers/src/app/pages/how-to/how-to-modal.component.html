@@ -9,7 +9,7 @@
         <div class="form-group">
           <app-date-picker startOfDay [label]="'Date'"
             [size]="'md'"
-            (dateChange)="resourceDateChanged($event)"
+            (change)="resourceDateChanged($event)"
             [value]="resourceDate">
           </app-date-picker>
         </div>

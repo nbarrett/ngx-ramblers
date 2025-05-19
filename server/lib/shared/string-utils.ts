@@ -1,5 +1,5 @@
-import escapeRegExp = require("lodash/escapeRegExp");
-import isNumber = require("lodash/isNumber");
+import escapeRegExp from "lodash/escapeRegExp";
+import isNumber from "lodash/isNumber";
 
 export const uidFormat = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
 

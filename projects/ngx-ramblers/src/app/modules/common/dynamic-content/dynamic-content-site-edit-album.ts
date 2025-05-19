@@ -12,7 +12,7 @@ import {
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { GroupEvent, GroupEventType } from "../../../models/committee.model";
+import { GroupEventSummary, GroupEventType } from "../../../models/committee.model";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { LazyLoadingMetadata } from "../../../models/content-metadata.model";
 import { UrlService } from "../../../services/url.service";
@@ -399,7 +399,7 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
     this.groupEventType = groupEventType;
   }
 
-  eventChange(carousel: AlbumData, groupEvent: GroupEvent) {
+  eventChange(carousel: AlbumData, groupEvent: GroupEventSummary) {
     carousel.eventId = groupEvent.id;
     carousel.subtitle = groupEvent.title;
     carousel.eventType = groupEvent.eventType.area;

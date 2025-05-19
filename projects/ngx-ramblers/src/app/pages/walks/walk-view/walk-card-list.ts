@@ -2,7 +2,7 @@ import { Component, inject, Input, OnChanges, OnDestroy, OnInit, SimpleChanges }
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { DisplayedWalk, EventType, Walk, WalkViewMode } from "../../../models/walk.model";
+import { DisplayedWalk, EventType, WalkViewMode } from "../../../models/walk.model";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { MeetupService } from "../../../services/meetup.service";
@@ -21,6 +21,7 @@ import { NgClass } from "@angular/common";
 import { WalkCardViewComponent } from "./walk-card-view";
 import { WalkViewComponent } from "./walk-view";
 import { WalkEditComponent } from "../walk-edit/walk-edit.component";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
 
 @Component({
     selector: "app-walk-card-list",
@@ -49,7 +50,7 @@ import { WalkEditComponent } from "../walk-edit/walk-edit.component";
             </div>
           }
           <div class="row">
-            @for (displayedWalk of currentPageWalks; track displayedWalk; let index = $index) {
+            @for (displayedWalk of currentPageWalks; let index = $index; track displayedWalk.walk.id || index) {
               <div
                 [ngClass]="{'pt-2 mb-3 col-lg-4 col-md-6 col-sm-12': !viewExpanded(displayedWalk.walk), 'w-100': viewExpanded(displayedWalk.walk)}"
                 class="d-flex flex-column">
@@ -110,7 +111,7 @@ export class WalkCardListComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes.currentPageWalks && this.currentPageWalks?.length) {
-      const firstWalk: Walk = this.currentPageWalks[0].walk;
+      const firstWalk: ExtendedGroupEvent = this.currentPageWalks[0].walk;
       if (!this.display.awaitingLeader(firstWalk)) {
         this.display.toggleExpandedViewFor(firstWalk, WalkViewMode.VIEW_SINGLE);
       }
@@ -122,12 +123,12 @@ export class WalkCardListComponent implements OnInit, OnChanges, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
-  viewExpanded(walk: Walk): boolean {
+  viewExpanded(walk: ExtendedGroupEvent): boolean {
     return [WalkViewMode.VIEW_SINGLE, WalkViewMode.EDIT, WalkViewMode.EDIT_FULL_SCREEN].includes(this.display.walkMode(walk));
   }
 
-  imageSource(walk: Walk): BasicMedia {
-    return this.mediaQueryService.basicMediaFrom(walk)?.[0];
+  imageSource(walk: ExtendedGroupEvent): BasicMedia {
+    return this.mediaQueryService.basicMediaFrom(walk?.groupEvent)?.[0];
   }
 
   backDisabled(): boolean {
@@ -154,16 +155,16 @@ export class WalkCardListComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  cardViewDisplay(walk: Walk) {
+  cardViewDisplay(walk: ExtendedGroupEvent) {
     return [WalkViewMode.LIST, WalkViewMode.VIEW].includes(this.display.walkMode(walk));
 
   }
 
-  expandedViewDisplay(walk: Walk) {
+  expandedViewDisplay(walk: ExtendedGroupEvent) {
     return this.display.walkMode(walk) === WalkViewMode.VIEW_SINGLE;
   }
 
-  walkEditDisplay(walk: Walk) {
+  walkEditDisplay(walk: ExtendedGroupEvent) {
     return this.display.walkMode(walk) === WalkViewMode.EDIT;
   }
 }

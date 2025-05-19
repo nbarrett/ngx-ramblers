@@ -5,9 +5,12 @@ import { DateUtilsService } from "../services/date-utils.service";
 export class DisplayTimePipe implements PipeTransform {
   private dateUtils = inject(DateUtilsService);
 
-
   transform(dateValue: any): string {
-    return this.dateUtils.displayTime(dateValue);
+    if (!dateValue || this.dateUtils.isMidnight(dateValue)) {
+      return "";
+    } else {
+      return this.dateUtils.displayTime(dateValue);
+    }
   }
 
 }

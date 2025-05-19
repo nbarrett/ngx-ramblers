@@ -3,10 +3,9 @@ import { DateUtilsService } from "../services/date-utils.service";
 
 @Pipe({ name: "displayDate" })
 export class DisplayDatePipe implements PipeTransform {
-  private dateUtils = inject(DateUtilsService);
+  private dateUtils: DateUtilsService = inject(DateUtilsService);
 
-
-  transform(dateValue: any) {
+  transform(dateValue: any): string {
     return this.dateUtils.displayDate(dateValue);
   }
 

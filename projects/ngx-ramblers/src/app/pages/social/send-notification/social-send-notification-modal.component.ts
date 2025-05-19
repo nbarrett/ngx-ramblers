@@ -4,13 +4,11 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { BuiltInRole, CommitteeMember, Notification, NotificationItem } from "../../../models/committee.model";
 import { Member, MemberFilterSelection, SORT_BY_NAME } from "../../../models/member.model";
-import { SocialEvent } from "../../../models/social-events.model";
 import { ConfirmType } from "../../../models/ui-actions";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
-import { SocialEventsService } from "../../../services/social-events/social-events.service";
 import { SocialDisplayService } from "../social-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { SystemConfig } from "../../../models/system.model";
@@ -51,6 +49,9 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { CreateOrAmendSenderComponent } from "../../admin/send-emails/create-or-amend-sender";
 import { BrevoButtonComponent } from "../../../modules/common/third-parties/brevo-button";
 import { TitleCasePipe } from "@angular/common";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import last from "lodash-es/last";
+import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 
 @Component({
     selector: "app-social-send-notification-modal",
@@ -62,14 +63,14 @@ import { TitleCasePipe } from "@angular/common";
           <button (click)="bsModalRef.hide()" type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;
           </button>
         </div>
-        @if (socialEvent?.notification?.content?.title) {
+        @if (latestNotification?.content?.title) {
           <div class="modal-body">
-            @if (socialEvent?.notification?.content) {
+            @if (latestNotification?.content) {
               <tabset class="custom-tabset">
                 <tab heading="Recipients & Addressing">
                   <div class="img-thumbnail thumbnail-admin-edit">
                     <app-notification-config-selector (emailConfigChanged)="emailConfigChanged($event)"
-                      [notificationConfig]="socialEvent.notification?.content?.notificationConfig"
+                      [notificationConfig]="latestNotification?.content?.notificationConfig"
                       [notificationConfigListing]="notificationConfigListing"/>
                     <div class="row">
                       <div class="col-sm-7"><label>Send to:</label>
@@ -80,7 +81,7 @@ import { TitleCasePipe } from "@angular/common";
                               id="send-list-{{list.id}}"
                               name="send-to"
                               type="radio"
-                              [checked]="socialEvent.notification.content.listId === list.id"
+                              [checked]="latestNotification?.content?.listId === list.id"
                               [disabled]="selectionDisabled(list)"
                               (change)="selectList(list)"
                               [value]="list.id"/>
@@ -99,19 +100,19 @@ import { TitleCasePipe } from "@angular/common";
                               type="radio"
                               class="custom-control-input"
                               name="send-to"
-                              [(ngModel)]="socialEvent.notification.content.listId"
+                              [(ngModel)]="latestNotification.content.listId"
                               value="custom"/>
-                            <label class="custom-control-label" for="custom">@if (socialEvent?.notification?.content?.selectedMemberIds?.length===0) {
+                            <label class="custom-control-label" for="custom">@if (latestNotification?.content?.selectedMemberIds?.length===0) {
                               <span
                               >Choose individual recipients</span>
                             }
-                            @if (socialEvent?.notification?.content?.selectedMemberIds?.length>0) {
+                            @if (latestNotification?.content?.selectedMemberIds?.length>0) {
                               <div>
-                                {{ socialEvent?.notification?.content?.selectedMemberIds?.length }} recipient(s) chosen
+                                {{ latestNotification?.content?.selectedMemberIds?.length }} recipient(s) chosen
                               </div>
                             }
                           </label>
-                          @if (socialEvent.notification.content.selectedMemberIds.length>0) {
+                          @if (latestNotification?.content?.selectedMemberIds.length>0) {
                             <a class="ml-4"
                             (click)="clearRecipients(this.selectedList())">(clear)</a>
                           }
@@ -126,7 +127,7 @@ import { TitleCasePipe } from "@angular/common";
                         type="radio"
                         class="custom-control-input"
                         name="address-as"
-                        [(ngModel)]="socialEvent.notification.content.addresseeType"
+                        [(ngModel)]="latestNotification.content.addresseeType"
                         [value]="ADDRESSEE_CONTACT_FIRST_NAME"/>
                       <label class="custom-control-label" for="addressee-first-name">Hi <i>first name</i></label>
                     </div>
@@ -135,7 +136,7 @@ import { TitleCasePipe } from "@angular/common";
                         type="radio"
                         class="custom-control-input"
                         name="address-as"
-                        [(ngModel)]="socialEvent.notification.content.addresseeType"
+                        [(ngModel)]="latestNotification.content.addresseeType"
                         value="Hi all,"/>
                       <label class="custom-control-label" for="addressee-all">Hi all</label>
                     </div>
@@ -144,7 +145,7 @@ import { TitleCasePipe } from "@angular/common";
                         type="radio"
                         class="custom-control-input"
                         name="address-as"
-                        [(ngModel)]="socialEvent.notification.content.addresseeType"
+                        [(ngModel)]="latestNotification.content.addresseeType"
                         value=""/>
                       <label class="custom-control-label" for="addressee-none">No addressing</label>
                     </div>
@@ -168,7 +169,7 @@ import { TitleCasePipe } from "@angular/common";
                         [multiple]="true"
                         [closeOnSelect]="true"
                         (change)="onChange($event)"
-                        [(ngModel)]="socialEvent.notification.content.selectedMemberIds">
+                        [(ngModel)]="latestNotification.content.selectedMemberIds">
                         <ng-template ng-optgroup-tmp let-item="item">
                           <span class="group-header">{{ item.name }} members</span>
                           <span class="ml-1 badge badge-secondary badge-group"> {{ item.total }} </span>
@@ -186,48 +187,48 @@ import { TitleCasePipe } from "@angular/common";
                 <div class="col-sm-12">
                   <div class="form-group">
                     <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="socialEvent.notification.content.title.include"
+                      <input [(ngModel)]="latestNotification.content.title.include"
                         type="checkbox" class="custom-control-input"
                         id="include-title">
                       <label class="custom-control-label"
                         for="include-title">Include Title:
                       </label>
                     </div>
-                    <textarea [(ngModel)]="socialEvent.briefDescription"
+                    <textarea [(ngModel)]="socialEvent.groupEvent.title"
                       class="form-control input-sm"
-                      [disabled]="!socialEvent?.notification?.content?.title?.include"
+                      [disabled]="!latestNotification?.content?.title?.include"
                       rows="1"
                       id="title"
                     placeholder="Enter the title you'd like at the top of the notification here"></textarea>
                   </div>
                 </div>
               </div>
-              @if (socialEvent?.notification?.content?.eventDetails) {
+              @if (latestNotification?.content?.eventDetails) {
                 <div class="row">
                   <div class="col-sm-12">
                     <div class="form-group">
                       <div class="custom-control custom-checkbox">
                         <input
-                          [(ngModel)]="socialEvent.notification.content.eventDetails.include"
+                          [(ngModel)]="latestNotification.content.eventDetails.include"
                           type="checkbox" class="custom-control-input"
                           id="include-event-details">
                         <label class="custom-control-label"
                           for="include-event-details">Include Event details with title:
                         </label>
                       </div>
-                      <input [(ngModel)]="socialEvent.notification.content.eventDetails.value"
+                      <input [(ngModel)]="latestNotification.content.eventDetails.value"
                         type="text"
                         class="form-control input-sm"
-                        [disabled]="!socialEvent?.notification?.content?.eventDetails?.include"
+                        [disabled]="!latestNotification?.content?.eventDetails?.include"
                         placeholder="Enter heading of event detail here">
                     </div>
-                    @if (socialEvent.attendees.length>0) {
+                    @if (socialEvent.fields.attendees.length>0) {
                       <div class="row">
                         <div class="col-sm-12">
                           <div class="form-group">
                             <div class="custom-control custom-checkbox">
                               <input
-                                [(ngModel)]="socialEvent.notification.content.attendees.include"
+                                [(ngModel)]="latestNotification.content.attendees.include"
                                 type="checkbox" class="custom-control-input"
                                 id="include-attendees">
                               <label
@@ -250,7 +251,7 @@ import { TitleCasePipe } from "@angular/common";
                   <div class="form-group">
                     <div class="custom-control custom-checkbox">
                       <input
-                        [(ngModel)]="socialEvent.notification.content.text.include"
+                        [(ngModel)]="latestNotification.content.text.include"
                         type="checkbox" class="custom-control-input"
                         id="include-notification-text">
                       <label
@@ -258,10 +259,10 @@ import { TitleCasePipe } from "@angular/common";
                         for="include-notification-text">Include Notification text:
                       </label>
                     </div>
-                    <textarea [(ngModel)]="socialEvent.notification.content.text.value"
+                    <textarea [(ngModel)]="latestNotification?.content?.text.value"
                       class="form-control input-sm" rows="5"
                       id="free-text"
-                      [disabled]="!socialEvent?.notification?.content?.text?.include"
+                      [disabled]="!latestNotification?.content?.text?.include"
                     placeholder="Enter free text to be included of the notification here"></textarea>
                   </div>
                 </div>
@@ -271,7 +272,7 @@ import { TitleCasePipe } from "@angular/common";
                   <div class="form-group">
                     <div class="custom-control custom-checkbox">
                       <input
-                        [(ngModel)]="socialEvent.notification.content.description.include"
+                        [(ngModel)]="latestNotification.content.description.include"
                         type="checkbox" class="custom-control-input"
                         id="include-description">
                       <label class="custom-control-label"
@@ -281,12 +282,12 @@ import { TitleCasePipe } from "@angular/common";
                   </div>
                 </div>
               </div>
-              @if (socialEvent.attachment) {
+              @if (socialEvent.fields.attachment) {
                 <div class="row">
                   <div class="col-sm-12">
                     <div class="form-group">
                       <div class="custom-control custom-checkbox">
-                        <input [(ngModel)]="socialEvent.notification.content.attachment.include"
+                        <input [(ngModel)]="latestNotification.content.attachment.include"
                           type="checkbox" class="custom-control-input"
                           id="include-attachment">
                         <label class="custom-control-label"
@@ -303,7 +304,7 @@ import { TitleCasePipe } from "@angular/common";
                 <div class="col-sm-12">
                   <div class="form-group">
                     <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="socialEvent.notification.content.signoffText.include"
+                      <input [(ngModel)]="latestNotification.content.signoffText.include"
                         type="checkbox" class="custom-control-input"
                         id="include-signoff-text">
                       <label
@@ -311,9 +312,9 @@ import { TitleCasePipe } from "@angular/common";
                         for="include-signoff-text">Signoff with text:
                       </label>
                     </div>
-                    <textarea [(ngModel)]="socialEvent.notification.content.signoffText.value"
+                    <textarea [(ngModel)]="latestNotification.content.signoffText.value"
                       class="form-control input-sm"
-                      [disabled]="!socialEvent?.notification?.content?.signoffText?.include"
+                      [disabled]="!latestNotification?.content?.signoffText?.include"
                       rows="3"
                       id="signoff-text"
                     placeholder="Enter any signoff text to be included of the notification here"></textarea>
@@ -324,16 +325,16 @@ import { TitleCasePipe } from "@angular/common";
                 <div class="col-sm-12">
                   <div class="form-group">
                     <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="socialEvent.notification.content.replyTo.include"
+                      <input [(ngModel)]="latestNotification.content.replyTo.include"
                         type="checkbox" class="custom-control-input"
                         id="include-reply-to">
                       <label class="custom-control-label"
                         for="include-reply-to">Send replies to:
                       </label>
                     </div>
-                    <select [(ngModel)]="socialEvent.notification.content.replyTo.value" id="replyTo"
+                    <select [(ngModel)]="latestNotification.content.replyTo.value" id="replyTo"
                       (ngModelChange)="modelChange('replyTo',$event)"
-                      [disabled]="!socialEvent?.notification?.content?.replyTo?.include"
+                      [disabled]="!latestNotification?.content?.replyTo?.include"
                       class="form-control input-sm">
                       @for (role of roles.replyTo; track role) {
                         <option
@@ -348,17 +349,17 @@ import { TitleCasePipe } from "@angular/common";
                 <div class="col-sm-12">
                   <div class="form-group">
                     <div class="custom-control custom-checkbox">
-                      <input [(ngModel)]="socialEvent.notification.content.signoffAs.include"
+                      <input [(ngModel)]="latestNotification.content.signoffAs.include"
                         type="checkbox" class="custom-control-input"
                         id="include-signoff-as">
                       <label class="custom-control-label"
                         for="include-signoff-as">Signoff and Send as:
                       </label>
                     </div>
-                    <select [(ngModel)]="socialEvent.notification.content.signoffAs.value"
+                    <select [(ngModel)]="latestNotification.content.signoffAs.value"
                       (ngModelChange)="socialEventSignoffChanged($event)"
                       id="signoff-as"
-                      [disabled]="!socialEvent?.notification?.content?.signoffAs?.include"
+                      [disabled]="!latestNotification?.content?.signoffAs?.include"
                       class="form-control input-sm">
                       @for (role of roles.signoff; track role) {
                         <option
@@ -374,16 +375,16 @@ import { TitleCasePipe } from "@angular/common";
           <tab heading="Preview">
             <div class="img-thumbnail thumbnail-admin-edit">
               <div id="preview" class="print-preview">
-                @if (socialEvent.notification?.content?.notificationConfig?.bannerId) {
+                @if (latestNotification?.content?.notificationConfig?.bannerId) {
                   <div class="mb-2">
                     <img class="card-img"
-                      [src]="mailMessagingService.bannerImageSource(socialEvent.notification?.content?.notificationConfig, false)">
+                      [src]="mailMessagingService.bannerImageSource(latestNotification?.content?.notificationConfig, false)">
                   </div>
                 }
-                <h2 class="mb-3">{{ socialEvent.notification.content.title.value }}</h2>
+                <h2 class="mb-3">{{ latestNotification?.content?.title.value }}</h2>
                 <div #notificationContent>
                   <app-committee-notification-ramblers-message-item
-                    [notificationItem]="toNotificationItemFromNotification(socialEvent.notification)">
+                    [notificationItem]="toNotificationItemFromNotification(latestNotification)">
                     <app-social-notification-details [members]="toMembers()" [socialEvent]="socialEvent"
                       [mailMessagingConfig]="mailMessagingConfig"/>
                   </app-committee-notification-ramblers-message-item>
@@ -439,7 +440,7 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   private systemConfigService = inject(SystemConfigService);
   stringUtils = inject(StringUtilsService);
   display = inject(SocialDisplayService);
-  private socialEventsService = inject(SocialEventsService);
+  private walksAndEventsService = inject(WalksAndEventsService);
   mailLinkService = inject(MailLinkService);
   private mailListUpdaterService = inject(MailListUpdaterService);
   protected dateUtils = inject(DateUtilsService);
@@ -447,7 +448,7 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
   @ViewChild("notificationContent") notificationContent: ElementRef;
   public segmentEditingSupported = false;
-  public socialEvent: SocialEvent;
+  public socialEvent: ExtendedGroupEvent;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   public roles: {
@@ -462,7 +463,7 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
 
   protected readonly ADDRESSEE_CONTACT_FIRST_NAME = ADDRESSEE_CONTACT_FIRST_NAME;
   protected senderExists = false;
-
+  public latestNotification: Notification;
   async ngOnInit() {
     this.logger.info("ngOnInit", this.socialEvent, "memberFilterSelections:", this.display.memberFilterSelections);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget, NgxLoggerLevel.ERROR);
@@ -478,6 +479,7 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
       this.logger.info("retrieved systemConfig", systemConfig);
     }));
     this.display.confirm.as(ConfirmType.SEND_NOTIFICATION);
+    this.latestNotification = last(this.socialEvent?.fields.notifications) || {};
   }
 
   ngOnDestroy(): void {
@@ -485,20 +487,20 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   }
 
   notReady(): boolean {
-    return !this.senderExists || this.roles.replyTo.length === 0 || this.notifyTarget.busy || !this.socialEvent?.notification?.content?.listId || !this.socialEvent.notification.content.replyTo.value || !this.socialEvent.notification.content.signoffAs.value;
+    return !this.senderExists || this.roles.replyTo.length === 0 || this.notifyTarget.busy || !this.latestNotification?.content?.listId || !this.latestNotification?.content?.replyTo.value || !this.latestNotification?.content?.signoffAs.value;
   }
 
   initialiseNotification() {
-    if (!this.socialEvent?.notification?.content) {
-      this.socialEvent.notification.content = {notificationConfig: null};
+    if (!this.latestNotification?.content) {
+      this.latestNotification.content = {notificationConfig: null};
       this.logger.info("initialiseNotification:content created");
     }
-    if (!this.socialEvent.notification.content.notificationConfig) {
+    if (!this.latestNotification?.content?.notificationConfig) {
       const notificationConfigs = this.mailMessagingService.notificationConfigs(this.notificationConfigListing);
-      this.socialEvent.notification.content.notificationConfig = notificationConfigs.find(item => item.subject?.text?.toLowerCase()?.includes("social")) || first(notificationConfigs);
+      this.latestNotification.content.notificationConfig = notificationConfigs.find(item => item.subject?.text?.toLowerCase()?.includes("social")) || first(notificationConfigs);
       this.logger.info("initialiseNotification:notificationConfig created");
     }
-    this.logger.info("initialiseNotification:notification content:", this.socialEvent.notification.content);
+    this.logger.info("initialiseNotification:notification content:", this.latestNotification.content);
     this.defaultNotificationContentField(["addresseeType"], ADDRESSEE_CONTACT_FIRST_NAME);
     this.defaultNotificationContentField(["title"], {include: true});
     this.defaultNotificationContentField(["text"], {include: true, value: ""});
@@ -507,11 +509,11 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
       value: "Social Event details"
     });
     this.defaultNotificationContentField(["description"], {include: true});
-    this.defaultNotificationContentField(["attendees"], {include: this.socialEvent.attendees.length > 0});
-    this.defaultNotificationContentField(["attachment"], {include: !!this.socialEvent.attachment});
+    this.defaultNotificationContentField(["attendees"], {include: this.socialEvent.fields.attendees.length > 0});
+    this.defaultNotificationContentField(["attachment"], {include: !!this.socialEvent.fields.attachment});
     this.defaultNotificationContentField(["replyTo"], {
       include: true,
-      value: this.committeeMemberForTypeOrBuiltInRole(this.socialEvent.displayName ? "organiser" : BuiltInRole.SOCIAL_CO_ORDINATOR)?.type
+      value: this.committeeMemberForTypeOrBuiltInRole(this.socialEvent?.fields?.contactDetails?.displayName ? "organiser" : BuiltInRole.SOCIAL_CO_ORDINATOR)?.type
     });
     this.defaultNotificationContentField(["signoffText"], {
       include: true,
@@ -521,15 +523,15 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
       include: true,
       value: this.committeeMemberForTypeOrBuiltInRole(BuiltInRole.SOCIAL_CO_ORDINATOR)?.type
     });
-    this.emailConfigChanged(this.socialEvent.notification.content.notificationConfig);
-    this.logger.info("initialiseNotification:socialEvent.notification ->", this.socialEvent.notification);
+    this.emailConfigChanged(this.latestNotification?.content?.notificationConfig);
+    this.logger.info("initialiseNotification:latestNotification ->", this.latestNotification);
   }
 
   defaultNotificationContentField(path: string[], value: any) {
-    const target = get(this.socialEvent?.notification?.content, path);
+    const target = get(this.latestNotification?.content, path);
     if (isUndefined(target)) {
       this.logger.info("existing target:", target, "setting path:", path, "to value:", value,);
-      set(this.socialEvent?.notification?.content, path, value);
+      set(this.latestNotification?.content, path, value);
     } else {
       this.logger.info(target, "already set");
     }
@@ -539,8 +541,8 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
 
   editRecipientsFromList(list: ListInfo) {
     if (this.segmentEditingSupported) {
-      this.socialEvent.notification.content.listId = list.id;
-      this.socialEvent.notification.content.selectedMemberIds = this.subscribedToEmailsForList(list).map(item => item.id);
+      this.latestNotification.content.listId = list.id;
+      this.latestNotification.content.selectedMemberIds = this.subscribedToEmailsForList(list).map(item => item.id);
     }
   }
 
@@ -578,8 +580,8 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
 
   clearRecipients(list: ListInfo) {
     if (this.segmentEditingSupported) {
-      this.logger.info("clearRecipients: pre clear - recipients:", this.socialEvent?.notification?.content.selectedMemberIds);
-      this.socialEvent.notification.content.selectedMemberIds = [];
+      this.logger.info("clearRecipients: pre clear - recipients:", this.latestNotification?.content.selectedMemberIds);
+      this.latestNotification.content.selectedMemberIds = [];
     }
   }
 
@@ -592,16 +594,16 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   }
 
   saveAndSendLater() {
-    this.socialEventsService.update(this.socialEvent).then(() => this.bsModalRef.hide());
+    this.walksAndEventsService.update(this.socialEvent).then(() => this.bsModalRef.hide());
   }
 
   selectedList(): ListInfo {
-    return this.mailMessagingConfig?.brevo?.lists?.lists?.find(item => item.id === this?.socialEvent?.notification?.content?.listId);
+    return this.mailMessagingConfig?.brevo?.lists?.lists?.find(item => item.id === this?.latestNotification?.content?.listId);
   }
 
   selectList(list: ListInfo) {
     this.logger.info("selectList:", list);
-    this.socialEvent.notification.content.listId = list.id;
+    this.latestNotification.content.listId = list.id;
   }
 
   handleError(errorResponse: any) {
@@ -619,7 +621,7 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   }
 
   saveSocialEvent() {
-    return this.socialEventsService.createOrUpdate(this.socialEvent);
+    return this.walksAndEventsService.createOrUpdate(this.socialEvent);
   }
 
   notifyEmailSendComplete(campaignName: string) {
@@ -629,11 +631,11 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   }
 
   onChange($event: any) {
-    this.logger.info("$event", $event, "socialEvent.notification.content.selectedMemberIds:", this.socialEvent?.notification?.content.selectedMemberIds);
-    if (this.socialEvent?.notification?.content.selectedMemberIds.length > 0) {
+    this.logger.info("$event", $event, "latestNotification.content.selectedMemberIds:", this.latestNotification?.content.selectedMemberIds);
+    if (this.latestNotification?.content.selectedMemberIds.length > 0) {
       this.notify.warning({
         title: "Member selection",
-        message: `${this.socialEvent?.notification?.content.selectedMemberIds.length} members manually selected`
+        message: `${this.latestNotification?.content.selectedMemberIds.length} members manually selected`
       });
     } else {
       this.notify.hide();
@@ -662,13 +664,13 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
     const member: Member = await this.memberService.getById(this.memberLoginService.loggedInMember().memberId);
     const createCampaignRequest: CreateCampaignRequest = {
       createAsDraft,
-      templateId: this.socialEvent.notification.content.notificationConfig.templateId,
+      templateId: this.latestNotification?.content?.notificationConfig.templateId,
       htmlContent: bodyContent,
       inlineImageActivation: false,
       mirrorActive: false,
       name: campaignName,
-      params: this.mailMessagingService.createSendSmtpEmailParams(signoffRoles, this.notificationDirective, member, this.socialEvent.notification.content.notificationConfig, bodyContent, this.socialEvent.notification?.content.signoffAs.include, this.socialEvent.notification.content.title.value, this.socialEvent.notification.content.addresseeType),
-      recipients: {listIds: [this.socialEvent.notification.content.listId]},
+      params: this.mailMessagingService.createSendSmtpEmailParams(signoffRoles, this.notificationDirective, member, this.latestNotification.content.notificationConfig, bodyContent, this.latestNotification?.content.signoffAs.include, this.latestNotification?.content?.title.value, this.latestNotification?.content?.addresseeType),
+      recipients: {listIds: [this.latestNotification?.content?.listId]},
       replyTo: replyToRole.email,
       sender: {
         email: senderRole.email,
@@ -676,9 +678,9 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
       },
       subject: campaignName
     };
-    this.logger.info("sendEmailCampaign:notification:", this.socialEvent.notification);
+    this.logger.info("sendEmailCampaign:notification:", this.latestNotification);
     this.logger.info("sendEmailCampaign:createCampaignRequest:", createCampaignRequest);
-    if (this.socialEvent.notification.content?.listId > 0) {
+    if (this.latestNotification.content?.listId > 0) {
       this.logger.info("about to send email campaign to lists", this.selectedList(), "with campaign name:", campaignName, "create as draft:", createAsDraft);
       const createCampaignResponse: StatusMappedResponseSingleInput = await this.mailService.createCampaign(createCampaignRequest);
       const campaignId: number = createCampaignResponse?.responseBody?.id;
@@ -711,8 +713,8 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   runCampaignCreationAndSendWorkflow(createAsDraft?: boolean) {
     if (!this.notReady()) {
     this.notify.setBusy();
-    const campaignName = this.socialEvent.briefDescription;
-    this.logger.info("sendSocialNotification:notification->", this.socialEvent.notification);
+    const campaignName = this.socialEvent.groupEvent.title;
+    this.logger.info("sendSocialNotification:notification->", this.latestNotification);
     return Promise.resolve()
       .then(() => this.notify.progress({title: campaignName, message: "preparing and sending notification"}))
       .then(() => this.generateNotificationHTML())
@@ -734,11 +736,11 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   }
 
   emailConfigChanged(notificationConfig: NotificationConfig) {
-    this.socialEvent.notification.content.notificationConfig = notificationConfig;
+    this.latestNotification.content.notificationConfig = notificationConfig;
     if (notificationConfig.defaultListId) {
-      this.socialEvent.notification.content.listId = notificationConfig.defaultListId;
+      this.latestNotification.content.listId = notificationConfig.defaultListId;
     }
-    this.logger.info("emailConfigChanged:notificationConfig", notificationConfig, "notification.content.listId:", this.socialEvent.notification.content.listId);
+    this.logger.info("emailConfigChanged:notificationConfig", notificationConfig, "notification.content.listId:", this.latestNotification?.content?.listId);
   }
 
   socialEventSignoffChanged(type: any) {
@@ -756,11 +758,11 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   }
 
   modelChange(type: string, data: any) {
-    this.logger.info("modelChange:", type, "data:", data, "notification content:", this.socialEvent.notification.content[type]);
+    this.logger.info("modelChange:", type, "data:", data, "notification content:", this.latestNotification.content[type]);
   }
 
   signoffAs(): CommitteeMember {
-    const signoffAs = this.display?.committeeMembersPlusOrganiser(this.socialEvent, this.members)?.find(member => this.socialEvent?.notification?.content?.signoffAs?.value === member.type);
+    const signoffAs = this.display?.committeeMembersPlusOrganiser(this.socialEvent, this.members)?.find(member => this.latestNotification?.content?.signoffAs?.value === member.type);
     this.logger.off("signoffAs:", this.members, signoffAs);
     return signoffAs;
   }
@@ -768,8 +770,8 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
 
   replyToRole(): CommitteeMember {
     const membersPlusOrganiser = this.display?.committeeMembersPlusOrganiser(this.socialEvent, this.members);
-    const sender: CommitteeMember = membersPlusOrganiser?.find(member => this.socialEvent?.notification?.content?.replyTo?.value === member.type);
-    this.logger.info("replyTo:", this.socialEvent?.notification?.content?.replyTo, "sender:", sender);
+    const sender: CommitteeMember = membersPlusOrganiser?.find(member => this.latestNotification?.content?.replyTo?.value === member.type);
+    this.logger.info("replyTo:", this.latestNotification?.content?.replyTo, "sender:", sender);
     return sender;
 
   }

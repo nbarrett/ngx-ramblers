@@ -26,7 +26,7 @@ const notificationContent = new mongoose.Schema({
   title: {include: {type: Boolean}, value: {type: String}},
 }, {_id: false});
 
-const notification = {
+export const notification = {
   cancelled: {type: Boolean},
   content: notificationContent,
   groupEventsFilter: {type: Object},
@@ -45,14 +45,6 @@ const socialEventSchema = new mongoose.Schema({
   linkTitle: {type: String},
   thumbnail: {type: String},
   notification,
-  mailchimp: {
-    segmentId: {type: Number},
-    members: {
-      success_count: {type: Number},
-      error_count: {type: Number},
-      errors: {type: Object},
-    }
-  },
   longerDescription: {type: String},
   eventContactMemberId: {type: String},
   displayName: {type: String},

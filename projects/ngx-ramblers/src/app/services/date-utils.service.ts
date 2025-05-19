@@ -4,10 +4,11 @@ import range from "lodash-es/range";
 import moment from "moment-timezone";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateValue } from "../models/date.model";
-import { Walk } from "../models/walk.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { NumberUtilsService } from "./number-utils.service";
 import { isDateValue } from "./type-guards";
+import { ExtendedGroupEvent } from "../models/group-event.model";
+import { StringUtilsService } from "./string-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -16,10 +17,12 @@ import { isDateValue } from "./type-guards";
 export class DateUtilsService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("DateUtilsService", NgxLoggerLevel.ERROR);
-  private numberUtils = inject(NumberUtilsService);
+  private numberUtils: NumberUtilsService = inject(NumberUtilsService);
+  private stringUtilsService: StringUtilsService = inject(StringUtilsService);
   MILLISECONDS_IN_ONE_DAY = 86400000;
 
   public formats = {
+    ramblersTime: "HH:mm",
     displayTime: "h:mm a",
     displayTimeWithSeconds: "h:mm:ss a",
     displayDateAndTime: "dddd, D MMMM YYYY, h:mm:ss a",
@@ -30,6 +33,11 @@ export class DateUtilsService {
     ddmmyyyyWithSlashes: "DD/MM/YYYY",
     yyyymmdd: "YYYYMMDD"
   };
+
+  isMidnight(dateValue: any): boolean {
+    const momentDate = this.asMoment(dateValue);
+    return momentDate.hours() === 0 && momentDate.minutes() === 0;
+  }
 
   yearFromDate(dateValue: number): number {
     return dateValue ? parseInt(this.asString(dateValue, undefined, "YYYY"), 10) : null;
@@ -83,8 +91,16 @@ export class DateUtilsService {
     return this.asString(dateValue, undefined, this.formats.displayTime);
   }
 
+  ramblersTime(dateValue: any): string {
+    return this.asString(dateValue, undefined, this.formats.ramblersTime);
+  }
+
   displayTimeWithSeconds(dateValue: any): string {
     return this.asString(dateValue, undefined, this.formats.displayTimeWithSeconds);
+  }
+
+  isoDateTimeString(dateValue?: any): string {
+    return this.asMoment(dateValue)?.format();
   }
 
   asDateValue(dateValue?: any, inputFormat?: string): DateValue {
@@ -97,10 +113,6 @@ export class DateUtilsService {
 
   asValueNoTime(dateValue?: any, inputFormat?: string): number {
     return this.asMoment(dateValue, inputFormat).startOf("day").valueOf();
-  }
-
-  currentMemberBulkLoadDisplayDate() {
-    return this.asString(this.momentNowNoTime().startOf("month"), undefined, this.formats.yyyymmdd);
   }
 
   momentNowNoTime(): moment {
@@ -129,56 +141,21 @@ export class DateUtilsService {
     }
   }
 
-  parseTime(startTime: string): Time {
-    const parsedTime = startTime?.replace(".", ":");
-    const timeValues = parsedTime?.split(":");
-    if (timeValues) {
-      let hours = this.numberUtils.asNumber(timeValues[0]);
-      const minutes = this.numberUtils.asNumber(timeValues[1]);
-      if (parsedTime.toLowerCase().includes("pm") && hours < 12) {
-        hours += 12;
-      }
-      const returnValue = {hours, minutes};
-      this.logger.off("parseTime:startTime", startTime, "parsedTime:", parsedTime, "timeValues:", timeValues, "returnValue:", returnValue);
-      return returnValue;
-    } else {
-      this.logger.off("parseTime:startTime", startTime, "parsedTime:", parsedTime, "timeValues:", timeValues, "returnValue:", null);
-      return null;
-    }
-  }
-
-  durationForDistanceInMiles(distance: string | number, milesPerHour: number): number {
+  durationInMsecsForDistanceInMiles(distance: string | number, milesPerHour: number): number {
     return this.numberUtils.asNumber(distance) / milesPerHour * 60 * 60 * 1000;
   }
 
-  startTime(walk: Walk): number {
+  startTimeAsValue(walk: ExtendedGroupEvent): number {
     if (walk) {
-      const startTime: Time = this.parseTime(walk?.startTime);
-      const walkDateMoment: moment = this.asMoment(walk?.walkDate);
-      const walkDateAndTimeValue = this.calculateWalkDateAndTimeValue(walkDateMoment, startTime);
-      this.logger.info("text based startTime:", walk?.startTime,
-        "startTime:", startTime,
+      const walkDateMoment: moment = this.asMoment(walk?.groupEvent.start_date_time);
+      const walkDateAndTimeValue: number = walkDateMoment.valueOf();
+      this.logger.info("text based start_date_time:", walk?.groupEvent.start_date_time,
         "walkDateMoment:", walkDateMoment.format(),
-        "displayDateAndTime(walkDateMoment):", this.displayDateAndTime(walkDateMoment),
-        "walkDateAndTime:", walkDateAndTimeValue,
-        "displayDateAndTime(walkDateAndTimeValue):", this.displayDateAndTime(walkDateAndTimeValue));
+        "displayDateAndTime(walkDateMoment):", this.displayDateAndTime(walkDateMoment));
       return walkDateAndTimeValue;
     } else {
       return null;
     }
-  }
-
-  private calculateWalkDateAndTimeValue(walkDateMoment: moment, startTime: Time): number {
-    let walkDateAndTime = walkDateMoment.clone().add(startTime?.hours, "hours").add(startTime?.minutes, "minutes");
-    // Adjust for DST end transition
-    if (walkDateMoment.isDST() && !walkDateAndTime.isDST()) {
-      walkDateAndTime = walkDateAndTime.add(1, "hour");
-    }
-    // Adjust for DST start transition
-    if (!walkDateMoment.isDST() && walkDateAndTime.isDST()) {
-      walkDateAndTime = walkDateAndTime.subtract(1, "hour");
-    }
-    return walkDateAndTime.valueOf();
   }
 
   inclusiveDayRange(fromDate: number, toDate: number): number[] {
@@ -198,12 +175,39 @@ export class DateUtilsService {
       return `${(seconds * 1000)} ms`;
     } else if (seconds < 60) {
       return `${seconds.toFixed(0)} secs`;
-    } else {
+    } else if (seconds < 3600) {
       const minutes = duration.asMinutes();
-      if (isNaN(minutes)) {
-        this.logger.error("formatDuration:fromTime", fromTime, "toTime", toTime, "duration", duration, "seconds", seconds, "minutes", minutes);
-      }
       return `${minutes.toFixed(1)} mins`;
+    } else if (seconds < 86400) {
+      const hours = Math.floor(duration.asHours());
+      const minutes = Math.round(duration.asMinutes() % 60);
+      return `${this.stringUtilsService.pluraliseWithCount(hours, "hour")}${minutes > 0 ? ` ${this.stringUtilsService.pluraliseWithCount(minutes, "min")}` : ""}`;
+    } else {
+      const days = Math.floor(duration.asDays());
+      const hours = Math.floor(duration.asHours() % 24);
+      const minutes = Math.round(duration.asMinutes() % 60);
+      let result = this.stringUtilsService.pluraliseWithCount(days, "day");
+      if (hours > 0) {
+        result += ` ${this.stringUtilsService.pluraliseWithCount(hours, "hour")}`;
+      }
+      if (minutes > 0) {
+        result += ` ${this.stringUtilsService.pluraliseWithCount(minutes, "min")}`;
+      }
+      return result;
     }
   }
+
+  calculateWalkDateAndTimeValue(walkDateMoment: moment, startTime: Time): number {
+    let walkDateAndTime = walkDateMoment.clone().add(startTime?.hours, "hours").add(startTime?.minutes, "minutes");
+    // Adjust for DST end transition
+    if (walkDateMoment.isDST() && !walkDateAndTime.isDST()) {
+      walkDateAndTime = walkDateAndTime.add(1, "hour");
+    }
+    // Adjust for DST start transition
+    if (!walkDateMoment.isDST() && walkDateAndTime.isDST()) {
+      walkDateAndTime = walkDateAndTime.subtract(1, "hour");
+    }
+    return walkDateAndTime.valueOf();
+  }
+
 }

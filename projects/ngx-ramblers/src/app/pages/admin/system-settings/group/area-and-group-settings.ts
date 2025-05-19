@@ -9,7 +9,7 @@ import { LinksEditComponent } from "../../../../modules/common/links-edit/links-
 import { UiSwitchModule } from "ngx-ui-switch";
 import { enumKeyValues, KeyValue } from "../../../../functions/enums";
 import { WalkListView } from "../../../../models/walk.model";
-import { RamblersWalksAndEventsService } from "../../../../services/walks/ramblers-walks-and-events.service";
+import { RamblersWalksAndEventsService } from "../../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { RamblersGroupsApiResponse, RamblersGroupWithLabel } from "../../../../models/ramblers-walks-manager";
 import { NgSelectComponent } from "@ng-select/ng-select";
 
@@ -150,6 +150,14 @@ import { NgSelectComponent } from "@ng-select/ng-select";
             </div>
           </div>
           <div class="form-group">
+            <div class="custom-control custom-checkbox">
+              <input [(ngModel)]="config.enableMigration.events"
+                     type="checkbox" class="custom-control-input" id="enable-event-migration">
+              <label class="custom-control-label"
+                     for="enable-event-migration">Enable Migration of Events</label>
+            </div>
+          </div>
+          <div class="form-group">
             <label for="navbar-location">Default Walk List View</label>
             <select class="form-control input-sm"
                     [(ngModel)]="config.group.defaultWalkListView"
@@ -213,6 +221,9 @@ export class AreaAndGroupSettingsComponent implements OnInit {
 
   async ngOnInit() {
     this.logger.info("constructed with:config:", this.config);
+    if (!this.config.enableMigration) {
+      this.config.enableMigration = { events: false };
+    }
     if (!this.config.area.groupCode && this.config.group.groupCode) {
       this.config.area.groupCode = this.stringUtils.left(this.config.group.groupCode, 2);
     }
