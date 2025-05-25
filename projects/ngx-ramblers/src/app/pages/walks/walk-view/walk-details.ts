@@ -132,6 +132,11 @@ import { MarkdownComponent } from "ngx-markdown";
               <p markdown>**Organiser**: {{ displayedWalk.walk.organiser }}</p>
             </div>
           }
+          @if (displayedWalk?.walk?.start_location?.description) {
+            <div class="col-sm-12 mt-1 list-tick-medium">
+              <p markdown>{{ displayedWalk.walk.start_location.description }}</p>
+            </div>
+          }
           @if (displayedWalk?.walk?.additionalDetails) {
             <div class="col-sm-12 mt-1 list-tick-medium">
               <p markdown>**Additional Details**: {{ displayedWalk.walk.additionalDetails }}</p>
