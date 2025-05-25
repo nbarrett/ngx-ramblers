@@ -308,7 +308,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
       this.logger.debug("walk-id from route params:", this.currentWalkId);
     }));
     this.display.refreshCachedData();
-    this.pageService.setTitle("Home");
+    this.pageService.setTitle("Walks");
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => this.refreshWalks(loginResponse)));
   }
 
