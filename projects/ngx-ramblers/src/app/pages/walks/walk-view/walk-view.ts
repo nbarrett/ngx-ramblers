@@ -35,6 +35,7 @@ import { NgClass } from "@angular/common";
 import { WalkDetailsComponent } from "./walk-details";
 import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
 import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
+import { PageService } from "../../../services/page.service";
 
 @Component({
     selector: "app-walk-view",
@@ -307,6 +308,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   private dateUtils = inject(DateUtilsService);
   public meetupService = inject(MeetupService);
   private urlService = inject(UrlService);
+  private pageService = inject(PageService);
   protected stringUtils = inject(StringUtilsService);
   private systemConfigService = inject(SystemConfigService);
   private notifierService = inject(NotifierService);
@@ -345,6 +347,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       this.logger.info("event received:", config);
       this.updateGoogleMapIfApplicable();
     });
+    this.pageService.setTitle(this.displayedWalk.walk.displayName);
   }
 
   ngOnDestroy(): void {
