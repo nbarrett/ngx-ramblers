@@ -34,7 +34,7 @@ import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { NotificationConfigSelectorComponent } from "../system-settings/mail/notification-config-selector";
 import { FormsModule } from "@angular/forms";
-import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { DatePicker } from "../../../date-and-time/date-picker";
 import { SenderRepliesAndSignoffComponent } from "./sender-replies-and-signoff";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgClass } from "@angular/common";
@@ -229,7 +229,7 @@ import { NgClass } from "@angular/common";
       <div class="d-none">
         <ng-template app-notification-directive/>
       </div>`,
-    imports: [TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, DatePickerComponent, NgSelectComponent, NgOptgroupTemplateDirective, SenderRepliesAndSignoffComponent, FontAwesomeModule, NgClass, NotificationDirective]
+    imports: [TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, DatePicker, NgSelectComponent, NgOptgroupTemplateDirective, SenderRepliesAndSignoffComponent, FontAwesomeModule, NgClass, NotificationDirective]
 })
 
 export class SendEmailsModalComponent implements OnInit, OnDestroy {

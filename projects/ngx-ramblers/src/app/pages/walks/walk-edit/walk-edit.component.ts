@@ -59,7 +59,7 @@ import { MeetupDescriptionComponent } from "../../../notifications/walks/templat
 import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
-import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { DatePicker } from "../../../date-and-time/date-picker";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { MarkdownComponent } from "ngx-markdown";
@@ -79,8 +79,10 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { LinksService } from "../../../services/links.service";
 import { EventDefaultsService } from "../../../services/event-defaults.service";
 import { NotificationComponent } from "../../../notifications/common/notification.component";
-import { TimePickerComponent } from "../../../date-picker/time-picker.component";
-import { GroupEventDistanceEdit } from "./group-event-distance-edit";
+import { TimePicker } from "../../../date-and-time/time-picker";
+import { EventDistanceEdit } from "./event-distance-edit";
+import { EventAscentEdit } from "./event-ascent-edit.component";
+import { Difficulty } from "../../../models/ramblers-walks-manager";
 
 @Component({
   selector: "app-walk-edit",
@@ -94,62 +96,45 @@ import { GroupEventDistanceEdit } from "./group-event-distance-edit";
       <tabset class="custom-tabset">
         <tab heading="Main Details">
           <div class="img-thumbnail thumbnail-admin-edit">
-            <div class="row">
-              <div class="col-sm-3">
-                <label for="walk-date">Walk Date</label>
-              </div>
-              <div class="col-sm-2">
-                <label for="start-time">Start Time</label>
-              </div>
-              <div class="col-sm-3">
-                <label for="distance-km">Distance</label>
-              </div>
-              <div class="col-sm-2">
-                <label for="miles-per-hour">Average Miles Per Hour</label>
-              </div>
-              <div class="col-sm-2">
-                <label for="finish-time">Estimated Finish Time</label>
-              </div>
-            </div>
             <div class="row align-items-center">
-              <div class="col-sm-3">
+              <div class="col-auto">
+                <label for="walk-date">Walk Date</label>
                 <div class="form-group">
-                  @if (true) {
-                    <app-date-picker startOfDay id="walk-date" size="md"
-                                     placeholder="enter date of walk"
-                                     [disabled]="!display.allowAdminEdits() || inputDisabled()"
-                                     class="w-100"
-                                     (dateChange)="onDateChange($event)"
-                                     [value]="displayedWalk.walk.groupEvent.start_date_time"/>
-                  }
+                  <app-date-picker id="walk-date" size="md"
+                                   placeholder="enter date of walk"
+                                   [disabled]="!display.allowAdminEdits() || inputDisabled()"
+                                   class="w-100"
+                                   (dateChange)="onDateChange($event)"
+                                   [value]="displayedWalk.walk.groupEvent.start_date_time"/>
                 </div>
               </div>
-              <div class="col-sm-2">
-                @if (true) {
-                  <div class="form-group" app-time-picker id="start-time" [disabled]="inputDisabled()"
-                       [value]="displayedWalk.walk.groupEvent.start_date_time"
-                       (change)="onStartDateTimeChange($event)">
-                  </div>
-                }
+              <div class="col-auto">
+                <div class="form-group" app-time-picker id="start-time" label="Start Time" [disabled]="inputDisabled()"
+                     [value]="displayedWalk.walk.groupEvent.start_date_time"
+                     (change)="onStartDateTimeChange($event)">
+                </div>
               </div>
-              <div class="col-sm-3">
-                <div class="form-group" app-group-event-distance-edit [groupEvent]="displayedWalk.walk.groupEvent"
+              <div class="col-auto">
+                <div class="form-group" app-event-distance-edit label="Distance" [groupEvent]="displayedWalk.walk.groupEvent"
                      (change)="calculateAndSetFinishTime()" [disabled]="inputDisabled()"></div>
               </div>
-              <div class="col-sm-2">
+              <div class="col">
                 <div class="form-group">
-                  <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.fields.milesPerHour"
+                  <label for="miles-per-hour">Average Miles Per Hour</label>
+                  <input [disabled]="inputDisabled()"
+                         [(ngModel)]="displayedWalk.walk.fields.milesPerHour"
                          (ngModelChange)="calculateAndSetFinishTime()"
-                         type="number" step="0.25" class="form-control input-sm" id="miles-per-hour"
+                         type="number" step="0.25"
+                         class="form-control input-sm"
+                         id="miles-per-hour"
                          placeholder="Enter Estimated MPH of walk">
                 </div>
               </div>
-              <div class="col-sm-2">
-                @if (true) {
-                  <div class="form-group" app-time-picker id="end-time" [disabled]="inputDisabled()"
-                       [value]="displayedWalk.walk.groupEvent.end_date_time"
-                       (change)="onEndDateTimeChange($event)"></div>
-                }
+              <div class="col-auto">
+                <div class="form-group" app-time-picker id="end-time" label="Estimated Finish Time"
+                     [disabled]="inputDisabled()"
+                     [value]="displayedWalk.walk.groupEvent.end_date_time"
+                     (change)="onEndDateTimeChange($event)"></div>
               </div>
             </div>
             <div class="row">
@@ -207,13 +192,14 @@ import { GroupEventDistanceEdit } from "./group-event-distance-edit";
                       <div class="form-group">
                         <label for="grade">Grade</label>
                         @if (allowDetailView()) {
-                          <select [disabled]="inputDisabled()"
+                          <select [compareWith]="difficultyComparer" [disabled]="inputDisabled()"
                                   placeholder="Enter Grade here"
                                   [(ngModel)]="displayedWalk.walk.groupEvent.difficulty"
+                                  (ngModelChange)="difficultyChange()"
                                   class="form-control input-sm" id="grade">
-                            @for (grade of display.grades; track grade) {
+                            @for (difficulty of display.difficulties(); track difficulty.code) {
                               <option
-                                [ngValue]="grade">{{ grade }}
+                                [ngValue]="difficulty">{{ difficulty.description }}
                               </option>
                             }
                           </select>
@@ -238,12 +224,9 @@ import { GroupEventDistanceEdit } from "./group-event-distance-edit";
                       </div>
                     </div>
                     <div class="col-sm-4">
-                      <div class="form-group">
-                        <label for="ascent">Ascent</label>
-                        <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.groupEvent.ascent_feet"
-                               type="text" class="form-control input-sm" id="ascent"
-                               placeholder="Enter Ascent here">
-                      </div>
+                      <label for="ascent">Ascent</label>
+                      <div class="form-group" app-event-ascent-edit [groupEvent]="displayedWalk.walk.groupEvent"
+                           id="ascent" [disabled]="inputDisabled()"></div>
                     </div>
                   </div>
                 </div>
@@ -498,8 +481,8 @@ import { GroupEventDistanceEdit } from "./group-event-distance-edit";
                   </div>
                   <div class="col-sm-2">
                     <div class="form-group">
-                      <input type="submit" [value]="toggleRamblersAssembleNameCaption()"
-                             (click)="toggleRamblersAssembleName()"
+                      <input type="submit" [value]="toggleRamblersWalkLeaderContactName()"
+                             (click)="toggleRamblersWalkLeader()"
                              [disabled]="saveInProgress"
                              class="btn btn-primary button-bottom-aligned w-100">
                     </div>
@@ -631,7 +614,7 @@ import { GroupEventDistanceEdit } from "./group-event-distance-edit";
                                   Copy from {{ copyFrom?.walkTemplates?.length || 0 }} available walk(s): </label>
                                 <select [disabled]="inputDisabled()" class="form-control input-sm"
                                         [(ngModel)]="copyFrom.walkTemplate"
-                                        (ngModelChange)="populateCurrentWalkFromTemplate()"
+                                        (ngModelChange)="copyDetailsFromPreviousWalk()"
                                         id="copy-walks-list">
                                   <option value="">(none selected)</option>
                                   @for (walkTemplate of copyFrom.walkTemplates; track walkTemplate) {
@@ -752,10 +735,10 @@ import { GroupEventDistanceEdit } from "./group-event-distance-edit";
       </div>
     }`,
   styleUrls: ["./walk-edit.component.sass"],
-  imports: [NotificationDirective, WalkPanelExpanderComponent, TabsetComponent, TabDirective, DatePickerComponent,
+  imports: [NotificationDirective, WalkPanelExpanderComponent, TabsetComponent, TabDirective, DatePicker,
     FormsModule, FontAwesomeModule, MarkdownComponent, WalkLocationEditComponent, WalkRiskAssessmentComponent,
     MarkdownEditorComponent, TooltipDirective, WalkVenueComponent, WalkMeetupComponent, DisplayDatePipe, WalkSummaryPipe,
-    EditGropuEventImagesComponent, JsonPipe, WalkEditFeaturesComponent, TimePickerComponent, GroupEventDistanceEdit]
+    EditGropuEventImagesComponent, JsonPipe, WalkEditFeaturesComponent, TimePicker, EventDistanceEdit, EventAscentEdit]
 })
 export class WalkEditComponent implements OnInit, OnDestroy {
 
@@ -1012,7 +995,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.walkLeaderMemberIdChanged();
   }
 
-  toggleRamblersAssembleName() {
+  toggleRamblersWalkLeader() {
     const contactId = this.displayedWalk.walk.fields.publishing.ramblers.contactName === this.myContactId ? this.walkLeadContactId : this.myContactId;
     const targetOverride = this.displayedWalk.walk.fields.publishing.ramblers.contactName === this.myContactId ? "walk leader" : "you";
     if (contactId) {
@@ -1029,7 +1012,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     }
   }
 
-  toggleRamblersAssembleNameCaption(): string {
+  toggleRamblersWalkLeaderContactName(): string {
     return this.displayedWalk.walk.fields.publishing.ramblers.contactName === this.myContactId ? "leader" : "me";
   }
 
@@ -1039,11 +1022,11 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     const memberId = this.displayedWalk.walk.fields.contactDetails.memberId;
     if (!memberId) {
       this.setStatus(EventType.AWAITING_LEADER);
-      this.displayedWalk.walk.fields.contactDetails.memberId = "";
-      this.displayedWalk.walk.fields.publishing.ramblers.contactName = "";
-      this.displayedWalk.walk.fields.contactDetails.phone = "";
-      this.displayedWalk.walk.fields.contactDetails.phone = "";
-      this.displayedWalk.walk.fields.contactDetails.email = "";
+      this.displayedWalk.walk.fields.contactDetails.memberId = null;
+      this.displayedWalk.walk.fields.publishing.ramblers.contactName = null;
+      this.displayedWalk.walk.fields.contactDetails.phone = null;
+      this.displayedWalk.walk.fields.contactDetails.phone = null;
+      this.displayedWalk.walk.fields.contactDetails.email = null;
     } else {
       const selectedMember: Member = this.display.members.find((member: Member) => {
         return member.id === memberId;
@@ -1051,6 +1034,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       if (selectedMember) {
         this.logger.info("selectedMember", selectedMember);
         this.setStatus(EventType.AWAITING_WALK_DETAILS);
+        this.displayedWalk.walk.fields.contactDetails.memberId = selectedMember.id;
         this.displayedWalk.walk.fields.publishing.ramblers.contactName = selectedMember.contactId;
         this.displayedWalk.walk.fields.contactDetails.displayName = selectedMember.displayName;
         this.displayedWalk.walk.fields.contactDetails.phone = selectedMember.mobileNumber;
@@ -1149,7 +1133,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     return displayMembers;
   }
 
-  populateCurrentWalkFromTemplate() {
+  copyDetailsFromPreviousWalk() {
     const walkTemplate = cloneDeep(this.copyFrom.walkTemplate) as ExtendedGroupEvent;
     if (walkTemplate) {
       const relatedMember: Member = this.display.members.find(member => member.id === walkTemplate.fields.contactDetails.memberId);
@@ -1158,17 +1142,20 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       const templateDate = this.displayDate.transform(walkTemplate.groupEvent.start_date_time);
       delete walkTemplate.id;
       delete walkTemplate.events;
-      walkTemplate.fields.contactDetails = this.eventDefaultsService.defaultContactDetails();
       delete walkTemplate.groupEvent.start_date_time;
+      walkTemplate.fields.contactDetails = this.eventDefaultsService.contactDetailsFrom(relatedMember);
       walkTemplate.fields.links = [];
       walkTemplate.fields.riskAssessment = [];
       if (contactId) {
-        this.logger.info("updating contactId from", originalContactId, "to", contactId);
+        this.logger.info("copyDetailsFromPreviousWalk:updating contactId from", originalContactId, "to", contactId);
         walkTemplate.fields.contactDetails.contactId = contactId;
       } else {
-        this.logger.info("cannot find contact Id to overwrite copied walk contact Id with:", originalContactId);
+        this.logger.info("copyDetailsFromPreviousWalk:cannot find contact Id to overwrite copied walk contact Id with:", originalContactId);
       }
-      Object.assign(this.displayedWalk.walk, walkTemplate);
+
+      this.logger.info("copyDetailsFromPreviousWalk:Applying walkTemplate:", walkTemplate, "to:", cloneDeep(this.displayedWalk.walk));
+      this.displayedWalk.walk = {...this.displayedWalk.walk, ...walkTemplate};
+      this.logger.info("copyDetailsFromPreviousWalk:Walk is now:", this.displayedWalk.walk);
       const event = this.walkEventService.createEventIfRequired(this.displayedWalk.walk,
         EventType.WALK_DETAILS_COPIED, "Copied from previous walk on " + templateDate);
       this.setStatus(EventType.AWAITING_WALK_DETAILS);
@@ -1178,7 +1165,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         message: "Make any further changes here and save when you are done."
       });
     } else {
-      this.logger.warn("populateCurrentWalkFromTemplate no template to copy from");
+      this.logger.warn("copyDetailsFromPreviousWalk: no template to copy from");
     }
   }
 
@@ -1593,4 +1580,13 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       this.logger.info("Created start location for linear walk type");
     }
   }
+
+  difficultyChange() {
+    this.logger.info("difficultyChange:", this.displayedWalk?.walk?.groupEvent?.difficulty);
+  }
+
+  difficultyComparer(item1: Difficulty, item2: Difficulty): boolean {
+    return item1?.code === item2?.code;
+  }
+
 }

@@ -9,7 +9,7 @@ export const riskAssessmentRecord = new mongoose.Schema({
   riskAssessmentKey: {type: String}
 }, {_id: false});
 
-const metaData = new mongoose.Schema({
+export const metaData = new mongoose.Schema({
   code: {type: String},
   description: {type: String}
 }, {_id: false});

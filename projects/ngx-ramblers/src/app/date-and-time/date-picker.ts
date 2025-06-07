@@ -1,15 +1,4 @@
-import {
-  AfterViewInit,
-  Component,
-  EventEmitter,
-  inject,
-  Input,
-  OnChanges,
-  OnInit,
-  Output,
-  SimpleChanges,
-  ViewChild
-} from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 import { faCalendar } from "@fortawesome/free-solid-svg-icons";
 import kebabCase from "lodash-es/kebabCase";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -54,11 +43,11 @@ let id = 0;
       </div>
     </div>
     `,
-    styleUrls: ["./date-picker.component.sass"],
+    styleUrls: ["./date-picker.sass"],
     imports: [NgClass, BsDatepickerInputDirective, FormsModule, BsDatepickerDirective, FontAwesomeModule]
 })
-export class DatePickerComponent implements OnInit, OnChanges {
-  private logger: Logger = inject(LoggerFactory).createLogger("DatePickerComponent", NgxLoggerLevel.INFO);
+export class DatePicker implements OnInit, OnChanges {
+  private logger: Logger = inject(LoggerFactory).createLogger("DatePicker", NgxLoggerLevel.INFO);
   private dateUtils = inject(DateUtilsService);
   dateValue: DateValue;
   @Input() value: DateValue | number | string;
@@ -69,12 +58,12 @@ export class DatePickerComponent implements OnInit, OnChanges {
   @Input() disabled;
   @Input() prependLabel;
 
-  @Input("startOfDay") set previewValue(startOfDay: boolean) {
+  @Input("startOfDay") set startOfDayValue(startOfDay: boolean) {
     this.startOfDay = coerceBooleanProperty(startOfDay);
   }
 
   @Output() dateChange: EventEmitter<DateValue> = new EventEmitter();
-  public startOfDay: boolean;
+  public startOfDay = false;
   faCalendar = faCalendar;
 
   ngOnChanges(changes: SimpleChanges) {

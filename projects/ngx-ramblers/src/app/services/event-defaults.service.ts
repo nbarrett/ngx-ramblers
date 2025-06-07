@@ -10,6 +10,7 @@ import { SystemConfigService } from "./system/system-config.service";
 import { WalkEvent } from "../models/walk-event.model";
 import { WalksConfigService } from "./system/walks-config.service";
 import { WalksConfig } from "../models/walk-notification.model";
+import { Member } from "../models/member.model";
 
 @Injectable({
   providedIn: "root"
@@ -36,6 +37,16 @@ export class EventDefaultsService {
       displayName: null,
       email: null,
       phone: null
+    };
+  };
+
+  contactDetailsFrom(member: Member): ContactDetails {
+    return {
+      contactId: member.contactId,
+      memberId: member.id,
+      displayName: member.displayName,
+      email: member.email,
+      phone: member.mobileNumber
     };
   };
 

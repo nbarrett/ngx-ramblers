@@ -47,7 +47,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
 import { FormsModule } from "@angular/forms";
 import { GroupEventTypeSelectorComponent } from "../../../group-events-selector/group-event-type-selector";
-import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { DatePicker } from "../../../date-and-time/date-picker";
 import { TagEditorComponent } from "../../../pages/tag/tag-editor.component";
 import { GroupEventSelectorComponent } from "../../../group-events-selector/group-event-selector";
 
@@ -212,7 +212,7 @@ import { GroupEventSelectorComponent } from "../../../group-events-selector/grou
           </div>
         </div>
       </div>`,
-    imports: [ImageCropperAndResizerComponent, NgClass, FontAwesomeModule, BadgeButtonComponent, FormsModule, GroupEventTypeSelectorComponent, DatePickerComponent, TagEditorComponent, GroupEventSelectorComponent]
+    imports: [ImageCropperAndResizerComponent, NgClass, FontAwesomeModule, BadgeButtonComponent, FormsModule, GroupEventTypeSelectorComponent, DatePicker, TagEditorComponent, GroupEventSelectorComponent]
 })
 export class ImageEditComponent implements OnInit {
 

@@ -13,13 +13,13 @@ export class DistanceValidationService {
     return {
       rawData: this.rawData(walk),
       miles: {
-        value: this.walkDistanceMiles(walk),
-        valueAsString: (this.walkDistanceMiles(walk)).toString(),
+        value: this.distanceMiles(walk),
+        valueAsString: (this.distanceMiles(walk)).toString(),
         formatted: this.walkDistanceMilesAsString(walk)
       },
       kilometres: {
-        value: this.walkDistanceKilometres(walk),
-        valueAsString: (this.walkDistanceKilometres(walk)).toString(),
+        value: this.distanceKilometres(walk),
+        valueAsString: (this.distanceKilometres(walk)).toString(),
         formatted: this.walkDistanceKilometresAsString(walk)
       },
       validationMessage: this.validationMessage(walk),
@@ -32,7 +32,8 @@ export class DistanceValidationService {
   convertKmToMiles(km: number): number {
     return parseFloat((km / this.MILES_TO_KILOMETRES_FACTOR).toFixed(2));
   }
-  walkDistanceMiles(walk: ExtendedGroupEvent): number {
+
+  distanceMiles(walk: ExtendedGroupEvent): number {
     if (walk.groupEvent.distance_miles > 0) {
       return walk.groupEvent.distance_miles;
     } else if (walk.groupEvent.distance_km > 0) {
@@ -40,7 +41,7 @@ export class DistanceValidationService {
     } else return 0;
   }
 
-  walkDistanceKilometres(walk: ExtendedGroupEvent): number {
+  distanceKilometres(walk: ExtendedGroupEvent): number {
     if (walk.groupEvent.distance_km > 0) {
       return walk.groupEvent.distance_km;
     } else if (walk.groupEvent.distance_miles > 0) {
@@ -81,11 +82,11 @@ export class DistanceValidationService {
   }
 
   walkDistanceMilesAsString(walk) {
-    return this.walkDistanceMiles(walk) > 0 ? `${this.walkDistanceMiles(walk)} mi` : "";
+    return this.distanceMiles(walk) > 0 ? `${this.distanceMiles(walk)} ${DistanceUnit.MILES}` : "";
   }
 
   walkDistanceKilometresAsString(walk) {
-    return this.walkDistanceKilometres(walk) > 0 ? `${this.walkDistanceKilometres(walk)} km` : "";
+    return this.distanceKilometres(walk) > 0 ? `${this.distanceKilometres(walk)} ${DistanceUnit.KILOMETRES}` : "";
   }
 
 }

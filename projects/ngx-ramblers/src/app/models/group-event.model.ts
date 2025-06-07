@@ -89,3 +89,4 @@ export interface ExtendedGroupEventApiResponse extends ApiResponse {
   request: any;
   response?: ExtendedGroupEvent | ExtendedGroupEvent[];
 }
+export const FEET_TO_METRES_FACTOR = 0.3048;

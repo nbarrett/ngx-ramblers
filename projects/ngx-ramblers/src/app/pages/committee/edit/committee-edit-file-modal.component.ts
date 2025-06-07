@@ -15,7 +15,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { CommitteeDisplayService } from "../committee-display.service";
 import { AwsFileUploadResponseData } from "../../../models/aws-object.model";
-import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { DatePicker } from "../../../date-and-time/date-picker";
 import { FormsModule } from "@angular/forms";
 import { NgClass, NgStyle } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -24,7 +24,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
     selector: "app-committee-edit-file-modal",
     styleUrls: ["committee-edit-file-modal.component.sass"],
     templateUrl: "./committee-edit-file-modal.component.html",
-    imports: [DatePickerComponent, FormsModule, NgClass, FileUploadModule, NgStyle, FontAwesomeModule]
+    imports: [DatePicker, FormsModule, NgClass, FileUploadModule, NgStyle, FontAwesomeModule]
 })
 export class CommitteeEditFileModalComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("CommitteeEditFileModalComponent", NgxLoggerLevel.ERROR);

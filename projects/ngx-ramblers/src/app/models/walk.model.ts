@@ -32,11 +32,11 @@ export interface ValueAndFormatted {
 }
 
 export enum DistanceUnit {
-  FEET,
-  KILOMETRES,
-  METRES,
-  MILES,
-  UNKNOWN,
+  FEET = "ft",
+  KILOMETRES = "km",
+  METRES = "m",
+  MILES = "mi",
+  UNKNOWN = "unknown",
 }
 
 export enum ImageSource {
@@ -73,10 +73,6 @@ export interface EventLinkConfig extends MetadataDescription {
 
 export interface WalkGrade extends Difficulty {
   image: string;
-}
-
-export function walkGradeFrom(grading: string): WalkGrade {
-  return WALK_GRADES.find((grade) => grade.description.toLowerCase() === grading?.toLowerCase());
 }
 
 export const MODERATE: WalkGrade = {code: "moderate", description: "Moderate", image: "moderate.png"};

@@ -21,7 +21,7 @@ import { MemberResourcesReferenceDataService } from "../../services/member/membe
 import { AlertInstance, NotifierService } from "../../services/notifier.service";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { AwsFileUploadResponseData } from "../../models/aws-object.model";
-import { DatePickerComponent } from "../../date-picker/date-picker.component";
+import { DatePicker } from "../../date-and-time/date-picker";
 import { FormsModule } from "@angular/forms";
 import { NgClass, NgStyle } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -29,7 +29,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 @Component({
     selector: "app-how-to-modal",
     templateUrl: "how-to-modal.component.html",
-    imports: [DatePickerComponent, FormsModule, NgClass, FileUploadModule, NgStyle, FontAwesomeModule]
+    imports: [DatePicker, FormsModule, NgClass, FileUploadModule, NgStyle, FontAwesomeModule]
 })
 export class HowToModalComponent implements OnInit, AfterViewInit, OnDestroy {
 

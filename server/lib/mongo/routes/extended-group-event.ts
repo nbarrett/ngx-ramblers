@@ -1,11 +1,10 @@
 import express from "express";
 import * as authConfig from "../../auth/auth-config";
-import { walk } from "../models/walk";
 import * as crudController from "../controllers/crud-controller";
 import * as walkController from "../controllers/walk";
 import { extendedGroupEvent } from "../models/extended-group-event";
 
-const controller = crudController.create(extendedGroupEvent, true);
+const controller = crudController.create(extendedGroupEvent, false);
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);

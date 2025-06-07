@@ -2,7 +2,7 @@ import { inject, Injectable } from "@angular/core";
 import isEmpty from "lodash-es/isEmpty";
 import { DistanceUnit, WalkAscent } from "../../models/walk.model";
 import { NumberUtilsService } from "../number-utils.service";
-import { ExtendedGroupEvent, GroupEvent } from "../../models/group-event.model";
+import { ExtendedGroupEvent, FEET_TO_METRES_FACTOR, GroupEvent } from "../../models/group-event.model";
 
 @Injectable({
   providedIn: "root"
@@ -10,7 +10,6 @@ import { ExtendedGroupEvent, GroupEvent } from "../../models/group-event.model";
 
 export class AscentValidationService {
   private numberUtils = inject(NumberUtilsService);
-  private FEET_TO_METRES_FACTOR = 0.3048;
 
   parse(walk: ExtendedGroupEvent): WalkAscent {
     return {
@@ -29,48 +28,45 @@ export class AscentValidationService {
     };
   }
 
-  walkAscentFeet(walk: ExtendedGroupEvent): number {
-    const ascentItems = this.ascentItems(walk);
-    if (ascentItems.length > 0) {
-      const units: DistanceUnit = this.ascentUnits(walk.groupEvent);
-      const numericAscent = this.numberUtils.asNumber(ascentItems[0]);
-      switch (units) {
-        case DistanceUnit.FEET:
-          return this.numberUtils.asNumber(numericAscent, 1);
-        case DistanceUnit.METRES:
-          return this.numberUtils.asNumber(numericAscent / this.FEET_TO_METRES_FACTOR, 1);
-        case DistanceUnit.UNKNOWN:
-          return null;
-      }
+  public walkAscentFeet(walk: ExtendedGroupEvent): number {
+    if (walk?.groupEvent?.ascent_feet > 0) {
+      return walk?.groupEvent?.ascent_feet;
     } else {
-      return null;
+      const ascentMetres = walk?.groupEvent?.ascent_metres;
+      if (ascentMetres > 0) {
+        return this.convertMetresToFeet(ascentMetres);
+      } else {
+        return null;
+      }
     }
   }
 
-  walkAscentMetres(walk: ExtendedGroupEvent): number {
-    const ascentItems = this.ascentItems(walk);
-    if (ascentItems.length > 0) {
-      const units: DistanceUnit = this.ascentUnits(walk.groupEvent);
-      const numericAscent = this.numberUtils.asNumber(ascentItems[0]);
-      switch (units) {
-        case DistanceUnit.FEET:
-          return this.numberUtils.asNumber(numericAscent * this.FEET_TO_METRES_FACTOR, 1);
-        case DistanceUnit.METRES:
-          return this.numberUtils.asNumber(numericAscent, 1);
-        case DistanceUnit.UNKNOWN:
-          return null;
-      }
+  public convertMetresToFeet(ascentMetres: number) {
+    return this.numberUtils.asNumber(ascentMetres / FEET_TO_METRES_FACTOR, 1);
+  }
+
+  public walkAscentMetres(walk: ExtendedGroupEvent): number {
+    if (walk?.groupEvent?.ascent_metres > 0) {
+      return walk?.groupEvent?.ascent_metres;
     } else {
-      return null;
+      const ascentFeet = walk?.groupEvent?.ascent_feet;
+      if (ascentFeet > 0) {
+        return this.convertFeetToMetres(ascentFeet);
+      } else {
+        return null;
+      }
     }
+  }
+
+  public convertFeetToMetres(ascentFeet: number) {
+    return this.numberUtils.asNumber(ascentFeet * FEET_TO_METRES_FACTOR, 1);
   }
 
   private validationMessage(walk: ExtendedGroupEvent) {
-    const ascentItems = this.ascentItems(walk);
     const units: DistanceUnit = this.ascentUnits(walk.groupEvent);
     if (!isEmpty(walk.groupEvent?.ascent_feet)) {
       if (units === DistanceUnit.UNKNOWN) {
-        return `Ascent in feet should be entered or feet or metres can be entered after the ascent, but "${ascentItems[1]}" was entered`;
+        return `Ascent in feet or metres can be entered, but ${walk.groupEvent.ascent_feet} ${DistanceUnit.FEET} / ${walk.groupEvent.ascent_metres} ${DistanceUnit.METRES} was entered`;
       } else {
         return null;
       }
@@ -95,16 +91,12 @@ export class AscentValidationService {
     return `${this.walkAscentFeetAsString(walk)} / ${this.walkAscentMetresAsString(walk)}`;
   }
 
-  private ascentItems(walk: ExtendedGroupEvent): number[] {
-    return walk.groupEvent?.ascent_feet ? [walk.groupEvent?.ascent_feet] : [];
-  }
-
   walkAscentFeetAsString(walk: ExtendedGroupEvent) {
-    return this.walkAscentFeet(walk) > 0 ? `${this.walkAscentFeet(walk)} ft` : "";
+    return this.walkAscentFeet(walk) > 0 ? `${this.walkAscentFeet(walk)} ${DistanceUnit.FEET}` : "";
   }
 
   walkAscentMetresAsString(walk: ExtendedGroupEvent) {
-    return this.walkAscentMetres(walk) > 0 ? `${this.walkAscentMetres(walk)} m` : "";
+    return this.walkAscentMetres(walk) > 0 ? `${this.walkAscentMetres(walk)} ${DistanceUnit.METRES}` : "";
   }
 
 }

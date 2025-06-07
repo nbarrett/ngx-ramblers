@@ -15,6 +15,7 @@ import {
   EventType,
   GoogleMapsConfig,
   WALK_GRADES,
+  WalkGrade,
   WalkType,
   WalkViewMode
 } from "../../models/walk.model";
@@ -32,7 +33,7 @@ import { CommitteeReferenceData } from "../../services/committee/committee-refer
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 import { Observable, ReplaySubject } from "rxjs";
 import { StringUtilsService } from "../../services/string-utils.service";
-import { LocationDetails, RamblersEventType } from "../../models/ramblers-walks-manager";
+import { Difficulty, LocationDetails, RamblersEventType } from "../../models/ramblers-walks-manager";
 import { BuiltInRole } from "../../models/committee.model";
 import { MediaQueryService } from "../../services/committee/media-query.service";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
@@ -44,7 +45,7 @@ import { FeaturesService } from "../../services/features.service";
 
 export class WalkDisplayService {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkDisplayService", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkDisplayService", NgxLoggerLevel.INFO);
   mediaQueryService = inject(MediaQueryService);
   featuresService = inject(FeaturesService);
   private systemConfigService = inject(SystemConfigService);
@@ -63,7 +64,6 @@ export class WalkDisplayService {
   private subject = new ReplaySubject<Member[]>();
   public relatedLinksMediaWidth = 22;
   public expandedWalks: ExpandedWalk [] = [];
-  public grades = WALK_GRADES.map(item => item.description);
   public walkTypes: WalkType[] = enumValues(WalkType);
   private nextWalkId: string;
   public members: Member[] = [];
@@ -75,6 +75,7 @@ export class WalkDisplayService {
     this.applyConfig();
     this.refreshCachedData();
     this.logger.debug("this.memberLoginService", this.memberLoginService.loggedInMember());
+
   }
 
   public notAwaitingLeader(walk: ExtendedGroupEvent): boolean {
@@ -354,4 +355,29 @@ export class WalkDisplayService {
   displayImage(walk: ExtendedGroupEvent): boolean {
     return !!(this.mediaQueryService.imageSource(walk) || !walk?.groupEvent?.start_location?.postcode);
   }
+
+  walkGradeFrom(gradeValue: string): WalkGrade {
+    return WALK_GRADES.find((grade) => grade.description.toLowerCase() === gradeValue?.toLowerCase());
+  }
+
+  isWalkGrade(object: any): object is WalkGrade {
+    const walkGrade: WalkGrade = object as WalkGrade;
+    return walkGrade?.code !== undefined && walkGrade?.description !== undefined;
+  }
+
+  public toDifficulty(grade: string | WalkGrade): Difficulty {
+    const gradeValue: string = this.isWalkGrade(grade) ? grade.code : grade;
+    this.logger.info("toDifficulty:grade:", grade, "gradeValue:", gradeValue);
+    if (gradeValue) {
+      const {code, description} = this.walkGradeFrom(gradeValue);
+      return {code, description};
+    } else {
+      return null;
+    }
+  }
+
+  public difficulties(): Difficulty[] {
+    return WALK_GRADES.map(item => ({code: item.code, description: item.description}));
+  }
+
 }

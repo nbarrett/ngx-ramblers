@@ -1,17 +1,6 @@
 import mongoose, { Model, Schema } from "mongoose";
 import uniqueValidator from "mongoose-unique-validator";
-import { riskAssessmentRecord, walkEvent, walkVenue } from "./walk";
-import { FileNameData } from "../../../../projects/ngx-ramblers/src/app/models/aws-object.model";
-import { Identifiable } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
-import {
-  ImageConfig,
-  LinkWithSource,
-  RiskAssessmentRecord
-} from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
-import { MeetupConfig } from "../../../../projects/ngx-ramblers/src/app/models/meetup-config.model";
-import { Notification } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
-import { Venue } from "../../../../projects/ngx-ramblers/src/app/models/event-venue.model";
-import { ContactDetails, Publishing } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
+import { metaData, riskAssessmentRecord, walkEvent, walkVenue } from "./walk";
 import { notification } from "./social-event";
 import { fileNameData } from "./banner";
 
@@ -35,7 +24,7 @@ const groupEvent = new Schema({
   distance_miles: {type: Number},
   ascent_feet: {type: Number},
   ascent_metres: {type: Number},
-  difficulty: {type: Object},
+  difficulty: metaData,
   shape: {type: String},
   duration: {type: Number},
   walk_leader: {type: Object},

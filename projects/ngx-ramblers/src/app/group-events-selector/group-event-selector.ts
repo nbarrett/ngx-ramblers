@@ -14,7 +14,7 @@ import { CommitteeQueryService } from "../services/committee/committee-query.ser
 import { DateUtilsService } from "../services/date-utils.service";
 import { NumberUtilsService } from "../services/number-utils.service";
 import { StringUtilsService } from "../services/string-utils.service";
-import { DatePickerComponent } from "../date-picker/date-picker.component";
+import { DatePicker } from "../date-and-time/date-picker";
 import { FormsModule } from "@angular/forms";
 
 @Component({
@@ -66,7 +66,7 @@ import { FormsModule } from "@angular/forms";
         </ng-select>
       </div>
     </div>`,
-    imports: [DatePickerComponent, NgSelectComponent, FormsModule, NgOptgroupTemplateDirective]
+    imports: [DatePicker, NgSelectComponent, FormsModule, NgOptgroupTemplateDirective]
 })
 export class GroupEventSelectorComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("GroupEventSelectorComponent", NgxLoggerLevel.ERROR);

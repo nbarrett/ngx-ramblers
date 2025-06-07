@@ -13,7 +13,7 @@ import { UrlService } from "../../../services/url.service";
 import { enumValues, KeyValue } from "../../../functions/enums";
 import { FormsModule } from "@angular/forms";
 import { EventsComponent } from "../events/events";
-import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { DatePicker } from "../../../date-and-time/date-picker";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { CommitteeQueryService } from "../../../services/committee/committee-query.service";
@@ -75,7 +75,7 @@ import { DynamicContentMaxColumnsEditorComponent } from "./dynamic-content-max-c
       </div>
     }
     <app-events [row]="row" [rowIndex]="rowIndex"/>`,
-  imports: [FormsModule, EventsComponent, DatePickerComponent, NgSelectComponent, DynamicContentMaxColumnsEditorComponent]
+  imports: [FormsModule, EventsComponent, DatePicker, NgSelectComponent, DynamicContentMaxColumnsEditorComponent]
 })
 export class EventsSiteEditComponent implements OnInit {
   public pageContentService: PageContentService = inject(PageContentService);

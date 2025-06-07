@@ -55,7 +55,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
         <ng-select id="linked-walk"
                    [items]="walks"
                    bindLabel="ngSelectAttributes.label"
-                   bindValue="id"
+                   bindValue="groupEvent.id"
                    [placeholder]="'Select a walk - type part of title to filter items'"
                    [dropdownPosition]="'bottom'"
                    [clearAllText]="'clear current selection'"
@@ -72,7 +72,7 @@ export class WalkImageSelectionWalksManagerComponent implements OnInit {
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private walksQueryService = inject(WalksQueryService);
   private dateUtils = inject(DateUtilsService);
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkImageSelectionWalksManagerComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkImageSelectionWalksManagerComponent", NgxLoggerLevel.INFO);
   loadingGroups = false;
   availableGroups: RamblersGroupWithLabel[] = [];
   groups: RamblersGroupsApiResponse[] = [];
@@ -147,9 +147,9 @@ export class WalkImageSelectionWalksManagerComponent implements OnInit {
     return `${filterParameters.selectType === DateCriteria.CURRENT_OR_FUTURE_DATES ? "" : "-"}walkDate`;
   }
 
-  walkChange(walkId: string) {
-    this.logger.info("onChange of walkId:", walkId, "imageConfig:", this.groupEvent.fields.imageConfig);
-    const ramblersWalk = this.walks.find(walk => walk.id === walkId);
+  walkChange(ramblersWalkId: string) {
+    this.logger.info("onChange of ramblersWalkId:", ramblersWalkId, "imageConfig:", this.groupEvent.fields.imageConfig);
+    const ramblersWalk: WalkForSelect = this.walks.find(walk => walk.groupEvent.id === ramblersWalkId);
     this.ramblersWalksAndEventsService.copyMediaIfApplicable(this.groupEvent, ramblersWalk.groupEvent, true);
   }
 

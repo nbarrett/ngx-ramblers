@@ -1,7 +1,7 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Difficulty, LocationDetails, RamblersEventType } from "../../models/ramblers-walks-manager";
-import { LinkSource, LinkWithSource, walkGradeFrom, WalkType } from "../../models/walk.model";
+import { LocationDetails, RamblersEventType } from "../../models/ramblers-walks-manager";
+import { LinkSource, LinkWithSource, WalkType } from "../../models/walk.model";
 import { WalkDisplayService } from "../../pages/walks/walk-display.service";
 import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -29,10 +29,6 @@ import last from "lodash-es/last";
 })
 export class EventsMigrationService {
 
-  constructor() {
-    this.walksConfigService.events().subscribe(walksConfig => this.walksConfig = walksConfig);
-  }
-
   private logger: Logger = inject(LoggerFactory).createLogger("EventsMigrationService", NgxLoggerLevel.INFO);
   private dateUtils: DateUtilsService = inject(DateUtilsService);
   private stringUtilsService: StringUtilsService = inject(StringUtilsService);
@@ -46,6 +42,12 @@ export class EventsMigrationService {
   private walksAndEventsLocalService: WalksAndEventsLocalService = inject(WalksAndEventsLocalService);
   private urlService: UrlService = inject(UrlService);
   private walksConfig: WalksConfig;
+
+  constructor() {
+    this.walksConfigService.events().subscribe(walksConfig => this.walksConfig = walksConfig);
+  }
+
+
   isWalk = (event: Walk | SocialEvent): event is Walk => "walkDate" in event;
 
 
@@ -69,7 +71,7 @@ export class EventsMigrationService {
       cancellation_reason: "",
       date_created: "",
       date_updated: "",
-      difficulty: this.isWalk(walkOrSocialEvent) ? this.toDifficulty(walkOrSocialEvent.grade) : null,
+      difficulty: this.isWalk(walkOrSocialEvent) ? this.walkDisplayService.toDifficulty(walkOrSocialEvent.grade) : null,
       distance_km: units?.kilometres?.value || 0,
       distance_miles: units?.miles?.value || 0,
       duration: null,
@@ -169,15 +171,6 @@ export class EventsMigrationService {
       description: socialEvent.longerDescription,
       grid_reference_10: null
     };
-  }
-
-  private toDifficulty(grade: string): Difficulty {
-    if (grade) {
-      const {code, description} = walkGradeFrom(grade);
-      return {code, description};
-    } else {
-      return null;
-    }
   }
 
   walkLink(walkOrSocialEvent: Walk | SocialEvent): string {

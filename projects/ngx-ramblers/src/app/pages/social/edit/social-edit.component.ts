@@ -25,7 +25,7 @@ import { PageService } from "../../../services/page.service";
 import { PageComponent } from "../../../page/page.component";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FormsModule } from "@angular/forms";
-import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { DatePicker } from "../../../date-and-time/date-picker";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { MarkdownComponent } from "ngx-markdown";
 import { NgClass, NgStyle } from "@angular/common";
@@ -423,7 +423,7 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
       </app-page>
     `,
     styleUrls: ["social-edit.component.sass"],
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, DatePickerComponent, FontAwesomeModule, MarkdownComponent, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, NgClass, FileUploadModule, NgStyle, FullNameWithAliasPipe, CopyIconComponent, EditGropuEventImagesComponent]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, DatePicker, FontAwesomeModule, MarkdownComponent, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, NgClass, FileUploadModule, NgStyle, FullNameWithAliasPipe, CopyIconComponent, EditGropuEventImagesComponent]
 })
 export class SocialEditComponent implements OnInit, OnDestroy {
 

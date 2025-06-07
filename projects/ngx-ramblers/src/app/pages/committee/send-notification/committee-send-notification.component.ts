@@ -49,7 +49,7 @@ import { FormsModule } from "@angular/forms";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgOptgroupTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { MarkdownComponent } from "ngx-markdown";
-import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { DatePicker } from "../../../date-and-time/date-picker";
 import { LinkComponent } from "../../../link/link";
 import { SenderRepliesAndSignoffComponent } from "../../admin/send-emails/sender-replies-and-signoff";
 import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi-select/committee-role-multi-select";
@@ -475,7 +475,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
           <ng-template app-notification-directive/>
         </div>
       </app-page>`,
-    imports: [PageComponent, TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, MarkdownComponent, DatePickerComponent, LinkComponent, SenderRepliesAndSignoffComponent, CommitteeRoleMultiSelectComponent, CommitteeNotificationDetailsComponent, FontAwesomeModule, BrevoButtonComponent, NotificationDirective, TitleCasePipe, DisplayDatePipe]
+    imports: [PageComponent, TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, MarkdownComponent, DatePicker, LinkComponent, SenderRepliesAndSignoffComponent, CommitteeRoleMultiSelectComponent, CommitteeNotificationDetailsComponent, FontAwesomeModule, BrevoButtonComponent, NotificationDirective, TitleCasePipe, DisplayDatePipe]
 })
 export class CommitteeSendNotificationComponent implements OnInit, OnDestroy {
 

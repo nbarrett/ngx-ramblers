@@ -13,6 +13,8 @@ import { pluraliseWithCount } from "../../shared/string-utils";
 export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Document>, debugEnabled?: boolean) {
   const debugLog: debug.Debugger = debug(envConfig.logNamespace(`database:${model.modelName}`));
   debugLog.enabled = debugEnabled;
+  const errorDebugLog: debug.Debugger = debug("ERROR:" + envConfig.logNamespace(`database:${model.modelName}`));
+  errorDebugLog.enabled = true;
 
   async function createOrUpdateAll(req: Request, res: Response) {
     const documents: T[] = req.body;
@@ -24,7 +26,7 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
         response
       });
     }).catch(error => {
-      debugLog(`createOrUpdateAll: ${message} error: ${error}`);
+      errorDebugLog(`createOrUpdateAll: ${message} error:`, error);
       res.status(500).json({
         message,
         request: message,
@@ -43,7 +45,7 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
         });
       })
       .catch(error => {
-        debugLog(`findByConditions: ${model.modelName} error: ${error}`);
+        errorDebugLog(`findByConditions: ${model.modelName} error:`, error);
         res.status(500).json({
           message: `${model.modelName} query failed`,
           request: req.query,
@@ -120,7 +122,7 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
         response: updatedDocuments
       });
     } catch (error) {
-      debugLog(`updateMany failed with error: ${error}`);
+      errorDebugLog(`updateMany failed with error:`, error);
       res.status(500).json({
         request: req.body,
         error: transforms.parseError(error)
@@ -193,10 +195,12 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
             response
           });
         }).catch(error => {
-          res.status(500).json({
-            message: `Update of ${model.modelName} failed`,
-            error: transforms.parseError(error)
-          });
+        const errorMessage = {
+          message: `Update of ${model.modelName} failed`,
+          error: transforms.parseError(error)
+        };
+        errorDebugLog("error:", error);
+        res.status(500).json(errorMessage);
         });
     },
     deleteOne: (req: Request, res: Response) => {
@@ -223,7 +227,7 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
           response
         });
       }).catch(error => {
-        debugLog(`deleteAll: ${message} error: ${error}`);
+        errorDebugLog(`deleteAll: ${message} error:`, error);
         res.status(500).json({
           message,
           request: message,

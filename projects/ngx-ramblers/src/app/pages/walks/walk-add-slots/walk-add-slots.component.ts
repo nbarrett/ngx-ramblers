@@ -23,7 +23,7 @@ import { WalkDisplayService } from "../walk-display.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { PageComponent } from "../../../page/page.component";
 import { FormsModule } from "@angular/forms";
-import { DatePickerComponent } from "../../../date-picker/date-picker.component";
+import { DatePicker } from "../../../date-and-time/date-picker";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgClass } from "@angular/common";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
@@ -160,7 +160,7 @@ import { EventDefaultsService } from "../../../services/event-defaults.service";
     </app-page>
     `,
     styleUrls: ["./walk-add-slots.component.sass"],
-    imports: [PageComponent, FormsModule, DatePickerComponent, FontAwesomeModule, NgClass]
+    imports: [PageComponent, FormsModule, DatePicker, FontAwesomeModule, NgClass]
 })
 export class WalkAddSlotsComponent implements OnInit {
 

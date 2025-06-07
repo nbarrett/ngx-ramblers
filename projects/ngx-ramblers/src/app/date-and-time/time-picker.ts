@@ -11,6 +11,9 @@ import { NumberUtilsService } from "../services/number-utils.service";
 @Component({
   selector: "[app-time-picker]",
   template: `
+    @if (label) {
+      <label [for]="id">{{ label }}</label>
+    }
     <timepicker [showMeridian]=false
                 [disabled]="disabled"
                 [(ngModel)]="time"
@@ -20,12 +23,13 @@ import { NumberUtilsService } from "../services/number-utils.service";
   `,
   imports: [FormsModule, FontAwesomeModule, TimepickerComponent]
 })
-export class TimePickerComponent {
-  private logger: Logger = inject(LoggerFactory).createLogger("TimePickerComponent", NgxLoggerLevel.INFO);
+export class TimePicker {
+  private logger: Logger = inject(LoggerFactory).createLogger("TimePicker", NgxLoggerLevel.INFO);
   private dateUtils: DateUtilsService = inject(DateUtilsService);
   private numberUtilsService: NumberUtilsService = inject(NumberUtilsService);
   protected time: Date;
   @Input() value: string;
+  @Input() label: string;
   @Input() id: string;
   @Input() disabled;
 
@@ -44,6 +48,9 @@ export class TimePickerComponent {
   }
 
   onModelChange(date: Date) {
+    if (date) {
+      date.setSeconds(0, 0);
+    }
     const value = date ? this.dateUtils.isoDateTimeString(date) : null;
     this.logger.info("onModelChange:date:", date, "value:", value);
     this.change.next(value);

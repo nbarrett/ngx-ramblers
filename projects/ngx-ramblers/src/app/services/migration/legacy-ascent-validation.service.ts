@@ -1,8 +1,9 @@
 import { inject, Injectable } from "@angular/core";
 import isEmpty from "lodash-es/isEmpty";
-import { DistanceUnit, WalkAscent } from "../../models/walk.model";
+import { DistanceUnit } from "../../models/walk.model";
 import { NumberUtilsService } from "../number-utils.service";
 import { LegacyWalkAscent, Walk } from "../../models/deprecated";
+import { FEET_TO_METRES_FACTOR } from "../../models/group-event.model";
 
 @Injectable({
   providedIn: "root"
@@ -10,7 +11,6 @@ import { LegacyWalkAscent, Walk } from "../../models/deprecated";
 
 export class LegacyAscentValidationService {
   private numberUtils = inject(NumberUtilsService);
-  private FEET_TO_METRES_FACTOR = 0.3048;
 
   parse(walk: Walk): LegacyWalkAscent {
     return {
@@ -38,7 +38,7 @@ export class LegacyAscentValidationService {
         case DistanceUnit.FEET:
           return this.numberUtils.asNumber(numericAscent, 1);
         case DistanceUnit.METRES:
-          return this.numberUtils.asNumber(numericAscent / this.FEET_TO_METRES_FACTOR, 1);
+          return this.numberUtils.asNumber(numericAscent / FEET_TO_METRES_FACTOR, 1);
         case DistanceUnit.UNKNOWN:
           return null;
       }
@@ -54,7 +54,7 @@ export class LegacyAscentValidationService {
       const numericAscent = this.numberUtils.asNumber(ascentItems[0]);
       switch (units) {
         case DistanceUnit.FEET:
-          return this.numberUtils.asNumber(numericAscent * this.FEET_TO_METRES_FACTOR, 1);
+          return this.numberUtils.asNumber(numericAscent * FEET_TO_METRES_FACTOR, 1);
         case DistanceUnit.METRES:
           return this.numberUtils.asNumber(numericAscent, 1);
         case DistanceUnit.UNKNOWN:
