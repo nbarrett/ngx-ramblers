@@ -162,7 +162,7 @@ import { GroupEventSelectorComponent } from "../../../group-events-selector/grou
                   <div class="form-group no-left-padding">
                     <app-date-picker startOfDay [label]="'Image Date'"
                                      [size]="'md'"
-                                     (dateChange)="dateChange($event)"
+                                     (change)="dateChange($event)"
                                      [value]="item?.date"/>
                   </div>
                 </div>

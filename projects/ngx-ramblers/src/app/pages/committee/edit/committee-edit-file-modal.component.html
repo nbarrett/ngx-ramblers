@@ -10,7 +10,7 @@
         <div class="form-group">
           <app-date-picker startOfDay [label]="'File or Event Date'"
                            [size]="'md'"
-                           (dateChange)="eventDateChanged($event)"
+                           (change)="eventDateChanged($event)"
                            [value]="eventDate">
           </app-date-picker>
         </div>

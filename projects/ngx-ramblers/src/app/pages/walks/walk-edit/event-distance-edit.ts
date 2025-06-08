@@ -35,7 +35,7 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
     </div>`,
   styles: [`
     .distance-input
-      width: 80px
+      width: 77px
       margin-right: 12px
   `],
   imports: [FormsModule, FontAwesomeModule]

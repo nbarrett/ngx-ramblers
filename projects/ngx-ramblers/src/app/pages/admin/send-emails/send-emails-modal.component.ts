@@ -104,7 +104,7 @@ import { NgClass } from "@angular/common";
                                 @if (currentMemberSelection === MemberSelection.RECENTLY_ADDED) {
                                   <app-date-picker startOfDay
                                     class="input-group ml-2"
-                                    (dateChange)="onMemberFilterDateChange($event)"
+                                    (change)="onMemberFilterDateChange($event)"
                                     [value]="memberFilterDate">
                                   </app-date-picker>
                                 }
@@ -128,7 +128,7 @@ import { NgClass } from "@angular/common";
                                 @if (currentMemberSelection === MemberSelection.EXPIRED_MEMBERS) {
                                   <app-date-picker startOfDay
                                     class="calendar-in-label"
-                                    (dateChange)="onMemberFilterDateChange($event)"
+                                    (change)="onMemberFilterDateChange($event)"
                                     [value]="memberFilterDate">
                                   </app-date-picker>
                                 }

@@ -15,7 +15,40 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
 
 @Component({
     selector: "app-walk-risk-assessment",
-    templateUrl: "./walk-risk-assessment.component.html",
+    template: `
+      <div class="img-thumbnail thumbnail-admin-edit">
+        <app-markdown-editor [category]="'risk-assessments'" [name]="'risk-assessments-heading'"
+                             [description]="'Risk Assessments Heading'"></app-markdown-editor>
+        <app-walk-risk-assessment-section [displayedWalk]="displayedWalk"
+                                          [riskAssessmentSection]="'Traffic'">
+
+        </app-walk-risk-assessment-section>
+        <app-walk-risk-assessment-section [displayedWalk]="displayedWalk"
+                                          [riskAssessmentSection]="'Path surface and obstacles'">
+
+        </app-walk-risk-assessment-section>
+        <app-walk-risk-assessment-section [displayedWalk]="displayedWalk"
+                                          [riskAssessmentSection]="'Animals'">
+
+        </app-walk-risk-assessment-section>
+        <app-walk-risk-assessment-section [displayedWalk]="displayedWalk"
+                                          [riskAssessmentSection]="'Communications'">
+
+        </app-walk-risk-assessment-section>
+        <app-walk-risk-assessment-section [displayedWalk]="displayedWalk"
+                                          [riskAssessmentSection]="'Other'">
+        </app-walk-risk-assessment-section>
+        <div class="form-group">
+          @if (notifyTarget.showAlert) {
+            <div class="alert {{notifyTarget.alertClass}}">
+              <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+              <strong> {{ notifyTarget.alertTitle }}: </strong>
+              {{ notifyTarget.alertMessage }}
+            </div>
+          }
+        </div>
+      </div>
+    `,
     styleUrls: ["./walk-risk-assessment.component.sass"],
     imports: [MarkdownEditorComponent, WalkRiskAssessmentSectionComponent, FontAwesomeModule]
 })

@@ -1,7 +1,7 @@
 import { Component, inject, Input, OnDestroy, OnInit, Type, ViewChild } from "@angular/core";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute } from "@angular/router";
-import { faMagnifyingGlass, faPencil } from "@fortawesome/free-solid-svg-icons";
+import { faPencil } from "@fortawesome/free-solid-svg-icons";
 import cloneDeep from "lodash-es/cloneDeep";
 import isEmpty from "lodash-es/isEmpty";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -10,30 +10,12 @@ import { GridReferenceLookupResponse } from "../../../models/address-model";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { ConfigKey } from "../../../models/config.model";
-import { DateValue } from "../../../models/date.model";
 import { MEETUP_API_AVAILABLE, MeetupConfig } from "../../../models/meetup-config.model";
-import { DisplayMember, Member } from "../../../models/member.model";
+import { Member } from "../../../models/member.model";
 import { ConfirmType } from "../../../models/ui-actions";
-import { DisplayedEvent } from "../../../models/walk-displayed-event.model";
 import { WalkEventType } from "../../../models/walk-event-type.model";
-import { WalkEvent } from "../../../models/walk-event.model";
-import {
-  DisplayedWalk,
-  EventType,
-  INITIALISED_LOCATION,
-  Links,
-  LinkSource,
-  WalkExport,
-  WalkType,
-  WalkViewMode
-} from "../../../models/walk.model";
-import { ChangedItemsPipe } from "../../../pipes/changed-items.pipe";
-import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
+import { DisplayedWalk, EventType, INITIALISED_LOCATION, WalkExport, WalkViewMode } from "../../../models/walk.model";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
-import { EventNotePipe } from "../../../pipes/event-note.pipe";
-import { FullNameWithAliasOrMePipe } from "../../../pipes/full-name-with-alias-or-me.pipe";
-import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pipe";
-import { sortBy } from "../../../functions/arrays";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { ConfigService } from "../../../services/config.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -45,7 +27,6 @@ import { AddressQueryService } from "../../../services/walks/address-query.servi
 import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
 import { GroupEventService } from "../../../services/walks/group-event.service";
 import { WalkNotificationService } from "../../../services/walks/walk-notification.service";
-import { WalksQueryService } from "../../../services/walks/walks-query.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { WalksAndEventsService } from "../../../services/walks/walks-and-events.service";
 import { WalkDisplayService } from "../walk-display.service";
@@ -59,30 +40,25 @@ import { MeetupDescriptionComponent } from "../../../notifications/walks/templat
 import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
-import { DatePicker } from "../../../date-and-time/date-picker";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { MarkdownComponent } from "ngx-markdown";
-import { WalkLocationEditComponent } from "./walk-location-edit";
-import { WalkRiskAssessmentComponent } from "../walk-risk-assessment/walk-risk-assessment.component";
-import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
-import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { WalkVenueComponent } from "../walk-venue/walk-venue.component";
-import { WalkMeetupComponent } from "../walk-meetup/walk-meetup.component";
-import { WalkSummaryPipe } from "../../../pipes/walk-summary.pipe";
 import { SystemConfig } from "../../../models/system.model";
 import { SystemConfigService } from "../../../services/system/system-config.service";
-import { EditGropuEventImagesComponent } from "./edit-group-event-images";
 import { JsonPipe } from "@angular/common";
-import { WalkEditFeaturesComponent } from "./walk-edit-features";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
-import { LinksService } from "../../../services/links.service";
 import { EventDefaultsService } from "../../../services/event-defaults.service";
 import { NotificationComponent } from "../../../notifications/common/notification.component";
-import { TimePicker } from "../../../date-and-time/time-picker";
-import { EventDistanceEdit } from "./event-distance-edit";
-import { EventAscentEdit } from "./event-ascent-edit.component";
-import { Difficulty } from "../../../models/ramblers-walks-manager";
+import { WalkDataAudit } from "../../../models/walk-data-audit.model";
+import isEqual from "lodash-es/isEqual";
+import { WalkEditMainDetailsComponent } from "./walk-edit-main-details";
+import { WalkEditDetailsComponent } from "./walk-edit-details";
+import { WalkRiskAssessmentComponent } from "../walk-risk-assessment/walk-risk-assessment.component";
+import { WalkEditRelatedLinksComponent } from "./walk-edit-links";
+import { WalkEditLeaderComponent } from "./walk-edit-leader";
+import { WalkEditFeaturesComponent } from "./walk-edit-features";
+import { EditGropuEventImagesComponent } from "./walk-edit-group-event-images";
+import { WalkEditHistoryComponent } from "./walk-edit-walk-history";
+import { WalkEditCopyFromComponent } from "./walk-edit-copy-from";
 
 @Component({
   selector: "app-walk-edit",
@@ -95,545 +71,59 @@ import { Difficulty } from "../../../models/ramblers-walks-manager";
                                [expandAction]="'edit walk full-screen'" [expandable]="isExpandable()"/>
       <tabset class="custom-tabset">
         <tab heading="Main Details">
-          <div class="img-thumbnail thumbnail-admin-edit">
-            <div class="row align-items-center">
-              <div class="col-auto">
-                <label for="walk-date">Walk Date</label>
-                <div class="form-group">
-                  <app-date-picker id="walk-date" size="md"
-                                   placeholder="enter date of walk"
-                                   [disabled]="!display.allowAdminEdits() || inputDisabled()"
-                                   class="w-100"
-                                   (dateChange)="onDateChange($event)"
-                                   [value]="displayedWalk.walk.groupEvent.start_date_time"/>
-                </div>
-              </div>
-              <div class="col-auto">
-                <div class="form-group" app-time-picker id="start-time" label="Start Time" [disabled]="inputDisabled()"
-                     [value]="displayedWalk.walk.groupEvent.start_date_time"
-                     (change)="onStartDateTimeChange($event)">
-                </div>
-              </div>
-              <div class="col-auto">
-                <div class="form-group" app-event-distance-edit label="Distance" [groupEvent]="displayedWalk.walk.groupEvent"
-                     (change)="calculateAndSetFinishTime()" [disabled]="inputDisabled()"></div>
-              </div>
-              <div class="col">
-                <div class="form-group">
-                  <label for="miles-per-hour">Average Miles Per Hour</label>
-                  <input [disabled]="inputDisabled()"
-                         [(ngModel)]="displayedWalk.walk.fields.milesPerHour"
-                         (ngModelChange)="calculateAndSetFinishTime()"
-                         type="number" step="0.25"
-                         class="form-control input-sm"
-                         id="miles-per-hour"
-                         placeholder="Enter Estimated MPH of walk">
-                </div>
-              </div>
-              <div class="col-auto">
-                <div class="form-group" app-time-picker id="end-time" label="Estimated Finish Time"
-                     [disabled]="inputDisabled()"
-                     [value]="displayedWalk.walk.groupEvent.end_date_time"
-                     (change)="onEndDateTimeChange($event)"></div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-sm-12">
-                <div class="form-group">
-                  <label for="brief-description-and-start-point">Walk Title</label>
-                  <textarea [disabled]="inputDisabled()"
-                            [(ngModel)]="displayedWalk.walk.groupEvent.title" type="text"
-                            class="form-control input-sm" rows="3"
-                            id="brief-description-and-start-point"
-                            placeholder="Enter walk title here"></textarea>
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-sm-12">
-                <div class="form-group">
-                  <label for="longer-description">Walk Description <a
-                    [hidden]="longerDescriptionPreview"
-                    (click)="previewLongerDescription()" [href]="">
-                    <fa-icon [icon]="faMagnifyingGlass" class="markdown-preview-icon"></fa-icon>
-                    preview</a>
-                    @if (longerDescriptionPreview) {
-                      <a
-                        (click)="editLongerDescription()" [href]="">
-                        <fa-icon [icon]="faPencil" class="markdown-preview-icon"/>
-                        edit</a>
-                    } </label>
-                  @if (longerDescriptionPreview) {
-                    <p
-                      (click)="editLongerDescription()"
-                      class="list-arrow" markdown [data]="displayedWalk.walk.groupEvent.description"
-                      type="text"
-                      id="longer-description-formatted"></p>
-                  }
-                  @if (!longerDescriptionPreview) {
-                    <textarea
-                      [disabled]="inputDisabled()"
-                      [(ngModel)]="displayedWalk.walk.groupEvent.description" type="text"
-                      class="form-control input-sm" rows="5" id="longer-description"
-                      placeholder="Enter Walk Description here"></textarea>
-                  }
-                </div>
-              </div>
-            </div>
-          </div>
+          <app-walk-edit-main-details
+            [displayedWalk]="displayedWalk"
+            [inputDisabled]="inputDisabled()"/>
         </tab>
-        @if (true) {
-          <tab (selectTab)="onTabSelect(true)" heading="Walk Details">
-            <div class="img-thumbnail thumbnail-admin-edit">
-              <div class="row">
-                <div class="col-sm-12">
-                  <div class="row">
-                    <div class="col-sm-4">
-                      <div class="form-group">
-                        <label for="grade">Grade</label>
-                        @if (allowDetailView()) {
-                          <select [compareWith]="difficultyComparer" [disabled]="inputDisabled()"
-                                  placeholder="Enter Grade here"
-                                  [(ngModel)]="displayedWalk.walk.groupEvent.difficulty"
-                                  (ngModelChange)="difficultyChange()"
-                                  class="form-control input-sm" id="grade">
-                            @for (difficulty of display.difficulties(); track difficulty.code) {
-                              <option
-                                [ngValue]="difficulty">{{ difficulty.description }}
-                              </option>
-                            }
-                          </select>
-                        }
-                      </div>
-                    </div>
-                    <div class="col-sm-4">
-                      <div class="form-group">
-                        <label for="walkType">Walk Type</label>
-                        @if (allowDetailView()) {
-                          <select [disabled]="inputDisabled()"
-                                  [(ngModel)]="displayedWalk.walk.groupEvent.shape"
-                                  (ngModelChange)="walkTypeChange()"
-                                  class="form-control input-sm" id="walkType">
-                            @for (type of display.walkTypes; track type) {
-                              <option [ngValue]="type"
-                                      [attr.selected]="type == display.walkTypes[0]">{{ type }}
-                              </option>
-                            }
-                          </select>
-                        }
-                      </div>
-                    </div>
-                    <div class="col-sm-4">
-                      <label for="ascent">Ascent</label>
-                      <div class="form-group" app-event-ascent-edit [groupEvent]="displayedWalk.walk.groupEvent"
-                           id="ascent" [disabled]="inputDisabled()"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              @if (renderMapEdit) {
-                <div class="row">
-                  <div class="col">
-                    <app-walk-location-edit locationType="Starting"
-                                            [locationDetails]="displayedWalk.walk.groupEvent.start_location"
-                                            [notify]="notify"/>
-                  </div>
-                  @if (displayedWalk?.walk?.groupEvent?.shape === WalkType.LINEAR) {
-                    <div class="col">
-                      <app-walk-location-edit locationType="Finishing"
-                                              [locationDetails]="displayedWalk?.walk?.groupEvent?.end_location"
-                                              [notify]="notify"/>
-                    </div>
-                  }
-                </div>
-                @if (displayedWalk?.walk?.groupEvent?.shape === WalkType.LINEAR) {
-                  <div class="row mt-2">
-                    <div class="col d-flex justify-content-center">
-                      <button type="button" class="btn btn-primary"
-                              (click)="swapStartAndEndLocations()">
-                        Swap Start & End Locations
-                      </button>
-                    </div>
-                  </div>
-                }
-              }
-            </div>
+        <tab heading="Walk Details" (selectTab)="onTabSelect($event)">
+          <app-walk-edit-details
+            [displayedWalk]="displayedWalk"
+            [inputDisabled]="inputDisabled()"
+            [renderMapEdit]="renderMapEdit"
+            [allowDetailView]="allowDetailView()"
+            [notify]="notify"/>
+        </tab>
+        @if (display.allowEdits(displayedWalk.walk)) {
+          <tab heading="Risk Assessment">
+            <app-walk-risk-assessment [displayedWalk]="displayedWalk"/>
           </tab>
-          @if (display.allowEdits(displayedWalk.walk)) {
-            <tab heading="Risk Assessment">
-              <app-walk-risk-assessment [displayedWalk]="displayedWalk"/>
-            </tab>
-          }
-          <tab heading="Related Links">
-            <div class="img-thumbnail thumbnail-admin-edit">
-              <div class="row">
-                <div class="col-sm-12">
-                  <div class="img-thumbnail thumbnail-walk-edit">
-                    <div class="thumbnail-heading">Ramblers</div>
-                    <div class="form-group">
-                      @if (!insufficientDataToUploadToRamblers() && !ramblersWalkExists()) {
-                        <p>
-                          This walk has not been
-                          uploaded to Ramblers yet - check back when date is closer to
-                          <b>{{ displayedWalk.walk.groupEvent.start_date_time | displayDate }}</b>.
-                        </p>
-                      }
-                      @if (insufficientDataToUploadToRamblers()) {
-                        <p>
-                          {{ walkValidations() }}
-                        </p>
-                      }
-                      @if (canUnlinkRamblers()) {
-                        <div>
-                          <div class="row">
-                            <div class="col-sm-2">
-                              <input type="submit" value="Unlink"
-                                     (click)="unlinkRamblersDataFromCurrentWalk()"
-                                     title="Remove link between this walk and Ramblers"
-                                     class="btn btn-primary">
-                            </div>
-                            <div class="col-sm-10">
-                              <app-markdown-editor name="ramblers-help"
-                                                   description="Linking to Ramblers"></app-markdown-editor>
-                            </div>
-                          </div>
-                        </div>
-                      }
-                    </div>
-                    <div class="row">
-                      @if (display.allowEdits(displayedWalk.walk)) {
-                        <div class="col-sm-6">
-                          <div class="custom-control custom-checkbox">
-                            <input [disabled]="inputDisabled() || saveInProgress"
-                                   [(ngModel)]="displayedWalk.walk.fields.publishing.ramblers.publish"
-                                   type="checkbox" class="custom-control-input" id="publish-ramblers">
-                            <label class="custom-control-label" for="publish-ramblers">Publish to Ramblers
-                            </label>
-                          </div>
-                        </div>
-                      }
-                      @if (ramblersWalkExists()) {
-                        <div class="col-sm-6">
-                          <div class="form-group">
-                            <label class="mr-2">Link preview:</label>
-                            <img class="related-links-ramblers-image"
-                                 src="favicon.ico"
-                                 alt="Click to view on Ramblers Walks and Events Manager"/>
-                            <a target="_blank"
-                               class="ml-2"
-                               tooltip="Click to view on Ramblers Walks and Events Manager"
-                               [href]="display.ramblersLink(displayedWalk.walk)">Ramblers</a>
-                          </div>
-                        </div>
-                      }
-                    </div>
-                  </div>
-                </div>
-                @if (displayedWalk?.walk?.fields?.venue) {
-                  <app-walk-venue [displayedWalk]="displayedWalk"/>
-                }
-                <app-walk-meetup [displayedWalk]="displayedWalk" [saveInProgress]="saveInProgress"/>
-                <div class="col-sm-12">
-                  <div class="row img-thumbnail thumbnail-walk-edit">
-                    <div class="thumbnail-heading">OS Maps</div>
-                    <div class="row">
-                      <div class="col-sm-12">
-                        <app-markdown-editor name="os-maps-help" description="Linking to OS Maps"/>
-                      </div>
-                    </div>
-                    <div class="row">
-                      @if (links?.osMapsRoute?.href) {
-                        <div class="col-sm-6">
-                          <div class="form-group">
-                            <label for="os-maps-route">Url</label>
-                            <input
-                              [(ngModel)]="this.links.osMapsRoute.href"
-                              [disabled]="inputDisabled()"
-                              type="text" value="" class="form-control input-sm"
-                              id="os-maps-route"
-                              placeholder="Enter URL to OS Maps Route">
-                          </div>
-                        </div>
-                        <div class="col-sm-6">
-                          <div class="form-group">
-                            <label for="related-links-title">Title</label>
-                            <input [(ngModel)]="links.osMapsRoute.title"
-                                   [disabled]="inputDisabled()"
-                                   type="text" value="" class="form-control input-sm"
-                                   id="related-links-title"
-                                   placeholder="Enter optional title for OS Maps link">
-                          </div>
-                        </div>
-                      }
-                      <div class="col-sm-12">
-                        @if (links?.osMapsRoute?.href) {
-                          <div class="form-inline">
-                            <label>Link preview:</label>
-                            <img class="related-links-image ml-2"
-                                 src="/assets/images/local/ordnance-survey.png"
-                                 alt=""/>
-                            <a target="_blank"
-                               class="ml-2"
-                               [href]="links.osMapsRoute.href"
-                               tooltip="Click to view the route for this walk on Ordnance Survey Maps">
-                              {{ links.osMapsRoute.title || displayedWalk.walk.groupEvent.title }}
-                            </a>
-                            <input type="submit" value="Unlink"
-                                   (click)="unlinkOSMapsFromCurrentWalk()"
-                                   title="Remove link between this walk and OS Maps"
-                                   [disabled]="!canUnlinkOSMaps()|| inputDisabled()"
-                                   class="btn btn-primary ml-2">
-                          </div>
-                        }
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+        }
+        <tab heading="Related Links">
+          <app-walk-edit-related-links
+            [notify]="notify"
+            [displayedWalk]="displayedWalk"
+            [inputDisabled]="inputDisabled()"
+            [saveInProgress]="saveInProgress"/>
+        </tab>
+        <tab heading="Walk Leader">
+          <app-walk-edit-leader
+            [notify]="notify"
+            [displayedWalk]="displayedWalk"
+            [inputDisabled]="inputDisabled()"
+            [saveInProgress]="saveInProgress"
+            (walkLeaderChange)="walkLeaderMemberIdChanged()"
+            (statusChange)="onWalkStatusChange($event)"/>
+        </tab>
+        <tab app-walk-edit-features heading="Features"
+             [displayedWalk]="displayedWalk"
+             [config]="config"/>
+        <tab app-edit-group-event-images heading="Images"
+             [notify]="notify"
+             [extendedGroupEvent]="displayedWalk.walk"
+             [config]="config"/>
+        @if (display.walkLeaderOrAdmin(displayedWalk.walk)) {
+          <tab heading="History">
+            <app-walk-edit-history [displayedWalk]="displayedWalk"/>
           </tab>
-          <tab heading="Walk Leader">
-            <div class="img-thumbnail thumbnail-admin-edit">
-              @if (display.allowAdminEdits()) {
-                <div class="row">
-                  <div class="col-sm-12">
-                    <div class="form-group">
-                      <div class="custom-control custom-radio custom-control-inline">
-                        <input id="showOnlyWalkLeadersTrue" type="radio" class="custom-control-input"
-                               name="showOnlyWalkLeaders"
-                               [(ngModel)]="showOnlyWalkLeaders" [value]="true">
-                        <label class="custom-control-label" for="showOnlyWalkLeadersTrue">
-                          Show Only Walk Leaders ({{ previousWalkLeadersWithAliasOrMe().length }})</label>
-                      </div>
-                      <div class="custom-control custom-radio custom-control-inline">
-                        <input id="showOnlyWalkLeadersFalse" type="radio" class="custom-control-input"
-                               name="showOnlyWalkLeaders"
-                               [(ngModel)]="showOnlyWalkLeaders" [value]="false">
-                        <label class="custom-control-label" for="showOnlyWalkLeadersFalse">
-                          Show All Members ({{ membersWithAliasOrMe().length }})</label>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="col-sm-12">
-                    <div class="form-group">
-                      <label for="walk-status">Walk Status</label>
-                      <select [disabled]="!display.allowAdminEdits()"
-                              [(ngModel)]="displayedWalk.status"
-                              (change)="walkStatusChange()"
-                              class="form-control input-sm" id="walk-status">
-                        @for (status of walkStatuses(); track status.eventType) {
-                          <option
-                            [ngValue]="status.eventType"
-                            [textContent]="status.description">
-                          </option>
-                        }
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              }
-              @if (display.allowAdminEdits()) {
-                <div class="row">
-                  <div class="col-sm-10">
-                    <div class="form-group">
-                      <label for="contact-member">Walk Leader</label>
-                      @if (allowDetailView() && displayedWalk?.walk?.fields?.contactDetails) {
-                        <select [disabled]="!display.allowAdminEdits()"
-                                (change)="walkLeaderMemberIdChanged()"
-                                [(ngModel)]="displayedWalk.walk.fields.contactDetails.memberId"
-                                class="form-control" id="contact-member">
-                          <option value="">(no walk leader selected)</option>
-                          @for (member of memberLookup(); track member.memberId) {
-                            <option [ngValue]="member.memberId">{{ member.name }}</option>
-                          }
-                        </select>
-                      }
-                    </div>
-                  </div>
-                  <div class="col-sm-2">
-                    <div class="form-group">
-                      <input type="submit" [disabled]="saveInProgress" value="Me" (click)="setWalkLeaderToMe()"
-                             class="btn btn-primary button-bottom-aligned w-100">
-                    </div>
-                  </div>
-                </div>
-              }
-              @if (display.allowAdminEdits()) {
-                <div class="row">
-                  <div class="col-sm-5">
-                    <div class="form-group">
-                      <label for="display-name">Display Name (how it will be published on this walk)</label>
-                      <input [(ngModel)]="displayedWalk.walk.fields.contactDetails.displayName"
-                             type="text"
-                             class="form-control input-sm" id="display-name"
-                             placeholder="Name as displayed to the public and sent to Ramblers in CSV export file">
-                    </div>
-                  </div>
-                  <div class="col-sm-5">
-                    <div class="form-group">
-                      <label for="walk-leader-contact-id">Walks Manager Contact Name</label>
-                      <input [disabled]="inputDisabled()"
-                             [(ngModel)]="displayedWalk.walk.fields.publishing.ramblers.contactName"
-                             type="text"
-                             class="form-control input-sm flex-grow-1 mr-2" id="walk-leader-contact-id"
-                             placeholder="Name that matches the User Details in Assemble. This will be sent in Ramblers in CSV export file">
-                    </div>
-                  </div>
-                  <div class="col-sm-2">
-                    <div class="form-group">
-                      <input type="submit" [value]="toggleRamblersWalkLeaderContactName()"
-                             (click)="toggleRamblersWalkLeader()"
-                             [disabled]="saveInProgress"
-                             class="btn btn-primary button-bottom-aligned w-100">
-                    </div>
-                  </div>
-                </div>
-              }
-              <div class="row">
-                <div class="col-sm-12">
-                  <div class="form-group">
-                    <label for="contact-phone">Contact Phone</label>
-                    <input [disabled]="inputDisabled()" [(ngModel)]="displayedWalk.walk.fields.contactDetails.phone"
-                           type="text" class="form-control input-sm" id="contact-phone"
-                           placeholder="Enter contact phone here">
-                  </div>
-                </div>
-              </div>
-              <div class="row">
-                <div class="col-sm-12">
-                  <div class="form-group">
-                    <label for="contact-email">Contact Email</label>
-                    @if (allowDetailView()) {
-                      <input [disabled]="inputDisabled()"
-                             [(ngModel)]="displayedWalk.walk.fields.contactDetails.email" type="text"
-                             class="form-control input-sm" id="contact-email"
-                             placeholder="Enter contact email here">
-                    }
-                    @if (!allowDetailView()) {
-                      <input [disabled]="true"
-                             value="(login to see this)" type="text"
-                             class="form-control input-sm"
-                             id="contact-email-hidden">
-                    }
-                  </div>
-                </div>
-              </div>
-            </div>
+        }
+        @if (displayedWalk?.walk?.fields?.contactDetails?.memberId) {
+          <tab heading="Copy From...">
+            <app-walk-edit-copy-from
+              [notify]="notify"
+              [displayedWalk]="displayedWalk"
+              [inputDisabled]="inputDisabled()"
+              (statusChange)="setStatus($event)"/>
           </tab>
-          <tab app-walk-edit-features heading="Features"
-               [displayedWalk]="displayedWalk"
-               [config]="config"/>
-          <tab app-edit-group-event-images heading="Images"
-               [extendedGroupEvent]="displayedWalk.walk"
-               [config]="config"/>
-          @if (display.walkLeaderOrAdmin(displayedWalk.walk)) {
-            <tab heading="History">
-              <div class="img-thumbnail thumbnail-admin-edit">
-                <div class="form-group">
-                  <table
-                    class="round styled-table table-striped table-hover table-sm table-pointer">
-                    <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Who</th>
-                      <th>Description</th>
-                      <th>Notes</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                      @for (event of walkEvents(displayedWalk.walk); track event.date) {
-                        <tr>
-                          <td style="width: 25%" [textContent]="event.date"></td>
-                          <td style="width: 15%"
-                              [textContent]="event.member"></td>
-                          <td style="width: 20%"
-                              [textContent]="event.eventType"></td>
-                          <td style="width: 40%"><span
-                            tooltip="Details: {{event.changedItems}}">{{ event.notes }}</span>
-                          </td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </tab>
-          }
-          @if (displayedWalk?.walk?.fields?.contactDetails?.memberId) {
-            <tab heading="Copy From...">
-              @if (display.allowEdits(displayedWalk.walk) && displayedWalk?.walk?.fields?.contactDetails?.memberId) {
-                <div class="img-thumbnail thumbnail-admin-edit">
-                  <div class="row">
-                    <div class="col-sm-12">
-                      <div class="img-thumbnail thumbnail-walk-edit">
-                        <div class="thumbnail-heading">Create {{ myOrWalkLeader() }} walk based on an existing one
-                        </div>
-                        <ng-container>
-                          <div class="row">
-                            <div class="col-sm-12">
-                              <div class="custom-control custom-radio custom-control-inline">
-                                <input id="copy-selected-walk-leader"
-                                       type="radio"
-                                       class="custom-control-input"
-                                       [(ngModel)]="copySource"
-                                       (change)="populateWalkTemplates()"
-                                       value="copy-selected-walk-leader"/>
-                                <label class="custom-control-label" for="copy-selected-walk-leader">Previously led
-                                  by:
-                                  <select
-                                    [disabled]="copySource!=='copy-selected-walk-leader'"
-                                    class="input-md input-led-by"
-                                    [(ngModel)]="copySourceFromWalkLeaderMemberId"
-                                    (ngModelChange)="copySelectedWalkLeader()"
-                                    id="copy-member-walks">
-                                    <option value="">(no walk leader selected)</option>
-                                    @for (member of previousWalkLeadersWithAliasOrMe(); track member.memberId) {
-                                      <option
-                                        [ngValue]="member.memberId">{{ member.name }}
-                                      </option>
-                                    }
-                                  </select>
-                                </label>
-                              </div>
-                              <div class="custom-control custom-radio custom-control-inline">
-                                <input id="copy-with-os-maps-route-selected"
-                                       type="radio"
-                                       class="custom-control-input"
-                                       [(ngModel)]="copySource"
-                                       (change)="populateWalkTemplates()"
-                                       value="copy-with-os-maps-route-selected"/>
-                                <label class="custom-control-label" for="copy-with-os-maps-route-selected">
-                                  With an OS Maps route I can follow</label>
-                              </div>
-                            </div>
-                          </div>
-                          @if (copyFrom) {
-                            <div class="row">
-                              <div class="col-sm-12 mt-2">
-                                <label for="copy-walks-list">
-                                  Copy from {{ copyFrom?.walkTemplates?.length || 0 }} available walk(s): </label>
-                                <select [disabled]="inputDisabled()" class="form-control input-sm"
-                                        [(ngModel)]="copyFrom.walkTemplate"
-                                        (ngModelChange)="copyDetailsFromPreviousWalk()"
-                                        id="copy-walks-list">
-                                  <option value="">(none selected)</option>
-                                  @for (walkTemplate of copyFrom.walkTemplates; track walkTemplate) {
-                                    <option
-                                      [ngValue]="walkTemplate">{{ walkTemplate | walkSummary }}
-                                    </option>
-                                  }
-                                </select>
-                              </div>
-                            </div>
-                          }
-                        </ng-container>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              }
-            </tab>
-          }
         }
       </tabset>
     </div>
@@ -647,10 +137,12 @@ import { Difficulty } from "../../../models/ramblers-walks-manager";
       }
     </div>
     @if (displayedWalk.walk) {
+      @if (showChangedItems) {
+        <div>
+          changedItems: {{ walkEventService.walkDataAuditFor(this.displayedWalk.walk, status(), true)?.changedItems | json }}
+        </div>
+      }
       <div class="form-inline mb-4 align-middle">
-        @if (this.showChangedItems) {
-          changedItems: {{ this.walkEventService.walkDataAuditFor(this.displayedWalk.walk, this.status(), true)?.changedItems | json }}
-        }
         @if (allowClose()) {
           <input [disabled]="saveInProgress" type="submit"
                  value="Close"
@@ -724,7 +216,7 @@ import { Difficulty } from "../../../models/ramblers-walks-manager";
         }
         @if (allowNotifyConfirmation() && !saveInProgress) {
           <div class="custom-control custom-checkbox">
-            <input [disabled]="!display.allowAdminEdits() ||saveInProgress "
+            <input [disabled]="!display.allowAdminEdits() || saveInProgress"
                    [(ngModel)]="sendNotifications"
                    type="checkbox" class="custom-control-input" id="send-notification">
             <label class="custom-control-label ml-2"
@@ -733,18 +225,16 @@ import { Difficulty } from "../../../models/ramblers-walks-manager";
           </div>
         }
       </div>
-    }`,
+    }
+  `,
   styleUrls: ["./walk-edit.component.sass"],
-  imports: [NotificationDirective, WalkPanelExpanderComponent, TabsetComponent, TabDirective, DatePicker,
-    FormsModule, FontAwesomeModule, MarkdownComponent, WalkLocationEditComponent, WalkRiskAssessmentComponent,
-    MarkdownEditorComponent, TooltipDirective, WalkVenueComponent, WalkMeetupComponent, DisplayDatePipe, WalkSummaryPipe,
-    EditGropuEventImagesComponent, JsonPipe, WalkEditFeaturesComponent, TimePicker, EventDistanceEdit, EventAscentEdit]
+  imports: [NotificationDirective, WalkPanelExpanderComponent, TabsetComponent, FormsModule, FontAwesomeModule, JsonPipe, TabDirective, WalkEditMainDetailsComponent, WalkEditDetailsComponent, WalkRiskAssessmentComponent, WalkEditRelatedLinksComponent, WalkEditLeaderComponent, WalkEditFeaturesComponent, EditGropuEventImagesComponent, WalkEditHistoryComponent, WalkEditCopyFromComponent]
 })
 export class WalkEditComponent implements OnInit, OnDestroy {
 
   @Input("displayedWalk")
   set initialiseWalk(displayedWalk: DisplayedWalk) {
-    this.logger.info("initialiseWalk:displayedWalk groupEvent input:", displayedWalk.walk.groupEvent);
+    this.logger.info("initialiseWalk:displayedWalk displayedWalk input:", displayedWalk);
     if (displayedWalk && !displayedWalk?.walk?.groupEvent?.start_location) {
       this.logger.info("initialiseWalk:initialising walk start location with:", INITIALISED_LOCATION);
       displayedWalk.walk.groupEvent.start_location = cloneDeep(INITIALISED_LOCATION);
@@ -760,11 +250,9 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.mapEditComponentDisplayedWalk = this.displayedWalk;
   }
 
-  showChangedItems: false;
-
-  public linksService: LinksService = inject(LinksService);
-  public systemConfigService: SystemConfigService = inject(SystemConfigService);
   private logger: Logger = inject(LoggerFactory).createLogger("WalkEditComponent", NgxLoggerLevel.INFO);
+  public showChangedItems = true;
+  public systemConfigService: SystemConfigService = inject(SystemConfigService);
   private walksConfigService = inject(WalksConfigService);
   private mailMessagingService = inject(MailMessagingService);
   googleMapsService = inject(GoogleMapsService);
@@ -773,15 +261,9 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private memberLoginService = inject(MemberLoginService);
   route = inject(ActivatedRoute);
-  private walksQueryService = inject(WalksQueryService);
   private walkNotificationService = inject(WalkNotificationService);
   protected walkEventService = inject(GroupEventService);
   private walksReferenceService = inject(WalksReferenceService);
-  private memberIdToFullNamePipe = inject(MemberIdToFullNamePipe);
-  private displayDateAndTime = inject(DisplayDateAndTimePipe);
-  private fullNameWithAliasOrMePipe = inject(FullNameWithAliasOrMePipe);
-  private eventNotePipe = inject(EventNotePipe);
-  private changedItemsPipe = inject(ChangedItemsPipe);
   protected dateUtils = inject(DateUtilsService);
   display = inject(WalkDisplayService);
   stringUtils = inject(StringUtilsService);
@@ -805,26 +287,14 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   public notify: AlertInstance;
   public saveInProgress = false;
   public sendNotifications = false;
-  public longerDescriptionPreview: boolean;
   public meetupConfig: MeetupConfig;
   public faPencil = faPencil;
-  public faMagnifyingGlass = faMagnifyingGlass;
-  public copySource = "copy-selected-walk-leader";
-  public copySourceFromWalkLeaderMemberId: string;
-  public copyFrom: { walkTemplate: ExtendedGroupEvent, walkTemplates: ExtendedGroupEvent[] };
-  public showOnlyWalkLeaders = true;
   private subscriptions: Subscription[] = [];
-  private walkLeadContactId: string;
-  private myContactId: string;
   private walksConfig: WalksConfig;
   public options: any;
   public showGoogleMapsView = false;
-  protected readonly WalkType = WalkType;
-  public links: Links = null;
+  public walkDataAudit: WalkDataAudit;
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
-
-  protected readonly LinkSource = LinkSource;
-
   async ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.systemConfigService.events().subscribe((config: SystemConfig) => this.config = config));
@@ -847,13 +317,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       this.initialiseMilesPerHour();
 
     }));
-    this.subscriptions.push(this.display.memberEvents().subscribe(members => {
-      this.refreshContactIds();
-    }));
     this.logger.info("previousWalkLeaderIds:", this.previousWalkLeaderIds);
-    this.copyFrom = {walkTemplate: {} as ExtendedGroupEvent, walkTemplates: [] as ExtendedGroupEvent[]};
     this.configService.queryConfig<MeetupConfig>(ConfigKey.MEETUP).then(meetupConfig => this.meetupConfig = meetupConfig);
-    this.links = this.linksService.linksFrom(this.displayedWalk.walk.fields.links);
     this.showWalk(this.displayedWalk);
     this.logger.debug("displayedWalk:", this.displayedWalk);
   }
@@ -886,12 +351,6 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
-  private refreshContactIds() {
-    this.myContactId = this.display.members.find(member => member.id === this.memberLoginService.loggedInMember().memberId)?.contactId;
-    this.walkLeadContactId = this.display.members.find(member => member.id === this.displayedWalk?.walk?.fields?.contactDetails?.memberId)?.contactId;
-    this.logger.info("refreshContactIds:myContactId:", this.myContactId, "walkLeadContactId:", this.walkLeadContactId);
-  }
-
   private notificationsDisabledWarning() {
     return `Email notifications are not enabled, so ${this.personToNotify()} won't be automatically notified of changes you make.`;
   }
@@ -905,13 +364,6 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   private confirmAndChangesWillBePublished() {
     return `If you confirm this, your walk details will be emailed to ${this.display.walksCoordinatorName()} and they will publish these to the site.`;
-  }
-
-  notificationRequired() {
-    const walkDataAudit = this.walkEventService.walkDataAuditFor(this.displayedWalk.walk, this.status(), true);
-    const notificationRequired = walkDataAudit.notificationRequired;
-    this.logger.debug("dataHasChanged:", notificationRequired, "walkDataAudit:", walkDataAudit);
-    return notificationRequired;
   }
 
   inputDisabled() {
@@ -990,35 +442,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     return this.display.loggedInMemberIsLeadingWalk(this.displayedWalk.walk) && this.status() === EventType.AWAITING_WALK_DETAILS;
   }
 
-  setWalkLeaderToMe() {
-    this.displayedWalk.walk.fields.contactDetails.memberId = this.memberLoginService.loggedInMember().memberId;
-    this.walkLeaderMemberIdChanged();
-  }
-
-  toggleRamblersWalkLeader() {
-    const contactId = this.displayedWalk.walk.fields.publishing.ramblers.contactName === this.myContactId ? this.walkLeadContactId : this.myContactId;
-    const targetOverride = this.displayedWalk.walk.fields.publishing.ramblers.contactName === this.myContactId ? "walk leader" : "you";
-    if (contactId) {
-      this.displayedWalk.walk.fields.publishing.ramblers.contactName = contactId;
-      this.notify.success({
-        title: "Walk Leader Overridden",
-        message: "Walk Leader will be sent to Ramblers using walk leader as " + contactId
-      });
-    } else {
-      this.notify.warning({
-        title: "Walk Leader Override failed",
-        message: "Could not Walks Manager Contact Name for " + targetOverride
-      });
-    }
-  }
-
-  toggleRamblersWalkLeaderContactName(): string {
-    return this.displayedWalk.walk.fields.publishing.ramblers.contactName === this.myContactId ? "leader" : "me";
-  }
-
   walkLeaderMemberIdChanged() {
     this.notify.hide();
-    this.populateCopySourceFromWalkLeaderMemberId();
     const memberId = this.displayedWalk.walk.fields.contactDetails.memberId;
     if (!memberId) {
       this.setStatus(EventType.AWAITING_LEADER);
@@ -1039,10 +464,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         this.displayedWalk.walk.fields.contactDetails.displayName = selectedMember.displayName;
         this.displayedWalk.walk.fields.contactDetails.phone = selectedMember.mobileNumber;
         this.displayedWalk.walk.fields.contactDetails.email = selectedMember.email;
-        this.populateWalkTemplates(memberId);
       }
     }
-    this.refreshContactIds();
   }
 
   showWalk(displayedWalk: DisplayedWalk) {
@@ -1085,139 +508,16 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       };
       this.displayedWalk.latestEventType = this.display.latestEventTypeFor(this.displayedWalk.walk);
     }
-    this.populateCopySourceFromWalkLeaderMemberId();
-    this.populateWalkTemplates();
   }
 
   private updateGoogleMapsUrl() {
     this.googleMapsUrl = this.display.googleMapsUrl(false, this.displayedWalk?.walk?.groupEvent?.start_location?.postcode, this.displayedWalk?.walk?.groupEvent?.start_location?.postcode);
   }
 
-  populateCopySourceFromWalkLeaderMemberId() {
-    this.copySourceFromWalkLeaderMemberId = this.displayedWalk.walk.fields.contactDetails.memberId
-      || this.memberLoginService.loggedInMember().memberId;
-  }
-
-  walkEvents(walk: ExtendedGroupEvent): DisplayedEvent[] {
-    return walk.events
-      .sort(sortBy("date"))
-      .map((event: WalkEvent) => ({
-        member: this.memberIdToFullNamePipe.transform(event.memberId, this.display.members),
-        date: this.displayDateAndTime.transform(event.date),
-        eventType: this.walksReferenceService.toWalkEventType(event.eventType)?.description,
-        notes: this.eventNotePipe.transform(event),
-        changedItems: this.changedItemsPipe.transform(event, this.display.members)
-      }))
-      .reverse();
-  }
-
-  membersWithAliasOrMe(): DisplayMember[] {
-    return this.display.members.sort(sortBy("firstName", "lastName")).map(member => {
-      return {
-        memberId: member.id,
-        name: this.fullNameWithAliasOrMePipe.transform(member),
-        contactId: member.contactId,
-        displayName: member.displayName,
-        firstName: member.firstName,
-        lastName: member.lastName,
-        membershipNumber: member.membershipNumber
-      };
-    });
-  }
-
-  previousWalkLeadersWithAliasOrMe(): DisplayMember[] {
-    const displayMembers = this.membersWithAliasOrMe()
-      .filter(member => this.previousWalkLeaderIds?.includes(member.memberId));
-
-    this.logger.off("previousWalkLeadersWithAliasOrMe:", displayMembers);
-    return displayMembers;
-  }
-
-  copyDetailsFromPreviousWalk() {
-    const walkTemplate = cloneDeep(this.copyFrom.walkTemplate) as ExtendedGroupEvent;
-    if (walkTemplate) {
-      const relatedMember: Member = this.display.members.find(member => member.id === walkTemplate.fields.contactDetails.memberId);
-      const originalContactId = walkTemplate.fields.contactDetails.contactId;
-      const contactId = relatedMember?.contactId;
-      const templateDate = this.displayDate.transform(walkTemplate.groupEvent.start_date_time);
-      delete walkTemplate.id;
-      delete walkTemplate.events;
-      delete walkTemplate.groupEvent.start_date_time;
-      walkTemplate.fields.contactDetails = this.eventDefaultsService.contactDetailsFrom(relatedMember);
-      walkTemplate.fields.links = [];
-      walkTemplate.fields.riskAssessment = [];
-      if (contactId) {
-        this.logger.info("copyDetailsFromPreviousWalk:updating contactId from", originalContactId, "to", contactId);
-        walkTemplate.fields.contactDetails.contactId = contactId;
-      } else {
-        this.logger.info("copyDetailsFromPreviousWalk:cannot find contact Id to overwrite copied walk contact Id with:", originalContactId);
-      }
-
-      this.logger.info("copyDetailsFromPreviousWalk:Applying walkTemplate:", walkTemplate, "to:", cloneDeep(this.displayedWalk.walk));
-      this.displayedWalk.walk = {...this.displayedWalk.walk, ...walkTemplate};
-      this.logger.info("copyDetailsFromPreviousWalk:Walk is now:", this.displayedWalk.walk);
-      const event = this.walkEventService.createEventIfRequired(this.displayedWalk.walk,
-        EventType.WALK_DETAILS_COPIED, "Copied from previous walk on " + templateDate);
-      this.setStatus(EventType.AWAITING_WALK_DETAILS);
-      this.walkEventService.writeEventIfRequired(this.displayedWalk.walk, event);
-      this.notify.success({
-        title: "Walk details were copied from previous walk on " + templateDate,
-        message: "Make any further changes here and save when you are done."
-      });
-    } else {
-      this.logger.warn("copyDetailsFromPreviousWalk: no template to copy from");
-    }
-  }
-
-  revertToPriorStatus() {
-    this.logger.debug("revertToPriorWalkStatus:", this.status(), "->", this.priorStatus);
-    if (this.priorStatus) {
-      this.setStatus(this.priorStatus);
-    }
-  }
-
-  unlinkRamblersDataFromCurrentWalk() {
-    this.displayedWalk.walk.groupEvent.id = "";
-    this.notify.progress({title: "Unlink walk", message: "Previous Ramblers walk has now been unlinked."});
-  }
-
-  unlinkOSMapsFromCurrentWalk() {
-    this.linksService.deleteLink(this.displayedWalk.walk, LinkSource.OS_MAPS);
-    this.notify.progress({title: "Unlink walk", message: "Previous OS Maps route has now been unlinked."});
-  }
-
-  canUnlinkRamblers() {
-    return this.memberLoginService.allowWalkAdminEdits() && this.ramblersWalkExists();
-  }
-
-  canUnlinkOSMaps() {
-    return !!this.linksService.linkWithSourceFrom(this.displayedWalk.walk.fields, LinkSource.OS_MAPS);
-  }
-
-  insufficientDataToUploadToRamblers() {
-    return this.memberLoginService.allowWalkAdminEdits() && this.displayedWalk.walk
-      && !(this.display.gridReferenceFrom(this.displayedWalk?.walk?.groupEvent?.start_location) || this.displayedWalk?.walk?.groupEvent?.start_location?.postcode);
-  }
-
   validateWalk(): WalkExport {
     return this.ramblersWalksAndEventsService.toWalkExport({localWalk: this.displayedWalk.walk, ramblersWalk: null});
   }
 
-  swapStartAndEndLocations() {
-    const startLocation = this.displayedWalk.walk.groupEvent.start_location;
-    this.displayedWalk.walk.groupEvent.start_location = this.displayedWalk.walk.groupEvent.end_location;
-    this.displayedWalk.walk.groupEvent.end_location = startLocation;
-  }
-
-  walkValidations() {
-    const walkValidations = this.validateWalk().validationMessages;
-    return "This walk cannot be included in the Ramblers Walks and Events Manager export due to the following "
-      + walkValidations.length + " reasons(s): " + walkValidations.join(", ") + ".";
-  }
-
-  ramblersWalkExists() {
-    return this.validateWalk().publishedOnRamblers;
-  }
 
   loggedIn() {
     return this.memberLoginService.memberLoggedIn();
@@ -1275,13 +575,6 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.saveInProgress = true;
     const sendNotificationsGivenWalkLeader: boolean = this.sendNotifications && !!this.displayedWalk.walk.fields.contactDetails.memberId;
     return this.walkNotificationService.createEventAndSendNotifications(this.notify, this.display.members, this.notificationDirective, this.displayedWalk, sendNotificationsGivenWalkLeader);
-  }
-
-  setStatus(status: EventType) {
-    this.logger.info("setting status =>", status);
-    this.displayedWalk.status = status;
-    this.priorStatus = cloneDeep(this.displayedWalk.status);
-    this.logger.info("setting status =>", status, "this.priorStatus", this.priorStatus);
   }
 
   async confirmDeleteWalkDetails() {
@@ -1388,42 +681,6 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.notify.warning(this.confirmChangesMessage());
   }
 
-  walkStatusChange() {
-    this.notify.hide();
-    this.logger.info("walkStatusChange - previous status:", this.displayedWalk.status);
-    const eventType: WalkEventType = this.walksReferenceService.toWalkEventType(this.displayedWalk.status);
-    if (this.isWalkReadyForStatusChangeTo(eventType)) {
-      this.setStatus(eventType.eventType);
-      switch (eventType.eventType) {
-        case EventType.AWAITING_LEADER: {
-          const walkDate = this.displayedWalk.walk.groupEvent.start_date_time;
-          this.displayedWalk.walk = this.eventDefaultsService.createDefault({
-            item_type: this.displayedWalk.walk.groupEvent.item_type,
-            id: this.displayedWalk.walk.id,
-            start_date_time: walkDate,
-            events: this.displayedWalk.walk.events,
-          });
-          return this.notify.success({
-            title: "Walk details reset for " + this.displayDate.transform(walkDate),
-            message: "Status is now " + this.walksReferenceService.toWalkEventType(EventType.AWAITING_LEADER).description
-          });
-        }
-        case EventType.APPROVED: {
-          return this.approveWalkDetails();
-        }
-      }
-    } else {
-      setTimeout(() => {
-        this.revertToPriorStatus();
-      });
-    }
-
-  }
-
-  walkStatuses(): WalkEventType[] {
-    return this.walksReferenceService.walkStatuses();
-  }
-
   approveWalkDetails() {
     const validationMessages = this.validateWalk().validationMessages;
     if (validationMessages.length > 0) {
@@ -1450,68 +707,12 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.notify.hide();
   }
 
-  editLongerDescription() {
-    this.logger.debug("editLongerDescription");
-    this.longerDescriptionPreview = false;
-  }
-
-  previewLongerDescription() {
-    this.logger.debug("previewLongerDescription");
-    this.longerDescriptionPreview = true;
-  }
-
-  copySelectedWalkLeader() {
-    this.copySource = "copy-selected-walk-leader";
-    this.populateWalkTemplates();
-  }
-
-  myOrWalkLeader() {
-    return this.display.loggedInMemberIsLeadingWalk(this.displayedWalk.walk) ? "my" :
-      this.displayedWalk.walk && this.displayedWalk.walk.fields.contactDetails.phone + "'s";
-  }
-
   personToNotify() {
     const loggedInMemberIsLeadingWalk = this.display.loggedInMemberIsLeadingWalk(this.displayedWalk.walk);
     this.logger.off("personToNotify:loggedInMemberIsLeadingWalk:", loggedInMemberIsLeadingWalk, "walkLeaderMemberId:", this.displayedWalk.walk.fields.contactDetails.memberId, "walk.fields.contactDetails.phone:", this.displayedWalk?.walk?.fields?.contactDetails?.displayName);
     return loggedInMemberIsLeadingWalk ?
       this.display.walksCoordinatorName() :
       this.displayedWalk?.walk?.fields?.contactDetails?.displayName;
-  }
-
-  populateWalkTemplates(injectedMemberId?: string) {
-    const memberId = this.displayedWalk.walk.fields.contactDetails.memberId || injectedMemberId;
-    let criteria: any;
-    switch (this.copySource) {
-      case "copy-selected-walk-leader": {
-        criteria = {
-          ["fields.contactDetails.memberId"]: this.copySourceFromWalkLeaderMemberId,
-          ["groupEvent.title"]: {$exists: true}
-        };
-        break;
-      }
-      case "copy-with-os-maps-route-selected": {
-        criteria = {osMapsRoute: {$exists: true}};
-        break;
-      }
-      default: {
-        criteria = {walkLeaderMemberId: memberId};
-      }
-    }
-    this.logger.info("selecting walks", this.copySource, criteria);
-    this.walksAndEventsService.all({criteria, sort: {walkDate: -1}})
-      .then(walks => this.walksQueryService.activeWalks(walks))
-      .then(walks => {
-        this.logger.info("received walks", walks);
-        this.copyFrom.walkTemplates = walks;
-      });
-  }
-
-  onDateChange(date: DateValue) {
-    if (date) {
-      const startDateTime = this.dateUtils.isoDateTimeString(date.value);
-      this.logger.info("onDateChange:date", date, "of type", typeof date, "setting start_date_time:", startDateTime);
-      this.displayedWalk.walk.groupEvent.start_date_time = startDateTime;
-    }
   }
 
   isExpandable(): boolean {
@@ -1533,32 +734,6 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     }
   }
 
-  memberLookup(): DisplayMember[] {
-    this.logger.off("memberLookup:showOnlyWalkLeaders:", this.showOnlyWalkLeaders);
-    return this.showOnlyWalkLeaders ? this.previousWalkLeadersWithAliasOrMe() : this.membersWithAliasOrMe();
-  }
-
-  onStartDateTimeChange(startDateTime: string): void {
-    this.logger.info("onStartDateTimeChange:startDateTime", this.displayedWalk.walk.groupEvent.start_date_time, "setting to startDateTime:", startDateTime);
-    this.displayedWalk.walk.groupEvent.start_date_time = startDateTime;
-    this.calculateAndSetFinishTime();
-  }
-
-  onEndDateTimeChange(endDateTime: string): void {
-    this.logger.info("onEndDateTimeChange:endDateTime", this.displayedWalk.walk.groupEvent.end_date_time, "setting to endDateTime:", endDateTime);
-    this.displayedWalk.walk.groupEvent.end_date_time = endDateTime;
-  }
-
-  calculateAndSetFinishTime() {
-    if (this.displayedWalk.walk.fields.milesPerHour) {
-      const endDateTime: string = this.ramblersWalksAndEventsService.walkFinishTime(this.displayedWalk.walk, this.displayedWalk.walk.fields.milesPerHour);
-      this.logger.info("calculateAndSetFinishTime:endDateTime", endDateTime, "from:", this.displayedWalk.walk.groupEvent.end_date_time);
-      this.displayedWalk.walk.groupEvent.end_date_time = endDateTime;
-    } else {
-      this.logger.info("calculateAndSetFinishTime:walk.fields.milesPerHour not set, not calculating finish time");
-    }
-  }
-
   calculateAndSetFinishTimeIfNotPopulated() {
     if (this.displayedWalk.walk.fields.milesPerHour && !this.displayedWalk.walk.groupEvent?.end_date_time) {
       const endDateTime = this.ramblersWalksAndEventsService.walkFinishTime(this.displayedWalk.walk, this.displayedWalk.walk.fields.milesPerHour);
@@ -1574,19 +749,63 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.renderMapEdit = true;
   }
 
-  walkTypeChange() {
-    if ((this.displayedWalk.walk.groupEvent.shape === WalkType.LINEAR && !this.displayedWalk?.walk?.groupEvent?.end_location) || (this.displayedWalk.walk.groupEvent.shape === WalkType.LINEAR && this.displayedWalk?.walk?.groupEvent?.end_location?.postcode)) {
-      this.displayedWalk.walk.groupEvent.end_location = cloneDeep(INITIALISED_LOCATION);
-      this.logger.info("Created start location for linear walk type");
+  setStatus(status: EventType) {
+    if (this.displayedWalk.status === status) {
+      this.logger.info("Status is already =>", status);
+    } else {
+      this.displayedWalk.status = status;
+      this.priorStatus = cloneDeep(this.displayedWalk.status);
+      this.logger.info("Setting status =>", status, "this.priorStatus", this.priorStatus);
+      // this.onWalkStatusChange();
     }
   }
 
-  difficultyChange() {
-    this.logger.info("difficultyChange:", this.displayedWalk?.walk?.groupEvent?.difficulty);
+  onWalkStatusChange(eventTypeChange: EventType) {
+    this.notify.hide();
+    this.logger.info("walkStatusChange - previous status:", this.displayedWalk.status, "eventTypeChange:", eventTypeChange);
+    const eventType: WalkEventType = this.walksReferenceService.toWalkEventType(this.displayedWalk.status);
+    if (this.isWalkReadyForStatusChangeTo(eventType)) {
+      this.setStatus(eventType.eventType);
+      switch (eventType.eventType) {
+        case EventType.AWAITING_LEADER: {
+          const walkDate = this.displayedWalk.walk.groupEvent.start_date_time;
+          this.displayedWalk.walk = this.eventDefaultsService.createDefault({
+            item_type: this.displayedWalk.walk.groupEvent.item_type,
+            id: this.displayedWalk.walk.id,
+            start_date_time: walkDate,
+            events: this.displayedWalk.walk.events,
+          });
+          return this.notify.success({
+            title: "Walk details reset for " + this.displayDate.transform(walkDate),
+            message: "Status is now " + this.walksReferenceService.toWalkEventType(EventType.AWAITING_LEADER).description
+          });
+        }
+        case EventType.APPROVED: {
+          return this.approveWalkDetails();
+        }
+      }
+    } else {
+      setTimeout(() => {
+        this.revertToPriorStatus();
+      });
+    }
   }
 
-  difficultyComparer(item1: Difficulty, item2: Difficulty): boolean {
-    return item1?.code === item2?.code;
+  revertToPriorStatus() {
+    this.logger.debug("revertToPriorWalkStatus:", this.status(), "->", this.priorStatus);
+    if (this.priorStatus) {
+      this.setStatus(this.priorStatus);
+    }
+  }
+
+  notificationRequired() {
+    const audit: WalkDataAudit = this.walkEventService.walkDataAuditFor(this.displayedWalk.walk, this.status(), true);
+    if (!isEqual(this.walkDataAudit, audit)) {
+      const notificationRequired = audit.notificationRequired;
+      this.logger.info("dataHasChanged:", notificationRequired, "walkDataAudit:", audit);
+      this.walkDataAudit = audit;
+    }
+    return audit.notificationRequired;
   }
 
 }

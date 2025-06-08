@@ -2,7 +2,7 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { EventType } from "../../models/walk.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { WalksAndEventsLocalService } from "./walks-and-events-local.service";
+import { LocalWalksAndEventsService } from "./local-walks-and-events.service";
 import { RamblersWalksAndEventsService } from "./ramblers-walks-and-events.service";
 import { Organisation, SystemConfig } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
@@ -36,7 +36,7 @@ export class WalksImportService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalksImportService", NgxLoggerLevel.INFO);
   private systemConfigService = inject(SystemConfigService);
-  private walksAndEventsLocalService = inject(WalksAndEventsLocalService);
+  private localWalksAndEventsService = inject(LocalWalksAndEventsService);
   private dateUtils = inject(DateUtilsService);
   private numberUtils = inject(NumberUtilsService);
   private walkEventService = inject(GroupEventService);
@@ -77,7 +77,7 @@ export class WalksImportService {
     this.logger.info("firstWalk:", firstWalk, "on", this.dateUtils.displayDate(firstWalk.groupEvent.start_date_time), "lastWalk:", lastWalk, "on", this.dateUtils.displayDate(lastWalk.groupEvent.start_date_time), "walksWithContactId:", walksWithContactId, "walksWithContactNameSearchString:", `${searchString}:`, walksWithContactNameSearchString);
     messages.push(`First walk is on ${this.dateUtils.displayDate(firstWalk.groupEvent.start_date_time)}`);
     messages.push(`Last walk is on ${this.dateUtils.displayDate(lastWalk.groupEvent.start_date_time)}`);
-    const existingWalks: ExtendedGroupEvent[] = await this.walksAndEventsLocalService.all();
+    const existingWalks: ExtendedGroupEvent[] = await this.localWalksAndEventsService.all();
     const existingWalksWithinRange: ExtendedGroupEvent[] = existingWalks.filter(walk => walk.groupEvent.start_date_time >= firstWalk.groupEvent.start_date_time && walk.groupEvent.start_date_time <= lastWalk.groupEvent.start_date_time);
     messages.push(`${this.stringUtils.pluraliseWithCount(existingWalksWithinRange.length, "existing walk")} within date range`);
     this.logger.info("existingWalks:", existingWalks, "walks to import within range",);
@@ -154,7 +154,7 @@ export class WalksImportService {
     const errorMessages: string[]=[];
     let createdWalks = 0;
     let createdMembers = 0;
-    const deletions = await Promise.all(walksImportPreparation.existingWalksWithinRange.map(walk => this.walksAndEventsLocalService.delete(walk)));
+    const deletions = await Promise.all(walksImportPreparation.existingWalksWithinRange.map(walk => this.localWalksAndEventsService.delete(walk)));
     messages.push(`${deletions.length} existing walks deleted`);
     const imports = await Promise.all(walksImportPreparation.bulkLoadMembersAndMatchesToWalks.map(async bulkLoadMemberAndMatchToWalks => {
       const member = bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.member;
@@ -208,6 +208,6 @@ export class WalksImportService {
     }
     const event = this.walkEventService.createEventIfRequired(unsavedWalk, EventType.APPROVED, "Imported from Walks Manager");
     this.walkEventService.writeEventIfRequired(unsavedWalk, event);
-    return this.walksAndEventsLocalService.createOrUpdate(unsavedWalk);
+    return this.localWalksAndEventsService.createOrUpdate(unsavedWalk);
   }
 }

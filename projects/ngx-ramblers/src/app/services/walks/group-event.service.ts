@@ -1,15 +1,12 @@
 import { inject, Injectable } from "@angular/core";
-import clone from "lodash-es/clone";
 import compact from "lodash-es/compact";
 import get from "lodash-es/get";
 import isArray from "lodash-es/isArray";
-import last from "lodash-es/last";
 import pick from "lodash-es/pick";
-import takeRight from "lodash-es/takeRight";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ChangedItem } from "../../models/changed-item.model";
 import { WalkDataAudit } from "../../models/walk-data-audit.model";
-import { WalkEvent } from "../../models/walk-event.model";
+import { AUDITED_FIELDS, WalkEvent } from "../../models/walk-event.model";
 import { CurrentPreviousData } from "../../models/walk-notification.model";
 import { EventType } from "../../models/walk.model";
 import { AuditDeltaChangedItemsPipePipe } from "../../pipes/audit-delta-changed-items.pipe";
@@ -19,54 +16,9 @@ import { MemberLoginService } from "../member/member-login.service";
 import { StringUtilsService } from "../string-utils.service";
 import { WalksReferenceService } from "./walks-reference-data.service";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
-
-const auditedFields: string[] = [
-  "fields.attachment",
-  "fields.attendees",
-  "fields.contactDetails",
-  "fields.imageConfig",
-  "fields.links",
-  "fields.meetup",
-  "fields.meetup",
-  "fields.milesPerHour",
-  "fields.publishing",
-  "fields.riskAssessment",
-  "fields.venue",
-  "groupEvent.accessibility",
-  "groupEvent.additional_details",
-  "groupEvent.area_code",
-  "groupEvent.ascent_feet",
-  "groupEvent.ascent_metres",
-  "groupEvent.cancellation_reason",
-  "groupEvent.date_created",
-  "groupEvent.date_updated",
-  "groupEvent.description",
-  "groupEvent.difficulty",
-  "groupEvent.distance_km",
-  "groupEvent.distance_miles",
-  "groupEvent.duration",
-  "groupEvent.end_date_time",
-  "groupEvent.end_location",
-  "groupEvent.event_organiser",
-  "groupEvent.external_url",
-  "groupEvent.facilities",
-  "groupEvent.group_code",
-  "groupEvent.group_name",
-  "groupEvent.item_type",
-  "groupEvent.linked_event",
-  "groupEvent.location",
-  "groupEvent.media",
-  "groupEvent.meeting_date_time",
-  "groupEvent.meeting_location",
-  "groupEvent.shape",
-  "groupEvent.start_date_time",
-  "groupEvent.start_location",
-  "groupEvent.status",
-  "groupEvent.title",
-  "groupEvent.transport",
-  "groupEvent.url",
-  "groupEvent.walk_leader",
-];
+import { sortBy } from "../../functions/arrays";
+import cloneDeep from "lodash-es/cloneDeep";
+import take from "lodash-es/take";
 
 @Injectable({
   providedIn: "root"
@@ -80,20 +32,28 @@ export class GroupEventService {
   private stringUtils = inject(StringUtilsService);
   private auditDeltaChangedItems = inject(AuditDeltaChangedItemsPipePipe);
 
-  public latestEventWithStatusChange(walk: ExtendedGroupEvent): WalkEvent {
-    const eventType = this.eventsLatestFirst(walk).find((event) => {
+  public latestEventWithStatusChange(extendedGroupEvent: ExtendedGroupEvent): WalkEvent {
+    const eventType = this.eventsLatestFirst(extendedGroupEvent).find((event) => {
       const walkEventType = this.walksReferenceService.toWalkEventType(event.eventType);
       return walkEventType && walkEventType.statusChange;
     });
-    this.logger.debug("latestEventWithStatusChange:walk", walk.id, "eventType =>", eventType);
+    this.logger.debug("latestEventWithStatusChange:extendedGroupEvent", extendedGroupEvent.id, "eventType =>", eventType);
     return eventType;
   }
 
-  public walkDataAuditFor(walk: ExtendedGroupEvent, status: EventType, basedOnUnsavedData: boolean): WalkDataAudit {
-    if (walk) {
-      const {currentData, previousData} = this.currentPreviousData(walk, basedOnUnsavedData);
+  public walkDataAuditFor(extendedGroupEvent: ExtendedGroupEvent, status: EventType, basedOnUnsavedData: boolean): WalkDataAudit {
+    if (extendedGroupEvent) {
+      if (!isArray(extendedGroupEvent.events)) {
+        this.logger.error("events array is not initialised", extendedGroupEvent);
+        extendedGroupEvent.events = [];
+      }
+      const eventsLatestFirst: WalkEvent[] = this.eventsLatestFirst(extendedGroupEvent);
+      const {
+        currentData,
+        previousData
+      } = this.currentPreviousData(eventsLatestFirst, extendedGroupEvent, basedOnUnsavedData);
       const changedItems = this.calculateChangedItems(currentData, previousData);
-      const eventExists = this.latestEventWithStatusChangeIs(walk, status);
+      const eventExists = this.latestEventWithStatusChangeIs(extendedGroupEvent, status);
       const dataChanged = changedItems.length > 0;
       return {
         currentData,
@@ -101,22 +61,22 @@ export class GroupEventService {
         changedItems,
         eventExists,
         dataChanged,
-        notificationRequired: dataChanged || !eventExists || this.latestEvent(walk)?.eventType === EventType.WALK_DETAILS_COPIED,
+        notificationRequired: dataChanged || !eventExists || this.latestEvent(extendedGroupEvent)?.eventType === EventType.WALK_DETAILS_COPIED,
         eventType: dataChanged && eventExists ? this.walksReferenceService.walkEventTypeMappings.walkDetailsUpdated.eventType : status
       };
     }
   }
 
-  public latestEventWithStatusChangeIs(walk: ExtendedGroupEvent, eventType: EventType) {
-    if (!walk) {
+  public latestEventWithStatusChangeIs(extendedGroupEvent: ExtendedGroupEvent, eventType: EventType) {
+    if (!extendedGroupEvent) {
       return false;
     }
-    const walkEvent = this.latestEventWithStatusChange(walk);
+    const walkEvent = this.latestEventWithStatusChange(extendedGroupEvent);
     return walkEvent ? walkEvent.eventType === this.walksReferenceService.toEventType(eventType) : false;
   }
 
-  public createEventIfRequired(walk: ExtendedGroupEvent, status: EventType, reason: string): WalkEvent {
-    const walkDataAudit = this.walkDataAuditFor(walk, status, true);
+  public createEventIfRequired(extendedGroupEvent: ExtendedGroupEvent, status: EventType, reason: string): WalkEvent {
+    const walkDataAudit = this.walkDataAuditFor(extendedGroupEvent, status, true);
     this.logger.debug("createEventIfRequired given status:", status, "walkDataAudit:", walkDataAudit);
     if (walkDataAudit.notificationRequired) {
       const event = {
@@ -138,43 +98,50 @@ export class GroupEventService {
     }
   }
 
-  public writeEventIfRequired(walk: ExtendedGroupEvent, event: WalkEvent): void {
+  public writeEventIfRequired(extendedGroupEvent: ExtendedGroupEvent, event: WalkEvent): void {
     if (event) {
-      if (!isArray(walk.events)) {
-        walk.events = [];
+      if (!isArray(extendedGroupEvent.events)) {
+        extendedGroupEvent.events = [];
       }
-      if (walk.events.includes(event)) {
-        this.logger.warn("walk already contains event", event);
+      if (extendedGroupEvent.events.includes(event)) {
+        this.logger.warn("extendedGroupEvent already contains event", event);
       } else {
         this.logger.debug("writing event", event);
-        walk.events.push(event);
+        extendedGroupEvent.events.push(event);
       }
     } else {
       this.logger.debug("no event to write");
     }
   }
 
-  public latestEvent(walk: ExtendedGroupEvent): WalkEvent {
-    return last(walk?.events);
+  public latestEvent(extendedGroupEvent: ExtendedGroupEvent): WalkEvent {
+    return this.eventsLatestFirst(extendedGroupEvent)?.[0];
   }
 
-  private currentPreviousData(walk: ExtendedGroupEvent, basedOnUnsavedData: boolean): CurrentPreviousData {
+  private currentPreviousData(eventsLatestFirst: WalkEvent[], extendedGroupEvent: ExtendedGroupEvent, basedOnUnsavedData: boolean): CurrentPreviousData {
     if (basedOnUnsavedData) {
-      return {currentData: pick(walk, auditedFields), previousData: this.latestEvent(walk)?.data};
+      const currentData = pick(extendedGroupEvent, AUDITED_FIELDS);
+      const latestEvent = eventsLatestFirst?.[0];
+      const previousData = latestEvent?.data;
+      this.logger.info("currentPreviousData: basedOnUnsavedData:", basedOnUnsavedData, "currentData:", currentData, "previousData:", previousData, "latestEvent:", latestEvent);
+      return {currentData, previousData};
     } else {
-      const latest2Events: WalkEvent[] = takeRight(walk.events, 2);
-      const currentData = latest2Events.length === 2 ? latest2Events[1]?.data : latest2Events[0]?.data;
-      const previousData = latest2Events.length === 2 ? latest2Events[0]?.data : null;
+      const latest2Events: WalkEvent[] = take(eventsLatestFirst, 2);
+      const currentData = latest2Events.length === 2 ? latest2Events[0]?.data || null : latest2Events[1]?.data || null;
+      const previousData = latest2Events.length === 2 ? latest2Events[1]?.data : null;
+      this.logger.info("currentPreviousData: basedOnUnsavedData:", basedOnUnsavedData, "currentData:", currentData, "previousData:", previousData);
       return {currentData, previousData};
     }
   }
 
-  private eventsLatestFirst(walk: ExtendedGroupEvent) {
-    return walk.events && clone(walk.events).reverse() || [];
+  private eventsLatestFirst(extendedGroupEvent: ExtendedGroupEvent): WalkEvent[] {
+    const events = cloneDeep(extendedGroupEvent.events).sort(sortBy("-date")) || [];
+    this.logger.off("eventsLatestFirst:", events);
+    return events;
   }
 
   private calculateChangedItems(currentData: object, previousData: object): ChangedItem[] {
-    return compact(auditedFields.map((key) => {
+    return compact(AUDITED_FIELDS.map((key) => {
       const currentValue = get(currentData, key.split("."));
       const previousValue = get(previousData, key.split("."));
       if (this.stringUtils.stringifyObject(previousValue) !== this.stringUtils.stringifyObject(currentValue)) {

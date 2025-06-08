@@ -2,7 +2,12 @@ import { inject, Injectable } from "@angular/core";
 import cloneDeep from "lodash-es/cloneDeep";
 import first from "lodash-es/first";
 import { NgxLoggerLevel } from "ngx-logger";
-import { EventType, WalkDateAscending, WalkDateDescending } from "../../models/walk.model";
+import {
+  EventType,
+  EventStartDateAscending,
+  EventStartDateDescending,
+  GROUP_EVENT_START_DATE
+} from "../../models/walk.model";
 import { sortBy } from "../../functions/arrays";
 import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -16,35 +21,36 @@ import { ExtendedGroupEvent } from "../../models/group-event.model";
   providedIn: "root"
 })
 
-export class WalksQueryService {
+export class ExtendedGroupEventQueryService {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("WalksQueryService", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("ExtendedGroupEventQueryService", NgxLoggerLevel.ERROR);
   private walkEventsService = inject(GroupEventService);
   private dateUtils = inject(DateUtilsService);
   protected stringUtils = inject(StringUtilsService);
-  private todayValue = this.dateUtils.asMoment().toISOString();
+  private todayValue = this.dateUtils.asMoment().toDate();
 
-  dataQueryOptions(filterParameters: HasBasicEventSelection): DataQueryOptions {
-    const criteria = this.walksCriteriaObject(filterParameters);
+  dataQueryOptions(filterParameters: HasBasicEventSelection, dateComparison?: string): DataQueryOptions {
+    const criteria = this.walksCriteriaObject(filterParameters, dateComparison);
     const sort = this.walksSortObject(filterParameters);
     this.logger.debug("walksCriteriaObject:this.filterParameters.criteria", criteria, "sort:", sort);
     return {criteria, sort};
   }
 
-  walksCriteriaObject(filterParameters: HasBasicEventSelection) {
+  walksCriteriaObject(filterParameters: HasBasicEventSelection, dateComparison?: string) {
+    const date = this.dateUtils.asMoment(dateComparison).toDate() || this.todayValue;
     switch (filterParameters.selectType) {
       case 1:
-        return { "groupEvent.start_date_time": { $gte: this.todayValue } };
+        return {[GROUP_EVENT_START_DATE]: {$gte: date}};
       case 2:
-        return { "groupEvent.start_date_time": { $lt: this.todayValue } };
+        return {[GROUP_EVENT_START_DATE]: {$lt: date}};
       case 3:
         return {};
       case 4:
-        return { "fields.contactDetails.phone": { $exists: false } };
+        return {"fields.contactDetails.phone": {$exists: false}};
       case 5:
-        return { "groupEvent.title": { $exists: false } };
+        return {"groupEvent.title": {$exists: false}};
       case 6:
-        return { "events.eventType": { $eq: EventType.DELETED.toString() } };
+        return {"events.eventType": {$eq: EventType.DELETED.toString()}};
     }
   }
 
@@ -52,9 +58,9 @@ export class WalksQueryService {
     this.logger.info("walksSortObject:", filterParameters);
     switch (this.stringUtils.asBoolean(filterParameters.ascending)) {
       case true:
-        return WalkDateAscending;
+        return EventStartDateAscending;
       case false:
-        return WalkDateDescending;
+        return EventStartDateDescending;
     }
   }
 

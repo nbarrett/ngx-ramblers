@@ -16,13 +16,14 @@ import { StringUtilsService } from "../string-utils.service";
 import { UrlService } from "../url.service";
 import { RamblersWalksAndEventsService } from "../walks/ramblers-walks-and-events.service";
 import { DateCriteria } from "../../models/api-request.model";
-import { WalksQueryService } from "../walks/walks-query.service";
-import { WalksAndEventsLocalService } from "../walks/walks-and-events-local.service";
+import { ExtendedGroupEventQueryService } from "../walks/extended-group-event-query.service";
+import { LocalWalksAndEventsService } from "../walks/local-walks-and-events.service";
 import { WalksConfigService } from "../system/walks-config.service";
 import { WalksConfig } from "../../models/walk-notification.model";
 import groupBy from "lodash-es/groupBy";
 import { sortBy } from "../../functions/arrays";
 import last from "lodash-es/last";
+import { NumberUtilsService } from "../number-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -36,10 +37,11 @@ export class EventsMigrationService {
   private legacyDistanceValidationService: LegacyDistanceValidationService = inject(LegacyDistanceValidationService);
   private legacyAscentValidationService: LegacyAscentValidationService = inject(LegacyAscentValidationService);
   private walkDisplayService: WalkDisplayService = inject(WalkDisplayService);
-  private walksQueryService: WalksQueryService = inject(WalksQueryService);
+  private extendedGroupEventQueryService: ExtendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private walksConfigService = inject(WalksConfigService);
   private ramblersWalksAndEventsService: RamblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
-  private walksAndEventsLocalService: WalksAndEventsLocalService = inject(WalksAndEventsLocalService);
+  private localWalksAndEventsService: LocalWalksAndEventsService = inject(LocalWalksAndEventsService);
+  private numberUtils = inject(NumberUtilsService);
   private urlService: UrlService = inject(UrlService);
   private walksConfig: WalksConfig;
 
@@ -215,9 +217,27 @@ export class EventsMigrationService {
     }
   }
 
+  parseTime(startTime: string): Time {
+    const parsedTime = (startTime || "10:00 am")?.replace(".", ":");
+    const timeValues = parsedTime?.split(":");
+    if (timeValues) {
+      let hours = this.numberUtils.asNumber(timeValues[0]);
+      const minutes = this.numberUtils.asNumber(timeValues[1]);
+      if (parsedTime.toLowerCase().includes("pm") && hours < 12) {
+        hours += 12;
+      }
+      const returnValue = {hours, minutes};
+      this.logger.off("parseTime:startTime", startTime, "parsedTime:", parsedTime, "timeValues:", timeValues, "returnValue:", returnValue);
+      return returnValue;
+    } else {
+      this.logger.off("parseTime:startTime", startTime, "parsedTime:", parsedTime, "timeValues:", timeValues, "returnValue:", null);
+      return null;
+    }
+  }
+
   startTime(walk: Walk): number {
     if (walk) {
-      const startTime: Time = this.dateUtils.parseTime(walk?.startTime);
+      const startTime: Time = this.parseTime(walk?.startTime);
       const walkDateMoment: moment = this.dateUtils.asMoment(walk?.walkDate);
       const walkDateAndTimeValue = this.dateUtils.calculateWalkDateAndTimeValue(walkDateMoment, startTime);
       this.logger.debug("text based startTime:", walk?.startTime,
@@ -235,7 +255,7 @@ export class EventsMigrationService {
   async migrateEvents(saveData: boolean): Promise<ExtendedGroupEvent[]> {
     this.logger.info("Starting Migration of events");
     const ramblersWalks: ExtendedGroupEvent[] = await this.ramblersWalksAndEventsService.all({
-      dataQueryOptions: this.walksQueryService.dataQueryOptions({
+      dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions({
         ascending: false,
         selectType: DateCriteria.ALL_DATES
       })
@@ -249,11 +269,11 @@ export class EventsMigrationService {
     this.logger.info("Migrated events :", migratedWalks.length);
     const extendedGroupEvents: ExtendedGroupEvent[] = migratedWalks.map(item => item.migrated);
     if (saveData) {
-      const existing = await this.walksAndEventsLocalService.all();
+      const existing = await this.localWalksAndEventsService.all();
       this.logger.info("Deleting existing", existing.length, "events");
-      const deleted = await this.walksAndEventsLocalService.deleteAll(existing);
+      const deleted = await this.localWalksAndEventsService.deleteAll(existing);
       this.logger.info("Deleted", deleted.length, "events");
-      const created = await this.walksAndEventsLocalService.createOrUpdateAll(extendedGroupEvents);
+      const created = await this.localWalksAndEventsService.createOrUpdateAll(extendedGroupEvents);
       this.logger.info("Saved events :", created);
     } else {
       this.logger.info("Not saving extendedGroupEvents:", extendedGroupEvents);

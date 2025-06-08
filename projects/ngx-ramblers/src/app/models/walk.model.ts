@@ -199,23 +199,24 @@ export enum WalkViewMode {
   LIST = "list"
 }
 
-export const WalkDateAscending = {"groupEvent.start_date_time": 1};
-export const WalkDateDescending = {"groupEvent.start_date_time": -1};
+export const GROUP_EVENT_START_DATE = "groupEvent.start_date_time";
+export const EventStartDateAscending = {[GROUP_EVENT_START_DATE]: 1};
 
+export const EventStartDateDescending = {[GROUP_EVENT_START_DATE]: -1};
 export interface MongoIdsSupplied {
   _id: { $in: mongoose.Types.ObjectId[] };
 }
 
-export interface WalkDateGreaterThanOrEqualTo {
-  "groupEvent.start_date_time": { $gte: string };
+export interface EventStartDateGreaterThanOrEqualTo {
+  [GROUP_EVENT_START_DATE]: { $gte: string };
 }
 
-export interface WalkDateLessThan {
-  "groupEvent.start_date_time": { $lt: string };
+export interface EventStartDateLessThan {
+  [GROUP_EVENT_START_DATE]: { $lt: string };
 }
 
-export interface WalkDateLessThanOrEqualTo {
-  "groupEvent.start_date_time": { $lte: string };
+export interface EventStartDateLessThanOrEqualTo {
+  [GROUP_EVENT_START_DATE]: { $lte: string };
 }
 
 export interface DisplayedWalk {

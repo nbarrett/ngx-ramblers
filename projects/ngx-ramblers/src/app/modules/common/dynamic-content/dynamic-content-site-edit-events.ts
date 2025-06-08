@@ -53,7 +53,7 @@ import { DynamicContentMaxColumnsEditorComponent } from "./dynamic-content-max-c
             <app-date-picker startOfDay
                              id="from-date-{{id}}"
                              [size]="'md round'"
-                             (dateChange)="row.events.fromDate=$event.value;queryGroupEvents()"
+                             (change)="row.events.fromDate=$event.value;queryGroupEvents()"
                              [value]="row.events.fromDate">
             </app-date-picker>
           </div>
@@ -64,7 +64,7 @@ import { DynamicContentMaxColumnsEditorComponent } from "./dynamic-content-max-c
             <app-date-picker startOfDay
                              id="to-date-{{id}}"
                              [size]="'md round'"
-                             (dateChange)="row.events.toDate=$event.value;queryGroupEvents()"
+                             (change)="row.events.toDate=$event.value;queryGroupEvents()"
                              [value]="row.events.toDate">
             </app-date-picker>
           </div>

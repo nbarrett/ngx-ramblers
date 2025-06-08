@@ -37,7 +37,7 @@ import { RootFolder, SystemConfig } from "../../../models/system.model";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { EventDefaultsService } from "../../../services/event-defaults.service";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
-import { EditGropuEventImagesComponent } from "../../walks/walk-edit/edit-group-event-images";
+import { EditGropuEventImagesComponent } from "../../walks/walk-edit/walk-edit-group-event-images";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 
 @Component({
@@ -67,7 +67,7 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
                         <div class="form-group">
                           <app-date-picker startOfDay [label]="'Social Event Date'"
                                            [size]="'md'"
-                                           (dateChange)="eventDateChanged($event)"
+                                           (change)="eventDateChanged($event)"
                                            [value]="eventDate">
                           </app-date-picker>
                         </div>

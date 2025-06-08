@@ -236,7 +236,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                           <label for="from-date">Include Events From:</label>
                           <app-date-picker startOfDay id="from-date"
                                            [size]="'md round'"
-                                           (dateChange)="onFromDateChange($event)"
+                                           (change)="onFromDateChange($event)"
                                            [value]="notification.groupEventsFilter.fromDate">
                           </app-date-picker>
                         </div>
@@ -244,7 +244,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                           <label for="to-date">Include Events To:</label>
                           <app-date-picker startOfDay id="to-date"
                                            [size]="'md round'"
-                                           (dateChange)="onToDateChange($event)"
+                                           (change)="onToDateChange($event)"
                                            [value]="notification.groupEventsFilter.toDate">
                           </app-date-picker>
                         </div>

@@ -20,7 +20,7 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { UrlService } from "../../../services/url.service";
 import { RamblersUploadAuditService } from "../../../services/walks/ramblers-upload-audit.service";
 import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
-import { WalksQueryService } from "../../../services/walks/walks-query.service";
+import { ExtendedGroupEventQueryService } from "../../../services/walks/extended-group-event-query.service";
 import { WalksAndEventsService } from "../../../services/walks/walks-and-events.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { CsvExportComponent, CsvOptions } from "../../../csv-export/csv-export";
@@ -300,7 +300,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   private notifierService: NotifierService = inject(NotifierService);
   private displayDate: DisplayDatePipe = inject(DisplayDatePipe);
   private systemConfigService: SystemConfigService = inject(SystemConfigService);
-  private walksQueryService: WalksQueryService = inject(WalksQueryService);
+  private extendedGroupEventQueryService: ExtendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   public display: WalkDisplayService = inject(WalkDisplayService);
   private dateUtils: DateUtilsService = inject(DateUtilsService);
   protected stringUtils: StringUtilsService = inject(StringUtilsService);
@@ -495,7 +495,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
       criteria: {walkDate: {$gte: this.dateUtils.momentNowNoTime().valueOf()}},
       sort: {walkDate: -1}
     })
-      .then((walks: ExtendedGroupEvent[]) => this.walksQueryService.activeWalks(walks))
+      .then((walks: ExtendedGroupEvent[]) => this.extendedGroupEventQueryService.activeWalks(walks))
       .then((walks: ExtendedGroupEvent[]) => {
         return this.ramblersWalksAndEventsService.createWalksForExportPrompt(walks)
           .then((walksForExport: WalkExport[]) => this.populateWalkExport(walksForExport))

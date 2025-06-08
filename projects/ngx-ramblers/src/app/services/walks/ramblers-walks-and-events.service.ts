@@ -35,15 +35,15 @@ import {
   LocalContact,
   MongoIdsSupplied,
   WalkAscent,
-  WalkDateAscending,
-  WalkDateDescending,
-  WalkDateGreaterThanOrEqualTo,
-  WalkDateLessThan,
-  WalkDateLessThanOrEqualTo,
+  EventStartDateAscending,
+  EventStartDateDescending,
+  EventStartDateGreaterThanOrEqualTo,
+  EventStartDateLessThan,
+  EventStartDateLessThanOrEqualTo,
   WalkDistance,
   WalkExport,
   WalkLeadersApiResponse,
-  WalkType
+  WalkType, GROUP_EVENT_START_DATE
 } from "../../models/walk.model";
 import { WalkDisplayService } from "../../pages/walks/walk-display.service";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
@@ -58,7 +58,7 @@ import { StringUtilsService } from "../string-utils.service";
 import { SystemConfigService } from "../system/system-config.service";
 import { AscentValidationService } from "./ascent-validation.service";
 import { DistanceValidationService } from "./distance-validation.service";
-import { WalksAndEventsLocalService } from "./walks-and-events-local.service";
+import { LocalWalksAndEventsService } from "./local-walks-and-events.service";
 import { DataQueryOptions } from "../../models/api-request.model";
 import isEqual from "lodash-es/isEqual";
 import { isNumericRamblersId } from "../path-matchers";
@@ -77,6 +77,7 @@ import { marked } from "marked";
 import { ExtendedFields, ExtendedGroupEvent, GroupEvent } from "../../models/group-event.model";
 import { MemberNamingService } from "../member/member-naming.service";
 import { UrlService } from "../url.service";
+import isString from "lodash-es/isString";
 
 @Injectable({
   providedIn: "root"
@@ -87,7 +88,7 @@ export class RamblersWalksAndEventsService {
   private http = inject(HttpClient);
   private riskAssessmentService: RiskAssessmentService = inject(RiskAssessmentService);
   private systemConfigService: SystemConfigService = inject(SystemConfigService);
-  private walksAndEventsLocalService: WalksAndEventsLocalService = inject(WalksAndEventsLocalService);
+  private localWalksAndEventsService: LocalWalksAndEventsService = inject(LocalWalksAndEventsService);
   private walksConfigService: WalksConfigService = inject(WalksConfigService);
   private distanceValidationService: DistanceValidationService = inject(DistanceValidationService);
   private ascentValidationService: AscentValidationService = inject(AscentValidationService);
@@ -128,16 +129,16 @@ export class RamblersWalksAndEventsService {
     return (response as MongoIdsSupplied)?._id?.$in !== undefined;
   }
 
-  static isWalkDateGreaterThanOrEqualTo(response: any): response is WalkDateGreaterThanOrEqualTo {
-    return (response as WalkDateGreaterThanOrEqualTo)?.["groupEvent.start_date_time"]?.$gte !== undefined;
+  static isEventStartDateGreaterThanOrEqualTo(response: any): response is EventStartDateGreaterThanOrEqualTo {
+    return (response as EventStartDateGreaterThanOrEqualTo)?.[GROUP_EVENT_START_DATE]?.$gte !== undefined;
   }
 
-  static isWalkDateLessThan(response: any): response is WalkDateLessThan {
-    return (response as WalkDateLessThan)?.["groupEvent.start_date_time"]?.$lt !== undefined;
+  static isWalkDateLessThan(response: any): response is EventStartDateLessThan {
+    return (response as EventStartDateLessThan)?.[GROUP_EVENT_START_DATE]?.$lt !== undefined;
   }
 
-  static isWalkDateLessThanOrEqualTo(response: any): response is WalkDateLessThanOrEqualTo {
-    return (response as WalkDateLessThanOrEqualTo)?.["groupEvent.start_date_time"]?.$lte !== undefined;
+  static isWalkDateLessThanOrEqualTo(response: any): response is EventStartDateLessThanOrEqualTo {
+    return (response as EventStartDateLessThanOrEqualTo)?.[GROUP_EVENT_START_DATE]?.$lte !== undefined;
   }
 
   groupNotifications(): Observable<RamblersGroupsApiResponseApiResponse> {
@@ -200,8 +201,8 @@ export class RamblersWalksAndEventsService {
   async listRamblersWalksRawData(eventQueryParameters: EventQueryParameters): Promise<RamblersGroupEventsRawApiResponse> {
     const walkIdsFromCriteria = this.extractWalkIds(eventQueryParameters.dataQueryOptions?.criteria);
     const usedIds = eventQueryParameters.ids || walkIdsFromCriteria;
-    const order = isEqual(eventQueryParameters.dataQueryOptions?.sort, WalkDateDescending) ? "desc" : "asc";
-    const sort = isEqual(eventQueryParameters.dataQueryOptions?.sort, WalkDateDescending) || isEqual(eventQueryParameters.dataQueryOptions?.sort, WalkDateAscending) ? "date" : "date";
+    const order = isEqual(eventQueryParameters.dataQueryOptions?.sort, EventStartDateDescending) ? "desc" : "asc";
+    const sort = isEqual(eventQueryParameters.dataQueryOptions?.sort, EventStartDateDescending) || isEqual(eventQueryParameters.dataQueryOptions?.sort, EventStartDateAscending) ? "date" : "date";
     const date = usedIds.length > 0 ? null : this.createStartDate(eventQueryParameters.dataQueryOptions?.criteria);
     const dateEnd = usedIds.length > 0 ? null : this.createEndDate(eventQueryParameters.dataQueryOptions?.criteria);
     const body: EventsListRequest = {
@@ -221,8 +222,8 @@ export class RamblersWalksAndEventsService {
   }
 
   private createStartDate(criteria: object): string {
-    if (RamblersWalksAndEventsService.isWalkDateGreaterThanOrEqualTo(criteria)) {
-      return this.dateUtils.asMoment(criteria?.["groupEvent.start_date_time"].$gte).format(DateFormat.WALKS_MANAGER_API);
+    if (RamblersWalksAndEventsService.isEventStartDateGreaterThanOrEqualTo(criteria)) {
+      return this.dateUtils.asMoment(criteria?.[GROUP_EVENT_START_DATE].$gte).format(DateFormat.WALKS_MANAGER_API);
     } else if (RamblersWalksAndEventsService.isWalkDateLessThan(criteria) || isEmpty(criteria)) {
       return this.dateUtils.asMoment().subtract(2, "year").format(DateFormat.WALKS_MANAGER_API);
     } else {
@@ -243,9 +244,9 @@ export class RamblersWalksAndEventsService {
   private createEndDate(criteria: any): string {
     this.logger.off("createEndDate.criteria:", criteria, "walkDate value:", criteria?.walkDate, "walkDate formatted:", this.dateUtils.asMoment(criteria?.walkDate).format(DateFormat.WALKS_MANAGER_API));
     if (RamblersWalksAndEventsService.isWalkDateLessThan(criteria)) {
-      return this.dateUtils.asMoment(criteria?.["groupEvent.start_date_time"]?.$lt).subtract(1, "day").format(DateFormat.WALKS_MANAGER_API);
+      return this.dateUtils.asMoment(criteria?.[GROUP_EVENT_START_DATE]?.$lt).subtract(1, "day").format(DateFormat.WALKS_MANAGER_API);
     } else if (RamblersWalksAndEventsService.isWalkDateLessThanOrEqualTo(criteria)) {
-      return this.dateUtils.asMoment(criteria?.["groupEvent.start_date_time"]?.$lte).format(DateFormat.WALKS_MANAGER_API);
+      return this.dateUtils.asMoment(criteria?.[GROUP_EVENT_START_DATE]?.$lte).format(DateFormat.WALKS_MANAGER_API);
     } else {
       return this.dateUtils.asMoment().add(2, "year").format(DateFormat.WALKS_MANAGER_API);
     }
@@ -293,12 +294,12 @@ export class RamblersWalksAndEventsService {
             this.logger.info("updating walk from", walkMatchedByDate.groupEvent.id || "empty", "->", ramblersWalksResponse.id, "and", walkMatchedByDate.groupEvent.url || "empty", "->", ramblersWalksResponse.url, "on", this.displayDate.transform(walkMatchedByDate.groupEvent.start_date_time));
             walkMatchedByDate.groupEvent.id = ramblersWalksResponse.id;
             walkMatchedByDate.groupEvent.url = ramblersWalksResponse.url;
-            savePromises.push(this.walksAndEventsLocalService.createOrUpdate(walkMatchedByDate));
+            savePromises.push(this.localWalksAndEventsService.createOrUpdate(walkMatchedByDate));
             this.logger.info("walk updated to:", walkMatchedByDate);
           }
           if (this.copyMediaIfApplicable(walkMatchedByDate, ramblersWalksResponse)) {
             this.logger.info("mediaMismatch:updating walk from", walkMatchedByDate.groupEvent.media || "empty", "->", ramblersWalksResponse.media, "on", this.displayDate.transform(walkMatchedByDate.groupEvent.start_date_time));
-            savePromises.push(this.walksAndEventsLocalService.createOrUpdate(walkMatchedByDate));
+            savePromises.push(this.localWalksAndEventsService.createOrUpdate(walkMatchedByDate));
             this.logger.info("walk updated to:", walkMatchedByDate);
           }
         } else {
@@ -315,7 +316,7 @@ export class RamblersWalksAndEventsService {
           this.logger.off("removing ramblers walkMatchedByUrl", walkMatchedByUrl.groupEvent.id, "from walkMatchedByUrl on", this.displayDate.transform(walkMatchedByUrl.groupEvent.start_date_time));
           delete walkMatchedByUrl.groupEvent.id;
           delete walkMatchedByUrl.groupEvent.url;
-          savePromises.push(this.walksAndEventsLocalService.createOrUpdate(walkMatchedByUrl));
+          savePromises.push(this.localWalksAndEventsService.createOrUpdate(walkMatchedByUrl));
         }
       });
     }
@@ -398,6 +399,9 @@ export class RamblersWalksAndEventsService {
     const walkDistance: WalkDistance = this.distanceValidationService.parse(walk);
     const walkAscent: WalkAscent = this.ascentValidationService.parse(walk);
     this.logger.off("validateWalk:walk:", walk, "walkDistance:", walkDistance);
+    if (walk?.groupEvent?.end_date_time && !isString(walk?.groupEvent?.end_date_time)) {
+      this.logger.warn("toWalkExport:walk.groupEvent.end_date_time is not a string:", walk?.groupEvent?.end_date_time);
+    }
     const contactIdMessage = this.memberLoginService.allowWalkAdminEdits() ? "This can be entered on the Walk Leader tab" : `This will need to be setup for you by ${this.committeeReferenceData.contactUsFieldForBuiltInRole(BuiltInRole.WALKS_CO_ORDINATOR, "fullName")}`;
     if (isEmpty(walk)) {
       validationMessages.push("walk does not exist");

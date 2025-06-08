@@ -16,9 +16,9 @@ import { DeletionResponse, DeletionResponseApiResponse } from "../../models/mong
 @Injectable({
   providedIn: "root"
 })
-export class WalksAndEventsLocalService {
+export class LocalWalksAndEventsService {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("WalksAndEventsLocalService", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("LocalWalksAndEventsService", NgxLoggerLevel.INFO);
   private http = inject(HttpClient);
   private stringUtilsService = inject(StringUtilsService);
   private dateUtils = inject(DateUtilsService);

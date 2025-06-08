@@ -22,7 +22,7 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { PageService } from "../../../services/page.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
-import { WalksQueryService } from "../../../services/walks/walks-query.service";
+import { ExtendedGroupEventQueryService } from "../../../services/walks/extended-group-event-query.service";
 import { WalksAndEventsService } from "../../../services/walks/walks-and-events.service";
 import { LoginModalComponent } from "../../login/login-modal/login-modal.component";
 import { WalkDisplayService } from "../walk-display.service";
@@ -266,7 +266,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
   protected stringUtils = inject(StringUtilsService);
   private searchFilterPipe = inject(SearchFilterPipe);
   private route = inject(ActivatedRoute);
-  private walksQueryService = inject(WalksQueryService);
+  private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private notifierService = inject(NotifierService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   protected readonly faWalking = faWalking;
@@ -350,7 +350,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
 
   applyFilterToWalks(searchTerm?: NamedEvent<string>): void {
     this.notify.setBusy();
-    const sort = this.walksQueryService.localWalksSortObject(this.filterParameters);
+    const sort = this.extendedGroupEventQueryService.localWalksSortObject(this.filterParameters);
     this.logger.info("applyFilterToWalks:searchTerm:", searchTerm, "filterParameters:", this.filterParameters, "localWalksSortObject:", sort);
     this.filteredWalks = this.searchFilterPipe.transform(this.walks, this.filterParameters.quickSearch)
       .map(walk => this.display.toDisplayedWalk(walk)).sort(sortBy(sort));
@@ -382,7 +382,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
 
 
   query() {
-    return this.walksAndEventsService.all(this.walksQueryService.dataQueryOptions(this.filterParameters));
+    return this.walksAndEventsService.all(this.extendedGroupEventQueryService.dataQueryOptions(this.filterParameters));
   }
 
   showTableHeader(walk: DisplayedWalk) {
@@ -415,7 +415,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
         this.display.setNextWalkId(walks);
         this.queryGroups(walks);
         this.logger.info("refreshWalks", "hasWalksId", this.currentWalkId, "walks:", walks);
-        this.applyWalks(this.currentWalkId || this.filterParameters.selectType === 6 ? walks : this.walksQueryService.activeWalks(walks));
+        this.applyWalks(this.currentWalkId || this.filterParameters.selectType === 6 ? walks : this.extendedGroupEventQueryService.activeWalks(walks));
         this.applyFilterToWalks();
         this.notify.clearBusy();
       }).catch(error => {

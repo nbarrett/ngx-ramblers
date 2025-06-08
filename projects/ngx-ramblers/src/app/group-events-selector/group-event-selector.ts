@@ -27,7 +27,7 @@ import { FormsModule } from "@angular/forms";
           <app-date-picker startOfDay
                            id="from-date"
                            [size]="'md round'"
-                           (dateChange)="fromDate=$event.value;queryGroupEvents()"
+                           (change)="fromDate=$event.value;queryGroupEvents()"
                            [value]="fromDate">
           </app-date-picker>
         </div>
@@ -38,7 +38,7 @@ import { FormsModule } from "@angular/forms";
           <app-date-picker startOfDay
                            id="to-date"
                            [size]="'md round'"
-                           (dateChange)="toDate=$event.value;queryGroupEvents()"
+                           (change)="toDate=$event.value;queryGroupEvents()"
                            [value]="toDate">
           </app-date-picker>
         </div>

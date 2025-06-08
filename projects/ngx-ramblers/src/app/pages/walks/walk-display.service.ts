@@ -27,7 +27,7 @@ import { MemberService } from "../../services/member/member.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { UrlService } from "../../services/url.service";
 import { GroupEventService } from "../../services/walks/group-event.service";
-import { WalksQueryService } from "../../services/walks/walks-query.service";
+import { ExtendedGroupEventQueryService } from "../../services/walks/extended-group-event-query.service";
 import { WalksReferenceService } from "../../services/walks/walks-reference-data.service";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
@@ -59,7 +59,7 @@ export class WalkDisplayService {
   private sanitiser = inject(DomSanitizer);
   private walkEventService = inject(GroupEventService);
   private walksReferenceService = inject(WalksReferenceService);
-  private walksQueryService = inject(WalksQueryService);
+  private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private committeeConfig = inject(CommitteeConfigService);
   private subject = new ReplaySubject<Member[]>();
   public relatedLinksMediaWidth = 22;
@@ -237,8 +237,8 @@ export class WalkDisplayService {
         returnValue = {...WalksReferenceService.walkAccessModes.edit, walkWritable: this.walkPopulationLocal()};
       } else {
         const walkEvent = this.walkEventService.latestEventWithStatusChange(walk);
-        console.log("walk is ", JSON.stringify(walk));
-        console.log("walkEvent is ", JSON.stringify(walkEvent));
+        // console.log("walk is ", JSON.stringify(walk));
+        // console.log("walkEvent is ", JSON.stringify(walkEvent));
         if (walkEvent?.eventType === EventType.AWAITING_LEADER) {
           returnValue = {...WalksReferenceService.walkAccessModes.lead, walkWritable: this.walkPopulationLocal()};
         }
@@ -282,7 +282,7 @@ export class WalkDisplayService {
   }
 
   setNextWalkId(walks: ExtendedGroupEvent[]) {
-    this.nextWalkId = this.walksQueryService.nextWalkId(walks);
+    this.nextWalkId = this.extendedGroupEventQueryService.nextWalkId(walks);
   }
 
   setExpandedWalks(expandedWalks: ExpandedWalk[]) {

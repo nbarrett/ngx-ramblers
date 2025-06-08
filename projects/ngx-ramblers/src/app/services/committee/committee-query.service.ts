@@ -21,7 +21,7 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberLoginService } from "../member/member-login.service";
 import { MemberService } from "../member/member.service";
 import { SocialEventsService } from "../social-events/social-events.service";
-import { WalksQueryService } from "../walks/walks-query.service";
+import { ExtendedGroupEventQueryService } from "../walks/extended-group-event-query.service";
 import { WalksAndEventsService } from "../walks/walks-and-events.service";
 import { CommitteeConfigService } from "./commitee-config.service";
 import { CommitteeFileService } from "./committee-file.service";
@@ -43,7 +43,7 @@ export class CommitteeQueryService {
   private mediaQueryService = inject(MediaQueryService);
   private walksAndEventsService = inject(WalksAndEventsService);
   private memberService = inject(MemberService);
-  private walksQueryService = inject(WalksQueryService);
+  private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private committeeFileService = inject(CommitteeFileService);
   private committeeDisplayService = inject(CommitteeDisplayService);
   private socialEventsService = inject(SocialEventsService);
@@ -86,7 +86,7 @@ export class CommitteeQueryService {
             }
           }
         }, [], [RamblersEventType.GROUP_WALK])
-          .then((walks: ExtendedGroupEvent[]) => this.walksQueryService.activeWalks(walks))
+          .then((walks: ExtendedGroupEvent[]) => this.extendedGroupEventQueryService.activeWalks(walks))
           .then((walks: ExtendedGroupEvent[]) => walks?.forEach(walk => events.push({
             id: walk.id,
             selected: true,

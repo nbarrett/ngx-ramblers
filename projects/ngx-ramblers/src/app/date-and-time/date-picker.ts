@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { faCalendar } from "@fortawesome/free-solid-svg-icons";
 import kebabCase from "lodash-es/kebabCase";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -12,12 +12,14 @@ import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import isString from "lodash-es/isString";
 import isNumber from "lodash-es/isNumber";
+import { NumberUtilsService } from "../services/number-utils.service";
 
-let id = 0;
+type SupportedInputTypes = DateValue | number | string;
 
 @Component({
     selector: "app-date-picker",
-    template: `<div [ngClass]="{'form-inline': label && prependLabel}">
+  template: `
+    <div [ngClass]="{'form-inline': label && prependLabel}">
       @if (label && !prependLabel) {
         <label class="ml-2" [for]="id">{{ label }}</label>
       }
@@ -46,11 +48,13 @@ let id = 0;
     styleUrls: ["./date-picker.sass"],
     imports: [NgClass, BsDatepickerInputDirective, FormsModule, BsDatepickerDirective, FontAwesomeModule]
 })
-export class DatePicker implements OnInit, OnChanges {
+export class DatePicker implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("DatePicker", NgxLoggerLevel.INFO);
-  private dateUtils = inject(DateUtilsService);
+  private dateUtils: DateUtilsService = inject(DateUtilsService);
+  private numberUtilsService: NumberUtilsService = inject(NumberUtilsService);
   dateValue: DateValue;
-  @Input() value: DateValue | number | string;
+  lastEmittedValue: DateValue;
+  @Input() value: SupportedInputTypes;
   @Input() placeholder: string;
   @Input() size: string;
   @Input() label: string;
@@ -58,41 +62,62 @@ export class DatePicker implements OnInit, OnChanges {
   @Input() disabled;
   @Input() prependLabel;
 
+  @Input("value") set valueValue(value: SupportedInputTypes) {
+    this.setValue(value);
+  }
+
   @Input("startOfDay") set startOfDayValue(startOfDay: boolean) {
     this.startOfDay = coerceBooleanProperty(startOfDay);
   }
 
-  @Output() dateChange: EventEmitter<DateValue> = new EventEmitter();
+  @Output() change: EventEmitter<DateValue> = new EventEmitter();
   public startOfDay = false;
   faCalendar = faCalendar;
 
-  ngOnChanges(changes: SimpleChanges) {
-    this.setValue(changes?.value?.currentValue, changes);
-  }
-
   ngOnInit() {
     if (!this.id) {
-      this.id = `${kebabCase(this.label || "date-picker")}-${id++}`;
+      this.id = `${kebabCase(this.label || "date-picker")}-${this.numberUtilsService.generateUid()}`;
     }
-    this.logger.info("ngOnInit of type", typeof this.value, this.value);
-    this.setValue(this.value, null);
+    if (this.value) {
+      this.setValue(this.value);
+    }
+    this.logger.info("ngOnInit of value: ", this.value, "of type:", typeof this.value, "dateValue:", this.dateValue, "with id:", this.id);
   }
 
-  private setValue(value: DateValue | number | string, changes: SimpleChanges) {
-    const displayDateAndTimeUncorrected = this.dateUtils.displayDateAndTime(this.dateUtils.asMoment(value));
-    const usedValue = this.startOfDay ? this.dateUtils.asValueNoTime(value) : value;
-    const displayDateAndTimeCorrected = this.dateUtils.displayDateAndTime(usedValue);
-    this.logger.info("startOfDay:", this.startOfDay, "changes were:", changes || "ngOnInit", "displayDateAndTimeUncorrected:", displayDateAndTimeUncorrected, "displayDateAndTimeCorrected:", displayDateAndTimeCorrected);
-    if (isString(usedValue) || isNumber(usedValue)) {
-      this.dateValue = this.dateUtils.asDateValue(usedValue);
+  private setValue(value: SupportedInputTypes) {
+    if (value instanceof Event) {
+      this.logger.warn("setValue:unexpected Event received:", value);
     } else {
-      this.dateValue = usedValue;
+      const usedValue = this.startOfDay ? this.dateUtils.asValueNoTime(value) : value;
+      if (isString(usedValue) || isNumber(usedValue)) {
+        this.dateValue = this.dateUtils.asDateValue(usedValue);
+      } else {
+        this.dateValue = usedValue;
+      }
+      this.logger.info("setValue:startOfDay:", this.startOfDay, "value:", value, "usedValue:", usedValue, "of type:", typeof usedValue, "dateValue:", this.dateValue);
+    }
+  }
+
+  dateValueFrom(date: Date): DateValue {
+    const midnight = this.dateUtils.isMidnight(date);
+    if (!date) {
+      this.logger.info("dateValueFrom: date:", date, "retuning null");
+      return null;
+    } else if (midnight && this.lastEmittedValue && !this.startOfDay) {
+      const dateValue: DateValue = this.dateUtils.asDateValue(this.dateUtils.asMoment(date).hours(this.lastEmittedValue.date.getHours()).minutes(this.lastEmittedValue.date.getHours()));
+      this.logger.info("dateValueFrom: date is at midnight:", date, "dateValue:", dateValue);
+      return dateValue;
+    } else {
+      const dateValue: DateValue = this.dateUtils.asDateValue(date);
+      this.logger.info("dateValueFrom: date has time supplied:", date, "dateValue:", dateValue);
+      return dateValue;
     }
   }
 
   onModelChange(date: Date) {
-    const asDateValue = date ? this.dateUtils.asDateValue(date) : null;
-    this.logger.info("onModelChange:date:", date, "asDateValue:", asDateValue);
-    this.dateChange.next(asDateValue);
+    const dateValue = this.dateValueFrom(date);
+    this.logger.info("onModelChange:date:", date, "dateValue:", dateValue);
+    this.change.next(dateValue);
+    this.lastEmittedValue = dateValue;
   }
 }

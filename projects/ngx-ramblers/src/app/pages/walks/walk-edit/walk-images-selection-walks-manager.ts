@@ -1,7 +1,7 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
-import { WalksQueryService } from "../../../services/walks/walks-query.service";
+import { ExtendedGroupEventQueryService } from "../../../services/walks/extended-group-event-query.service";
 import { ImageSource, WalkForSelect } from "../../../models/walk.model";
 import { RamblersGroupsApiResponse, RamblersGroupWithLabel } from "../../../models/ramblers-walks-manager";
 import { sortBy } from "../../../functions/arrays";
@@ -70,7 +70,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
 export class WalkImageSelectionWalksManagerComponent implements OnInit {
   private walksReferenceService = inject(WalksReferenceService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
-  private walksQueryService = inject(WalksQueryService);
+  private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private dateUtils = inject(DateUtilsService);
   private logger: Logger = inject(LoggerFactory).createLogger("WalkImageSelectionWalksManagerComponent", NgxLoggerLevel.INFO);
   loadingGroups = false;
@@ -130,7 +130,7 @@ export class WalkImageSelectionWalksManagerComponent implements OnInit {
     const {groupCode, filterParameters} = this.groupEvent.fields.imageConfig.importFrom;
     const parameters = {
       groupCode,
-      dataQueryOptions: this.walksQueryService.dataQueryOptions(filterParameters)
+      dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions(filterParameters)
     };
     this.ramblersWalksAndEventsService.all(parameters).then(walks => {
       this.walks = walks

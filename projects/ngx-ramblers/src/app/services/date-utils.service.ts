@@ -8,6 +8,7 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 import { NumberUtilsService } from "./number-utils.service";
 import { isDateValue } from "./type-guards";
 import { ExtendedGroupEvent } from "../models/group-event.model";
+import { StringUtilsService } from "./string-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -16,7 +17,8 @@ import { ExtendedGroupEvent } from "../models/group-event.model";
 export class DateUtilsService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("DateUtilsService", NgxLoggerLevel.ERROR);
-  private numberUtils = inject(NumberUtilsService);
+  private numberUtils: NumberUtilsService = inject(NumberUtilsService);
+  private stringUtilsService: StringUtilsService = inject(StringUtilsService);
   MILLISECONDS_IN_ONE_DAY = 86400000;
 
   public formats = {
@@ -134,24 +136,6 @@ export class DateUtilsService {
     }
   }
 
-  parseTime(startTime: string): Time {
-    const parsedTime = (startTime || "10:00 am")?.replace(".", ":");
-    const timeValues = parsedTime?.split(":");
-    if (timeValues) {
-      let hours = this.numberUtils.asNumber(timeValues[0]);
-      const minutes = this.numberUtils.asNumber(timeValues[1]);
-      if (parsedTime.toLowerCase().includes("pm") && hours < 12) {
-        hours += 12;
-      }
-      const returnValue = {hours, minutes};
-      this.logger.off("parseTime:startTime", startTime, "parsedTime:", parsedTime, "timeValues:", timeValues, "returnValue:", returnValue);
-      return returnValue;
-    } else {
-      this.logger.off("parseTime:startTime", startTime, "parsedTime:", parsedTime, "timeValues:", timeValues, "returnValue:", null);
-      return null;
-    }
-  }
-
   durationInMsecsForDistanceInMiles(distance: string | number, milesPerHour: number): number {
     return this.numberUtils.asNumber(distance) / milesPerHour * 60 * 60 * 1000;
   }
@@ -186,15 +170,15 @@ export class DateUtilsService {
       return `${(seconds * 1000)} ms`;
     } else if (seconds < 60) {
       return `${seconds.toFixed(0)} secs`;
-    } else {
+    } else if (seconds < 3600) {
       const minutes = duration.asMinutes();
-      if (isNaN(minutes)) {
-        this.logger.error("formatDuration:fromTime", fromTime, "toTime", toTime, "duration", duration, "seconds", seconds, "minutes", minutes);
-      }
       return `${minutes.toFixed(1)} mins`;
+    } else {
+      const hours = Math.floor(duration.asHours());
+      const minutes = Math.round(duration.asMinutes() % 60);
+      return `${this.stringUtilsService.pluraliseWithCount(hours, "hour")}${minutes > 0 ? ` ${this.stringUtilsService.pluraliseWithCount(minutes, "min")}` : ""}`;
     }
   }
-
   calculateWalkDateAndTimeValue(walkDateMoment: moment, startTime: Time): number {
     let walkDateAndTime = walkDateMoment.clone().add(startTime?.hours, "hours").add(startTime?.minutes, "minutes");
     // Adjust for DST end transition

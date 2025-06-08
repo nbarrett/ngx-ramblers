@@ -7,6 +7,7 @@ import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TimepickerComponent } from "ngx-bootstrap/timepicker";
 import { NumberUtilsService } from "../services/number-utils.service";
+import { isDate } from "lodash-es";
 
 @Component({
   selector: "[app-time-picker]",
@@ -31,7 +32,7 @@ export class TimePicker {
   @Input() value: string;
   @Input() label: string;
   @Input() id: string;
-  @Input() disabled;
+  @Input() disabled: boolean;
 
   @Input("value") set valueValue(value: string) {
     this.time = this.dateUtils.asMoment(value).toDate();
@@ -44,15 +45,17 @@ export class TimePicker {
     if (!this.id) {
       this.id = `${kebabCase("date-picker")}-${this.numberUtilsService.generateUid()}`;
     }
-    this.logger.info("ngOnInit of type", typeof this.value, this.value, "with id:", this.id);
+    this.logger.info("ngOnInit of :label", this.label, "value type:", typeof this.value, "value:", this.value, "with id:", this.id);
   }
 
   onModelChange(date: Date) {
-    if (date) {
+    if (isDate(date)) {
       date.setSeconds(0, 0);
+      const value: string = date ? this.dateUtils.isoDateTimeString(date) : null;
+      this.logger.info("onModelChange:label", this.label, "date:", date, "of type", typeof date, "emitting value:", value);
+      this.change.emit(value);
+    } else {
+      this.logger.warn("onModelChange:invalid change received:", date, "of type", typeof date);
     }
-    const value = date ? this.dateUtils.isoDateTimeString(date) : null;
-    this.logger.info("onModelChange:date:", date, "value:", value);
-    this.change.next(value);
   }
 }

@@ -3,7 +3,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Observable } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { WalksAndEventsLocalService } from "./walks-and-events-local.service";
+import { LocalWalksAndEventsService } from "./local-walks-and-events.service";
 import { RamblersWalksAndEventsService } from "./ramblers-walks-and-events.service";
 import { EventPopulation, Organisation } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
@@ -17,7 +17,7 @@ export class WalksAndEventsService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalksService", NgxLoggerLevel.ERROR);
   private systemConfigService = inject(SystemConfigService);
-  private walksAndEventsLocalService = inject(WalksAndEventsLocalService);
+  private localWalksAndEventsService = inject(LocalWalksAndEventsService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   public group: Organisation;
 
@@ -34,7 +34,7 @@ export class WalksAndEventsService {
   }
 
   notifications(): Observable<ExtendedGroupEventApiResponse> {
-    return this.walksAndEventsLocalService.notifications();
+    return this.localWalksAndEventsService.notifications();
   }
 
   async all(dataQueryOptions?: DataQueryOptions, ids?: string[], types?: RamblersEventType[]): Promise<ExtendedGroupEvent[]> {
@@ -43,7 +43,7 @@ export class WalksAndEventsService {
       case EventPopulation.WALKS_MANAGER:
         return this.ramblersWalksAndEventsService.all({dataQueryOptions, ids, types});
       case EventPopulation.LOCAL:
-        return this.walksAndEventsLocalService.all(dataQueryOptions);
+        return this.localWalksAndEventsService.all(dataQueryOptions);
     }
   }
 
@@ -55,12 +55,12 @@ export class WalksAndEventsService {
         this.logger.info("queryWalkLeaders:", walkLeaders);
         return walkLeaders.map(item => item.name);
       case EventPopulation.LOCAL:
-        return this.walksAndEventsLocalService.queryWalkLeaders();
+        return this.localWalksAndEventsService.queryWalkLeaders();
     }
   }
 
   async createOrUpdate(walk: ExtendedGroupEvent): Promise<ExtendedGroupEvent> {
-    return this.walksAndEventsLocalService.createOrUpdate(walk);
+    return this.localWalksAndEventsService.createOrUpdate(walk);
   }
 
   async getById(walkId: string): Promise<ExtendedGroupEvent> {
@@ -68,7 +68,7 @@ export class WalksAndEventsService {
       case EventPopulation.WALKS_MANAGER:
         return this.ramblersWalksAndEventsService.walkForId(walkId);
       case EventPopulation.LOCAL:
-        return this.walksAndEventsLocalService.getById(walkId);
+        return this.localWalksAndEventsService.getById(walkId);
     }
 
   }
@@ -78,14 +78,14 @@ export class WalksAndEventsService {
       case EventPopulation.WALKS_MANAGER:
         return this.ramblersWalksAndEventsService.getByIdIfPossible(walkId);
       case EventPopulation.LOCAL:
-        return this.walksAndEventsLocalService.getByIdIfPossible(walkId);
+        return this.localWalksAndEventsService.getByIdIfPossible(walkId);
     }
   }
 
   async updateMany(dataQueryOptions: DataQueryOptions): Promise<ExtendedGroupEvent[]> {
     this.logger.info("updateMany called with dataQueryOptions:", dataQueryOptions);
     try {
-      const result = await this.walksAndEventsLocalService.updateMany(dataQueryOptions);
+      const result = await this.localWalksAndEventsService.updateMany(dataQueryOptions);
       this.logger.info("updateMany: updated documents:", result);
       return result;
     } catch (error) {
@@ -95,7 +95,7 @@ export class WalksAndEventsService {
   }
 
   fixIncorrectWalkDates() {
-    return this.walksAndEventsLocalService.fixIncorrectWalkDates();
+    return this.localWalksAndEventsService.fixIncorrectWalkDates();
   }
 
 }

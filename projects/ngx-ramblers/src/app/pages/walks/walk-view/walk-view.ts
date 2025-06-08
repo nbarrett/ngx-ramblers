@@ -17,7 +17,7 @@ import { WalksAndEventsService } from "../../../services/walks/walks-and-events.
 import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { SystemConfig } from "../../../models/system.model";
-import { WalksQueryService } from "../../../services/walks/walks-query.service";
+import { ExtendedGroupEventQueryService } from "../../../services/walks/extended-group-event-query.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -35,6 +35,7 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
 import { RelatedLinksComponent } from "../../../modules/common/related-links/related-links";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
+import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 
 @Component({
     selector: "app-walk-view",
@@ -67,8 +68,7 @@ import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
                 }
               </h2>
               @if (displayedWalk.walk.groupEvent.start_date_time) {
-                <h2>
-                  Start Time: {{ displayedWalk.walk.groupEvent.start_date_time | displayTime }}</h2>
+                <h2>Start Time: {{ displayedWalk.walk.groupEvent.start_date_time | displayTime }}{{EM_DASH_WITH_SPACES}}Estimated Finish Time: {{ displayedWalk.walk.groupEvent.end_date_time | displayTime }}</h2>
               }
               @if (displayedWalk?.walkAccessMode?.walkWritable) {
                 <input type="submit"
@@ -106,7 +106,7 @@ import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
                   }
                 </div>
               }
-              @if (display.walkLeaderOrAdmin(displayedWalk.walk) && (display.walkPopulationLocal() && !walksQueryService.approvedWalk(displayedWalk.walk))) {
+              @if (display.walkLeaderOrAdmin(displayedWalk.walk) && (display.walkPopulationLocal() && !extendedGroupEventQueryService.approvedWalk(displayedWalk.walk))) {
                 <div>
                   @if (notifyTarget.showAlert) {
                     <div class="col-12 alert {{ALERT_WARNING.class}} mt-3">
@@ -229,7 +229,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   public notifyTarget: AlertTarget = {};
   protected readonly ALERT_WARNING = ALERT_WARNING;
-  public walksQueryService = inject(WalksQueryService);
+  public extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private walksAndEventsService = inject(WalksAndEventsService);
   public googleMapsService = inject(GoogleMapsService);
   private authService = inject(AuthService);
@@ -387,4 +387,6 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     this.autoSelectMapDisplay();
     this.updateGoogleMapIfApplicable();
   }
+
+  protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
 }

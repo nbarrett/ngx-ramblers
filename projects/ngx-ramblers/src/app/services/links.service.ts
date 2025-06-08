@@ -31,7 +31,7 @@ export class LinksService {
   linksFrom(links: LinkWithSource[]): Links {
     const returnValue: Links = {meetup: null, osMapsRoute: null, venue: null};
     LINK_CONFIG.forEach((linkConfig: EventLinkConfig) => {
-      const linkWithSource: LinkWithSource = links.find(item => item.source === linkConfig.code);
+      const linkWithSource: LinkWithSource = links?.find(item => item.source === linkConfig.code);
       this.assignLinkSourceUrl(returnValue, linkWithSource);
     });
     return returnValue;
