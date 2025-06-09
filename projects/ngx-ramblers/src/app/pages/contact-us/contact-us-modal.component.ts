@@ -243,7 +243,7 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
         });
       }
 
-      this.contactFormDetails.subject = "Website Enquiry";
+      this.contactFormDetails.subject = this.queryParams["subject"] || "Website Enquiry";
       this.logger.info("ngOnInit - queryParams:", this.queryParams, "bsModalRef:", this.bsModalRef, "committeeMember:", this.committeeMember);
     }));
   }
