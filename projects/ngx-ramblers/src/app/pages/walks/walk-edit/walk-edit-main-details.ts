@@ -12,7 +12,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { WalkDisplayService } from "../walk-display.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { NgxLoggerLevel } from "ngx-logger";
-import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
+import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import isString from "lodash-es/isString";
 
 @Component({

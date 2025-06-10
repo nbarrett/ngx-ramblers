@@ -66,6 +66,7 @@ import { DisplayDatesPipe } from "../../pipes/display-dates.pipe";
 import { DisplayDayPipe } from "../../pipes/display-day.pipe";
 import { EventNotePipe } from "../../pipes/event-note.pipe";
 import { TimepickerModule } from "ngx-bootstrap/timepicker";
+import { EventTimesPipe } from "../../pipes/event-times.pipe";
 
 @NgModule({
   imports: [
@@ -121,6 +122,7 @@ import { TimepickerModule } from "ngx-bootstrap/timepicker";
     DisplayDatesAndTimesPipe,
     DisplayDatesPipe,
     DisplayDayPipe,
+    EventTimesPipe,
     EventNotePipe,
     FullNamePipe,
     FullNameWithAliasOrMePipe,

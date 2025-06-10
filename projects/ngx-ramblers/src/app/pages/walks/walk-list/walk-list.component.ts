@@ -21,9 +21,9 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { PageService } from "../../../services/page.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
-import { ExtendedGroupEventQueryService } from "../../../services/walks/extended-group-event-query.service";
-import { WalksAndEventsService } from "../../../services/walks/walks-and-events.service";
+import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
+import { ExtendedGroupEventQueryService } from "../../../services/walks-and-events/extended-group-event-query.service";
+import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { LoginModalComponent } from "../../login/login-modal/login-modal.component";
 import { WalkDisplayService } from "../walk-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
@@ -50,6 +50,7 @@ import { DEFAULT_FILTER_PARAMETERS, FilterParameters } from "../../../models/sea
 import { BuiltInAnchor } from "../../../models/content-text.model";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { EventsMigrationService } from "../../../services/migration/events-migration.service";
+import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 
 @Component({
     selector: "app-walk-list",
@@ -58,7 +59,7 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
         <app-dynamic-content [anchor]="BuiltInAnchor.PAGE_HEADER" contentPathReadOnly/>
         <div class="row mb-n3">
           <div class="mb-3 col-sm-12">
-            <button (click)="performMigration()" aria-controls="dropdown-animated" class="btn btn-primary mr-2"
+            <button (click)="performMigration()" class="btn btn-primary mr-2"
                     type="button">Migrate
             </button>
           </div>
@@ -322,7 +323,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
   }
 
   public async performMigration() {
-    const migrated = await this.eventsMigrationService.migrateEvents(true);
+    const migrated = await this.eventsMigrationService.migrateWalks(true);
     this.applyWalks(migrated);
   }
   private async updateOsMapsRoute() {
@@ -382,7 +383,10 @@ export class WalkListComponent implements OnInit, OnDestroy {
 
 
   query() {
-    return this.walksAndEventsService.all(this.extendedGroupEventQueryService.dataQueryOptions(this.filterParameters));
+    return this.walksAndEventsService.all({
+      types: [RamblersEventType.GROUP_WALK],
+      dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions(this.filterParameters)
+    });
   }
 
   showTableHeader(walk: DisplayedWalk) {

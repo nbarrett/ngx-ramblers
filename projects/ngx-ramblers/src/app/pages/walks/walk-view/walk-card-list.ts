@@ -128,7 +128,7 @@ export class WalkCardListComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   imageSource(walk: ExtendedGroupEvent): BasicMedia {
-    return this.mediaQueryService.basicMediaFrom(walk.groupEvent)?.[0];
+    return this.mediaQueryService.basicMediaFrom(walk?.groupEvent)?.[0];
   }
 
   backDisabled(): boolean {

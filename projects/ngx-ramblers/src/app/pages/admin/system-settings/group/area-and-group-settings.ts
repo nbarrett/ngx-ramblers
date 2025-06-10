@@ -9,7 +9,7 @@ import { LinksEditComponent } from "../../../../modules/common/links-edit/links-
 import { UiSwitchModule } from "ngx-ui-switch";
 import { enumKeyValues, KeyValue } from "../../../../functions/enums";
 import { WalkListView } from "../../../../models/walk.model";
-import { RamblersWalksAndEventsService } from "../../../../services/walks/ramblers-walks-and-events.service";
+import { RamblersWalksAndEventsService } from "../../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { RamblersGroupsApiResponse, RamblersGroupWithLabel } from "../../../../models/ramblers-walks-manager";
 import { NgSelectComponent } from "@ng-select/ng-select";
 

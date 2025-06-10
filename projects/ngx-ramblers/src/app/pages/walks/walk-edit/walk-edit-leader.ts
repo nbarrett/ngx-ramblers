@@ -8,7 +8,7 @@ import { FullNameWithAliasOrMePipe } from "../../../pipes/full-name-with-alias-o
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { AlertInstance } from "../../../services/notifier.service";
 import { sortBy } from "../../../functions/arrays";
-import { WalksAndEventsService } from "../../../services/walks/walks-and-events.service";
+import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";

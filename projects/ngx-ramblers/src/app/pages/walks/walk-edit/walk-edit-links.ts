@@ -8,7 +8,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { LinksService } from "../../../services/links.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
-import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
+import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { AlertInstance } from "../../../services/notifier.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";

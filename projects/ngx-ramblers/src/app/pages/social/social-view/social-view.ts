@@ -5,7 +5,6 @@ import { AlertTarget } from "../../../models/alert-target.model";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
-import { SocialEventsService } from "../../../services/social-events/social-events.service";
 import { UrlService } from "../../../services/url.service";
 import { SocialDisplayService } from "../social-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
@@ -23,6 +22,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { LinksService } from "../../../services/links.service";
 import { Links } from "../../../models/walk.model";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
+import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 
 @Component({
     selector: "app-social-view",
@@ -104,8 +104,7 @@ import { MediaQueryService } from "../../../services/committee/media-query.servi
                     </div>
                   }
                   @if (socialEvent?.fields?.attachment) {
-                    <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12"
-                    >
+                    <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
                       <fa-icon title [icon]="faFile" class="fa-icon"></fa-icon>
                       <div content>
                         <a tooltip="Click to view attachment" [href]="display.attachmentUrl(socialEvent)"
@@ -149,8 +148,7 @@ import { MediaQueryService } from "../../../services/committee/media-query.servi
                       </div>
                     }
                     @if (socialEvent?.fields?.contactDetails?.phone) {
-                      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12"
-                      >
+                      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
                         <app-copy-icon [icon]="faPhone" title [value]="socialEvent?.fields?.contactDetails?.phone"
                                        [elementName]="'phone number for '+ socialEvent?.fields?.contactDetails?.displayName "/>
                         <div content>
@@ -205,7 +203,7 @@ export class SocialViewComponent implements OnInit {
   linksService = inject(LinksService);
   urlService = inject(UrlService);
   private systemConfigService = inject(SystemConfigService);
-  private socialEventsService = inject(SocialEventsService);
+  private walksAndEventsService = inject(WalksAndEventsService);
   protected mediaQueryService = inject(MediaQueryService);
   @Input()
   public socialEvent: ExtendedGroupEvent;
@@ -227,7 +225,7 @@ export class SocialViewComponent implements OnInit {
       } else if (this.urlService.pathContainsEventId()) {
         const socialEventId = this.urlService.lastPathSegment();
         this.logger.info("finding socialEvent from socialEventId:", socialEventId);
-        this.socialEventsService.queryForId(socialEventId).then(data => {
+        this.walksAndEventsService.getByIdIfPossible(socialEventId).then(data => {
           this.socialEvent = data;
           this.logger.info("found social event:", data);
           this.notifySocialEventDisplayed()
@@ -236,7 +234,7 @@ export class SocialViewComponent implements OnInit {
         this.editSocialEvent();
       }
     });
-    this.links = this.linksService.linksFrom(this.socialEvent.fields.links);
+    this.links = this.linksService.linksFrom(this.socialEvent?.fields?.links);
   }
 
   notifySocialEventDisplayed(){

@@ -12,6 +12,7 @@ import { EventTimesPipe } from "../../../pipes/event-times.pipe";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { BasicMedia } from "../../../models/ramblers-walks-manager";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
+import { DateUtilsService } from "../../../services/date-utils.service";
 
 @Component({
     selector: "app-social-card",
@@ -28,11 +29,12 @@ import { MediaQueryService } from "../../../services/committee/media-query.servi
           </h4>
           <ul class="list-arrow">
             <li>{{ socialEvent.groupEvent.start_date_time | displayDay }}</li>
-            <li>Time: {{ socialEvent | eventTimes }}</li>
+            <li>{{ socialEvent | eventTimes }}</li>
           </ul>
         </div>
       </div>`,
-    imports: [CardImageComponent, RouterLink, DisplayDayPipe, EventTimesPipe]
+  providers: [DateUtilsService],
+  imports: [CardImageComponent, RouterLink, DisplayDayPipe, EventTimesPipe]
 })
 export class SocialCardComponent implements OnInit {
 

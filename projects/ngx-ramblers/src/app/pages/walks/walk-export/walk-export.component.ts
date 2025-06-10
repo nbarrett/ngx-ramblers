@@ -12,16 +12,16 @@ import {
   Status
 } from "../../../models/ramblers-upload-audit.model";
 import { RamblersWalksUploadRequest, WalkUploadRow } from "../../../models/ramblers-walks-manager";
-import { WalkExport } from "../../../models/walk.model";
+import { GROUP_EVENT_START_DATE, WalkExport } from "../../../models/walk.model";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { UrlService } from "../../../services/url.service";
 import { RamblersUploadAuditService } from "../../../services/walks/ramblers-upload-audit.service";
-import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
-import { ExtendedGroupEventQueryService } from "../../../services/walks/extended-group-event-query.service";
-import { WalksAndEventsService } from "../../../services/walks/walks-and-events.service";
+import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
+import { ExtendedGroupEventQueryService } from "../../../services/walks-and-events/extended-group-event-query.service";
+import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { CsvExportComponent, CsvOptions } from "../../../csv-export/csv-export";
 import { SystemConfigService } from "../../../services/system/system-config.service";
@@ -492,8 +492,10 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.walksForExport = [];
     this.walkExportNotifier.warning("Refreshing export status of future walks", false, true);
     return this.walksAndEventsService.all({
-      criteria: {walkDate: {$gte: this.dateUtils.momentNowNoTime().valueOf()}},
-      sort: {walkDate: -1}
+      dataQueryOptions: {
+        criteria: {[GROUP_EVENT_START_DATE]: {$gte: this.dateUtils.momentNowNoTime().format()}},
+        sort: {[GROUP_EVENT_START_DATE]: -1}
+      }
     })
       .then((walks: ExtendedGroupEvent[]) => this.extendedGroupEventQueryService.activeWalks(walks))
       .then((walks: ExtendedGroupEvent[]) => {

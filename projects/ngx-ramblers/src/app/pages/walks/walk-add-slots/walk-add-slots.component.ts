@@ -11,10 +11,10 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { UrlService } from "../../../services/url.service";
-import { GroupEventService } from "../../../services/walks/group-event.service";
-import { ExtendedGroupEventQueryService } from "../../../services/walks/extended-group-event-query.service";
+import { GroupEventService } from "../../../services/walks-and-events/group-event.service";
+import { ExtendedGroupEventQueryService } from "../../../services/walks-and-events/extended-group-event-query.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
-import { WalksAndEventsService } from "../../../services/walks/walks-and-events.service";
+import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { DisplayDatesAndTimesPipe } from "../../../pipes/display-dates-and-times.pipe";
 import uniq from "lodash-es/uniq";
 import { DisplayDatesPipe } from "../../../pipes/display-dates.pipe";
@@ -240,9 +240,11 @@ export class WalkAddSlotsComponent implements OnInit {
     const filterParameters: FilterParameters = DEFAULT_FILTER_PARAMETERS();
     const dataQueryOptions: DataQueryOptions = this.extendedGroupEventQueryService.dataQueryOptions(filterParameters);
     this.walksAndEventsService.all({
+      dataQueryOptions: {
       criteria: dataQueryOptions.criteria,
       select: {events: 1, [GROUP_EVENT_START_DATE]: 1},
       sort: dataQueryOptions.sort
+      }
     })
       .then((walks: ExtendedGroupEvent[]) => this.extendedGroupEventQueryService.activeWalks(walks))
       .then((walks: ExtendedGroupEvent[]) => {
@@ -273,9 +275,11 @@ export class WalkAddSlotsComponent implements OnInit {
     const filterParameters: FilterParameters = DEFAULT_FILTER_PARAMETERS();
     const dataQueryOptions: DataQueryOptions = this.extendedGroupEventQueryService.dataQueryOptions(filterParameters);
     this.walksAndEventsService.all({
+      dataQueryOptions: {
       criteria: {[GROUP_EVENT_START_DATE]: {$eq: this.dateUtils.isoDateTimeString(this.singleDate.value)}},
       select: {events: 1, [GROUP_EVENT_START_DATE]: 1},
       sort: dataQueryOptions.sort
+      }
     })
       .then(walks => this.extendedGroupEventQueryService.activeWalks(walks))
       .then(walks => {

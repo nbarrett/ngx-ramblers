@@ -43,7 +43,7 @@ export class MediaQueryService {
   }
 
   imageSource(walk: ExtendedGroupEvent): BasicMedia {
-    return this.basicMediaFrom(walk.groupEvent)?.[0];
+    return this.basicMediaFrom(walk?.groupEvent)?.[0];
   }
 
   imageSourceWithFallback(extendedGroupEvent: ExtendedGroupEvent): BasicMedia {
@@ -52,6 +52,20 @@ export class MediaQueryService {
   }
 
   applyImageSource(hasMedia: HasMedia, title: string, imageUrl: string): void {
+    const media = this.mediaFrom(title, imageUrl);
+    const mediaItem: Media = hasMedia.media.find(item => item.styles.find(style => style.url === imageUrl));
+    if (!mediaItem) {
+      this.logger.info("no media exists - adding first item:", media);
+      if (!hasMedia?.media) {
+        hasMedia.media = [media];
+      } else {
+        hasMedia.media.push(media);
+        this.logger.info("Added media item", hasMedia.media.length, ":", media, "all media:", hasMedia.media);
+      }
+    }
+  }
+
+  public mediaFrom(title: string, imageUrl: string) {
     const media: Media = {
       caption: null,
       credit: null,
@@ -63,15 +77,6 @@ export class MediaQueryService {
         height: 0
       }]
     };
-    const mediaItem: Media = hasMedia.media.find(item => item.styles.find(style => style.url === imageUrl));
-    if (!mediaItem) {
-      this.logger.info("no media exists - adding first item:", media);
-      if (!hasMedia?.media) {
-        hasMedia.media = [media];
-      } else {
-        hasMedia.media.push(media);
-        this.logger.info("Added media item", hasMedia.media.length, ":", media, "all media:", hasMedia.media);
-      }
-    }
+    return media;
   }
 }

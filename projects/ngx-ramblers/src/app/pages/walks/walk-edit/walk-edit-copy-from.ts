@@ -5,8 +5,8 @@ import { WalkSummaryPipe } from "../../../pipes/walk-summary.pipe";
 import { DisplayMember } from "../../../models/member.model";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { WalkDisplayService } from "../walk-display.service";
-import { WalksAndEventsService } from "../../../services/walks/walks-and-events.service";
-import { GroupEventService } from "../../../services/walks/group-event.service";
+import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
+import { GroupEventService } from "../../../services/walks-and-events/group-event.service";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { AlertInstance } from "../../../services/notifier.service";
 import { EventDefaultsService } from "../../../services/event-defaults.service";
@@ -14,7 +14,7 @@ import { cloneDeep } from "lodash-es";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
-import { ExtendedGroupEventQueryService } from "../../../services/walks/extended-group-event-query.service";
+import { ExtendedGroupEventQueryService } from "../../../services/walks-and-events/extended-group-event-query.service";
 
 @Component({
     selector: "app-walk-edit-copy-from",
@@ -134,7 +134,6 @@ export class WalkEditCopyFromComponent {
     private walkEventService = inject(GroupEventService);
     private displayDate = inject(DisplayDatePipe);
     private memberLoginService = inject(MemberLoginService);
-    private eventDefaultsService = inject(EventDefaultsService);
 
     async ngOnInit() {
         const previousWalkLeaderIds = await this.walksAndEventsService.queryWalkLeaders();
@@ -178,7 +177,7 @@ export class WalkEditCopyFromComponent {
             }
         }
         this.logger.info("selecting walks", this.copySource, criteria);
-        this.walksAndEventsService.all({criteria, sort: {[GROUP_EVENT_START_DATE]: -1}})
+        this.walksAndEventsService.all({dataQueryOptions: {criteria, sort: {[GROUP_EVENT_START_DATE]: -1}}})
             .then(walks => this.extendedGroupEventQueryService.activeWalks(walks))
             .then(walks => {
                 this.logger.info("received walks", walks);

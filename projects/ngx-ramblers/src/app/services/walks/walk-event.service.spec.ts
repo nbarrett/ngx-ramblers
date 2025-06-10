@@ -9,7 +9,7 @@ import { FullNamePipe } from "../../pipes/full-name.pipe";
 import { MemberIdToFullNamePipe } from "../../pipes/member-id-to-full-name.pipe";
 import { StringUtilsService } from "../string-utils.service";
 
-import { GroupEventService } from "./group-event.service";
+import { GroupEventService } from "../walks-and-events/group-event.service";
 import { LocationDetails } from "../../models/ramblers-walks-manager";
 import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 import { ExtendedGroupEvent } from "../../models/group-event.model";

@@ -56,13 +56,13 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberLoginService } from "../member/member-login.service";
 import { StringUtilsService } from "../string-utils.service";
 import { SystemConfigService } from "../system/system-config.service";
-import { AscentValidationService } from "./ascent-validation.service";
-import { DistanceValidationService } from "./distance-validation.service";
+import { AscentValidationService } from "../walks/ascent-validation.service";
+import { DistanceValidationService } from "../walks/distance-validation.service";
 import { LocalWalksAndEventsService } from "./local-walks-and-events.service";
 import { DataQueryOptions } from "../../models/api-request.model";
 import isEqual from "lodash-es/isEqual";
 import { isNumericRamblersId } from "../path-matchers";
-import { RiskAssessmentService } from "./risk-assessment.service";
+import { RiskAssessmentService } from "../walks/risk-assessment.service";
 import { AlertMessage } from "../../models/alert-target.model";
 import { sortBy } from "../../functions/arrays";
 import { HasMedia } from "../../models/social-events.model";
@@ -71,7 +71,7 @@ import { WalksConfig } from "../../models/walk-notification.model";
 import { BuiltInRole } from "../../models/committee.model";
 import { AlertInstance } from "../notifier.service";
 import { GroupEventService } from "./group-event.service";
-import { WalksReferenceService } from "./walks-reference-data.service";
+import { WalksReferenceService } from "../walks/walks-reference-data.service";
 import { ALL_DESCRIBED_FEATURES, DescribedFeature, Feature } from "../../models/walk-feature.model";
 import { marked } from "marked";
 import { ExtendedFields, ExtendedGroupEvent, GroupEvent } from "../../models/group-event.model";
@@ -155,7 +155,7 @@ export class RamblersWalksAndEventsService {
     return apiResponse.response;
   }
 
-  async walkForId(walkId: string): Promise<ExtendedGroupEvent> {
+  async queryById(walkId: string): Promise<ExtendedGroupEvent> {
     this.logger.debug("getByIdIfPossible:walkId", walkId, "is valid MongoId");
     const walks = await this.listRamblersWalksRawData({ids: [walkId]})
       .then((ramblersWalksRawApiResponse: RamblersGroupEventsRawApiResponse) => ramblersWalksRawApiResponse.data.map(remoteWalk => this.toExtendedGroupEvent(remoteWalk)));
@@ -184,7 +184,7 @@ export class RamblersWalksAndEventsService {
 
   async getByIdIfPossible(walkId: string): Promise<ExtendedGroupEvent> {
     if (isNumericRamblersId(walkId)) {
-      return this.walkForId(walkId);
+      return this.queryById(walkId);
     } else {
       this.logger.debug("getByIdIfPossible:walkId", walkId, "is not valid MongoId - returning null");
       return Promise.resolve(null);

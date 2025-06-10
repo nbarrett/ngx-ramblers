@@ -1,7 +1,7 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { LoggerFactory } from "../logger-factory.service";
-import { WalksAndEventsService } from "./walks-and-events.service";
+import { WalksAndEventsService } from "../walks-and-events/walks-and-events.service";
 import { StringUtilsService } from "../string-utils.service";
 import { DataQueryOptions } from "../../models/api-request.model";
 import { ExtendedGroupEvent } from "../../models/group-event.model";

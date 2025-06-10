@@ -18,8 +18,6 @@ import { WalkDisplayService } from "../walk-display.service";
           <div content>
             {{ grading }}
           </div>
-          grading:{{ grading|json }}
-          walkGrade:{{ walkGrade|json }}
         </div>
       } @else {
         nowt!!

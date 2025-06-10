@@ -2,7 +2,7 @@ import { Component, inject, Input } from "@angular/core";
 import { CategorisedFeatures } from "../../../models/walk-feature.model";
 import { WalkEditFeatureCategoryComponent } from "../walk-view/walk-feature";
 import { DisplayedWalk } from "../../../models/walk.model";
-import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
+import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { sortBy } from "../../../functions/arrays";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";

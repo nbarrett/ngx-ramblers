@@ -3,15 +3,17 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
-import { WalkLeaderIdsApiResponse } from "../../models/walk.model";
+import { GROUP_EVENT_START_DATE, WalkLeaderIdsApiResponse } from "../../models/walk.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { UrlService } from "../url.service";
 import { StringUtilsService } from "../string-utils.service";
 import { DateUtilsService } from "../date-utils.service";
 import { ExtendedGroupEvent, ExtendedGroupEventApiResponse } from "../../models/group-event.model";
-import { DeleteDocumentsRequest, Member } from "../../models/member.model";
+import { DeleteDocumentsRequest } from "../../models/member.model";
 import { DeletionResponse, DeletionResponseApiResponse } from "../../models/mongo-models";
+import { EventQueryParameters } from "../../models/ramblers-walks-manager";
+import { ExtendedGroupEventQueryService } from "./extended-group-event-query.service";
 
 @Injectable({
   providedIn: "root"
@@ -20,22 +22,45 @@ export class LocalWalksAndEventsService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("LocalWalksAndEventsService", NgxLoggerLevel.INFO);
   private http = inject(HttpClient);
-  private stringUtilsService = inject(StringUtilsService);
-  private dateUtils = inject(DateUtilsService);
-  private commonDataService = inject(CommonDataService);
+  private stringUtilsService: StringUtilsService = inject(StringUtilsService);
+  private dateUtils: DateUtilsService = inject(DateUtilsService);
+  private commonDataService: CommonDataService = inject(CommonDataService);
+  private extendedGroupEventQueryService: ExtendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private urlService = inject(UrlService);
   private BASE_URL = "/api/database/group-event";
-  private walkNotifications = new Subject<ExtendedGroupEventApiResponse>();
+  private extendedGroupEventApiResponseSubject = new Subject<ExtendedGroupEventApiResponse>();
   private walkLeaderIdNotifications = new Subject<WalkLeaderIdsApiResponse>();
+  publicFieldsDataQueryOptions: DataQueryOptions = {
+    select: {
+      ["socialEvent.groupEvent.title"]: 1,
+      [GROUP_EVENT_START_DATE]: 1,
+      ["socialEvent.groupEvent.location.description"]: 1,
+      ["socialEvent.groupEvent.description"]: 1,
+      ["socialEvent.fields.attachment"]: 1,
+      ["socialEvent.groupEvent.media"]: 1
+    }
+  };
 
   notifications(): Observable<ExtendedGroupEventApiResponse> {
-    return this.walkNotifications.asObservable();
+    return this.extendedGroupEventApiResponseSubject.asObservable();
   }
 
-  async all(dataQueryOptions?: DataQueryOptions): Promise<ExtendedGroupEvent[]> {
+  async all(eventQueryParameters?: EventQueryParameters): Promise<ExtendedGroupEvent[]> {
+    const dataQueryOptions: DataQueryOptions = this.extendedGroupEventQueryService.dataQueryOptionsFrom(eventQueryParameters);
     const params = this.commonDataService.toHttpParams(dataQueryOptions);
     this.logger.info("all:dataQueryOptions", dataQueryOptions, "params", params.toString());
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<ExtendedGroupEventApiResponse>(`${this.BASE_URL}/all`, {params}), this.walkNotifications);
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<ExtendedGroupEventApiResponse>(`${this.BASE_URL}/all`, {params}), this.extendedGroupEventApiResponseSubject);
+    return apiResponse.response as ExtendedGroupEvent[];
+  }
+
+  async allPublic(eventQueryParameters?: EventQueryParameters): Promise<ExtendedGroupEvent[]> {
+    const dataQueryOptions: DataQueryOptions = {
+      ...this.extendedGroupEventQueryService.dataQueryOptionsFrom(eventQueryParameters),
+      select: this.publicFieldsDataQueryOptions.select
+    };
+    const params = this.commonDataService.toHttpParams(dataQueryOptions);
+    this.logger.debug("allPublic:dataQueryOptions", dataQueryOptions, "params", params.toString());
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<ExtendedGroupEventApiResponse>(`${this.BASE_URL}/all-public`, {params}), this.extendedGroupEventApiResponseSubject);
     return apiResponse.response as ExtendedGroupEvent[];
   }
 
@@ -47,9 +72,9 @@ export class LocalWalksAndEventsService {
     }
   }
 
-  async getById(walkId: string): Promise<ExtendedGroupEvent> {
+  async queryById(walkId: string): Promise<ExtendedGroupEvent> {
     this.logger.info("getById:", walkId);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<ExtendedGroupEventApiResponse>(`${this.BASE_URL}/${walkId}`), this.walkNotifications);
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<ExtendedGroupEventApiResponse>(`${this.BASE_URL}/${walkId}`), this.extendedGroupEventApiResponseSubject);
     return apiResponse.response as ExtendedGroupEvent;
   }
 
@@ -62,7 +87,7 @@ export class LocalWalksAndEventsService {
   async getByIdIfPossible(walkId: string): Promise<ExtendedGroupEvent | null> {
     if (this.urlService.isMongoId(walkId)) {
       this.logger.info("getByIdIfPossible:walkId", walkId, "is valid MongoId");
-      return this.getById(walkId);
+      return this.queryById(walkId);
     } else {
       this.logger.info("getByIdIfPossible:walkId", walkId, "is not valid MongoId - returning null");
       return Promise.resolve(null);
@@ -71,14 +96,14 @@ export class LocalWalksAndEventsService {
 
   async update(walk: ExtendedGroupEvent): Promise<ExtendedGroupEvent> {
     this.logger.info("updating", walk);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.put<ExtendedGroupEventApiResponse>(this.BASE_URL + "/" + walk.id, walk), this.walkNotifications);
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.put<ExtendedGroupEventApiResponse>(this.BASE_URL + "/" + walk.id, walk), this.extendedGroupEventApiResponseSubject);
     this.logger.info("updated", walk, "- received", apiResponse);
     return apiResponse.response as ExtendedGroupEvent;
   }
 
   async create(walk: ExtendedGroupEvent): Promise<ExtendedGroupEvent> {
     this.logger.info("creating", walk);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<ExtendedGroupEventApiResponse>(this.BASE_URL, walk), this.walkNotifications);
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<ExtendedGroupEventApiResponse>(this.BASE_URL, walk), this.extendedGroupEventApiResponseSubject);
     this.logger.info("created", walk, "- received", apiResponse);
     return apiResponse.response as ExtendedGroupEvent;
   }
@@ -90,23 +115,23 @@ export class LocalWalksAndEventsService {
     return apiResponse.response as ExtendedGroupEvent[];
   }
 
-  async delete(walk: ExtendedGroupEvent): Promise<ExtendedGroupEvent> {
-    this.logger.info("deleting", walk);
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.delete<ExtendedGroupEventApiResponse>(this.BASE_URL + "/" + walk.id), this.walkNotifications);
-    this.logger.info("deleted", walk, "- received", apiResponse);
+  async delete(extendedGroupEvent: ExtendedGroupEvent): Promise<ExtendedGroupEvent> {
+    this.logger.info("deleting", extendedGroupEvent);
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.delete<ExtendedGroupEventApiResponse>(this.BASE_URL + "/" + extendedGroupEvent.id), this.extendedGroupEventApiResponseSubject);
+    this.logger.info("deleted", extendedGroupEvent, "- received", apiResponse);
     return apiResponse.response as ExtendedGroupEvent;
   }
 
-  async deleteAll(members: ExtendedGroupEvent[]): Promise<DeletionResponse[]> {
-    this.logger.debug("deleteAll:requested:", members);
-    const deleteExtendedGroupEventsRequest: DeleteDocumentsRequest = {ids: members.map((member: ExtendedGroupEvent) => member.id)};
+  async deleteAll(extendedGroupEvents: ExtendedGroupEvent[]): Promise<DeletionResponse[]> {
+    this.logger.debug("deleteAll:requested:", extendedGroupEvents);
+    const deleteExtendedGroupEventsRequest: DeleteDocumentsRequest = {ids: extendedGroupEvents.map((member: ExtendedGroupEvent) => member.id)};
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<DeletionResponseApiResponse>(this.BASE_URL + "/delete-all", deleteExtendedGroupEventsRequest));
     this.logger.debug("deleteAll:received:", apiResponse);
     return apiResponse.response as DeletionResponse[];
   }
 
-  async fixIncorrectWalkDates(): Promise<ExtendedGroupEvent[]> {
-    this.logger.info("fixIncorrectWalkDates:beginning");
+  async fixIncorrectStartDates(): Promise<ExtendedGroupEvent[]> {
+    this.logger.info("fixIncorrectStartDates:beginning");
     const walks = await this.all();
     const walksWithIncorrectDate: ExtendedGroupEvent[] = walks.filter(walk => walk.groupEvent.start_date_time !== walk.groupEvent.start_date_time);
     this.logger.info("given", this.stringUtilsService.pluraliseWithCount(walks.length, "queried walk"), "there are", this.stringUtilsService.pluraliseWithCount(walksWithIncorrectDate.length, "incorrectly dated walk"), walksWithIncorrectDate.map(walk => "current:" + this.dateUtils.displayDateAndTime(walk.groupEvent.start_date_time) + ", fixed:" + this.dateUtils.displayDateAndTime(this.dateUtils.asValueNoTime(walk.groupEvent.start_date_time))).join("\n"));
@@ -115,7 +140,7 @@ export class LocalWalksAndEventsService {
       walkDate: this.dateUtils.asValueNoTime(walk.groupEvent.start_date_time)
     }));
     const filteredFixedDates = walksWithFixedDate.filter(walk => walk.groupEvent.start_date_time !== walk.groupEvent.start_date_time);
-    this.logger.info("given", this.stringUtilsService.pluraliseWithCount(walks.length, "queried walk"), "there are", this.stringUtilsService.pluraliseWithCount(filteredFixedDates.length, "remaining incorrectly dated walk"), filteredFixedDates.map(walk => this.dateUtils.displayDateAndTime(walk.groupEvent.start_date_time)).join("\n"));
+    this.logger.info("given", this.stringUtilsService.pluraliseWithCount(walks.length, "queried event"), "there are", this.stringUtilsService.pluraliseWithCount(filteredFixedDates.length, "remaining incorrectly dated event"), filteredFixedDates.map(walk => this.dateUtils.displayDateAndTime(walk.groupEvent.start_date_time)).join("\n"));
     this.logger.info("walksWithFixedDate raw:", walksWithFixedDate);
     Promise.all(walksWithFixedDate.map(walk => this.update(walk))).then((updated) => this.logger.info("update complete with", this.stringUtilsService.pluraliseWithCount(updated.length, "updated walk"), updated));
     return walksWithFixedDate;
@@ -127,7 +152,7 @@ export class LocalWalksAndEventsService {
       const apiResponse = await this.commonDataService.responseFrom(
         this.logger,
         this.http.post<ExtendedGroupEventApiResponse>(`${this.BASE_URL}/update-many`, dataQueryOptions),
-        this.walkNotifications
+        this.extendedGroupEventApiResponseSubject
       );
       this.logger.info("updateMany: updated documents:", apiResponse);
       return apiResponse.response as ExtendedGroupEvent[];

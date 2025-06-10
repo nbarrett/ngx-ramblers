@@ -14,16 +14,18 @@ import { LegacyDistanceValidationService } from "./legacy-distance-validation.se
 import { LegacyAscentValidationService } from "./legacy-ascent-validation.service";
 import { StringUtilsService } from "../string-utils.service";
 import { UrlService } from "../url.service";
-import { RamblersWalksAndEventsService } from "../walks/ramblers-walks-and-events.service";
+import { RamblersWalksAndEventsService } from "../walks-and-events/ramblers-walks-and-events.service";
 import { DateCriteria } from "../../models/api-request.model";
-import { ExtendedGroupEventQueryService } from "../walks/extended-group-event-query.service";
-import { LocalWalksAndEventsService } from "../walks/local-walks-and-events.service";
+import { ExtendedGroupEventQueryService } from "../walks-and-events/extended-group-event-query.service";
+import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-events.service";
 import { WalksConfigService } from "../system/walks-config.service";
 import { WalksConfig } from "../../models/walk-notification.model";
 import groupBy from "lodash-es/groupBy";
 import { sortBy } from "../../functions/arrays";
 import last from "lodash-es/last";
 import { NumberUtilsService } from "../number-utils.service";
+import { SocialEventsLocalLegacyService } from "../social-events/social-events-local-legacy.service";
+import { MediaQueryService } from "../committee/media-query.service";
 
 @Injectable({
   providedIn: "root"
@@ -34,6 +36,7 @@ export class EventsMigrationService {
   private dateUtils: DateUtilsService = inject(DateUtilsService);
   private stringUtilsService: StringUtilsService = inject(StringUtilsService);
   private walksLocalLegacyService: WalksLocalLegacyService = inject(WalksLocalLegacyService);
+  private socialEventsLocalLegacyService = inject(SocialEventsLocalLegacyService);
   private legacyDistanceValidationService: LegacyDistanceValidationService = inject(LegacyDistanceValidationService);
   private legacyAscentValidationService: LegacyAscentValidationService = inject(LegacyAscentValidationService);
   private walkDisplayService: WalkDisplayService = inject(WalkDisplayService);
@@ -43,6 +46,7 @@ export class EventsMigrationService {
   private localWalksAndEventsService: LocalWalksAndEventsService = inject(LocalWalksAndEventsService);
   private numberUtils = inject(NumberUtilsService);
   private urlService: UrlService = inject(UrlService);
+  private mediaQueryService: MediaQueryService = inject(MediaQueryService);
   private walksConfig: WalksConfig;
 
   constructor() {
@@ -77,7 +81,7 @@ export class EventsMigrationService {
       distance_km: units?.kilometres?.value || 0,
       distance_miles: units?.miles?.value || 0,
       duration: null,
-      end_date_time: this.isWalk(walkOrSocialEvent) ? this.finishTime(startDateTime, walkOrSocialEvent, milesPerHour) : walkOrSocialEvent.eventTimeEnd,
+      end_date_time: this.isWalk(walkOrSocialEvent) ? this.finishTime(startDateTime, walkOrSocialEvent, milesPerHour) : this.socialEventFinishTime(walkOrSocialEvent),
       end_location: this.isWalk(walkOrSocialEvent) ? walkOrSocialEvent.end_location : null,
       linked_event: "",
       meeting_date_time: "",
@@ -91,7 +95,7 @@ export class EventsMigrationService {
       start_date_time: startDateTime,
       start_location: this.isWalk(walkOrSocialEvent) ? walkOrSocialEvent.start_location : null,
       location: this.isWalk(walkOrSocialEvent) ? null : this.toLocation(walkOrSocialEvent),
-      media: walkOrSocialEvent.media || [],
+      media: this.isWalk(walkOrSocialEvent) ? walkOrSocialEvent.media : this.mediaFrom(walkOrSocialEvent),
       group_code: this.isWalk(walkOrSocialEvent) ? walkOrSocialEvent.group?.groupCode || this.walkDisplayService.group.groupCode : this.walkDisplayService.group.groupCode,
       group_name: this.isWalk(walkOrSocialEvent) ? walkOrSocialEvent.group?.longName || this.walkDisplayService.group.longName : this.walkDisplayService.group.longName,
       external_url: this.isWalk(walkOrSocialEvent) ? walkOrSocialEvent.ramblersWalkUrl : walkOrSocialEvent.link,
@@ -252,8 +256,24 @@ export class EventsMigrationService {
     }
   }
 
-  async migrateEvents(saveData: boolean): Promise<ExtendedGroupEvent[]> {
-    this.logger.info("Starting Migration of events");
+  socialEventFinishTime(socialEvent: SocialEvent): string {
+    if (socialEvent?.eventTimeEnd) {
+      const finishTime: Time = this.parseTime(socialEvent?.eventTimeEnd);
+      const socialDateMoment: moment = this.dateUtils.asMoment(socialEvent?.eventDate);
+      const socialEventEndTimeValue = this.dateUtils.calculateWalkDateAndTimeValue(socialDateMoment, finishTime);
+      const socialEventEndTime = this.dateUtils.isoDateTimeString(socialEventEndTimeValue);
+      this.logger.info("text based finishTime:", socialEvent?.eventTimeEnd,
+        "finishTime:", finishTime,
+        "walkDateAndTime:", socialEventEndTimeValue,
+        "socialEventEndTime:", socialEventEndTime);
+      return socialEventEndTime;
+    } else {
+      return null;
+    }
+  }
+
+  public async migrateWalks(saveData: boolean): Promise<ExtendedGroupEvent[]> {
+    this.logger.info("Starting Migration of walks");
     const ramblersWalks: ExtendedGroupEvent[] = await this.ramblersWalksAndEventsService.all({
       dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions({
         ascending: false,
@@ -269,7 +289,7 @@ export class EventsMigrationService {
     this.logger.info("Migrated events :", migratedWalks.length);
     const extendedGroupEvents: ExtendedGroupEvent[] = migratedWalks.map(item => item.migrated);
     if (saveData) {
-      const existing = await this.localWalksAndEventsService.all();
+      const existing = await this.localWalksAndEventsService.all({types: [RamblersEventType.GROUP_WALK]});
       this.logger.info("Deleting existing", existing.length, "events");
       const deleted = await this.localWalksAndEventsService.deleteAll(existing);
       this.logger.info("Deleted", deleted.length, "events");
@@ -279,5 +299,34 @@ export class EventsMigrationService {
       this.logger.info("Not saving extendedGroupEvents:", extendedGroupEvents);
     }
     return extendedGroupEvents;
+  }
+
+  public async migrateSocialEvents(saveData: boolean): Promise<ExtendedGroupEvent[]> {
+    this.logger.info("Starting Migration of social events");
+    const socialEvents: SocialEvent[] = await this.socialEventsLocalLegacyService.all();
+    const socialEventsByDate: SocialEvent[] = Object.entries(groupBy(socialEvents, walk => walk.eventDate))
+      .map((entry: [path: string, duplicates: SocialEvent[]]) => (last(entry[1].sort(sortBy("eventDate")))));
+    this.logger.info("socialEvents:", socialEvents, "socialEventsByDate:", socialEventsByDate);
+    const migratedSocialEvents = socialEventsByDate.map(socialEvent => ({
+      input: socialEvent,
+      migrated: this.toExtendedGroupEvent(socialEvent, [])
+    }));
+    this.logger.info("Migrated events :", migratedSocialEvents.length);
+    const extendedGroupEvents: ExtendedGroupEvent[] = migratedSocialEvents.map(item => item.migrated);
+    if (saveData) {
+      const existingSocials = await this.localWalksAndEventsService.all({types: [RamblersEventType.GROUP_EVENT]});
+      this.logger.info("Deleting existing:", existingSocials.length, "social events");
+      const deleted = await this.localWalksAndEventsService.deleteAll(existingSocials);
+      this.logger.info("Deleted", deleted.length, "events");
+      const created = await this.localWalksAndEventsService.createOrUpdateAll(extendedGroupEvents);
+      this.logger.info("Saved events :", created);
+    } else {
+      this.logger.info("Not saving extendedGroupEvents:", extendedGroupEvents);
+    }
+    return extendedGroupEvents;
+  }
+
+  public mediaFrom(walkOrSocialEvent: SocialEvent) {
+    return [this.mediaQueryService.mediaFrom(walkOrSocialEvent.briefDescription, this.urlService.imageSource(walkOrSocialEvent.thumbnail, true))];
   }
 }

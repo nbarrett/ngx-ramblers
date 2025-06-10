@@ -9,7 +9,6 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
-import { SocialEventsService } from "../../../services/social-events/social-events.service";
 import { SocialDisplayService } from "../social-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { SystemConfig } from "../../../models/system.model";
@@ -52,6 +51,7 @@ import { BrevoButtonComponent } from "../../../modules/common/third-parties/brev
 import { TitleCasePipe } from "@angular/common";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import last from "lodash-es/last";
+import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 
 @Component({
     selector: "app-social-send-notification-modal",
@@ -440,7 +440,7 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   private systemConfigService = inject(SystemConfigService);
   stringUtils = inject(StringUtilsService);
   display = inject(SocialDisplayService);
-  private socialEventsService = inject(SocialEventsService);
+  private walksAndEventsService = inject(WalksAndEventsService);
   mailLinkService = inject(MailLinkService);
   private mailListUpdaterService = inject(MailListUpdaterService);
   protected dateUtils = inject(DateUtilsService);
@@ -594,7 +594,7 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   }
 
   saveAndSendLater() {
-    this.socialEventsService.update(this.socialEvent).then(() => this.bsModalRef.hide());
+    this.walksAndEventsService.update(this.socialEvent).then(() => this.bsModalRef.hide());
   }
 
   selectedList(): ListInfo {
@@ -621,7 +621,7 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   }
 
   saveSocialEvent() {
-    return this.socialEventsService.createOrUpdate(this.socialEvent);
+    return this.walksAndEventsService.createOrUpdate(this.socialEvent);
   }
 
   notifyEmailSendComplete(campaignName: string) {

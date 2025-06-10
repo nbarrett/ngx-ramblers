@@ -1,9 +1,13 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
-import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
+import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
-import { ExtendedGroupEventQueryService } from "../../../services/walks/extended-group-event-query.service";
+import { ExtendedGroupEventQueryService } from "../../../services/walks-and-events/extended-group-event-query.service";
 import { ImageSource, WalkForSelect } from "../../../models/walk.model";
-import { RamblersGroupsApiResponse, RamblersGroupWithLabel } from "../../../models/ramblers-walks-manager";
+import {
+  EventQueryParameters,
+  RamblersGroupsApiResponse,
+  RamblersGroupWithLabel
+} from "../../../models/ramblers-walks-manager";
 import { sortBy } from "../../../functions/arrays";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { DateCriteria } from "../../../models/api-request.model";
@@ -128,11 +132,11 @@ export class WalkImageSelectionWalksManagerComponent implements OnInit {
 
   refreshWalks() {
     const {groupCode, filterParameters} = this.groupEvent.fields.imageConfig.importFrom;
-    const parameters = {
+    const eventQueryParameters: EventQueryParameters = {
       groupCode,
       dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions(filterParameters)
     };
-    this.ramblersWalksAndEventsService.all(parameters).then(walks => {
+    this.ramblersWalksAndEventsService.all(eventQueryParameters).then(walks => {
       this.walks = walks
         .filter(walk => walk.groupEvent?.media?.length > 0)
         .sort(sortBy(this.sortColumn(filterParameters)))

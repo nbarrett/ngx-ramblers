@@ -200,6 +200,7 @@ export enum WalkViewMode {
 }
 
 export const GROUP_EVENT_START_DATE = "groupEvent.start_date_time";
+export const GROUP_EVENT_ITEM_TYPE = "groupEvent.item_type";
 export const EventStartDateAscending = {[GROUP_EVENT_START_DATE]: 1};
 
 export const EventStartDateDescending = {[GROUP_EVENT_START_DATE]: -1};

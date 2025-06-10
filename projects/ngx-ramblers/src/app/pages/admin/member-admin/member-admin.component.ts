@@ -28,7 +28,7 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { MemberAdminModalComponent } from "../member-admin-modal/member-admin-modal.component";
 import { ProfileService } from "../profile/profile.service";
 import { SendEmailsModalComponent } from "../send-emails/send-emails-modal.component";
-import { WalksAndEventsService } from "../../../services/walks/walks-and-events.service";
+import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MemberBulkDeleteService } from "../../../services/member/member-bulk-delete.service";
 import { MailProvider, SystemConfig } from "../../../models/system.model";

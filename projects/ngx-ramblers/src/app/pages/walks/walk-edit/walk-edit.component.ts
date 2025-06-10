@@ -24,11 +24,11 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
-import { RamblersWalksAndEventsService } from "../../../services/walks/ramblers-walks-and-events.service";
-import { GroupEventService } from "../../../services/walks/group-event.service";
+import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
+import { GroupEventService } from "../../../services/walks-and-events/group-event.service";
 import { WalkNotificationService } from "../../../services/walks/walk-notification.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
-import { WalksAndEventsService } from "../../../services/walks/walks-and-events.service";
+import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { NotificationDirective } from "../../../notifications/common/notification.directive";

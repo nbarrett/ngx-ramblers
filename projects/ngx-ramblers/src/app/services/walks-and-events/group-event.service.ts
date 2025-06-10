@@ -14,7 +14,7 @@ import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberLoginService } from "../member/member-login.service";
 import { StringUtilsService } from "../string-utils.service";
-import { WalksReferenceService } from "./walks-reference-data.service";
+import { WalksReferenceService } from "../walks/walks-reference-data.service";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { sortBy } from "../../functions/arrays";
 import cloneDeep from "lodash-es/cloneDeep";

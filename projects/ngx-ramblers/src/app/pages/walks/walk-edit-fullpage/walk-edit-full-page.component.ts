@@ -7,7 +7,7 @@ import { DisplayedWalk, EventType } from "../../../models/walk.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
-import { WalksAndEventsService } from "../../../services/walks/walks-and-events.service";
+import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { PageComponent } from "../../../page/page.component";
 import { WalkEditComponent } from "../walk-edit/walk-edit.component";
@@ -49,7 +49,7 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
       } else {
         const walkId = paramMap.get("walk-id");
         this.logger.debug("querying walk-id", walkId);
-        this.walksAndEventsService.getById(walkId)
+        this.walksAndEventsService.queryById(walkId)
           .then((walk: ExtendedGroupEvent) => {
             this.logger.info("found walk", walk);
             this.displayedWalk = this.display.toDisplayedWalk(walk);

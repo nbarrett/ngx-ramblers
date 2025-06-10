@@ -17,7 +17,6 @@ import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
-import { SocialEventsService } from "../../../services/social-events/social-events.service";
 import { UrlService } from "../../../services/url.service";
 import { SocialSendNotificationModalComponent } from "../send-notification/social-send-notification-modal.component";
 import { SocialDisplayService } from "../social-display.service";
@@ -39,6 +38,7 @@ import { EventDefaultsService } from "../../../services/event-defaults.service";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { EditGropuEventImagesComponent } from "../../walks/walk-edit/walk-edit-group-event-images";
 import { SystemConfigService } from "../../../services/system/system-config.service";
+import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 
 @Component({
     selector: "app-social-edit",
@@ -435,7 +435,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
   private memberService = inject(MemberService);
   private modalService = inject(BsModalService);
   googleMapsService = inject(GoogleMapsService);
-  private socialEventsService = inject(SocialEventsService);
+  private walksAndEventsService = inject(WalksAndEventsService);
   private urlService = inject(UrlService);
   protected dateUtils = inject(DateUtilsService);
   private eventDefaultsService = inject(EventDefaultsService);
@@ -466,7 +466,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
       this.notify.setBusy();
       const socialEventId = this.urlService.segmentWithMongoId();
       this.logger.debug("finding socialEvent from socialEventId:", socialEventId);
-      this.socialEventsService.queryForId(socialEventId).then(data => {
+      this.walksAndEventsService.getByIdIfPossible(socialEventId).then(data => {
         this.socialEvent = data;
         if (!this.socialEvent.fields.attendees) {
           this.socialEvent.fields.attendees = [];
@@ -540,7 +540,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
   saveSocialEvent() {
     this.notify.setBusy();
     this.logger.debug("saveSocialEvent ->", this.socialEvent);
-    return this.socialEventsService.createOrUpdate(this.socialEvent)
+    return this.walksAndEventsService.createOrUpdate(this.socialEvent)
       .then(() => this.close())
       .then(() => this.notify.clearBusy())
       .catch((error) => this.handleError(error));
@@ -558,7 +558,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
   }
 
   removeSocialEventAndRefreshSocialEvents() {
-    this.socialEventsService.delete(this.socialEvent).then(() => this.close());
+    this.walksAndEventsService.delete(this.socialEvent).then(() => this.close());
   }
 
   selectMemberContactDetails(memberId: string) {
@@ -639,7 +639,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
   }
 
   confirmDeleteSocialEvent() {
-    this.socialEventsService.delete(this.socialEvent)
+    this.walksAndEventsService.delete(this.socialEvent)
       .then(() => this.close());
   }
 
@@ -702,4 +702,6 @@ export class SocialEditComponent implements OnInit, OnDestroy {
   editImage() {
     this.editActive = true;
   }
+
+
 }

@@ -3,9 +3,9 @@ import cloneDeep from "lodash-es/cloneDeep";
 import first from "lodash-es/first";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
-  EventType,
   EventStartDateAscending,
   EventStartDateDescending,
+  EventType,
   GROUP_EVENT_START_DATE
 } from "../../models/walk.model";
 import { sortBy } from "../../functions/arrays";
@@ -16,6 +16,7 @@ import { DataQueryOptions } from "../../models/api-request.model";
 import { StringUtilsService } from "../string-utils.service";
 import { FilterParameters, HasBasicEventSelection } from "../../models/search.model";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
+import { EventQueryParameters } from "../../models/ramblers-walks-manager";
 
 @Injectable({
   providedIn: "root"
@@ -34,6 +35,31 @@ export class ExtendedGroupEventQueryService {
     const sort = this.walksSortObject(filterParameters);
     this.logger.debug("walksCriteriaObject:this.filterParameters.criteria", criteria, "sort:", sort);
     return {criteria, sort};
+  }
+
+
+  dataQueryOptionsFrom(eventQueryParameters: EventQueryParameters): DataQueryOptions {
+    const andCriteria: any[] = [];
+
+    if (eventQueryParameters.groupCode) {
+      andCriteria.push({"groupEvent.group_code": eventQueryParameters.groupCode});
+    }
+    if (eventQueryParameters.ids && eventQueryParameters.ids.length > 0) {
+      andCriteria.push({"groupEvent.id": {$in: eventQueryParameters.ids}});
+    }
+    if (eventQueryParameters.types && eventQueryParameters.types.length > 0) {
+      andCriteria.push({"groupEvent.item_type": {$in: eventQueryParameters.types}});
+    }
+
+    if (eventQueryParameters.dataQueryOptions?.criteria) {
+      andCriteria.push(eventQueryParameters.dataQueryOptions.criteria);
+    }
+
+    const criteria = andCriteria.length > 0 ? {$and: andCriteria} : {};
+
+    const dataQueryOptions = {...eventQueryParameters.dataQueryOptions, criteria};
+    this.logger.info("dataQueryOptionsFrom: eventQueryParameters.dataQueryOptions", eventQueryParameters.dataQueryOptions, "dataQueryOptions:", dataQueryOptions);
+    return dataQueryOptions;
   }
 
   walksCriteriaObject(filterParameters: HasBasicEventSelection, dateComparison?: string) {
