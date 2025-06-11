@@ -9,7 +9,6 @@ import { UrlService } from "../../../services/url.service";
 import { SocialDisplayService } from "../social-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { PageService } from "../../../services/page.service";
-import { NgClass } from "@angular/common";
 import { MarkdownComponent } from "ngx-markdown";
 import { RelatedLinkComponent } from "../../../modules/common/related-links/related-link";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
@@ -17,39 +16,37 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { RouterLink } from "@angular/router";
 import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
-import { EventTimesPipe } from "../../../pipes/event-times.pipe";
+import { EventDatesAndTimesPipe } from "../../../pipes/event-times.pipe";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { LinksService } from "../../../services/links.service";
-import { Links } from "../../../models/walk.model";
+import { FALLBACK_MEDIA, Links } from "../../../models/walk.model";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
+import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
+import { BasicMedia } from "../../../models/ramblers-walks-manager";
 
 @Component({
     selector: "app-social-view",
     template: `
       <div class="card mb-3">
         <div class="wrapper w-100 position-relative">
-          <img src="{{mediaQueryService.imageSourceWithFallback(socialEvent).url}}"
-               alt="{{mediaQueryService.imageSourceWithFallback(socialEvent).alt}}"
-               height="150"
-               class="card-img-top"/>
+          <img class="h-100 w-100 position-absolute" (error)="imageError($event)" (load)="imageLoad($event)"
+               role="presentation" src="{{image.url}}"
+               alt="{{image.alt}}"/>
         </div>
         <div class="card-body">
           <div class="position-relative">
             @if (display.allow.edits) {
               <input type="submit" value="edit"
                      (click)="editSocialEvent()" [disabled]="notifyTarget.busy"
-                     [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'"
-                     title="Edit social event" class="button-form button-form-right">
+                     title="Edit social event" class="btn btn-primary button-form-right">
             }
           </div>
           <div class="card-title mb-4"><h2>{{ socialEvent?.groupEvent?.title }}</h2></div>
           @if (display.allow.detailView) {
             <div class="row">
               <div class="col-sm-12">
-                <h3>{{ socialEvent?.groupEvent?.start_date_time | displayDay }}
-                  <small> – {{ socialEvent | eventTimes }}</small>
-                </h3>
+                <h3>{{ socialEvent | eventDatesAndTimes }}</h3>
               </div>
             </div>
           }
@@ -126,8 +123,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
                   <h1>Contact Details</h1>
                   <div class="col-sm-12">
                     @if (!display.socialPopulationLocal()) {
-                      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12"
-                      >
+                      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
                         <fa-icon title tooltip="contact organiser {{socialEvent?.fields?.contactDetails?.displayName}}"
                                  [icon]="faEnvelope"
                                  class="fa-icon pointer"></fa-icon>
@@ -191,11 +187,11 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
         </div>
       </div>`,
     styleUrls: ["social-view.sass"],
-    imports: [NgClass, MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, DisplayDayPipe, EventTimesPipe]
+  imports: [MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, DisplayDayPipe, EventDatesAndTimesPipe]
 })
 export class SocialViewComponent implements OnInit {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("SocialViewComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("SocialViewComponent", NgxLoggerLevel.INFO);
   protected pageService = inject(PageService);
   googleMapsService = inject(GoogleMapsService);
   private notifierService = inject(NotifierService);
@@ -215,9 +211,11 @@ export class SocialViewComponent implements OnInit {
   faHouse = faHouse;
   faFile = faFile;
   public links: Links = null;
+  public image: BasicMedia;
   ngOnInit() {
     this.logger.info("ngOnInit:socialEvent:", this.socialEvent);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.image = this.mediaQueryService.imageSourceWithFallback(this.socialEvent);
     this.systemConfigService.events().subscribe(item => {
       if (this.socialEvent) {
         this.logger.info("socialEvent from input:", this.socialEvent);
@@ -227,6 +225,7 @@ export class SocialViewComponent implements OnInit {
         this.logger.info("finding socialEvent from socialEventId:", socialEventId);
         this.walksAndEventsService.getByIdIfPossible(socialEventId).then(data => {
           this.socialEvent = data;
+          this.image = this.mediaQueryService.imageSourceWithFallback(this.socialEvent);
           this.logger.info("found social event:", data);
           this.notifySocialEventDisplayed()
         });
@@ -244,11 +243,20 @@ export class SocialViewComponent implements OnInit {
     });
   }
 
+  imageError(event: ErrorEvent) {
+    this.logger.error("imageError:", event);
+    this.image = FALLBACK_MEDIA;
+  }
+
+  imageLoad($event: Event) {
+    this.logger.info("imageLoad:", $event);
+  }
+
   editSocialEvent() {
     if (this.display.inNewEventMode()) {
       this.logger.info("creating new social event");
     } else {
-      this.logger.info("editing existing social event");
+      this.logger.info("editing existing social event:", this.socialEvent.id);
     }
     this.display.confirm.clear();
     const existingRecordEditEnabled = this.display.allow.edits;
@@ -264,4 +272,6 @@ export class SocialViewComponent implements OnInit {
   showSensitiveDetailsAlert() {
     return !this.display.loggedIn() && !this.systemConfigService?.systemConfig()?.group?.socialDetailsPublic;
   }
+
+
 }

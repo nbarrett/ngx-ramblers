@@ -6,7 +6,7 @@ export class DisplayTimePipe implements PipeTransform {
   private dateUtils = inject(DateUtilsService);
 
   transform(dateValue: any): string {
-    if (this.dateUtils.isMidnight(dateValue)) {
+    if (!dateValue || this.dateUtils.isMidnight(dateValue)) {
       return "";
     } else {
       return this.dateUtils.displayTime(dateValue);

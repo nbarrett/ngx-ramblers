@@ -66,6 +66,7 @@ export interface Publishing {
 }
 
 export interface ExtendedFields {
+  migratedFromId: string;
   attachment?: FileNameData;
   attendees: Identifiable[];
   contactDetails: ContactDetails;

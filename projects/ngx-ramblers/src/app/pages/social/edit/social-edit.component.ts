@@ -36,9 +36,12 @@ import { RootFolder, SystemConfig } from "../../../models/system.model";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { EventDefaultsService } from "../../../services/event-defaults.service";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
-import { EditGropuEventImagesComponent } from "../../walks/walk-edit/walk-edit-group-event-images";
+import { EditGroupEventImagesComponent } from "../../../common/walks-and-events/edit-group-event-images";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
+import { TimePicker } from "../../../date-and-time/time-picker";
+import isString from "lodash-es/isString";
+import { EventsMigrationService } from "../../../services/migration/events-migration.service";
 
 @Component({
     selector: "app-social-edit",
@@ -62,31 +65,47 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
                         </div>
                       </div>
                     </div>
-                    <div class="row">
-                      <div class="col-sm-6">
+                    <div class="row align-items-center">
+                      <div class="col-auto">
                         <div class="form-group">
-                          <app-date-picker startOfDay [label]="'Social Event Date'"
-                                           [size]="'md'"
-                                           (change)="eventDateChanged($event)"
-                                           [value]="eventDate">
+                          <app-date-picker label="Social Event Date"
+                                           size="md"
+                                           (change)="startDateChanged($event)"
+                                           [value]="socialEvent.groupEvent.start_date_time">
                           </app-date-picker>
                         </div>
                       </div>
-                      <div class="col-sm-3">
-                        <div class="form-group">
-                          <label for="start-time">Start Time</label>
-                          <input [disabled]="!display.allow.edits"
-                                 [(ngModel)]="socialEvent.groupEvent.start_date_time" type="text"
-                                 class="form-control input-sm" id="start-time"
-                                 placeholder="Enter Start time here"/>
+                      <div class="col-auto">
+                        <div class="form-group" app-time-picker id="start-time" label="Start Time"
+                             [disabled]="!display.allow.edits"
+                             [value]="socialEvent.groupEvent.start_date_time"
+                             (change)="onStartDateTimeChange($event)">
                         </div>
                       </div>
-                      <div class="col-sm-3">
+                      <div class="col-auto">
                         <div class="form-group">
-                          <label for="end-time">End Time</label>
-                          <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.groupEvent.end_date_time"
-                                 type="text" class="form-control input-sm" id="end-time"
-                                 placeholder="Enter End time here"/>
+                          <app-date-picker label="End Date"
+                                           size="md"
+                                           (change)="endDateChanged($event)"
+                                           [value]="socialEvent.groupEvent.end_date_time">
+                          </app-date-picker>
+                        </div>
+                      </div>
+                      <div class="col-auto">
+                        <div class="form-group" app-time-picker id="end-time" label="End Time"
+                             [disabled]="!display.allow.edits"
+                             [value]="socialEvent.groupEvent.end_date_time"
+                             (change)="onEndDateTimeChange($event)">
+                        </div>
+                      </div>
+                      <div class="col">
+                        <div class="form-group">
+                          <label for="duration">Estimated Duration</label>
+                          <input disabled
+                                 [value]="durationCalculated()"
+                                 type="text"
+                                 class="form-control input-sm duration"
+                                 id="duration">
                         </div>
                       </div>
                     </div>
@@ -151,77 +170,9 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
                     </div>
                   </div>
                 </tab>
-                <tab app-edit-group-event-images heading="Images"
+                <tab app-edit-group-event-images disallowImageSourceSelection heading="Images"
                      [extendedGroupEvent]="socialEvent"
                      [config]="config"/>
-                <!--                <tab heading="Image">-->
-                <!--                  <ng-template #linkAndThumbnail>-->
-                <!--                    <div class="form-group">-->
-                <!--                      <label for="img-thumbnail">Thumbnail</label>-->
-                <!--                      <input [disabled]="!display.allow.edits || editActive"-->
-                <!--                             [(ngModel)]="socialEvent.thumbnail"-->
-                <!--                             type="text" value="" class="form-control input-sm"-->
-                <!--                             id="img-thumbnail"-->
-                <!--                             placeholder="Enter a thumbnail image">-->
-                <!--                    </div>-->
-                <!--                    <div class="form-group">-->
-                <!--                      <label for="link">Link</label>-->
-                <!--                      <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.link"-->
-                <!--                             type="text" value="" class="form-control input-sm" id="link"-->
-                <!--                             placeholder="Enter a link">-->
-                <!--                    </div>-->
-                <!--                    <div class="form-group">-->
-                <!--                      <label for="linkTitle">Display title for link</label>-->
-                <!--                      <input [disabled]="!display.allow.edits" [(ngModel)]="socialEvent.linkTitle"-->
-                <!--                             type="text" value="" class="form-control input-sm" id="linkTitle"-->
-                <!--                             placeholder="Enter a title for link">-->
-                <!--                    </div>-->
-                <!--                    <div class="form-group">-->
-                <!--                      <label for="linkTitle" class="mr-2">Link Preview: </label>-->
-                <!--                      <a [href]="socialEvent.link">{{ socialEvent.linkTitle || socialEvent.link }}</a>-->
-                <!--                    </div>-->
-                <!--                  </ng-template>-->
-                <!--                  <div class="img-thumbnail thumbnail-admin-edit">-->
-                <!--                    <div class="row">-->
-                <!--                      @if (!editActive) {-->
-                <!--                        <div class="col-sm-6">-->
-                <!--                          <ng-container *ngTemplateOutlet="linkAndThumbnail"/>-->
-                <!--                        </div>-->
-                <!--                      }-->
-                <!--                      @if (editActive) {-->
-                <!--                        <div class="col-sm-6">-->
-                <!--                          <app-image-cropper-and-resizer-->
-                <!--                            wrapButtons-->
-                <!--                            [rootFolder]="RootFolder.socialEventsImages"-->
-                <!--                            [preloadImage]="socialEvent.thumbnail"-->
-                <!--                            (imageChange)="imageChanged($event)"-->
-                <!--                            (error)="imageCroppingError($event)"-->
-                <!--                            (cropError)="imageCroppingError($event)"-->
-                <!--                            (quit)="exitImageEdit()"-->
-                <!--                            (save)="imagedSaved($event)"/>-->
-                <!--                        </div>-->
-                <!--                      }-->
-                <!--                      <div class="col-sm-6">-->
-                <!--                        <div class="position-relative">-->
-                <!--                          <app-social-card [socialEvent]="socialEvent"-->
-                <!--                                           [imagePreview]="awsFileData?.image"/>-->
-                <!--                          @if (!editActive) {-->
-                <!--                            <div (click)="editImage()"-->
-                <!--                                 delay=500 tooltip="edit image" class="button-form-right badge-button edit-image">-->
-                <!--                              <fa-icon [icon]="faPencil"/>-->
-                <!--                              <span>edit image</span>-->
-                <!--                            </div>-->
-                <!--                          }-->
-                <!--                        </div>-->
-                <!--                        @if (editActive) {-->
-                <!--                          <div class="mt-3">-->
-                <!--                            <ng-container *ngTemplateOutlet="linkAndThumbnail"/>-->
-                <!--                          </div>-->
-                <!--                        }-->
-                <!--                      </div>-->
-                <!--                    </div>-->
-                <!--                  </div>-->
-                <!--                </tab>-->
                 <tab heading="Organiser">
                   <div class="img-thumbnail thumbnail-admin-edit">
                     <div class="row">
@@ -303,11 +254,12 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
                           <input type="submit" [disabled]="notifyTarget.busy"
                                  value="Browse for attachment"
                                  (click)="browseToFile(fileElement)"
-                                 class="button-form mb-10"
-                                 [ngClass]="{'disabled-button-form': notifyTarget.busy}"/>
-                          <input [disabled]="notifyTarget.busy" type="submit"
-                                 value="Remove attachment" (click)="removeAttachment()" title="Remove attachment"
-                                 [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'"/>
+                                 class="btn btn-primary mb-10"/>
+                          @if (socialEvent?.fields?.attachment) {
+                            <input [disabled]="notifyTarget.busy" type="submit"
+                                   class="btn btn-primary ml-2" value="Remove attachment" (click)="removeAttachment()"
+                                   title="Remove attachment"/>
+                          }
                           <input #fileElement id="browse-to-file" name="attachment" class="d-none"
                                  type="file" value="Upload"
                                  ng2FileSelect (onFileSelected)="onFileSelect($event)" [uploader]="uploader"/>
@@ -318,7 +270,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
                                class="drop-zone">Or drop file here
                           </div>
                           @if (notifyTarget.busy) {
-                            <div class="progress">
+                            <div class="progress mt-2">
                               <div class="progress-bar" role="progressbar"
                                    [ngStyle]="{ 'width': uploader.progress + '%' }">
                                 uploading {{ uploader.progress }}%
@@ -382,40 +334,39 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
             <div class="col-sm-12">
               @if (display.allow.edits) {
                 <input type="submit" value="Save" (click)="saveSocialEventDetails()"
-                       [ngClass]="{'disabled-button-form': notifyTarget.busy}"
-                       title="Save this social event" class="button-form button-form-left"/>
+                       title="Save this social event" class="btn btn-primary"/>
               }
               @if (display.allow.edits) {
                 <input type="submit" value="Send Notification"
-                       (click)="sendSocialEventNotification()" title="Send social event notification"
-                       [ngClass]="{'disabled-button-form': notifyTarget.busy}"
-                       class="button-form yellow-confirm"/>
+                       [disabled]="notifyTarget.busy" (click)="sendSocialEventNotification()"
+                       title="Send social event notification"
+                       class="btn btn-primary ml-2"/>
               }
               @if (display.allow.delete) {
                 <input type="submit" value="Delete" (click)="deleteSocialEventDetails()"
-                       [ngClass]="{'disabled-button-form': notifyTarget.busy}"
-                       title="Delete this social event" class="button-form button-form-left"/>
+                       [disabled]="notifyTarget.busy"
+                       title="Delete this social event" class="btn btn-primary ml-2"/>
               }
               @if (display.confirm.deleteConfirmOutstanding()) {
                 <input type="submit" value="Confirm Deletion"
-                       [ngClass]="{'disabled-button-form': notifyTarget.busy}"
+                       [disabled]="notifyTarget.busy"
                        (click)="confirmDeleteSocialEventDetails()" title="Confirm delete of this social event"
-                       class="button-form button-form-left button-confirm"/>
+                       class="btn btn-primary ml-2 button-confirm"/>
               }
               @if (display.allow.edits) {
                 <input type="submit" value="Cancel" (click)="cancelSocialEventDetails()"
-                       [ngClass]="{'disabled-button-form': notifyTarget.busy}"
-                       title="Cancel and don't save social event" class="button-form button-form-left"/>
+                       [disabled]="notifyTarget.busy"
+                       title="Cancel and don't save social event" class="btn btn-primary ml-2"/>
               }
               @if (display.allow.copy) {
                 <input type="submit" value="Copy" (click)="copyDetailsToNewSocialEvent()"
-                       [ngClass]="{'disabled-button-form': notifyTarget.busy}"
-                       title="Copy details to new social event" class="button-form button-form-left"/>
+                       [disabled]="notifyTarget.busy"
+                       title="Copy details to new social event" class="btn btn-primary ml-2"/>
               }
               @if (!display.allow.edits) {
                 <input type="submit" value="Close" (click)="cancelSocialEventDetails()"
-                       [ngClass]="{'disabled-button-form': notifyTarget.busy}"
-                       title="Close this social event without saving" class="button-form button-form-left"/>
+                       [disabled]="notifyTarget.busy"
+                       title="Close this social event without saving" class="btn btn-primary ml-2"/>
               }
             </div>
           </div>
@@ -423,7 +374,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
       </app-page>
     `,
     styleUrls: ["social-edit.component.sass"],
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, DatePicker, FontAwesomeModule, MarkdownComponent, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, NgClass, FileUploadModule, NgStyle, FullNameWithAliasPipe, CopyIconComponent, EditGropuEventImagesComponent]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, DatePicker, FontAwesomeModule, MarkdownComponent, TooltipDirective, NgSelectComponent, NgOptgroupTemplateDirective, NgClass, FileUploadModule, NgStyle, FullNameWithAliasPipe, CopyIconComponent, EditGroupEventImagesComponent, TimePicker]
 })
 export class SocialEditComponent implements OnInit, OnDestroy {
 
@@ -436,6 +387,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
   private modalService = inject(BsModalService);
   googleMapsService = inject(GoogleMapsService);
   private walksAndEventsService = inject(WalksAndEventsService);
+  protected eventsMigrationService = inject(EventsMigrationService);
   private urlService = inject(UrlService);
   protected dateUtils = inject(DateUtilsService);
   private eventDefaultsService = inject(EventDefaultsService);
@@ -445,7 +397,6 @@ export class SocialEditComponent implements OnInit, OnDestroy {
   public notifyTarget: AlertTarget = {};
   public notification: Notification;
   public hasFileOver = false;
-  public eventDate: DateValue;
   private existingTitle: string;
   public uploader: FileUploader;
   public longerDescriptionPreview = true;
@@ -458,6 +409,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   protected readonly RootFolder = RootFolder;
   protected config: SystemConfig;
+  private remigrateForComparison: boolean;
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -468,10 +420,12 @@ export class SocialEditComponent implements OnInit, OnDestroy {
       this.logger.debug("finding socialEvent from socialEventId:", socialEventId);
       this.walksAndEventsService.getByIdIfPossible(socialEventId).then(data => {
         this.socialEvent = data;
+        if (this.remigrateForComparison) {
+          this.eventsMigrationService.migrateOneSocialEvent(data.fields.migratedFromId);
+        }
         if (!this.socialEvent.fields.attendees) {
           this.socialEvent.fields.attendees = [];
         }
-        this.eventDate = this.dateUtils.asDateValue(this.socialEvent.groupEvent.start_date_time);
         this.existingTitle = this.socialEvent?.fields?.attachment?.title;
         this.notify.hide();
         this.selectedMemberIds = this.socialEvent.fields.attendees.map(attendee => attendee.id);
@@ -535,6 +489,10 @@ export class SocialEditComponent implements OnInit, OnDestroy {
 
   cancelFileChange() {
     this.close();
+  }
+
+  durationCalculated() {
+    return this.dateUtils.formatDuration(this.dateUtils.asDateValue(this.socialEvent.groupEvent.start_date_time)?.value, this.dateUtils.asDateValue(this.socialEvent.groupEvent.end_date_time)?.value);
   }
 
   saveSocialEvent() {
@@ -607,10 +565,35 @@ export class SocialEditComponent implements OnInit, OnDestroy {
     this.notify.clearBusy();
   }
 
-  eventDateChanged(dateValue: DateValue) {
+  onStartDateTimeChange(startTime: string) {
+    if (isString(startTime)) {
+      this.logger.info("onStartDateTimeChange:updated start_date_time from:", this.socialEvent.groupEvent.start_date_time, "to:", startTime, "of type", typeof startTime);
+      this.socialEvent.groupEvent.start_date_time = startTime;
+    } else {
+      this.logger.warn("onStartDateTimeChange:invalid input received:", startTime, "of type", typeof startTime);
+    }
+  }
+
+  onEndDateTimeChange(endTime: string) {
+    if (isString(endTime)) {
+      this.socialEvent.groupEvent.end_date_time = endTime;
+      this.logger.info("onEndDateTimeChange:updated end_date_time to", endTime);
+    } else {
+      this.logger.warn("onEndDateTimeChange:invalid input received:", endTime, "of type", typeof endTime);
+    }
+  }
+
+  startDateChanged(dateValue: DateValue) {
     if (dateValue) {
       this.logger.debug("eventDateChanged", dateValue);
       this.socialEvent.groupEvent.start_date_time = this.dateUtils.isoDateTimeString(dateValue);
+    }
+  }
+
+  endDateChanged(dateValue: DateValue) {
+    if (dateValue) {
+      this.logger.debug("eventDateChanged", dateValue);
+      this.socialEvent.groupEvent.end_date_time = this.dateUtils.isoDateTimeString(dateValue);
     }
   }
 

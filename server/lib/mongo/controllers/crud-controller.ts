@@ -58,11 +58,11 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
     const documents: T[] = req.body;
     const message = `Create or update of ${pluraliseWithCount(documents.length, model.modelName)}`;
     debugLog("createOrUpdateAll:received request for", message);
-    const response = await Promise.all(documents.map(member => {
-      if (member.id) {
-        return updateDocument({body: member});
+    const response = await Promise.all(documents.map(document => {
+      if (document.id) {
+        return updateDocument({body: document});
       } else {
-        return createDocument({body: member});
+        return createDocument({body: document});
       }
     }));
     debugLog("createOrUpdateAll:received request for", message, "returned:", pluraliseWithCount(response.length, model.modelName), response);

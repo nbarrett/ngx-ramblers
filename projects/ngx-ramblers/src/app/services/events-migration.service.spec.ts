@@ -54,6 +54,7 @@ describe("EventsMigrationService", () => {
       expect(eventsMigrationService.parseTime("17:49")).toEqual({hours: 17, minutes: 49});
       expect(eventsMigrationService.parseTime("9.45 pm")).toEqual({hours: 21, minutes: 45});
       expect(eventsMigrationService.parseTime("11.27 PM")).toEqual({hours: 23, minutes: 27});
+      expect(eventsMigrationService.parseTime("7:30 pm")).toEqual({hours: 19, minutes: 30});
     });
 
   });

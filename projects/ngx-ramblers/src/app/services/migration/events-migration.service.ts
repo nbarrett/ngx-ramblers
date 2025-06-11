@@ -67,8 +67,8 @@ export class EventsMigrationService {
     const title = this.isWalk(walkOrSocialEvent) ? walkOrSocialEvent.briefDescriptionAndStartPoint : walkOrSocialEvent.briefDescription;
     const description = walkOrSocialEvent.longerDescription;
     const startDateTime: string = this.isWalk(walkOrSocialEvent)
-      ? this.dateUtils.asMoment(this.startTime(walkOrSocialEvent)).toISOString()
-      : this.dateUtils.asMoment(walkOrSocialEvent.eventDate).toISOString();
+      ? this.startTime(walkOrSocialEvent)
+      : this.startTimeFrom(walkOrSocialEvent.eventTimeStart, walkOrSocialEvent.eventDate);
     const milesPerHour: number = this.isWalk(walkOrSocialEvent) ? walkOrSocialEvent.milesPerHour || this.walksConfig.milesPerHour : null;
     const groupEvent: GroupEvent = ramblersWalk ? {...ramblersWalk.groupEvent, title, description} : {
       area_code: "",
@@ -89,7 +89,7 @@ export class EventsMigrationService {
       shape: this.isWalk(walkOrSocialEvent) ? walkOrSocialEvent.walkType || WalkType.CIRCULAR : null,
       status: undefined,
       url: this.stringUtilsService.kebabCase(title, this.dateUtils.asMoment(startDateTime).format("YYYY-MM-DD")),
-      id: null,
+      id: ramblersWalk?.groupEvent?.id || null,
       title,
       description,
       start_date_time: startDateTime,
@@ -127,6 +127,7 @@ export class EventsMigrationService {
     };
 
     const extendedFields: ExtendedFields = {
+      migratedFromId: walkOrSocialEvent.id,
       attendees: [],
       milesPerHour,
       contactDetails: {
@@ -171,10 +172,11 @@ export class EventsMigrationService {
     return {
       grid_reference_6: null,
       grid_reference_8: null,
-      latitude: null, longitude: null,
+      latitude: null,
+      longitude: null,
       w3w: null,
       postcode: socialEvent.postcode,
-      description: socialEvent.longerDescription,
+      description: socialEvent.location,
       grid_reference_10: null
     };
   }
@@ -239,21 +241,24 @@ export class EventsMigrationService {
     }
   }
 
-  startTime(walk: Walk): number {
+  startTime(walk: Walk): string {
     if (walk) {
-      const startTime: Time = this.parseTime(walk?.startTime);
-      const walkDateMoment: moment = this.dateUtils.asMoment(walk?.walkDate);
-      const walkDateAndTimeValue = this.dateUtils.calculateWalkDateAndTimeValue(walkDateMoment, startTime);
-      this.logger.debug("text based startTime:", walk?.startTime,
-        "startTime:", startTime,
-        "walkDateMoment:", walkDateMoment.format(),
-        "displayDateAndTime(walkDateMoment):", this.dateUtils.displayDateAndTime(walkDateMoment),
-        "walkDateAndTime:", walkDateAndTimeValue,
-        "displayDateAndTime(walkDateAndTimeValue):", this.dateUtils.displayDateAndTime(walkDateAndTimeValue));
-      return walkDateAndTimeValue;
+      return this.startTimeFrom(walk?.startTime, walk?.walkDate);
     } else {
       return null;
     }
+  }
+
+  private startTimeFrom(startTimeAsString: string, eventDate: number): string {
+    const startTime: Time = this.parseTime(startTimeAsString);
+    const walkDateMoment: moment = this.dateUtils.asMoment(eventDate);
+    const walkDateAndTimeValue = this.dateUtils.calculateWalkDateAndTimeValue(walkDateMoment, startTime);
+    const toISOString = this.dateUtils.asMoment(walkDateAndTimeValue).toISOString();
+    this.logger.debug("text based startTime:", startTime,
+      "startTime:", startTime,
+      "walkDateAndTimeValue:", walkDateAndTimeValue,
+      "toISOString:", toISOString);
+    return toISOString;
   }
 
   socialEventFinishTime(socialEvent: SocialEvent): string {
@@ -328,5 +333,11 @@ export class EventsMigrationService {
 
   public mediaFrom(walkOrSocialEvent: SocialEvent) {
     return [this.mediaQueryService.mediaFrom(walkOrSocialEvent.briefDescription, this.urlService.imageSource(walkOrSocialEvent.thumbnail, true))];
+  }
+
+  async migrateOneSocialEvent(socialEventId: string) {
+    const old: SocialEvent = await this.socialEventsLocalLegacyService.queryForId(socialEventId);
+    const migrated = this.toExtendedGroupEvent(old, []);
+    this.logger.info("migrated social event:", migrated, "from old social event:", old);
   }
 }

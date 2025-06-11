@@ -1,38 +1,35 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { booleanAttribute, Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { RootFolder, SystemConfig } from "../../../models/system.model";
-import { DateUtilsService } from "../../../services/date-utils.service";
-import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { StringUtilsService } from "../../../services/string-utils.service";
+import { RootFolder, SystemConfig } from "../../models/system.model";
+import { DateUtilsService } from "../../services/date-utils.service";
+import { Logger, LoggerFactory } from "../../services/logger-factory.service";
+import { StringUtilsService } from "../../services/string-utils.service";
 import { UiSwitchModule } from "ngx-ui-switch";
-import { DEFAULT_BASIC_EVENT_SELECTION } from "../../../models/search.model";
-import { ImageSource } from "../../../models/walk.model";
-import { WalkImagesComponent } from "../walk-view/walk-images";
-import { enumKeyValues, KeyValue } from "../../../functions/enums";
-import { WalkImageSelectionWalksManagerComponent } from "./walk-images-selection-walks-manager";
-import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resizer/image-cropper-and-resizer";
-import { AwsFileData } from "../../../models/aws-object.model";
-import { AlertInstance } from "../../../services/notifier.service";
-import { Media } from "../../../models/ramblers-walks-manager";
-import { MediaQueryService } from "../../../services/committee/media-query.service";
-import { EditMode } from "../../../models/ui-actions";
-import { ExtendedGroupEvent } from "../../../models/group-event.model";
-import { JsonPipe } from "@angular/common";
+import { DEFAULT_BASIC_EVENT_SELECTION } from "../../models/search.model";
+import { ImageSource } from "../../models/walk.model";
+import { WalkImagesComponent } from "../../pages/walks/walk-view/walk-images";
+import { enumKeyValues, KeyValue } from "../../functions/enums";
+import { WalkImageSelectionWalksManagerComponent } from "../../pages/walks/walk-edit/walk-images-selection-walks-manager";
+import { ImageCropperAndResizerComponent } from "../../image-cropper-and-resizer/image-cropper-and-resizer";
+import { AwsFileData } from "../../models/aws-object.model";
+import { AlertInstance } from "../../services/notifier.service";
+import { Media } from "../../models/ramblers-walks-manager";
+import { MediaQueryService } from "../../services/committee/media-query.service";
+import { EditMode } from "../../models/ui-actions";
+import { ExtendedGroupEvent } from "../../models/group-event.model";
 
 @Component({
   selector: "[app-edit-group-event-images]",
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
       <div class="row">
-        @if (extendedGroupEvent?.fields?.imageConfig?.source) {
-          <div class="col-md-6">
+        <div class="col-md-6">
+          @if (extendedGroupEvent?.fields?.imageConfig?.source && !disallowImageSourceSelection) {
             <div class="form-group">
               <div class="d-flex align-items-center">
                 <label class="label mr-2" for="radio-selections">Image Selection:</label>
                 <div id="radio-selections">
                   @for (source of imageSources; track source.key) {
-                    <!--                  <div>source:{{ source|json }}</div>-->
-                      <!--                  <div>image config source:{{ extendedGroupEvent?.fields?.imageConfig?.source }}</div>-->
                     <div class="custom-control custom-radio custom-control-inline">
                       <input class="custom-control-input"
                              id="image-source-{{source.key}}"
@@ -50,17 +47,17 @@ import { JsonPipe } from "@angular/common";
                 </div>
               </div>
             </div>
-            @if (extendedGroupEvent?.fields?.imageConfig?.source === ImageSource.LOCAL) {
-              <input id="add-image-{{extendedGroupEvent.id}}" type="submit"
-                     value="add"
-                     (click)="createNewImage()"
-                     class="btn btn-primary">
-            }
-            @if (extendedGroupEvent?.fields?.imageConfig?.source === ImageSource.WALKS_MANAGER) {
-              <app-walk-images-selection-walks-manager [groupEvent]="extendedGroupEvent"/>
-            }
-          </div>
-        }
+          }
+          @if (extendedGroupEvent?.fields?.imageConfig?.source === ImageSource.LOCAL) {
+            <input id="add-image-{{extendedGroupEvent.id}}" type="submit"
+                   value="add"
+                   (click)="createNewImage()"
+                   class="btn btn-primary">
+          }
+          @if (extendedGroupEvent?.fields?.imageConfig?.source === ImageSource.WALKS_MANAGER) {
+            <app-walk-images-selection-walks-manager [groupEvent]="extendedGroupEvent"/>
+          }
+        </div>
         <div class="col-md-6">
           <div class="row">
             <div class="col-sm-12">
@@ -85,16 +82,17 @@ import { JsonPipe } from "@angular/common";
         }
       </div>
     </div>`,
-  imports: [UiSwitchModule, WalkImagesComponent, WalkImageSelectionWalksManagerComponent, ImageCropperAndResizerComponent, JsonPipe]
+  imports: [UiSwitchModule, WalkImagesComponent, WalkImageSelectionWalksManagerComponent, ImageCropperAndResizerComponent]
 })
-export class EditGropuEventImagesComponent implements OnInit {
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkEditImagesComponent", NgxLoggerLevel.ERROR);
+export class EditGroupEventImagesComponent implements OnInit {
+  private logger: Logger = inject(LoggerFactory).createLogger("EditGroupEventImagesComponent", NgxLoggerLevel.INFO);
   stringUtils = inject(StringUtilsService);
   dateUtils = inject(DateUtilsService);
   mediaQueryService = inject(MediaQueryService);
   @Input() config: SystemConfig;
   @Input() extendedGroupEvent!: ExtendedGroupEvent;
   @Input() private notify: AlertInstance;
+  @Input({transform: booleanAttribute}) public disallowImageSourceSelection = false;
   imageSources: KeyValue<string>[] = enumKeyValues(ImageSource);
   ImageSource = ImageSource;
   public editMode: EditMode;
@@ -103,7 +101,7 @@ export class EditGropuEventImagesComponent implements OnInit {
   protected readonly RootFolder = RootFolder;
 
   async ngOnInit() {
-    this.logger.info("constructed with:config:", this.config, "this.groupEvent:", this.extendedGroupEvent);
+    this.logger.info("constructed with:config:", this.config, "this.groupEvent:", this.extendedGroupEvent, "disallowImageSourceSelection:", this.disallowImageSourceSelection);
     const defaultImageConfig = {
       source: ImageSource.NONE,
       importFrom: {

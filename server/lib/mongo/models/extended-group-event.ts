@@ -87,6 +87,7 @@ const meetup = new Schema({
 }, {_id: false});
 
 const fields = new Schema({
+  migratedFromId: {type: String},
   attachment: fileNameData,
   attendees: [{type: Object}],
   contactDetails: contactDetailsSchema,

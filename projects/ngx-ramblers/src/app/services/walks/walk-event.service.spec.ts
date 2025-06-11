@@ -2,7 +2,7 @@ import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
 import { RouterTestingModule } from "@angular/router/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
-import { EventType } from "../../models/walk.model";
+import { EventType, GROUP_EVENT_START_DATE } from "../../models/walk.model";
 import { AuditDeltaChangedItemsPipePipe } from "../../pipes/audit-delta-changed-items.pipe";
 import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
@@ -16,7 +16,6 @@ import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { createExtendedGroupEvent } from "../../pages/walks/walk-display.service.spec";
 import { DateUtilsService } from "../date-utils.service";
 import { ChangedItem } from "../../models/changed-item.model";
-import omit from "lodash-es/omit";
 import pick from "lodash-es/pick";
 import { AUDITED_FIELDS } from "../../models/walk-event.model";
 
@@ -78,7 +77,7 @@ describe("WalksEventService", () => {
           w3w: ""
         }
       },
-        {fieldName: [GROUP_EVENT_START_DATE], previousValue: undefined, currentValue: 12},
+        {fieldName: GROUP_EVENT_START_DATE, previousValue: undefined, currentValue: 12},
       ];
       console.log("actual", JSON.stringify(actual));
       console.log("expected", JSON.stringify(expected));

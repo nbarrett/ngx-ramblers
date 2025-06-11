@@ -173,12 +173,25 @@ export class DateUtilsService {
     } else if (seconds < 3600) {
       const minutes = duration.asMinutes();
       return `${minutes.toFixed(1)} mins`;
-    } else {
+    } else if (seconds < 86400) {
       const hours = Math.floor(duration.asHours());
       const minutes = Math.round(duration.asMinutes() % 60);
       return `${this.stringUtilsService.pluraliseWithCount(hours, "hour")}${minutes > 0 ? ` ${this.stringUtilsService.pluraliseWithCount(minutes, "min")}` : ""}`;
+    } else {
+      const days = Math.floor(duration.asDays());
+      const hours = Math.floor(duration.asHours() % 24);
+      const minutes = Math.round(duration.asMinutes() % 60);
+      let result = this.stringUtilsService.pluraliseWithCount(days, "day");
+      if (hours > 0) {
+        result += ` ${this.stringUtilsService.pluraliseWithCount(hours, "hour")}`;
+      }
+      if (minutes > 0) {
+        result += ` ${this.stringUtilsService.pluraliseWithCount(minutes, "min")}`;
+      }
+      return result;
     }
   }
+
   calculateWalkDateAndTimeValue(walkDateMoment: moment, startTime: Time): number {
     let walkDateAndTime = walkDateMoment.clone().add(startTime?.hours, "hours").add(startTime?.minutes, "minutes");
     // Adjust for DST end transition

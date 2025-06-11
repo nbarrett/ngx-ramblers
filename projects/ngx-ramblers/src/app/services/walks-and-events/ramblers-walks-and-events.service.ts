@@ -28,22 +28,23 @@ import {
 } from "../../models/ramblers-walks-manager";
 import { Ramblers } from "../../models/system.model";
 import {
+  EventStartDateAscending,
+  EventStartDateDescending,
+  EventStartDateGreaterThanOrEqualTo,
+  EventStartDateLessThan,
+  EventStartDateLessThanOrEqualTo,
   EventType,
+  GROUP_EVENT_START_DATE,
   LinkSource,
   LinkWithSource,
   LocalAndRamblersWalk,
   LocalContact,
   MongoIdsSupplied,
   WalkAscent,
-  EventStartDateAscending,
-  EventStartDateDescending,
-  EventStartDateGreaterThanOrEqualTo,
-  EventStartDateLessThan,
-  EventStartDateLessThanOrEqualTo,
   WalkDistance,
   WalkExport,
   WalkLeadersApiResponse,
-  WalkType, GROUP_EVENT_START_DATE
+  WalkType
 } from "../../models/walk.model";
 import { WalkDisplayService } from "../../pages/walks/walk-display.service";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
@@ -743,6 +744,7 @@ export class RamblersWalksAndEventsService {
     this.logger.off("groupEvent:", groupEvent, "contactName:", contact.contactName, "displayName:", contact.displayName);
 
     const extendedFields: ExtendedFields = {
+      migratedFromId: null,
       attachment: null,
       attendees: [],
       milesPerHour: 0,

@@ -56,7 +56,7 @@ import { WalkRiskAssessmentComponent } from "../walk-risk-assessment/walk-risk-a
 import { WalkEditRelatedLinksComponent } from "./walk-edit-links";
 import { WalkEditLeaderComponent } from "./walk-edit-leader";
 import { WalkEditFeaturesComponent } from "./walk-edit-features";
-import { EditGropuEventImagesComponent } from "./walk-edit-group-event-images";
+import { EditGroupEventImagesComponent } from "../../../common/walks-and-events/edit-group-event-images";
 import { WalkEditHistoryComponent } from "./walk-edit-walk-history";
 import { WalkEditCopyFromComponent } from "./walk-edit-copy-from";
 
@@ -228,7 +228,7 @@ import { WalkEditCopyFromComponent } from "./walk-edit-copy-from";
     }
   `,
   styleUrls: ["./walk-edit.component.sass"],
-  imports: [NotificationDirective, WalkPanelExpanderComponent, TabsetComponent, FormsModule, FontAwesomeModule, JsonPipe, TabDirective, WalkEditMainDetailsComponent, WalkEditDetailsComponent, WalkRiskAssessmentComponent, WalkEditRelatedLinksComponent, WalkEditLeaderComponent, WalkEditFeaturesComponent, EditGropuEventImagesComponent, WalkEditHistoryComponent, WalkEditCopyFromComponent]
+  imports: [NotificationDirective, WalkPanelExpanderComponent, TabsetComponent, FormsModule, FontAwesomeModule, JsonPipe, TabDirective, WalkEditMainDetailsComponent, WalkEditDetailsComponent, WalkRiskAssessmentComponent, WalkEditRelatedLinksComponent, WalkEditLeaderComponent, WalkEditFeaturesComponent, EditGroupEventImagesComponent, WalkEditHistoryComponent, WalkEditCopyFromComponent]
 })
 export class WalkEditComponent implements OnInit, OnDestroy {
 

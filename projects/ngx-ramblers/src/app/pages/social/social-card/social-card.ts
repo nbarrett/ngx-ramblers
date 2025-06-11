@@ -8,7 +8,7 @@ import { SocialDisplayService } from "../social-display.service";
 import { CardImageComponent } from "../../../modules/common/card/image/card-image";
 import { RouterLink } from "@angular/router";
 import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
-import { EventTimesPipe } from "../../../pipes/event-times.pipe";
+import { EventDatesAndTimesPipe } from "../../../pipes/event-times.pipe";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { BasicMedia } from "../../../models/ramblers-walks-manager";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
@@ -27,14 +27,11 @@ import { DateUtilsService } from "../../../services/date-utils.service";
                [routerLink]="urlService.routerLinkUrl(display.socialEventLink(socialEvent, true))"
                target="_self">{{ socialEvent.groupEvent.title }}</a>
           </h4>
-          <ul class="list-arrow">
-            <li>{{ socialEvent.groupEvent.start_date_time | displayDay }}</li>
-            <li>{{ socialEvent | eventTimes }}</li>
-          </ul>
+          <div>{{ socialEvent | eventDatesAndTimes }}</div>
         </div>
       </div>`,
   providers: [DateUtilsService],
-  imports: [CardImageComponent, RouterLink, DisplayDayPipe, EventTimesPipe]
+  imports: [CardImageComponent, RouterLink, DisplayDayPipe, EventDatesAndTimesPipe]
 })
 export class SocialCardComponent implements OnInit {
 

@@ -95,6 +95,7 @@ export class EventDefaultsService {
         date_updated: null
       },
       fields: {
+        migratedFromId: null,
         contactDetails: this.defaultContactDetails(),
         publishing: {
           meetup: {publish: false, contactName: null},
