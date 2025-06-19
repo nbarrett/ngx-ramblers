@@ -2,7 +2,7 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { ContactDetails, ExtendedGroupEvent } from "../models/group-event.model";
-import { RamblersEventType, WalkStatus } from "../models/ramblers-walks-manager";
+import { LocationDetails, RamblersEventType, WalkStatus } from "../models/ramblers-walks-manager";
 import { SystemConfig } from "../models/system.model";
 import { ImageConfig, ImageSource, MODERATE, WalkType } from "../models/walk.model";
 import { DateUtilsService } from "./date-utils.service";
@@ -12,12 +12,15 @@ import { WalksConfigService } from "./system/walks-config.service";
 import { WalksConfig } from "../models/walk-notification.model";
 import { Member } from "../models/member.model";
 import { DEFAULT_BASIC_EVENT_SELECTION } from "../models/search.model";
+import { Observable, ReplaySubject } from "rxjs";
+import { shareReplay } from "rxjs/operators";
 
 @Injectable({
   providedIn: "root"
 })
 export class EventDefaultsService {
 
+  private ready = new ReplaySubject<boolean>();
   private logger: Logger = inject(LoggerFactory).createLogger("EventDefaultsService", NgxLoggerLevel.ERROR);
   private dateUtils = inject(DateUtilsService);
   private systemConfigService = inject(SystemConfigService);
@@ -25,10 +28,20 @@ export class EventDefaultsService {
   private walksConfigService = inject(WalksConfigService);
   private walksConfig: WalksConfig;
   constructor() {
-    this.systemConfigService.events().subscribe(async item => {
-      this.systemConfig = item;
+    this.systemConfigService.events().subscribe(async systemConfig => {
+      this.systemConfig = systemConfig;
+      this.logger.info("System config:", this.systemConfig);
+      this.broadcastIfReady();
     });
-      this.walksConfigService.events().subscribe(walksConfig => this.walksConfig = walksConfig);
+    this.walksConfigService.events().subscribe(walksConfig => {
+      this.walksConfig = walksConfig;
+      this.logger.info("walksConfig config:", this.walksConfig);
+      this.broadcastIfReady();
+    });
+  }
+
+  public events(): Observable<boolean> {
+    return this.ready.pipe(shareReplay());
   }
 
   defaultImageConfig(source: ImageSource): ImageConfig {
@@ -70,10 +83,11 @@ export class EventDefaultsService {
     events?: WalkEvent[];
   }) {
     const now = this.dateUtils.momentNow().format();
+    const itemType: RamblersEventType = defaults?.item_type || RamblersEventType.GROUP_WALK;
     const walk: ExtendedGroupEvent = {
       groupEvent: {
         id: defaults.id || null,
-        item_type: defaults?.item_type || RamblersEventType.GROUP_WALK,
+        item_type: itemType,
         title: null,
         group_code: null,
         area_code: this.systemConfig.area.groupCode,
@@ -83,7 +97,8 @@ export class EventDefaultsService {
         start_date_time: defaults?.start_date_time || now,
         end_date_time: null,
         meeting_date_time: null,
-        start_location: null,
+        location: itemType === RamblersEventType.GROUP_EVENT ? this.defaultLocation() : null,
+        start_location: itemType === RamblersEventType.GROUP_EVENT ? null : this.defaultLocation(),
         meeting_location: null,
         end_location: null,
         distance_km: 0,
@@ -126,4 +141,23 @@ export class EventDefaultsService {
   }
 
 
+  private defaultLocation(): LocationDetails {
+    return {
+      latitude: 0,
+      longitude: 0,
+      grid_reference_6: null,
+      grid_reference_8: null,
+      grid_reference_10: null,
+      postcode: null,
+      description: null,
+      w3w: null
+    };
+  }
+
+  private broadcastIfReady() {
+    if (this.walksConfig && this.systemConfig) {
+      this.logger.info("Broadcasting ready event");
+      this.ready.next(true);
+    }
+  }
 }

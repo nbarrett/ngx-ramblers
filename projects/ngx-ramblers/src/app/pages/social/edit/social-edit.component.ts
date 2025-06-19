@@ -47,7 +47,7 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
     selector: "app-social-edit",
     template: `
       <app-page [pageTitle]="pageTitle()">
-        @if (socialEvent) {
+        @if (socialEvent?.groupEvent) {
           <div class="row">
             <div class="col-sm-12">
               <tabset class="custom-tabset">
@@ -436,10 +436,13 @@ export class SocialEditComponent implements OnInit, OnDestroy {
         this.selectedMemberIds = this.socialEvent.fields.attendees.map(attendee => attendee.id);
       });
     } else if (this.display.inNewEventMode()) {
-      this.socialEvent = this.eventDefaultsService.createDefault({
+      this.eventDefaultsService.events().subscribe(ready => {
+        this.socialEvent = this.eventDefaultsService.createDefault({
         item_type: RamblersEventType.GROUP_EVENT,
         shape: null
-      });
+        });
+        this.logger.info("ngOnInit:created new socialEvent:", this.socialEvent);
+      })
     } else {
       this.notify.error({title: "Cannot edit social event", message: "path does not contain social event id"});
     }
