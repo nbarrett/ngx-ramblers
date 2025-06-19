@@ -52,6 +52,7 @@ import { TitleCasePipe } from "@angular/common";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import last from "lodash-es/last";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
+import cloneDeep from "lodash-es/cloneDeep";
 
 @Component({
     selector: "app-social-send-notification-modal",
@@ -259,7 +260,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
                         for="include-notification-text">Include Notification text:
                       </label>
                     </div>
-                    <textarea [(ngModel)]="latestNotification?.content?.text.value"
+                    <textarea [(ngModel)]="latestNotification.content.text.value"
                       class="form-control input-sm" rows="5"
                       id="free-text"
                       [disabled]="!latestNotification?.content?.text?.include"
@@ -491,9 +492,18 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   }
 
   initialiseNotification() {
-    if (!this.latestNotification?.content) {
-      this.latestNotification.content = {notificationConfig: null};
+    if (!this.socialEvent.fields.notifications) {
+      this.socialEvent.fields.notifications = [];
+      this.logger.info("initialiseNotification:notifications initialised");
+    }
+    if (this.socialEvent.fields.notifications.length === 0 || !last(this.socialEvent.fields.notifications)?.content) {
+      this.latestNotification = {content: {notificationConfig: null}};
+      this.logger.info("initialiseNotification:creating first notification as:", this.latestNotification);
+      this.socialEvent.fields.notifications.push(this.latestNotification);
       this.logger.info("initialiseNotification:content created");
+    } else {
+      this.latestNotification = last(this.socialEvent.fields.notifications);
+      this.logger.info("initialiseNotification:using existing notification:", this.latestNotification);
     }
     if (!this.latestNotification?.content?.notificationConfig) {
       const notificationConfigs = this.mailMessagingService.notificationConfigs(this.notificationConfigListing);
@@ -530,10 +540,10 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   defaultNotificationContentField(path: string[], value: any) {
     const target = get(this.latestNotification?.content, path);
     if (isUndefined(target)) {
-      this.logger.info("existing target:", target, "setting path:", path, "to value:", value,);
       set(this.latestNotification?.content, path, value);
+      this.logger.info("defaultNotificationContentField:existing target:", target, "set path:", path, "to value:", value, "notification:", cloneDeep(this.latestNotification));
     } else {
-      this.logger.info(target, "already set");
+      this.logger.info("defaultNotificationContentField:existing target:", target, "already set");
     }
     return target;
   }
