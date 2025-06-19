@@ -120,11 +120,14 @@ export class EditGroupEventImagesComponent implements OnInit {
         });
       }
     };
-    const defaultImageConfig = this.eventDefaultsService.defaultImageConfig(ImageSource.NONE);
+    const defaultImageConfig = this.eventDefaultsService.defaultImageConfig(this.disallowImageSourceSelection ? ImageSource.LOCAL : ImageSource.NONE);
     if (!this.extendedGroupEvent.fields.imageConfig) {
       this.extendedGroupEvent.fields.imageConfig = {...defaultImageConfig};
     } else {
       setDefaults(this.extendedGroupEvent.fields.imageConfig, defaultImageConfig);
+    }
+    if (this.disallowImageSourceSelection && this.extendedGroupEvent.fields.imageConfig.source === ImageSource.NONE) {
+      this.extendedGroupEvent.fields.imageConfig.source = ImageSource.LOCAL;
     }
   }
 
