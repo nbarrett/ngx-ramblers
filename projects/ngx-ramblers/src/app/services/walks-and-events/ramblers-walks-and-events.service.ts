@@ -82,6 +82,7 @@ import isString from "lodash-es/isString";
 import { FeaturesService } from "../features.service";
 import keys from "lodash-es/keys";
 import cloneDeep from "lodash-es/clone";
+import { LinksService } from "../links.service";
 
 @Injectable({
   providedIn: "root"
@@ -99,6 +100,7 @@ export class RamblersWalksAndEventsService {
   private stringUtilsService: StringUtilsService = inject(StringUtilsService);
   private dateUtils: DateUtilsService = inject(DateUtilsService);
   private displayDate: DisplayDatePipe = inject(DisplayDatePipe);
+  private linksService: LinksService = inject(LinksService);
   private walkDisplayService: WalkDisplayService = inject(WalkDisplayService);
   private memberLoginService: MemberLoginService = inject(MemberLoginService);
   private commonDataService: CommonDataService = inject(CommonDataService);
@@ -116,6 +118,7 @@ export class RamblersWalksAndEventsService {
   private ramblers: Ramblers;
   private BASE_URL = "/api/ramblers/walks-manager";
   private conversionOptions = {markdownToHtml: false, markdownLinksToText: true};
+  private dryRun = false;
 
   constructor() {
     inject(CommitteeConfigService).committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data);
@@ -167,21 +170,6 @@ export class RamblersWalksAndEventsService {
       return walks[0];
     } else {
       this.logger.warn("walkId", walkId, "returned", this.stringUtilsService.pluraliseWithCount(walks.length, "walk"), "returning null - walks were:", walks);
-      return null;
-    }
-  }
-
-  async socialEventForId(socialEventId: string): Promise<ExtendedGroupEvent> {
-    this.logger.debug("getByIdIfPossible:socialEventId", socialEventId, "is valid MongoId");
-    const socialEvents = await this.listRamblersWalksRawData({
-      types: [RamblersEventType.GROUP_EVENT],
-      ids: [socialEventId]
-    })
-      .then((ramblersWalksRawApiResponse: RamblersGroupEventsRawApiResponse) => ramblersWalksRawApiResponse.data.map(remoteWalk => this.toExtendedGroupEvent(remoteWalk)));
-    if (socialEvents?.length === 1) {
-      return socialEvents[0];
-    } else {
-      this.logger.warn("walkId", socialEventId, "returned", this.stringUtilsService.pluraliseWithCount(socialEvents.length, "walk"), "returning null - socialEvents were:", socialEvents);
       return null;
     }
   }
@@ -282,14 +270,14 @@ export class RamblersWalksAndEventsService {
     return this.returnWalksExport(updatedWalks);
   }
 
-  updateWalksWithRamblersWalkData(ramblersWalksResponses: RamblersWalkResponse[], walks: ExtendedGroupEvent[]): Promise<LocalAndRamblersWalk[]> {
-    let unreferencedUrls: string[] = this.collectExistingRamblersUrlsFrom(walks);
+  updateWalksWithRamblersWalkData(ramblersWalksResponses: RamblersWalkResponse[], localEvents: ExtendedGroupEvent[]): Promise<LocalAndRamblersWalk[]> {
+    let unreferencedUrls: string[] = this.collectExistingRamblersUrlsFrom(localEvents);
     this.logger.info(this.stringUtilsService.pluraliseWithCount(unreferencedUrls.length, "existing ramblers walk url"), "found:", unreferencedUrls);
-    this.logger.info(this.stringUtilsService.pluraliseWithCount(walks.length, "local walk"), "found:", walks);
+    this.logger.info(this.stringUtilsService.pluraliseWithCount(localEvents.length, "local walk"), "found:", localEvents);
     const savePromises = [];
-    this.logger.info(this.stringUtilsService.pluraliseWithCount(ramblersWalksResponses.length, "walks manager walk"), "found:", ramblersWalksResponses);
+    this.logger.info(this.stringUtilsService.pluraliseWithCount(ramblersWalksResponses.length, "localEvents manager walk"), "found:", ramblersWalksResponses);
     ramblersWalksResponses.forEach((ramblersWalksResponse: RamblersWalkResponse) => {
-      const walkMatchedByDate: ExtendedGroupEvent = walks.find(walk => this.dateUtils.asString(walk.groupEvent.start_date_time, undefined, "dddd, Do MMMM YYYY") === ramblersWalksResponse.startDate);
+      const walkMatchedByDate: ExtendedGroupEvent = localEvents.find(walk => this.dateUtils.asString(walk.groupEvent.start_date_time, undefined, "dddd, Do MMMM YYYY") === ramblersWalksResponse.startDate);
       if (!walkMatchedByDate) {
         this.logger.info("no date match found for ramblersWalksResponse", ramblersWalksResponse);
       } else {
@@ -299,13 +287,17 @@ export class RamblersWalksAndEventsService {
             this.logger.info("updating walk from", walkMatchedByDate.groupEvent.id || "empty", "->", ramblersWalksResponse.id, "and", walkMatchedByDate.groupEvent.url || "empty", "->", ramblersWalksResponse.url, "on", this.displayDate.transform(walkMatchedByDate.groupEvent.start_date_time));
             walkMatchedByDate.groupEvent.id = ramblersWalksResponse.id;
             walkMatchedByDate.groupEvent.url = ramblersWalksResponse.url;
-            savePromises.push(this.localWalksAndEventsService.createOrUpdate(walkMatchedByDate));
-            this.logger.info("walk updated to:", walkMatchedByDate);
+            const linkWithSource: LinkWithSource = {
+              source: LinkSource.RAMBLERS,
+              href: walkMatchedByDate.groupEvent.url,
+              title: walkMatchedByDate.groupEvent.title
+            };
+            this.linksService.createOrUpdateLink(walkMatchedByDate.fields, linkWithSource);
+            this.saveOrLog(savePromises, walkMatchedByDate);
           }
           if (this.copyMediaIfApplicable(walkMatchedByDate, ramblersWalksResponse)) {
             this.logger.info("mediaMismatch:updating walk from", walkMatchedByDate.groupEvent.media || "empty", "->", ramblersWalksResponse.media, "on", this.displayDate.transform(walkMatchedByDate.groupEvent.start_date_time));
-            savePromises.push(this.localWalksAndEventsService.createOrUpdate(walkMatchedByDate));
-            this.logger.info("walk updated to:", walkMatchedByDate);
+            this.saveOrLog(savePromises, walkMatchedByDate);
           }
         } else {
           this.logger.info("no update required for walk", walkMatchedByDate.id, walkMatchedByDate.groupEvent.start_date_time, this.dateUtils.displayDay(walkMatchedByDate.groupEvent.start_date_time));
@@ -314,18 +306,28 @@ export class RamblersWalksAndEventsService {
     });
 
     if (unreferencedUrls.length > 0) {
-      this.logger.off("removing", this.stringUtilsService.pluraliseWithCount(unreferencedUrls.length, "old ramblers walk"), unreferencedUrls, "from existing walks");
+      this.logger.info("removing", this.stringUtilsService.pluraliseWithCount(unreferencedUrls.length, "unreferenced ramblers event url"), unreferencedUrls, "if they match existing", this.stringUtilsService.pluraliseWithCount(localEvents.length, "local event"));
       unreferencedUrls.map((url: string) => {
-        const walkMatchedByUrl: ExtendedGroupEvent = walks.find(walk => walk.groupEvent.url === url);
+        const walkMatchedByUrl: ExtendedGroupEvent = localEvents.find(walk => walk.groupEvent.url === url && walk.groupEvent.id);
         if (walkMatchedByUrl) {
-          this.logger.off("removing ramblers walkMatchedByUrl", walkMatchedByUrl.groupEvent.id, "from walkMatchedByUrl on", this.displayDate.transform(walkMatchedByUrl.groupEvent.start_date_time));
+          this.logger.info("removing ramblers event id:", walkMatchedByUrl.groupEvent.id, "and url:", walkMatchedByUrl.groupEvent.url, "from local event on", this.displayDate.transform(walkMatchedByUrl.groupEvent.start_date_time), "walkMatchedByUrl:", walkMatchedByUrl);
           delete walkMatchedByUrl.groupEvent.id;
           delete walkMatchedByUrl.groupEvent.url;
-          savePromises.push(this.localWalksAndEventsService.createOrUpdate(walkMatchedByUrl));
+          this.linksService.deleteLink(walkMatchedByUrl.fields, LinkSource.RAMBLERS);
+          this.saveOrLog(savePromises, walkMatchedByUrl);
         }
       });
     }
-    return Promise.all(savePromises).then(() => this.localAndRamblersWalksFrom(walks, ramblersWalksResponses));
+    return Promise.all(savePromises).then(() => this.localAndRamblersWalksFrom(localEvents, ramblersWalksResponses));
+  }
+
+  private saveOrLog(savePromises: any[], localEvent: ExtendedGroupEvent) {
+    if (this.dryRun) {
+      this.logger.info("Would Update localEvent to:", localEvent, "but dry run is true");
+    } else {
+      savePromises.push(this.localWalksAndEventsService.createOrUpdate(localEvent));
+      this.logger.info("localEvent updated to:", localEvent);
+    }
   }
 
   private localAndRamblersWalksFrom(walks: ExtendedGroupEvent[], ramblersWalksResponses: RamblersWalkResponse[]): LocalAndRamblersWalk[] {
@@ -337,10 +339,23 @@ export class RamblersWalksAndEventsService {
     return mappedResults;
   }
 
-  private notMatchedByIdOrUrl(walkMatchedByDate: ExtendedGroupEvent, ramblersWalksResponse: RamblersWalkResponse): boolean {
-    const notMatched = walkMatchedByDate.groupEvent.url !== ramblersWalksResponse.url || walkMatchedByDate.groupEvent.id !== ramblersWalksResponse.id;
-    this.logger.info("notMatchedByIdOrUrl:walkMatchedByDate.groupEvent:", keys(cloneDeep(walkMatchedByDate.groupEvent)));
-    this.logger.info("notMatchedByIdOrUrl:walkMatchedByDate.groupEvent.url:", walkMatchedByDate.groupEvent.url, "ramblersWalksResponse.url:", ramblersWalksResponse.url, "walkMatchedByDate.groupEvent.id:", walkMatchedByDate.groupEvent.id, "ramblersWalksResponse.id:", ramblersWalksResponse.id, "notMatched:", notMatched);
+  private notMatchedByIdOrUrl(localEvent: ExtendedGroupEvent, ramblersWalksResponse: RamblersWalkResponse): boolean {
+    const linkWithSource = this.linksService.linkWithSourceFrom(localEvent.fields, LinkSource.RAMBLERS);
+    const urlMismatch = localEvent.groupEvent.url !== ramblersWalksResponse.url;
+    const groupEventMismatch = localEvent.groupEvent.id !== ramblersWalksResponse.id;
+    const linkUrlMismatch = linkWithSource?.href !== ramblersWalksResponse.url;
+    const notMatched = urlMismatch || groupEventMismatch || linkUrlMismatch;
+    this.logger.info("notMatchedByIdOrUrl:keys:", keys(cloneDeep(localEvent.groupEvent)));
+    this.logger.info("notMatchedByIdOrUrl:localEvent.groupEvent.url:", localEvent.groupEvent.url,
+      "ramblersWalksResponse.url:", ramblersWalksResponse.url,
+      "urlMismatch:", urlMismatch,
+      "localEvent.groupEvent.id:", localEvent.groupEvent.id,
+      "ramblersWalksResponse.id:", ramblersWalksResponse.id,
+      "groupEventMismatch:", groupEventMismatch,
+      "linkWithSource.href:", linkWithSource?.href,
+      "ramblersWalksResponse.url:", ramblersWalksResponse.url,
+      "linkUrlMismatch:", linkUrlMismatch,
+      "notMatched:", notMatched);
     return notMatched;
   }
 
