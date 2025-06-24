@@ -21,8 +21,27 @@ if (config.targetEnvironments.length > 0) {
   debugLog("Deploying to all environments");
 }
 
+function imageTagFromArg(): string {
+  const tagArg = process.argv.find(arg => arg.startsWith("--image-tag="));
+  if (tagArg) {
+    return tagArg.split("=")[1];
+  }
+  const tagIndex = process.argv.indexOf("--image-tag");
+  if (tagIndex !== -1 && process.argv.length > tagIndex + 1) {
+    return process.argv[tagIndex + 1];
+  }
+  return null;
+}
+
 function deployToEnvironments(configFilePath: string, environmentsFilter: string[]): void {
   const config: DeploymentConfig = readConfigFile(configFilePath);
+  const imageTag = imageTagFromArg();
+  if (imageTag) {
+    const [repo] = config.dockerImage.split(":");
+    config.dockerImage = `${repo}:${imageTag}`;
+    debugLog(`Overriding docker image tag: ${config.dockerImage}`);
+  }
+
   const flyTomlPath = path.resolve(__dirname, "../..", "fly.toml");
   const environmentsToDeploy = environmentsFilter.length === 0
     ? config.environments
