@@ -45,3 +45,13 @@ export function pluralise(count: number, singular: string, plural?: string) {
 export function lastItemFrom(key: string) {
   return key?.split("/").filter(item => item)?.pop();
 }
+
+export function toKebabCase(input: string): string {
+  if (!input) return "";
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .trim();
+}

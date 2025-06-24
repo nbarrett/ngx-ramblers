@@ -58,7 +58,7 @@ import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
       <app-page>
         <app-dynamic-content [anchor]="BuiltInAnchor.PAGE_HEADER" contentPathReadOnly/>
         <div class="row mb-n3">
-          @if (systemConfig?.enableMigration?.events) {
+          @if (display.allowAdminEdits() && systemConfig?.enableMigration?.events) {
             <div class="mb-3 col-sm-12">
               <button (click)="performMigration()" class="btn btn-primary mr-2"
                       type="button">Migrate
@@ -116,8 +116,7 @@ import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
                   @if (display.isExpanded(displayedWalk.walk)) {
                     <div>
                       @if (!display.isEdit(displayedWalk.walk)) {
-                        <app-walk-view
-                          [displayedWalk]="displayedWalk"/>
+                        <app-walk-view [displayedWalk]="displayedWalk"/>
                       }
                       @if (display.isEdit(displayedWalk.walk)) {
                         <app-walk-edit
@@ -169,7 +168,7 @@ import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
                             (click)="display.view(displayedWalk.walk)"
                             id="eventType-{{index}}">
                           @if (display.isWalk(displayedWalk.walk)) {
-                            <app-walk-grading [grading]="displayedWalk.walk.groupEvent?.difficulty?.code"/>
+                            <app-walk-grading [grading]="displayedWalk?.walk?.groupEvent?.difficulty?.code"/>
                           }
                           @if (!display.isWalk(displayedWalk.walk)) {
                             <fa-icon
@@ -180,26 +179,26 @@ import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
                         </td>
                         <td width="13%" (click)="display.view(displayedWalk.walk)" id="walkDate-{{index}}"
                             class="nowrap walk-date">
-                          {{ displayedWalk.walk.groupEvent.start_date_time|displayDate }}
+                          {{ displayedWalk.walk?.groupEvent?.start_date_time|displayDate }}
                         </td>
                         <td width="7%" class="d-none d-lg-table-cell start-time"
                             (click)="display.view(displayedWalk.walk)"
-                            id="startTime-{{index}}">{{ displayedWalk.walk.groupEvent.start_date_time| displayTime }}
+                            id="startTime-{{index}}">{{ displayedWalk.walk?.groupEvent?.start_date_time| displayTime }}
                         </td>
                         <td width="25%" name="title"
                             (click)="display.view(displayedWalk.walk)"
-                            id="briefDescription-{{index}}">{{ displayedWalk.walk.groupEvent.title || displayedWalk?.latestEventType?.description }}
+                            id="briefDescription-{{index}}">{{ displayedWalk.walk?.groupEvent?.title || displayedWalk?.latestEventType?.description }}
                         </td>
                         <td width="7%" class="d-none d-lg-table-cell distance"
                             (click)="display.view(displayedWalk.walk)"
-                            id="distance-{{index}}">{{ displayedWalk.walk.groupEvent.distance_miles }}
+                            id="distance-{{index}}">{{ displayedWalk.walk?.groupEvent?.distance_miles }}
                         </td>
                         <td width="8%" class="d-none d-lg-table-cell postcode" id="postcode-{{index}}">
                           <a
-                            [href]="'http://maps.google.co.uk/maps?q=' + displayedWalk.walk.groupEvent.start_location?.postcode"
+                            [href]="'http://maps.google.co.uk/maps?q=' + displayedWalk.walk?.groupEvent?.start_location?.postcode"
                             target="_blank" name="postcode"
-                            tooltip="Click to locate postcode {{displayedWalk.walk.groupEvent.start_location?.postcode}} on Google Maps"
-                            placement="left">{{ displayedWalk.walk.groupEvent.start_location?.postcode }}</a></td>
+                            tooltip="Click to locate postcode {{displayedWalk.walk?.groupEvent?.start_location?.postcode}} on Google Maps"
+                            placement="left">{{ displayedWalk.walk?.groupEvent?.start_location?.postcode }}</a></td>
                         <td width="12%" class="d-none d-lg-table-cell walk-leader" id="contactEmail-{{index}}">
                           @if (allowDetailView()) {
                             <a [href]="'mailto:'+ displayedWalk.walk?.fields?.contactDetails?.email"

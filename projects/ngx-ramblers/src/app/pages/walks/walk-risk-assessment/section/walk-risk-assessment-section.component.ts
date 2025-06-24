@@ -56,7 +56,7 @@ export class WalkRiskAssessmentSectionComponent implements OnInit {
       this.displayedWalk.walk.fields.riskAssessment = [];
     }
 
-    const riskAssessmentRecord: RiskAssessmentRecord = this.displayedWalk.walk.fields.riskAssessment
+    const riskAssessmentRecord: RiskAssessmentRecord = this.displayedWalk?.walk?.fields.riskAssessment
       .find(item => item.riskAssessmentKey === this.riskAssessmentKey);
 
     if (!riskAssessmentRecord) {

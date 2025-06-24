@@ -8,7 +8,7 @@ import { WalkValidationsListPipe } from "../../../../pipes/walk-validations.pipe
 @Component({
     selector: "app-walk-notification-leader-awaiting-walk-details",
     template: `
-    <p>Thanks for offering to lead the walk on <strong [textContent]="walk.groupEvent.start_date_time | displayDate"
+    <p>Thanks for offering to lead the walk on <strong [textContent]="walk?.groupEvent?.start_date_time | displayDate"
     ></strong>!</p>
     @if (walkDataAudit.dataChanged) {
       <div>

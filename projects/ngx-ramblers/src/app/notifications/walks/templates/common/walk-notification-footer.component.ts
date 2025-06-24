@@ -7,7 +7,7 @@ import { LinkComponent } from "../../../../link/link";
     template: `
     <p>
       Click
-      <app-link area="walks" id="{{walk.id}}" text="here"></app-link>
+      <app-link area="walks" id="{{stringUtils.lastItemFrom(walk?.groupEvent?.url)}}" text="here"></app-link>
       to see the details of the above walk, or to make changes to it if you are logged in.
       Alternatively, you can reply to this mail and I'll make any changes for you.
     </p>

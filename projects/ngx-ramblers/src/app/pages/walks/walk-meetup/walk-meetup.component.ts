@@ -54,7 +54,7 @@ import { LinksService } from "../../../services/links.service";
               <app-walk-meetup-config-parameters
                 [contentTextItems]="contentTextItems"
                 [renderMarkdownField]="!meetupEventDescriptionExists()"
-                [config]="displayedWalk.walk.fields.meetup"/>
+                [config]="displayedWalk?.walk?.fields.meetup"/>
             }
           </div>
           <div class="col-sm-12 mb-2 mt-3">
@@ -131,7 +131,7 @@ export class WalkMeetupComponent implements OnInit {
 
 
   ngOnInit() {
-    this.linkWithSource = this.linksService.linkWithSourceFrom(this.displayedWalk.walk.fields, LinkSource.MEETUP);
+    this.linkWithSource = this.linksService.linkWithSourceFrom(this.displayedWalk?.walk?.fields, LinkSource.MEETUP);
     this.logger.info("ngOnInit:saveInProgress", this.saveInProgress);
     this.logLinkChange();
     this.meetupService.queryConfig().then(config => this.config = config);
@@ -159,7 +159,7 @@ export class WalkMeetupComponent implements OnInit {
   }
 
   logLinkChange() {
-    this.logger.info("links object:", this.linkWithSource, "publishing:", this.displayedWalk.walk.fields.publishing, "walk links:", this.displayedWalk?.walk?.fields?.links);
+    this.logger.info("links object:", this.linkWithSource, "publishing:", this.displayedWalk?.walk?.fields.publishing, "walk links:", this.displayedWalk?.walk?.fields?.links);
   }
   allowEdits() {
     return this.display.loggedInMemberIsLeadingWalk(this.displayedWalk.walk) || this.memberLoginService.allowWalkAdminEdits();
@@ -167,7 +167,7 @@ export class WalkMeetupComponent implements OnInit {
 
   changedPublishMeetup($event: any) {
     if ($event && !this.meetupConfigExists()) {
-      if (!this.displayedWalk.walk.fields.meetup) {
+      if (!this.displayedWalk?.walk?.fields.meetup) {
         this.displayedWalk.walk.fields.meetup = this.config;
       }
       this.logger.debug("this.displayedWalk.walk", this.displayedWalk.walk);
@@ -183,7 +183,7 @@ export class WalkMeetupComponent implements OnInit {
   }
 
   private createMeetupDescription(data: ContentText) {
-    this.linkWithSource.title = `${data.text} [here](${this.display.walkLink(this.displayedWalk.walk)}).\n\n${this.displayedWalk.walk.groupEvent.description}`;
+    this.linkWithSource.title = `${data.text} [here](${this.display.walkLink(this.displayedWalk.walk)}).\n\n${this.displayedWalk.walk?.groupEvent?.description}`;
     this.meetupEventDescription = this.linkWithSource.title;
     this.logger.debug("meetupEventDescription:", this.meetupEventDescription);
     this.changeDetectorRef.detectChanges();

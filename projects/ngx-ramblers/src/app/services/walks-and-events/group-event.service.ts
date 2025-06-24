@@ -37,13 +37,13 @@ export class GroupEventService {
       const walkEventType = this.walksReferenceService.toWalkEventType(event.eventType);
       return walkEventType && walkEventType.statusChange;
     });
-    this.logger.debug("latestEventWithStatusChange:extendedGroupEvent", extendedGroupEvent.id, "eventType =>", eventType);
+    this.logger.debug("latestEventWithStatusChange:extendedGroupEvent", extendedGroupEvent?.id, "eventType =>", eventType);
     return eventType;
   }
 
   public walkDataAuditFor(extendedGroupEvent: ExtendedGroupEvent, status: EventType, basedOnUnsavedData: boolean): WalkDataAudit {
     if (extendedGroupEvent) {
-      if (!isArray(extendedGroupEvent.events)) {
+      if (!isArray(extendedGroupEvent?.events)) {
         this.logger.warn("events array is not initialised", extendedGroupEvent);
         extendedGroupEvent.events = [];
       }
@@ -100,10 +100,10 @@ export class GroupEventService {
 
   public writeEventIfRequired(extendedGroupEvent: ExtendedGroupEvent, event: WalkEvent): void {
     if (event) {
-      if (!isArray(extendedGroupEvent.events)) {
+      if (!isArray(extendedGroupEvent?.events)) {
         extendedGroupEvent.events = [];
       }
-      if (extendedGroupEvent.events.includes(event)) {
+      if (extendedGroupEvent?.events.includes(event)) {
         this.logger.warn("extendedGroupEvent already contains event", event);
       } else {
         this.logger.debug("writing event", event);
@@ -135,7 +135,7 @@ export class GroupEventService {
   }
 
   private eventsLatestFirst(extendedGroupEvent: ExtendedGroupEvent): WalkEvent[] {
-    const events = cloneDeep(extendedGroupEvent.events).sort(sortBy("-date")) || [];
+    const events = cloneDeep(extendedGroupEvent?.events)?.sort(sortBy("-date")) || [];
     this.logger.off("eventsLatestFirst:", events);
     return events;
   }

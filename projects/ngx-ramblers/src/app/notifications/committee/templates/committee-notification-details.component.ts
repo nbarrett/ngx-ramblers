@@ -87,7 +87,7 @@ export class CommitteeNotificationDetailsComponent implements OnInit, OnDestroy 
   }
 
   toNotificationItem(event: GroupEventSummary, notification: Notification): NotificationItem {
-    const href = this.display.urlService.linkUrl({area: event.eventType.area, id: event.id});
+    const href = this.display.urlService.linkUrl({area: event.eventType.area, id: event.slug || event.id});
     const title = "View " + event.eventType.description;
     const image = notification.groupEventsFilter.includeImage ? {
       alt: title,

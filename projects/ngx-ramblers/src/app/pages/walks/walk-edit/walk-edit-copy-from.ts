@@ -208,7 +208,7 @@ export class WalkEditCopyFromComponent {
                 ...this.displayedWalk.walk,
                 ...copyFromEvent,
                 fields: {
-                    ...this.displayedWalk.walk.fields,
+                    ...this.displayedWalk?.walk?.fields,
                     ...Object.keys(sourceFields).reduce((acc, key) => {
                         acc[key] = sourceFields[key];
                         return acc;

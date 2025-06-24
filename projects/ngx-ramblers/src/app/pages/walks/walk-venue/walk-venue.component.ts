@@ -104,13 +104,13 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
             }
             @if (allowEdits()) {
               <div class="col-sm-6">
-                @if (displayedWalk.walk.fields.venue.url) {
+                @if (displayedWalk?.walk?.fields.venue.url) {
                   <div class="form-group">
                     <label>Link preview:
-                      <fa-icon [icon]="displayedWalk.walk.fields.venue?.type | toVenueIcon"
+                      <fa-icon [icon]="displayedWalk?.walk?.fields.venue?.type | toVenueIcon"
                                class="fa-icon fa-lg"></fa-icon>
-                      <a [href]="displayedWalk.walk.fields.venue.url"
-                         tooltip="Click to visit {{displayedWalk.walk.fields.venue?.name}}"
+                      <a [href]="displayedWalk?.walk?.fields.venue.url"
+                         tooltip="Click to visit {{displayedWalk?.walk?.fields.venue?.name}}"
                          class="related-links-title" target="_blank">
                         {{ displayedWalk.walk.fields.venue?.name }}
                       </a>

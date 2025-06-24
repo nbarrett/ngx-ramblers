@@ -1,5 +1,5 @@
-import { Component, Input, inject } from "@angular/core";
-import { DisplayedWalk, WalkType } from "../../../models/walk.model";
+import { Component, inject, Input } from "@angular/core";
+import { DisplayedWalk, INITIALISED_LOCATION, WalkType } from "../../../models/walk.model";
 import { FormsModule } from "@angular/forms";
 import { WalkLocationEditComponent } from "./walk-location-edit";
 import { EventAscentEdit } from "./event-ascent-edit.component";
@@ -7,7 +7,6 @@ import { Difficulty } from "../../../models/ramblers-walks-manager";
 import { WalkDisplayService } from "../walk-display.service";
 import { AlertInstance } from "../../../services/notifier.service";
 import { cloneDeep } from "lodash-es";
-import { INITIALISED_LOCATION } from "../../../models/walk.model";
 
 @Component({
   selector: "app-walk-edit-details",
@@ -58,7 +57,7 @@ import { INITIALISED_LOCATION } from "../../../models/walk.model";
             </div>
             <div class="col-sm-4">
               <label for="ascent">Ascent</label>
-              <div class="form-group" app-event-ascent-edit [groupEvent]="displayedWalk.walk.groupEvent"
+              <div class="form-group" app-event-ascent-edit [groupEvent]="displayedWalk?.walk?.groupEvent"
                    id="ascent" [disabled]="inputDisabled"></div>
             </div>
           </div>
@@ -68,7 +67,7 @@ import { INITIALISED_LOCATION } from "../../../models/walk.model";
         <div class="row">
           <div class="col">
             <app-walk-location-edit locationType="Starting"
-                                    [locationDetails]="displayedWalk.walk.groupEvent.start_location"
+                                    [locationDetails]="displayedWalk?.walk?.groupEvent.start_location"
                                     [notify]="notify"/>
           </div>
           @if (displayedWalk?.walk?.groupEvent?.shape === WalkType.LINEAR) {
@@ -108,14 +107,14 @@ export class WalkEditDetailsComponent {
   }
 
   walkTypeChange() {
-    if (this.displayedWalk.walk.groupEvent.shape === WalkType.LINEAR && !this.displayedWalk.walk.groupEvent.end_location) {
+    if (this.displayedWalk?.walk?.groupEvent.shape === WalkType.LINEAR && !this.displayedWalk?.walk?.groupEvent.end_location) {
       this.displayedWalk.walk.groupEvent.end_location = cloneDeep(INITIALISED_LOCATION);
     }
   }
 
   swapStartAndEndLocations() {
-    const startLocation = cloneDeep(this.displayedWalk.walk.groupEvent.start_location);
-    this.displayedWalk.walk.groupEvent.start_location = this.displayedWalk.walk.groupEvent.end_location;
+    const startLocation = cloneDeep(this.displayedWalk?.walk?.groupEvent.start_location);
+    this.displayedWalk.walk.groupEvent.start_location = this.displayedWalk?.walk?.groupEvent.end_location;
     this.displayedWalk.walk.groupEvent.end_location = startLocation;
   }
 

@@ -12,6 +12,8 @@ export enum NamedEventType {
     MARKDOWN_CONTENT_DELETED = "markdown-content-deleted",
     MARKDOWN_CONTENT_SYNCED = "markdown-content-synced",
     MARKDOWN_CONTENT_UNSAVED = "markdown-content-unsaved",
+    MARKDOWN_EDITOR_CREATED = "markdown-editor-created",
+    MARKDOWN_EDITOR_DESTROYED = "markdown-editor-destroyed",
     MEETUP_DEFAULT_CONTENT_CHANGED = "meetup-content-changed",
     MEMBER_LOGIN_COMPLETE = "member-login-complete",
     MEMBER_LOGOUT_COMPLETE = "member-logout-complete",
@@ -23,10 +25,9 @@ export enum NamedEventType {
     SHOW_PAGINATION = "show-pagination",
     SYSTEM_CONFIG_LOADED = "system-config-loaded",
     WALKS_CONFIG_LOADED = "walks-config-loaded",
-    WALK_SAVED = "walkSaved",
+    WALK_CHANGED = "walk-changed",
+    WALK_SAVED = "walk-saved",
     WALK_SLOTS_CREATED = "walk-slots-created",
-    MARKDOWN_EDITOR_CREATED = "markdown-editor-created",
-    MARKDOWN_EDITOR_DESTROYED = "markdown-editor-destroyed",
 }
 
 export class NamedEvent<T> {

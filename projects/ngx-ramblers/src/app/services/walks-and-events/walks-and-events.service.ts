@@ -37,6 +37,10 @@ export class WalksAndEventsService {
     return this.localWalksAndEventsService.notifications();
   }
 
+  urlFromTitle(title: string, id: string): Promise<string> {
+    return this.localWalksAndEventsService.urlFromTitle(title, id);
+  }
+
   async all(eventQueryParameters: EventQueryParameters): Promise<ExtendedGroupEvent[]> {
     this.logger.info("all called with walkPopulation:", this.group?.walkPopulation, "eventQueryParameters:", eventQueryParameters);
     switch (this.group?.walkPopulation) {
@@ -83,15 +87,6 @@ export class WalksAndEventsService {
 
   }
 
-  async getByIdIfPossible(walkId: string): Promise<ExtendedGroupEvent> {
-    switch (this?.group?.walkPopulation) {
-      case EventPopulation.WALKS_MANAGER:
-        return this.ramblersWalksAndEventsService.getByIdIfPossible(walkId);
-      case EventPopulation.LOCAL:
-        return this.localWalksAndEventsService.getByIdIfPossible(walkId);
-    }
-  }
-
   async updateMany(dataQueryOptions: DataQueryOptions): Promise<ExtendedGroupEvent[]> {
     this.logger.info("updateMany called with dataQueryOptions:", dataQueryOptions);
     try {
@@ -109,10 +104,10 @@ export class WalksAndEventsService {
   }
 
   async delete(extendedGroupEvent: ExtendedGroupEvent): Promise<ExtendedGroupEvent> {
-    const eventPopulation: EventPopulation = extendedGroupEvent.groupEvent.item_type === RamblersEventType.GROUP_WALK ? this?.group?.walkPopulation : this?.group?.socialEventPopulation;
+    const eventPopulation: EventPopulation = extendedGroupEvent?.groupEvent?.item_type === RamblersEventType.GROUP_WALK ? this?.group?.walkPopulation : this?.group?.socialEventPopulation;
     switch (eventPopulation) {
       case EventPopulation.WALKS_MANAGER:
-        throw new Error(`cannot delete event as ${extendedGroupEvent.groupEvent.item_type} is ${eventPopulation}`);
+        throw new Error(`cannot delete event as ${extendedGroupEvent?.groupEvent?.item_type} is ${eventPopulation}`);
       case EventPopulation.LOCAL:
         return this.localWalksAndEventsService.delete(extendedGroupEvent);
     }

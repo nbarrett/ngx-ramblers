@@ -8,27 +8,29 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
 import { Subscription } from "rxjs";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { SystemConfig } from "../../../models/system.model";
+import { SocialDisplayService } from "../social-display.service";
 
 @Component({
     selector: "app-social-home",
     template: `
-    <app-page>
-      <app-social-carousel/>
-      @if (systemConfig?.enableMigration?.events) {
-        <div class="mb-3 col-sm-12">
-        <button (click)="performMigration()" class="btn btn-primary mr-2"
-                type="button">Migrate
-        </button>
-        </div>
-      }
-      <app-social-events/>
-    </app-page>
-  `,
+      <app-page>
+        <app-social-carousel/>
+        @if (displayService.allow.admin && systemConfig?.enableMigration?.events) {
+          <div class="mb-3 col-sm-12">
+            <button (click)="performMigration()" class="btn btn-primary mr-2"
+                    type="button">Migrate URLs
+            </button>
+          </div>
+        }
+        <app-social-events/>
+      </app-page>
+    `,
     styleUrls: ["./social-home.component.sass"],
     imports: [PageComponent, SocialCarouselComponent, SocialEventsComponent]
 })
 export class SocialHomeComponent implements OnInit, OnDestroy {
   loggerFactory: LoggerFactory = inject(LoggerFactory);
+  protected displayService: SocialDisplayService = inject(SocialDisplayService);
   protected eventsMigrationService = inject(EventsMigrationService);
   private systemConfigService = inject(SystemConfigService);
   public logger = this.loggerFactory.createLogger("SocialHomeComponent", NgxLoggerLevel.ERROR);
@@ -45,7 +47,7 @@ export class SocialHomeComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
   public async performMigration() {
-    await this.eventsMigrationService.migrateSocialEvents(true);
+    await this.eventsMigrationService.migrateSocialEventUrls();
   }
 
 }

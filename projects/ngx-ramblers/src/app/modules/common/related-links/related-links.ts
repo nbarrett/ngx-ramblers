@@ -57,7 +57,7 @@ import { NgxLoggerLevel } from "ngx-logger";
              alt="View start location in what3words"/>
         <a content tooltip="Click to view the start location in what3words"
            target="_blank"
-           [href]="'https://what3words.com/'+displayedWalk.walk.groupEvent.start_location.w3w">
+           [href]="'https://what3words.com/'+displayedWalk?.walk?.groupEvent.start_location.w3w">
           View start location in what3words
         </a>
       </div>
@@ -65,11 +65,11 @@ import { NgxLoggerLevel } from "ngx-logger";
     @if (displayedWalk?.walk?.fields?.venue?.venuePublish && (displayedWalk?.walk?.fields?.venue?.url || displayedWalk?.walk?.fields?.venue?.postcode)) {
       <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
            class="col-sm-12">
-        <fa-icon title [icon]="displayedWalk.walk.fields.venue.type | toVenueIcon" class="fa-icon"></fa-icon>
-        <a content tooltip="Click to visit {{displayedWalk.walk.fields.venue.name}}"
-           [href]="displayedWalk.walk.fields.venue.url || googleMapsService.urlForPostcode(displayedWalk.walk.fields.venue.postcode)"
+        <fa-icon title [icon]="displayedWalk?.walk?.fields.venue.type | toVenueIcon" class="fa-icon"></fa-icon>
+        <a content tooltip="Click to visit {{displayedWalk?.walk?.fields.venue.name}}"
+           [href]="displayedWalk?.walk?.fields.venue.url || googleMapsService.urlForPostcode(displayedWalk?.walk?.fields.venue.postcode)"
            target="_blank">
-          {{ displayedWalk.walk.fields.venue.type }}: {{ displayedWalk.walk.fields.venue.name }}
+          {{ displayedWalk?.walk?.fields.venue.type }}: {{ displayedWalk?.walk?.fields.venue.name }}
         </a>
       </div>
     }
@@ -97,7 +97,7 @@ export class RelatedLinksComponent implements OnInit {
   public links: Links = null;
 
   ngOnInit(): void {
-    this.links = this.linksService.linksFrom(this.displayedWalk.walk.fields.links);
-    this.logger.info("ngOnInit:links:", this.links, "from displayedWalk.walk.fields.links:", this.displayedWalk.walk.fields.links);
+    this.links = this.linksService.linksFrom(this.displayedWalk.walk);
+    this.logger.info("ngOnInit:links:", this.links, "from displayedWalk?.walk?.fields.links:", this.displayedWalk?.walk?.fields.links);
   }
 }

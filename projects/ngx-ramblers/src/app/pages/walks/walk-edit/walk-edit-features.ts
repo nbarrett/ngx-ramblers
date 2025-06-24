@@ -16,10 +16,11 @@ import { WalkFeatureListComponent } from "./walk-edit-feature-category";
     <div class="img-thumbnail thumbnail-admin-edit">
       <div class="row ml-3">
         <div class="col-md-6">
-          <app-walk-edit-feature-category [categorisedFeatures]="facilities" [displayedWalk]="displayedWalk"/>
+          <app-walk-edit-feature-category [featureCategory]="FeatureCategory.FACILITIES" [displayedWalk]="displayedWalk"/>
+          <app-walk-edit-feature-category [featureCategory]="FeatureCategory.TRANSPORT" [displayedWalk]="displayedWalk"/>
         </div>
         <div class="col-md-6">
-          <app-walk-edit-feature-category [categorisedFeatures]="accessibility" [displayedWalk]="displayedWalk"/>
+          <app-walk-edit-feature-category [featureCategory]="FeatureCategory.ACCESSIBILITY" [displayedWalk]="displayedWalk"/>
         </div>
       </div>
     </div>
@@ -33,8 +34,11 @@ export class WalkEditFeaturesComponent implements OnInit {
   @Input() displayedWalk!: DisplayedWalk;
 
   featureCategories: CategorisedFeatures[] = FEATURE_CATEGORIES;
-  facilities: CategorisedFeatures[] = this.featureCategories.filter(item => [FeatureCategory.FACILITIES, FeatureCategory.TRANSPORT].includes(item.category));
+  transport: CategorisedFeatures[] = this.featureCategories.filter(item => [FeatureCategory.TRANSPORT].includes(item.category));
+  facilities: CategorisedFeatures[] = this.featureCategories.filter(item => [FeatureCategory.FACILITIES].includes(item.category));
   accessibility: CategorisedFeatures[] = this.featureCategories.filter(item => [FeatureCategory.ACCESSIBILITY].includes(item.category));
+
+  protected readonly FeatureCategory = FeatureCategory;
 
   ngOnInit() {
     if (!this.displayedWalk.walk.groupEvent.accessibility) {

@@ -13,7 +13,7 @@ export class FeaturesService {
   private logger: Logger = inject(LoggerFactory).createLogger("FeaturesService", NgxLoggerLevel.ERROR);
 
   public combinedFeatures(groupEvent: GroupEvent): Metadata[] {
-    return (groupEvent.facilities || []).concat(groupEvent.transport || []).concat(groupEvent.accessibility || []).sort(sortBy("description"));
+    return (groupEvent?.facilities || []).concat(groupEvent?.transport || []).concat(groupEvent?.accessibility || []).sort(sortBy("description"));
   }
 
 }

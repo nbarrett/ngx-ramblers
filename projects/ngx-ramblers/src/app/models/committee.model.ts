@@ -55,6 +55,7 @@ export interface CommitteeFileApiResponse extends ApiResponse {
 
 export interface GroupEventSummary extends Identifiable {
   image?: string;
+  slug: string;
   selected: boolean;
   eventType: GroupEventType;
   eventDate: number;

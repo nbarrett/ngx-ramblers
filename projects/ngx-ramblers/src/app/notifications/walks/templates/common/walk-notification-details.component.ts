@@ -14,6 +14,7 @@ import { marked } from "marked";
 import { ValueOrDefaultPipe } from "../../../../pipes/value-or-default.pipe";
 import { DisplayDatePipe } from "../../../../pipes/display-date.pipe";
 import { ExtendedGroupEvent } from "../../../../models/group-event.model";
+import { StringUtilsService } from "../../../../services/string-utils.service";
 
 @Component({
     selector: "app-walk-notification-details",
@@ -21,15 +22,15 @@ import { ExtendedGroupEvent } from "../../../../models/group-event.model";
     <table style="cellpadding:10; border:1px solid lightgrey;border-collapse:collapse;width: 100%;border-spacing: 5px;">
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Walk Date:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.groupEvent.start_date_time | displayDate }}</td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk?.groupEvent?.start_date_time | displayDate }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Start Time:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.groupEvent.start_date_time | valueOrDefault }}</td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk?.groupEvent?.start_date_time | valueOrDefault }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Description:</td>
-        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk.groupEvent.title | valueOrDefault }}</td>
+        <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">{{ walk?.groupEvent?.title | valueOrDefault }}</td>
       </tr>
       <tr>
         <td style="width:25%; border:1px solid lightgrey; font-weight: bold; padding: 6px">Walk Description:</td>
@@ -81,6 +82,7 @@ export class WalkNotificationDetailsComponent implements OnInit {
   private auditDeltaValuePipe = inject(AuditDeltaValuePipe);
   googleMapsService = inject(GoogleMapsService);
   display = inject(WalkDisplayService);
+  protected stringUtils = inject(StringUtilsService);
   public data: WalkNotification;
   public walk: ExtendedGroupEvent;
   public status: EventType;

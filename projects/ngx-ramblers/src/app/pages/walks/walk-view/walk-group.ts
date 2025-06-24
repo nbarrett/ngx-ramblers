@@ -13,7 +13,25 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 @Component({
     selector: "app-walk-group",
-    templateUrl: "./walk-group.html",
+    template: `@if (display.walkPopulationWalksManager()) {
+      @if (displayedWalk?.walk?.groupEvent?.group_code) {
+        <div class="mb-2">
+          <h1>Group</h1>
+          <div>
+            <div class="row">
+              <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
+                <fa-icon title tooltip="contact {{displayedWalk?.walk?.groupEvent.group_name}}"
+                         [icon]="faPeopleGroup"
+                         class="fa-icon mr-1 pointer"></fa-icon>
+                <a content target="_blank"
+                   [href]="urlFor(displayedWalk?.walk?.groupEvent?.group_code)">{{ displayedWalk?.walk?.groupEvent.group_name + " (" + displayedWalk?.walk?.groupEvent?.group_code + ")" }}</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    }
+    `,
     imports: [RelatedLinkComponent, FontAwesomeModule, TooltipDirective]
 })
 

@@ -24,7 +24,7 @@ export interface PublishStatus {
   publish: boolean;
 }
 
-export interface RamblersWalkResponse {
+export interface RamblersEventSummaryResponse {
   id: string;
   url: string;
   walksManagerUrl: string;
@@ -36,9 +36,9 @@ export interface RamblersWalkResponse {
   media: Media[];
 }
 
-export interface RamblersWalksApiResponse extends ApiResponse {
+export interface RamblersEventSummaryApiResponse extends ApiResponse {
   request: any;
-  response?: RamblersWalkResponse[];
+  response?: RamblersEventSummaryResponse[];
 }
 
 export interface EventQueryParameters {

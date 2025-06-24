@@ -97,7 +97,7 @@ export class GroupEventImages {
 
   removeImage() {
     this.logger.info("removing image:", this.extendedGroupEvent?.groupEvent?.media[this.imageIndex]);
-    this.extendedGroupEvent?.groupEvent.media.splice(this.imageIndex, 1);
+    this.extendedGroupEvent?.groupEvent?.media.splice(this.imageIndex, 1);
     this.imageIndex = Math.max(0, this.imageIndex - 1);
   }
 

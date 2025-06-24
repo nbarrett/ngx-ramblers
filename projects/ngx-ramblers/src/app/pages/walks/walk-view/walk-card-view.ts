@@ -35,7 +35,7 @@ import { DistanceValidationService } from "../../../services/walks/distance-vali
       <div (click)="toggleView()">
         @if (display.walkPopulationLocal() && memberLoginService.memberLoggedIn() && displayedWalk?.walkAccessMode?.walkWritable) {
           <input
-            id="walkAction-{{displayedWalk.walk.id}}" type="submit"
+            id="walkAction-{{displayedWalk?.walk?.id}}" type="submit"
             value="{{displayedWalk?.walkAccessMode?.caption}}"
             (click)="display.edit(displayedWalk)"
             class="btn btn-primary button-container">
@@ -44,7 +44,7 @@ import { DistanceValidationService } from "../../../services/walks/distance-vali
           <div app-map-edit
                readonly
                class="map-card-image"
-               [locationDetails]="displayedWalk.walk.groupEvent.start_location"
+               [locationDetails]="displayedWalk.walk?.groupEvent?.start_location"
                [notify]="notify"></div>
         }
         @if (display.displayImage(displayedWalk.walk)) {
@@ -56,18 +56,18 @@ import { DistanceValidationService } from "../../../services/walks/distance-vali
         <div class="card-body">
           <h3 class="card-title">
             <a [href]="displayedWalk.walkLink" class="rams-text-decoration-pink active"
-               target="_self">{{ displayedWalk.walk.groupEvent.title || displayedWalk.latestEventType.description }}</a>
+               target="_self">{{ displayedWalk.walk?.groupEvent?.title || displayedWalk.latestEventType.description }}</a>
           </h3>
           <dl class="d-flex mb-2">
             <dt class="font-weight-bold mr-2">Start:</dt>
-            <time>{{ displayedWalk.walk.groupEvent.start_date_time | displayDate }} {{ displayedWalk.walk.groupEvent.start_date_time | displayTime }}</time>
+            <time>{{ displayedWalk.walk?.groupEvent?.start_date_time | displayDate }} {{ displayedWalk.walk?.groupEvent?.start_date_time | displayTime }}</time>
           </dl>
           @if (display.notAwaitingLeader(displayedWalk.walk)) {
-            @if (displayedWalk.walk?.groupEvent.difficulty) {
+            @if (displayedWalk.walk?.groupEvent?.difficulty) {
               <dl class="d-flex mb-1">
                 <dt class="font-weight-bold mr-2">Difficulty:</dt>
                 <dd>
-                  <app-walk-grading [grading]="displayedWalk.walk.groupEvent.difficulty.code"/>
+                  <app-walk-grading [grading]="displayedWalk.walk?.groupEvent?.difficulty.code"/>
                 </dd>
               </dl>
             }
@@ -77,7 +77,7 @@ import { DistanceValidationService } from "../../../services/walks/distance-vali
                 <dd>{{ distanceValidationService.walkDistances(displayedWalk.walk) }}</dd>
               </dl>
             }
-            @if (displayedWalk.walk.groupEvent.ascent_feet) {
+            @if (displayedWalk?.walk?.groupEvent?.ascent_feet) {
               <dl class="d-flex mb-1">
                 <dt class="font-weight-bold mr-2">Ascent:</dt>
                 <dd>{{ ascentValidationService.walkAscents(displayedWalk.walk) }}</dd>
@@ -147,7 +147,7 @@ import { DistanceValidationService } from "../../../services/walks/distance-vali
               </dd>
             </dl>
             @if (display.walkPopulationLocal() && displayedWalk.status !== EventType.APPROVED) {
-              <div id="{{displayedWalk.walk.id}}-status"
+              <div id="{{displayedWalk?.walk?.id}}-status"
                    class="badge event-badge sunset-badge ml-0">{{ displayedWalk?.latestEventType?.description }}
               </div>
             }
