@@ -23,14 +23,31 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create configs directory
+        run: mkdir -p non-vcs/fly-io
+
+      - name: Create configs.json from secrets
+        env:
+          CONFIGS_JSON: ${{ secrets.CONFIGS_JSON }}
+        run: |
+          echo "$CONFIGS_JSON" > non-vcs/fly-io/configs.json
+
       - id: set-matrix
         run: |
           if [ "${{ github.event.inputs.environments }}" = "all" ]; then
-            echo '["staging","production"]' > envs.json
+            jq -c '[.environments[].name]' non-vcs/fly-io/configs.json > envs.json
           else
             echo '["'${{ github.event.inputs.environments }}'"]' | sed 's/ /","/g' > envs.json
           fi
           echo "matrix=$(cat envs.json)" >> $GITHUB_OUTPUT
+
+      - name: Cleanup sensitive files
+        if: always()
+        run: rm -f non-vcs/fly-io/configs.json
+
   deploy:
     needs: set-environments
     runs-on: ubuntu-latest
