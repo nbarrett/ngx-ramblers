@@ -11,5 +11,5 @@ import { LinksService } from "../../../../services/links.service";
 })
 export class MeetupDescriptionComponent extends WalkNotificationDetailsComponent {
   public linksService: LinksService = inject(LinksService);
-  links = this.linksService.linksFrom(this.data.walk.fields.links);
+  links = this.linksService.linksFrom(this.data.walk);
 }

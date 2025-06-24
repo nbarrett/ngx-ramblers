@@ -351,7 +351,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                           <span>{{ groupEvent?.eventType?.description }}</span>
                           •
                           <app-link [area]="groupEvent?.eventType?.area"
-                                    [id]="groupEvent?.id"
+                                    [id]="groupEvent?.slug || groupEvent?.id"
                                     [text]="groupEvent?.title"></app-link>
                           @if (groupEvent.distance) {
                             <span> •

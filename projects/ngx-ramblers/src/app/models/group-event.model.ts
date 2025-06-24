@@ -91,3 +91,15 @@ export interface ExtendedGroupEventApiResponse extends ApiResponse {
   response?: ExtendedGroupEvent | ExtendedGroupEvent[];
 }
 export const FEET_TO_METRES_FACTOR = 0.3048;
+
+export enum EventViewDispatch {
+  PENDING = "pending",
+  VIEW = "view",
+  LIST = "list",
+  DYNAMIC_CONTENT = "dynamic-content"
+}
+
+export interface EventViewDispatchWithEvent {
+  eventView: EventViewDispatch;
+  event?: Promise<ExtendedGroupEvent>;
+}

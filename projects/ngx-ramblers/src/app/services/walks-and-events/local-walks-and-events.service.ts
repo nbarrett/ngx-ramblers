@@ -45,6 +45,12 @@ export class LocalWalksAndEventsService {
     return this.extendedGroupEventApiResponseSubject.asObservable();
   }
 
+  urlFromTitle(title: string, id: string): Promise<string> {
+    return this.http.post<{ url: string }>(this.BASE_URL + "/url-from-title", {title, id})
+      .toPromise()
+      .then(response => response.url);
+  }
+
   async all(eventQueryParameters?: EventQueryParameters): Promise<ExtendedGroupEvent[]> {
     const dataQueryOptions: DataQueryOptions = this.extendedGroupEventQueryService.dataQueryOptionsFrom(eventQueryParameters);
     const params = this.commonDataService.toHttpParams(dataQueryOptions);
@@ -90,16 +96,6 @@ export class LocalWalksAndEventsService {
     return apiResponse.response;
   }
 
-  async getByIdIfPossible(walkId: string): Promise<ExtendedGroupEvent | null> {
-    if (this.urlService.isMongoId(walkId)) {
-      this.logger.info("getByIdIfPossible:walkId", walkId, "is valid MongoId");
-      return this.queryById(walkId);
-    } else {
-      this.logger.info("getByIdIfPossible:walkId", walkId, "is not valid MongoId - returning null");
-      return Promise.resolve(null);
-    }
-  }
-
   async update(walk: ExtendedGroupEvent): Promise<ExtendedGroupEvent> {
     this.logger.info("updating", walk);
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.put<ExtendedGroupEventApiResponse>(this.BASE_URL + "/" + walk.id, walk), this.extendedGroupEventApiResponseSubject);
@@ -139,8 +135,8 @@ export class LocalWalksAndEventsService {
   async fixIncorrectStartDates(): Promise<ExtendedGroupEvent[]> {
     this.logger.info("fixIncorrectStartDates:beginning");
     const walks = await this.all();
-    const walksWithIncorrectDate: ExtendedGroupEvent[] = walks.filter(walk => walk.groupEvent.start_date_time !== walk.groupEvent.start_date_time);
-    this.logger.info("given", this.stringUtilsService.pluraliseWithCount(walks.length, "queried walk"), "there are", this.stringUtilsService.pluraliseWithCount(walksWithIncorrectDate.length, "incorrectly dated walk"), walksWithIncorrectDate.map(walk => "current:" + this.dateUtils.displayDateAndTime(walk.groupEvent.start_date_time) + ", fixed:" + this.dateUtils.displayDateAndTime(this.dateUtils.asValueNoTime(walk.groupEvent.start_date_time))).join("\n"));
+    const walksWithIncorrectDate: ExtendedGroupEvent[] = walks.filter(walk => walk?.groupEvent?.start_date_time !== walk?.groupEvent?.start_date_time);
+    this.logger.info("given", this.stringUtilsService.pluraliseWithCount(walks.length, "queried walk"), "there are", this.stringUtilsService.pluraliseWithCount(walksWithIncorrectDate.length, "incorrectly dated walk"), walksWithIncorrectDate.map(walk => "current:" + this.dateUtils.displayDateAndTime(walk?.groupEvent?.start_date_time) + ", fixed:" + this.dateUtils.displayDateAndTime(this.dateUtils.asValueNoTime(walk?.groupEvent?.start_date_time))).join("\n"));
     const walksWithFixedDate: ExtendedGroupEvent[] = walksWithIncorrectDate.map(walk => ({
       ...walk,
       walkDate: this.dateUtils.asValueNoTime(walk.groupEvent.start_date_time)

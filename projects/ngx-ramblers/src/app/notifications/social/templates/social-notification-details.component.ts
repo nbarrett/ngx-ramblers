@@ -16,6 +16,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
 import last from "lodash-es/last";
+import { StringUtilsService } from "../../../services/string-utils.service";
 
 @Component({
     selector: "app-social-notification-details",
@@ -106,7 +107,7 @@ import last from "lodash-es/last";
             <tr>
               <td style="border:1px solid lightgrey; font-weight: bold; padding: 6px">View Social On Website:</td>
               <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">
-                <app-link [area]="pageService.socialPage()?.href" id="{{socialEvent.id}}" text="click here"></app-link>
+                <app-link [area]="pageService.socialPage()?.href" id="{{stringUtils.lastItemFrom(socialEvent.groupEvent.url)}}" text="click here"></app-link>
               </td>
             </tr>
           </table>
@@ -137,9 +138,10 @@ export class SocialNotificationDetailsComponent implements OnInit {
   public mediaQueryService: MediaQueryService = inject(MediaQueryService);
   private logger: Logger = inject(LoggerFactory).createLogger("SocialNotificationDetailsComponent", NgxLoggerLevel.ERROR);
   protected pageService = inject(PageService);
-  urlService = inject(UrlService);
-  googleMapsService = inject(GoogleMapsService);
-  display = inject(SocialDisplayService);
+  protected urlService = inject(UrlService);
+  protected stringUtils = inject(StringUtilsService);
+  protected googleMapsService = inject(GoogleMapsService);
+  protected display = inject(SocialDisplayService);
 
   @Input({ required: true })
   public members: Member[];

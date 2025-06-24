@@ -95,14 +95,18 @@ export class WalkDisplayService {
   }
 
   findWalk(walk: ExtendedGroupEvent): ExpandedWalk {
-    return find(this.expandedWalks, {walkId: walk.id}) as ExpandedWalk;
+    return find(this.expandedWalks, {walkId: this.walkIdFrom(walk)}) as ExpandedWalk;
   }
 
   walkMode(walk: ExtendedGroupEvent): WalkViewMode {
-    const expandedWalk = find(this.expandedWalks, {walkId: walk?.id}) as ExpandedWalk;
-    const walkViewMode = expandedWalk ? expandedWalk.mode : this.urlService.pathContainsEventId() ? WalkViewMode.VIEW_SINGLE : this.urlService.pathContains("edit") ? WalkViewMode.EDIT_FULL_SCREEN : WalkViewMode.LIST;
-    this.logger.debug("walkMode:", walkViewMode, "expandedWalk:", expandedWalk);
+    const expandedWalk = find(this.expandedWalks, {walkId: this.walkIdFrom(walk)}) as ExpandedWalk;
+    const walkViewMode = expandedWalk ? expandedWalk.mode : this.urlService.pathContainsEventIdOrSlug() ? WalkViewMode.VIEW_SINGLE : this.urlService.pathContains("edit") ? WalkViewMode.EDIT_FULL_SCREEN : WalkViewMode.LIST;
+    this.logger.off("walkMode:", walkViewMode, "expandedWalk:", expandedWalk);
     return walkViewMode;
+  }
+
+  private walkIdFrom(walk: ExtendedGroupEvent) {
+    return walk?.id || walk?.groupEvent?.id;
   }
 
   isExpanded(walk: ExtendedGroupEvent): boolean {
@@ -184,14 +188,14 @@ export class WalkDisplayService {
 
   editFullscreen(walk: ExtendedGroupEvent): Promise<ExpandedWalk> {
     this.logger.debug("editing walk fullscreen:", walk);
-    return this.router.navigate(["walks/edit/" + walk.id], {relativeTo: this.route}).then(() => {
+    return this.router.navigate(["walks/edit/" + this.walkIdFrom(walk)], {relativeTo: this.route}).then(() => {
       this.logger.debug("area is now", this.urlService.area());
       return this.toggleExpandedViewFor(walk, WalkViewMode.EDIT_FULL_SCREEN);
     });
   }
 
   toggleExpandedViewFor(walk: ExtendedGroupEvent, toggleTo: WalkViewMode): ExpandedWalk {
-    const walkId = walk.id;
+    const walkId = this.walkIdFrom(walk);
     const existingWalk: ExpandedWalk = this.findWalk(walk);
     if (existingWalk && toggleTo === WalkViewMode.LIST) {
       this.expandedWalks = this.expandedWalks.filter(expandedWalk => expandedWalk.walkId !== walkId);
@@ -203,7 +207,7 @@ export class WalkDisplayService {
       const newWalk = {walkId, mode: toggleTo};
       this.expandedWalks.push(newWalk);
       this.logger.info("display.toggleViewFor", toggleTo, "added", newWalk, "expandedWalks:", this.expandedWalks);
-      if (this.urlService.pathContainsEventId() && toggleTo === WalkViewMode.EDIT) {
+      if (this.urlService.pathContainsEventIdOrSlug() && toggleTo === WalkViewMode.EDIT) {
         this.editFullscreen(walk);
       }
     }
@@ -237,8 +241,6 @@ export class WalkDisplayService {
         returnValue = {...WalksReferenceService.walkAccessModes.edit, walkWritable: this.walkPopulationLocal()};
       } else {
         const walkEvent = this.walkEventService.latestEventWithStatusChange(walk);
-        // console.log("walk is ", JSON.stringify(walk));
-        // console.log("walkEvent is ", JSON.stringify(walkEvent));
         if (walkEvent?.eventType === EventType.AWAITING_LEADER) {
           returnValue = {...WalksReferenceService.walkAccessModes.lead, walkWritable: this.walkPopulationLocal()};
         }
@@ -248,16 +250,16 @@ export class WalkDisplayService {
     return returnValue;
   }
 
-  toDisplayedWalk(walk: ExtendedGroupEvent): DisplayedWalk {
+  toDisplayedWalk(extendedGroupEvent: ExtendedGroupEvent): DisplayedWalk {
     return {
-      hasFeatures: this.featuresService.combinedFeatures(walk.groupEvent).length > 0,
-      walk,
-      walkAccessMode: this.toWalkAccessMode(walk),
-      status: this.statusFor(walk),
-      latestEventType: this.latestEventTypeFor(walk),
-      walkLink: this.walkLink(walk),
-      ramblersLink: this.ramblersLink(walk),
-      showEndpoint: walk.groupEvent.shape === WalkType.LINEAR && !isEmpty(walk?.groupEvent?.end_location?.postcode)
+      hasFeatures: this.featuresService.combinedFeatures(extendedGroupEvent?.groupEvent)?.length > 0,
+      walk: extendedGroupEvent,
+      walkAccessMode: this.toWalkAccessMode(extendedGroupEvent),
+      status: this.statusFor(extendedGroupEvent),
+      latestEventType: this.latestEventTypeFor(extendedGroupEvent),
+      walkLink: this.walkLink(extendedGroupEvent),
+      ramblersLink: this.ramblersLink(extendedGroupEvent),
+      showEndpoint: extendedGroupEvent?.groupEvent?.shape === WalkType.LINEAR && !isEmpty(extendedGroupEvent?.groupEvent?.end_location?.postcode)
     };
   }
 
@@ -269,12 +271,15 @@ export class WalkDisplayService {
     displayedWalk.ramblersLink = this.ramblersLink(displayedWalk.walk);
   }
 
-  walkLink(walk: ExtendedGroupEvent): string {
-    return this.urlService.linkUrl({area: "walks", id: walk?.id || walk.groupEvent.id});
+  walkLink(extendedGroupEvent: ExtendedGroupEvent): string {
+    return this.urlService.linkUrl({
+      area: "walks",
+      id: this.stringUtils.lastItemFrom(extendedGroupEvent?.groupEvent?.url) || extendedGroupEvent?.groupEvent?.id || extendedGroupEvent?.groupEvent?.id
+    });
   }
 
   ramblersLink(walk: ExtendedGroupEvent): string {
-    return walk.groupEvent.url || (walk.groupEvent.id ? `https://www.ramblers.org.uk/go-walking/find-a-walk-or-route/walk-detail.aspx?walkID=${walk.groupEvent.id}` : null);
+    return walk?.groupEvent?.url;
   }
 
   isNextWalk(walk: ExtendedGroupEvent): boolean {
@@ -333,7 +338,7 @@ export class WalkDisplayService {
   }
 
   isWalk(walk: ExtendedGroupEvent): boolean {
-    return !walk?.groupEvent?.item_type || walk.groupEvent.item_type === RamblersEventType.GROUP_WALK;
+    return !walk?.groupEvent?.item_type || walk?.groupEvent?.item_type === RamblersEventType.GROUP_WALK;
   }
 
   gridReferenceFrom(location: LocationDetails) {

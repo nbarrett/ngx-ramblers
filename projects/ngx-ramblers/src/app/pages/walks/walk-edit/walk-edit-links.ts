@@ -1,5 +1,5 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
-import { DisplayedWalk, Links, LinkSource } from "../../../models/walk.model";
+import { Component, computed, inject, Input, OnInit, Signal, signal, WritableSignal } from "@angular/core";
+import { DisplayedWalk, Links, LinkSource, WalkExport } from "../../../models/walk.model";
 import { FormsModule } from "@angular/forms";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { WalkVenueComponent } from "../walk-venue/walk-venue.component";
@@ -14,6 +14,10 @@ import { AlertInstance } from "../../../services/notifier.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
+import { StringUtilsService } from "../../../services/string-utils.service";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { BroadcastService } from "../../../services/broadcast-service";
+import { NamedEventType } from "../../../models/broadcast.model";
 
 @Component({
   selector: "app-walk-edit-related-links",
@@ -24,7 +28,7 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
     WalkVenueComponent,
     WalkMeetupComponent,
     TooltipDirective,
-    DisplayDatePipe
+    DisplayDatePipe,
   ],
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
@@ -33,12 +37,16 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
           <div class="img-thumbnail thumbnail-walk-edit">
             <div class="thumbnail-heading">Ramblers</div>
             <div class="form-group">
+              @if (showDiagnosticData) {
+                <div>id: {{ displayedWalk?.walk?.groupEvent.id }}</div>
+                <div>url: {{ displayedWalk?.walk?.groupEvent.url }}</div>
+              }
               @if (!insufficientDataToUploadToRamblers() && !ramblersWalkExists()) {
                 <p>This walk has not been uploaded to Ramblers yet - check back when date is closer to
-                  <b>{{ displayedWalk.walk.groupEvent.start_date_time | displayDate }}</b>.
+                  <b>{{ displayedWalk?.walk?.groupEvent.start_date_time | displayDate }}</b>.
                 </p>
               }
-              @if (insufficientDataToUploadToRamblers()) {
+              @if (walkExportSignal().validationMessages.length > 0) {
                 <p>
                   {{ walkValidations() }}
                 </p>
@@ -143,7 +151,7 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
                          class="ml-2"
                          [href]="links.osMapsRoute.href"
                          tooltip="Click to view the route for this walk on Ordnance Survey Maps">
-                        {{ links.osMapsRoute.title || displayedWalk.walk.groupEvent.title }}
+                        {{ links.osMapsRoute.title || displayedWalk?.walk?.groupEvent.title }}
                       </a>
                     </div>
                   </div>
@@ -166,55 +174,75 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
   `
 })
 export class WalkEditRelatedLinksComponent implements OnInit {
-  @Input() displayedWalk!: DisplayedWalk;
+  @Input() protected displayedWalk!: DisplayedWalk;
   @Input() inputDisabled = false;
   @Input() saveInProgress = false;
   @Input() notify!: AlertInstance;
+  public showDiagnosticData = false;
   public links: Links = null;
+  private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   protected display = inject(WalkDisplayService);
+  protected stringUtilsService = inject(StringUtilsService);
   private memberLoginService = inject(MemberLoginService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private linksService = inject(LinksService);
   private logger: Logger = inject(LoggerFactory).createLogger("WalkEditRelatedLinksComponent", NgxLoggerLevel.ERROR);
-
   protected readonly LinkSource = LinkSource;
+  protected walkSignal: WritableSignal<ExtendedGroupEvent>;
+  protected allowEditsSignal: WritableSignal<boolean>;
+  protected ramblersWalkExistsSignal: WritableSignal<boolean>;
+  protected walkExportSignal: Signal<WalkExport>;
+  protected insufficientDataToUploadToRamblers: Signal<boolean> = computed(() => {
+    const walk = this.walkSignal?.();
+    const allowEdits = this.allowEditsSignal?.();
+    if (!allowEdits || !walk) {
+      return false;
+    } else {
+      const hasGridRef = this.display.gridReferenceFrom(walk?.groupEvent?.start_location);
+      const hasPostcode = walk?.groupEvent?.start_location?.postcode;
+      return !(hasGridRef || hasPostcode);
+    }
+  });
 
   ngOnInit() {
+    this.walkSignal = signal(this.displayedWalk?.walk);
+    this.allowEditsSignal = signal(this.memberLoginService.allowWalkAdminEdits());
+    this.ramblersWalkExistsSignal = signal(false);
+    this.walkExportSignal = computed(() =>
+      this.ramblersWalksAndEventsService.toWalkExport({
+        localWalk: this.walkSignal(),
+        ramblersWalk: null
+      })
+    );
     this.initialiseLinks();
     this.logger.info("constructed with walk links:", this.displayedWalk?.walk?.fields?.links, "links object:", this.links);
+    this.ramblersWalkExistsSignal.set(this.walkExportSignal().publishedOnRamblers);
+    this.broadcastService.on(NamedEventType.WALK_CHANGED, (namedEvent) => {
+      this.logger.info("received:", namedEvent);
+      this.walkSignal.set({...this.displayedWalk.walk});
+    });
+  }
+
+  ramblersWalkExists() {
+    return this.walkExportSignal().publishedOnRamblers;
+  }
+
+  walkValidations() {
+    const walkValidations = this.walkExportSignal().validationMessages;
+    return "This walk cannot be included in the Ramblers Walks and Events Manager export due to the following "
+      + this.stringUtilsService.pluraliseWithCount(walkValidations.length, "reason") + ": " + walkValidations.join(", ") + ".";
   }
 
   private initialiseLinks() {
-    this.links = this.linksService.linksFrom(this.displayedWalk?.walk?.fields?.links);
+    this.links = this.linksService.linksFrom(this.displayedWalk?.walk);
   }
 
   canUnlinkRamblers() {
-    return this.memberLoginService.allowWalkAdminEdits() && this.ramblersWalkExists();
+    return this.memberLoginService.allowWalkAdminEdits() && this.ramblersWalkExistsSignal();
   }
 
   canUnlinkOSMaps() {
     return !!this.linksService.linkWithSourceFrom(this.displayedWalk.walk.fields, LinkSource.OS_MAPS);
-  }
-
-  insufficientDataToUploadToRamblers() {
-    return this.memberLoginService.allowWalkAdminEdits() && this.displayedWalk.walk
-      && !(this.display.gridReferenceFrom(this.displayedWalk?.walk?.groupEvent?.start_location) || this.displayedWalk?.walk?.groupEvent?.start_location?.postcode);
-  }
-
-  walkValidations() {
-    const walkValidations = this.ramblersWalksAndEventsService.toWalkExport({
-      localWalk: this.displayedWalk.walk,
-      ramblersWalk: null
-    }).validationMessages;
-    return "This walk cannot be included in the Ramblers Walks and Events Manager export due to the following "
-      + walkValidations.length + " reasons(s): " + walkValidations.join(", ") + ".";
-  }
-
-  ramblersWalkExists() {
-    return this.ramblersWalksAndEventsService.toWalkExport({
-      localWalk: this.displayedWalk.walk,
-      ramblersWalk: null
-    }).publishedOnRamblers;
   }
 
   unlinkRamblersDataFromCurrentWalk() {

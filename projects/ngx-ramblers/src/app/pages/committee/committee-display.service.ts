@@ -121,7 +121,7 @@ export class CommitteeDisplayService {
   }
 
   ramblersEventType(walk: ExtendedGroupEvent): RamblersEventType {
-    return walk?.groupEvent.item_type || RamblersEventType.GROUP_WALK;
+    return walk?.groupEvent?.item_type || RamblersEventType.GROUP_WALK;
   }
 
   groupEventType(walk: ExtendedGroupEvent): GroupEventType {

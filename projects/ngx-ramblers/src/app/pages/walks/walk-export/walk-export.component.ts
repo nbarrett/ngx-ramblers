@@ -95,7 +95,7 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
               <div class="col-lg-6 d-sm-none"></div>
             </div>
             <div class="row">
-              @for (walkExport of walksForExport; track walkExport.displayedWalk.walk.id) {
+              @for (walkExport of walksForExport; track walkExport.displayedWalk?.walk?.id) {
                 <div class="py-2 col-lg-4 col-md-6 col-sm-12 d-flex flex-column">
                   <div class="card mb-0 h-100 pointer">
                     <div class="card-body shadow">
@@ -110,7 +110,7 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
                       <h3 class="card-title">
                         <a tooltip="View this walk in another tab" placement="auto"
                            [href]="walkExport.displayedWalk.walkLink" class="rams-text-decoration-pink active"
-                           target="_blank">{{ walkExport.displayedWalk.walk.groupEvent.title || walkExport.displayedWalk.latestEventType.description }}</a>
+                           target="_blank">{{ walkExport.displayedWalk.walk?.groupEvent?.title || walkExport.displayedWalk.latestEventType.description }}</a>
                       </h3>
                       <div (click)="ignoreClicks($event)" [ngClass]="{'card-disabled': !walkExport.selected}">
                         <dl class="d-flex">
@@ -151,7 +151,7 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
                       </div>
                       <dl class="d-flex">
                         <dt class="font-weight-bold mr-2 nowrap">Publish status:</dt>
-                        @if (walkExport.displayedWalk.walk.groupEvent.id) {
+                        @if (walkExport.displayedWalk.walk?.groupEvent?.id) {
                           <dd>
                             <a [href]="display.ramblersLink(walkExport.displayedWalk.walk)"
                                target="_blank"
@@ -529,7 +529,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
       this.walkExportNotifier.hide();
     } else {
       this.walkExportNotifier.error({
-        title: `You can't export the walk for ${this.displayDate.transform(walkExport.displayedWalk.walk.groupEvent.start_date_time)}`,
+        title: `You can't export the walk for ${this.displayDate.transform(walkExport.displayedWalk.walk?.groupEvent?.start_date_time)}`,
         message: walkExport.validationMessages.join(", ")
       });
     }

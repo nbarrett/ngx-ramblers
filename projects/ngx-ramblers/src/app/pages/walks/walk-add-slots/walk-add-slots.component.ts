@@ -255,7 +255,7 @@ export class WalkAddSlotsComponent implements OnInit {
           .filter(item => this.dateUtils.asMoment(item).day() === 0).filter((date) => {
             return this.dateUtils.asString(date, undefined, "DD-MMM") !== "25-Dec";
           });
-        const existingDates: number[] = this.extendedGroupEventQueryService.activeEvents(walks).map(walk => this.dateUtils.asValueNoTime(walk.groupEvent.start_date_time));
+        const existingDates: number[] = this.extendedGroupEventQueryService.activeEvents(walks).map(walk => this.dateUtils.asValueNoTime(walk?.groupEvent?.start_date_time));
         this.logger.debug("sunday", sunday, "until", until);
         this.logger.debug("existingDatesAsStrings", existingDates.map(date => this.displayDate.transform(date)));
         this.logger.debug("allGeneratedSlotsAsStrings", allGeneratedSlots.map(date => this.displayDate.transform(date)));

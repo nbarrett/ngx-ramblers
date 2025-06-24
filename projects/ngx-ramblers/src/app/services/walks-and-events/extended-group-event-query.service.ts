@@ -8,6 +8,8 @@ import {
   EventType,
   GROUP_EVENT_MIGRATED_FROM_ID,
   GROUP_EVENT_START_DATE,
+  GROUP_EVENT_TITLE,
+  GROUP_EVENT_URL,
   ID
 } from "../../models/walk.model";
 import { sortBy } from "../../functions/arrays";
@@ -19,6 +21,7 @@ import { StringUtilsService } from "../string-utils.service";
 import { FilterParameters, HasBasicEventSelection } from "../../models/search.model";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { EventQueryParameters } from "../../models/ramblers-walks-manager";
+import { UrlService } from "../url.service";
 
 @Injectable({
   providedIn: "root"
@@ -30,6 +33,7 @@ export class ExtendedGroupEventQueryService {
   private walkEventsService = inject(GroupEventService);
   private dateUtils = inject(DateUtilsService);
   protected stringUtils = inject(StringUtilsService);
+  private urlService: UrlService = inject(UrlService);
 
   dataQueryOptions(filterParameters: HasBasicEventSelection, dateComparison?: string): DataQueryOptions {
     const criteria = this.criteriaFor(filterParameters, dateComparison);
@@ -37,7 +41,6 @@ export class ExtendedGroupEventQueryService {
     this.logger.debug("walksCriteriaObject:this.filterParameters.criteria", criteria, "sort:", sort);
     return {criteria, sort};
   }
-
 
   dataQueryOptionsFrom(eventQueryParameters: EventQueryParameters): DataQueryOptions {
     const andCriteria: any[] = [];
@@ -81,8 +84,44 @@ export class ExtendedGroupEventQueryService {
     }
   }
 
-  eventIdCriteriaFor(mongoId: string): MongoCriteria {
-    return {$or: [{[ID]: mongoId}, {[GROUP_EVENT_MIGRATED_FROM_ID]: mongoId}]};
+  eventIdCriteriaFor(identifier: string): MongoCriteria {
+    if (this.urlService.looksLikeASlug(identifier)) {
+      const slug = this.stringUtils.kebabCase(identifier);
+      return {
+        $or: [
+          {
+            $expr: {
+              $eq: [
+                {$arrayElemAt: [{$split: [`$${GROUP_EVENT_URL}`, "/"]}, -1]},
+                slug
+              ]
+            }
+          },
+          {[GROUP_EVENT_URL]: slug},
+          {
+            $expr: {
+              $eq: [
+                {
+                  $replaceAll: {
+                    input: {$toLower: `$${GROUP_EVENT_TITLE}`},
+                    find: " ",
+                    replacement: "-"
+                  }
+                },
+                slug
+              ]
+            }
+          }
+        ]
+      };
+    } else {
+      return {
+        $or: [
+          {[ID]: identifier},
+          {[GROUP_EVENT_MIGRATED_FROM_ID]: identifier}
+        ]
+      };
+    }
   }
 
   sortFor(filterParameters: HasBasicEventSelection) {
@@ -99,9 +138,9 @@ export class ExtendedGroupEventQueryService {
     this.logger.info("localWalksSortObject:walksSortObject:", filterParameters);
     switch (this.stringUtils.asBoolean(filterParameters.ascending)) {
       case true:
-        return "walk.groupEvent.start_date_time";
+        return "walk." + GROUP_EVENT_START_DATE;
       case false:
-        return "-walk.groupEvent.start_date_time";
+        return "-walk." + GROUP_EVENT_START_DATE;
     }
   }
 
@@ -129,9 +168,10 @@ export class ExtendedGroupEventQueryService {
 
   nextWalkId(walks: ExtendedGroupEvent[]): string {
     const today = this.dateUtils.momentNow().valueOf();
-    const nextWalk: ExtendedGroupEvent = first(cloneDeep(walks)?.filter((walk: ExtendedGroupEvent) => this.dateUtils.asMoment(walk.groupEvent.start_date_time).valueOf() >= today)?.sort(sortBy("walk.groupEvent.start_date_time")));
-    this.logger.info("nextWalk:", nextWalk);
-    return nextWalk?.id;
+    const nextWalk: ExtendedGroupEvent = first(cloneDeep(walks)?.filter((walk: ExtendedGroupEvent) => this.dateUtils.asMoment(walk?.groupEvent?.start_date_time).valueOf() >= today)?.sort(sortBy("walk.groupEvent.start_date_time")));
+    const nextWalkId = nextWalk?.id || nextWalk?.groupEvent?.id;
+    this.logger.info("nextWalk:", nextWalk, "nextWalkId:", nextWalkId);
+    return nextWalkId;
   }
 
 }

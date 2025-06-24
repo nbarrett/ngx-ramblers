@@ -147,7 +147,7 @@ export class DateUtilsService {
 
   startTimeAsValue(walk: ExtendedGroupEvent): number {
     if (walk) {
-      const walkDateMoment: moment = this.asMoment(walk?.groupEvent.start_date_time);
+      const walkDateMoment: moment = this.asMoment(walk?.groupEvent?.start_date_time);
       const walkDateAndTimeValue: number = walkDateMoment.valueOf();
       this.logger.info("text based start_date_time:", walk?.groupEvent.start_date_time,
         "walkDateMoment:", walkDateMoment.format(),

@@ -58,7 +58,7 @@ export class WalkEditHistoryComponent {
   private display = inject(WalkDisplayService);
 
   get walkEvents(): DisplayedEvent[] {
-    return this.displayedWalk.walk.events
+    return this.displayedWalk?.walk?.events
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .map((event) => ({
         member: this.memberIdToFullNamePipe.transform(event.memberId, this.display.members),

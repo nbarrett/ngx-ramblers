@@ -25,7 +25,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
           <h4 class="card-title">
             <a class="rams-text-decoration-pink"
                [routerLink]="urlService.routerLinkUrl(display.socialEventLink(socialEvent, true))"
-               target="_self">{{ socialEvent.groupEvent.title }}</a>
+               target="_self">{{ socialEvent?.groupEvent?.title }}</a>
           </h4>
           <div>{{ socialEvent | eventDatesAndTimes }}</div>
         </div>
@@ -53,7 +53,7 @@ export class SocialCardComponent implements OnInit {
   }
 
   currentBasicMedia(): BasicMedia {
-    return this.mediaQueryService.basicMediaFrom(this.socialEvent.groupEvent)[0];
+    return this.mediaQueryService.basicMediaFrom(this.socialEvent?.groupEvent)?.[0];
   }
 
 

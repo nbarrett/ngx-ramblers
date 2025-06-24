@@ -34,6 +34,7 @@ import { GROUP_EVENT_START_DATE } from "../../models/walk.model";
 import { DateValue } from "../../models/date.model";
 import { DisplayTimePipe } from "../../pipes/display-time.pipe";
 import { DistanceValidationService } from "../walks/distance-validation.service";
+import { StringUtilsService } from "../string-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -45,6 +46,7 @@ export class CommitteeQueryService {
   private dateUtils = inject(DateUtilsService);
   private mediaQueryService = inject(MediaQueryService);
   private memberService = inject(MemberService);
+  private stringUtilsService = inject(StringUtilsService);
   private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private committeeFileService = inject(CommitteeFileService);
   private committeeDisplayService = inject(CommitteeDisplayService);
@@ -96,13 +98,14 @@ export class CommitteeQueryService {
         this.walksAndEventsService.all(eventQueryParameters)
           .then((extendedGroupEvents: ExtendedGroupEvent[]) => this.extendedGroupEventQueryService.activeEvents(extendedGroupEvents))
           .then((extendedGroupEvents: ExtendedGroupEvent[]) => extendedGroupEvents?.forEach(event => events.push({
-            id: event.id || event.groupEvent.id,
+            id: event.id || event?.groupEvent?.id,
+            slug: this.stringUtilsService.lastItemFrom(event?.groupEvent?.url || this.stringUtilsService.kebabCase(event?.groupEvent?.title)),
             selected: true,
             eventType: this.display.groupEventType(event),
-            eventDate: this.dateUtils.asMoment(event.groupEvent.start_date_time).valueOf(),
-            eventTime: this.displayTimePipe.transform(event.groupEvent.start_date_time),
+            eventDate: this.dateUtils.asMoment(event?.groupEvent?.start_date_time).valueOf(),
+            eventTime: this.displayTimePipe.transform(event?.groupEvent?.start_date_time),
             distance: this.distanceValidationService.walkDistances(event),
-            location: (event.groupEvent.start_location || event.groupEvent.location)?.description,
+            location: (event?.groupEvent?.start_location || event?.groupEvent?.location)?.description,
             postcode: (event.groupEvent.start_location || event.groupEvent.location)?.postcode,
             title: event.groupEvent.title || "Awaiting " + event.groupEvent.item_type + " details",
             description: event.groupEvent.description,
@@ -125,6 +128,7 @@ export class CommitteeQueryService {
         })
           .then(committeeFiles => committeeFiles.forEach(committeeFile => events.push({
             id: committeeFile.id,
+            slug: this.stringUtilsService.kebabCase(committeeFile.fileType, this.dateUtils.isoDateTimeString(committeeFile.eventDate)),
             selected: true,
             eventType: GroupEventTypes.COMMITTEE,
             eventDate: committeeFile.eventDate,

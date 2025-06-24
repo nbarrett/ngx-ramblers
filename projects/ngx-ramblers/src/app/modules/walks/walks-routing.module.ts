@@ -1,6 +1,5 @@
 import { NgModule } from "@angular/core";
 import { RouterModule } from "@angular/router";
-import { hasDynamicPath, hasMongoId, hasRamblersIdOrUrl } from "../../services/path-matchers";
 import { WalksAuthGuard } from "../../guards/walks-auth-guard";
 import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-guard";
 
@@ -49,30 +48,19 @@ import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-g
       canActivate: [WalksPopulationLocalGuard]
     },
     {
-      path: "carousel",
-      loadComponent: () => import("../common/action-buttons/action-buttons")
-        .then(m => m.ActionButtonsComponent)
-    },
-    {
-      matcher: hasMongoId,
-      loadComponent: () => import("../../pages/walks/walk-view/walk-view")
-        .then(m => m.WalkViewComponent)
-    },
-    {
-      matcher: hasRamblersIdOrUrl,
-      loadComponent: () => import("../../pages/walks/walk-view/walk-view")
-        .then(m => m.WalkViewComponent)
-    },
-    {
-      matcher: hasDynamicPath,
-      loadComponent: () => import("../common/dynamic-content-page/dynamic-content-page")
-        .then(m => m.DynamicContentPageComponent)
+      path: ":path",
+      loadComponent: () =>
+        import("../../pages/walks/walk-list/walk-view-selector").then(
+          m => m.WalksViewSelector
+        )
     },
     {
       path: "**",
-      loadComponent: () => import("../../pages/walks/walk-list/walk-list.component")
-        .then(m => m.WalkListComponent)
-    },
+      loadComponent: () =>
+        import("../../pages/walks/walk-list/walk-view-selector").then(
+          m => m.WalksViewSelector
+        )
+    }
   ])]
 })
 export class WalksRoutingModule {

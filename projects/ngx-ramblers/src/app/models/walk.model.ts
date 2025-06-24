@@ -12,7 +12,7 @@ import {
   LocationDetails,
   MetadataDescription,
   PublishStatus,
-  RamblersWalkResponse
+  RamblersEventSummaryResponse
 } from "./ramblers-walks-manager";
 import { HasBasicEventSelection } from "./search.model";
 import { Link } from "./page.model";
@@ -105,7 +105,7 @@ export const LINK_CONFIG: EventLinkConfig[] = [
 
 export interface LocalAndRamblersWalk {
   localWalk: ExtendedGroupEvent;
-  ramblersWalk: RamblersWalkResponse;
+  ramblersWalk: RamblersEventSummaryResponse;
 }
 
 export interface WalkForSelect extends ExtendedGroupEvent, HasNgSelectAttributes {
@@ -201,6 +201,8 @@ export enum WalkViewMode {
 
 export const GROUP_EVENT_START_DATE = "groupEvent.start_date_time";
 export const GROUP_EVENT_ITEM_TYPE = "groupEvent.item_type";
+export const GROUP_EVENT_TITLE = "groupEvent.title";
+export const GROUP_EVENT_URL = "groupEvent.url";
 export const ID = "_id";
 export const GROUP_EVENT_MIGRATED_FROM_ID = "fields.migratedFromId";
 export const EventStartDateAscending = {[GROUP_EVENT_START_DATE]: 1};

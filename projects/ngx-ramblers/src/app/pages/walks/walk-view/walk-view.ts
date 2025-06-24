@@ -37,178 +37,185 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { EventsMigrationService } from "../../../services/migration/events-migration.service";
+import { PageService } from "../../../services/page.service";
 
 @Component({
-    selector: "app-walk-view",
-    template: `
-      @if (displayedWalk) {
-        <div class="event-thumbnail card shadow tabset-container">
-          <app-walk-panel-expander [walk]="displayedWalk.walk" [expandable]="allowWalkAdminEdits"
-                                   [collapsable]="true" [collapseAction]="'collapse'">
-          </app-walk-panel-expander>
-          <div class="row">
-            <div class="col-sm-12 col-lg-6 rounded">
-              @if (displayedWalk?.walk?.groupEvent?.title) {
-                <h1 id="{{displayedWalk.walk.id}}-title">
-                  {{ displayedWalk.walk.groupEvent.title }}</h1>
-              }
-              <h2
-                id="{{displayedWalk.walk.id}}-walkDate">{{ displayedWalk.walk.groupEvent.start_date_time | displayDay }}
-                @if (display.walkPopulationLocal() && displayedWalk.status !== EventType.APPROVED) {
-                  <div id="{{displayedWalk.walk.id}}-status"
-                       class="badge event-badge sunset-badge">{{ displayedWalk?.latestEventType?.description }}
-                  </div>
-                }
-                <div id="{{displayedWalk.walk.id}}-durationInFuture"
-                     class="badge event-badge blue-badge">{{ durationInFutureFor(displayedWalk.walk) }}
-                </div>
-                @if (display.isNextWalk(displayedWalk.walk)) {
-                  <div
-                    class="badge event-badge next-event-badge"> Our next walk
-                  </div>
-                }
-              </h2>
-              @if (displayedWalk.walk.groupEvent.start_date_time) {
-                <h2>Start Time: {{ displayedWalk.walk.groupEvent.start_date_time | displayTime }}{{EM_DASH_WITH_SPACES}}Estimated Finish Time: {{ displayedWalk.walk.groupEvent.end_date_time | displayTime }}</h2>
-              }
-              @if (displayedWalk?.walkAccessMode?.walkWritable) {
-                <input type="submit"
-                       [value]="displayedWalk?.walkAccessMode?.caption"
-                       (click)="display.edit(displayedWalk)"
-                       [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
-                       class="btn btn-primary button-form-edit-event smr-2">
-              }
-              @if (displayedWalk?.walk?.groupEvent?.description) {
-                <div class="event-description">
-                  <p class="list-arrow" markdown [data]="displayedWalk?.walk?.groupEvent?.description"></p>
+  selector: "app-walk-view",
+  template: `
+    @if (displayedWalk) {
+      <div class="event-thumbnail card shadow tabset-container">
+        <app-walk-panel-expander [walk]="displayedWalk.walk" [expandable]="allowWalkAdminEdits"
+                                 [collapsable]="true" [collapseAction]="'collapse'">
+        </app-walk-panel-expander>
+        <div class="row">
+          <div class="col-sm-12 col-lg-6 rounded">
+            @if (displayedWalk?.walk?.groupEvent?.title) {
+              <h1 id="{{displayedWalk?.walk?.id}}-title">
+                {{ displayedWalk.walk?.groupEvent?.title }}</h1>
+            }
+            <h2
+              id="{{displayedWalk?.walk?.id}}-walkDate">{{ displayedWalk.walk?.groupEvent?.start_date_time | displayDay }}
+              @if (display.walkPopulationLocal() && displayedWalk.status !== EventType.APPROVED) {
+                <div id="{{displayedWalk?.walk?.id}}-status"
+                     class="badge event-badge sunset-badge">{{ displayedWalk?.latestEventType?.description }}
                 </div>
               }
-              <app-walk-leader [displayedWalk]="displayedWalk"/>
-              @if (displayedWalk.hasFeatures) {
-                <app-walk-features [extendedGroupEvent]="displayedWalk.walk"/>
-              }
-              @if (displayLinks) {
-                <div class="event-panel rounded event-panel-inner">
-                  <h1>Related Links</h1>
-                  <div class="row">
-                    <app-related-links [displayedWalk]="displayedWalk"/>
-                  </div>
+              <div id="{{displayedWalk?.walk?.id}}-durationInFuture"
+                   class="badge event-badge blue-badge">{{ durationInFutureFor(displayedWalk.walk) }}
+              </div>
+              @if (display.isNextWalk(displayedWalk.walk)) {
+                <div
+                  class="badge event-badge next-event-badge"> Our next walk
                 </div>
               }
-              @if (pathContainsWalkId) {
-                <div>
-                  @if (notifyTarget.showAlert) {
-                    <div class="col-12 alert {{notifyTarget.alertClass}} mt-3">
-                      <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                      <strong class="ml-2">{{ notifyTarget.alertTitle }}</strong>
-                      {{ notifyTarget.alertMessage }} <a [routerLink]="'/walks'" type="button"
-                                                         class="rams-text-decoration-pink">Switch to Walks Programme</a>
-                    </div>
+            </h2>
+            @if (displayedWalk.walk?.groupEvent?.start_date_time) {
+              <h2>Start Time: {{ displayedWalk.walk?.groupEvent?.start_date_time | displayTime }}{{ EM_DASH_WITH_SPACES }}
+                Estimated Finish Time: {{ displayedWalk.walk?.groupEvent?.end_date_time | displayTime }}</h2>
+            }
+            @if (displayedWalk?.walkAccessMode?.walkWritable) {
+              <input type="submit"
+                     [value]="displayedWalk?.walkAccessMode?.caption"
+                     (click)="display.edit(displayedWalk)"
+                     [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
+                     class="btn btn-primary button-form-edit-event smr-2">
+            }
+            @if (displayedWalk?.walk?.groupEvent?.description) {
+              <div class="event-description">
+                <p class="list-arrow" markdown [data]="displayedWalk?.walk?.groupEvent?.description"></p>
+              </div>
+            }
+            <app-walk-leader [displayedWalk]="displayedWalk"/>
+            @if (displayedWalk.hasFeatures) {
+              <app-walk-features [extendedGroupEvent]="displayedWalk.walk"/>
+            }
+            @if (displayLinks) {
+              <div class="event-panel rounded event-panel-inner">
+                <h1>Related Links</h1>
+                <div class="row">
+                  <app-related-links [displayedWalk]="displayedWalk"/>
+                </div>
+              </div>
+            }
+            @if (urlService.pathContainsEventIdOrSlug()) {
+              @if (notifyTarget.showAlert) {
+                <div class="col-12 alert {{notifyTarget.alertClass}} mt-3">
+                  <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                  <strong class="ml-2">{{ notifyTarget.alertTitle }}</strong>
+                  {{ notifyTarget.alertMessage }} <a [routerLink]="'/walks'" type="button"
+                                                     class="rams-text-decoration-pink">Switch to Walks Programme</a>
+                </div>
+              }
+            }
+            @if (display.walkLeaderOrAdmin(displayedWalk.walk) && (display.walkPopulationLocal() && !extendedGroupEventQueryService.approvedWalk(displayedWalk.walk))) {
+              @if (notifyTarget.showAlert) {
+                <div class="col-12 alert {{ALERT_WARNING.class}} mt-3">
+                  <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
+                  <strong class="ml-2">Walk Status</strong>
+                  <div class="ml-1">This walk is not approved by {{ display.walksCoordinatorName() }}</div>
+                </div>
+              }
+            }
+          </div>
+          <div class="col-sm-12 col-lg-6 rounded">
+            @if (displayedWalk?.walk?.groupEvent?.media?.length > 0) {
+              <div class="row">
+                <div class="col-sm-12">
+                  <app-group-event-images [extendedGroupEvent]="displayedWalk.walk"/>
+                </div>
+              </div>
+            }
+            @if (display.displayMap(displayedWalk.walk)) {
+              <div class="row">
+                <div class="col-sm-12">
+                  @if (display.mapViewReady(googleMapsUrl) && showGoogleMapsView) {
+                    <iframe allowfullscreen class="map-walk-view map-walk-view-google"
+                            style="border:0;border-radius: 10px;"
+                            [src]="googleMapsUrl"></iframe>
+                  }
+                  @if (!showGoogleMapsView) {
+                    <div app-map-edit class="map-walk-view" readonly
+                         [locationDetails]="mapDisplay==MapDisplay.SHOW_START_POINT? displayedWalk?.walk?.groupEvent?.start_location:displayedWalk?.walk?.groupEvent?.end_location"
+                         [notify]="notify"></div>
                   }
                 </div>
-              }
-              @if (display.walkLeaderOrAdmin(displayedWalk.walk) && (display.walkPopulationLocal() && !extendedGroupEventQueryService.approvedWalk(displayedWalk.walk))) {
-                <div>
-                  @if (notifyTarget.showAlert) {
-                    <div class="col-12 alert {{ALERT_WARNING.class}} mt-3">
-                      <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
-                      <strong class="ml-2">Walk Status</strong>
-                      <div class="ml-1">This walk is not approved by {{ display.walksCoordinatorName() }}</div>
-                    </div>
-                  }
-                </div>
-              }
-            </div>
-            <div class="col-sm-12 col-lg-6 rounded">
-              @if (displayedWalk?.walk?.groupEvent?.media?.length > 0) {
-                <div class="row">
-                  <div class="col-sm-12">
-                    <app-group-event-images [extendedGroupEvent]="displayedWalk.walk"/>
+              </div>
+              <form class="rounded img-thumbnail map-radio-frame">
+                <label class="ml-2 mr-2 font-weight-bold">Show Map As
+                  <div class="custom-control custom-radio custom-control-inline ml-2">
+                    <input class="custom-control-input" type="radio" name="mapView" [(ngModel)]="showGoogleMapsView"
+                           id="{{displayedWalk?.walk?.id}}-pin-view-mode-start"
+                           [value]="false" (ngModelChange)="configureMapDisplay()">
+                    <label class="custom-control-label" for="{{displayedWalk?.walk?.id}}-pin-view-mode-start">
+                      Pin Location View</label>
                   </div>
-                </div>
-              }
-              @if (display.displayMap(displayedWalk.walk)) {
-                <div class="row">
-                  <div class="col-sm-12">
-                    @if (display.mapViewReady(googleMapsUrl) && showGoogleMapsView) {
-                      <iframe allowfullscreen class="map-walk-view map-walk-view-google"
-                              style="border:0;border-radius: 10px;"
-                              [src]="googleMapsUrl"></iframe>
-                    }
-                    @if (!showGoogleMapsView) {
-                      <div app-map-edit class="map-walk-view" readonly
-                           [locationDetails]="mapDisplay==MapDisplay.SHOW_START_POINT? displayedWalk?.walk?.groupEvent?.start_location:displayedWalk?.walk?.groupEvent?.end_location"
-                           [notify]="notify"></div>
-                    }
+                  <div class="custom-control custom-radio custom-control-inline">
+                    <input class="custom-control-input" type="radio" name="mapView" [(ngModel)]="showGoogleMapsView"
+                           id="{{displayedWalk?.walk?.id}}-google-maps-mode-start"
+                           [value]="true" (ngModelChange)="configureMapDisplay()">
+                    <label class="custom-control-label" for="{{displayedWalk.walk.id}}-google-maps-mode-start">
+                      Google Maps</label>
                   </div>
-                </div>
-                <form class="rounded img-thumbnail map-radio-frame">
-                  <label class="ml-2 mr-2 font-weight-bold">Show Map As
-                    <div class="custom-control custom-radio custom-control-inline ml-2">
-                      <input class="custom-control-input" type="radio" name="mapView" [(ngModel)]="showGoogleMapsView"
-                             id="{{displayedWalk.walk.id}}-pin-view-mode-start"
-                             [value]="false" (ngModelChange)="configureMapDisplay()">
-                      <label class="custom-control-label" for="{{displayedWalk.walk.id}}-pin-view-mode-start">
-                        Pin Location View</label>
-                    </div>
-                    <div class="custom-control custom-radio custom-control-inline">
-                      <input class="custom-control-input" type="radio" name="mapView" [(ngModel)]="showGoogleMapsView"
-                             id="{{displayedWalk.walk.id}}-google-maps-mode-start"
-                             [value]="true" (ngModelChange)="configureMapDisplay()">
-                      <label class="custom-control-label" for="{{displayedWalk.walk.id}}-google-maps-mode-start">
-                        Google Maps</label>
-                    </div>
-                  </label>
-                  <div class="col-sm-12 ml-2 mr-2">
-                    <div class="custom-control custom-radio custom-control-inline">
-                      <input class="custom-control-input" id="{{displayedWalk.walk.id}}-show-start-point"
+                </label>
+                <div class="col-sm-12 ml-2 mr-2">
+                  <div class="custom-control custom-radio custom-control-inline">
+                    <input class="custom-control-input" id="{{displayedWalk.walk.id}}-show-start-point"
+                           type="radio"
+                           [ngModel]="mapDisplay" name="mapDisplay"
+                           (ngModelChange)="changeMapView($event)"
+                           [value]="MapDisplay.SHOW_START_POINT"/>
+                    <label class="custom-control-label" for="{{displayedWalk.walk.id}}-show-start-point">
+                      At start point {{ displayedWalk?.walk?.groupEvent?.start_location?.postcode }}</label>
+                  </div>
+                  @if (displayedWalk?.walk?.groupEvent?.end_location?.postcode) {
+                    <div
+                      class="custom-control custom-radio custom-control-inline">
+                      <input class="custom-control-input" id="{{displayedWalk.walk.id}}-show-end-point"
                              type="radio"
                              [ngModel]="mapDisplay" name="mapDisplay"
                              (ngModelChange)="changeMapView($event)"
-                             [value]="MapDisplay.SHOW_START_POINT"/>
-                      <label class="custom-control-label" for="{{displayedWalk.walk.id}}-show-start-point">
-                        At start point {{ displayedWalk?.walk?.groupEvent?.start_location?.postcode }}</label>
+                             [value]="MapDisplay.SHOW_END_POINT"/>
+                      <label class="custom-control-label" for="{{displayedWalk.walk.id}}-show-end-point">
+                        At finish point {{ displayedWalk?.walk?.groupEvent?.end_location?.postcode }}</label>
                     </div>
-                    @if (displayedWalk?.walk?.groupEvent?.end_location?.postcode) {
-                      <div
-                        class="custom-control custom-radio custom-control-inline">
-                        <input class="custom-control-input" id="{{displayedWalk.walk.id}}-show-end-point"
-                               type="radio"
-                               [ngModel]="mapDisplay" name="mapDisplay"
-                               (ngModelChange)="changeMapView($event)"
-                               [value]="MapDisplay.SHOW_END_POINT"/>
-                        <label class="custom-control-label" for="{{displayedWalk.walk.id}}-show-end-point">
-                          At finish point {{ displayedWalk?.walk?.groupEvent?.end_location?.postcode }}</label>
-                      </div>
-                    }
-                    @if (this.showGoogleMapsView) {
-                      <div class="custom-control custom-radio custom-control-inline">
-                        <input id="{{displayedWalk.walk.id}}-show-driving-directions"
-                               type="radio"
-                               class="custom-control-input align-middle"
-                               (ngModelChange)="changeMapView($event)"
-                               [ngModel]="mapDisplay" name="mapDisplay"
-                               [value]="MapDisplay.SHOW_DRIVING_DIRECTIONS"/>
-                        <label class="custom-control-label text-nowrap align-middle"
-                               [ngClass]="{'postcode-label-second-line' : displayedWalk?.walk?.groupEvent?.end_location?.postcode}"
-                               for="{{displayedWalk.walk.id}}-show-driving-directions">
-                          Driving from</label>
-                        <input class="form-control input-sm text-uppercase ml-2 postcode-input align-middle"
-                               [ngClass]="{'postcode-input-second-line' : displayedWalk?.walk?.groupEvent?.end_location?.postcode}"
-                               [ngModel]="fromPostcode" name="fromPostcode"
-                               (ngModelChange)="changeFromPostcode($event)"
-                               type="text">
-                      </div>
-                    }
-                  </div>
-                </form>
-                <app-walk-details [displayedWalk]="displayedWalk"/>
-              }
-            </div>
+                  }
+                  @if (this.showGoogleMapsView) {
+                    <div class="custom-control custom-radio custom-control-inline">
+                      <input id="{{displayedWalk.walk.id}}-show-driving-directions"
+                             type="radio"
+                             class="custom-control-input align-middle"
+                             (ngModelChange)="changeMapView($event)"
+                             [ngModel]="mapDisplay" name="mapDisplay"
+                             [value]="MapDisplay.SHOW_DRIVING_DIRECTIONS"/>
+                      <label class="custom-control-label text-nowrap align-middle"
+                             [ngClass]="{'postcode-label-second-line' : displayedWalk?.walk?.groupEvent?.end_location?.postcode}"
+                             for="{{displayedWalk.walk.id}}-show-driving-directions">
+                        Driving from</label>
+                      <input class="form-control input-sm text-uppercase ml-2 postcode-input align-middle"
+                             [ngClass]="{'postcode-input-second-line' : displayedWalk?.walk?.groupEvent?.end_location?.postcode}"
+                             [ngModel]="fromPostcode" name="fromPostcode"
+                             (ngModelChange)="changeFromPostcode($event)"
+                             type="text">
+                    </div>
+                  }
+                </div>
+              </form>
+              <app-walk-details [displayedWalk]="displayedWalk"/>
+            }
           </div>
         </div>
-      }`,
-    styleUrls: ["./walk-view.sass"],
+      </div>
+    } @else if (notifyTarget.showAlert) {
+      <div class="alert {{notifyTarget.alertClass}} table-pointer mt-3">
+        <fa-icon [icon]="notifyTarget.alert.icon"/>
+        <strong class="ml-1">{{ notifyTarget.alertTitle }}</strong>
+        <span class="p-2">{{ notify.alertTarget.alertMessage }}. <a [href]="area"
+                                                                    class="rams-text-decoration-pink"
+                                                                    type="button"> Go Back to {{ area }}
+          page</a></span>
+      </div>
+    }`,
+  styleUrls: ["./walk-view.sass"],
   imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, WalkLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, FormsModule, NgClass, WalkDetailsComponent, DisplayDayPipe, RelatedLinksComponent, DisplayTimePipe]
 })
 
@@ -216,8 +223,9 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   @Input("displayedWalk") set init(displayedWalk: DisplayedWalk) {
     this.applyWalk(displayedWalk);
   }
+
+  public walkInjected = false;
   public walkIdOrPath: string;
-  public pathContainsWalkId: boolean;
   public displayedWalk: DisplayedWalk;
   public displayLinks: boolean;
   public fromPostcode = "";
@@ -228,6 +236,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   public notifyTarget: AlertTarget = {};
   protected readonly ALERT_WARNING = ALERT_WARNING;
+  private pageService = inject(PageService);
   public extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private walksAndEventsService = inject(WalksAndEventsService);
   public googleMapsService = inject(GoogleMapsService);
@@ -236,25 +245,25 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   public display = inject(WalkDisplayService);
   private dateUtils = inject(DateUtilsService);
   public meetupService = inject(MeetupService);
-  private urlService = inject(UrlService);
+  protected urlService = inject(UrlService);
   protected stringUtils = inject(StringUtilsService);
   private systemConfigService = inject(SystemConfigService);
   private notifierService = inject(NotifierService);
   private logger = inject(LoggerFactory).createLogger("WalkViewComponent", NgxLoggerLevel.ERROR);
   protected eventsMigrationService = inject(EventsMigrationService);
   protected notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
+  public area = this.urlService.area();
   public showGoogleMapsView = false;
   protected readonly MapDisplay = MapDisplay;
-
   protected readonly EventType = EventType;
+  protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
 
   ngOnInit() {
     this.loggedIn = this.memberLoginService.memberLoggedIn();
     this.allowWalkAdminEdits = this.display.walkPopulationLocal() && this.memberLoginService.allowWalkAdminEdits();
     this.refreshHomePostcode();
-    this.pathContainsWalkId = this.urlService.pathContainsEventId();
     this.walkIdOrPath = this.urlService.lastPathSegment();
-    this.logger.info("initialised with walk", this.displayedWalk, "pathContainsWalkId:", this.pathContainsWalkId, "walkIdOrPath:", this.walkIdOrPath);
+    this.logger.info("initialised with walk", this.displayedWalk, "pathContainsWalkId:", this.urlService.pathContainsEventIdOrSlug(), "walkIdOrPath:", this.walkIdOrPath);
     if (this.systemConfigService.systemConfig()) {
       this.queryIfRequired();
     } else {
@@ -298,27 +307,31 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     this.updateGoogleMapIfApplicable();
   }
 
-  queryIfRequired(): void {
-    if (this.pathContainsWalkId) {
-      this.walksAndEventsService.getByIdIfPossible(this.walkIdOrPath)
-        .then((walk: ExtendedGroupEvent) => {
-          if (walk) {
-            this.logger.info("Walk found:", walk);
-            this.applyWalk(this.display.toDisplayedWalk(walk));
-          } else {
-            this.logger.warn("Walk not found:", this.walkIdOrPath)
-            this.notify.warning({
-              title: "Walk not found",
-              message: "Content for this walk doesnt exist"
-            });
-          }
+  async queryIfRequired(): Promise<void> {
+    if (this.queryIsRequired()) {
+      this.logger.info("Querying Walk:", this.walkIdOrPath);
+      const walk: ExtendedGroupEvent = await this.walksAndEventsService.queryById(this.walkIdOrPath);
+      if (walk) {
+        this.logger.info("Walk found:", walk);
+        this.applyWalk(this.display.toDisplayedWalk(walk));
+      } else {
+        this.logger.warn("Walk not found:", this.walkIdOrPath);
+        this.notify.warning({
+          title: "Walk not found",
+          message: "Content for this walk doesnt exist"
         });
+      }
+    } else {
+      this.logger.info("queryIfRequired:No query required for walkIdOrPath:", this.walkIdOrPath, "displayedWalk:", this.displayedWalk);
     }
   }
 
   private applyWalk(displayedWalk: DisplayedWalk) {
     if (displayedWalk) {
+      this.walkInjected = true;
+      this.logger.info("applyWalk:", displayedWalk);
       this.displayedWalk = displayedWalk;
+      this.pageService.setTitle();
       this.displayLinks = displayedWalk.walk?.fields?.links?.length > 0;
       if (this.systemConfigService.systemConfig()?.enableMigration?.events) {
         this.logger.info("remigrateForComparison", displayedWalk.walk.fields.migratedFromId);
@@ -338,7 +351,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     if (this.showGoogleMapsView) {
       this.googleMapsUrl = this.display.googleMapsUrl(!this.drivingDirectionsDisabled() && this.showDrivingDirections(), this.fromPostcode, this.showEndPoint() ? this.displayedWalk?.walk?.groupEvent?.end_location?.postcode : this.displayedWalk?.walk?.groupEvent?.start_location?.postcode);
       this.logger.info("updateGoogleMap:Should show details - rendering googleMapsUrl:", this.googleMapsUrl);
-        this.toggleGoogleOrLeafletMapViewAndBack();
+      this.toggleGoogleOrLeafletMapViewAndBack();
     } else {
       this.logger.info("updateGoogleMap:not performed as:this.showGoogleMapsView", this.showGoogleMapsView);
     }
@@ -377,7 +390,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   durationInFutureFor(walk: ExtendedGroupEvent) {
-    return this.dateUtils.asValueNoTime(walk?.groupEvent.start_date_time) === this.dateUtils.momentNowNoTime().valueOf() ? "today"
+    return this.dateUtils.asValueNoTime(walk?.groupEvent?.start_date_time) === this.dateUtils.momentNowNoTime().valueOf() ? "today"
       : (this.dateUtils.asMoment(this.dateUtils.startTimeAsValue(walk)).fromNow());
   }
 
@@ -394,5 +407,18 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     this.updateGoogleMapIfApplicable();
   }
 
-  protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
+  private queryIsRequired(): boolean {
+    if (this.walkInjected) {
+      this.logger.info("queryIsRequired:walkInjected:", this.walkInjected, " queryIsRequired:", false);
+      return false;
+    } else {
+      const walkId: string = this.urlService.lastPathSegment();
+      const extendedGroupEvent = this.displayedWalk?.walk;
+      const matchableIds: string[] = [extendedGroupEvent?.id, extendedGroupEvent?.groupEvent?.id];
+      const matchesUrl = extendedGroupEvent?.groupEvent?.url?.includes(walkId);
+      const queryIsRequired = this?.systemConfigService.systemConfig()?.group && (matchableIds.includes(walkId) ? false : !matchesUrl);
+      this.logger.info("queryIsRequired:walkId:", walkId, "matchableIds:", matchableIds, "matchesUrl:", matchesUrl, "displayedWalk:", this.displayedWalk, "queryIsRequired:", queryIsRequired);
+      return queryIsRequired;
+    }
+  }
 }

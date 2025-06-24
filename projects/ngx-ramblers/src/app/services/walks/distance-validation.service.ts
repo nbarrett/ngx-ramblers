@@ -34,18 +34,18 @@ export class DistanceValidationService {
   }
 
   distanceMiles(extendedGroupEvent: ExtendedGroupEvent): number {
-    if (extendedGroupEvent.groupEvent.distance_miles > 0) {
-      return extendedGroupEvent.groupEvent.distance_miles;
-    } else if (extendedGroupEvent.groupEvent.distance_km > 0) {
-      return extendedGroupEvent.groupEvent.distance_km / this.MILES_TO_KILOMETRES_FACTOR;
+    if (extendedGroupEvent?.groupEvent?.distance_miles > 0) {
+      return extendedGroupEvent?.groupEvent?.distance_miles;
+    } else if (extendedGroupEvent?.groupEvent?.distance_km > 0) {
+      return extendedGroupEvent?.groupEvent?.distance_km / this.MILES_TO_KILOMETRES_FACTOR;
     } else return 0;
   }
 
   distanceKilometres(extendedGroupEvent: ExtendedGroupEvent): number {
-    if (extendedGroupEvent.groupEvent.distance_km > 0) {
-      return extendedGroupEvent.groupEvent.distance_km;
-    } else if (extendedGroupEvent.groupEvent.distance_miles > 0) {
-      return extendedGroupEvent.groupEvent.distance_miles * this.MILES_TO_KILOMETRES_FACTOR;
+    if (extendedGroupEvent?.groupEvent?.distance_km > 0) {
+      return extendedGroupEvent?.groupEvent?.distance_km;
+    } else if (extendedGroupEvent?.groupEvent?.distance_miles > 0) {
+      return extendedGroupEvent?.groupEvent?.distance_miles * this.MILES_TO_KILOMETRES_FACTOR;
     } else return 0;
   }
 
@@ -64,13 +64,13 @@ export class DistanceValidationService {
   }
 
   private rawData(extendedGroupEvent: ExtendedGroupEvent): string {
-    return extendedGroupEvent.groupEvent?.distance_miles ? (`${extendedGroupEvent.groupEvent.distance_miles} miles`) : extendedGroupEvent.groupEvent?.distance_km ? (`${extendedGroupEvent.groupEvent.distance_km} km`) : "nothing";
+    return extendedGroupEvent?.groupEvent?.distance_miles ? (`${extendedGroupEvent?.groupEvent?.distance_miles} miles`) : extendedGroupEvent?.groupEvent?.distance_km ? (`${extendedGroupEvent?.groupEvent?.distance_km} km`) : "nothing";
   }
 
-  private distanceUnits(walk: ExtendedGroupEvent): DistanceUnit {
-    if (walk?.groupEvent?.distance_miles > 0) {
+  private distanceUnits(extendedGroupEvent: ExtendedGroupEvent): DistanceUnit {
+    if (extendedGroupEvent?.groupEvent?.distance_miles > 0) {
       return DistanceUnit.MILES;
-    } else if (walk.groupEvent.distance_km > 0) {
+    } else if (extendedGroupEvent?.groupEvent?.distance_km > 0) {
       return DistanceUnit.KILOMETRES;
     } else {
       return DistanceUnit.UNKNOWN;

@@ -19,8 +19,8 @@ import {
   RamblersGroupEventsRawApiResponse,
   RamblersGroupsApiResponse,
   RamblersGroupsApiResponseApiResponse,
-  RamblersWalkResponse,
-  RamblersWalksApiResponse,
+  RamblersEventSummaryResponse,
+  RamblersEventSummaryApiResponse,
   RamblersWalksUploadRequest,
   WALKS_MANAGER_GO_LIVE_DATE,
   WalkUploadColumnHeading,
@@ -62,7 +62,6 @@ import { DistanceValidationService } from "../walks/distance-validation.service"
 import { LocalWalksAndEventsService } from "./local-walks-and-events.service";
 import { DataQueryOptions } from "../../models/api-request.model";
 import isEqual from "lodash-es/isEqual";
-import { isNumericRamblersId } from "../path-matchers";
 import { RiskAssessmentService } from "../walks/risk-assessment.service";
 import { AlertMessage } from "../../models/alert-target.model";
 import { sortBy } from "../../functions/arrays";
@@ -111,7 +110,7 @@ export class RamblersWalksAndEventsService {
   private urlService: UrlService = inject(UrlService);
   private walksConfig: WalksConfig;
   private walkLeadersSubject = new ReplaySubject<WalkLeadersApiResponse>();
-  private walksSubject = new ReplaySubject<RamblersWalksApiResponse>();
+  private walksSubject = new ReplaySubject<RamblersEventSummaryApiResponse>();
   private rawWalksSubject = new ReplaySubject<RamblersEventsApiResponse>();
   private groupsSubject = new ReplaySubject<RamblersGroupsApiResponseApiResponse>();
   private committeeReferenceData: CommitteeReferenceData;
@@ -163,29 +162,21 @@ export class RamblersWalksAndEventsService {
   }
 
   async queryById(walkId: string): Promise<ExtendedGroupEvent> {
-    this.logger.debug("getByIdIfPossible:walkId", walkId, "is valid MongoId");
-    const walks = await this.listRamblersWalksRawData({ids: [walkId]})
-      .then((ramblersWalksRawApiResponse: RamblersGroupEventsRawApiResponse) => ramblersWalksRawApiResponse.data.map(remoteWalk => this.toExtendedGroupEvent(remoteWalk)));
+    this.logger.info("queryById:walkId", walkId);
+    const walksRawData: RamblersGroupEventsRawApiResponse = await this.listRamblersWalksRawData({ids: [walkId]});
+    this.logger.info("queryById:walkId", walkId, "walksRawData:", walksRawData);
+    const walks = walksRawData.data.map(remoteWalk => this.toExtendedGroupEvent(remoteWalk));
     if (walks?.length === 1) {
-      return walks[0];
+      this.logger.info("walkId", walkId, "returned", this.stringUtilsService.pluraliseWithCount(walks.length, "walk"), "walks were:", walks);
     } else {
-      this.logger.warn("walkId", walkId, "returned", this.stringUtilsService.pluraliseWithCount(walks.length, "walk"), "returning null - walks were:", walks);
-      return null;
+      this.logger.warn("walkId", walkId, "returned", this.stringUtilsService.pluraliseWithCount(walks.length, "walk"), "walks were:", walks);
     }
+    return walks?.[0];
   }
 
-  async getByIdIfPossible(walkId: string): Promise<ExtendedGroupEvent> {
-    if (isNumericRamblersId(walkId)) {
-      return this.queryById(walkId);
-    } else {
-      this.logger.debug("getByIdIfPossible:walkId", walkId, "is not valid MongoId - returning null");
-      return Promise.resolve(null);
-    }
-  }
-
-  async listRamblersWalks(): Promise<RamblersWalkResponse[]> {
+  async listRamblersWalks(): Promise<RamblersEventSummaryResponse[]> {
     const body: EventsListRequest = {types: ALL_EVENT_TYPES};
-    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<RamblersWalksApiResponse>(`${this.BASE_URL}/list-events`, body), this.walksSubject);
+    const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<RamblersEventSummaryApiResponse>(`${this.BASE_URL}/list-events`, body), this.walksSubject);
     this.logger.debug("received", apiResponse);
     return apiResponse.response;
   }
@@ -270,21 +261,21 @@ export class RamblersWalksAndEventsService {
     return this.returnWalksExport(updatedWalks);
   }
 
-  updateWalksWithRamblersWalkData(ramblersWalksResponses: RamblersWalkResponse[], localEvents: ExtendedGroupEvent[]): Promise<LocalAndRamblersWalk[]> {
+  updateWalksWithRamblersWalkData(ramblersWalksResponses: RamblersEventSummaryResponse[], localEvents: ExtendedGroupEvent[]): Promise<LocalAndRamblersWalk[]> {
     let unreferencedUrls: string[] = this.collectExistingRamblersUrlsFrom(localEvents);
     this.logger.info(this.stringUtilsService.pluraliseWithCount(unreferencedUrls.length, "existing ramblers walk url"), "found:", unreferencedUrls);
     this.logger.info(this.stringUtilsService.pluraliseWithCount(localEvents.length, "local walk"), "found:", localEvents);
     const savePromises = [];
     this.logger.info(this.stringUtilsService.pluraliseWithCount(ramblersWalksResponses.length, "localEvents manager walk"), "found:", ramblersWalksResponses);
-    ramblersWalksResponses.forEach((ramblersWalksResponse: RamblersWalkResponse) => {
-      const walkMatchedByDate: ExtendedGroupEvent = localEvents.find(walk => this.dateUtils.asString(walk.groupEvent.start_date_time, undefined, "dddd, Do MMMM YYYY") === ramblersWalksResponse.startDate);
+    ramblersWalksResponses.forEach((ramblersWalksResponse: RamblersEventSummaryResponse) => {
+      const walkMatchedByDate: ExtendedGroupEvent = localEvents.find(walk => this.dateUtils.asString(walk?.groupEvent?.start_date_time, undefined, "dddd, Do MMMM YYYY") === ramblersWalksResponse.startDate);
       if (!walkMatchedByDate) {
         this.logger.info("no date match found for ramblersWalksResponse", ramblersWalksResponse);
       } else {
         unreferencedUrls = without(unreferencedUrls, ramblersWalksResponse.url);
         if (walkMatchedByDate) {
           if (this.notMatchedByIdOrUrl(walkMatchedByDate, ramblersWalksResponse)) {
-            this.logger.info("updating walk from", walkMatchedByDate.groupEvent.id || "empty", "->", ramblersWalksResponse.id, "and", walkMatchedByDate.groupEvent.url || "empty", "->", ramblersWalksResponse.url, "on", this.displayDate.transform(walkMatchedByDate.groupEvent.start_date_time));
+            this.logger.info("updating walk from", walkMatchedByDate?.groupEvent?.id || "empty", "->", ramblersWalksResponse.id, "and", walkMatchedByDate?.groupEvent?.url || "empty", "->", ramblersWalksResponse.url, "on", this.displayDate.transform(walkMatchedByDate.groupEvent.start_date_time));
             walkMatchedByDate.groupEvent.id = ramblersWalksResponse.id;
             walkMatchedByDate.groupEvent.url = ramblersWalksResponse.url;
             const linkWithSource: LinkWithSource = {
@@ -330,7 +321,7 @@ export class RamblersWalksAndEventsService {
     }
   }
 
-  private localAndRamblersWalksFrom(walks: ExtendedGroupEvent[], ramblersWalksResponses: RamblersWalkResponse[]): LocalAndRamblersWalk[] {
+  private localAndRamblersWalksFrom(walks: ExtendedGroupEvent[], ramblersWalksResponses: RamblersEventSummaryResponse[]): LocalAndRamblersWalk[] {
     const mappedResults = walks.map(walk => ({
       localWalk: walk,
       ramblersWalk: ramblersWalksResponses.find(item => item.id === walk.groupEvent.id)
@@ -339,7 +330,7 @@ export class RamblersWalksAndEventsService {
     return mappedResults;
   }
 
-  private notMatchedByIdOrUrl(localEvent: ExtendedGroupEvent, ramblersWalksResponse: RamblersWalkResponse): boolean {
+  private notMatchedByIdOrUrl(localEvent: ExtendedGroupEvent, ramblersWalksResponse: RamblersEventSummaryResponse): boolean {
     const linkWithSource = this.linksService.linkWithSourceFrom(localEvent.fields, LinkSource.RAMBLERS);
     const urlMismatch = localEvent.groupEvent.url !== ramblersWalksResponse.url;
     const groupEventMismatch = localEvent.groupEvent.id !== ramblersWalksResponse.id;
@@ -458,12 +449,12 @@ export class RamblersWalksAndEventsService {
         validationMessages.push("both starting postcode and grid reference are missing");
       }
 
-      if (isEmpty(walk.fields?.publishing?.ramblers?.contactName)) {
+      if (isEmpty(walk?.fields?.publishing?.ramblers?.contactName)) {
         validationMessages.push(`Walk leader has no Walks Manager Contact Name entered on their member record. ${contactIdMessage}`);
       }
 
-      if (!isNaN(+walk.fields?.publishing?.ramblers?.contactName)) {
-        validationMessages.push(`Walk leader has an old Ramblers contact Id (${walk.fields.publishing.ramblers.contactName}) setup on their member record. This needs to be updated to an Walks Manager Contact Name. ${contactIdMessage}`);
+      if (!isNaN(+walk?.fields?.publishing?.ramblers?.contactName)) {
+        validationMessages.push(`Walk leader has an old Ramblers contact Id (${walk?.fields.publishing.ramblers.contactName}) setup on their member record. This needs to be updated to an Walks Manager Contact Name. ${contactIdMessage}`);
       }
       if (!walk?.groupEvent?.end_date_time) {
         validationMessages.push("Estimated Finish Time has not been entered");
@@ -483,9 +474,9 @@ export class RamblersWalksAndEventsService {
         validationMessages.push(`Walk is ${WalkType.CIRCULAR} but the finish postcode ${walk?.groupEvent?.end_location?.postcode} does not match the Starting Postcode ${walk?.groupEvent?.start_location?.postcode} in the Walk Details tab`);
       }
 
-      if (this.riskAssessmentService.unconfirmedRiskAssessmentsExist(walk.fields.riskAssessment)) {
-        const alertMessage: AlertMessage = this.riskAssessmentService.warningMessage(walk.fields.riskAssessment);
-        this.logger.off("unconfirmedRiskAssessmentsExist:given walk", walk, "riskAssessment:", walk.fields.riskAssessment, "alertMessage:", alertMessage);
+      if (this.riskAssessmentService.unconfirmedRiskAssessmentsExist(walk?.fields.riskAssessment)) {
+        const alertMessage: AlertMessage = this.riskAssessmentService.warningMessage(walk?.fields.riskAssessment);
+        this.logger.off("unconfirmedRiskAssessmentsExist:given walk", walk, "riskAssessment:", walk?.fields.riskAssessment, "alertMessage:", alertMessage);
         validationMessages.push(`${alertMessage.title}. ${alertMessage.message}`);
       }
     }
@@ -553,7 +544,7 @@ export class RamblersWalksAndEventsService {
   }
 
   walkLeader(walk: ExtendedGroupEvent): string {
-    return walk.fields.publishing.ramblers.contactName ? this.replaceSpecialCharacters(walk.fields.publishing.ramblers.contactName) : "";
+    return walk?.fields?.publishing?.ramblers?.contactName ? this.replaceSpecialCharacters(walk?.fields?.publishing?.ramblers?.contactName) : "";
   }
 
   replaceSpecialCharacters(value: string): string {
@@ -611,7 +602,7 @@ export class RamblersWalksAndEventsService {
     csvRecord[WalkUploadColumnHeading.FINISHING_POSTCODE] = this.walkFinishPostcode(extendedGroupEvent);
     csvRecord[WalkUploadColumnHeading.FINISHING_GRIDREF] = this.walkFinishGridReference(extendedGroupEvent);
     csvRecord[WalkUploadColumnHeading.FINISHING_LOCATION_DETAILS] = this.finishingLocationDetails(extendedGroupEvent);
-    csvRecord[WalkUploadColumnHeading.DIFFICULTY] = this.asString(extendedGroupEvent.groupEvent.difficulty.description);
+    csvRecord[WalkUploadColumnHeading.DIFFICULTY] = this.asString(extendedGroupEvent?.groupEvent?.difficulty.description);
     csvRecord[WalkUploadColumnHeading.DISTANCE_KM] = walkDistance.kilometres.valueAsString;
     csvRecord[WalkUploadColumnHeading.DISTANCE_MILES] = walkDistance.miles.valueAsString;
     csvRecord[WalkUploadColumnHeading.ASCENT_METRES] = walkAscent.metres.valueAsString;
@@ -631,10 +622,10 @@ export class RamblersWalksAndEventsService {
   }
 
   public walkFinishTimeOrDefault(extendedGroupEvent: ExtendedGroupEvent, milesPerHour: number): string {
-    const endTimeValid = extendedGroupEvent?.groupEvent?.end_date_time?.length > 5 && this.dateUtils.isDate(extendedGroupEvent.groupEvent.end_date_time);
-    this.logger.info("walkFinishTimeOrDefault:groupEvent.end_date_time:", extendedGroupEvent.groupEvent.end_date_time, "endTimeValid:", endTimeValid, "of type", typeof extendedGroupEvent?.groupEvent?.end_date_time);
+    const endTimeValid = extendedGroupEvent?.groupEvent?.end_date_time?.length > 5 && this.dateUtils.isDate(extendedGroupEvent?.groupEvent?.end_date_time);
+    this.logger.info("walkFinishTimeOrDefault:groupEvent.end_date_time:", extendedGroupEvent?.groupEvent?.end_date_time, "endTimeValid:", endTimeValid, "of type", typeof extendedGroupEvent?.groupEvent?.end_date_time);
     if (endTimeValid) {
-      return this.dateUtils.ramblersTime(extendedGroupEvent.groupEvent.end_date_time);
+      return this.dateUtils.ramblersTime(extendedGroupEvent?.groupEvent?.end_date_time);
     } else {
       return this.walkFinishTime(extendedGroupEvent, milesPerHour);
     }
@@ -642,7 +633,7 @@ export class RamblersWalksAndEventsService {
 
   public walkFinishTime(extendedGroupEvent: ExtendedGroupEvent, milesPerHour?: number): string {
     const finishTimeMillis = this.dateUtils.startTimeAsValue(extendedGroupEvent) +
-      this.dateUtils.durationInMsecsForDistanceInMiles(extendedGroupEvent.groupEvent.distance_miles, extendedGroupEvent.fields.milesPerHour || milesPerHour);
+      this.dateUtils.durationInMsecsForDistanceInMiles(extendedGroupEvent?.groupEvent?.distance_miles, extendedGroupEvent.fields.milesPerHour || milesPerHour);
     let finishMoment = this.dateUtils.asMoment(finishTimeMillis);
     const minutes = finishMoment.minutes();
     const remainder = minutes % 15;
@@ -655,7 +646,7 @@ export class RamblersWalksAndEventsService {
   }
 
   walkStartTime(extendedGroupEvent: ExtendedGroupEvent): string {
-    return extendedGroupEvent.groupEvent.start_date_time ? this.dateUtils.asString(this.dateUtils.startTimeAsValue(extendedGroupEvent), null, "HH:mm") : "";
+    return extendedGroupEvent?.groupEvent?.start_date_time ? this.dateUtils.asString(this.dateUtils.startTimeAsValue(extendedGroupEvent), null, "HH:mm") : "";
   }
 
   startingGridReference(extendedGroupEvent: ExtendedGroupEvent): string {
@@ -676,7 +667,7 @@ export class RamblersWalksAndEventsService {
   }
 
   walkDate(extendedGroupEvent: ExtendedGroupEvent, format: string): string {
-    return this.dateUtils.asString(extendedGroupEvent.groupEvent.start_date_time, null, format);
+    return this.dateUtils.asString(extendedGroupEvent?.groupEvent?.start_date_time, null, format);
   }
 
   private mediaExistsOnWalksManagerNotLocal(localHasMedia: HasMedia, ramblersHasMedia: HasMedia) {
@@ -707,12 +698,12 @@ export class RamblersWalksAndEventsService {
     const validateGridReferences = false;
     const publishStatus: PublishStatus = {actionRequired: false, publish: false, messages: []};
     const walk: ExtendedGroupEvent = localAndRamblersWalk.localWalk;
-    const ramblersWalk: RamblersWalkResponse = localAndRamblersWalk.ramblersWalk;
+    const ramblersWalk: RamblersEventSummaryResponse = localAndRamblersWalk.ramblersWalk;
     const eventType: EventType = this.walkEventService.latestEventWithStatusChange(walk)?.eventType;
     const isApproved = this.walkEventService.latestEventWithStatusChangeIs(walk, EventType.APPROVED);
     const publishRequired = true;
     const actionRequired = true;
-    if (walk.fields.publishing.ramblers.publish) {
+    if (walk?.fields.publishing.ramblers.publish) {
       if (!ramblersWalk) {
         if (!isApproved) {
           publishStatus.messages.push(`Walk is ${this.walksReferenceService.toWalkEventType(eventType)?.description}`);

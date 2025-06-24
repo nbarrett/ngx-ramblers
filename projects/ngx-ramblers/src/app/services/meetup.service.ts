@@ -129,7 +129,7 @@ export class MeetupService {
   async synchroniseWalkWithEvent(notify: AlertInstance, displayedWalk: DisplayedWalk, meetupDescription: string): Promise<any> {
     try {
       if (displayedWalk.status === EventType.APPROVED
-        && this.dateUtils.asMoment(displayedWalk.walk.groupEvent.start_date_time).valueOf() > this.dateUtils.momentNowNoTime().valueOf()
+        && this.dateUtils.asMoment(displayedWalk.walk?.groupEvent?.start_date_time).valueOf() > this.dateUtils.momentNowNoTime().valueOf()
         && displayedWalk.walk.fields?.meetup
         && displayedWalk.walk.fields?.publishing?.meetup?.publish) {
         const eventExists: boolean = await this.eventExists(notify, displayedWalk.walk);
@@ -262,17 +262,17 @@ export class MeetupService {
 
   async eventRequestFor(notify: AlertInstance, walk: ExtendedGroupEvent, description: string): Promise<MeetupEventRequest> {
     const venueResponse: NumericIdentifier = await this.createOrMatchVenue(notify, walk);
-    this.logger.debug("venue for", walk.groupEvent.start_location?.postcode, "is", venueResponse);
+    this.logger.debug("venue for", walk?.groupEvent?.start_location?.postcode, "is", venueResponse);
 
     const eventRequest = {
       venue_id: venueResponse.id,
       time: this.dateUtils.startTimeAsValue(walk),
-      duration: this.dateUtils.durationInMsecsForDistanceInMiles(walk.groupEvent.distance_miles, this.walksConfig.milesPerHour),
+      duration: this.dateUtils.durationInMsecsForDistanceInMiles(walk?.groupEvent?.distance_miles, this.walksConfig.milesPerHour),
       guest_limit: walk.fields.meetup.guestLimit,
       announce: walk.fields.meetup.announce,
       venue_visibility: "public",
       publish_status: walk.fields.meetup.publishStatus,
-      name: walk.groupEvent.title,
+      name: walk?.groupEvent?.title,
       description
     };
     this.logger.debug("request about to be submitted for walk is", eventRequest);
@@ -281,8 +281,8 @@ export class MeetupService {
 
   venueRequestFor(walk: ExtendedGroupEvent): MeetupVenueRequest {
     const venueRequest: MeetupVenueRequest = {
-      name: walk.fields.venue.name || walk.groupEvent.title,
-      address_1: walk.fields.venue.address1 || walk.groupEvent.start_location?.description,
+      name: walk.fields.venue.name || walk?.groupEvent?.title,
+      address_1: walk.fields.venue.address1 || walk?.groupEvent?.start_location?.description,
       city: walk.fields.venue.postcode || walk.groupEvent.start_location?.postcode,
       web_url: walk.fields.venue.url,
       country: "gb",

@@ -10,7 +10,7 @@ import { WalkValidationsListPipe } from "../../../../pipes/walk-validations.pipe
 @Component({
     selector: "app-walk-notification-leader-updated",
     template: `
-    <p>Thanks again for offering to lead the walk on <strong [textContent]="walk.groupEvent.start_date_time | displayDate"></strong>!</p>
+    <p>Thanks again for offering to lead the walk on <strong [textContent]="walk?.groupEvent?.start_date_time | displayDate"></strong>!</p>
     <p>This email is a notification that at <strong [textContent]="event.date | displayDateAndTime"></strong>,
     <strong [textContent]="event.memberId | memberIdToFullName : members"></strong>
     made the following changes to your walk:

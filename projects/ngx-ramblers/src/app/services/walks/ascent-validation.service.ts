@@ -11,28 +11,28 @@ import { ExtendedGroupEvent, FEET_TO_METRES_FACTOR, GroupEvent } from "../../mod
 export class AscentValidationService {
   private numberUtils = inject(NumberUtilsService);
 
-  parse(walk: ExtendedGroupEvent): WalkAscent {
+  parse(extendedGroupEvent: ExtendedGroupEvent): WalkAscent {
     return {
-      rawData: walk.groupEvent.ascent_feet || null,
+      rawData: extendedGroupEvent?.groupEvent?.ascent_feet || null,
       feet: {
-        value: this.walkAscentFeet(walk),
-        valueAsString: (this.walkAscentFeet(walk) || "").toString(),
-        formatted: this.walkAscentFeetAsString(walk)
+        value: this.walkAscentFeet(extendedGroupEvent),
+        valueAsString: (this.walkAscentFeet(extendedGroupEvent) || "").toString(),
+        formatted: this.walkAscentFeetAsString(extendedGroupEvent)
       },
       metres: {
-        value: this.walkAscentMetres(walk),
-        valueAsString: (this.walkAscentMetres(walk) || "").toString(),
-        formatted: this.walkAscentMetresAsString(walk)
+        value: this.walkAscentMetres(extendedGroupEvent),
+        valueAsString: (this.walkAscentMetres(extendedGroupEvent) || "").toString(),
+        formatted: this.walkAscentMetresAsString(extendedGroupEvent)
       },
-      validationMessage: this.validationMessage(walk),
+      validationMessage: this.validationMessage(extendedGroupEvent),
     };
   }
 
-  public walkAscentFeet(walk: ExtendedGroupEvent): number {
-    if (walk?.groupEvent?.ascent_feet > 0) {
-      return walk?.groupEvent?.ascent_feet;
+  public walkAscentFeet(extendedGroupEvent: ExtendedGroupEvent): number {
+    if (extendedGroupEvent?.groupEvent?.ascent_feet > 0) {
+      return extendedGroupEvent?.groupEvent?.ascent_feet;
     } else {
-      const ascentMetres = walk?.groupEvent?.ascent_metres;
+      const ascentMetres = extendedGroupEvent?.groupEvent?.ascent_metres;
       if (ascentMetres > 0) {
         return this.convertMetresToFeet(ascentMetres);
       } else {
@@ -45,11 +45,11 @@ export class AscentValidationService {
     return this.numberUtils.asNumber(ascentMetres / FEET_TO_METRES_FACTOR, 1);
   }
 
-  public walkAscentMetres(walk: ExtendedGroupEvent): number {
-    if (walk?.groupEvent?.ascent_metres > 0) {
-      return walk?.groupEvent?.ascent_metres;
+  public walkAscentMetres(extendedGroupEvent: ExtendedGroupEvent): number {
+    if (extendedGroupEvent?.groupEvent?.ascent_metres > 0) {
+      return extendedGroupEvent?.groupEvent?.ascent_metres;
     } else {
-      const ascentFeet = walk?.groupEvent?.ascent_feet;
+      const ascentFeet = extendedGroupEvent?.groupEvent?.ascent_feet;
       if (ascentFeet > 0) {
         return this.convertFeetToMetres(ascentFeet);
       } else {
@@ -62,11 +62,11 @@ export class AscentValidationService {
     return this.numberUtils.asNumber(ascentFeet * FEET_TO_METRES_FACTOR, 1);
   }
 
-  private validationMessage(walk: ExtendedGroupEvent) {
-    const units: DistanceUnit = this.ascentUnits(walk.groupEvent);
-    if (!isEmpty(walk.groupEvent?.ascent_feet)) {
+  private validationMessage(extendedGroupEvent: ExtendedGroupEvent) {
+    const units: DistanceUnit = this.ascentUnits(extendedGroupEvent?.groupEvent);
+    if (!isEmpty(extendedGroupEvent?.groupEvent?.ascent_feet)) {
       if (units === DistanceUnit.UNKNOWN) {
-        return `Ascent in feet or metres can be entered, but ${walk.groupEvent.ascent_feet} ${DistanceUnit.FEET} / ${walk.groupEvent.ascent_metres} ${DistanceUnit.METRES} was entered`;
+        return `Ascent in feet or metres can be entered, but ${extendedGroupEvent?.groupEvent?.ascent_feet} ${DistanceUnit.FEET} / ${extendedGroupEvent?.groupEvent?.ascent_metres} ${DistanceUnit.METRES} was entered`;
       } else {
         return null;
       }
@@ -76,7 +76,7 @@ export class AscentValidationService {
   }
 
   private ascentUnits(groupEvent: GroupEvent): DistanceUnit {
-    if (!!!groupEvent.ascent_feet && !!!groupEvent.ascent_metres) {
+    if (!!!groupEvent?.ascent_feet && !!!groupEvent?.ascent_metres) {
       return DistanceUnit.UNKNOWN;
     } else if (!!groupEvent.ascent_feet) {
         return DistanceUnit.FEET;
@@ -87,16 +87,16 @@ export class AscentValidationService {
       }
     }
 
-  walkAscents(walk: ExtendedGroupEvent) {
-    return `${this.walkAscentFeetAsString(walk)} / ${this.walkAscentMetresAsString(walk)}`;
+  walkAscents(extendedGroupEvent: ExtendedGroupEvent) {
+    return `${this.walkAscentFeetAsString(extendedGroupEvent)} / ${this.walkAscentMetresAsString(extendedGroupEvent)}`;
   }
 
-  walkAscentFeetAsString(walk: ExtendedGroupEvent) {
-    return this.walkAscentFeet(walk) > 0 ? `${this.walkAscentFeet(walk)} ${DistanceUnit.FEET}` : "";
+  walkAscentFeetAsString(extendedGroupEvent: ExtendedGroupEvent) {
+    return this.walkAscentFeet(extendedGroupEvent) > 0 ? `${this.walkAscentFeet(extendedGroupEvent)} ${DistanceUnit.FEET}` : "";
   }
 
-  walkAscentMetresAsString(walk: ExtendedGroupEvent) {
-    return this.walkAscentMetres(walk) > 0 ? `${this.walkAscentMetres(walk)} ${DistanceUnit.METRES}` : "";
+  walkAscentMetresAsString(extendedGroupEvent: ExtendedGroupEvent) {
+    return this.walkAscentMetres(extendedGroupEvent) > 0 ? `${this.walkAscentMetres(extendedGroupEvent)} ${DistanceUnit.METRES}` : "";
   }
 
 }

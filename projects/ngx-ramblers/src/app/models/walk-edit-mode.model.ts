@@ -4,3 +4,4 @@ export interface WalkAccessMode {
   walkWritable?: boolean;
   initialiseWalkLeader?: boolean;
 }
+

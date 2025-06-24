@@ -1,7 +1,7 @@
-import { Component, inject, Input } from "@angular/core";
+import { Component, inject, Input, OnInit } from "@angular/core";
 import { DisplayedWalk } from "../../../models/walk.model";
 import { DatePicker } from "../../../date-and-time/date-picker";
-import { FormsModule } from "@angular/forms";
+import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faMagnifyingGlass, faPencil } from "@fortawesome/free-solid-svg-icons";
 import { MarkdownComponent } from "ngx-markdown";
@@ -14,6 +14,8 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import isString from "lodash-es/isString";
+import { BroadcastService } from "../../../services/broadcast-service";
+import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 
 @Component({
   selector: "app-walk-edit-main-details",
@@ -24,104 +26,105 @@ import isString from "lodash-es/isString";
     FontAwesomeModule,
     MarkdownComponent,
     TimePicker,
-    EventDistanceEdit
+    EventDistanceEdit,
+    ReactiveFormsModule
   ],
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
-      <div class="row align-items-center">
-        <div class="col-auto">
-          <label for="walk-date">Walk Date</label>
-          <div class="form-group">
-            <app-date-picker id="walk-date" size="md"
-                             placeholder="enter date of walk"
-                             [disabled]="!display.allowAdminEdits() || inputDisabled"
-                             class="w-100"
-                             (change)="onDateChange($event)"
-                             [value]="displayedWalk.walk.groupEvent.start_date_time"/>
+      <form [formGroup]="walkForm">
+        <div class="row align-items-center">
+          <div class="col-auto">
+            <label for="walk-date">Walk Date</label>
+            <div class="form-group">
+              <app-date-picker id="walk-date" size="md"
+                               placeholder="enter date of walk"
+                               [disabled]="!display.allowAdminEdits() || inputDisabled"
+                               class="w-100"
+                               (change)="onDateChange($event)"
+                               [value]="displayedWalk?.walk?.groupEvent.start_date_time"/>
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="form-group" app-time-picker id="start-time" label="Start Time" [disabled]="inputDisabled"
+                 [value]="displayedWalk?.walk?.groupEvent.start_date_time"
+                 (change)="onStartDateTimeChange($event)">
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="form-group" app-event-distance-edit label="Distance"
+                 [groupEvent]="displayedWalk?.walk?.groupEvent"
+                 (change)="calculateAndSetFinishTime()" [disabled]="inputDisabled"></div>
+          </div>
+          <div class="col">
+            <div class="form-group">
+              <label for="miles-per-hour">Avg mph</label>
+              <input formControlName="milesPerHour"
+                     (change)="calculateAndSetFinishTime()"
+                     type="number" step="0.25"
+                     class="form-control input-sm"
+                     id="miles-per-hour"
+                     placeholder="Enter Estimated MPH of walk">
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="form-group" app-time-picker id="end-time" label="Estimated Finish Time"
+                 [disabled]="inputDisabled"
+                 [value]="displayedWalk?.walk?.groupEvent.end_date_time"
+                 (change)="onEndDateTimeChange($event)"></div>
+          </div>
+          <div class="col-auto">
+            <div class="form-group">
+              <label for="duration">Estimated Duration</label>
+              <input disabled
+                     [value]="durationCalculated()"
+                     type="text"
+                     class="form-control input-sm duration"
+                     id="duration">
+            </div>
           </div>
         </div>
-        <div class="col-auto">
-          <div class="form-group" app-time-picker id="start-time" label="Start Time" [disabled]="inputDisabled"
-               [value]="displayedWalk.walk.groupEvent.start_date_time"
-               (change)="onStartDateTimeChange($event)">
+        <div class="row">
+          <div class="col-sm-12">
+            <div class="form-group">
+              <label for="brief-description-and-start-point">Walk Title</label>
+              <textarea formControlName="title" type="text"
+                        class="form-control input-sm" rows="3"
+                        id="brief-description-and-start-point"
+                        placeholder="Enter walk title here"></textarea>
+            </div>
           </div>
         </div>
-        <div class="col-auto">
-          <div class="form-group" app-event-distance-edit label="Distance" [groupEvent]="displayedWalk.walk.groupEvent"
-               (change)="calculateAndSetFinishTime()" [disabled]="inputDisabled"></div>
-        </div>
-        <div class="col">
-          <div class="form-group">
-            <label for="miles-per-hour">Avg mph</label>
-            <input [disabled]="inputDisabled"
-                   [(ngModel)]="displayedWalk.walk.fields.milesPerHour"
-                   (ngModelChange)="calculateAndSetFinishTime()"
-                   type="number" step="0.25"
-                   class="form-control input-sm"
-                   id="miles-per-hour"
-                   placeholder="Enter Estimated MPH of walk">
-          </div>
-        </div>
-        <div class="col-auto">
-          <div class="form-group" app-time-picker id="end-time" label="Estimated Finish Time"
-               [disabled]="inputDisabled"
-               [value]="displayedWalk.walk.groupEvent.end_date_time"
-               (change)="onEndDateTimeChange($event)"></div>
-        </div>
-        <div class="col-auto">
-          <div class="form-group">
-            <label for="duration">Estimated Duration</label>
-            <input disabled
-                   [value]="durationCalculated()"
-                   type="text"
-                   class="form-control input-sm duration"
-                   id="duration">
-          </div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-sm-12">
-          <div class="form-group">
-            <label for="brief-description-and-start-point">Walk Title</label>
-            <textarea [disabled]="inputDisabled"
-                      [(ngModel)]="displayedWalk.walk.groupEvent.title" type="text"
-                      class="form-control input-sm" rows="3"
-                      id="brief-description-and-start-point"
-                      placeholder="Enter walk title here"></textarea>
-          </div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-sm-12">
-          <div class="form-group">
-            <label for="longer-description">Walk Description <a
-              [hidden]="longerDescriptionPreview"
-              (click)="previewLongerDescription()" [href]="">
-              <fa-icon [icon]="faMagnifyingGlass" class="markdown-preview-icon"></fa-icon>
-              preview</a>
+        <div class="row">
+          <div class="col-sm-12">
+            <div class="form-group">
+              <label for="longer-description">Walk Description <a
+                [hidden]="longerDescriptionPreview"
+                (click)="previewLongerDescription()" [href]="">
+                <fa-icon [icon]="faMagnifyingGlass" class="markdown-preview-icon"></fa-icon>
+                preview</a>
+                @if (longerDescriptionPreview) {
+                  <a
+                    (click)="editLongerDescription()" [href]="">
+                    <fa-icon [icon]="faPencil" class="markdown-preview-icon"/>
+                    edit</a>
+                } </label>
               @if (longerDescriptionPreview) {
-                <a
-                  (click)="editLongerDescription()" [href]="">
-                  <fa-icon [icon]="faPencil" class="markdown-preview-icon"/>
-                  edit</a>
-              } </label>
-            @if (longerDescriptionPreview) {
-              <p
-                (click)="editLongerDescription()"
-                class="list-arrow" markdown [data]="displayedWalk.walk.groupEvent.description"
-                type="text"
-                id="longer-description-formatted"></p>
-            }
-            @if (!longerDescriptionPreview) {
-              <textarea
-                [disabled]="inputDisabled"
-                [(ngModel)]="displayedWalk.walk.groupEvent.description" type="text"
-                class="form-control input-sm" rows="5" id="longer-description"
-                placeholder="Enter Walk Description here"></textarea>
-            }
+                <p
+                  (click)="editLongerDescription()"
+                  class="list-arrow" markdown [data]="displayedWalk?.walk?.groupEvent.description"
+                  type="text"
+                  id="longer-description-formatted"></p>
+              }
+              @if (!longerDescriptionPreview) {
+                <textarea
+                  formControlName="description" type="text"
+                  class="form-control input-sm" rows="5" id="longer-description"
+                  placeholder="Enter Walk Description here"></textarea>
+              }
+            </div>
           </div>
         </div>
-      </div>
+      </form>
     </div>
   `,
   styles: [`
@@ -130,10 +133,9 @@ import isString from "lodash-es/isString";
   `],
 
 })
-export class WalkEditMainDetailsComponent {
+export class WalkEditMainDetailsComponent implements OnInit {
   @Input() displayedWalk!: DisplayedWalk;
   @Input() inputDisabled = false;
-
   protected readonly faMagnifyingGlass = faMagnifyingGlass;
   protected readonly faPencil = faPencil;
   protected display = inject(WalkDisplayService);
@@ -141,7 +143,26 @@ export class WalkEditMainDetailsComponent {
   ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private logger: Logger = inject(LoggerFactory).createLogger("WalkEditMainDetailsComponent", NgxLoggerLevel.ERROR);
   longerDescriptionPreview = false;
+  private broadcastService = inject<BroadcastService<any>>(BroadcastService);
+  protected fb: FormBuilder = inject(FormBuilder);
+  walkForm: FormGroup;
   walkDate: Date;
+
+  ngOnInit() {
+    this.walkForm = this.fb.group({
+      title: [{value: this.displayedWalk?.walk?.groupEvent.title, disabled: this.inputDisabled}],
+      description: [{value: this.displayedWalk?.walk?.groupEvent.description, disabled: this.inputDisabled}],
+      milesPerHour: [{value: this.displayedWalk?.walk?.fields.milesPerHour, disabled: this.inputDisabled}],
+    });
+
+    this.walkForm.valueChanges.subscribe(value => {
+      this.displayedWalk.walk.groupEvent.title = value.title;
+      this.displayedWalk.walk.groupEvent.description = value.description;
+      this.displayedWalk.walk.fields.milesPerHour = value.milesPerHour;
+      this.logger.info("Walk form value changes:", value);
+      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_CHANGED, value));
+    });
+  }
 
   onDateChange(date: DateValue) {
     if (date) {

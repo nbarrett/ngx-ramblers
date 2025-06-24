@@ -25,6 +25,7 @@ import { EventPopulation, Organisation } from "../../models/system.model";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { PageService } from "../../services/page.service";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
+import { StringUtilsService } from "../../services/string-utils.service";
 
 const SORT_BY_NAME = sortBy("order", "member.lastName", "member.firstName");
 
@@ -42,6 +43,7 @@ export class SocialDisplayService {
   private siteEditService = inject(SiteEditService);
   private memberLoginService = inject(MemberLoginService);
   private urlService = inject(UrlService);
+  protected stringUtils = inject(StringUtilsService);
   private fullNameWithAlias = inject(FullNameWithAliasPipe);
   private memberIdToFullNamePipe = inject(MemberIdToFullNamePipe);
   private committeeConfigService = inject(CommitteeConfigService);
@@ -138,7 +140,7 @@ export class SocialDisplayService {
   }
 
   socialEventLink(socialEvent: ExtendedGroupEvent, relative: boolean) {
-    const eventId: string = socialEvent?.id || socialEvent?.groupEvent?.id;
+    const eventId: string = this.stringUtils.lastItemFrom(socialEvent?.groupEvent?.url) || this.stringUtils.kebabCase(socialEvent?.groupEvent?.title) || socialEvent?.groupEvent?.id || socialEvent?.id;
     return eventId ? this.urlService.linkUrl({
       area: this.pageService.socialPage()?.href,
       id: eventId,

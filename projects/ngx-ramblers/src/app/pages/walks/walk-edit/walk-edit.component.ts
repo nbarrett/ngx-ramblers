@@ -72,8 +72,7 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
                                [expandAction]="'edit walk full-screen'" [expandable]="isExpandable()"/>
       <tabset class="custom-tabset">
         <tab heading="Main Details">
-          <app-walk-edit-main-details
-            [displayedWalk]="displayedWalk"
+          <app-walk-edit-main-details [displayedWalk]="displayedWalk"
             [inputDisabled]="inputDisabled()"/>
         </tab>
         <tab heading="Walk Details" (selectTab)="onTabSelect($event)">
@@ -150,7 +149,7 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
                            [elementName]="'event link'">copy link to this
             </app-copy-icon>
             <a class="rams-text-decoration-pink" [href]="display.walkLink(displayedWalk.walk)"
-               target="_blank">{{stringUtils.asTitle(displayedWalk.walk.groupEvent.item_type)}}</a>
+               target="_blank">{{stringUtils.asTitle(displayedWalk.walk?.groupEvent?.item_type)}}</a>
         </div>
       }
       <div class="form-inline mb-4 align-middle">
@@ -257,7 +256,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     }
     this.displayedWalk = cloneDeep(displayedWalk);
     this.initialiseMilesPerHour();
-    this.logger.info("initialiseWalk:cloning groupEvent for edit:", this.displayedWalk.walk.groupEvent, "original:", displayedWalk.walk.groupEvent);
+    this.logger.info("initialiseWalk:cloning groupEvent for edit:", this.displayedWalk?.walk?.groupEvent, "original:", displayedWalk?.walk?.groupEvent);
     this.mapEditComponentDisplayedWalk = this.displayedWalk;
   }
 
@@ -337,10 +336,10 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   private initialiseMilesPerHour() {
-    if (this.displayedWalk.walk.fields.milesPerHour > 0) {
-      this.logger.info("initialiseMilesPerHour:milesPerHour already set to:", this.displayedWalk.walk.fields.milesPerHour);
+    if (this.displayedWalk?.walk?.fields.milesPerHour > 0) {
+      this.logger.info("initialiseMilesPerHour:milesPerHour already set to:", this.displayedWalk?.walk?.fields.milesPerHour);
     } else if (this.walksConfig?.milesPerHour) {
-      this.logger.info("initialiseMilesPerHour:setting milesPerHour from:", this.displayedWalk.walk.fields.milesPerHour, "to:", this.walksConfig.milesPerHour);
+      this.logger.info("initialiseMilesPerHour:setting milesPerHour from:", this.displayedWalk?.walk?.fields.milesPerHour, "to:", this.walksConfig.milesPerHour);
       this.displayedWalk.walk.fields.milesPerHour = this.walksConfig.milesPerHour;
     } else {
       this.logger.info("initialiseMilesPerHour:not setting as this.displayedWalk.walk:", this.displayedWalk.walk, "this.walksConfig.milesPerHour:", this.walksConfig?.milesPerHour);
@@ -488,7 +487,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         this.logger.debug("initialising walk venue");
         displayedWalk.walk.fields.venue = {
           type: this.walksReferenceService.venueTypes()[0].type,
-          postcode: displayedWalk.walk.groupEvent.start_location?.postcode
+          postcode: displayedWalk.walk?.groupEvent?.start_location?.postcode
         };
       }
       this.confirmAction = ConfirmType.NONE;
@@ -541,7 +540,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.notify.warning({
       title: "Confirm delete of walk details",
       message: "If you confirm this, the slot for " +
-        this.displayDate.transform(this.displayedWalk.walk.groupEvent.start_date_time) + " will be deleted from the site."
+        this.displayDate.transform(this.displayedWalk.walk?.groupEvent?.start_date_time) + " will be deleted from the site."
     });
   }
 
@@ -550,7 +549,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.notify.warning({
       title: "Cancel changes",
       message: "Click Confirm to lose any changes you've just made for " +
-        this.displayDate.transform(this.displayedWalk.walk.groupEvent.start_date_time) + ", or Cancel to carry on editing."
+        this.displayDate.transform(this.displayedWalk.walk?.groupEvent?.start_date_time) + ", or Cancel to carry on editing."
     });
   }
 
@@ -734,7 +733,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
 
   async postcodeChange() {
     if (this.displayedWalk?.walk?.groupEvent?.start_location?.postcode?.length > 3) {
-      const postcode = this.displayedWalk.walk.groupEvent.start_location?.postcode;
+      const postcode = this.displayedWalk.walk?.groupEvent?.start_location?.postcode;
       this.displayedWalk.walk.groupEvent.start_location.postcode = postcode?.toUpperCase()?.trim();
       const gridReferenceLookupResponse: GridReferenceLookupResponse = await this.addressQueryService.gridReferenceLookup(postcode);
       this.displayedWalk.walk.groupEvent.start_location.grid_reference_6 = gridReferenceLookupResponse.gridReference6;
@@ -750,7 +749,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   calculateAndSetFinishTimeIfNotPopulated() {
     if (this.displayedWalk.walk.fields.milesPerHour && !this.displayedWalk.walk.groupEvent?.end_date_time) {
       const endDateTime = this.ramblersWalksAndEventsService.walkFinishTime(this.displayedWalk.walk, this.displayedWalk.walk.fields.milesPerHour);
-      this.logger.info("calculateAndSetFinishTimeIfNotPopulated:endDateTime", endDateTime, "from:", this.displayedWalk.walk.groupEvent.end_date_time);
+      this.logger.info("calculateAndSetFinishTimeIfNotPopulated:endDateTime", endDateTime, "from:", this.displayedWalk.walk?.groupEvent?.end_date_time);
       this.displayedWalk.walk.groupEvent.end_date_time = endDateTime;
     } else {
       this.logger.info("calculateAndSetFinishTimeIfNotPopulated:not calculating finish time as walk.fields.milesPerHour:", this.displayedWalk.walk.fields.milesPerHour, "walk.groupEvent.end_date_time:", this.displayedWalk.walk.groupEvent?.end_date_time);
@@ -780,9 +779,9 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       this.setStatus(eventType.eventType);
       switch (eventType.eventType) {
         case EventType.AWAITING_LEADER: {
-          const walkDate = this.displayedWalk.walk.groupEvent.start_date_time;
+          const walkDate = this.displayedWalk.walk?.groupEvent?.start_date_time;
           this.displayedWalk.walk = this.eventDefaultsService.createDefault({
-            item_type: this.displayedWalk.walk.groupEvent.item_type,
+            item_type: this.displayedWalk.walk?.groupEvent?.item_type,
             id: this.displayedWalk.walk.id,
             start_date_time: walkDate,
             events: this.displayedWalk.walk.events,

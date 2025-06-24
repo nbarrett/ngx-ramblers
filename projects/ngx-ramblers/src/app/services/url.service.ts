@@ -99,12 +99,17 @@ export class UrlService {
   }
 
   baseUrl(): string {
-    if (this.group?.href) {
+    const url = new URL(this.absoluteUrl());
+    const isLocal = this.isLocal(url);
+    if (this.group?.href && !isLocal) {
       return this.group.href;
     } else {
-      const url = new URL(this.absoluteUrl());
       return `${url.protocol}//${url.host}`;
     }
+  }
+
+  private isLocal(url: URL) {
+    return url.hostname === "localhost" || url.hostname === "127.0.0.1";
   }
 
   websocketHost(): string {
@@ -163,8 +168,12 @@ export class UrlService {
     return !!this.segmentWithMongoId();
   }
 
-  pathContainsEventId(): boolean {
-    return this.pathContainsMongoId() || this.pathContainsNumericRamblersId();
+  looksLikeASlug(value: string) {
+    return /[\s-]/.test(value);
+  }
+
+  pathContainsEventIdOrSlug(): boolean {
+    return this.pathContainsMongoId() || this.pathContainsNumericRamblersId() || (this.pathSegments().length === 2 && this.looksLikeASlug(this.lastPathSegment()));
   }
 
   pathContainsNumericRamblersId(): boolean {

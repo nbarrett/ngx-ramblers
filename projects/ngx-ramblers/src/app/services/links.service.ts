@@ -2,7 +2,8 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { EventLinkConfig, LINK_CONFIG, Links, LinkSource, LinkWithSource } from "../models/walk.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";
-import { ExtendedFields } from "../models/group-event.model";
+import { ExtendedFields, ExtendedGroupEvent } from "../models/group-event.model";
+import { GoogleMapsService } from "./google-maps.service";
 
 @Injectable({
   providedIn: "root"
@@ -10,7 +11,7 @@ import { ExtendedFields } from "../models/group-event.model";
 export class LinksService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("LinksService", NgxLoggerLevel.ERROR);
-
+  public googleMapsService = inject(GoogleMapsService);
   public deleteLink(extendedFields: ExtendedFields, linkSource: LinkSource) {
     extendedFields.links = extendedFields.links.filter(item => item.source !== linkSource);
   }
@@ -32,25 +33,35 @@ export class LinksService {
     }
   }
 
-  linksFrom(links: LinkWithSource[]): Links {
-    const returnValue: Links = {meetup: null, osMapsRoute: null, venue: null};
+  linksFrom(extendedGroupEvent: ExtendedGroupEvent): Links {
+    const links: Links = {meetup: null, osMapsRoute: null, venue: null};
     LINK_CONFIG.forEach((linkConfig: EventLinkConfig) => {
-      const linkWithSource: LinkWithSource = links?.find(item => item.source === linkConfig.code);
-      this.assignLinkSourceUrl(returnValue, linkWithSource);
+      const existingLinkWithSource: LinkWithSource = extendedGroupEvent?.fields?.links?.find(item => item.source === linkConfig.code);
+      this.assignLinkSourceUrl(links, existingLinkWithSource, linkConfig.code, extendedGroupEvent);
     });
-    return returnValue;
+    return links;
   }
 
-  private assignLinkSourceUrl(returnValue: Links, linkWithSource: LinkWithSource): void {
-    switch (linkWithSource?.source) {
+  private assignLinkSourceUrl(links: Links, existingLinkWithSource: LinkWithSource, code: LinkSource, extendedGroupEvent: ExtendedGroupEvent): void {
+    this.logger.info("assignLinkSourceUrl: existingLinkWithSource:", existingLinkWithSource, "code:", code, "extendedGroupEvent:", extendedGroupEvent);
+    switch (code) {
       case LinkSource.VENUE:
-        returnValue.venue = linkWithSource;
+        const linkFromVenue: LinkWithSource = extendedGroupEvent?.fields?.venue?.url || extendedGroupEvent?.fields?.venue?.postcode ? {
+          source: LinkSource.VENUE,
+          href: extendedGroupEvent.fields.venue.url || this.googleMapsService.urlForPostcode(extendedGroupEvent.fields.venue.postcode),
+          title: extendedGroupEvent.fields.venue.name
+        } : null;
+        if (!existingLinkWithSource && linkFromVenue) {
+          extendedGroupEvent.fields.links.push(linkFromVenue);
+        }
+        links.venue = existingLinkWithSource || linkFromVenue;
+        this.logger.info("assignLinkSourceUrl: links.venue:", links?.venue, "from extendedGroupEvent.fields.venue:", extendedGroupEvent?.fields?.venue);
         break;
       case LinkSource.MEETUP:
-        returnValue.meetup = linkWithSource;
+        links.meetup = existingLinkWithSource;
         break;
       case LinkSource.OS_MAPS:
-        returnValue.osMapsRoute = linkWithSource;
+        links.osMapsRoute = existingLinkWithSource;
         break;
     }
   }

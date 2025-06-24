@@ -50,7 +50,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
             </div>
           }
           <div class="row">
-            @for (displayedWalk of currentPageWalks; let index = $index; track displayedWalk.walk.id || index) {
+            @for (displayedWalk of currentPageWalks; let index = $index; track displayedWalk?.walk?.id || index) {
               <div
                 [ngClass]="{'pt-2 mb-3 col-lg-4 col-md-6 col-sm-12': !viewExpanded(displayedWalk.walk), 'w-100': viewExpanded(displayedWalk.walk)}"
                 class="d-flex flex-column">

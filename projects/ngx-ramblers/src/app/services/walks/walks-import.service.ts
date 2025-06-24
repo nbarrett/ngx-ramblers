@@ -74,8 +74,8 @@ export class WalksImportService {
     const lastWalk = last(walksToImport);
     const walksWithContactId: ExtendedGroupEvent[] = walksToImport.filter(item => item?.fields?.contactDetails?.contactId);
     const walksWithContactNameSearchString: ExtendedGroupEvent[] = walksToImport.filter(item => JSON.stringify(item).includes(searchString));
-    this.logger.info("firstWalk:", firstWalk, "on", this.dateUtils.displayDate(firstWalk.groupEvent.start_date_time), "lastWalk:", lastWalk, "on", this.dateUtils.displayDate(lastWalk.groupEvent.start_date_time), "walksWithContactId:", walksWithContactId, "walksWithContactNameSearchString:", `${searchString}:`, walksWithContactNameSearchString);
-    messages.push(`First walk is on ${this.dateUtils.displayDate(firstWalk.groupEvent.start_date_time)}`);
+    this.logger.info("firstWalk:", firstWalk, "on", this.dateUtils.displayDate(firstWalk?.groupEvent?.start_date_time), "lastWalk:", lastWalk, "on", this.dateUtils.displayDate(lastWalk?.groupEvent?.start_date_time), "walksWithContactId:", walksWithContactId, "walksWithContactNameSearchString:", `${searchString}:`, walksWithContactNameSearchString);
+    messages.push(`First walk is on ${this.dateUtils.displayDate(firstWalk?.groupEvent?.start_date_time)}`);
     messages.push(`Last walk is on ${this.dateUtils.displayDate(lastWalk.groupEvent.start_date_time)}`);
     const existingWalks: ExtendedGroupEvent[] = await this.localWalksAndEventsService.all();
     const existingWalksWithinRange: ExtendedGroupEvent[] = existingWalks.filter(walk => walk.groupEvent.start_date_time >= firstWalk.groupEvent.start_date_time && walk.groupEvent.start_date_time <= lastWalk.groupEvent.start_date_time);

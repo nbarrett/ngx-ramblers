@@ -1,7 +1,7 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { LocationDetails, Media, RamblersEventType } from "../../models/ramblers-walks-manager";
-import { ImageSource, LinkSource, LinkWithSource, WalkType } from "../../models/walk.model";
+import { GROUP_EVENT_START_DATE, ImageSource, LinkSource, LinkWithSource, WalkType } from "../../models/walk.model";
 import { WalkDisplayService } from "../../pages/walks/walk-display.service";
 import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -50,6 +50,7 @@ export class EventsMigrationService {
   private urlService: UrlService = inject(UrlService);
   private mediaQueryService: MediaQueryService = inject(MediaQueryService);
   private walksConfig: WalksConfig;
+  private dryRun = false;
 
   constructor() {
     this.walksConfigService.events().subscribe(walksConfig => this.walksConfig = walksConfig);
@@ -58,6 +59,39 @@ export class EventsMigrationService {
 
   isWalk = (event: Walk | SocialEvent): event is Walk => event && "walkDate" in event;
 
+  async migrateSocialEventUrls() {
+    this.logger.info("migrateSocialEventUrls:starting migration of social event URLs");
+    const socialEvents: ExtendedGroupEvent[] = await this.localWalksAndEventsService.all({
+      types: [RamblersEventType.GROUP_EVENT],
+      dataQueryOptions: {sort: {[GROUP_EVENT_START_DATE]: -1}}
+    });
+    this.logger.info("migrateSocialEventUrls:found social events:", socialEvents);
+    const usedUrls = new Set<string>();
+    const changedEvents: ExtendedGroupEvent[] = [];
+
+    for (const event of socialEvents) {
+      const baseUrl = this.stringUtilsService.kebabCase(event.groupEvent.title);
+      let url = baseUrl;
+      let suffix = 2;
+      while (usedUrls.has(url)) {
+        url = `${baseUrl}-${suffix++}`;
+      }
+      usedUrls.add(url);
+      if (event.groupEvent.url !== url) {
+        this.logger.info("migrateSocialEventUrls:updated social event URL:", url, "for event:", event.groupEvent.title, event.groupEvent);
+        event.groupEvent.url = url;
+        changedEvents.push(event);
+      }
+    }
+    if (this.dryRun) {
+      this.logger.info("Dry run: not saving social events with updated URLs:", changedEvents, "usedUrls:", usedUrls);
+    } else if (changedEvents.length > 0) {
+      await this.localWalksAndEventsService.createOrUpdateAll(changedEvents);
+      this.logger.info("Saved social events with updated URLs:", changedEvents, "usedUrls:", usedUrls);
+    } else {
+      this.logger.info("No social event URLs needed updating.");
+    }
+  }
 
   toExtendedGroupEvent(walkOrSocialEvent: Walk | SocialEvent, ramblersWalks: ExtendedGroupEvent[]): ExtendedGroupEvent {
     if (!walkOrSocialEvent) return;

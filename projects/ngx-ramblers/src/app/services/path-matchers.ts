@@ -3,9 +3,7 @@ import { isMongoId } from "./mongo-utils";
 import last from "lodash-es/last";
 
 function relativePathFrom(urlSegments: UrlSegment[]) {
-  const urlSegment = new UrlSegment(urlSegments.map(urlSegment => urlSegment.path).join("/"), {});
-  // console.log("urlSegments:", urlSegments, "urlSegment:", urlSegment);
-  return urlSegment;
+  return new UrlSegment(urlSegments.map(urlSegment => urlSegment.path).join("/"), {});
 }
 
 export function returnMatch(matched: boolean, urlSegments: UrlSegment[]) {
@@ -40,8 +38,3 @@ export function hasNumericLastPathSegment(urlSegments: UrlSegment[]): UrlMatchRe
 export function isNumericRamblersId(value: string) {
   return +value > 100000000;
 }
-
-export function hasRamblersIdOrUrl(urlSegments: UrlSegment[]): UrlMatchResult {
-  return returnMatch((urlSegments.length === 1) && isNumericRamblersId(urlSegments[0]?.path), urlSegments);
-}
-

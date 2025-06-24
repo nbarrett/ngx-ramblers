@@ -58,6 +58,7 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                         <div class="form-group">
                           <label for="title">Title</label>
                           <input [disabled]="!display.allow.edits"
+                                 (ngModelChange)="onTitleChange($event)"
                                  [(ngModel)]="socialEvent.groupEvent.title" type="text"
                                  class="form-control input-sm"
                                  id="title"
@@ -65,20 +66,33 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                         </div>
                       </div>
                     </div>
+                    @if (showUrl) {
+                      <div class="row">
+                        <div class="col-sm-12">
+                          <div class="form-group">
+                            <label for="url">Url</label>
+                            <input [disabled]="!display.allow.edits"
+                                   [(ngModel)]="socialEvent.groupEvent.url" type="text"
+                                   class="form-control input-sm"
+                                   id="url"/>
+                          </div>
+                        </div>
+                      </div>
+                    }
                     <div class="row align-items-center">
                       <div class="col-auto">
                         <div class="form-group">
                           <app-date-picker label="Social Event Date"
                                            size="md"
                                            (change)="startDateChanged($event)"
-                                           [value]="socialEvent.groupEvent.start_date_time">
+                                           [value]="socialEvent?.groupEvent?.start_date_time">
                           </app-date-picker>
                         </div>
                       </div>
                       <div class="col-auto">
                         <div class="form-group" app-time-picker id="start-time" label="Start Time"
                              [disabled]="!display.allow.edits"
-                             [value]="socialEvent.groupEvent.start_date_time"
+                             [value]="socialEvent?.groupEvent?.start_date_time"
                              (change)="onStartDateTimeChange($event)">
                         </div>
                       </div>
@@ -415,15 +429,16 @@ export class SocialEditComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   protected readonly RootFolder = RootFolder;
   protected config: SystemConfig;
+  protected showUrl = false;
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.systemConfigService.events().subscribe((config: SystemConfig) => this.config = config));
-    if (this.urlService.pathContainsEventId()) {
+    if (this.urlService.pathContainsEventIdOrSlug()) {
       this.notify.setBusy();
       const socialEventId = this.urlService.segmentWithMongoId();
       this.logger.debug("finding socialEvent from socialEventId:", socialEventId);
-      this.walksAndEventsService.getByIdIfPossible(socialEventId).then(data => {
+      this.walksAndEventsService.queryById(socialEventId).then(data => {
         this.socialEvent = data;
         if (this.config?.enableMigration?.events) {
           this.eventsMigrationService.migrateOneSocialEvent(data.fields.migratedFromId);
@@ -657,5 +672,11 @@ export class SocialEditComponent implements OnInit, OnDestroy {
 
   inputDisabled() {
     return this.notifyTarget.busy || this.display.confirm.deleteConfirmOutstanding();
+  }
+
+  async onTitleChange(title: string) {
+    const url = await this.walksAndEventsService.urlFromTitle(title, this.socialEvent.id);
+    this.logger.info("onTitleChange:updating socialEvent groupEvent url based on title:", title, "from:", this.socialEvent.groupEvent.url, "to:", url);
+    this.socialEvent.groupEvent.url = url;
   }
 }

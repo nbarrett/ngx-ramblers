@@ -181,7 +181,7 @@ export class WalkNotificationService {
     const walkLeaderMember = await this.memberService.getById(displayedWalk.walk?.fields?.contactDetails?.memberId);
     this.logger.info("sendNotification:", "memberId", displayedWalk.walk?.fields?.contactDetails?.memberId, "member", walkLeaderMember);
     const walkLeaderName = this.fullNameWithAliasPipe.transform(walkLeaderMember);
-    const walkDate = this.displayDatePipe.transform(displayedWalk.walk.groupEvent.start_date_time);
+    const walkDate = this.displayDatePipe.transform(displayedWalk.walk?.groupEvent?.start_date_time);
     await this.sendLeaderNotifications(notificationConfig, notify, notificationDirective, walkNotification, walkEventType, walkDate);
     return await this.sendCoordinatorNotifications(notificationConfig, notify, walkLeaderMember, members, notificationDirective, walkNotification, walkEventType, walkLeaderName, walkDate);
   }

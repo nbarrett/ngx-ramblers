@@ -9,7 +9,7 @@ export class WalkSummaryPipe implements PipeTransform {
 
 
   transform(walk: ExtendedGroupEvent) {
-    return walk === undefined ? null : `${this.displayDatePipe.transform(walk.groupEvent.start_date_time)} led by ${walk?.fields?.contactDetails?.displayName || walk?.fields?.contactDetails?.phone || "unknown"} (${walk.groupEvent.title || "no description"})`;
+    return walk === undefined ? null : `${this.displayDatePipe.transform(walk?.groupEvent?.start_date_time)} led by ${walk?.fields?.contactDetails?.displayName || walk?.fields?.contactDetails?.phone || "unknown"} (${walk?.groupEvent?.title || "no description"})`;
   }
 
 }

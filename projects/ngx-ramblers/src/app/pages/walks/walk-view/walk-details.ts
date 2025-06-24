@@ -28,11 +28,11 @@ import { enumValueForKey } from "../../../functions/enums";
       <div class="event-panel rounded">
         <h1>
           <fa-icon class="{{display.eventType(displayedWalk.walk)}}"
-                   tooltip="{{stringUtils.asTitle(displayedWalk.walk.groupEvent.item_type)}}" adaptivePosition
+                   tooltip="{{stringUtils.asTitle(displayedWalk.walk?.groupEvent?.item_type)}}" adaptivePosition
                    [icon]="display.isWalk(displayedWalk.walk)? displayedWalk.showEndpoint? faPersonWalkingDashedLineArrowRight: faPersonWalkingArrowLoopLeft: faPeopleGroup"/>
           <fa-icon [icon]=""
                    class="fa-icon mr-2"/>
-          {{ display.isWalk(displayedWalk.walk) ? enumValueForKey(WalkType, displayedWalk.walk.groupEvent.shape) : null }}
+          {{ display.isWalk(displayedWalk.walk) ? enumValueForKey(WalkType, displayedWalk.walk?.groupEvent?.shape) : null }}
           {{ display.eventTypeTitle(displayedWalk.walk) }}
           {{ display.isWalk(displayedWalk.walk) ? 'Starting Point &' : '' }} Details
         </h1>
@@ -51,19 +51,19 @@ import { enumValueForKey } from "../../../functions/enums";
                 {{ displayedWalk?.walk?.groupEvent?.start_location?.postcode }}</a>
             </div>
           </div>
-          @if (display.gridReferenceFrom(displayedWalk.walk.groupEvent.start_location)) {
+          @if (display.gridReferenceFrom(displayedWalk.walk?.groupEvent?.start_location)) {
             <div app-related-link [mediaWidth]="walkDetailsMediaWidth"
                  class="col-sm-6">
               <div title>
-                <app-copy-icon [value]="display.gridReferenceFrom(displayedWalk.walk.groupEvent.start_location)"
+                <app-copy-icon [value]="display.gridReferenceFrom(displayedWalk.walk?.groupEvent?.start_location)"
                                [elementName]="elementNameStart('Grid Ref')"></app-copy-icon>
                 Grid Ref
               </div>
               <div content>
                 <a content
-                   [href]="display.gridReferenceLink(display.gridReferenceFrom(displayedWalk.walk.groupEvent.start_location))"
-                   tooltip="Click to locate grid reference {{display.gridReferenceFrom(displayedWalk.walk.groupEvent.start_location)}} on UK Grid Reference Finder"
-                   target="_blank">{{ display.gridReferenceFrom(displayedWalk.walk.groupEvent.start_location) }}</a>
+                   [href]="display.gridReferenceLink(display.gridReferenceFrom(displayedWalk.walk?.groupEvent?.start_location))"
+                   tooltip="Click to locate grid reference {{display.gridReferenceFrom(displayedWalk.walk?.groupEvent?.start_location)}} on UK Grid Reference Finder"
+                   target="_blank">{{ display.gridReferenceFrom(displayedWalk.walk?.groupEvent?.start_location) }}</a>
               </div>
             </div>
           }
@@ -99,7 +99,7 @@ import { enumValueForKey } from "../../../functions/enums";
               </div>
             }
           }
-          @if (displayedWalk.walk.groupEvent.distance_miles) {
+          @if (displayedWalk.walk?.groupEvent?.distance_miles) {
             <div app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6">
               <div title>
                 <fa-icon [icon]="faRulerHorizontal" class="fa-icon mr-1"/>
@@ -108,16 +108,16 @@ import { enumValueForKey } from "../../../functions/enums";
               </div>
             </div>
           }
-          @if (displayedWalk.walk.groupEvent.difficulty) {
+          @if (displayedWalk.walk?.groupEvent?.difficulty) {
             <div app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6">
               <div title>
                 <strong>
-                  <app-walk-grading [grading]="displayedWalk.walk.groupEvent.difficulty.code"/>
+                  <app-walk-grading [grading]="displayedWalk.walk?.groupEvent?.difficulty.code"/>
                 </strong>
               </div>
             </div>
           }
-          @if (displayedWalk.walk.groupEvent.ascent_feet) {
+          @if (displayedWalk.walk?.groupEvent?.ascent_feet) {
             <div app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6">
               <div title>
                 <fa-icon [icon]="faRulerVertical" class="fa-icon mr-3"/>
@@ -134,12 +134,12 @@ import { enumValueForKey } from "../../../functions/enums";
           }
           @if (displayedWalk?.walk?.groupEvent?.event_organiser?.name) {
             <div class="col-sm-12 mt-1 list-tick-medium">
-              <p markdown>**Organiser**: {{ displayedWalk.walk.groupEvent.event_organiser.name }}</p>
+              <p markdown>**Organiser**: {{ displayedWalk.walk?.groupEvent?.event_organiser.name }}</p>
             </div>
           }
           @if (displayedWalk?.walk?.groupEvent?.additional_details) {
             <div class="col-sm-12 mt-1 list-tick-medium">
-              <p markdown>**Additional Details** {{ displayedWalk.walk.groupEvent.additional_details }}</p>
+              <p markdown>**Additional Details** {{ displayedWalk.walk?.groupEvent?.additional_details }}</p>
             </div>
           }
         </div>

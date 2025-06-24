@@ -35,7 +35,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
     <div class="row">
       @for (socialEvent of filteredSocialEvents; track socialEvent) {
         <div [class]="slideClasses()">
-          <app-social-card [socialEvent]="socialEvent"></app-social-card>
+          <app-social-card [socialEvent]="socialEvent"/>
         </div>
       }
     </div>`,
