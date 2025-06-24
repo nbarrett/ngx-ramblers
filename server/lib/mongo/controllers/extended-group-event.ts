@@ -1,7 +1,7 @@
 import debug from "debug";
 import { Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
-import kebabCase from "lodash-es/kebabCase";
+import kebabCase from "lodash/kebabCase";
 import { extendedGroupEvent } from "../models/extended-group-event";
 
 const debugLog = debug(envConfig.logNamespace("extended-group-event"));

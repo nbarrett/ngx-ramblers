@@ -14,7 +14,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 })
 
 export class EventDispatchService {
-  private logger: Logger = inject(LoggerFactory).createLogger("EventDispatchService", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("EventDispatchService", NgxLoggerLevel.ERROR);
   private pageContentService: PageContentService = inject(PageContentService);
   private pageService = inject(PageService);
   protected urlService: UrlService = inject(UrlService);
