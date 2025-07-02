@@ -28,7 +28,7 @@ describe("DateUtilsService", () => {
         } as ExtendedGroupEvent;
         const calculatedValue: number = dateUtils.startTimeAsValue(walk);
         const expectedValue = dateUtils.asMoment(date).valueOf();
-        expect(calculatedValue).withContext(`Failed on date: ${momentFor(date).format("YYYY-MM-DD")}: calculatedValue:${dateUtils.isoDateTimeString(calculatedValue)}, expectedValue:${dateUtils.isoDateTimeString(expectedValue)}`).toEqual(expectedValue);
+        expect(calculatedValue).withContext(`Failed on date: ${momentFor(date).format("YYYY-MM-DD")}: calculatedValue:${dateUtils.isoDateTime(calculatedValue)}, expectedValue:${dateUtils.isoDateTime(expectedValue)}`).toEqual(expectedValue);
       }
     });
   });

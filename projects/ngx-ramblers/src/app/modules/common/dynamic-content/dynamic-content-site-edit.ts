@@ -59,7 +59,7 @@ import { DynamicContentSiteEditTextRowComponent } from "./dynamic-content-site-e
 import { DuplicateContentDetectionService } from "../../../services/duplicate-content-detection-service";
 import last from "lodash-es/last";
 import { ALERT_ERROR } from "../../../models/alert-target.model";
-import { EventsSiteEditComponent } from "./dynamic-content-site-edit-events";
+import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events";
 
 @Component({
     selector: "app-dynamic-content-site-edit",
@@ -327,7 +327,7 @@ import { EventsSiteEditComponent } from "./dynamic-content-site-edit-events";
         </ng-template>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtonsComponent, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, EventsSiteEditComponent]
+  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtonsComponent, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   protected duplicateUsageMessages: DuplicateUsageMessage[] = [];

@@ -9,8 +9,8 @@ import { ImageSource } from "../../models/walk.model";
 import { GroupEventImages } from "../../pages/walks/walk-view/group-event-images";
 import { enumKeyValues, KeyValue } from "../../functions/enums";
 import {
-  WalkImageSelectionWalksManagerComponent
-} from "../../pages/walks/walk-edit/walk-images-selection-walks-manager";
+  EventImageSelectionForWalksManager
+} from "../../pages/walks/walk-edit/event-image-selection-for-walks-manager";
 import { ImageCropperAndResizerComponent } from "../../image-cropper-and-resizer/image-cropper-and-resizer";
 import { AwsFileData } from "../../models/aws-object.model";
 import { AlertInstance } from "../../services/notifier.service";
@@ -84,7 +84,7 @@ import { EventDefaultsService } from "../../services/event-defaults.service";
         }
       </div>
     </div>`,
-  imports: [UiSwitchModule, GroupEventImages, WalkImageSelectionWalksManagerComponent, ImageCropperAndResizerComponent]
+  imports: [UiSwitchModule, GroupEventImages, EventImageSelectionForWalksManager, ImageCropperAndResizerComponent]
 })
 export class EditGroupEventImagesComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("EditGroupEventImagesComponent", NgxLoggerLevel.ERROR);

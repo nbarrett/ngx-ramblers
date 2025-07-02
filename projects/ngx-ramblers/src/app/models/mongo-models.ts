@@ -30,3 +30,8 @@ export interface DeletionResponseApiResponse extends ApiResponse {
   request: any;
   response?: DeletionResponse | DeletionResponse[];
 }
+
+export enum MongoSort {
+  DESCENDING = -1,
+  ASCENDING = 1
+}

@@ -51,7 +51,7 @@ export class TimePicker {
   onModelChange(date: Date) {
     if (isDate(date)) {
       date.setSeconds(0, 0);
-      const value: string = date ? this.dateUtils.isoDateTimeString(date) : null;
+      const value: string = date ? this.dateUtils.isoDateTime(date) : null;
       this.logger.info("onModelChange:label", this.label, "date:", date, "of type", typeof date, "emitting value:", value);
       this.change.emit(value);
     } else {

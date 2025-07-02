@@ -128,7 +128,7 @@ export class CommitteeQueryService {
         })
           .then(committeeFiles => committeeFiles.forEach(committeeFile => events.push({
             id: committeeFile.id,
-            slug: this.stringUtilsService.kebabCase(committeeFile.fileType, this.dateUtils.isoDateTimeString(committeeFile.eventDate)),
+            slug: this.stringUtilsService.kebabCase(committeeFile.fileType, this.dateUtils.isoDateTime(committeeFile.eventDate)),
             selected: true,
             eventType: GroupEventTypes.COMMITTEE,
             eventDate: committeeFile.eventDate,

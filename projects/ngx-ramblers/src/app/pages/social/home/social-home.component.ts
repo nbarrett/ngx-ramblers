@@ -3,12 +3,14 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { PageComponent } from "../../../page/page.component";
 import { SocialCarouselComponent } from "../social-carousel/social-carousel";
-import { SocialEventsComponent } from "../list/social-events";
+import { Events } from "../../../modules/common/events/events";
 import { EventsMigrationService } from "../../../services/migration/events-migration.service";
 import { Subscription } from "rxjs";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { SystemConfig } from "../../../models/system.model";
 import { SocialDisplayService } from "../social-display.service";
+import { DynamicContentComponent } from "../../../modules/common/dynamic-content/dynamic-content";
+import { BuiltInAnchor } from "../../../models/content-text.model";
 
 @Component({
     selector: "app-social-home",
@@ -22,11 +24,11 @@ import { SocialDisplayService } from "../social-display.service";
             </button>
           </div>
         }
-        <app-social-events/>
+        <app-dynamic-content contentPathReadOnly [anchor]="BuiltInAnchor.SOCIAL_CONTENT"/>
       </app-page>
     `,
     styleUrls: ["./social-home.component.sass"],
-    imports: [PageComponent, SocialCarouselComponent, SocialEventsComponent]
+  imports: [PageComponent, SocialCarouselComponent, Events, DynamicContentComponent]
 })
 export class SocialHomeComponent implements OnInit, OnDestroy {
   loggerFactory: LoggerFactory = inject(LoggerFactory);
@@ -36,6 +38,8 @@ export class SocialHomeComponent implements OnInit, OnDestroy {
   public logger = this.loggerFactory.createLogger("SocialHomeComponent", NgxLoggerLevel.ERROR);
   private subscriptions: Subscription[] = [];
   protected systemConfig: SystemConfig;
+  protected readonly BuiltInAnchor = BuiltInAnchor;
+
   ngOnInit() {
     this.logger.info("ngOnInit");
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
@@ -49,5 +53,4 @@ export class SocialHomeComponent implements OnInit, OnDestroy {
   public async performMigration() {
     await this.eventsMigrationService.migrateSocialEventUrls();
   }
-
 }

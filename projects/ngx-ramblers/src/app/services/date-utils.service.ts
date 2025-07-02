@@ -99,8 +99,12 @@ export class DateUtilsService {
     return this.asString(dateValue, undefined, this.formats.displayTimeWithSeconds);
   }
 
-  isoDateTimeString(dateValue?: any): string {
+  isoDateTime(dateValue?: any): string {
     return this.asMoment(dateValue)?.format();
+  }
+
+  isoDateTimeStartOfDay(): string {
+    return this.isoDateTime(this.momentNowNoTime());
   }
 
   asDateValue(dateValue?: any, inputFormat?: string): DateValue {

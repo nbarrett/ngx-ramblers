@@ -24,6 +24,7 @@ import { StringUtilsService } from "./string-utils.service";
 import { Organisation, RootFolder } from "../models/system.model";
 import { SystemConfigService } from "./system/system-config.service";
 import { DateUtilsService } from "./date-utils.service";
+import { FALLBACK_MEDIA } from "../models/walk.model";
 
 @Injectable({
   providedIn: "root"
@@ -239,6 +240,9 @@ export class UrlService {
   imageSource(url: string, absolute?: boolean, cacheBuster?: boolean): string {
     if (this.isRemoteUrl(url)) {
       this.logger.debug("imageSourceUrl:isRemoteUrl:returning", url);
+      return url;
+    } else if (FALLBACK_MEDIA.url === url) {
+      this.logger.debug("imageSourceUrl:FALLBACK_MEDIA:returning", url);
       return url;
     } else if (this.isBase64Image(url)) {
       this.logger.debug("imageSourceUrl:isBase64Image:returning", url);

@@ -4,7 +4,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { PageService } from "../../../services/page.service";
-import { SocialViewComponent } from "../social-view/social-view";
+import { SocialView } from "../social-view/social-view";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 
 @Component({
@@ -12,7 +12,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
     template: `
     <app-social-view [socialEvent]="socialEvent"/>
   `,
-    imports: [SocialViewComponent]
+    imports: [SocialView]
 })
 export class SocialViewPageComponent implements OnInit, OnDestroy {
 

@@ -138,6 +138,7 @@ export enum BuiltInAnchor {
   HOME_CONTENT = "home-content",
   INSTAGRAM_CONTENT = "instagram-content",
   PAGE_HEADER = "page-header",
+  SOCIAL_CONTENT = "social-content",
 }
 
 export enum BuiltInPath {

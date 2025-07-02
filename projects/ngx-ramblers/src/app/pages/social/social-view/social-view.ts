@@ -44,18 +44,14 @@ import { BasicMedia } from "../../../models/ramblers-walks-manager";
         @if (display.allow.detailView) {
           <div class="row">
             <div class="col-sm-12">
-              <h3>{{ socialEvent | eventDatesAndTimes }}</h3>
+              <h3>{{ socialEvent.groupEvent | eventDatesAndTimes }}</h3>
             </div>
           </div>
-        }
-        @if (display.allow.detailView) {
           <div class="row">
             <div class="col-sm-12">
               <p class="list-arrow" markdown [data]="socialEvent?.groupEvent?.description"></p>
             </div>
           </div>
-        }
-        @if (display.allow.detailView) {
           <div class="row">
             <div class="col-sm-6">
               <div class="event-panel rounded">
@@ -100,7 +96,7 @@ import { BasicMedia } from "../../../models/ramblers-walks-manager";
                 }
                 @if (socialEvent?.fields?.attachment) {
                   <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
-                    <fa-icon title [icon]="faFile" class="fa-icon"></fa-icon>
+                    <fa-icon title [icon]="faFile" class="fa-icon"/>
                     <div content>
                       <a tooltip="Click to view attachment" [href]="display.attachmentUrl(socialEvent)"
                          target="_blank">{{ display.attachmentTitle(socialEvent) }}</a>
@@ -108,10 +104,10 @@ import { BasicMedia } from "../../../models/ramblers-walks-manager";
                   </div>
                 }
                 <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
-                  <app-copy-icon title [value]="display.socialEventLink(socialEvent, false)"
+                  <app-copy-icon title [value]="display.groupEventLink(socialEvent, false)"
                                  [elementName]="'This social event'"/>
                   <div content>
-                    <a [href]="display.socialEventLink(socialEvent, true)" target="_blank">This Social Event</a>
+                    <a [href]="display.groupEventLink(socialEvent, true)" target="_blank">This Social Event</a>
                   </div>
                 </div>
               </div>
@@ -124,7 +120,7 @@ import { BasicMedia } from "../../../models/ramblers-walks-manager";
                     <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
                       <fa-icon title tooltip="contact organiser {{socialEvent?.fields?.contactDetails?.displayName}}"
                                [icon]="faEnvelope"
-                               class="fa-icon pointer"></fa-icon>
+                               class="fa-icon pointer"/>
                       <a content
                          [href]="socialEvent?.fields?.contactDetails?.email">{{ socialEvent?.fields?.contactDetails?.displayName || "Contact Via Ramblers" }}</a>
                     </div>
@@ -162,7 +158,7 @@ import { BasicMedia } from "../../../models/ramblers-walks-manager";
           <div>
             @if (notifyTarget.showAlert) {
               <div class="col-12 alert alert-warning mt-3 mb-0">
-                <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                <fa-icon [icon]="notifyTarget.alert.icon"/>
                 <strong class="ml-2">Some of the information on this event is hidden</strong>
                 {{ notifyTarget.alertMessage }} <a [routerLink]="'/login'" type="button"
                                                    class="rams-text-decoration-pink">Login to see more</a>
@@ -174,7 +170,7 @@ import { BasicMedia } from "../../../models/ramblers-walks-manager";
           <div>
             @if (notifyTarget.showAlert) {
               <div class="col-12 alert {{notifyTarget.alertClass}} mt-3 mb-0">
-                <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                <fa-icon [icon]="notifyTarget.alert.icon"/>
                 <strong class="ml-2">{{ notifyTarget.alertTitle }}</strong>
                 {{ notifyTarget.alertMessage }} <a [routerLink]="'/'+pageService.socialPage()?.href" type="button"
                                                    class="rams-text-decoration-pink">Back to all social events</a>
@@ -187,9 +183,9 @@ import { BasicMedia } from "../../../models/ramblers-walks-manager";
   styleUrls: ["social-view.sass"],
   imports: [MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, EventDatesAndTimesPipe]
 })
-export class SocialViewComponent implements OnInit {
+export class SocialView implements OnInit {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("SocialViewComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("SocialView", NgxLoggerLevel.ERROR);
   protected pageService = inject(PageService);
   googleMapsService = inject(GoogleMapsService);
   private notifierService = inject(NotifierService);

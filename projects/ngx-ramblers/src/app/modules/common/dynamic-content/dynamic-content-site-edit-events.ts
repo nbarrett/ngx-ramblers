@@ -12,14 +12,18 @@ import { ContentMetadataService } from "../../../services/content-metadata.servi
 import { UrlService } from "../../../services/url.service";
 import { enumValues, KeyValue } from "../../../functions/enums";
 import { FormsModule } from "@angular/forms";
-import { EventsComponent } from "../events/events";
+import { EventsRow } from "../events/events-row";
 import { DatePicker } from "../../../date-and-time/date-picker";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
-import { CommitteeQueryService } from "../../../services/committee/committee-query.service";
-import { GroupEventsFilter, GroupEventSummary } from "../../../models/committee.model";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { DynamicContentMaxColumnsEditorComponent } from "./dynamic-content-max-columns-editor";
+import { BroadcastService } from "../../../services/broadcast-service";
+import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
+import { EventsData, EventsDataAllows } from "../../../models/social-events.model";
+import { DYNAMIC_CONTENT_FILTER_OPTIONS, FilterCriteria, SortOrder } from "../../../models/api-request.model";
+import { SocialDisplayService } from "../../../pages/social/social-display.service";
+import { HasStartAndEndTime } from "../../../models/group-event.model";
 
 @Component({
   selector: "app-dynamic-content-site-edit-events",
@@ -49,46 +53,132 @@ import { DynamicContentMaxColumnsEditorComponent } from "./dynamic-content-max-c
         </div>
         <div class="col">
           <div class="form-group">
-            <label for="from-date-{{id}}">Select Events From:</label>
+            <label for="filter-criteria-{{id}}">Filter Criteria</label>
+            <select [(ngModel)]="row.events.filterCriteria"
+                    (ngModelChange)="broadcastChange()"
+                    name="selectType"
+                    class="form-control rounded mr-3">
+              @for (dateCriteria of display.filterCriteriaOptionsFor(DYNAMIC_CONTENT_FILTER_OPTIONS); track dateCriteria.value) {
+                <option [ngValue]="dateCriteria.key">{{ dateCriteria.value }}</option>
+              }
+            </select>
+          </div>
+        </div>
+        <div class="col">
+          <div class="form-group">
+            <label for="from-date-{{id}}">Select Events From</label>
             <app-date-picker startOfDay
+                             [disabled]="this.row.events.filterCriteria !== FilterCriteria.DATE_RANGE"
                              id="from-date-{{id}}"
                              [size]="'md round'"
-                             (change)="row.events.fromDate=$event.value;queryGroupEvents()"
+                             (change)="row.events.fromDate=$event.value;broadcastChange()"
                              [value]="row.events.fromDate">
             </app-date-picker>
           </div>
         </div>
         <div class="col">
           <div class="form-group">
-            <label for="to-date-{{id}}">Select Events To:</label>
+            <label for="to-date-{{id}}">Select Events To</label>
             <app-date-picker startOfDay
+                             [disabled]="this.row.events.filterCriteria !== FilterCriteria.DATE_RANGE"
                              id="to-date-{{id}}"
                              [size]="'md round'"
-                             (change)="row.events.toDate=$event.value;queryGroupEvents()"
+                             (change)="row.events.toDate=$event.value;broadcastChange()"
                              [value]="row.events.toDate">
             </app-date-picker>
+          </div>
+        </div>
+        <div class="col">
+          <div class="form-group">
+            <label for="sort-order-{{id}}">Sort Order</label>
+            <select [(ngModel)]="row.events.sortOrder"
+                    (ngModelChange)="broadcastChange()" name="sortOrder" id="sort-order-{{id}}"
+                    class="form-control rounded">
+              @for (sortOrder of display.sortOrderOptions(); track sortOrder.value) {
+                <option [ngValue]="sortOrder.key">{{ sortOrder.value }}</option>
+              }
+            </select>
           </div>
         </div>
         <div class="col">
           <div class="form-group" app-dynamic-content-max-columns-editor [hasMaxColumns]="row.events"></div>
         </div>
       </div>
+      <div class="row d-flex">
+        <div class="col-md-12 form-inline px-0 pb-2">
+          <div class="col-auto">
+            <div class="custom-control custom-checkbox">
+              <input name="showSwiper" [(ngModel)]="row.events.allow.quickSearch"
+                     [checked]="row.events.allow.quickSearch"
+                     type="checkbox" class="custom-control-input"
+                     [id]="id +'-quick-search'">
+              <label class="custom-control-label"
+                     [for]="id +'-quick-search'">Quick Search
+              </label>
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="custom-control custom-checkbox">
+              <input name="showSwiper" [(ngModel)]="row.events.allow.pagination"
+                     [checked]="row.events.allow.pagination"
+                     type="checkbox" class="custom-control-input"
+                     [id]="id +'-pagination'">
+              <label class="custom-control-label"
+                     [for]="id +'-pagination'">Pagination
+              </label>
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="custom-control custom-checkbox">
+              <input name="showSwiper" [(ngModel)]="row.events.allow.alert"
+                     [checked]="row.events.allow.alert"
+                     type="checkbox" class="custom-control-input"
+                     [id]="id +'-alert-indicator'">
+              <label class="custom-control-label"
+                     [for]="id +'-alert-indicator'">Alert Indicator
+              </label>
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="custom-control custom-checkbox">
+              <input name="showSwiper" [(ngModel)]="row.events.allow.autoTitle"
+                     [checked]="row.events.allow.autoTitle"
+                     type="checkbox" class="custom-control-input"
+                     [id]="id +'-auto-title'">
+              <label class="custom-control-label"
+                     [for]="id +'-auto-title'">Auto Title
+              </label>
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="custom-control custom-checkbox">
+              <input name="showSwiper" [(ngModel)]="row.events.allow.addNew"
+                     [checked]="row.events.allow.addNew"
+                     type="checkbox" class="custom-control-input"
+                     [id]="id +'-add-new-event'">
+              <label class="custom-control-label"
+                     [for]="id +'-add-new-event'">Add New Event Button
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
     }
-    <app-events [row]="row" [rowIndex]="rowIndex"/>`,
-  imports: [FormsModule, EventsComponent, DatePicker, NgSelectComponent, DynamicContentMaxColumnsEditorComponent]
+    <app-events-row [row]="row" [rowIndex]="rowIndex"/>`,
+  imports: [FormsModule, EventsRow, DatePicker, NgSelectComponent, DynamicContentMaxColumnsEditorComponent]
 })
-export class EventsSiteEditComponent implements OnInit {
+export class DynamicContentSiteEditEvents implements OnInit {
+  public display: SocialDisplayService = inject(SocialDisplayService);
   public pageContentService: PageContentService = inject(PageContentService);
   public memberResourcesReferenceData: MemberResourcesReferenceDataService = inject(MemberResourcesReferenceDataService);
   public contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
   public stringUtils: StringUtilsService = inject(StringUtilsService);
   public urlService: UrlService = inject(UrlService);
   private numberUtils: NumberUtilsService = inject(NumberUtilsService);
+  private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   public actions: PageContentActionsService = inject(PageContentActionsService);
-  private committeeQueryService = inject(CommitteeQueryService);
-  dateUtils = inject(DateUtilsService);
-  loggerFactory: LoggerFactory = inject(LoggerFactory);
-  public logger = this.loggerFactory.createLogger("EventsSiteEditComponent", NgxLoggerLevel.ERROR);
+  protected dateUtils = inject(DateUtilsService);
+  protected logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditEvents", NgxLoggerLevel.ERROR);
   public instance = this;
   @Input()
   public row: PageContentRow;
@@ -97,48 +187,23 @@ export class EventsSiteEditComponent implements OnInit {
   faAdd = faAdd;
   id: string;
   protected readonly faSearch = faSearch;
-  public groupEvents: GroupEventSummary[] = [];
   public eventTypes: KeyValue<string>[] = enumValues(RamblersEventType).map(item => ({
     key: item,
     value: this.stringUtils.asTitle(item)
   }));
 
+  protected readonly DYNAMIC_CONTENT_FILTER_OPTIONS = DYNAMIC_CONTENT_FILTER_OPTIONS;
+  protected readonly FilterCriteria = FilterCriteria;
+  protected fromAndTo: HasStartAndEndTime;
+
   async ngOnInit() {
     this.initialiseRowForEvents(this.row);
     this.logger.info("ngOnInit:row:", this.row, "eventTypes:", this.eventTypes);
     this.id = this.numberUtils.generateUid();
-    await this.queryGroupEvents();
-    this.logger.info("ngOnInit:groupEvents:", this.groupEvents);
   }
 
-  queryGroupEvents(): Promise<GroupEventSummary[]> {
-    const groupEventsFilter: GroupEventsFilter = {
-      search: null,
-      selectAll: true,
-      fromDate: this.dateUtils.asDateValue(this.row.events.fromDate),
-      toDate: this.dateUtils.asDateValue(this.row.events.toDate),
-      includeImage: true,
-      includeContact: true,
-      includeDescription: true,
-      includeLocation: true,
-      includeWalks: this.row.events.eventTypes.includes(RamblersEventType.GROUP_WALK),
-      includeSocialEvents: this.row.events.eventTypes.includes(RamblersEventType.GROUP_EVENT),
-      includeCommitteeEvents: false,
-      sortBy: "-eventDate"
-    };
-    return this.committeeQueryService.groupEvents(groupEventsFilter)
-      .then(events => {
-        this.groupEvents = events.map(event => ({
-          ...event,
-          description: this.dateUtils.displayDate(event.eventDate) + ", " + event.contactName + ", " + event.title
-        }));
-        this.logger.info("groupEventsFilter:", groupEventsFilter, "groupEvents:", events);
-        return events;
-      });
-  }
-
-  eventTypeTitles() {
-    return this.row.events.eventTypes.map(item => this.stringUtils.asTitle(item)).join(", ");
+  async broadcastChange(): Promise<void> {
+    this.broadcastService.broadcast(NamedEvent.named(NamedEventType.REFRESH));
   }
 
   onChange($event: any) {
@@ -147,19 +212,31 @@ export class EventsSiteEditComponent implements OnInit {
 
   private initialiseRowForEvents(row: PageContentRow) {
     if (!row?.events) {
-      row.events = {
+      const allow: EventsDataAllows = {
+        addNew: false,
+        pagination: false,
+        quickSearch: false
+      };
+      const events: EventsData = {
         maxColumns: 2,
-        allow: {addNew: false, pagination: false, quickSearch: false},
+        allow,
         eventTypes: [RamblersEventType.GROUP_EVENT],
         fromDate: this.dateUtils.asMoment().valueOf(),
-        toDate: this.dateUtils.asMoment().add(2, "weeks").valueOf()
+        toDate: this.dateUtils.asMoment().add(2, "weeks").valueOf(),
+        filterCriteria: FilterCriteria.DATE_RANGE,
+        sortOrder: SortOrder.DATE_ASCENDING
       };
+      this.logger.info("initialiseRowForEvents:row:", this.row, "events:", events);
+      row.events = events;
+      this.fromAndTo = this.display.fromAndToFrom(row.events);
+    } else {
+      this.logger.info("initialiseRowForEvents:row already has events:", this.row.events);
     }
   }
 
   modelChange(eventTypes: RamblersEventType[]) {
-    // const eventTypeValues = eventTypes.filter(item => item).map(item => item.key) as RamblersEventType[];
     this.row.events.eventTypes = eventTypes;
     this.logger.info("modelChange:eventTypes:", eventTypes, "row.events:", this.row.events);
+    this.broadcastChange();
   }
 }

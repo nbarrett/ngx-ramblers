@@ -1,5 +1,5 @@
 import { AccessLevelData } from "./member-resource.model";
-import { DateCriteria } from "./api-request.model";
+import { FilterCriteria } from "./api-request.model";
 
 export interface HasQuickSearch {
   quickSearch: string;
@@ -10,7 +10,7 @@ export interface AccessFilterParameters extends HasQuickSearch {
 }
 
 export interface HasBasicEventSelection {
-  selectType: number;
+  selectType: FilterCriteria;
   ascending: boolean;
 }
 
@@ -18,14 +18,14 @@ export interface FilterParameters extends HasQuickSearch, HasBasicEventSelection
 }
 
 export function DEFAULT_FILTER_PARAMETERS(): FilterParameters {
-  return {quickSearch: "", selectType: 1, ascending: true};
+  return {quickSearch: "", selectType: FilterCriteria.FUTURE_EVENTS, ascending: true};
 }
 
 export function DEFAULT_BASIC_EVENT_SELECTION(): HasBasicEventSelection {
-  return {selectType: 1, ascending: true};
+  return {selectType: FilterCriteria.FUTURE_EVENTS, ascending: true};
 }
 
 export interface DateFilterParameters extends HasQuickSearch {
-  selectType: DateCriteria;
+  selectType: FilterCriteria;
   fieldSort: number;
 }

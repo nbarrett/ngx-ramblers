@@ -8,6 +8,7 @@ import { SocialDisplayService } from "../pages/social/social-display.service";
 export function SocialPopulationLocalGuard(): boolean {
   let configLoaded = false;
   const router: Router = inject(Router);
+  const displayService: SocialDisplayService = inject(SocialDisplayService);
   const systemConfigService: SystemConfigService = inject(SystemConfigService);
   const loggerFactory: LoggerFactory = inject(LoggerFactory);
   const logger = loggerFactory.createLogger("SocialPopulationLocalGuard", NgxLoggerLevel.OFF);
@@ -15,7 +16,6 @@ export function SocialPopulationLocalGuard(): boolean {
     configLoaded = true;
     logger.info("configLoaded");
   });
-  const displayService: SocialDisplayService = inject(SocialDisplayService);
 
   const allowed = !configLoaded || displayService.socialPopulationLocal();
   logger.info("walkPopulationLocal allowed:", allowed);

@@ -116,8 +116,8 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
                         <dl class="d-flex">
                           <dt class="font-weight-bold mr-2">Date and Time:</dt>
                           <time>
-                            <div>{{ walkExport.displayedWalk.walk | eventDatesAndTimes : {noTimes: true} }}</div>
-                            <div>{{ walkExport.displayedWalk.walk | eventDatesAndTimes : {noDates: true} }}</div>
+                            <div>{{ walkExport.displayedWalk.walk.groupEvent | eventDatesAndTimes : {noTimes: true} }}</div>
+                            <div>{{ walkExport.displayedWalk.walk.groupEvent | eventDatesAndTimes : {noDates: true} }}</div>
                           </time>
                         </dl>
                         @if (walkExport.displayedWalk.walk?.groupEvent?.distance_miles) {

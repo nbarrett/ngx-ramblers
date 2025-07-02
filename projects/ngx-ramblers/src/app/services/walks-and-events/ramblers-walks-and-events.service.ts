@@ -15,12 +15,12 @@ import {
   Metadata,
   PublishStatus,
   RamblersEventsApiResponse,
+  RamblersEventSummaryApiResponse,
+  RamblersEventSummaryResponse,
   RamblersEventType,
   RamblersGroupEventsRawApiResponse,
   RamblersGroupsApiResponse,
   RamblersGroupsApiResponseApiResponse,
-  RamblersEventSummaryResponse,
-  RamblersEventSummaryApiResponse,
   RamblersWalksUploadRequest,
   WALKS_MANAGER_GO_LIVE_DATE,
   WalkUploadColumnHeading,
@@ -60,7 +60,6 @@ import { SystemConfigService } from "../system/system-config.service";
 import { AscentValidationService } from "../walks/ascent-validation.service";
 import { DistanceValidationService } from "../walks/distance-validation.service";
 import { LocalWalksAndEventsService } from "./local-walks-and-events.service";
-import { DataQueryOptions } from "../../models/api-request.model";
 import isEqual from "lodash-es/isEqual";
 import { RiskAssessmentService } from "../walks/risk-assessment.service";
 import { AlertMessage } from "../../models/alert-target.model";
@@ -565,12 +564,7 @@ export class RamblersWalksAndEventsService {
 
   async all(eventQueryParameters: EventQueryParameters): Promise<ExtendedGroupEvent[]> {
     return this.listRamblersWalksRawData(eventQueryParameters)
-      .then((ramblersWalksRawApiResponse: RamblersGroupEventsRawApiResponse) => ramblersWalksRawApiResponse.data.map(remoteWalk => this.toExtendedGroupEvent(remoteWalk)));
-  }
-
-  async allSocialEvents(dataQueryOptions?: DataQueryOptions): Promise<ExtendedGroupEvent[]> {
-    return this.listRamblersWalksRawData({dataQueryOptions, types: [RamblersEventType.GROUP_EVENT]})
-      .then((ramblersWalksRawApiResponse: RamblersGroupEventsRawApiResponse) => ramblersWalksRawApiResponse.data.map(remoteWalk => this.toExtendedGroupEvent(remoteWalk)));
+      .then((ramblersWalksRawApiResponse: RamblersGroupEventsRawApiResponse) => ramblersWalksRawApiResponse?.data?.map(remoteWalk => this.toExtendedGroupEvent(remoteWalk)));
   }
 
   async walkToWalkUploadRow(extendedGroupEvent: ExtendedGroupEvent): Promise<WalkUploadRow> {
@@ -642,7 +636,7 @@ export class RamblersWalksAndEventsService {
     }
     finishMoment = finishMoment.seconds(0).milliseconds(0);
 
-    return this.dateUtils.isoDateTimeString(finishMoment.valueOf());
+    return this.dateUtils.isoDateTime(finishMoment.valueOf());
   }
 
   walkStartTime(extendedGroupEvent: ExtendedGroupEvent): string {

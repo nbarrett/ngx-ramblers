@@ -41,3 +41,15 @@ export function urlFromTitle() {
     res.json({ url });
   };
 }
+
+export async function count(req: Request, res: Response) {
+  try {
+    const criteria = req.query.criteria ? JSON.parse(req.query.criteria as string) : {};
+    debugLog("count: criteria:", criteria);
+    const count = await extendedGroupEvent.countDocuments(criteria);
+    res.json({ count });
+  } catch (error) {
+    debugLog("count: error:", error);
+    res.status(500).json({ error: error.message });
+  }
+}

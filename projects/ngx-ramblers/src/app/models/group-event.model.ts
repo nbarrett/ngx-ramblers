@@ -15,7 +15,12 @@ import { Notification } from "./committee.model";
 import { FileNameData } from "./aws-object.model";
 import { ImageConfig, LinkWithSource, Publish, RiskAssessmentRecord } from "./walk.model";
 
-export interface GroupEvent extends Identifiable {
+export interface HasStartAndEndTime {
+  start_date_time: string;
+  end_date_time: string;
+}
+
+export interface GroupEvent extends Identifiable, HasStartAndEndTime {
   item_type: RamblersEventType;
   title: string;
   group_code: string;
@@ -23,8 +28,6 @@ export interface GroupEvent extends Identifiable {
   group_name: string;
   description: string;
   additional_details: string;
-  start_date_time: string;
-  end_date_time: string;
   meeting_date_time: string;
   event_organiser?: Contact,
   location?: LocationDetails;

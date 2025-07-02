@@ -40,7 +40,7 @@ import { FormsModule } from "@angular/forms";
 import { WalkCardListComponent } from "../walk-view/walk-card-list";
 import { WalkViewComponent } from "../walk-view/walk-view";
 import { WalkEditComponent } from "../walk-edit/walk-edit.component";
-import { JsonPipe, NgClass } from "@angular/common";
+import { NgClass } from "@angular/common";
 import { WalkGradingComponent } from "../walk-view/walk-grading";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
@@ -48,9 +48,11 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DEFAULT_FILTER_PARAMETERS, FilterParameters } from "../../../models/search.model";
 import { BuiltInAnchor } from "../../../models/content-text.model";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
-import { EventsMigrationService } from "../../../services/migration/events-migration.service";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
+import { DataMigrationService } from "../../../services/walks/data-migration.service";
+import { FilterCriteria } from "../../../models/api-request.model";
+import { EventsMigrationService } from "../../../services/migration/events-migration.service";
 
 @Component({
     selector: "app-walk-list",
@@ -248,7 +250,7 @@ import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
     `,
     styleUrls: ["./walk-list.component.sass"],
     changeDetection: ChangeDetectionStrategy.Default,
-  imports: [PageComponent, DynamicContentComponent, WalkSearchComponent, BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective, PaginationComponent, FormsModule, WalkCardListComponent, WalkViewComponent, WalkEditComponent, NgClass, WalkGradingComponent, TooltipDirective, WalkPanelExpanderComponent, DisplayDatePipe, JsonPipe, DisplayTimePipe]
+  imports: [PageComponent, DynamicContentComponent, WalkSearchComponent, BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective, PaginationComponent, FormsModule, WalkCardListComponent, WalkViewComponent, WalkEditComponent, NgClass, WalkGradingComponent, TooltipDirective, WalkPanelExpanderComponent, DisplayDatePipe, DisplayTimePipe]
 })
 export class WalkListComponent implements OnInit, OnDestroy {
 
@@ -260,6 +262,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
   googleMapsService = inject(GoogleMapsService);
   protected walksAndEventsService = inject(WalksAndEventsService);
   protected eventsMigrationService = inject(EventsMigrationService);
+  protected dataMigrationService = inject(DataMigrationService);
   private authService = inject(AuthService);
   ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   memberLoginService = inject(MemberLoginService);
@@ -319,8 +322,9 @@ export class WalkListComponent implements OnInit, OnDestroy {
   }
 
   public async performMigration() {
-    const migrated = await this.eventsMigrationService.migrateWalks(true);
-    this.applyWalks(migrated);
+    // const migrated = await this.eventsMigrationService.migrateWalks(true);
+    // this.applyWalks(migrated);
+    this.dataMigrationService.migrateMedia(false);
   }
 
   ngOnDestroy(): void {
@@ -411,7 +415,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
         this.display.setNextWalkId(walks);
         this.queryGroups(walks);
         this.logger.info("refreshWalks", "hasWalksId", this.currentWalkId, "walks:", walks);
-        this.applyWalks(this.currentWalkId || this.filterParameters.selectType === 6 ? walks : this.extendedGroupEventQueryService.activeEvents(walks));
+        this.applyWalks(this.currentWalkId || this.filterParameters.selectType === FilterCriteria.ALL_EVENTS ? walks : this.extendedGroupEventQueryService.activeEvents(walks));
         this.applyFilterToWalks();
         this.notify.clearBusy();
       }).catch(error => {

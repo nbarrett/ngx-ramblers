@@ -28,6 +28,7 @@ export class PageService {
   public group: Organisation;
   private previouslySetTitles: string[] = [];
   private socialLink: Link;
+  private walkLink: Link;
   private subject = new ReplaySubject<Link>();
 
   constructor() {
@@ -35,8 +36,10 @@ export class PageService {
     this.systemConfigService.events().subscribe(item => {
       this.group = item.group;
       this.socialLink = item.group.pages.find(item => item.title.toLowerCase().includes("social"));
-      this.logger.info("social page found as:", this.socialLink);
+      this.walkLink = item.group.pages.find(item => item.title.toLowerCase().includes("walks"));
+      this.logger.info("social page found as:", this.socialLink, "walks page found as:", this.walkLink, "group:", this.group);
       this.subject.next(this.socialLink);
+      this.subject.next(this.walkLink);
       this.setTitle(...this.previouslySetTitles);
     });
   }
@@ -51,6 +54,10 @@ export class PageService {
 
   public socialPage(): Link {
     return this.socialLink;
+  }
+
+  walksPage(): Link {
+    return this.walkLink;
   }
 
   pageSubtitle(): string {

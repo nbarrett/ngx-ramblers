@@ -2,7 +2,7 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { ExtendedGroupEventQueryService } from "../../../services/walks-and-events/extended-group-event-query.service";
-import { ImageSource, WalkForSelect } from "../../../models/walk.model";
+import { ExtendedGroupEventForSelect, GROUP_EVENT_START_DATE, ImageSource } from "../../../models/walk.model";
 import {
   EventQueryParameters,
   RamblersGroupsApiResponse,
@@ -10,7 +10,7 @@ import {
 } from "../../../models/ramblers-walks-manager";
 import { sortBy } from "../../../functions/arrays";
 import { DateUtilsService } from "../../../services/date-utils.service";
-import { DateCriteria } from "../../../models/api-request.model";
+import { BASIC_FILTER_OPTIONS, FilterCriteria } from "../../../models/api-request.model";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { FormsModule } from "@angular/forms";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -55,9 +55,9 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
         </select>
       </div>
       <div class="form-group">
-        <label for="linked-walk">Import from walk ({{ walks?.length }} found)</label>
+        <label for="linked-walk">Import from walk ({{ eventsForSelect?.length }} found)</label>
         <ng-select id="linked-walk"
-                   [items]="walks"
+                   [items]="eventsForSelect"
                    bindLabel="ngSelectAttributes.label"
                    bindValue="groupEvent.id"
                    [placeholder]="'Select a walk - type part of title to filter items'"
@@ -71,7 +71,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
     </div>
   `
 })
-export class WalkImageSelectionWalksManagerComponent implements OnInit {
+export class EventImageSelectionForWalksManager implements OnInit {
   private walksReferenceService = inject(WalksReferenceService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
@@ -82,8 +82,8 @@ export class WalkImageSelectionWalksManagerComponent implements OnInit {
   groups: RamblersGroupsApiResponse[] = [];
   selectedGroup: RamblersGroupsApiResponse;
   areaGroup: RamblersGroupsApiResponse;
-  public walks: WalkForSelect[] = [];
-  public walk: WalkForSelect;
+  public eventsForSelect: ExtendedGroupEventForSelect[] = [];
+  public event: ExtendedGroupEventForSelect;
   @Input() groupEvent!: ExtendedGroupEvent;
 
   async ngOnInit() {
@@ -100,7 +100,7 @@ export class WalkImageSelectionWalksManagerComponent implements OnInit {
   }
 
   walksFilter() {
-    return this.walksReferenceService.walksFilter.filter(item => item.value < 4);
+    return this.walksReferenceService.walksFilter.filter(item => BASIC_FILTER_OPTIONS.includes(item.value));
   }
 
   private updateSelectedGroupCodes() {
@@ -136,8 +136,8 @@ export class WalkImageSelectionWalksManagerComponent implements OnInit {
       groupCode,
       dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions(filterParameters)
     };
-    this.ramblersWalksAndEventsService.all(eventQueryParameters).then(walks => {
-      this.walks = walks
+    this.ramblersWalksAndEventsService.all(eventQueryParameters).then(eventsForSelect => {
+      this.eventsForSelect = eventsForSelect
         .filter(walk => walk.groupEvent?.media?.length > 0)
         .sort(sortBy(this.sortColumn(filterParameters)))
         .map(walk => ({
@@ -148,12 +148,12 @@ export class WalkImageSelectionWalksManagerComponent implements OnInit {
   }
 
   private sortColumn(filterParameters: HasBasicEventSelection) {
-    return `${filterParameters.selectType === DateCriteria.CURRENT_OR_FUTURE_DATES ? "" : "-"}walkDate`;
+    return `${filterParameters.selectType === FilterCriteria.FUTURE_EVENTS ? "" : "-"}${GROUP_EVENT_START_DATE}`;
   }
 
   walkChange(ramblersWalkId: string) {
     this.logger.info("onChange of ramblersWalkId:", ramblersWalkId, "imageConfig:", this.groupEvent.fields.imageConfig);
-    const ramblersWalk: WalkForSelect = this.walks.find(walk => walk.groupEvent.id === ramblersWalkId);
+    const ramblersWalk: ExtendedGroupEventForSelect = this.eventsForSelect.find(walk => walk.groupEvent.id === ramblersWalkId);
     this.ramblersWalksAndEventsService.copyMediaIfApplicable(this.groupEvent, ramblersWalk.groupEvent, true);
   }
 

@@ -19,6 +19,7 @@ import { Link } from "./page.model";
 import { faHouse } from "@fortawesome/free-solid-svg-icons";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import { ExtendedGroupEvent } from "./group-event.model";
+import { FilterCriteria } from "./api-request.model";
 
 export interface GoogleMapsConfig {
   apiKey: string;
@@ -108,7 +109,7 @@ export interface LocalAndRamblersWalk {
   ramblersWalk: RamblersEventSummaryResponse;
 }
 
-export interface WalkForSelect extends ExtendedGroupEvent, HasNgSelectAttributes {
+export interface ExtendedGroupEventForSelect extends ExtendedGroupEvent, HasNgSelectAttributes {
 
 }
 
@@ -183,7 +184,7 @@ export enum EventType {
 }
 
 export interface WalkFilter {
-  value: number;
+  value: FilterCriteria;
   description: string;
   localWalkPopulationOnly?: boolean;
   selected?: boolean;

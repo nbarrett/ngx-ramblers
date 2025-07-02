@@ -6,7 +6,6 @@ import { DataQueryOptions } from "../../models/api-request.model";
 import { GROUP_EVENT_START_DATE, WalkLeaderIdsApiResponse } from "../../models/walk.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { UrlService } from "../url.service";
 import { StringUtilsService } from "../string-utils.service";
 import { DateUtilsService } from "../date-utils.service";
 import { ExtendedGroupEvent, ExtendedGroupEventApiResponse } from "../../models/group-event.model";
@@ -26,7 +25,6 @@ export class LocalWalksAndEventsService {
   private dateUtils: DateUtilsService = inject(DateUtilsService);
   private commonDataService: CommonDataService = inject(CommonDataService);
   private extendedGroupEventQueryService: ExtendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
-  private urlService = inject(UrlService);
   private BASE_URL = "/api/database/group-event";
   private extendedGroupEventApiResponseSubject = new Subject<ExtendedGroupEventApiResponse>();
   private walkLeaderIdNotifications = new Subject<WalkLeaderIdsApiResponse>();
@@ -162,5 +160,12 @@ export class LocalWalksAndEventsService {
       this.logger.error("updateMany: error:", error);
       throw error;
     }
+  }
+
+  public async count({criteria}: { criteria: any }): Promise<number> {
+    this.logger.info("count called with criteria:", criteria);
+    const params = this.commonDataService.toHttpParams({criteria});
+    const response = await this.http.get<{ count: number }>(`${this.BASE_URL}/count`, {params}).toPromise();
+    return response.count;
   }
 }

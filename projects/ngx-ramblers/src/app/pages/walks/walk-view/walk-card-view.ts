@@ -13,12 +13,11 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { Organisation, SystemConfig } from "../../../models/system.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
-import { faEnvelope, faPhone, faRulerHorizontal, faRulerVertical } from "@fortawesome/free-solid-svg-icons";
+import { faEnvelope, faPhone } from "@fortawesome/free-solid-svg-icons";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { LoginModalComponent } from "../../login/login-modal/login-modal.component";
 import { LoginResponse } from "../../../models/member.model";
 import { AuthService } from "../../../auth/auth.service";
-import { MapEditComponent } from "../walk-edit/map-edit";
 import { WalkGradingComponent } from "./walk-grading";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { RelatedLinkComponent } from "../../../modules/common/related-links/related-link";
@@ -28,31 +27,13 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
 import { AscentValidationService } from "../../../services/walks/ascent-validation.service";
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
+import { CardImageOrMap } from "../../../modules/common/card/image/card-image-or-map";
 
 @Component({
     selector: "app-walk-card-view",
     template: `
       <div (click)="toggleView()">
-        @if (display.walkPopulationLocal() && memberLoginService.memberLoggedIn() && displayedWalk?.walkAccessMode?.walkWritable) {
-          <input
-            id="walkAction-{{displayedWalk?.walk?.id}}" type="submit"
-            value="{{displayedWalk?.walkAccessMode?.caption}}"
-            (click)="display.edit(displayedWalk)"
-            class="btn btn-primary button-container">
-        }
-        @if (display.displayMapAsImageFallback(displayedWalk.walk)) {
-          <div app-map-edit
-               readonly
-               class="map-card-image"
-               [locationDetails]="displayedWalk.walk?.groupEvent?.start_location"
-               [notify]="notify"></div>
-        }
-        @if (display.displayImage(displayedWalk.walk)) {
-          <img
-            src="{{mediaQueryService.imageSourceWithFallback(displayedWalk.walk).url}}"
-            alt="{{mediaQueryService.imageSourceWithFallback(displayedWalk.walk).alt}}" height="150"
-            class="card-img-top"/>
-        }
+        <app-card-image-or-map [displayedWalk]="displayedWalk" [notify]="notify" [maxColumns]="maxColumns"/>
         <div class="card-body">
           <h3 class="card-title">
             <a [href]="displayedWalk.walkLink" class="rams-text-decoration-pink active"
@@ -154,13 +135,13 @@ import { DistanceValidationService } from "../../../services/walks/distance-vali
           }
         </div>
       </div>`,
-    styleUrls: ["./walk-view.sass"],
+  styleUrls: ["./walk-view.sass", "../../../modules/common/card/image/card-image.sass"],
     styles: [`
     .card-body
       position: relative
       padding-bottom: 50px
   `],
-  imports: [MapEditComponent, WalkGradingComponent, TooltipDirective, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, DisplayDatePipe, DisplayTimePipe]
+  imports: [WalkGradingComponent, TooltipDirective, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, DisplayDatePipe, DisplayTimePipe, CardImageOrMap]
 })
 
 export class WalkCardViewComponent implements OnInit, OnDestroy {
@@ -190,13 +171,16 @@ export class WalkCardViewComponent implements OnInit, OnDestroy {
 
   @Input() displayedWalk!: DisplayedWalk;
   @Input() index!: number;
+  @Input() cardImageClass: string;
+  @Input() mapClass: string;
+  @Input() maxColumns!: number;
   protected readonly faPhone = faPhone;
   protected readonly faEnvelope = faEnvelope;
   protected readonly EventType = EventType;
 
   ngOnInit() {
     this.loggedIn = this.memberLoginService.memberLoggedIn();
-    this.logger.debug("initialised with currentPageWalks", this.displayedWalk);
+    this.logger.info("initialised with displayedWalk", this.displayedWalk, "cardImageClass:", this.cardImageClass);
     this.subscriptions.push(this.systemConfigService.events().subscribe((systemConfig: SystemConfig) => {
       this.logger.debug("systemConfigService returned systemConfig:", systemConfig);
       this.group = systemConfig.group;
@@ -226,8 +210,4 @@ export class WalkCardViewComponent implements OnInit, OnDestroy {
   ignoreClicks($event: MouseEvent) {
     $event.stopPropagation();
   }
-
-
-  protected readonly faRulerVertical = faRulerVertical;
-  protected readonly faRulerHorizontal = faRulerHorizontal;
 }

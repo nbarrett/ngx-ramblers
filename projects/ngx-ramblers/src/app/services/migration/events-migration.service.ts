@@ -15,7 +15,7 @@ import { LegacyAscentValidationService } from "./legacy-ascent-validation.servic
 import { StringUtilsService } from "../string-utils.service";
 import { UrlService } from "../url.service";
 import { RamblersWalksAndEventsService } from "../walks-and-events/ramblers-walks-and-events.service";
-import { DateCriteria } from "../../models/api-request.model";
+import { FilterCriteria } from "../../models/api-request.model";
 import { ExtendedGroupEventQueryService } from "../walks-and-events/extended-group-event-query.service";
 import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-events.service";
 import { WalksConfigService } from "../system/walks-config.service";
@@ -313,7 +313,7 @@ export class EventsMigrationService {
       const finishTime: Time = this.parseTime(socialEvent?.eventTimeEnd);
       const socialDateMoment: moment = this.dateUtils.asMoment(socialEvent?.eventDate);
       const socialEventEndTimeValue = this.dateUtils.calculateWalkDateAndTimeValue(socialDateMoment, finishTime);
-      const socialEventEndTime = this.dateUtils.isoDateTimeString(socialEventEndTimeValue);
+      const socialEventEndTime = this.dateUtils.isoDateTime(socialEventEndTimeValue);
       this.logger.info("text based finishTime:", socialEvent?.eventTimeEnd,
         "finishTime:", finishTime,
         "walkDateAndTime:", socialEventEndTimeValue,
@@ -332,7 +332,10 @@ export class EventsMigrationService {
     const walksByDate: Walk[] = Object.entries(groupBy(walks, walk => walk.walkDate))
       .map((entry: [path: string, duplicates: Walk[]]) => (last(entry[1].sort(sortBy("walkDate")))));
     this.logger.info("walks:", walks, "walksByDate:", walksByDate);
-    const migratedWalks = walksByDate.map(walk => ({input: walk, migrated: this.toExtendedGroupEvent(walk, ramblersWalks)}));
+    const migratedWalks = walksByDate.map(walk => ({
+      input: walk,
+      migrated: this.toExtendedGroupEvent(walk, ramblersWalks)
+    }));
     this.logger.info("Migrated events :", migratedWalks.length);
     const extendedGroupEvents: ExtendedGroupEvent[] = migratedWalks.map(item => item.migrated);
     if (saveData) {
@@ -352,7 +355,7 @@ export class EventsMigrationService {
     return await this.ramblersWalksAndEventsService.all({
       dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions({
         ascending: false,
-        selectType: DateCriteria.ALL_DATES
+        selectType: FilterCriteria.ALL_EVENTS
       })
     });
   }
@@ -386,11 +389,12 @@ export class EventsMigrationService {
     return [this.mediaQueryService.mediaFrom(walkOrSocialEvent.briefDescription, walkOrSocialEvent.thumbnail)];
   }
 
-  async migrateOneSocialEvent(socialEventId: string) {
+  async migrateOneSocialEvent(socialEventId: string): Promise<ExtendedGroupEvent> {
     if (socialEventId) {
-    const old: SocialEvent = await this.socialEventsLocalLegacyService.queryForId(socialEventId);
-    const migrated = this.toExtendedGroupEvent(old, []);
+      const old: SocialEvent = await this.socialEventsLocalLegacyService.queryForId(socialEventId);
+      const migrated = this.toExtendedGroupEvent(old, []);
       this.logger.info("migrated social event:", migrated, "from old social event:", old);
+      return migrated;
     }
   }
 

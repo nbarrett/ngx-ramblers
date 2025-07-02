@@ -66,7 +66,7 @@ const routes: Routes = [
   },
   {
     path: "social-events/:id",
-    loadComponent: () => import("./pages/social/social-view/social-view").then(m => m.SocialViewComponent)
+    loadComponent: () => import("./pages/social/social-view/social-view").then(m => m.SocialView)
   },
   {
     path: "social-events/:id/edit",

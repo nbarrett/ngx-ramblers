@@ -1,5 +1,5 @@
 import { inject, Pipe, PipeTransform } from "@angular/core";
-import { ExtendedGroupEvent } from "../models/group-event.model";
+import { ExtendedGroupEvent, HasStartAndEndTime } from "../models/group-event.model";
 import { EM_DASH_WITH_SPACES } from "../models/content-text.model";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -14,9 +14,9 @@ export class EventDatesAndTimesPipe implements PipeTransform {
   private dateUtilsService = inject(DateUtilsService);
   private displayTimePipe = inject(DisplayTimePipe);
 
-  transform(extendedGroupEvent: ExtendedGroupEvent, config?: EventTimesProps): string {
-    const start = extendedGroupEvent?.groupEvent?.start_date_time;
-    const end = extendedGroupEvent?.groupEvent?.end_date_time;
+  transform(extendedGroupEvent: HasStartAndEndTime, config?: EventTimesProps): string {
+    const start = extendedGroupEvent?.start_date_time;
+    const end = extendedGroupEvent?.end_date_time;
 
     if (!start && !end) {
       return "";
