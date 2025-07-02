@@ -45,12 +45,12 @@ jobs:
           ls -la
           if [ -f "fly.toml" ]; then echo "fly.toml found"; else echo "fly.toml not found" && exit 1; fi
 
-      - name: Sync fly.toml to Fly.io
+      - name: Sync fly.toml to Fly.io and deploy image ngx-ramblers:${{ github.run_number }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           flyctl config validate --config fly.toml --app ${{ secrets.APP_NAME }}
-          flyctl deploy --app ${{ secrets.APP_NAME }} --config fly.toml --image ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:latest --detach
+          flyctl deploy --app ${{ secrets.APP_NAME }} --config fly.toml --image ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }} --detach
 
       - name: Scale App to 1
         env:
