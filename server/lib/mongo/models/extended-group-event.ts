@@ -73,7 +73,7 @@ const imageConfig = new Schema({
     areaCode: {type: String},
     groupCode: {type: String},
     filterParameters: {
-      selectType: {type: Number},
+      selectType: {type: String},
       ascending: {type: Boolean}
     },
     walkId: {type: String}

@@ -214,7 +214,7 @@ export class WalkAddSlotsComponent implements OnInit {
 
   createSlots(requiredSlots: number[], message: AlertMessage) {
     this.requiredWalkSlots = requiredSlots.map(date => {
-      const walk = this.eventDefaultsService.createDefault({start_date_time: this.dateUtils.isoDateTimeString(date)});
+      const walk = this.eventDefaultsService.createDefault({start_date_time: this.dateUtils.isoDateTime(date)});
       walk.events = [this.walkEventService.createEventIfRequired(walk, this.walksReferenceService.walkEventTypeMappings.awaitingLeader.eventType, "Walk slot created")];
       return walk;
     });
@@ -276,7 +276,7 @@ export class WalkAddSlotsComponent implements OnInit {
     const dataQueryOptions: DataQueryOptions = this.extendedGroupEventQueryService.dataQueryOptions(filterParameters);
     this.walksAndEventsService.all({
       dataQueryOptions: {
-      criteria: {[GROUP_EVENT_START_DATE]: {$eq: this.dateUtils.isoDateTimeString(this.singleDate.value)}},
+      criteria: {[GROUP_EVENT_START_DATE]: {$eq: this.dateUtils.isoDateTime(this.singleDate.value)}},
       select: {events: 1, [GROUP_EVENT_START_DATE]: 1},
       sort: dataQueryOptions.sort
       }

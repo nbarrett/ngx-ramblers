@@ -336,13 +336,13 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                 </div>
               }
             </div>
-            @if (display.socialEventLink(socialEvent, true)) {
+            @if (display.groupEventLink(socialEvent, true)) {
               <div class="col-sm-12">
                 <label>
-                  <app-copy-icon [icon]="faCopy" title [value]="display.socialEventLink(socialEvent, false)"
+                  <app-copy-icon [icon]="faCopy" title [value]="display.groupEventLink(socialEvent, false)"
                                  [elementName]="'event link'">copy link to this
                   </app-copy-icon>
-                  <a class="ml-1" [href]="display.socialEventLink(socialEvent, true)"
+                  <a class="ml-1" [href]="display.groupEventLink(socialEvent, true)"
                      target="_blank">social event</a></label>
               </div>
             }
@@ -437,18 +437,33 @@ export class SocialEditComponent implements OnInit, OnDestroy {
     if (this.urlService.pathContainsEventIdOrSlug()) {
       this.notify.setBusy();
       const socialEventId = this.urlService.segmentWithMongoId();
-      this.logger.debug("finding socialEvent from socialEventId:", socialEventId);
-      this.walksAndEventsService.queryById(socialEventId).then(data => {
+      this.logger.info("finding socialEvent from socialEventId:", socialEventId);
+      this.walksAndEventsService.queryById(socialEventId).then(async data => {
         this.socialEvent = data;
         if (this.config?.enableMigration?.events) {
-          this.eventsMigrationService.migrateOneSocialEvent(data.fields.migratedFromId);
+          const migratedFromId = data?.fields?.migratedFromId || socialEventId;
+          if (migratedFromId) {
+            const migrated = await this.eventsMigrationService.migrateOneSocialEvent(migratedFromId);
+            this.logger.info("migrated social event:", migrated, "from migratedFromId:", migratedFromId);
+            if(!data && migrated) {
+              this.socialEvent = migrated;
+              this.logger.info("ngOnInit:created migrated socialEvent:", this.socialEvent);
+              this.notify.success({title: "Migrated social event", message: `social event did not exist, but was migrated from id: ${migratedFromId}. Click Save to save the migrated data.`});
+            }
+          } else {
+            this.logger.info("Could not migrate social event, no migratedFromId found in socialEvent:", data, "given socialEventId:", socialEventId);
+          }
         }
-        if (!this.socialEvent.fields.attendees) {
-          this.socialEvent.fields.attendees = [];
+        if (this.socialEvent) {
+          if (!this?.socialEvent?.fields?.attendees) {
+            this.socialEvent.fields.attendees = [];
+          }
+          this.existingTitle = this.socialEvent?.fields?.attachment?.title;
+          this.notify.hide();
+          this.selectedMemberIds = this.socialEvent.fields.attendees.map(attendee => attendee.id);
+        } else {
+          this.logger.info("No social event found given socialEventId:", socialEventId);
         }
-        this.existingTitle = this.socialEvent?.fields?.attachment?.title;
-        this.notify.hide();
-        this.selectedMemberIds = this.socialEvent.fields.attendees.map(attendee => attendee.id);
       });
     } else if (this.display.inNewEventMode()) {
       this.eventDefaultsService.events().subscribe(ready => {
@@ -600,14 +615,14 @@ export class SocialEditComponent implements OnInit, OnDestroy {
   startDateChanged(dateValue: DateValue) {
     if (dateValue) {
       this.logger.debug("eventDateChanged", dateValue);
-      this.socialEvent.groupEvent.start_date_time = this.dateUtils.isoDateTimeString(dateValue);
+      this.socialEvent.groupEvent.start_date_time = this.dateUtils.isoDateTime(dateValue);
     }
   }
 
   endDateChanged(dateValue: DateValue) {
     if (dateValue) {
       this.logger.debug("eventDateChanged", dateValue);
-      this.socialEvent.groupEvent.end_date_time = this.dateUtils.isoDateTimeString(dateValue);
+      this.socialEvent.groupEvent.end_date_time = this.dateUtils.isoDateTime(dateValue);
     }
   }
 

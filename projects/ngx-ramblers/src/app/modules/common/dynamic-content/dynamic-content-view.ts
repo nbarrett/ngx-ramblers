@@ -13,7 +13,7 @@ import { DynamicContentViewTextRowComponent } from "./dynamic-content-view-text-
 import { DynamicContentViewCarouselComponent } from "./dynamic-content-view-carousel";
 import { DynamicContentViewAlbumIndexComponent } from "./dynamic-content-view-album-index";
 import { DynamicContentViewAlbumComponent } from "./dynamic-content-view-album";
-import { EventsComponent } from "../events/events";
+import { EventsRow } from "../events/events-row";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { JsonPipe } from "@angular/common";
 
@@ -51,7 +51,7 @@ import { JsonPipe } from "@angular/common";
               [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
           }
           @if (actions.isEvents(row)) {
-            <app-events [row]="row" [rowIndex]="rowIndex"/>
+            <app-events-row [row]="row" [rowIndex]="rowIndex"/>
           }
         }
         @if (!actions.pageContentFound(viewablePageContent, !!viewablePageContent?.id)) {
@@ -68,7 +68,7 @@ import { JsonPipe } from "@angular/common";
         }
       }`,
     styleUrls: ["./dynamic-content.sass"],
-  imports: [ActionButtonsComponent, DynamicContentViewTextRowComponent, DynamicContentViewCarouselComponent, DynamicContentViewAlbumIndexComponent, DynamicContentViewAlbumComponent, EventsComponent, FontAwesomeModule, JsonPipe]
+  imports: [ActionButtonsComponent, DynamicContentViewTextRowComponent, DynamicContentViewCarouselComponent, DynamicContentViewAlbumIndexComponent, DynamicContentViewAlbumComponent, EventsRow, FontAwesomeModule, JsonPipe]
 })
 export class DynamicContentViewComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewComponent", NgxLoggerLevel.ERROR);

@@ -166,7 +166,7 @@ export class WalkEditMainDetailsComponent implements OnInit {
 
   onDateChange(date: DateValue) {
     if (date) {
-      const startDateTime = this.dateUtils.isoDateTimeString(date.value);
+      const startDateTime = this.dateUtils.isoDateTime(date.value);
       this.logger.info("onDateChange:date", date, "of type", typeof date, "setting start_date_time:", startDateTime);
       this.displayedWalk.walk.groupEvent.start_date_time = startDateTime;
     }

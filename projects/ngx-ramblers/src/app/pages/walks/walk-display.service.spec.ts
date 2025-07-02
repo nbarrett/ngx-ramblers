@@ -20,6 +20,7 @@ import { EventType } from "../../models/walk.model";
 import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 import { SearchFilterPipe } from "../../pipes/search-filter.pipe";
 import { DateUtilsService } from "../../services/date-utils.service";
+
 const anyWalkDate = 123364;
 const walkLeaderMemberId = "walk-leader-id";
 const dontCare = [];
@@ -61,11 +62,12 @@ export function createExtendedGroupEvent(dateUtilsService: DateUtilsService, dat
       milesPerHour: 0,
       notifications: [],
       publishing: null,
-      riskAssessment: []
+      riskAssessment: [],
+      migratedFromId: null,
     },
     groupEvent: {
       item_type: RamblersEventType.GROUP_WALK,
-      start_date_time: dateUtilsService.isoDateTimeString(dateValue),
+      start_date_time: dateUtilsService.isoDateTime(dateValue),
       title: "",
       group_code: "",
       area_code: "",

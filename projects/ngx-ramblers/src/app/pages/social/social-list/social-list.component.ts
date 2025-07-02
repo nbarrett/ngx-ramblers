@@ -7,7 +7,7 @@ import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance } from "../../../services/notifier.service";
 import { SocialDisplayService } from "../social-display.service";
-import { SocialViewComponent } from "../social-view/social-view";
+import { SocialView } from "../social-view/social-view";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 
 @Component({
@@ -20,7 +20,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
     }
     `,
     styleUrls: ["./social-list.component.sass"],
-    imports: [SocialViewComponent]
+    imports: [SocialView]
 })
 export class SocialListComponent implements OnInit {
 

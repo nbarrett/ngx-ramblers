@@ -4,6 +4,7 @@ import { WalkAccessMode } from "../../models/walk-edit-mode.model";
 import { WalkEventType } from "../../models/walk-event-type.model";
 import { VenueType } from "../../models/event-venue.model";
 import { EventType, WalkFilter } from "../../models/walk.model";
+import { FilterCriteria } from "../../models/api-request.model";
 
 @Injectable({
   providedIn: "root"
@@ -19,12 +20,12 @@ export class WalksReferenceService {
   };
 
   walksFilter: WalkFilter[] = [
-    {value: 1, description: "Walks Today Onwards", selected: true},
-    {value: 2, description: "Past Walks"},
-    {value: 3, description: "All Walks"},
-    {value: 4, description: "Walks With No Leader", localWalkPopulationOnly: true},
-    {value: 5, description: "Walks With No Details", localWalkPopulationOnly: true},
-    {value: 6, description: "Deleted Walks", adminOnly: true, localWalkPopulationOnly: true}
+    {value: FilterCriteria.FUTURE_EVENTS, description: "Walks Today Onwards", selected: true},
+    {value: FilterCriteria.PAST_EVENTS, description: "Past Walks"},
+    {value: FilterCriteria.ALL_EVENTS, description: "All Walks"},
+    {value: FilterCriteria.NO_CONTACT_DETAILS, description: "Walks With No Leader", localWalkPopulationOnly: true},
+    {value: FilterCriteria.NO_EVENT_TITLE, description: "Walks With No Details", localWalkPopulationOnly: true},
+    {value: FilterCriteria.DELETED_EVENTS, description: "Deleted Walks", adminOnly: true, localWalkPopulationOnly: true}
   ];
 
   walkEventTypeMappings = {

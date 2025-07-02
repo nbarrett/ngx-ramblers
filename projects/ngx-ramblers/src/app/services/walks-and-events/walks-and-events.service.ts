@@ -124,4 +124,17 @@ export class WalksAndEventsService {
       throw error;
     }
   }
+
+  public async count({ criteria }: { criteria: any }): Promise<number> {
+    this.logger.info("count called with walkPopulation:", this.group?.walkPopulation, "criteria:", criteria);
+    switch (this.group?.walkPopulation) {
+      case EventPopulation.WALKS_MANAGER:
+        throw new Error("count: WALKS_MANAGER population not supported, use localWalksAndEventsService.count instead");
+      case EventPopulation.LOCAL:
+        return this.localWalksAndEventsService.count({ criteria });
+      default:
+        this.logger.warn("count: unknown walkPopulation, returning 0");
+        return 0;
+    }
+  }
 }

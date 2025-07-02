@@ -16,7 +16,7 @@ import { sortBy } from "../../functions/arrays";
 import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { GroupEventService } from "./group-event.service";
-import { DataQueryOptions, MongoCriteria } from "../../models/api-request.model";
+import { DataQueryOptions, FilterCriteria, MongoCriteria } from "../../models/api-request.model";
 import { StringUtilsService } from "../string-utils.service";
 import { FilterParameters, HasBasicEventSelection } from "../../models/search.model";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
@@ -67,19 +67,19 @@ export class ExtendedGroupEventQueryService {
   }
 
   criteriaFor(filterParameters: HasBasicEventSelection, dateComparison?: string): MongoCriteria {
-    const date = dateComparison ? this.dateUtils.asMoment(dateComparison).toDate() : this.dateUtils.momentNowNoTime().toDate();
+    const date: Date = dateComparison ? this.dateUtils.asMoment(dateComparison).toDate() : this.dateUtils.momentNowNoTime().toDate();
     switch (filterParameters.selectType) {
-      case 1:
+      case FilterCriteria.FUTURE_EVENTS:
         return {[GROUP_EVENT_START_DATE]: {$gte: date}};
-      case 2:
+      case FilterCriteria.PAST_EVENTS:
         return {[GROUP_EVENT_START_DATE]: {$lt: date}};
-      case 3:
+      case FilterCriteria.ALL_EVENTS:
         return {};
-      case 4:
+      case FilterCriteria.NO_CONTACT_DETAILS:
         return {"fields.contactDetails.phone": {$exists: false}};
-      case 5:
+      case FilterCriteria.NO_EVENT_TITLE:
         return {"groupEvent.title": {$exists: false}};
-      case 6:
+      case FilterCriteria.DELETED_EVENTS:
         return {"events.eventType": {$eq: EventType.DELETED.toString()}};
     }
   }

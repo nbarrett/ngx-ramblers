@@ -10,6 +10,8 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { NgClass, NgStyle } from "@angular/common";
 import { RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { MediaQueryService } from "../../../../services/committee/media-query.service";
+import { FALLBACK_MEDIA } from "../../../../models/walk.model";
 
 @Component({
     selector: "app-card-image",
@@ -50,19 +52,20 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 export class CardImageComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("CardImageComponent", NgxLoggerLevel.ERROR);
   urlService = inject(UrlService);
+  mediaQueryService = inject(MediaQueryService);
   faImage = faImage;
   public constrainedHeight: number;
   public imageText = null;
   public imageSource: string;
 
   @Input("imageSource") set acceptChangesFrom(imageSource: string) {
-    this.logger.debug("imageSource:", imageSource);
-    this.imageSource = imageSource;
+    this.imageSource = imageSource || FALLBACK_MEDIA.url;
     if (!imageSource) {
       this.imageText = ImageMessage.NO_IMAGE_AVAILABLE;
     } else {
       this.imageText = null;
     }
+    this.logger.info("imageSource:", imageSource, " imageText:", this.imageText);
   }
 
   @Input("height") set acceptHeightChangesFrom(height: number) {
