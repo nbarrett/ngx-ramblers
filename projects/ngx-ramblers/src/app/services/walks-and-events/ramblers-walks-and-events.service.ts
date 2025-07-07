@@ -34,7 +34,7 @@ import {
   EventStartDateLessThan,
   EventStartDateLessThanOrEqualTo,
   EventType,
-  GROUP_EVENT_START_DATE,
+  GroupEventField,
   LinkSource,
   LinkWithSource,
   LocalAndRamblersWalk,
@@ -135,15 +135,15 @@ export class RamblersWalksAndEventsService {
   }
 
   static isEventStartDateGreaterThanOrEqualTo(response: any): response is EventStartDateGreaterThanOrEqualTo {
-    return (response as EventStartDateGreaterThanOrEqualTo)?.[GROUP_EVENT_START_DATE]?.$gte !== undefined;
+    return (response as EventStartDateGreaterThanOrEqualTo)?.[GroupEventField.START_DATE]?.$gte !== undefined;
   }
 
   static isWalkDateLessThan(response: any): response is EventStartDateLessThan {
-    return (response as EventStartDateLessThan)?.[GROUP_EVENT_START_DATE]?.$lt !== undefined;
+    return (response as EventStartDateLessThan)?.[GroupEventField.START_DATE]?.$lt !== undefined;
   }
 
   static isWalkDateLessThanOrEqualTo(response: any): response is EventStartDateLessThanOrEqualTo {
-    return (response as EventStartDateLessThanOrEqualTo)?.[GROUP_EVENT_START_DATE]?.$lte !== undefined;
+    return (response as EventStartDateLessThanOrEqualTo)?.[GroupEventField.START_DATE]?.$lte !== undefined;
   }
 
   groupNotifications(): Observable<RamblersGroupsApiResponseApiResponse> {
@@ -205,7 +205,7 @@ export class RamblersWalksAndEventsService {
 
   private createStartDate(criteria: object): string {
     if (RamblersWalksAndEventsService.isEventStartDateGreaterThanOrEqualTo(criteria)) {
-      return this.dateUtils.asMoment(criteria?.[GROUP_EVENT_START_DATE].$gte).format(DateFormat.WALKS_MANAGER_API);
+      return this.dateUtils.asMoment(criteria?.[GroupEventField.START_DATE]?.$gte)?.format(DateFormat.WALKS_MANAGER_API);
     } else if (RamblersWalksAndEventsService.isWalkDateLessThan(criteria) || isEmpty(criteria)) {
       return this.dateUtils.asMoment().subtract(2, "year").format(DateFormat.WALKS_MANAGER_API);
     } else {
@@ -226,11 +226,11 @@ export class RamblersWalksAndEventsService {
   private createEndDate(criteria: any): string {
     this.logger.off("createEndDate.criteria:", criteria, "walkDate value:", criteria?.walkDate, "walkDate formatted:", this.dateUtils.asMoment(criteria?.walkDate).format(DateFormat.WALKS_MANAGER_API));
     if (RamblersWalksAndEventsService.isWalkDateLessThan(criteria)) {
-      return this.dateUtils.asMoment(criteria?.[GROUP_EVENT_START_DATE]?.$lt).subtract(1, "day").format(DateFormat.WALKS_MANAGER_API);
+      return this.dateUtils.asMoment(criteria?.[GroupEventField.START_DATE]?.$lt).subtract(1, "day")?.format(DateFormat.WALKS_MANAGER_API);
     } else if (RamblersWalksAndEventsService.isWalkDateLessThanOrEqualTo(criteria)) {
-      return this.dateUtils.asMoment(criteria?.[GROUP_EVENT_START_DATE]?.$lte).format(DateFormat.WALKS_MANAGER_API);
+      return this.dateUtils.asMoment(criteria?.[GroupEventField.START_DATE]?.$lte)?.format(DateFormat.WALKS_MANAGER_API);
     } else {
-      return this.dateUtils.asMoment().add(2, "year").format(DateFormat.WALKS_MANAGER_API);
+      return this.dateUtils.asMoment().add(2, "year")?.format(DateFormat.WALKS_MANAGER_API);
     }
   }
 

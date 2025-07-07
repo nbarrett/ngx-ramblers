@@ -30,11 +30,11 @@ import { isNumericRamblersId } from "../path-matchers";
 import { MediaQueryService } from "./media-query.service";
 import { EventQueryParameters, RamblersEventType } from "../../models/ramblers-walks-manager";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
-import { GROUP_EVENT_START_DATE } from "../../models/walk.model";
 import { DateValue } from "../../models/date.model";
 import { DisplayTimePipe } from "../../pipes/display-time.pipe";
 import { DistanceValidationService } from "../walks/distance-validation.service";
 import { StringUtilsService } from "../string-utils.service";
+import { GroupEventField } from "../../models/walk.model";
 
 @Injectable({
   providedIn: "root"
@@ -86,7 +86,7 @@ export class CommitteeQueryService {
       const eventQueryParameters: EventQueryParameters = {
         dataQueryOptions: {
           criteria: textBasedCriteria || idBasedCriteria || {
-            [GROUP_EVENT_START_DATE]: {
+            [GroupEventField.START_DATE]: {
               $gte: fromDate.date,
               $lte: toDate.date
             }

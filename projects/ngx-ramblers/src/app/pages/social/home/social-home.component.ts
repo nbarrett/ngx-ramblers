@@ -3,7 +3,6 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { PageComponent } from "../../../page/page.component";
 import { SocialCarouselComponent } from "../social-carousel/social-carousel";
-import { Events } from "../../../modules/common/events/events";
 import { EventsMigrationService } from "../../../services/migration/events-migration.service";
 import { Subscription } from "rxjs";
 import { SystemConfigService } from "../../../services/system/system-config.service";
@@ -28,7 +27,7 @@ import { BuiltInAnchor } from "../../../models/content-text.model";
       </app-page>
     `,
     styleUrls: ["./social-home.component.sass"],
-  imports: [PageComponent, SocialCarouselComponent, Events, DynamicContentComponent]
+  imports: [PageComponent, SocialCarouselComponent, DynamicContentComponent]
 })
 export class SocialHomeComponent implements OnInit, OnDestroy {
   loggerFactory: LoggerFactory = inject(LoggerFactory);

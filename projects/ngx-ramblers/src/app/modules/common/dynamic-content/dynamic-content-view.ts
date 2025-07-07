@@ -15,7 +15,6 @@ import { DynamicContentViewAlbumIndexComponent } from "./dynamic-content-view-al
 import { DynamicContentViewAlbumComponent } from "./dynamic-content-view-album";
 import { EventsRow } from "../events/events-row";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { JsonPipe } from "@angular/common";
 
 @Component({
     selector: "app-dynamic-content-view",
@@ -68,7 +67,7 @@ import { JsonPipe } from "@angular/common";
         }
       }`,
     styleUrls: ["./dynamic-content.sass"],
-  imports: [ActionButtonsComponent, DynamicContentViewTextRowComponent, DynamicContentViewCarouselComponent, DynamicContentViewAlbumIndexComponent, DynamicContentViewAlbumComponent, EventsRow, FontAwesomeModule, JsonPipe]
+  imports: [ActionButtonsComponent, DynamicContentViewTextRowComponent, DynamicContentViewCarouselComponent, DynamicContentViewAlbumIndexComponent, DynamicContentViewAlbumComponent, EventsRow, FontAwesomeModule]
 })
 export class DynamicContentViewComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewComponent", NgxLoggerLevel.ERROR);

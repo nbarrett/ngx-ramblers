@@ -10,6 +10,8 @@ import { MapEditComponent } from "../../../../pages/walks/walk-edit/map-edit";
 import { MemberLoginService } from "../../../../services/member/member-login.service";
 import { AlertInstance } from "../../../../services/notifier.service";
 import { BasicMedia } from "../../../../models/ramblers-walks-manager";
+import { RouterLink } from "@angular/router";
+import { SocialDisplayService } from "../../../../pages/social/social-display.service";
 
 @Component({
   selector: "app-card-image-or-map",
@@ -22,8 +24,7 @@ import { BasicMedia } from "../../../../models/ramblers-walks-manager";
         class="btn btn-primary button-container">
     }
     @if (display.displayMapAsImageFallback(displayedWalk.walk)) {
-      <div app-map-edit
-           readonly
+      <div app-map-edit readonly
            [class]="this.imageConfig.class"
            [locationDetails]="displayedWalk.walk?.groupEvent?.start_location"
            [notify]="notify"></div>
@@ -33,24 +34,25 @@ import { BasicMedia } from "../../../../models/ramblers-walks-manager";
            src="{{basicMedia?.url}}"
            alt="{{basicMedia?.alt}}"
            [height]="this.imageConfig.height"
+           [routerLink]="urlService.routerLinkUrl(socialDisplayService.groupEventLink(displayedWalk.walk, true))"
            class="card-img-top"/>
     }
   `,
   styleUrls: ["./card-image.sass"],
-  imports: [FontAwesomeModule, MapEditComponent]
+  imports: [FontAwesomeModule, MapEditComponent, RouterLink]
 })
 export class CardImageOrMap implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("CardImageOrMap", NgxLoggerLevel.ERROR);
-  urlService = inject(UrlService);
+  public urlService = inject(UrlService);
   public display = inject(WalkDisplayService);
-  mediaQueryService = inject(MediaQueryService);
+  public socialDisplayService = inject(SocialDisplayService);
+  public mediaQueryService = inject(MediaQueryService);
   protected memberLoginService = inject(MemberLoginService);
   protected basicMedia: BasicMedia;
-
+  protected imageConfig: { class: string, height: number };
   @Input() displayedWalk!: DisplayedWalk;
   @Input() notify!: AlertInstance;
   @Input() maxColumns!: number;
-  protected imageConfig: { class: string, height: number };
 
   ngOnInit() {
     this.imageConfig = {class: this.determineClass(), height: this.determineHeight()};

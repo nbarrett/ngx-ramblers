@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 import { ApiResponse } from "./api-response.model";
 import { WalkAccessMode } from "./walk-edit-mode.model";
 import { WalkEventType } from "./walk-event-type.model";
-import { Venue } from "./event-venue.model";
 import {
   BasicMedia,
   Contact,
@@ -200,29 +199,47 @@ export enum WalkViewMode {
   LIST = "list"
 }
 
-export const GROUP_EVENT_START_DATE = "groupEvent.start_date_time";
-export const GROUP_EVENT_ITEM_TYPE = "groupEvent.item_type";
-export const GROUP_EVENT_TITLE = "groupEvent.title";
-export const GROUP_EVENT_URL = "groupEvent.url";
 export const ID = "_id";
-export const GROUP_EVENT_MIGRATED_FROM_ID = "fields.migratedFromId";
-export const EventStartDateAscending = {[GROUP_EVENT_START_DATE]: 1};
 
-export const EventStartDateDescending = {[GROUP_EVENT_START_DATE]: -1};
+export enum GroupEventField {
+  DESCRIPTION = "groupEvent.description",
+  GROUP_CODE = "groupEvent.group_code",
+  ID = "groupEvent.id",
+  ITEM_TYPE = "groupEvent.item_type",
+  LOCATION_DESCRIPTION = "groupEvent.location.description",
+  MEDIA = "groupEvent.media",
+  START_DATE = "groupEvent.start_date_time",
+  TITLE = "groupEvent.title",
+  URL = "groupEvent.url",
+}
+
+export enum EventField {
+  ATTACHMENT = "fields.attachment",
+  CONTACT_DETAILS_MEMBER_ID = "fields.contactDetails.memberId",
+  CONTACT_DETAILS_PHONE = "fields.contactDetails.phone",
+  MIGRATED_FROM_ID = "fields.migratedFromId",
+}
+
+export enum EventEventField {
+  EVENT_TYPE = "events.eventType",
+}
+
+export const EventStartDateAscending = {[GroupEventField.START_DATE]: 1};
+export const EventStartDateDescending = {[GroupEventField.START_DATE]: -1};
 export interface MongoIdsSupplied {
   _id: { $in: mongoose.Types.ObjectId[] };
 }
 
 export interface EventStartDateGreaterThanOrEqualTo {
-  [GROUP_EVENT_START_DATE]: { $gte: string };
+  [GroupEventField.START_DATE]: { $gte: string };
 }
 
 export interface EventStartDateLessThan {
-  [GROUP_EVENT_START_DATE]: { $lt: string };
+  [GroupEventField.START_DATE]: { $lt: string };
 }
 
 export interface EventStartDateLessThanOrEqualTo {
-  [GROUP_EVENT_START_DATE]: { $lte: string };
+  [GroupEventField.START_DATE]: { $lte: string };
 }
 
 export interface DisplayedWalk {

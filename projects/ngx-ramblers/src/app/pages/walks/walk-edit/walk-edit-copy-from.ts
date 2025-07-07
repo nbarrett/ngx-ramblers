@@ -1,5 +1,5 @@
 import { Component, EventEmitter, inject, Input, Output } from "@angular/core";
-import { DisplayedWalk, EventType, GROUP_EVENT_START_DATE } from "../../../models/walk.model";
+import { DisplayedWalk, EventField, EventType, GroupEventField } from "../../../models/walk.model";
 import { FormsModule } from "@angular/forms";
 import { WalkSummaryPipe } from "../../../pipes/walk-summary.pipe";
 import { DisplayMember } from "../../../models/member.model";
@@ -9,7 +9,6 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
 import { GroupEventService } from "../../../services/walks-and-events/group-event.service";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { AlertInstance } from "../../../services/notifier.service";
-import { EventDefaultsService } from "../../../services/event-defaults.service";
 import { cloneDeep } from "lodash-es";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -163,21 +162,23 @@ export class WalkEditCopyFromComponent {
         switch (this.copySource) {
             case "copy-selected-walk-leader": {
                 criteria = {
-                    ["fields.contactDetails.memberId"]: this.copySourceFromWalkLeaderMemberId,
-                    ["groupEvent.title"]: {$exists: true}
+                  [EventField.CONTACT_DETAILS_MEMBER_ID]: this.copySourceFromWalkLeaderMemberId,
+                  [GroupEventField.TITLE]: {$exists: true}
                 };
                 break;
             }
             case "copy-with-os-maps-route-selected": {
+              // TODO: these are broken
                 criteria = {osMapsRoute: {$exists: true}};
                 break;
             }
             default: {
+              // TODO: these are broken
                 criteria = {walkLeaderMemberId: memberId};
             }
         }
         this.logger.info("selecting walks", this.copySource, criteria);
-        this.walksAndEventsService.all({dataQueryOptions: {criteria, sort: {[GROUP_EVENT_START_DATE]: -1}}})
+      this.walksAndEventsService.all({dataQueryOptions: {criteria, sort: {[GroupEventField.START_DATE]: -1}}})
             .then(walks => this.extendedGroupEventQueryService.activeEvents(walks))
             .then(walks => {
                 this.logger.info("received walks", walks);

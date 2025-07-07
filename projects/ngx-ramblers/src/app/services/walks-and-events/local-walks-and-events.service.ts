@@ -3,7 +3,7 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
-import { GROUP_EVENT_START_DATE, WalkLeaderIdsApiResponse } from "../../models/walk.model";
+import { EventField, GroupEventField, WalkLeaderIdsApiResponse } from "../../models/walk.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { StringUtilsService } from "../string-utils.service";
@@ -30,12 +30,15 @@ export class LocalWalksAndEventsService {
   private walkLeaderIdNotifications = new Subject<WalkLeaderIdsApiResponse>();
   publicFieldsDataQueryOptions: DataQueryOptions = {
     select: {
-      ["groupEvent.title"]: 1,
-      [GROUP_EVENT_START_DATE]: 1,
-      ["groupEvent.location.description"]: 1,
-      ["groupEvent.description"]: 1,
-      ["fields.attachment"]: 1,
-      ["groupEvent.media"]: 1
+      [GroupEventField.TITLE]: 1,
+      [GroupEventField.ITEM_TYPE]: 1,
+      [GroupEventField.START_DATE]: 1,
+      [GroupEventField.LOCATION_DESCRIPTION]: 1,
+      [GroupEventField.DESCRIPTION]: 1,
+      [GroupEventField.MEDIA]: 1,
+      [GroupEventField.URL]: 1,
+      [GroupEventField.GROUP_CODE]: 1,
+      [EventField.ATTACHMENT]: 1,
     }
   };
 
