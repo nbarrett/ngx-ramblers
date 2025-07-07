@@ -2,7 +2,7 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { ExtendedGroupEventQueryService } from "../../../services/walks-and-events/extended-group-event-query.service";
-import { ExtendedGroupEventForSelect, GROUP_EVENT_START_DATE, ImageSource } from "../../../models/walk.model";
+import { ExtendedGroupEventForSelect, GroupEventField, ImageSource } from "../../../models/walk.model";
 import {
   EventQueryParameters,
   RamblersGroupsApiResponse,
@@ -59,7 +59,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
         <ng-select id="linked-walk"
                    [items]="eventsForSelect"
                    bindLabel="ngSelectAttributes.label"
-                   bindValue="groupEvent.id"
+                   [bindValue]="GroupEventField.ID"
                    [placeholder]="'Select a walk - type part of title to filter items'"
                    [dropdownPosition]="'bottom'"
                    [clearAllText]="'clear current selection'"
@@ -85,6 +85,8 @@ export class EventImageSelectionForWalksManager implements OnInit {
   public eventsForSelect: ExtendedGroupEventForSelect[] = [];
   public event: ExtendedGroupEventForSelect;
   @Input() groupEvent!: ExtendedGroupEvent;
+
+  protected readonly GroupEventField = GroupEventField;
 
   async ngOnInit() {
     await this.refreshGroupsAndWalksIfApplicable();
@@ -148,7 +150,7 @@ export class EventImageSelectionForWalksManager implements OnInit {
   }
 
   private sortColumn(filterParameters: HasBasicEventSelection) {
-    return `${filterParameters.selectType === FilterCriteria.FUTURE_EVENTS ? "" : "-"}${GROUP_EVENT_START_DATE}`;
+    return `${filterParameters.selectType === FilterCriteria.FUTURE_EVENTS ? "" : "-"}${GroupEventField.START_DATE}`;
   }
 
   walkChange(ramblersWalkId: string) {

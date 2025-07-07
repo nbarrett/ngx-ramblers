@@ -23,10 +23,10 @@ import { FormsModule } from "@angular/forms";
 import { EventCardsList } from "./event-cards-list";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
-import { GROUP_EVENT_START_DATE } from "../../../models/walk.model";
 import { EventQueryParameters, RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { DateFilterParameters } from "../../../models/search.model";
 import { MongoSort } from "../../../models/mongo-models";
+import { GroupEventField } from "../../../models/walk.model";
 
 @Component({
     selector: "app-events",
@@ -139,15 +139,15 @@ export class Events implements OnInit, OnDestroy {
       case FilterCriteria.CHOOSE:
       case FilterCriteria.DATE_RANGE:
         return {
-          [GROUP_EVENT_START_DATE]: {
+          [GroupEventField.START_DATE]: {
             $gte: this.dateUtils.asDateValue(fromDate)?.date,
             $lte: this.dateUtils.asDateValue(toDate)?.date
           }
         };
       case FilterCriteria.FUTURE_EVENTS:
-        return {[GROUP_EVENT_START_DATE]: {$gte: today}};
+        return {[GroupEventField.START_DATE]: {$gte: today}};
       case FilterCriteria.PAST_EVENTS:
-        return {[GROUP_EVENT_START_DATE]: {$lt: today}};
+        return {[GroupEventField.START_DATE]: {$lt: today}};
       case FilterCriteria.ALL_EVENTS:
       default:
         return {};
@@ -155,7 +155,7 @@ export class Events implements OnInit, OnDestroy {
   }
 
   sort() {
-    return {[GROUP_EVENT_START_DATE]: this.sortOrderToValue(this?.eventsData?.sortOrder)};
+    return {[GroupEventField.START_DATE]: this.sortOrderToValue(this?.eventsData?.sortOrder)};
   }
 
   private sortOrderToValue(sortOrder: SortOrder): MongoSort {

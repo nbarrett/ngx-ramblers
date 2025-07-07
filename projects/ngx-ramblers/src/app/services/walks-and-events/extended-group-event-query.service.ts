@@ -3,13 +3,12 @@ import cloneDeep from "lodash-es/cloneDeep";
 import first from "lodash-es/first";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
+  EventEventField,
+  EventField,
   EventStartDateAscending,
   EventStartDateDescending,
   EventType,
-  GROUP_EVENT_MIGRATED_FROM_ID,
-  GROUP_EVENT_START_DATE,
-  GROUP_EVENT_TITLE,
-  GROUP_EVENT_URL,
+  GroupEventField,
   ID
 } from "../../models/walk.model";
 import { sortBy } from "../../functions/arrays";
@@ -46,13 +45,13 @@ export class ExtendedGroupEventQueryService {
     const andCriteria: any[] = [];
 
     if (eventQueryParameters.groupCode) {
-      andCriteria.push({"groupEvent.group_code": eventQueryParameters.groupCode});
+      andCriteria.push({[GroupEventField.GROUP_CODE]: eventQueryParameters.groupCode});
     }
     if (eventQueryParameters.ids && eventQueryParameters.ids.length > 0) {
-      andCriteria.push({"groupEvent.id": {$in: eventQueryParameters.ids}});
+      andCriteria.push({[GroupEventField.ID]: {$in: eventQueryParameters.ids}});
     }
     if (eventQueryParameters.types && eventQueryParameters.types.length > 0) {
-      andCriteria.push({"groupEvent.item_type": {$in: eventQueryParameters.types}});
+      andCriteria.push({[GroupEventField.ITEM_TYPE]: {$in: eventQueryParameters.types}});
     }
 
     if (eventQueryParameters.dataQueryOptions?.criteria) {
@@ -70,17 +69,17 @@ export class ExtendedGroupEventQueryService {
     const date: Date = dateComparison ? this.dateUtils.asMoment(dateComparison).toDate() : this.dateUtils.momentNowNoTime().toDate();
     switch (filterParameters.selectType) {
       case FilterCriteria.FUTURE_EVENTS:
-        return {[GROUP_EVENT_START_DATE]: {$gte: date}};
+        return {[GroupEventField.START_DATE]: {$gte: date}};
       case FilterCriteria.PAST_EVENTS:
-        return {[GROUP_EVENT_START_DATE]: {$lt: date}};
+        return {[GroupEventField.START_DATE]: {$lt: date}};
       case FilterCriteria.ALL_EVENTS:
         return {};
       case FilterCriteria.NO_CONTACT_DETAILS:
-        return {"fields.contactDetails.phone": {$exists: false}};
+        return {[EventField.CONTACT_DETAILS_PHONE]: {$exists: false}};
       case FilterCriteria.NO_EVENT_TITLE:
-        return {"groupEvent.title": {$exists: false}};
+        return {[GroupEventField.TITLE]: {$exists: false}};
       case FilterCriteria.DELETED_EVENTS:
-        return {"events.eventType": {$eq: EventType.DELETED.toString()}};
+        return {[EventEventField.EVENT_TYPE]: {$eq: EventType.DELETED.toString()}};
     }
   }
 
@@ -92,18 +91,18 @@ export class ExtendedGroupEventQueryService {
           {
             $expr: {
               $eq: [
-                {$arrayElemAt: [{$split: [`$${GROUP_EVENT_URL}`, "/"]}, -1]},
+                {$arrayElemAt: [{$split: [`$${GroupEventField.URL}`, "/"]}, -1]},
                 slug
               ]
             }
           },
-          {[GROUP_EVENT_URL]: slug},
+          {[GroupEventField.URL]: slug},
           {
             $expr: {
               $eq: [
                 {
                   $replaceAll: {
-                    input: {$toLower: `$${GROUP_EVENT_TITLE}`},
+                    input: {$toLower: `$${GroupEventField.TITLE}`},
                     find: " ",
                     replacement: "-"
                   }
@@ -118,7 +117,7 @@ export class ExtendedGroupEventQueryService {
       return {
         $or: [
           {[ID]: identifier},
-          {[GROUP_EVENT_MIGRATED_FROM_ID]: identifier}
+          {[EventField.MIGRATED_FROM_ID]: identifier}
         ]
       };
     }
@@ -138,9 +137,9 @@ export class ExtendedGroupEventQueryService {
     this.logger.info("localWalksSortObject:walksSortObject:", filterParameters);
     switch (this.stringUtils.asBoolean(filterParameters.ascending)) {
       case true:
-        return "walk." + GROUP_EVENT_START_DATE;
+        return "walk." + GroupEventField.START_DATE;
       case false:
-        return "-walk." + GROUP_EVENT_START_DATE;
+        return "-walk." + GroupEventField.START_DATE;
     }
   }
 

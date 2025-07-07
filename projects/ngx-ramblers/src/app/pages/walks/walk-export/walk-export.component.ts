@@ -12,7 +12,7 @@ import {
   Status
 } from "../../../models/ramblers-upload-audit.model";
 import { RamblersEventType, RamblersWalksUploadRequest, WalkUploadRow } from "../../../models/ramblers-walks-manager";
-import { GROUP_EVENT_START_DATE, WalkExport } from "../../../models/walk.model";
+import { GroupEventField, WalkExport } from "../../../models/walk.model";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -501,8 +501,8 @@ export class WalkExportComponent implements OnInit, OnDestroy {
       const all: ExtendedGroupEvent[] = await this.walksAndEventsService.all({
         types: [RamblersEventType.GROUP_WALK],
         dataQueryOptions: {
-          criteria: {[GROUP_EVENT_START_DATE]: {$gte: this.dateUtils.momentNow().format()}},
-          sort: {[GROUP_EVENT_START_DATE]: -1}
+          criteria: {[GroupEventField.START_DATE]: {$gte: this.dateUtils.momentNow().format()}},
+          sort: {[GroupEventField.START_DATE]: -1}
         }
       });
       const active: ExtendedGroupEvent[] = this.extendedGroupEventQueryService.activeEvents(all);

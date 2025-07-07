@@ -1,7 +1,7 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { LocationDetails, Media, RamblersEventType } from "../../models/ramblers-walks-manager";
-import { GROUP_EVENT_START_DATE, ImageSource, LinkSource, LinkWithSource, WalkType } from "../../models/walk.model";
+import { GroupEventField, ImageSource, LinkSource, LinkWithSource, WalkType } from "../../models/walk.model";
 import { WalkDisplayService } from "../../pages/walks/walk-display.service";
 import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -63,7 +63,7 @@ export class EventsMigrationService {
     this.logger.info("migrateSocialEventUrls:starting migration of social event URLs");
     const socialEvents: ExtendedGroupEvent[] = await this.localWalksAndEventsService.all({
       types: [RamblersEventType.GROUP_EVENT],
-      dataQueryOptions: {sort: {[GROUP_EVENT_START_DATE]: -1}}
+      dataQueryOptions: {sort: {[GroupEventField.START_DATE]: -1}}
     });
     this.logger.info("migrateSocialEventUrls:found social events:", socialEvents);
     const usedUrls = new Set<string>();

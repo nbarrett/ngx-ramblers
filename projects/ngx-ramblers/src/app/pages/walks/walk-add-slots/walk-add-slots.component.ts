@@ -29,7 +29,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { EventDefaultsService } from "../../../services/event-defaults.service";
 import { DEFAULT_FILTER_PARAMETERS, FilterParameters } from "../../../models/search.model";
 import { DataQueryOptions } from "../../../models/api-request.model";
-import { GROUP_EVENT_START_DATE } from "../../../models/walk.model";
+import { GroupEventField } from "../../../models/walk.model";
 
 @Component({
     selector: "app-walk-add-slots",
@@ -242,7 +242,7 @@ export class WalkAddSlotsComponent implements OnInit {
     this.walksAndEventsService.all({
       dataQueryOptions: {
       criteria: dataQueryOptions.criteria,
-      select: {events: 1, [GROUP_EVENT_START_DATE]: 1},
+      select: {events: 1, [GroupEventField.START_DATE]: 1},
       sort: dataQueryOptions.sort
       }
     })
@@ -276,8 +276,8 @@ export class WalkAddSlotsComponent implements OnInit {
     const dataQueryOptions: DataQueryOptions = this.extendedGroupEventQueryService.dataQueryOptions(filterParameters);
     this.walksAndEventsService.all({
       dataQueryOptions: {
-      criteria: {[GROUP_EVENT_START_DATE]: {$eq: this.dateUtils.isoDateTime(this.singleDate.value)}},
-      select: {events: 1, [GROUP_EVENT_START_DATE]: 1},
+      criteria: {[GroupEventField.START_DATE]: {$eq: this.dateUtils.isoDateTime(this.singleDate.value)}},
+      select: {events: 1, [GroupEventField.START_DATE]: 1},
       sort: dataQueryOptions.sort
       }
     })
