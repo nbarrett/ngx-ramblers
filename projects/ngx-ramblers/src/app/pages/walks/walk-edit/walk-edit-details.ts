@@ -7,6 +7,8 @@ import { Difficulty } from "../../../models/ramblers-walks-manager";
 import { WalkDisplayService } from "../walk-display.service";
 import { AlertInstance } from "../../../services/notifier.service";
 import { cloneDeep } from "lodash-es";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { enumValueForKey } from "../../../functions/enums";
 
 @Component({
   selector: "app-walk-edit-details",
@@ -70,7 +72,7 @@ import { cloneDeep } from "lodash-es";
                                     [locationDetails]="displayedWalk?.walk?.groupEvent.start_location"
                                     [notify]="notify"/>
           </div>
-          @if (displayedWalk?.walk?.groupEvent?.shape === WalkType.LINEAR) {
+          @if (enumValueForKey(WalkType, displayedWalk?.walk?.groupEvent?.shape) === WalkType.LINEAR) {
             <div class="col">
               <app-walk-location-edit locationType="Finishing"
                                       [locationDetails]="displayedWalk?.walk?.groupEvent?.end_location"
@@ -78,7 +80,7 @@ import { cloneDeep } from "lodash-es";
             </div>
           }
         </div>
-        @if (displayedWalk?.walk?.groupEvent?.shape === WalkType.LINEAR) {
+        @if (enumValueForKey(WalkType, displayedWalk?.walk?.groupEvent?.shape) === WalkType.LINEAR) {
           <div class="row mt-2">
             <div class="col d-flex justify-content-center">
               <button type="button" class="btn btn-primary"
@@ -93,8 +95,13 @@ import { cloneDeep } from "lodash-es";
   `
 })
 export class WalkEditDetailsComponent {
+
+  @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
+    this.inputDisabled = coerceBooleanProperty(inputDisabled);
+  }
+
   @Input() displayedWalk!: DisplayedWalk;
-  @Input() inputDisabled = false;
+  public inputDisabled = false;
   @Input() renderMapEdit = false;
   @Input() allowDetailView = false;
   @Input() notify!: AlertInstance;
@@ -102,12 +109,14 @@ export class WalkEditDetailsComponent {
   protected readonly WalkType = WalkType;
   protected display = inject(WalkDisplayService);
 
+  protected readonly enumValueForKey = enumValueForKey;
+
   difficultyChange() {
     // Placeholder for future logic
   }
 
   walkTypeChange() {
-    if (this.displayedWalk?.walk?.groupEvent.shape === WalkType.LINEAR && !this.displayedWalk?.walk?.groupEvent.end_location) {
+    if (enumValueForKey(WalkType, this.displayedWalk?.walk?.groupEvent?.shape) === WalkType.LINEAR && !this.displayedWalk?.walk?.groupEvent.end_location) {
       this.displayedWalk.walk.groupEvent.end_location = cloneDeep(INITIALISED_LOCATION);
     }
   }

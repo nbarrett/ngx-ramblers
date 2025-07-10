@@ -465,11 +465,11 @@ export class RamblersWalksAndEventsService {
         validationMessages.push("Display Name for walk leader is missing. This can be entered manually on the Walk Leader tab");
       }
 
-      if (walk.groupEvent.shape === WalkType.LINEAR && isEmpty(this.walkDisplayService.gridReferenceFrom(walk?.groupEvent?.end_location))) {
+      if (enumValueForKey(WalkType, walk?.groupEvent?.shape) === WalkType.LINEAR && isEmpty(this.walkDisplayService.gridReferenceFrom(walk?.groupEvent?.end_location))) {
         validationMessages.push(`Walk is ${WalkType.LINEAR} but no finish postcode has been entered in the Walk Details tab`);
       }
 
-      if (walk.groupEvent.shape === WalkType.CIRCULAR && !isEmpty(walk?.groupEvent?.end_location?.postcode) && walk?.groupEvent?.end_location?.postcode !== walk?.groupEvent?.start_location?.postcode) {
+      if (enumValueForKey(WalkType, walk?.groupEvent?.shape) === WalkType.CIRCULAR && !isEmpty(walk?.groupEvent?.end_location?.postcode) && walk?.groupEvent?.end_location?.postcode !== walk?.groupEvent?.start_location?.postcode) {
         validationMessages.push(`Walk is ${WalkType.CIRCULAR} but the finish postcode ${walk?.groupEvent?.end_location?.postcode} does not match the Starting Postcode ${walk?.groupEvent?.start_location?.postcode} in the Walk Details tab`);
       }
 

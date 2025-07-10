@@ -16,6 +16,7 @@ import { RamblersWalksAndEventsService } from "../../../services/walks-and-event
 import isString from "lodash-es/isString";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-walk-edit-main-details",
@@ -134,14 +135,30 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 
 })
 export class WalkEditMainDetailsComponent implements OnInit {
+  public inputDisabled = false;
+
+  @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
+    this.logger.info("inputDisabledValue:", inputDisabled);
+    this.inputDisabled = coerceBooleanProperty(inputDisabled);
+    if (this.walkForm) {
+      if (this.inputDisabled) {
+        this.walkForm.get("title")?.disable();
+        this.walkForm.get("description")?.disable();
+        this.walkForm.get("milesPerHour")?.disable();
+      } else {
+        this.walkForm.get("title")?.enable();
+        this.walkForm.get("description")?.enable();
+        this.walkForm.get("milesPerHour")?.enable();
+      }
+    }
+  }
   @Input() displayedWalk!: DisplayedWalk;
-  @Input() inputDisabled = false;
   protected readonly faMagnifyingGlass = faMagnifyingGlass;
   protected readonly faPencil = faPencil;
   protected display = inject(WalkDisplayService);
   private dateUtils = inject(DateUtilsService);
   ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkEditMainDetailsComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkEditMainDetailsComponent", NgxLoggerLevel.INFO);
   longerDescriptionPreview = false;
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   protected fb: FormBuilder = inject(FormBuilder);

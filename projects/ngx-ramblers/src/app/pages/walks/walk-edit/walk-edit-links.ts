@@ -18,6 +18,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEventType } from "../../../models/broadcast.model";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-walk-edit-related-links",
@@ -175,7 +176,11 @@ import { NamedEventType } from "../../../models/broadcast.model";
 })
 export class WalkEditRelatedLinksComponent implements OnInit {
   @Input() protected displayedWalk!: DisplayedWalk;
-  @Input() inputDisabled = false;
+  public inputDisabled = false;
+
+  @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
+    this.inputDisabled = coerceBooleanProperty(inputDisabled);
+  }
   @Input() saveInProgress = false;
   @Input() notify!: AlertInstance;
   public showDiagnosticData = false;
