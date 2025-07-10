@@ -19,7 +19,7 @@ import {
   WalkType,
   WalkViewMode
 } from "../../models/walk.model";
-import { enumValues } from "../../functions/enums";
+import { enumValueForKey, enumValues } from "../../functions/enums";
 import { GoogleMapsService } from "../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
@@ -251,6 +251,8 @@ export class WalkDisplayService {
   }
 
   toDisplayedWalk(extendedGroupEvent: ExtendedGroupEvent): DisplayedWalk {
+    const isLinear = enumValueForKey(WalkType, extendedGroupEvent?.groupEvent?.shape) === WalkType.LINEAR;
+    this.logger.debug("toDisplayedWalk:extendedGroupEvent:", extendedGroupEvent, "shape:", extendedGroupEvent?.groupEvent?.shape, "isLinear:", isLinear);
     return {
       hasFeatures: this.featuresService.combinedFeatures(extendedGroupEvent?.groupEvent)?.length > 0,
       walk: extendedGroupEvent,
@@ -259,7 +261,7 @@ export class WalkDisplayService {
       latestEventType: this.latestEventTypeFor(extendedGroupEvent),
       walkLink: this.walkLink(extendedGroupEvent),
       ramblersLink: this.ramblersLink(extendedGroupEvent),
-      showEndpoint: extendedGroupEvent?.groupEvent?.shape === WalkType.LINEAR && !isEmpty(extendedGroupEvent?.groupEvent?.end_location?.postcode)
+      showEndpoint: isLinear && !isEmpty(extendedGroupEvent?.groupEvent?.end_location?.postcode)
     };
   }
 

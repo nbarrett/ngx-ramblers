@@ -12,6 +12,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-walk-edit-leader",
@@ -152,7 +153,11 @@ import { Subscription } from "rxjs";
 })
 export class WalkEditLeaderComponent implements OnInit, OnDestroy {
   @Input() displayedWalk!: DisplayedWalk;
-  @Input() inputDisabled = false;
+  public inputDisabled = false;
+
+  @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
+    this.inputDisabled = coerceBooleanProperty(inputDisabled);
+  }
   @Input() saveInProgress = false;
   @Input() notify!: AlertInstance;
   @Output() statusChange = new EventEmitter<EventType>();

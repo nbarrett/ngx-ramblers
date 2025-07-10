@@ -14,6 +14,7 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ExtendedGroupEventQueryService } from "../../../services/walks-and-events/extended-group-event-query.service";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
     selector: "app-walk-edit-copy-from",
@@ -114,8 +115,12 @@ import { ExtendedGroupEventQueryService } from "../../../services/walks-and-even
     `
 })
 export class WalkEditCopyFromComponent {
-    @Input() displayedWalk!: DisplayedWalk;
-    @Input() inputDisabled = false;
+  @Input() displayedWalk!: DisplayedWalk;
+  public inputDisabled = false;
+
+  @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
+    this.inputDisabled = coerceBooleanProperty(inputDisabled);
+  }
     @Input() notify!: AlertInstance;
     @Output() statusChange = new EventEmitter<EventType>();
     copySource = "copy-selected-walk-leader";
