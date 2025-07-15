@@ -305,8 +305,9 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   public showGoogleMapsView = false;
   public walkDataAudit: WalkDataAudit;
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
-
   protected readonly RootFolder = RootFolder;
+  protected readonly faCopy = faCopy;
+
   async ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.systemConfigService.events().subscribe((config: SystemConfig) => this.config = config));
@@ -818,6 +819,4 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     }
     return audit.notificationRequired;
   }
-
-  protected readonly faCopy = faCopy;
 }
