@@ -17,6 +17,7 @@ import isString from "lodash-es/isString";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 
 @Component({
   selector: "app-walk-edit-main-details",
@@ -91,7 +92,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
               <textarea formControlName="title" type="text"
                         class="form-control input-sm" rows="3"
                         id="brief-description-and-start-point"
-                        placeholder="Enter walk title here"></textarea>
+                        (change)="afterTitleChange()" placeholder="Enter walk title here"></textarea>
             </div>
           </div>
         </div>
@@ -157,13 +158,14 @@ export class WalkEditMainDetailsComponent implements OnInit {
   protected readonly faPencil = faPencil;
   protected display = inject(WalkDisplayService);
   private dateUtils = inject(DateUtilsService);
-  ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkEditMainDetailsComponent", NgxLoggerLevel.ERROR);
-  longerDescriptionPreview = false;
+  protected ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
+  protected walksAndEventsService = inject(WalksAndEventsService);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkEditMainDetailsComponent", NgxLoggerLevel.INFO);
+  protected longerDescriptionPreview = false;
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   protected fb: FormBuilder = inject(FormBuilder);
-  walkForm: FormGroup;
-  walkDate: Date;
+  protected walkForm: FormGroup;
+  protected walkDate: Date;
 
   ngOnInit() {
     this.walkForm = this.fb.group({
@@ -228,5 +230,11 @@ export class WalkEditMainDetailsComponent implements OnInit {
 
   durationCalculated() {
     return this.dateUtils.formatDuration(this.dateUtils.asDateValue(this.displayedWalk.walk.groupEvent.start_date_time)?.value, this.dateUtils.asDateValue(this.displayedWalk.walk.groupEvent.end_date_time)?.value);
+  }
+
+  async afterTitleChange() {
+    const url = await this.walksAndEventsService.urlFromTitle(this.displayedWalk.walk.groupEvent.title, this.displayedWalk.walk.id);
+    this.logger.info("afterTitleChange:generated URL from title:", url);
+    this.displayedWalk.walk.groupEvent.url = url;
   }
 }
