@@ -33,7 +33,7 @@ import { NgxLoggerLevel } from "ngx-logger";
              src="favicon.ico"
              alt="On Ramblers"/>
         <a content tooltip="Click to view on Ramblers Walks and Events Manager" target="_blank"
-           [href]="displayedWalk.ramblersLink">On Ramblers</a>
+           [href]="displayedWalk?.ramblersLink">On Ramblers</a>
       </div>
     }
     @if (links?.osMapsRoute) {

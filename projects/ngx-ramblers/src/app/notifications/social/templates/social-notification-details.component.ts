@@ -21,15 +21,15 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 @Component({
     selector: "app-social-notification-details",
     template: `
-      @if (socialEvent?.groupEvent?.media.length > 0) {
+      @if (socialEvent?.groupEvent?.media?.length > 0) {
         <img
-          src="{{mediaQueryService.imageSourceWithFallback(socialEvent).url}}"
-          alt="{{mediaQueryService.imageSourceWithFallback(socialEvent).alt}}" height="150"
+          src="{{mediaQueryService.imageSourceWithFallback(socialEvent)?.url}}"
+          alt="{{mediaQueryService.imageSourceWithFallback(socialEvent)?.alt}}" height="150"
           class="card-img-top"/>
       }
       @if (latestNotification?.content?.title?.include) {
         <h3><strong
-          [textContent]="socialEvent.groupEvent.title"></strong>
+          [textContent]="socialEvent?.groupEvent?.title"></strong>
         </h3>
       }
       <p [textContent]="latestNotification?.content?.addresseeType"></p>
@@ -38,24 +38,24 @@ import { StringUtilsService } from "../../../services/string-utils.service";
           <h4><strong style="font-size:14px">{{ latestNotification?.content?.eventDetails.value }}</strong></h4>
           <table
             style="cellpadding:10; border:1px solid lightgrey;border-collapse:collapse;width: 100%;border-spacing: 5px;">
-            @if (socialEvent.groupEvent.start_date_time) {
+            @if (socialEvent?.groupEvent?.start_date_time) {
               <tr>
                 <td style="border:1px solid lightgrey; font-weight: bold; padding: 6px">Date and Time:</td>
                 <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">
-                  <span [textContent]="socialEvent.groupEvent.start_date_time | displayDate"></span>
-                  <span style="margin-left: 6px;" [textContent]="socialEvent.groupEvent.start_date_time"></span>
+                  <span [textContent]="socialEvent?.groupEvent?.start_date_time | displayDate"></span>
+                  <span style="margin-left: 6px;" [textContent]="socialEvent?.groupEvent?.start_date_time"></span>
                 </td>
               </tr>
             }
-            @if (socialEvent.groupEvent.location.postcode || socialEvent.groupEvent.location.description) {
+            @if (socialEvent?.groupEvent?.location.postcode || socialEvent?.groupEvent?.location.description) {
               <tr>
                 <td style="border:1px solid lightgrey; font-weight: bold; padding: 6px">Location:</td>
                 <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">
-                  <span [textContent]="socialEvent.groupEvent.location.description"></span>
+                  <span [textContent]="socialEvent?.groupEvent?.location.description"></span>
                   <a style="margin-left: 6px;"
-                     [href]="googleMapsService.urlForPostcode(socialEvent.groupEvent.location.postcode)"
+                     [href]="googleMapsService.urlForPostcode(socialEvent?.groupEvent?.location.postcode)"
                      target="_blank"><span
-                    [textContent]="socialEvent.groupEvent.location.postcode"></span></a></td>
+                    [textContent]="socialEvent?.groupEvent?.location.postcode"></span></a></td>
               </tr>
             }
             @if (latestNotification?.content?.attendees.include) {
@@ -107,7 +107,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
             <tr>
               <td style="border:1px solid lightgrey; font-weight: bold; padding: 6px">View Social On Website:</td>
               <td style="border:1px solid lightgrey; font-weight: normal; padding: 6px">
-                <app-link [area]="pageService.socialPage()?.href" id="{{stringUtils.lastItemFrom(socialEvent.groupEvent.url)}}" text="click here"></app-link>
+                <app-link [area]="pageService.socialPage()?.href" id="{{stringUtils.lastItemFrom(socialEvent?.groupEvent?.url)}}" text="click here"></app-link>
               </td>
             </tr>
           </table>
@@ -115,7 +115,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
       }
       @if (latestNotification?.content?.description.include) {
         <p>
-          <span markdown [data]="socialEvent.groupEvent.description"></span>
+          <span markdown [data]="socialEvent?.groupEvent?.description"></span>
         </p>
       }
       @if (latestNotification?.content?.text.include) {

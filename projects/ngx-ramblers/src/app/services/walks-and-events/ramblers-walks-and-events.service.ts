@@ -11,7 +11,7 @@ import {
   DateFormat,
   EventQueryParameters,
   EventsListRequest,
-  GroupListRequest,
+  GroupListRequest, MAXIMUM_PAGE_SIZE,
   Metadata,
   PublishStatus,
   RamblersEventsApiResponse,
@@ -154,7 +154,7 @@ export class RamblersWalksAndEventsService {
     this.logger.info("queryWalkLeaders:");
     const date = WALKS_MANAGER_GO_LIVE_DATE;
     const dateEnd = this.dateUtils.asMoment().add(12, "month").format(DateFormat.WALKS_MANAGER_API);
-    const body: EventsListRequest = {types: [RamblersEventType.GROUP_WALK], date, dateEnd, limit: 2000};
+    const body: EventsListRequest = {types: [RamblersEventType.GROUP_WALK], date, dateEnd, limit: MAXIMUM_PAGE_SIZE};
     this.logger.info("queryWalkLeaders:body:", body);
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<WalkLeadersApiResponse>(`${this.BASE_URL}/walk-leaders`, body), this.walkLeadersSubject);
     return apiResponse.response;
@@ -194,7 +194,7 @@ export class RamblersWalksAndEventsService {
       order,
       sort,
       rawData: true,
-      limit: 300,
+      limit: MAXIMUM_PAGE_SIZE,
       ids: usedIds,
       groupCode: eventQueryParameters.groupCode
     };
@@ -235,7 +235,7 @@ export class RamblersWalksAndEventsService {
   }
 
   async listRamblersGroups(groups: string[]): Promise<RamblersGroupsApiResponse[]> {
-    const body: GroupListRequest = {limit: 1000, groups};
+    const body: GroupListRequest = {limit: MAXIMUM_PAGE_SIZE, groups};
     const rawData = await this.commonDataService.responseFrom(this.logger, this.http.post<RamblersGroupsApiResponseApiResponse>(`${this.BASE_URL}/list-groups`, body), this.groupsSubject);
     return rawData.response.sort(sortBy("name"));
   }

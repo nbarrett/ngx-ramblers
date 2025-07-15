@@ -53,8 +53,8 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
           .then((walk: ExtendedGroupEvent) => {
             this.logger.info("found walk", walk);
             this.displayedWalk = this.display.toDisplayedWalk(walk);
-            if (this.displayedWalk.latestEventType) {
-              this.setStatus(this.displayedWalk.latestEventType.eventType);
+            if (this.displayedWalk?.latestEventType) {
+              this.setStatus(this.displayedWalk?.latestEventType.eventType);
             }
             this.setPageTitle();
           });

@@ -723,7 +723,7 @@ export class SocialSendNotificationModalComponent implements OnInit, OnDestroy {
   runCampaignCreationAndSendWorkflow(createAsDraft?: boolean) {
     if (!this.notReady()) {
     this.notify.setBusy();
-    const campaignName = this.socialEvent.groupEvent.title;
+    const campaignName = this.socialEvent?.groupEvent?.title;
     this.logger.info("sendSocialNotification:notification->", this.latestNotification);
     return Promise.resolve()
       .then(() => this.notify.progress({title: campaignName, message: "preparing and sending notification"}))

@@ -220,3 +220,4 @@ export type WalkUploadRow = {
 }
 
 export const ALL_EVENT_TYPES: RamblersEventType[] = [RamblersEventType.GROUP_WALK, RamblersEventType.GROUP_EVENT, RamblersEventType.WELLBEING_WALK];
+export const MAXIMUM_PAGE_SIZE = 300;

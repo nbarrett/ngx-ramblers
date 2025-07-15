@@ -41,7 +41,7 @@ export class WalkEditFeaturesComponent implements OnInit {
   protected readonly FeatureCategory = FeatureCategory;
 
   ngOnInit() {
-    if (!this.displayedWalk.walk.groupEvent.accessibility) {
+    if (!this.displayedWalk?.walk.groupEvent.accessibility) {
       this.displayedWalk.walk.groupEvent.accessibility = [];
     }
   }

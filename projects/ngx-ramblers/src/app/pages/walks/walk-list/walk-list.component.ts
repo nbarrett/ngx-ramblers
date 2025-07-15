@@ -115,18 +115,18 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
             @if (!walkListView || walkListView === WalkListView.TABLE) {
               @for (displayedWalk of currentPageWalks; track walkTracker(index, displayedWalk); let index = $index) {
                 <div class="table-responsive">
-                  @if (display.isExpanded(displayedWalk.walk)) {
+                  @if (display.isExpanded(displayedWalk?.walk)) {
                     <div>
-                      @if (!display.isEdit(displayedWalk.walk)) {
+                      @if (!display.isEdit(displayedWalk?.walk)) {
                         <app-walk-view [displayedWalk]="displayedWalk"/>
                       }
-                      @if (display.isEdit(displayedWalk.walk)) {
+                      @if (display.isEdit(displayedWalk?.walk)) {
                         <app-walk-edit
                           [displayedWalk]="displayedWalk"/>
                       }
                     </div>
                   }
-                  @if (!display.isExpanded(displayedWalk.walk)) {
+                  @if (!display.isExpanded(displayedWalk?.walk)) {
                     <table
                       class="rounded table styled-table table-striped table-hover table-sm">
                       @if (showTableHeader(displayedWalk)) {
@@ -167,9 +167,9 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                           </td>
                         }
                         <td width="8%" class="event-type"
-                            (click)="display.view(displayedWalk.walk)"
+                            (click)="display.view(displayedWalk?.walk)"
                             id="eventType-{{index}}">
-                          @if (display.isWalk(displayedWalk.walk)) {
+                          @if (display.isWalk(displayedWalk?.walk)) {
                             <app-walk-grading [grading]="displayedWalk?.walk?.groupEvent?.difficulty?.code"/>
                           }
                           @if (!display.isWalk(displayedWalk.walk)) {
@@ -360,15 +360,15 @@ export class WalkListComponent implements OnInit, OnDestroy {
   }
 
   private applyPagination() {
-    this.pageCount = Math.ceil(this.filteredWalks.length / this.pageSize);
+    this.pageCount = Math.ceil(this.filteredWalks?.length / this.pageSize);
     this.currentPageWalks = this.paginate(this.filteredWalks, this.pageSize, this.pageNumber);
     this.pages = range(1, this.pageCount + 1);
-    this.logger.debug("total walks count", this.walks.length, "walks:", this.walks, "filteredWalks count", this.filteredWalks.length, "currentPageWalks count", this.currentPageWalks.length, "pageSize:", this.pageSize, "pageCount", this.pageCount, "pages", this.pages);
-    this.logger.info("total walks count", this.walks.length, "filteredWalks count", this.filteredWalks.length, "currentPageWalks:", this.currentPageWalks, "pageSize:", this.pageSize, "pageCount", this.pageCount);
+    this.logger.debug("total walks count", this.walks?.length, "walks:", this.walks, "filteredWalks count", this.filteredWalks?.length, "currentPageWalks count", this.currentPageWalks.length, "pageSize:", this.pageSize, "pageCount", this.pageCount, "pages", this.pages);
+    this.logger.info("total walks count", this.walks?.length, "filteredWalks count", this.filteredWalks?.length, "currentPageWalks:", this.currentPageWalks, "pageSize:", this.pageSize, "pageCount", this.pageCount);
     const offset = (this.pageNumber - 1) * this.pageSize + 1;
     const pageIndicator = this.pages.length > 1 ? `page ${this.pageNumber} of ${this.pageCount}` : "";
     const toWalkNumber = Math.min(offset + this.pageSize - 1, this.currentPageWalks.length);
-    const alertMessage = this.currentPageWalks.length > 0 ? `Showing ${offset} to ${toWalkNumber} of ${this.stringUtils.pluraliseWithCount(this.walks.length, "walk")}${pageIndicator ? " - " + pageIndicator : ""}` : "No walks found";
+    const alertMessage = this.currentPageWalks.length > 0 ? `Showing ${offset} to ${toWalkNumber} of ${this.stringUtils.pluraliseWithCount(this.walks?.length, "walk")}${pageIndicator ? " - " + pageIndicator : ""}` : "No walks found";
     this.notify.progress(alertMessage);
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SHOW_PAGINATION, this.pageCount > 1));
   }
@@ -402,7 +402,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
     this.logger.debug("Received updated walk", walk);
     const existingWalk: ExtendedGroupEvent = this.walks?.find(listedWalk => listedWalk?.id === walk?.id);
     if (existingWalk) {
-      this.walks[(this.walks.indexOf(existingWalk))] = walk;
+      this.walks[(this.walks?.indexOf(existingWalk))] = walk;
       this.applyFilterToWalks();
     }
   }

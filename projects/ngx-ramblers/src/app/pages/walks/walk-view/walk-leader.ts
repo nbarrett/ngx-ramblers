@@ -17,14 +17,13 @@ import { RelatedLinkComponent } from "../../../modules/common/related-links/rela
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
-import { JsonPipe } from "@angular/common";
 
 @Component({
     selector: "app-walk-leader",
     template: `
       <div class="event-panel rounded event-panel-inner">
         <app-walk-group [displayedWalk]="displayedWalk"/>
-        <h1>{{ display.isWalk(displayedWalk.walk) ? 'Walk Leader' : (display.eventTypeTitle(displayedWalk.walk) + " Organiser") }}</h1>
+        <h1>{{ display.isWalk(displayedWalk?.walk) ? 'Walk Leader' : (display.eventTypeTitle(displayedWalk?.walk) + " Organiser") }}</h1>
         <div>
           <div class="row">
             @if (display.walkPopulationWalksManager()) {

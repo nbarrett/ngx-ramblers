@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { BasicMedia, Media } from "../../../models/ramblers-walks-manager";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -76,11 +76,20 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
   imports: [TooltipDirective, SvgComponent, NgClass, CardImageComponent]
 })
 
-export class GroupEventImages {
+export class GroupEventImages implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("GroupEventImages", NgxLoggerLevel.ERROR);
   mediaQueryService = inject(MediaQueryService);
+  imagePreview: string;
+  protected allowEditImage: boolean;
+  protected imageIndex = 0;
   @Output() mediaChanged = new EventEmitter<Media>();
-  @Input() extendedGroupEvent!: ExtendedGroupEvent;
+  protected extendedGroupEvent: ExtendedGroupEvent;
+
+  @Input("extendedGroupEvent") set extendedGroupEventValue(extendedGroupEvent: ExtendedGroupEvent) {
+    this.extendedGroupEvent = extendedGroupEvent;
+    this.imageIndex = 0;
+    this.logger.info("extendedGroupEventValue:extendedGroupEvent", this.extendedGroupEvent, "imageIndex:", this.imageIndex);
+  }
 
   @Input("imagePreview") set imagePreviewValue(imagePreview: string) {
     this.imagePreview = imagePreview;
@@ -91,9 +100,9 @@ export class GroupEventImages {
     this.allowEditImage = coerceBooleanProperty(allowEditImage);
   }
 
-  imagePreview: string;
-  protected allowEditImage: boolean;
-  protected imageIndex = 0;
+  ngOnInit() {
+    this.logger.info("ngOnInit: extendedGroupEvent", this.extendedGroupEvent, "imageIndex:", this.imageIndex);
+  }
 
   removeImage() {
     this.logger.info("removing image:", this.extendedGroupEvent?.groupEvent?.media[this.imageIndex]);
@@ -103,7 +112,19 @@ export class GroupEventImages {
 
   back() {
     if (this.imageIndex > 0) {
+      this.logger.info("back: current image index:", this.imageIndex);
       this.imageIndex--;
+    } else {
+      this.logger.info("back: already at the first image, index:", this.imageIndex);
+    }
+  }
+
+  next() {
+    if (this.imageIndex < this.extendedGroupEvent?.groupEvent?.media?.length - 1) {
+      this.logger.info("next: current image index:", this.imageIndex);
+      this.imageIndex++;
+    } else {
+      this.logger.info("next: already at the last image, index:", this.imageIndex);
     }
   }
 
@@ -125,12 +146,6 @@ export class GroupEventImages {
 
   currentMedia(): Media {
     return this.extendedGroupEvent?.groupEvent?.media[this.imageIndex];
-  }
-
-  next() {
-    if (this.imageIndex < this.extendedGroupEvent?.groupEvent?.media?.length - 1) {
-      this.imageIndex++;
-    }
   }
 
   moveImageForward() {

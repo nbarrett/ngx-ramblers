@@ -23,7 +23,7 @@ import { Metadata } from "../../../models/ramblers-walks-manager";
           <div class="custom-checkbox custom-control">
             <input type="checkbox"
                    id="feature-{{ feature.code }}"
-                   [checked]="ramblersWalksAndEventsService.featureSelected(feature.code, displayedWalk.walk)"
+                   [checked]="ramblersWalksAndEventsService.featureSelected(feature.code, displayedWalk?.walk)"
                    (change)="toggleFeature(feature.code)"
                    class="form-checkbox custom-control-input">
             <label for="feature-{{ feature.code }}" class="custom-control-label">

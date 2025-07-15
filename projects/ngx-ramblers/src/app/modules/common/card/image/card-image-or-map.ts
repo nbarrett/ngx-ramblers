@@ -12,6 +12,7 @@ import { AlertInstance } from "../../../../services/notifier.service";
 import { BasicMedia } from "../../../../models/ramblers-walks-manager";
 import { RouterLink } from "@angular/router";
 import { SocialDisplayService } from "../../../../pages/social/social-display.service";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-card-image-or-map",
@@ -34,7 +35,7 @@ import { SocialDisplayService } from "../../../../pages/social/social-display.se
            src="{{basicMedia?.url}}"
            alt="{{basicMedia?.alt}}"
            [height]="this.imageConfig.height"
-           [routerLink]="urlService.routerLinkUrl(socialDisplayService.groupEventLink(displayedWalk.walk, true))"
+           [routerLink]="imageNavigationEnabled ? urlService.routerLinkUrl(socialDisplayService.groupEventLink(displayedWalk.walk, true)) : null"
            class="card-img-top"/>
     }
   `,
@@ -50,9 +51,14 @@ export class CardImageOrMap implements OnInit {
   protected memberLoginService = inject(MemberLoginService);
   protected basicMedia: BasicMedia;
   protected imageConfig: { class: string, height: number };
+  protected imageNavigationEnabled: boolean;
   @Input() displayedWalk!: DisplayedWalk;
   @Input() notify!: AlertInstance;
   @Input() maxColumns!: number;
+
+  @Input("imageNavigationEnabled") set imageNavigationEnabledValue(imageNavigationEnabled: boolean) {
+    this.imageNavigationEnabled = coerceBooleanProperty(imageNavigationEnabled);
+  }
 
   ngOnInit() {
     this.imageConfig = {class: this.determineClass(), height: this.determineHeight()};
