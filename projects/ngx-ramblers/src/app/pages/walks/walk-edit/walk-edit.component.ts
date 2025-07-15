@@ -68,7 +68,7 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
       <ng-template app-notification-directive/>
     </div>
     <div class="tabset-container">
-      <app-walk-panel-expander [walk]="displayedWalk.walk" [collapsable]="true" [collapseAction]="'exit edit'"
+      <app-walk-panel-expander [walk]="displayedWalk?.walk" collapsable [collapseAction]="'exit edit'"
                                [expandAction]="'edit walk full-screen'" [expandable]="isExpandable()"/>
       <tabset class="custom-tabset">
         <tab heading="Main Details">
@@ -83,7 +83,7 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
             [allowDetailView]="allowDetailView()"
             [notify]="notify"/>
         </tab>
-        @if (display.allowEdits(displayedWalk.walk)) {
+        @if (display.allowEdits(displayedWalk?.walk)) {
           <tab heading="Risk Assessment">
             <app-walk-risk-assessment [displayedWalk]="displayedWalk"/>
           </tab>
@@ -110,9 +110,9 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
         <tab app-edit-group-event-images heading="Images"
              [rootFolder]="RootFolder.walkImages"
              [notify]="notify"
-             [extendedGroupEvent]="displayedWalk.walk"
+             [extendedGroupEvent]="displayedWalk?.walk"
              [config]="config"/>
-        @if (display.walkLeaderOrAdmin(displayedWalk.walk)) {
+        @if (display.walkLeaderOrAdmin(displayedWalk?.walk)) {
           <tab heading="History">
             <app-walk-edit-history [displayedWalk]="displayedWalk"/>
           </tab>
@@ -137,10 +137,10 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
         </div>
       }
     </div>
-    @if (displayedWalk.walk) {
+    @if (displayedWalk?.walk) {
       @if (showChangedItems) {
         <div>
-          changedItems: {{ walkEventService.walkDataAuditFor(this.displayedWalk.walk, status(), true)?.changedItems | json }}
+          changedItems: {{ walkEventService.walkDataAuditFor(this.displayedWalk?.walk, status(), true)?.changedItems | json }}
         </div>
       }
       @if (display.walkLink(displayedWalk.walk)) {

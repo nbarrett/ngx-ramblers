@@ -37,7 +37,7 @@ export class WalksAndEventsService {
     return this.localWalksAndEventsService.notifications();
   }
 
-  urlFromTitle(title: string, id: string): Promise<string> {
+  urlFromTitle(title: string, id?: string): Promise<string> {
     return this.localWalksAndEventsService.urlFromTitle(title, id);
   }
 

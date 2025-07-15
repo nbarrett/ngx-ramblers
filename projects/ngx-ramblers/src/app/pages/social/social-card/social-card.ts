@@ -19,14 +19,14 @@ import { DisplayedWalk } from "../../../models/walk.model";
     selector: "app-social-card",
     template: `
       <div class="card shadow clickable h-100">
-        <app-card-image-or-map [displayedWalk]="displayedWalk" [notify]="notify" [maxColumns]="maxColumns"/>
+        <app-card-image-or-map imageNavigationEnabled [displayedWalk]="displayedWalk" [notify]="notify" [maxColumns]="maxColumns"/>
         <div class="card-body">
           <h4 class="card-title">
             <a class="rams-text-decoration-pink"
                [routerLink]="urlService.routerLinkUrl(display.groupEventLink(socialEvent, true))"
                target="_self">{{ socialEvent?.groupEvent?.title }}</a>
           </h4>
-          <div>{{ socialEvent.groupEvent | eventDatesAndTimes }}</div>
+          <div>{{ socialEvent?.groupEvent | eventDatesAndTimes }}</div>
         </div>
       </div>`,
   providers: [DateUtilsService],

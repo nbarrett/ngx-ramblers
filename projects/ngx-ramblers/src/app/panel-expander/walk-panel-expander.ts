@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { faCaretDown, faCaretUp } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { WalkViewMode } from "../models/walk.model";
@@ -54,6 +54,8 @@ export class WalkPanelExpanderComponent implements OnInit {
     this.collapsable = coerceBooleanProperty(collapsable);
   }
 
+  @Output() expanded: EventEmitter<void> = new EventEmitter();
+  @Output() collapsed: EventEmitter<void> = new EventEmitter();
   ngOnInit() {
     const viewMode = this.display.walkMode(this.walk);
     this.logger.info("ngOnInit: viewMode", viewMode);
@@ -82,6 +84,7 @@ export class WalkPanelExpanderComponent implements OnInit {
         this.display.editFullscreen(this.walk);
         break;
     }
+    this.expanded.emit();
   }
 
   collapse() {
@@ -96,5 +99,6 @@ export class WalkPanelExpanderComponent implements OnInit {
     } else if (viewMode === WalkViewMode.EDIT_FULL_SCREEN) {
       this.display.closeEditView(this.walk);
     }
+    this.collapsed.emit();
   }
 }

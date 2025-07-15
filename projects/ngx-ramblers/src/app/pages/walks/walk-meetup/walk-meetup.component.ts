@@ -48,7 +48,7 @@ import { LinksService } from "../../../services/links.service";
             </div>
           </div>
         }
-        @if (displayedWalk.walk.fields.publishing.meetup) {
+        @if (displayedWalk?.walk.fields.publishing.meetup) {
           <div class="col-sm-12">
             @if (contentTextItems.length > 0 && meetupConfigExists()) {
               <app-walk-meetup-config-parameters
@@ -155,14 +155,14 @@ export class WalkMeetupComponent implements OnInit {
   }
 
   canUnlinkMeetup() {
-    return this.memberLoginService.allowWalkAdminEdits() && this.displayedWalk.walk && this.linkWithSource?.href;
+    return this.memberLoginService.allowWalkAdminEdits() && this.displayedWalk?.walk && this.linkWithSource?.href;
   }
 
   logLinkChange() {
     this.logger.info("links object:", this.linkWithSource, "publishing:", this.displayedWalk?.walk?.fields.publishing, "walk links:", this.displayedWalk?.walk?.fields?.links);
   }
   allowEdits() {
-    return this.display.loggedInMemberIsLeadingWalk(this.displayedWalk.walk) || this.memberLoginService.allowWalkAdminEdits();
+    return this.display.loggedInMemberIsLeadingWalk(this.displayedWalk?.walk) || this.memberLoginService.allowWalkAdminEdits();
   }
 
   changedPublishMeetup($event: any) {

@@ -44,7 +44,7 @@ import { BasicMedia } from "../../../models/ramblers-walks-manager";
         @if (display.allow.detailView) {
           <div class="row">
             <div class="col-sm-12">
-              <h3>{{ socialEvent.groupEvent | eventDatesAndTimes }}</h3>
+              <h3>{{ socialEvent?.groupEvent | eventDatesAndTimes }}</h3>
             </div>
           </div>
           <div class="row">
@@ -110,6 +110,16 @@ import { BasicMedia } from "../../../models/ramblers-walks-manager";
                     <a [href]="display.groupEventLink(socialEvent, true)" target="_blank">This Social Event</a>
                   </div>
                 </div>
+                @if (!display.socialPopulationLocal() && socialEvent?.groupEvent?.url) {
+                  <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
+                       class="col-sm-12">
+                    <img title class="related-links-ramblers-image"
+                         src="favicon.ico"
+                         alt="On Ramblers"/>
+                    <a content tooltip="Click to view on Ramblers Walks and Events Manager" target="_blank"
+                       [href]="socialEvent.groupEvent.url">On Ramblers</a>
+                  </div>
+                }
               </div>
             </div>
             <div class="col-sm-6">

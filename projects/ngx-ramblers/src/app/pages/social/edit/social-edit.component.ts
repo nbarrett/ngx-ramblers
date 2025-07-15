@@ -101,14 +101,14 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                           <app-date-picker label="End Date"
                                            size="md"
                                            (change)="endDateChanged($event)"
-                                           [value]="socialEvent.groupEvent.end_date_time">
+                                           [value]="socialEvent?.groupEvent?.end_date_time">
                           </app-date-picker>
                         </div>
                       </div>
                       <div class="col-auto">
                         <div class="form-group" app-time-picker id="end-time" label="End Time"
                              [disabled]="!display.allow.edits"
-                             [value]="socialEvent.groupEvent.end_date_time"
+                             [value]="socialEvent?.groupEvent?.end_date_time"
                              (change)="onEndDateTimeChange($event)">
                         </div>
                       </div>
@@ -163,7 +163,7 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                               @if (longerDescriptionPreview) {
                                 <p class="list-arrow"
                                    (click)="editLongerDescription()"
-                                   markdown [data]="socialEvent.groupEvent.description"
+                                   markdown [data]="socialEvent?.groupEvent?.description"
                                    id="longer-description-preview"></p>
                               }
                             </div>
@@ -174,7 +174,7 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                                 [(ngModel)]="socialEvent.groupEvent.description"
                                 type="text"
                                 class="form-control input-sm"
-                                rows="{{socialEvent.groupEvent.media.length>0 ? 20 : 5}}"
+                                rows="{{socialEvent?.groupEvent?.media?.length>0 ? 20 : 5}}"
                                 id="longer-description"
                                 placeholder="Enter description for social event here"></textarea>
                             }
@@ -526,7 +526,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
   }
 
   durationCalculated() {
-    return this.dateUtils.formatDuration(this.dateUtils.asDateValue(this.socialEvent.groupEvent.start_date_time)?.value, this.dateUtils.asDateValue(this.socialEvent.groupEvent.end_date_time)?.value);
+    return this.dateUtils.formatDuration(this.dateUtils.asDateValue(this.socialEvent?.groupEvent?.start_date_time)?.value, this.dateUtils.asDateValue(this.socialEvent?.groupEvent?.end_date_time)?.value);
   }
 
   saveSocialEvent() {
@@ -596,7 +596,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
 
   onStartDateTimeChange(startTime: string) {
     if (isString(startTime)) {
-      this.logger.info("onStartDateTimeChange:updated start_date_time from:", this.socialEvent.groupEvent.start_date_time, "to:", startTime, "of type", typeof startTime);
+      this.logger.info("onStartDateTimeChange:updated start_date_time from:", this.socialEvent?.groupEvent?.start_date_time, "to:", startTime, "of type", typeof startTime);
       this.socialEvent.groupEvent.start_date_time = startTime;
     } else {
       this.logger.warn("onStartDateTimeChange:invalid input received:", startTime, "of type", typeof startTime);
@@ -691,7 +691,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
 
   async onTitleChange(title: string) {
     const url = await this.walksAndEventsService.urlFromTitle(title, this.socialEvent.id);
-    this.logger.info("onTitleChange:updating socialEvent groupEvent url based on title:", title, "from:", this.socialEvent.groupEvent.url, "to:", url);
+    this.logger.info("onTitleChange:updating socialEvent groupEvent url based on title:", title, "from:", this.socialEvent?.groupEvent?.url, "to:", url);
     this.socialEvent.groupEvent.url = url;
   }
 }

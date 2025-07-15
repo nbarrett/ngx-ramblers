@@ -109,18 +109,18 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
                       </dl>
                       <h3 class="card-title">
                         <a tooltip="View this walk in another tab" placement="auto"
-                           [href]="walkExport.displayedWalk.walkLink" class="rams-text-decoration-pink active"
-                           target="_blank">{{ walkExport.displayedWalk.walk?.groupEvent?.title || walkExport.displayedWalk.latestEventType.description }}</a>
+                           [href]="walkExport.displayedWalk?.walkLink" class="rams-text-decoration-pink active"
+                           target="_blank">{{ walkExport.displayedWalk?.walk?.groupEvent?.title || walkExport.displayedWalk?.latestEventType.description }}</a>
                       </h3>
                       <div (click)="ignoreClicks($event)" [ngClass]="{'card-disabled': !walkExport.selected}">
                         <dl class="d-flex">
                           <dt class="font-weight-bold mr-2">Date and Time:</dt>
                           <time>
-                            <div>{{ walkExport.displayedWalk.walk.groupEvent | eventDatesAndTimes : {noTimes: true} }}</div>
-                            <div>{{ walkExport.displayedWalk.walk.groupEvent | eventDatesAndTimes : {noDates: true} }}</div>
+                            <div>{{ walkExport.displayedWalk?.walk.groupEvent | eventDatesAndTimes : {noTimes: true} }}</div>
+                            <div>{{ walkExport.displayedWalk?.walk.groupEvent | eventDatesAndTimes : {noDates: true} }}</div>
                           </time>
                         </dl>
-                        @if (walkExport.displayedWalk.walk?.groupEvent?.distance_miles) {
+                        @if (walkExport.displayedWalk?.walk?.groupEvent?.distance_miles) {
                           <dl class="d-flex mb-1">
                             <dt class="font-weight-bold mr-2">Distance:</dt>
                             <dd>{{ distanceValidationService.walkDistances(walkExport.displayedWalk.walk) }}</dd>
