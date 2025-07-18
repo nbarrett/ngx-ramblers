@@ -41,6 +41,7 @@ import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge
 import { faAdd, faPencil } from "@fortawesome/free-solid-svg-icons";
 import { ImageCollectionSettingsComponent } from "./image-collection/image-collection-settings";
 import { AreaAndGroupSettingsComponent } from "./group/area-and-group-settings";
+import { WalkImportField } from "../../../models/walk.model";
 
 @Component({
     selector: "app-system-settings",

@@ -214,4 +214,39 @@ export class DateUtilsService {
     return walkDateAndTime.valueOf();
   }
 
+  public parseCsvDate(dateValue: string, timeValue: string) {
+    return this.startTimeFrom(timeValue, this.asMoment(dateValue).valueOf());
+  }
+
+  public parseTime(startTime: string): Time {
+    const parsedTime = (startTime || "10:00 am")?.replace(".", ":");
+    const timeValues = parsedTime?.split(":");
+    if (timeValues) {
+      let hours = this.numberUtils.asNumber(timeValues[0]);
+      const minutes = this.numberUtils.asNumber(timeValues[1]);
+      if (parsedTime.toLowerCase().includes("pm") && hours < 12) {
+        hours += 12;
+      }
+      const returnValue = {hours, minutes};
+      this.logger.off("parseTime:startTime", startTime, "parsedTime:", parsedTime, "timeValues:", timeValues, "returnValue:", returnValue);
+      return returnValue;
+    } else {
+      this.logger.off("parseTime:startTime", startTime, "parsedTime:", parsedTime, "timeValues:", timeValues, "returnValue:", null);
+      return null;
+    }
+  }
+
+  public startTimeFrom(startTimeAsString: string, eventDate: number): string {
+    const startTime: Time = this.parseTime(startTimeAsString);
+    const walkDateMoment: moment = this.asMoment(eventDate);
+    const walkDateAndTimeValue = this.calculateWalkDateAndTimeValue(walkDateMoment, startTime);
+    const toISOString = this.asMoment(walkDateAndTimeValue).toISOString();
+    this.logger.debug("text based startTime:", startTime,
+      "startTime:", startTime,
+      "walkDateAndTimeValue:", walkDateAndTimeValue,
+      "toISOString:", toISOString);
+    return toISOString;
+  }
+
+
 }

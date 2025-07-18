@@ -2,7 +2,7 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { ContactDetails, ExtendedGroupEvent } from "../models/group-event.model";
-import { LocationDetails, RamblersEventType, WalkStatus } from "../models/ramblers-walks-manager";
+import { Contact, LocationDetails, RamblersEventType, WalkStatus } from "../models/ramblers-walks-manager";
 import { SystemConfig } from "../models/system.model";
 import { ImageConfig, ImageSource, MODERATE, WalkType } from "../models/walk.model";
 import { DateUtilsService } from "./date-utils.service";
@@ -64,6 +64,26 @@ export class EventDefaultsService {
       phone: null
     };
   };
+
+  memberToContact(member: Member): Contact {
+    return {
+      is_overridden: false,
+      id: member.id,
+      name: member.displayName,
+      telephone: member.mobileNumber || member.landlineTelephone || null,
+      has_email: !!member.email
+    };
+  }
+
+  nameToContact(name: string): Contact {
+    return {
+      is_overridden: false,
+      id: null,
+      name,
+      telephone: null,
+      has_email: false
+    };
+  }
 
   contactDetailsFrom(member: Member): ContactDetails {
     return {

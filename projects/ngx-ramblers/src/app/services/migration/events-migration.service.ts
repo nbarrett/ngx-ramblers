@@ -105,7 +105,7 @@ export class EventsMigrationService {
     const description = walkOrSocialEvent.longerDescription;
     const startDateTime: string = this.isWalk(walkOrSocialEvent)
       ? this.startTime(walkOrSocialEvent)
-      : this.startTimeFrom(walkOrSocialEvent.eventTimeStart, walkOrSocialEvent.eventDate);
+      : this.dateUtils.startTimeFrom(walkOrSocialEvent.eventTimeStart, walkOrSocialEvent.eventDate);
     const milesPerHour: number = this.isWalk(walkOrSocialEvent) ? walkOrSocialEvent.milesPerHour || this.walksConfig.milesPerHour : null;
     const media: Media[] = this.isWalk(walkOrSocialEvent) ? walkOrSocialEvent.media : this.mediaFrom(walkOrSocialEvent);
     const groupEvent: GroupEvent = ramblersWalk ? {
@@ -270,47 +270,17 @@ export class EventsMigrationService {
     }
   }
 
-  parseTime(startTime: string): Time {
-    const parsedTime = (startTime || "10:00 am")?.replace(".", ":");
-    const timeValues = parsedTime?.split(":");
-    if (timeValues) {
-      let hours = this.numberUtils.asNumber(timeValues[0]);
-      const minutes = this.numberUtils.asNumber(timeValues[1]);
-      if (parsedTime.toLowerCase().includes("pm") && hours < 12) {
-        hours += 12;
-      }
-      const returnValue = {hours, minutes};
-      this.logger.off("parseTime:startTime", startTime, "parsedTime:", parsedTime, "timeValues:", timeValues, "returnValue:", returnValue);
-      return returnValue;
-    } else {
-      this.logger.off("parseTime:startTime", startTime, "parsedTime:", parsedTime, "timeValues:", timeValues, "returnValue:", null);
-      return null;
-    }
-  }
-
   startTime(walk: Walk): string {
     if (walk) {
-      return this.startTimeFrom(walk?.startTime, walk?.walkDate);
+      return this.dateUtils.startTimeFrom(walk?.startTime, walk?.walkDate);
     } else {
       return null;
     }
-  }
-
-  private startTimeFrom(startTimeAsString: string, eventDate: number): string {
-    const startTime: Time = this.parseTime(startTimeAsString);
-    const walkDateMoment: moment = this.dateUtils.asMoment(eventDate);
-    const walkDateAndTimeValue = this.dateUtils.calculateWalkDateAndTimeValue(walkDateMoment, startTime);
-    const toISOString = this.dateUtils.asMoment(walkDateAndTimeValue).toISOString();
-    this.logger.debug("text based startTime:", startTime,
-      "startTime:", startTime,
-      "walkDateAndTimeValue:", walkDateAndTimeValue,
-      "toISOString:", toISOString);
-    return toISOString;
   }
 
   socialEventFinishTime(socialEvent: SocialEvent): string {
     if (socialEvent?.eventTimeEnd) {
-      const finishTime: Time = this.parseTime(socialEvent?.eventTimeEnd);
+      const finishTime: Time = this.dateUtils.parseTime(socialEvent?.eventTimeEnd);
       const socialDateMoment: moment = this.dateUtils.asMoment(socialEvent?.eventDate);
       const socialEventEndTimeValue = this.dateUtils.calculateWalkDateAndTimeValue(socialDateMoment, finishTime);
       const socialEventEndTime = this.dateUtils.isoDateTime(socialEventEndTimeValue);

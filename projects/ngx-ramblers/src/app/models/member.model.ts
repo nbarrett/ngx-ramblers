@@ -2,7 +2,7 @@ import { ApiResponse, Identifiable } from "./api-response.model";
 import { MailchimpSubscription } from "./mailchimp.model";
 import { MailIdentifiers, MailSubscription } from "./mail.model";
 import { sortBy } from "../functions/arrays";
-import { Contact } from "./ramblers-walks-manager";
+import { Contact, HasNgSelectAttributes } from "./ramblers-walks-manager";
 import { ExtendedGroupEvent } from "./group-event.model";
 
 export enum ProfileUpdateType {
@@ -113,6 +113,9 @@ export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Audi
   emailPermissionLastUpdated?: number;
 }
 
+export interface MemberWithLabel extends Member, HasNgSelectAttributes {
+}
+
 export interface MemberPrivileges {
   groupMember?: boolean;
   memberAdmin?: boolean;
@@ -148,14 +151,10 @@ export interface BulkLoadMemberAndMatch {
   member: Member;
 }
 
-export interface WalksImportPreparation {
-  bulkLoadMembersAndMatchesToWalks: BulkLoadMemberAndMatchToWalks[];
-  existingWalksWithinRange: ExtendedGroupEvent[];
-}
-
-export interface BulkLoadMemberAndMatchToWalks {
+export interface BulkLoadMemberAndMatchToWalk {
+  include: boolean;
   bulkLoadMemberAndMatch: BulkLoadMemberAndMatch;
-  walks: ExtendedGroupEvent[];
+  event: ExtendedGroupEvent;
 }
 
 export interface RamblersMemberAndContact {
@@ -219,6 +218,7 @@ export interface MemberUpdateAudit extends Auditable {
 }
 
 export enum MemberAction {
+  matched = "matched",
   found = "found",
   notFound = "not-found",
   created = "created",

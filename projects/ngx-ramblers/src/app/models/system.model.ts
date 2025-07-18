@@ -147,6 +147,7 @@ export enum RootFolder {
   logos = "logos",
   siteContent = "site-content",
   walkImages = "walk-images",
+  walkImports = "walk-imports",
   socialEventsImages = "images-social-events"
 }
 

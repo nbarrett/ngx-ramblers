@@ -34,8 +34,8 @@ export class ExtendedGroupEventQueryService {
   protected stringUtils = inject(StringUtilsService);
   private urlService: UrlService = inject(UrlService);
 
-  dataQueryOptions(filterParameters: HasBasicEventSelection, dateComparison?: string): DataQueryOptions {
-    const criteria = this.criteriaFor(filterParameters, dateComparison);
+  dataQueryOptions(filterParameters: HasBasicEventSelection, dateComparison?: string, upperDateComparison?: string): DataQueryOptions {
+    const criteria = this.criteriaFor(filterParameters, dateComparison, upperDateComparison);
     const sort = this.sortFor(filterParameters);
     this.logger.debug("walksCriteriaObject:this.filterParameters.criteria", criteria, "sort:", sort);
     return {criteria, sort};
@@ -44,32 +44,34 @@ export class ExtendedGroupEventQueryService {
   dataQueryOptionsFrom(eventQueryParameters: EventQueryParameters): DataQueryOptions {
     const andCriteria: any[] = [];
 
-    if (eventQueryParameters.groupCode) {
+    if (eventQueryParameters?.groupCode) {
       andCriteria.push({[GroupEventField.GROUP_CODE]: eventQueryParameters.groupCode});
     }
-    if (eventQueryParameters.ids && eventQueryParameters.ids.length > 0) {
+    if (eventQueryParameters?.ids && eventQueryParameters?.ids?.length > 0) {
       andCriteria.push({[GroupEventField.ID]: {$in: eventQueryParameters.ids}});
     }
-    if (eventQueryParameters.types && eventQueryParameters.types.length > 0) {
+    if (eventQueryParameters?.types && eventQueryParameters.types.length > 0) {
       andCriteria.push({[GroupEventField.ITEM_TYPE]: {$in: eventQueryParameters.types}});
     }
 
-    if (eventQueryParameters.dataQueryOptions?.criteria) {
+    if (eventQueryParameters?.dataQueryOptions?.criteria) {
       andCriteria.push(eventQueryParameters.dataQueryOptions.criteria);
     }
 
     const criteria = andCriteria.length > 0 ? {$and: andCriteria} : {};
 
-    const dataQueryOptions = {...eventQueryParameters.dataQueryOptions, criteria};
-    this.logger.info("dataQueryOptionsFrom: eventQueryParameters.dataQueryOptions", eventQueryParameters.dataQueryOptions, "dataQueryOptions:", dataQueryOptions);
+    const dataQueryOptions = {...eventQueryParameters?.dataQueryOptions, criteria};
+    this.logger.info("dataQueryOptionsFrom: eventQueryParameters.dataQueryOptions", eventQueryParameters?.dataQueryOptions, "dataQueryOptions:", dataQueryOptions);
     return dataQueryOptions;
   }
 
-  criteriaFor(filterParameters: HasBasicEventSelection, dateComparison?: string): MongoCriteria {
+  criteriaFor(filterParameters: HasBasicEventSelection, dateComparison?: string, upperDateComparison?: string): MongoCriteria {
     const date: Date = dateComparison ? this.dateUtils.asMoment(dateComparison).toDate() : this.dateUtils.momentNowNoTime().toDate();
     switch (filterParameters.selectType) {
       case FilterCriteria.FUTURE_EVENTS:
         return {[GroupEventField.START_DATE]: {$gte: date}};
+      case FilterCriteria.DATE_RANGE:
+        return {[GroupEventField.START_DATE]: {$gte: date, $lte: this.dateUtils.asMoment(upperDateComparison).toDate()}};
       case FilterCriteria.PAST_EVENTS:
         return {[GroupEventField.START_DATE]: {$lt: date}};
       case FilterCriteria.ALL_EVENTS:

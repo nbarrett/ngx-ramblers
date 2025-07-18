@@ -221,10 +221,7 @@ import { PageService } from "../../../services/page.service";
 })
 
 export class WalkViewComponent implements OnInit, OnDestroy {
-  @Input("displayedWalk") set init(displayedWalk: DisplayedWalk) {
-    this.applyWalk(displayedWalk);
-  }
-
+  private logger = inject(LoggerFactory).createLogger("WalkViewComponent", NgxLoggerLevel.ERROR);
   public walkInjected = false;
   public walkIdOrPath: string;
   public displayedWalk: DisplayedWalk;
@@ -250,7 +247,6 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected stringUtils = inject(StringUtilsService);
   private systemConfigService = inject(SystemConfigService);
   private notifierService = inject(NotifierService);
-  private logger = inject(LoggerFactory).createLogger("WalkViewComponent", NgxLoggerLevel.ERROR);
   protected eventsMigrationService = inject(EventsMigrationService);
   protected notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   public area = this.urlService.area();
@@ -258,6 +254,10 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected readonly MapDisplay = MapDisplay;
   protected readonly EventType = EventType;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
+
+  @Input("displayedWalk") set init(displayedWalk: DisplayedWalk) {
+    this.applyWalk(displayedWalk);
+  }
 
   ngOnInit() {
     this.loggedIn = this.memberLoginService.memberLoggedIn();

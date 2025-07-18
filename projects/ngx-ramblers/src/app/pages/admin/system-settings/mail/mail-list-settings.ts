@@ -61,9 +61,7 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
             <input [checked]="autoSubscribeNewMembers()"
               (change)="autoSubscribeNewMembersChange()"
               type="checkbox" class="custom-control-input" id="auto-subscribe-new-members-{{list.id}}">
-            <label class="custom-control-label"
-              for="auto-subscribe-new-members-{{list.id}}">Auto-subscribe new members
-            </label>
+            §
           </div>
         </div>
         <div class="col">

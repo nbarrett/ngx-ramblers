@@ -162,7 +162,7 @@ export class RamblersWalksAndEventsService {
 
   async queryById(walkId: string): Promise<ExtendedGroupEvent> {
     this.logger.info("queryById:walkId", walkId);
-    const walksRawData: RamblersGroupEventsRawApiResponse = await this.listRamblersWalksRawData({ids: [walkId]});
+    const walksRawData: RamblersGroupEventsRawApiResponse = await this.allRamblersEvents({ids: [walkId]});
     this.logger.info("queryById:walkId", walkId, "walksRawData:", walksRawData);
     const walks = walksRawData.data.map(remoteWalk => this.toExtendedGroupEvent(remoteWalk));
     if (walks?.length === 1) {
@@ -180,7 +180,7 @@ export class RamblersWalksAndEventsService {
     return apiResponse.response;
   }
 
-  async listRamblersWalksRawData(eventQueryParameters: EventQueryParameters): Promise<RamblersGroupEventsRawApiResponse> {
+  async allRamblersEvents(eventQueryParameters: EventQueryParameters): Promise<RamblersGroupEventsRawApiResponse> {
     const walkIdsFromCriteria = this.extractWalkIds(eventQueryParameters.dataQueryOptions?.criteria);
     const usedIds = eventQueryParameters.ids || walkIdsFromCriteria;
     const order = isEqual(eventQueryParameters.dataQueryOptions?.sort, EventStartDateDescending) ? "desc" : "asc";
@@ -198,8 +198,8 @@ export class RamblersWalksAndEventsService {
       ids: usedIds,
       groupCode: eventQueryParameters.groupCode
     };
-    this.logger.info("listRamblersWalksRawData:eventQueryParameters:", eventQueryParameters, "body:", body);
     const rawData = await this.commonDataService.responseFrom(this.logger, this.http.post<RamblersEventsApiResponse>(`${this.BASE_URL}/list-events`, body), this.rawWalksSubject);
+    this.logger.info("allRamblersEvents:eventQueryParameters:", eventQueryParameters, "body:", body,"returned rawData:", rawData.response.data);
     return rawData.response;
   }
 
@@ -563,7 +563,7 @@ export class RamblersWalksAndEventsService {
   }
 
   async all(eventQueryParameters: EventQueryParameters): Promise<ExtendedGroupEvent[]> {
-    return this.listRamblersWalksRawData(eventQueryParameters)
+    return this.allRamblersEvents(eventQueryParameters)
       .then((ramblersWalksRawApiResponse: RamblersGroupEventsRawApiResponse) => ramblersWalksRawApiResponse?.data?.map(remoteWalk => this.toExtendedGroupEvent(remoteWalk)));
   }
 
