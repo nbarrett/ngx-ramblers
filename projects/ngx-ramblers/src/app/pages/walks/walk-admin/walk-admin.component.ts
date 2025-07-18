@@ -11,57 +11,68 @@ import { UrlService } from "../../../services/url.service";
 import { PageComponent } from "../../../page/page.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
 
 @Component({
     selector: "app-walk-admin",
     template: `
-    <app-page>
-      <div class="body-content">
-        <div class="row">
-          <div class="col-sm-6">
-            <div class="item-panel">
-              <div (click)="selectWalksForExport()" class="item-icon">
-                <fa-icon [icon]="faFileExport" class="fa-3x ramblers"/>
-                <h5>Ramblers export</h5>
+      <app-page>
+        <div class="body-content">
+          <div class="row">
+            <div class="col-sm-6">
+              <div class="item-panel">
+                <div (click)="selectWalksForExport()" class="item-icon">
+                  <fa-icon [icon]="faFileExport" class="fa-3x ramblers"/>
+                  <h5>Ramblers export</h5>
+                </div>
+                <app-markdown-editor class="item-text" name="ramblers-export-help"
+                                     description="Ramblers export help"/>
               </div>
-              <app-markdown-editor class="item-text" name="ramblers-export-help"
-                                   description="Ramblers export help"/>
             </div>
-          </div>
-          <div class="col-sm-6">
-            <div class="item-panel">
-              <div (click)="selectWalksForImport()" class="item-icon">
-                <fa-icon [icon]="faFileImport" class="fa-3x ramblers"/>
-                <h5>Ramblers walk import</h5>
+            <div class="col-sm-6">
+              <div class="item-panel">
+                <div (click)="selectWalksForImport()" class="item-icon">
+                  <fa-icon [icon]="faFileImport" class="fa-3x ramblers"/>
+                  <h5>Ramblers walk import</h5>
+                </div>
+                <app-markdown-editor class="item-text" name="ramblers-import-help"
+                                     description="Ramblers import help"/>
               </div>
-              <app-markdown-editor class="item-text" name="ramblers-import-help"
-                                   description="Ramblers import help"/>
             </div>
-          </div>
-          <div class="col-sm-6">
-            <div class="item-panel">
-              <div (click)="addWalkSlots()" class="item-icon">
-                <fa-icon [icon]="faCalendarPlus" class="fa-3x calendar"/>
-                <h5>Add walk slots</h5>
+            <div class="col-sm-6">
+              <div class="item-panel">
+                <div (click)="addWalkSlots()" class="item-icon">
+                  <fa-icon [icon]="faCalendarPlus" class="fa-3x calendar"/>
+                  <h5>Add walk slots</h5>
+                </div>
+                <app-markdown-editor class="item-text" name="add-walks-slots-help"
+                                     description="Add walk slots help"/>
               </div>
-              <app-markdown-editor class="item-text" name="add-walks-slots-help"
-                                   description="Add walk slots help"/>
             </div>
-          </div>
-          <div class="col-sm-6">
-            <div class="item-panel">
-              <div (click)="meetupSettings()" class="item-icon">
-                <fa-icon [icon]="faMeetup" class="fa-3x meetup"/>
-                <h5>Meetup settings</h5>
+            <div class="col-sm-6">
+              <div class="item-panel">
+                <div (click)="meetupSettings()" class="item-icon">
+                  <fa-icon [icon]="faMeetup" class="fa-3x meetup"/>
+                  <h5>Meetup settings</h5>
+                </div>
+                <app-markdown-editor class="item-text" name="meetup-settings-help"
+                                     description="Meetup settings help"/>
               </div>
-              <app-markdown-editor class="item-text" name="meetup-settings-help"
-                                   description="Meetup settings help"/>
+            </div>
+            <div class="col-sm-6">
+              <div class="item-panel">
+                <div (click)="selectEventDataManagement()" class="item-icon">
+                  <fa-icon [icon]="faDatabase" class="fa-3x meetup"/>
+                  <h5>Event Data Management</h5>
+                </div>
+                <app-markdown-editor class="item-text" name="event-data-management-help"
+                                     description="Event data management help"/>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </app-page>
-  `,
+      </app-page>
+    `,
     styleUrls: ["./walk-admin.component.sass"],
     changeDetection: ChangeDetectionStrategy.Default,
     imports: [PageComponent, FontAwesomeModule, MarkdownEditorComponent]
@@ -78,6 +89,7 @@ export class WalkAdminComponent implements OnInit, OnDestroy {
   faFileExport = faFileExport;
   faMeetup = faMeetup;
   protected readonly faFileImport = faFileImport;
+  protected readonly faDatabase = faDatabase;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -100,6 +112,10 @@ export class WalkAdminComponent implements OnInit, OnDestroy {
 
   selectWalksForImport() {
     this.urlService.navigateTo(["walks", "admin", "import"]);
+  }
+
+  selectEventDataManagement() {
+    this.urlService.navigateTo(["walks", "admin", "event-data-management"]);
   }
 
   addWalkSlots() {

@@ -29,10 +29,15 @@ export function enumKeyValues<E>(enumValue: E): KeyValue<string>[] {
   return Object.entries(enumValue)?.map((value) => ({key: value[0], value: value[1]})).filter(item => isNaN(+item.key));
 }
 
-export interface KeyValue<T> {
+  export interface KeyValue<T> {
   key: string;
   value: T;
 }
 
-export const KEY_NULL_VALUE_NONE: KeyValue<any> = {value: "(none)", key: null};
-export const KEY_NULL_VALUE_NA: KeyValue<any> = {value: "(not applicable)", key: null};
+export interface TypedKeyValue<K,V> {
+  key: K;
+  value: V;
+}
+
+export const KEY_NULL_VALUE_NONE: KeyValue<string> = {value: "(none)", key: null};
+export const KEY_NULL_VALUE_NA: KeyValue<string> = {value: "(not applicable)", key: null};

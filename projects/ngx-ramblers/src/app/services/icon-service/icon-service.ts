@@ -15,6 +15,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { KeyValue } from "../../functions/enums";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { FontAwesomeIcon } from "../../models/images.model";
+import { MemberAction } from "../../models/member.model";
 
 @Injectable({
   providedIn: "root"
@@ -49,6 +50,9 @@ export class IconService {
       return {icon: faCircleCheck, class: "green-icon"};
     }
     if (status === "success") {
+      return {icon: faCircleCheck, class: "green-icon"};
+    }
+    if (status === MemberAction.matched) {
       return {icon: faCircleCheck, class: "green-icon"};
     }
     if (status === "found") {

@@ -1,6 +1,8 @@
+import TurndownService from "turndown";
+import Papa from "papaparse";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { EventType } from "../../models/walk.model";
+import { EventType, ImportData, ImportStage } from "../../models/walk.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-events.service";
 import { RamblersWalksAndEventsService } from "../walks-and-events/ramblers-walks-and-events.service";
@@ -15,19 +17,31 @@ import { MemberService } from "../member/member.service";
 import { NumberUtilsService } from "../number-utils.service";
 import { MemberBulkLoadService } from "../member/member-bulk-load.service";
 import {
-  BulkLoadMemberAndMatchToWalks,
+  BulkLoadMemberAndMatch,
+  BulkLoadMemberAndMatchToWalk,
   Member,
   MemberAction,
   RamblersMember,
-  RamblersMemberAndContact,
-  WalksImportPreparation
+  RamblersMemberAndContact
 } from "../../models/member.model";
 import { MemberNamingService } from "../member/member-naming.service";
-import { DataQueryOptions } from "../../models/api-request.model";
+import { DataQueryOptions, FilterCriteria } from "../../models/api-request.model";
 import { StringUtilsService } from "../string-utils.service";
-import { Contact, RamblersEventType } from "../../models/ramblers-walks-manager";
+import { Contact, RamblersEventType, WalkStatus, WalkUploadColumnHeading } from "../../models/ramblers-walks-manager";
 import { AlertInstance } from "../notifier.service";
-import { ExtendedGroupEvent } from "../../models/group-event.model";
+import {
+  ExtendedGroupEvent,
+  GroupEvent,
+  GroupEventUniqueKey,
+  HasGroupCodeAndName
+} from "../../models/group-event.model";
+import { ServerFileNameData } from "../../models/aws-object.model";
+import { enumValues, TypedKeyValue } from "../../functions/enums";
+import { Feature } from "../../models/walk-feature.model";
+import { ExtendedGroupEventQueryService } from "../walks-and-events/extended-group-event-query.service";
+import { EventDefaultsService } from "../event-defaults.service";
+import groupBy from "lodash-es/groupBy";
+import isEqual from "lodash-es/isEqual";
 
 @Injectable({
   providedIn: "root"
@@ -45,9 +59,14 @@ export class WalksImportService {
   private memberService = inject(MemberService);
   private memberNamingService = inject(MemberNamingService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
+  private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
+  private stringUtilsService: StringUtilsService = inject(StringUtilsService);
+  private eventDefaultsService = inject(EventDefaultsService);
   public group: Organisation;
   private systemConfig: SystemConfig;
-
+  private turndownService = new TurndownService();
+  private enrichWalkLeaders = false;
+  private performMatches = false;
   constructor() {
     this.applyConfig();
   }
@@ -60,33 +79,65 @@ export class WalksImportService {
     });
   }
 
-  async prepareImport(messages: string[]): Promise<WalksImportPreparation> {
-    const searchString = "Penny";
+  private htmlToMarkdown(html: string): string {
+    return this.turndownService.turndown(html || "");
+  }
+
+  importDataDefaults(): ImportData {
+    return {
+      groupCodeAndName: {
+        group_name: this.systemConfig.group.shortName,
+        group_code: this.systemConfig.group.groupCode
+      },
+      errorMessages: [],
+      messages: [],
+      importStage: ImportStage.NONE, fileImportRows: [],
+      existingWalksWithinRange: [],
+      bulkLoadMembersAndMatchesToWalks: []
+    };
+  }
+
+  async prepareImport(importData: ImportData): Promise<ImportData> {
     const dataQueryOptions: DataQueryOptions = {criteria: {}, sort: {walkDate: 1}};
-    const walksToImport = await this.ramblersWalksAndEventsService.all({
+    const walksToImport: ExtendedGroupEvent[] = await this.ramblersWalksAndEventsService.all({
       dataQueryOptions,
       types: [RamblersEventType.GROUP_WALK]
     });
-    messages.push(`Found ${this.stringUtils.pluraliseWithCount(walksToImport.length, "walk")} to import`);
-    const walkLeaders = await this.ramblersWalksAndEventsService.queryWalkLeaders();
-    messages.push(`Found ${this.stringUtils.pluraliseWithCount(walkLeaders.length, "walk leader")} to import`);
+    return await this.prepareImportOfEvents(importData, walksToImport);
+  }
+
+  public async prepareImportOfEvents(importData: ImportData, walksToImport: ExtendedGroupEvent[]): Promise<ImportData> {
+    const members = await this.memberService.all();
+    if (this.enrichWalkLeaders) {
+      const walkLeaders: Contact[] = await this.ramblersWalksAndEventsService.queryWalkLeaders();
+      importData.messages.push(`Found ${this.stringUtils.pluraliseWithCount(walkLeaders.length, "walk leader")} to import`);
+      this.addToWalkLeaders(walkLeaders, members);
+      this.logger.info("walkLeaders:", walkLeaders);
+    }
     const firstWalk = first(walksToImport);
     const lastWalk = last(walksToImport);
+    const duplicateKeys = this.duplicateKeys(walksToImport);
     const walksWithContactId: ExtendedGroupEvent[] = walksToImport.filter(item => item?.fields?.contactDetails?.contactId);
-    const walksWithContactNameSearchString: ExtendedGroupEvent[] = walksToImport.filter(item => JSON.stringify(item).includes(searchString));
-    this.logger.info("firstWalk:", firstWalk, "on", this.dateUtils.displayDate(firstWalk?.groupEvent?.start_date_time), "lastWalk:", lastWalk, "on", this.dateUtils.displayDate(lastWalk?.groupEvent?.start_date_time), "walksWithContactId:", walksWithContactId, "walksWithContactNameSearchString:", `${searchString}:`, walksWithContactNameSearchString);
-    messages.push(`First walk is on ${this.dateUtils.displayDate(firstWalk?.groupEvent?.start_date_time)}`);
-    messages.push(`Last walk is on ${this.dateUtils.displayDate(lastWalk.groupEvent.start_date_time)}`);
-    const existingWalks: ExtendedGroupEvent[] = await this.localWalksAndEventsService.all();
-    const existingWalksWithinRange: ExtendedGroupEvent[] = existingWalks.filter(walk => walk.groupEvent.start_date_time >= firstWalk.groupEvent.start_date_time && walk.groupEvent.start_date_time <= lastWalk.groupEvent.start_date_time);
-    messages.push(`${this.stringUtils.pluraliseWithCount(existingWalksWithinRange.length, "existing walk")} within date range`);
-    this.logger.info("existingWalks:", existingWalks, "walks to import within range",);
-    this.logger.info("walkLeaders:", walkLeaders);
-    const members = await this.memberService.all();
-    const ramblersMemberAndContacts: RamblersMemberAndContact[] = walkLeaders.map((walkLeader: Contact) => {
-      const firstAndLastName = this.memberNamingService.firstAndLastNameFrom(walkLeader.name);
+    this.logger.info("firstWalk:", firstWalk, "on", this.dateUtils.displayDate(firstWalk?.groupEvent?.start_date_time), "lastWalk:", lastWalk, "on", this.dateUtils.displayDate(lastWalk?.groupEvent?.start_date_time), "walksWithContactId:", walksWithContactId);
+    importData.messages.push(`First walk is on ${this.dateUtils.displayDate(firstWalk?.groupEvent?.start_date_time)}`);
+    importData.messages.push(`Last walk is on ${this.dateUtils.displayDate(lastWalk.groupEvent.start_date_time)}`);
+    const existingWalks: ExtendedGroupEvent[] = await this.localWalksAndEventsService.all({
+      groupCode: importData.groupCodeAndName.group_code, types: [RamblersEventType.GROUP_WALK],
+      dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions({
+        ascending: true,
+        selectType: FilterCriteria.DATE_RANGE
+      }, firstWalk?.groupEvent?.start_date_time, lastWalk?.groupEvent?.start_date_time)
+    });
+    importData.existingWalksWithinRange = existingWalks.filter(walk => importData.groupCodeAndName.group_code === walk.groupEvent.group_code
+      && walk.groupEvent.start_date_time >= firstWalk.groupEvent.start_date_time
+      && walk.groupEvent.start_date_time <= lastWalk.groupEvent.start_date_time);
+    importData.messages.push(`${this.stringUtils.pluraliseWithCount(importData.existingWalksWithinRange.length, "existing walk")} within range of import will be deleted before import`);
+    this.logger.info("existingWalks:", existingWalks, "walks to import within range");
+    const bulkLoadMembersAndMatchesToWalks: BulkLoadMemberAndMatchToWalk[] = walksToImport.map(event => {
+      const contact: Contact = this.eventDefaultsService.nameToContact(event.fields.contactDetails?.displayName);
+      const firstAndLastName = this.memberNamingService.firstAndLastNameFrom(contact.name);
       const ramblersMember: RamblersMember = {
-        mobileNumber: walkLeader.telephone,
+        mobileNumber: contact.telephone,
         firstName: firstAndLastName?.firstName,
         lastName: firstAndLastName?.lastName,
         email: null,
@@ -99,72 +150,90 @@ export class WalksImportService {
         title: null,
         type: null,
       };
-      return {
-        contact: walkLeader,
+      const ramblersMemberAndContact: RamblersMemberAndContact = {
+        contact,
         ramblersMember
       };
+      const bulkLoadMemberAndMatch: BulkLoadMemberAndMatch = this.memberBulkLoadService.bulkLoadMemberAndMatchFor(ramblersMemberAndContact, members, this.systemConfig);
+      if (!bulkLoadMemberAndMatch.member.id) {
+        bulkLoadMemberAndMatch.member = null;
+        bulkLoadMemberAndMatch.memberMatch = MemberAction.notFound;
+      }
+      return {
+        include: this.includeWalk(event, duplicateKeys),
+        bulkLoadMemberAndMatch,
+        event
+      };
     });
-    const unmatched: BulkLoadMemberAndMatchToWalks = {
+    importData.bulkLoadMembersAndMatchesToWalks = bulkLoadMembersAndMatchesToWalks;
+    this.optionallyPerformMatching(bulkLoadMembersAndMatchesToWalks, walksToImport);
+    this.logger.info("bulkLoadMemberAndMatches:", bulkLoadMembersAndMatchesToWalks, "importData.messages:", importData.messages);
+    return Promise.resolve(importData);
+  }
+
+  private optionallyPerformMatching(bulkLoadMembersAndMatchesToWalks: BulkLoadMemberAndMatchToWalk[], walksToImport: ExtendedGroupEvent[]) {
+    const unmatched: BulkLoadMemberAndMatchToWalk = {
+      include: true,
       bulkLoadMemberAndMatch: {
         memberMatchType: "none",
         member: null,
         ramblersMember: null,
         contact: null,
         memberMatch: MemberAction.notFound
-      }, walks: []
+      }, event: null
     };
-    const bulkLoadMembersAndMatchesToWalks: BulkLoadMemberAndMatchToWalks[] = ramblersMemberAndContacts
-      .map(ramblersMemberAndContact => this.memberBulkLoadService.bulkLoadMemberAndMatchFor(ramblersMemberAndContact, members, this.systemConfig))
-      .map(bulkLoadMemberAndMatch => ({bulkLoadMemberAndMatch, walks: []})).concat(unmatched);
 
-    const unmatchedToMember: BulkLoadMemberAndMatchToWalks = bulkLoadMembersAndMatchesToWalks
-      .find(bulkLoadMemberAndMatch => bulkLoadMemberAndMatch === unmatched);
+    if (this.performMatches) {
+      const unmatchedToMember: BulkLoadMemberAndMatchToWalk = bulkLoadMembersAndMatchesToWalks
+        .find(bulkLoadMemberAndMatch => bulkLoadMemberAndMatch === unmatched);
 
-    walksToImport.forEach(walk => {
-      const matchToWalk: BulkLoadMemberAndMatchToWalks = bulkLoadMembersAndMatchesToWalks
-        .find(bulkLoadMemberAndMatch => {
-          if (bulkLoadMemberAndMatch.bulkLoadMemberAndMatch?.contact?.name) {
-            return bulkLoadMemberAndMatch.bulkLoadMemberAndMatch?.contact?.name === walk?.fields?.contactDetails?.displayName;
-          } else if (bulkLoadMemberAndMatch.bulkLoadMemberAndMatch?.member?.mobileNumber) {
-            return this.numberUtils.asNumber(bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.member.mobileNumber) === this.numberUtils.asNumber(walk?.fields?.contactDetails?.phone);
-          } else if (bulkLoadMemberAndMatch.bulkLoadMemberAndMatch?.contact?.id) {
-            return bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.contact.id === walk.fields.publishing.ramblers.contactName;
+      walksToImport.forEach(walk => {
+        const bulkLoadMemberAndMatchToWalk: BulkLoadMemberAndMatchToWalk = bulkLoadMembersAndMatchesToWalks
+          .find(bulkLoadMemberAndMatch => {
+            if (bulkLoadMemberAndMatch.bulkLoadMemberAndMatch?.contact?.name) {
+              return bulkLoadMemberAndMatch.bulkLoadMemberAndMatch?.contact?.name === walk?.fields?.contactDetails?.displayName;
+            } else if (bulkLoadMemberAndMatch.bulkLoadMemberAndMatch?.member?.mobileNumber) {
+              return this.numberUtils.asNumber(bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.member.mobileNumber) === this.numberUtils.asNumber(walk?.fields?.contactDetails?.phone);
+            } else if (bulkLoadMemberAndMatch.bulkLoadMemberAndMatch?.contact?.id) {
+              return bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.contact.id === walk.fields.publishing.ramblers.contactName;
+            }
+          });
+        if (bulkLoadMemberAndMatchToWalk) {
+          bulkLoadMemberAndMatchToWalk.event = walk;
+        } else {
+          if (unmatchedToMember) {
+            unmatchedToMember.event = walk;
           }
-        });
-      if (matchToWalk) {
-        matchToWalk.walks.push(walk);
-      } else {
-        if (unmatchedToMember) {
-          unmatchedToMember.walks.push(walk);
         }
-      }
-    });
-    bulkLoadMembersAndMatchesToWalks.forEach(bulkLoadMemberAndMatchToWalks => {
-      if (bulkLoadMemberAndMatchToWalks.walks.length === 0) {
-        bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch = MemberAction.skipped;
-      }
-    });
-    const bulkLoadMembersAndMatchesToWalksWithContactNameSearchString: BulkLoadMemberAndMatchToWalks[] = bulkLoadMembersAndMatchesToWalks.filter(item => JSON.stringify(item).includes(searchString));
-    this.logger.info("bulkLoadMemberAndMatches:", bulkLoadMembersAndMatchesToWalks, "bulkLoadMembersAndMatchesToWalksWithContactNameSearchString:", `${searchString}:`, bulkLoadMembersAndMatchesToWalksWithContactNameSearchString);
-    messages.push(`${walksToImport.length - unmatchedToMember.walks.length} out of ${walksToImport?.length} were matched to a walk leader`);
-    return Promise.resolve({bulkLoadMembersAndMatchesToWalks, existingWalksWithinRange});
+      });
+      bulkLoadMembersAndMatchesToWalks.forEach(bulkLoadMemberAndMatchToWalks => {
+        if (!bulkLoadMemberAndMatchToWalks.event) {
+          bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch = MemberAction.skipped;
+        }
+      });
+    }
   }
 
-  async performImport(walksImportPreparation: WalksImportPreparation, messages: string[], notify: AlertInstance): Promise<any> {
-    const errorMessages: string[]=[];
+  private addToWalkLeaders(walkLeaders: Contact[], members: Member[]): void {
+    const contacts: Contact[] = members.map(member => this.eventDefaultsService.memberToContact(member));
+    this.logger.info(this.stringUtilsService.pluraliseWithCount(walkLeaders.length, "walk leader"), "found, adding existing members:", members, "as contacts:", contacts);
+    walkLeaders.push(...contacts);
+  }
+
+  async saveImportedWalks(importData: ImportData, notify: AlertInstance): Promise<void> {
     let createdWalks = 0;
     let createdMembers = 0;
-    const deletions = await Promise.all(walksImportPreparation.existingWalksWithinRange.map(walk => this.localWalksAndEventsService.delete(walk)));
-    messages.push(`${deletions.length} existing walks deleted`);
-    const imports = await Promise.all(walksImportPreparation.bulkLoadMembersAndMatchesToWalks.map(async bulkLoadMemberAndMatchToWalks => {
+    const deletions = await Promise.all(importData.existingWalksWithinRange.map(walk => this.localWalksAndEventsService.delete(walk)));
+    importData.messages.push(`${deletions.length} existing walks deleted`);
+    await Promise.all(importData.bulkLoadMembersAndMatchesToWalks
+      .filter(item => item.include)
+      .map(async bulkLoadMemberAndMatchToWalks => {
       const member = bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.member;
-      if (bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch === MemberAction.found) {
-        return bulkLoadMemberAndMatchToWalks.walks.map(walk => {
+        if (this.isAMatchFor(bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch)) {
           createdWalks++;
-          return this.applyWalkLeaderIfSuppliedAndSaveWalk(walk, member);
-        });
+          return this.applyWalkLeaderIfSuppliedAndSaveWalk(bulkLoadMemberAndMatchToWalks.event, member);
       } else if (bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch === MemberAction.created) {
-        if (bulkLoadMemberAndMatchToWalks.walks.length > 0) {
+          if (bulkLoadMemberAndMatchToWalks.event) {
           const qualifier = `for ${member.firstName} ${member.lastName}`;
           const createdMember: Member = await this.memberService.createOrUpdate(member)
             .then((savedMember: Member) => {
@@ -174,40 +243,164 @@ export class WalksImportService {
               this.logger.error("member save error for member:", member, "response:", response);
               bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch = MemberAction.error;
               const message = `Member creation ${qualifier} failed`;
-              errorMessages.push(message);
-              messages.push(message);
+              importData.errorMessages.push(message);
               notify.warning({title: "Walks Import", message});
               return null;
             });
           createdMembers++;
-          return bulkLoadMemberAndMatchToWalks.walks.map(walk => {
             createdWalks++;
-            return this.applyWalkLeaderIfSuppliedAndSaveWalk(walk, createdMember);
-          });
+            return this.applyWalkLeaderIfSuppliedAndSaveWalk(bulkLoadMemberAndMatchToWalks.event, createdMember);
         } else {
           this.logger.info("member:", member, "was not matched to any walks");
           return Promise.resolve();
         }
       } else {
-        this.logger.info("processing memberAction:", bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch, "with", this.stringUtils.pluraliseWithCount(bulkLoadMemberAndMatchToWalks.walks.length, "matched walk"));
-        return bulkLoadMemberAndMatchToWalks.walks.map(walk => {
+          this.logger.info("processing memberAction:", bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch, "with", this.stringUtils.pluraliseWithCount(1, "matched walk"));
           createdWalks++;
-          return this.applyWalkLeaderIfSuppliedAndSaveWalk(walk);
-        });
+          return this.applyWalkLeaderIfSuppliedAndSaveWalk(bulkLoadMemberAndMatchToWalks.event);
       }
     }));
-    this.logger.info("imports:", imports);
-    messages.push(`${this.stringUtils.pluraliseWithCount(createdMembers, "new member")} created, ${this.stringUtils.pluraliseWithCount(createdWalks, "walk")} imported`);
-    return errorMessages;
+    importData.messages.push(`${this.stringUtils.pluraliseWithCount(createdMembers, "new member")} created, ${this.stringUtils.pluraliseWithCount(createdWalks, "walk")} imported`);
   }
 
-  private applyWalkLeaderIfSuppliedAndSaveWalk(walk: ExtendedGroupEvent, member?: Member): Promise<ExtendedGroupEvent> {
+  private async applyWalkLeaderIfSuppliedAndSaveWalk(walk: ExtendedGroupEvent, member?: Member): Promise<ExtendedGroupEvent> {
     const unsavedWalk: ExtendedGroupEvent = omit(walk, ["_id", "id"]) as ExtendedGroupEvent;
     if (member) {
-      unsavedWalk.fields.contactDetails.memberId = member.id;
+      unsavedWalk.groupEvent.walk_leader = this.eventDefaultsService.memberToContact(member);
+      unsavedWalk.fields.contactDetails = this.eventDefaultsService.contactDetailsFrom(member);
     }
+    const oldUrl = unsavedWalk.groupEvent.url;
+    unsavedWalk.groupEvent.url = await this.localWalksAndEventsService.urlFromTitle(unsavedWalk.groupEvent.title, unsavedWalk.id);
+    this.logger.info("applyWalkLeaderIfSuppliedAndSaveWalk: oldUrl:", oldUrl, "newUrl:", unsavedWalk.groupEvent.url, "for walk:", unsavedWalk.groupEvent.title);
     const event = this.walkEventService.createEventIfRequired(unsavedWalk, EventType.APPROVED, "Imported from Walks Manager");
     this.walkEventService.writeEventIfRequired(unsavedWalk, event);
     return this.localWalksAndEventsService.createOrUpdate(unsavedWalk);
+  }
+
+  public importWalksFromFile(file: File, fileNameData: ServerFileNameData): Promise<Record<string, string>[]> {
+    this.logger.info("importWalksFromFile:file:", file, "fileNameData:", fileNameData, "original file size:", this.numberUtils.humanFileSize(file.size));
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async (event: any) => {
+        const csvText = event.target.result;
+        const parsed = Papa.parse(csvText, {header: true, skipEmptyLines: true});
+        const nonCriticalErrors = parsed.errors.filter(error => error.code !== "TooFewFields");
+        this.logger.info("importWalksFromFile:parsed:", parsed, "nonCriticalErrors:", nonCriticalErrors);
+        if (nonCriticalErrors?.errors?.length > 0) {
+          this.logger.error(this.stringUtilsService.pluraliseWithCount(nonCriticalErrors.errors, "CSV parse error"), "were found:", nonCriticalErrors.errors);
+          reject(parsed.errors);
+          return;
+        }
+        const rows = parsed.data as Record<string, string>[];
+        this.logger.info("importWalksFromFile:file:", file, "rows:", rows);
+        resolve(rows);
+      };
+      reader.onerror = (err) => reject(err);
+      reader.readAsText(file);
+    });
+  }
+
+  public csvRowToExtendedGroupEvent(row: Record<string, string>, groupCodeAndName: HasGroupCodeAndName): ExtendedGroupEvent {
+    const csv: Record<WalkUploadColumnHeading, string> = {} as any;
+    enumValues(WalkUploadColumnHeading).forEach((heading: WalkUploadColumnHeading) => {
+      csv[heading] = this.stringUtilsService.decodeString(row[heading]) || "";
+    });
+
+    const groupEvent: GroupEvent = {
+      additional_details: this.htmlToMarkdown(csv[WalkUploadColumnHeading.ADDITIONAL_DETAILS]),
+      area_code: "",
+      cancellation_reason: "",
+      date_created: "",
+      date_updated: "",
+      duration: 0,
+      external_url: "",
+      facilities: [],
+      group_code: groupCodeAndName.group_code,
+      group_name: groupCodeAndName.group_name,
+      item_type: RamblersEventType.GROUP_WALK,
+      linked_event: null,
+      media: [],
+      meeting_date_time: null,
+      meeting_location: null,
+      status: WalkStatus.CONFIRMED,
+      transport: [],
+      url: this.stringUtilsService.kebabCase(csv[WalkUploadColumnHeading.TITLE]),
+      walk_leader: this.eventDefaultsService.nameToContact(csv[WalkUploadColumnHeading.WALK_LEADERS]),
+      title: csv[WalkUploadColumnHeading.TITLE],
+      description: this.htmlToMarkdown(csv[WalkUploadColumnHeading.DESCRIPTION]),
+      start_date_time: this.dateUtils.parseCsvDate(csv[WalkUploadColumnHeading.DATE], csv[WalkUploadColumnHeading.START_TIME]),
+      end_date_time: this.dateUtils.parseCsvDate(csv[WalkUploadColumnHeading.DATE], csv[WalkUploadColumnHeading.EST_FINISH_TIME]),
+      start_location: {
+        postcode: csv[WalkUploadColumnHeading.STARTING_POSTCODE],
+        grid_reference_10: csv[WalkUploadColumnHeading.STARTING_GRIDREF],
+        description: csv[WalkUploadColumnHeading.STARTING_LOCATION_DETAILS],
+        latitude: 0,
+        longitude: 0,
+        grid_reference_6: null,
+        grid_reference_8: null,
+        w3w: null
+      },
+      end_location: {
+        postcode: csv[WalkUploadColumnHeading.FINISHING_POSTCODE],
+        grid_reference_10: csv[WalkUploadColumnHeading.FINISHING_GRIDREF],
+        description: csv[WalkUploadColumnHeading.FINISHING_LOCATION_DETAILS],
+        latitude: 0,
+        longitude: 0,
+        grid_reference_6: null,
+        grid_reference_8: null,
+        w3w: null
+      },
+      difficulty: {description: csv[WalkUploadColumnHeading.DIFFICULTY]},
+      distance_miles: this.numberUtils.asNumber(csv[WalkUploadColumnHeading.DISTANCE_MILES]),
+      distance_km: this.numberUtils.asNumber(csv[WalkUploadColumnHeading.DISTANCE_KM]),
+      ascent_metres: this.numberUtils.asNumber(csv[WalkUploadColumnHeading.ASCENT_METRES]),
+      ascent_feet: this.numberUtils.asNumber(csv[WalkUploadColumnHeading.ASCENT_FEET]),
+      shape: csv[WalkUploadColumnHeading.LINEAR_OR_CIRCULAR],
+      accessibility: [
+        (this.stringUtilsService.asBoolean(csv[WalkUploadColumnHeading.DOG_FRIENDLY]) ? this.ramblersWalksAndEventsService.toFeature(Feature.DOG_FRIENDLY) : null),
+        (this.stringUtilsService.asBoolean(csv[WalkUploadColumnHeading.INTRODUCTORY_WALK]) ? this.ramblersWalksAndEventsService.toFeature(Feature.INTRODUCTORY_WALK) : null),
+        (this.stringUtilsService.asBoolean(csv[WalkUploadColumnHeading.NO_STILES]) ? this.ramblersWalksAndEventsService.toFeature(Feature.NO_STILES) : null),
+        (this.stringUtilsService.asBoolean(csv[WalkUploadColumnHeading.FAMILY_FRIENDLY]) ? this.ramblersWalksAndEventsService.toFeature(Feature.FAMILY_FRIENDLY) : null),
+        (this.stringUtilsService.asBoolean(csv[WalkUploadColumnHeading.WHEELCHAIR_ACCESSIBLE]) ? this.ramblersWalksAndEventsService.toFeature(Feature.WHEELCHAIR_ACCESSIBLE) : null),
+        (this.stringUtilsService.asBoolean(csv[WalkUploadColumnHeading.ACCESSIBLE_BY_PUBLIC_TRANSPORT]) ? this.ramblersWalksAndEventsService.toFeature(Feature.PUBLIC_TRANSPORT) : null),
+        (this.stringUtilsService.asBoolean(csv[WalkUploadColumnHeading.CAR_PARKING_AVAILABLE]) ? this.ramblersWalksAndEventsService.toFeature(Feature.CAR_PARKING) : null),
+        (this.stringUtilsService.asBoolean(csv[WalkUploadColumnHeading.CAR_SHARING_AVAILABLE]) ? this.ramblersWalksAndEventsService.toFeature(Feature.CAR_SHARING) : null),
+        (this.stringUtilsService.asBoolean(csv[WalkUploadColumnHeading.COACH_TRIP]) ? this.ramblersWalksAndEventsService.toFeature(Feature.COACH_TRIP) : null),
+        (this.stringUtilsService.asBoolean(csv[WalkUploadColumnHeading.REFRESHMENTS_AVAILABLE_PUB_CAFE]) ? this.ramblersWalksAndEventsService.toFeature(Feature.REFRESHMENTS) : null),
+        (this.stringUtilsService.asBoolean(csv[WalkUploadColumnHeading.TOILETS_AVAILABLE]) ? this.ramblersWalksAndEventsService.toFeature(Feature.TOILETS) : null),
+      ].filter(Boolean)
+    };
+    return this.ramblersWalksAndEventsService.toExtendedGroupEvent(groupEvent);
+  }
+
+  private isAMatchFor(memberMatch: MemberAction) {
+    return [MemberAction.found, MemberAction.matched].includes(memberMatch);
+  }
+
+  summary(bulkLoadMemberAndMatchToWalks: BulkLoadMemberAndMatchToWalk[]): string {
+    const matched = bulkLoadMemberAndMatchToWalks?.filter(item => this.isAMatchFor(item?.bulkLoadMemberAndMatch.memberMatch));
+    return `${matched?.length} out of ${this.stringUtilsService.pluraliseWithCount(bulkLoadMemberAndMatchToWalks.length, "event")} were matched to walk leaders and members`;
+  }
+
+  private duplicateKeys(walksToImport: ExtendedGroupEvent[]): TypedKeyValue<GroupEventUniqueKey, ExtendedGroupEvent[]>[] {
+    const duplicateWalkDates = Object.entries(groupBy(walksToImport, walkToImport => JSON.stringify(this.toGroupEventUniqueKey(walkToImport))))
+      .filter((entry: [path: string, duplicates: ExtendedGroupEvent[]]) => entry[1].length > 1)
+      .map(item => ({key: JSON.parse(item[0]), value: item[1]}));
+    this.logger.info("walksToImport:", walksToImport, "duplicateWalkDates:", duplicateWalkDates);
+    return duplicateWalkDates;
+  }
+
+  private toGroupEventUniqueKey(walkToImport: ExtendedGroupEvent): GroupEventUniqueKey {
+    return {
+      start_date_time: walkToImport.groupEvent.start_date_time,
+      item_type: walkToImport.groupEvent.item_type,
+      title: walkToImport.groupEvent.title,
+      group_code: walkToImport.groupEvent.group_code
+    };
+  }
+
+  private includeWalk(event: ExtendedGroupEvent, duplicateKeys: TypedKeyValue<GroupEventUniqueKey, ExtendedGroupEvent[]>[]): boolean {
+    const groupEventUniqueKey = this.toGroupEventUniqueKey(event);
+    return !duplicateKeys.find(item  => isEqual(item.key, groupEventUniqueKey));
   }
 }

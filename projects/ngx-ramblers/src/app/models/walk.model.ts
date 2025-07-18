@@ -17,8 +17,9 @@ import { HasBasicEventSelection } from "./search.model";
 import { Link } from "./page.model";
 import { faHouse } from "@fortawesome/free-solid-svg-icons";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
-import { ExtendedGroupEvent } from "./group-event.model";
+import { ExtendedGroupEvent, HasGroupCodeAndName } from "./group-event.model";
 import { FilterCriteria } from "./api-request.model";
+import { BulkLoadMemberAndMatchToWalk } from "./member.model";
 
 export interface GoogleMapsConfig {
   apiKey: string;
@@ -108,7 +109,7 @@ export interface LocalAndRamblersWalk {
   ramblersWalk: RamblersEventSummaryResponse;
 }
 
-export interface ExtendedGroupEventForSelect extends ExtendedGroupEvent, HasNgSelectAttributes {
+export interface ExtendedGroupEventWithLabel extends ExtendedGroupEvent, HasNgSelectAttributes {
 
 }
 
@@ -202,6 +203,7 @@ export enum WalkViewMode {
 export const ID = "_id";
 
 export enum GroupEventField {
+  CREATED_BY = "groupEvent.created_by",
   DESCRIPTION = "groupEvent.description",
   GROUP_CODE = "groupEvent.group_code",
   ID = "groupEvent.id",
@@ -211,6 +213,16 @@ export enum GroupEventField {
   START_DATE = "groupEvent.start_date_time",
   TITLE = "groupEvent.title",
   URL = "groupEvent.url",
+  WALK_LEADER_NAME = "groupEvent.walk_leader.name"
+}
+
+export enum WalkImportField {
+  INCLUDE = "include",
+  DATE = `event.${GroupEventField.START_DATE}`,
+  TITLE = `event.${GroupEventField.TITLE}`,
+  EVENT_WALK_LEADER = `event.${GroupEventField.WALK_LEADER_NAME}`,
+  MEMBER_MATCH = "bulkLoadMemberAndMatch.memberMatch",
+  MEMBER_ALLOCATION = "bulkLoadMemberAndMatch.member.displayName",
 }
 
 export enum EventField {
@@ -281,4 +293,49 @@ export enum WalkListView {
   TABLE = "table",
   CARDS = "cards",
   MAP = "map",
+}
+
+export enum ImportType {
+  EXISTING_GROUP = "existing-group",
+  UNLISTED_GROUP = "unlisted-group"
+}
+
+export enum ImportSource {
+  FILE = "file",
+  WALKS_MANAGER = "walks-manager",
+}
+
+export const IMPORT_SOURCE_MAPPING = {
+  [ImportSource.WALKS_MANAGER]: {
+    name: "ramblers-import-help-page",
+    description: "Ramblers import help page"
+  },
+  [ImportSource.FILE]: {
+    name: "file-import-help-page",
+    description: "File import help page"
+  },
+};
+
+export enum ImportStage {
+  NONE = "none",
+  SAVING = "saving",
+  IMPORTING = "importing",
+  MATCHING = "matching",
+  MATCHING_COMPLETE = "matching-complete",
+}
+
+export interface ImportData {
+  importStage: ImportStage;
+  fileImportRows: Record<string, string>[];
+  bulkLoadMembersAndMatchesToWalks: BulkLoadMemberAndMatchToWalk[];
+  existingWalksWithinRange: ExtendedGroupEvent[];
+  messages: string[];
+  errorMessages: string[];
+  groupCodeAndName: HasGroupCodeAndName;
+}
+
+export interface ImportTypeOptions {
+  importType: ImportType;
+  existingGroupCodeAndName: HasGroupCodeAndName;
+  unlistedGroupCodeAndName: HasGroupCodeAndName;
 }

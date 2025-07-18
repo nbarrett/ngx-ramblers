@@ -10,7 +10,7 @@ import * as auditParser from "./ramblers-audit-parser";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("process-test-step-event"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function processTestStepEvent(ws: WebSocket, data: string): Promise<void> {
   try {

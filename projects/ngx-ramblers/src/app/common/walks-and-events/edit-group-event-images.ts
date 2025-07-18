@@ -19,6 +19,8 @@ import { MediaQueryService } from "../../services/committee/media-query.service"
 import { EditMode } from "../../models/ui-actions";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { EventDefaultsService } from "../../services/event-defaults.service";
+import isUndefined from "lodash-es/isUndefined";
+import isNull from "lodash-es/isNull";
 
 @Component({
   selector: "[app-edit-group-event-images]",
@@ -106,30 +108,33 @@ export class EditGroupEventImagesComponent implements OnInit {
 
   async ngOnInit() {
     this.logger.info("constructed with:config:", this.config, "this.groupEvent:", this.extendedGroupEvent, "disallowImageSourceSelection:", this.disallowImageSourceSelection);
-    const setDefaults = (target: any, defaults: any) => {
-      if (!target || typeof target !== "object" || !defaults || typeof defaults !== "object") {
-        this.logger.info("setDefaults:target:", target, "defaults:", defaults, "(target is not an object)");
-      } else {
-        Object.keys(defaults).forEach((key) => {
-          this.logger.info("setDefaults:key:", key, "value:", target[key], "defaults value:", defaults[key]);
-          if (!target[key]) {
-            target[key] = defaults[key];
-          } else if (typeof defaults[key] === "object" && !Array.isArray(defaults[key])) {
-            setDefaults(target[key], defaults[key]);
-          }
-        });
-      }
-    };
     const defaultImageConfig = this.eventDefaultsService.defaultImageConfig(this.disallowImageSourceSelection ? ImageSource.LOCAL : ImageSource.NONE);
     if (!this.extendedGroupEvent.fields.imageConfig) {
-      this.extendedGroupEvent.fields.imageConfig = {...defaultImageConfig};
+      this.logger.info("creating default value for imageConfig:", defaultImageConfig);
+      this.extendedGroupEvent.fields.imageConfig = defaultImageConfig;
     } else {
-      setDefaults(this.extendedGroupEvent.fields.imageConfig, defaultImageConfig);
+      this.logger.info("applying any required defaults to existing:", this.extendedGroupEvent.fields.imageConfig, "from defaultImageConfig:", defaultImageConfig);
+      this.setDefaults(this.extendedGroupEvent.fields.imageConfig, defaultImageConfig);
     }
     if (this.disallowImageSourceSelection && this.extendedGroupEvent.fields.imageConfig.source === ImageSource.NONE) {
       this.extendedGroupEvent.fields.imageConfig.source = ImageSource.LOCAL;
     }
   }
+
+  setDefaults(target: any, defaults: any) {
+    if (!target || typeof target !== "object" || !defaults || typeof defaults !== "object") {
+      this.logger.info("setDefaults:target:", target, "defaults:", defaults, "(target is not an object)");
+    } else {
+      Object.keys(defaults).forEach((key) => {
+        if (isUndefined(target[key]) || isNull(target[key])) {
+          this.logger.info("setDefaults:key:", key, "setting:", target[key], "to default", defaults[key]);
+          target[key] = defaults[key];
+        } else if (typeof defaults[key] === "object" && !Array.isArray(defaults[key])) {
+          this.setDefaults(target[key], defaults[key]);
+        }
+      });
+    }
+  };
 
   imageChanged(awsFileData: AwsFileData) {
     this.logger.info("imageChanged:", awsFileData);

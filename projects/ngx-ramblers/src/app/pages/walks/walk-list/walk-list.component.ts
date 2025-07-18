@@ -368,7 +368,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
     const offset = (this.pageNumber - 1) * this.pageSize + 1;
     const pageIndicator = this.pages.length > 1 ? `page ${this.pageNumber} of ${this.pageCount}` : "";
     const toWalkNumber = Math.min(offset + this.pageSize - 1, this.currentPageWalks.length);
-    const alertMessage = this.currentPageWalks.length > 0 ? `Showing ${offset} to ${toWalkNumber} of ${this.stringUtils.pluraliseWithCount(this.walks?.length, "walk")}${pageIndicator ? " - " + pageIndicator : ""}` : "No walks found";
+    const alertMessage = this.currentPageWalks.length > 0 ? `Showing ${offset} to ${toWalkNumber} of ${this.stringUtils.pluraliseWithCount(this.filteredWalks?.length, "walk")}${pageIndicator ? " - " + pageIndicator : ""}` : "No walks found";
     this.notify.progress(alertMessage);
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SHOW_PAGINATION, this.pageCount > 1));
   }

@@ -3,10 +3,11 @@ import * as authConfig from "../../auth/auth-config";
 import * as crudController from "../controllers/crud-controller";
 import * as walkController from "../controllers/walk";
 import { extendedGroupEvent } from "../models/extended-group-event";
-import { count, urlFromTitle } from "../controllers/extended-group-event";
+import { count, recreateIndex, urlFromTitle } from "../controllers/extended-group-event";
 
 const controller = crudController.create(extendedGroupEvent, false);
 const router = express.Router();
+router.get("/recreate-index", authConfig.authenticate(), recreateIndex);
 router.get("/count", count);
 router.post("", authConfig.authenticate(), controller.create);
 router.get("", controller.findByConditions);

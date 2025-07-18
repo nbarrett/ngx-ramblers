@@ -160,7 +160,7 @@ export class WalkEditMainDetailsComponent implements OnInit {
   private dateUtils = inject(DateUtilsService);
   protected ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   protected walksAndEventsService = inject(WalksAndEventsService);
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkEditMainDetailsComponent", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkEditMainDetailsComponent", NgxLoggerLevel.ERROR);
   protected longerDescriptionPreview = false;
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   protected fb: FormBuilder = inject(FormBuilder);

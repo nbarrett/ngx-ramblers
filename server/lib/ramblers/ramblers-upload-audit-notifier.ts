@@ -18,7 +18,7 @@ import {
 import * as auditParser from "./ramblers-audit-parser";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 const currentUploadSession: CurrentUploadSession = {logStandardOut: false, fileName: null, record: 0};
 
 export async function sendAudit<T>(ws: WebSocket, props: AuditRamblersUploadParams<T>) {

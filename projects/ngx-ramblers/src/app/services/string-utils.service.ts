@@ -16,6 +16,7 @@ import isNull from "lodash-es/isNull";
 import isUndefined from "lodash-es/isUndefined";
 import isEmpty from "lodash-es/isEmpty";
 import { toKebabCase } from "../functions/strings";
+import he from "he";
 
 @Injectable({
   providedIn: "root"
@@ -45,6 +46,12 @@ StringUtilsService {
 
   noValueFor(dataValue: any): boolean {
     return !isBoolean(dataValue) && (isEmpty(dataValue) || isUndefined(dataValue) || isNull(dataValue));
+  }
+
+  decodeString(encodedString: string) {
+    const decodedString = encodedString ? he.decode(encodedString) : encodedString;
+    this.logger.info("decodeString:encodedString:", encodedString, "decodedString:", decodedString);
+    return decodedString;
   }
 
   stringify(message): string {

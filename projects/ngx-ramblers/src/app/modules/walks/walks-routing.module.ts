@@ -31,14 +31,20 @@ import { WalksPopulationLocalGuard } from "../../guards/walks-population-local-g
     },
     {
       path: "admin/import",
-      loadComponent: () => import("../../pages/walks/walk-import/walk-import.component")
-        .then(m => m.WalkImportComponent),
+      loadComponent: () => import("../../pages/walks/walk-import/walk-import")
+        .then(m => m.WalkImport),
       canActivate: [WalksAuthGuard]
     },
     {
       path: "admin/meetup-settings",
       loadComponent: () => import("../../pages/walks/walk-meetup-settings/walk-meetup-settings.component")
         .then(m => m.WalkMeetupSettingsComponent),
+      canActivate: [WalksAuthGuard]
+    },
+    {
+      path: "admin/event-data-management",
+      loadComponent: () => import("../../pages/walks/walk-admin/event-data-management")
+        .then(m => m.EventDataManagement),
       canActivate: [WalksAuthGuard]
     },
     {

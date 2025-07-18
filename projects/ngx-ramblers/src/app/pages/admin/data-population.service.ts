@@ -92,7 +92,28 @@ export class DataPopulationService {
         text: "This page should be used to prepare your group for when you wish to switch from using Walks Manager as your data source to your local database. There are several reasons why this can be beneficial, including providing better control over the walk leader information published on walks, email-backed workflow such as advertising walk slots and email notifications on change of walk details and the ability to provide more informative fields on the walk that are not supported by Walks Manager. The steps for using this page are to :\n" +
           "* Click the **Collect importable walks from Walks Manager** button below to query all walks that are held in Walks manager. This data is then analysed for walk leaders and attempts are made to match them to existing members in your database.\n" +
           "* Present statistics on the number of walks and walk leaders with an indication as to whether any missing members should be added.\n" +
-          "* Click the **Import And Save Walks Locally** button when you are happy with the proposed import information.",
+          "* Click the **Save Walks Locally** button when you are happy with the proposed import information.",
+        category: "admin"
+      },
+      {
+        name: "event-data-management-help-page",
+        text: "This page is used to view and manage the total number of events per group code and event type.\n" +
+          "* Data within these categories can be selected and bulk deleted, if you wish to reload all event history from walks manager or import file later on.\n" +
+          "* Extreme care should be taken when using this page as no backup is performed beforehand, so please do ensure that a data backup is performed beforehand!",
+        category: "admin"
+      },
+      {
+        name: "event-data-management-help",
+        text: "* Used to view and manage the total number of events per group code and event type categories\n"+
+          "* Bulk delete data within these categories",
+        category: "admin"
+      },
+      {
+        name: "file-import-help-page",
+        text: "This page should be used to import historic events data for your group for for dates that precede the go-live of Walks Manager in 2023. The steps for using this page are to :\n" +
+          "* Click the **Choose File** button to navigate to a CSV file on your local computer. Alternatively, you can drop the file into the drop zone at the bottom of this page.\n" +
+          "* Perform further matching of the imported walk leaders to existing members in your database.\n" +
+          "* Click the **Import** button when you are happy with the proposed import information.\n",
         category: "admin"
       }
     ];

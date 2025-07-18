@@ -107,6 +107,6 @@ const extendedGroupEventSchema = new Schema({
   fields,
   events: [walkEvent],
 });
-groupEvent.index({start_date_time: 1, item_type: 1, group_code: 1}, {unique: true});
+groupEvent.index({start_date_time: 1, item_type: 1, title: 1, group_code: 1}, {unique: true});
 extendedGroupEventSchema.plugin(uniqueValidator);
 export const extendedGroupEvent: Model<mongoose.Document> = mongoose.model("extendedGroupEvents", extendedGroupEventSchema);

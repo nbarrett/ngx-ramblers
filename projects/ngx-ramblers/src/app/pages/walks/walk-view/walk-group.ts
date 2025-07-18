@@ -13,7 +13,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 @Component({
     selector: "app-walk-group",
-    template: `@if (display.walkPopulationWalksManager()) {
+    template: `@if (true) {
       @if (displayedWalk?.walk?.groupEvent?.group_code) {
         <div class="mb-2">
           <h1>Group</h1>

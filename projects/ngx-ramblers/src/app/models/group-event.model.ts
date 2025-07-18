@@ -20,12 +20,20 @@ export interface HasStartAndEndTime {
   end_date_time: string;
 }
 
-export interface GroupEvent extends Identifiable, HasStartAndEndTime {
-  item_type: RamblersEventType;
+export interface GroupEventUniqueKey {
+  start_date_time: string;
   title: string;
+  item_type: RamblersEventType;
   group_code: string;
-  area_code: string;
+}
+
+export interface HasGroupCodeAndName {
+  group_code: string;
   group_name: string;
+}
+
+export interface GroupEvent extends Identifiable, GroupEventUniqueKey, HasStartAndEndTime, HasGroupCodeAndName {
+  area_code: string;
   description: string;
   additional_details: string;
   meeting_date_time: string;
@@ -105,4 +113,21 @@ export enum EventViewDispatch {
 export interface EventViewDispatchWithEvent {
   eventView: EventViewDispatch;
   event?: Promise<ExtendedGroupEvent>;
+}
+
+export interface EventStatsRequest {
+  itemType: RamblersEventType,
+  groupCode: string,
+}
+
+export interface EventStats extends EventStatsRequest {
+  walkCount: number,
+  minDate: Date,
+  maxDate: Date,
+  uniqueCreators: string[],
+  selected: boolean
+}
+
+export interface EventAdminRequest {
+  groups: EventStatsRequest;
 }

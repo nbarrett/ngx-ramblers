@@ -12,20 +12,30 @@ import { WalkListView } from "../../../../models/walk.model";
 import { RamblersWalksAndEventsService } from "../../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { RamblersGroupsApiResponse, RamblersGroupWithLabel } from "../../../../models/ramblers-walks-manager";
 import { NgSelectComponent } from "@ng-select/ng-select";
+import { StatusIconComponent } from "../../status-icon";
+import { Status } from "../../../../models/ramblers-upload-audit.model";
+import { AlertComponent } from "ngx-bootstrap/alert";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { ALERT_WARNING } from "../../../../models/alert-target.model";
+import { EM_DASH } from "../../../../models/content-text.model";
 
 @Component({
   selector: "[app-area-and-group-settings]",
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
       <div class="row">
-        <div class="col-md-6">
-          <div class="form-group">
-            <label for="area-group-code">Ramblers Area Code</label>
+        <div class="col-md-6"><label for="area-group-code">Ramblers Area Code</label>
+          <div class="input-group">
             <input [(ngModel)]="config.area.groupCode"
                    (ngModelChange)="queryGroups(config.area.groupCode)"
                    type="text" class="form-control input-sm"
                    id="area-group-code"
-                   placeholder="Enter the Ramblers group code">
+                   placeholder="Enter a 2 digit Area Code">
+            <div class="input-group-append">
+              <div class="input-group-text">
+                <app-status-icon noLabel [status]="groupQueryStatus"/>
+              </div>
+            </div>
           </div>
         </div>
         <div class="col-md-6">
@@ -34,8 +44,15 @@ import { NgSelectComponent } from "@ng-select/ng-select";
             <input [(ngModel)]="config.area.shortName"
                    type="text" class="form-control input-sm"
                    id="group-short-name"
-                   placeholder="Enter a title for group short name">
+                   placeholder="Enter a 2 digit Area Code">
           </div>
+        </div>
+        <div class="col-md-12">
+          <alert [type]="ALERT_WARNING.type">
+            <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
+            <strong class="ml-2">Group Search</strong>
+            <span class="p-2">{{ groupSearchMessage }}</span>
+          </alert>
         </div>
         <div class="col-md-12">
           <div class="form-group">
@@ -190,7 +207,7 @@ import { NgSelectComponent } from "@ng-select/ng-select";
       </div>
       <app-links-edit [heading]='"Pages on Site"' [links]="config.group.pages"/>
     </div>`,
-  imports: [LinksEditComponent, UiSwitchModule, NgSelectComponent]
+  imports: [LinksEditComponent, UiSwitchModule, NgSelectComponent, StatusIconComponent, AlertComponent, FontAwesomeModule]
 })
 export class AreaAndGroupSettingsComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("GroupSettingsComponent", NgxLoggerLevel.ERROR);
@@ -209,6 +226,10 @@ export class AreaAndGroupSettingsComponent implements OnInit {
   selectedGroups: RamblersGroupsApiResponse[] = [];
   areaGroup: RamblersGroupsApiResponse;
   public selectionMode: string;
+  protected readonly Status = Status;
+  protected groupQueryStatus: Status = Status.INFO;
+  protected readonly ALERT_WARNING = ALERT_WARNING;
+  protected groupSearchMessage: string;
 
   onSelectionModeChange() {
     if (this.selectionMode === "area") {
@@ -240,8 +261,13 @@ export class AreaAndGroupSettingsComponent implements OnInit {
       this.groups = [];
     } else {
       try {
+        this.groupSearchMessage = "searching for groups";
+        this.groupQueryStatus = Status.ACTIVE;
         this.loadingGroups = true;
         this.groups = await this.ramblersWalksAndEventsService.listRamblersGroups([group]);
+        this.groupQueryStatus = this.groups.length > 0 ? Status.COMPLETE : Status.ERROR;
+        const suffix = this.groups.length === 0 ? `${EM_DASH}try entering a different 2 character value into the Ramblers Area Code` : "";
+        this.groupSearchMessage = `${this.stringUtils.pluraliseWithCount(this.groups.length, "area and group record")} found${suffix}`;
         this.availableGroups = this.groups.filter(group => group.scope === "G").map(group => ({
           ...group, ngSelectAttributes: {label: `${group.name} (${group.group_code})`}
         }));
@@ -253,6 +279,8 @@ export class AreaAndGroupSettingsComponent implements OnInit {
         }
       } catch (error) {
         this.logger.error("Error querying groups:", error);
+        this.groupSearchMessage = `Error querying groups: ${this.stringUtils.stringifyObject(error)}`;
+        this.groupQueryStatus = Status.ERROR;
       } finally {
         this.loadingGroups = false;
       }

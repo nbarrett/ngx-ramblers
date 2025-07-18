@@ -11,7 +11,7 @@ import * as stringDecoder from "string_decoder";
 import json2csv from "json2csv";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 const debugNoLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload-no-log"));
 debugNoLog.enabled = false;
 const path = "/tmp/ramblers/";
