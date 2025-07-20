@@ -25,13 +25,7 @@ import { ImportData, ImportStage } from "../../../models/walk.model";
                  value="Collect Walks From Walks Manager"
                  (click)="collectAvailableWalks()"
                  [disabled]="importData.importStage !== ImportStage.NONE"
-                 class="btn btn-primary">
-        }
-        @if (importData.importStage === ImportStage.MATCHING_COMPLETE) {
-          <input type="submit"
-                 value="Import And Save Walks Locally"
-                 (click)="saveImportedWalks()"
-                 [disabled]="importData.importStage === ImportStage.MATCHING_COMPLETE" class="btn btn-primary">
+                 class="btn btn-primary mr-2">
         }
         <ng-content/>
       </div>
@@ -85,33 +79,4 @@ export class WalkImportFromWalksManager implements OnInit, OnDestroy {
     this.notify.hide();
   }
 
-  async saveImportedWalks() {
-    this.importData.messages = [];
-    this.importData.importStage = ImportStage.SAVING;
-    this.notify.warning({
-      title: "Walks Import Starting",
-      message: `Importing ${this.stringUtilsService.pluraliseWithCount(this.importData?.bulkLoadMembersAndMatchesToWalks?.length, "walk")}`
-    });
-
-    this.walksImportService.saveImportedWalks(this.importData, this.notify)
-      .then(() => {
-        if (this.importData?.errorMessages?.length > 0) {
-          this.notify.warning({
-            title: "Walks Import Complete",
-            message: `Imported completed with ${this.stringUtilsService.pluraliseWithCount(this.importData?.errorMessages?.length, "error")}. If you are happy with number of walks imported, Walk population should now be changed to Local in system settings.`
-          });
-
-        } else {
-          this.notify.success({
-            title: "Walks Import Complete",
-            message: `Imported completed successfully. Walk population should now be changed to Local in system settings.`
-          });
-        }
-      })
-      .catch(error => this.notify.error({
-        title: "Walks Import Failed",
-        message: error
-      }))
-      .finally(() => this.importData.importStage = ImportStage.NONE);
-  }
 }

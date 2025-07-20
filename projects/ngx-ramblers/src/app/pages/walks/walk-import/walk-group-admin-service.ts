@@ -25,4 +25,17 @@ export class WalkGroupAdminService {
   bulkDeleteEvents(groups: { itemType: string, groupCode: string }[]): Observable<void> {
     return this.http.post<void>(`api/database/walks/bulk-delete`, groups);
   }
+
+  bulkUpdateEvents(updates: {
+    itemType: string,
+    groupCode: string,
+    newGroupCode: string,
+    newGroupName: string
+  }[]): Observable<void> {
+    return this.http.post<void>(`api/database/walks/bulk-update`, updates);
+  }
+
+  recreateGroupEventsIndex(): Observable<void> {
+    return this.http.post<void>(`api/database/walks/recreate-index`, {});
+  }
 }

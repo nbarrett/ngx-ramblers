@@ -79,7 +79,8 @@ import { PageService } from "../../../services/page.service";
                      [value]="displayedWalk?.walkAccessMode?.caption"
                      (click)="display.edit(displayedWalk)"
                      [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
-                     class="btn btn-primary button-form-edit-event smr-2">
+                     class="btn btn-primary button-form-edit-event "
+                     [ngClass]="{'m-2': !displayedWalk?.walk?.groupEvent?.title}">
             }
             @if (displayedWalk?.walk?.groupEvent?.description) {
               <div class="event-description">
@@ -119,7 +120,7 @@ import { PageService } from "../../../services/page.service";
             }
           </div>
           <div class="col-sm-12 col-lg-6 rounded">
-            @if (displayedWalk?.walk?.groupEvent?.media?.length > 0) {
+            @if (!display.displayMap(displayedWalk?.walk) || displayedWalk?.walk?.groupEvent?.media?.length > 0) {
               <div class="row">
                 <div class="col-sm-12">
                   <app-group-event-images [extendedGroupEvent]="displayedWalk?.walk"/>

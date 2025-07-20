@@ -76,7 +76,7 @@ import { AlertInstance } from "../../../services/notifier.service";
       <div class="col-sm-12 form-inline">
         <input #fileElement class="d-none" type="file" ng2FileSelect (onFileSelected)="onFileDropped($event)">
         <input type="submit" [disabled]="!importReady()" value="Choose File"
-               class="btn btn-primary"
+               class="btn btn-primary mr-2"
                (click)="browseToFile(fileElement)">
         <ng-content/>
       </div>

@@ -36,8 +36,26 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 @Component({
   selector: "app-walk-import",
   template: `
+    <ng-template #backAndResetButtons>
+      @if (importData.importStage === ImportStage.MATCHING) {
+        <input type="submit"
+               value="Save Imported Walks"
+               (click)="saveImportedWalks()"
+               [disabled]="saveWalksDisabled()" class="btn btn-primary mr-2">
+      }
+      <input type="submit"
+             value="Reset"
+             (click)="reset()"
+             [disabled]="resetDisabled()"
+             class="btn btn-primary">
+      @if (importData.importStage === ImportStage.NONE) {
+        <input type="submit" value="Back"
+               (click)="navigateBackToAdmin()"
+               title="Back to walks"
+               class="ml-2 btn btn-primary">
+      }</ng-template>
     <app-page pageTitle="Walks Import">
-      <div class="row mb-3">
+      <div class="row mb-3">importData.importStage:{{ importData.importStage }}
         <div class="col-md-12">
           <label class="mr-2">Import Type:</label>
           <div class="custom-control custom-radio custom-control-inline">
@@ -49,7 +67,8 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
                    (ngModelChange)="reset()"
                    [disabled]="importData.importStage !== ImportStage.NONE"
                    [(ngModel)]="importSource"/>
-            <label class="custom-control-label" for="import-source-walks-manager">From Walks Manager</label>
+            <label class="custom-control-label" for="import-source-walks-manager">From Walks Manager (Group
+              Code {{ systemConfig?.group?.groupCode }})</label>
           </div>
           <div class="custom-control custom-radio custom-control-inline">
             <input class="custom-control-input"
@@ -60,7 +79,7 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
                    (ngModelChange)="reset()"
                    [disabled]="importData.importStage !== ImportStage.NONE"
                    [(ngModel)]="importSource"/>
-            <label class="custom-control-label" for="import-source-file">From File</label>
+            <label class="custom-control-label" for="import-source-file">From CSV Import File</label>
           </div>
         </div>
       </div>
@@ -73,39 +92,19 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
           }
         </div>
       </div>
-      <ng-template #backAndResetButtons>
-        @if (importData.importStage === ImportStage.MATCHING) {
-          <input type="submit"
-                 value="Save Imported Walks"
-                 (click)="saveImportedWalks()"
-                 [disabled]="importNotReady()" class="ml-2 btn btn-primary">
-        }
-        <input type="submit"
-               value="Reset"
-               (click)="reset()"
-               [disabled]="importData.importStage === ImportStage.IMPORTING" class="ml-2 btn btn-primary">
-        @if (importData.importStage === ImportStage.NONE) {
-          <input type="submit" value="Back"
-                 (click)="navigateBackToAdmin()"
-                 title="Back to walks"
-                 class="ml-2 btn btn-primary">
-        }</ng-template>
-      <ng-template #memberAutoComplete>
-      </ng-template>
-      @if (importData?.bulkLoadMembersAndMatchesToWalks?.length === 0) {
-        @if (importSource === ImportSource.WALKS_MANAGER) {
-          <app-walk-import-from-walks-manager [importData]="importData" [notify]="notify"
-                                              (postImportPreparation)="postImportPreparation($event)">
-            <ng-container *ngTemplateOutlet="backAndResetButtons"/>
-          </app-walk-import-from-walks-manager>
-        } @else {
-          <app-walk-import-from-file [importData]="importData" [notify]="notify"
-                                     (postImportPreparation)="postImportPreparation($event)">
-            <ng-container *ngTemplateOutlet="backAndResetButtons"/>
-          </app-walk-import-from-file>
-        }
+      @if (importSource === ImportSource.WALKS_MANAGER) {
+        <app-walk-import-from-walks-manager [importData]="importData" [notify]="notify"
+                                            (postImportPreparation)="postImportPreparation($event)">
+          <ng-container *ngTemplateOutlet="backAndResetButtons"/>
+        </app-walk-import-from-walks-manager>
+      } @else if (importSource === ImportSource.FILE) {
+        <app-walk-import-from-file [importData]="importData" [notify]="notify"
+                                   (postImportPreparation)="postImportPreparation($event)">
+          <ng-container *ngTemplateOutlet="backAndResetButtons"/>
+        </app-walk-import-from-file>
       }
-      <div class="form-group" [ngClass]="{'mt-2':importData.importStage === ImportStage.IMPORTING}">
+      <div class="form-group"
+           [ngClass]="{'mt-2': importData.importStage !== ImportStage.NONE|| importData?.bulkLoadMembersAndMatchesToWalks?.length > 0}">
         @if (alertTarget.showAlert) {
           <div class="alert {{alertTarget.alertClass}}">
             <fa-icon [icon]="alertTarget.alert.icon"></fa-icon>
@@ -132,7 +131,7 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
           }
         </div>
       }
-      @if (importData?.bulkLoadMembersAndMatchesToWalks?.length > 0) {
+      @if (importData.importStage == ImportStage.MATCHING || importData.importStage == ImportStage.MATCHING_COMPLETE) {
         <div class="row mb-2 align-items-center">
           <div class="col-auto"><label class="mr-2">Filter To Show</label>
             <div class="custom-control custom-radio custom-control-inline">
@@ -169,11 +168,9 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
                      name="filterMatched"
                      value="excluded"
                      [(ngModel)]="filterMatched">
-              <label class="custom-control-label" for="filter-excluded">Excluded</label>
+              <label class="custom-control-label" for="filter-excluded">Excluded (manually or due to duplicate
+                detection)</label>
             </div>
-          </div>
-          <div class="col">
-            <ng-container *ngTemplateOutlet="backAndResetButtons"/>
           </div>
         </div>
         <div class="row">
@@ -207,7 +204,8 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
                         <input [(ngModel)]="bulkLoadMemberAndMatch.include"
                                [ngModelOptions]="{standalone: true}"
                                (ngModelChange)="onIncludeChange(bulkLoadMemberAndMatch)"
-                               type="checkbox" class="custom-control-input" id="toggle-exclude-{{index}}">
+                               type="checkbox" class="custom-control-input"
+                               id="toggle-exclude-{{index}}">
                         <label class="custom-control-label" for="toggle-exclude-{{index}}">
                         </label>
                       </div>
@@ -419,12 +417,12 @@ export class WalkImport implements OnInit, OnDestroy {
         if (this.importData?.errorMessages?.length > 0) {
           this.notify.warning({
             title: "Walks Import Completed With Errors",
-            message: `Imported completed with ${this.stringUtilsService.pluraliseWithCount(this.importData?.errorMessages?.length, "error")}. If you are happy with number of walks imported, Walk population should now be changed to Local in system settings.`
+            message: `Imported completed with ${this.stringUtilsService.pluraliseWithCount(this.importData?.errorMessages?.length, "error")}. If you are happy with number of walks imported, Walk population should now be changed to Local in System Settings.`
           });
         } else {
           this.notify.success({
             title: "Walks Import Complete",
-            message: `Imported completed successfully. Walk population should now be changed to Local in system settings.`
+            message: `Imported completed successfully. Walk population should now be changed to Local in System Settings.`
           });
         }
       })
@@ -448,7 +446,11 @@ export class WalkImport implements OnInit, OnDestroy {
     }
   }
 
-  importNotReady() {
-    return false;
+  saveWalksDisabled() {
+    return [ImportStage.NONE].includes(this.importData.importStage);
+  }
+
+  resetDisabled() {
+    return [ImportStage.SAVING].includes(this.importData.importStage);
   }
 }
