@@ -19,6 +19,8 @@ import { Confirm, ConfirmType } from "../../../models/ui-actions";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { NgTemplateOutlet } from "@angular/common";
+import { HumanisePipe } from "../../../pipes/humanise.pipe";
 
 @Component({
   selector: "app-event-data-management",
@@ -29,123 +31,124 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
           <app-markdown-editor name="event-data-management-help-page" description="Event Data Management help page"/>
         </div>
       </div>
-      @if (editableEventStats?.length > 0) {
-        <div class="row mb-2 align-items-center">
-          <div class="col">
-            @if (oneOrMoreEdited) {
-              @if (confirm.noneOutstanding()) {
-                <button type="button" class="btn btn-success mr-2" (click)="bulkApply()">
-                  Apply Changes
-                </button>
-              } @else if (confirm.bulkActionOutstanding()) {
-                <button type="submit" class="btn btn-danger mr-2" (click)="bulkApplyConfirm()">
-                  Confirm Apply of Changes
-                </button>
-                <button type="submit" class="btn btn-success mr-2" (click)="cancelConfirmAndAlert()">
-                  Cancel
-                </button>
-              }
-            }
-            @if (oneOrMoreSelectedForDelete) {
-              @if (confirm.noneOutstanding()) {
-                <button type="submit" class="btn btn-danger mr-2" (click)="bulkDelete()">
-                  Delete Selected
-                </button>
-              } @else if (confirm.bulkDeleteOutstanding()) {
-                <button type="submit" class="btn btn-danger mr-2" (click)="bulkDeleteConfirm()">
-                  Confirm Delete
-                </button>
-              }
+      <div class="row mb-2 align-items-center">
+        <div class="col">
+          @if (oneOrMoreEdited) {
+            @if (confirm.noneOutstanding()) {
+              <button type="button" class="btn btn-success mr-2" (click)="bulkApply()">
+                Apply Changes
+              </button>
+            } @else if (confirm.bulkActionOutstanding()) {
+              <button type="submit" class="btn btn-danger mr-2" (click)="bulkApplyConfirm()">
+                Confirm Apply of Changes
+              </button>
               <button type="submit" class="btn btn-success mr-2" (click)="cancelConfirmAndAlert()">
                 Cancel
               </button>
             }
-            <input type="submit" value="Back To Walks Admin" (click)="navigateBackToAdmin()" class="btn btn-primary mr-2">
+          }
+          @if (oneOrMoreSelectedForDelete) {
+            @if (confirm.noneOutstanding()) {
+              <button type="submit" class="btn btn-danger mr-2" (click)="bulkDelete()">
+                Delete Selected
+              </button>
+            } @else if (confirm.bulkDeleteOutstanding()) {
+              <button type="submit" class="btn btn-danger mr-2" (click)="bulkDeleteConfirm()">
+                Confirm Delete
+              </button>
+            }
+            <button type="submit" class="btn btn-success mr-2" (click)="cancelConfirmAndAlert()">
+              Cancel
+            </button>
+          }
+          <input type="submit" value="Back To Walks Admin" (click)="navigateBackToAdmin()"
+                 class="btn btn-primary mr-2">
+          @if (!oneOrMoreEdited && !oneOrMoreSelectedForDelete) {
             <input type="submit" value="Recreate Group Event Index" (click)="recreateGroupEventsIndex()"
-                   class="btn btn-danger">
-          </div>
-        </div>
-        <div class="form-group">
-          @if (alertTarget.showAlert) {
-            <div class="alert {{alertTarget.alertClass}}">
-              <fa-icon [icon]="alertTarget.alert.icon"/>
-              @if (alertTarget.alertTitle) {
-                <strong class="ml-1">{{ alertTarget.alertTitle }}: </strong>
-              } {{ alertTarget.alertMessage }}
-            </div>
+                   [disabled]="oneOrMoreEdited || oneOrMoreSelectedForDelete" class="btn btn-danger">
           }
         </div>
-        <div class="row">
-          <div class="col-sm-12">
-            <table class="styled-table table-striped table-hover table-sm table-pointer">
-              <thead>
-              <tr>
-                <th>
-                  <div class="custom-control custom-checkbox m-1">
-                    <input id="select-all" type="checkbox" class="custom-control-input"
-                           (change)="toggleSelectAllForDelete($event)"
-                           [checked]="allSelected">
-                    <label class="custom-control-label" for="select-all"></label>
-                  </div>
-                </th>
-                <th>Event Type</th>
-                <th>Group Code</th>
-                <th>Group Name</th>
-                <th>Events</th>
-                <th>From</th>
-                <th>To</th>
-              </tr>
-              </thead>
-              <tbody>
-                @for (eventStat of editableEventStats; track eventStat) {
-                  <tr>
+      </div>
+      <div class="form-group">
+        @if (alertTarget.showAlert) {
+          <div class="alert {{alertTarget.alertClass}}">
+            <fa-icon [icon]="alertTarget.alert.icon"/>
+            @if (alertTarget.alertTitle) {
+              <strong class="ml-1">{{ alertTarget.alertTitle }}: </strong>
+            } {{ alertTarget.alertMessage }}
+          </div>
+        }
+      </div>
+      <div class="row">
+        <div class="col-sm-12">
+          <table class="styled-table table-striped table-hover table-sm table-pointer">
+            <thead>
+            <tr>
+              <th>
+                <div class="custom-control custom-checkbox m-1">
+                  <input id="select-all" type="checkbox" class="custom-control-input"
+                         (change)="toggleSelectAllForDelete($event)"
+                         [checked]="allSelected">
+                  <label class="custom-control-label" for="select-all"></label>
+                </div>
+              </th>
+              <th>Event Type</th>
+              <th>Group Code</th>
+              <th>Group Name</th>
+              <th>Events</th>
+              <th>From</th>
+              <th>To</th>
+            </tr>
+            </thead>
+            <tbody>
+              @for (eventStat of editableEventStats; track eventStat) {
+                <tr>
+                  <td>
+                    <div class="custom-control custom-checkbox m-1">
+                      <input id="select-{{ $index }}" type="checkbox" class="custom-control-input"
+                             [(ngModel)]="eventStat.selected" [ngModelOptions]="{standalone: true}"><label
+                      class="custom-control-label"
+                      for="select-{{ $index }}"></label>
+                    </div>
+                  </td>
+                  <td>{{ eventStat.itemType | humanise }}</td>
+                  @if (eventStat.edited) {
                     <td>
-                      <div class="custom-control custom-checkbox m-1">
-                        <input id="select-{{ $index }}" type="checkbox" class="custom-control-input"
-                               [(ngModel)]="eventStat.selected" [ngModelOptions]="{standalone: true}"><label
-                        class="custom-control-label"
-                        for="select-{{ $index }}"></label>
+                      <div class="form-inline">
+                        <fa-icon [icon]="faUndo" (click)="toggleEditMode(eventStat)"
+                                 class="mr-2"
+                                 tooltip="Cancel this edit"/>
+                        <input type="text" [(ngModel)]="eventStat.editedGroupCode"
+                               class="form-control"
+                               [ngModelOptions]="{standalone: true}"
+                               (ngModelChange)="markAsEdited(eventStat)">
                       </div>
                     </td>
-                    <td>{{ eventStat.itemType }}</td>
-                    @if (eventStat.edited) {
-                      <td>
-                        <div class="form-inline">
-                          <fa-icon [icon]="faUndo" (click)="toggleEditMode(eventStat)"
-                                   class="mr-2"
-                                   tooltip="Cancel this edit"/>
-                          <input type="text" [(ngModel)]="eventStat.editedGroupCode"
-                                 class="form-control"
-                                 [ngModelOptions]="{standalone: true}"
-                                 (ngModelChange)="markAsEdited(eventStat)">
-                        </div>
-                      </td>
-                      <td>
-                        <input type="text" [(ngModel)]="eventStat.editedGroupName" class="form-control"
-                               [ngModelOptions]="{standalone: true}" (ngModelChange)="markAsEdited(eventStat)">
-                      </td>
-                    } @else {
-                      <td>
-                        <fa-icon [icon]="faEdit" (click)="toggleEditMode(eventStat)"
-                                 class="mr-2"
-                                 tooltip="Edit this group code or name"/>
-                        {{ eventStat.groupCode }}
-                      </td>
-                      <td>{{ eventStat.groupName }}</td>
-                    }
-                    <td>{{ eventStat.walkCount }}</td>
-                    <td>{{ eventStat.minDate | displayDate }}</td>
-                    <td>{{ eventStat.maxDate | displayDate }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
+                    <td>
+                      <input type="text" [(ngModel)]="eventStat.editedGroupName" class="form-control"
+                             [ngModelOptions]="{standalone: true}" (ngModelChange)="markAsEdited(eventStat)">
+                    </td>
+                  } @else {
+                    <td>
+                      <fa-icon [icon]="faEdit" (click)="toggleEditMode(eventStat)"
+                               class="mr-2"
+                               tooltip="Edit this group code or name"/>
+                      {{ eventStat.groupCode }}
+                    </td>
+                    <td>{{ eventStat.groupName }}</td>
+                  }
+                  <td>{{ eventStat.walkCount }}</td>
+                  <td>{{ eventStat.minDate | displayDate }}</td>
+                  <td>{{ eventStat.maxDate | displayDate }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
-      }
+      </div>
     </app-page>
   `,
-  imports: [PageComponent, FontAwesomeModule, FormsModule, DisplayDatePipe, MarkdownEditorComponent, TooltipDirective]
+  imports: [PageComponent, FontAwesomeModule, FormsModule, DisplayDatePipe, MarkdownEditorComponent, TooltipDirective, NgTemplateOutlet, HumanisePipe]
 })
 
 export class EventDataManagement implements OnInit, OnDestroy {
@@ -198,7 +201,6 @@ export class EventDataManagement implements OnInit, OnDestroy {
   async loadWalkGroups() {
     try {
       this.refreshStats();
-      this.notify.success({title: "Event Data Management", message: "Events data loaded successfully"});
     } catch (error) {
       this.notify.error({title: "Event Data Management", message: error});
     }
@@ -213,6 +215,14 @@ export class EventDataManagement implements OnInit, OnDestroy {
         edited: false
       }));
       this.logger.info("Event stats loaded:", this.editableEventStats);
+      if (this.editableEventStats.length === 0) {
+        this.notify.warning({
+          title: "Event Data Management",
+          message: "No events currently exist in your database. Visit the Walks -> Admin -> Ramblers Walks Admin Import page to create some"
+        });
+      } else {
+        this.notify.success({title: "Event Data Management", message: "Events data loaded successfully"});
+      }
     });
   }
 

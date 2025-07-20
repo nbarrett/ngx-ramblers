@@ -55,7 +55,7 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
                class="ml-2 btn btn-primary">
       }</ng-template>
     <app-page pageTitle="Walks Import">
-      <div class="row mb-3">importData.importStage:{{ importData.importStage }}
+      <div class="row mb-3">
         <div class="col-md-12">
           <label class="mr-2">Import Type:</label>
           <div class="custom-control custom-radio custom-control-inline">
