@@ -4,12 +4,13 @@ import { envConfig } from "../../env-config/env-config";
 import { walk } from "../models/walk";
 import { parseError } from "./transforms";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
+import { extendedGroupEvent } from "../models/extended-group-event";
 
 const debugLog = debug(envConfig.logNamespace("walk"));
-debugLog.enabled = false;
+debugLog.enabled = true;
 
 export function queryWalkLeaders(req: Request, res: Response): Promise<any> {
-  return walk.distinct("walkLeaderMemberId")
+  return extendedGroupEvent.distinct("fields.contactDetails.memberId")
     .then((response: string[]) => {
       debugLog(req.query, "queryWalkLeaderMemberIds:response", response);
       return res.status(200).json({

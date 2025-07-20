@@ -61,7 +61,7 @@ import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalki
               </div>
             }
             @if (loggedIn) {
-              @if (displayedWalk?.walk?.fields?.contactDetails?.phone) {
+              @if (displayedWalk?.walk?.fields?.contactDetails?.phone || displayedWalk?.walk?.fields?.contactDetails?.email) {
                 <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
                   <app-copy-icon [icon]="faPhone" title [value]="displayedWalk?.walk?.fields?.contactDetails?.phone"
                                  [elementName]="'mobile number for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName "/>
@@ -73,7 +73,8 @@ import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalki
                 </div>
               } @else {
                 <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
-                  <app-copy-icon [icon]="faPersonWalking" title [value]="displayedWalk?.walk?.fields?.contactDetails?.displayName"
+                  <app-copy-icon [icon]="faPersonWalking" title
+                                 [value]="displayedWalk?.walk?.fields?.contactDetails?.displayName"
                                  [elementName]="'walk leader '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
                   <div content>
                     {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}

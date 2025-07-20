@@ -209,7 +209,7 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
   }
 
   get toggleRamblersWalkLeaderContactName(): string {
-    return this.displayedWalk.walk.fields.publishing.ramblers.contactName === this.myContactId ? "leader" : "me";
+    return this.displayedWalk.walk.fields.publishing.ramblers.contactName === this.myContactId ? "Leader" : "Me";
   }
 
 

@@ -104,7 +104,7 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                 <div class="col">
                   <pagination class="pagination rounded w-100" [boundaryLinks]=true [rotate]="true"
                               [maxSize]="maxSize()"
-                              [totalItems]="walks?.length" [(ngModel)]="pageNumber"
+                              [totalItems]="filteredWalks?.length" [(ngModel)]="pageNumber"
                               (pageChanged)="pageChanged($event)"/>
                 </div>
               </div>

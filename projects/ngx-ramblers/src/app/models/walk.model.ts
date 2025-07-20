@@ -206,6 +206,7 @@ export enum GroupEventField {
   CREATED_BY = "groupEvent.created_by",
   DESCRIPTION = "groupEvent.description",
   GROUP_CODE = "groupEvent.group_code",
+  GROUP_NAME = "groupEvent.group_name",
   ID = "groupEvent.id",
   ITEM_TYPE = "groupEvent.item_type",
   LOCATION_DESCRIPTION = "groupEvent.location.description",

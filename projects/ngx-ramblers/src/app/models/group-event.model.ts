@@ -120,14 +120,17 @@ export interface EventStatsRequest {
   groupCode: string,
 }
 
+export interface EditableEventStats extends EventStats {
+  edited: boolean;
+  editedGroupName: string;
+  editedGroupCode: string;
+}
+
 export interface EventStats extends EventStatsRequest {
+  groupName: string,
   walkCount: number,
   minDate: Date,
   maxDate: Date,
   uniqueCreators: string[],
   selected: boolean
-}
-
-export interface EventAdminRequest {
-  groups: EventStatsRequest;
 }

@@ -325,8 +325,8 @@ export class WalkAddSlotsComponent implements OnInit {
       title: "Add walk slots - ", message: "now creating " + this.requiredWalkSlots.length
         + " empty walk slots up to " + this.displayDate.transform(this.untilDate)
     });
-    Promise.all(this.requiredWalkSlots.map((walk: ExtendedGroupEvent) => {
-      return this.walksAndEventsService.createOrUpdate(walk);
+    Promise.all(this.requiredWalkSlots.map((extendedGroupEvent: ExtendedGroupEvent) => {
+      return this.walksAndEventsService.createOrUpdate(extendedGroupEvent);
     })).then((walkSlots) => {
       this.notify.success({title: "Done!", message: "Choose Back to walks to see your newly created slots"});
       delete this.confirmAction;

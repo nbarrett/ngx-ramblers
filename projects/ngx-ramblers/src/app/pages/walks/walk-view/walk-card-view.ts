@@ -28,6 +28,7 @@ import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
 import { AscentValidationService } from "../../../services/walks/ascent-validation.service";
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
 import { CardImageOrMap } from "../../../modules/common/card/image/card-image-or-map";
+import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalking";
 
 @Component({
     selector: "app-walk-card-view",
@@ -74,59 +75,73 @@ import { CardImageOrMap } from "../../../modules/common/card/image/card-image-or
                   {{ displayedWalk?.walk?.groupEvent?.start_location?.postcode }}</a></dd>
               </dl>
             }
-            <dl class="d-flex mb-1">
-              <dt class="font-weight-bold mr-2">Leader:</dt>
-              <dd>
-                <div class="row no-gutters">
-                  @if (display.walkPopulationWalksManager()) {
-                    <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-6 nowrap">
-                      <fa-icon title
-                               tooltip="contact walk leader {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}"
-                               [icon]="faEnvelope"
-                               class="fa-icon mr-1 pointer"/>
-                      <a content
-                         [href]="displayedWalk?.walk?.fields?.contactDetails?.email">{{ displayedWalk?.walk?.fields?.contactDetails?.displayName || "Contact Via Ramblers" }}</a>
-                    </div>
-                  }
-                  @if (!display.walkPopulationWalksManager()) {
-                    @if (displayedWalk?.walk?.fields?.contactDetails?.email) {
-                      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
-                           class="col-sm-6 col-md-12">
-                        <app-copy-icon [disabled]="!loggedIn" [icon]="faEnvelope" title
-                                       [value]="displayedWalk?.walk?.fields?.contactDetails?.email"
-                                       [elementName]="'email address for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
-                        <div content>
-                          @if (loggedIn) {
-                            <a class="nowrap" [href]="'mailto:' + displayedWalk?.walk?.fields?.contactDetails?.email"
-                               tooltip="Click to email {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}">
-                              {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}
+            @if (displayedWalk?.walk?.fields?.contactDetails?.displayName) {
+              <dl class="d-flex mb-1">
+                <dt class="font-weight-bold mr-2">Leader:</dt>
+                <dd>
+                  <div class="row no-gutters">
+                    @if (display.walkPopulationWalksManager()) {
+                      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-6 nowrap">
+                        <fa-icon title
+                                 tooltip="contact walk leader {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}"
+                                 [icon]="faEnvelope"
+                                 class="fa-icon mr-1 pointer"/>
+                        <a content
+                           [href]="displayedWalk?.walk?.fields?.contactDetails?.email">{{ displayedWalk?.walk?.fields?.contactDetails?.displayName || "Contact Via Ramblers" }}</a>
+                      </div>
+                    }
+                    @if (!display.walkPopulationWalksManager()) {
+                      @if (displayedWalk?.walk?.fields?.contactDetails?.email) {
+                        <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
+                             class="col-sm-6 col-md-12">
+                          <app-copy-icon [disabled]="!loggedIn" [icon]="faEnvelope" title
+                                         [value]="displayedWalk?.walk?.fields?.contactDetails?.email"
+                                         [elementName]="'email address for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
+                          <div content>
+                            @if (loggedIn) {
+                              <a class="nowrap" [href]="'mailto:' + displayedWalk?.walk?.fields?.contactDetails?.email"
+                                 tooltip="Click to email {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}">
+                                {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}
+                              </a>
+                            }
+                            @if (!loggedIn) {
+                              <div (click)="login()" class="tooltip-link span-margin"
+                                   tooltip="Login as an {{group?.shortName}} member and send an email to {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}">
+                                {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}
+                              </div>
+                            }
+                          </div>
+                        </div>
+                      }
+                      @if (loggedIn) {
+                        @if (displayedWalk?.walk?.fields?.contactDetails?.phone) {
+                          <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
+                               class="col-sm-6  col-md-12">
+                            <app-copy-icon [icon]="faPhone" title
+                                           [value]="displayedWalk?.walk?.fields?.contactDetails?.phone"
+                                           [elementName]="'mobile number for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName "/>
+                            <a content [href]="'tel:' + displayedWalk?.walk?.fields?.contactDetails?.phone"
+                               class="nowrap"
+                               tooltip="Click to ring {{displayedWalk?.walk?.fields?.contactDetails?.displayName}} on {{displayedWalk?.walk?.fields?.contactDetails?.phone}} (mobile devices only)">
+                              {{ displayedWalk?.walk?.fields?.contactDetails?.phone }}
                             </a>
-                          }
-                          @if (!loggedIn) {
-                            <div (click)="login()" class="tooltip-link span-margin"
-                                 tooltip="Login as an {{group?.shortName}} member and send an email to {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}">
+                          </div>
+                        } @else if (displayedWalk?.walk?.fields?.contactDetails?.displayName) {
+                          <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
+                            <app-copy-icon [icon]="faPersonWalking" title
+                                           [value]="displayedWalk?.walk?.fields?.contactDetails?.displayName"
+                                           [elementName]="'walk leader '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
+                            <div content>
                               {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}
                             </div>
-                          }
-                        </div>
-                      </div>
+                          </div>
+                        }
+                      }
                     }
-                    @if (loggedIn) {
-                      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
-                           class="col-sm-6  col-md-12">
-                        <app-copy-icon [icon]="faPhone" title
-                                       [value]="displayedWalk?.walk?.fields?.contactDetails?.phone"
-                                       [elementName]="'mobile number for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName "/>
-                        <a content [href]="'tel:' + displayedWalk?.walk?.fields?.contactDetails?.phone" class="nowrap"
-                           tooltip="Click to ring {{displayedWalk?.walk?.fields?.contactDetails?.displayName}} on {{displayedWalk?.walk?.fields?.contactDetails?.phone}} (mobile devices only)">
-                          {{ displayedWalk?.walk?.fields?.contactDetails?.phone }}
-                        </a>
-                      </div>
-                    }
-                  }
-                </div>
-              </dd>
-            </dl>
+                  </div>
+                </dd>
+              </dl>
+            }
             @if (display.walkPopulationLocal() && displayedWalk.status !== EventType.APPROVED) {
               <div id="{{displayedWalk?.walk?.id}}-status"
                    class="badge event-badge sunset-badge ml-0">{{ displayedWalk?.latestEventType?.description }}
@@ -177,6 +192,7 @@ export class WalkCardViewComponent implements OnInit, OnDestroy {
   protected readonly faPhone = faPhone;
   protected readonly faEnvelope = faEnvelope;
   protected readonly EventType = EventType;
+  protected readonly faPersonWalking = faPersonWalking;
 
   ngOnInit() {
     this.loggedIn = this.memberLoginService.memberLoggedIn();
