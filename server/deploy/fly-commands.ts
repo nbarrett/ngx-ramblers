@@ -2,36 +2,14 @@ import path from "path";
 import fs from "fs";
 import debug from "debug";
 import { execSync } from "child_process";
+import { DeploymentConfig, EnvironmentConfig, RuntimeConfig, VolumeInformation } from "./types";
 
 const debugLog = debug("deploy-environments");
 const debugNoLog = debug("deploy-environments-nolog");
 debugLog.enabled = true;
 
-export interface EnvironmentConfig {
-  name: string;
-  apiKey: string;
-  appName: string;
-  memory: string;
-  scaleCount: number;
-}
-
-export interface DeploymentConfig {
-  environments: EnvironmentConfig[];
-  dockerImage: string;
-  region: string;
-}
-
-export interface RuntimeConfig {
-  currentDir: string;
-  configFilePath: string;
-  targetEnvironments: string[];
-}
-
-export interface VolumeInformation {
-  id: string;
-  region: string;
-  attachedVM: string;
-  reachable: boolean;
+export function flyTomlAbsolutePath() {
+  return path.resolve(__dirname, "../..", "fly.toml");
 }
 
 export function readConfigFile(filePath: string): DeploymentConfig {
@@ -44,16 +22,16 @@ export function readConfigFile(filePath: string): DeploymentConfig {
   }
 }
 
-export function runCommand(command: string): void {
+export function runCommand(command: string, returnOutput: boolean = false): string {
   try {
     debugLog(`Running command: ${command}`);
-    execSync(command, {stdio: "inherit"});
+    const output = execSync(command, { stdio: returnOutput ? "pipe" : "inherit", encoding: "utf-8" });
+    return output || "";
   } catch (error) {
     debugLog(`Error running command: ${command}`, error);
     process.exit(1);
   }
 }
-
 export function createRuntimeConfig(): RuntimeConfig {
   const filterEnvironments: string[] = process.argv.slice(2).reduce((acc: string[], arg, index, args) => {
     if (arg === "--environment" && index + 1 < args.length) {
