@@ -3,14 +3,14 @@ import {
   configureEnvironment,
   createRuntimeConfig,
   deleteVolumeIfExists,
-  DeploymentConfig,
-  EnvironmentConfig,
+  flyTomlAbsolutePath,
   readConfigFile,
-  runCommand,
-  RuntimeConfig
+  runCommand
 } from "./fly-commands";
-import path from "path";
 import fs from "fs";
+import { DeploymentConfig, EnvironmentConfig, RuntimeConfig } from "./types";
+import { pluraliseWithCount } from "../lib/shared/string-utils";
+import path from "path";
 
 const debugLog = debug("deploy-environments");
 debugLog.enabled = true;
@@ -20,6 +20,8 @@ if (config.targetEnvironments.length > 0) {
 } else {
   debugLog("Deploying to all environments");
 }
+
+deployToEnvironments(config.configFilePath, config.targetEnvironments);
 
 function imageTagFromArg(): string {
   const tagArg = process.argv.find(arg => arg.startsWith("--image-tag="));
@@ -33,6 +35,10 @@ function imageTagFromArg(): string {
   return null;
 }
 
+function environmentNamesFrom(environmentConfigs: EnvironmentConfig[]) {
+  return environmentConfigs.map(env => env.name).join(", ");
+}
+
 function deployToEnvironments(configFilePath: string, environmentsFilter: string[]): void {
   const config: DeploymentConfig = readConfigFile(configFilePath);
   const imageTag = imageTagFromArg();
@@ -42,7 +48,7 @@ function deployToEnvironments(configFilePath: string, environmentsFilter: string
     debugLog(`Overriding docker image tag: ${config.dockerImage}`);
   }
 
-  const flyTomlPath = path.resolve(__dirname, "../..", "fly.toml");
+  const flyTomlPath = flyTomlAbsolutePath();
   const environmentsToDeploy = environmentsFilter.length === 0
     ? config.environments
     : config.environments.filter(environmentConfig => environmentsFilter.includes(environmentConfig.name));
@@ -51,13 +57,16 @@ function deployToEnvironments(configFilePath: string, environmentsFilter: string
     debugLog(`fly.toml not found at: ${flyTomlPath}`);
     process.exit(1);
   }
-
+  if (environmentsToDeploy.length === 0 && environmentsFilter.length > 0) {
+    debugLog("No environments to deploy given --environment", environmentsFilter.join(", "), "- must one of", environmentNamesFrom(config.environments));
+  } else {
+    debugLog("Deploying to", pluraliseWithCount(environmentsToDeploy.length, "environment") + ":", environmentNamesFrom(environmentsToDeploy));
+  }
   environmentsToDeploy.forEach((environmentConfig: EnvironmentConfig) => {
     configureEnvironment(environmentConfig, config);
     debugLog(`Deploying ${config.dockerImage} to ${environmentConfig.appName}`);
     deleteVolumeIfExists(environmentConfig.appName, config.region);
     runCommand(`flyctl config validate --config ${flyTomlPath} --app ${environmentConfig.appName}`);
-    runCommand(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --strategy rolling`);
     if (!(process.env.GITHUB_ACTIONS === "true")) {
       const secretsFilePath = path.resolve(__dirname, `../../non-vcs/secrets/secrets.${environmentConfig.appName}.env`);
       if (fs.existsSync(secretsFilePath)) {
@@ -66,9 +75,9 @@ function deployToEnvironments(configFilePath: string, environmentsFilter: string
         debugLog(`Secrets file not found: ${secretsFilePath}`);
       }
     }
+    runCommand(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --strategy rolling`);
     runCommand(`flyctl scale count ${environmentConfig.scaleCount} --app ${environmentConfig.appName} --yes`);
     runCommand(`flyctl scale memory ${environmentConfig.memory} --app ${environmentConfig.appName}`);
   });
 }
 
-deployToEnvironments(config.configFilePath, config.targetEnvironments);
