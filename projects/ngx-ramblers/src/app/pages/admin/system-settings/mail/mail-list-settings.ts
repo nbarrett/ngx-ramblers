@@ -61,14 +61,13 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
             <input [checked]="autoSubscribeNewMembers()"
               (change)="autoSubscribeNewMembersChange()"
               type="checkbox" class="custom-control-input" id="auto-subscribe-new-members-{{list.id}}">
-            §
           </div>
         </div>
         <div class="col">
           <div class="custom-control custom-checkbox">
             <input [checked]="requiresMemberEmailMarketingConsent()"
               (change)="requiresMemberEmailMarketingConsentChange()"
-              [disabled]="!autoSubscribeNewMembers()"
+              [disabled]="!memberSubscribable()"
               type="checkbox" class="custom-control-input"
               id="requires-member-email-marketing-consent-{{list.id}}">
             <label class="custom-control-label"
@@ -157,7 +156,6 @@ export class MailListSettingsComponent implements OnInit {
   }
 
   cancelDelete() {
-    this.confirm.clear();
     this.confirm.clear();
   }
 

@@ -9,7 +9,18 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
     selector: "app-copy-icon",
-    templateUrl: "./copy-icon.html",
+    template: `
+      @if (justCopied()) {
+        <fa-icon container="body" [tooltip]="justCopied()? tooltipPostCopy:null"
+                 [icon]="icon"
+                 class="fa-icon fa-icon-copied mr-1 pointer"></fa-icon>
+      } @else {
+        <fa-icon container="body" [tooltip]="tooltipPreCopy"
+                 (click)="copyToClipboard(value)" [icon]="icon"
+                 class="fa-icon mr-1 pointer"></fa-icon>
+      }
+      <ng-content/>
+    `,
     styleUrls: ["./copy-icon.sass"],
     imports: [FontAwesomeModule, TooltipDirective]
 })
