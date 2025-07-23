@@ -11,7 +11,7 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageContentService } from "../../../services/page-content.service";
 import { ContentMetadataService } from "../../../services/content-metadata.service";
 import { UrlService } from "../../../services/url.service";
-import { ImageListSelectComponent } from "../../../carousel/edit/carousel-selector/carousel-select";
+import { ImageListSelect } from "../../../carousel/edit/carousel-selector/image-list-select";
 import { FormsModule } from "@angular/forms";
 import { TypeaheadDirective } from "ngx-bootstrap/typeahead";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
@@ -42,7 +42,7 @@ import { BadgeButtonComponent } from "../badge-button/badge-button";
           (click)="toggleNameEdit(false)"/>
       </div>
     }`,
-  imports: [ImageListSelectComponent, FormsModule, TypeaheadDirective, BadgeButtonComponent]
+  imports: [ImageListSelect, FormsModule, TypeaheadDirective, BadgeButtonComponent]
 })
 export class RowSettingsCarouselComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("RowSettingsCarouselComponent", NgxLoggerLevel.ERROR);

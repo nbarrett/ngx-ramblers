@@ -31,7 +31,7 @@ const s3Config: AWSConfig = {
 };
 const s3: S3 = new AWS.S3(s3Config);
 const debugLog = debug(envConfig.logNamespace("aws"));
-debugLog.enabled = false;
+debugLog.enabled = true;
 debugLog("configured with", s3Config, "Proxying S3 requests to", envConfig.aws.uploadUrl, "http.globalAgent.maxSockets:", https.globalAgent.maxSockets);
 
 export function queryAWSConfig(): AWSConfig {
@@ -76,8 +76,12 @@ export async function getObject(req: Request, res: Response) {
     debugLog("returned object command using options", options);
   } catch (err) {
     debugLog("failed getting object command using options", options, err);
+    if (err.name === "NoSuchKey") {
+      res.status(404).send({ error: "Object not found", key: options.Key });
+    } else {
     res.status(500).send(err);
   }
+}
 }
 
 export function getConfig(req: Request, res: Response) {
@@ -103,7 +107,6 @@ export function putObjectDirect(rootFolder: string, fileName: string, localFileN
     Bucket: bucket,
     Key: objectKey,
     Body: data,
-    ACL: "public-read",
     ContentType: contentTypeFrom(objectKey)
   };
   debugLog(`Saving file to ${bucket}/${objectKey} using params:`, JSON.stringify(omit(params, "Body")));

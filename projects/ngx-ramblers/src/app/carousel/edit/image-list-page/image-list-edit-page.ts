@@ -13,7 +13,20 @@ import { ImageListEditComponent } from "../image-list-edit/image-list-edit";
 
 @Component({
     selector: "app-list-edit-page",
-    templateUrl: "./image-list-edit-page.html",
+    template: `
+      <app-page pageTitle="Image Editor">
+        <app-login-required>
+          <app-markdown-editor allowHide="true" name="image-editor-help"
+                               description="Image Editor help"/>
+          @if (!editing) {
+            <app-image-list-selector [name]="name"/>
+          }
+          @if (editing) {
+            <app-image-list-edit [name]="name" (exit)="backToEditorHome()"/>
+          }
+        </app-login-required>
+      </app-page>
+    `,
   imports: [PageComponent, LoginRequiredComponent, MarkdownEditorComponent, ImageListSelectorComponent, ImageListEditComponent]
 })
 export class ImageListEditPageComponent implements OnInit, OnDestroy {

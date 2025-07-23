@@ -12,9 +12,9 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { faEraser, faEye } from "@fortawesome/free-solid-svg-icons";
 import { PageContentService } from "../../../services/page-content.service";
 import { Confirm, ConfirmType, StoredValue } from "../../../models/ui-actions";
-import { ImageListSelectComponent } from "./carousel-select";
 import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { ImageListSelect } from "./image-list-select";
 
 @Component({
   selector: "app-image-list-selector",
@@ -25,28 +25,36 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
           <div class="col-sm-12 mb-2 mt-2">
             <h6>Edit images from</h6>
             <div class="form-inline">
-              <app-image-list-select [maxWidth]="1300" [name]="name"
+              <app-image-list-select multiple="true"  [maxWidth]="1300" [name]="name"
                                      (metadataChange)="metadataChange($event)"/>
               @if (confirm.deleteConfirmOutstanding()) {
-                <app-badge-button [disabled]="!contentMetadata"
-                                  caption="Confirm Delete of Image List"
-                                  (click)="deleteAlbum()"
+                <app-badge-button [disabled]="!selectedContentMetadata?.length"
+                                  caption="Confirm Delete of Selected Image Lists"
+                                  (click)="deleteAlbums()"
                                   [icon]="faEraser"/>
-                <app-badge-button [disabled]="!contentMetadata"
-                                  caption="Cancel Delete of Image List"
+                <app-badge-button [disabled]="!selectedContentMetadata?.length"
+                                  caption="Cancel Delete of Selected Image Lists"
                                   (click)="confirm.clear()"
                                   [icon]="faEraser"/>
               } @else {
-                <app-badge-button [disabled]="!contentMetadata"
-                                  caption="View Image List"
-                                  (click)="navigateTo(contentMetadata.name)"
+                <app-badge-button [disabled]="!selectedContentMetadata?.length"
+                                  caption="View Selected Image List"
+                                  (click)="navigateToSelected()"
                                   [icon]="faEye"/>
-                <app-badge-button [disabled]="!contentMetadata"
-                                  caption="Delete Image List"
+                <app-badge-button [disabled]="!selectedContentMetadata?.length"
+                                  caption="Delete Selected Image Lists"
                                   (click)="confirm.as(ConfirmType.DELETE)"
                                   [icon]="faEraser"/>
               }
             </div>
+            @if (selectedContentMetadata?.length) {
+              <div class="mt-2">
+                Selected: {{ stringUtils.pluraliseWithCount(selectedContentMetadata.length, 'item') }}
+                @for (item of selectedContentMetadata; track item) {
+                  <span class="badge badge-secondary mx-1">{{ item.name }}</span>
+                }
+              </div>
+            }
           </div>
         </div>
         @if (notifyTarget.showAlert) {
@@ -64,10 +72,9 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
         }
       </div>
     }`,
-  imports: [ImageListSelectComponent, BadgeButtonComponent, FontAwesomeModule]
+  imports: [ImageListSelect, BadgeButtonComponent, FontAwesomeModule]
 })
 export class ImageListSelectorComponent implements OnInit {
-
   private logger: Logger = inject(LoggerFactory).createLogger("CarouselSelectorComponent", NgxLoggerLevel.ERROR);
   contentMetadataService = inject(ContentMetadataService);
   private notifierService = inject(NotifierService);
@@ -79,7 +86,7 @@ export class ImageListSelectorComponent implements OnInit {
   public notifyTarget: AlertTarget = {};
   public allow: MemberResourcesPermissions = {};
   public contentMetadataItems: ContentMetadata[];
-  public contentMetadata: ContentMetadata;
+  public selectedContentMetadata: ContentMetadata[] = [];
   protected readonly faEye = faEye;
   public confirm = new Confirm();
   @Input()
@@ -109,30 +116,43 @@ export class ImageListSelectorComponent implements OnInit {
     this.contentMetadataService.contentMetadataNotifications().subscribe(item => {
       const allAndSelectedContentMetaData = this.contentMetadataService.selectMetadataBasedOn(this.name, item);
       this.contentMetadataItems = allAndSelectedContentMetaData.contentMetadataItems;
-      this.contentMetadata = allAndSelectedContentMetaData.contentMetadata;
+      this.selectedContentMetadata = allAndSelectedContentMetaData.contentMetadata ? [allAndSelectedContentMetaData.contentMetadata] : []; // Initialize as array
       this.notify.clearBusy();
     });
   }
 
-  navigateTo(carouselName: string): Promise<boolean> {
-    return this.urlService.navigateUnconditionallyTo(["admin", "carousel-editor"], {[StoredValue.CAROUSEL]: carouselName});
+  navigateToSelected(): Promise<boolean> {
+    if (this.selectedContentMetadata.length === 1) {
+      return this.urlService.navigateUnconditionallyTo(["admin", "carousel-editor"], {[StoredValue.CAROUSEL]: this.selectedContentMetadata[0].name});
+    }
+    this.notify.warning({title: "Image List View", message: "Please select only one image list to view."});
+    return Promise.resolve(false);
   }
 
-  deleteAlbum() {
-    this.contentMetadataService.delete(this.contentMetadata)
-      .then(() => {
-        this.notify.success({title: "Image List deleted", message: this.contentMetadata.name});
-        this.confirm.clear();
-        this.refreshImageMetaData();
-      })
-      .catch(response => this.notify.error({
-        title: "Failed to delete Image List",
-        message: response
-      }));
-
+  deleteAlbums() {
+    if (this.selectedContentMetadata?.length > 0) {
+      Promise.all(this.selectedContentMetadata.map(item => this.contentMetadataService.delete(item)))
+        .then(() => {
+          this.notify.success({
+            title: "Image List deletion",
+            message: this.stringUtils.pluraliseWithCount(this.selectedContentMetadata.length, "Image List") + " deleted successfully."
+          });
+          this.confirm.clear();
+          this.refreshImageMetaData();
+        })
+        .catch(response => this.notify.error({
+          title: "Failed to delete Image Lists",
+          message: response
+        }));
+    } else {
+      this.notify.error({
+        title: "Image List deletion",
+        message: "No Image Lists selected for deletion."
+      });
+    }
   }
 
-  metadataChange(contentMetadata: ContentMetadata) {
-    this.contentMetadata = contentMetadata;
+  metadataChange(contentMetadata: ContentMetadata[]) {
+    this.selectedContentMetadata = contentMetadata || [];
   }
 }
