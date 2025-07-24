@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ "main" ]
 
+env:
+  NODE_VERSION: '20'
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -37,22 +40,51 @@ jobs:
       - name: Push the Docker image to Docker Hub (github run number ${{ github.run_number }})
         run: docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install server dependencies
+        run: npm ci
+        working-directory: ./server
+
+      - name: Create configs directory
+        run: mkdir -p non-vcs/fly-io
+
+      - name: Create configs.json from secrets
+        env:
+          CONFIGS_JSON: ${{ secrets.CONFIGS_JSON }}
+        run: |
+          echo "$CONFIGS_JSON" > non-vcs/fly-io/configs.json
+
+      - name: Install ts-node
+        run: npm install -g ts-node
+
       - name: Install Flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Verify fly.toml existence
+      - name: Verify Flyctl Installation
         run: |
-          ls -la
-          if [ -f "fly.toml" ]; then echo "fly.toml found"; else echo "fly.toml not found" && exit 1; fi
+          echo "Flyctl path: $(which flyctl)"
+          flyctl version
+          echo "FLYCTL_PATH=$(which flyctl)" >> $GITHUB_ENV
 
-      - name: Sync fly.toml to Fly.io and deploy image ngx-ramblers:${{ github.run_number }}
+      - name: Debug Deployment Args
+        run: |
+          echo "Deploying to environment: ${{ secrets.APP_NAME }}"
+          echo "Using image tag: ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}"
+
+      - name: Deploy to ${{ secrets.APP_NAME }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          flyctl config validate --config fly.toml --app ${{ secrets.APP_NAME }}
-          flyctl deploy --app ${{ secrets.APP_NAME }} --config fly.toml --image ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }} --detach
+          ts-node server/deploy/deploy-to-environments.ts --environment "${{ secrets.APP_NAME }}" --image-tag "${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:${{ github.run_number }}"
 
-      - name: Scale App to 1
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl scale count 1 --app ${{ secrets.APP_NAME }}
+      - name: Cleanup sensitive files
+        if: always()
+        run: rm -f non-vcs/fly-io/configs.json
+

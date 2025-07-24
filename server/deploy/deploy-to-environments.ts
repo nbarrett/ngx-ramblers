@@ -35,17 +35,18 @@ function imageTagFromArg(): string {
   return null;
 }
 
-function environmentNamesFrom(environmentConfigs: EnvironmentConfig[]) {
-  return environmentConfigs.map(env => env.name).join(", ");
+function appNamesFrom(environmentConfigs: EnvironmentConfig[]) {
+  return environmentConfigs.map(env => env.appName).join(", ");
 }
 
 function deployToEnvironments(configFilePath: string, environmentsFilter: string[]): void {
   const config: DeploymentConfig = readConfigFile(configFilePath);
   const imageTag = imageTagFromArg();
   if (imageTag) {
-    const [repo] = config.dockerImage.split(":");
-    config.dockerImage = `${repo}:${imageTag}`;
-    debugLog(`Overriding docker image tag: ${config.dockerImage}`);
+    config.dockerImage = imageTag;
+    debugLog(`Overriding docker image: ${config.dockerImage}`);
+  } else {
+    debugLog(`Using default docker image: ${config.dockerImage}`);
   }
 
   const flyTomlPath = flyTomlAbsolutePath();
@@ -58,9 +59,9 @@ function deployToEnvironments(configFilePath: string, environmentsFilter: string
     process.exit(1);
   }
   if (environmentsToDeploy.length === 0 && environmentsFilter.length > 0) {
-    debugLog("No environments to deploy given --environment", environmentsFilter.join(", "), "- must one of", environmentNamesFrom(config.environments));
+    debugLog("No environments to deploy given --environment", environmentsFilter.join(", "), "- must one of", appNamesFrom(config.environments));
   } else {
-    debugLog("Deploying to", pluraliseWithCount(environmentsToDeploy.length, "environment") + ":", environmentNamesFrom(environmentsToDeploy));
+    debugLog("Deploying to", pluraliseWithCount(environmentsToDeploy.length, "environment") + ":", appNamesFrom(environmentsToDeploy));
   }
   environmentsToDeploy.forEach((environmentConfig: EnvironmentConfig) => {
     configureEnvironment(environmentConfig, config);
@@ -80,4 +81,3 @@ function deployToEnvironments(configFilePath: string, environmentsFilter: string
     runCommand(`flyctl scale memory ${environmentConfig.memory} --app ${environmentConfig.appName}`);
   });
 }
-
