@@ -62,7 +62,7 @@ export class DynamicContentViewAlbumComponent implements OnInit {
   public actions: PageContentActionsService = inject(PageContentActionsService);
   public urlService: UrlService = inject(UrlService);
   private loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger: Logger = this.loggerFactory.createLogger("DynamicContentViewAlbumComponent", NgxLoggerLevel.OFF);
+  private logger: Logger = this.loggerFactory.createLogger("DynamicContentViewAlbumComponent", NgxLoggerLevel.ERROR);
 
   @Input()
   public row: PageContentRow;

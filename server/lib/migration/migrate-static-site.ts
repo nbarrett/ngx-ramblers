@@ -2,6 +2,7 @@ import puppeteer from "puppeteer";
 import TurndownService from "turndown";
 import AWS from "aws-sdk";
 import {
+  AlbumView,
   ContentText,
   PageContent,
   PageContentRow,
@@ -22,12 +23,14 @@ import { queryAWSConfig } from "../aws/aws-controllers";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { generateUid, pluraliseWithCount } from "../shared/string-utils";
 import { contentTypeFrom, extensionFrom } from "../aws/aws-utils";
+import { contentMetadata } from "../mongo/models/content-metadata";
+import { AccessLevel } from "../../../projects/ngx-ramblers/src/app/models/member-resource.model";
 
 const debugLog = debug(envConfig.logNamespace("static-html-site-migrator"));
 const turndown = new TurndownService();
 const s3 = new AWS.S3();
-const SOURCE_URL = "https://www.kentramblers.org.uk";
-const persistData = false;
+const SOURCE_URL = "https://nwkramblers.chessck.co.uk";
+const persistData = true;
 const uploadTos3 = false;
 const config: AWSConfig = queryAWSConfig();
 debugLog.enabled = true;
@@ -56,22 +59,20 @@ async function scrapeKentRamblers(): Promise<ScrapedPage[]> {
 
   const pageLinks: { path: string; title: string }[] = await page.evaluate(() => {
     const links = Array.from(document.querySelectorAll(".BMenu a"))
-      .filter((a: HTMLAnchorElement) => a.href.startsWith("https://www.kentramblers.org.uk"))
+      .filter((a: HTMLAnchorElement) => a.href.startsWith(SOURCE_URL))
       .map((a: HTMLAnchorElement) => ({path: a.href, title: a.textContent!.trim()}));
     return [...new Set(links.map(l => JSON.stringify(l)))].map(l => JSON.parse(l));
   });
-  // Ensure Home is included
   if (!pageLinks.some(link => link.path === SOURCE_URL)) {
     pageLinks.unshift({path: SOURCE_URL, title: "Home"});
   }
-  console.log(`✅ Scraped page links:`, pageLinks);
+  debugLog(`✅ Scraped page links:`, pageLinks);
 
   const pageContents: ScrapedPage[] = [];
   for (const { path, title } of pageLinks) {
-    console.log(`✅ Scraping ${path}`);
+    debugLog(`✅ Scraping ${path}`);
     await page.goto(path, {waitUntil: "networkidle2"});
 
-    // Extract raw HTML and images separately
     const {html, images} = await page.evaluate(() => {
       const contentNode = document.querySelector('table[width="1015px"] td') || document.body;
       const html = contentNode.innerHTML;
@@ -82,7 +83,6 @@ async function scrapeKentRamblers(): Promise<ScrapedPage[]> {
       return {html, images};
     });
 
-    // Convert to Markdown and split at images
     const markdown = turndown.turndown(html);
     const segments: ScrapedSegment[] = [];
     let remainingText = markdown;
@@ -120,7 +120,7 @@ async function uploadImageToS3(img: ScrapedImage): Promise<string> {
     }).promise();
     return awsFileName;
   } catch (error) {
-    console.log(`❌ Error uploading image ${img.src}:`, error);
+    debugLog(`❌ Error uploading image ${img.src}:`, error);
     return img.src;
   }
 }
@@ -131,14 +131,13 @@ async function createContentText(text: string, nameSuffix: string): Promise<Cont
     category: "migrated-content",
     name: toKebabCase("migrated-content", nameSuffix),
     text: markdown,
-    // styles: {list: ListStyle.NO_IMAGE, class: "unknown"}
   };
 
   if (persistData) {
-    console.log("✅ Saving content text:", contentText);
+    debugLog("✅ Saving content text:", contentText);
     return mongooseClient.create<ContentText>(contentTextModel, contentText);
   } else {
-    console.log("✅ Creating content text (dry run):", contentText);
+    debugLog("✅ Creating content text (dry run):", contentText);
     return {...contentText, id: toKebabCase("dry-run-id", nameSuffix)};
   }
 }
@@ -148,7 +147,6 @@ function toContentPath(path: string) {
   const contentPath = toKebabCase(...first(url.pathname.split(".")).split("/").filter(item => !["index"].includes(item.toLowerCase())));
   debugLog("✅ toContentPath:path:", path, "contentPath:", contentPath);
   return contentPath;
-
 }
 
 async function createPageContent(content: ScrapedPage, contentTextItems: ContentText[]): Promise<PageContent> {
@@ -198,15 +196,158 @@ async function createPageContent(content: ScrapedPage, contentTextItems: Content
 
   const pageContent: PageContent = {path: pagePath || "home", rows: pageContentRows};
   if (persistData) {
-    console.log("✅ Saving page content:", pageContent);
+    debugLog("✅ Saving page content:", pageContent);
     return mongooseClient.create(pageContentModel, pageContent);
   } else {
-    console.log("✅ Creating page content (dry run):", pageContent);
+    debugLog("✅ Creating page content (dry run):", pageContent);
     return pageContent;
   }
 }
 
-export async function migrateKentRamblers(req: Request, res: Response, next: NextFunction): Promise<void> {
+function albumFrom(title: string) {
+  const yearMatch = title.match(/\b(\d{4})\b/);
+  const monthMatch = title.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/i); // Extract month
+  const year = yearMatch ? yearMatch[1] : "unknown-year";
+  const month = monthMatch ? toKebabCase(monthMatch[1]) : "unknown-month";
+  const baseName = toKebabCase(title.replace(/\b\d{4}\b/g, "").replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/gi, "").trim());
+  let albumName = "gallery";
+  if (year === "unknown-year" && month === "unknown-month") {
+    albumName += `/${baseName}`;
+  } else if (year === "unknown-year") {
+    albumName += `/${month}/${baseName}`;
+  } else if (month === "unknown-month") {
+    albumName += `/${year}/${baseName}`;
+  } else {
+    albumName += `/${year}/${month}/${baseName}`;
+  }
+  debugLog("albumFrom:", title, "albumName:", albumName);
+  return albumName;
+}
+
+async function createPhotoGalleryAlbums(): Promise<void> {
+  debugLog(`✅ Scraping photo gallery links from ${SOURCE_URL}/PhotoGallery`);
+  const browser = await puppeteer.launch({headless: true});
+  const page = await browser.newPage();
+  await page.goto(`${SOURCE_URL}/PhotoGallery`, {waitUntil: "networkidle2"});
+
+  const galleryLinks: { path: string; title: string }[] = await page.evaluate(() => {
+    const links = Array.from(document.querySelectorAll("#ctl00_phLeftNavigation_divLeftNavigation ul li ul li a"))
+      .filter((a: HTMLAnchorElement) => {
+        const matched = a.href.startsWith(`${location.origin}/PhotoGallery/`) && a.textContent?.trim();
+        console.info("✅ Scraping link:", a.href, "text:", a.textContent, "matched:", matched);
+        return matched;
+      })
+      .map((a: HTMLAnchorElement) => ({path: a.href, title: a.textContent!.trim()}));
+    return [...new Set(links.map(l => JSON.stringify(l)))].map(l => JSON.parse(l));
+  });
+  console.info(`✅ Found ${pluraliseWithCount(galleryLinks.length, "gallery link")}:`, galleryLinks);
+
+  for (const {path, title} of galleryLinks) {
+    console.info(`✅ Scraping gallery ${path}`);
+    await page.goto(path, {waitUntil: "networkidle2"});
+
+    const images = await page.evaluate(() => {
+      const contentNode = document.querySelector('#ctl00_phContent_divContent table[width="1015px"] td') || document.body;
+      return Array.from(contentNode.querySelectorAll("img")).map((img: HTMLImageElement) => ({
+        src: img.src,
+        alt: img.alt
+      })).filter(item => item.alt !== "logo");
+    });
+
+    const files = images.map((img, index) => ({
+      image: decodeURIComponent(img.src),
+      originalFileName: decodeURIComponent(img.src.split("/").pop() || `image-${index + 1}.jpg`),
+      text: img.alt,
+      tags: []
+    }));
+
+    const albumName = albumFrom(title);
+
+    const album: any = {
+      rootFolder: RootFolder.siteContent,
+      name: albumName,
+      baseUrl: path,
+      aspectRatio: null,
+      contentMetaDataType: "gallery",
+      files,
+      coverImage: files.length > 0 ? files[0].image : "",
+      imageTags: [],
+      maxImageSize: 1024
+    };
+
+    const pageContent: PageContent = {
+      path: albumName,
+      rows: [
+        {
+          maxColumns: 1,
+          showSwiper: false,
+          type: PageContentType.ALBUM,
+          columns: [
+            {
+              columns: 12,
+              accessLevel: AccessLevel.public,
+            }
+          ],
+          carousel: {
+            name: albumName,
+            createdAt: null,
+            createdBy: null,
+            eventType: "walks",
+            title,
+            subtitle: `Photos from ${toTitleCase(title)}`,
+            showTitle: true,
+            introductoryText: "To be completed",
+            coverImageHeight: 400,
+            coverImageBorderRadius: 6,
+            showCoverImageAndText: false,
+            showPreAlbumText: true,
+            preAlbumText: null,
+            albumView: AlbumView.GRID,
+            gridViewOptions: {
+              showTitles: true,
+              showDates: true
+            },
+            galleryViewOptions: {
+              thumbPosition: "left",
+              imageSize: "cover",
+              thumbImageSize: "cover",
+              loadingStrategy: "lazy",
+              dotsPosition: "bottom"
+            },
+            allowSwitchView: true,
+            showStoryNavigator: true,
+            showIndicators: true,
+            slideInterval: 5000,
+            height: null,
+            eventId: null,
+            eventDate: null
+          }
+        }
+      ]
+    };
+
+    if (persistData) {
+      debugLog("✅ Saving album:", album);
+      const savedAlbum = await mongooseClient.create(contentMetadata, album);
+      debugLog(`✅ Created album for ${title} at /${albumName} with ${pluraliseWithCount(files.length, "image")}:`, savedAlbum);
+
+      debugLog("✅ Saving page content:", pageContent);
+      const savedPageContent = await mongooseClient.create(pageContentModel, pageContent);
+      debugLog(`✅ Created page content for ${title} at /${pageContent.path}:`, savedPageContent);
+    } else {
+      debugLog(`✅ Created album for ${title} at /${albumName} with ${pluraliseWithCount(files.length, "image")} (dry run):`, album);
+      debugLog(`✅ Created page content for ${title} at /${pageContent.path} (dry run):`, pageContent);
+    }
+  }
+
+  await browser.close();
+}
+
+function toTitleCase(str: string): string {
+  return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+}
+
+export async function migrateNorthWestKentRamblers(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const pages = await scrapeKentRamblers();
     const pageContents: PageContent[] = [];
@@ -219,12 +360,14 @@ export async function migrateKentRamblers(req: Request, res: Response, next: Nex
       debugLog(`✅ Migrated ${content.title} to /${pageContent.path}`);
     }
 
-    debugLog("✅ Kent Ramblers migration complete!");
+    await createPhotoGalleryAlbums();
+
+    debugLog("✅ North West Kent Ramblers migration complete!");
     res.json({
       type: MessageType.COMPLETE,
       data: {
         action: ApiAction.UPDATE,
-        response: `✅ Kent Ramblers migration complete: ${pluraliseWithCount(pageContents.length, "page")} and ${pluraliseWithCount(contentTextItems.length, "content text item")} were migrated`,
+        response: `✅ North West Kent Ramblers migration complete: ${pluraliseWithCount(pageContents.length, "page")} and ${pluraliseWithCount(contentTextItems.length, "content text item")} were migrated, plus photo gallery albums`,
         pageContents,
         contentTextItems
       }
