@@ -30,6 +30,7 @@ import { StringUtilsService } from "./string-utils.service";
 import first from "lodash-es/first";
 import { MemberLoginService } from "./member/member-login.service";
 import take from "lodash-es/take";
+import { UrlService } from "./url.service";
 
 @Injectable({
   providedIn: "root"
@@ -42,6 +43,7 @@ export class ContentMetadataService {
   private dateUtils = inject(DateUtilsService);
   private stringUtils = inject(StringUtilsService);
   memberLoginService = inject(MemberLoginService);
+  urlService = inject(UrlService);
   private searchFilterPipe = inject(SearchFilterPipe);
   imageTagDataService = inject(ImageTagDataService);
   private imageDuplicatesService = inject(ImageDuplicatesService);
@@ -87,13 +89,18 @@ export class ContentMetadataService {
   }
 
   public truncatePathFromName(imagePath: string) {
-    const fileName = last(imagePath?.split("/"));
-    if (fileName !== imagePath) {
-      this.logger.debug("truncated fileName:item:", imagePath, "to:", fileName);
-      return fileName;
-    } else {
-      this.logger.debug("fileName already truncated:", imagePath);
+    if (this.urlService.isRemoteUrl(imagePath)) {
+      this.logger.info("imagePath:", imagePath, "is remote - not truncating");
       return imagePath;
+    } else {
+      const fileName = last(imagePath?.split("/"));
+      if (fileName !== imagePath) {
+        this.logger.info("truncated fileName:item:", imagePath, "to:", fileName);
+        return fileName;
+      } else {
+        this.logger.info("fileName already truncated:", imagePath);
+        return imagePath;
+      }
     }
   }
 

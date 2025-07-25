@@ -148,7 +148,7 @@ import { HumanisePipe } from "../../../pipes/humanise.pipe";
       </div>
     </app-page>
   `,
-  imports: [PageComponent, FontAwesomeModule, FormsModule, DisplayDatePipe, MarkdownEditorComponent, TooltipDirective, NgTemplateOutlet, HumanisePipe]
+  imports: [PageComponent, FontAwesomeModule, FormsModule, DisplayDatePipe, MarkdownEditorComponent, TooltipDirective, HumanisePipe]
 })
 
 export class EventDataManagement implements OnInit, OnDestroy {

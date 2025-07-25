@@ -234,15 +234,22 @@ export class UrlService {
   }
 
   qualifiedFileNameWithRoot(rootFolder: RootFolder, contentMetaDataName: string, item: ContentMetadataItem): string {
-    return item.base64Content ? item.base64Content : (item.image && !this.isRemoteUrl(item.image)) ? `${rootFolder}/${contentMetaDataName}/${item.image}` : null;
+    if (this.isRemoteUrl(item.image)) {
+      this.logger.info("qualifiedFileNameWithRoot:isRemoteUrl:returning", item.image);
+      return item.image;
+    } else {
+      const qualifiedFileNameWithRoot = item.base64Content ? item.base64Content : (item.image && !this.isRemoteUrl(item.image)) ? `${rootFolder}/${contentMetaDataName}/${item.image}` : null;
+      this.logger.info("qualifiedFileNameWithRoot:", qualifiedFileNameWithRoot, "rootFolder:", rootFolder, "contentMetaDataName:", contentMetaDataName, "item:", item);
+      return qualifiedFileNameWithRoot;
+    }
   }
 
   imageSource(url: string, absolute?: boolean, cacheBuster?: boolean): string {
     if (this.isRemoteUrl(url)) {
-      this.logger.debug("imageSourceUrl:isRemoteUrl:returning", url);
+      this.logger.info("imageSourceUrl:isRemoteUrl:returning", url);
       return url;
     } else if (FALLBACK_MEDIA.url === url) {
-      this.logger.debug("imageSourceUrl:FALLBACK_MEDIA:returning", url);
+      this.logger.info("imageSourceUrl:FALLBACK_MEDIA:returning", url);
       return url;
     } else if (this.isBase64Image(url)) {
       this.logger.debug("imageSourceUrl:isBase64Image:returning", url);

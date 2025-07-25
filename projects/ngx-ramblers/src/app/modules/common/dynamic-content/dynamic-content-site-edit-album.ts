@@ -356,7 +356,7 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
 })
 export class DynamicContentSiteEditAlbumComponent implements OnInit {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditAlbumComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditAlbumComponent", NgxLoggerLevel.INFO);
   stringUtils = inject(StringUtilsService);
   actions = inject(PageContentActionsService);
   urlService = inject(UrlService);
