@@ -32,12 +32,10 @@ import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi
         </div>
         @if (!omitCC) {
           <div class="col-sm-6">
-            <div class="form-group">
               <app-committee-role-multi-select [showRoleSelectionAs]="'description'"
                 [label]="'CC Roles'"
                 [roles]="notificationConfig.ccRoles"
                 (rolesChange)="this.notificationConfig.ccRoles = $event.roles;"/>
-            </div>
           </div>
         }
         <div class="col-sm-6">
@@ -58,12 +56,10 @@ import { CommitteeRoleMultiSelectComponent } from "../../../committee/role-multi
         </div>
         @if (!omitSignOff) {
           <div class="col-sm-6">
-            <div class="form-group">
               <app-committee-role-multi-select [showRoleSelectionAs]="'description'"
                 [label]="'Sign Off Email With Roles'"
                 [roles]="notificationConfig.signOffRoles"
                 (rolesChange)="this.notificationConfig.signOffRoles = $event.roles;"/>
-            </div>
           </div>
         }
       </div>
