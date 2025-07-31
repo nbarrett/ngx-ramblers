@@ -17,7 +17,7 @@ import { HasBasicEventSelection } from "./search.model";
 import { Link } from "./page.model";
 import { faHouse } from "@fortawesome/free-solid-svg-icons";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
-import { ExtendedGroupEvent, HasGroupCodeAndName } from "./group-event.model";
+import { ExtendedGroupEvent, HasGroupCodeAndName, InputSource } from "./group-event.model";
 import { FilterCriteria } from "./api-request.model";
 import { BulkLoadMemberAndMatchToWalk } from "./member.model";
 
@@ -228,8 +228,10 @@ export enum WalkImportField {
 
 export enum EventField {
   ATTACHMENT = "fields.attachment",
+  CONTACT_DETAILS_DISPLAY_NAME = "fields.contactDetails.displayName",
   CONTACT_DETAILS_MEMBER_ID = "fields.contactDetails.memberId",
   CONTACT_DETAILS_PHONE = "fields.contactDetails.phone",
+  INPUT_SOURCE = "fields.inputSource",
   MIGRATED_FROM_ID = "fields.migratedFromId",
 }
 
@@ -301,17 +303,12 @@ export enum ImportType {
   UNLISTED_GROUP = "unlisted-group"
 }
 
-export enum ImportSource {
-  FILE = "file",
-  WALKS_MANAGER = "walks-manager",
-}
-
 export const IMPORT_SOURCE_MAPPING = {
-  [ImportSource.WALKS_MANAGER]: {
+  [InputSource.WALKS_MANAGER_IMPORT]: {
     name: "ramblers-import-help-page",
     description: "Ramblers import help page"
   },
-  [ImportSource.FILE]: {
+  [InputSource.FILE_IMPORT]: {
     name: "file-import-help-page",
     description: "File import help page"
   },
@@ -326,6 +323,7 @@ export enum ImportStage {
 }
 
 export interface ImportData {
+  inputSource: InputSource;
   importStage: ImportStage;
   fileImportRows: Record<string, string>[];
   bulkLoadMembersAndMatchesToWalks: BulkLoadMemberAndMatchToWalk[];

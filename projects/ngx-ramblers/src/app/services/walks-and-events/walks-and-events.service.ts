@@ -9,13 +9,14 @@ import { EventPopulation, Organisation } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
 import { EventQueryParameters, RamblersEventType } from "../../models/ramblers-walks-manager";
 import { ExtendedGroupEvent, ExtendedGroupEventApiResponse } from "../../models/group-event.model";
+import groupBy from "lodash-es/groupBy";
 
 @Injectable({
   providedIn: "root"
 })
 export class WalksAndEventsService {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("WalksAndEventsService", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalksAndEventsService", NgxLoggerLevel.INFO);
   private systemConfigService = inject(SystemConfigService);
   private localWalksAndEventsService = inject(LocalWalksAndEventsService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
@@ -47,7 +48,14 @@ export class WalksAndEventsService {
       case EventPopulation.WALKS_MANAGER:
         return this.ramblersWalksAndEventsService.all(eventQueryParameters);
       case EventPopulation.LOCAL:
-        return this.localWalksAndEventsService.all(eventQueryParameters);
+        const localWalks = await this.localWalksAndEventsService.all(eventQueryParameters);
+        this.logger.info("walkPopulation:", this?.group?.walkPopulation, "queryById:eventQueryParameters:", eventQueryParameters, "ramblers returned no data:returning localWalks:", localWalks);
+        return localWalks;
+      case EventPopulation.HYBRID:
+        const hybridResults = await Promise.all([
+          this.ramblersWalksAndEventsService.all(eventQueryParameters),
+          this.localWalksAndEventsService.all(eventQueryParameters)]);
+        return this.groupByIdAndPrioritiseRamblersEvents(hybridResults.flat(2));
     }
   }
 
@@ -58,19 +66,32 @@ export class WalksAndEventsService {
         return this.ramblersWalksAndEventsService.all(eventQueryParameters);
       case EventPopulation.LOCAL:
         return this.localWalksAndEventsService.allPublic(eventQueryParameters);
+      case EventPopulation.HYBRID:
+        const hybridResults = await Promise.all([
+          this.ramblersWalksAndEventsService.all(eventQueryParameters),
+          this.localWalksAndEventsService.allPublic(eventQueryParameters)]);
+        return this.groupByIdAndPrioritiseRamblersEvents(hybridResults.flat(2));
     }
   }
 
   async queryWalkLeaders(): Promise<string[]> {
     this.logger.info("queryWalkLeaders:walkPopulation:", this?.group?.walkPopulation);
     switch (this?.group?.walkPopulation) {
+      case EventPopulation.HYBRID:
+        const ramblers = await this.queryWalkLeaderNames();
+        const local = await this.localWalksAndEventsService.queryWalkLeaders();
+        return this.removeDuplicates([...ramblers, ...local]);
       case EventPopulation.WALKS_MANAGER:
-        const walkLeaders = await this.ramblersWalksAndEventsService.queryWalkLeaders();
-        this.logger.info("queryWalkLeaders:", walkLeaders);
-        return walkLeaders.map(item => item.name);
+        return await this.queryWalkLeaderNames();
       case EventPopulation.LOCAL:
         return this.localWalksAndEventsService.queryWalkLeaders();
     }
+  }
+
+  private async queryWalkLeaderNames() {
+    const walkLeaders = await this.ramblersWalksAndEventsService.queryWalkLeaders();
+    this.logger.info("queryWalkLeaders:", walkLeaders);
+    return walkLeaders.map(item => item.name);
   }
 
   async createOrUpdate(extendedGroupEvent: ExtendedGroupEvent): Promise<ExtendedGroupEvent> {
@@ -83,8 +104,17 @@ export class WalksAndEventsService {
         return this.ramblersWalksAndEventsService.queryById(walkId);
       case EventPopulation.LOCAL:
         return this.localWalksAndEventsService.queryById(walkId);
+      case EventPopulation.HYBRID:
+        const ramblers: ExtendedGroupEvent = await this.ramblersWalksAndEventsService.queryById(walkId);
+        if (ramblers) {
+          this.logger.info("walkPopulation:", this?.group?.walkPopulation, "queryById:walkId:", walkId, "ramblers:", ramblers);
+          return ramblers;
+        } else {
+          const local = await this.localWalksAndEventsService.queryById(walkId);
+          this.logger.info("walkPopulation:", this?.group?.walkPopulation, "queryById:walkId:", walkId, "ramblers returned no data:returning local:", local);
+          return local;
+        }
     }
-
   }
 
   async updateMany(dataQueryOptions: DataQueryOptions): Promise<ExtendedGroupEvent[]> {
@@ -136,5 +166,26 @@ export class WalksAndEventsService {
         this.logger.warn("count: unknown walkPopulation, returning 0");
         return 0;
     }
+  }
+
+  private groupByIdAndPrioritiseRamblersEvents(events: ExtendedGroupEvent[]): ExtendedGroupEvent[] {
+    return Object.entries(groupBy(events, (extendedGroupEvent: ExtendedGroupEvent) => extendedGroupEvent.groupEvent.id))
+      .map((entry: [path: string, duplicates: ExtendedGroupEvent[]]) => {
+        const allEventsForKey: ExtendedGroupEvent[] = entry[1];
+        const selectedEventForKey: ExtendedGroupEvent = allEventsForKey.find(item => !item.id) || allEventsForKey[0];
+        const key = entry[0];
+        const noKeyFound: boolean = key === "undefined";
+        const returnData: ExtendedGroupEvent[] = noKeyFound ? allEventsForKey : [selectedEventForKey];
+        if (noKeyFound) {
+          this.logger.info("no key found to group data by returning all data:", returnData);
+        } else if (allEventsForKey.length > 1) {
+          this.logger.info("selectedEventForKey:", selectedEventForKey, "given grouping key:", key, "given all events:", returnData);
+        }
+        return returnData;
+      }).flat(2);
+  }
+
+  private removeDuplicates(items: string[]): string[] {
+    return [...new Set(items)];
   }
 }

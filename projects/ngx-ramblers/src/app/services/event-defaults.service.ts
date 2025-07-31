@@ -1,7 +1,7 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./logger-factory.service";
-import { ContactDetails, ExtendedGroupEvent } from "../models/group-event.model";
+import { ContactDetails, ExtendedGroupEvent, InputSource } from "../models/group-event.model";
 import { Contact, LocationDetails, RamblersEventType, WalkStatus } from "../models/ramblers-walks-manager";
 import { SystemConfig } from "../models/system.model";
 import { ImageConfig, ImageSource, MODERATE, WalkType } from "../models/walk.model";
@@ -97,6 +97,7 @@ export class EventDefaultsService {
 
   public createDefault(defaults?: {
     id?: string,
+    inputSource: InputSource;
     start_date_time?: string,
     item_type?: RamblersEventType,
     shape?: WalkType,
@@ -142,6 +143,7 @@ export class EventDefaultsService {
         date_updated: null
       },
       fields: {
+        inputSource: defaults.inputSource,
         migratedFromId: null,
         contactDetails: this.defaultContactDetails(),
         publishing: {

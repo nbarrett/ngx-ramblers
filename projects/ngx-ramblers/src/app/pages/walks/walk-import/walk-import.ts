@@ -19,7 +19,7 @@ import { FormsModule } from "@angular/forms";
 import { NgClass, NgTemplateOutlet, TitleCasePipe } from "@angular/common";
 import { SystemConfig } from "../../../models/system.model";
 import { WalkImportFromFile } from "./walk-import-from-file";
-import { GroupEventField, ImportData, ImportSource, ImportStage, WalkImportField } from "../../../models/walk.model";
+import { GroupEventField, ImportData, ImportStage, WalkImportField } from "../../../models/walk.model";
 import { WalkImportFromWalksManager } from "./walk-import-from-walks-manager";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { StatusIconComponent } from "../../admin/status-icon";
@@ -32,6 +32,7 @@ import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { HumanisePipe } from "../../../pipes/humanise.pipe";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
+import { InputSource } from "../../../models/group-event.model";
 
 @Component({
   selector: "app-walk-import",
@@ -63,10 +64,10 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
                    id="import-source-walks-manager"
                    name="import-source"
                    type="radio"
-                   [value]="ImportSource.WALKS_MANAGER"
+                   [value]="ImportSource.WALKS_MANAGER_IMPORT"
                    (ngModelChange)="reset()"
                    [disabled]="importData.importStage !== ImportStage.NONE"
-                   [(ngModel)]="importSource"/>
+                   [(ngModel)]="importData.inputSource"/>
             <label class="custom-control-label" for="import-source-walks-manager">From Walks Manager (Group
               Code {{ systemConfig?.group?.groupCode }})</label>
           </div>
@@ -75,29 +76,29 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
                    id="import-source-file"
                    name="import-source"
                    type="radio"
-                   [value]="ImportSource.FILE"
+                   [value]="ImportSource.FILE_IMPORT"
                    (ngModelChange)="reset()"
                    [disabled]="importData.importStage !== ImportStage.NONE"
-                   [(ngModel)]="importSource"/>
+                   [(ngModel)]="importData.inputSource"/>
             <label class="custom-control-label" for="import-source-file">From CSV Import File</label>
           </div>
         </div>
       </div>
       <div class="row">
         <div class="col-sm-12 mb-3 mx-2">
-          @if (importSource === ImportSource.WALKS_MANAGER) {
+          @if (importData.inputSource === ImportSource.WALKS_MANAGER_IMPORT) {
             <app-markdown-editor name="ramblers-import-help-page" description="Ramblers import help page"/>
           } @else {
             <app-markdown-editor name="file-import-help-page" description="File import help page"/>
           }
         </div>
       </div>
-      @if (importSource === ImportSource.WALKS_MANAGER) {
+      @if (importData.inputSource === ImportSource.WALKS_MANAGER_IMPORT) {
         <app-walk-import-from-walks-manager [importData]="importData" [notify]="notify"
                                             (postImportPreparation)="postImportPreparation($event)">
           <ng-container *ngTemplateOutlet="backAndResetButtons"/>
         </app-walk-import-from-walks-manager>
-      } @else if (importSource === ImportSource.FILE) {
+      } @else if (importData.inputSource === ImportSource.FILE_IMPORT) {
         <app-walk-import-from-file [importData]="importData" [notify]="notify"
                                    (postImportPreparation)="postImportPreparation($event)">
           <ng-container *ngTemplateOutlet="backAndResetButtons"/>
@@ -292,14 +293,13 @@ export class WalkImport implements OnInit, OnDestroy {
   private urlService = inject(UrlService);
   protected stringUtilsService = inject(StringUtilsService);
   private fullNamePipe = inject(FullNamePipe);
-  public importSource: ImportSource = ImportSource.FILE;
   protected alertTarget: AlertTarget = {};
   protected notify: AlertInstance;
   faRemove = faRemove;
   private subscriptions: Subscription[] = [];
   protected hasFileOver: boolean;
   protected systemConfig: SystemConfig;
-  protected importData: ImportData = this.walksImportService.importDataDefaults();
+  protected importData: ImportData = this.walksImportService.importDataDefaults(InputSource.FILE_IMPORT);
   protected membersWithLabel: MemberWithLabel[] = [];
   public lastUpdatedRow: BulkLoadMemberAndMatchToWalk = null;
   public sortField = "start_date_time";
@@ -309,7 +309,7 @@ export class WalkImport implements OnInit, OnDestroy {
   protected readonly GroupEventField = GroupEventField;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
   protected readonly ImportStage = ImportStage;
-  protected readonly ImportSource = ImportSource;
+  protected readonly ImportSource = InputSource;
 
   async ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -399,7 +399,7 @@ export class WalkImport implements OnInit, OnDestroy {
   }
 
   reset() {
-    this.importData = this.walksImportService.importDataDefaults();
+    this.importData = this.walksImportService.importDataDefaults(InputSource.FILE_IMPORT);
     this.logger.info("resetting importData to:", this.importData);
     this.notify.hide();
   }

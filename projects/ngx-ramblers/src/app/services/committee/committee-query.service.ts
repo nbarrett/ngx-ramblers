@@ -29,7 +29,7 @@ import { toMongoIds } from "../mongo-utils";
 import { isNumericRamblersId } from "../path-matchers";
 import { MediaQueryService } from "./media-query.service";
 import { EventQueryParameters, RamblersEventType } from "../../models/ramblers-walks-manager";
-import { ExtendedGroupEvent } from "../../models/group-event.model";
+import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
 import { DateValue } from "../../models/date.model";
 import { DisplayTimePipe } from "../../pipes/display-time.pipe";
 import { DistanceValidationService } from "../walks/distance-validation.service";
@@ -84,6 +84,8 @@ export class CommitteeQueryService {
     if (groupEventsFilter.includeWalks || groupEventsFilter.includeSocialEvents) {
       const textBasedCriteria = groupEventsFilter.search?.length > 0 ? {["groupEvent.title"]: regex} : null;
       const eventQueryParameters: EventQueryParameters = {
+        inputSource: InputSource.UNKNOWN,
+        suppressEventLinking: true,
         dataQueryOptions: {
           criteria: textBasedCriteria || idBasedCriteria || {
             [GroupEventField.START_DATE]: {

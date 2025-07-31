@@ -47,7 +47,7 @@ import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-e
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DEFAULT_FILTER_PARAMETERS, FilterParameters } from "../../../models/search.model";
 import { BuiltInAnchor } from "../../../models/content-text.model";
-import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
 import { DataMigrationService } from "../../../services/walks/data-migration.service";
@@ -380,6 +380,8 @@ export class WalkListComponent implements OnInit, OnDestroy {
 
   query() {
     return this.walksAndEventsService.all({
+      inputSource: this.display.walkPopulationLocal() ? InputSource.MANUALLY_CREATED : InputSource.WALKS_MANAGER_IMPORT,
+      suppressEventLinking: false,
       types: [RamblersEventType.GROUP_WALK],
       dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions(this.filterParameters)
     });

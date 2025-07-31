@@ -54,6 +54,15 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
       });
   }
 
+  function findOneDocument(parameters: DataQueryOptions): Promise<T> {
+    return model.findOne(parameters.criteria).select(parameters.select)
+      .then(mongoDocument => {
+        const response = transforms.toObjectWithId(mongoDocument);
+        debugLog("findOneDocument:parameters:", parameters, "response:", response);
+        return response;
+      });
+  }
+
   async function createOrUpdateAllDocuments(req: Request): Promise<T[]> {
     const documents: T[] = req.body;
     const message = `Create or update of ${documents.length} ${model.modelName}`;
@@ -287,6 +296,7 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
       findOne(req, res, parameters);
     },
     findOne,
+    findOneDocument,
     findDocumentById,
     deleteDocument,
     createOrUpdateAll,

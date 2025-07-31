@@ -1,6 +1,6 @@
 import { ApiResponse } from "./api-response.model";
 import { DataQueryOptions } from "./api-request.model";
-import { GroupEvent } from "./group-event.model";
+import { GroupEvent, InputSource } from "./group-event.model";
 
 
 export enum DateFormat {
@@ -42,6 +42,8 @@ export interface RamblersEventSummaryApiResponse extends ApiResponse {
 }
 
 export interface EventQueryParameters {
+  inputSource: InputSource;
+  suppressEventLinking: boolean;
   groupCode?: string;
   dataQueryOptions?: DataQueryOptions;
   ids?: string[];
@@ -131,6 +133,7 @@ export interface GroupListRequest {
 }
 
 export interface EventsListRequest {
+  suppressEventLinking: boolean;
   types: RamblersEventType[];
   ids?: string[];
   rawData?: boolean;

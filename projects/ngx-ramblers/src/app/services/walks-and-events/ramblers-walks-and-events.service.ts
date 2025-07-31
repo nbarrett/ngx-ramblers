@@ -11,7 +11,8 @@ import {
   DateFormat,
   EventQueryParameters,
   EventsListRequest,
-  GroupListRequest, MAXIMUM_PAGE_SIZE,
+  GroupListRequest,
+  MAXIMUM_PAGE_SIZE,
   Metadata,
   PublishStatus,
   RamblersEventsApiResponse,
@@ -73,7 +74,7 @@ import { GroupEventService } from "./group-event.service";
 import { WalksReferenceService } from "../walks/walks-reference-data.service";
 import { ALL_DESCRIBED_FEATURES, DescribedFeature, Feature } from "../../models/walk-feature.model";
 import { marked } from "marked";
-import { ExtendedFields, ExtendedGroupEvent, GroupEvent } from "../../models/group-event.model";
+import { ExtendedFields, ExtendedGroupEvent, GroupEvent, InputSource } from "../../models/group-event.model";
 import { MemberNamingService } from "../member/member-naming.service";
 import { UrlService } from "../url.service";
 import isString from "lodash-es/isString";
@@ -154,7 +155,10 @@ export class RamblersWalksAndEventsService {
     this.logger.info("queryWalkLeaders:");
     const date = WALKS_MANAGER_GO_LIVE_DATE;
     const dateEnd = this.dateUtils.asMoment().add(12, "month").format(DateFormat.WALKS_MANAGER_API);
-    const body: EventsListRequest = {types: [RamblersEventType.GROUP_WALK], date, dateEnd, limit: MAXIMUM_PAGE_SIZE};
+    const body: EventsListRequest = {
+      suppressEventLinking: true,
+      types: [RamblersEventType.GROUP_WALK], date, dateEnd, limit: MAXIMUM_PAGE_SIZE
+    };
     this.logger.info("queryWalkLeaders:body:", body);
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<WalkLeadersApiResponse>(`${this.BASE_URL}/walk-leaders`, body), this.walkLeadersSubject);
     return apiResponse.response;
@@ -162,9 +166,13 @@ export class RamblersWalksAndEventsService {
 
   async queryById(walkId: string): Promise<ExtendedGroupEvent> {
     this.logger.info("queryById:walkId", walkId);
-    const walksRawData: RamblersGroupEventsRawApiResponse = await this.allRamblersEvents({ids: [walkId]});
+    const walksRawData: RamblersGroupEventsRawApiResponse = await this.allRamblersEvents({
+      inputSource: InputSource.WALKS_MANAGER_IMPORT,
+      ids: [walkId],
+      suppressEventLinking: false
+    });
     this.logger.info("queryById:walkId", walkId, "walksRawData:", walksRawData);
-    const walks = walksRawData.data.map(remoteWalk => this.toExtendedGroupEvent(remoteWalk));
+    const walks = walksRawData.data.map(remoteWalk => this.toExtendedGroupEvent(remoteWalk, InputSource.WALKS_MANAGER_IMPORT));
     if (walks?.length === 1) {
       this.logger.info("walkId", walkId, "returned", this.stringUtilsService.pluraliseWithCount(walks.length, "walk"), "walks were:", walks);
     } else {
@@ -174,7 +182,7 @@ export class RamblersWalksAndEventsService {
   }
 
   async listRamblersWalks(): Promise<RamblersEventSummaryResponse[]> {
-    const body: EventsListRequest = {types: ALL_EVENT_TYPES};
+    const body: EventsListRequest = {suppressEventLinking: false, types: ALL_EVENT_TYPES};
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<RamblersEventSummaryApiResponse>(`${this.BASE_URL}/list-events`, body), this.walksSubject);
     this.logger.debug("received", apiResponse);
     return apiResponse.response;
@@ -188,6 +196,7 @@ export class RamblersWalksAndEventsService {
     const date = usedIds.length > 0 ? null : this.createStartDate(eventQueryParameters.dataQueryOptions?.criteria);
     const dateEnd = usedIds.length > 0 ? null : this.createEndDate(eventQueryParameters.dataQueryOptions?.criteria);
     const body: EventsListRequest = {
+      suppressEventLinking: eventQueryParameters.suppressEventLinking,
       types: eventQueryParameters.types || ALL_EVENT_TYPES,
       date,
       dateEnd,
@@ -564,7 +573,7 @@ export class RamblersWalksAndEventsService {
 
   async all(eventQueryParameters: EventQueryParameters): Promise<ExtendedGroupEvent[]> {
     return this.allRamblersEvents(eventQueryParameters)
-      .then((ramblersWalksRawApiResponse: RamblersGroupEventsRawApiResponse) => ramblersWalksRawApiResponse?.data?.map(remoteWalk => this.toExtendedGroupEvent(remoteWalk)));
+      .then((ramblersWalksRawApiResponse: RamblersGroupEventsRawApiResponse) => ramblersWalksRawApiResponse?.data?.map(remoteWalk => this.toExtendedGroupEvent(remoteWalk, eventQueryParameters.inputSource)));
   }
 
   async walkToWalkUploadRow(extendedGroupEvent: ExtendedGroupEvent): Promise<WalkUploadRow> {
@@ -760,11 +769,12 @@ export class RamblersWalksAndEventsService {
     return {id, email, contactName, displayName, telephone};
   }
 
-  toExtendedGroupEvent(groupEvent: GroupEvent): ExtendedGroupEvent {
+  toExtendedGroupEvent(groupEvent: GroupEvent, inputSource: InputSource): ExtendedGroupEvent {
     const localContact: LocalContact = this.localContact(groupEvent);
     this.logger.off("groupEvent:", groupEvent, "contactName:", localContact.contactName, "displayName:", localContact.displayName);
 
     const extendedFields: ExtendedFields = {
+      inputSource,
       migratedFromId: null,
       attachment: null,
       attendees: [],

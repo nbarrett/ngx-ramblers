@@ -43,7 +43,7 @@ import { ApiResponse } from "../../../models/api-response.model";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { StatusIconComponent } from "../../admin/status-icon";
 import last from "lodash-es/last";
-import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
 import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pipe";
 
@@ -499,6 +499,8 @@ export class WalkExportComponent implements OnInit, OnDestroy {
       this.walksForExport = [];
       this.walkExportNotifier.warning("Refreshing export status of future walks", false, true);
       const all: ExtendedGroupEvent[] = await this.walksAndEventsService.all({
+        inputSource: this.display.walkPopulationWalksManager() ? InputSource.WALKS_MANAGER_IMPORT : InputSource.MANUALLY_CREATED,
+        suppressEventLinking: true,
         types: [RamblersEventType.GROUP_WALK],
         dataQueryOptions: {
           criteria: {[GroupEventField.START_DATE]: {$gte: this.dateUtils.momentNow().format()}},

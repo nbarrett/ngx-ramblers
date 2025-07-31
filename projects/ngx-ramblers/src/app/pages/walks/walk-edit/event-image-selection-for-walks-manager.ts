@@ -12,7 +12,7 @@ import { FormsModule } from "@angular/forms";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { HasBasicEventSelection } from "../../../models/search.model";
-import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { GroupSelector } from "./group-selector";
 
 @Component({
@@ -82,6 +82,8 @@ export class EventImageSelectionForWalksManager implements OnInit {
   refreshRamblersWalks() {
     const {groupCode, filterParameters} = this.groupEvent.fields.imageConfig.importFrom;
     this.ramblersWalksAndEventsService.all({
+      inputSource: InputSource.MANUALLY_CREATED,
+      suppressEventLinking: true,
       groupCode,
       dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions(filterParameters)
     }).then(eventsForSelect => {

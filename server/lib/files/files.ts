@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("file-download"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function download(req: Request, res: Response) {
   try {

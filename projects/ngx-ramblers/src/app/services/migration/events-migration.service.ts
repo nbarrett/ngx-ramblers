@@ -5,7 +5,7 @@ import { GroupEventField, ImageSource, LinkSource, LinkWithSource, WalkType } fr
 import { WalkDisplayService } from "../../pages/walks/walk-display.service";
 import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { ExtendedFields, ExtendedGroupEvent, GroupEvent } from "../../models/group-event.model";
+import { ExtendedFields, ExtendedGroupEvent, GroupEvent, InputSource } from "../../models/group-event.model";
 import { SocialEvent, Walk } from "../../models/deprecated";
 import { WalksLocalLegacyService } from "../walks/walks-local-legacy.service";
 import { Time } from "@angular/common";
@@ -62,6 +62,8 @@ export class EventsMigrationService {
   async migrateSocialEventUrls() {
     this.logger.info("migrateSocialEventUrls:starting migration of social event URLs");
     const socialEvents: ExtendedGroupEvent[] = await this.localWalksAndEventsService.all({
+      inputSource: InputSource.MANUALLY_CREATED,
+      suppressEventLinking: true,
       types: [RamblersEventType.GROUP_EVENT],
       dataQueryOptions: {sort: {[GroupEventField.START_DATE]: -1}}
     });
@@ -171,6 +173,7 @@ export class EventsMigrationService {
 
     const links = this.linksFrom(walkOrSocialEvent);
     const extendedFields: ExtendedFields = {
+      inputSource: InputSource.MANUALLY_CREATED,
       migratedFromId: walkOrSocialEvent.id,
       attendees: [],
       milesPerHour,
@@ -309,7 +312,11 @@ export class EventsMigrationService {
     this.logger.info("Migrated events :", migratedWalks.length);
     const extendedGroupEvents: ExtendedGroupEvent[] = migratedWalks.map(item => item.migrated);
     if (saveData) {
-      const existing = await this.localWalksAndEventsService.all({types: [RamblersEventType.GROUP_WALK]});
+      const existing = await this.localWalksAndEventsService.all({
+        inputSource: InputSource.MANUALLY_CREATED,
+        suppressEventLinking: true,
+        types: [RamblersEventType.GROUP_WALK]
+      });
       this.logger.info("Deleting existing", existing.length, "events");
       const deleted = await this.localWalksAndEventsService.deleteAll(existing);
       this.logger.info("Deleted", deleted.length, "events");
@@ -323,6 +330,8 @@ export class EventsMigrationService {
 
   private async allRamblersWalks() {
     return await this.ramblersWalksAndEventsService.all({
+      inputSource: InputSource.MANUALLY_CREATED,
+      suppressEventLinking: true,
       dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions({
         ascending: false,
         selectType: FilterCriteria.ALL_EVENTS
@@ -343,7 +352,11 @@ export class EventsMigrationService {
     this.logger.info("Migrated events :", migratedSocialEvents.length);
     const extendedGroupEvents: ExtendedGroupEvent[] = migratedSocialEvents.map(item => item.migrated);
     if (saveData) {
-      const existingSocials = await this.localWalksAndEventsService.all({types: [RamblersEventType.GROUP_EVENT]});
+      const existingSocials = await this.localWalksAndEventsService.all({
+        inputSource: InputSource.MANUALLY_CREATED,
+        suppressEventLinking: true,
+        types: [RamblersEventType.GROUP_EVENT]
+      });
       this.logger.info("Deleting existing:", existingSocials.length, "social events");
       const deleted = await this.localWalksAndEventsService.deleteAll(existingSocials);
       this.logger.info("Deleted", deleted.length, "events");

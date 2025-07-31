@@ -33,7 +33,8 @@ import {
   ExtendedGroupEvent,
   GroupEvent,
   GroupEventUniqueKey,
-  HasGroupCodeAndName
+  HasGroupCodeAndName,
+  InputSource
 } from "../../models/group-event.model";
 import { ServerFileNameData } from "../../models/aws-object.model";
 import { enumValues, TypedKeyValue } from "../../functions/enums";
@@ -48,7 +49,7 @@ import isEqual from "lodash-es/isEqual";
 })
 export class WalksImportService {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("WalksImportService", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalksImportService", NgxLoggerLevel.INFO);
   private systemConfigService = inject(SystemConfigService);
   private localWalksAndEventsService = inject(LocalWalksAndEventsService);
   private dateUtils = inject(DateUtilsService);
@@ -83,8 +84,9 @@ export class WalksImportService {
     return this.turndownService.turndown(html || "");
   }
 
-  importDataDefaults(): ImportData {
+  importDataDefaults(inputSource: InputSource): ImportData {
     return {
+      inputSource,
       groupCodeAndName: {
         group_name: this.systemConfig.group.shortName,
         group_code: this.systemConfig.group.groupCode
@@ -100,6 +102,8 @@ export class WalksImportService {
   async prepareImport(importData: ImportData): Promise<ImportData> {
     const dataQueryOptions: DataQueryOptions = {criteria: {}, sort: {walkDate: 1}};
     const walksToImport: ExtendedGroupEvent[] = await this.ramblersWalksAndEventsService.all({
+      inputSource: importData.inputSource,
+      suppressEventLinking: true,
       dataQueryOptions,
       types: [RamblersEventType.GROUP_WALK]
     });
@@ -122,15 +126,21 @@ export class WalksImportService {
     importData.messages.push(`First walk is on ${this.dateUtils.displayDate(firstWalk?.groupEvent?.start_date_time)}`);
     importData.messages.push(`Last walk is on ${this.dateUtils.displayDate(lastWalk.groupEvent.start_date_time)}`);
     const existingWalks: ExtendedGroupEvent[] = await this.localWalksAndEventsService.all({
+      inputSource: importData.inputSource,
+      suppressEventLinking: true,
       groupCode: importData.groupCodeAndName.group_code, types: [RamblersEventType.GROUP_WALK],
       dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions({
         ascending: true,
         selectType: FilterCriteria.DATE_RANGE
       }, firstWalk?.groupEvent?.start_date_time, lastWalk?.groupEvent?.start_date_time)
     });
-    importData.existingWalksWithinRange = existingWalks.filter(walk => importData.groupCodeAndName.group_code === walk.groupEvent.group_code
-      && walk.groupEvent.start_date_time >= firstWalk.groupEvent.start_date_time
-      && walk.groupEvent.start_date_time <= lastWalk.groupEvent.start_date_time);
+    importData.existingWalksWithinRange = existingWalks.filter(walk => {
+      const withinRange = importData.groupCodeAndName.group_code === walk.groupEvent.group_code
+        && walk.groupEvent.start_date_time >= firstWalk.groupEvent.start_date_time
+        && walk.groupEvent.start_date_time <= lastWalk.groupEvent.start_date_time;
+      this.logger.info("walk.groupEvent:", walk.groupEvent, "importData.groupCodeAndName:", importData.groupCodeAndName.group_code, "walk.groupEvent.group_code:", walk.groupEvent.group_code, "withinRange:", withinRange);
+      return withinRange;
+    });
     importData.messages.push(`${this.stringUtils.pluraliseWithCount(importData.existingWalksWithinRange.length, "existing walk")} within range of import will be deleted before import`);
     this.logger.info("existingWalks:", existingWalks, "walks to import within range");
     const bulkLoadMembersAndMatchesToWalks: BulkLoadMemberAndMatchToWalk[] = walksToImport.map(event => {
@@ -370,7 +380,7 @@ export class WalksImportService {
         (this.stringUtilsService.asBoolean(csv[WalkUploadColumnHeading.TOILETS_AVAILABLE]) ? this.ramblersWalksAndEventsService.toFeature(Feature.TOILETS) : null),
       ].filter(Boolean)
     };
-    return this.ramblersWalksAndEventsService.toExtendedGroupEvent(groupEvent);
+    return this.ramblersWalksAndEventsService.toExtendedGroupEvent(groupEvent, InputSource.FILE_IMPORT);
   }
 
   private isAMatchFor(memberMatch: MemberAction) {

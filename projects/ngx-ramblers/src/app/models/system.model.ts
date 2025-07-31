@@ -15,8 +15,9 @@ export enum SystemSettingsTab {
 }
 
 export enum EventPopulation {
+  HYBRID = "hybrid",
+  LOCAL = "local",
   WALKS_MANAGER = "walks-manager",
-  LOCAL = "local"
 }
 
 export enum MailProvider {

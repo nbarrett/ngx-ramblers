@@ -18,9 +18,9 @@ export function optionalParameter(key: string, value: any): string {
 function createRequestAudit(options: MessageHandlerOptions) {
   const requestAudit = {
     request: {
-      parameters: options.req.params,
-      url: options.req.url, apiRequest: undefined,
-      body: undefined
+      parameters: options.req ? options.req.params : null,
+      url: options.req ? options.req.url : null, apiRequest: null,
+      body: null
 
     }
   };
@@ -39,9 +39,11 @@ export function httpRequest(options: MessageHandlerOptions) {
     const requestAudit = createRequestAudit(options);
     const request = https.request(options.apiRequest, (response: http.IncomingMessage) => {
       const data = [];
+      if (options.res) {
       options.res.httpVersion = response.httpVersion;
       options.res.trailers = response.trailers;
       options.res.headers = response.headers;
+      }
       response.on("data", chunk => {
         data.push(chunk);
       });
@@ -50,10 +52,10 @@ export function httpRequest(options: MessageHandlerOptions) {
         let debugPrefix;
         if ((options.successStatusCodes || [200]).includes(response.statusCode)) {
           debugPrefix = response.statusCode !== 200 ? `REMAPPED ${response.statusCode} -> 200` : `SUCCESS 200`;
-          options.res.statusCode = 200;
+          if (options.res) options.res.statusCode = 200;
         } else {
           debugPrefix = `ERROR ${response.statusCode}`;
-          options.res.statusCode = response.statusCode;
+          if (options.res) options.res.statusCode = response.statusCode;
         }
         if (response.statusCode === 204) {
           returnValue.response = {message: "request was successful but no data was returned"};
@@ -64,7 +66,7 @@ export function httpRequest(options: MessageHandlerOptions) {
             const parsedDataJSON = isEmpty(rawData) ? {} : JSON.parse(rawData);
             returnValue.response = parsedDataJSON.errors ? parsedDataJSON : (options.mapper ? options.mapper(parsedDataJSON) : parsedDataJSON);
           } catch (err) {
-            options.res.statusCode = 500;
+            if (options.res) options.res.statusCode = 500;
             const message = rawData;
             options.debug(message, rawData, err);
             const rejectedResponse = {...requestAudit, message, response: {error: err.message}};

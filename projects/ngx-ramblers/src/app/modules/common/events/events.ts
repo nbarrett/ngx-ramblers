@@ -21,12 +21,13 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { EventsHeader } from "./events-header";
 import { FormsModule } from "@angular/forms";
 import { EventCardsList } from "./event-cards-list";
-import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { EventQueryParameters, RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { DateFilterParameters } from "../../../models/search.model";
 import { MongoSort } from "../../../models/mongo-models";
 import { GroupEventField } from "../../../models/walk.model";
+import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
 
 @Component({
     selector: "app-events",
@@ -50,6 +51,7 @@ export class Events implements OnInit, OnDestroy {
   private searchFilterPipe = inject(SearchFilterPipe);
   private notifierService = inject(NotifierService);
   display = inject(SocialDisplayService);
+  walkDisplayService = inject(WalkDisplayService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   private route = inject(ActivatedRoute);
   private walksAndEventsService = inject(WalksAndEventsService);
@@ -122,6 +124,8 @@ export class Events implements OnInit, OnDestroy {
 
   private queryAndReturnEvents(dataQueryOptions: DataQueryOptions): Promise<ExtendedGroupEvent[]> {
     const eventQueryParameters: EventQueryParameters = {
+      inputSource: this.walkDisplayService.walkPopulationLocal() ? InputSource.MANUALLY_CREATED : InputSource.WALKS_MANAGER_IMPORT,
+      suppressEventLinking: false,
       types: this?.eventsData?.eventTypes || [RamblersEventType.GROUP_EVENT],
       dataQueryOptions
     };

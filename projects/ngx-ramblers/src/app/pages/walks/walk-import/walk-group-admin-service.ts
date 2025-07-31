@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
 import { map, Observable } from "rxjs";
-import { EventStats } from "../../../models/group-event.model";
+import { EditableEventStats, EventStats } from "../../../models/group-event.model";
 
 @Injectable({
   providedIn: "root"
@@ -26,12 +26,7 @@ export class WalkGroupAdminService {
     return this.http.post<void>(`api/database/walks/bulk-delete`, groups);
   }
 
-  bulkUpdateEvents(updates: {
-    itemType: string,
-    groupCode: string,
-    newGroupCode: string,
-    newGroupName: string
-  }[]): Observable<void> {
+  bulkUpdateEvents(updates: EditableEventStats[]): Observable<void> {
     return this.http.post<void>(`api/database/walks/bulk-update`, updates);
   }
 

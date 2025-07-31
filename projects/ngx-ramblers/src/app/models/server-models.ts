@@ -23,12 +23,12 @@ import {
 } from "./mailchimp.model";
 
 export interface MessageHandlerOptions {
-  req: any;
+  req?: any;
   body?: any;
   mapper?: (parsedDataJSON: any) => any;
   apiRequest: any;
   successStatusCodes?: number[];
-  res: any;
+  res?: any;
   debug: (...args: any) => void;
 }
 
