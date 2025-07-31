@@ -25,7 +25,7 @@ import { PageComponent } from "../../../page/page.component";
 import { FormsModule } from "@angular/forms";
 import { DatePicker } from "../../../date-and-time/date-picker";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { EventDefaultsService } from "../../../services/event-defaults.service";
 import { DEFAULT_FILTER_PARAMETERS, FilterParameters } from "../../../models/search.model";
 import { DataQueryOptions } from "../../../models/api-request.model";
@@ -214,7 +214,10 @@ export class WalkAddSlotsComponent implements OnInit {
 
   createSlots(requiredSlots: number[], message: AlertMessage) {
     this.requiredWalkSlots = requiredSlots.map(date => {
-      const walk = this.eventDefaultsService.createDefault({start_date_time: this.dateUtils.isoDateTime(date)});
+      const walk = this.eventDefaultsService.createDefault({
+        inputSource: InputSource.MANUALLY_CREATED,
+        start_date_time: this.dateUtils.isoDateTime(date)
+      });
       walk.events = [this.walkEventService.createEventIfRequired(walk, this.walksReferenceService.walkEventTypeMappings.awaitingLeader.eventType, "Walk slot created")];
       return walk;
     });
@@ -240,6 +243,8 @@ export class WalkAddSlotsComponent implements OnInit {
     const filterParameters: FilterParameters = DEFAULT_FILTER_PARAMETERS();
     const dataQueryOptions: DataQueryOptions = this.extendedGroupEventQueryService.dataQueryOptions(filterParameters);
     this.walksAndEventsService.all({
+      inputSource:InputSource.MANUALLY_CREATED,
+      suppressEventLinking: true,
       dataQueryOptions: {
       criteria: dataQueryOptions.criteria,
       select: {events: 1, [GroupEventField.START_DATE]: 1},
@@ -275,6 +280,8 @@ export class WalkAddSlotsComponent implements OnInit {
     const filterParameters: FilterParameters = DEFAULT_FILTER_PARAMETERS();
     const dataQueryOptions: DataQueryOptions = this.extendedGroupEventQueryService.dataQueryOptions(filterParameters);
     this.walksAndEventsService.all({
+      inputSource:InputSource.MANUALLY_CREATED,
+      suppressEventLinking: true,
       dataQueryOptions: {
       criteria: {[GroupEventField.START_DATE]: {$eq: this.dateUtils.isoDateTime(this.singleDate.value)}},
       select: {events: 1, [GroupEventField.START_DATE]: 1},

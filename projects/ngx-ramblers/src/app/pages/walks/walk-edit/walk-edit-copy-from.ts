@@ -3,7 +3,7 @@ import { DisplayedWalk, EventField, EventType, GroupEventField } from "../../../
 import { FormsModule } from "@angular/forms";
 import { WalkSummaryPipe } from "../../../pipes/walk-summary.pipe";
 import { DisplayMember } from "../../../models/member.model";
-import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { WalkDisplayService } from "../walk-display.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { GroupEventService } from "../../../services/walks-and-events/group-event.service";
@@ -184,7 +184,11 @@ export class WalkEditCopyFromComponent {
       }
     }
     this.logger.info("selecting walks", this.copySource, criteria);
-    this.walksAndEventsService.all({dataQueryOptions: {criteria, sort: {[GroupEventField.START_DATE]: -1}}})
+    this.walksAndEventsService.all({
+      inputSource: InputSource.MANUALLY_CREATED,
+      suppressEventLinking: true,
+      dataQueryOptions: {criteria, sort: {[GroupEventField.START_DATE]: -1}}
+    })
       .then(walks => this.extendedGroupEventQueryService.activeEvents(walks))
       .then(walks => {
         this.logger.info("received walks", walks);

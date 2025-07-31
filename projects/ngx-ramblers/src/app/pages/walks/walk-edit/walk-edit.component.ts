@@ -45,7 +45,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { RootFolder, SystemConfig } from "../../../models/system.model";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { JsonPipe } from "@angular/common";
-import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { EventDefaultsService } from "../../../services/event-defaults.service";
 import { NotificationComponent } from "../../../notifications/common/notification.component";
 import { WalkDataAudit } from "../../../models/walk-data-audit.model";
@@ -782,6 +782,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         case EventType.AWAITING_LEADER: {
           const walkDate = this.displayedWalk.walk?.groupEvent?.start_date_time;
           this.displayedWalk.walk = this.eventDefaultsService.createDefault({
+            inputSource: InputSource.MANUALLY_CREATED,
             item_type: this.displayedWalk.walk?.groupEvent?.item_type,
             id: this.displayedWalk.walk.id,
             start_date_time: walkDate,

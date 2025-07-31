@@ -1,5 +1,6 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faEdit, faUndo } from "@fortawesome/free-solid-svg-icons";
+import { faEdit } from "@fortawesome/free-solid-svg-icons/faEdit";
+import { faUndo } from "@fortawesome/free-solid-svg-icons/faUndo";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -14,13 +15,14 @@ import { FormsModule } from "@angular/forms";
 import { SystemConfig } from "../../../models/system.model";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { WalkGroupAdminService } from "../walk-import/walk-group-admin-service";
-import { EditableEventStats } from "../../../models/group-event.model";
+import { EditableEventStats, InputSource } from "../../../models/group-event.model";
 import { Confirm, ConfirmType } from "../../../models/ui-actions";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { NgTemplateOutlet } from "@angular/common";
 import { HumanisePipe } from "../../../pipes/humanise.pipe";
+import { TitleCasePipe } from "@angular/common";
+import { enumKeyValues, KeyValue } from "../../../functions/enums";
 
 @Component({
   selector: "app-event-data-management",
@@ -93,9 +95,11 @@ import { HumanisePipe } from "../../../pipes/humanise.pipe";
                 </div>
               </th>
               <th>Event Type</th>
+              <th>Edit</th>
               <th>Group Code</th>
               <th>Group Name</th>
-              <th>Events</th>
+              <th>Input Source</th>
+              <th>Event Count</th>
               <th>From</th>
               <th>To</th>
             </tr>
@@ -112,32 +116,47 @@ import { HumanisePipe } from "../../../pipes/humanise.pipe";
                     </div>
                   </td>
                   <td>{{ eventStat.itemType | humanise }}</td>
-                  @if (eventStat.edited) {
-                    <td>
-                      <div class="form-inline">
-                        <fa-icon [icon]="faUndo" (click)="toggleEditMode(eventStat)"
-                                 class="mr-2"
-                                 tooltip="Cancel this edit"/>
-                        <input type="text" [(ngModel)]="eventStat.editedGroupCode"
-                               class="form-control"
-                               [ngModelOptions]="{standalone: true}"
-                               (ngModelChange)="markAsEdited(eventStat)">
-                      </div>
-                    </td>
-                    <td>
-                      <input type="text" [(ngModel)]="eventStat.editedGroupName" class="form-control"
-                             [ngModelOptions]="{standalone: true}" (ngModelChange)="markAsEdited(eventStat)">
-                    </td>
-                  } @else {
-                    <td>
+                  <td>
+                    @if (eventStat.edited) {
+                      <fa-icon [icon]="faUndo" (click)="toggleEditMode(eventStat)"
+                               class="mr-2"
+                               tooltip="Cancel this edit"/>
+                    } @else {
                       <fa-icon [icon]="faEdit" (click)="toggleEditMode(eventStat)"
                                class="mr-2"
                                tooltip="Edit this group code or name"/>
+                    }</td>
+                  @if (eventStat.edited) {
+                    <td>
+                      <input type="text" [(ngModel)]="eventStat.editedGroupCode"
+                             class="form-control form-control-sm"
+                             [ngModelOptions]="{standalone: true}"
+                             (ngModelChange)="markAsEdited(eventStat)">
+                    </td>
+                    <td>
+                      <input type="text" [(ngModel)]="eventStat.editedGroupName" class="form-control form-control-sm"
+                             [ngModelOptions]="{standalone: true}" (ngModelChange)="markAsEdited(eventStat)">
+                    </td>
+                    <td>
+                      <select class="form-control form-control-sm"
+                              [(ngModel)]="eventStat.editedInputSource"
+                              [ngModelOptions]="{standalone: true}"
+                              (ngModelChange)="markAsEdited(eventStat)">
+                        @for (source of inputSources; track source.value) {
+                          <option
+                            [ngValue]="source.value">{{ stringUtilsService.asTitle(source.value) }}
+                          </option>
+                        }
+                      </select>
+                    </td>
+                  } @else {
+                    <td>
                       {{ eventStat.groupCode }}
                     </td>
                     <td>{{ eventStat.groupName }}</td>
+                    <td>{{ eventStat.inputSource | titlecase | humanise }}</td>
                   }
-                  <td>{{ eventStat.walkCount }}</td>
+                  <td>{{ eventStat.eventCount }}</td>
                   <td>{{ eventStat.minDate | displayDate }}</td>
                   <td>{{ eventStat.maxDate | displayDate }}</td>
                 </tr>
@@ -148,7 +167,7 @@ import { HumanisePipe } from "../../../pipes/humanise.pipe";
       </div>
     </app-page>
   `,
-  imports: [PageComponent, FontAwesomeModule, FormsModule, DisplayDatePipe, MarkdownEditorComponent, TooltipDirective, HumanisePipe]
+  imports: [PageComponent, FontAwesomeModule, FormsModule, DisplayDatePipe, MarkdownEditorComponent, TooltipDirective, HumanisePipe, TitleCasePipe]
 })
 
 export class EventDataManagement implements OnInit, OnDestroy {
@@ -157,7 +176,7 @@ export class EventDataManagement implements OnInit, OnDestroy {
   protected icons = inject(IconService);
   private systemConfigService = inject(SystemConfigService);
   private urlService = inject(UrlService);
-  private stringUtilsService = inject(StringUtilsService);
+  protected stringUtilsService = inject(StringUtilsService);
   private walkGroupAdminService = inject(WalkGroupAdminService);
   protected alertTarget: AlertTarget = {};
   protected notify: AlertInstance;
@@ -168,6 +187,7 @@ export class EventDataManagement implements OnInit, OnDestroy {
   protected allSelected = false;
   faEdit = faEdit;
   faUndo = faUndo;
+  inputSources: KeyValue<string>[] = enumKeyValues(InputSource);
 
   get oneOrMoreSelectedForDelete(): boolean {
     return this.selectedEventStats.length > 0;
@@ -212,6 +232,7 @@ export class EventDataManagement implements OnInit, OnDestroy {
         ...stat,
         editedGroupCode: stat.groupCode,
         editedGroupName: stat.groupName,
+        editedInputSource: stat.inputSource,
         edited: false
       }));
       this.logger.info("Event stats loaded:", this.editableEventStats);
@@ -234,9 +255,10 @@ export class EventDataManagement implements OnInit, OnDestroy {
 
   async bulkDeleteConfirm() {
     try {
-      this.walkGroupAdminService.bulkDeleteEvents(this.selectedEventStats.map(g => ({
-        itemType: g.itemType,
-        groupCode: g.groupCode
+      this.walkGroupAdminService.bulkDeleteEvents(this.selectedEventStats.map(eventStats => ({
+        itemType: eventStats.itemType,
+        groupCode: eventStats.groupCode,
+        inputSource: eventStats.inputSource
       }))).subscribe(done => {
         this.refreshStats();
       });
@@ -249,7 +271,7 @@ export class EventDataManagement implements OnInit, OnDestroy {
   }
 
   async bulkDelete() {
-      this.confirm.as(ConfirmType.BULK_DELETE);
+    this.confirm.as(ConfirmType.BULK_DELETE);
     this.notify.warning(`Delete ${this.stringUtilsService.pluraliseWithCount(this.selectedEventStats.length, "group selection")}? This action cannot be undone.`);
   }
 
@@ -272,6 +294,7 @@ export class EventDataManagement implements OnInit, OnDestroy {
       eventStatus.edited = false;
       eventStatus.selected = false;
     });
+    this.allSelected = false;
     this.confirm.clear();
     this.notify.hide();
   }
@@ -281,27 +304,22 @@ export class EventDataManagement implements OnInit, OnDestroy {
     if (eventStat.edited) {
       eventStat.editedGroupCode = eventStat.groupCode;
       eventStat.editedGroupName = eventStat.groupName;
+      eventStat.editedInputSource = eventStat.inputSource;
     }
   }
 
   markAsEdited(stat: EditableEventStats) {
-    stat.edited = stat.editedGroupCode !== stat.groupCode || stat.editedGroupName !== stat.groupName;
+    stat.edited = stat.editedGroupCode !== stat.groupCode || stat.editedGroupName !== stat.groupName || stat.editedInputSource !== stat.inputSource;
+    this.logger.info("markAsEdited called for stat:", stat);
   }
 
   async bulkApplyConfirm() {
     try {
-      const updates = this.editableEventStats.filter(stat => stat.edited).map(stat => ({
-        itemType: stat.itemType,
-        groupCode: stat.groupCode,
-        newGroupCode: stat.editedGroupCode,
-        newGroupName: stat.editedGroupName
-      }));
-      await this.walkGroupAdminService.bulkUpdateEvents(updates).toPromise();
+      await this.walkGroupAdminService.bulkUpdateEvents(this.editedEventStats).toPromise();
       this.refreshStats();
-      this.notify.success({title: "Update Successful", message: "Group codes and names updated"});
+      this.notify.success({title: "Update Successful", message: "Group codes, names, and input sources updated"});
     } catch (error) {
       this.notify.error({title: "Update Failed", message: error.message});
     }
   }
-
 }

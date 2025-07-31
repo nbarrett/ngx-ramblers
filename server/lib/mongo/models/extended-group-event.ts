@@ -100,6 +100,7 @@ const fields = new Schema({
   publishing,
   riskAssessment: [riskAssessmentRecord],
   venue: walkVenue,
+  inputSource: {type: String},
 }, {_id: false});
 
 const extendedGroupEventSchema = new Schema({

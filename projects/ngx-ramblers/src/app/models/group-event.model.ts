@@ -89,6 +89,7 @@ export interface ExtendedFields {
   publishing: Publishing;
   riskAssessment: RiskAssessmentRecord[];
   venue?: Venue;
+  inputSource: InputSource;
 }
 
 export interface ExtendedGroupEvent extends Identifiable {
@@ -116,21 +117,31 @@ export interface EventViewDispatchWithEvent {
 }
 
 export interface EventStatsRequest {
-  itemType: RamblersEventType,
-  groupCode: string,
+  itemType: RamblersEventType;
+  groupCode: string;
+  groupName: string,
+  inputSource: InputSource;
+  selected: boolean
 }
 
-export interface EditableEventStats extends EventStats {
+export interface EditableEventStats extends EventStatsRequest, EventStats {
   edited: boolean;
   editedGroupName: string;
   editedGroupCode: string;
+  editedInputSource: InputSource;
 }
 
 export interface EventStats extends EventStatsRequest {
-  groupName: string,
-  walkCount: number,
+  eventCount: number,
   minDate: Date,
   maxDate: Date,
   uniqueCreators: string[],
-  selected: boolean
+}
+
+export enum InputSource {
+  FILE_IMPORT = "file-import",
+  WALKS_MANAGER_IMPORT = "walks-manager-import",
+  URL_TO_ID_LOOKUP = "url-to-id-lookup",
+  MANUALLY_CREATED = "manually-created",
+  UNKNOWN = "unknown",
 }

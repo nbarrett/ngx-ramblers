@@ -14,6 +14,7 @@ import { Subscription } from "rxjs";
 import { FormsModule } from "@angular/forms";
 import { SystemConfig } from "../../../models/system.model";
 import { ImportData, ImportStage } from "../../../models/walk.model";
+import { InputSource } from "../../../models/group-event.model";
 
 @Component({
   selector: "app-walk-import-from-walks-manager",
@@ -75,7 +76,7 @@ export class WalkImportFromWalksManager implements OnInit, OnDestroy {
   }
 
   reset() {
-    this.importData = this.walksImportService.importDataDefaults();
+    this.importData = this.walksImportService.importDataDefaults(InputSource.WALKS_MANAGER_IMPORT);
     this.notify.hide();
   }
 

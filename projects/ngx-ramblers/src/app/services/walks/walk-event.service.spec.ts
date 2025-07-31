@@ -2,7 +2,7 @@ import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
 import { RouterTestingModule } from "@angular/router/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
-import { EventType, GROUP_EVENT_START_DATE } from "../../models/walk.model";
+import { EventType, GroupEventField } from "../../models/walk.model";
 import { AuditDeltaChangedItemsPipePipe } from "../../pipes/audit-delta-changed-items.pipe";
 import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
@@ -48,9 +48,6 @@ describe("WalksEventService", () => {
       };
       const oldWalk: ExtendedGroupEvent = createExtendedGroupEvent(dateUtilsService, 12, [], "any-walk-id", oldStartLocation);
       const data: ExtendedGroupEvent = pick(oldWalk, AUDITED_FIELDS) as ExtendedGroupEvent;
-      console.log("oldWalk", JSON.stringify(oldWalk));
-      console.log("data", JSON.stringify(data));
-      // expect(oldWalk).toEqual(data);
       const events = [{
         eventType: EventType.AWAITING_APPROVAL, date: 23, memberId: "12",
         data
@@ -77,7 +74,7 @@ describe("WalksEventService", () => {
           w3w: ""
         }
       },
-        {fieldName: GROUP_EVENT_START_DATE, previousValue: undefined, currentValue: 12},
+        {fieldName: GroupEventField.START_DATE, previousValue: undefined, currentValue: 12},
       ];
       console.log("actual", JSON.stringify(actual));
       console.log("expected", JSON.stringify(expected));

@@ -33,7 +33,7 @@ import { NgOptgroupTemplateDirective, NgSelectComponent } from "@ng-select/ng-se
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
 import { RootFolder, SystemConfig } from "../../../models/system.model";
-import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { EventDefaultsService } from "../../../services/event-defaults.service";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { EditGroupEventImagesComponent } from "../../../common/walks-and-events/edit-group-event-images";
@@ -468,6 +468,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
     } else if (this.display.inNewEventMode()) {
       this.eventDefaultsService.events().subscribe(ready => {
         this.socialEvent = this.eventDefaultsService.createDefault({
+        inputSource: InputSource.MANUALLY_CREATED,
         item_type: RamblersEventType.GROUP_EVENT,
         shape: null
         });
