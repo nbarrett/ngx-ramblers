@@ -15,9 +15,9 @@ import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.mod
 import { EventDefaultsService } from "../../../services/event-defaults.service";
 
 @Component({
-    selector: "app-walk-edit-full-page",
-    templateUrl: "./walk-edit-full-page.component.html",
-    imports: [PageComponent, WalkEditComponent]
+  selector: "app-walk-edit-full-page",
+  templateUrl: "./walk-edit-full-page.component.html",
+  imports: [PageComponent, WalkEditComponent]
 })
 
 export class WalkEditFullPageComponent implements OnInit, OnDestroy {
@@ -41,7 +41,10 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
         this.displayedWalk = {
           hasFeatures: false,
           walkAccessMode: WalksReferenceService.walkAccessModes.add,
-          walk: this.eventDefaultsService.createDefault({inputSource:InputSource.MANUALLY_CREATED, start_date_time: this.dateUtils.momentNowNoTime().valueOf()}),
+          walk: this.eventDefaultsService.createDefault({
+            inputSource: InputSource.MANUALLY_CREATED,
+            start_date_time: this.dateUtils.momentNowNoTime().valueOf()
+          }),
           status: EventType.AWAITING_LEADER,
           showEndpoint: false
         };

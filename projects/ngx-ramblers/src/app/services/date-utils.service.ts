@@ -30,8 +30,9 @@ export class DateUtilsService {
     displayDate: "dddd, D MMMM YYYY",
     displayDateNoDay: "D MMMM YYYY",
     displayDay: "dddd MMMM D, YYYY",
-    ddmmyyyyWithSlashes: "DD/MM/YYYY",
-    yyyymmdd: "YYYYMMDD"
+    dayMonthYearWithSlashes: "DD/MM/YYYY",
+    yearMonthDayWithDashes: "YYYY-MM-DD",
+    yearMonthDay: "YYYYMMDD"
   };
 
   isMidnight(dateValue: any): boolean {
@@ -93,6 +94,10 @@ export class DateUtilsService {
 
   ramblersTime(dateValue: any): string {
     return this.asString(dateValue, undefined, this.formats.ramblersTime);
+  }
+
+  yearMonthDayWithDashes(dateValue: any): string {
+    return this.asString(dateValue, undefined, this.formats.yearMonthDayWithDashes);
   }
 
   displayTimeWithSeconds(dateValue: any): string {

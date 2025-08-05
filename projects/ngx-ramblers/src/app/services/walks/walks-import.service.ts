@@ -49,7 +49,7 @@ import isEqual from "lodash-es/isEqual";
 })
 export class WalksImportService {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("WalksImportService", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalksImportService", NgxLoggerLevel.ERROR);
   private systemConfigService = inject(SystemConfigService);
   private localWalksAndEventsService = inject(LocalWalksAndEventsService);
   private dateUtils = inject(DateUtilsService);
@@ -138,7 +138,7 @@ export class WalksImportService {
       const withinRange = importData.groupCodeAndName.group_code === walk.groupEvent.group_code
         && walk.groupEvent.start_date_time >= firstWalk.groupEvent.start_date_time
         && walk.groupEvent.start_date_time <= lastWalk.groupEvent.start_date_time;
-      this.logger.info("walk.groupEvent:", walk.groupEvent, "importData.groupCodeAndName:", importData.groupCodeAndName.group_code, "walk.groupEvent.group_code:", walk.groupEvent.group_code, "withinRange:", withinRange);
+      this.logger.off("walk.groupEvent:", walk.groupEvent, "importData.groupCodeAndName:", importData.groupCodeAndName.group_code, "walk.groupEvent.group_code:", walk.groupEvent.group_code, "withinRange:", withinRange);
       return withinRange;
     });
     importData.messages.push(`${this.stringUtils.pluraliseWithCount(importData.existingWalksWithinRange.length, "existing walk")} within range of import will be deleted before import`);
@@ -265,7 +265,7 @@ export class WalksImportService {
           return Promise.resolve();
         }
       } else {
-          this.logger.info("processing memberAction:", bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch, "with", this.stringUtils.pluraliseWithCount(1, "matched walk"));
+          this.logger.info("processing memberAction:", bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch, "with event", bulkLoadMemberAndMatchToWalks.event);
           createdWalks++;
           return this.applyWalkLeaderIfSuppliedAndSaveWalk(bulkLoadMemberAndMatchToWalks.event);
       }

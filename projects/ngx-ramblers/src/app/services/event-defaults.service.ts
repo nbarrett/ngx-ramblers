@@ -14,6 +14,7 @@ import { Member } from "../models/member.model";
 import { DEFAULT_BASIC_EVENT_SELECTION } from "../models/search.model";
 import { Observable, ReplaySubject } from "rxjs";
 import { shareReplay } from "rxjs/operators";
+import { StringUtilsService } from "./string-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -23,6 +24,7 @@ export class EventDefaultsService {
   private ready = new ReplaySubject<boolean>();
   private logger: Logger = inject(LoggerFactory).createLogger("EventDefaultsService", NgxLoggerLevel.ERROR);
   private dateUtils = inject(DateUtilsService);
+  private stringUtilsService: StringUtilsService = inject(StringUtilsService);
   private systemConfigService = inject(SystemConfigService);
   private systemConfig: SystemConfig;
   private walksConfigService = inject(WalksConfigService);
@@ -96,6 +98,7 @@ export class EventDefaultsService {
   };
 
   public createDefault(defaults?: {
+    title?: string;
     id?: string,
     inputSource: InputSource;
     start_date_time?: string,
@@ -105,17 +108,18 @@ export class EventDefaultsService {
   }) {
     const now = this.dateUtils.momentNow().format();
     const itemType: RamblersEventType = defaults?.item_type || RamblersEventType.GROUP_WALK;
+    const startDateTime = defaults?.start_date_time || now;
     const walk: ExtendedGroupEvent = {
       groupEvent: {
         id: defaults.id || null,
         item_type: itemType,
-        title: null,
+        title: defaults.title,
         group_code: this.systemConfig.group.groupCode,
         group_name: this.systemConfig.group.longName,
         area_code: this.systemConfig.area.groupCode,
         description: null,
         additional_details: null,
-        start_date_time: defaults?.start_date_time || now,
+        start_date_time: startDateTime,
         end_date_time: null,
         meeting_date_time: null,
         location: itemType === RamblersEventType.GROUP_EVENT ? this.defaultLocation() : null,
@@ -130,7 +134,7 @@ export class EventDefaultsService {
         shape: defaults?.shape || WalkType.CIRCULAR,
         duration: 0,
         walk_leader: null,
-        url: null,
+        url: this.initialUrl(defaults.title, startDateTime),
         external_url: null,
         status: WalkStatus.DRAFT,
         cancellation_reason: null,
@@ -162,6 +166,10 @@ export class EventDefaultsService {
     return walk;
   }
 
+
+  public initialUrl(title: string, startDateTime: string) {
+    return this.stringUtilsService.kebabCase(title, this.dateUtils.yearMonthDayWithDashes(startDateTime));
+  }
 
   private defaultLocation(): LocationDetails {
     return {

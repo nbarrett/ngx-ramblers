@@ -217,17 +217,9 @@ export enum GroupEventField {
   WALK_LEADER_NAME = "groupEvent.walk_leader.name"
 }
 
-export enum WalkImportField {
-  INCLUDE = "include",
-  DATE = `event.${GroupEventField.START_DATE}`,
-  TITLE = `event.${GroupEventField.TITLE}`,
-  EVENT_WALK_LEADER = `event.${GroupEventField.WALK_LEADER_NAME}`,
-  MEMBER_MATCH = "bulkLoadMemberAndMatch.memberMatch",
-  MEMBER_ALLOCATION = "bulkLoadMemberAndMatch.member.displayName",
-}
-
 export enum EventField {
   ATTACHMENT = "fields.attachment",
+  LINKS = "fields.links",
   CONTACT_DETAILS_DISPLAY_NAME = "fields.contactDetails.displayName",
   CONTACT_DETAILS_MEMBER_ID = "fields.contactDetails.memberId",
   CONTACT_DETAILS_PHONE = "fields.contactDetails.phone",
@@ -237,6 +229,25 @@ export enum EventField {
 
 export enum EventEventField {
   EVENT_TYPE = "events.eventType",
+}
+
+export enum WalkCopyOption {
+  COPY_SELECTED_WALK_LEADER = "copy-selected-walk-leader",
+  COPY_WITH_OS_MAPS_ROUTE_SELECTED = "copy-with-os-maps-route-selected"
+}
+
+export interface CopyFrom {
+  walkTemplate: ExtendedGroupEvent;
+  walkTemplates: ExtendedGroupEvent[];
+}
+
+export enum WalkImportField {
+  INCLUDE = "include",
+  DATE = `event.${GroupEventField.START_DATE}`,
+  TITLE = `event.${GroupEventField.TITLE}`,
+  EVENT_WALK_LEADER = `event.${GroupEventField.WALK_LEADER_NAME}`,
+  MEMBER_MATCH = "bulkLoadMemberAndMatch.memberMatch",
+  MEMBER_ALLOCATION = "bulkLoadMemberAndMatch.member.displayName",
 }
 
 export const EventStartDateAscending = {[GroupEventField.START_DATE]: 1};

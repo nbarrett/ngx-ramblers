@@ -19,26 +19,30 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
                                                   debugLog: debug.Debugger): Promise<SendSmtpEmail | CreateEmailCampaign> {
   const priorDebugValue = debugLog.enabled;
   debugLog.enabled = false;
-
-  if (emailRequest.templateId) {
-    debugLog("performing template substitution in email content for templateId", emailRequest.templateId);
-    const templateResponse: TemplateResponse = await queryTemplateContent(emailRequest.templateId);
-    const parametersAndValues: KeyValue<any>[] = extractParametersFrom(emailRequest.params, true);
-    debugLog("parametersAndValues:", parametersAndValues);
-    const htmlContent: string = parametersAndValues.reduce(
-      (templateContent, keyValue) => {
-        debugLog(`Replacing ${keyValue.key} with ${keyValue.value} in ${templateContent}`);
-        return replaceAll(keyValue.key, keyValue.value, templateContent) as string;
-      },
-      templateResponse.htmlContent,
-    );
-    debugLog(`Setting final htmlContent to ${htmlContent}`);
-    sendSmtpEmail.htmlContent = htmlContent;
-  } else {
-    debugLog(`Using supplied htmlContent`, emailRequest.htmlContent);
-    sendSmtpEmail.htmlContent = emailRequest.htmlContent;
+  try {
+    if (emailRequest.templateId) {
+      debugLog("performing template substitution in email content for templateId", emailRequest.templateId);
+      const templateResponse: TemplateResponse = await queryTemplateContent(emailRequest.templateId);
+      const parametersAndValues: KeyValue<any>[] = extractParametersFrom(emailRequest.params, true);
+      debugLog("parametersAndValues:", parametersAndValues);
+      const htmlContent: string = parametersAndValues.reduce(
+        (templateContent, keyValue) => {
+          debugLog(`Replacing ${keyValue.key} with ${keyValue.value} in ${templateContent}`);
+          return replaceAll(keyValue.key, keyValue.value, templateContent) as string;
+        },
+        templateResponse.htmlContent,
+      );
+      debugLog(`Setting final htmlContent to ${htmlContent}`);
+      sendSmtpEmail.htmlContent = htmlContent;
+    } else {
+      debugLog(`Using supplied htmlContent`, emailRequest.htmlContent);
+      sendSmtpEmail.htmlContent = emailRequest.htmlContent;
+    }
+  } catch (error) {
+    debugLog(`Error occurred`, error);
+  } finally {
+    debugLog.enabled = priorDebugValue;
   }
-  debugLog.enabled = priorDebugValue;
   return sendSmtpEmail;
 }
 
