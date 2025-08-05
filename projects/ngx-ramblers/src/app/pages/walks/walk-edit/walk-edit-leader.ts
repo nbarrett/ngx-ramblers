@@ -13,17 +13,21 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { JsonPipe } from "@angular/common";
 
 @Component({
   selector: "app-walk-edit-leader",
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, JsonPipe],
   styles: `
     .button-bottom-aligned
       margin: 34px 0px 0px -14px
   `,
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
+      @if (false) {
+        <pre>fields:{{ displayedWalk.walk.fields|json }}</pre>
+      }
       @if (display.allowAdminEdits()) {
         <div class="row">
           <div class="col-sm-12">
@@ -152,8 +156,13 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
   `
 })
 export class WalkEditLeaderComponent implements OnInit, OnDestroy {
-  @Input() displayedWalk!: DisplayedWalk;
+  public displayedWalk!: DisplayedWalk;
   public inputDisabled = false;
+
+  @Input("displayedWalk") set displayedWalkValue(displayedWalk: DisplayedWalk) {
+    this.displayedWalk = displayedWalk;
+    this.logger.info("displayedWalkValue:displayedWalk:", displayedWalk);
+  }
 
   @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
     this.inputDisabled = coerceBooleanProperty(inputDisabled);
@@ -177,6 +186,7 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("WalkEditLeaderComponent", NgxLoggerLevel.ERROR);
 
   async ngOnInit() {
+    this.logger.info("ngOnInit:displayedWalk:", this.displayedWalk);
     const previousWalkLeaderIds = await this.walksAndEventsService.queryWalkLeaders();
     this.walkStatuses = this.walksReferenceService.walkEventTypes();
     this.membersWithAliasOrMe = this.display.members.sort(sortBy("firstName", "lastName")).map(member => ({

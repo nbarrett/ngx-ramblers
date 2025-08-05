@@ -9,6 +9,7 @@ import { AlertInstance } from "../../../services/notifier.service";
 import { cloneDeep } from "lodash-es";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { enumValueForKey } from "../../../functions/enums";
+import { JsonPipe } from "@angular/common";
 
 @Component({
   selector: "app-walk-edit-details",
@@ -16,11 +17,20 @@ import { enumValueForKey } from "../../../functions/enums";
   imports: [
     FormsModule,
     WalkLocationEditComponent,
-    EventAscentEdit
+    EventAscentEdit,
+    JsonPipe
   ],
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
       <div class="row">
+        @if (false) {
+          <div class="col-sm-6">
+            <pre>shape:{{ displayedWalk.walk.groupEvent.shape|json }}</pre>
+          </div>
+          <div class="col-sm-6">
+            <pre>walkTypes:{{ display.walkTypes|json }}</pre>
+          </div>
+        }
         <div class="col-sm-12">
           <div class="row">
             <div class="col-sm-4">
@@ -48,10 +58,8 @@ import { enumValueForKey } from "../../../functions/enums";
                           [(ngModel)]="displayedWalk.walk.groupEvent.shape"
                           (ngModelChange)="walkTypeChange()"
                           class="form-control input-sm" id="walkType">
-                    @for (type of display.walkTypes; track type) {
-                      <option [ngValue]="type"
-                              [attr.selected]="type == display.walkTypes[0]">{{ type }}
-                      </option>
+                    @for (shape of display.walkTypes; track shape) {
+                      <option [ngValue]="shape.toLowerCase()">{{ shape }}</option>
                     }
                   </select>
                 }

@@ -23,7 +23,6 @@ import { WalksConfig } from "../../models/walk-notification.model";
 import groupBy from "lodash-es/groupBy";
 import { firstPopulated, sortBy } from "../../functions/arrays";
 import last from "lodash-es/last";
-import { NumberUtilsService } from "../number-utils.service";
 import { SocialEventsLocalLegacyService } from "../social-events/social-events-local-legacy.service";
 import { MediaQueryService } from "../committee/media-query.service";
 import { EventDefaultsService } from "../event-defaults.service";
@@ -46,7 +45,6 @@ export class EventsMigrationService {
   private walksConfigService = inject(WalksConfigService);
   private ramblersWalksAndEventsService: RamblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private localWalksAndEventsService: LocalWalksAndEventsService = inject(LocalWalksAndEventsService);
-  private numberUtils = inject(NumberUtilsService);
   private urlService: UrlService = inject(UrlService);
   private mediaQueryService: MediaQueryService = inject(MediaQueryService);
   private walksConfig: WalksConfig;
@@ -133,7 +131,7 @@ export class EventsMigrationService {
       meeting_location: undefined,
       shape: this.isWalk(walkOrSocialEvent) ? walkOrSocialEvent.walkType || WalkType.CIRCULAR : null,
       status: undefined,
-      url: this.stringUtilsService.kebabCase(title, this.dateUtils.asMoment(startDateTime).format("YYYY-MM-DD")),
+      url: this.eventDefaultsService.initialUrl(title, startDateTime),
       id: ramblersWalk?.groupEvent?.id || null,
       title,
       description,

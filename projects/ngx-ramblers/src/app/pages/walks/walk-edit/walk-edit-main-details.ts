@@ -1,7 +1,7 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { DisplayedWalk } from "../../../models/walk.model";
 import { DatePicker } from "../../../date-and-time/date-picker";
-import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from "@angular/forms";
+import { FormBuilder, FormsModule, ReactiveFormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faMagnifyingGlass, faPencil } from "@fortawesome/free-solid-svg-icons";
 import { MarkdownComponent } from "ngx-markdown";
@@ -33,7 +33,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
   ],
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
-      <form [formGroup]="walkForm">
+      <form>
         <div class="row align-items-center">
           <div class="col-auto">
             <label for="walk-date">Walk Date</label>
@@ -60,8 +60,9 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
           <div class="col">
             <div class="form-group">
               <label for="miles-per-hour">Avg mph</label>
-              <input formControlName="milesPerHour"
+              <input [(ngModel)]="displayedWalk.walk.fields.milesPerHour"
                      (change)="calculateAndSetFinishTime()"
+                     (ngModelChange)="walkChanged($event)"  name="milesPerHour"
                      type="number" step="0.25"
                      class="form-control input-sm"
                      id="miles-per-hour"
@@ -89,7 +90,8 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
           <div class="col-sm-12">
             <div class="form-group">
               <label for="brief-description-and-start-point">Walk Title</label>
-              <textarea formControlName="title" type="text"
+              <textarea [(ngModel)]="displayedWalk.walk.groupEvent.title" type="text"
+                        (ngModelChange)="walkChanged($event)" name="title"
                         class="form-control input-sm" rows="3"
                         id="brief-description-and-start-point"
                         (change)="afterTitleChange()" placeholder="Enter walk title here"></textarea>
@@ -119,7 +121,9 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
               }
               @if (!longerDescriptionPreview) {
                 <textarea
-                  formControlName="description" type="text"
+                  [disabled]="inputDisabled"
+                  [(ngModel)]="displayedWalk.walk.groupEvent.description" type="text"
+                  (ngModelChange)="walkChanged($event)" name="description"
                   class="form-control input-sm" rows="5" id="longer-description"
                   placeholder="Enter Walk Description here"></textarea>
               }
@@ -141,17 +145,6 @@ export class WalkEditMainDetailsComponent implements OnInit {
   @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
     this.logger.info("inputDisabledValue:", inputDisabled);
     this.inputDisabled = coerceBooleanProperty(inputDisabled);
-    if (this.walkForm) {
-      if (this.inputDisabled) {
-        this.walkForm.get("title")?.disable();
-        this.walkForm.get("description")?.disable();
-        this.walkForm.get("milesPerHour")?.disable();
-      } else {
-        this.walkForm.get("title")?.enable();
-        this.walkForm.get("description")?.enable();
-        this.walkForm.get("milesPerHour")?.enable();
-      }
-    }
   }
   @Input() displayedWalk!: DisplayedWalk;
   protected readonly faMagnifyingGlass = faMagnifyingGlass;
@@ -164,23 +157,14 @@ export class WalkEditMainDetailsComponent implements OnInit {
   protected longerDescriptionPreview = false;
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   protected fb: FormBuilder = inject(FormBuilder);
-  protected walkForm: FormGroup;
   protected walkDate: Date;
 
   ngOnInit() {
-    this.walkForm = this.fb.group({
-      title: [{value: this.displayedWalk?.walk?.groupEvent.title, disabled: this.inputDisabled}],
-      description: [{value: this.displayedWalk?.walk?.groupEvent.description, disabled: this.inputDisabled}],
-      milesPerHour: [{value: this.displayedWalk?.walk?.fields.milesPerHour, disabled: this.inputDisabled}],
-    });
+  }
 
-    this.walkForm.valueChanges.subscribe(value => {
-      this.displayedWalk.walk.groupEvent.title = value.title;
-      this.displayedWalk.walk.groupEvent.description = value.description;
-      this.displayedWalk.walk.fields.milesPerHour = value.milesPerHour;
-      this.logger.info("Walk form value changes:", value);
-      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_CHANGED, value));
-    });
+  walkChanged($event ) {
+    this.logger.info("walkChanged:", $event);
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_CHANGED, $event));
   }
 
   onDateChange(date: DateValue) {
@@ -193,9 +177,13 @@ export class WalkEditMainDetailsComponent implements OnInit {
 
   onStartDateTimeChange(startTime: string) {
     if (isString(startTime)) {
-      this.logger.info("onStartDateTimeChange:updated start_date_time from:", this.displayedWalk.walk.groupEvent.start_date_time, "to:", startTime, "of type", typeof startTime);
-      this.displayedWalk.walk.groupEvent.start_date_time = startTime;
-      this.calculateAndSetFinishTime();
+      if (this.displayedWalk.walk.groupEvent.start_date_time !== startTime) {
+        this.logger.info("onStartDateTimeChange:updated start_date_time from:", this.displayedWalk.walk.groupEvent.start_date_time, "to:", startTime, "of type", typeof startTime);
+        this.displayedWalk.walk.groupEvent.start_date_time = startTime;
+        this.calculateAndSetFinishTime();
+      } else {
+        this.logger.info("onStartDateTimeChange: no change to start_date_time, still:", startTime, "of type", typeof startTime);
+      }
     } else {
       this.logger.warn("onStartDateTimeChange:invalid input received:", startTime, "of type", typeof startTime);
     }
@@ -203,8 +191,12 @@ export class WalkEditMainDetailsComponent implements OnInit {
 
   onEndDateTimeChange(endTime: string) {
     if (isString(endTime)) {
-      this.displayedWalk.walk.groupEvent.end_date_time = endTime;
-      this.logger.info("onEndDateTimeChange:updated end_date_time to", endTime);
+      if (this.displayedWalk.walk.groupEvent.end_date_time !== endTime) {
+        this.displayedWalk.walk.groupEvent.end_date_time = endTime;
+        this.logger.info("onEndDateTimeChange:updated end_date_time to", endTime);
+      } else {
+        this.logger.info("onEndDateTimeChange: no change to end_date_time, still:", endTime, "of type", typeof endTime);
+      }
     } else {
       this.logger.warn("onEndDateTimeChange:invalid input received:", endTime, "of type", typeof endTime);
     }

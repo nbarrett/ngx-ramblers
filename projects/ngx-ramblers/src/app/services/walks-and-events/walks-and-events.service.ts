@@ -16,7 +16,7 @@ import groupBy from "lodash-es/groupBy";
 })
 export class WalksAndEventsService {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("WalksAndEventsService", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalksAndEventsService", NgxLoggerLevel.ERROR);
   private systemConfigService = inject(SystemConfigService);
   private localWalksAndEventsService = inject(LocalWalksAndEventsService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
