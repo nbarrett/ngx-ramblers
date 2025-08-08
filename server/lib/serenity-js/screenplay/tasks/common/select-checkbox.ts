@@ -2,6 +2,7 @@ import { Activity, AnswersQuestions, PerformsActivities, QuestionAdapter, UsesAb
 import { Click, PageElement } from "@serenity-js/web";
 import { CheckedValue } from "../../questions/common/checked-value";
 import { Log } from "../ramblers/common/log";
+import { ClickWhenReady } from "./click-when-ready";
 
 export class SelectCheckbox {
   static checkedValue(value: boolean) {
@@ -22,7 +23,7 @@ class SelectCheckboxValue extends Activity {
     return CheckedValue.of(this.target).answeredBy(actor)
       .then(checked => {
         if (checked !== this.value) {
-          return actor.attemptsTo(Click.on(this.target));
+          return actor.attemptsTo(ClickWhenReady.on(this.target));
         } else {
           return Promise.resolve();
         }
