@@ -45,7 +45,6 @@ COPY server/ts*.json ./
 COPY server/lib* ./
 COPY server/.mocharc.yml ./
 COPY server/wdio.conf.ts ./
-COPY server/protractor.conf.js ./
 COPY server /usr/src/app/server
 
 # Install server dependencies (postinstall will run automatically)
