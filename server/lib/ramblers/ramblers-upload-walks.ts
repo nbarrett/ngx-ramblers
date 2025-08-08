@@ -35,7 +35,6 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
   }
   debugLog("file", filePath, "saved");
 
-  const webdriverFramework = process.env.WEBDRIVER_FRAMEWORK || "protractor";
   process.env.RAMBLERS_USER = walksUploadRequest.ramblersUser;
   process.env.RAMBLERS_DELETE_WALKS = walksUploadRequest.walkIdDeletionList.join(",");
   process.env.RAMBLERS_FILENAME = filePath;
@@ -44,11 +43,10 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
   const spawn = require("child_process").spawn;
   auditNotifier.registerUploadStart(fileName, ws);
   debugLog("Running RAMBLERS_FEATURE:", process.env.RAMBLERS_FEATURE,
-    "WEBDRIVER_FRAMEWORK:", process.env.WEBDRIVER_FRAMEWORK,
     "CHROMEDRIVER_PATH:", process.env.CHROMEDRIVER_PATH,
     "CHROME_BIN:", process.env.CHROME_BIN,
     "CHROME_VERSION:", process.env.CHROME_VERSION);
-  const subprocess = spawn("npm", ["run", `serenity-${webdriverFramework}`], {
+  const subprocess = spawn("npm", ["run", "serenity"], {
     detached: true,
     stdio: ["pipe", "pipe", "pipe", "ipc"]
   });

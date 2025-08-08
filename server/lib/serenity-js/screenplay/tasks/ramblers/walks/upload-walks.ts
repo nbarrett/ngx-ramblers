@@ -9,6 +9,7 @@ import {
   ErrorAlertIsDisplayedOrSuccessAlertHasMessage
 } from "../../../questions/ramblers/error-alert-is-displayed-or-success-alert-has-message";
 import { equals } from "@serenity-js/assertions";
+import { Accept } from "../common/accept-cookie-prompt";
 
 export class UploadWalks {
 
@@ -31,6 +32,7 @@ export class UploadWalksSpecifiedWalks {
       Log.message(`Uploading file ${fileName} containing ${pluraliseWithCount(walkCount, "walk")}`),
       ClickWhenReady.on(WalksPageElements.createMenuDropdown),
       ClickWhenReady.on(WalksPageElements.uploadAWalksCSV),
+      Accept.cookieBannerIfVisible(),
       Enter.theValue(fileName).into(WalksPageElements.chooseFilesButton),
       ClickWhenReady.on(WalksPageElements.uploadWalksButton),
       Wait.until(ErrorAlertIsDisplayedOrSuccessAlertHasMessage.including(message), equals(true)));

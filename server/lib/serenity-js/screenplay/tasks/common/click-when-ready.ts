@@ -1,5 +1,6 @@
 import { Answerable, Duration, PerformsActivities, Task, Wait } from "@serenity-js/core";
 import { Click, isClickable, PageElement } from "@serenity-js/web";
+import { Accept } from "../ramblers/common/accept-cookie-prompt";
 
 export class ClickWhenReady extends Task {
 
@@ -13,6 +14,7 @@ export class ClickWhenReady extends Task {
 
   performAs(actor: PerformsActivities): Promise<void> {
     return actor.attemptsTo(
+      Accept.cookieBannerIfVisible(),
       Wait.until(this.target, isClickable()),
       Click.on(this.target));
   }
