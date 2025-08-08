@@ -7,7 +7,9 @@ import { ClickWhenReady } from "../../common/click-when-ready";
 import * as mongooseClient from "../../../../../mongo/mongoose-client";
 import { systemConfig } from "../../../../../config/system-config";
 import { Log } from "./log";
-import { AuthErrorCookieBannerOrCreateMenuDropdown } from "../../../questions/ramblers/auth-error-cookie-banner-or-create-menu-dropdown";
+import {
+  AuthErrorCookieBannerOrCreateMenuDropdown
+} from "../../../questions/ramblers/auth-error-cookie-banner-or-create-menu-dropdown";
 import { Accept } from "./accept-cookie-prompt";
 
 export class Login extends Task {
@@ -31,9 +33,11 @@ export class Login extends Task {
               Enter.theValue(Masked.valueOf(password)).into(WalksPageElements.password),
               ClickWhenReady.on(WalksPageElements.loginSubmitButton),
               Wait.until(AuthErrorCookieBannerOrCreateMenuDropdown.isDisplayed(), equals(true)),
+              Accept.cookieBannerIfVisible(),
               Check.whether(WalksPageElements.createMenuDropdown, isVisible())
-                .andIfSo(Ensure.that(Text.of(WalksPageElements.createMenuDropdown), equals("Create")))
-                .otherwise(Ensure.that(Text.of(WalksPageElements.authErrorMessage), equals("")))));
+                .andIfSo(Ensure.that(Text.of(WalksPageElements.createMenuDropdown), equals("Create"))),
+              Check.whether(WalksPageElements.authErrorMessage, isVisible())
+                .andIfSo(Ensure.that(Text.of(WalksPageElements.authErrorMessage), equals("")))));
       }));
   }
 
