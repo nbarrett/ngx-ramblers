@@ -3,8 +3,9 @@ import * as authConfig from "../../auth/auth-config";
 import * as crudController from "../controllers/crud-controller";
 import { extendedGroupEvent } from "../models/extended-group-event";
 import { count, queryWalkLeaders, urlFromTitle } from "../controllers/extended-group-event";
+import { ExtendedGroupEvent } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 
-const controller = crudController.create(extendedGroupEvent, false);
+const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent, false);
 const router = express.Router();
 router.get("/count", count);
 router.post("", authConfig.authenticate(), controller.create);

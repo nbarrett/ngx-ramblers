@@ -187,16 +187,14 @@ function s3Policy(req: Request, res: Response) {
     ],
   };
 
-  // stringify and encode the policy
   const stringPolicy = JSON.stringify(s3Policy);
-  const base64Policy = new Buffer(stringPolicy, "utf-8").toString("base64");
+  const base64Policy = Buffer.from(stringPolicy, "utf-8").toString("base64");
 
   debugLog("s3Policy", s3Policy);
   debugLog("config.aws.secretAccessKey", envConfig.aws.secretAccessKey);
 
-  // sign the base64 encoded policy
   const signature = crypto.createHmac("sha1", envConfig.aws.secretAccessKey)
-    .update(new Buffer(base64Policy, "utf-8")).digest("base64");
+    .update(base64Policy, "utf-8").digest("base64");
 
   return res.status(200).send({
     s3Policy: base64Policy,

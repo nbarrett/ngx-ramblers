@@ -1,5 +1,6 @@
 import { each, includes, isArray, isEmpty, omit, set } from "lodash";
 import debug from "debug";
+import mongoose from "mongoose";
 import { DataQueryOptions, MongoId } from "../../../../projects/ngx-ramblers/src/app/models/api-request.model";
 import { envConfig } from "../../env-config/env-config";
 import { Request } from "express";
@@ -15,12 +16,16 @@ const debugLog: debug.Debugger = debug(envConfig.logNamespace("transforms"));
 debugLog.enabled = false;
 
 export function toObjectWithId(document: any) {
-  return document ? {
-    id: document._id,
-    ...omit(document.toObject(), ["_id", "__v"]),
-  } : document;
+  if (!document) {
+    return document;
+  } else {
+    const obj = document.toObject ? document.toObject() : document;
+    return {
+      id: obj._id?.toString(),
+      ...omit(obj, ["_id", "__v"])
+    };
+  }
 }
-
 export function setUnSetDocument<T>(document: T, parent?: string, parentResponse?: object): SetUnSetDocument {
   const parentPath = parent ? parent + "." : "";
   const setUnSetDocumentResponse: SetUnSetDocument = parentResponse || {};
@@ -70,7 +75,7 @@ export function mongoIdCriteria(controllerRequest: ControllerRequest | Identifia
   debugLog("mongoIdCriteria:controllerRequest:", controllerRequest, "isControllerRequest:",
     isControllerRequest(controllerRequest), "hasBody(controllerRequest):", hasBody(controllerRequest));
   const id = findId(controllerRequest);
-  const returnValue = id ? {_id: id} : findCriteria(controllerRequest);
+  const returnValue = id ? {_id: new mongoose.Types.ObjectId(id)} : findCriteria(controllerRequest);
   debugLog("mongoIdCriteria:returnValue:", returnValue);
   return returnValue;
 }
@@ -89,7 +94,7 @@ export function parseQueryStringParameters(req: Request): DataQueryOptions {
     criteria: parse(req, "criteria"),
     limit: parse(req, "limit"),
     select: parse(req, "select"),
-    sort: parse(req, "sort"),
+    sort: parse(req, "sort")
   };
 }
 
@@ -133,6 +138,19 @@ export function parseError(error: any) {
   } else {
     debugLog("parseError:returning errmsg:", typeof error, error);
     return error;
+  }
+}
+
+export function parseErrorNew(error: any) {
+  if (error instanceof Error) {
+    debugLog("parseError:returning Error:", error.message);
+    return error.message;
+  } else if (error.message) {
+    debugLog("parseError:returning message:", error.message);
+    return error.message;
+  } else {
+    debugLog("parseError:returning error:", typeof error, error);
+    return String(error);
   }
 }
 

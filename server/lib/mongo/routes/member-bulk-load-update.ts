@@ -2,8 +2,9 @@ import express from "express";
 import * as authConfig from "../../auth/auth-config";
 import { memberBulkLoadAudit } from "../models/member-bulk-load-audit";
 import * as crudController from "../controllers/crud-controller";
+import { MemberBulkLoadAudit } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 
-const controller = crudController.create(memberBulkLoadAudit, false);
+const controller = crudController.create<MemberBulkLoadAudit>(memberBulkLoadAudit, false);
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);

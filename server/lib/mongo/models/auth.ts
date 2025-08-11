@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import uniqueValidator from "mongoose-unique-validator";
-
+import { Member } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 
 const authSchema = new mongoose.Schema({
   groupMember: {type: Boolean},
@@ -26,4 +26,4 @@ const authSchema = new mongoose.Schema({
 
 authSchema.plugin(uniqueValidator);
 
-export const auth: mongoose.Model<mongoose.Document> = mongoose.model("member-auth", authSchema);
+export const auth: mongoose.Model<Member> = mongoose.model<Member>("member-auth", authSchema);

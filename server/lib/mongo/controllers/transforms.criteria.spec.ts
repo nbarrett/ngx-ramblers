@@ -1,34 +1,37 @@
-import { expect } from "chai";
+import expect from "expect";
+import {describe, it} from "mocha";
 import * as transforms from "./transforms";
+import mongoose from "mongoose";
 
 describe("transforms.mongoIdCriteria", () => {
   it("transforms request with req.params.id", done => {
-
-    expect(transforms.mongoIdCriteria({params: {id: "qaz123-params"}} as any)).to.eql({"_id": "qaz123-params"});
+    const validId = "507f1f77bcf86cd799439011";
+    expect(transforms.mongoIdCriteria({ params: { id: validId } } as any)).toEqual({
+      "_id": new mongoose.Types.ObjectId(validId)
+    });
     done();
   });
 
   it("transforms document with id", done => {
-
-    const json = {id: "qaz123-id"};
-    expect(transforms.mongoIdCriteria(json)).to.eql({"_id": "qaz123-id"});
+    const validId = "507f1f77bcf86cd799439011";
+    expect(transforms.mongoIdCriteria({ id: validId })).toEqual({
+      "_id": new mongoose.Types.ObjectId(validId)
+    });
     done();
   });
 
+  it("transforms request with body with id", done => {
+    const validId = "507f1f77bcf86cd799439011";
+    expect(transforms.mongoIdCriteria({ body: { id: validId } })).toEqual({
+      "_id": new mongoose.Types.ObjectId(validId)
+    });
+    done();
+  });
 
   it("transforms document with field-based criteria", done => {
     const refreshToken = "tXvumMGUAgoxgBwxaosFux0TLZVZiYncpQTovVuZqdIdSqSjoV2U";
-    const json = {refreshToken};
-    // const expected = {"_id": undefined};
-    expect(transforms.mongoIdCriteria({body: json})).to.eql(json);
-    done();
-  });
-
-
-  it("transforms request with body with id", done => {
-
-    const json = {body: {id: "qaz123-body"}};
-    expect(transforms.mongoIdCriteria(json)).to.eql({"_id": "qaz123-body"});
+    const json = { refreshToken };
+    expect(transforms.mongoIdCriteria({ body: json })).toEqual(json);
     done();
   });
 });

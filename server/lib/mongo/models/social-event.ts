@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import uniqueValidator from "mongoose-unique-validator";
+import { SocialEvent } from "../../../../projects/ngx-ramblers/src/app/models/deprecated";
 
 const attendee = new mongoose.Schema({
   id: {type: String}
@@ -59,5 +60,5 @@ const socialEventSchema = new mongoose.Schema({
 
 socialEventSchema.plugin(uniqueValidator);
 
-export const socialEvent: mongoose.Model<mongoose.Document> = mongoose.model("social-event", socialEventSchema);
+export const socialEvent: mongoose.Model<SocialEvent> = mongoose.model<SocialEvent>("social-event", socialEventSchema);
 

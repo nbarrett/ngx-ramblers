@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { PageContent } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 
 const PageContentColumn = new mongoose.Schema({
   href: {type: String},
@@ -30,4 +31,4 @@ const pageContentSchema = new mongoose.Schema({
   rows: [PageContentRow]
 }, {collection: "pageContent"});
 
-export const pageContent: mongoose.Model<mongoose.Document> = mongoose.model("page-content", pageContentSchema);
+export const pageContent: mongoose.Model<PageContent> = mongoose.model<PageContent>("page-content", pageContentSchema);

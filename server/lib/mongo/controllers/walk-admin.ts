@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { extendedGroupEvent } from "../models/extended-group-event";
 import { EventField, GroupEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
-
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import {
@@ -9,13 +8,14 @@ import {
   EventStats,
   EventStatsRequest
 } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
+import { PipelineStage } from "mongoose";
 
 const debugLog = debug(envConfig.logNamespace("walk-admin"));
 debugLog.enabled = true;
 
 export async function eventStats(req: Request, res: Response) {
   try {
-    const pipeline = [
+    const pipeline: PipelineStage[] = [
       {
         $project: {
           itemType: `$${GroupEventField.ITEM_TYPE}`,
@@ -23,7 +23,7 @@ export async function eventStats(req: Request, res: Response) {
           groupName: `$${GroupEventField.GROUP_NAME}`,
           startDate: `$${GroupEventField.START_DATE}`,
           inputSource: `$${EventField.INPUT_SOURCE}`,
-        }
+        },
       },
       {
         $group: {
@@ -31,21 +31,21 @@ export async function eventStats(req: Request, res: Response) {
             itemType: "$itemType",
             groupCode: "$groupCode",
             groupName: "$groupName",
-            inputSource: "$inputSource"
+            inputSource: "$inputSource",
           },
           eventCount: { $sum: 1 },
-          minDate: {$min: "$startDate"},
-          maxDate: {$max: "$startDate"},
+          minDate: { $min: "$startDate" },
+          maxDate: { $max: "$startDate" },
           uniqueCreators: {
             $addToSet: {
-              $cond: {
-                if: { $ifNull: [`$${GroupEventField.CREATED_BY}`, false] },
-                then: {$ifNull: [`$${EventField.CONTACT_DETAILS_MEMBER_ID}`, "unknown"]},
-                else: {$ifNull: [`$${GroupEventField.CREATED_BY}`, "unknown"]}
-              }
-            }
+              $ifNull: [
+                `$${GroupEventField.CREATED_BY}`,
+                `$${EventField.CONTACT_DETAILS_MEMBER_ID}`,
+                "unknown",
+              ],
+            },
           },
-        }
+        },
       },
       {
         $project: {
@@ -60,27 +60,27 @@ export async function eventStats(req: Request, res: Response) {
             $filter: {
               input: "$uniqueCreators",
               as: "creator",
-              cond: { $ne: ["$$creator", null] }
-            }
+              cond: { $ne: ["$$creator", null] },
+            },
           },
-          _id: 0
-        }
+          _id: 0,
+        },
       },
       {
         $sort: {
           itemType: 1,
           groupCode: 1,
           minDate: 1,
-          inputSource: 1
-        }
-      }
+          inputSource: 1,
+        },
+      },
     ];
 
-    const eventStats: EventStats[] = await extendedGroupEvent.aggregate(pipeline).exec();
+    const eventStats = await extendedGroupEvent.aggregate<EventStats>(pipeline);
     debugLog("eventStats returned:", eventStats);
     res.json(eventStats);
   } catch (error) {
-    debugLog(error);
+    debugLog("eventStats error:", error);
     res.status(500).json({ error: error.message });
   }
 }
@@ -88,19 +88,22 @@ export async function eventStats(req: Request, res: Response) {
 export async function bulkDeleteEvents(req: Request, res: Response) {
   try {
     const request = req.body as EventStatsRequest[];
-    debugLog("bulkDeleteWalkGroups: request:", request, "body:", req.body);
-    if (!request || !Array.isArray(request)) {
+    debugLog("bulkDeleteEvents: request:", request);
+    if (!Array.isArray(request)) {
       return res.status(400).json({ error: "Invalid event stats request" });
     }
 
     const result = await extendedGroupEvent.deleteMany({
-      [GroupEventField.ITEM_TYPE]: { $in: request.map(group => group.itemType) },
-      [GroupEventField.GROUP_CODE]: {$in: request.map(group => group.groupCode)},
-      [EventField.INPUT_SOURCE]: {$in: request.map(group => group.inputSource)}
-    }).exec();
+      $and: [
+        { [GroupEventField.ITEM_TYPE]: { $in: request.map(group => group.itemType) } },
+        { [GroupEventField.GROUP_CODE]: { $in: request.map(group => group.groupCode) } },
+        { [EventField.INPUT_SOURCE]: { $in: request.map(group => group.inputSource) } },
+      ],
+    });
 
-    res.json({ message: `Deleted ${result.deletedCount} walks` });
+    res.json({ message: `Deleted ${result.deletedCount} events` });
   } catch (error) {
+    debugLog("bulkDeleteEvents error:", error);
     res.status(500).json({ error: error.message });
   }
 }
@@ -109,71 +112,48 @@ export async function bulkUpdateEvents(req: Request, res: Response) {
   try {
     const updates = req.body as EditableEventStats[];
     debugLog("bulkUpdateEvents: updates:", updates);
-    if (!updates || !Array.isArray(updates)) {
+    if (!Array.isArray(updates)) {
       return res.status(400).json({ error: "Invalid update data" });
     }
 
-    const updatePromises = updates.map(async update => {
-      const matchCount = await extendedGroupEvent.countDocuments({
-        [GroupEventField.ITEM_TYPE]: update.itemType,
-        [GroupEventField.GROUP_CODE]: update.groupCode,
-        [EventField.INPUT_SOURCE]: update.inputSource
-      }).exec();
-      debugLog(`bulkUpdateEvents: Matched ${matchCount} documents for update - itemType: ${update.itemType}, groupCode: ${update.groupCode}, original inputSource: ${update.inputSource}, new values: groupCode: ${update.editedGroupCode}, groupName: ${update.editedGroupName}, inputSource: ${update.editedInputSource}`);
-
-      const result = await extendedGroupEvent.updateMany(
-        {
+    const bulkOps = updates.map(update => ({
+      updateMany: {
+        filter: {
           [GroupEventField.ITEM_TYPE]: update.itemType,
           [GroupEventField.GROUP_CODE]: update.groupCode,
-          [EventField.INPUT_SOURCE]: update.inputSource
+          [EventField.INPUT_SOURCE]: update.inputSource,
         },
-        {
+        update: {
           $set: {
             [GroupEventField.GROUP_CODE]: update.editedGroupCode,
             [GroupEventField.GROUP_NAME]: update.editedGroupName,
-            [EventField.INPUT_SOURCE]: update.editedInputSource
-          }
-        }
-      ).exec();
-      debugLog(`bulkUpdateEvents: Updated ${result.modifiedCount} documents - itemType: ${update.itemType}, groupCode: ${update.groupCode}, original inputSource: ${update.inputSource}, new values applied: groupCode: ${update.editedGroupCode}, groupName: ${update.editedGroupName}, inputSource: ${update.editedInputSource}`);
-      return result;
-    });
+            [EventField.INPUT_SOURCE]: update.editedInputSource,
+          },
+        },
+      },
+    }));
 
-    const results = await Promise.all(updatePromises);
-    const totalUpdated = results.reduce((sum, result) => sum + result.modifiedCount, 0);
-    debugLog(`bulkUpdateEvents: Total updated documents: ${totalUpdated}`);
-    res.json({ message: `Updated ${totalUpdated} events` });
+    const result = await extendedGroupEvent.bulkWrite(bulkOps);
+    debugLog(`bulkUpdateEvents: Updated ${result.modifiedCount} documents`);
+    res.json({ message: `Updated ${result.modifiedCount} events` });
   } catch (error) {
-    debugLog("bulkUpdateEvents:error:", error);
+    debugLog("bulkUpdateEvents error:", error);
     res.status(500).json({ error: error.message });
   }
 }
 
 export async function recreateIndex(req: Request, res: Response) {
   try {
-    debugLog("recreateIndex: indexes: starting");
-    const indexes = await (extendedGroupEvent.collection as any).indexInformation();
-    debugLog("recreateIndex: indexes:", indexes);
+    debugLog("recreateIndex: starting");
     const oldIndexKey = { "groupEvent.start_date_time": 1, "groupEvent.item_type": 1, "groupEvent.group_code": 1 };
-    let oldIndexName: string | undefined;
-
-    for (const name in indexes) {
-      if (indexes.hasOwnProperty(name)) {
-        const indexKeyArray = indexes[name];
-        const indexKeyObj = indexKeyArray.reduce((obj, [key, value]) => {
-          obj[key] = value;
-          return obj;
-          // tslint:disable-next-line:no-object-literal-type-assertion
-        }, {} as { [key: string]: number });
-        if (JSON.stringify(indexKeyObj) === JSON.stringify(oldIndexKey)) {
-          oldIndexName = name;
-          break;
-        }
-      }
-    }
+    const indexes = await extendedGroupEvent.collection.indexInformation();
+    const oldIndexName = Object.keys(indexes).find(name => {
+      const indexKeyObj = Object.fromEntries(indexes[name]);
+      return JSON.stringify(indexKeyObj) === JSON.stringify(oldIndexKey);
+    });
 
     if (oldIndexName) {
-      await (extendedGroupEvent.collection as any).dropIndex(oldIndexName);
+      await extendedGroupEvent.collection.dropIndex(oldIndexName);
       debugLog("recreateIndex: Dropped old index:", oldIndexName);
     } else {
       debugLog("recreateIndex: No old index found to drop");
@@ -181,10 +161,9 @@ export async function recreateIndex(req: Request, res: Response) {
 
     await extendedGroupEvent.syncIndexes();
     debugLog("recreateIndex: New index synchronized successfully");
-
     res.json({ message: "Index recreated successfully" });
   } catch (error) {
-    debugLog("recreateIndex: error:", error);
+    debugLog("recreateIndex error:", error);
     res.status(500).json({ error: error.message });
   }
 }

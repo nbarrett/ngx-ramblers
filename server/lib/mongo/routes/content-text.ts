@@ -2,8 +2,9 @@ import express from "express";
 import * as authConfig from "../../auth/auth-config";
 import * as crudController from "../controllers/crud-controller";
 import { contentText } from "../models/content-text";
+import { ContentText } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 
-const controller = crudController.create(contentText);
+const controller = crudController.create<ContentText>(contentText);
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);

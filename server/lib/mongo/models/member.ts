@@ -1,5 +1,6 @@
-import mongoose from "mongoose";
+import mongoose, { Model } from "mongoose";
 import uniqueValidator from "mongoose-unique-validator";
+import { Member } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 
 const MailchimpSubscription = {
   subscribed: {type: Boolean},
@@ -80,5 +81,4 @@ const memberSchema = new mongoose.Schema({
 }, {collection: "members"});
 
 memberSchema.plugin(uniqueValidator);
-
-export const member: mongoose.Model<mongoose.Document> = mongoose.model("member", memberSchema);
+export const member: Model<Member> = mongoose.model<Member>("member", memberSchema);

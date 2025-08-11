@@ -1,7 +1,8 @@
 import * as crudController from "./crud-controller";
 import { notificationConfig } from "../models/notification-config";
+import { NotificationConfig } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
-const controller = crudController.create(notificationConfig);
+const controller = crudController.create<NotificationConfig>(notificationConfig);
 export const create = controller.create;
 export const all = controller.all;
 export const deleteOne = controller.deleteOne;

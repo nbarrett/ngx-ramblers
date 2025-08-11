@@ -26,13 +26,20 @@ deployToEnvironments(config.configFilePath, config.targetEnvironments);
 function imageTagFromArg(): string {
   const tagArg = process.argv.find(arg => arg.startsWith("--image-tag="));
   if (tagArg) {
-    return tagArg.split("=")[1];
+    const tag = tagArg.split("=")[1];
+    debugLog("imageTagFromArg:tagArg:", tagArg, "tag:", tag);
+    return tag;
+  } else {
+    const tagIndex = process.argv.indexOf("--image-tag");
+    if (tagIndex !== -1 && process.argv.length > tagIndex + 1) {
+      const tag = process.argv[tagIndex + 1];
+      debugLog("imageTagFromArg:tagIndex:", tagIndex, "tag:", tag);
+      return tag;
+    } else {
+      debugLog("imageTagFromArg:not provided");
+      return null;
+    }
   }
-  const tagIndex = process.argv.indexOf("--image-tag");
-  if (tagIndex !== -1 && process.argv.length > tagIndex + 1) {
-    return process.argv[tagIndex + 1];
-  }
-  return null;
 }
 
 function environmentNamesFrom(environmentConfigs: EnvironmentConfig[]) {

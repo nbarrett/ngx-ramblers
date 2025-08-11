@@ -1,4 +1,5 @@
-import { expect } from "chai";
+import expect from "expect";
+import {describe, it} from "mocha";
 import * as transforms from "./transforms";
 
 describe("transforms.createDocumentRequest", () => {
@@ -11,7 +12,7 @@ describe("transforms.createDocumentRequest", () => {
         "firstName": "Bob",
         "lastName": "Smith",
         "membershipExpiryDate": 1742860800000
-      })).to.eql({
+      })).toEqual({
         "expiredPassword": false,
         "firstName": "Bob",
         "lastName": "Smith",
@@ -28,7 +29,7 @@ describe("transforms.createDocumentRequest", () => {
         "firstName": "Bob",
         "lastName": "Smith",
         "membershipExpiryDate": 1742860800000
-      })).to.eql({
+      })).toEqual({
         "expiredPassword": false,
         "firstName": "Bob",
         "lastName": "Smith",
@@ -45,7 +46,7 @@ describe("transforms.createDocumentRequest", () => {
         "firstName": "Bob",
         "lastName": "Smith",
         "membershipExpiryDate": 1742860800000
-      })).to.eql({
+      })).toEqual({
         "expiredPassword": false,
         "firstName": "Bob",
         "lastName": "Smith",
@@ -66,7 +67,7 @@ describe("transforms.createDocumentRequest", () => {
           "lastName": "Smith",
           "membershipExpiryDate": 1742860800000
         }
-      })).to.eql({
+      })).toEqual({
         "expiredPassword": false,
         "firstName": "Bob",
         "lastName": "Smith",
@@ -85,7 +86,7 @@ describe("transforms.createDocumentRequest", () => {
           "lastName": "Smith",
           "membershipExpiryDate": 1742860800000
         }
-      })).to.eql({
+      })).toEqual({
         "expiredPassword": false,
         "firstName": "Bob",
         "lastName": "Smith",
@@ -104,7 +105,7 @@ describe("transforms.createDocumentRequest", () => {
           "lastName": "Smith",
           "membershipExpiryDate": 1742860800000
         }
-      })).to.eql({
+      })).toEqual({
         "expiredPassword": false,
         "firstName": "Bob",
         "lastName": "Smith",

@@ -62,7 +62,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
               <label for="miles-per-hour">Avg mph</label>
               <input [(ngModel)]="displayedWalk.walk.fields.milesPerHour"
                      (change)="calculateAndSetFinishTime()"
-                     (ngModelChange)="walkChanged($event)"  name="milesPerHour"
+                     (ngModelChange)="walkChanged($event)" name="milesPerHour"
                      type="number" step="0.25"
                      class="form-control input-sm"
                      id="miles-per-hour"
@@ -86,6 +86,28 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
             </div>
           </div>
         </div>
+        @if (true) {
+          <div class="row">
+            <div class="col-sm-3">
+              <div class="form-group">
+                <label for="ramblers-id">Ramblers Id</label>
+                <input [(ngModel)]="displayedWalk.walk.groupEvent.id" type="text"
+                          name="ramblers-id"
+                          class="form-control input-sm"
+                          id="ramblers-id"/>
+              </div>
+            </div>
+            <div class="col-sm-9">
+              <div class="form-group">
+                <label for="ramblers-url">Ramblers Url</label>
+                <input [(ngModel)]="displayedWalk.walk.groupEvent.url" type="text"
+                          name="ramblers-url"
+                          class="form-control input-sm"
+                          id="ramblers-url"/>
+              </div>
+            </div>
+          </div>
+        }
         <div class="row">
           <div class="col-sm-12">
             <div class="form-group">

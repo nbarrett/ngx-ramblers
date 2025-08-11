@@ -1,4 +1,5 @@
-import { expect } from "chai";
+import expect from "expect";
+import {describe, it} from "mocha";
 import * as transforms from "./transforms";
 
 describe("transforms.setUnSetDocument", () => {
@@ -7,7 +8,7 @@ describe("transforms.setUnSetDocument", () => {
     const json = {
       "userName": "nickek"
     };
-    expect(transforms.setUnSetDocument(json)).to.eql({
+    expect(transforms.setUnSetDocument(json)).toEqual({
         $set: {"userName": "nickek"}
       }
     );
@@ -20,7 +21,7 @@ describe("transforms.setUnSetDocument", () => {
       "userName": "nickek",
       "displayName": "   "
     };
-    expect(transforms.setUnSetDocument(json)).to.eql({
+    expect(transforms.setUnSetDocument(json)).toEqual({
         $set: {"userName": "nickek"},
         $unset: {
           "displayName": 1
@@ -36,7 +37,7 @@ describe("transforms.setUnSetDocument", () => {
       "userName": "nickek",
       "displayName": undefined
     };
-    expect(transforms.setUnSetDocument(json)).to.eql({
+    expect(transforms.setUnSetDocument(json)).toEqual({
         $set: {"userName": "nickek"},
         $unset: {
           "displayName": 1
@@ -51,7 +52,7 @@ describe("transforms.setUnSetDocument", () => {
     const json = {
       "userName": " nickek ",
     };
-    expect(transforms.setUnSetDocument(json)).to.eql({
+    expect(transforms.setUnSetDocument(json)).toEqual({
         $set: {"userName": "nickek"}
       }
     );
@@ -79,7 +80,7 @@ describe("transforms.setUnSetDocument", () => {
         }
       }
     };
-    expect(transforms.setUnSetDocument(json)).to.eql({
+    expect(transforms.setUnSetDocument(json)).toEqual({
       $set: {
         "userName": "nickek",
         "mailchimpLists.socialEvents.lastUpdated": 1578250718042,
@@ -139,7 +140,7 @@ describe("transforms.setUnSetDocument", () => {
         "reason": "dont be silly"
       }]
     };
-    expect(transforms.setUnSetDocument(json)).to.eql({
+    expect(transforms.setUnSetDocument(json)).toEqual({
       $set: {
         "cost": 100,
         "expenseEvents": [{
@@ -247,7 +248,7 @@ describe("transforms.setUnSetDocument", () => {
       "firstName": "Nick EK",
       "userName": "nickek"
     };
-    expect(transforms.setUnSetDocument(json)).to.eql({
+    expect(transforms.setUnSetDocument(json)).toEqual({
       $set: {
         "committee": true,
         "contactId": "87654321",

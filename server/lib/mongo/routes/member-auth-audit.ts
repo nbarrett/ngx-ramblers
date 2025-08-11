@@ -2,8 +2,9 @@ import express from "express";
 import * as authConfig from "../../auth/auth-config";
 import { memberAuthAudit } from "../models/member-auth-audit";
 import * as crudController from "../controllers/crud-controller";
+import { MemberAuthAudit } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 
-const controller = crudController.create(memberAuthAudit);
+const controller = crudController.create<MemberAuthAudit>(memberAuthAudit);
 const router = express.Router();
 
 router.post("", controller.create);

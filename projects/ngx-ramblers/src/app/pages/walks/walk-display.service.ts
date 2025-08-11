@@ -274,6 +274,7 @@ export class WalkDisplayService {
   }
 
   walkLink(extendedGroupEvent: ExtendedGroupEvent): string {
+    this.logger.info("walkLink:groupEvent:url:", extendedGroupEvent?.groupEvent.url, "title:", extendedGroupEvent?.groupEvent?.title);
     return this.urlService.linkUrl({
       area: "walks",
       id: this.stringUtils.lastItemFrom(extendedGroupEvent?.groupEvent?.url) || extendedGroupEvent?.groupEvent?.id || extendedGroupEvent?.groupEvent?.id

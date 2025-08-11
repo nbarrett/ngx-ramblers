@@ -1,3 +1,4 @@
+import {describe, it} from "mocha";
 import { Ensure, equals } from "@serenity-js/assertions";
 import { actorCalled } from "@serenity-js/core";
 import { WalksProgrammeQuestions } from "../screenplay/questions/ekwg/walks-programme-questions";

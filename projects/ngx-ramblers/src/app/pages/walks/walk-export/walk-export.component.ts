@@ -106,7 +106,7 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
                                  type="checkbox" class="custom-control-input"/>
                           <label class="custom-control-label"></label>
                         </div>
-                      </dl>
+                      </dl><div>walkExport.displayedWalk?.walkLink:{{walkExport.displayedWalk?.walkLink}}</div>
                       <h3 class="card-title">
                         <a tooltip="View this walk in another tab" placement="auto"
                            [href]="walkExport.displayedWalk?.walkLink" class="rams-text-decoration-pink active"
@@ -427,7 +427,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.logger.info("filename changed to", this.fileName);
     this.walkExportNotifier.setBusy();
     return this.ramblersUploadAuditService.all({
-      criteria: {fileName: this.fileName.fileName},
+      criteria: {fileName: this.fileName?.fileName},
       sort: {auditTime: -1, record: -1}
     }).then((auditItems: RamblersUploadAuditApiResponse) => {
       this.audits = auditItems.response;

@@ -2,8 +2,9 @@ import express from "express";
 import * as authConfig from "../../auth/auth-config";
 import * as crudController from "../controllers/crud-controller";
 import { mailListAudit } from "../models/mail-list-audit";
+import { MailListAudit } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
-const controller = crudController.create(mailListAudit);
+const controller = crudController.create<MailListAudit>(mailListAudit);
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);

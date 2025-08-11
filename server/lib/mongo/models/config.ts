@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import uniqueValidator from "mongoose-unique-validator";
+import { ConfigDocument } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
 
 const configSchema = new mongoose.Schema({
   key: {type: String, required: true, unique: true},
@@ -8,4 +9,4 @@ const configSchema = new mongoose.Schema({
 
 configSchema.plugin(uniqueValidator);
 
-export const config: mongoose.Model<mongoose.Document> = mongoose.model("config", configSchema);
+export const config: mongoose.Model<ConfigDocument> = mongoose.model<ConfigDocument>("config", configSchema);
