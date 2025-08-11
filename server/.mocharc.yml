@@ -1,3 +1,0 @@
-reporter: 'spec'
-require: 'ts-node/register'
-spec: 'lib/**/*.spec.ts'

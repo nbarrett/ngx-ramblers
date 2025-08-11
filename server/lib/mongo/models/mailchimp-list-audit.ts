@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import uniqueValidator from "mongoose-unique-validator";
+import { MailchimpListAudit } from "../../../../projects/ngx-ramblers/src/app/models/mailchimp.model";
 
 const schema = new mongoose.Schema({
   memberId: {type: String},
@@ -11,4 +12,4 @@ const schema = new mongoose.Schema({
 
 schema.plugin(uniqueValidator);
 
-export const mailchimpListAudit: mongoose.Model<mongoose.Document> = mongoose.model("mailchimp-list-audit", schema);
+export const mailchimpListAudit: mongoose.Model<MailchimpListAudit> = mongoose.model<MailchimpListAudit>("mailchimp-list-audit", schema);

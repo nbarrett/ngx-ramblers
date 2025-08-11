@@ -1,111 +1,113 @@
 import { Request, Response } from "express";
 import { isNumber } from "lodash";
+import mongoose, { Model } from "mongoose";
 import { DataQueryOptions } from "../../../../projects/ngx-ramblers/src/app/models/api-request.model";
 import { envConfig } from "../../env-config/env-config";
 import * as transforms from "./transforms";
 import debug from "debug";
-import * as mongoose from "mongoose";
 import { ControllerRequest, DeletionResponse } from "../../../../projects/ngx-ramblers/src/app/models/mongo-models";
-import { ApiAction, Identifiable } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
+import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import { DeleteDocumentsRequest } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { pluraliseWithCount } from "../../shared/string-utils";
 
-export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Document>, debugEnabled?: boolean) {
-  const debugLog: debug.Debugger = debug(envConfig.logNamespace(`database:${model.modelName}`));
+mongoose.set("strictQuery", false);
+
+export function create<T>(model: Model<T>, debugEnabled = false) {
+  const debugLog: debug.Debugger = debug(envConfig.logNamespace("database:" + model.modelName));
   debugLog.enabled = debugEnabled;
-  const errorDebugLog: debug.Debugger = debug("ERROR:" + envConfig.logNamespace(`database:${model.modelName}`));
+  const errorDebugLog: debug.Debugger = debug("ERROR:" + envConfig.logNamespace("database:" + model.modelName));
   errorDebugLog.enabled = true;
 
-  async function createOrUpdateAll(req: Request, res: Response) {
+  async function createOrUpdateAll(req: Request, res: Response): Promise<void> {
     const documents: T[] = req.body;
-    const message = `Create or update of ${documents.length} ${model.modelName}`;
-    createOrUpdateAllDocuments(req).then((response: T[]) => {
+    const message = "Create or update of " + documents.length + " " + model.modelName;
+    try {
+      const response = await createOrUpdateAllDocuments(req);
       res.status(200).json({
         action: ApiAction.UPSERT,
         message,
         response
       });
-    }).catch(error => {
-      errorDebugLog(`createOrUpdateAll: ${message} error:`, error);
+    } catch (error) {
+      errorDebugLog("createOrUpdateAll: " + message + " error:", error);
       res.status(500).json({
         message,
         request: message,
         error: transforms.parseError(error)
       });
-    });
+    }
   }
 
-  function findOne(req: Request, res: Response, parameters: DataQueryOptions) {
-    return model.findOne(parameters.criteria).select(parameters.select)
-      .then(result => {
-        debugLog(req.query, "findByConditions:parameters", parameters, result, "documents");
-        return res.status(200).json({
-          action: ApiAction.QUERY,
-          response: transforms.toObjectWithId(result)
-        });
-      })
-      .catch(error => {
-        errorDebugLog(`findByConditions: ${model.modelName} error:`, error);
-        res.status(500).json({
-          message: `${model.modelName} query failed`,
-          request: req.query,
-          error: transforms.parseError(error)
-        });
+  async function findOne(req: Request, res: Response, parameters: DataQueryOptions): Promise<void> {
+    try {
+      const result = await model.findOne(parameters.criteria).select(parameters.select).exec();
+      debugLog(req.query, "findByConditions:parameters", parameters, result, "documents");
+      res.status(200).json({
+        action: ApiAction.QUERY,
+        response: transforms.toObjectWithId(result)
       });
+    } catch (error) {
+      errorDebugLog("findByConditions: " + model.modelName + " error:", error);
+      res.status(500).json({
+        message: model.modelName + " query failed",
+        request: req.query,
+        error: transforms.parseError(error)
+      });
+    }
   }
 
-  function findOneDocument(parameters: DataQueryOptions): Promise<T> {
-    return model.findOne(parameters.criteria).select(parameters.select)
-      .then(mongoDocument => {
-        const response = transforms.toObjectWithId(mongoDocument);
-        debugLog("findOneDocument:parameters:", parameters, "response:", response);
-        return response;
-      });
+  async function findOneDocument(parameters: DataQueryOptions): Promise<T | null> {
+    const response = await model.findOne(parameters.criteria).select(parameters.select).exec();
+    debugLog("findOneDocument:parameters:", parameters, "response:", response);
+    return transforms.toObjectWithId(response) as T | null;
   }
 
   async function createOrUpdateAllDocuments(req: Request): Promise<T[]> {
     const documents: T[] = req.body;
-    const message = `Create or update of ${documents.length} ${model.modelName}`;
+    const message = "Create or update of " + documents.length + " " + model.modelName;
     debugLog("createOrUpdateAll:received request for", message);
-    const response = await Promise.all(documents.map(document => {
-      if (document.id) {
-        return updateDocument({body: document});
-      } else {
-        return createDocument({body: document});
-      }
-    }));
+    const response = await Promise.all(
+      documents.map(async document => {
+        if (document["id"] || document["_id"]) {
+          return updateDocument({body: document});
+        } else {
+          return createDocument({body: document});
+        }
+      })
+    );
     debugLog("createOrUpdateAll:received request for", message, "returned:", pluraliseWithCount(response.length, model.modelName), response);
     return response;
   }
 
   async function deleteAllDocuments(req: Request): Promise<DeletionResponse[]> {
     const deleteDocumentsRequest: DeleteDocumentsRequest = req.body;
-    const message = `Deletion of ${deleteDocumentsRequest.ids.length} ${model.modelName}`;
+    const message = "Deletion of " + deleteDocumentsRequest.ids.length + " " + model.modelName;
     debugLog("deleteAllDocuments:received request for", message);
-    const response = await Promise.all(deleteDocumentsRequest.ids.map(id => {
-      return deleteDocument({body: {id}});
-    }));
+    const response = await Promise.all(
+      deleteDocumentsRequest.ids.map(id => deleteDocument({body: {id}}))
+    );
     debugLog("deleteAllDocuments:received request for", message, "returned:", pluraliseWithCount(response.length, model.modelName), response);
     return response;
   }
 
-  async function updateMany(req: Request, res: Response) {
+  async function updateMany(req: Request, res: Response): Promise<any> {
     try {
       const dataQueryOptions: DataQueryOptions = req.body;
       const filter = dataQueryOptions?.criteria || {};
       const update = dataQueryOptions?.update || {};
-      const message = `Update many documents in ${model.modelName}`;
+      const message = "Update many documents in " + model.modelName;
 
-      debugLog("updateMany:received request body:",
+      debugLog(
+        "updateMany:received request body:",
         JSON.stringify(req.body, null, 2),
         "for", message,
         "with filter:", JSON.stringify(filter, null, 2),
-        "and update:", JSON.stringify(update, null, 2));
+        "and update:", JSON.stringify(update, null, 2)
+      );
 
-      const originalDocuments = await model.find(filter);
+      const originalDocuments = await model.find(filter).exec();
       if (!originalDocuments.length) {
         debugLog("updateMany:No documents matched the criteria");
-        debugLog.enabled = false;
         return res.status(200).json({
           action: ApiAction.UPDATE,
           message: "No documents matched the criteria",
@@ -118,20 +120,19 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
           model.findOneAndUpdate(
             {_id: doc._id},
             update,
-            {new: true, useFindAndModify: false}
-          )
+            {new: true}
+          ).exec()
         )
       );
 
-      debugLog("updateMany:updated documents:",
-        JSON.stringify(updatedDocuments, null, 2));
+      debugLog("updateMany:updated documents:", JSON.stringify(updatedDocuments, null, 2));
       res.status(200).json({
         action: ApiAction.UPDATE,
         message,
-        response: updatedDocuments
+        response: updatedDocuments.map(doc => transforms.toObjectWithId(doc))
       });
     } catch (error) {
-      errorDebugLog(`updateMany failed with error:`, error);
+      errorDebugLog("updateMany failed with error:", error);
       res.status(500).json({
         request: req.body,
         error: transforms.parseError(error)
@@ -142,158 +143,153 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
   async function updateDocument(requestDocument: ControllerRequest): Promise<T> {
     const {criteria, document} = transforms.criteriaAndDocument<T>(requestDocument);
     debugLog("pre-update:criteria:", criteria, "document:", document);
-    const result = await model.findOneAndUpdate(criteria, document, {
-      useFindAndModify: false,
-      new: true
-    });
+    const result = await model.findOneAndUpdate(criteria, document, {new: true}).exec();
+    if (!result) throw new Error("Document not found for update");
     const updatedDocument = transforms.toObjectWithId(result);
     debugLog("post-update:updatedDocument:", updatedDocument);
     return updatedDocument;
   }
 
   async function createDocument(requestDocument: ControllerRequest): Promise<T> {
-    const document = transforms.createDocumentRequest(requestDocument);
+    const document: any = transforms.createDocumentRequest(requestDocument);
     debugLog("pre-create:document:", document);
-    const result = await new model(document).save();
+    const result = await model.create(document);
     const createdDocument = transforms.toObjectWithId(result);
-    debugLog("post-update:createdDocument:", createdDocument);
+    debugLog("post-create:createdDocument:", createdDocument);
     return createdDocument;
   }
 
   async function deleteDocument(requestDocument: ControllerRequest): Promise<DeletionResponse> {
     const criteria = transforms.mongoIdCriteria(requestDocument);
     debugLog("pre-delete:params:", requestDocument.params, "criteria:", criteria);
-    const result = await model.deleteOne(criteria);
-    const response: DeletionResponse = {id: criteria._id, deleted: result.deletedCount === 1};
-    debugLog("post-update:deletedCount", result.deletedCount, "result:", result, "response:", response);
+    const result = await model.deleteOne(criteria).exec();
+    const response: DeletionResponse = {id: criteria._id?.toString() || "", deleted: result.deletedCount === 1};
+    debugLog("post-delete:deletedCount", result.deletedCount, "result:", result, "response:", response);
     return response;
   }
 
-  async function findDocumentById(id: string): Promise<T> {
+  async function findDocumentById(id: string): Promise<T | null> {
     debugLog("findDocumentById:", id);
-    return model.findById(id)
-      .then(result => transforms.toObjectWithId(result))
-      .catch(error => {
-        return {
-          message: `${model.modelName} query failed`,
-          request: id,
-          error: transforms.parseError(error)
-        };
-      });
+    try {
+      const result = await model.findById(id).exec();
+      return result ? transforms.toObjectWithId(result) as T : null;
+    } catch (error) {
+      errorDebugLog("findDocumentById error:", error);
+      throw new Error("Query failed: " + transforms.parseError(error));
+    }
   }
 
   return {
-    create: (req: ControllerRequest, res: Response) => {
-      createDocument(req)
-        .then(response => {
-          res.status(201).json({
-            action: ApiAction.CREATE,
-            response
-          });
-        })
-        .catch(error => res.status(500).json({
-          message: `Creation of ${model.modelName} failed`,
-          error: transforms.parseError(error),
-        }));
+    create: async (req: ControllerRequest, res: Response) => {
+      try {
+        const response = await createDocument(req);
+        res.status(201).json({
+          action: ApiAction.CREATE,
+          response
+        });
+      } catch (error) {
+        res.status(500).json({
+          message: "Creation of " + model.modelName + " failed",
+          error: transforms.parseError(error)
+        });
+      }
     },
-    update: (req: ControllerRequest, res: Response) => {
-      updateDocument(req)
-        .then(response => {
-          res.status(200).json({
-            action: ApiAction.UPDATE,
-            response
-          });
-        }).catch(error => {
+    update: async (req: ControllerRequest, res: Response) => {
+      try {
+        const response = await updateDocument(req);
+        res.status(200).json({
+          action: ApiAction.UPDATE,
+          response
+        });
+      } catch (error) {
         const errorMessage = {
-          message: `Update of ${model.modelName} failed`,
+          message: "Update of " + model.modelName + " failed",
           error: transforms.parseError(error)
         };
         errorDebugLog("error:", error);
         res.status(500).json(errorMessage);
-        });
+      }
     },
-    deleteOne: (req: Request, res: Response) => {
-      deleteDocument(req)
-        .then(response => {
-          res.status(200).json({
-            action: ApiAction.DELETE,
-            response
-          });
-        })
-        .catch(error => {
-          res.status(500).json({
-            message: `Delete of ${model.modelName} failed`,
-            error: transforms.parseError(error)
-          });
+    deleteOne: async (req: Request, res: Response) => {
+      try {
+        const response = await deleteDocument(req);
+        res.status(200).json({
+          action: ApiAction.DELETE,
+          response
         });
+      } catch (error) {
+        res.status(500).json({
+          message: "Delete of " + model.modelName + " failed",
+          error: transforms.parseError(error)
+        });
+      }
     },
-    deleteAll: (req: Request, res: Response) => {
+    deleteAll: async (req: Request, res: Response) => {
       const deleteDocumentsRequest: DeleteDocumentsRequest = req.body;
-      const message = `Deletion of ${pluraliseWithCount(deleteDocumentsRequest.ids.length, model.modelName)}`;
-      deleteAllDocuments(req).then(response => {
+      const message = "Deletion of " + pluraliseWithCount(deleteDocumentsRequest.ids.length, model.modelName);
+      try {
+        const response = await deleteAllDocuments(req);
         res.status(200).json({
           action: message,
           response
         });
-      }).catch(error => {
-        errorDebugLog(`deleteAll: ${message} error:`, error);
+      } catch (error) {
+        errorDebugLog("deleteAll: " + message + " error:", error);
         res.status(500).json({
           message,
           request: message,
           error: transforms.parseError(error)
         });
-      });
-    },
-    all: (req: Request, res: Response) => {
-      const parameters: DataQueryOptions = transforms.parseQueryStringParameters(req);
-      const query = model.find(parameters.criteria).select(parameters.select).sort(parameters.sort);
-      if (isNumber(parameters.limit)) {
-        query.limit(parameters.limit);
       }
-      query
-        .then(results => {
-          debugLog(req.query, "find - criteria:found", results.length, "documents:", results);
-          return res.status(200).json({
-            action: ApiAction.QUERY,
-            response: results.map(result => transforms.toObjectWithId(result))
-          });
-        })
-        .catch(error => {
-          debugLog("all:query", req.query, "error");
-          res.status(500).json({
-            message: `${model.modelName} query failed`,
-            error: transforms.parseError(error)
-          });
-        });
     },
-    findById: (req: Request, res: Response) => {
-      debugLog("find - id:", req.params.id);
-      model.findById(req.params.id)
-        .then(result => {
-          if (result) {
-            debugLog(req.query, "find - id:", req.params.id, "- criteria:found", result);
-            res.status(200).json({
-              action: ApiAction.QUERY,
-              response: transforms.toObjectWithId(result)
-            });
-          } else {
-            res.status(404).json({
-              message: `${model.modelName} not found`,
-              request: req.params.id
-            });
-          }
-        })
-        .catch(error => {
-          res.status(500).json({
-            message: `${model.modelName} query failed`,
-            request: req.params.id,
-            error: transforms.parseError(error)
-          });
-        });
-    },
-    findByConditions: (req: Request, res: Response) => {
+    all: async (req: Request, res: Response) => {
       const parameters: DataQueryOptions = transforms.parseQueryStringParameters(req);
-      findOne(req, res, parameters);
+      try {
+        const query = model.find(parameters.criteria).select(parameters.select).sort(parameters.sort);
+        if (isNumber(parameters.limit)) {
+          query.limit(parameters.limit);
+        }
+        const results = await query.exec();
+        debugLog(req.query, "find - criteria:found", results.length, "documents:", results);
+        res.status(200).json({
+          action: ApiAction.QUERY,
+          response: results.map(result => transforms.toObjectWithId(result))
+        });
+      } catch (error) {
+        debugLog("all:query", req.query, "error");
+        res.status(500).json({
+          message: model.modelName + " query failed",
+          error: transforms.parseError(error)
+        });
+      }
+    },
+    findById: async (req: Request, res: Response) => {
+      debugLog("find - id:", req.params.id);
+      try {
+        const result = await model.findById(req.params.id).exec();
+        if (result) {
+          debugLog(req.query, "find - id:", req.params.id, "- criteria:found", result);
+          res.status(200).json({
+            action: ApiAction.QUERY,
+            response: transforms.toObjectWithId(result)
+          });
+        } else {
+          res.status(404).json({
+            message: model.modelName + " not found",
+            request: req.params.id
+          });
+        }
+      } catch (error) {
+        res.status(500).json({
+          message: model.modelName + " query failed",
+          request: req.params.id,
+          error: transforms.parseError(error)
+        });
+      }
+    },
+    findByConditions: async (req: Request, res: Response) => {
+      const parameters: DataQueryOptions = transforms.parseQueryStringParameters(req);
+      await findOne(req, res, parameters);
     },
     findOne,
     findOneDocument,
@@ -302,9 +298,6 @@ export function create<T extends Identifiable>(model: mongoose.Model<mongoose.Do
     createOrUpdateAll,
     updateDocument,
     updateMany,
-    createDocument,
+    createDocument
   };
 }
-
-
-

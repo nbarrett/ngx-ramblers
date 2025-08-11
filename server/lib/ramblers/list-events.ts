@@ -25,14 +25,14 @@ import {
   GroupEvent,
   InputSource
 } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
-import { findBySlug } from "../mongo/controllers/extended-group-event";
+import { findBySlug, identifierLooksLikeASlug } from "../mongo/controllers/extended-group-event";
 import mongoose from "mongoose";
 import { EventField, GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:list-events"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:list-events-no-op"));
 noopDebugLog.enabled = false;
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function listEvents(req: Request, res: Response): Promise<void> {
   const body: EventsListRequest = req.body;
@@ -43,7 +43,7 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
   const limit = limitFor(req.body);
   const ids = body.ids?.join(",");
 
-  if (body.ids && body.ids.length === 1 && identifierLooksLikeASlug(body)) {
+  if (body?.ids?.length === 1 && identifierLooksLikeASlug(body.ids[0])) {
     const slug = body.ids[0];
     try {
       const config: SystemConfig = await systemConfig();
@@ -132,13 +132,6 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
       }
     }
   }
-}
-
-function identifierLooksLikeASlug(body: EventsListRequest): boolean {
-  const value = body.ids?.[0] ?? "";
-  const looksLikeASlug = /[\s-]/.test(value);
-  debugLog("identifierLooksLikeASlug:", value, "returning:", looksLikeASlug);
-  return looksLikeASlug;
 }
 
 function groupNameFrom(config: SystemConfig, event: GroupEvent): string {

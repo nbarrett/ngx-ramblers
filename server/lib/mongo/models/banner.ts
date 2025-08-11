@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import uniqueValidator from "mongoose-unique-validator";
+import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
 
 export const fileNameData = new mongoose.Schema({
     rootFolder: {type: String},
@@ -22,4 +23,4 @@ const bannerConfigSchema = new mongoose.Schema({
 
 bannerConfigSchema.plugin(uniqueValidator);
 
-export const banner: mongoose.Model<mongoose.Document> = mongoose.model("banner", bannerConfigSchema);
+export const banner: mongoose.Model<BannerConfig> = mongoose.model<BannerConfig>("banner", bannerConfigSchema);

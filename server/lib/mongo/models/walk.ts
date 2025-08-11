@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import uniqueValidator from "mongoose-unique-validator";
+import { Walk } from "../../../../projects/ngx-ramblers/src/app/models/deprecated";
 
 export const riskAssessmentRecord = new mongoose.Schema({
   confirmationText: {type: String},
@@ -127,4 +128,4 @@ const walkSchema = new mongoose.Schema({
 
 walkSchema.plugin(uniqueValidator);
 
-export const walk: mongoose.Model<mongoose.Document> = mongoose.model("walks", walkSchema);
+export const walk: mongoose.Model<Walk> = mongoose.model<Walk>("walks", walkSchema);

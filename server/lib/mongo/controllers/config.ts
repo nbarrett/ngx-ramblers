@@ -11,7 +11,7 @@ import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-
 
 const debugLog = debug(envConfig.logNamespace("config"));
 debugLog.enabled = false;
-const controller = crudController.create(config);
+const controller = crudController.create<ConfigDocument>(config);
 export const create = controller.create;
 export const all = controller.all;
 export const deleteOne = controller.deleteOne;

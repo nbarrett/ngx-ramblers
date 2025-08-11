@@ -1,4 +1,5 @@
-import { expect } from "chai";
+import expect from "expect";
+import {describe, it} from "mocha";
 import * as transforms from "./transforms";
 
 describe("transforms.parseQueryStringParameters", () => {
@@ -11,7 +12,7 @@ describe("transforms.parseQueryStringParameters", () => {
         sort: {"userName": "nickek"}
       }
     } as any;
-    expect(transforms.parseQueryStringParameters(req as any)).to.eql({
+    expect(transforms.parseQueryStringParameters(req as any)).toEqual({
         "criteria": {
           "committee": {
             "$exists": true
@@ -40,7 +41,7 @@ describe("transforms.parseQueryStringParameters", () => {
         sort: JSON.stringify({"userName": "nickek"})
       }
     };
-    expect(transforms.parseQueryStringParameters(req as any)).to.eql({
+    expect(transforms.parseQueryStringParameters(req as any)).toEqual({
         "criteria": {
           "committee": {
             "$exists": true
@@ -67,7 +68,7 @@ describe("transforms.parseQueryStringParameters", () => {
         criteria: JSON.stringify({committee: {$exists: true}})
       }
     };
-    expect(transforms.parseQueryStringParameters(req as any)).to.eql({
+    expect(transforms.parseQueryStringParameters(req as any)).toEqual({
         "criteria": {
           "committee": {
             "$exists": true

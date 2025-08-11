@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import uniqueValidator from "mongoose-unique-validator";
+import { ExpenseClaim } from "../../../../projects/ngx-ramblers/src/app/notifications/expenses/expense.model";
 
 const expenseType = {
   value: {type: String},
@@ -58,4 +59,4 @@ const expenseClaimSchema = new mongoose.Schema({
 
 expenseClaimSchema.plugin(uniqueValidator);
 
-export const expenseClaim: mongoose.Model<mongoose.Document> = mongoose.model("expense-claim", expenseClaimSchema);
+export const expenseClaim: mongoose.Model<ExpenseClaim> = mongoose.model<ExpenseClaim>("expense-claim", expenseClaimSchema);

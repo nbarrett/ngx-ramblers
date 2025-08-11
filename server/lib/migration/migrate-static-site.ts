@@ -197,7 +197,7 @@ async function createPageContent(content: ScrapedPage, contentTextItems: Content
   const pageContent: PageContent = {path: pagePath || "home", rows: pageContentRows};
   if (persistData) {
     debugLog("✅ Saving page content:", pageContent);
-    return mongooseClient.create(pageContentModel, pageContent);
+    return mongooseClient.create<PageContent>(pageContentModel, pageContent);
   } else {
     debugLog("✅ Creating page content (dry run):", pageContent);
     return pageContent;

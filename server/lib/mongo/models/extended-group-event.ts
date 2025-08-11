@@ -3,6 +3,7 @@ import uniqueValidator from "mongoose-unique-validator";
 import { media, metaData, riskAssessmentRecord, walkEvent, walkVenue } from "./walk";
 import { notification } from "./social-event";
 import { fileNameData } from "./banner";
+import { ExtendedGroupEvent } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 
 const groupEvent = new Schema({
   id: {type: String},
@@ -110,4 +111,4 @@ const extendedGroupEventSchema = new Schema({
 });
 groupEvent.index({start_date_time: 1, item_type: 1, title: 1, group_code: 1}, {unique: true});
 extendedGroupEventSchema.plugin(uniqueValidator);
-export const extendedGroupEvent: Model<mongoose.Document> = mongoose.model("extendedGroupEvents", extendedGroupEventSchema);
+export const extendedGroupEvent: Model<ExtendedGroupEvent> = mongoose.model<ExtendedGroupEvent>("extendedGroupEvents", extendedGroupEventSchema);

@@ -2,8 +2,9 @@ import express from "express";
 import * as authConfig from "../../auth/auth-config";
 import { socialEvent } from "../models/social-event";
 import * as crudController from "../controllers/crud-controller";
+import { SocialEvent } from "../../../../projects/ngx-ramblers/src/app/models/deprecated";
 
-const controller = crudController.create(socialEvent);
+const controller = crudController.create<SocialEvent>(socialEvent);
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);

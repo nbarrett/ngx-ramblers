@@ -4,8 +4,9 @@ import { walk } from "../models/walk";
 import * as crudController from "../controllers/crud-controller";
 import { bulkDeleteEvents, bulkUpdateEvents, eventStats, recreateIndex } from "../controllers/walk-admin";
 import { queryWalkLeaders } from "../controllers/extended-group-event";
+import { Walk } from "../../../../projects/ngx-ramblers/src/app/models/deprecated";
 
-const controller = crudController.create(walk, false);
+const controller = crudController.create<Walk>(walk, false);
 const router = express.Router();
 router.get("/event-stats", authConfig.authenticate(), eventStats);
 router.post("/bulk-delete", authConfig.authenticate(), bulkDeleteEvents);

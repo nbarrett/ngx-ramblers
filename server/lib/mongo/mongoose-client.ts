@@ -1,65 +1,78 @@
 import { envConfig } from "../env-config/env-config";
 import debug from "debug";
-import mongoose from "mongoose";
-import transforms = require("./controllers/transforms");
+import mongoose, { Model } from "mongoose";
+import * as transforms from "./controllers/transforms";
 
 const debugLog = debug(envConfig.logNamespace("local-database"));
 debugLog.enabled = false;
 let connected = false;
 
-function createDebugFor(model: any): debug.Debugger {
-  const debugLog = debug(envConfig.logNamespace(`local-database:${model.modelName}`));
+function createDebugFor<T>(model: Model<T>): debug.Debugger {
+  const debugLog = debug(envConfig.logNamespace("local-database:" + model.modelName));
   debugLog.enabled = false;
   return debugLog;
 }
 
-export function execute(mongoFunction: () => any): Promise<any> {
+export async function execute<T>(mongoFunction: () => Promise<T>): Promise<T> {
   if (!connected) {
-    const debug: debug.Debugger = createDebugFor({model: "unknown"});
-    return connect(debug).then(() => mongoFunction());
+    const model = {modelName: "unknown"};
+    const debug: debug.Debugger = createDebugFor(model as Model<T>);
+    await connect(debug);
+    return mongoFunction();
   } else {
     return mongoFunction();
   }
 }
 
-export function create<T>(model: mongoose.Model<mongoose.Document>, data: T, debugLog?: debug.Debugger): Promise<T> {
+export async function create<T>(model: Model<T>, data: T, debugLog?: debug.Debugger): Promise<T> {
   const debugCreate: debug.Debugger = debugLog || createDebugFor(model);
-  const performCreate = () => {
+  const performCreate = async () => {
     const document = transforms.createDocumentRequest<T>(data);
     debugCreate("create:data:", data, "document:", document);
-    return new model(document).save()
-      .then(result => {
-        return transforms.toObjectWithId(result);
-      })
-      .catch(error => {
-        return {
-          error: transforms.parseError(error),
-          message: `Creation of ${model.modelName} failed`,
-          request: data,
-        };
-      });
+    try {
+      const result = await model.create(document);
+      return transforms.toObjectWithId(result) as T;
+    } catch (error) {
+      debugCreate("create:error:", error);
+      throw new Error(`Failed to create document: ${error.message}`);
+    }
   };
   if (!connected) {
     debugCreate("establishing database connection");
-    return connect(debugCreate).then(() => performCreate());
-  } else {
-    return performCreate();
+    await connect(debugCreate);
   }
+  return performCreate();
 }
 
-export function connect(debug?: debug.Debugger) {
+export async function connect(debug?: debug.Debugger): Promise<boolean> {
   const mongoUri = envConfig.mongo.uri.replace(/^"|"$/g, "");
-  debugLog("MongoDB URI:", mongoUri);
   const debugConnect = debug || debugLog;
-  return mongoose.connect(mongoUri, {
-    useUnifiedTopology: true,
-    useNewUrlParser: true,
-  }).then(response => {
-    debugConnect("Connected to database:", mongoUri, "configured models:", response.models);
-    connected = true;
+  if (mongoose.connection.readyState === 1) {
+    debugConnect("Already connected to database:", mongoUri);
     return true;
-  }).catch(error => {
+  }
+  try {
+    await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 5000,
+      maxPoolSize: 10,
+      connectTimeoutMS: 10000,
+      ssl: true
+    });
+    mongoose.connection.on("connected", () => {
+      debugConnect("Connected to database:", mongoUri);
+      connected = true;
+    });
+    mongoose.connection.on("disconnected", () => {
+      debugConnect("Disconnected from database:", mongoUri);
+      connected = false;
+    });
+    mongoose.connection.on("error", err => {
+      debugConnect("Connection error:", err);
+      connected = false;
+    });
+    return true;
+  } catch (error) {
     debugConnect("Connection failed:", mongoUri, "error:", error);
     throw error;
-  });
+  }
 }

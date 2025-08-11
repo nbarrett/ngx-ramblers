@@ -10,10 +10,10 @@ export interface MongoCriteria {
 
 export interface DataQueryOptions {
   limit?: number;
-  criteria?: object;
-  select?: object;
-  sort?: object;
-  update?: object;
+  criteria?: any;
+  select?: any;
+  sort?: any;
+  update?: any;
 }
 
 export interface MongoId {

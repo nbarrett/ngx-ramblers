@@ -1,4 +1,5 @@
-import { expect } from "chai";
+import expect from "expect";
+import {describe, it} from "mocha";
 import * as transforms from "./transforms";
 import { Member } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 
@@ -9,7 +10,7 @@ describe("transforms.createDocument", () => {
     const json = {
       $set: {"userName": "nickek"}
     };
-    expect(transforms.createDocument<Member>(json)).to.eql({
+    expect(transforms.createDocument<Member>(json)).toEqual({
         "userName": "nickek"
       }
     );
@@ -32,7 +33,7 @@ describe("transforms.createDocument", () => {
         "mailchimpLists.walks.updated": false
       }
     };
-    expect(transforms.createDocument<Member>(json)).to.eql({
+    expect(transforms.createDocument<Member>(json)).toEqual({
       "userName": "nickek",
       "mailchimpLists": {
         "walks": {
@@ -105,7 +106,7 @@ describe("transforms.createDocument", () => {
         "walkChangeNotifications": true,
       }
     };
-    expect(transforms.createDocument<Member>(json)).to.eql({
+    expect(transforms.createDocument<Member>(json)).toEqual({
       "id": "56410469e4b039fe9dc75388",
       "mailchimpLists": {
         "walks": {

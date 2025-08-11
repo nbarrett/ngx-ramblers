@@ -12,25 +12,33 @@ const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent,
 const debugLog = debug(envConfig.logNamespace("extended-group-event"));
 debugLog.enabled = true;
 
+function convertTitleToSlug(title: string) {
+  if (title) {
+    const stopwords = new Set(["a", "an", "the", "to", "by", "via", "in", "of", "from"]);
+    return kebabCase(title).split("-").filter(item => !stopwords.has(item)).join("-");
+  } else {
+    return title;
+  }
+}
+
 export async function urlFromTitle(req: Request, res: Response) {
-    const { title, id } = req.body as { title: string; id?: string };
+  try {
+    const {title, id} = req.body as { title: string; id?: string };
     if (!title) {
       debugLog("generateTitleFromUrl: missing title");
-      return res.json({ url: "" });
+      return res.json({url: ""});
     }
-    const {slug, document} = await findBySlug(title);
+    const kebabCaseSlug = convertTitleToSlug(title);
+    const {slug, document} = await findBySlug(kebabCaseSlug);
 
     if (!document) {
       debugLog("generateTitleFromUrl: title:", title, "slug:", slug, "-> base slug available");
-      return res.json({ url: slug });
-    }
-
-    if (id && document.id === id) {
+      return res.json({url: slug});
+    } else if (id && document.id === id) {
       debugLog("generateTitleFromUrl: title:", title, "slug:", slug, "id:", id, "-> slug owned by current event");
-      return res.json({ url: slug });
-    }
-
-    let suffix = 1;
+      return res.json({url: slug});
+    } else {
+    let suffix = 0;
     let url;
     while (true) {
       url = `${slug}-${suffix++}`;
@@ -40,28 +48,33 @@ export async function urlFromTitle(req: Request, res: Response) {
         break;
       }
     }
-    res.json({ url });
+    res.json({url});
+    }
+  } catch (error) {
+    debugLog("urlFromTitle: error:", error);
+    res.status(500).json({error: error.message});
+  }
 }
 
-export async function findBySlug(slug: string): Promise<{ slug: string; document: ExtendedGroupEvent }> {
-  const kebabCaseSlug = kebabCase(slug);
+export async function findBySlug(slugOrTitle: string): Promise<{ slug: string; document: ExtendedGroupEvent }> {
+  const kebabCaseSlug = convertTitleToSlug(slugOrTitle);
+  const queriedSlug = identifierLooksLikeASlug(slugOrTitle) ? slugOrTitle : kebabCaseSlug;
   const document = await controller.findOneDocument({
     criteria: {
       "groupEvent.url": {
-        $regex: slug,
+        $regex: queriedSlug,
         $options: "i"
       }
     }
   });
-  if (document || (kebabCaseSlug === slug)) {
-    debugLog("findBySlug:slug", slug, "document:", document);
-    return {slug, document};
+  if (document || (kebabCaseSlug === slugOrTitle)) {
+    debugLog("findBySlug:queriedSlug", queriedSlug, "document:", document);
+    return {slug: queriedSlug, document};
   } else {
-    debugLog("findBySlug:failed with provided slug", slug, "falling back to search by kebabCaseSlug:", kebabCaseSlug);
+    debugLog("findBySlug:failed with provided slug", slugOrTitle, "falling back to search by kebabCaseSlug:", kebabCaseSlug);
     return findBySlug(kebabCaseSlug);
   }
 }
-
 
 export async function count(req: Request, res: Response) {
   try {
@@ -92,4 +105,10 @@ export function queryWalkLeaders(req: Request, res: Response): Promise<any> {
         error: parseError(error)
       });
     });
+}
+
+export function identifierLooksLikeASlug(identifier: string): boolean {
+  const looksLikeASlug = /[\s-]/.test(identifier);
+  debugLog("identifierLooksLikeASlug:", identifier, "returning:", looksLikeASlug);
+  return looksLikeASlug;
 }

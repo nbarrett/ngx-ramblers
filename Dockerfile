@@ -43,7 +43,7 @@ WORKDIR /usr/src/app/server
 COPY server/package*.json ./
 COPY server/ts*.json ./
 COPY server/lib* ./
-COPY server/.mocharc.yml ./
+COPY server/.mocharc.json ./
 COPY server/wdio.conf.ts ./
 COPY server /usr/src/app/server
 

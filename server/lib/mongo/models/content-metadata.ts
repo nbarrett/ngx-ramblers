@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import uniqueValidator from "mongoose-unique-validator";
+import { ContentMetadata } from "../../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
 
 const contentMetadataItem = new mongoose.Schema({
   eventId: {type: String},
@@ -33,4 +34,4 @@ const contentMetadataSchema = new mongoose.Schema({
 
 contentMetadataSchema.plugin(uniqueValidator);
 
-export const contentMetadata: mongoose.Model<mongoose.Document> = mongoose.model("content-metadata", contentMetadataSchema);
+export const contentMetadata: mongoose.Model<ContentMetadata> = mongoose.model<ContentMetadata>("content-metadata", contentMetadataSchema);
