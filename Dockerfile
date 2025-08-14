@@ -4,8 +4,8 @@ FROM node:20.11.0
 # Define build arguments
 ARG CHROME_VERSION
 
-# Install dependencies for Chrome installation
-RUN apt-get update && apt-get install -y wget curl unzip gnupg2 ca-certificates
+# Install dependencies for Chrome installation and sharp
+RUN apt-get update && apt-get install -y wget curl unzip gnupg2 ca-certificates libvips-dev build-essential
 
 # Install OpenJDK 21 JRE manually
 RUN wget https://download.java.net/java/GA/jdk21.0.2/f2283984656d49d69e91c558476027ac/13/GPL/openjdk-21.0.2_linux-x64_bin.tar.gz -O /tmp/openjdk-21.tar.gz \
@@ -47,7 +47,8 @@ COPY server/.mocharc.json ./
 COPY server/wdio.conf.ts ./
 COPY server /usr/src/app/server
 
-# Install server dependencies (postinstall will run automatically)
+# Install server dependencies with explicit sharp installation
+RUN npm install --include=optional sharp
 RUN npm install
 
 # Update the Serenity BDD dependencies so it doesn't have to run in the step before serenity is run
