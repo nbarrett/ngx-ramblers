@@ -1,3 +1,4 @@
+import { Request, Response } from "express";
 import puppeteer from "puppeteer";
 import TurndownService from "turndown";
 import AWS from "aws-sdk";
@@ -13,7 +14,6 @@ import { pageContent as pageContentModel } from "../mongo/models/page-content";
 import { contentText as contentTextModel } from "../mongo/models/content-text";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
-import { NextFunction, Request, Response } from "express";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import first from "lodash/first";
@@ -25,15 +25,16 @@ import { generateUid, pluraliseWithCount } from "../shared/string-utils";
 import { contentTypeFrom, extensionFrom } from "../aws/aws-utils";
 import { contentMetadata } from "../mongo/models/content-metadata";
 import { AccessLevel } from "../../../projects/ngx-ramblers/src/app/models/member-resource.model";
+import { ContentMetadata } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
 
 const debugLog = debug(envConfig.logNamespace("static-html-site-migrator"));
-const turndown = new TurndownService();
+debugLog.enabled = true;
+const turndownService = new TurndownService();
 const s3 = new AWS.S3();
-const SOURCE_URL = "https://nwkramblers.chessck.co.uk";
-const persistData = true;
+const persistData = false;
 const uploadTos3 = false;
 const config: AWSConfig = queryAWSConfig();
-debugLog.enabled = true;
+const baseUrl = "https://nwkramblers.chessck.co.uk";
 
 interface ScrapedPage {
   path: string;
@@ -51,61 +52,95 @@ interface ScrapedImage {
   alt: string;
 }
 
-async function scrapeKentRamblers(): Promise<ScrapedPage[]> {
-  debugLog(`✅ Scraping page links from`, SOURCE_URL);
+interface PageLink {
+  path: string;
+  title: string;
+}
+
+interface MigratedAlbum {
+  album: ContentMetadata;
+  pageContent: PageContent;
+}
+
+async function scrapeStaticSite(baseUrl: string): Promise<ScrapedPage[]> {
+  debugLog(`✅ Scraping page links from ${baseUrl}`);
   const browser = await puppeteer.launch({headless: true});
   const page = await browser.newPage();
-  await page.goto(SOURCE_URL, {waitUntil: "networkidle2"});
-
-  const pageLinks: { path: string; title: string }[] = await page.evaluate(() => {
-    const links = Array.from(document.querySelectorAll(".BMenu a"))
-      .filter((a: HTMLAnchorElement) => a.href.startsWith(SOURCE_URL))
-      .map((a: HTMLAnchorElement) => ({path: a.href, title: a.textContent!.trim()}));
-    return [...new Set(links.map(l => JSON.stringify(l)))].map(l => JSON.parse(l));
-  });
-  if (!pageLinks.some(link => link.path === SOURCE_URL)) {
-    pageLinks.unshift({path: SOURCE_URL, title: "Home"});
-  }
-  debugLog(`✅ Scraped page links:`, pageLinks);
-
-  const pageContents: ScrapedPage[] = [];
-  for (const { path, title } of pageLinks) {
-    debugLog(`✅ Scraping ${path}`);
-    await page.goto(path, {waitUntil: "networkidle2"});
-
-    const {html, images} = await page.evaluate(() => {
-      const contentNode = document.querySelector('table[width="1015px"] td') || document.body;
-      const html = contentNode.innerHTML;
-      const images = Array.from(contentNode.querySelectorAll("img")).map((img: HTMLImageElement) => ({
-        src: img.src,
-        alt: img.alt || "Image"
-      }));
-      return {html, images};
-    });
-
-    const markdown = turndown.turndown(html);
-    const segments: ScrapedSegment[] = [];
-    let remainingText = markdown;
-
-    for (const img of images) {
-      const marker = `![${img.alt}](${img.src})`;
-      const [before, ...after] = remainingText.split(marker);
-      if (before.trim()) segments.push({text: before.trim()});
-      segments.push({text: img.alt, image: img});
-      remainingText = after.join(marker);
+  await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+  page.on("console", msg => console.log("PAGE LOG:", msg.text()));
+  try {
+    const response = await page.goto(baseUrl, {waitUntil: "networkidle2", timeout: 30000});
+    if (response && !response.ok()) {
+      debugLog(`❌ Failed to load ${baseUrl}: Status ${response.status()}`);
+      return [];
     }
-    if (remainingText.trim()) segments.push({text: remainingText.trim()});
 
-    pageContents.push({path, title, segments});
+    const pageLinks: PageLink[] = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll(".BMenu a"))
+        .filter((a: HTMLAnchorElement) => a.href.startsWith(baseUrl))
+        .map((a: HTMLAnchorElement) => ({path: a.href, title: a.textContent!.trim()}));
+      return [...new Set(links.map(l => JSON.stringify(l)))].map(l => JSON.parse(l));
+    });
+    if (!pageLinks.some(link => link.path === baseUrl)) {
+      pageLinks.unshift({path: baseUrl, title: "Home"});
+    }
+    debugLog(`✅ Scraped page links:`, pageLinks);
+
+    const pageContents: ScrapedPage[] = [];
+    for (const {path, title} of pageLinks) {
+      debugLog(`✅ Scraping ${path}`);
+      try {
+        const response = await page.goto(path, {waitUntil: "networkidle2", timeout: 30000});
+        if (response && !response.ok()) {
+          debugLog(`❌ Failed to load ${path}: Status ${response.status()}`);
+          continue;
+        }
+
+        const {html, images} = await page.evaluate(() => {
+          const contentNode = document.querySelector("table[width=\"1015px\"] td") || document.body;
+          const html = contentNode.innerHTML;
+          const images = Array.from(contentNode.querySelectorAll("img")).map((img: HTMLImageElement) => ({
+            src: img.src,
+            alt: img.alt || "Image"
+          }));
+          return {html, images};
+        });
+
+        const markdown = turndownService.turndown(html);
+        const segments: ScrapedSegment[] = [];
+        let remainingText = markdown;
+
+        for (const img of images) {
+          const marker = `![${img.alt}](${img.src})`;
+          const [before, ...after] = remainingText.split(marker);
+          if (before.trim()) segments.push({text: before.trim()});
+          segments.push({text: img.alt, image: img});
+          remainingText = after.join(marker);
+        }
+        if (remainingText.trim()) segments.push({text: remainingText.trim()});
+
+        pageContents.push({path, title, segments});
+      } catch (error) {
+        debugLog(`❌ Error scraping ${path}:`, error);
+      }
+    }
+
+    return pageContents;
+  } catch (error) {
+    debugLog(`❌ Error scraping ${baseUrl}:`, error);
+    return [];
+  } finally {
+    await browser.close();
   }
-
-  await browser.close();
-  return pageContents;
 }
 
 async function uploadImageToS3(img: ScrapedImage): Promise<string> {
   try {
     const response = await fetch(img.src);
+    if (!response.ok) {
+      debugLog(`❌ Failed to fetch image ${img.src}: Status ${response.status}`);
+      return img.src;
+    }
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const fileName = generateUid() + extensionFrom(img.src);
@@ -126,7 +161,7 @@ async function uploadImageToS3(img: ScrapedImage): Promise<string> {
 }
 
 async function createContentText(text: string, nameSuffix: string): Promise<ContentText> {
-  const markdown = turndown.turndown(text);
+  const markdown = turndownService.turndown(text);
   const contentText: ContentText = {
     category: "migrated-content",
     name: toKebabCase("migrated-content", nameSuffix),
@@ -206,7 +241,7 @@ async function createPageContent(content: ScrapedPage, contentTextItems: Content
 
 function albumFrom(title: string) {
   const yearMatch = title.match(/\b(\d{4})\b/);
-  const monthMatch = title.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/i); // Extract month
+  const monthMatch = title.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/i);
   const year = yearMatch ? yearMatch[1] : "unknown-year";
   const month = monthMatch ? toKebabCase(monthMatch[1]) : "unknown-month";
   const baseName = toKebabCase(title.replace(/\b\d{4}\b/g, "").replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/gi, "").trim());
@@ -224,132 +259,190 @@ function albumFrom(title: string) {
   return albumName;
 }
 
-async function createPhotoGalleryAlbums(): Promise<void> {
-  debugLog(`✅ Scraping photo gallery links from ${SOURCE_URL}/PhotoGallery`);
+async function createPhotoGalleryAlbums(baseUrl: string, specificAlbums: PageLink[] = []): Promise<MigratedAlbum[]> {
+  debugLog(`✅ Scraping photo gallery albums from ${baseUrl}`);
   const browser = await puppeteer.launch({headless: true});
   const page = await browser.newPage();
-  await page.goto(`${SOURCE_URL}/PhotoGallery`, {waitUntil: "networkidle2"});
+  await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+  page.on("console", msg => console.log("PAGE LOG:", msg.text()));
 
-  const galleryLinks: { path: string; title: string }[] = await page.evaluate(() => {
-    const links = Array.from(document.querySelectorAll("#ctl00_phLeftNavigation_divLeftNavigation ul li ul li a"))
-      .filter((a: HTMLAnchorElement) => {
-        const matched = a.href.startsWith(`${location.origin}/PhotoGallery/`) && a.textContent?.trim();
-        console.info("✅ Scraping link:", a.href, "text:", a.textContent, "matched:", matched);
-        return matched;
-      })
-      .map((a: HTMLAnchorElement) => ({path: a.href, title: a.textContent!.trim()}));
-    return [...new Set(links.map(l => JSON.stringify(l)))].map(l => JSON.parse(l));
-  });
-  console.info(`✅ Found ${pluraliseWithCount(galleryLinks.length, "gallery link")}:`, galleryLinks);
+  let galleryLinks: PageLink[] = specificAlbums;
+  if (!specificAlbums.length) {
+    const pageUrl = `${baseUrl}/PhotoGallery`;
+    debugLog(`✅ Scraping gallery index at ${pageUrl}`);
+    try {
+      const response = await page.goto(pageUrl, {waitUntil: "networkidle2", timeout: 30000});
+      if (response && !response.ok()) {
+        debugLog(`❌ Failed to load ${pageUrl}: Status ${response.status()}`);
+      } else {
+        galleryLinks = await page.evaluate((pageUrl: string, imagePath: string) => {
+          console.info(`✅ Scraping pageUrl: ${pageUrl}`);
+          const links = Array.from(document.querySelectorAll("#ctl00_phLeftNavigation_divLeftNavigation ul li ul li a"))
+            .filter((a: HTMLAnchorElement) => {
+              const matched = a.href.startsWith(`${location.origin}/${imagePath}/`) && a.textContent?.trim();
+              console.info(`✅ Scraping link: ${a.href}, text: ${a.textContent}, matched: ${matched}`);
+              return matched;
+            })
+            .map((a: HTMLAnchorElement) => ({path: a.href, title: a.textContent!.trim()}));
+          return [...new Set(links.map(l => JSON.stringify(l)))].map(l => JSON.parse(l));
+        }, pageUrl, "PhotoGallery");
+      }
+    } catch (error) {
+      debugLog(`❌ Error scraping ${pageUrl}:`, error);
+    }
+    console.info(`✅ Found ${pluraliseWithCount(galleryLinks.length, "gallery link")}:`, galleryLinks);
+  } else {
+    console.info(`✅ Processing specific albums:`, galleryLinks);
+  }
 
+  const albums: MigratedAlbum[] = [];
   for (const {path, title} of galleryLinks) {
     console.info(`✅ Scraping gallery ${path}`);
-    await page.goto(path, {waitUntil: "networkidle2"});
+    try {
+      const response = await page.goto(path, {waitUntil: "networkidle2", timeout: 60000});
+      if (response && !response.ok()) {
+        debugLog(`❌ Failed to load ${path}: Status ${response.status()}`);
+        continue;
+      }
 
-    const images = await page.evaluate(() => {
-      const contentNode = document.querySelector('#ctl00_phContent_divContent table[width="1015px"] td') || document.body;
-      return Array.from(contentNode.querySelectorAll("img")).map((img: HTMLImageElement) => ({
-        src: img.src,
-        alt: img.alt
-      })).filter(item => item.alt !== "logo");
-    });
+      debugLog(`Response status for ${path}: ${response.status()}`);
+      debugLog(`Response headers:`, response.headers());
+      debugLog(`Redirect chain:`, response.request().redirectChain().map(r => r.url()));
+      const html = await page.content();
+      require("fs").writeFileSync(`debug-${toKebabCase(title)}.html`, html);
+      debugLog(`Saved HTML for ${path} to debug-${toKebabCase(title)}.html`);
+      const images = await page.evaluate(() => {
+        const contentNode = document.querySelector("#ctl00_phContent_divContent table[width=\"1015px\"] td") || document.body;
+        console.info(`Content node selected: ${contentNode.tagName}`);
+        const imageNodes = contentNode.querySelectorAll("img");
+        console.info(`Found ${imageNodes.length} images in contentNode`);
+        return Array.from(imageNodes).map((img: HTMLImageElement) => ({
+          src: img.src,
+          alt: img.alt
+        })).filter(item => item.alt !== "logo");
+      });
 
-    const files = images.map((img, index) => ({
-      image: decodeURIComponent(img.src),
-      originalFileName: decodeURIComponent(img.src.split("/").pop() || `image-${index + 1}.jpg`),
-      text: img.alt,
-      tags: []
-    }));
+      const files = images.map((img, index) => ({
+        image: decodeURIComponent(img.src),
+        originalFileName: decodeURIComponent(img.src.split("/").pop() || `image-${index + 1}.jpg`),
+        text: img.alt,
+        tags: []
+      }));
 
-    const albumName = albumFrom(title);
+      const albumName = albumFrom(title);
 
-    const album: any = {
-      rootFolder: RootFolder.siteContent,
-      name: albumName,
-      baseUrl: path,
-      aspectRatio: null,
-      contentMetaDataType: "gallery",
-      files,
-      coverImage: files.length > 0 ? files[0].image : "",
-      imageTags: [],
-      maxImageSize: 1024
-    };
+      const album: ContentMetadata = {
+        rootFolder: RootFolder.siteContent,
+        name: albumName,
+        aspectRatio: null,
+        files,
+        coverImage: null,
+        imageTags: [],
+        maxImageSize: 1024
+      };
 
-    const pageContent: PageContent = {
-      path: albumName,
-      rows: [
-        {
-          maxColumns: 1,
-          showSwiper: false,
-          type: PageContentType.ALBUM,
-          columns: [
-            {
-              columns: 12,
-              accessLevel: AccessLevel.public,
+      const pageContent: PageContent = {
+        path: albumName,
+        rows: [
+          {
+            maxColumns: 1,
+            showSwiper: false,
+            type: PageContentType.ALBUM,
+            columns: [
+              {
+                columns: 12,
+                accessLevel: AccessLevel.public,
+              }
+            ],
+            carousel: {
+              name: albumName,
+              createdAt: null,
+              createdBy: null,
+              eventType: "walks",
+              title,
+              subtitle: `Photos from ${toTitleCase(title)}`,
+              showTitle: true,
+              introductoryText: "To be completed",
+              coverImageHeight: 400,
+              coverImageBorderRadius: 6,
+              showCoverImageAndText: false,
+              showPreAlbumText: true,
+              preAlbumText: null,
+              albumView: AlbumView.GRID,
+              gridViewOptions: {
+                showTitles: true,
+                showDates: true
+              },
+              galleryViewOptions: {
+                thumbPosition: "left",
+                imageSize: "cover",
+                thumbImageSize: "cover",
+                loadingStrategy: "lazy",
+                dotsPosition: "bottom"
+              },
+              allowSwitchView: true,
+              showStoryNavigator: true,
+              showIndicators: true,
+              slideInterval: 5000,
+              height: null,
+              eventId: null,
+              eventDate: null
             }
-          ],
-          carousel: {
-            name: albumName,
-            createdAt: null,
-            createdBy: null,
-            eventType: "walks",
-            title,
-            subtitle: `Photos from ${toTitleCase(title)}`,
-            showTitle: true,
-            introductoryText: "To be completed",
-            coverImageHeight: 400,
-            coverImageBorderRadius: 6,
-            showCoverImageAndText: false,
-            showPreAlbumText: true,
-            preAlbumText: null,
-            albumView: AlbumView.GRID,
-            gridViewOptions: {
-              showTitles: true,
-              showDates: true
-            },
-            galleryViewOptions: {
-              thumbPosition: "left",
-              imageSize: "cover",
-              thumbImageSize: "cover",
-              loadingStrategy: "lazy",
-              dotsPosition: "bottom"
-            },
-            allowSwitchView: true,
-            showStoryNavigator: true,
-            showIndicators: true,
-            slideInterval: 5000,
-            height: null,
-            eventId: null,
-            eventDate: null
           }
-        }
-      ]
-    };
+        ]
+      };
 
-    if (persistData) {
-      debugLog("✅ Saving album:", album);
-      const savedAlbum = await mongooseClient.create(contentMetadata, album);
-      debugLog(`✅ Created album for ${title} at /${albumName} with ${pluraliseWithCount(files.length, "image")}:`, savedAlbum);
+      if (persistData) {
+        debugLog("✅ Saving album:", album);
+        const savedAlbum = await mongooseClient.create<ContentMetadata>(contentMetadata, album);
+        debugLog(`✅ Created album for ${title} at /${albumName} with ${pluraliseWithCount(files.length, "image")}:`, savedAlbum);
 
-      debugLog("✅ Saving page content:", pageContent);
-      const savedPageContent = await mongooseClient.create(pageContentModel, pageContent);
-      debugLog(`✅ Created page content for ${title} at /${pageContent.path}:`, savedPageContent);
-    } else {
-      debugLog(`✅ Created album for ${title} at /${albumName} with ${pluraliseWithCount(files.length, "image")} (dry run):`, album);
-      debugLog(`✅ Created page content for ${title} at /${pageContent.path} (dry run):`, pageContent);
+        debugLog("✅ Saving page content:", pageContent);
+        const savedPageContent = await mongooseClient.create<PageContent>(pageContentModel, pageContent);
+        debugLog(`✅ Created page content for ${title} at /${pageContent.path}:`, savedPageContent);
+        albums.push({album: savedAlbum, pageContent: savedPageContent});
+      } else {
+        debugLog(`✅ Created album for ${title} at /${albumName} with ${pluraliseWithCount(files.length, "image")} (dry run):`, album);
+        debugLog(`✅ Created page content for ${title} at /${pageContent.path} (dry run):`, pageContent);
+        albums.push({album, pageContent});
+      }
+    } catch (error) {
+      debugLog(`❌ Error scraping ${path}:`, error);
     }
   }
 
   await browser.close();
+  return albums;
 }
 
 function toTitleCase(str: string): string {
   return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
 }
 
-export async function migrateNorthWestKentRamblers(req: Request, res: Response, next: NextFunction): Promise<void> {
+const specificAlbums: PageLink[] = [
+  {path: `${baseUrl}/WhiteCliffsofDoverMay2025`, title: "White Cliffs of Dover May 2025"},
+  {path: `${baseUrl}/Eastbourne-SevenSisters082022`, title: "Eastbourne - Seven Sisters 08/2022"}
+];
+
+export async function migrateAlbums(req: Request, res: Response): Promise<void> {
   try {
-    const pages = await scrapeKentRamblers();
+    const response: MigratedAlbum[] = await createPhotoGalleryAlbums(baseUrl, specificAlbums);
+    res.json({
+      type: MessageType.COMPLETE,
+      data: {
+        action: ApiAction.UPDATE,
+        response: `✅ Migrated ${pluraliseWithCount(response.length, "album")}`,
+        albums: response
+      }
+    });
+  } catch (error) {
+    handleError(error, res);
+  }
+}
+
+export async function migrateNorthWestKentRamblers(req: Request, res: Response): Promise<void> {
+  try {
+    const pages: ScrapedPage[] = await scrapeStaticSite(baseUrl);
     const pageContents: PageContent[] = [];
     const contentTextItems: ContentText[] = [];
 
@@ -360,20 +453,25 @@ export async function migrateNorthWestKentRamblers(req: Request, res: Response, 
       debugLog(`✅ Migrated ${content.title} to /${pageContent.path}`);
     }
 
-    await createPhotoGalleryAlbums();
+    const albums = await createPhotoGalleryAlbums(baseUrl, specificAlbums);
 
     debugLog("✅ North West Kent Ramblers migration complete!");
     res.json({
       type: MessageType.COMPLETE,
       data: {
         action: ApiAction.UPDATE,
-        response: `✅ North West Kent Ramblers migration complete: ${pluraliseWithCount(pageContents.length, "page")} and ${pluraliseWithCount(contentTextItems.length, "content text item")} were migrated, plus photo gallery albums`,
+        response: `✅ North West Kent Ramblers migration complete: ${pluraliseWithCount(pageContents.length, "page")} and ${pluraliseWithCount(contentTextItems.length, "content text item")} were migrated, plus ${pluraliseWithCount(albums.length, "album")}`,
         pageContents,
-        contentTextItems
+        contentTextItems,
+        albums
       }
     });
   } catch (error) {
-    debugLog("❌ Error: migration failed:", error);
-    res.status(500).json({ error: error.toString() });
+    handleError(error, res);
   }
+}
+
+function handleError(error: Error, res: Response<any, Record<string, any>>) {
+  debugLog("❌ Error: migration failed:", error);
+  res.status(500).json({error: error.message, stack: error.stack});
 }
