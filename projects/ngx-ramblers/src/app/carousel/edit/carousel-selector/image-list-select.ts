@@ -12,6 +12,7 @@ import { BroadcastService } from "../../../services/broadcast-service";
 import { FormsModule } from "@angular/forms";
 import { NgStyle } from "@angular/common";
 import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
+import first from "lodash-es/first";
 
 @Component({
   selector: "app-image-list-select",
@@ -20,7 +21,7 @@ import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge
     <div class="form-inline">
       <select [(ngModel)]="selectedContentMetadata"
               [id]="id"
-              [size]="allContentMetadata?.length || 1"
+              [size]="multiple? allContentMetadata?.length || 1 : null"
               (ngModelChange)="emitAndPublishMetadata($event)"
               class="form-control mr-2" [ngStyle]="{'max-width.px': maxWidth}" [multiple]="multiple">
         @for (contentMetadata of allContentMetadata; track contentMetadata) {
@@ -43,13 +44,11 @@ export class ImageListSelect implements OnInit {
   contentMetadataService = inject(ContentMetadataService);
   pageContentService = inject(PageContentService);
   stringUtils = inject(StringUtilsService);
-  private broadcastService = inject<BroadcastService<ContentMetadata[]>>(BroadcastService);
+  private broadcastService = inject<BroadcastService<ContentMetadata[] | ContentMetadata>>(BroadcastService);
 
   @Input() public multiple: boolean;
   @Input() public name: string;
-
   @Input() public id: string;
-
   @Input() public maxWidth: number;
 
   @Input("showNewButton") set showNewButtonValue(showNewButton: boolean) {
@@ -58,14 +57,13 @@ export class ImageListSelect implements OnInit {
 
   public showNewButton: boolean;
 
-  @Output() metadataChange: EventEmitter<ContentMetadata[]> = new EventEmitter(); // Changed to array
+  @Output() metadataChange: EventEmitter<ContentMetadata | ContentMetadata[]> = new EventEmitter();
   @Output() nameEditToggle: EventEmitter<boolean> = new EventEmitter();
 
   protected readonly faPencil = faPencil;
   protected readonly faPlus = faPlus;
-  public selectedContentMetadata: ContentMetadata[];
+  public selectedContentMetadata: ContentMetadata | ContentMetadata[];
   public allContentMetadata: ContentMetadata[];
-
 
   ngOnInit() {
     this.logger.debug("ngOnInit:name", this.name);
@@ -79,7 +77,9 @@ export class ImageListSelect implements OnInit {
   }
 
   emitAndPublishMetadata(contentMetadata: ContentMetadata[]) {
-    this.metadataChange.emit(contentMetadata);
-    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.CONTENT_METADATA_CHANGED, contentMetadata));
+    const emittedData = !this.multiple ? first(contentMetadata) : contentMetadata;
+    this.logger.info("emitAndPublishMetadata:", contentMetadata, "multiple:", this.multiple, "emittedData:", emittedData);
+    this.metadataChange.emit(emittedData);
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.CONTENT_METADATA_CHANGED, emittedData));
   }
 }
