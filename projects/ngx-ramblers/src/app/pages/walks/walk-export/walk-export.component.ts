@@ -106,7 +106,7 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
                                  type="checkbox" class="custom-control-input"/>
                           <label class="custom-control-label"></label>
                         </div>
-                      </dl><div>walkExport.displayedWalk?.walkLink:{{walkExport.displayedWalk?.walkLink}}</div>
+                      </dl>
                       <h3 class="card-title">
                         <a tooltip="View this walk in another tab" placement="auto"
                            [href]="walkExport.displayedWalk?.walkLink" class="rams-text-decoration-pink active"

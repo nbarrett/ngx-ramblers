@@ -25,23 +25,23 @@ import { ImageListSelect } from "./image-list-select";
           <div class="col-sm-12 mb-2 mt-2">
             <h6>Edit images from</h6>
             <div class="form-inline">
-              <app-image-list-select multiple="true"  [maxWidth]="1300" [name]="name"
+              <app-image-list-select multiple="true" [maxWidth]="1300" [name]="name"
                                      (metadataChange)="metadataChange($event)"/>
               @if (confirm.deleteConfirmOutstanding()) {
-                <app-badge-button [disabled]="!selectedContentMetadata?.length"
+                <app-badge-button [disabled]="!selectedContentMetadata"
                                   caption="Confirm Delete of Selected Image Lists"
                                   (click)="deleteAlbums()"
                                   [icon]="faEraser"/>
-                <app-badge-button [disabled]="!selectedContentMetadata?.length"
+                <app-badge-button [disabled]="!selectedContentMetadata"
                                   caption="Cancel Delete of Selected Image Lists"
                                   (click)="confirm.clear()"
                                   [icon]="faEraser"/>
               } @else {
-                <app-badge-button [disabled]="!selectedContentMetadata?.length"
+                <app-badge-button [disabled]="!selectedContentMetadata|| selectedContentMetadata.length>1"
                                   caption="View Selected Image List"
                                   (click)="navigateToSelected()"
                                   [icon]="faEye"/>
-                <app-badge-button [disabled]="!selectedContentMetadata?.length"
+                <app-badge-button [disabled]="!selectedContentMetadata"
                                   caption="Delete Selected Image Lists"
                                   (click)="confirm.as(ConfirmType.DELETE)"
                                   [icon]="faEraser"/>
@@ -154,5 +154,7 @@ export class ImageListSelectorComponent implements OnInit {
 
   metadataChange(contentMetadata: ContentMetadata[]) {
     this.selectedContentMetadata = contentMetadata || [];
+    this.logger.info("metadataChange:selectedContentMetadata", this.selectedContentMetadata);
+
   }
 }
