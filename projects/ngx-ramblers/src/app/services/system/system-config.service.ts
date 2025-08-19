@@ -27,6 +27,7 @@ import cloneDeep from "lodash-es/cloneDeep";
 import isEqual from "lodash-es/isEqual";
 import { WalkListView } from "../../models/walk.model";
 import { RAMBLERS_LANDING_PAGE } from "../../models/images.model";
+import { HasStyles, LinkStyle, ListStyle } from "../../models/content-text.model";
 
 @Injectable({
   providedIn: "root"
@@ -215,8 +216,14 @@ export class SystemConfigService {
       },
     };
   }
+
+  defaultHasStyles(): HasStyles {
+    return {list: ListStyle.ARROW, link: LinkStyle.NORMAL};
+  }
+
   default(): SystemConfig {
     return {
+      globalStyles: this.defaultHasStyles(),
       enableMigration: {events: false},
       googleAnalytics: this.googleAnalyticsDefaults(),
       recaptcha: this.recaptchaDefaults(),

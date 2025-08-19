@@ -1,0 +1,58 @@
+@import "./colours"
+
+.rams-text-decoration
+  text-decoration: none
+  background-position: 0 100%
+  background-repeat: no-repeat
+  background-size: 100% .3em
+
+.rams-text-decoration:hover
+  background-image: none
+  text-decoration: none
+  color: $ramblers-colour-granite
+
+
+.rams-text-decoration-light
+  @extend .rams-text-decoration
+  background-image: linear-gradient($ramblers-colour-cloudy, $ramblers-colour-cloudy)
+
+
+.rams-text-decoration-green
+  @extend .rams-text-decoration
+  background-image: linear-gradient($ramblers-colour-mintcake, $ramblers-colour-mintcake)
+
+.rams-text-decoration-pink
+  @extend .rams-text-decoration
+  background-image: linear-gradient($ramblers-colour-rosycheeks, $ramblers-colour-rosycheeks)
+
+.rams-text-decoration-pink:hover
+  background-image: none
+  text-decoration: none
+  color: $ramblers-colour-granite
+
+
+.markdown-link-pink a
+  @extend .rams-text-decoration-pink
+
+.markdown-link-green a
+  @extend .rams-text-decoration-green
+
+.markdown-link-default-normal a
+  color: $ramblers-colour-granite
+  font-weight: normal
+  text-decoration: underline
+
+.markdown-link-default-normal a:hover
+  text-decoration: none
+  color: $ramblers-colour-granite
+
+
+.markdown-link-default-bold a
+  @extend .markdown-link-default-normal
+  font-weight: bold
+  text-decoration: underline
+
+.markdown-link-default-bold a:hover
+  text-decoration: none
+  color: $ramblers-colour-granite
+

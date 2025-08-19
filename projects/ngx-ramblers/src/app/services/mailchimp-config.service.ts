@@ -11,7 +11,7 @@ import map from "lodash-es/map";
 })
 export class MailchimpConfigService {
 
-  private config = inject(ConfigService);
+  private config: ConfigService = inject(ConfigService);
   public campaignDefaults: MailchimpCampaignDefaults = {
     from_name: null,
     from_email: null,

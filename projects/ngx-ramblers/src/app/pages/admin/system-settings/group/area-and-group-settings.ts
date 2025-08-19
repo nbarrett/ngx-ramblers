@@ -40,10 +40,10 @@ import { EM_DASH } from "../../../../models/content-text.model";
         </div>
         <div class="col-md-6">
           <div class="form-group">
-            <label for="group-short-name">Area Name</label>
+            <label for="area-name">Area Name</label>
             <input [(ngModel)]="config.area.shortName"
                    type="text" class="form-control input-sm"
-                   id="group-short-name"
+                   id="area-name"
                    placeholder="Enter a 2 digit Area Code">
           </div>
         </div>

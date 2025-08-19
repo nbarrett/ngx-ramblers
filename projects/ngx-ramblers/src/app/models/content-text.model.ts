@@ -22,11 +22,30 @@ export enum StringMatch {
 }
 
 export enum ListStyle {
-  ARROW = "arrow",
   NO_IMAGE = "no-image",
+  ARROW = "arrow",
   TICK_LARGE = "tick-large",
   TICK_MEDIUM = "tick-medium",
 }
+
+export enum LinkStyle {
+  BOLD = "markdown-link-default-bold",
+  NORMAL = "markdown-link-default-normal",
+  PINK = "markdown-link-pink",
+  GREEN = "markdown-link-green",
+}
+
+export interface ListStyleMapping {
+  key: ListStyle;
+  class: string;
+}
+
+export const ListStyleMappings: { [key in ListStyle]: string } = {
+  [ListStyle.NO_IMAGE]: "list-default",
+  [ListStyle.ARROW]: "list-arrow",
+  [ListStyle.TICK_LARGE]: "list-tick-large",
+  [ListStyle.TICK_MEDIUM]: "list-tick-medium",
+};
 
 export interface ContentText {
   id?: string;
@@ -36,7 +55,12 @@ export interface ContentText {
   styles?: ContentTextStyles;
 }
 
-export interface ContentTextStyles extends HasClass {
+export interface HasStyles {
+  list?: ListStyle;
+  link?: LinkStyle;
+}
+
+export interface ContentTextStyles extends HasStyles, HasClass {
   list?: ListStyle;
 }
 
