@@ -1,6 +1,7 @@
 import { Link } from "./page.model";
 import { HasClass, HasColour } from "./banner-configuration.model";
 import { WalkListView } from "./walk.model";
+import { HasStyles } from "./content-text.model";
 
 export enum SystemSettingsTab {
   AREA_AND_GROUP = "Area & Group",
@@ -8,9 +9,9 @@ export enum SystemSettingsTab {
   ICONS = "Icons",
   LOGOS = "Logos",
   IMAGES = "Images",
+  STYLES = "Styles",
   WEBSITE_HEADER = "Header",
   WEBSITE_FOOTER = "Footer",
-  RAMBLERS_DETAILS = "Ramblers Details",
   EXTERNAL_SYSTEMS = "External Systems",
 }
 
@@ -169,6 +170,7 @@ export interface Images {
 export const defaultImage: Image = {padding: 0, width: 150, originalFileName: null, awsFileName: null};
 
 export interface SystemConfig {
+  globalStyles: HasStyles;
   icons: Images;
   backgrounds: Images
   logos: Images

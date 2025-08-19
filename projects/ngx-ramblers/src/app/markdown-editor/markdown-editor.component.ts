@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import {
   faAngleDown,
@@ -23,8 +23,9 @@ import {
   ContentTextUsageWithTracking,
   DataAction,
   EditorInstanceState,
-  EditorState,
+  EditorState, HasStyles,
   ListStyle,
+  ListStyleMappings,
   View
 } from "../models/content-text.model";
 import { BroadcastService } from "../services/broadcast-service";
@@ -40,12 +41,14 @@ import { BadgeButtonComponent } from "../modules/common/badge-button/badge-butto
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FormsModule } from "@angular/forms";
 import { MarkdownComponent } from "ngx-markdown";
-import { NgClass } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { KebabCasePipe } from "../pipes/kebabcase.pipe";
 import { DuplicateContentDetectionService } from "../services/duplicate-content-detection-service";
 import { ALERT_WARNING } from "../models/alert-target.model";
 import { UrlService } from "../services/url.service";
+import { SystemConfig } from "../models/system.model";
+import { Subscription } from "rxjs";
+import { SystemConfigService } from "../services/system/system-config.service";
 
 @Component({
   selector: "app-markdown-editor",
@@ -115,12 +118,7 @@ import { UrlService } from "../services/url.service";
           </span>
       }
       @if (!renderInline()) {
-        <div [class]="contentStylesClass()"
-             [ngClass]="{
-            'list-default': content?.styles?.list===ListStyle.NO_IMAGE,
-            'list-arrow': content?.styles?.list===ListStyle.ARROW||!content?.styles?.list,
-            'list-tick-medium': content?.styles?.list===ListStyle.TICK_MEDIUM,
-            'list-tick-large': content?.styles?.list===ListStyle.TICK_LARGE}"
+        <div [class]="contentStyleClasses()"
              (click)="toggleEdit()" markdown ngPreserveWhitespaces [data]="content.text">
         </div>
       }
@@ -162,9 +160,9 @@ import { UrlService } from "../services/url.service";
       </div>
     }
   `,
-  imports: [BadgeButtonComponent, TooltipDirective, FormsModule, MarkdownComponent, NgClass, FontAwesomeModule, KebabCasePipe]
+  imports: [BadgeButtonComponent, TooltipDirective, FormsModule, MarkdownComponent, FontAwesomeModule, KebabCasePipe]
 })
-export class MarkdownEditorComponent implements OnInit {
+export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
   @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {
     this.presentationMode = coerceBooleanProperty(presentationMode);
@@ -227,6 +225,7 @@ export class MarkdownEditorComponent implements OnInit {
   }
 
   private logger: Logger = inject(LoggerFactory).createLogger("MarkdownEditorComponent", NgxLoggerLevel.ERROR);
+  private systemConfigService: SystemConfigService = inject(SystemConfigService);
   private uiActionsService = inject(UiActionsService);
   private broadcastService = inject<BroadcastService<ContentText>>(BroadcastService);
   private contentTextService = inject(ContentTextService);
@@ -235,7 +234,7 @@ export class MarkdownEditorComponent implements OnInit {
   protected stringUtilsService = inject(StringUtilsService);
   protected siteEditService = inject(SiteEditService);
   private urlService = inject(UrlService);
-
+  private systemConfig: SystemConfig;
   @Input() id: string;
   @Input() rows: number;
   @Input() actionCaptionSuffix: string;
@@ -272,9 +271,8 @@ export class MarkdownEditorComponent implements OnInit {
   public text: string;
   public category: string;
   private hideParameterName: string;
-  protected readonly ListStyle = ListStyle;
   protected readonly ALERT_WARNING = ALERT_WARNING;
-
+  private subscriptions: Subscription[] = [];
   async ngOnInit() {
     this.logger.info("ngOnInit:name", this.name, "data:", this.data, "description:", this.description);
     this.hideParameterName = this.stringUtilsService.kebabCase(StoredValue.MARKDOWN_FIELD_HIDDEN, this.name);
@@ -292,19 +290,21 @@ export class MarkdownEditorComponent implements OnInit {
       await this.queryContent();
       this.setDescription();
     }
-    this.siteEditService.events.subscribe((item: NamedEvent<boolean>) => {
+    this.subscriptions.push(this.siteEditService.events.subscribe((item: NamedEvent<boolean>) => {
       this.logger.info("siteEditService.events.subscribe:", this.name, "this.editorState.view", this.editorState.view, "siteEditService:event", item);
       this.editorState.view = item.data ? View.EDIT : View.VIEW;
-    });
+    }));
     if (this.allowHide) {
       const currentlyHidden = this.uiActionsService.initialBooleanValueFor(this.hideParameterName, false);
       this.show = !currentlyHidden;
     }
+    this.subscriptions.push(this.systemConfigService.events().subscribe((systemConfig: SystemConfig) => this.systemConfig = systemConfig));
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_EDITOR_CREATED, this));
   }
 
   ngOnDestroy(): void {
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_EDITOR_DESTROYED, this));
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   public assignListStyleTo(listStyle: ListStyle) {
@@ -585,16 +585,20 @@ export class MarkdownEditorComponent implements OnInit {
     return this.content?.styles?.class === "as-button";
   }
 
-  contentStylesClass() {
-    return this.content?.styles?.class ? `${this.content?.styles?.class} background-panel` : null;
+  contentStyleClasses() {
+    const defaultStyles: HasStyles = this.systemConfigService.defaultHasStyles();
+    const listStyle = ListStyleMappings[this.content?.styles?.list || this.systemConfig?.globalStyles?.list || defaultStyles.list];
+    const contentStyle = this.content?.styles?.class ? `${this.content?.styles?.class} background-panel` : null;
+    const linkStyle = this.systemConfig?.globalStyles?.link || defaultStyles.link;
+    const classes = [listStyle, contentStyle, linkStyle].filter(Boolean).join(" ");
+    this.logger.info("contentStyleClasses:listStyle:", listStyle, "contentStyle:", contentStyle, "linkStyle:", linkStyle, "classes:", classes);
+    return classes;
   }
 
   navigateToUsage(usage: ContentTextUsage) {
     if (usage.contentPath) {
-      // Navigate to another page
       this.markdownEditorFocusService.setFocusTo(usage?.editorInstance);
     } else {
-      // Focus on the current page
       this.markdownEditorFocusService.setFocusTo(usage?.editorInstance);
     }
   }

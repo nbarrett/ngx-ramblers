@@ -30,17 +30,18 @@ import { FormsModule } from "@angular/forms";
 import { LinksEditComponent } from "../../../modules/common/links-edit/links-edit";
 import { ColourSelectorComponent } from "../../banner/colour-selector";
 import { MailProviderSettingsComponent } from "./mail-provider/mail-provider-settings";
-import { SystemMeetupSettingsComponent } from "./meetup/system-meetup-settings";
-import { SystemRecaptchaSettingsComponent } from "./recaptcha/system-recaptcha-settings";
+import { SystemMeetupSettingsComponent } from "./external/system-meetup-settings";
+import { SystemRecaptchaSettingsComponent } from "./external/system-recaptcha-settings";
 import { SystemGoogleAnalyticsSettings } from "./google-analytics/system-google-analytics-settings";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgClass } from "@angular/common";
-import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-ratio-selector/aspect-ratio-selector";
-import { FileSizeSelectorComponent } from "../../../carousel/edit/file-size-selector/file-size-selector";
-import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
 import { faAdd, faPencil } from "@fortawesome/free-solid-svg-icons";
-import { ImageCollectionSettingsComponent } from "./image-collection/image-collection-settings";
+import { ImageCollectionSettingsComponent } from "./images/image-collection-settings";
 import { AreaAndGroupSettingsComponent } from "./group/area-and-group-settings";
+import { ImageSettings } from "./images/image-settings";
+import { GlobalStyles } from "./styles/global-styles";
+import { InstagramSettings } from "./external/system-instagram-settings";
+import { RamblersSettings } from "./external/ramblers-settings";
 
 @Component({
     selector: "app-system-settings",
@@ -54,63 +55,41 @@ import { AreaAndGroupSettingsComponent } from "./group/area-and-group-settings";
                      heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.AREA_AND_GROUP)}}"
                      [config]="config"
                      [active]="tabActive(SystemSettingsTab.AREA_AND_GROUP)"
-                     (selectTab)="selectTab(SystemSettingsTab.AREA_AND_GROUP)">
-                </tab>
+                     (selectTab)="selectTab(SystemSettingsTab.AREA_AND_GROUP)"/>
                 <tab app-image-collection-settings
                      heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.BACKGROUNDS)}}"
                      [active]="tabActive(SystemSettingsTab.BACKGROUNDS)"
                      (selectTab)="selectTab(SystemSettingsTab.BACKGROUNDS)"
                      [rootFolder]="backgrounds"
                      [config]="config"
-                     [images]="config.backgrounds">
-                </tab>
+                     [images]="config.backgrounds"/>
                 <tab app-image-collection-settings
                      heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.ICONS)}}"
                      [active]="tabActive(SystemSettingsTab.ICONS)"
                      (selectTab)="selectTab(SystemSettingsTab.ICONS)"
                      [rootFolder]="icons"
                      [config]="config"
-                     [images]="config.icons">
-                </tab>
+                     [images]="config.icons"/>
                 <tab app-image-collection-settings
                      heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.LOGOS)}}"
                      [active]="tabActive(SystemSettingsTab.LOGOS)"
                      (selectTab)="selectTab(SystemSettingsTab.LOGOS)"
                      [rootFolder]="logos"
                      [config]="config"
-                     [images]="config.logos">
-                </tab>
-                <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.IMAGES)}}"
+                     [images]="config.logos"/>
+                <tab app-image-settings heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.IMAGES)}}"
+                     [config]="config"
                      [active]="tabActive(SystemSettingsTab.IMAGES)"
-                     (selectTab)="selectTab(SystemSettingsTab.IMAGES)">
-                  <div class="img-thumbnail thumbnail-admin-edit">
-                    <div class="row img-thumbnail thumbnail-2">
-                      <div class="thumbnail-heading">Image List Defaults</div>
-                      @if (config?.images?.imageLists) {
-                        <div class="col-sm-12">
-                          <app-aspect-ratio-selector label="Default Aspect Ratio"
-                                                     [dimensionsDescription]="config.images.imageLists.defaultAspectRatio"
-                                                     (dimensionsChanged)="config.images.imageLists.defaultAspectRatio=($event.description)"/>
-                        </div>
-                        <div class="col-sm-12 my-3">
-                          <app-file-size-selector label="Default Maximum Image Size"
-                                                  [fileSize]="config.images.imageLists.defaultMaxImageSize"
-                                                  (fileSizeChanged)="config.images.imageLists.defaultMaxImageSize=$event"/>
-                        </div>
-                      } @else {
-                        <div class="col-sm-12">
-                          <app-badge-button (click)="config.images=systemConfigService.imagesDefaults()"
-                                            [icon]="faAdd" caption="No Image List Defaults - Create"/>
-                        </div>
-                      }
-                    </div>
-                  </div>
-                </tab>
+                     (selectTab)="selectTab(SystemSettingsTab.IMAGES)"/>
+                <tab app-global-styles heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.STYLES)}}"
+                     [config]="config"
+                     [active]="tabActive(SystemSettingsTab.STYLES)"
+                     (selectTab)="selectTab(SystemSettingsTab.STYLES)"/>
                 <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.WEBSITE_HEADER)}}"
                      [active]="tabActive(SystemSettingsTab.WEBSITE_HEADER)"
                      (selectTab)="selectTab(SystemSettingsTab.WEBSITE_HEADER)">
                   <div class="img-thumbnail thumbnail-admin-edit">
-                    <app-links-edit [heading]="'Header Buttons'" [links]="config.header.navigationButtons"/>
+                    <app-links-edit heading="Header Buttons" [links]="config.header.navigationButtons"/>
                     <div class="img-thumbnail thumbnail-2">
                       <div class="thumbnail-heading">Header Bar</div>
                       <div class="row">
@@ -306,8 +285,8 @@ import { AreaAndGroupSettingsComponent } from "./group/area-and-group-settings";
                       </div>
                     </div>
                     <app-links-edit [heading]='"Column 2: Quick Links"'
-                                    [links]="config.footer.quickLinks"></app-links-edit>
-                    <app-links-edit [heading]='"Column 3: Legals"' [links]="config.footer.legals"></app-links-edit>
+                                    [links]="config.footer.quickLinks"/>
+                    <app-links-edit [heading]='"Column 3: Legals"' [links]="config.footer.legals"/>
                     <div class="row img-thumbnail thumbnail-2">
                       <div class="thumbnail-heading">Column 4: Download Links</div>
                       <div class="col-sm-12">
@@ -327,155 +306,14 @@ import { AreaAndGroupSettingsComponent } from "./group/area-and-group-settings";
                     </div>
                   </div>
                 </tab>
-                <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.RAMBLERS_DETAILS)}}"
-                     [active]="tabActive(SystemSettingsTab.RAMBLERS_DETAILS)"
-                     (selectTab)="selectTab(SystemSettingsTab.RAMBLERS_DETAILS)">
-                  <div class="img-thumbnail thumbnail-admin-edit">
-                    @if (config?.national?.mainSite) {
-                      <div class="row">
-                        <div class="col-md-5">
-                          <div class="form-group">
-                            <label for="main-site-href">Main Site Web Url</label>
-                            <input [(ngModel)]="config.national.mainSite.href"
-                                   id="main-site-href"
-                                   type="text" class="form-control input-sm"
-                                   placeholder="Enter main site link">
-                          </div>
-                        </div>
-                        <div class="col-md-4">
-                          <div class="form-group">
-                            <label for="main-site-title">Main Site Name</label>
-                            <input [(ngModel)]="config.national.mainSite.title"
-                                   id="main-site-title"
-                                   type="text" class="form-control input-sm"
-                                   placeholder="Enter main site title">
-                          </div>
-                        </div>
-                        <div class="col-md-3">
-                          <div class="form-group">
-                            <label>Link Preview</label>
-                          </div>
-                          <div class="form-group">
-                            <a
-                              [href]="config.national.mainSite.href">{{ config.national.mainSite.title || config.national.mainSite.href }}</a>
-                          </div>
-                        </div>
-                        <div class="col-md-5">
-                          <div class="form-group">
-                            <label for="walks-manager-href">Walks Manager Web Url</label>
-                            <input [(ngModel)]="config.national.walksManager.href" id="walks-manager-href"
-                                   type="text" class="form-control input-sm"
-                                   placeholder="Enter Walks Manager site link">
-                          </div>
-                        </div>
-                        <div class="col-md-4">
-                          <div class="form-group">
-                            <label for="walks-manager-title">Walks Manager Name</label>
-                            <input [(ngModel)]="config.national.walksManager.title"
-                                   id="walks-manager-title"
-                                   type="text" class="form-control input-sm"
-                                   placeholder="Enter Walks Manager site title">
-                          </div>
-                        </div>
-                        <div class="col-md-3">
-                          <div class="form-group">
-                            <label>Link Preview</label>
-                          </div>
-                          <div class="form-group">
-                            <a
-                              [href]="config.national.walksManager.href">{{ config.national.walksManager.title || config.national.walksManager.href }}</a>
-                          </div>
-                        </div>
-                        <div class="col-md-5">
-                          <form class="form-group">
-                            <label for="walks-manager-user-name">Walks Manager User Name</label>
-                            <input [(ngModel)]="config.national.walksManager.userName"
-                                   id="walks-manager-user-name"
-                                   autocomplete="nope"
-                                   name="newPassword"
-                                   type="text" class="form-control input-sm"
-                                   placeholder="Enter Walks Manager userName">
-                          </form>
-                        </div>
-                        <div class="col-md-4">
-                          <form class="form-group">
-                            <label for="walks-manager-password">Walks Manager password</label>
-                            <input autocomplete="nope"
-                                   [(ngModel)]="config.national.walksManager.password"
-                                   type="text" class="form-control input-sm"
-                                   id="walks-manager-password"
-                                   name="password"
-                                   placeholder="Enter Walks Manager password">
-                          </form>
-                        </div>
-                        <div class="col-md-3">
-                          <form class="form-group">
-                            <label for="walks-manager-api-key">Walks Manager API Key</label>
-                            <input [(ngModel)]="config.national.walksManager.apiKey"
-                                   autocomplete="nope"
-                                   id="walks-manager-api-key"
-                                   name="apiKey"
-                                   type="text" class="form-control input-sm"
-                                   placeholder="Enter Walks Manager API key">
-                          </form>
-                        </div>
-                      </div>
-                    }
-                  </div>
-                </tab>
                 <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.EXTERNAL_SYSTEMS)}}"
                      [active]="tabActive(SystemSettingsTab.EXTERNAL_SYSTEMS)"
                      (selectTab)="selectTab(SystemSettingsTab.EXTERNAL_SYSTEMS)">
                   <div class="img-thumbnail thumbnail-admin-edit">
+                    <app-ramblers-settings [config]="config"/>
                     <app-mail-provider-settings [config]="config"
                                                 (membersPendingSave)="membersPendingSave=$event"/>
-                    <div class="row img-thumbnail thumbnail-2">
-                      <div class="thumbnail-heading">Instagram</div>
-                      <div class="col-sm-12">
-                        @if (config?.externalSystems.instagram) {
-                          <div class="row align-items-end">
-                            <div class="col-md-6">
-                              <div class="form-group">
-                                <label for="instagram-href">Url</label>
-                                <input [(ngModel)]="config.externalSystems.instagram.groupUrl"
-                                       id="instagram-href"
-                                       type="text" class="form-control input-sm"
-                                       placeholder="Enter Instagram Group Url">
-                              </div>
-                            </div>
-                            <div class="col-md-6">
-                              <div class="form-group">
-                                <label for="instagram-group-name">Group Name</label>
-                                <input [(ngModel)]="config.externalSystems.instagram.groupName"
-                                       id="instagram-group-name"
-                                       type="text" class="form-control input-sm"
-                                       placeholder="Enter Instagram group name">
-                              </div>
-                            </div>
-                            <div class="col-md-12">
-                              <div class="form-group">
-                                <label for="instagram-access-token">Access Token</label>
-                                <input [(ngModel)]="config.externalSystems.instagram.accessToken"
-                                       id="instagram-access-token"
-                                       type="text" class="form-control input-sm"
-                                       placeholder="Enter Instagram Access Token">
-                              </div>
-                            </div>
-                            <div class="col-md-12">
-                              <div class="form-group">
-                                <div class="custom-control custom-checkbox">
-                                  <input [(ngModel)]="config.externalSystems.instagram.showFeed"
-                                         type="checkbox" class="custom-control-input" id="instagram-show-feed">
-                                  <label class="custom-control-label"
-                                         for="instagram-show-feed">Show Instagram Feed
-                                  </label>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        }
-                      </div>
-                    </div>
+                    <app-system-instagram-settings/>
                     <app-system-meetup-settings/>
                     <app-system-recaptcha-settings [config]="config"/>
                     <app-system-google-analytics-settings [config]="config"/>
@@ -511,7 +349,7 @@ import { AreaAndGroupSettingsComponent } from "./group/area-and-group-settings";
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageCollectionSettingsComponent, ColourSelectorComponent, MailProviderSettingsComponent, SystemMeetupSettingsComponent, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, FontAwesomeModule, NgClass, AspectRatioSelectorComponent, FileSizeSelectorComponent, BadgeButtonComponent, AreaAndGroupSettingsComponent]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 
