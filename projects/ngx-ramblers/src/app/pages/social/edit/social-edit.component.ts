@@ -458,6 +458,9 @@ export class SocialEditComponent implements OnInit, OnDestroy {
           if (!this?.socialEvent?.fields?.attendees) {
             this.socialEvent.fields.attendees = [];
           }
+          if (!this?.socialEvent?.fields?.contactDetails) {
+            this.socialEvent.fields.contactDetails = this.eventDefaultsService.defaultContactDetails();
+          }
           this.existingTitle = this.socialEvent?.fields?.attachment?.title;
           this.notify.hide();
           this.selectedMemberIds = this.socialEvent.fields.attendees.map(attendee => attendee.id);
