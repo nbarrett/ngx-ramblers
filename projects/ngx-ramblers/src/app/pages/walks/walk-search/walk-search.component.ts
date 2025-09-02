@@ -21,7 +21,7 @@ import { FilterParameters } from "../../../models/search.model";
     template: `
     @if (!currentWalkId) {
       @if (showPagination) {
-        <div class="row pb-0">
+        <div class="row pb-md-2 pb-sm-0">
           <div class="col-xs-12 mb-3 mb-md-0 col-md-4">
             <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
               (ngModelChange)="onSearchChange($event)"
@@ -40,7 +40,7 @@ import { FilterParameters } from "../../../models/search.model";
               }
             </select>
           </div>
-          <div class="col-xs-12 col-md-4">
+          <div class="col-xs-12 mb-3 mb-md-0 col-md-4">
             <select [(ngModel)]="filterParameters.ascending"
               (ngModelChange)="refreshWalks('change filterParameters.ascending')" name="ascending"
               class="form-control rounded">
@@ -49,12 +49,12 @@ import { FilterParameters } from "../../../models/search.model";
             </select>
           </div>
         </div>
-        <div class="d-flex mt-3">
+        <div class="d-flex" [class.align-items-center]="showAlertInline()" [class.full-width-pagination]="!showAlertInline()">
           <ng-content/>
           @if (showAlertInline()) {
             <div class="flex-grow-1">
               @if (notifyTarget.showAlert) {
-                <div class="alert {{notifyTarget.alertClass}}">
+                <div class="alert {{notifyTarget.alertClass}} mt-1 mb-1">
                   <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
                   <strong>{{ notifyTarget.alertTitle }}</strong>
                   {{ notifyTarget.alertMessage }}
@@ -65,7 +65,7 @@ import { FilterParameters } from "../../../models/search.model";
         </div>
         @if (!showAlertInline()) {
           @if (notifyTarget.showAlert) {
-            <div class="alert {{notifyTarget.alertClass}}">
+            <div class="alert {{notifyTarget.alertClass}} mt-2 mb-0">
               <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
               <strong>{{ notifyTarget.alertTitle }}</strong>
               {{ notifyTarget.alertMessage }}
@@ -177,9 +177,8 @@ export class WalkSearchComponent implements OnInit, OnDestroy {
   }
 
   showAlertInline(): boolean {
-    const showAlertInline: boolean = window.innerWidth >= DeviceSize.EXTRA_LARGE;
-    this.logger.info("window.innerWidth:", window.innerWidth, "showAlertInline ->", showAlertInline);
-    return showAlertInline;
-
+    const inline = window.innerWidth >= DeviceSize.EXTRA_LARGE;
+    this.logger.info("window.innerWidth:", window.innerWidth, "showAlertInline ->", inline);
+    return inline;
   }
 }

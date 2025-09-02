@@ -270,12 +270,12 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   public name: string;
   public text: string;
   public category: string;
-  private hideParameterName: string;
+  private hideParameterName: StoredValue;
   protected readonly ALERT_WARNING = ALERT_WARNING;
   private subscriptions: Subscription[] = [];
   async ngOnInit() {
     this.logger.info("ngOnInit:name", this.name, "data:", this.data, "description:", this.description);
-    this.hideParameterName = this.stringUtilsService.kebabCase(StoredValue.MARKDOWN_FIELD_HIDDEN, this.name);
+    this.hideParameterName = this.stringUtilsService.kebabCase(StoredValue.MARKDOWN_FIELD_HIDDEN, this.name) as StoredValue;
     this.editorState = {
       view: this.initialView || View.VIEW,
       dataAction: DataAction.NONE

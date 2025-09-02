@@ -54,18 +54,19 @@ export function returnTokenOnSuccess(options: ReturnTokenOnSuccessParams) {
   options.status = response.loginResponse.memberLoggedIn || response.loginResponse.showResetPassword ? 200 : 401;
   if (response.loginResponse.memberLoggedIn) {
     const refreshTokenValue = authConfig.randomToken();
-    debugLog("creating new refreshToken:", refreshTokenValue);
+    debugLog("creating new refreshToken:", refreshTokenValue, "for memberPayload:", options.memberCookie);
     return new refreshToken({
       refreshToken: refreshTokenValue,
       memberPayload: options.memberCookie
     })
       .save()
       .then((result: any) => {
-        debugLog("created new refreshToken:", result);
+        debugLog("created new refreshToken document:", result);
         response.tokens = {
           auth: authConfig.signValue(options.memberCookie, authConfig.tokenExpiry.auth),
           refresh: refreshTokenValue
         }
+        debugLog("issuing tokens:", { refresh: response.tokens.refresh, authExpiresInSeconds: authConfig.tokenExpiry.auth });
         options.res.status(options.status).json(response);
       })
       .catch(error => {

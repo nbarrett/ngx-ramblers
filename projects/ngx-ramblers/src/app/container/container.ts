@@ -6,6 +6,7 @@ import { HeaderBarComponent } from "../header-bar/header-bar";
 import { NavbarComponent } from "../modules/common/navbar/navbar";
 import { RouterOutlet } from "@angular/router";
 import { FooterComponent } from "../footer/footer";
+import { DataPopulationService } from "../pages/admin/data-population.service";
 
 @Component({
     selector: "app-root",
@@ -26,10 +27,12 @@ import { FooterComponent } from "../footer/footer";
 })
 export class ContainerComponent implements OnInit, OnDestroy {
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
+  private dataPopulationService = inject(DataPopulationService);
   private subscriptions: Subscription[] = [];
   protected config: SystemConfig;
 
   ngOnInit() {
+    this.dataPopulationService.clearLegacyLocalStorage();
     this.subscriptions.push(this.systemConfigService.events()
       .subscribe((config: SystemConfig) => {
         this.config = config;

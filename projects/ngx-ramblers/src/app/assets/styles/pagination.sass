@@ -1,29 +1,81 @@
 @import "./colours"
 
-.pagination-button
-  margin-right: 8px
-  background-color: $ramblers-colour-sunrise
-  color: $ramblers-colour-granite
+%pager-base
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  padding-top: .75rem
+  padding-bottom: .75rem
+  line-height: 1
   border: none
   border-radius: 6px
 
-.pagination .page-link
-  @extend .pagination-button
+%pager-sunrise
+  background-color: $ramblers-colour-sunrise
+  color: $ramblers-colour-granite
 
-.pagination .page-item.active .page-link
-  @extend .pagination-button
+.pagination
+  .page-item
+    margin-right: 8px
 
-.pagination .pagination-first.page-item.disabled
-  @extend .pagination-button
+  .page-link
+    @extend %pager-base
+    @extend %pager-sunrise
 
-.page-item.disabled .page-link
-  background-color: unset
+  .page-item.active .page-link
+    @extend %pager-base
+    @extend %pager-sunrise
+    font-weight: 700
 
-.pagination .pagination-last.page-item.disabled
-  @extend .pagination-button
+  .page-item.disabled .page-link
+    @extend %pager-base
+    @extend %pager-sunrise
+    cursor: not-allowed
+    color: rgba($ramblers-colour-granite, .45)
+    font-weight: 600
+    pointer-events: none
 
-.pagination .pagination-prev.page-item.disabled
-  @extend .pagination-button
+@media (max-width: 576px)
+  .pagination
+    flex-wrap: nowrap
+    .page-item:not(.pagination-first):not(.pagination-prev):not(.pagination-next):not(.pagination-last)
+      display: none
+    .page-item
+      margin-right: .5rem
 
-.pagination .pagination-next.page-item.disabled
-  @extend .pagination-button
+.pager-btn
+  @extend %pager-base
+  @extend %pager-sunrise
+
+.full-width-pagination
+  width: 100%
+  .row
+    width: 100%
+    &.no-gutters
+      width: 100%
+    > .col-12.col-md.d-flex
+      flex: 1 1 auto
+      max-width: 100%
+  .pagination
+    width: 100%
+    display: flex
+    .page-item
+      flex: 1 1 0
+      &:last-child
+        margin-right: 0
+    .page-link
+      width: 100%
+      text-align: center
+
+@media (max-width: 767.98px)
+  .events-header-full-width
+    .pagination
+      width: 100%
+      display: flex
+      .page-item
+        flex: 1 1 0
+        &:last-child
+          margin-right: 0
+      .page-link
+        width: 100%
+        text-align: center

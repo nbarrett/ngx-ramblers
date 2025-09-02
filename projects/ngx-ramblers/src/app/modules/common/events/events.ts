@@ -28,6 +28,7 @@ import { DateFilterParameters } from "../../../models/search.model";
 import { MongoSort } from "../../../models/mongo-models";
 import { GroupEventField } from "../../../models/walk.model";
 import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
+import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 
 @Component({
     selector: "app-events",
@@ -203,14 +204,15 @@ export class Events implements OnInit, OnDestroy {
     this.pageCount = Math.ceil(this.filteredExtendedGroupEvents.length / this.pageSize);
     this.currentPageFilteredEvents = this.paginate(this.filteredExtendedGroupEvents, this.pageSize, this.pageNumber);
     this.pages = range(1, this.pageCount + 1);
-    this.logger.info("applyPagination: filtered event count", this.filteredExtendedGroupEvents.length, "current page event count", this.currentPageFilteredEvents.length, "pageSize:", this.pageSize, "pageCount", this.pageCount, "pages", this.pages, "currentPageFilteredEvents:", this.currentPageFilteredEvents.map(item => item.id));
     this.logger.info("applyPagination: current page events:", this.currentPageFilteredEvents);
     if (this.currentPageFilteredEvents.length === 0) {
       this.notify.progress("No social events found");
     } else {
       const offset = (this.pageNumber - 1) * this.pageSize + 1;
-      const pageIndicator = this.pageCount > 1 ? `Page ${this.pageNumber} of ${this.pageCount}` : `Page ${this.pageNumber}`;
-      this.notify.progress(`${pageIndicator} — showing ${offset} to ${offset + this.pageSize - 1} of ${this.stringUtils.pluraliseWithCount(this.filteredExtendedGroupEvents.length, "event")}`);
+      const pageIndicator = this.pageCount > 1 ? `page ${this.pageNumber} of ${this.pageCount}` : `page ${this.pageNumber}`;
+      const toEventNumber = Math.min(this.currentPageFilteredEvents?.length + offset - 1, this.filteredExtendedGroupEvents?.length || 0);
+      this.logger.info("applyPagination: filtered event count", this.filteredExtendedGroupEvents.length, "current page event count", this.currentPageFilteredEvents.length, "pageSize:", this.pageSize, "pageCount", this.pageCount, "pages", this.pages, "currentPageFilteredEvents:", this.currentPageFilteredEvents, "toEventNumber:", toEventNumber, "offset:", offset);
+      this.notify.progress(`${offset} to ${toEventNumber} of ${this.stringUtils.pluraliseWithCount(this.filteredExtendedGroupEvents.length, "event")}${EM_DASH_WITH_SPACES}${pageIndicator}`);
     }
   }
 }

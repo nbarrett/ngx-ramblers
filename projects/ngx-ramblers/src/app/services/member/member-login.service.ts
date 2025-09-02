@@ -2,9 +2,9 @@ import { inject, Injectable } from "@angular/core";
 import isEmpty from "lodash-es/isEmpty";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AuthService } from "../../auth/auth.service";
-import { MemberCookie } from "../../models/member.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { UrlService } from "../url.service";
+import { MemberCookie } from "../../models/member.model";
 
 @Injectable({
   providedIn: "root"
@@ -17,7 +17,7 @@ export class MemberLoginService {
   private urlService = inject(UrlService);
 
   loggedInMember(): MemberCookie {
-    const loggedInMember = this.authService.parseAuthPayload() as MemberCookie;
+    const loggedInMember = this.authService.parseAuthToken() as MemberCookie;
     this.logger.debug("loggedInMember", loggedInMember);
     return loggedInMember;
   }

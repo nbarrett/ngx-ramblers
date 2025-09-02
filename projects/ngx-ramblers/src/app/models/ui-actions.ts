@@ -22,8 +22,11 @@ export enum EditMode {
 
 export enum StoredValue {
   ALBUM_TAB = "album-tab",
+  AUTH_TOKEN = "auth-token",
   CAROUSEL="carousel",
+  EDIT_SITE = "edit-site",
   MARKDOWN_FIELD_HIDDEN = "markdown-field-hidden",
+  REFRESH_TOKEN = "refresh-token",
   SHOW_UNREFERENCED_PAGES = "show-unreferenced-pages",
   SOCIAL_DATE_CRITERIA = "social-date-criteria",
   SOCIAL_DATE_SORT = "social-date-sort",
@@ -31,6 +34,12 @@ export enum StoredValue {
   STORY = "story",
   TAB = "tab",
   WALK_LIST_VIEW = "walk-list-view",
+}
+
+export enum LegacyStoredValue {
+  AUTH_TOKEN = "AUTH_TOKEN",
+  REFRESH_TOKEN = "REFRESH_TOKEN",
+  EDIT_SITE = "editSite",
 }
 
 export class Confirm {

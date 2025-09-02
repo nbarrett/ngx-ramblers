@@ -468,13 +468,13 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
       this.notify.success({title: "Progress", message: progressResponse.message});
     }));
     this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.ERROR).subscribe(error => {
-      this.logger.error(`Error:`, error);
-      this.notify.error({title: "Error", message: error});
+        this.logger.error(`Error:`, error);
+        this.notify.error({title: "Error", message: error});
       })
     );
     this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.COMPLETE).subscribe((message: ApiResponse) => {
         this.logger.info(`Task completed:`, message);
-      this.progressResponse = null;
+        this.progressResponse = null;
         if (isArray(message.response)) {
           this.processResizeItemsResponse(message.response);
           this.clearBusy();
@@ -550,7 +550,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.uploader = this.fileUploadService.createUploaderFor(RootFolder.carousels + "/" + this.name, false);
     this.uploader.response.subscribe((response: string | HttpErrorResponse) => {
         const awsFileUploadResponse: AwsFileUploadResponse = this.fileUploadService.handleAwsFileUploadResponse(response, this.notify, this.logger);
-      this.logger.debug("received awsFileUploadResponse:", awsFileUploadResponse);
+        this.logger.info("received awsFileUploadResponse:", awsFileUploadResponse);
         if (awsFileUploadResponse.errors.length > 0) {
           this.notify.error({title: "File upload failed", message: awsFileUploadResponse.errors});
         } else {
@@ -594,7 +594,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
                 } else {
                   this.notify.warning({
                     title: "File upload",
-                    message: `Save cannot take place as out of the ${this.stringUtils.pluraliseWithCount(this.queuedFileCount, "saved file")}, ${this.stringUtils.pluraliseWithCount(this.unsavedImages().length, "appears", "appear")} to not have been saved`
+                    message: `Previous save was not complete as ${this.unsavedImages().length} out of ${this.stringUtils.pluraliseWithCount(this.queuedFileCount, "file")} ${this.stringUtils.pluralise(this.unsavedImages().length, "appears", "appear")} to not have been saved. Try the save operation again.`
                   });
                 }
               }

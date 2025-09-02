@@ -11,11 +11,13 @@ export interface RefreshToken extends Identifiable {
   memberPayload: Member;
 }
 
+export interface Tokens {
+  auth: string;
+  refresh: string;
+}
+
 export interface AuthResponse {
-  tokens: {
-    auth: string;
-    refresh: string;
-  };
+  tokens: Tokens;
   loginResponse: LoginResponse;
   error?: any;
 }
