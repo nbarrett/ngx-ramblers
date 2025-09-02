@@ -24,13 +24,13 @@ import { PageService } from "../../../services/page.service";
   template: `@if (display.allow.admin) {
     @if (showPagination) {
       <ng-container *ngTemplateOutlet="searchAndFilterActions"/>
-      <div class="d-flex">
+      <div class="d-flex flex-column flex-md-row events-header-full-width">
         @if (!eventsData || eventsData?.allow?.pagination) {
           <pagination class="pagination rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="5"
                       [totalItems]="totalItems" [(ngModel)]="pageNumber"
                       (pageChanged)="pageChanged.emit($event)"/>
         }
-        <div class="form-group mb-0 flex-grow-1">
+        <div class="form-group mb-0 flex-grow-1 mt-md-0">
           <ng-container *ngTemplateOutlet="alert"/>
         </div>
       </div>

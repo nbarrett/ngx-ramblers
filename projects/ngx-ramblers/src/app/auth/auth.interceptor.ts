@@ -10,7 +10,7 @@ import { AuthService } from "./auth.service";
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
 
-  private logger: Logger = inject(LoggerFactory).createLogger(AuthInterceptor, NgxLoggerLevel.OFF);
+  private logger: Logger = inject(LoggerFactory).createLogger("AuthInterceptor", NgxLoggerLevel.ERROR);
   authService = inject(AuthService);
   private isRefreshing = false;
   private refreshTokenSubject: BehaviorSubject<any> = new BehaviorSubject<any>(null);
@@ -41,18 +41,18 @@ export class AuthInterceptor implements HttpInterceptor {
   }
 
   private handle401Error(request: HttpRequest<any>, next: HttpHandler) {
-    this.logger.debug("handle401Error called:isRefreshing - ", !this.isRefreshing, "request - ", request);
+    this.logger.info("handle401Error called:isRefreshing - ", !this.isRefreshing, "request - ", request);
     if (request.url.includes("refresh")) {
-      this.logger.debug("handle401Error refresh failed - setting logout flag");
+      this.logger.info("handle401Error refresh failed - setting logout flag");
       this.authService.scheduleLogout();
     }
     if (!this.isRefreshing) {
       this.isRefreshing = true;
-      this.logger.debug("handle401Error:beginning refresh");
+      this.logger.info("handle401Error:beginning refresh");
       this.refreshTokenSubject.next(null);
       return this.authService.performTokenRefresh().pipe(
         switchMap((tokens: AuthTokens) => {
-          this.logger.debug("handle401Error:refresh completed - received new auth token:", tokens.auth);
+          this.logger.info("handle401Error:refresh completed - received new auth token:", tokens.auth);
           this.isRefreshing = false;
           this.refreshTokenSubject.next(tokens.auth);
           return next.handle(this.addAuthToken(request, tokens.auth));

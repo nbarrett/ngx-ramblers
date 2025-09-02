@@ -10,25 +10,26 @@ import { LoginResponse } from "../models/member.model";
 import { BroadcastService } from "../services/broadcast-service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { SiteEditService } from "../site-edit/site-edit.service";
+import { StoredValue } from "../models/ui-actions";
+import { DateUtilsService } from "../services/date-utils.service";
 
 @Injectable({
   providedIn: "root"
 })
 export class AuthService {
 
-  private logger: Logger = inject(LoggerFactory).createLogger(AuthService, NgxLoggerLevel.OFF);
+  private logger: Logger = inject(LoggerFactory).createLogger("AuthService", NgxLoggerLevel.ERROR);
   private http = inject(HttpClient);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
+  public dateUtils: DateUtilsService = inject(DateUtilsService);
   private siteEditService = inject(SiteEditService);
   private BASE_URL = "/api/database/auth";
-  private readonly AUTH_TOKEN = "AUTH_TOKEN";
-  private readonly REFRESH_TOKEN = "REFRESH_TOKEN";
   private authPayload: {};
   private authResponseSubject = new Subject<LoginResponse>();
 
   login(userName: string, password: string): Promise<LoginResponse> {
     const url = `${this.BASE_URL}/login`;
-    this.logger.debug("logging in", userName, "via", url);
+    this.logger.info("logging in", userName, "via", url);
     const body = {userName, password};
     return this.performAuthPost(url, body, "login", NamedEventType.MEMBER_LOGIN_COMPLETE);
   }
@@ -36,7 +37,7 @@ export class AuthService {
   forgotPassword(credentialOne: string, credentialTwo: string, userDetails: string): Promise<LoginResponse> {
     const url = `${this.BASE_URL}/forgot-password`;
     const type = "forgot password";
-    this.logger.debug(type + "credentialOne:", credentialOne, "credentialTwo:", credentialTwo, "via", url);
+    this.logger.info(type + "credentialOne:", credentialOne, "credentialTwo:", credentialTwo, "via", url);
     const body = {credentialOne, credentialTwo, userDetails};
     return this.performAuthPost(url, body, type);
   }
@@ -44,17 +45,17 @@ export class AuthService {
   resetPassword(userName: string, newPassword: string, newPasswordConfirm: string): Promise<LoginResponse> {
     const url = `${this.BASE_URL}/reset-password`;
     const type = "resetting password";
-    this.logger.debug(type + " for", userName, "via", url);
+    this.logger.info(type + " for", userName, "via", url);
     const body = {userName, newPassword, newPasswordConfirm};
     return this.performAuthPost(url, body, type);
   }
 
   logout(): Promise<LoginResponse> {
     const url = `${this.BASE_URL}/logout`;
-    this.logger.debug("logging out user via", url);
+    this.logger.info("logging out user via", url);
     const loginResponseObservable = this.performAuthPost(url, {
       refreshToken: this.refreshToken(),
-      member: this.parseAuthPayload(),
+      member: this.parseAuthToken(),
     }, "logout", NamedEventType.MEMBER_LOGOUT_COMPLETE);
     this.removeTokens();
     return loginResponseObservable;
@@ -63,7 +64,7 @@ export class AuthService {
   private async performAuthPost(url: string, body: object, postType: string, broadcastEvent?: NamedEventType): Promise<LoginResponse> {
     const shared: Observable<AuthResponse> = this.http.post<any>(url, body).pipe(share());
     shared.subscribe((authResponse: AuthResponse) => {
-      this.logger.debug(postType, "- authResponse", authResponse);
+      this.logger.info(postType, "- authResponse", authResponse);
       if (authResponse?.tokens) {
         this.storeTokens(authResponse.tokens);
       }
@@ -84,15 +85,12 @@ export class AuthService {
     return this.authResponseSubject.asObservable();
   }
 
-  isLoggedIn(): boolean {
-    return !!this.authToken() && !!this.refreshToken();
-  }
-
   performTokenRefresh() {
     const url = `${this.BASE_URL}/refresh`;
-    this.logger.debug("calling", url);
+    const refreshToken = this.refreshToken();
+    this.logger.info("performTokenRefresh:calling:", url, "with refresh token:", refreshToken);
     return this.http.post<any>(url, {
-      refreshToken: this.refreshToken()
+      refreshToken
     }).pipe(
       tap((tokens: AuthTokens) => {
         this.storeAuthToken(tokens.auth);
@@ -101,36 +99,38 @@ export class AuthService {
   }
 
   authToken() {
-    return localStorage.getItem(this.AUTH_TOKEN);
+    return localStorage.getItem(StoredValue.AUTH_TOKEN);
   }
 
-  tokenIssued() {
-    const parseJwt1 = this.parseAuthPayload();
-    return parseJwt1 && new Date(parseJwt1.iat * 1000);
+  refreshToken(): string {
+    return localStorage.getItem(StoredValue.REFRESH_TOKEN);
   }
 
-  tokenExpires() {
-    const parseJwt1 = this.parseAuthPayload();
-    return parseJwt1 && new Date(parseJwt1.exp * 1000);
+  private tokenIssued(jsonPayload: AuthPayload) {
+    return this.dateUtils.displayDateAndTime(jsonPayload.iat * 1000);
   }
 
-  parseAuthPayload(): AuthPayload {
+  private tokenExpires(jsonPayload: AuthPayload) {
+    return this.dateUtils.displayDateAndTime(jsonPayload.exp * 1000);
+  }
+
+  parseAuthToken(): AuthPayload {
     if (!this.authPayload) {
       const token = this.authToken();
       if (token) {
         const items = token.split(".");
         if (items.length === 0) {
-          this.logger.warn("authPayload items zero length");
+          this.logger.error("authPayload items zero length");
           this.authPayload = {};
         } else {
           const base64Url = items[1];
           if (!base64Url) {
-            this.logger.warn("authPayload is null");
+            this.logger.error("authPayload is null");
             this.authPayload = {};
           } else {
             const base64 = base64Url.replace("-", "+").replace("_", "/");
             const jsonPayload = JSON.parse(atob(base64));
-            this.logger.debug("authPayload:", jsonPayload);
+            this.logger.info("authPayload:", jsonPayload, "issued:", this.tokenIssued(jsonPayload), "expires:", this.tokenExpires(jsonPayload));
             this.authPayload = jsonPayload;
           }
         }
@@ -139,32 +139,28 @@ export class AuthService {
     return this.authPayload || {};
   }
 
-  refreshToken() {
-    return localStorage.getItem(this.REFRESH_TOKEN);
-  }
-
-  private storeAuthToken(authToken: string) {
-    this.logger.debug("storing auth token:", authToken);
-    localStorage.setItem(this.AUTH_TOKEN, authToken);
+  private storeAuthToken(authToken: string): void {
+    this.logger.info("storing auth token:", authToken);
+    localStorage.setItem(StoredValue.AUTH_TOKEN, authToken);
     delete this.authPayload;
   }
 
-  private storeTokens(tokens: AuthTokens) {
+  private storeTokens(tokens: AuthTokens): void {
     this.storeAuthToken(tokens.auth);
     this.storeRefreshToken(tokens.refresh);
   }
 
-  private storeRefreshToken(refreshToken: string) {
-    this.logger.debug("storing refresh token:", refreshToken);
-    localStorage.setItem(this.REFRESH_TOKEN, refreshToken);
+  private storeRefreshToken(refreshToken: string): void {
+    this.logger.info("storing refresh token:", refreshToken);
+    localStorage.setItem(StoredValue.REFRESH_TOKEN, refreshToken);
   }
 
   private removeTokens() {
     if (this.siteEditService.active()) {
       this.siteEditService.toggle(false);
     }
-    localStorage.removeItem(this.AUTH_TOKEN);
-    localStorage.removeItem(this.REFRESH_TOKEN);
+    localStorage.removeItem(StoredValue.AUTH_TOKEN);
+    localStorage.removeItem(StoredValue.REFRESH_TOKEN);
     delete this.authPayload;
   }
 

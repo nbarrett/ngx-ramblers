@@ -27,7 +27,7 @@ export class UiActionsService {
     return this.booleanOf(this.initialValueFor(parameter, defaultValue));
   }
 
-  saveValueFor(parameter: string, value?: any) {
+  saveValueFor(parameter: StoredValue, value?: any) {
     if (parameter) {
       const storedValue: string = typeof value === "object" ? JSON.stringify(value) : value?.toString();
       this.logger.debug("saving value for:", parameter, "as:", storedValue);

@@ -69,16 +69,16 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
           }
           <div class="mb-3 col-sm-12">
             <app-walks-search [filterParameters]="filterParameters" [notifyTarget]="notifyTarget">
-              <div class="row no-gutters">
-                <div class="col">
+              <div class="row no-gutters flex-md-nowrap align-items-center">
+                <div class="col-12 col-md-auto pr-md-2 mb-2 mb-md-0">
                   @if (systemConfig?.group?.allowSwitchWalkView) {
-                    <div class="btn-group w-100 mb-3 btn-group-custom" dropdown>
-                      <button aria-controls="dropdown-animated" class="dropdown-toggle btn btn-primary mr-2"
-                              dropdownToggle
-                              type="button">
+                    <div class="btn-group mb-0 btn-group-custom mr-md-2 w-100 w-md-auto" dropdown>
+                      <button aria-controls="dropdown-animated" class="dropdown-toggle btn pager-btn mr-0"
+                               dropdownToggle
+                               type="button">
                         <fa-icon [icon]="walkListView === WalkListView.CARDS ? faImages : faTableCells"/>
-                        <span class="ml-2">{{ stringUtils.asTitle(walkListView) }} View</span><span
-                        class="caret"></span>
+                        <span class="ml-2">{{ stringUtils.asTitle(walkListView) }} View</span>
+                        <span class="caret"></span>
                       </button>
                       <ul *dropdownMenu class="dropdown-menu" id="dropdown-animated" role="menu">
                         <li role="menuitem">
@@ -101,11 +101,11 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                     </div>
                   }
                 </div>
-                <div class="col">
-                  <pagination class="pagination rounded w-100" [boundaryLinks]=true [rotate]="true"
-                              [maxSize]="maxSize()"
-                              [totalItems]="filteredWalks?.length" [(ngModel)]="pageNumber"
-                              (pageChanged)="pageChanged($event)"/>
+                <div class="col-12 col-md d-flex align-items-center mt-0 mt-md-0 flex-grow-1 w-100">
+                  <pagination class="pagination rounded mb-0 w-100" [boundaryLinks]=true [rotate]="true"
+                               [maxSize]="maxSize()"
+                               [totalItems]="filteredWalks?.length" [(ngModel)]="pageNumber"
+                               (pageChanged)="pageChanged($event)"/>
                 </div>
               </div>
             </app-walks-search>

@@ -1,8 +1,9 @@
+import { StoredValue } from "./ui-actions";
+
 export enum NamedEventType {
     APPLY_FILTER = "apply-filter",
     CONTENT_METADATA_CHANGED = "content-metadata-changed",
     DEFAULT_LOGO_CHANGED = "default-logo-changed",
-    EDIT_SITE = "editSite",
     ERROR = "error",
     FILES_DROPPED = "files-dropped",
     MAILCHIMP_LISTS_CHANGED = "mailchimp-lists-changed",
@@ -38,7 +39,7 @@ export class NamedEvent<T> {
     constructor(public name: any, public data?: T) {
     }
 
-    static withData<T>(key: NamedEventType, value: T) {
+  static withData<T>(key: NamedEventType | StoredValue, value: T) {
         return new NamedEvent(key, value);
     }
 }

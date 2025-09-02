@@ -10,7 +10,7 @@ import { parseError } from "./transforms";
 
 const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent, true);
 const debugLog = debug(envConfig.logNamespace("extended-group-event"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 function convertTitleToSlug(title: string) {
   if (title) {

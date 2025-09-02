@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import isUndefined from "lodash-es/isUndefined";
-import { FileUploader } from "ng2-file-upload";
+import { FileItem, FileUploader } from "ng2-file-upload";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AuthService } from "../auth/auth.service";
 import { S3_BASE_URL } from "../models/content-metadata.model";
@@ -31,16 +31,65 @@ export class FileUploadService {
   private URL_TO_FILE_URL = "api/aws/url-to-file";
 
   createUploaderFor(rootFolder: string, autoUpload?: boolean): FileUploader {
-    return new FileUploader({
+    const alreadyRetried = new WeakSet<FileItem>();
+    const attempts = new WeakMap<FileItem, number>();
+    let secondPassDone = false;
+    const uploader = new FileUploader({
       url: `${S3_BASE_URL}/file-upload?root-folder=${rootFolder}`,
       disableMultipart: false,
       autoUpload: isUndefined(autoUpload) ? true : autoUpload,
       parametersBeforeFiles: true,
       additionalParameter: {},
       authTokenHeader: "Authorization",
-      authToken: `Bearer ${this.authService.authToken()}`,
+      authToken: null,
       formatDataFunctionIsAsync: false,
     });
+    uploader.onBeforeUploadItem = (fileItem) => {
+      attempts.set(fileItem, (attempts.get(fileItem) || 0) + 1);
+      const token = this.authService.authToken();
+      this.setAuthorizationHeader("onBeforeUploadItem", fileItem, token);
+    };
+    uploader.onErrorItem = (fileItem, response, status) => {
+      this.logger.warn("upload error", {status, response});
+      if ((status === 401 || response === "Unauthorized") && !alreadyRetried.has(fileItem)) {
+        alreadyRetried.add(fileItem);
+        this.logger.info("upload received 401; attempting token refresh and retry");
+        this.authService.performTokenRefresh().subscribe({
+          next: () => {
+            const token = this.authService.authToken();
+            this.setAuthorizationHeader("onErrorItem", fileItem, token);
+            fileItem.upload();
+          },
+          error: (err) => {
+            this.logger.error("token refresh failed during upload", err);
+          }
+        });
+      }
+    };
+    uploader.onCompleteAll = () => {
+      const failed = uploader.queue.filter(q => !q.isSuccess);
+      if (!secondPassDone && failed.length) {
+        this.logger.info("onCompleteAll: retrying failed items once:", failed.length);
+        secondPassDone = true;
+        failed.forEach(item => {
+          if ((attempts.get(item) || 0) < 2) {
+            const token = this.authService.authToken();
+            this.setAuthorizationHeader("onCompleteAll", item, token);
+            item.upload();
+          }
+        });
+      }
+    };
+    return uploader;
+  }
+
+  private setAuthorizationHeader(method: string, fileItem: FileItem, token: string) {
+    this.logger.debug(method + ": setting Authorization header for item:", fileItem);
+    try {
+      (fileItem as any).headers = [{name: "Authorization", value: token ? `Bearer ${token}` : ""}];
+    } catch (e) {
+      this.logger.error(method + ":error", e);
+    }
   }
 
   public async urlToFile(localOrRemoteUrl: string, localFileName: string): Promise<File> {
@@ -119,10 +168,14 @@ export class FileUploadService {
         message: response.error
       }, logger, notify);
     } else if (response === "Unauthorized") {
-      this.throwOrNotifyError({
-        title: "Upload failed",
-        message: response + " - try logging out and logging back in again and trying this again."
-      }, logger, notify);
+      this.authService.performTokenRefresh().subscribe({
+        next: () => logger.debug("validateAndParse: token refreshed after Unauthorized"),
+        error: () => this.throwOrNotifyError({
+          title: "Upload failed",
+          message: response + " - try logging out and logging back in again and trying this again."
+        }, logger, notify)
+      });
+      return {responses: [], errors: []} as any;
     } else {
       return JSON.parse(response);
     }

@@ -11,6 +11,7 @@ import {
 import { AccessLevel } from "../../models/member-resource.model";
 import { ContentTextService } from "../../services/content-text.service";
 import { MailProvider, SystemConfig } from "../../models/system.model";
+import { LegacyStoredValue } from "../../models/ui-actions";
 import { SystemConfigService } from "../../services/system/system-config.service";
 
 @Injectable({
@@ -26,6 +27,20 @@ export class DataPopulationService {
 
   constructor() {
     this.systemConfigService.events().subscribe((systemConfig: SystemConfig) => this.systemConfig = systemConfig);
+  }
+
+  public clearLegacyLocalStorage(): void {
+    try {
+      const keys = Object.values(LegacyStoredValue);
+      keys.forEach(key => {
+        if (localStorage.getItem(key)) {
+          localStorage.removeItem(key);
+          this.logger.debug("Removed legacy localStorage key:", key);
+        }
+      });
+    } catch (e) {
+      this.logger.warn("clearLegacyLocalStorage: unable to access localStorage", e);
+    }
   }
 
   public async generateDefaultContentTextItems() {
