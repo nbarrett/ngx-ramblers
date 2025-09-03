@@ -17,9 +17,9 @@ import { StringUtilsService } from "../../services/string-utils.service";
     selector: "app-album-gallery",
     styleUrls: ["./album-gallery.sass"],
     template: `
-      @if (galleryId) {
+      @if (showGallery) {
         <gallery class="gallery-customise"
-                 [id]="galleryId"
+                 [id]="galleryDomId || galleryId"
                  [autoPlay]="album?.slideInterval>0"
                  [playerInterval]="album?.slideInterval"
                  imageSize="cover"
@@ -77,7 +77,9 @@ export class AlbumGalleryComponent implements OnInit {
   private lazyLoadingMetadataService: LazyLoadingMetadataService = inject(LazyLoadingMetadataService);
   public contentMetadata: ContentMetadata;
   public galleryId: string;
+  public galleryDomId: string;
   public albumView: AlbumView = AlbumView.GRID;
+  public showGallery = false;
   protected readonly faImages = faImages;
   protected readonly faSearch = faSearch;
 
@@ -90,13 +92,28 @@ export class AlbumGalleryComponent implements OnInit {
       if (this.album.albumView) {
         this.albumView = this.album.albumView;
       }
+      this.showGallery = false;
       this.galleryId = this.stringUtils.kebabCase(this.album.name);
-      this.galleryRef = this.gallery.ref(this.galleryId);
+      this.galleryDomId = `${this.galleryId}-${Date.now()}`;
       const images = this.lazyLoadingMetadata.selectedSlides.map(item => this.toImage(item));
-      this.logger.info("lazyLoadingMetadata:", this.lazyLoadingMetadata, "loading images:", images);
-      this.galleryRef.load(images);
+      setTimeout(() => {
+        this.showGallery = true;
+        this.galleryRef = this.gallery.ref(this.galleryDomId);
+        if (this.galleryRef) {
+          try {
+            this.logger.info("initialiseMetadata:resetting galleryRef with galleryDomId:", this.galleryDomId);
+            this.galleryRef.reset();
+          } catch (e) {
+            this.logger.error(e);
+          }
+        } else {
+          this.logger.info("initialiseMetadata:not resetting galleryRef:", this.galleryRef);
+        }
+        this.logger.info("initialiseMetadata:lazyLoadingMetadata:", this.lazyLoadingMetadata, "loading images:", images);
+        this.galleryRef.load(images);
+      });
     } else {
-      this.logger.info("lazyLoadingMetadata not initialised yet:");
+      this.logger.info("initialiseMetadata:lazyLoadingMetadata not initialised yet:");
     }
   }
 

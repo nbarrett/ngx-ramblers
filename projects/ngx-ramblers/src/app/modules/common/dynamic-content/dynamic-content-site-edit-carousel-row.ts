@@ -19,27 +19,26 @@ import { BadgeButtonComponent } from "../badge-button/badge-button";
 @Component({
     selector: "[app-row-settings-carousel]",
     styleUrls: ["./dynamic-content.sass"],
-    template: `
+  template: `
     <label class="mr-2"
-    [for]="id">Album Name</label>
+           [for]="id">Album Name</label>
     @if (!nameInput) {
-      <app-image-list-select [maxWidth]="250" [id]="id" showNewButton
-        [name]="row?.carousel?.name"
-        (metadataChange)="metadataChange(row, $event)"
-        (nameEditToggle)="toggleNameEdit($event)"/>
-    }
-    @if (nameInput) {
+      <app-image-list-select [maxWidth]="220" [id]="id" showNewButton
+                             [name]="row?.carousel?.name"
+                             (metadataChange)="metadataChange(row, $event)"
+                             (nameEditToggle)="toggleNameEdit($event)"/>
+    } @else {
       <div class="d-flex">
         <input autocomplete="new-password" [typeahead]="contentMetadataService?.carousels"
-          [typeaheadMinLength]="0"
-          [id]="id"
-          [ngModel]="row.carousel.name"
-          (ngModelChange)="carouselNameChange($event)"
-          name="new-password"
-          [ngModelOptions]="{standalone: true}"
-          type="text" class="form-control mr-2 flex-grow-1">
+               [typeaheadMinLength]="0"
+               [id]="id"
+               [ngModel]="row.carousel.name"
+               (ngModelChange)="carouselNameChange($event)"
+               name="new-password"
+               [ngModelOptions]="{standalone: true}"
+               type="text" class="form-control mr-2 flex-grow-1">
         <app-badge-button [icon]="faSearch" [caption]="'existing'"
-          (click)="toggleNameEdit(false)"/>
+                          (click)="toggleNameEdit(false)"/>
       </div>
     }`,
   imports: [ImageListSelect, FormsModule, TypeaheadDirective, BadgeButtonComponent]
