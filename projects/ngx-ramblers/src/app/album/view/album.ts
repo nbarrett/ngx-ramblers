@@ -162,8 +162,13 @@ export class AlbumComponent implements OnInit {
       this.logger.info("in subscribe:album:", this.album, "allAndSelectedContentMetaData:", allAndSelectedContentMetaData);
     });
     this.broadcastService.on(NamedEventType.CONTENT_METADATA_CHANGED, (namedEvent: NamedEvent<ContentMetadata>) => {
-      this.logger.info("received:", namedEvent);
-      this.applyContentMetadata(namedEvent.data);
+      const incomingName = (namedEvent?.data as any)?.name;
+      if (!incomingName || incomingName !== this.album?.name) {
+        this.logger.info("ignoring CONTENT_METADATA_CHANGED", {incomingName, currentAlbum: this.album?.name});
+      } else {
+        this.logger.info("received CONTENT_METADATA_CHANGED for album", incomingName, namedEvent);
+        this.applyContentMetadata(namedEvent.data);
+      }
     });
   }
 

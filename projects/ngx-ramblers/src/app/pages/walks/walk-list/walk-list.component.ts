@@ -46,7 +46,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DEFAULT_FILTER_PARAMETERS, FilterParameters } from "../../../models/search.model";
-import { BuiltInAnchor } from "../../../models/content-text.model";
+import { BuiltInAnchor, EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
@@ -365,10 +365,11 @@ export class WalkListComponent implements OnInit, OnDestroy {
     this.pages = range(1, this.pageCount + 1);
     this.logger.debug("total walks count", this.walks?.length, "walks:", this.walks, "filteredWalks count", this.filteredWalks?.length, "currentPageWalks count", this.currentPageWalks.length, "pageSize:", this.pageSize, "pageCount", this.pageCount, "pages", this.pages);
     this.logger.info("total walks count", this.walks?.length, "filteredWalks count", this.filteredWalks?.length, "currentPageWalks:", this.currentPageWalks, "pageSize:", this.pageSize, "pageCount", this.pageCount);
-    const offset = (this.pageNumber - 1) * this.pageSize + 1;
+    const hasWalks = this.currentPageWalks.length > 0;
+    const offset = hasWalks ? ((this.pageNumber - 1) * this.pageSize + 1) : 0;
     const pageIndicator = this.pages.length > 1 ? `page ${this.pageNumber} of ${this.pageCount}` : "";
-    const toWalkNumber = Math.min(offset + this.pageSize - 1, this.currentPageWalks.length);
-    const alertMessage = this.currentPageWalks.length > 0 ? `Showing ${offset} to ${toWalkNumber} of ${this.stringUtils.pluraliseWithCount(this.filteredWalks?.length, "walk")}${pageIndicator ? " - " + pageIndicator : ""}` : "No walks found";
+    const toWalkNumber = hasWalks ? Math.min(this.pageNumber * this.pageSize, this.filteredWalks?.length || 0) : 0;
+    const alertMessage = hasWalks ? `${offset} to ${toWalkNumber} of ${this.stringUtils.pluraliseWithCount(this.filteredWalks?.length, "walk")}${pageIndicator ? EM_DASH_WITH_SPACES + pageIndicator : ""}` : "No walks found";
     this.notify.progress(alertMessage);
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SHOW_PAGINATION, this.pageCount > 1));
   }

@@ -115,7 +115,7 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
       <div class="row mb-4 px-1">
         <div class="col-sm-12">
           <div class="form-group">
-            <label for="name">Album Name</label>
+            <label for="name">Album Named</label>
             <input [delay]="1000"
                    [tooltip]="imagesExist() ? 'Album name cannot be changed after images have been created in it':''"
                    [disabled]="imagesExist()" type="text" [ngModel]="contentMetadata.name" id="name"
