@@ -76,8 +76,9 @@ npm run manage-configs
 - `server/lib/meetup/`: Meetup platform integration
 
 ### Development Setup
-- Node.js v20.19.4, npm 10.8.2 (as specified in package.json engines)
-- Angular 19 with TypeScript 5.7.3
+- **Node.js Management**: Uses nvm (Node Version Manager) to manage Node.js versions
+- Node.js v22.19.0, npm 10.9.3 (as specified in package.json engines)
+- Angular 20 with TypeScript 5.9.x
 - MongoDB for data storage
 - AWS S3 for media/asset storage
 

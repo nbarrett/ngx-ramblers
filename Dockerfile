@@ -1,5 +1,6 @@
 # Use the official Node.js image as the base image
-FROM node:20.11.0
+# Sync with frontend/server engines (Node 22)
+FROM node:22.19.0
 
 # Define build arguments
 ARG CHROME_VERSION
@@ -31,8 +32,8 @@ COPY ts*.json ./
 # Copy the Angular application code to the working directory
 COPY projects/ngx-ramblers /usr/src/app/projects/ngx-ramblers
 
-# Install the dependencies
-RUN npm install
+# Install the dependencies (respect legacy peer deps)
+RUN npm ci --legacy-peer-deps
 
 # Build the Angular application using the locally installed Angular CLI
 RUN npx ng build --project ngx-ramblers --progress --configuration production
@@ -48,8 +49,8 @@ COPY server/wdio.conf.ts ./
 COPY server /usr/src/app/server
 
 # Install server dependencies with explicit sharp installation
-RUN npm install --include=optional sharp
-RUN npm install
+RUN npm install --include=optional sharp --legacy-peer-deps
+RUN npm ci --legacy-peer-deps
 
 # Update the Serenity BDD dependencies so it doesn't have to run in the step before serenity is run
 RUN npm run serenity-bdd-update
