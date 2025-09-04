@@ -21,7 +21,6 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
       }
       <ng-content/>
     `,
-    styleUrls: ["./copy-icon.sass"],
     imports: [FontAwesomeModule, TooltipDirective]
 })
 
