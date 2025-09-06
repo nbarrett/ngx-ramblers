@@ -100,7 +100,7 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
                   <div class="card mb-0 h-100 pointer">
                     <div class="card-body shadow">
                       <dl (click)="toggleWalkExportSelection(walkExport)" class="d-flex pointer checkbox-toggle my-2">
-                        <dt class="font-weight-bold mr-2 flex-nowrap checkbox-toggle">Publish this walk:</dt>
+                        <dt class="font-weight-bold me-2 flex-nowrap checkbox-toggle">Publish this walk:</dt>
                         <div class="custom-control custom-checkbox">
                           <input [ngModel]="walkExport.selected"
                                  type="checkbox" class="custom-control-input"/>
@@ -114,7 +114,7 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
                       </h3>
                       <div (click)="ignoreClicks($event)" [ngClass]="{'card-disabled': !walkExport.selected}">
                         <dl class="d-flex">
-                          <dt class="font-weight-bold mr-2">Date and Time:</dt>
+                          <dt class="font-weight-bold me-2">Date and Time:</dt>
                           <time>
                             <div>{{ walkExport.displayedWalk?.walk.groupEvent | eventDatesAndTimes : {noTimes: true} }}</div>
                             <div>{{ walkExport.displayedWalk?.walk.groupEvent | eventDatesAndTimes : {noDates: true} }}</div>
@@ -122,12 +122,12 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
                         </dl>
                         @if (walkExport.displayedWalk?.walk?.groupEvent?.distance_miles) {
                           <dl class="d-flex mb-1">
-                            <dt class="font-weight-bold mr-2">Distance:</dt>
+                            <dt class="font-weight-bold me-2">Distance:</dt>
                             <dd>{{ distanceValidationService.walkDistances(walkExport.displayedWalk.walk) }}</dd>
                           </dl>
                         }
                         <dl class="d-flex">
-                          <dt class="font-weight-bold mr-2">Leader:</dt>
+                          <dt class="font-weight-bold me-2">Leader:</dt>
                           <dd>
                             <div class="row no-gutters">
                               <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
@@ -135,7 +135,7 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
                                 <fa-icon title
                                          tooltip="contact walk leader {{walkExport.displayedWalk?.walk?.fields?.contactDetails?.displayName}}"
                                          [icon]="faEnvelope"
-                                         class="fa-icon mr-1"/>
+                                         class="fa-icon me-1"/>
                                 <a content
                                    [href]="'mailto:' + walkExport.displayedWalk?.walk?.fields?.contactDetails?.email">{{ walkExport.displayedWalk?.walk?.fields?.contactDetails?.displayName || "Contact Via Ramblers" }}</a>
                               </div>
@@ -144,18 +144,18 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
                         </dl>
                         @if (walkExport.validationMessages.length > 0) {
                           <dl class="d-flex">
-                            <dt class="font-weight-bold mr-2">Problems:</dt>
+                            <dt class="font-weight-bold me-2">Problems:</dt>
                           </dl>
                         }
                         <div>{{ walkExport.validationMessages.join(", ") }}</div>
                       </div>
                       <dl class="d-flex">
-                        <dt class="font-weight-bold mr-2 nowrap">Publish status:</dt>
+                        <dt class="font-weight-bold me-2 nowrap">Publish status:</dt>
                         @if (walkExport.displayedWalk.walk?.groupEvent?.id) {
                           <dd>
                             <a [href]="display.ramblersLink(walkExport.displayedWalk.walk)"
                                target="_blank"
-                               class="ml-2"
+                               class="ms-2"
                                tooltip="Click to view on Ramblers Walks and Events Manager">
                               <img class="related-links-ramblers-image" src="favicon.ico"
                                    alt="Click to view on Ramblers Walks and Events Manager"/></a>
@@ -163,7 +163,7 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
                         }
                       </dl>
                       <div>
-                        <fa-icon class="mr-1"
+                        <fa-icon class="me-1"
                                  [ngClass]="walkExport.publishStatus.actionRequired? 'yellow-icon':'green-icon'"
                                  [icon]="walkExport.publishStatus.actionRequired?faExclamationCircle:faCheckCircle"/>
                         {{ walkExport.publishStatus.messages.join(", ") }}
@@ -215,7 +215,7 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
                         </ng-select>
                       } @else {
                         <app-status-icon noLabel [status]="Status.ACTIVE"/>
-                        <div class="ml-1">Finding sessions...</div>
+                        <div class="ms-1">Finding sessions...</div>
                       }
                     </div>
                     <div class="form-group">

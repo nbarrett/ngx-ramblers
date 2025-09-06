@@ -113,7 +113,7 @@ import { DisplayDateAndTimePipe } from "../../pipes/display-date-and-time.pipe";
             </button>
           </div>
           <div class="form-group">
-            <button class="btn btn-primary ml-2 mr-2" (click)="close()">Close</button>
+            <button class="btn btn-primary ms-2 me-2" (click)="close()">Close</button>
           </div>
         </div>
       </div>

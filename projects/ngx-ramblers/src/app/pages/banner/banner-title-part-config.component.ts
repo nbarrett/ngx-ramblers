@@ -12,8 +12,8 @@ import { ColourSelectorComponent } from "./colour-selector";
       @if (titlePart) {
         <div class="row">
           <div class="col-sm-6">
-            <label class="mr-2" for="{{id}}-include">Part {{ id }}:</label>
-            <input id="{{id}}-include" type="text" [(ngModel)]="titlePart.value" class="form-control mr-2">
+            <label class="me-2" for="{{id}}-include">Part {{ id }}:</label>
+            <input id="{{id}}-include" type="text" [(ngModel)]="titlePart.value" class="form-control me-2">
           </div>
           <div class="col-sm-6">
             <app-colour-selector [itemWithClassOrColour]="titlePart"/>

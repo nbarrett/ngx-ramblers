@@ -14,7 +14,7 @@ import { SvgComponent } from "../../../modules/common/svg/svg";
         <div class="form-inline">
           <app-svg [disabled]="disabled" [height]="17" [width]="17" [icon]="'i-' + feature.code"
                    colour="rgb(155, 200, 171)"/>
-          <div class="ml-3">{{ feature.description }}</div>
+          <div class="ms-3">{{ feature.description }}</div>
         </div>
       </div>
     </div>`,

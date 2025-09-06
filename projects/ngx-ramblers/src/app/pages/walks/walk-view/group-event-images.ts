@@ -45,7 +45,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
                        [tooltip]="'Remove this image'"/>
             </div>
             @if (extendedGroupEvent?.groupEvent?.media?.length > 1) {
-              <div class="ml-auto">
+              <div class="ms-auto">
                 <app-svg [tooltip]="backDisabled()? '':'move this image back to position '+ imageIndex"
                          colour="rgb(155, 200, 171)" (click)="moveImageBack()"
                          [disabled]="backDisabled()"

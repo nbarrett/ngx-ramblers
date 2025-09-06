@@ -28,7 +28,7 @@ import { ALERT_SUCCESS } from "../../../models/alert-target.model";
           <div class="card my-4">
             <div class="card-body">
               <h3 class="card-title">
-                <fa-icon class="fa-icon-sunrise mr-1" [icon]="faWarning"/>
+                <fa-icon class="fa-icon-sunrise me-1" [icon]="faWarning"/>
                 Duplicate {{ duplicate.occurrence }} of {{ duplicates().length }}
               </h3>
               <div class="font-weight-bold mb-2">Content Preview</div>
@@ -51,8 +51,8 @@ import { ALERT_SUCCESS } from "../../../models/alert-target.model";
       } @else {
         <alert type="success" class="flex-grow-1">
           <fa-icon [icon]="ALERT_SUCCESS.icon"/>
-          <strong class="ml-2">No duplicate content found</strong>
-          <div class="ml-2">Looks like your content text is all in order for the site!</div>
+          <strong class="ms-2">No duplicate content found</strong>
+          <div class="ms-2">Looks like your content text is all in order for the site!</div>
         </alert>
       }
     </app-page>

@@ -1,7 +1,7 @@
 <div class="modal-content">
   <div class="modal-header">
     <h4 class="modal-title">{{editMode}} <em>Article</em></h4>
-    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+    <button type="button" class="close" data-bs-dismiss="modal" aria-hidden="true">&times;</button>
   </div>
   <div class="modal-body">
     <div class="row">
@@ -65,7 +65,7 @@
                   [(ngModel)]="memberResource.data.campaignSearchTerm"
                   [disabled]="notifyTarget.busy"
                   name="campaignSearchTerm"
-                  class="form-control input-sm flex-grow-1 mr-2"
+                  class="form-control input-sm flex-grow-1 me-2"
                   placeholder="Enter campaign search term">
                 <input type="submit" value="Search"
                   title="Search"
@@ -138,7 +138,7 @@
                       placeholder="Enter a title for this attachment"/></label>
                     </div>
                     <div class="col-md-6">
-                      <label class="form-inline ml-12" for="attachment">Display: <a target="_blank"
+                      <label class="form-inline ms-12" for="attachment">Display: <a target="_blank"
                         [href]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).resourceUrl(memberResource)"
                         id="attachment">
                     {{fileUtils.attachmentTitle(memberResource, 'data', 'file')}}</a></label>
@@ -168,7 +168,7 @@
       </div>
       <div class="col-sm-12">
         <div class="form-group">
-          <label for="link-preview" class="mr-2">Link preview: </label>
+          <label for="link-preview" class="me-2">Link preview: </label>
           <a target="_blank" id="link-preview"
           [href]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).resourceUrl(memberResource)">{{memberResource.title}}</a>
         </div>

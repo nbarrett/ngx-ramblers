@@ -103,7 +103,7 @@ import { PageService } from "../../../services/page.service";
               @if (notifyTarget.showAlert) {
                 <div class="col-12 alert {{notifyTarget.alertClass}} mt-3">
                   <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                  <strong class="ml-2">{{ notifyTarget.alertTitle }}</strong>
+                  <strong class="ms-2">{{ notifyTarget.alertTitle }}</strong>
                   {{ notifyTarget.alertMessage }} <a [routerLink]="'/walks'" type="button"
                                                      class="rams-text-decoration-pink">Switch to Walks Programme</a>
                 </div>
@@ -113,8 +113,8 @@ import { PageService } from "../../../services/page.service";
               @if (notifyTarget.showAlert) {
                 <div class="col-12 alert {{ALERT_WARNING.class}} mt-3">
                   <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
-                  <strong class="ml-2">Walk Status</strong>
-                  <div class="ml-1">This walk is not approved by {{ display.walksCoordinatorName() }}</div>
+                  <strong class="ms-2">Walk Status</strong>
+                  <div class="ms-1">This walk is not approved by {{ display.walksCoordinatorName() }}</div>
                 </div>
               }
             }
@@ -143,8 +143,8 @@ import { PageService } from "../../../services/page.service";
                 </div>
               </div>
               <form class="rounded img-thumbnail map-radio-frame">
-                <label class="ml-2 mr-2 font-weight-bold">Show Map As
-                  <div class="custom-control custom-radio custom-control-inline ml-2">
+                <label class="ms-2 me-2 font-weight-bold">Show Map As
+                  <div class="custom-control custom-radio custom-control-inline ms-2">
                     <input class="custom-control-input" type="radio" name="mapView" [(ngModel)]="showGoogleMapsView"
                            id="{{displayedWalk?.walk?.id}}-pin-view-mode-start"
                            [value]="false" (ngModelChange)="configureMapDisplay()">
@@ -159,7 +159,7 @@ import { PageService } from "../../../services/page.service";
                       Google Maps</label>
                   </div>
                 </label>
-                <div class="col-sm-12 ml-2 mr-2">
+                <div class="col-sm-12 ms-2 me-2">
                   <div class="custom-control custom-radio custom-control-inline">
                     <input class="custom-control-input" id="{{displayedWalk?.walk?.id}}-show-start-point"
                            type="radio"
@@ -193,7 +193,7 @@ import { PageService } from "../../../services/page.service";
                              [ngClass]="{'postcode-label-second-line' : displayedWalk?.walk?.groupEvent?.end_location?.postcode}"
                              for="{{displayedWalk?.walk?.id}}-show-driving-directions">
                         Driving from</label>
-                      <input class="form-control input-sm text-uppercase ml-2 postcode-input align-middle"
+                      <input class="form-control input-sm text-uppercase ms-2 postcode-input align-middle"
                              [ngClass]="{'postcode-input-second-line' : displayedWalk?.walk?.groupEvent?.end_location?.postcode}"
                              [ngModel]="fromPostcode" name="fromPostcode"
                              (ngModelChange)="changeFromPostcode($event)"
@@ -210,7 +210,7 @@ import { PageService } from "../../../services/page.service";
     } @else if (notifyTarget.showAlert) {
       <div class="alert {{notifyTarget.alertClass}} table-pointer mt-3">
         <fa-icon [icon]="notifyTarget.alert.icon"/>
-        <strong class="ml-1">{{ notifyTarget.alertTitle }}</strong>
+        <strong class="ms-1">{{ notifyTarget.alertTitle }}</strong>
         <span class="p-2">{{ notify.alertTarget.alertMessage }}. <a [href]="area"
                                                                     class="rams-text-decoration-pink"
                                                                     type="button"> Go Back to {{ area }}

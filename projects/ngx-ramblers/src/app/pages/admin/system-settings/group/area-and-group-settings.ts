@@ -50,13 +50,13 @@ import { EM_DASH } from "../../../../models/content-text.model";
         <div class="col-md-12">
           <alert [type]="ALERT_WARNING.type">
             <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
-            <strong class="ml-2">Group Search</strong>
+            <strong class="ms-2">Group Search</strong>
             <span class="p-2">{{ groupSearchMessage }}</span>
           </alert>
         </div>
         <div class="col-md-12">
           <div class="form-group">
-            <label class="mr-2">Selection Mode:</label>
+            <label class="me-2">Selection Mode:</label>
             <div class="custom-control custom-radio custom-control-inline">
               <input class="custom-control-input"
                      id="area-selection-mode"

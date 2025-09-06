@@ -70,7 +70,7 @@ import { PageService } from "../../../services/page.service";
   <ng-template #searchAndFilterActions>
     <div class="d-lg-flex">
       @if (!eventsData || eventsData?.allow?.quickSearch) {
-        <div class="form-group flex-grow-1" [ngClass]="{'mr-lg-3 ':configureFilterCriteria()||configureSortOrder()}">
+        <div class="form-group flex-grow-1" [ngClass]="{'me-lg-3 ':configureFilterCriteria()||configureSortOrder()}">
           <div class="input-group">
             <div class="input-group-prepend rounded" (click)="setFocusTo(input)">
               <span class="input-group-text"><fa-icon [icon]="faSearch"/></span>
@@ -84,10 +84,10 @@ import { PageService } from "../../../services/page.service";
         </div>
       }
       @if (configureFilterCriteria()) {
-        <div class="form-group mr-lg-3">
+        <div class="form-group me-lg-3">
           <select [(ngModel)]="filterParameters.selectType"
                   (ngModelChange)="refreshEvents('change filterParameters.selectType')" name="selectType"
-                  class="form-control rounded mr-3">
+                  class="form-control rounded me-3">
             @for (dateCriteria of display.filterCriteriaOptionsFor(BASIC_FILTER_OPTIONS); track dateCriteria.value) {
               <option
                 [ngValue]="dateCriteria.key">{{ dateCriteria.value }}

@@ -10,7 +10,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
     <div class="form-inline">
       <fa-icon [icon]="icon.icon" [class]="icon.class"/>
       @if (!noLabel) {
-        <div class="ml-2">{{ stringUtils.asTitle(status) }}</div>
+        <div class="ms-2">{{ stringUtils.asTitle(status) }}</div>
       }
     </div>`,
   styleUrls: ["./member-bulk-load/member-bulk-load.component.sass", "./admin/admin.component.sass"],

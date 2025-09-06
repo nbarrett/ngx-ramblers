@@ -102,7 +102,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                                          for="send-list-{{list.id}}">
                                     {{ listNameAndMemberCount(list) }}</label>
                                   @if (false) {
-                                    <a class="ml-1 disabled"
+                                    <a class="ms-1 disabled"
                                        (click)="editRecipientsFromList(list)">(edit)</a>
                                   }
                                 </div>
@@ -130,7 +130,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                                     </div>
                                   }
                                 </label>
-                                <a class="ml-1" (click)="clearRecipients(selectedList())"> (clear)</a>
+                                <a class="ms-1" (click)="clearRecipients(selectedList())"> (clear)</a>
                               </div>
                             }
                           </div>
@@ -179,7 +179,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                                          [(ngModel)]="notification.content.selectedMemberIds">
                                 <ng-template ng-optgroup-tmp let-item="item">
                                   <span class="group-header">{{ item.name }} members</span>
-                                  <span class="ml-1 badge badge-secondary badge-group"> {{ item.total }} </span>
+                                  <span class="ms-1 badge badge-secondary badge-group"> {{ item.total }} </span>
                                 </ng-template>
                               </ng-select>
                             </div>
@@ -465,10 +465,10 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
             }
             <app-brevo-button button [disabled]="notReady()" (click)="runCampaignCreationAndSendWorkflow()"
                               title="Send Now via {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
-            <app-brevo-button class="ml-2" button [disabled]="notReady()" (click)="completeInMailSystem()"
+            <app-brevo-button class="ms-2" button [disabled]="notReady()" (click)="completeInMailSystem()"
                               title="Complete in {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
             <input type="submit" value="Back" (click)="backToCommittee()"
-                   class="ml-2 btn btn-primary px-2 py-2">
+                   class="ms-2 btn btn-primary px-2 py-2">
           </div>
         </div>
         <div class="d-none">

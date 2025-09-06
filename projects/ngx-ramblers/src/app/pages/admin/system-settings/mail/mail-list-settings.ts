@@ -25,21 +25,21 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
           @if (listUpdateRequest) {
             <app-list-editor [listCreateRequest]="listUpdateRequest"/>
             <app-brevo-button button title="Save" (click)="saveEdit()"/>
-            <app-brevo-button button class="ml-2" title="Cancel" (click)="cancelEdit()"/>
+            <app-brevo-button button class="ms-2" title="Cancel" (click)="cancelEdit()"/>
           }
         </div>
         <div class="col-auto">
-          <div class="float-right">
+          <div class="float-end">
             @if (confirm.noneOutstanding()) {
               <div>
                 @if (!listUpdateRequest) {
                   <app-brevo-button button title="Edit"
                     (click)="beginEdit()"/>
                 }
-                <app-brevo-button class="ml-2" button title="View"
+                <app-brevo-button class="ms-2" button title="View"
                   (click)="viewList(list.id)"
                   [disabled]="listEditOrDeleteDisabled()"/>
-                <app-brevo-button class="ml-2" button [title]="'Delete'"
+                <app-brevo-button class="ms-2" button [title]="'Delete'"
                   (click)="deleteList(list.id)"
                   [disabled]="listEditOrDeleteDisabled()"/>
               </div>
@@ -48,7 +48,7 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
               <app-brevo-button button [title]="'Confirm'"
                 (click)="confirmDeleteList(list.id)"
                 [disabled]="listEditOrDeleteDisabled()"/>
-              <app-brevo-button class="ml-2" button [title]="'Cancel'"
+              <app-brevo-button class="ms-2" button [title]="'Cancel'"
                 (click)="cancelDelete()"
                 [disabled]="listEditOrDeleteDisabled()"/>
             }

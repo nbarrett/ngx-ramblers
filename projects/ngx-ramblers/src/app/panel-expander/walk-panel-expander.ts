@@ -22,7 +22,7 @@ import { ExtendedGroupEvent } from "../models/group-event.model";
       @if (collapsable) {
         <fa-icon placement="auto" [tooltip]="collapseAction"
           (click)="collapse()" [icon]="faCaretDown"
-        class="fa-2x markdown-preview-icon ml-1"></fa-icon>
+        class="fa-2x markdown-preview-icon ms-1"></fa-icon>
       }
     </div>`,
     styleUrls: ["./walk-panel-expander.sass"],

@@ -25,7 +25,7 @@ import { NgClass } from "@angular/common";
       <div class="modal-content">
         <div class="modal-header">
           <h4 class="modal-title">I've forgotten my <em>{{ mailMessagingConfig?.group?.shortName }}</em> password!</h4>
-          <button type="button" (click)="close()" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+          <button type="button" (click)="close()" class="close" data-bs-dismiss="modal" aria-hidden="true">&times;</button>
         </div>
         <div class="modal-body">
           <form>

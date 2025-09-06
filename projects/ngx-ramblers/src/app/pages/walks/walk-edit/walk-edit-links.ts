@@ -85,12 +85,12 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
               @if (ramblersWalkExists()) {
                 <div class="col-sm-6">
                   <div class="form-group">
-                    <label class="mr-2">Link preview:</label>
+                    <label class="me-2">Link preview:</label>
                     <img class="related-links-ramblers-image"
                          src="favicon.ico"
                          alt="Click to view on Ramblers Walks and Events Manager"/>
                     <a target="_blank"
-                       class="ml-2"
+                       class="ms-2"
                        tooltip="Click to view on Ramblers Walks and Events Manager"
                        [href]="display.ramblersLink(displayedWalk.walk)">Ramblers</a>
                   </div>
@@ -143,13 +143,13 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
                              (click)="unlinkOSMapsFromCurrentWalk()"
                              title="Remove link between this walk and OS Maps"
                              [disabled]="!canUnlinkOSMaps() || inputDisabled"
-                             class="btn btn-primary mr-2">
+                             class="btn btn-primary me-2">
                       <label>Link preview:</label>
                       <img class="related-links-image"
                            src="/assets/images/local/ordnance-survey.png"
                            alt=""/>
                       <a target="_blank"
-                         class="ml-2"
+                         class="ms-2"
                          [href]="links.osMapsRoute.href"
                          tooltip="Click to view the route for this walk on Ordnance Survey Maps">
                         {{ links.osMapsRoute.title || displayedWalk?.walk?.groupEvent.title }}

@@ -11,7 +11,7 @@ import { NumberUtilsService } from "../../services/number-utils.service";
 @Component({
     selector: "app-colour-selector",
     styles: [`
-    @import "../../assets/styles/colours"
+    @use "../../assets/styles/colours" as *
 
     .badge-fixed-width
       width: 100px

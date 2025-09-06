@@ -24,7 +24,7 @@ import { NgClass } from "@angular/common";
     <div class="modal-content">
       <div class="modal-header">
         <h4 class="modal-title" id="modal-title-heading">Login to <em>{{ group?.shortName }}</em> site</h4>
-        <button type="button" class="close" data-dismiss="modal" (click)="bsModalRef.hide()" aria-hidden="true">&times;
+        <button type="button" class="close" data-bs-dismiss="modal" (click)="bsModalRef.hide()" aria-hidden="true">&times;
         </button>
       </div>
       <div class="modal-body">

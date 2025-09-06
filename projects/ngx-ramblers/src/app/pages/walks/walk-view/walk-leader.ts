@@ -35,7 +35,7 @@ import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalki
               <fa-icon title
                        tooltip="contact walk leader {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}"
                        [icon]="faEnvelope"
-                       class="fa-icon mr-1 pointer"/>
+                       class="fa-icon me-1 pointer"/>
               <a content
                  [href]="displayedWalk?.walk?.fields?.contactDetails?.email">{{ displayedWalk?.walk?.fields?.contactDetails?.displayName || "Contact Via Ramblers" }}</a>
             </div>

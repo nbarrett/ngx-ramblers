@@ -31,7 +31,7 @@ import isNull from "lodash-es/isNull";
           @if (extendedGroupEvent?.fields?.imageConfig?.source && !disallowImageSourceSelection) {
             <div class="form-group">
               <div class="d-flex align-items-center">
-                <label class="label mr-2" for="radio-selections">Image Selection:</label>
+                <label class="label me-2" for="radio-selections">Image Selection:</label>
                 <div id="radio-selections">
                   @for (source of imageSources; track source.key) {
                     <div class="custom-control custom-radio custom-control-inline">

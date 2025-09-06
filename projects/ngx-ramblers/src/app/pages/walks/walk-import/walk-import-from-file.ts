@@ -34,7 +34,7 @@ import { AlertInstance } from "../../../services/notifier.service";
                  [value]="ImportType.EXISTING_GROUP"
                  [disabled]="importData.importStage !== ImportStage.NONE"
                  [(ngModel)]="importTypeOptions.importType"/>
-          <label class="custom-control-label mr-3  text-nowrap"
+          <label class="custom-control-label me-3  text-nowrap"
                  for="area-selection-mode">Import to Existing Group</label>
           <app-group-selector class="flex-grow-1" [disabled]="importTypeOptions.importType===ImportType.UNLISTED_GROUP"
                               [areaCode]="systemConfig.area.groupCode"
@@ -54,13 +54,13 @@ import { AlertInstance } from "../../../services/notifier.service";
                  [value]="ImportType.UNLISTED_GROUP"
                  [disabled]="importData.importStage !== ImportStage.NONE"
                  [(ngModel)]="importTypeOptions.importType"/>
-          <label class="custom-control-label mr-3 text-nowrap" for="unlisted-group-name">
+          <label class="custom-control-label me-3 text-nowrap" for="unlisted-group-name">
             Import to Unlisted Group Name</label>
           <input [disabled]="importData.importStage !== ImportStage.NONE ||importTypeOptions.importType === ImportType.EXISTING_GROUP"
                  type="text"
                  [(ngModel)]="importTypeOptions.unlistedGroupCodeAndName.group_name"
                  id="unlisted-group-name"
-                 class="form-control ml-2">
+                 class="form-control ms-2">
           <label class="mx-3 text-nowrap " for="unlisted-group-code">Group Code</label>
           <input [disabled]="importData.importStage !== ImportStage.NONE||importTypeOptions.importType === ImportType.EXISTING_GROUP"
                  type="text"
@@ -76,7 +76,7 @@ import { AlertInstance } from "../../../services/notifier.service";
       <div class="col-sm-12 form-inline">
         <input #fileElement class="d-none" type="file" ng2FileSelect (onFileSelected)="onFileDropped($event)">
         <input type="submit" [disabled]="!importReady()" value="Choose File"
-               class="btn btn-primary mr-2"
+               class="btn btn-primary me-2"
                (click)="browseToFile(fileElement)">
         <ng-content/>
       </div>

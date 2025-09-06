@@ -62,7 +62,7 @@ import { FormsModule } from "@angular/forms";
                             {{ committeeMember.fullName }}
                             <small class="d-block">
                               {{ committeeMember.description }}@if (committeeMember.email) {
-                              <span class="ml-1 colour-disabled">{{ committeeMember.email }}</span>
+                              <span class="ms-1 colour-disabled">{{ committeeMember.email }}</span>
                             }
                             </small>
                           </label>

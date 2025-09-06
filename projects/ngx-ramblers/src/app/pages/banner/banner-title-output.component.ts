@@ -13,9 +13,9 @@ import { NgClass } from "@angular/common";
         <div class="title" [style.font-size.px]="titleLine.fontSize">
           <img class="text-icon" [ngClass]="{'none': !titleLine.showIcon}"
             [src]="urlService.imageSource(titleLine?.image?.awsFileName)"/>
-          <span class="ml-2 {{titleLine.part1.class}}">{{titleLine.part1.value}}</span>
-          <span class="ml-2 {{titleLine.part2.class}}">{{titleLine.part2.value}}</span>
-          <span class="ml-2 {{titleLine.part3.class}}">{{titleLine.part3.value}}</span>
+          <span class="ms-2 {{titleLine.part1.class}}">{{titleLine.part1.value}}</span>
+          <span class="ms-2 {{titleLine.part2.class}}">{{titleLine.part2.value}}</span>
+          <span class="ms-2 {{titleLine.part3.class}}">{{titleLine.part3.value}}</span>
         </div>
       }
       `,

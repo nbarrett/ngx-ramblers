@@ -34,7 +34,7 @@ import { LazyLoadDirective } from "../../notifications/common/lazy-load.directiv
                 @if (gridViewOptions.showDates) {
                   <p class="card-text">
                     <small class="text-muted">{{ dateUtils.displayDate(image.date) }}
-                      <span class="ml-2 float-right">{{ slideNumber(image) }}</span></small></p>
+                      <span class="ms-2 float-end">{{ slideNumber(image) }}</span></small></p>
                 }
               </div>
             }
@@ -42,7 +42,7 @@ import { LazyLoadDirective } from "../../notifications/common/lazy-load.directiv
         }
       </div>
       @if (lazyLoadingMetadata?.availableSlides?.length > lazyLoadingMetadata?.selectedSlides?.length) {
-        <app-badge-button class="float-right" noRightMargin
+        <app-badge-button class="float-end" noRightMargin
                           [tooltip]="'load more images'"
                           [icon]="faSearch"
                           (click)="viewMoreImages()" caption="load more images"/>

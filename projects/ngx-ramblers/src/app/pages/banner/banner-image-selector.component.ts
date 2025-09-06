@@ -56,7 +56,7 @@ import { FormsModule } from "@angular/forms";
         @if (configureColumns) {
           <div [class]="propertyClass">
             <label>Columns (1 - 12):</label>
-            <select class="form-control input-sm ml-2"
+            <select class="form-control input-sm ms-2"
               id="selected-logo-{{imageTypeDescription}}"
               [(ngModel)]="bannerImageItem.columns">
               @for (width of widths; track width) {

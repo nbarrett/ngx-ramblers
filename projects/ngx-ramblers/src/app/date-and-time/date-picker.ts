@@ -21,7 +21,7 @@ type SupportedInputTypes = DateValue | number | string;
   template: `
     <div [ngClass]="{'form-inline': label && prependLabel}">
       @if (label && !prependLabel) {
-        <label class="ml-2" [for]="id">{{ label }}</label>
+        <label class="ms-2" [for]="id">{{ label }}</label>
       }
       <div class="input-group">
         @if (label && prependLabel) {

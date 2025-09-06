@@ -30,7 +30,7 @@
                   <input type="submit" [disabled]="notifyTarget.busy"
                          value="Back to admin"
                          (click)="backToAdmin()"
-                         class="button-form ml-2 mr-2"
+                         class="button-form ms-2 me-2"
                          [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
                 }
                 @if (confirm.noneOutstanding()) {
@@ -38,7 +38,7 @@
                          [disabled]="notifyTarget.busy || auditFilter.results.length==0"
                          value="Delete displayed audit"
                          (click)="confirm.as(ConfirmType.DELETE);"
-                         class="button-form mr-2"
+                         class="button-form me-2"
                          [ngClass]="{'disabled-button-form': notifyTarget.busy || auditFilter.results.length==0 }">
                 }
                 @if (confirm.deleteConfirmOutstanding()) {
@@ -46,7 +46,7 @@
                          [disabled]="notifyTarget.busy"
                          value="Confirm delete of {{auditFilter.results.length}} audit records"
                          (click)="deleteSelectedMemberAuditConfirm()"
-                         class="button-form button-confirm ml-2 mr-2"
+                         class="button-form button-confirm ms-2 me-2"
                          [ngClass]="{'disabled-button-form': notifyTarget.busy}">
                 }
                 @if (confirm.deleteConfirmOutstanding()) {

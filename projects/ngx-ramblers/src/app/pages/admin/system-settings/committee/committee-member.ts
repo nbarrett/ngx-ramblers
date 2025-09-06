@@ -111,14 +111,14 @@ import { MarkdownComponent } from "ngx-markdown";
         </div>
         @if (committeeMember.roleType!==RoleType.SYSTEM_ROLE) {
           <div class="row mt-1">
-            <div class="col-sm-2 ml-3">Markdown Link</div>
-            <div class="col-sm-9"><code class="mr-2">{{ markdownLink(committeeMember) }}</code>
+            <div class="col-sm-2 ms-3">Markdown Link</div>
+            <div class="col-sm-9"><code class="me-2">{{ markdownLink(committeeMember) }}</code>
             <app-copy-icon title [value]="markdownLink(committeeMember)"
               elementName="markdown link"/>
           </div>
         </div>
         <div class="row mt-2">
-          <div class="col-sm-2 ml-3">Link Preview</div>
+          <div class="col-sm-2 ms-3">Link Preview</div>
           <div class="col-sm-6">
             <span class="as-button" markdown>{{ markdownLink(committeeMember) }}</span>
           </div>

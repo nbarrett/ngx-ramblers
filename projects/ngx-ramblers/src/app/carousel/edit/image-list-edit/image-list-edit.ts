@@ -115,7 +115,7 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
       <div class="row mb-4 px-1">
         <div class="col-sm-12">
           <div class="form-group">
-            <label for="name">Album Name</label>
+            <label for="name">Album Named</label>
             <input [delay]="1000"
                    [tooltip]="imagesExist() ? 'Album name cannot be changed after images have been created in it':''"
                    [disabled]="imagesExist()" type="text" [ngModel]="contentMetadata.name" id="name"
@@ -138,21 +138,21 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
              (onFileSelected)="onFileSelectOrDropped($event)"
              [uploader]="uploader">
       <div class="row no-gutters">
-        <div class="col pr-1">
+        <div class="col pe-1">
           <app-badge-button fullWidth="true" [icon]="faSave" caption="Save changes and exit"
                             (click)="requestSaveChangesAndExit()"
                             [disabled]="disabled()"/>
         </div>
-        <div class="col pr-1">
+        <div class="col pe-1">
           <app-badge-button fullWidth="true" [icon]="faSave" caption="Save" (click)="requestSaveChanges()"
                             [disabled]="disabled()"/>
         </div>
-        <div class="col pr-1">
+        <div class="col pe-1">
           <app-badge-button fullWidth="true" [icon]="faUndo" caption="Exit without saving"
                             [disabled]="disabled()"
                             (click)="exitBackWithoutSaving()"/>
         </div>
-        <div class="col pr-1">
+        <div class="col pe-1">
           <app-badge-button fullWidth [icon]="faUndo" [caption]="'Undo'" (click)="undoChanges()"
                             [disabled]="disabled()"/>
         </div>
@@ -163,7 +163,7 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
                   dropdownToggle
                   type="button">
             <fa-icon [icon]="faTableCells"/>
-            <span class="ml-2">Image Actions</span><span class="caret"></span>
+            <span class="ms-2">Image Actions</span><span class="caret"></span>
           </button>
           <ul *dropdownMenu class="dropdown-menu" role="menu">
             @if (imagesExist()) {
@@ -314,7 +314,7 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
         <div class="col-sm-6">
           <label for="search">Filter images for text</label>
           <input [(ngModel)]="filterText" type="text"
-                 (ngModelChange)="onSearchChange($event)" class="form-control input-md rounded ml-8 w-100"
+                 (ngModelChange)="onSearchChange($event)" class="form-control input-md rounded ms-8 w-100"
                  id="search"
                  placeholder="any text">
         </div>

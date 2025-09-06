@@ -31,7 +31,7 @@ import { enumValueForKey } from "../../../functions/enums";
                    tooltip="{{stringUtils.asTitle(displayedWalk.walk?.groupEvent?.item_type)}}" adaptivePosition
                    [icon]="display.isWalk(displayedWalk.walk)? displayedWalk.showEndpoint? faPersonWalkingDashedLineArrowRight: faPersonWalkingArrowLoopLeft: faPeopleGroup"/>
           <fa-icon [icon]=""
-                   class="fa-icon mr-2"/>
+                   class="fa-icon me-2"/>
           {{ display.isWalk(displayedWalk.walk) ? enumValueForKey(WalkType, displayedWalk.walk?.groupEvent?.shape) : null }}
           {{ display.eventTypeTitle(displayedWalk.walk) }}
           {{ display.isWalk(displayedWalk.walk) ? 'Starting Point &' : '' }} Details
@@ -102,9 +102,9 @@ import { enumValueForKey } from "../../../functions/enums";
           @if (displayedWalk.walk?.groupEvent?.distance_miles) {
             <div app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6">
               <div title>
-                <fa-icon [icon]="faRulerHorizontal" class="fa-icon mr-1"/>
+                <fa-icon [icon]="faRulerHorizontal" class="fa-icon me-1"/>
                 Distance
-                <strong class="ml-1">{{ distanceValidationService.walkDistances(displayedWalk.walk) }}</strong>
+                <strong class="ms-1">{{ distanceValidationService.walkDistances(displayedWalk.walk) }}</strong>
               </div>
             </div>
           }
@@ -120,9 +120,9 @@ import { enumValueForKey } from "../../../functions/enums";
           @if (displayedWalk.walk?.groupEvent?.ascent_feet) {
             <div app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6">
               <div title>
-                <fa-icon [icon]="faRulerVertical" class="fa-icon mr-3"/>
+                <fa-icon [icon]="faRulerVertical" class="fa-icon me-3"/>
                 Ascent
-                <strong class="ml-1">{{ ascentValidationService.walkAscents(displayedWalk.walk) }}</strong>
+                <strong class="ms-1">{{ ascentValidationService.walkAscents(displayedWalk.walk) }}</strong>
               </div>
             </div>
           }

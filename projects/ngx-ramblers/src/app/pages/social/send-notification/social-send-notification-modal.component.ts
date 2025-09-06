@@ -61,7 +61,7 @@ import cloneDeep from "lodash-es/cloneDeep";
       <div class="modal-content">
         <div class="modal-header">
           <h4 class="modal-title">Send <em>Social Event</em> Notification</h4>
-          <button (click)="bsModalRef.hide()" type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;
+          <button (click)="bsModalRef.hide()" type="button" class="close" data-bs-dismiss="modal" aria-hidden="true">&times;
           </button>
         </div>
         @if (latestNotification?.content?.title) {
@@ -90,7 +90,7 @@ import cloneDeep from "lodash-es/cloneDeep";
                               for="send-list-{{list.id}}">
                             {{ listNameAndMemberCount(list) }}</label>
                             @if (false) {
-                              <a class="ml-1 disabled"
+                              <a class="ms-1 disabled"
                               (click)="editRecipientsFromList(list)">(edit)</a>
                             }
                           </div>
@@ -114,7 +114,7 @@ import cloneDeep from "lodash-es/cloneDeep";
                             }
                           </label>
                           @if (latestNotification?.content?.selectedMemberIds.length>0) {
-                            <a class="ml-4"
+                            <a class="ms-4"
                             (click)="clearRecipients(this.selectedList())">(clear)</a>
                           }
                         </div>
@@ -173,7 +173,7 @@ import cloneDeep from "lodash-es/cloneDeep";
                         [(ngModel)]="latestNotification.content.selectedMemberIds">
                         <ng-template ng-optgroup-tmp let-item="item">
                           <span class="group-header">{{ item.name }} members</span>
-                          <span class="ml-1 badge badge-secondary badge-group"> {{ item.total }} </span>
+                          <span class="ms-1 badge badge-secondary badge-group"> {{ item.total }} </span>
                         </ng-template>
                       </ng-select>
                     </div>
@@ -415,12 +415,12 @@ import cloneDeep from "lodash-es/cloneDeep";
     <div class="modal-footer">
       <app-brevo-button button [disabled]="notReady()" (click)="runCampaignCreationAndSendWorkflow()"
         title="Send Now via {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
-      <app-brevo-button class="ml-2" button [disabled]="notReady()" (click)="completeInMailSystem()"
+      <app-brevo-button class="ms-2" button [disabled]="notReady()" (click)="completeInMailSystem()"
         title="Complete in {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
       <input type="submit" value="Save and Send Later" (click)="saveAndSendLater()"
-        class="ml-2 btn btn-primary px-2 py-2">
+        class="ms-2 btn btn-primary px-2 py-2">
       <input type="submit" value="Cancel Send" (click)="cancelSendNotification()"
-        class="ml-2 btn btn-primary px-2 py-2 mr-2">
+        class="ms-2 btn btn-primary px-2 py-2 me-2">
     </div>
     <div class="d-none">
       <ng-template app-notification-directive/>

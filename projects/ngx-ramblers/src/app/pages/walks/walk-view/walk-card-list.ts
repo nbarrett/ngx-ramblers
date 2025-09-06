@@ -29,7 +29,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
     <div class="d-flex flex-column pt-2 mb-2">
       @if (false) {
         <div class="heading d-flex align-items-center mb-3">
-          <button aria-label="Previous slide" class="text-dark border-0 bg-transparent p-0 mr-1">
+          <button aria-label="Previous slide" class="text-dark border-0 bg-transparent p-0 me-1">
             <app-svg (click)="prevSlide()"
               [disabled]="backDisabled()"
               class="icon"

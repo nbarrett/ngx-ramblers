@@ -247,7 +247,7 @@ import { RamblersSettings } from "./external/ramblers-settings";
                           <div class="col-md-6">
                             <div class="form-inline">
                               <label>Meetup Link Preview:</label>
-                              <a class="ml-2"
+                              <a class="ms-2"
                                  [href]="config.externalSystems.meetup.groupUrl+'/'+config.externalSystems.meetup.groupName">{{ config.externalSystems.meetup.groupName }}</a>
                             </div>
                           </div>
@@ -277,7 +277,7 @@ import { RamblersSettings } from "./external/ramblers-settings";
                           <div class="col-md-6">
                             <div class="form-inline">
                               <label>Instagram Link Preview:</label>
-                              <a class="ml-2"
+                              <a class="ms-2"
                                  [href]="config.externalSystems.instagram.groupUrl+'/'+config.externalSystems.instagram.groupName">{{ config.externalSystems.instagram.groupName }}</a>
                             </div>
                           </div>

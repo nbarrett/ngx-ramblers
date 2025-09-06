@@ -34,7 +34,7 @@ import { CardEditorComponent } from "../card-editor/card-editor";
           <div
             class="d-flex align-items-center mb-3 col">
             <div class="flex-shrink-0">
-              <button aria-label="Previous slide" class="text-dark border-0 bg-transparent p-0 mr-1">
+              <button aria-label="Previous slide" class="text-dark border-0 bg-transparent p-0 me-1">
                 <app-svg (click)="back()"
                          [disabled]="backDisabled()"
                          class="icon"

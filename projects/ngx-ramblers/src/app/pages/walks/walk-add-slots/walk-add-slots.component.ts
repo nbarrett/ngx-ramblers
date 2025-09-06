@@ -123,7 +123,7 @@ import { GroupEventField } from "../../../models/walk.model";
                 }
                 @if (confirmAction) {
                   <input type="submit" value="Cancel" (click)="cancelConfirmableAction()"
-                         title="Cancel this action" class="btn btn-primary ml-2">
+                         title="Cancel this action" class="btn btn-primary ms-2">
                 }
               }
               @if (selectionMade && !bulk) {
@@ -139,13 +139,13 @@ import { GroupEventField } from "../../../models/walk.model";
                 }
                 @if (confirmAction) {
                   <input type="submit" value="Cancel" (click)="cancelConfirmableAction()"
-                         title="Cancel this action" class="btn btn-primary ml-2">
+                         title="Cancel this action" class="btn btn-primary ms-2">
                 }
               }
               @if (selectionMade) {
                 <input type="submit" value="Back To Walks Admin" (click)="backToWalksAdmin()"
                        title="Back to walks"
-                       class="btn btn-primary ml-2">
+                       class="btn btn-primary ms-2">
               }
               @if (false) {
                 <input type="submit" value="Fix Walk Dates" (click)="fixWalkDates()"

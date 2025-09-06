@@ -21,7 +21,7 @@ import { MarkdownComponent } from "ngx-markdown";
             [src]="urlService.resourceRelativePathForAWSFileName(banner?.background?.image?.awsFileName)">
         </div>
         <div class="row position-md-absolute w-100 h-100 align-items-center">
-          <div class="ml-md-4 ml-lg-5 col-md-6">
+          <div class="ms-md-4 ms-lg-5 col-md-6">
             <a class="navbar-brand" [href]="urlService.baseUrl()" aria-current="page" target="_self">
               @if (banner.logo?.image?.awsFileName) {
                 <img

@@ -103,7 +103,7 @@ import { NgClass } from "@angular/common";
                                 </label>
                                 @if (currentMemberSelection === MemberSelection.RECENTLY_ADDED) {
                                   <app-date-picker startOfDay
-                                    class="input-group ml-2"
+                                    class="input-group ms-2"
                                     (change)="onMemberFilterDateChange($event)"
                                     [value]="memberFilterDate">
                                   </app-date-picker>
@@ -183,7 +183,7 @@ import { NgClass } from "@angular/common";
                                 [(ngModel)]="selectedMemberIds">
                                 <ng-template ng-optgroup-tmp let-item="item">
                                   <span class="group-header">{{ item.name }} members </span>
-                                  <span class="ml-1 badge badge-secondary badge-group"> {{ item.total }} </span>
+                                  <span class="ms-1 badge badge-secondary badge-group"> {{ item.total }} </span>
                                 </ng-template>
                               </ng-select>
                             </div>

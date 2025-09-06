@@ -26,7 +26,7 @@ import { InputSource } from "../../../models/group-event.model";
                  value="Collect Walks From Walks Manager"
                  (click)="collectAvailableWalks()"
                  [disabled]="importData.importStage !== ImportStage.NONE"
-                 class="btn btn-primary mr-2">
+                 class="btn btn-primary me-2">
         }
         <ng-content/>
       </div>

@@ -47,7 +47,7 @@ import { MailchimpCampaignDefaultsComponent } from "./mailchimp-campaign-default
                   [(ngModel)]="mailchimpConfig.lists[listType]"
                   name="listId"
                   (ngModelChange)="listChange($event)"
-                  class="form-control input-sm flex-grow-1 mr-2">
+                  class="form-control input-sm flex-grow-1 me-2">
                   @for (list of mailchimpListingResponse.lists; track list.id) {
                     <option
                       [ngValue]="list.id">{{ list.name }}
@@ -74,7 +74,7 @@ import { MailchimpCampaignDefaultsComponent } from "./mailchimp-campaign-default
                     [disabled]="listEditOrDeleteDisabled()"
                     [ngClass]="listEditOrDeleteDisabled() ? 'disabled-button-form button-bottom-aligned': 'button-form amber-confirm button-bottom-aligned'">
                 }
-                <div class="custom-control custom-radio custom-control-inline ml-2">
+                <div class="custom-control custom-radio custom-control-inline ms-2">
                   <input id="{{listType}}-no-list"
                     type="radio"
                     class="custom-control-input"

@@ -246,7 +246,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                         </div>
                         @if (!listCreateRequest) {
                           <div class="col-auto">
-                            <div class="float-right">
+                            <div class="float-end">
                               <app-brevo-button button title="Create New List" [disabled]="createNewListDisabled()" (click)="createNewList()"></app-brevo-button>
                             </div>
                           </div>
@@ -257,7 +257,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                         <div class="row">
                           <div class="col-sm-12">
                             <app-brevo-button button title="Confirm Create List" (click)="confirmCreateList()" [disabled]="listCreateDisabled()"></app-brevo-button>
-                            <app-brevo-button button title="Cancel Create List" class="ml-2" (click)="listCreateRequest=null"></app-brevo-button>
+                            <app-brevo-button button title="Cancel Create List" class="ms-2" (click)="listCreateRequest=null"></app-brevo-button>
                           </div>
                         </div>
                       }

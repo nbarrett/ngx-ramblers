@@ -22,7 +22,7 @@ import { MarkdownComponent } from "ngx-markdown";
               <label for="link-style-select">Link Style</label></div>
             <div class="col-2">
               <select [(ngModel)]="config.globalStyles.link"
-                      class="form-control ml-3" id="link-style-select">
+                      class="form-control ms-3" id="link-style-select">
                 @for (linkStyle of linkStyles; track linkStyle.key) {
                   <option [ngValue]="linkStyle.value">{{ stringUtils.asTitle(linkStyle.key) }}</option>
                 }
@@ -40,7 +40,7 @@ import { MarkdownComponent } from "ngx-markdown";
             </div>
             <div class="col-2">
               <select [(ngModel)]="config.globalStyles.list"
-                      class="form-control ml-3" id="list-style-select">
+                      class="form-control ms-3" id="list-style-select">
                 @for (listStyle of listStyles; track listStyle.key) {
                   <option [ngValue]="listStyle.value">{{ stringUtils.asTitle(listStyle.key) }}</option>
                 }

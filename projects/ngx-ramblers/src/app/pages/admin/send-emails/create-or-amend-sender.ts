@@ -18,12 +18,12 @@ import { BrevoButtonComponent } from "../../../modules/common/third-parties/brev
         <div class="d-flex align-items-start">
           <alert type="warning" class="flex-grow-1">
             <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
-            <strong class="ml-2">Sender Not Yet Created</strong>
-            <span class="ml-2">- Click button to add {{ senderCommitteeMemberInternal?.fullName }}
+            <strong class="ms-2">Sender Not Yet Created</strong>
+            <span class="ms-2">- Click button to add {{ senderCommitteeMemberInternal?.fullName }}
               to Brevo as a sender. <a
             target="_blank" href="https://app.brevo.com/senders/list">See existing Senders</a></span>
           </alert>
-          <app-brevo-button class="ml-2 mt-1" [disabled]="!senderCommitteeMemberInternal || apiRequestPending" button
+          <app-brevo-button class="ms-2 mt-1" [disabled]="!senderCommitteeMemberInternal || apiRequestPending" button
             (click)="createSender() "
           title="Create Sender"></app-brevo-button>
         </div>
@@ -31,8 +31,8 @@ import { BrevoButtonComponent } from "../../../modules/common/third-parties/brev
           <div class="d-flex align-items-start">
             <alert type="danger" class="flex-grow-1">
               <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
-              <strong class="ml-2">Error</strong>
-              <span class="ml-2">{{ stringUtilsService.stringify(error) }}</span>
+              <strong class="ms-2">Error</strong>
+              <span class="ms-2">{{ stringUtilsService.stringify(error) }}</span>
             </alert>
           </div>
         }
@@ -43,8 +43,8 @@ import { BrevoButtonComponent } from "../../../modules/common/third-parties/brev
         <div class="d-flex align-items-start">
           <alert type="success" class="flex-grow-1">
             <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
-            <strong class="ml-2">New Sender Created</strong>
-            <span class="ml-2">- {{ senderCommitteeMemberInternal?.fullName }} was added to Brevo as a sender. <a
+            <strong class="ms-2">New Sender Created</strong>
+            <span class="ms-2">- {{ senderCommitteeMemberInternal?.fullName }} was added to Brevo as a sender. <a
             target="_blank" href="https://app.brevo.com/senders/list">See existing Senders</a></span>
           </alert>
         </div>

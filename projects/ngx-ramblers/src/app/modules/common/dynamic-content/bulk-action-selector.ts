@@ -7,7 +7,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
 @Component({
     selector: "app-bulk-action-selector",
     template: `
-      <div class="custom-control custom-checkbox float-right">
+      <div class="custom-control custom-checkbox float-end">
           <input (click)="pageContentRowService.toggleSelection(row)"
                  [checked]="pageContentRowService.isSelected(row)"
                  type="checkbox" class="custom-control-input"

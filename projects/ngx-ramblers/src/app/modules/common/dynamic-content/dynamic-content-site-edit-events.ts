@@ -57,7 +57,7 @@ import { HasStartAndEndTime } from "../../../models/group-event.model";
             <select [(ngModel)]="row.events.filterCriteria"
                     (ngModelChange)="broadcastChange()"
                     name="selectType"
-                    class="form-control rounded mr-3">
+                    class="form-control rounded me-3">
               @for (dateCriteria of display.filterCriteriaOptionsFor(DYNAMIC_CONTENT_FILTER_OPTIONS); track dateCriteria.value) {
                 <option [ngValue]="dateCriteria.key">{{ dateCriteria.value }}</option>
               }

@@ -16,7 +16,7 @@
           @if (allow.committee) {
             <select [compareWith]='accessLevelComparer' [(ngModel)]="filterParameters.filter"
               (ngModelChange)="applyFilterToMemberResources()" name="filter"
-              class="form-control input-md rounded ml-2">
+              class="form-control input-md rounded ms-2">
               @for (accessLevel of memberResourcesReferenceData.accessLevelViewTypes(); track accessLevel.description) {
                 <option
                   [textContent]="'View As ' + accessLevel.description"
@@ -26,7 +26,7 @@
           }
         </div>
         <div class="form-group flex-grow-1">
-          <div class="alert {{notifyTarget.alert.class}} ml-3">
+          <div class="alert {{notifyTarget.alert.class}} ms-3">
             <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
             @if (notifyTarget.alertTitle) {
               <strong>
