@@ -63,7 +63,7 @@
     "mongoose": "8.17.1",
     "ng-gallery": "11.0.0",
     "ng-recaptcha-2": "16.0.1",
-    "ng2-file-upload": "8.0.0",
+    "ng2-file-upload": "9.0.0",
     "ngx-bootstrap": "20.0.1",
     "ngx-capture": "0.13.0",
     "ngx-google-analytics": "14.0.1",

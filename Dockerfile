@@ -33,7 +33,7 @@ COPY ts*.json ./
 COPY projects/ngx-ramblers /usr/src/app/projects/ngx-ramblers
 
 # Install the dependencies (respect legacy peer deps)
-RUN npm ci --legacy-peer-deps
+RUN npm ci
 
 # Build the Angular application using the locally installed Angular CLI
 RUN npx ng build --project ngx-ramblers --progress --configuration production
@@ -49,8 +49,8 @@ COPY server/wdio.conf.ts ./
 COPY server /usr/src/app/server
 
 # Install server dependencies with explicit sharp installation
-RUN npm install --include=optional sharp --legacy-peer-deps
-RUN npm ci --legacy-peer-deps
+RUN npm install --include=optional sharp
+RUN npm ci
 
 # Update the Serenity BDD dependencies so it doesn't have to run in the step before serenity is run
 RUN npm run serenity-bdd-update
