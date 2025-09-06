@@ -46,6 +46,7 @@ import methodOverride = require("method-override");
 import passport = require("passport");
 import path = require("path");
 import favicon = require("serve-favicon");
+import fs = require("fs");
 import committeeFile = require("./mongo/routes/committee-file");
 import memberResource = require("./mongo/routes/member-resource");
 
@@ -53,7 +54,8 @@ install();
 const debugLog = debug(envConfig.logNamespace("server"));
 debugLog.enabled = true;
 const folderNavigationsUp = process.env.NODE_ENV === "production" ? "../../" : "";
-const distFolder = path.resolve(__dirname, folderNavigationsUp, "../../dist/ngx-ramblers/browser");
+// Angular 20 custom-webpack:browser outputs to "dist/ngx-ramblers" (no "browser" subfolder)
+const distFolder = path.resolve(__dirname, folderNavigationsUp, "../../dist/ngx-ramblers");
 const currentDir = path.resolve(__dirname);
 const port: number = +envConfig.server.listenPort;
 debugLog("currentDir:", currentDir, "distFolder:", distFolder, "NODE_ENV:", process.env.NODE_ENV, "port:", port);
@@ -63,7 +65,11 @@ const server: Server = http.createServer(app);
 app.use(compression());
 app.set("port", port);
 app.disable("view cache");
-app.use(favicon(path.join(distFolder, "favicon.ico")));
+// Mount favicon only if the built asset exists (primarily in production)
+const faviconPath = path.join(distFolder, "favicon.ico");
+if (fs.existsSync(faviconPath)) {
+  app.use(favicon(faviconPath));
+}
 app.use(methodOverride());
 app.use(bodyParser.json({limit: "50mb"}));
 app.use(bodyParser.urlencoded({limit: "50mb", extended: true}));
@@ -103,10 +109,21 @@ app.use("/api/database/config", configRoutes);
 app.use("/api/database/walks", walksRoutes);
 app.use("/api/database/group-event", extendedGroupEventRoutes);
 setupSerenityReports(app);
-app.use("/", express.static(distFolder));
-app.use((req, res, next) => {
-  res.sendFile(path.join(distFolder, "index.html"));
-});
+// Serve static assets and index.html only if build output exists
+if (fs.existsSync(distFolder)) {
+  app.use("/", express.static(distFolder));
+  app.use((req, res, next) => {
+    const indexPath = path.join(distFolder, "index.html");
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      debugLog("Warning: index.html not found in", distFolder, "— likely running in dev before build.");
+      next();
+    }
+  });
+} else {
+  debugLog("Warning: dist folder not found at", distFolder, "— static assets will not be served.");
+}
 if (app.get("env") === "dev") {
   app.use(errorHandler());
 }

@@ -37,34 +37,34 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
         <div class="col">
           @if (oneOrMoreEdited) {
             @if (confirm.noneOutstanding()) {
-              <button type="button" class="btn btn-success mr-2" (click)="bulkApply()">
+              <button type="button" class="btn btn-success me-2" (click)="bulkApply()">
                 Apply Changes
               </button>
             } @else if (confirm.bulkActionOutstanding()) {
-              <button type="submit" class="btn btn-danger mr-2" (click)="bulkApplyConfirm()">
+              <button type="submit" class="btn btn-danger me-2" (click)="bulkApplyConfirm()">
                 Confirm Apply of Changes
               </button>
-              <button type="submit" class="btn btn-success mr-2" (click)="cancelConfirmAndAlert()">
+              <button type="submit" class="btn btn-success me-2" (click)="cancelConfirmAndAlert()">
                 Cancel
               </button>
             }
           }
           @if (oneOrMoreSelectedForDelete) {
             @if (confirm.noneOutstanding()) {
-              <button type="submit" class="btn btn-danger mr-2" (click)="bulkDelete()">
+              <button type="submit" class="btn btn-danger me-2" (click)="bulkDelete()">
                 Delete Selected
               </button>
             } @else if (confirm.bulkDeleteOutstanding()) {
-              <button type="submit" class="btn btn-danger mr-2" (click)="bulkDeleteConfirm()">
+              <button type="submit" class="btn btn-danger me-2" (click)="bulkDeleteConfirm()">
                 Confirm Delete
               </button>
             }
-            <button type="submit" class="btn btn-success mr-2" (click)="cancelConfirmAndAlert()">
+            <button type="submit" class="btn btn-success me-2" (click)="cancelConfirmAndAlert()">
               Cancel
             </button>
           }
           <input type="submit" value="Back To Walks Admin" (click)="navigateBackToAdmin()"
-                 class="btn btn-primary mr-2">
+                 class="btn btn-primary me-2">
           @if (!oneOrMoreEdited && !oneOrMoreSelectedForDelete) {
             <input type="submit" value="Recreate Group Event Index" (click)="recreateGroupEventsIndex()"
                    [disabled]="oneOrMoreEdited || oneOrMoreSelectedForDelete" class="btn btn-danger">
@@ -76,7 +76,7 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
           <div class="alert {{alertTarget.alertClass}}">
             <fa-icon [icon]="alertTarget.alert.icon"/>
             @if (alertTarget.alertTitle) {
-              <strong class="ml-1">{{ alertTarget.alertTitle }}: </strong>
+              <strong class="ms-1">{{ alertTarget.alertTitle }}: </strong>
             } {{ alertTarget.alertMessage }}
           </div>
         }
@@ -87,11 +87,11 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
             <thead>
             <tr>
               <th>
-                <div class="custom-control custom-checkbox m-1">
-                  <input id="select-all" type="checkbox" class="custom-control-input"
+                <div class="form-check m-1">
+                  <input id="select-all" type="checkbox" class="form-check-input"
                          (change)="toggleSelectAllForDelete($event)"
                          [checked]="allSelected">
-                  <label class="custom-control-label" for="select-all"></label>
+                  <label class="form-check-label" for="select-all"></label>
                 </div>
               </th>
               <th>Event Type</th>
@@ -108,10 +108,10 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
               @for (eventStat of editableEventStats; track eventStat) {
                 <tr>
                   <td>
-                    <div class="custom-control custom-checkbox m-1">
-                      <input id="select-{{ $index }}" type="checkbox" class="custom-control-input"
+                    <div class="form-check m-1">
+                      <input id="select-{{ $index }}" type="checkbox" class="form-check-input"
                              [(ngModel)]="eventStat.selected" [ngModelOptions]="{standalone: true}"><label
-                      class="custom-control-label"
+                      class="form-check-label"
                       for="select-{{ $index }}"></label>
                     </div>
                   </td>
@@ -119,11 +119,11 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
                   <td>
                     @if (eventStat.edited) {
                       <fa-icon [icon]="faUndo" (click)="toggleEditMode(eventStat)"
-                               class="mr-2"
+                               class="me-2"
                                tooltip="Cancel this edit"/>
                     } @else {
                       <fa-icon [icon]="faEdit" (click)="toggleEditMode(eventStat)"
-                               class="mr-2"
+                               class="me-2"
                                tooltip="Edit this group code or name"/>
                     }</td>
                   @if (eventStat.edited) {

@@ -7,9 +7,10 @@
   user-select: none
   background-color: transparent
   border: 0 solid transparent
-  padding: .688rem 1.5rem
+  padding: var(--btn-pad-y) var(--btn-pad-x)
   font-size: 1rem
-  line-height: 1em
+  line-height: 1.1
+  min-height: var(--btn-min-height)
   border-radius: .25rem
   transition: color .15s ease-in-out, background-color .15s ease-in-out, border-color .15s ease-in-out, box-shadow .15s ease-in-out
 
@@ -47,34 +48,34 @@
 
 .btn-secondary
   color: $ramblers-colour-black
-  background-color: $ramblers-colour-cloudy
-  border-color: $ramblers-colour-cloudy
+  background-color: $ramblers-colour-grey
+  border-color: $ramblers-colour-grey
 
 
 .btn-secondary.focus, .btn-secondary:focus, .btn-secondary:hover
   color: $ramblers-colour-black
-  background-color: #e6e6e6
-  border-color: #e0e0e0
+  background-color: #cdd2d7
+  border-color: #c1c7cd
 
 
 .btn-secondary.focus, .btn-secondary:focus
-  box-shadow: 0 0 0 .2rem rgba(217, 217, 218, .5)
+  box-shadow: 0 0 0 .2rem rgba(222, 226, 230, .5)
 
 
 .btn-secondary.disabled, .btn-secondary:disabled
   color: $ramblers-colour-black
-  background-color: $ramblers-colour-cloudy
-  border-color: $ramblers-colour-cloudy
+  background-color: $ramblers-colour-grey
+  border-color: $ramblers-colour-grey
 
 
 .btn-secondary:not(:disabled):not(.disabled).active, .btn-secondary:not(:disabled):not(.disabled):active, .show > .btn-secondary.dropdown-toggle
   color: $ramblers-colour-black
-  background-color: #e0e0e0
-  border-color: #d9d9d9
+  background-color: #c1c7cd
+  border-color: #b6bdc4
 
 
 .btn-secondary:not(:disabled):not(.disabled).active:focus, .btn-secondary:not(:disabled):not(.disabled):active:focus, .show > .btn-secondary.dropdown-toggle:focus
-  box-shadow: 0 0 0 .2rem rgba(217, 217, 218, .5)
+  box-shadow: 0 0 0 .2rem rgba(222, 226, 230, .5)
 
 
 .btn-success
@@ -85,7 +86,7 @@
 
 .btn-success.focus, .btn-success:focus, .btn-success:hover
   color: $ramblers-colour-black
-  background-color: #82ba96
+  background-color: $ramblers-colour-mintcake
   border-color: #7ab68f
 
 
@@ -235,136 +236,6 @@
 
 .btn-light:not(:disabled):not(.disabled).active:focus, .btn-light:not(:disabled):not(.disabled):active:focus, .show > .btn-light.dropdown-toggle:focus
   box-shadow: 0 0 0 .2rem rgba(217, 217, 218, .5)
-
-.button-image
-  background-position: 4px 8px
-  background-size: 14px
-  background-image: url("../images/ramblers/icons/ramblers_icon_2_arrow_forward_rgb.png")
-  background-repeat: no-repeat
-
-.button-form
-  @extend .button-image
-  margin: 0px 4px 0px 0px
-  background-color: $ramblers-colour-granite
-  color: $ramblers-colour-cloudy
-  border: none
-  padding: 8px 10px 8px 22px
-  font-size: 11px
-  -webkit-border-radius: 6px 6px 6px 6px
-  -moz-border-radius: 6px 6px 6px 6px
-  border-radius: 6px 6px 6px 6px
-  position: relative
-  font-weight: 700
-  height: 29.5px
-
-.button-form:hover
-  @extend .button-image
-  background-color: $ramblers-colour-black
-  border-color: $ramblers-colour-hover
-  cursor: pointer
-
-
-.disabled-button-form
-  @extend .button-image
-  margin: 0px 4px 0px 0px
-  background-color: $disabled-color
-  color: rgb(230, 230, 230)
-  border: none
-  padding: 8px 10px 8px 22px
-  font-size: 11px
-  font-weight: bold
-  -webkit-border-radius: 6px 6px 6px 6px
-  -moz-border-radius: 6px 6px 6px 6px
-  border-radius: 6px 6px 6px 6px
-  position: relative
-
-
-.disabled-button-form:hover
-  @extend .button-image
-  background-color: $disabled-color
-  cursor: not-allowed
-
-.button-form-in-tab
-  margin: 6px 6px 6px 0px
-  float: left
-
-
-.cta-red, .cta-red a, .cta-red:hover, .cta-red a:hover
-  @extend .button-image
-  background-color: $confirm-initial
-
-.cta-blue, .cta-blue a, .cta-blue:hover, .cta-blue a:hover
-  background: #007A87
-
-.button-form-left
-  float: left
-  margin-right: 6px
-
-
-.button-form-right
-  margin: 0px 0px 0px 0px
-  float: right
-
-
-.button-form-edit-event
-  margin: 3px 0 0 12px
-  float: right
-
-
-.button-contact-us
-  margin: 9px -11px 0px 0
-  float: right
-
-
-.button-form-right:visited
-  color: $ramblers-colour-cloudy
-
-.button-confirm
-  @extend .button-image
-  background-color: $confirm-initial
-
-.button-confirm:hover
-  @extend .button-image
-  background-color: $confirm-hover
-
-
-.green-confirm
-  @extend .button-image
-  background-color: #1D9630
-
-
-.green-confirm:hover
-  @extend .button-image
-  background-color: rgb(32, 191, 57)
-
-
-.amber-confirm
-  @extend .button-image
-  background-color: #e89349
-
-
-.amber-confirm:hover
-  @extend .button-image
-  background-color: #FFA64D
-
-
-.blue-confirm
-  @extend .button-image
-  background-color: #007C89
-
-
-.blue-confirm:hover
-  @extend .button-image
-  background-color: #0097a4
-
-
-.yellow-confirm
-  @extend .button-image
-  background-color: $admin-color
-
-.yellow-confirm:hover
-  @extend .button-image
-  background-color: #d6d072
 
 .cta-button
   margin: 0 0 20px 0

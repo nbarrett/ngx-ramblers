@@ -18,7 +18,7 @@ import { BuiltInAnchor } from "../../../models/content-text.model";
         <app-social-carousel/>
         @if (displayService.allow.admin && systemConfig?.enableMigration?.events) {
           <div class="mb-3 col-sm-12">
-            <button (click)="performMigration()" class="btn btn-primary mr-2"
+            <button (click)="performMigration()" class="btn btn-primary me-2"
                     type="button">Migrate URLs
             </button>
           </div>

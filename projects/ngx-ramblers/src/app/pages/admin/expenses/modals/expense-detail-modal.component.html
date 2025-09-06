@@ -1,7 +1,7 @@
 <div class="modal-content">
   <div class="modal-header">
     <h4 class="modal-title">{{editMode}} <em>Expense Item</em></h4>
-    <button type="button" class="close float-right" aria-label="Close" (click)="bsModalRef.hide()">&times;</button>
+    <button type="button" class="close float-end" aria-label="Close" (click)="bsModalRef.hide()">&times;</button>
   </div>
   <div class="modal-body">
     <div class="row">
@@ -56,11 +56,11 @@
         <div class="row">
           <div class="col-sm-6">
             <br>
-              <div class="form-group custom-control custom-checkbox">
+              <div class="form-group form-check">
                 <input [disabled]="!editable" [(ngModel)]="expenseItem.travel.returnJourney"
-                  (ngModelChange)="setExpenseItemFields()" type="checkbox" class="custom-control-input"
+                  (ngModelChange)="setExpenseItemFields()" type="checkbox" class="form-check-input"
                   id="is-return">
-                <label class="custom-control-label" for="is-return">Return
+                <label class="form-check-label" for="is-return">Return
                 Journey </label>
               </div>
             </div>
@@ -71,9 +71,7 @@
                   (ngModelChange)="setExpenseItemFields()"
                   class="form-control input-sm" id="miles"
                   placeholder="Enter miles here">
-                <div class="input-group-prepend">
-                  <div class="input-group-text">miles</div>
-                </div>
+                <span class="input-group-text">miles</span>
               </div>
             </div>
           </div>
@@ -103,9 +101,7 @@
         <div class="col-sm-3">
           <label for="cost">Cost</label>
           <div class="input-group">
-            <div class="input-group-prepend">
-              <div class="input-group-text">£</div>
-            </div>
+            <span class="input-group-text">£</span>
             <input [disabled]="!editable || expenseItem.expenseType.travel"
               placeholder="Enter cost here" [(ngModel)]="expenseItem.cost" id="cost"
               type="text" class="form-control input-sm"
@@ -120,12 +116,11 @@
             <input type="submit" [disabled]="notifyTarget.busy || !editable"
               value="Browse for receipt"
               (click)="browseToReceipt(expenseFileUpload)"
-              class="button-form"
-              [ngClass]="{'disabled-button-form': notifyTarget.busy || !editable  }">
+              class="btn btn-primary">
             @if (expenseItem.receipt) {
               <input [disabled]="notifyTarget.busy || !editable" type="submit"
                 value="Remove receipt" (click)="removeReceipt()" title="Remove Receipt"
-                [ngClass]="notifyTarget.busy || !editable ? 'disabled-button-form': 'button-form'">
+                class="btn btn-secondary">
             }
             <input #expenseFileUpload id="browse-to-file" class="d-none" name="receipt"
               type="file" value="Upload"
@@ -181,19 +176,19 @@
           </div>
         </div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer d-flex gap-2">
         @if (display.allowEditExpenseItem(expenseClaim) || display.allowAddExpenseItem(expenseClaim)) {
           <input
             [disabled]="notifyTarget.busy"
             type="submit" value="Save Expense Item" (click)="saveExpenseClaim()"
             title="Save expense item"
-            [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+            class="btn btn-primary">
         }
         @if (confirm.noneOutstanding() && display.allowDeleteExpenseItem(expenseClaim)) {
           <input
             [disabled]="notifyTarget.busy" type="submit"
             value="Delete Expense Item" (click)="confirm.toggleOnDeleteConfirm()" title="Delete expense Item"
-            [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+            class="btn btn-secondary">
         }
         @if (confirm.deleteConfirmOutstanding() && display.allowDeleteExpenseItem(expenseClaim)) {
           <input
@@ -201,10 +196,10 @@
             type="submit" value="Confirm Delete of Expense Item"
             (click)="confirmDeleteExpenseItem(expenseClaim, expenseItem, expenseItemIndex)"
             title="Confirm delete of this expense item"
-            [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-confirm'">
+            class="btn btn-danger">
         }
         <input type="submit" value="Cancel Change" (click)="cancelExpenseChange()"
           [disabled]="notifyTarget.busy" title="Cancel Expense Claim changes and close this dialog"
-          [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+          class="btn btn-secondary">
       </div>
     </div>

@@ -42,7 +42,7 @@ import { InputSource } from "../../../models/group-event.model";
         <input type="submit"
                value="Save Imported Walks"
                (click)="saveImportedWalks()"
-               [disabled]="saveWalksDisabled()" class="btn btn-primary mr-2">
+               [disabled]="saveWalksDisabled()" class="btn btn-primary me-2">
       }
       <input type="submit"
              value="Reset"
@@ -53,14 +53,14 @@ import { InputSource } from "../../../models/group-event.model";
         <input type="submit" value="Back"
                (click)="navigateBackToAdmin()"
                title="Back to walks"
-               class="ml-2 btn btn-primary">
+               class="ms-2 btn btn-primary">
       }</ng-template>
     <app-page pageTitle="Walks Import">
       <div class="row mb-3">
         <div class="col-md-12">
-          <label class="mr-2">Import Type:</label>
-          <div class="custom-control custom-radio custom-control-inline">
-            <input class="custom-control-input"
+          <label class="me-2">Import Type:</label>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input"
                    id="import-source-walks-manager"
                    name="import-source"
                    type="radio"
@@ -68,11 +68,11 @@ import { InputSource } from "../../../models/group-event.model";
                    (ngModelChange)="reset()"
                    [disabled]="importData.importStage !== ImportStage.NONE"
                    [(ngModel)]="importData.inputSource"/>
-            <label class="custom-control-label" for="import-source-walks-manager">From Walks Manager (Group
+            <label class="form-check-label" for="import-source-walks-manager">From Walks Manager (Group
               Code {{ systemConfig?.group?.groupCode }})</label>
           </div>
-          <div class="custom-control custom-radio custom-control-inline">
-            <input class="custom-control-input"
+          <div class="form-check form-check-inline">
+            <input class="form-check-input"
                    id="import-source-file"
                    name="import-source"
                    type="radio"
@@ -80,7 +80,7 @@ import { InputSource } from "../../../models/group-event.model";
                    (ngModelChange)="reset()"
                    [disabled]="importData.importStage !== ImportStage.NONE"
                    [(ngModel)]="importData.inputSource"/>
-            <label class="custom-control-label" for="import-source-file">From CSV Import File</label>
+            <label class="form-check-label" for="import-source-file">From CSV Import File</label>
           </div>
         </div>
       </div>
@@ -134,42 +134,42 @@ import { InputSource } from "../../../models/group-event.model";
       }
       @if (importData.importStage == ImportStage.MATCHING || importData.importStage == ImportStage.MATCHING_COMPLETE) {
         <div class="row mb-2 align-items-center">
-          <div class="col-auto"><label class="mr-2">Filter To Show</label>
-            <div class="custom-control custom-radio custom-control-inline">
-              <input class="custom-control-input"
+          <div class="col-auto"><label class="me-2">Filter To Show</label>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input"
                      type="radio"
                      id="filter-all"
                      name="filterMatched"
                      value="all"
                      [(ngModel)]="filterMatched">
-              <label class="custom-control-label" for="filter-all">All</label>
+              <label class="form-check-label" for="filter-all">All</label>
             </div>
-            <div class="custom-control custom-radio custom-control-inline">
-              <input class="custom-control-input"
+            <div class="form-check form-check-inline">
+              <input class="form-check-input"
                      type="radio"
                      id="filter-matched"
                      name="filterMatched"
                      value="matched"
                      [(ngModel)]="filterMatched">
-              <label class="custom-control-label" for="filter-matched">Matched to a member</label>
+              <label class="form-check-label" for="filter-matched">Matched to a member</label>
             </div>
-            <div class="custom-control custom-radio custom-control-inline">
-              <input class="custom-control-input"
+            <div class="form-check form-check-inline">
+              <input class="form-check-input"
                      type="radio"
                      id="filter-unmatched"
                      name="filterMatched"
                      value="unmatched"
                      [(ngModel)]="filterMatched">
-              <label class="custom-control-label" for="filter-unmatched">Not matched to a member</label>
+              <label class="form-check-label" for="filter-unmatched">Not matched to a member</label>
             </div>
-            <div class="custom-control custom-radio custom-control-inline">
-              <input class="custom-control-input"
+            <div class="form-check form-check-inline">
+              <input class="form-check-input"
                      type="radio"
                      id="filter-excluded"
                      name="filterMatched"
                      value="excluded"
                      [(ngModel)]="filterMatched">
-              <label class="custom-control-label" for="filter-excluded">Excluded (manually or due to duplicate
+              <label class="form-check-label" for="filter-excluded">Excluded (manually or due to duplicate
                 detection)</label>
             </div>
           </div>
@@ -179,7 +179,7 @@ import { InputSource } from "../../../models/group-event.model";
             <h3>Matching of Walk Leaders to Members</h3>
             <div class="alert alert-warning py-1">
               <fa-icon [icon]="alertTarget.alert.icon"/>
-              <strong class="ml-2">Walk Leader Matching: </strong>{{ matchedWalks }} out
+              <strong class="ms-2">Walk Leader Matching: </strong>{{ matchedWalks }} out
               of {{ stringUtilsService.pluraliseWithCount(totalWalks, 'walk') }}
               have been matched to members{{ EM_DASH_WITH_SPACES }}
               showing {{ filterMatched }} {{ stringUtilsService.pluraliseWithCount(sortedAndFilteredRows.length, 'walk') }}
@@ -201,13 +201,13 @@ import { InputSource } from "../../../models/group-event.model";
                 @for (bulkLoadMemberAndMatch of sortedAndFilteredRows; let index = $index; track index) {
                   <tr>
                     <td>
-                      <div class="custom-control custom-checkbox">
+                      <div class="form-check">
                         <input [(ngModel)]="bulkLoadMemberAndMatch.include"
                                [ngModelOptions]="{standalone: true}"
                                (ngModelChange)="onIncludeChange(bulkLoadMemberAndMatch)"
-                               type="checkbox" class="custom-control-input"
+                               type="checkbox" class="form-check-input"
                                id="toggle-exclude-{{index}}">
-                        <label class="custom-control-label" for="toggle-exclude-{{index}}">
+                        <label class="form-check-label" for="toggle-exclude-{{index}}">
                         </label>
                       </div>
                     </td>

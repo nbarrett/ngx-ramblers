@@ -29,3 +29,19 @@
         border: none
       &.active
         color: $ramblers-colour-mintcake
+
+.header-btn
+  display: flex !important
+  align-items: center
+  justify-content: center
+  line-height: 1.1
+  padding-top: var(--btn-pad-y)
+  padding-bottom: var(--btn-pad-y)
+
+@media (max-width: 575.98px)
+  .header-btn
+    width: 100%
+
+@media (min-width: 576px)
+  .header-btn
+    display: inline-flex !important

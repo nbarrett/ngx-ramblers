@@ -17,12 +17,12 @@ import { FormsModule } from "@angular/forms";
       <div class="row">
         <div class="col-md-12">
           <h4>
-            <div class="custom-control custom-checkbox">
-              <input class="custom-control-input"
+            <div class="form-check">
+              <input class="form-check-input"
                 [(ngModel)]="bannerImageItem.show"
                 type="checkbox"
                 id="include-{{imageTypeDescription}}">
-              <label class="custom-control-label"
+              <label class="form-check-label"
               for="include-{{imageTypeDescription}}">{{imageTypeDescription}}</label>
             </div>
           </h4>
@@ -56,7 +56,7 @@ import { FormsModule } from "@angular/forms";
         @if (configureColumns) {
           <div [class]="propertyClass">
             <label>Columns (1 - 12):</label>
-            <select class="form-control input-sm ml-2"
+            <select class="form-control input-sm ms-2"
               id="selected-logo-{{imageTypeDescription}}"
               [(ngModel)]="bannerImageItem.columns">
               @for (width of widths; track width) {
@@ -149,4 +149,3 @@ export class BannerImageSelectorComponent implements OnInit, OnDestroy {
   }
 
 }
-

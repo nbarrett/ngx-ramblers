@@ -80,10 +80,10 @@ import { DisplayDateAndTimePipe } from "../../pipes/display-date-and-time.pipe";
               }
             </div>
             <div class="form-group">
-              <div class="custom-control custom-checkbox">
+              <div class="form-check">
                 <input [(ngModel)]="contactFormDetails.sendCopy" name="sendCopy" type="checkbox" id="contact-email-copy"
-                  class="custom-control-input">
-                <label for="contact-email-copy" class="custom-control-label">Send a copy to yourself</label>
+                  class="form-check-input">
+                <label for="contact-email-copy" class="form-check-label">Send a copy to yourself</label>
               </div>
             </div>
             @if (config?.recaptcha?.siteKey) {
@@ -106,14 +106,12 @@ import { DisplayDateAndTimePipe } from "../../pipes/display-date-and-time.pipe";
           }
         </div>
         <div class="modal-footer">
-          <div class="form-group">
+          <div class="d-flex gap-2 flex-wrap">
             <button class="btn btn-primary" [disabled]="emailSendDisabled()"
               (click)="triggerSubmit()">Send
               Email
             </button>
-          </div>
-          <div class="form-group">
-            <button class="btn btn-primary ml-2 mr-2" (click)="close()">Close</button>
+            <button class="btn btn-primary" (click)="close()">Close</button>
           </div>
         </div>
       </div>

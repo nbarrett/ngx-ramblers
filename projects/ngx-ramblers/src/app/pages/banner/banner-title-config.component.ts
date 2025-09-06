@@ -15,21 +15,21 @@ import { BannerTitlePartConfigComponent } from "./banner-title-part-config.compo
     styleUrls: ["./banner.component.sass"],
     template: `
     <h4>
-      <div class="custom-control custom-checkbox">
-        <input class="custom-control-input"
+      <div class="form-check">
+        <input class="form-check-input"
                [(ngModel)]="titleLine.include"
                type="checkbox"
                id="show-title-{{id}}">
-        <label class="custom-control-label"
+        <label class="form-check-label"
                for="show-title-{{id}}">Line {{id}}</label>
       </div>
     </h4>
     <div class="row">
       <div class="col-sm-6">
-        <div class="custom-control custom-checkbox">
-          <input class="custom-control-input"
+        <div class="form-check">
+          <input class="form-check-input"
                  [(ngModel)]="titleLine.showIcon" type="checkbox" id="show-icon-{{id}}">
-          <label class="custom-control-label"
+          <label class="form-check-label"
                  for="show-icon-{{id}}">Prefix with icon</label>
         </div>
         <app-icon-selector [titleLine]="titleLine" label="Prefix with icon"></app-icon-selector>
@@ -75,4 +75,3 @@ export class BannerTitleConfigComponent implements OnInit, OnDestroy {
   }
 
 }
-

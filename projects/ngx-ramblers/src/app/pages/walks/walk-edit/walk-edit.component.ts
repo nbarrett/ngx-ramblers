@@ -152,84 +152,84 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
                target="_blank">{{stringUtils.asTitle(displayedWalk.walk?.groupEvent?.item_type)}}</a>
         </div>
       }
-      <div class="form-inline mb-4 align-middle">
+      <div class="d-inline-flex align-items-center flex-wrap mb-4 align-middle">
         @if (allowClose()) {
           <input [disabled]="saveInProgress" type="submit"
                  value="Close"
                  (click)="closeEditView()" title="Close and go back to walks list"
-                 class="btn btn-primary mr-2">
+                 class="btn btn-primary me-2">
         }
         @if (allowSave()) {
           <input [disabled]="saveInProgress" type="submit" value="Save"
                  (click)="saveWalkDetails()" title="Save these walk details"
-                 class="btn btn-primary mr-2">
+                 class="btn btn-primary me-2">
         }
         @if (allowCancel()) {
           <input [disabled]="saveInProgress" type="submit"
                  value="Cancel"
                  (click)="cancelWalkDetails()" title="Cancel and don't save"
-                 class="btn btn-primary mr-2">
+                 class="btn btn-primary me-2">
         }
         @if (pendingCancel()) {
           <input [disabled]="saveInProgress" type="submit"
                  value="Confirm" (click)="confirmCancelWalkDetails()"
                  title="Confirm losing my changes and closing this form"
-                 class="btn btn-primary mr-2">
+                 class="btn btn-primary me-2">
         }
         @if (allowDelete()) {
           <input [disabled]="saveInProgress" type="submit"
                  value="Delete"
                  (click)="deleteWalkDetails()" title="Delete these walk details"
-                 class="btn btn-primary mr-2">
+                 class="btn btn-primary me-2">
         }
         @if (pendingDelete()) {
           <input [disabled]="saveInProgress" type="submit"
                  value="Confirm Deletion" (click)="confirmDeleteWalkDetails()"
                  title="Confirm Delete of these walk details"
-                 class="btn btn-primary mr-2">
+                 class="btn btn-primary me-2">
         }
         @if (allowRequestApproval()) {
           <input [disabled]="saveInProgress" type="submit"
                  value="Request Approval" (click)="requestApproval()"
                  title="Mark walk details complete and request approval"
-                 class="btn btn-primary mr-2">
+                 class="btn btn-primary me-2">
         }
         @if (allowApprove()) {
           <input [disabled]="saveInProgress" type="submit"
                  value="Approve" (click)="approveWalkDetails()"
                  title="Approve walk and publish"
-                 class="btn btn-primary mr-2">
+                 class="btn btn-primary me-2">
         }
         @if (pendingRequestApproval()) {
           <input [disabled]="saveInProgress"
                  type="submit"
                  value="Confirm Request Approval" (click)="confirmRequestApproval()"
                  title="Confirm walk details complete and request approval"
-                 class="btn btn-primary mr-2">
+                 class="btn btn-primary me-2">
         }
         @if (allowContactOther()) {
           <input [disabled]="saveInProgress" type="submit"
                  value=""
                  (click)="contactOther()" title="Contact {{personToNotify()}}"
-                 class="btn btn-primary mr-2">
+                 class="btn btn-primary me-2">
         }
         @if (pendingContactOther()) {
           <input [disabled]="saveInProgress" type="submit"
                  value="Contact {{personToNotify()}}" (click)="confirmContactOther()"
                  title="Contact {{personToNotify()}} via email"
-                 class="btn btn-primary mr-2">
+                 class="btn btn-primary me-2">
         }
         @if (pendingConfirmation()) {
           <input type="submit" value="Cancel" (click)="cancelConfirmableAction()"
                  title="Cancel this action"
-                 class="btn btn-primary mr-2">
+                 class="btn btn-primary me-2">
         }
         @if (allowNotifyConfirmation() && !saveInProgress) {
-          <div class="custom-control custom-checkbox">
+          <div class="form-check">
             <input [disabled]="!display.allowAdminEdits() || saveInProgress"
                    [(ngModel)]="sendNotifications"
-                   type="checkbox" class="custom-control-input" id="send-notification">
-            <label class="custom-control-label ml-2"
+                   type="checkbox" class="form-check-input" id="send-notification">
+            <label class="form-check-label ms-2"
                    for="send-notification">Notify {{ personToNotify() }} about this change
             </label>
           </div>

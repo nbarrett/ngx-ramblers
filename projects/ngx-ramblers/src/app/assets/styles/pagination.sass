@@ -47,11 +47,19 @@
   @extend %pager-base
   @extend %pager-sunrise
 
+.pager-btn:hover, .pager-btn:focus
+  background-color: $ramblers-colour-sunrise-hover-background
+  color: $ramblers-colour-granite
+
+.pager-btn:active, .pager-btn.active, .show > .pager-btn.dropdown-toggle
+  background-color: $ramblers-colour-sunrise-hover-border
+  color: $ramblers-colour-cloudy
+
 .full-width-pagination
   width: 100%
   .row
     width: 100%
-    &.no-gutters
+    &.g-0
       width: 100%
     > .col-12.col-md.d-flex
       flex: 1 1 auto

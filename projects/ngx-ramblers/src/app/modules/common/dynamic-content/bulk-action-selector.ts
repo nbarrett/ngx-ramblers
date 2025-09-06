@@ -7,12 +7,12 @@ import { PageContentActionsService } from "../../../services/page-content-action
 @Component({
     selector: "app-bulk-action-selector",
     template: `
-      <div class="custom-control custom-checkbox float-right">
+      <div class="form-check float-end">
           <input (click)="pageContentRowService.toggleSelection(row)"
                  [checked]="pageContentRowService.isSelected(row)"
-                 type="checkbox" class="custom-control-input"
+                 type="checkbox" class="form-check-input"
                  [id]="id">
-          <label class="custom-control-label"
+          <label class="form-check-label"
                  [for]="id">Select Row
           </label>
       </div>`
@@ -32,4 +32,3 @@ export class BulkActionSelectorComponent implements OnInit {
   }
 
 }
-

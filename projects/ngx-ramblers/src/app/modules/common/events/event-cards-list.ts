@@ -7,6 +7,7 @@ import { CARD_MARGIN_BOTTOM, cardClasses } from "../../../services/card-utils";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { AlertInstance } from "../../../services/notifier.service";
 import { SocialCardComponent } from "../../../pages/social/social-card/social-card";
+import { NgClass } from "@angular/common";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { WalkCardViewComponent } from "../../../pages/walks/walk-view/walk-card-view";
@@ -17,7 +18,7 @@ import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
   template: `
     <div class="row">
       @for (extendedGroupEvent of currentPageFilteredEvents; track extendedGroupEvent.groupEvent.url; let index = $index) {
-        <div [class]="slideClasses()">
+        <div [ngClass]="slideClasses()">
           @if (extendedGroupEvent.groupEvent.item_type === RamblersEventType.GROUP_EVENT) {
             <app-social-card [socialEvent]="extendedGroupEvent" [maxColumns]="eventsData?.maxColumns"/>
           } @else {
@@ -28,8 +29,7 @@ import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
         </div>
       }
     </div>`,
-  styleUrls: ["./event-cards-list.sass"],
-  imports: [SocialCardComponent, WalkCardViewComponent]
+  imports: [SocialCardComponent, WalkCardViewComponent, NgClass]
 })
 export class EventCardsList {
 

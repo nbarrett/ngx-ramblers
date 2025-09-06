@@ -101,7 +101,7 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                   <div class="admin-header-white-background rounded">
                     <div class="row">
                       <div class="col-md-12">
-                        <ul class="list-arrow ml-0">
+                        <ul class="list-arrow ms-0">
                           <b>To load the members, follow these steps:</b>
                           <li>Download the <a
                             href="https://insight.ramblers.org.uk/#/views/MembershipSecretariesV4-AZURE/FullList">Explore/Membership/Membership
@@ -218,9 +218,7 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                         <div class="row quick-search d-flex">
                           <div class="col">
                             <div class="input-group">
-                              <div class="input-group-prepend">
-                                <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
-                              </div>
+                              <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
                               <input id="quick-search" [(ngModel)]="quickSearch"
                                      (ngModelChange)="onSearchChange($event)"
                                      name="quickSearch"
@@ -229,7 +227,7 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                             </div>
                           </div>
                           <div class="col-auto">
-                            <div class="form-inline">
+                            <div class="d-inline-flex align-items-center flex-wrap">
                               <label class="inline-label nowrap" for="filter-upload-sessions">Uploaded at:</label>
                               <select class="form-control input-sm" id="filter-upload-sessions"
                                       [(ngModel)]="uploadSession"
@@ -243,7 +241,7 @@ import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pi
                             </div>
                           </div>
                           <div class="col">
-                            <div class="form-inline float-right">
+                            <div class="d-inline-flex align-items-center flex-wrap float-end">
                               <label class="inline-label nowrap" for="filter-by-audit-status">Member Action:</label>
                               <select class="form-control input-sm"
                                       [(ngModel)]="filters.memberUpdateAudit.query"

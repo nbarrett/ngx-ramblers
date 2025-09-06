@@ -18,11 +18,9 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                  class="form-control input-sm"
                  placeholder="Enter number of columns (1-12)"
                  type="number">
-          <div class="input-group-append" [tooltip]="expandAction">
-              <div class="input-group-text pointer" (click)="toggleExpand()">
-                  <fa-icon [icon]="expanded? faCaretDown:faCaretUp" class="fa-icon"></fa-icon>
-              </div>
-          </div>
+          <button type="button" class="btn btn-outline-secondary" [tooltip]="expandAction" (click)="toggleExpand()">
+              <fa-icon [icon]="expanded? faCaretDown:faCaretUp" class="fa-icon"></fa-icon>
+          </button>
       </div>
   `,
     imports: [TooltipDirective, FontAwesomeModule]
@@ -58,4 +56,3 @@ export class ColumnWidthComponent implements OnInit {
     this.expandToggle.emit(this.expanded);
   }
 }
-

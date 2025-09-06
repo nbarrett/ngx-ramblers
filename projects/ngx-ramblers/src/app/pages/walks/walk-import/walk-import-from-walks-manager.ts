@@ -20,13 +20,13 @@ import { InputSource } from "../../../models/group-event.model";
   selector: "app-walk-import-from-walks-manager",
   template: `
     <div class="row">
-      <div class="col-sm-12 form-inline">
+      <div class="col-sm-12 d-inline-flex align-items-center flex-wrap">
         @if (importData.importStage === ImportStage.NONE) {
           <input type="submit"
                  value="Collect Walks From Walks Manager"
                  (click)="collectAvailableWalks()"
                  [disabled]="importData.importStage !== ImportStage.NONE"
-                 class="btn btn-primary mr-2">
+                 class="btn btn-primary me-2">
         }
         <ng-content/>
       </div>

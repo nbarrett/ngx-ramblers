@@ -61,7 +61,7 @@ import { FormsModule } from "@angular/forms";
                    (click)="selectClick(select)">
           <ng-template ng-optgroup-tmp let-item="item">
             <span class="group-header">{{item?.name}} {{dataSource}} </span>
-            <span class="ml-1 badge badge-secondary badge-group"> {{item?.total}} </span>
+            <span class="ms-1 badge bg-secondary badge-group"> {{item?.total}} </span>
           </ng-template>
         </ng-select>
       </div>

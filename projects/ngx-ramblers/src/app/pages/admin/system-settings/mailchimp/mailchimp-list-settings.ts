@@ -30,24 +30,24 @@ import { MailchimpCampaignDefaultsComponent } from "./mailchimp-campaign-default
         <div class="form-group">
           <label for="{{listType}}-list">{{ label }}</label>
           <div class="col-sm-12">
-            <div class="form-inline">
+            <div class="d-inline-flex align-items-center flex-wrap">
               <form>
-                <div class="custom-control custom-radio custom-control-inline">
+                <div class="form-check form-check-inline">
                   <input id="{{listType}}-existing-list"
                     type="radio"
-                    class="custom-control-input"
+                    class="form-check-input"
                     [(ngModel)]="listConfigType"
                     name="existing-list"
                     (change)="selectListConfigType()"
                     value="existing-list"/>
-                  <label class="custom-control-label" for="{{listType}}-existing-list">Existing List:
+                  <label class="form-check-label" for="{{listType}}-existing-list">Existing List:
                   </label>
                 </div>
                 <select id="{{listType}}-list"
                   [(ngModel)]="mailchimpConfig.lists[listType]"
                   name="listId"
                   (ngModelChange)="listChange($event)"
-                  class="form-control input-sm flex-grow-1 mr-2">
+                  class="form-control input-sm flex-grow-1 me-2">
                   @for (list of mailchimpListingResponse.lists; track list.id) {
                     <option
                       [ngValue]="list.id">{{ list.name }}
@@ -57,43 +57,43 @@ import { MailchimpCampaignDefaultsComponent } from "./mailchimp-campaign-default
                 <input type="submit" value="View"
                   (click)="viewList(currentListId())"
                   [disabled]="listEditOrDeleteDisabled()"
-                  [ngClass]="listEditOrDeleteDisabled() ? 'disabled-button-form button-bottom-aligned': 'button-form blue-confirm button-bottom-aligned'">
+                  [ngClass]="listEditOrDeleteDisabled() ? 'btn btn-secondary': 'btn btn-info'">
                 @if (confirm.noneOutstanding()) {
                   <input type="submit" value="Delete"
                     (click)="deleteList(currentListId())"
                     [disabled]="listEditOrDeleteDisabled()"
-                    [ngClass]="listEditOrDeleteDisabled() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm button-bottom-aligned'">
+                    [ngClass]="listEditOrDeleteDisabled() ? 'btn btn-secondary': 'btn btn-danger'">
                 }
                 @if (confirm.deleteConfirmOutstanding()) {
                   <input type="submit" value="Confirm Delete"
                     (click)="confirmDeleteList(currentListId())"
                     [disabled]="listEditOrDeleteDisabled()"
-                    [ngClass]="listEditOrDeleteDisabled() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm button-bottom-aligned'">
+                    [ngClass]="listEditOrDeleteDisabled() ? 'btn btn-secondary': 'btn btn-danger'">
                   <input type="submit" value="Cancel Delete"
                     (click)="confirm.clear()"
                     [disabled]="listEditOrDeleteDisabled()"
-                    [ngClass]="listEditOrDeleteDisabled() ? 'disabled-button-form button-bottom-aligned': 'button-form amber-confirm button-bottom-aligned'">
+                    [ngClass]="listEditOrDeleteDisabled() ? 'btn btn-secondary': 'btn btn-warning'">
                 }
-                <div class="custom-control custom-radio custom-control-inline ml-2">
+                <div class="form-check form-check-inline ms-2">
                   <input id="{{listType}}-no-list"
                     type="radio"
-                    class="custom-control-input"
+                    class="form-check-input"
                     [(ngModel)]="listConfigType"
                     (change)="selectListConfigType()"
                     name="no-list"
                     value="no-list"/>
-                  <label class="custom-control-label" for="{{listType}}-no-list">
+                  <label class="form-check-label" for="{{listType}}-no-list">
                   No List</label>
                 </div>
-                <div class="custom-control custom-radio custom-control-inline">
+                <div class="form-check form-check-inline">
                   <input id="{{listType}}-new-list"
                     type="radio"
-                    class="custom-control-input"
+                    class="form-check-input"
                     [(ngModel)]="listConfigType"
                     (change)="selectListConfigType()"
                     name="new-list"
                     value="new-list"/>
-                  <label class="custom-control-label" for="{{listType}}-new-list">
+                  <label class="form-check-label" for="{{listType}}-new-list">
                   Create new List</label>
                 </div>
               </form>
@@ -114,10 +114,10 @@ import { MailchimpCampaignDefaultsComponent } from "./mailchimp-campaign-default
                   placeholder="This text tells list subscribers how they were added to the list">
                 <small class="form-text text-muted">This text tells list subscribers how they were added to the list</small>
               </div>
-              <div class="custom-control custom-checkbox">
+              <div class="form-check">
                 <input [(ngModel)]="listCreateRequest.email_type_option"
-                  type="checkbox" class="custom-control-input" id="email-type-option">
-                <label class="custom-control-label"
+                  type="checkbox" class="form-check-input" id="email-type-option">
+                <label class="form-check-label"
                   for="email-type-option">Allow Different Email Types
                 </label>
                 <small class="form-text text-muted">Whether the list supports multiple formats for emails. When set to true,
@@ -125,10 +125,10 @@ import { MailchimpCampaignDefaultsComponent } from "./mailchimp-campaign-default
                   subscribers
                 will receive HTML emails, with a plain-text alternative backup.</small>
               </div>
-              <div class="custom-control custom-checkbox">
+              <div class="form-check">
                 <input [(ngModel)]="listCreateRequest.double_optin"
-                  type="checkbox" class="custom-control-input" id="double-opt-in">
-                <label class="custom-control-label"
+                  type="checkbox" class="form-check-input" id="double-opt-in">
+                <label class="form-check-label"
                   for="double-opt-in">Require Double Opt-in
                 </label>
                 <small class="form-text text-muted">Whether or not to require the subscriber to confirm subscription via
@@ -140,7 +140,7 @@ import { MailchimpCampaignDefaultsComponent } from "./mailchimp-campaign-default
                 <input type="submit" value="Create List"
                   (click)="createList()"
                   [disabled]="listCreateDisabled()"
-                  [ngClass]="listCreateDisabled() ? 'disabled-button-form button-bottom-aligned': 'button-form blue-confirm button-bottom-aligned'">
+                  [ngClass]="listCreateDisabled() ? 'btn btn-secondary': 'btn btn-info'">
               </div>
             </div>
           }

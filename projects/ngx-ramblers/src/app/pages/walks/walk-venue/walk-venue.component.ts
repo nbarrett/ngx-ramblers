@@ -91,12 +91,12 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
             </div>
             @if (allowEdits()) {
               <div class="col-sm-6">
-                <div class="custom-control custom-checkbox">
+                <div class="form-check">
                   <input [(ngModel)]="displayedWalk.walk.fields.venue.venuePublish"
                          [disabled]="!allowEdits()"
-                         name="showDetail" class="custom-control-input" type="checkbox" class="custom-control-input"
+                         name="showDetail" class="form-check-input" type="checkbox"
                          id="walk-publish-venue">
-                  <label class="custom-control-label"
+                  <label class="form-check-label"
                          for="walk-publish-venue">Publish venue on site
                   </label>
                 </div>

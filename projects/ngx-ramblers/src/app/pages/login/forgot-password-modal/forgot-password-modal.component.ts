@@ -16,7 +16,6 @@ import { NotificationDirective } from "../../../notifications/common/notificatio
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
-import { NgClass } from "@angular/common";
 
 @Component({
     selector: "app-forgot-password-modal-component",
@@ -25,7 +24,7 @@ import { NgClass } from "@angular/common";
       <div class="modal-content">
         <div class="modal-header">
           <h4 class="modal-title">I've forgotten my <em>{{ mailMessagingConfig?.group?.shortName }}</em> password!</h4>
-          <button type="button" (click)="close()" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+          <button type="button" (click)="close()" class="close" data-bs-dismiss="modal" aria-hidden="true">&times;</button>
         </div>
         <div class="modal-body">
           <form>
@@ -79,17 +78,17 @@ import { NgClass } from "@angular/common";
           </form>
         </div>
         <div class="modal-footer">
-          <div class="row col-sm-12">
+          <div class="row col-sm-12 d-flex gap-2">
             <input type="submit"
               value="Submit"
               [disabled]="!submittable()"
               (keyup.enter)="submit()"
               (click)="submit()" title="Submit"
-              [ngClass]="submittable() ? 'button-form button-form-left': 'disabled-button-form button-form-left'">
+              class="btn btn-primary">
             <input type="submit" [disabled]="notifyTarget.busy" value="Close"
               (click)="close()"
               title="Close forgotten password request"
-              [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+              class="btn btn-secondary">
           </div>
         </div>
       </div>
@@ -98,7 +97,7 @@ import { NgClass } from "@angular/common";
       <ng-template app-notification-directive/>
     </div>
     `,
-    imports: [FormsModule, FontAwesomeModule, ContactUsComponent, NgClass, NotificationDirective]
+    imports: [FormsModule, FontAwesomeModule, ContactUsComponent, NotificationDirective]
 })
 export class ForgotPasswordModalComponent implements OnInit, OnDestroy {
 

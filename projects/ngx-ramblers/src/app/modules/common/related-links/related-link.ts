@@ -4,11 +4,11 @@ import { NgStyle } from "@angular/common";
 @Component({
     selector: "[app-related-link]",
     template: `
-      <div class="media">
+      <div class="d-flex align-items-center">
         <div [ngStyle]="{'min-width.px': mediaWidth}">
           <ng-content select="[title]"/>
         </div>
-        <div class="media-body ml-2">
+        <div class="ms-2 flex-grow-1">
           <ng-content select="[content]"/>
         </div>
       </div>`,

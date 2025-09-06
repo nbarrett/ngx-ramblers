@@ -16,7 +16,6 @@ import { Organisation } from "../../../models/system.model";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
-import { NgClass } from "@angular/common";
 
 @Component({
     selector: "app-login-modal-component",
@@ -24,7 +23,7 @@ import { NgClass } from "@angular/common";
     <div class="modal-content">
       <div class="modal-header">
         <h4 class="modal-title" id="modal-title-heading">Login to <em>{{ group?.shortName }}</em> site</h4>
-        <button type="button" class="close" data-dismiss="modal" (click)="bsModalRef.hide()" aria-hidden="true">&times;
+        <button type="button" class="close" data-bs-dismiss="modal" (click)="bsModalRef.hide()" aria-hidden="true">&times;
         </button>
       </div>
       <div class="modal-body">
@@ -67,21 +66,23 @@ import { NgClass } from "@angular/common";
         </form>
       </div>
       <div class="modal-footer">
-        <div class="row col-sm-12">
+        <div class="col-sm-12 d-flex gap-2">
           <input type="submit" #loginButton [disabled]="notifyTarget.busy || !submittable()" value="Login"
             (click)="login()"
             title="Login"
-            [ngClass]="!notifyTarget.busy && submittable() ? 'button-form button-form-left': 'disabled-button-form button-form-left'">
+            class="btn btn-primary">
           <input type="reset" value="Cancel" (click)="close()" title="Cancel and don't login"
-            [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+            [disabled]="notifyTarget.busy"
+            class="btn btn-secondary">
           <input type="reset" value="Forgot Password" (click)="forgotPassword()"
             title="I've forgotten my password"
-            [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+            [disabled]="notifyTarget.busy"
+            class="btn btn-warning">
         </div>
       </div>
     </div>`,
     styleUrls: ["./login-modal.component.sass"],
-    imports: [FormsModule, FontAwesomeModule, ContactUsComponent, NgClass]
+    imports: [FormsModule, FontAwesomeModule, ContactUsComponent]
 })
 export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
   private logger: Logger = inject(LoggerFactory).createLogger("LoginModalComponent", NgxLoggerLevel.ERROR);

@@ -10,9 +10,9 @@ import { NgClass } from "@angular/common";
     template: `
     <div [tooltip]="showTooltip? (disabled ? 'Not available to ' : 'Click to ') + title : null" placement="auto"
          [ngClass]="{'btn btn-primary px-2 py-2': button, 'not-allowed disabled': disabled, 'pointer': !disabled}">
-      <div class="form-inline">
+      <div class="d-inline-flex align-items-center flex-wrap">
         <ng-content/>
-        <div [ngClass]="{'disabled': disabled}" class="ml-2">{{ title }}
+        <div [ngClass]="{'disabled': disabled}" class="ms-2">{{ title }}
         </div>
       </div>
     </div>`,

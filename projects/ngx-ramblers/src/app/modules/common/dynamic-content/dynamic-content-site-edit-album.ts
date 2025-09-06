@@ -43,62 +43,62 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
                 <div class="col-sm-12">
                   <div class="row">
                     <div class="col-sm-6">
-                      <div class="custom-control custom-checkbox">
+                      <div class="form-check">
                         <input [(ngModel)]="row.carousel.showStoryNavigator"
-                               type="checkbox" class="custom-control-input"
+                               type="checkbox" class="form-check-input"
                                [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-story-navigator')">
-                        <label class="custom-control-label"
+                        <label class="form-check-label"
                                [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-story-navigator')">
                           Show Story Navigator</label>
                       </div>
                     </div>
                     <div class="col-sm-6">
-                      <div class="custom-control custom-checkbox">
+                      <div class="form-check">
                         <input [(ngModel)]="row.carousel.showIndicators"
-                               type="checkbox" class="custom-control-input"
+                               type="checkbox" class="form-check-input"
                                [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-story-indicators')">
-                        <label class="custom-control-label"
+                        <label class="form-check-label"
                                [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-story-indicators')">
                           Show Indicators</label>
                       </div>
                     </div>
                     <div class="col-sm-6">
-                      <div class="custom-control custom-checkbox">
+                      <div class="form-check">
                         <input [(ngModel)]="row.carousel.gridViewOptions.showTitles"
-                               type="checkbox" class="custom-control-input"
+                               type="checkbox" class="form-check-input"
                                [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-image-titles')">
-                        <label class="custom-control-label"
+                        <label class="form-check-label"
                                [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-image-titles')">
                           Show Image Titles</label>
                       </div>
                     </div>
                     <div class="col-sm-6">
-                      <div class="custom-control custom-checkbox">
+                      <div class="form-check">
                         <input [(ngModel)]="row.carousel.galleryViewOptions.thumb"
-                               type="checkbox" class="custom-control-input"
+                               type="checkbox" class="form-check-input"
                                [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-hide-thumbnail-selector')">
-                        <label class="custom-control-label"
+                        <label class="form-check-label"
                                [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-hide-thumbnail-selector')">
                           Hide Thumbnail Selector</label>
                       </div>
                     </div>
                     <div class="col-sm-6">
-                      <div class="custom-control custom-checkbox">
+                      <div class="form-check">
                         <input [(ngModel)]="row.carousel.gridViewOptions.showDates"
-                               type="checkbox" class="custom-control-input"
+                               type="checkbox" class="form-check-input"
                                [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-image-dates')">
-                        <label class="custom-control-label"
+                        <label class="form-check-label"
                                [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-image-dates')">
                           Show Image Dates</label>
                       </div>
                     </div>
                     @if (actions.isAlbum(row)) {
                       <div class="col-sm-6">
-                        <div class="custom-control custom-checkbox">
+                        <div class="form-check">
                           <input [(ngModel)]="row.carousel.allowSwitchView"
-                                 type="checkbox" class="custom-control-input"
+                                 type="checkbox" class="form-check-input"
                                  [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-allow-switch-view')">
-                          <label class="custom-control-label"
+                          <label class="form-check-label"
                                  [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-allow-switch-view')">
                           Allow Switch View</label>
                         </div>
@@ -194,11 +194,11 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
             <div class="img-thumbnail thumbnail-admin-edit">
               <div class="row">
                 <div class="col-sm-12">
-                  <div class="custom-control custom-checkbox">
+                  <div class="form-check">
                     <input [(ngModel)]="row.carousel.showTitle"
-                           type="checkbox" class="custom-control-input"
+                           type="checkbox" class="form-check-input"
                            [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-titles')">
-                    <label class="custom-control-label"
+                    <label class="form-check-label"
                            [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-titles')">
                       Show Titles on this page</label>
                   </div>
@@ -260,11 +260,11 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
             <div class="img-thumbnail thumbnail-admin-edit">
               <div class="row mt-2">
                 <div class="col-sm-12">
-                  <div class="custom-control custom-checkbox">
+                  <div class="form-check">
                     <input [(ngModel)]="row.carousel.showCoverImageAndText"
-                           type="checkbox" class="custom-control-input"
+                           type="checkbox" class="form-check-input"
                            [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-cover-image-and-text')">
-                    <label class="custom-control-label"
+                    <label class="form-check-label"
                            [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-cover-image-and-text')">
                       Show Cover Image and introductory text on this page</label>
                   </div>
@@ -323,11 +323,11 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
             <div class="img-thumbnail thumbnail-admin-edit">
               <div class="row mt-2">
                 <div class="col-sm-12">
-                  <div class="custom-control custom-checkbox">
+                  <div class="form-check">
                     <input [(ngModel)]="row.carousel.showPreAlbumText"
-                           type="checkbox" class="custom-control-input"
+                           type="checkbox" class="form-check-input"
                            [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-pre-album-text')">
-                    <label class="custom-control-label"
+                    <label class="form-check-label"
                            [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-pre-album-text')">
                       Show pre-album text on this page</label>
                   </div>

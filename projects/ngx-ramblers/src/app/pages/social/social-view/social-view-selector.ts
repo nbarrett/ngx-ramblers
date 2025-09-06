@@ -36,9 +36,9 @@ import { SocialViewPageComponent } from "../social-view-page/social-view-page";
       <div class="event-thumbnail card shadow tabset-container">
         <div class="row">
           <div class="col-sm-12 rounded align-items-center">
-            <div class="form-inline">
+            <div class="d-inline-flex align-items-center flex-wrap">
               <h1 id="pending-title">Finding {{ this.urlService.lastPathSegment() | humanise }}</h1>
-              <app-status-icon class="ml-3" noLabel [status]="Status.ACTIVE"/>
+              <app-status-icon class="ms-3" noLabel [status]="Status.ACTIVE"/>
             </div>
           </div>
         </div>

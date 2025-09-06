@@ -13,12 +13,11 @@ import { MailMessagingService } from "../../../../services/mail/mail-messaging.s
 import { MailMessagingConfig, NotificationConfig } from "../../../../models/mail.model";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { NgClass } from "@angular/common";
 
 @Component({
     selector: "app-expense-submit-modal",
     templateUrl: "./expense-submit-modal.component.html",
-    imports: [FormsModule, FontAwesomeModule, NgClass]
+    imports: [FormsModule, FontAwesomeModule]
 })
 export class ExpenseSubmitModalComponent implements OnInit {
 

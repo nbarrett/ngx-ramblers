@@ -4,7 +4,7 @@
   description="Introduction"></app-markdown-editor>
   <div class="card mb-3">
     <div class="card-body">
-      <div class="d-flex">
+      <div class="d-flex gap-2">
         <div class="form-group">
           <input id="quick-search" [(ngModel)]="filterParameters.quickSearch"
             (ngModelChange)="onSearchChange($event)"
@@ -16,7 +16,7 @@
           @if (allow.committee) {
             <select [compareWith]='accessLevelComparer' [(ngModel)]="filterParameters.filter"
               (ngModelChange)="applyFilterToMemberResources()" name="filter"
-              class="form-control input-md rounded ml-2">
+              class="form-control input-md rounded">
               @for (accessLevel of memberResourcesReferenceData.accessLevelViewTypes(); track accessLevel.description) {
                 <option
                   [textContent]="'View As ' + accessLevel.description"
@@ -26,7 +26,7 @@
           }
         </div>
         <div class="form-group flex-grow-1">
-          <div class="alert {{notifyTarget.alert.class}} ml-3">
+          <div class="alert {{notifyTarget.alert.class}}">
             <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
             @if (notifyTarget.alertTitle) {
               <strong>
@@ -39,14 +39,14 @@
         @if (allowAdd()) {
           <input
             type="submit" value="Add new Article" (click)="add()" title="Add new Article"
-            class="button-form mb-3">
+            class="btn btn-primary mb-3">
         }
         @for (memberResource of filteredMemberResources; track memberResource) {
           <div (mouseover)="selectMemberResource(memberResource)">
             <div class="row mb-4">
               <div class="col-sm-10">
                 <div class="file-detail">
-                  <div class="form-inline align-middle">
+                  <div class="d-inline-flex align-items-center flex-wrap align-middle">
                     <h6><a target="_blank" [textContent]="memberResource.title"
                     [href]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).resourceUrl(memberResource)"></a>
                     <small class="text-muted"> – {{memberResource.resourceDate | displayDate}}
@@ -57,35 +57,35 @@
                 @if (isActive(memberResource)) {
                   <div class="row">
                     <div class="col-sm-12">
-                      <div class="action-button-group">
+                      <div class="action-button-group d-flex gap-2 flex-wrap">
                         @if (!confirm.deleteConfirmOutstanding()) {
-                          <span>
+                          <div class="d-flex gap-2 flex-wrap">
                             @if (allowEdit(memberResource)) {
                               <input
                                 type="submit" value="Edit article"
                                 (click)="edit(memberResource)"
                                 title="Edit"
-                                class="button-form green-confirm">
+                                class="btn btn-success">
                             }
                             @if (allowDelete(memberResource)) {
                               <input
                                 type="submit" value="Delete article"
                                 (click)="delete()" title="Delete"
-                                class="button-form button-confirm">
+                                class="btn btn-danger">
                             }
-                          </span>
+                          </div>
                         }
                         @if (confirm.deleteConfirmOutstanding()) {
-                          <span>
+                          <div class="d-flex gap-2 flex-wrap">
                             <input type="submit" value="Confirm Delete"
                               (click)="confirmDelete()"
                               title="Confirm Delete"
-                              class="button-form button-confirm">
+                              class="btn btn-danger">
                             <input type="submit" value="Cancel Delete"
                               (click)="cancelDelete()"
                               title="Cancel delete"
-                              class="button-form green-confirm">
-                          </span>
+                              class="btn btn-success">
+                          </div>
                         }
                       </div>
                     </div>

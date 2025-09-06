@@ -57,7 +57,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
           @if (notify.alertTarget.showAlert) {
             <div class="col-12 alert {{notify.alertTarget.alertClass}} mt-3">
               <fa-icon [icon]="notify.alertTarget.alert.icon"></fa-icon>
-              <strong class="ml-2">{{ notify.alertTarget.alertTitle }}</strong>
+              <strong class="ms-2">{{ notify.alertTarget.alertTitle }}</strong>
               <span class="p-2">{{ notify.alertTarget.alertMessage }}. <a [href]="area"
                                                                           class="rams-text-decoration-pink"
                                                                           type="button"> Go Back to {{ area }}

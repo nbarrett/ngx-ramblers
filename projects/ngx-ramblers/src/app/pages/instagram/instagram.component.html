@@ -2,13 +2,13 @@
   <h5 class="card-title cta-button cta-instagram rounded"><a [href]="externalSystems?.instagram?.groupUrl + '/' + externalSystems?.instagram?.groupName">
     <img class="instagram-image"
          src="/assets/images/local/instagram.png"><span
-    class="instagram-title float-right">{{ externalSystems?.instagram?.groupName }}</span></a>
+    class="instagram-title float-end">{{ externalSystems?.instagram?.groupName }}</span></a>
   </h5>
   <p class="card-text">
     <app-dynamic-content [anchor]="BuiltInAnchor.INSTAGRAM_CONTENT" contentPathReadOnly/>
     @if (recentMedia?.length > 0) {
       <div class="spinner-border text-primary" role="status">
-        <span class="sr-only">Loading...</span>
+        <span class="visually-hidden">Loading...</span>
       </div>
       @for (media of recentMedia; track media) {
         <a [href]="media.permalink" target="_blank"

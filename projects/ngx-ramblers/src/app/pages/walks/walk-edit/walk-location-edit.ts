@@ -62,16 +62,12 @@ import { MapEditComponent } from "./map-edit";
                 [(ngModel)]="locationDetails.grid_reference_10"
                 type="text" class="form-control input-sm" id="grid-reference"
                 placeholder="Enter {{locationType}} Grid Reference here">
-              <div class="input-group-append">
-                <div class="input-group-text pointer">
-                  <div
-                    (click)="viewGridReference(display.gridReferenceFrom(locationDetails))"
-                    placement="top"
-                    tooltip="View {{locationType}} Grid Reference position in gridreferencefinder.com">
-                    <img src="/assets/images/local/grid-reference-finder.ico"/>
-                  </div>
-                </div>
-              </div>
+              <button type="button" class="btn btn-outline-secondary pointer"
+                (click)="viewGridReference(display.gridReferenceFrom(locationDetails))"
+                placement="top"
+                tooltip="View {{locationType}} Grid Reference position in gridreferencefinder.com">
+                <img src="/assets/images/local/grid-reference-finder.ico"/>
+              </button>
             </div>
           </div>
         </div>

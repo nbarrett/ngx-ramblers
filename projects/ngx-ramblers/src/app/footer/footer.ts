@@ -82,7 +82,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                         ©&nbsp;Ramblers&nbsp;{{year}}
                       </small></p></div>
                     </div>
-                    <div class="text-center text-md-right mt-2 mb-3 my-md-0 pr-md-0 col">
+                    <div class="text-center text-md-right mt-2 mb-3 my-md-0 pe-md-0 col">
                       <img src="/assets/images/local/fr-regulator-logo.png"
                         alt="Registered with Fundraising Regulator" width="162">
                     </div>

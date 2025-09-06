@@ -23,11 +23,11 @@
     <div class="row">
       <div class="col-sm-12">
         <div class="form-group">
-          <div class="custom-control custom-checkbox">
+          <div class="form-check">
             <input #checkbox (change)="confirmParameter(checkbox.checked)"
-                   [checked]="riskAssessmentConfirmed()" type="checkbox" class="custom-control-input"
+                   [checked]="riskAssessmentConfirmed()" type="checkbox" class="form-check-input"
                    [id]="'risk-assessment-' + riskAssessmentKey">
-            <label class="custom-control-label"
+            <label class="form-check-label"
                    [for]="'risk-assessment-' + riskAssessmentKey">{{confirmLabel()}}
             </label>
           </div>

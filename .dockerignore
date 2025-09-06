@@ -8,4 +8,3 @@ non-vcs/
 node_modules/
 server/target/
 server/ts-gen/
-non-vcs/docker/docker-compose*.yml

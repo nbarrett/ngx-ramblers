@@ -39,30 +39,30 @@ import { FormsModule } from "@angular/forms";
                 <li role="presentation">
                   <form tabindex="-1" class="b-dropdown-form">
                     <fieldset class="form-group">
-                      <div class="custom-control custom-checkbox">
+                      <div class="form-check">
                         <input aria-describedby="role-description"
                                type="checkbox"
                                (change)="selectAllRoleToggle()"
                                [checked]="allSelected()"
-                               class="custom-control-input"
+                               class="form-check-input"
                                value="true" [id]="stringUtils.kebabCase('select-all', id)">
-                        <label class="custom-control-label my-2" [for]="stringUtils.kebabCase('select-all', id)">
+                        <label class="form-check-label my-2" [for]="stringUtils.kebabCase('select-all', id)">
                           {{ allSelected() ? "Select None" : "Select All" }}
                         </label>
                       </div>
                       @for (committeeMember of display.committeeReferenceData.committeeMembers(); track committeeMember; let roleIndex = $index) {
-                        <div class="custom-control custom-checkbox">
+                        <div class="form-check">
                           <input aria-describedby="role-description"
                                  type="checkbox"
                                  (change)="selectRole($event, committeeMember)"
                                  [checked]="roleSelected(committeeMember)"
-                                 class="custom-control-input"
+                                 class="form-check-input"
                                  value="true" [id]="stringUtils.kebabCase('role', roleIndex, id)">
-                          <label class="custom-control-label" [for]="stringUtils.kebabCase('role', roleIndex, id)">
+                          <label class="form-check-label" [for]="stringUtils.kebabCase('role', roleIndex, id)">
                             {{ committeeMember.fullName }}
                             <small class="d-block">
                               {{ committeeMember.description }}@if (committeeMember.email) {
-                              <span class="ml-1 colour-disabled">{{ committeeMember.email }}</span>
+                              <span class="ms-1 colour-disabled">{{ committeeMember.email }}</span>
                             }
                             </small>
                           </label>

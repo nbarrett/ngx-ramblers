@@ -19,15 +19,13 @@ type SupportedInputTypes = DateValue | number | string;
 @Component({
     selector: "app-date-picker",
   template: `
-    <div [ngClass]="{'form-inline': label && prependLabel}">
+    <div [ngClass]="(label && prependLabel) ? 'd-flex align-items-center flex-wrap' : null">
       @if (label && !prependLabel) {
-        <label class="ml-2" [for]="id">{{ label }}</label>
+        <label [for]="id">{{ label }}</label>
       }
       <div class="input-group">
         @if (label && prependLabel) {
-          <div class="input-group-prepend">
-            <span class="input-group-text" [attr.aria-expanded]="dp.isOpen">{{ label }}:</span>
-          </div>
+          <span class="input-group-text" [attr.aria-expanded]="dp.isOpen">{{ label }}:</span>
         }
         <input [ngModel]="dateValue?.date"
                [id]="id"
@@ -38,10 +36,9 @@ type SupportedInputTypes = DateValue | number | string;
                bsDatepicker
                [bsConfig]="{withTimepicker: false, showClearButton: true, clearPosition: 'right', showTodayButton: true, todayPosition: 'center', isAnimated: true, dateInputFormat: 'ddd DD-MMM-YYYY', containerClass: 'theme-ramblers'}"
                type="text" class="form-control" [ngClass]="size ? 'input-' + size: 'input-sm'"/>
-        <div class="input-group-append">
-      <span class="input-group-text pointer" (click)="disabled? null:dp.toggle()">
-        <fa-icon [icon]="faCalendar" class="fa-icon"></fa-icon></span>
-        </div>
+        <button type="button" class="btn btn-outline-secondary" (click)="disabled? null:dp.toggle()">
+          <fa-icon [icon]="faCalendar" class="fa-icon"/>
+        </button>
       </div>
     </div>
     `,

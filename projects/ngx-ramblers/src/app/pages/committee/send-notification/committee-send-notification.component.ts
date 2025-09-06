@@ -89,8 +89,8 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                           <div class="form-group">
                             <form>
                               @for (list of mailMessagingConfig?.brevo?.lists?.lists; track list) {
-                                <div class="custom-control custom-radio">
-                                  <input class="custom-control-input"
+                                <div class="form-check">
+                                  <input class="form-check-input"
                                          id="send-list-{{list.id}}"
                                          name="send-to"
                                          type="radio"
@@ -98,26 +98,26 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                                          [disabled]="selectionDisabled(list)"
                                          (change)="selectList(list)"
                                          [value]="list.id"/>
-                                  <label class="custom-control-label"
+                                  <label class="form-check-label"
                                          for="send-list-{{list.id}}">
                                     {{ listNameAndMemberCount(list) }}</label>
                                   @if (false) {
-                                    <a class="ml-1 disabled"
+                                    <a class="ms-1 disabled"
                                        (click)="editRecipientsFromList(list)">(edit)</a>
                                   }
                                 </div>
                               }
                             </form>
                             @if (false) {
-                              <div class="custom-control custom-radio">
+                              <div class="form-check">
                                 <input id="custom"
                                        type="radio"
-                                       class="custom-control-input"
+                                       class="form-check-input"
                                        name="send-to"
                                        [disabled]=true
                                        [(ngModel)]="notification.content.listId"
                                        [value]="'custom'"/>
-                                <label class="custom-control-label" for="custom">
+                                <label class="form-check-label" for="custom">
                                   @if (notification?.content?.selectedMemberIds?.length === 0) {
                                     <div>Choose individual
                                       recipients
@@ -130,31 +130,31 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                                     </div>
                                   }
                                 </label>
-                                <a class="ml-1" (click)="clearRecipients(selectedList())"> (clear)</a>
+                                <a class="ms-1" (click)="clearRecipients(selectedList())"> (clear)</a>
                               </div>
                             }
                           </div>
                         </div>
                         <div class="col col-sm-5"><label>Address as:</label>
                           <div class="form-group">
-                            <div class="custom-control custom-radio">
+                            <div class="form-check">
                               <input id="addressee-first-name"
                                      type="radio"
-                                     class="custom-control-input"
+                                     class="form-check-input"
                                      name="address-as"
                                      [(ngModel)]="notification.content.addresseeType"
                                      [value]="addresseeFirstName"/>
-                              <label class="custom-control-label" for="addressee-first-name">Hi <i>first name</i>
+                              <label class="form-check-label" for="addressee-first-name">Hi <i>first name</i>
                               </label>
                             </div>
-                            <div class="custom-control custom-radio">
+                            <div class="form-check">
                               <input id="addressee-all"
                                      type="radio"
-                                     class="custom-control-input"
+                                     class="form-check-input"
                                      name="address-as"
                                      [(ngModel)]="notification.content.addresseeType"
                                      value="Hi all,"/>
-                              <label class="custom-control-label" for="addressee-all">Hi all,</label>
+                              <label class="form-check-label" for="addressee-all">Hi all,</label>
                             </div>
                           </div>
                         </div>
@@ -179,7 +179,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                                          [(ngModel)]="notification.content.selectedMemberIds">
                                 <ng-template ng-optgroup-tmp let-item="item">
                                   <span class="group-header">{{ item.name }} members</span>
-                                  <span class="ml-1 badge badge-secondary badge-group"> {{ item.total }} </span>
+                                  <span class="ms-1 badge bg-secondary badge-group"> {{ item.total }} </span>
                                 </ng-template>
                               </ng-select>
                             </div>
@@ -214,11 +214,11 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                     @if (committeeFile) {
                       <div class="row">
                         <div class="col col-sm-12"><label>Include download information for:</label>
-                          <div class="custom-control custom-checkbox">
+                          <div class="form-check">
                             <input [(ngModel)]="notification.content.includeDownloadInformation"
-                                   type="checkbox" class="custom-control-input" id="include-download-information">
+                                   type="checkbox" class="form-check-input" id="include-download-information">
                             <label
-                              class="custom-control-label"
+                              class="form-check-label"
                               for="include-download-information">{{ committeeFile.fileType }} -
                               {{ display.fileTitle(committeeFile) }}
                             </label>
@@ -251,63 +251,63 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                       </div>
                       <div class="col-sm-4">
                         <label>Include Information:</label>
-                        <div class="custom-control custom-checkbox">
+                        <div class="form-check">
                           <input [(ngModel)]="notification.groupEventsFilter.includeDescription"
                                  (ngModelChange)="populateGroupEvents()"
-                                 type="checkbox" class="custom-control-input" id="user-events-show-description">
-                          <label class="custom-control-label"
+                                 type="checkbox" class="form-check-input" id="user-events-show-description">
+                          <label class="form-check-label"
                                  for="user-events-show-description">Description
                           </label>
                         </div>
-                        <div class="custom-control custom-checkbox">
+                        <div class="form-check">
                           <input [(ngModel)]="notification.groupEventsFilter.includeLocation"
                                  (ngModelChange)="populateGroupEvents()"
-                                 type="checkbox" class="custom-control-input" id="user-events-show-location">
-                          <label class="custom-control-label"
+                                 type="checkbox" class="form-check-input" id="user-events-show-location">
+                          <label class="form-check-label"
                                  for="user-events-show-location">Location
                           </label>
                         </div>
-                        <div class="custom-control custom-checkbox">
+                        <div class="form-check">
                           <input [(ngModel)]="notification.groupEventsFilter.includeContact"
                                  (ngModelChange)="populateGroupEvents()"
-                                 type="checkbox" class="custom-control-input" id="user-events-show-contact">
-                          <label class="custom-control-label"
+                                 type="checkbox" class="form-check-input" id="user-events-show-contact">
+                          <label class="form-check-label"
                                  for="user-events-show-contact">Contact
                           </label>
                         </div>
-                        <div class="custom-control custom-checkbox">
+                        <div class="form-check">
                           <input [(ngModel)]="notification.groupEventsFilter.includeImage"
                                  (ngModelChange)="populateGroupEvents()"
-                                 type="checkbox" class="custom-control-input" id="user-events-show-image">
-                          <label class="custom-control-label"
+                                 type="checkbox" class="form-check-input" id="user-events-show-image">
+                          <label class="form-check-label"
                                  for="user-events-show-image">Image
                           </label>
                         </div>
                       </div>
                       <div class="col-sm-4">
                         <label>Include Event Types:</label>
-                        <div class="custom-control custom-checkbox">
+                        <div class="form-check">
                           <input [(ngModel)]="notification.groupEventsFilter.includeWalks"
                                  (ngModelChange)="populateGroupEvents()"
-                                 type="checkbox" class="custom-control-input" id="user-events-include-walks">
-                          <label class="custom-control-label"
+                                 type="checkbox" class="form-check-input" id="user-events-include-walks">
+                          <label class="form-check-label"
                                  for="user-events-include-walks">Walks:
                           </label>
                         </div>
-                        <div class="custom-control custom-checkbox">
+                        <div class="form-check">
                           <input [(ngModel)]="notification.groupEventsFilter.includeSocialEvents"
                                  (ngModelChange)="populateGroupEvents()"
-                                 type="checkbox" class="custom-control-input" id="user-events-include-social-events">
-                          <label class="custom-control-label"
+                                 type="checkbox" class="form-check-input" id="user-events-include-social-events">
+                          <label class="form-check-label"
                                  for="user-events-include-social-events">Social Events:
                           </label>
                         </div>
-                        <div class="custom-control custom-checkbox">
+                        <div class="form-check">
                           <input [(ngModel)]="notification.groupEventsFilter.includeCommitteeEvents"
                                  (ngModelChange)="populateGroupEvents()"
-                                 type="checkbox" class="custom-control-input"
+                                 type="checkbox" class="form-check-input"
                                  id="user-events-include-committee-events"/>
-                          <label class="custom-control-label"
+                          <label class="form-check-label"
                                  for="user-events-include-committee-events">Committee Events:
                           </label>
                         </div>
@@ -318,12 +318,12 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                         <ul class="group-events-ul">
                           @if (notification?.groupEvents?.length > 0) {
                             <li class="mb-2">
-                              <div class="custom-control custom-checkbox">
+                              <div class="form-check">
                                 <input [(ngModel)]="notification.groupEventsFilter.selectAll"
                                        (click)="selectAllGroupEvents()"
                                        id="select-all"
-                                       type="checkbox" class="custom-control-input">
-                                <label class="custom-control-label"
+                                       type="checkbox" class="form-check-input">
+                                <label class="form-check-label"
                                        for="select-all"><strong>Select/Deselect All</strong> - {{ selectedCount() }} out
                                   of {{ stringUtils.pluraliseWithCount(notification.groupEvents.length, "event") }}
                                 </label>
@@ -333,12 +333,12 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                           @for (groupEvent of notification.groupEvents; track groupEvent; let index = $index) {
                             <li
                               (click)="changeGroupEventSelection(groupEvent)">
-                              <div class="custom-control custom-checkbox">
+                              <div class="form-check">
                                 <input [(ngModel)]="groupEvent.selected"
                                        (change)="toggleEvent(groupEvent)"
                                        [id]="idForIndex(index)"
-                                       type="checkbox" class="custom-control-input">
-                                <label class="custom-control-label"
+                                       type="checkbox" class="form-check-input">
+                                <label class="form-check-label"
                                        [for]="idForIndex(index)">
                         <span style="font-size: 14px;font-weight: bold">
                           <span [textContent]="groupEvent.eventDate | displayDate"></span>
@@ -397,12 +397,12 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                     <div class="row">
                       <div class="col-sm-12">
                         <div class="form-group">
-                          <div class="custom-control custom-checkbox">
+                          <div class="form-check">
                             <input [(ngModel)]="notification.content.signoffText.include" type="checkbox"
-                                   class="custom-control-input"
+                                   class="form-check-input"
                                    id="include-signoff-text">
                             <label for="include-signoff-text"
-                                   class="custom-control-label">
+                                   class="form-check-label">
                               Include Signoff text:
                             </label>
                           </div>
@@ -417,11 +417,11 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
                     <div class="row">
                       <div class="col col-sm-12">
                         <div class="form-group">
-                          <div class="custom-control custom-checkbox">
+                          <div class="form-check">
                             <input [(ngModel)]="notification.content.signoffAs.include"
-                                   type="checkbox" class="custom-control-input"
+                                   type="checkbox" class="form-check-input"
                                    id="include-signoff-as">
-                            <label class="custom-control-label"
+                            <label class="form-check-label"
                                    for="include-signoff-as">Signoff as:
                             </label>
                           </div>
@@ -465,10 +465,10 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
             }
             <app-brevo-button button [disabled]="notReady()" (click)="runCampaignCreationAndSendWorkflow()"
                               title="Send Now via {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
-            <app-brevo-button class="ml-2" button [disabled]="notReady()" (click)="completeInMailSystem()"
+            <app-brevo-button class="ms-2" button [disabled]="notReady()" (click)="completeInMailSystem()"
                               title="Complete in {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
             <input type="submit" value="Back" (click)="backToCommittee()"
-                   class="ml-2 btn btn-primary px-2 py-2">
+                   class="ms-2 btn btn-primary px-2 py-2">
           </div>
         </div>
         <div class="d-none">

@@ -61,7 +61,7 @@ import cloneDeep from "lodash-es/cloneDeep";
       <div class="modal-content">
         <div class="modal-header">
           <h4 class="modal-title">Send <em>Social Event</em> Notification</h4>
-          <button (click)="bsModalRef.hide()" type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;
+          <button (click)="bsModalRef.hide()" type="button" class="close" data-bs-dismiss="modal" aria-hidden="true">&times;
           </button>
         </div>
         @if (latestNotification?.content?.title) {
@@ -77,8 +77,8 @@ import cloneDeep from "lodash-es/cloneDeep";
                       <div class="col-sm-7"><label>Send to:</label>
                       <div class="form-group">
                         @for (list of mailMessagingConfig?.brevo?.lists?.lists; track list.id) {
-                          <div class="custom-control custom-radio">
-                            <input class="custom-control-input"
+                          <div class="form-check">
+                            <input class="form-check-input"
                               id="send-list-{{list.id}}"
                               name="send-to"
                               type="radio"
@@ -86,24 +86,24 @@ import cloneDeep from "lodash-es/cloneDeep";
                               [disabled]="selectionDisabled(list)"
                               (change)="selectList(list)"
                               [value]="list.id"/>
-                            <label class="custom-control-label"
+                            <label class="form-check-label"
                               for="send-list-{{list.id}}">
                             {{ listNameAndMemberCount(list) }}</label>
                             @if (false) {
-                              <a class="ml-1 disabled"
+                              <a class="ms-1 disabled"
                               (click)="editRecipientsFromList(list)">(edit)</a>
                             }
                           </div>
                         }
                         @if (false) {
-                          <div class="custom-control custom-radio">
+                          <div class="form-check">
                             <input id="custom"
                               type="radio"
-                              class="custom-control-input"
+                              class="form-check-input"
                               name="send-to"
                               [(ngModel)]="latestNotification.content.listId"
                               value="custom"/>
-                            <label class="custom-control-label" for="custom">@if (latestNotification?.content?.selectedMemberIds?.length===0) {
+                            <label class="form-check-label" for="custom">@if (latestNotification?.content?.selectedMemberIds?.length===0) {
                               <span
                               >Choose individual recipients</span>
                             }
@@ -114,7 +114,7 @@ import cloneDeep from "lodash-es/cloneDeep";
                             }
                           </label>
                           @if (latestNotification?.content?.selectedMemberIds.length>0) {
-                            <a class="ml-4"
+                            <a class="ms-4"
                             (click)="clearRecipients(this.selectedList())">(clear)</a>
                           }
                         </div>
@@ -123,32 +123,32 @@ import cloneDeep from "lodash-es/cloneDeep";
                   </div>
                   <div class="col col-sm-5"><label>Address as:</label>
                   <div class="form-group">
-                    <div class="custom-control custom-radio">
+                    <div class="form-check">
                       <input id="addressee-first-name"
                         type="radio"
-                        class="custom-control-input"
+                        class="form-check-input"
                         name="address-as"
                         [(ngModel)]="latestNotification.content.addresseeType"
                         [value]="ADDRESSEE_CONTACT_FIRST_NAME"/>
-                      <label class="custom-control-label" for="addressee-first-name">Hi <i>first name</i></label>
+                      <label class="form-check-label" for="addressee-first-name">Hi <i>first name</i></label>
                     </div>
-                    <div class="custom-control custom-radio">
+                    <div class="form-check">
                       <input id="addressee-all"
                         type="radio"
-                        class="custom-control-input"
+                        class="form-check-input"
                         name="address-as"
                         [(ngModel)]="latestNotification.content.addresseeType"
                         value="Hi all,"/>
-                      <label class="custom-control-label" for="addressee-all">Hi all</label>
+                      <label class="form-check-label" for="addressee-all">Hi all</label>
                     </div>
-                    <div class="custom-control custom-radio">
+                    <div class="form-check">
                       <input id="addressee-none"
                         type="radio"
-                        class="custom-control-input"
+                        class="form-check-input"
                         name="address-as"
                         [(ngModel)]="latestNotification.content.addresseeType"
                         value=""/>
-                      <label class="custom-control-label" for="addressee-none">No addressing</label>
+                      <label class="form-check-label" for="addressee-none">No addressing</label>
                     </div>
                   </div>
                 </div>
@@ -173,7 +173,7 @@ import cloneDeep from "lodash-es/cloneDeep";
                         [(ngModel)]="latestNotification.content.selectedMemberIds">
                         <ng-template ng-optgroup-tmp let-item="item">
                           <span class="group-header">{{ item.name }} members</span>
-                          <span class="ml-1 badge badge-secondary badge-group"> {{ item.total }} </span>
+                          <span class="ms-1 badge bg-secondary badge-group"> {{ item.total }} </span>
                         </ng-template>
                       </ng-select>
                     </div>
@@ -187,11 +187,11 @@ import cloneDeep from "lodash-es/cloneDeep";
               <div class="row">
                 <div class="col-sm-12">
                   <div class="form-group">
-                    <div class="custom-control custom-checkbox">
+                    <div class="form-check">
                       <input [(ngModel)]="latestNotification.content.title.include"
-                        type="checkbox" class="custom-control-input"
+                        type="checkbox" class="form-check-input"
                         id="include-title">
-                      <label class="custom-control-label"
+                      <label class="form-check-label"
                         for="include-title">Include Title:
                       </label>
                     </div>
@@ -208,12 +208,12 @@ import cloneDeep from "lodash-es/cloneDeep";
                 <div class="row">
                   <div class="col-sm-12">
                     <div class="form-group">
-                      <div class="custom-control custom-checkbox">
+                      <div class="form-check">
                         <input
                           [(ngModel)]="latestNotification.content.eventDetails.include"
-                          type="checkbox" class="custom-control-input"
+                          type="checkbox" class="form-check-input"
                           id="include-event-details">
-                        <label class="custom-control-label"
+                        <label class="form-check-label"
                           for="include-event-details">Include Event details with title:
                         </label>
                       </div>
@@ -227,13 +227,13 @@ import cloneDeep from "lodash-es/cloneDeep";
                       <div class="row">
                         <div class="col-sm-12">
                           <div class="form-group">
-                            <div class="custom-control custom-checkbox">
+                            <div class="form-check">
                               <input
                                 [(ngModel)]="latestNotification.content.attendees.include"
-                                type="checkbox" class="custom-control-input"
+                                type="checkbox" class="form-check-input"
                                 id="include-attendees">
                               <label
-                                class="custom-control-label"
+                                class="form-check-label"
                                 for="include-attendees">Include List of attendees:
                                 <span
                                   style="font-weight: normal"> ({{ display.attendeeList(socialEvent, display.memberFilterSelections) }}
@@ -250,13 +250,13 @@ import cloneDeep from "lodash-es/cloneDeep";
               <div class="row">
                 <div class="col-sm-12">
                   <div class="form-group">
-                    <div class="custom-control custom-checkbox">
+                    <div class="form-check">
                       <input
                         [(ngModel)]="latestNotification.content.text.include"
-                        type="checkbox" class="custom-control-input"
+                        type="checkbox" class="form-check-input"
                         id="include-notification-text">
                       <label
-                        class="custom-control-label"
+                        class="form-check-label"
                         for="include-notification-text">Include Notification text:
                       </label>
                     </div>
@@ -271,12 +271,12 @@ import cloneDeep from "lodash-es/cloneDeep";
               <div class="row">
                 <div class="col-sm-12">
                   <div class="form-group">
-                    <div class="custom-control custom-checkbox">
+                    <div class="form-check">
                       <input
                         [(ngModel)]="latestNotification.content.description.include"
-                        type="checkbox" class="custom-control-input"
+                        type="checkbox" class="form-check-input"
                         id="include-description">
-                      <label class="custom-control-label"
+                      <label class="form-check-label"
                         for="include-description">Include Social Event Description text:
                       </label>
                     </div>
@@ -287,11 +287,11 @@ import cloneDeep from "lodash-es/cloneDeep";
                 <div class="row">
                   <div class="col-sm-12">
                     <div class="form-group">
-                      <div class="custom-control custom-checkbox">
+                      <div class="form-check">
                         <input [(ngModel)]="latestNotification.content.attachment.include"
-                          type="checkbox" class="custom-control-input"
+                          type="checkbox" class="form-check-input"
                           id="include-attachment">
-                        <label class="custom-control-label"
+                        <label class="form-check-label"
                           for="include-attachment">Include link to attachment:
                           <span
                           style="font-weight: normal"> {{ display.attachmentTitle(socialEvent) }}</span>
@@ -304,12 +304,12 @@ import cloneDeep from "lodash-es/cloneDeep";
               <div class="row">
                 <div class="col-sm-12">
                   <div class="form-group">
-                    <div class="custom-control custom-checkbox">
+                    <div class="form-check">
                       <input [(ngModel)]="latestNotification.content.signoffText.include"
-                        type="checkbox" class="custom-control-input"
+                        type="checkbox" class="form-check-input"
                         id="include-signoff-text">
                       <label
-                        class="custom-control-label"
+                        class="form-check-label"
                         for="include-signoff-text">Signoff with text:
                       </label>
                     </div>
@@ -325,11 +325,11 @@ import cloneDeep from "lodash-es/cloneDeep";
               <div class="row">
                 <div class="col-sm-12">
                   <div class="form-group">
-                    <div class="custom-control custom-checkbox">
+                    <div class="form-check">
                       <input [(ngModel)]="latestNotification.content.replyTo.include"
-                        type="checkbox" class="custom-control-input"
+                        type="checkbox" class="form-check-input"
                         id="include-reply-to">
-                      <label class="custom-control-label"
+                      <label class="form-check-label"
                         for="include-reply-to">Send replies to:
                       </label>
                     </div>
@@ -349,11 +349,11 @@ import cloneDeep from "lodash-es/cloneDeep";
               <div class="row">
                 <div class="col-sm-12">
                   <div class="form-group">
-                    <div class="custom-control custom-checkbox">
+                    <div class="form-check">
                       <input [(ngModel)]="latestNotification.content.signoffAs.include"
-                        type="checkbox" class="custom-control-input"
+                        type="checkbox" class="form-check-input"
                         id="include-signoff-as">
-                      <label class="custom-control-label"
+                      <label class="form-check-label"
                         for="include-signoff-as">Signoff and Send as:
                       </label>
                     </div>
@@ -413,14 +413,16 @@ import cloneDeep from "lodash-es/cloneDeep";
       </div>
     }
     <div class="modal-footer">
-      <app-brevo-button button [disabled]="notReady()" (click)="runCampaignCreationAndSendWorkflow()"
-        title="Send Now via {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
-      <app-brevo-button class="ml-2" button [disabled]="notReady()" (click)="completeInMailSystem()"
-        title="Complete in {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
-      <input type="submit" value="Save and Send Later" (click)="saveAndSendLater()"
-        class="ml-2 btn btn-primary px-2 py-2">
-      <input type="submit" value="Cancel Send" (click)="cancelSendNotification()"
-        class="ml-2 btn btn-primary px-2 py-2 mr-2">
+      <div class="d-flex gap-2 flex-wrap">
+        <app-brevo-button button [disabled]="notReady()" (click)="runCampaignCreationAndSendWorkflow()"
+          title="Send Now via {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
+        <app-brevo-button button [disabled]="notReady()" (click)="completeInMailSystem()"
+          title="Complete in {{systemConfig?.mailDefaults?.mailProvider| titlecase}}"/>
+        <input type="submit" value="Save and Send Later" (click)="saveAndSendLater()"
+          class="btn btn-primary px-2 py-2">
+        <input type="submit" value="Cancel Send" (click)="cancelSendNotification()"
+          class="btn btn-primary px-2 py-2">
+      </div>
     </div>
     <div class="d-none">
       <ng-template app-notification-directive/>

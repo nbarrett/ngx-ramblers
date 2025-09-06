@@ -1,11 +1,10 @@
 <div class="d-block d-lg-none d-sm-flex align-items-center col-md-4">
-  <app-login-panel></app-login-panel>
+  <app-login-panel/>
 </div>
-<div class="text-center text-sm-right d-block d-sm-flex">
+<div class="text-center text-sm-end d-block d-sm-flex">
   @for (site of systemConfigResponse?.header?.navigationButtons; track site) {
     <a [href]="site.href"
-       class="mx-auto btn btn-primary text-black mb-3 mb-sm-0 mr-sm-3 d-block d-sm-inline-block"
-    >
+       class="header-btn mx-auto btn btn-primary text-black mb-3 mb-sm-0 me-sm-3 d-block d-sm-inline-block">
       {{ site.title }}</a>
   }
 </div>

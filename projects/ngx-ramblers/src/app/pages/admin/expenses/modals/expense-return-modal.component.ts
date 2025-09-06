@@ -13,13 +13,12 @@ import { MailMessagingService } from "../../../../services/mail/mail-messaging.s
 import { MailMessagingConfig, NotificationConfig } from "../../../../models/mail.model";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { NgClass } from "@angular/common";
 import { MemberIdToFullNamePipe } from "../../../../pipes/member-id-to-full-name.pipe";
 
 @Component({
     selector: "app-expense-paid-modal",
     templateUrl: "./expense-return-modal.component.html",
-    imports: [FormsModule, FontAwesomeModule, NgClass, MemberIdToFullNamePipe]
+    imports: [FormsModule, FontAwesomeModule, MemberIdToFullNamePipe]
 })
 export class ExpenseReturnModalComponent implements OnInit {
 

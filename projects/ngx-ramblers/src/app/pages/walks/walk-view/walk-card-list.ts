@@ -29,7 +29,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
     <div class="d-flex flex-column pt-2 mb-2">
       @if (false) {
         <div class="heading d-flex align-items-center mb-3">
-          <button aria-label="Previous slide" class="text-dark border-0 bg-transparent p-0 mr-1">
+          <button aria-label="Previous slide" class="text-dark border-0 bg-transparent p-0 me-1">
             <app-svg (click)="prevSlide()"
               [disabled]="backDisabled()"
               class="icon"
@@ -37,7 +37,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
               width="36"
               icon="i-back-round">
             </app-svg>
-            <span class="sr-only">Previous slide</span></button>
+            <span class="visually-hidden">Previous slide</span></button>
             <button aria-label="Next slide" class="text-dark border-0 bg-transparent p-0">
               <app-svg (click)="nextSlide()"
                 [disabled]="forwardDisabled()"
@@ -46,7 +46,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
                 width="36"
                 icon="i-forward-round">
               </app-svg>
-              <span class="sr-only">Next slide</span></button>
+              <span class="visually-hidden">Next slide</span></button>
             </div>
           }
           <div class="row">
@@ -59,7 +59,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
                     [displayedWalk]="displayedWalk" [index]="index"/>
                 }
                 @if (expandedViewDisplay(displayedWalk.walk)) {
-                  <app-walk-view class="mx-3" [displayedWalk]="displayedWalk"/>
+                  <app-walk-view [displayedWalk]="displayedWalk"/>
                 }
                 @if (walkEditDisplay(displayedWalk.walk)) {
                   <app-walk-edit

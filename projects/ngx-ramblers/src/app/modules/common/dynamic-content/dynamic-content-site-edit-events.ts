@@ -57,7 +57,7 @@ import { HasStartAndEndTime } from "../../../models/group-event.model";
             <select [(ngModel)]="row.events.filterCriteria"
                     (ngModelChange)="broadcastChange()"
                     name="selectType"
-                    class="form-control rounded mr-3">
+                    class="form-control rounded me-3">
               @for (dateCriteria of display.filterCriteriaOptionsFor(DYNAMIC_CONTENT_FILTER_OPTIONS); track dateCriteria.value) {
                 <option [ngValue]="dateCriteria.key">{{ dateCriteria.value }}</option>
               }
@@ -105,58 +105,58 @@ import { HasStartAndEndTime } from "../../../models/group-event.model";
         </div>
       </div>
       <div class="row d-flex">
-        <div class="col-md-12 form-inline px-0 pb-2">
+        <div class="col-md-12 d-inline-flex align-items-center flex-wrap px-0 pb-2">
           <div class="col-auto">
-            <div class="custom-control custom-checkbox">
+            <div class="form-check">
               <input name="showSwiper" [(ngModel)]="row.events.allow.quickSearch"
                      [checked]="row.events.allow.quickSearch"
-                     type="checkbox" class="custom-control-input"
+                     type="checkbox" class="form-check-input"
                      [id]="id +'-quick-search'">
-              <label class="custom-control-label"
+              <label class="form-check-label"
                      [for]="id +'-quick-search'">Quick Search
               </label>
             </div>
           </div>
           <div class="col-auto">
-            <div class="custom-control custom-checkbox">
+            <div class="form-check">
               <input name="showSwiper" [(ngModel)]="row.events.allow.pagination"
                      [checked]="row.events.allow.pagination"
-                     type="checkbox" class="custom-control-input"
+                     type="checkbox" class="form-check-input"
                      [id]="id +'-pagination'">
-              <label class="custom-control-label"
+              <label class="form-check-label"
                      [for]="id +'-pagination'">Pagination
               </label>
             </div>
           </div>
           <div class="col-auto">
-            <div class="custom-control custom-checkbox">
+            <div class="form-check">
               <input name="showSwiper" [(ngModel)]="row.events.allow.alert"
                      [checked]="row.events.allow.alert"
-                     type="checkbox" class="custom-control-input"
+                     type="checkbox" class="form-check-input"
                      [id]="id +'-alert-indicator'">
-              <label class="custom-control-label"
+              <label class="form-check-label"
                      [for]="id +'-alert-indicator'">Alert Indicator
               </label>
             </div>
           </div>
           <div class="col-auto">
-            <div class="custom-control custom-checkbox">
+            <div class="form-check">
               <input name="showSwiper" [(ngModel)]="row.events.allow.autoTitle"
                      [checked]="row.events.allow.autoTitle"
-                     type="checkbox" class="custom-control-input"
+                     type="checkbox" class="form-check-input"
                      [id]="id +'-auto-title'">
-              <label class="custom-control-label"
+              <label class="form-check-label"
                      [for]="id +'-auto-title'">Auto Title
               </label>
             </div>
           </div>
           <div class="col-auto">
-            <div class="custom-control custom-checkbox">
+            <div class="form-check">
               <input name="showSwiper" [(ngModel)]="row.events.allow.addNew"
                      [checked]="row.events.allow.addNew"
-                     type="checkbox" class="custom-control-input"
+                     type="checkbox" class="form-check-input"
                      [id]="id +'-add-new-event'">
-              <label class="custom-control-label"
+              <label class="form-check-label"
                      [for]="id +'-add-new-event'">Add New Event Button
               </label>
             </div>

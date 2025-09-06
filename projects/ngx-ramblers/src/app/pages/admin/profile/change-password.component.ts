@@ -13,7 +13,6 @@ import { ProfileService } from "./profile.service";
 import { PageComponent } from "../../../page/page.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
-import { NgClass } from "@angular/common";
 import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 
 const pleaseTryAgain = " - please try again";
@@ -22,7 +21,7 @@ const pleaseTryAgain = " - please try again";
     selector: "app-change-password",
     templateUrl: "./change-password.component.html",
     styleUrls: ["../admin/admin.component.sass"],
-    imports: [PageComponent, FontAwesomeModule, FormsModule, NgClass, ContactUsComponent]
+    imports: [PageComponent, FontAwesomeModule, FormsModule, ContactUsComponent]
 })
 export class ChangePasswordComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("ChangePasswordComponent", NgxLoggerLevel.ERROR);

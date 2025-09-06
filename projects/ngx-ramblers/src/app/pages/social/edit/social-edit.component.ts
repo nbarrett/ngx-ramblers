@@ -240,7 +240,7 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                                  class="btn btn-primary mb-10"/>
                           @if (socialEvent?.fields?.attachment) {
                             <input [disabled]="inputDisabled()" type="submit"
-                                   class="btn btn-primary ml-2" value="Remove attachment" (click)="removeAttachment()"
+                                   class="btn btn-primary ms-2" value="Remove attachment" (click)="removeAttachment()"
                                    title="Remove attachment"/>
                           }
                           <input #fileElement id="browse-to-file" name="attachment" class="d-none"
@@ -268,7 +268,7 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                                 as: {{ socialEvent.fields.attachment.originalFileName }}</label>
                             </div>
                             <div class="form-group">
-                              <label class="form-inline" for="attachment-title">Title</label>
+                              <label class="d-inline-flex align-items-center flex-wrap" for="attachment-title">Title</label>
                               @if (display.allow.edits) {
                                 <input [(ngModel)]="socialEvent.fields.attachment.title"
                                        [disabled]="inputDisabled()"
@@ -279,8 +279,8 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                               }
                             </div>
                             <div class="form-group">
-                              <label class="form-inline" for="attachment">Display:
-                                <a class="ml-2" target="_blank" [href]="display.attachmentUrl(socialEvent)"
+                              <label class="d-inline-flex align-items-center flex-wrap" for="attachment">Display:
+                                <a class="ms-2" target="_blank" [href]="display.attachmentUrl(socialEvent)"
                                    id="attachment">
                                   {{ display.attachmentTitle(socialEvent) }}</a>
                               </label>
@@ -311,7 +311,7 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                                      [(ngModel)]="selectedMemberIds">
                             <ng-template ng-optgroup-tmp let-item="item">
                               <span class="group-header">{{ item.name }}</span>
-                              <span class="ml-1 badge badge-secondary badge-group"> {{ item.total }}</span>
+                              <span class="ms-1 badge bg-secondary badge-group"> {{ item.total }}</span>
                             </ng-template>
                           </ng-select>
                         }
@@ -342,7 +342,7 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                   <app-copy-icon [icon]="faCopy" title [value]="display.groupEventLink(socialEvent, false)"
                                  [elementName]="'event link'">copy link to this
                   </app-copy-icon>
-                  <a class="ml-1" [href]="display.groupEventLink(socialEvent, true)"
+                  <a class="ms-1" [href]="display.groupEventLink(socialEvent, true)"
                      target="_blank">social event</a></label>
               </div>
             }
@@ -355,39 +355,39 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                 <input type="submit" value="Send Notification"
                        [disabled]="inputDisabled()" (click)="sendSocialEventNotification()"
                        title="Send social event notification"
-                       class="btn btn-primary ml-2"/>
+                       class="btn btn-primary ms-2"/>
               }
               @if (display.allow.delete && display.confirm.noneOutstanding()) {
                 <input type="submit" value="Delete" (click)="deleteSocialEventDetails()"
                        [disabled]="inputDisabled()"
-                       title="Delete this social event" class="btn btn-primary ml-2"/>
+                       title="Delete this social event" class="btn btn-primary ms-2"/>
               }
               @if (display.confirm.deleteConfirmOutstanding()) {
                 <input type="submit" value="Confirm Deletion"
                        [disabled]="inputDisabled()"
                        (click)="confirmDeleteSocialEventDetails()"
-                       class="btn btn-primary ml-2"/>
+                       class="btn btn-primary ms-2"/>
               }
               @if (display.confirm.deleteConfirmOutstanding()) {
                 <input type="submit" value="Cancel Deletion"
                        [disabled]="notifyTarget.busy"
                        (click)="cancelDeleteSocialEvent()"
-                       class="btn btn-primary ml-2"/>
+                       class="btn btn-primary ms-2"/>
               }
               @if (display.allow.edits) {
                 <input type="submit" value="Cancel" (click)="cancelSocialEventDetails()"
                        [disabled]="inputDisabled()"
-                       title="Cancel and don't save social event" class="btn btn-primary ml-2"/>
+                       title="Cancel and don't save social event" class="btn btn-primary ms-2"/>
               }
               @if (display.allow.copy) {
                 <input type="submit" value="Copy" (click)="copyDetailsToNewSocialEvent()"
                        [disabled]="inputDisabled()"
-                       title="Copy details to new social event" class="btn btn-primary ml-2"/>
+                       title="Copy details to new social event" class="btn btn-primary ms-2"/>
               }
               @if (!display.allow.edits) {
                 <input type="submit" value="Close" (click)="cancelSocialEventDetails()"
                        [disabled]="notifyTarget.busy"
-                       title="Close this social event without saving" class="btn btn-primary ml-2"/>
+                       title="Close this social event without saving" class="btn btn-primary ms-2"/>
               }
             </div>
           </div>

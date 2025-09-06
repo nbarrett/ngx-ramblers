@@ -24,7 +24,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
                        [disabled]="backDisabled()"
                        height="20"
                        icon="i-back-round"/>
-              <span class="sr-only">Previous slide</span>
+              <span class="visually-hidden">Previous slide</span>
               <span class="px-2">Image {{ imageIndex + 1 }}
                 of {{ extendedGroupEvent?.groupEvent?.media?.length }}</span>
               <app-svg colour="rgb(155, 200, 171)" (click)="next()"
@@ -32,7 +32,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
                        height="20"
                        icon="i-forward-round"/>
 
-              <span class="sr-only">Next slide</span>
+              <span class="visually-hidden">Next slide</span>
             </div>
           }
           @if (allowEditImage) {
@@ -45,7 +45,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
                        [tooltip]="'Remove this image'"/>
             </div>
             @if (extendedGroupEvent?.groupEvent?.media?.length > 1) {
-              <div class="ml-auto">
+              <div class="ms-auto">
                 <app-svg [tooltip]="backDisabled()? '':'move this image back to position '+ imageIndex"
                          colour="rgb(155, 200, 171)" (click)="moveImageBack()"
                          [disabled]="backDisabled()"

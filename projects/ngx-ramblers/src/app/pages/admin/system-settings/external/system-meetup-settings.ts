@@ -100,10 +100,10 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
               </div>
             </div>
             <div class="col-md-12">
-              <div class="form-inline">
+              <div class="d-inline-flex align-items-center flex-wrap">
                 <app-meetup-button button (click)="viewOAuthClients()"
                   title="View OAuth Clients"/>
-                <app-meetup-button class="ml-2" button (click)="requestMeetupAuthorisation()"
+                <app-meetup-button class="ms-2" button (click)="requestMeetupAuthorisation()"
                   title="Initiate Request Authorisation"/>
               </div>
             </div>
@@ -112,7 +112,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                 <div class="form-group mt-3">
                   <alert [type]="notifyTarget.alert.type">
                     <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                    <strong class="ml-2">{{ notifyTarget.alertTitle }}</strong>
+                    <strong class="ms-2">{{ notifyTarget.alertTitle }}</strong>
                     <div class="p-2">{{ notifyTarget.alertMessage }}</div>
                   </alert>
                 </div>

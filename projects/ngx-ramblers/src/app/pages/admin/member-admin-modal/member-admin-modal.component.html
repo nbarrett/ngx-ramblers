@@ -1,7 +1,7 @@
 <div class="modal-content">
   <div class="modal-header">
     <h4 class="modal-title">{{editMode}} <em>Member</em> Details</h4>
-    <button type="button" class="close" data-dismiss="modal" (click)="bsModalRef.hide();"
+    <button type="button" class="close" data-bs-dismiss="modal" (click)="bsModalRef.hide();"
             aria-hidden="true">&times;
     </button>
   </div>
@@ -142,10 +142,10 @@
                   </div>
                 </div>
                 <div class="col-sm-6">
-                  <div class="custom-control custom-checkbox">
+                  <div class="form-check">
                     <input name="expiredPassword" [disabled]="!allowEdits" [(ngModel)]="member.expiredPassword"
-                           type="checkbox" class="custom-control-input" id="is-member-ex">
-                    <label class="custom-control-label"
+                           type="checkbox" class="form-check-input" id="is-member-ex">
+                    <label class="form-check-label"
                            for="is-member-ex">Expired Password
                     </label>
                   </div>
@@ -166,95 +166,95 @@
           </div>
           <div class="row">
             <div class="col-sm-6">
-              <div class="custom-control custom-checkbox">
+              <div class="form-check">
                 <input name="groupMember" [disabled]="!allowEdits" [(ngModel)]="member.groupMember"
-                       type="checkbox" class="custom-control-input"
+                       type="checkbox" class="form-check-input"
                        id="is-approved-group-member">
-                <label class="custom-control-label"
+                <label class="form-check-label"
                        for="is-approved-group-member">Approved Group Member
                 </label>
               </div>
-              <div class="custom-control custom-checkbox">
+              <div class="form-check">
                 <input [disabled]="!allowEdits" [(ngModel)]="member.socialMember"
-                       type="checkbox" class="custom-control-input"
+                       type="checkbox" class="form-check-input"
                        id="is-approved-social-member">
-                <label name="socialMember" class="custom-control-label"
+                <label name="socialMember" class="form-check-label"
                        for="is-approved-social-member">Approved Social Member
                 </label>
               </div>
-              <div class="custom-control custom-checkbox">
+              <div class="form-check">
                 <input [disabled]="!allowEdits" [(ngModel)]="member.revoked"
-                       type="checkbox" class="custom-control-input"
+                       type="checkbox" class="form-check-input"
                        id="is-revoked-member">
-                <label name="revoked" class="custom-control-label"
+                <label name="revoked" class="form-check-label"
                        for="is-revoked-member">Revoked Member
                 </label>
               </div>
             </div>
             <div class="col-sm-6">
-              <div class="custom-control custom-checkbox">
+              <div class="form-check">
                 <input [disabled]="!allowEdits" [(ngModel)]="member.contentAdmin"
-                       type="checkbox" class="custom-control-input"
+                       type="checkbox" class="form-check-input"
                        id="is-content-admin">
-                <label name="contentAdmin" class="custom-control-label"
+                <label name="contentAdmin" class="form-check-label"
                        for="is-content-admin">Content Admin
                 </label>
               </div>
-              <div class="custom-control custom-checkbox">
+              <div class="form-check">
                 <input [disabled]="!allowEdits" [(ngModel)]="member.walkAdmin"
-                       type="checkbox" class="custom-control-input" id="is-walk-admin">
-                <label name="walkAdmin" class="custom-control-label"
+                       type="checkbox" class="form-check-input" id="is-walk-admin">
+                <label name="walkAdmin" class="form-check-label"
                        for="is-walk-admin">Walk Admin
                 </label>
               </div>
-              <div class="custom-control custom-checkbox">
+              <div class="form-check">
                 <input [disabled]="!allowEdits"
                        [(ngModel)]="member.walkChangeNotifications" type="checkbox"
-                       class="custom-control-input"
+                       class="form-check-input"
                        id="receives-walk-change-notifications">
-                <label class="custom-control-label"
+                <label class="form-check-label"
                        for="receives-walk-change-notifications">Walk Change Notifications
                 </label>
               </div>
-              <div class="custom-control custom-checkbox">
+              <div class="form-check">
                 <input [disabled]="!allowEdits" [(ngModel)]="member.socialAdmin"
-                       type="checkbox" class="custom-control-input" id="is-social-admin">
-                <label class="custom-control-label"
+                       type="checkbox" class="form-check-input" id="is-social-admin">
+                <label class="form-check-label"
                        for="is-social-admin">Social Admin
                 </label>
               </div>
-              <div class="custom-control custom-checkbox">
+              <div class="form-check">
                 <input [disabled]="!allowEdits" [(ngModel)]="member.memberAdmin"
-                       type="checkbox" class="custom-control-input" id="is-member-admin">
-                <label class="custom-control-label"
+                       type="checkbox" class="form-check-input" id="is-member-admin">
+                <label class="form-check-label"
                        for="is-member-admin">Member Admin
                 </label>
               </div>
-              <div class="custom-control custom-checkbox">
+              <div class="form-check">
                 <input [disabled]="!allowEdits" [(ngModel)]="member.financeAdmin"
-                       type="checkbox" class="custom-control-input" id="is-finance-admin">
-                <label class="custom-control-label"
+                       type="checkbox" class="form-check-input" id="is-finance-admin">
+                <label class="form-check-label"
                        for="is-finance-admin">Finance Admin
                 </label>
               </div>
-              <div class="custom-control custom-checkbox">
+              <div class="form-check">
                 <input [disabled]="!allowEdits" [(ngModel)]="member.treasuryAdmin"
-                       type="checkbox" class="custom-control-input" id="is-treasury-admin">
-                <label class="custom-control-label"
+                       type="checkbox" class="form-check-input" id="is-treasury-admin">
+                <label class="form-check-label"
                        for="is-treasury-admin">Treasury Admin
                 </label>
               </div>
-              <div class="custom-control custom-checkbox">
+              <div class="form-check">
                 <input [disabled]="!allowEdits" [(ngModel)]="member.fileAdmin"
-                       type="checkbox" class="custom-control-input" id="is-file-admin">
-                <label class="custom-control-label"
+                       type="checkbox" class="form-check-input" id="is-file-admin">
+                <label class="form-check-label"
                        for="is-file-admin">File Admin
                 </label>
               </div>
-              <div class="custom-control custom-checkbox">
+              <div class="form-check">
                 <input [disabled]="!allowEdits" [(ngModel)]="member.committee"
-                       type="checkbox" class="custom-control-input" id="is-committee-member">
-                <label class="custom-control-label"
+                       type="checkbox" class="form-check-input" id="is-committee-member">
+                <label class="form-check-label"
                        for="is-committee-member">Committee Member
                 </label>
               </div>
@@ -269,11 +269,11 @@
               <p>Please deselect the checkbox below to prompt {{member |
                 fullNameWithAlias}} to
                 confirm their profile settings on next login:</p>
-              <div class="custom-control custom-checkbox">
+              <div class="form-check">
                 <input (ngModelChange)="profileSettingsConfirmedChecked($event)"
-                       [(ngModel)]="member.profileSettingsConfirmed" type="checkbox" class="custom-control-input"
+                       [(ngModel)]="member.profileSettingsConfirmed" type="checkbox" class="form-check-input"
                        id="profile-settings-confirmed">
-                <label class="custom-control-label"
+                <label class="form-check-label"
                        for="profile-settings-confirmed">Profile settings confirmed
                   ({{member | lastConfirmedDateDisplayed}})
                 </label>
@@ -285,10 +285,10 @@
               <p>Please select how {{member | fullNameWithAlias}} wishes to limit
                 access to
                 their member data using the checkboxes below:</p>
-              <div class="custom-control custom-checkbox">
-                <input [(ngModel)]="member.hideSurname" type="checkbox" class="custom-control-input"
+              <div class="form-check">
+                <input [(ngModel)]="member.hideSurname" type="checkbox" class="form-check-input"
                        id="hide-surname">
-                <label class="custom-control-label"
+                <label class="form-check-label"
                        for="hide-surname">Hide surname from non-logged-in members
                 </label>
               </div>
@@ -366,11 +366,9 @@
                 <input autocomplete="new-password" name="contactId" [(ngModel)]="member.contactId" type="text"
                        class="form-control input-sm" id="ramblers-contact-name"
                        placeholder="The first name and last name used in Ramblers Walks Manager">
-                <div class="input-group-append" tooltip="Set this field to be {{member | fullNameWithAlias}}">
-                  <div class="input-group-text pointer" (click)="defaultContactName()">
-                    <fa-icon [icon]="faPaste" class="fa-icon"></fa-icon>
-                  </div>
-                </div>
+                <button type="button" class="btn btn-outline-secondary" tooltip="Set this field to be {{member | fullNameWithAlias}}" (click)="defaultContactName()">
+                  <fa-icon [icon]="faPaste" class="fa-icon"></fa-icon>
+                </button>
               </div>
             </div>
           </div>
@@ -472,30 +470,30 @@
       </div>
     }
   </div>
-  <div class="modal-footer">
+  <div class="modal-footer d-flex gap-2">
     @if (allowEdits) {
       <input type="submit" [disabled]="saveInProgress"
-             [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
+             class="btn btn-primary"
              (click)="saveMemberDetails()" tooltip="Save these member details" adaptivePosition value="Save">
     }
     @if (allowDelete) {
       <input type="submit" [disabled]="saveInProgress"
-             [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
+             class="btn btn-secondary"
              (click)="deleteMemberDetails()" tooltip="Delete these member details" value="Delete">
     }
     @if (allowConfirmDelete) {
-      <input type="submit" class="button-form button-form-left button-confirm"
+      <input type="submit" class="btn btn-danger"
              (click)="confirmDeleteMemberDetails()" tooltip="Confirm Delete of these member details"
              value="Confirm Deletion">
     }
     @if (allowEdits) {
       <input type="submit" [disabled]="saveInProgress"
-             [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
+             class="btn btn-info"
              (click)="copyDetailsToNewMember()" tooltip="Copy details to new Member" value="Copy">
     }
     @if (allowEdits) {
       <input type="submit" [disabled]="saveInProgress"
-             [ngClass]="saveInProgress ? 'disabled-button-form button-form-left': 'button-form button-form-left'"
+             class="btn btn-secondary"
              (click)="bsModalRef.hide();" tooltip="Cancel and don't save changes" value="Cancel">
     }
   </div>

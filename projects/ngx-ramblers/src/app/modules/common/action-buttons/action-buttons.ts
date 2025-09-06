@@ -34,7 +34,7 @@ import { CardEditorComponent } from "../card-editor/card-editor";
           <div
             class="d-flex align-items-center mb-3 col">
             <div class="flex-shrink-0">
-              <button aria-label="Previous slide" class="text-dark border-0 bg-transparent p-0 mr-1">
+              <button aria-label="Previous slide" class="text-dark border-0 bg-transparent p-0 me-1">
                 <app-svg (click)="back()"
                          [disabled]="backDisabled()"
                          class="icon"
@@ -42,7 +42,7 @@ import { CardEditorComponent } from "../card-editor/card-editor";
                          width="36"
                          icon="i-back-round">
                 </app-svg>
-                <span class="sr-only">Previous slide</span></button>
+                <span class="visually-hidden">Previous slide</span></button>
               <button aria-label="Next slide" class="text-dark border-0 bg-transparent p-0">
                 <app-svg (click)="forward()"
                          [disabled]="forwardDisabled()"
@@ -51,7 +51,7 @@ import { CardEditorComponent } from "../card-editor/card-editor";
                          width="36"
                          icon="i-forward-round">
                 </app-svg>
-                <span class="sr-only">Next slide</span></button>
+                <span class="visually-hidden">Next slide</span></button>
             </div>
           </div>
         }

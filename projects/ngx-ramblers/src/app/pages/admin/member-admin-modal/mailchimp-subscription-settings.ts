@@ -24,11 +24,11 @@ import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe"
           @if (mailchimpConfig?.lists?.general) {
             <div class="row">
               <div class="col-sm-5">
-                <div class="custom-control custom-checkbox">
+                <div class="form-check">
                   <input (change)="mailchimpChangeSubscribed('general')"
                     [(ngModel)]="member.mailchimpLists.general.subscribed"
-                    type="checkbox" class="custom-control-input" id="subscribe-general-emails">
-                  <label class="custom-control-label"
+                    type="checkbox" class="form-check-input" id="subscribe-general-emails">
+                  <label class="form-check-label"
                     for="subscribe-general-emails">General emails
                   </label>
                 </div>
@@ -47,11 +47,11 @@ import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe"
             @if (mailchimpConfig?.lists?.walks) {
               <div class="row">
                 <div class="col-sm-5">
-                  <div class="custom-control custom-checkbox">
+                  <div class="form-check">
                     <input (change)="mailchimpChangeSubscribed('walks')"
                       [(ngModel)]="member.mailchimpLists.walks.subscribed"
-                      type="checkbox" class="custom-control-input" id="subscribe-walks-emails">
-                    <label class="custom-control-label"
+                      type="checkbox" class="form-check-input" id="subscribe-walks-emails">
+                    <label class="form-check-label"
                       for="subscribe-walks-emails">Walks emails
                     </label>
                   </div>
@@ -70,11 +70,11 @@ import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe"
               @if (mailchimpConfig?.lists?.socialEvents) {
                 <div class="row">
                   <div class="col-sm-5">
-                    <div class="custom-control custom-checkbox">
+                    <div class="form-check">
                       <input (change)="mailchimpChangeSubscribed('socialEvents')"
                         [(ngModel)]="member.mailchimpLists.socialEvents.subscribed"
-                        type="checkbox" class="custom-control-input" id="subscribe-social-events-emails">
-                      <label class="custom-control-label"
+                        type="checkbox" class="form-check-input" id="subscribe-social-events-emails">
+                      <label class="form-check-label"
                         for="subscribe-social-events-emails">Social events emails
                       </label>
                     </div>

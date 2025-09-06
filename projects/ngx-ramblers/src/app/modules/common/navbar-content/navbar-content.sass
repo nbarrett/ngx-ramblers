@@ -1,0 +1,61 @@
+.navigation a
+  text-decoration: none !important
+  &:hover
+    text-decoration: none !important
+
+.navbar-collapse li.navigation a
+  @media (max-width: 991px)
+    font-size: 1.5rem !important
+
+// Never allow navbar items to wrap at any width
+.ramblers-list-bg-light ul, .ramblers-list-bg-dark ul
+  flex-wrap: nowrap !important
+
+.ramblers-list-bg-light ul li, .ramblers-list-bg-dark ul li
+  white-space: nowrap !important
+  flex: 0 0 auto
+
+.ramblers-list-bg-light ul li a, .ramblers-list-bg-dark ul li a
+  white-space: nowrap !important
+
+@media (min-width: 992px) and (max-width: 1100px)
+  .ramblers-list-bg-light ul, .ramblers-list-bg-dark ul
+    gap: .5rem
+  .ramblers-list-bg-light ul li a, .ramblers-list-bg-dark ul li a
+    font-size: 1.1rem
+    padding-left: .5rem
+    padding-right: .5rem
+
+.ramblers-list-bg-light
+  justify-content: center !important
+  @media (min-width: 992px)
+    justify-content: flex-end !important
+
+.ramblers-list-bg-light ul
+  justify-content: center !important
+  @media (min-width: 992px)
+    display: flex !important
+    justify-content: flex-end !important
+    width: 100% !important
+
+@media (min-width: 992px)
+  .ramblers-list-bg-light ul > app-page-navigator
+    margin-left: auto !important
+    display: flex !important
+
+.ramblers-list-bg-dark
+  justify-content: center !important
+  @media (min-width: 992px)
+    justify-content: flex-end !important
+
+.ramblers-list-bg-dark ul
+  justify-content: center !important
+  @media (min-width: 992px)
+    display: flex !important
+    justify-content: flex-end !important
+    width: 100% !important
+
+@media (min-width: 992px)
+  .ramblers-list-bg-dark ul > app-page-navigator
+    margin-left: auto !important
+    display: flex !important

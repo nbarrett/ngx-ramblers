@@ -1,7 +1,7 @@
 <div class="modal-content">
   <div class="modal-header">
     <h4 class="modal-title">Edit <em>Committee</em> File</h4>
-    <button type="button" class="close float-right" aria-label="Close" (click)="close()">
+    <button type="button" class="close float-end" aria-label="Close" (click)="close()">
       <span aria-hidden="true">&times;</span></button>
   </div>
   <div class="modal-body">
@@ -33,15 +33,13 @@
         <input type="submit" [disabled]="notifyTarget.busy"
                value="Browse for attachment"
                (click)="browseToFile(fileElement)"
-               class="button-form w-100"
-               [ngClass]="{'disabled-button-form': notifyTarget.busy}">
+               class="btn btn-primary w-100">
       </div>
       <div class="col-md-6">
         @if (committeeFile?.fileNameData) {
           <input [disabled]="notifyTarget.busy" type="submit"
                  value="Remove attachment" (click)="removeAttachment()" title="Remove attachment"
-                 class="button-form w-100"
-                 [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
+                 class="btn btn-secondary w-100">
         }
         <input #fileElement id="browse-to-file" name="attachment" class="d-none"
                type="file" value="Upload"
@@ -106,31 +104,31 @@
       </div>
     }
   </div>
-  <div class="modal-footer">
+  <div class="modal-footer d-flex gap-2">
     <input type="submit" value="Save File" [disabled]="pendingCompletion()" (click)="saveCommitteeFile()"
            title="Save File"
-           [ngClass]="pendingCompletion() ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+           class="btn btn-primary">
     @if (!display.confirm.deleteConfirmOutstanding() && display.allowDeleteCommitteeFile(committeeFile)) {
       <input type="submit"
              value="Delete File"
              [disabled]="pendingCompletion()" (click)="display.confirm.toggleOnDeleteConfirm();" title="Delete File"
-             [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+             class="btn btn-secondary">
     }
     @if (display.confirm.deleteConfirmOutstanding()) {
       <input type="submit" value="Confirm Delete of File"
              [disabled]="notifyTarget.busy" (click)="confirmDeleteCommitteeFile()"
              title="Confirm delete of this File"
-             [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left button-confirm'">
+             class="btn btn-danger">
     }
     @if (display.confirm.deleteConfirmOutstanding()) {
       <input type="submit" value="Cancel Delete of File"
              [disabled]="notifyTarget.busy" (click)="display.confirm.clear();"
              title="Confirm delete of this File"
-             [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left amber-confirm'">
+             class="btn btn-warning">
     }
     <input type="submit" value="Cancel Change" [disabled]="notifyTarget.busy" (click)="close()"
            title="Cancel File changes and close this dialog"
-           [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+           class="btn btn-secondary">
   </div>
 </div>
 

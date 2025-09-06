@@ -41,7 +41,7 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
             <select [(ngModel)]="notificationConfig"
               (ngModelChange)="select(notificationConfig)"
               id="template-mapping"
-              class="ml-2 form-control input-sm">
+              class="ms-2 form-control input-sm">
               @for (mapping of mailMessagingConfig.notificationConfigs; track mapping.subject.text) {
                 <option
                   [ngValue]="mapping">{{ mapping?.subject?.text || '(no subject)' }}
@@ -56,21 +56,21 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
         </div>
         <div class="col-sm-12">
           <div class="row">
-            <div class="col pr-1">
+            <div class="col pe-1">
               <app-badge-button fullWidth [icon]="faBackward" caption="Previous" (click)="previousConfig()"
                 [disabled]="previousConfigDisabled()"/>
             </div>
-            <div class="col pr-1">
+            <div class="col pe-1">
               <app-badge-button fullWidth [icon]="faForward" caption="Next" (click)="nextConfig()"
                 [disabled]="nextConfigDisabled()"/>
             </div>
-            <div class="col pr-1">
+            <div class="col pe-1">
               <app-badge-button fullWidth="true" [icon]="faCopy" caption="Duplicate" (click)="duplicateConfig()"/>
             </div>
             <div class="col">
               <app-badge-button fullWidth [icon]="faAdd" caption="Add New" (click)="addNewConfig()"/>
             </div>
-            <div class="col pr-1">
+            <div class="col pe-1">
               <app-badge-button fullWidth="true" [icon]="faEraser" caption="Delete" (click)="deleteConfig()"/>
             </div>
           </div>
@@ -87,7 +87,7 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
                         <label for="prefix-parameter">Subject Prefix</label>
                         <select [(ngModel)]="notificationConfig.subject.prefixParameter"
                           id="{{heading | kebabCase}-prefix-parameter"
-                          class="form-control input-sm flex-grow-1 mr-2">
+                          class="form-control input-sm flex-grow-1 me-2">
                           @for (keyValue of parametersFrom; track keyValue.key) {
                             <option
                               [ngValue]="keyValue.key">{{ formatKeyValue(keyValue) }}
@@ -109,7 +109,7 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
                         <label for="suffix-parameter">Subject Suffix</label>
                         <select [(ngModel)]="notificationConfig.subject.suffixParameter"
                           id="suffix-parameter"
-                          class="form-control input-sm flex-grow-1 mr-2">
+                          class="form-control input-sm flex-grow-1 me-2">
                           @for (keyValue of parametersFrom; track keyValue.key) {
                             <option
                               [ngValue]="keyValue.key">{{ formatKeyValue(keyValue) }}
@@ -160,12 +160,8 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
                         </option>
                       }
                     </select>
-                    <div class="input-group-append">
-                      <div class="input-group-text">
-                        <app-brevo-button [disabled]="notReady()" title="View or Edit Template"
-                          (click)="mailLinkService.editTemplateWithNotifications(notificationConfig.templateId, this.notReady(), mailMessagingConfig)"/>
-                      </div>
-                    </div>
+                    <app-brevo-button button [disabled]="notReady()" title="View or Edit Template"
+                      (click)="mailLinkService.editTemplateWithNotifications(notificationConfig.templateId, this.notReady(), mailMessagingConfig)"/>
                   </div>
                 </div>
               </div>

@@ -1,7 +1,7 @@
 <div class="modal-content">
   <div class="modal-header">
     <h4 class="modal-title">{{editMode}} <em>Article</em></h4>
-    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+    <button type="button" class="close" data-bs-dismiss="modal" aria-hidden="true">&times;</button>
   </div>
   <div class="modal-body">
     <div class="row">
@@ -56,7 +56,7 @@
           <div class="col-sm-12">
             <form class="form-group">
               <label for="campaign-search-term">Search Past Campaigns For Text</label>
-              <div class="form-inline">
+              <div class="d-inline-flex align-items-center flex-wrap gap-2">
                 <input id="campaign-search-term" type="text"
                   tabindex="1"
                   #searchInput
@@ -65,13 +65,14 @@
                   [(ngModel)]="memberResource.data.campaignSearchTerm"
                   [disabled]="notifyTarget.busy"
                   name="campaignSearchTerm"
-                  class="form-control input-sm flex-grow-1 mr-2"
+                  class="form-control input-sm flex-grow-1"
                   placeholder="Enter campaign search term">
                 <input type="submit" value="Search"
                   title="Search"
                   (click)="performCampaignSearch(memberResource.data.campaignSearchTerm,true)"
                   name="search"
-                  [ngClass]="notifyTarget.busy ? 'btn btn-default button-form disabled-button-form': 'btn btn-default button-form blue-confirm'">
+                  [disabled]="notifyTarget.busy"
+                  class="btn btn-info">
               </div>
             </form>
           </div>
@@ -102,11 +103,10 @@
             <input type="submit" [disabled]="notifyTarget.busy"
               value="Browse for attachment"
               (click)="browseToFile(fileElement)"
-              class="button-form mb-10 w-100"
-              [ngClass]="{'disabled-button-form': notifyTarget.busy}"/>
+              class="btn btn-primary mb-3 w-100"/>
             <input [disabled]="notifyTarget.busy" type="submit"
               value="Remove attachment" (click)="removeAttachment()" title="Remove attachment"
-              [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'"/>
+              class="btn btn-danger"/>
             <input #fileElement id="browse-to-file" name="attachment" class="d-none"
               type="file" value="Upload"
               ng2FileSelect (onFileSelected)="onFileSelect($event)" [uploader]="uploader"/>
@@ -129,7 +129,7 @@
                 as: {{memberResource?.data?.fileNameData.originalFileName}}</div>
                 <div class="row">
                   <div class="col-md-6">
-                    <label class="form-inline" for="attachment-title">Title:
+                    <label class="d-inline-flex align-items-center flex-wrap" for="attachment-title">Title:
                       <input [(ngModel)]="memberResource.data.fileNameData.title"
                         [disabled]="notifyTarget.busy"
                         type="text"
@@ -138,7 +138,7 @@
                       placeholder="Enter a title for this attachment"/></label>
                     </div>
                     <div class="col-md-6">
-                      <label class="form-inline ml-12" for="attachment">Display: <a target="_blank"
+                      <label class="d-inline-flex align-items-center flex-wrap" for="attachment" style="margin-left: 3rem;">Display: <a target="_blank"
                         [href]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).resourceUrl(memberResource)"
                         id="attachment">
                     {{fileUtils.attachmentTitle(memberResource, 'data', 'file')}}</a></label>
@@ -168,7 +168,7 @@
       </div>
       <div class="col-sm-12">
         <div class="form-group">
-          <label for="link-preview" class="mr-2">Link preview: </label>
+          <label for="link-preview" style="margin-right: 0.5rem;">Link preview: </label>
           <a target="_blank" id="link-preview"
           [href]="memberResourcesReferenceData.resourceTypeDataFor(memberResource.resourceType).resourceUrl(memberResource)">{{memberResource.title}}</a>
         </div>
@@ -188,23 +188,23 @@
         </div>
       }
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer d-flex gap-2">
       <input type="submit" value="Save" [disabled]="notifyTarget.busy" (click)="save()"
         title="Save"
-        [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+        class="btn btn-success">
       @if (!confirm.deleteConfirmOutstanding()) {
         <input type="submit" value="Delete File"
           [disabled]="notifyTarget.busy" (click)="delete()" title="Delete File"
-          [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+          class="btn btn-danger">
       }
       @if (confirm.deleteConfirmOutstanding()) {
         <input type="submit" value="Confirm Delete of File"
           [disabled]="notifyTarget.busy" (click)="confirmDelete()"
           title="Confirm delete"
-          [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left button-confirm'">
+          class="btn btn-danger">
       }
       <input type="submit" value="Cancel Change" [disabled]="notifyTarget.busy"
         (click)="cancelChange()" title="Cancel changes and close this dialog"
-        [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+        class="btn btn-secondary">
     </div>
   </div>

@@ -18,8 +18,11 @@
       "prefix": "app",
       "architect": {
         "build": {
-          "builder": "@angular-devkit/build-angular:application",
+          "builder": "@angular-builders/custom-webpack:browser",
           "options": {
+            "customWebpackConfig": {
+              "path": "custom-webpack.config.js"
+            },
             "allowedCommonJsDependencies": [
               "@yaireo/tagify",
               "html2canvas",
@@ -28,9 +31,7 @@
               "moment-timezone",
               "mongoose"
             ],
-            "outputPath": {
-              "base": "dist/ngx-ramblers"
-            },
+            "outputPath": "dist/ngx-ramblers",
             "index": "projects/ngx-ramblers/src/index.html",
             "polyfills": [
               "projects/ngx-ramblers/src/polyfills.ts"
@@ -60,24 +61,23 @@
               "node_modules/leaflet/dist/leaflet.css"
             ],
             "scripts": [
-              "./node_modules/jquery/dist/jquery.slim.min.js",
               "./node_modules/bootstrap/dist/js/bootstrap.bundle.min.js",
               "./node_modules/marked/lib/marked.umd.js"
             ],
-            "browser": "projects/ngx-ramblers/src/main.ts"
+            "main": "projects/ngx-ramblers/src/main.ts"
           },
           "configurations": {
             "production": {
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "500kb",
+                  "maximumWarning": "5mb",
                   "maximumError": "8mb"
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "2kb",
-                  "maximumError": "8mb"
+                  "maximumWarning": "512kb",
+                  "maximumError": "1024kb"
                 }
               ],
               "fileReplacements": [
@@ -93,13 +93,14 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true,
-              "namedChunks": true
+              "namedChunks": true,
+              "verbose": false
             }
           },
           "defaultConfiguration": "production"
         },
         "serve": {
-          "builder": "@angular-devkit/build-angular:dev-server",
+          "builder": "@angular-builders/custom-webpack:dev-server",
           "options": {
             "proxyConfig": "projects/ngx-ramblers/proxy.config.json"
           },
@@ -126,7 +127,7 @@
             "polyfills": "projects/ngx-ramblers/src/polyfills.ts",
             "tsConfig": "projects/ngx-ramblers/tsconfig.spec.json",
             "karmaConfig": "projects/ngx-ramblers/karma.conf.js",
-            "inlineStyleLanguage": "scss",
+            "inlineStyleLanguage": "sass",
             "assets": [
               "projects/ngx-ramblers/src/favicon.ico",
               "projects/ngx-ramblers/src/app/assets"

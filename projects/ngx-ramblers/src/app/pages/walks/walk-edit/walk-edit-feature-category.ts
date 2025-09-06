@@ -20,13 +20,13 @@ import { Metadata } from "../../../models/ramblers-walks-manager";
           <span class="h5">{{ categorisedFeature.category }}</span>
         </legend>
         @for (feature of categorisedFeature.features; track feature.code) {
-          <div class="custom-checkbox custom-control">
+          <div class="form-check">
             <input type="checkbox"
                    id="feature-{{ feature.code }}"
                    [checked]="ramblersWalksAndEventsService.featureSelected(feature.code, displayedWalk?.walk)"
                    (change)="toggleFeature(feature.code)"
-                   class="form-checkbox custom-control-input">
-            <label for="feature-{{ feature.code }}" class="custom-control-label">
+                   class="form-check-input">
+            <label for="feature-{{ feature.code }}" class="form-check-label">
               <app-walk-feature [feature]="feature"
                                 [disabled]="!ramblersWalksAndEventsService.featureSelected(feature.code, displayedWalk.walk)"/>
             </label>

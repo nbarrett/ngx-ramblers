@@ -72,15 +72,15 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                       </div>
                     </div>
                     <div class="col-sm-12">
-                      <div class="custom-control custom-checkbox">
+                      <div class="form-check">
                         <input [(ngModel)]="mailMessagingConfig.mailConfig.allowSendTransactional"
-                          type="checkbox" class="custom-control-input" id="mail-enabled">
-                        <label class="custom-control-label" for="mail-enabled">Allow Send Transactional</label>
+                          type="checkbox" class="form-check-input" id="mail-enabled">
+                        <label class="form-check-label" for="mail-enabled">Allow Send Transactional</label>
                       </div>
-                      <div class="custom-control custom-checkbox">
+                      <div class="form-check mt-2">
                         <input [(ngModel)]="mailMessagingConfig.mailConfig.allowSendCampaign"
-                          type="checkbox" class="custom-control-input" id="allow-send-campaign">
-                        <label class="custom-control-label" for="allow-send-campaign">Allow Send Campaign</label>
+                          type="checkbox" class="form-check-input" id="allow-send-campaign">
+                        <label class="form-check-label" for="allow-send-campaign">Allow Send Campaign</label>
                       </div>
                       <div class="form-group">
                         <label for="base-url">Base Url</label>
@@ -88,13 +88,9 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <input [(ngModel)]="mailMessagingConfig.mailConfig.baseUrl" type="text"
                             class="form-control input-sm" id="base-url"
                             placeholder="The Base Url for the Mail Application">
-                          <div class="input-group-append">
-                            <div class="input-group-text">
-                              <app-brevo-button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
-                                (click)="mailLinkService.openUrl(mailLinkService.appUrl())"
-                              [title]="'View'"></app-brevo-button>
-                            </div>
-                          </div>
+                          <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
+                            (click)="mailLinkService.openUrl(mailLinkService.appUrl())"
+                          [title]="'View'"></app-brevo-button>
                         </div>
                       </div>
                       <div class="form-group">
@@ -103,13 +99,9 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <input [(ngModel)]="mailMessagingConfig.mailConfig.myBaseUrl" type="text"
                             class="form-control input-sm" id="my-base-url"
                             placeholder="The Base Url for My Mail Application">
-                          <div class="input-group-append">
-                            <div class="input-group-text">
-                              <app-brevo-button [disabled]="!mailMessagingConfig?.mailConfig.myBaseUrl"
-                                (click)="mailLinkService.openUrl(mailLinkService.myBaseUrl())"
-                              [title]="'View'"></app-brevo-button>
-                            </div>
-                          </div>
+                          <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.myBaseUrl"
+                            (click)="mailLinkService.openUrl(mailLinkService.myBaseUrl())"
+                          [title]="'View'"></app-brevo-button>
                         </div>
                       </div>
                       <div class="form-group">
@@ -118,13 +110,9 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <input [(ngModel)]="mailMessagingConfig.mailConfig.editorUrl" type="text"
                             class="form-control input-sm" id="editor-url"
                             placeholder="The Base Url for editor of The Mail Application">
-                          <div class="input-group-append">
-                            <div class="input-group-text">
-                              <app-brevo-button [disabled]="!mailMessagingConfig?.mailConfig.editorUrl"
-                                (click)="mailLinkService.openUrl(mailLinkService.editorUrl())"
-                              [title]="'View'"></app-brevo-button>
-                            </div>
-                          </div>
+                          <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.editorUrl"
+                            (click)="mailLinkService.openUrl(mailLinkService.editorUrl())"
+                          [title]="'View'"></app-brevo-button>
                         </div>
                       </div>
                       <div class="form-group">
@@ -133,13 +121,9 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <input [(ngModel)]="mailMessagingConfig.mailConfig.apiKey" type="text"
                             class="form-control input-sm" id="api-key"
                             placeholder="The API key for the mail api">
-                          <div class="input-group-append">
-                            <div class="input-group-text">
-                              <app-brevo-button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
-                                (click)="mailLinkService.openUrl(mailLinkService.apiKeysView())"
-                              [title]="'View'"></app-brevo-button>
-                            </div>
-                          </div>
+                          <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
+                            (click)="mailLinkService.openUrl(mailLinkService.apiKeysView())"
+                          [title]="'View'"></app-brevo-button>
                         </div>
                       </div>
                     </div>
@@ -246,7 +230,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                         </div>
                         @if (!listCreateRequest) {
                           <div class="col-auto">
-                            <div class="float-right">
+                            <div class="float-end">
                               <app-brevo-button button title="Create New List" [disabled]="createNewListDisabled()" (click)="createNewList()"></app-brevo-button>
                             </div>
                           </div>
@@ -257,7 +241,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                         <div class="row">
                           <div class="col-sm-12">
                             <app-brevo-button button title="Confirm Create List" (click)="confirmCreateList()" [disabled]="listCreateDisabled()"></app-brevo-button>
-                            <app-brevo-button button title="Cancel Create List" class="ml-2" (click)="listCreateRequest=null"></app-brevo-button>
+                            <app-brevo-button button title="Cancel Create List" class="ms-2" (click)="listCreateRequest=null"></app-brevo-button>
                           </div>
                         </div>
                       }
@@ -284,10 +268,10 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
             }
           </div>
           <div class="col-sm-12">
-            <input type="submit" value="Save settings and exit" (click)="saveAndExit()" [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
-            <input type="submit" value="Save" (click)="save()" [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
-            <input type="submit" value="Undo Changes" (click)="undoChanges()" [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm button-form-left'">
-            <input type="submit" value="Exit Without Saving" (click)="cancel()" [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm button-form-left'">
+            <input type="submit" value="Save settings and exit" (click)="saveAndExit()" [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady()">
+            <input type="submit" value="Save" (click)="save()" [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady()">
+            <input type="submit" value="Undo Changes" (click)="undoChanges()" [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-primary me-2'" [disabled]="notReady()">
+            <input type="submit" value="Exit Without Saving" (click)="cancel()" [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-primary me-2'" [disabled]="notReady()">
           </div>
         </div>
       </app-page>

@@ -1,4 +1,4 @@
-<div class="justify-content-around panel-container mr-lg-3" [ngClass]="memberLoggedIn() ? 'd-flex': 'd-lg-flex'">
+<div class="justify-content-around panel-container me-lg-3" [ngClass]="memberLoggedIn() ? 'd-flex': 'd-lg-flex'">
   <a class="login-text" (click)="loginOrLogout()">
     @if (memberLoggedIn()) {
       <img class="home-logo"
@@ -23,6 +23,6 @@
     </div>
   }
   @if (allowEdits()) {
-    <app-site-edit class="form-inline"></app-site-edit>
+    <app-site-edit class="d-inline-flex align-items-center flex-wrap"/>
   }
 </div>

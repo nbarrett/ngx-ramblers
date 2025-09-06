@@ -1,5 +1,3 @@
-// @ts-ignore
-import mongoose from "mongoose";
 import { inject, Injectable } from "@angular/core";
 import first from "lodash-es/first";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -148,7 +146,7 @@ export class CommitteeQueryService {
     });
   }
 
-  private mongoOrRawIdsFrom(groupEventsFilter: GroupEventsFilter): string[] | mongoose.Types.ObjectId[] {
+  private mongoOrRawIdsFrom(groupEventsFilter: GroupEventsFilter): string[] {
     const idsWithoutNumericsRamblersValues: string[] = groupEventsFilter?.eventIds?.filter(item => !isNumericRamblersId(item));
     this.logger.info("mongoOrRawIdsFrom:groupEventsFilter.eventIds:", groupEventsFilter?.eventIds, "idsWithoutNumericsRamblersValues:", idsWithoutNumericsRamblersValues);
     if (groupEventsFilter?.eventIds?.length > 0 && idsWithoutNumericsRamblersValues?.length === 0) {

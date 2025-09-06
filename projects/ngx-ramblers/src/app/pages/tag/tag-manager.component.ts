@@ -33,10 +33,10 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
               type="text" class="form-control"></td>
               <td>{{filesTaggedWith(imageTag)}}</td>
               <td>
-                <div class="custom-control custom-checkbox">
+                <div class="form-check">
                   <input [ngModel]="imageTag.excludeFromRecent"
-                    type="checkbox" class="custom-control-input">
-                  <label class="custom-control-label" (click)="toggleExcludeFromRecent(imageTag)"></label></div>
+                    type="checkbox" class="form-check-input" id="exclude-{{imageTag.key}}">
+                  <label class="form-check-label" (click)="toggleExcludeFromRecent(imageTag)" for="exclude-{{imageTag.key}}"></label></div>
                 </td>
                 <td><input [(ngModel)]="imageTag.sortIndex"
                 type="number" class="form-control"></td>

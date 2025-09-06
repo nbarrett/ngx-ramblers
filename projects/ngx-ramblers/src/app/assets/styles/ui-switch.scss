@@ -37,7 +37,6 @@ $sw-lg-min-width: 60px;
 @mixin config-switch-sizes($prefix, $sizes...) {
   @each $i in $sizes {
     &.#{$prefix}#{nth($i, 1)} {
-      // min-width via placeholder
       @extend %#{ nth($i, 1) }-switch-min-width;
       height: nth($i, 2);
       border-radius: nth($i, 2);
@@ -48,7 +47,6 @@ $sw-lg-min-width: 60px;
       }
       > .switch-pane {
         > span {
-          // font-size via placeholder
           @extend %#{ nth($i, 1) }-label-font-size;
           line-height: nth($i, 2);
         }
@@ -111,7 +109,6 @@ $sw-lg-min-width: 60px;
       top: 0;
       .switch-label {
         &-checked {
-          // opacity: 1;
           display: block;
         }
 
@@ -122,28 +119,6 @@ $sw-lg-min-width: 60px;
       }
     }
   }
-  //&.unchecked {
-  //  background: $ramblers-colour-mintcake;
-  //  color:$ramblers-colour-granite;
-  //  small {
-  //    right: 0;
-  //    left: auto;
-  //  }
-  //  .switch-pane {
-  //    top: 0;
-  //    .switch-label {
-  //      &-checked {
-  //        // opacity: 1;
-  //        display: block;
-  //      }
-  //
-  //      &-unchecked {
-  //        // opacity: 0;
-  //        display: none;
-  //      }
-  //    }
-  //  }
-  //}
   &.disabled {
     opacity: 0.5;
     cursor: not-allowed;

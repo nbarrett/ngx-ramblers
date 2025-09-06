@@ -115,7 +115,7 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
       <div class="row mb-4 px-1">
         <div class="col-sm-12">
           <div class="form-group">
-            <label for="name">Album Name</label>
+            <label for="name">Album Named</label>
             <input [delay]="1000"
                    [tooltip]="imagesExist() ? 'Album name cannot be changed after images have been created in it':''"
                    [disabled]="imagesExist()" type="text" [ngModel]="contentMetadata.name" id="name"
@@ -137,22 +137,22 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
       <input #fileElement class="d-none" type="file" ng2FileSelect multiple
              (onFileSelected)="onFileSelectOrDropped($event)"
              [uploader]="uploader">
-      <div class="row no-gutters">
-        <div class="col pr-1">
+      <div class="row g-0">
+        <div class="col pe-1">
           <app-badge-button fullWidth="true" [icon]="faSave" caption="Save changes and exit"
                             (click)="requestSaveChangesAndExit()"
                             [disabled]="disabled()"/>
         </div>
-        <div class="col pr-1">
+        <div class="col pe-1">
           <app-badge-button fullWidth="true" [icon]="faSave" caption="Save" (click)="requestSaveChanges()"
                             [disabled]="disabled()"/>
         </div>
-        <div class="col pr-1">
+        <div class="col pe-1">
           <app-badge-button fullWidth="true" [icon]="faUndo" caption="Exit without saving"
                             [disabled]="disabled()"
                             (click)="exitBackWithoutSaving()"/>
         </div>
-        <div class="col pr-1">
+        <div class="col pe-1">
           <app-badge-button fullWidth [icon]="faUndo" [caption]="'Undo'" (click)="undoChanges()"
                             [disabled]="disabled()"/>
         </div>
@@ -163,7 +163,7 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
                   dropdownToggle
                   type="button">
             <fa-icon [icon]="faTableCells"/>
-            <span class="ml-2">Image Actions</span><span class="caret"></span>
+            <span class="ms-2">Image Actions</span><span class="caret"></span>
           </button>
           <ul *dropdownMenu class="dropdown-menu" role="menu">
             @if (imagesExist()) {
@@ -266,37 +266,35 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
         </div>
       }
       <h6>Image Filtering</h6>
-      <div class="custom-control custom-radio custom-control-inline">
+      <div class="form-check form-check-inline">
         <input [disabled]="disabled()" id="recent-photos-filter"
                type="radio"
-               class="custom-control-input"
+               class="form-check-input"
                [(ngModel)]="filterType"
                (ngModelChange)="filterFor('recent')"
                value="recent"/>
-        <label class="custom-control-label" for="recent-photos-filter">Show recent photos</label>
+        <label class="form-check-label" for="recent-photos-filter">Show recent photos</label>
       </div>
-      <div class="custom-control custom-radio custom-control-inline">
+      <div class="form-check form-check-inline">
         <input [disabled]="disabled()" id="all-photos-filter"
                type="radio"
-               class="custom-control-input"
+               class="form-check-input"
                [(ngModel)]="filterType"
                (ngModelChange)="filterFor('all')"
                value="all"/>
-        <label class="custom-control-label" for="all-photos-filter">Show all photos</label>
+        <label class="form-check-label" for="all-photos-filter">Show all photos</label>
       </div>
       @if (selectableTags()?.length > 0) {
-        <div
-          class="custom-control custom-radio custom-control-inline">
+        <div class="form-check form-check-inline">
           <input [disabled]="disabled()" id="tag-filter"
                  type="radio"
-                 class="custom-control-input"
+                 class="form-check-input"
                  [(ngModel)]="filterType"
                  (ngModelChange)="filterFor('tag')"
                  value="tag"/>
-          <label class="custom-control-label" for="tag-filter">Show images tagged with:</label>
+          <label class="form-check-label" for="tag-filter">Show images tagged with:</label>
         </div>
-        <div
-          class="custom-control custom-radio custom-control-inline">
+        <div class="ms-2 d-inline-block">
           <select [compareWith]="imageTagComparer" [disabled]="filterType !== 'tag'"
                   [(ngModel)]="activeTag"
                   id="filterByTag"
@@ -314,18 +312,18 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
         <div class="col-sm-6">
           <label for="search">Filter images for text</label>
           <input [(ngModel)]="filterText" type="text"
-                 (ngModelChange)="onSearchChange($event)" class="form-control input-md rounded ml-8 w-100"
+                 (ngModelChange)="onSearchChange($event)" class="form-control input-md rounded ms-8 w-100"
                  id="search"
                  placeholder="any text">
         </div>
         <div class="col-sm-6 mt-auto">
-          <div class="custom-control custom-checkbox">
+          <div class="form-check">
             <input
               [(ngModel)]="showDuplicates"
               (ngModelChange)="applyFilter()"
-              type="checkbox" class="custom-control-input"
+              type="checkbox" class="form-check-input"
               id="show-duplicates">
-            <label class="custom-control-label" for="show-duplicates">Show duplicate images</label>
+            <label class="form-check-label" for="show-duplicates">Show duplicate images</label>
           </div>
         </div>
       </div>

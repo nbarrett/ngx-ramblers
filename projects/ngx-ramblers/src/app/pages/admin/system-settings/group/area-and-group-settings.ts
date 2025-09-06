@@ -24,17 +24,16 @@ import { EM_DASH } from "../../../../models/content-text.model";
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
       <div class="row">
-        <div class="col-md-6"><label for="area-group-code">Ramblers Area Code</label>
-          <div class="input-group">
+        <div class="col-md-6">
+          <div class="form-group">
+            <label for="area-group-code">Ramblers Area Code</label>
+            <div class="input-group">
             <input [(ngModel)]="config.area.groupCode"
                    (ngModelChange)="queryGroups(config.area.groupCode)"
                    type="text" class="form-control input-sm"
                    id="area-group-code"
                    placeholder="Enter a 2 digit Area Code">
-            <div class="input-group-append">
-              <div class="input-group-text">
-                <app-status-icon noLabel [status]="groupQueryStatus"/>
-              </div>
+            <span class="input-group-text"><app-status-icon noLabel [status]="groupQueryStatus"/></span>
             </div>
           </div>
         </div>
@@ -50,32 +49,32 @@ import { EM_DASH } from "../../../../models/content-text.model";
         <div class="col-md-12">
           <alert [type]="ALERT_WARNING.type">
             <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
-            <strong class="ml-2">Group Search</strong>
+            <strong class="ms-2">Group Search</strong>
             <span class="p-2">{{ groupSearchMessage }}</span>
           </alert>
         </div>
         <div class="col-md-12">
           <div class="form-group">
-            <label class="mr-2">Selection Mode:</label>
-            <div class="custom-control custom-radio custom-control-inline">
-              <input class="custom-control-input"
+            <label class="me-2">Selection Mode:</label>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input"
                      id="area-selection-mode"
                      name="selection-mode"
                      type="radio"
                      [value]="'area'"
                      [(ngModel)]="selectionMode"
                      (change)="onSelectionModeChange()"/>
-              <label class="custom-control-label" for="area-selection-mode">Area Selection Mode</label>
+              <label class="form-check-label" for="area-selection-mode">Area Selection Mode</label>
             </div>
-            <div class="custom-control custom-radio custom-control-inline">
-              <input class="custom-control-input"
+            <div class="form-check form-check-inline">
+              <input class="form-check-input"
                      id="group-selection-mode"
                      name="selection-mode"
                      type="radio"
                      [value]="'group'"
                      [(ngModel)]="selectionMode"
                      (change)="onSelectionModeChange()"/>
-              <label class="custom-control-label" for="group-selection-mode">Group Selection Mode</label>
+              <label class="form-check-label" for="group-selection-mode">Group Selection Mode</label>
             </div>
           </div>
         </div>
@@ -149,28 +148,28 @@ import { EM_DASH } from "../../../../models/content-text.model";
             </select>
           </div>
           <div class="form-group">
-            <div class="custom-control custom-checkbox">
+            <div class="form-check">
               <input [(ngModel)]="config.group.walkContactDetailsPublic"
-                     type="checkbox" class="custom-control-input"
+                     type="checkbox" class="form-check-input"
                      id="walk-contact-details-public-viewable">
-              <label class="custom-control-label"
+              <label class="form-check-label"
                      for="walk-contact-details-public-viewable">Walk Contact Details Public Viewable</label>
             </div>
           </div>
           <div class="form-group">
-            <div class="custom-control custom-checkbox">
+            <div class="form-check">
               <input [(ngModel)]="config.group.allowSwitchWalkView"
-                     type="checkbox" class="custom-control-input" id="allow-walk-listing-to-be-switched">
-              <label class="custom-control-label"
+                     type="checkbox" class="form-check-input" id="allow-walk-listing-to-be-switched">
+              <label class="form-check-label"
                      for="allow-walk-listing-to-be-switched">Allow Walk Listing to be switched
                 between {{ walkListViewsJoined }}</label>
             </div>
           </div>
           <div class="form-group">
-            <div class="custom-control custom-checkbox">
+            <div class="form-check">
               <input [(ngModel)]="config.enableMigration.events"
-                     type="checkbox" class="custom-control-input" id="enable-event-migration">
-              <label class="custom-control-label"
+                     type="checkbox" class="form-check-input" id="enable-event-migration">
+              <label class="form-check-label"
                      for="enable-event-migration">Enable Migration of Events</label>
             </div>
           </div>
@@ -196,10 +195,10 @@ import { EM_DASH } from "../../../../models/content-text.model";
             </select>
           </div>
           <div class="form-group">
-            <div class="custom-control custom-checkbox">
+            <div class="form-check">
               <input [(ngModel)]="config.group.socialDetailsPublic"
-                     type="checkbox" class="custom-control-input" id="social-details-public-viewable">
-              <label class="custom-control-label"
+                     type="checkbox" class="form-check-input" id="social-details-public-viewable">
+              <label class="form-check-label"
                      for="social-details-public-viewable">Social Details Public Viewable</label>
             </div>
           </div>

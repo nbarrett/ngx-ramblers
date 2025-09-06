@@ -41,25 +41,25 @@ import { GroupEventField } from "../../../models/walk.model";
               <p>This facility allows you to add any number of walk slots to the programme that
                 will then entice walk leaders to come forward and lead. Please choose how you would like to create the
                 slots.</p>
-              <div class="custom-control custom-radio custom-control-inline">
+              <div class="form-check form-check-inline">
                 <input id="create-in-bulk"
                        type="radio"
-                       class="custom-control-input"
+                       class="form-check-input"
                        [disabled]="display.walkPopulationWalksManager()"
                        (click)="selectBulk(true)"
                        [(ngModel)]="selectionMade"
                        value="true"/>
-                <label class="custom-control-label" for="create-in-bulk">Create Sunday slots in bulk</label>
+                <label class="form-check-label" for="create-in-bulk">Create Sunday slots in bulk</label>
               </div>
-              <div class="custom-control custom-radio custom-control-inline">
+              <div class="form-check form-check-inline">
                 <input id="create-non-standard"
                        type="radio"
-                       class="custom-control-input"
+                       class="form-check-input"
                        [disabled]="display.walkPopulationWalksManager()"
                        (click)="selectBulk(false)"
                        [(ngModel)]="selectionMade"
                        value="false"/>
-                <label class="custom-control-label" for="create-non-standard">Create non-standard slot</label>
+                <label class="form-check-label" for="create-non-standard">Create non-standard slot</label>
               </div>
               @if (!selectionMade) {
                 <input type="submit" value="Back To Walks Admin" (click)="backToWalksAdmin()"
@@ -76,7 +76,7 @@ import { GroupEventField } from "../../../models/walk.model";
                       filled.
                     </li>
                   </ul>
-                  <div class="form-inline">
+                  <div class="d-inline-flex align-items-center flex-wrap">
                     <label for="add-slots-until">Add available slots until:</label>
                     <app-date-picker startOfDay id="add-slots-until" [disabled]="confirmAction"
                                      [size]="'md'"
@@ -91,7 +91,7 @@ import { GroupEventField } from "../../../models/walk.model";
                   <ul class="list-arrow">
                     <li>Use this option to create a slot on any day rather than just on a Sunday.</li>
                   </ul>
-                  <div class="form-inline">
+                  <div class="d-inline-flex align-items-center flex-wrap">
                     <label for="add-single-slot">Add a slot on:</label>
                     <app-date-picker startOfDay id="add-single-slot"
                                      [size]="'md'"
@@ -123,7 +123,7 @@ import { GroupEventField } from "../../../models/walk.model";
                 }
                 @if (confirmAction) {
                   <input type="submit" value="Cancel" (click)="cancelConfirmableAction()"
-                         title="Cancel this action" class="btn btn-primary ml-2">
+                         title="Cancel this action" class="btn btn-primary ms-2">
                 }
               }
               @if (selectionMade && !bulk) {
@@ -139,13 +139,13 @@ import { GroupEventField } from "../../../models/walk.model";
                 }
                 @if (confirmAction) {
                   <input type="submit" value="Cancel" (click)="cancelConfirmableAction()"
-                         title="Cancel this action" class="btn btn-primary ml-2">
+                         title="Cancel this action" class="btn btn-primary ms-2">
                 }
               }
               @if (selectionMade) {
                 <input type="submit" value="Back To Walks Admin" (click)="backToWalksAdmin()"
                        title="Back to walks"
-                       class="btn btn-primary ml-2">
+                       class="btn btn-primary ms-2">
               }
               @if (false) {
                 <input type="submit" value="Fix Walk Dates" (click)="fixWalkDates()"

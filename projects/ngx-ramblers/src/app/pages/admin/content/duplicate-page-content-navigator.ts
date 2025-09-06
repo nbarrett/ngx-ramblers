@@ -24,8 +24,8 @@ import { FormControl, FormGroup } from "@angular/forms";
     <app-page autoTitle>
       <app-markdown-editor category="admin" name="duplicate-page-content-navigator"/>
       <div class="mb-3">
-        <label class="mr-2">View Mode: </label>
-        <button class="btn btn-sm btn-primary mr-2"
+        <label class="me-2">View Mode: </label>
+        <button class="btn btn-sm btn-primary me-2"
                 [class.active]="viewMode() === 'duplicates'"
                 (click)="viewMode.set('duplicates')">
           <fa-icon [icon]="faWarning"/> Duplicates
@@ -59,7 +59,7 @@ import { FormControl, FormGroup } from "@angular/forms";
           @for (item of contentItems(); track $index) {
             <h3>
               @if (viewMode() === 'duplicates') {
-                <fa-icon class="fa-icon-sunrise mr-1" [icon]="faWarning"/>
+                <fa-icon class="fa-icon-sunrise me-1" [icon]="faWarning"/>
                 Duplicate {{ $index + 1 }} of {{ contentItems().length }}:
               } @else {
                 Content Item {{ $index + 1 }} of {{ contentItems().length }}:
@@ -107,8 +107,8 @@ import { FormControl, FormGroup } from "@angular/forms";
       } @else {
         <alert type="success" class="flex-grow-1">
           <fa-icon [icon]="ALERT_SUCCESS.icon"/>
-          <strong class="ml-2">No content found</strong>
-          <div class="ml-2">
+          <strong class="ms-2">No content found</strong>
+          <div class="ms-2">
             @if (viewMode() === 'duplicates') {
               Looks like your page content has no duplicates!
             } @else {

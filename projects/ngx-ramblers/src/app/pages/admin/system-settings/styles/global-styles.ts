@@ -17,36 +17,36 @@ import { MarkdownComponent } from "ngx-markdown";
       <div class="img-thumbnail thumbnail-2">
         <div class="thumbnail-heading">Global Style Defaults</div>
         @if (config?.globalStyles) {
-          <div class="d-flex">
-            <div class="col-2">
+          <div class="row align-items-center">
+            <div class="col-12 col-md-2 mb-2 mb-md-0">
               <label for="link-style-select">Link Style</label></div>
-            <div class="col-2">
+            <div class="col-12 col-md-2 mb-2 mb-md-0">
               <select [(ngModel)]="config.globalStyles.link"
-                      class="form-control ml-3" id="link-style-select">
+                      class="form-control" id="link-style-select">
                 @for (linkStyle of linkStyles; track linkStyle.key) {
                   <option [ngValue]="linkStyle.value">{{ stringUtils.asTitle(linkStyle.key) }}</option>
                 }
               </select>
             </div>
-            <div class="col-8 flex-grow-1">
-              <div markdown class="mt-2 {{config.globalStyles.link}}">
+            <div class="col-12 col-md-8">
+              <div markdown class="mt-2 mt-md-0 {{config.globalStyles.link}}">
                 Within text [links look like this]("") followed by some text
               </div>
             </div>
           </div>
-          <div class="d-flex">
-            <div class="col-2">
+          <div class="row align-items-center mt-3">
+            <div class="col-12 col-md-2 mb-2 mb-md-0">
               <label for="list-style-select">List Style</label>
             </div>
-            <div class="col-2">
+            <div class="col-12 col-md-2 mb-2 mb-md-0">
               <select [(ngModel)]="config.globalStyles.list"
-                      class="form-control ml-3" id="list-style-select">
+                      class="form-control" id="list-style-select">
                 @for (listStyle of listStyles; track listStyle.key) {
                   <option [ngValue]="listStyle.value">{{ stringUtils.asTitle(listStyle.key) }}</option>
                 }
               </select>
             </div>
-            <div class="col-8 flex-grow-1 mt-2">Within text lists look like this:
+            <div class="col-12 col-md-8 mt-2 mt-md-0">Within text lists look like this:
               <li class="list-style-{{config.globalStyles.list}}">Item one</li>
               <li class="list-style-{{config.globalStyles.list}}">Item two</li>
               <li class="list-style-{{config.globalStyles.list}}">Item three</li>

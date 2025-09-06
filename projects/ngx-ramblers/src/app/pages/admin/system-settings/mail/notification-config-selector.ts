@@ -101,13 +101,9 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
                   </option>
                 }
               </select>
-              <div class="input-group-append">
-                <div class="input-group-text">
-                  <app-brevo-button [disabled]="!notificationConfig.templateId"
-                    (click)="editTemplate(notificationConfig.templateId)"
-                    [title]="'View or Edit Template'"/>
-                </div>
-              </div>
+              <app-brevo-button button [disabled]="!notificationConfig.templateId"
+                (click)="editTemplate(notificationConfig.templateId)"
+                [title]="'View or Edit Template'"/>
             </div>
           </div>
         </div>

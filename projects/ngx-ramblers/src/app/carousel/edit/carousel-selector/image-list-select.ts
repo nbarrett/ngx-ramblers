@@ -18,12 +18,12 @@ import first from "lodash-es/first";
   selector: "app-image-list-select",
   styleUrls: ["./image-list-select.sass"],
   template: `
-    <div class="form-inline">
+    <div class="d-inline-flex align-items-center flex-wrap">
       <select [(ngModel)]="selectedContentMetadata"
               [id]="id"
               [size]="multiple? allContentMetadata?.length || 1 : null"
               (ngModelChange)="emitAndPublishMetadata($event)"
-              class="form-control mr-2" [ngStyle]="{'max-width.px': maxWidth}" [multiple]="multiple">
+              class="form-control me-2" [ngStyle]="{'max-width.px': maxWidth}" [multiple]="multiple">
         @for (contentMetadata of allContentMetadata; track contentMetadata) {
           <option
             [ngValue]="contentMetadata">

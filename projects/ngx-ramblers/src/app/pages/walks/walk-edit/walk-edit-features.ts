@@ -14,7 +14,7 @@ import { WalkFeatureListComponent } from "./walk-edit-feature-category";
   ],
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
-      <div class="row ml-3">
+      <div class="row ms-3">
         <div class="col-md-6">
           <app-walk-edit-feature-category [featureCategory]="FeatureCategory.FACILITIES" [displayedWalk]="displayedWalk"/>
           <app-walk-edit-feature-category [featureCategory]="FeatureCategory.TRANSPORT" [displayedWalk]="displayedWalk"/>

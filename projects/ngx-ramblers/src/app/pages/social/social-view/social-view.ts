@@ -37,7 +37,7 @@ import { BasicMedia } from "../../../models/ramblers-walks-manager";
           @if (display.allow.edits) {
             <input type="submit" value="edit"
                    (click)="editSocialEvent()" [disabled]="notifyTarget.busy"
-                   title="Edit social event" class="btn btn-primary button-form-right">
+                   title="Edit social event" class="btn btn-primary float-end">
           }
         </div>
         <div class="card-title mb-4"><h2>{{ socialEvent?.groupEvent?.title }}</h2></div>
@@ -61,7 +61,7 @@ import { BasicMedia } from "../../../models/ramblers-walks-manager";
                                  [value]="googleMapsService.urlForPostcode(socialEvent?.groupEvent?.location?.postcode)"
                                  elementName="Google Maps link for {{socialEvent?.groupEvent?.location?.postcode}}"/>
                   <div content>
-                    <div class="mr-2">{{ socialEvent?.groupEvent?.location?.description }}</div>
+                    <div class="me-2">{{ socialEvent?.groupEvent?.location?.description }}</div>
                   </div>
                 </div>
                 <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
@@ -169,7 +169,7 @@ import { BasicMedia } from "../../../models/ramblers-walks-manager";
             @if (notifyTarget.showAlert) {
               <div class="col-12 alert alert-warning mt-3 mb-0">
                 <fa-icon [icon]="notifyTarget.alert.icon"/>
-                <strong class="ml-2">Some of the information on this event is hidden</strong>
+                <strong class="ms-2">Some of the information on this event is hidden</strong>
                 {{ notifyTarget.alertMessage }} <a [routerLink]="'/login'" type="button"
                                                    class="rams-text-decoration-pink">Login to see more</a>
               </div>
@@ -181,7 +181,7 @@ import { BasicMedia } from "../../../models/ramblers-walks-manager";
             @if (notifyTarget.showAlert) {
               <div class="col-12 alert {{notifyTarget.alertClass}} mt-3 mb-0">
                 <fa-icon [icon]="notifyTarget.alert.icon"/>
-                <strong class="ml-2">{{ notifyTarget.alertTitle }}</strong>
+                <strong class="ms-2">{{ notifyTarget.alertTitle }}</strong>
                 {{ notifyTarget.alertMessage }} <a [routerLink]="'/'+pageService.socialPage()?.href" type="button"
                                                    class="rams-text-decoration-pink">Back to all social events</a>
               </div>

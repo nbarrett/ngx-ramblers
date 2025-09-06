@@ -10,7 +10,6 @@ import { ProfileService } from "./profile.service";
 import { PageComponent } from "../../../page/page.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
-import { NgClass } from "@angular/common";
 import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 
@@ -18,7 +17,7 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
     selector: "app-contact-details",
     templateUrl: "./contact-details.component.html",
     styleUrls: ["../admin/admin.component.sass"],
-    imports: [PageComponent, FontAwesomeModule, FormsModule, NgClass, ContactUsComponent, DisplayDatePipe]
+    imports: [PageComponent, FontAwesomeModule, FormsModule, ContactUsComponent, DisplayDatePipe]
 })
 export class ContactDetailsComponent implements OnInit, OnDestroy {
 

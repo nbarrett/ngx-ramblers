@@ -31,18 +31,18 @@ import isNull from "lodash-es/isNull";
           @if (extendedGroupEvent?.fields?.imageConfig?.source && !disallowImageSourceSelection) {
             <div class="form-group">
               <div class="d-flex align-items-center">
-                <label class="label mr-2" for="radio-selections">Image Selection:</label>
+                <label class="label me-2" for="radio-selections">Image Selection:</label>
                 <div id="radio-selections">
                   @for (source of imageSources; track source.key) {
-                    <div class="custom-control custom-radio custom-control-inline">
-                      <input class="custom-control-input"
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input"
                              id="image-source-{{source.key}}"
                              name="image-source"
                              type="radio"
                              [value]="source.key"
                              (ngModelChange)="imageSourceChanged($event)"
                              [(ngModel)]="extendedGroupEvent.fields.imageConfig.source"/>
-                      <label class="custom-control-label"
+                      <label class="form-check-label"
                              for="image-source-{{source.key}}">
                         {{ stringUtils.asTitle(source.value) }}
                       </label>

@@ -54,10 +54,10 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
               </div>
               <div class="col-md-12">
                 <div class="form-group">
-                  <div class="custom-control custom-checkbox">
+                  <div class="form-check">
                     <input [(ngModel)]="config.externalSystems.instagram.showFeed"
-                           type="checkbox" class="custom-control-input" id="instagram-show-feed">
-                    <label class="custom-control-label"
+                           type="checkbox" class="form-check-input" id="instagram-show-feed">
+                    <label class="form-check-label"
                            for="instagram-show-feed">Show Instagram Feed
                     </label>
                   </div>

@@ -43,17 +43,17 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                     <div class="img-thumbnail thumbnail-2">
                       <div class="thumbnail-heading">Global Settings</div>
                       <div class="col-sm-12">
-                        <div class="custom-control custom-checkbox">
+                        <div class="form-check">
                           <input [(ngModel)]="mailchimpConfig.mailchimpEnabled"
-                            type="checkbox" class="custom-control-input" id="mailchimp-enabled">
-                          <label class="custom-control-label"
+                            type="checkbox" class="form-check-input" id="mailchimp-enabled">
+                          <label class="form-check-label"
                             for="mailchimp-enabled">Enable Mailchimp Integration
                           </label>
                         </div>
-                        <div class="custom-control custom-checkbox">
+                        <div class="form-check mt-2">
                           <input [(ngModel)]="mailchimpConfig.allowSendCampaign"
-                            type="checkbox" class="custom-control-input" id="allow-send-campaign">
-                          <label class="custom-control-label"
+                            type="checkbox" class="form-check-input" id="allow-send-campaign">
+                          <label class="form-check-label"
                             for="allow-send-campaign">Allow Send Campaign
                           </label>
                         </div>
@@ -127,10 +127,10 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                     <div class="col-sm-12">
                       <div class="form-group">
                         <label for="walks-campaign">Campaign Master</label>
-                        <div class="form-inline">
+                        <div class="d-inline-flex align-items-center flex-wrap">
                           <select id="walks-campaign"
                             [(ngModel)]="mailchimpConfig.campaigns.walkNotification.campaignId"
-                            class="form-control input-sm flex-grow-1 mr-2">
+                            class="form-control input-sm flex-grow-1 me-2">
                             @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
@@ -140,7 +140,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <input type="submit" value="Edit"
                             (click)="editCampaign(mailchimpConfig?.campaigns?.walkNotification?.campaignId)"
                             title="Edit"
-                            [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                            [ngClass]="notReady() ? 'btn btn-secondary': 'btn btn-info'" [disabled]="notReady()">
                         </div>
                       </div>
                     </div>
@@ -162,10 +162,10 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                     <div class="col-sm-12">
                       <div class="form-group">
                         <label for="social-events-campaign">Campaign Master</label>
-                        <div class="form-inline">
+                        <div class="d-inline-flex align-items-center flex-wrap">
                           <select [(ngModel)]="mailchimpConfig.campaigns.socialEvents.campaignId"
                             id="social-events-campaign"
-                            class="form-control input-sm flex-grow-1 mr-2">
+                            class="form-control input-sm flex-grow-1 me-2">
                             @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
@@ -175,7 +175,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <input type="submit" value="Edit"
                             (click)="editCampaign(mailchimpConfig?.campaigns?.socialEvents?.campaignId)"
                             title="Edit"
-                            [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                            [ngClass]="notReady() ? 'btn btn-secondary': 'btn btn-info'" [disabled]="notReady()">
                         </div>
                       </div>
                     </div>
@@ -197,10 +197,10 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                     <div class="col-sm-12">
                       <div class="form-group">
                         <label for="committee-campaign-master">Campaign Master</label>
-                        <div class="form-inline">
+                        <div class="d-inline-flex align-items-center flex-wrap">
                           <select [(ngModel)]="mailchimpConfig.campaigns.committee.campaignId"
                             id="committee-campaign-master"
-                            class="form-control input-sm flex-grow-1 mr-2">
+                            class="form-control input-sm flex-grow-1 me-2">
                             @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
@@ -210,7 +210,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <input type="submit" value="Edit"
                             (click)="editCampaign(mailchimpConfig?.campaigns?.committee?.campaignId)"
                             title="Edit"
-                            [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                            [ngClass]="notReady() ? 'btn btn-secondary': 'btn btn-info'" [disabled]="notReady()">
                         </div>
                       </div>
                     </div>
@@ -228,10 +228,10 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                     <div class="col-sm-12">
                       <div class="form-group">
                         <label for="newsletter-campaign">Campaign Master</label>
-                        <div class="form-inline">
+                        <div class="d-inline-flex align-items-center flex-wrap">
                           <select [(ngModel)]="mailchimpConfig.campaigns.newsletter.campaignId"
                             id="newsletter-campaign"
-                            class="form-control input-sm flex-grow-1 mr-2">
+                            class="form-control input-sm flex-grow-1 me-2">
                             @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
@@ -241,7 +241,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <input type="submit" value="Edit"
                             (click)="editCampaign(mailchimpConfig?.campaigns?.newsletter?.campaignId)"
                             title="Edit"
-                            [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                            [ngClass]="notReady() ? 'btn btn-secondary': 'btn btn-info'" [disabled]="notReady()">
                         </div>
                       </div>
                     </div>
@@ -263,11 +263,11 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                     <div class="col-sm-12">
                       <div class="form-group">
                         <label for="expenses-campaign">Campaign Master</label>
-                        <div class="form-inline">
+                        <div class="d-inline-flex align-items-center flex-wrap">
                           <select
                             [(ngModel)]="mailchimpConfig.campaigns.expenseNotification.campaignId"
                             id="expenses-campaign"
-                            class="form-control input-sm flex-grow-1 mr-2">
+                            class="form-control input-sm flex-grow-1 me-2">
                             @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
@@ -277,7 +277,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <input type="submit" value="Edit"
                             (click)="editCampaign(mailchimpConfig?.campaigns?.expenseNotification?.campaignId)"
                             title="Edit"
-                            [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                            [ngClass]="notReady() ? 'btn btn-secondary': 'btn btn-info'" [disabled]="notReady()">
                         </div>
                       </div>
                     </div>
@@ -299,10 +299,10 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                     <div class="col-sm-12">
                       <div class="form-group">
                         <label for="password-reset-campaign">Campaign Master</label>
-                        <div class="form-inline">
+                        <div class="d-inline-flex align-items-center flex-wrap">
                           <select [(ngModel)]="mailchimpConfig.campaigns.passwordReset.campaignId"
                             id="password-reset-campaign"
-                            class="form-control input-sm flex-grow-1 mr-2">
+                            class="form-control input-sm flex-grow-1 me-2">
                             @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
@@ -312,7 +312,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <input type="submit" value="Edit"
                             (click)="editCampaign(mailchimpConfig?.campaigns?.passwordReset?.campaignId)"
                             title="Edit"
-                            [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                            [ngClass]="notReady() ? 'btn btn-secondary': 'btn btn-info'" [disabled]="notReady()">
                         </div>
                       </div>
                     </div>
@@ -338,11 +338,11 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                     <div class="col-sm-12">
                       <div class="form-group">
                         <label for="forgot-password-campaign">Campaign Master</label>
-                        <div class="form-inline">
+                        <div class="d-inline-flex align-items-center flex-wrap">
                           <select
                             [(ngModel)]="mailchimpConfig.campaigns.forgottenPassword.campaignId"
                             id="forgot-password-campaign"
-                            class="form-control input-sm flex-grow-1 mr-2">
+                            class="form-control input-sm flex-grow-1 me-2">
                             @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign) {
                               <option
                                 [ngValue]="campaign.id"
@@ -352,7 +352,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <input type="submit" value="Edit"
                             (click)="editCampaign(mailchimpConfig?.campaigns?.forgottenPassword?.campaignId)"
                             title="Edit"
-                            [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                            [ngClass]="notReady() ? 'btn btn-secondary': 'btn btn-info'" [disabled]="notReady()">
                         </div>
                       </div>
                     </div>
@@ -374,10 +374,10 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                     <div class="col-sm-12">
                       <div class="form-group">
                         <label for="welcome-campaign">Campaign Master</label>
-                        <div class="form-inline">
+                        <div class="d-inline-flex align-items-center flex-wrap">
                           <select [(ngModel)]="mailchimpConfig.campaigns.welcome.campaignId"
                             id="welcome-campaign"
-                            class="form-control input-sm flex-grow-1 mr-2">
+                            class="form-control input-sm flex-grow-1 me-2">
                             @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
@@ -387,7 +387,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <input type="submit" value="Edit"
                             (click)="editCampaign(mailchimpConfig?.campaigns?.welcome?.campaignId)"
                             title="Edit"
-                            [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                            [ngClass]="notReady() ? 'btn btn-secondary': 'btn btn-info'" [disabled]="notReady()">
                         </div>
                       </div>
                     </div>
@@ -416,7 +416,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                         <div class="form-inline">
                           <select [(ngModel)]="mailchimpConfig.campaigns.expiredMembersWarning.campaignId"
                             id="expired-members-campaign-initial"
-                            class="form-control input-sm flex-grow-1 mr-2">
+                            class="form-control input-sm flex-grow-1 me-2">
                             @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
@@ -426,7 +426,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <input type="submit" value="Edit"
                             (click)="editCampaign(mailchimpConfig?.campaigns?.expiredMembersWarning?.campaignId)"
                             title="Edit"
-                            [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                            [ngClass]="notReady() ? 'btn btn-secondary': 'btn btn-info'" [disabled]="notReady()">
                         </div>
                       </div>
                     </div>
@@ -455,7 +455,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                         <div class="form-inline">
                           <select [(ngModel)]="mailchimpConfig.campaigns.expiredMembers.campaignId"
                             id="expired-members-campaign"
-                            class="form-control input-sm flex-grow-1 mr-2">
+                            class="form-control input-sm flex-grow-1 me-2">
                             @for (campaign of mailchimpCampaignListResponse?.campaigns; track campaign.id) {
                               <option
                                 [ngValue]="campaign.id"
@@ -465,7 +465,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           <input type="submit" value="Edit"
                             (click)="editCampaign(mailchimpConfig?.campaigns?.expiredMembers?.campaignId)"
                             title="Edit"
-                            [ngClass]="notReady() ? 'disabled-button-form button-bottom-aligned': 'button-form button-confirm blue-confirm button-bottom-aligned'">
+                            [ngClass]="notReady() ? 'btn btn-secondary': 'btn btn-info'" [disabled]="notReady()">
                         </div>
                       </div>
                     </div>
@@ -507,10 +507,10 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
           <div class="col-sm-12">
             <input type="submit" value="Save" (click)="save()"
               title="Save notification settings"
-              [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
+              [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady()">
             <input type="submit" value="Cancel" (click)="cancel()"
               title="Cancel without saving"
-              [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm button-form-left'">
+              [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-primary me-2'" [disabled]="notReady()">
           </div>
         </div>
       </app-page>

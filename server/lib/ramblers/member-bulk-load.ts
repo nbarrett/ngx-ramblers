@@ -15,6 +15,7 @@ import * as aws from "../aws/aws-controllers";
 import { envConfig } from "../env-config/env-config";
 import { isAwsUploadErrorResponse } from "../aws/aws-utils";
 import { momentNow } from "../shared/dates";
+import { pluraliseWithCount } from "../shared/string-utils";
 
 const BULK_LOAD_SUFFIX = "MemberList.csv";
 const NEW_MEMBER_SUFFIX = "new.csv";
@@ -231,7 +232,7 @@ export function uploadRamblersData(req, res) {
       })
         .filter(dataRow => dataRow?.membershipNumber);
       bulkUploadResponse.members = memberDataRows;
-      debugAndComplete(`${memberDataRows.length} member(s) were extracted from ${userFileName}`);
+      debugAndComplete(`${pluraliseWithCount(memberDataRows.length, "member")} were extracted from ${userFileName}`);
     } catch (error) {
       debugAndError("Error attempting to extract data from", userFileName);
       debugAndError(`Error message:${error.message}`);
