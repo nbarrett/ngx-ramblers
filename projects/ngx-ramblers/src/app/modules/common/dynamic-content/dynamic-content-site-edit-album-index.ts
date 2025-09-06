@@ -55,7 +55,7 @@ import { ActionButtonsComponent } from "../action-buttons/action-buttons";
                      (ngModelChange)="refreshContentPreview()"
                      [value]="contentPath"
                      name="new-password"
-                     type="text" class="form-control flex-grow-1 mr-2">
+                     type="text" class="form-control flex-grow-1 me-2">
               <app-badge-button class="mt-1" [icon]="faEraser" [caption]="'Remove Content Path Match'"
                                 (click)="remove(contentPath)"/>
             </div>

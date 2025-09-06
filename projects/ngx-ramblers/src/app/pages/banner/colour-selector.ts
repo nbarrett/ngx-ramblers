@@ -11,7 +11,7 @@ import { NumberUtilsService } from "../../services/number-utils.service";
 @Component({
     selector: "app-colour-selector",
     styles: [`
-    @import "../../assets/styles/colours"
+    @use "../../assets/styles/colours" as *
 
     .badge-fixed-width
       width: 100px
@@ -43,6 +43,14 @@ import { NumberUtilsService } from "../../services/number-utils.service";
     .badge-granite
       @extend .badge-fixed-width
       @extend .text-style-granite
+
+    ng-select.ng-select-disabled
+      opacity: 0.6
+      background-color: #e9ecef
+      pointer-events: none
+      .ng-select-container
+        background-color: #e9ecef
+        cursor: not-allowed
   `],
     template: `
     <div class="row">
@@ -56,6 +64,7 @@ import { NumberUtilsService } from "../../services/number-utils.service";
             (change)="change($event)"
             appearance="outline"
             [clearable]="false"
+            [disabled]="disabled"
             labelForId="{{uniqueId}}"
             [virtualScroll]="true"
             [bufferAmount]="30">
@@ -80,6 +89,7 @@ export class ColourSelectorComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("ColourSelectorComponent", NgxLoggerLevel.ERROR);
   public itemWithClassOrColour: HasClass | HasColour;
   public noLabel: boolean;
+  public disabled: boolean;
   private numberUtilsService: NumberUtilsService = inject(NumberUtilsService);
   public uniqueId: string = this.numberUtilsService.generateUid();
   @Input()
@@ -89,6 +99,10 @@ export class ColourSelectorComponent implements OnInit {
 
   @Input("noLabel") set noLabelValue(value: boolean) {
     this.noLabel = coerceBooleanProperty(value);
+  }
+
+  @Input("disabled") set disabledValue(value: boolean) {
+    this.disabled = coerceBooleanProperty(value);
   }
 
   @Input("itemWithClassOrColour") set valueForHasClass(hasClassOrColour: HasClass | HasColour) {

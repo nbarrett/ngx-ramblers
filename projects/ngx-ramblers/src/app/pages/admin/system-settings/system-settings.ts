@@ -94,31 +94,31 @@ import { RamblersSettings } from "./external/ramblers-settings";
                       <div class="thumbnail-heading">Header Bar</div>
                       <div class="row">
                         <div class="col-md-12">
-                          <div class="custom-control custom-checkbox">
+                          <div class="form-check">
                             <input [(ngModel)]="config.header.headerBar.show"
-                                   type="checkbox" class="custom-control-input" id="show-header-bar">
-                            <label class="custom-control-label"
+                                   type="checkbox" class="form-check-input" id="show-header-bar">
+                            <label class="form-check-label"
                                    for="show-header-bar">Show
                             </label>
                           </div>
                         </div>
                         <div class="col-md-12">
-                          <div class="custom-control custom-checkbox">
+                          <div class="form-check">
                             <input [(ngModel)]="config.header.headerBar.showLoginLinksAndSiteEdit"
                                    [disabled]="!config.header.headerBar.show"
-                                   type="checkbox" class="custom-control-input"
+                                   type="checkbox" class="form-check-input"
                                    id="show-header-bar-login-links-and-site-edit">
-                            <label class="custom-control-label"
+                            <label class="form-check-label"
                                    for="show-header-bar-login-links-and-site-edit">Show Login Links and Site Edit
                             </label>
                           </div>
                         </div>
                         <div class="col-md-12">
-                          <div class="custom-control custom-checkbox">
+                          <div class="form-check">
                             <input [(ngModel)]="config.header.headerBar.showNavigationButtons"
                                    [disabled]="!config.header.headerBar.show"
-                                   type="checkbox" class="custom-control-input" id="show-header-bar-buttons">
-                            <label class="custom-control-label"
+                                   type="checkbox" class="form-check-input" id="show-header-bar-buttons">
+                            <label class="form-check-label"
                                    for="show-header-bar-buttons">Show Header Buttons
                             </label>
                           </div>
@@ -129,51 +129,57 @@ import { RamblersSettings } from "./external/ramblers-settings";
                       <div class="thumbnail-heading">Header Right Panel</div>
                       <div class="row">
                         <div class="col-md-12">
-                          <div class="custom-control custom-checkbox">
+                          <div class="form-check">
                             <input [(ngModel)]="config.header.rightPanel.show"
-                                   type="checkbox" class="custom-control-input" id="show-right-panel">
-                            <label class="custom-control-label"
+                                   type="checkbox" class="form-check-input" id="show-right-panel">
+                            <label class="form-check-label"
                                    for="show-right-panel">Show
                             </label>
                           </div>
                         </div>
                         <div class="col-md-12">
-                          <div class="custom-control custom-checkbox">
+                          <div class="form-check">
                             <input [(ngModel)]="config.header.rightPanel.showNavigationButtons"
                                    [disabled]="!config.header.rightPanel.show"
-                                   type="checkbox" class="custom-control-input" id="show-header-buttons">
-                            <label class="custom-control-label"
+                                   type="checkbox" class="form-check-input" id="show-header-buttons">
+                            <label class="form-check-label"
                                    for="show-header-buttons">Show Header Buttons
                             </label>
                           </div>
                         </div>
                         <div class="col-md-12">
-                          <div class="custom-control custom-checkbox">
+                          <div class="form-check">
                             <input [(ngModel)]="config.header.rightPanel.showLoginLinksAndSiteEdit"
                                    [disabled]="!config.header.rightPanel.show"
-                                   type="checkbox" class="custom-control-input" id="show-login-links-and-site-edit">
-                            <label class="custom-control-label"
+                                   type="checkbox" class="form-check-input" id="show-login-links-and-site-edit">
+                            <label class="form-check-label"
                                    for="show-login-links-and-site-edit">Show Login Links and Site Edit
                             </label>
                           </div>
                         </div>
                         <div class="col-md-12">
-                          <div class="form-inline d-flex align-items-center justify-content-between">
-                            <div class="custom-control custom-checkbox">
-                              <input [(ngModel)]="config.header.rightPanel.socialMediaLinks.show"
-                                     [disabled]="!config.header.rightPanel.show"
-                                     type="checkbox" class="custom-control-input" id="show-social-media-links">
-                              <label class="custom-control-label"
-                                     for="show-social-media-links">Show Social Media Links
-                              </label>
+                          <div class="form-check mb-3">
+                            <input [(ngModel)]="config.header.rightPanel.socialMediaLinks.show"
+                                   [disabled]="!config.header.rightPanel.show"
+                                   type="checkbox" class="form-check-input" id="show-social-media-links">
+                            <label class="form-check-label"
+                                   for="show-social-media-links">Show Social Media Links
+                            </label>
+                          </div>
+                          <div class="row">
+                            <div class="col-md-6">
+                              <label for="social-mediaLinks-width">Width</label>
+                              <input [(ngModel)]="config.header.rightPanel.socialMediaLinks.width"
+                                     [disabled]="!config.header.rightPanel.socialMediaLinks.show"
+                                     id="social-mediaLinks-width"
+                                     type="number" class="form-control">
                             </div>
-                            <label for="social-mediaLinks-width">Width</label>
-                            <input [(ngModel)]="config.header.rightPanel.socialMediaLinks.width"
-                                   id="social-mediaLinks-width"
-                                   type="number" class="form-control input-sm">
-                            <label>Colour</label>
-                            <app-colour-selector [itemWithClassOrColour]="config.header.rightPanel.socialMediaLinks"
-                                                 [colours]="colourSelectors" noLabel/>
+                            <div class="col-md-6">
+                              <label>Colour</label>
+                              <app-colour-selector [itemWithClassOrColour]="config.header.rightPanel.socialMediaLinks"
+                                                   [disabled]="!config.header.rightPanel.socialMediaLinks.show"
+                                                   [colours]="colourSelectors" noLabel/>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -209,10 +215,10 @@ import { RamblersSettings } from "./external/ramblers-settings";
                     <div class="row img-thumbnail thumbnail-2">
                       <div class="thumbnail-heading">Column 1: External Urls</div>
                       <div class="col-md-12">
-                        <div class="custom-control custom-checkbox">
+                        <div class="form-check">
                           <input [(ngModel)]="config.externalSystems.facebook.showFeed"
-                                 type="checkbox" class="custom-control-input" id="facebook-show-feed">
-                          <label class="custom-control-label"
+                                 type="checkbox" class="form-check-input" id="facebook-show-feed">
+                          <label class="form-check-label"
                                  for="facebook-show-feed">Show Facebook Feed
                           </label>
                         </div>
@@ -236,18 +242,18 @@ import { RamblersSettings } from "./external/ramblers-settings";
                         </div>
                         <div class="row">
                           <div class="col-md-6">
-                            <div class="custom-control custom-checkbox">
+                            <div class="form-check">
                               <input [(ngModel)]="config.externalSystems.meetup.showFooterLink"
-                                     type="checkbox" class="custom-control-input" id="meetup-show-footer-link">
-                              <label class="custom-control-label"
+                                     type="checkbox" class="form-check-input" id="meetup-show-footer-link">
+                              <label class="form-check-label"
                                      for="meetup-show-footer-link">Show Meetup
                               </label>
                             </div>
                           </div>
                           <div class="col-md-6">
-                            <div class="form-inline">
+                            <div class="d-inline-flex align-items-center flex-wrap">
                               <label>Meetup Link Preview:</label>
-                              <a class="ml-2"
+                              <a class="ms-2"
                                  [href]="config.externalSystems.meetup.groupUrl+'/'+config.externalSystems.meetup.groupName">{{ config.externalSystems.meetup.groupName }}</a>
                             </div>
                           </div>
@@ -266,18 +272,18 @@ import { RamblersSettings } from "./external/ramblers-settings";
                         </div>
                         <div class="row">
                           <div class="col-md-6">
-                            <div class="custom-control custom-checkbox">
+                            <div class="form-check">
                               <input [(ngModel)]="config.externalSystems.instagram.showFooterLink"
-                                     type="checkbox" class="custom-control-input" id="instagram-show-footer-link">
-                              <label class="custom-control-label"
+                                     type="checkbox" class="form-check-input" id="instagram-show-footer-link">
+                              <label class="form-check-label"
                                      for="instagram-show-footer-link">Show Instagram
                               </label>
                             </div>
                           </div>
                           <div class="col-md-6">
-                            <div class="form-inline">
+                            <div class="d-inline-flex align-items-center flex-wrap">
                               <label>Instagram Link Preview:</label>
-                              <a class="ml-2"
+                              <a class="ms-2"
                                  [href]="config.externalSystems.instagram.groupUrl+'/'+config.externalSystems.instagram.groupName">{{ config.externalSystems.instagram.groupName }}</a>
                             </div>
                           </div>
@@ -338,13 +344,13 @@ import { RamblersSettings } from "./external/ramblers-settings";
           <div class="col-sm-12">
             <div class="col-sm-12">
               <input type="submit" value="Save settings and exit" (click)="saveAndExit()"
-                     [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
+                     [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady()">
               <input type="submit" value="Save" (click)="save()"
-                     [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
+                     [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady()">
               <input type="submit" value="Undo Changes" (click)="undoChanges()"
-                     [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm button-form-left'">
+                     [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-primary me-2'" [disabled]="notReady()">
               <input type="submit" value="Exit Without Saving" (click)="cancel()"
-                     [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm button-form-left'">
+                     [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-primary me-2'" [disabled]="notReady()">
             </div>
           </div>
         </div>

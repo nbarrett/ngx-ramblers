@@ -18,12 +18,11 @@ import { MailSubscriptionSettingComponent } from "../admin/member-admin-modal/ma
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ContactUsComponent } from "../../committee/contact-us/contact-us";
-import { NgClass } from "@angular/common";
 
 @Component({
     selector: "app-mailing-preferences-modal-component",
     templateUrl: "./mailing-preferences-modal.component.html",
-    imports: [EmailSubscriptionsMailchimpComponent, MailSubscriptionSettingComponent, FormsModule, FontAwesomeModule, ContactUsComponent, NgClass]
+    imports: [EmailSubscriptionsMailchimpComponent, MailSubscriptionSettingComponent, FormsModule, FontAwesomeModule, ContactUsComponent]
 })
 export class MailingPreferencesModalComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MailingPreferencesModalComponent", NgxLoggerLevel.ERROR);

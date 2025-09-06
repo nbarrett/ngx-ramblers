@@ -23,7 +23,68 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
 
 @Component({
     selector: "app-navbar",
-    templateUrl: "./navbar.html",
+    template: `
+      <div class="row d-flex align-items-stretch">
+        <div class="px-0 col">
+          <div class="container">
+            <div class="row d-flex align-items-stretch">
+              <div class="p-0 col {{systemConfig?.header?.navBar?.class}}">
+                <nav class="navbar navbar-expand-lg">
+                  <a class="navbar-brand" [href]="urlService.baseUrl()" aria-current="page" target="_self">
+                    @if (logo?.awsFileName) {
+                      <img [src]="urlService.resourceRelativePathForAWSFileName(logo?.awsFileName)"
+                           [alt]="systemConfig?.group?.shortName" [width]="logo?.width">
+                    }</a>
+                  <button type="button" aria-label="Toggle navigation"
+                          class="navbar-toggler border-0 rounded-0"
+                          [attr.aria-expanded]="navbarExpanded"
+                          (click)="toggleNavBar()">
+                    <app-svg [height]="27"
+                             [width]="27"
+                             [colour]="systemConfig?.header?.navBar?.class==classBackgroundDark?colourCloudy:colourGranite"
+                             [icon]="icon()"/>
+                  </button>
+                  @if (navbarContentWithinCollapse && navbarExpanded) {
+                    <div class="navbar-collapse" [class.show]="navbarExpanded">
+                      <app-navbar-content/>
+                    </div>
+                  }
+                  @if (!navbarContentWithinCollapse) {
+                    <app-navbar-content/>
+                  }
+                </nav>
+              </div>
+              @if (!navbarContentWithinCollapse && systemConfig?.header?.rightPanel?.show) {
+                <div
+                  class="p-0 col-auto {{systemConfig?.header?.navBar?.class}} pt-3 pe-2">
+                  @if (systemConfig?.header?.rightPanel?.showNavigationButtons) {
+                    <app-header-buttons/>
+                  }
+                  @if (systemConfig?.header?.rightPanel?.showLoginLinksAndSiteEdit) {
+                    <app-login-panel/>
+                  }
+                  @if (systemConfig?.header?.rightPanel?.socialMediaLinks?.show) {
+                    <div class="float-end me-2"
+                         [ngStyle]="{'width.px': systemConfig?.header?.rightPanel?.socialMediaLinks?.width}">
+                      <app-social-media-links [colour]="systemConfig?.header?.rightPanel?.socialMediaLinks?.colour"/>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+            @if (systemConfig?.header?.navBar?.location === NavBarLocation.BELOW_LOGO) {
+              <div class="row">
+                <div class="p-0 px-lg-3 col">
+                  @if (!navbarContentWithinCollapse) {
+                    <app-navbar-content/>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    `,
     styleUrls: ["./navbar.sass"],
     imports: [SvgComponent, NavbarContentComponent, HeaderButtonsComponent, LoginPanelComponent, NgStyle, SocialMediaLinksComponent]
 })
@@ -41,6 +102,9 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   protected readonly NavBarLocation = NavBarLocation;
   protected readonly colourCloudy = rgbColourCloudy;
+
+  protected readonly colourGranite = rgbColourGranite;
+  protected readonly classBackgroundDark = classBackgroundDark;
 
   @HostListener("window:resize", ["$event"])
   onResize(event) {
@@ -88,7 +152,4 @@ export class NavbarComponent implements OnInit, OnDestroy {
   icon() {
     return this.navbarExpanded ? "i-cross" : "i-menu";
   }
-
-  protected readonly colourGranite = rgbColourGranite;
-  protected readonly classBackgroundDark = classBackgroundDark;
 }

@@ -41,13 +41,13 @@ import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalki
                target="_self">{{ displayedWalk.walk?.groupEvent?.title || displayedWalk.latestEventType.description }}</a>
           </h3>
           <dl class="d-flex mb-2">
-            <dt class="font-weight-bold mr-2">Start:</dt>
+            <dt class="font-weight-bold me-2">Start:</dt>
             <time>{{ displayedWalk.walk?.groupEvent?.start_date_time | displayDate }} {{ displayedWalk.walk?.groupEvent?.start_date_time | displayTime }}</time>
           </dl>
           @if (display.notAwaitingLeader(displayedWalk.walk)) {
             @if (displayedWalk.walk?.groupEvent?.difficulty) {
               <dl class="d-flex mb-1">
-                <dt class="font-weight-bold mr-2">Difficulty:</dt>
+                <dt class="font-weight-bold me-2">Difficulty:</dt>
                 <dd>
                   <app-walk-grading [grading]="displayedWalk.walk?.groupEvent?.difficulty.code"/>
                 </dd>
@@ -55,19 +55,19 @@ import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalki
             }
             @if (displayedWalk.walk?.groupEvent?.distance_miles) {
               <dl class="d-flex mb-1">
-                <dt class="font-weight-bold mr-2">Distance:</dt>
+                <dt class="font-weight-bold me-2">Distance:</dt>
                 <dd>{{ distanceValidationService.walkDistances(displayedWalk.walk) }}</dd>
               </dl>
             }
             @if (displayedWalk?.walk?.groupEvent?.ascent_feet) {
               <dl class="d-flex mb-1">
-                <dt class="font-weight-bold mr-2">Ascent:</dt>
+                <dt class="font-weight-bold me-2">Ascent:</dt>
                 <dd>{{ ascentValidationService.walkAscents(displayedWalk.walk) }}</dd>
               </dl>
             }
             @if (displayedWalk?.walk?.groupEvent?.start_location?.postcode) {
               <dl (click)="ignoreClicks($event)" class="d-flex mb-1">
-                <dt class="font-weight-bold mr-2">Postcode:</dt>
+                <dt class="font-weight-bold me-2">Postcode:</dt>
                 <dd><a class="rams-text-decoration-pink"
                        tooltip="Click to locate postcode {{displayedWalk?.walk?.groupEvent?.start_location?.postcode}} on Google Maps"
                        [href]="googleMapsService.urlForPostcode(displayedWalk?.walk?.groupEvent?.start_location?.postcode)"
@@ -77,15 +77,15 @@ import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalki
             }
             @if (displayedWalk?.walk?.fields?.contactDetails?.displayName) {
               <dl class="d-flex mb-1">
-                <dt class="font-weight-bold mr-2">Leader:</dt>
+                <dt class="font-weight-bold me-2">Leader:</dt>
                 <dd>
-                  <div class="row no-gutters">
+                  <div class="row g-0">
                     @if (display.walkPopulationWalksManager()) {
                       <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-6 nowrap">
                         <fa-icon title
                                  tooltip="contact walk leader {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}"
                                  [icon]="faEnvelope"
-                                 class="fa-icon mr-1 pointer"/>
+                                 class="fa-icon me-1 pointer"/>
                         <a content
                            [href]="displayedWalk?.walk?.fields?.contactDetails?.email">{{ displayedWalk?.walk?.fields?.contactDetails?.displayName || "Contact Via Ramblers" }}</a>
                       </div>
@@ -144,7 +144,7 @@ import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalki
             }
             @if (display.walkPopulationLocal() && displayedWalk.status !== EventType.APPROVED) {
               <div id="{{displayedWalk?.walk?.id}}-status"
-                   class="badge event-badge sunset-badge ml-0">{{ displayedWalk?.latestEventType?.description }}
+                   class="badge event-badge sunset-badge ms-0">{{ displayedWalk?.latestEventType?.description }}
               </div>
             }
           }

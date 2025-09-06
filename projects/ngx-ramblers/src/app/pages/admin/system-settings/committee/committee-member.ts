@@ -68,12 +68,12 @@ import { MarkdownComponent } from "ngx-markdown";
               <label for="committee-member-vacant-{{index}}" class="control-label">
                 Role is vacant
               </label>
-              <div class="custom-control custom-checkbox">
-                <input type="checkbox" class="custom-control-input"
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input"
                   [(ngModel)]="committeeMember.vacant"
                   (ngModelChange)="roleChange()"
                   id="committee-member-vacant-{{index}}">
-                <label class="custom-control-label" for="committee-member-vacant-{{index}}">
+                <label class="form-check-label" for="committee-member-vacant-{{index}}">
                   <app-badge-button [icon]="faRemove" (click)="deleteRole()"
                     caption="Delete"/>
                 </label>
@@ -111,14 +111,14 @@ import { MarkdownComponent } from "ngx-markdown";
         </div>
         @if (committeeMember.roleType!==RoleType.SYSTEM_ROLE) {
           <div class="row mt-1">
-            <div class="col-sm-2 ml-3">Markdown Link</div>
-            <div class="col-sm-9"><code class="mr-2">{{ markdownLink(committeeMember) }}</code>
+            <div class="col-sm-2 ms-3">Markdown Link</div>
+            <div class="col-sm-9"><code class="me-2">{{ markdownLink(committeeMember) }}</code>
             <app-copy-icon title [value]="markdownLink(committeeMember)"
               elementName="markdown link"/>
           </div>
         </div>
         <div class="row mt-2">
-          <div class="col-sm-2 ml-3">Link Preview</div>
+          <div class="col-sm-2 ms-3">Link Preview</div>
           <div class="col-sm-6">
             <span class="as-button" markdown>{{ markdownLink(committeeMember) }}</span>
           </div>

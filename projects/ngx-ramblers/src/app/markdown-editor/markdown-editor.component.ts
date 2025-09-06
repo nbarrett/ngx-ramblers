@@ -141,7 +141,7 @@ import { SystemConfigService } from "../services/system/system-config.service";
     @if (siteEditActive() && duplicateContentDetectionService.isDuplicate(content?.id)) {
       <div class="alert alert-warning">
         <fa-icon [icon]="ALERT_WARNING.icon"/>
-        <b class="ml-2">Content duplicated in</b>
+        <b class="ms-2">Content duplicated in</b>
         <ul>
           @for (usage of contentTextUsageTrackerMapper(duplicateContentDetectionService.contentTextUsages(content?.id)); track usage.tracking) {
             <li>
@@ -154,7 +154,7 @@ import { SystemConfigService } from "../services/system/system-config.service";
             </li>
           }
         </ul>
-        <app-badge-button class="ml-2" (click)="unlink()" delay=500
+        <app-badge-button class="ms-2" (click)="unlink()" delay=500
                           [tooltip]="'Unlink and save as new content for ' + description"
                           [icon]="reverting() ? faSpinner: faUnlink" caption="unlink"/>
       </div>
@@ -180,13 +180,13 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   @Input("name") set acceptNameChangesFrom(name: string) {
-    this.logger.info("acceptNameChangesFrom:name:", name);
+    this.logger.debug("acceptNameChangesFrom:name:", name);
     this.name = name;
     this.syncContent();
   }
 
   @Input("category") set acceptCategoryChangesFrom(category: string) {
-    this.logger.info("category:", category);
+    this.logger.debug("category:", category);
     this.category = category;
     this.syncContent();
   }
@@ -274,7 +274,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   protected readonly ALERT_WARNING = ALERT_WARNING;
   private subscriptions: Subscription[] = [];
   async ngOnInit() {
-    this.logger.info("ngOnInit:name", this.name, "data:", this.data, "description:", this.description);
+    this.logger.debug("ngOnInit:name", this.name, "data:", this.data, "description:", this.description);
     this.hideParameterName = this.stringUtilsService.kebabCase(StoredValue.MARKDOWN_FIELD_HIDDEN, this.name) as StoredValue;
     this.editorState = {
       view: this.initialView || View.VIEW,
@@ -291,7 +291,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       this.setDescription();
     }
     this.subscriptions.push(this.siteEditService.events.subscribe((item: NamedEvent<boolean>) => {
-      this.logger.info("siteEditService.events.subscribe:", this.name, "this.editorState.view", this.editorState.view, "siteEditService:event", item);
+      this.logger.debug("siteEditService.events.subscribe:", this.name, "this.editorState.view", this.editorState.view, "siteEditService:event", item);
       this.editorState.view = item.data ? View.EDIT : View.VIEW;
     }));
     if (this.allowHide) {
@@ -308,7 +308,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   public assignListStyleTo(listStyle: ListStyle) {
-    this.logger.info("assignListStyleTo:listStyle:", listStyle, "this.content:", this.content);
+    this.logger.debug("assignListStyleTo:listStyle:", listStyle, "this.content:", this.content);
     this.initialiseStyles();
     this.content.styles.list = listStyle;
   }
@@ -316,7 +316,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   private initialiseStyles() {
     if (this.content && !this.content?.styles) {
       const styles = {list: null, class: null};
-      this.logger.info("initialiseStyles:for:", this.content, "to:", styles);
+      this.logger.debug("initialiseStyles:for:", this.content, "to:", styles);
       this.content.styles = styles;
     }
   }
@@ -326,13 +326,13 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   private setDataAttributes() {
-    this.logger.info("setDataAttributes:data:", this.data);
+    this.logger.debug("setDataAttributes:data:", this.data);
     const existingData: boolean = !!this.data.id;
     this.content = this.data;
     if (!this.noSave) {
       this.saveEnabled = true;
     }
-    this.logger.info("editing:", this.content, "existingData:", existingData, "editorState:", this.editorState, "rows:", this.rows);
+    this.logger.debug("editing:", this.content, "existingData:", existingData, "editorState:", this.editorState, "rows:", this.rows);
     this.originalContent = cloneDeep(this.content);
     this.setDescription();
     this.calculateRows();
@@ -347,7 +347,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   queryContent(): Promise<ContentText> {
     this.editorState.dataAction = DataAction.QUERY;
     if (this.id) {
-      this.logger.info("querying content for id:", this.id, "name:", this.name, "category:", this.category, "editorState:", this.editorState, "id:",);
+      this.logger.debug("querying content for id:", this.id, "name:", this.name, "category:", this.category, "editorState:", this.editorState, "id:",);
       return this.contentTextService.getById(this.id)
         .then((content) => {
           return this.apply(content);
@@ -357,10 +357,10 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
           return this.apply({});
         });
     } else if (this.queryOnlyById) {
-      this.logger.info("queryOnlyById:true content:name", this.name, "and category:", this.category, "editorState:", this.editorState, "id:", this.id);
+      this.logger.debug("queryOnlyById:true content:name", this.name, "and category:", this.category, "editorState:", this.editorState, "id:", this.id);
       return Promise.resolve(this.apply({}));
     } else if (this.name) {
-      this.logger.info("querying content:name", this.name, "and category:", this.category, "editorState:", this.editorState, "id:", this.id);
+      this.logger.debug("querying content:name", this.name, "and category:", this.category, "editorState:", this.editorState, "id:", this.id);
       return this.contentTextService.findByNameAndCategory(this.name, this.category).then((content) => {
         return this.apply(content);
       });
@@ -370,7 +370,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   private apply(content: ContentText): ContentText {
     if (isEmpty(content)) {
       if (this.siteEditService.active()) {
-        this.logger.info("content is empty for", this.description, "assumed to be new content so going into edit mode");
+        this.logger.debug("content is empty for", this.description, "assumed to be new content so going into edit mode");
       }
       this.syncContent();
     } else {
@@ -381,7 +381,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.originalContent = cloneDeep(this.content);
     this.editorState.dataAction = DataAction.NONE;
     this.calculateRows();
-    this.logger.info("retrieved content:", this.content, "editor state:", this.editorState);
+    this.logger.debug("retrieved content:", this.content, "editor state:", this.editorState);
     return this.content;
   }
 
@@ -430,7 +430,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     const text = data?.text;
     const rows = text ? text?.split(/\r*\n/).length + 1 : 1;
     const calculatedRows = Math.max(rows, this.minimumRows);
-    this.logger.info("number of rows in text ", text, "->", rows, "calculatedRows:", calculatedRows);
+    this.logger.debug("number of rows in text ", text, "->", rows, "calculatedRows:", calculatedRows);
     return calculatedRows;
   }
 
@@ -465,7 +465,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
   private setFocus() {
     if (this.buttonsAvailableOnlyOnFocus) {
-      this.logger.info("setFocus:", this.description);
+      this.logger.debug("setFocus:", this.description);
       this.markdownEditorFocusService.setFocusTo(this);
     }
   }

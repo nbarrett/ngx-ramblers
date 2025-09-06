@@ -1,5 +1,3 @@
-// @ts-ignore
-import mongoose from "mongoose";
 import { ApiResponse } from "./api-response.model";
 import { WalkAccessMode } from "./walk-edit-mode.model";
 import { WalkEventType } from "./walk-event-type.model";
@@ -253,7 +251,7 @@ export enum WalkImportField {
 export const EventStartDateAscending = {[GroupEventField.START_DATE]: 1};
 export const EventStartDateDescending = {[GroupEventField.START_DATE]: -1};
 export interface MongoIdsSupplied {
-  _id: { $in: mongoose.Types.ObjectId[] };
+  _id: { $in: string[] };
 }
 
 export interface EventStartDateGreaterThanOrEqualTo {

@@ -10,7 +10,23 @@ import { HeaderButtonsComponent } from "../../../header-buttons/header-buttons";
 
 @Component({
     selector: "app-navbar-content",
-    templateUrl: "./navbar-content.html",
+    template: `
+      <div class="w-100 {{systemConfig?.header?.navBar?.class}}">
+        <div class="ramblers-list-{{systemConfig?.header?.navBar?.class}} d-flex justify-content-center justify-content-lg-end">
+          <ul class="d-flex gap-2">
+            <app-page-navigator/>
+          </ul>
+        </div>
+        <div class="row mx-auto py-2 w-100 align-items-center justify-content-between bg-dark d-flex d-lg-none">
+          <div
+            class="d-block d-sm-flex align-items-center justify-content-center justify-content-lg-end order-sm-3 col-12 order-3">
+            @if (systemConfig?.header?.headerBar?.showNavigationButtons) {
+              <app-header-buttons/>
+            }
+          </div>
+        </div>
+      </div>
+    `,
     styleUrls: ["./navbar-content.sass"],
     imports: [PageNavigatorComponent, HeaderButtonsComponent]
 })
@@ -35,4 +51,3 @@ export class NavbarContentComponent  implements OnInit, OnDestroy {
   }
 
 }
-

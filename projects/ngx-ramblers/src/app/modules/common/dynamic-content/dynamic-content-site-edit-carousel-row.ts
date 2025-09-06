@@ -20,7 +20,7 @@ import { BadgeButtonComponent } from "../badge-button/badge-button";
     selector: "[app-row-settings-carousel]",
     styleUrls: ["./dynamic-content.sass"],
   template: `
-    <label class="mr-2"
+    <label class="me-2"
            [for]="id">Album Name</label>
     @if (!nameInput) {
       <app-image-list-select [maxWidth]="220" [id]="id" showNewButton
@@ -36,7 +36,7 @@ import { BadgeButtonComponent } from "../badge-button/badge-button";
                (ngModelChange)="carouselNameChange($event)"
                name="new-password"
                [ngModelOptions]="{standalone: true}"
-               type="text" class="form-control mr-2 flex-grow-1">
+               type="text" class="form-control me-2 flex-grow-1">
         <app-badge-button [icon]="faSearch" [caption]="'existing'"
                           (click)="toggleNameEdit(false)"/>
       </div>

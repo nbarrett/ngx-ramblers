@@ -1,7 +1,7 @@
 <div class="modal-content">
   <div class="modal-header">
     <h4 class="modal-title">Pay <em>Expense Claim</em></h4>
-    <button type="button" class="close float-right" aria-label="Close" (click)="bsModalRef.hide()">&times;</button>
+    <button type="button" class="close float-end" aria-label="Close" (click)="bsModalRef.hide()">&times;</button>
   </div>
   <div class="modal-body">
     <h5>You are about to mark the Expense Claim for <strong
@@ -26,13 +26,13 @@
         </div>
       }
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer d-flex gap-2">
       <input type="submit" value="Confirm Paid" [disabled]="notifyTarget.busy" (click)="confirmPaidExpenseClaim()"
         title="Confirm this Expense Claim as Paid"
-        [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form amber-confirm button-form-left'">
+        class="btn btn-warning">
       <input type="submit" value="Cancel" [disabled]="notifyTarget.busy" (click)="cancelPaidExpenseClaim()"
         title="Don't mark this Expense Claim as paid, just close this form"
-        [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form green-confirm button-form-left'">
+        class="btn btn-success">
     </div>
   </div>
 

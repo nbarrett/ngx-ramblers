@@ -45,27 +45,27 @@
                class="form-control input-sm" placeholder="Enter href value">
       </form>
       <div class="form-group">
-        <div class="custom-control custom-radio custom-control-inline">
+        <div class="form-check form-check-inline">
           <input [id]="idFor('use-image')"
                  type="radio"
-                 class="custom-control-input"
+                 class="form-check-input"
                  [name]="idFor('image-type')"
                  [ngModel]="imageType"
                  (change)="changeToImageType()"
                  value="image"/>
-          <label class="custom-control-label"
+          <label class="form-check-label"
                  [for]="idFor('use-image')">
             Use Image</label>
         </div>
-        <div class="custom-control custom-radio custom-control-inline">
+        <div class="form-check form-check-inline">
           <input [id]="idFor('use-icon')"
                  type="radio"
                  [name]="idFor('image-type')"
-                 class="custom-control-input"
+                 class="form-check-input"
                  [ngModel]="imageType"
                  (change)="changeToIconType()"
                  value="icon"/>
-          <label class="custom-control-label"
+          <label class="form-check-label"
                  [for]="idFor('use-icon')">
             Use Icon</label>
         </div>

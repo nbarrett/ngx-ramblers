@@ -26,13 +26,13 @@ import { FilterParameters } from "../../../models/search.model";
             <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
               (ngModelChange)="onSearchChange($event)"
               name="quickSearch"
-              class="form-control rounded mr-3"
+              class="form-control rounded me-3"
               type="text" placeholder="Quick Search">
           </div>
           <div class="col-xs-12 mb-3 mb-md-0 col-md-4">
             <select [(ngModel)]="filterParameters.selectType"
               (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
-              class="form-control rounded mr-3">
+              class="form-control rounded me-3">
               @for (filter of walksFilter(); track filter.value) {
                 <option [ngValue]="filter.value"
                   [selected]="filter.selected">{{ filter.description }}
@@ -75,17 +75,17 @@ import { FilterParameters } from "../../../models/search.model";
       }
       @if (!showPagination) {
         <div class="d-lg-flex pb-0">
-          <div class="form-group mr-lg-3 mb-lg-0">
+          <div class="form-group me-lg-3 mb-lg-0">
             <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
               (ngModelChange)="onSearchChange($event)"
               name="quickSearch"
-              class="form-control rounded mr-3"
+              class="form-control rounded me-3"
               type="text" placeholder="Quick Search">
           </div>
-          <div class="form-group mr-lg-3 mb-lg-0">
+          <div class="form-group me-lg-3 mb-lg-0">
             <select [(ngModel)]="filterParameters.selectType"
               (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
-              class="form-control rounded mr-3">
+              class="form-control rounded me-3">
               @for (filter of walksFilter(); track filter.value) {
                 <option [ngValue]="filter.value"
                   [selected]="filter.selected">{{ filter.description }}
@@ -93,7 +93,7 @@ import { FilterParameters } from "../../../models/search.model";
               }
             </select>
           </div>
-          <div class="form-group mr-lg-3 mb-lg-0">
+          <div class="form-group me-lg-3 mb-lg-0">
             <select [(ngModel)]="filterParameters.ascending"
               (ngModelChange)="refreshWalks('change filterParameters.ascending')" name="ascending"
               class="form-control rounded">

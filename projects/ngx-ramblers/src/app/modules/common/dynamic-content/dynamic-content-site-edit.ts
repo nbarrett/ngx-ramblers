@@ -68,9 +68,9 @@ import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events
         @if (duplicateUsageMessages.length > 0) {
           <div class="alert alert-warning">
             <fa-icon [icon]="ALERT_ERROR.icon"/>
-            <strong class="ml-2">Duplicate content usage on this page has been detected
+            <strong class="ms-2">Duplicate content usage on this page has been detected
               in {{ stringUtils.pluraliseWithCount(duplicateUsageMessages.length, "item") }}</strong>
-            <div class="ml-3 mb-2">Scroll down to editable content panels below where content can be unlinked and
+            <div class="ms-3 mb-2">Scroll down to editable content panels below where content can be unlinked and
               optionally updated. When you have finished, click <strong>Save page changes</strong>.
             </div>
           </div>
@@ -79,7 +79,7 @@ import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events
           @if (notify.alertTarget.showAlert) {
             <div class="col-12 alert {{notify.alertTarget.alertClass}} mt-3">
               <fa-icon [icon]="notify.alertTarget.alert.icon"></fa-icon>
-              <strong class="ml-2">{{ notify.alertTarget.alertTitle }}</strong>
+              <strong class="ms-2">{{ notify.alertTarget.alertTitle }}</strong>
               <div class="p-2">{{ notify.alertTarget.alertMessage }}.
                 @if (canCreateContent()) {
                   <a (click)="createContent()"
@@ -107,7 +107,7 @@ import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events
                     <div class="col-sm-12">
                       <div class="mb-2">Other unreferenced pages related to this area:</div>
                       @for (path of unreferencedPaths; track path) {
-                        <ul class="breadcrumb bg-transparent mb-1 ml-0 p-1">
+                        <ul class="breadcrumb bg-transparent mb-1 ms-0 p-1">
                           <span class="d-md-none">...</span>
                           @for (page of pageService.linksFromPathSegments(urlService.pathSegmentsForUrl(path)); track page) {
                             <li class="breadcrumb-item d-none d-md-inline"
@@ -128,7 +128,7 @@ import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events
               <div class="row mt-2 align-items-end mb-3">
                 <div [ngClass]="pageContentRowService.rowsSelected()? 'col-md-10' : 'col'" class="mb-2">
                   <form>
-                    <label class="mr-2" for="path">Content Path
+                    <label class="me-2" for="path">Content Path
                       <span>{{ contentPathReadOnly ? "(not editable as this content is part of internal page)" : "" }}</span></label>
                     <input [disabled]="contentPathReadOnly" autocomplete="off"
                            [typeahead]="pageContentService.siteLinks"
@@ -153,7 +153,7 @@ import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events
                   </div>
                   <div class="col-md-10 mt-3">
                     <form>
-                      <label class="mr-2" for="move-or-copy-to-path">
+                      <label class="me-2" for="move-or-copy-to-path">
                         {{ action }}
                         {{ stringUtils.pluraliseWithCount(pageContentRowService.selectedRowCount(), "row") }} to</label>
                       <input id="move-or-copy-to-path"
@@ -198,7 +198,7 @@ import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events
                             (click)="performCopyOrMoveAction()"
                             [ngClass]="buttonClass(!actionDisabled())">
                       <fa-icon [icon]="faSave"></fa-icon>
-                      <span class="ml-2">Perform {{ action }}</span>
+                      <span class="ms-2">Perform {{ action }}</span>
                     </button>
                   </div>
                 }
@@ -233,10 +233,10 @@ import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events
                         <div class="col-auto" app-row-settings-action-buttons [row]="row"></div>
                       }
                       <div class="col-auto">
-                        <div class="form-inline">
+                        <div class="d-inline-flex align-items-center flex-wrap">
                           <div app-margin-select label="Margin Top"
                                [data]="row"
-                               field="marginTop" class="mr-4">
+                               field="marginTop" class="me-4">
                           </div>
                           <div app-margin-select label="Margin Bottom"
                                [data]="row"
@@ -245,7 +245,7 @@ import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events
                         </div>
                       </div>
                       <div class="col-auto">
-                        <div class="form-inline float-right">
+                        <div class="d-inline-flex align-items-center flex-wrap float-end">
                           <app-actions-dropdown [rowIndex]="rowIndex"
                                                 [pageContent]="pageContent"
                                                 [row]="row"/>
@@ -281,7 +281,7 @@ import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events
           </div>
         }
         <ng-template #saveButtonsAndPath>
-          <div class="form-inline">
+          <div class="d-inline-flex align-items-center flex-wrap">
             <app-badge-button [disabled]="actions.rowsInEdit.length>0" (click)="savePageContent()"
                               [tooltip]="actions.rowsInEdit.length>0?'Finish current row edit before saving':'Save page changes'"
                               [icon]="faSave"
@@ -315,7 +315,7 @@ import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events
             @if (this.allReferringPageCount() > 0) {
               <div class="align-middle">Referred to
                 by: @for (referringPage of allReferringPages(); track referringPage; let linkIndex = $index) {
-                  <a class="ml-2 rams-text-decoration-pink"
+                  <a class="ms-2 rams-text-decoration-pink"
                      [href]="referringPage">{{ formatHref(referringPage) }}{{ linkIndex < allReferringPageCount() - 1 ? ',' : '' }}</a>
                 }
               </div>

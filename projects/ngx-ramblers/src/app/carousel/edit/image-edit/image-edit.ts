@@ -74,10 +74,10 @@ import { GroupEventSelectorComponent } from "../../../group-events-selector/grou
               <div class="form-group">
                 <div class="row mb-2">
                   <div class="col">Image {{ index + 1 }} of {{ filteredFiles?.length }}</div>
-                  <div class="col text-right">
+                  <div class="col text-end">
                     <div>Image Size {{ imageSize() }}</div>
                     @if (imagedIsCropped()) {
-                      <div class="ml-2">Cropped Size {{ croppedSize() }}</div>
+                      <div class="ms-2">Cropped Size {{ croppedSize() }}</div>
                     }
                   </div>
                 </div>
@@ -96,12 +96,12 @@ import { GroupEventSelectorComponent } from "../../../group-events-selector/grou
                   </div>
                 }
               </div>
-              <div class="row no-gutters">
-                <div class="col pr-1">
+              <div class="row g-0">
+                <div class="col pe-1">
                   <app-badge-button fullWidth [disabled]="editActive" [icon]="faRemove" caption="Delete"
                                     (click)="callDelete()"/>
                 </div>
-                <div class="col pr-1">
+                <div class="col pe-1">
                   <app-badge-button fullWidth [disabled]="editActive" [icon]="faAdd" caption="Insert"
                                     (click)="callInsert()"/>
                 </div>
@@ -110,12 +110,12 @@ import { GroupEventSelectorComponent } from "../../../group-events-selector/grou
                                     (click)="editImage()"/>
                 </div>
               </div>
-              <div class="row no-gutters">
-                <div class="col pr-1">
+              <div class="row g-0">
+                <div class="col pe-1">
                   <app-badge-button fullWidth [disabled]="editActive|| !canMoveUp" [icon]="faAngleUp" caption="Move up"
                                     (click)="callMoveUp()"/>
                 </div>
-                <div class="col pr-1">
+                <div class="col pe-1">
                   <app-badge-button fullWidth [disabled]="editActive|| !canMoveDown" [icon]="faAngleDown"
                                     caption="Move down"
                                     (click)="callMoveDown()"/>
@@ -127,12 +127,12 @@ import { GroupEventSelectorComponent } from "../../../group-events-selector/grou
                                     (click)="coverImageSet()"/>
                 </div>
               </div>
-              <div class="row no-gutters mb-2">
-                <div class="col pr-1">
+              <div class="row g-0 mb-2">
+                <div class="col pe-1">
                   <app-badge-button fullWidth [disabled]="!canMoveUp" [icon]="faLink" caption="Image Data as Previous"
                                     (click)="imageDataAsPrevious()"/>
                 </div>
-                <div class="col pr-1">
+                <div class="col pe-1">
                   <app-badge-button fullWidth [disabled]="editActive|| !canMoveDown" [icon]="faLink"
                                     caption="Image Data As Next"
                                     (click)="imageDataAsNext()"/>

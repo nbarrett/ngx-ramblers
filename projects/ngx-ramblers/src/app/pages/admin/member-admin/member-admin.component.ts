@@ -49,6 +49,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { SwitchIconComponent } from "../system-settings/committee/switch-icon";
 import { DisplayDateNoDayPipe } from "../../../pipes/display-date-no-day.pipe";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
+import { StringUtilsService } from "../../../services/string-utils.service";
 
 
 @Component({
@@ -62,6 +63,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private loggerFactory = inject(LoggerFactory);
   private logger: Logger = this.loggerFactory.createLogger("MemberAdminComponent", NgxLoggerLevel.ERROR);
   private apiResponseProcessorLogger: Logger = this.loggerFactory.createLogger("MemberAdminComponentResponseProcessor", NgxLoggerLevel.ERROR);
+  protected stringUtilsService: StringUtilsService = inject(StringUtilsService);
   private mailchimpConfigService = inject(MailchimpConfigService);
   private memberService = inject(MemberService);
   private apiResponseProcessor = inject(ApiResponseProcessor);

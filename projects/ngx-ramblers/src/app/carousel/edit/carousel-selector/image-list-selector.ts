@@ -24,7 +24,7 @@ import { ImageListSelect } from "./image-list-select";
         <div class="row">
           <div class="col-sm-12 mb-2 mt-2">
             <h6>Edit images from</h6>
-            <div class="form-inline">
+            <div class="d-inline-flex align-items-center flex-wrap">
               <app-image-list-select multiple="true" [maxWidth]="1300" [name]="name"
                                      (metadataChange)="metadataChange($event)"/>
               @if (confirm.deleteConfirmOutstanding()) {
@@ -51,7 +51,7 @@ import { ImageListSelect } from "./image-list-select";
               <div class="mt-2">
                 Selected: {{ stringUtils.pluraliseWithCount(selectedContentMetadata.length, 'item') }}
                 @for (item of selectedContentMetadata; track item) {
-                  <span class="badge badge-secondary mx-1">{{ item.name }}</span>
+                  <span class="badge bg-secondary mx-1">{{ item.name }}</span>
                 }
               </div>
             }

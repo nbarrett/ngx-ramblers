@@ -12,7 +12,7 @@ import { RouterLink } from "@angular/router";
     <main>
       <div class="container">
         @if (pageService.nested()) {
-          <ul class="breadcrumb bg-transparent mb-1 ml-0 p-1">
+          <ul class="breadcrumb bg-transparent mb-1 ms-0 p-1">
             <span class="d-md-none">...</span>
             @for (page of pageService.relativePages(); track page.href) {
               <li class="breadcrumb-item d-none d-md-inline">

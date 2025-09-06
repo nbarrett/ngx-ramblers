@@ -34,7 +34,7 @@ import { ColourSelectorComponent } from "../../../pages/banner/colour-selector";
       <button aria-controls="dropdown-animated" class="dropdown-toggle badge-button" dropdownToggle
               type="button">
         <fa-icon [icon]="faTableCells"></fa-icon>
-        <span class="ml-2">{{ actionType() }} Actions</span><span class="caret"></span>
+        <span class="ms-2">{{ actionType() }} Actions</span><span class="caret"></span>
       </button>
       <ul *dropdownMenu class="dropdown-menu" (click)="actionClicked($event)"
           id="dropdown-animated" role="menu">
@@ -124,7 +124,7 @@ import { ColourSelectorComponent } from "../../../pages/banner/colour-selector";
         }
         @if (allowColumnActions() && markdownEditorComponentInjected()) {
           <hr>
-          <div class="ml-2">Bullet style</div>
+          <div class="ms-2">Bullet style</div>
           <a (click)="assignListStyleTo(ListStyle.ARROW)" class="dropdown-item">
             <li role="menuitem" class="list-style-arrow">
               <small class="p-2"
@@ -150,7 +150,7 @@ import { ColourSelectorComponent } from "../../../pages/banner/colour-selector";
             </li>
           </a>
           <hr>
-          <div class="ml-2 mb-2">Styling Options</div>
+          <div class="ms-2 mb-2">Styling Options</div>
           <a (click)="backgroundColourClick($event)" class="dropdown-item">
             <li role="menuitem">
               <app-colour-selector noLabel [colours]="textStyleSelectors" [itemWithClassOrColour]="styles()"/>

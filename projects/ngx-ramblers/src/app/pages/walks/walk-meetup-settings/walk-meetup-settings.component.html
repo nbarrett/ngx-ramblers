@@ -1,5 +1,5 @@
 <app-page>
-  <h3 class="card-title ml-3 mb-4">Meetup Settings
+  <h3 class="card-title mb-4" style="margin-left: 1rem;">Meetup Settings
     <fa-icon [icon]="faMeetup" class="sfa-2x meetup"></fa-icon>
   </h3>
   <div class="card-text">
@@ -15,7 +15,7 @@
               </ul>
               <div class="row mb-2">
                 <div class="col-sm-12">
-                  <div class="form-inline">
+                  <div class="d-inline-flex align-items-center flex-wrap gap-2">
                     <div class="form-group">
                       <label for="type" class="inline-label">Content item: </label>
                       <select class="form-control input-sm"
@@ -34,7 +34,7 @@
                     <div class="form-group">
                       <input type="submit" value="Add new content" (click)="addNewContent()"
                              title="Add new content"
-                             class="button-form button-form-left">
+                             class="btn btn-primary">
                     </div>
                   </div>
                 </div>
@@ -82,14 +82,16 @@
           </div>
         }
       </div>
-      @if (activeTabIs(1)) {
-        <input type="submit" value="Save" (click)="save()"
-               title="Save"
-               class="button-form">
-      }
-      <input type="submit" value="Back To Walks Admin" (click)="backToWalksAdmin()"
-             title="Back to walks"
-             class="button-form">
+      <div class="d-flex gap-2 flex-wrap">
+        @if (activeTabIs(1)) {
+          <input type="submit" value="Save" (click)="save()"
+                 title="Save"
+                 class="btn btn-success">
+        }
+        <input type="submit" value="Back To Walks Admin" (click)="backToWalksAdmin()"
+               title="Back to walks"
+               class="btn btn-secondary">
+      </div>
     </div>
   </div>
 </app-page>

@@ -28,10 +28,10 @@ import { MailchimpButtonComponent } from "../../../../modules/common/third-parti
         <div class="thumbnail-heading">Mail</div>
         @if (config.mailDefaults.mailProvider===MailProvider.MAILCHIMP) {
           <div class="col-md-12">
-            <div class="custom-control custom-checkbox">
+            <div class="form-check">
               <input [(ngModel)]="config.mailDefaults.autoSubscribeNewMembers"
-                type="checkbox" class="custom-control-input" id="auto-subscribe-new-members">
-              <label class="custom-control-label"
+                type="checkbox" class="form-check-input" id="auto-subscribe-new-members">
+              <label class="form-check-label"
                 for="auto-subscribe-new-members">Auto-subscribe new members or initialised subscriptions
               </label>
             </div>

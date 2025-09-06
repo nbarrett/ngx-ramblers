@@ -23,7 +23,7 @@ import { FormsModule } from "@angular/forms";
       @for (image of icons?.images; track image.awsFileName) {
         <ng-option [value]="image">
           <img [alt]="friendlyFileName(image?.originalFileName)" width="25" [src]="urlService.imageSource(image?.awsFileName)"/>
-          <span class="ml-2">{{friendlyFileName(image?.originalFileName)}}</span>
+          <span class="ms-2">{{friendlyFileName(image?.originalFileName)}}</span>
         </ng-option>
       }
     </ng-select>

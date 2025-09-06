@@ -13,12 +13,12 @@ import { DynamicContentMaxColumnsEditorComponent } from "./dynamic-content-max-c
         <div class="row align-items-end">
           <div class="col-auto" app-dynamic-content-max-columns-editor [hasMaxColumns]="row"></div>
           <div class="col-auto">
-            <div class="custom-control custom-checkbox">
+            <div class="form-check">
               <input name="showSwiper" [(ngModel)]="row.showSwiper"
                      [checked]="row.showSwiper"
-                     type="checkbox" class="custom-control-input"
+                     type="checkbox" class="form-check-input"
                      [id]="id +'-show-cols'">
-              <label class="custom-control-label"
+              <label class="form-check-label"
                      [for]="id +'-show-cols'">Show Swiper
               </label>
             </div>
@@ -42,4 +42,3 @@ export class RowSettingsActionButtonsComponent implements OnInit {
   }
 
 }
-

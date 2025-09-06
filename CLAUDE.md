@@ -172,6 +172,25 @@ npm run manage-configs
 - **Bootstrap Integration**: Leverage ngx-bootstrap components
 - **Ramblers Brand Standards**: Follow established color schemes and typography
 
+### UI Design Principles
+- Tokens: Use CSS variables in `projects/ngx-ramblers/src/app/assets/styles/tokens.sass` for spacing, radii, buttons, focus ring, and modal paddings. Prefer tokens over ad‑hoc values.
+- Buttons: Use `assets/styles/buttons.sass` defaults. Padding comes from `--btn-pad-*`; maintain `--btn-min-height` ≥ 40px. Don’t override per component unless necessary.
+- Focus: Use unified ring from `assets/styles/focus.sass`. Avoid adding component‑level box‑shadows for focus.
+- Modals: Header/footer spacing and title sizing are tokenized. Close button alignment handled in `assets/styles/legacy.sass`.
+- Input groups: Attached sides are square (buttons/addons/inputs) via rules in `assets/styles/legacy.sass`. Don’t reintroduce rounded corners on attached edges.
+- Pagination/pager: Use `.pager-btn` and `assets/styles/pagination.sass` for consistent hover/active styles.
+- Accessibility: Maintain AA contrast for text and focus ring; keep touch targets ≥ 40–44px.
+- Responsiveness: Ensure headers/footers and controls behave at 320px–1200px without wrapping artefacts or double borders/shadows.
+- Centralize styles: Prefer updating shared files (`buttons.sass`, `pagination.sass`, `legacy.sass`, `tokens.sass`, `focus.sass`) rather than scattering overrides.
+
+### UI Audit Checklist (use before merging UI changes)
+- Modal titles wrap/truncate cleanly on small screens; close button aligned.
+- Button padding/tap target match tokens; states (hover/focus/active) are consistent.
+- No double borders/shadows around modal header/body/footer.
+- Input groups have flat attached edges; heights align across inputs/buttons.
+- Focus ring visible and non‑conflicting with state colors.
+- Layout holds at narrow widths; long labels/translations don’t break alignment.
+
 ### Form Handling
 - **Template-driven Forms**: Primary approach with Angular Forms module
 - **Validation**: Implement custom validators for business logic
@@ -272,3 +291,22 @@ When making changes:
   npm run manage-configs
   ```
 - **Deployment Scripts**: Located in `server/deploy/deploy-to-environments.ts` and `server/deploy/manage-configs.ts`
+
+## Assistant Preferences
+
+- Patches: Keep changes minimal and scoped to the request; avoid fixing unrelated issues and follow existing code style and structure.
+- UI Conventions: Prefer Bootstrap 5-compatible patterns when editing templates. The `bootstrap4-compat.sass` shim exists only for transitional support and should not be expanded.
+- Build/Validation: Prefer targeted TypeScript checks (e.g., `npx tsc -p projects/ngx-ramblers/tsconfig.app.json`). Run full Angular builds on explicit request.
+- Change Summaries: Summarize changes concisely in responses with file path references (include line anchors when helpful).
+- Code Comments: Do not add comments inside code changes (see “Code Style Standards: No Comments in Code”).
+
+## Bootstrap 5 Migration TODO
+
+- Convert remaining `.custom-control` radios/checkboxes to Bootstrap 5 `.form-check` across app (admin, imports, image list editors).
+- Sweep and replace legacy BS4 utilities where present:
+  - Badges: `badge-*` → `badge bg-*` (already used in places).
+  - Grid gutters: ensure `no-gutters` → `g-0` only.
+- Audit templates for any residual `input-group-prepend/append` usage; replace with sibling `.input-group-text` or buttons.
+- Validate build with Node ≥ 20.19: `npm run build` and visual QA of walks, admin members, expenses, imports.
+- Optional: add automated rg checks to CI for BS4 class names to prevent regressions.
+- look at how classes are applied by the projects/ngx-ramblers/src/app/modules/common/dynamic-content components. There are some styling problems there that still need fixing

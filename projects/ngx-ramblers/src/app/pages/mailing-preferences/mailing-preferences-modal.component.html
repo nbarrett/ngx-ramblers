@@ -2,7 +2,7 @@
   <div class="modal-header">
     <h4 class="modal-title" id="mailing-preferences-modal-title-heading">Your
       <em>{{ systemConfig.group?.shortName }}</em> profile</h4>
-    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+    <button type="button" class="close" data-bs-dismiss="modal" aria-hidden="true">&times;</button>
   </div>
   <div class="modal-body">
     @if (member) {
@@ -91,11 +91,13 @@
     }
   </div>
   <div class="modal-footer">
-    <div class="row col-sm-12">
+    <div class="row col-sm-12 d-flex gap-2">
       <input type="submit" value="Confirm these changes" (click)="save()" title="Confirm these changes"
-             [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+             [disabled]="notifyTarget.busy"
+             class="btn btn-success">
       <input type="submit" value="Continue without confirming" (click)="close()" title="Continue without confirming"
-             [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+             [disabled]="notifyTarget.busy"
+             class="btn btn-secondary">
     </div>
   </div>
 </div>

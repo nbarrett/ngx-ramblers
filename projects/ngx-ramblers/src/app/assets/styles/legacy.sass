@@ -1,26 +1,17 @@
-
-/* =============================================================================
-   HTML5 element display
-   ========================================================================== */
 article, aside, details, figcaption, figure, footer, header, hgroup, nav, section
   display: block
-
 
 audio[controls], canvas, video
   display: inline-block
 
-
-/* =============================================================================
-   overriding bootstrap values
-   ========================================================================== */
-
 .modal-header
   background: $ramblers-colour-granite
+  padding: var(--modal-header-padding)
 
 
 .modal-footer
   text-align: left
-  padding: 16px 0px 6px 16px
+  padding: var(--modal-footer-padding-y) var(--modal-footer-padding-x)
   background: #ccc
 
 
@@ -30,6 +21,7 @@ audio[controls], canvas, video
 
 .modal-header h4
   font-family: "Rucksack", sans-serif
+  font-size: var(--modal-title-size)
   color: $ramblers-colour-cloudy
 
 
@@ -170,12 +162,6 @@ h3 small
 .admin-header-container-with-tabs
   padding: 6px 0px 2px 0px
 
-//.admin-header-buttons .alert
-//  border-color: $ramblers-colour-mintcake
-//  margin: 5px 6px 6px 3px
-//  border-radius: 6px
-//  float: left
-
 .admin-frame
   background: $ramblers-colour-granite
   padding: 12px
@@ -197,10 +183,90 @@ h3 small
 .alert-danger
   word-wrap: break-word
 
-.modal-footer
-  margin-top: 0px
-  padding: 9px 0px 9px 16px
-  background: #ccc
+.form-group
+  margin-bottom: 1rem
+
+.form-group > label
+  margin-bottom: .5rem
+
+.form-group.d-flex
+  margin-top: 1rem
+  margin-bottom: 1rem
+
+.input-group .input-group-text:first-child
+  border-top-right-radius: 0 !important
+  border-bottom-right-radius: 0 !important
+
+.input-group .btn:last-child
+  border-top-left-radius: 0 !important
+  border-bottom-left-radius: 0 !important
+
+.input-group .btn:first-child
+  border-top-right-radius: 0 !important
+  border-bottom-right-radius: 0 !important
+
+.input-group .btn:not(:first-child):not(:last-child)
+  border-radius: 0 !important
+
+.input-group .input-group-text:last-child
+  border-top-left-radius: 0 !important
+  border-bottom-left-radius: 0 !important
+
+.modal-header
+  display: flex !important
+  justify-content: space-between !important
+  align-items: center !important
+
+.modal-header .close
+  margin-left: auto !important
+
+.input-group .btn
+  min-width: 38px
+  height: 38px
+  padding: 0
+  display: flex
+  align-items: center
+  justify-content: center
+
+.input-group .form-control
+  height: 38px
+
+.input-group .input-group-text
+  height: 38px
+  display: flex
+  align-items: center
+  justify-content: center
+  padding-top: 0
+  padding-bottom: 0
+
+.input-group > .form-control:not(:first-child)
+  border-top-left-radius: 0 !important
+  border-bottom-left-radius: 0 !important
+
+.input-group > .form-control:not(:last-child)
+  border-top-right-radius: 0 !important
+  border-bottom-right-radius: 0 !important
+
+.btn-outline-secondary
+  background-color: #e9ecef !important
+  border-color: #ced4da !important
+  color: #6c757d !important
+
+  &:hover, &:focus, &:active
+    background-color: #dee2e6 !important
+    border-color: #adb5bd !important
+    color: #6c757d !important
+
+.form-row
+  display: flex
+  flex-wrap: wrap
+  margin-right: -.5rem
+  margin-left: -.5rem
+  margin-bottom: 1rem
+
+.form-row > .col, .form-row > [class^="col-"], .form-row > .col-auto
+  padding-right: .5rem
+  padding-left: .5rem
 
 html
   font-size: 100%
@@ -258,17 +324,12 @@ textarea
   vertical-align: top
 
 
-/* =============================================================================
-   Tables
-   ========================================================================== */
 table
   border-collapse: collapse
   border-spacing: 0
   width: 100%
   margin-bottom: 20px
 
-
-/* grey */
 table.tbl-grey-a
   border: 1px solid #ccc
   border-spacing: 0px

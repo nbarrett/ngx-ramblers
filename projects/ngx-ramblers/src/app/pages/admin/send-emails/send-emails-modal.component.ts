@@ -37,7 +37,6 @@ import { FormsModule } from "@angular/forms";
 import { DatePicker } from "../../../date-and-time/date-picker";
 import { SenderRepliesAndSignoffComponent } from "./sender-replies-and-signoff";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { NgClass } from "@angular/common";
 
 @Component({
     selector: "app-member-admin-send-emails-modal",
@@ -90,20 +89,20 @@ import { NgClass } from "@angular/common";
                       <div id="radio-selections">
                         <div class="row">
                           <div class="col-sm-12">
-                            <div class="form-inline">
-                              <div class="custom-control custom-radio custom-control-inline">
-                                <input type="radio" class="custom-control-input" [value]="MemberSelection.RECENTLY_ADDED"
+                            <div class="d-inline-flex align-items-center flex-wrap">
+                              <div class="form-check form-check-inline">
+                                <input type="radio" class="form-check-input" [value]="MemberSelection.RECENTLY_ADDED"
                                   [ngModel]="notificationConfig.defaultMemberSelection"
                                   [disabled]="notifyTarget.busy" id="recently-added"
                                   (click)="populateMembersBasedOn(MemberSelection.RECENTLY_ADDED)">
-                                <label class="custom-control-label text-nowrap" for="recently-added">
+                                <label class="form-check-label text-nowrap" for="recently-added">
                                   Added in the
                                   last {{ stringUtils.pluraliseWithCount(notificationConfig.monthsInPast, "month") }}
                                   on/after:
                                 </label>
                                 @if (currentMemberSelection === MemberSelection.RECENTLY_ADDED) {
                                   <app-date-picker startOfDay
-                                    class="input-group ml-2"
+                                    class="input-group ms-2"
                                     (change)="onMemberFilterDateChange($event)"
                                     [value]="memberFilterDate">
                                   </app-date-picker>
@@ -114,15 +113,15 @@ import { NgClass } from "@angular/common";
                         </div>
                         <div class="row">
                           <div class="col-sm-12">
-                            <div class="form-inline">
-                              <div class="custom-control custom-radio custom-control-inline">
-                                <input type="radio" class="custom-control-input"
+                            <div class="d-inline-flex align-items-center flex-wrap">
+                              <div class="form-check form-check-inline">
+                                <input type="radio" class="form-check-input"
                                   [value]="MemberSelection.EXPIRED_MEMBERS"
                                   [ngModel]="notificationConfig.defaultMemberSelection"
                                   [disabled]="notifyTarget.busy"
                                   id="expired-members"
                                   (click)="populateMembersBasedOn(MemberSelection.EXPIRED_MEMBERS)">
-                                <label class="custom-control-label text-nowrap" for="expired-members">
+                                <label class="form-check-label text-nowrap" for="expired-members">
                                   {{ notificationConfig.monthsInPast }} months past expiry date:
                                 </label>
                                 @if (currentMemberSelection === MemberSelection.EXPIRED_MEMBERS) {
@@ -138,30 +137,30 @@ import { NgClass } from "@angular/common";
                         </div>
                         <div class="row">
                           <div class="col-sm-6">
-                            <div class="custom-control custom-radio">
+                            <div class="form-check">
                               <input
                                 type="radio"
-                                class="custom-control-input"
+                                class="form-check-input"
                                 [value]="MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS"
                                 [ngModel]="notificationConfig.monthsInPast"
                                 [disabled]="notifyTarget.busy"
                                 id="missing-from-bulk-load-members"
                                 (click)="populateMembersBasedOn(MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS)">
-                              <label class="custom-control-label" for="missing-from-bulk-load-members">Missing from last
+                              <label class="form-check-label" for="missing-from-bulk-load-members">Missing from last
                                 bulk
                               load</label>
                             </div>
-                            <div class="custom-control custom-radio">
+                            <div class="form-check">
                               <input
                                 type="radio"
-                                class="custom-control-input"
+                                class="form-check-input"
                                 [disabled]="notifyTarget.busy"
                                 value="Clear all"
                                 [ngModel]="notificationConfig.monthsInPast"
                                 id="clear-members"
                                 (click)="clearSelectedMembers()"
                                 title="Clear current selection">
-                              <label class="custom-control-label" (click)="clearSelectedMembers()" for="clear-members">Clear
+                              <label class="form-check-label" (click)="clearSelectedMembers()" for="clear-members">Clear
                               all and enter manually</label>
                             </div>
                           </div>
@@ -183,7 +182,7 @@ import { NgClass } from "@angular/common";
                                 [(ngModel)]="selectedMemberIds">
                                 <ng-template ng-optgroup-tmp let-item="item">
                                   <span class="group-header">{{ item.name }} members </span>
-                                  <span class="ml-1 badge badge-secondary badge-group"> {{ item.total }} </span>
+                                  <span class="ms-1 badge bg-secondary badge-group"> {{ item.total }} </span>
                                 </ng-template>
                               </ng-select>
                             </div>
@@ -217,19 +216,23 @@ import { NgClass } from "@angular/common";
         </div>
       }
       <div class="modal-footer">
-        <input type="submit" [disabled]="notifyTarget.busy || sendEmailsDisabled()"
-          value="Send {{notificationConfig?.subject?.text}} email"
-          (click)="sendEmails()"
-          title="Send {{notificationConfig?.subject?.text}} email to the {{stringUtils.pluraliseWithCount(selectedMemberIds.length,'member')}}"
-          [ngClass]="notifyTarget.busy || sendEmailsDisabled()? 'disabled-button-form button-form-left': 'button-form button-form-left'">
-        <input type="submit" [disabled]="notifyTarget.busy" value="Cancel"
-          (click)="cancelSendEmails()" title="Close this dialog"
-          [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-form-left'">
+        <div class="d-flex gap-2 flex-wrap">
+          <input type="submit" [disabled]="notifyTarget.busy || sendEmailsDisabled()"
+            value="Send {{notificationConfig?.subject?.text}} email"
+            (click)="sendEmails()"
+            title="Send {{notificationConfig?.subject?.text}} email to the {{stringUtils.pluraliseWithCount(selectedMemberIds.length,'member')}}"
+            class="btn"
+            [class.btn-secondary]="notifyTarget.busy || sendEmailsDisabled()"
+            [class.btn-primary]="!(notifyTarget.busy || sendEmailsDisabled())">
+          <input type="submit" [disabled]="notifyTarget.busy" value="Cancel"
+            (click)="cancelSendEmails()" title="Close this dialog"
+            class="btn btn-primary">
+        </div>
       </div>
       <div class="d-none">
         <ng-template app-notification-directive/>
       </div>`,
-    imports: [TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, DatePicker, NgSelectComponent, NgOptgroupTemplateDirective, SenderRepliesAndSignoffComponent, FontAwesomeModule, NgClass, NotificationDirective]
+    imports: [TabsetComponent, TabDirective, NotificationConfigSelectorComponent, FormsModule, DatePicker, NgSelectComponent, NgOptgroupTemplateDirective, SenderRepliesAndSignoffComponent, FontAwesomeModule, NotificationDirective]
 })
 
 export class SendEmailsModalComponent implements OnInit, OnDestroy {

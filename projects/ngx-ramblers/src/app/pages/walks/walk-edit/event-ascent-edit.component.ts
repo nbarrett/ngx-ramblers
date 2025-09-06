@@ -7,7 +7,7 @@ import { AscentValidationService } from "../../../services/walks/ascent-validati
 @Component({
   selector: "[app-event-ascent-edit]",
   template: `
-    <div class="form-inline">
+    <div class="d-inline-flex align-items-center flex-wrap">
       @if (ascentUnit === DistanceUnit.FEET) {
         <input [disabled]="disabled" [(ngModel)]="groupEvent.ascent_feet"
                (ngModelChange)="onAscentChange(DistanceUnit.FEET, $event)"

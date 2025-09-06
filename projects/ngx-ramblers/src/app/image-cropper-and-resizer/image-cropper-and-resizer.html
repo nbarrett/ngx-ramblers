@@ -98,27 +98,27 @@
   </div>
 }
 <ng-template #buttonSet1>
-  <div class="col pr-1">
+  <div class="col pe-1">
     <app-badge-button fullWidth [disabled]="actionDisabled" (click)="rotateLeft()"
                       delay=500 tooltip="Rotate left"
                       [icon]="faRotateLeft" caption="left"/>
   </div>
-  <div class="col pr-1">
+  <div class="col pe-1">
     <app-badge-button fullWidth [disabled]="actionDisabled" (click)="rotateRight()"
                       delay=500 tooltip="Rotate right"
                       [icon]="faRotateRight" caption="right"/>
   </div>
-  <div class="col pr-1">
+  <div class="col pe-1">
     <app-badge-button fullWidth [disabled]="actionDisabled" (click)="flipHorizontal()"
                       delay=500 tooltip="Flip horizontal"
                       [icon]="faArrowRightArrowLeft" caption="flip"/>
   </div>
-  <div class="col pr-1">
+  <div class="col pe-1">
     <app-badge-button fullWidth [disabled]="actionDisabled" (click)="flipVertical()"
                       delay=500 tooltip="Flip vertical"
                       [icon]="faUpDown" caption="flip"/>
   </div>
-  <div class="col" [ngClass]="{'pr-1': !wrapButtons}">
+  <div class="col" [ngClass]="{'pe-1': !wrapButtons}">
     <app-badge-button fullWidth [disabled]="actionDisabled" (click)="zoomIn()"
                       delay=500 tooltip="Zoom in"
                       [icon]="faMagnifyingGlassPlus"
@@ -126,19 +126,19 @@
   </div>
 </ng-template>
 <ng-template #buttonSet2>
-  <div class="col pr-1">
+  <div class="col pe-1">
     <app-badge-button fullWidth [disabled]="actionDisabled" (click)="zoomOut()"
                       delay=500 tooltip="Zoom out"
                       [icon]="faMagnifyingGlassMinus"
                       caption="zoom"/>
   </div>
-  <div class="col pr-1">
+  <div class="col pe-1">
     <app-badge-button fullWidth [disabled]="actionDisabled" (click)="resetImage()"
                       delay=500 tooltip="Reset image"
                       [icon]="faRedoAlt"
                       caption="reset"/>
   </div>
-  <div class="col pr-1">
+  <div class="col pe-1">
     <app-badge-button fullWidth (click)="toggleContainWithinAspectRatio()"
                       delay=500
                       [tooltip]="containWithinAspectRatio? 'fill aspect ratio' : 'contain within aspect ratio'"
@@ -146,7 +146,7 @@
                       [icon]="containWithinAspectRatio? faCompress: faExpand"
                       [caption]="containWithinAspectRatio ? 'fill' : 'contain'"/>
   </div>
-  <div class="col pr-1">
+  <div class="col pe-1">
     <app-badge-button fullWidth (click)="quit.next()"
                       delay=500 tooltip="quit without saving"
                       [icon]="faClose"
@@ -160,16 +160,16 @@
   </div>
 </ng-template>
 @if (!wrapButtons) {
-  <div class="row no-gutters">
+  <div class="row g-0">
     <ng-container *ngTemplateOutlet="buttonSet1"/>
     <ng-container *ngTemplateOutlet="buttonSet2"/>
   </div>
 }
 @if (wrapButtons) {
-  <div class="row no-gutters">
+  <div class="row g-0">
     <ng-container *ngTemplateOutlet="buttonSet1"/>
   </div>
-  <div class="row no-gutters">
+  <div class="row g-0">
     <ng-container *ngTemplateOutlet="buttonSet2"/>
   </div>
 }

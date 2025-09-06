@@ -15,7 +15,7 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
     @if (label) {
       <label for="distance-km-{{id}}">{{ label }}</label>
     }
-    <div class="form-inline">
+    <div class="d-inline-flex align-items-center flex-wrap">
       @if (distanceUnit === DistanceUnit.KILOMETRES) {
         <input [disabled]="disabled" [(ngModel)]="groupEvent.distance_km"
                (ngModelChange)="onDistanceChange(DistanceUnit.KILOMETRES, $event)"

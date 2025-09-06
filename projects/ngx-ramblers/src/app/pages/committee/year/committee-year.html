@@ -12,7 +12,7 @@
     <div class="card-title mb-4"><h4>Committee events for {{ committeeYear?.year }}</h4></div>
     @if (display.allowAddCommitteeFile() && filesForYear?.length === 0) {
       <input (click)="addCommitteeFile()"
-             class="button-form" title="Add new File" type="submit"
+             class="btn btn-primary" title="Add new File" type="submit"
              value="Add File">
     }
     @for (committeeFile of filesForYear; track committeeFile) {
@@ -33,42 +33,42 @@
           @if (memberLoginService.allowCommittee() && isActive(committeeFile)) {
             <div class="row">
               <div class="col-sm-12">
-                <div class="action-button-group">
+                <div class="action-button-group d-flex gap-2 flex-wrap">
                   @if (!display.confirm.deleteConfirmOutstanding()) {
-                    <span>
+                    <div class="d-flex gap-2 flex-wrap">
                       @if (display.allowAddCommitteeFile()) {
                         <input type="submit"
                                value="Add File" (click)="addCommitteeFile()"
-                               title="Add new File" class="button-form">
+                               title="Add new File" class="btn btn-primary btn-sm">
                       }
                       @if (display.allowEditCommitteeFile(committeeFile)) {
                         <input
                           type="submit" value="Edit File"
                           (click)="editCommitteeFile(committeeFile)"
                           title="Edit File for approval"
-                          class="button-form green-confirm">
+                          class="btn btn-success btn-sm">
                       }
                       @if (display.allowEditCommitteeFile(committeeFile)) {
                         <input
                           type="submit" value="Send Email"
                           (click)="sendNotification(committeeFile)"
-                          title="Send Email" class="button-form yellow-confirm">
+                          title="Send Email" class="btn btn-warning btn-sm">
                       }
                       @if (display.allowDeleteCommitteeFile(committeeFile)) {
                         <input
                           type="submit" value="Delete File"
                           (click)="deleteCommitteeFile();" title="Delete File"
-                          class="button-form button-confirm">
+                          class="btn btn-danger btn-sm">
                       }
-                    </span>
+                    </div>
                   }
                   @if (display.confirm.deleteConfirmOutstanding()) {
-                    <div>
+                    <div class="d-flex gap-2 flex-wrap">
                       <input (click)="display.confirmDeleteCommitteeFile(notify, committeeFile)"
-                             class="button-form button-confirm"
+                             class="btn btn-danger btn-sm"
                              title="Delete File"
                              type="submit" value="Confirm Delete of File">
-                      <input (click)="display.confirm.clear();" class="button-form green-confirm"
+                      <input (click)="display.confirm.clear();" class="btn btn-secondary btn-sm"
                              title="Cancel delete of File"
                              type="submit"
                              value="Cancel Delete of File">

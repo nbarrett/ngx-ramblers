@@ -62,29 +62,29 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
         <div class="row mb-n3">
           @if (display.allowAdminEdits() && systemConfig?.enableMigration?.events) {
             <div class="mb-3 col-sm-12">
-              <button (click)="performMigration()" class="btn btn-primary mr-2"
+              <button (click)="performMigration()" class="btn btn-primary me-2"
                       type="button">Migrate
               </button>
             </div>
           }
           <div class="mb-3 col-sm-12">
             <app-walks-search [filterParameters]="filterParameters" [notifyTarget]="notifyTarget">
-              <div class="row no-gutters flex-md-nowrap align-items-center">
-                <div class="col-12 col-md-auto pr-md-2 mb-2 mb-md-0">
+              <div class="row g-0 flex-md-nowrap align-items-center">
+                <div class="col-12 col-md-auto pe-md-2 mb-2 mb-md-0">
                   @if (systemConfig?.group?.allowSwitchWalkView) {
-                    <div class="btn-group mb-0 btn-group-custom mr-md-2 w-100 w-md-auto" dropdown>
-                      <button aria-controls="dropdown-animated" class="dropdown-toggle btn pager-btn mr-0"
+                    <div class="btn-group mb-0 btn-group-custom me-md-2 w-100 w-md-auto" dropdown>
+                      <button aria-controls="dropdown-animated" class="dropdown-toggle btn pager-btn me-0"
                                dropdownToggle
                                type="button">
                         <fa-icon [icon]="walkListView === WalkListView.CARDS ? faImages : faTableCells"/>
-                        <span class="ml-2">{{ stringUtils.asTitle(walkListView) }} View</span>
+                        <span class="ms-2">{{ stringUtils.asTitle(walkListView) }} View</span>
                         <span class="caret"></span>
                       </button>
                       <ul *dropdownMenu class="dropdown-menu" id="dropdown-animated" role="menu">
                         <li role="menuitem">
                           <a (click)="switchToView(WalkListView.CARDS)" class="dropdown-item">
                             <div>
-                              <fa-icon [icon]="faImages" class="mr-2"/>
+                              <fa-icon [icon]="faImages" class="me-2"/>
                               {{ stringUtils.asTitle(WalkListView.CARDS) }} View
                             </div>
                           </a>
@@ -92,7 +92,7 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                         <li role="menuitem">
                           <a (click)="switchToView(WalkListView.TABLE)" class="dropdown-item">
                             <div>
-                              <fa-icon [icon]="faTableCells" class="mr-2"/>
+                              <fa-icon [icon]="faTableCells" class="me-2"/>
                               {{ stringUtils.asTitle(WalkListView.TABLE) }} View
                             </div>
                           </a>
@@ -162,7 +162,7 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                               type="submit"
                               value="{{displayedWalk?.walkAccessMode?.caption}}"
                               (click)="display.edit(displayedWalk)"
-                              class="button-form">
+                              class="btn btn-primary">
                           }
                           </td>
                         }

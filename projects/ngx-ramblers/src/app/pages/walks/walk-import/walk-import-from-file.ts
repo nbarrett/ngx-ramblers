@@ -26,15 +26,15 @@ import { AlertInstance } from "../../../services/notifier.service";
     <div class="row mb-2">
       <div class="col-sm-12">
         <div (click)="selectGroupSelection(ImportType.EXISTING_GROUP)"
-             class="custom-control custom-radio custom-control-inline d-flex align-items-center">
-          <input class="custom-control-input"
+             class="form-check form-check-inline d-flex align-items-center">
+          <input class="form-check-input"
                  id="area-selection-mode"
                  name="group-selection"
                  type="radio"
                  [value]="ImportType.EXISTING_GROUP"
                  [disabled]="importData.importStage !== ImportStage.NONE"
                  [(ngModel)]="importTypeOptions.importType"/>
-          <label class="custom-control-label mr-3  text-nowrap"
+          <label class="form-check-label me-3  text-nowrap"
                  for="area-selection-mode">Import to Existing Group</label>
           <app-group-selector class="flex-grow-1" [disabled]="importTypeOptions.importType===ImportType.UNLISTED_GROUP"
                               [areaCode]="systemConfig.area.groupCode"
@@ -46,21 +46,21 @@ import { AlertInstance } from "../../../services/notifier.service";
     <div class="row mb-2">
       <div class="col-sm-12">
         <div (click)="selectGroupSelection(ImportType.UNLISTED_GROUP)"
-             class="custom-control custom-radio custom-control-inline d-flex flex-grow-1 align-items-center">
-          <input class="custom-control-input"
+             class="form-check form-check-inline d-flex flex-grow-1 align-items-center">
+          <input class="form-check-input"
                  id="group-selection-mode"
                  name="group-selection"
                  type="radio"
                  [value]="ImportType.UNLISTED_GROUP"
                  [disabled]="importData.importStage !== ImportStage.NONE"
                  [(ngModel)]="importTypeOptions.importType"/>
-          <label class="custom-control-label mr-3 text-nowrap" for="unlisted-group-name">
+          <label class="form-check-label me-3 text-nowrap" for="unlisted-group-name">
             Import to Unlisted Group Name</label>
           <input [disabled]="importData.importStage !== ImportStage.NONE ||importTypeOptions.importType === ImportType.EXISTING_GROUP"
                  type="text"
                  [(ngModel)]="importTypeOptions.unlistedGroupCodeAndName.group_name"
                  id="unlisted-group-name"
-                 class="form-control ml-2">
+                 class="form-control ms-2">
           <label class="mx-3 text-nowrap " for="unlisted-group-code">Group Code</label>
           <input [disabled]="importData.importStage !== ImportStage.NONE||importTypeOptions.importType === ImportType.EXISTING_GROUP"
                  type="text"
@@ -73,10 +73,10 @@ import { AlertInstance } from "../../../services/notifier.service";
       </div>
     </div>
     <div class="row mb-2">
-      <div class="col-sm-12 form-inline">
+      <div class="col-sm-12 d-inline-flex align-items-center flex-wrap">
         <input #fileElement class="d-none" type="file" ng2FileSelect (onFileSelected)="onFileDropped($event)">
         <input type="submit" [disabled]="!importReady()" value="Choose File"
-               class="btn btn-primary mr-2"
+               class="btn btn-primary me-2"
                (click)="browseToFile(fileElement)">
         <ng-content/>
       </div>

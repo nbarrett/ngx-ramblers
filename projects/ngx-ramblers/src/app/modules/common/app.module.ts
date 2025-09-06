@@ -1,6 +1,7 @@
 import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 import { ApplicationRef, DoBootstrap, inject, NgModule, provideAppInitializer } from "@angular/core";
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations";
+import { setTheme } from "ngx-bootstrap/utils";
 import { AppRoutingModule } from "../../app-routing.module";
 import { ContainerComponent } from "../../container/container";
 import { ChangedItemsPipe } from "../../pipes/changed-items.pipe";
@@ -149,6 +150,10 @@ import { EventDatesAndTimesPipe } from "../../pipes/event-times-and-dates.pipe";
   ]
 })
 export class AppModule implements DoBootstrap {
+  constructor() {
+    setTheme("bs5");
+  }
+
   ngDoBootstrap(appRef: ApplicationRef) {
     appRef.bootstrap(ContainerComponent);
   }

@@ -79,7 +79,7 @@ import { PageService } from "../../../services/page.service";
                      [value]="displayedWalk?.walkAccessMode?.caption"
                      (click)="display.edit(displayedWalk)"
                      [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
-                     class="btn btn-primary button-form-edit-event "
+                     class="btn btn-primary"
                      [ngClass]="{'m-2': !displayedWalk?.walk?.groupEvent?.title}">
             }
             @if (displayedWalk?.walk?.groupEvent?.description) {
@@ -103,7 +103,7 @@ import { PageService } from "../../../services/page.service";
               @if (notifyTarget.showAlert) {
                 <div class="col-12 alert {{notifyTarget.alertClass}} mt-3">
                   <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                  <strong class="ml-2">{{ notifyTarget.alertTitle }}</strong>
+                  <strong class="ms-2">{{ notifyTarget.alertTitle }}</strong>
                   {{ notifyTarget.alertMessage }} <a [routerLink]="'/walks'" type="button"
                                                      class="rams-text-decoration-pink">Switch to Walks Programme</a>
                 </div>
@@ -113,8 +113,8 @@ import { PageService } from "../../../services/page.service";
               @if (notifyTarget.showAlert) {
                 <div class="col-12 alert {{ALERT_WARNING.class}} mt-3">
                   <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
-                  <strong class="ml-2">Walk Status</strong>
-                  <div class="ml-1">This walk is not approved by {{ display.walksCoordinatorName() }}</div>
+                  <strong class="ms-2">Walk Status</strong>
+                  <div class="ms-1">This walk is not approved by {{ display.walksCoordinatorName() }}</div>
                 </div>
               }
             }
@@ -143,57 +143,57 @@ import { PageService } from "../../../services/page.service";
                 </div>
               </div>
               <form class="rounded img-thumbnail map-radio-frame">
-                <label class="ml-2 mr-2 font-weight-bold">Show Map As
-                  <div class="custom-control custom-radio custom-control-inline ml-2">
-                    <input class="custom-control-input" type="radio" name="mapView" [(ngModel)]="showGoogleMapsView"
+                <div class="ms-2 me-2 d-flex align-items-center flex-wrap">
+                  <span class="me-2 fw-bold">Show Map As</span>
+                  <div class="form-check form-check-inline ms-2">
+                    <input class="form-check-input" type="radio" name="mapView" [(ngModel)]="showGoogleMapsView"
                            id="{{displayedWalk?.walk?.id}}-pin-view-mode-start"
                            [value]="false" (ngModelChange)="configureMapDisplay()">
-                    <label class="custom-control-label" for="{{displayedWalk?.walk?.id}}-pin-view-mode-start">
+                    <label class="form-check-label" for="{{displayedWalk?.walk?.id}}-pin-view-mode-start">
                       Pin Location View</label>
                   </div>
-                  <div class="custom-control custom-radio custom-control-inline">
-                    <input class="custom-control-input" type="radio" name="mapView" [(ngModel)]="showGoogleMapsView"
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="mapView" [(ngModel)]="showGoogleMapsView"
                            id="{{displayedWalk?.walk?.id}}-google-maps-mode-start"
                            [value]="true" (ngModelChange)="configureMapDisplay()">
-                    <label class="custom-control-label" for="{{displayedWalk?.walk?.id}}-google-maps-mode-start">
+                    <label class="form-check-label" for="{{displayedWalk?.walk?.id}}-google-maps-mode-start">
                       Google Maps</label>
                   </div>
-                </label>
-                <div class="col-sm-12 ml-2 mr-2">
-                  <div class="custom-control custom-radio custom-control-inline">
-                    <input class="custom-control-input" id="{{displayedWalk?.walk?.id}}-show-start-point"
+                </div>
+                <div class="col-sm-12 ms-2 me-2">
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" id="{{displayedWalk?.walk?.id}}-show-start-point"
                            type="radio"
                            [ngModel]="mapDisplay" name="mapDisplay"
                            (ngModelChange)="changeMapView($event)"
                            [value]="MapDisplay.SHOW_START_POINT"/>
-                    <label class="custom-control-label" for="{{displayedWalk?.walk?.id}}-show-start-point">
+                    <label class="form-check-label" for="{{displayedWalk?.walk?.id}}-show-start-point">
                       At start point {{ displayedWalk?.walk?.groupEvent?.start_location?.postcode }}</label>
                   </div>
                   @if (displayedWalk?.walk?.groupEvent?.end_location?.postcode) {
-                    <div
-                      class="custom-control custom-radio custom-control-inline">
-                      <input class="custom-control-input" id="{{displayedWalk?.walk?.id}}-show-end-point"
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input" id="{{displayedWalk?.walk?.id}}-show-end-point"
                              type="radio"
                              [ngModel]="mapDisplay" name="mapDisplay"
                              (ngModelChange)="changeMapView($event)"
                              [value]="MapDisplay.SHOW_END_POINT"/>
-                      <label class="custom-control-label" for="{{displayedWalk?.walk?.id}}-show-end-point">
+                      <label class="form-check-label" for="{{displayedWalk?.walk?.id}}-show-end-point">
                         At finish point {{ displayedWalk?.walk?.groupEvent?.end_location?.postcode }}</label>
                     </div>
                   }
                   @if (this.showGoogleMapsView) {
-                    <div class="custom-control custom-radio custom-control-inline">
+                    <div class="form-check form-check-inline">
                       <input id="{{displayedWalk?.walk?.id}}-show-driving-directions"
                              type="radio"
-                             class="custom-control-input align-middle"
+                             class="form-check-input align-middle"
                              (ngModelChange)="changeMapView($event)"
                              [ngModel]="mapDisplay" name="mapDisplay"
                              [value]="MapDisplay.SHOW_DRIVING_DIRECTIONS"/>
-                      <label class="custom-control-label text-nowrap align-middle"
+                      <label class="form-check-label text-nowrap align-middle"
                              [ngClass]="{'postcode-label-second-line' : displayedWalk?.walk?.groupEvent?.end_location?.postcode}"
                              for="{{displayedWalk?.walk?.id}}-show-driving-directions">
                         Driving from</label>
-                      <input class="form-control input-sm text-uppercase ml-2 postcode-input align-middle"
+                      <input class="form-control input-sm text-uppercase ms-2 postcode-input align-middle"
                              [ngClass]="{'postcode-input-second-line' : displayedWalk?.walk?.groupEvent?.end_location?.postcode}"
                              [ngModel]="fromPostcode" name="fromPostcode"
                              (ngModelChange)="changeFromPostcode($event)"
@@ -210,7 +210,7 @@ import { PageService } from "../../../services/page.service";
     } @else if (notifyTarget.showAlert) {
       <div class="alert {{notifyTarget.alertClass}} table-pointer mt-3">
         <fa-icon [icon]="notifyTarget.alert.icon"/>
-        <strong class="ml-1">{{ notifyTarget.alertTitle }}</strong>
+        <strong class="ms-1">{{ notifyTarget.alertTitle }}</strong>
         <span class="p-2">{{ notify.alertTarget.alertMessage }}. <a [href]="area"
                                                                     class="rams-text-decoration-pink"
                                                                     type="button"> Go Back to {{ area }}

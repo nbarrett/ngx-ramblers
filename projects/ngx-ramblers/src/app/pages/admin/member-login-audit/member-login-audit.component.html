@@ -4,12 +4,10 @@
       <div [ngClass]="{'busy': notifyTarget.busy}" class="admin-frame rounded">
         <div class="admin-header-background rounded">
           <div class="admin-header-container">
-            <div class="form-inline">
-              <div class="form-group">
+            <div class="d-inline-flex align-items-center flex-wrap gap-2">
+              <div class="form-group mb-0">
                 <div class="input-group">
-                  <div class="input-group-prepend">
-                    <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
-                  </div>
+                  <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
                   <input id="quick-search" [(ngModel)]="quickSearch"
                          (ngModelChange)="onSearchChange($event)"
                          name="quickSearch"
@@ -17,7 +15,7 @@
                          type="text" placeholder="Quick Search">
                 </div>
               </div>
-              <div class="form-group">
+              <div class="form-group mb-0">
                 <app-date-picker startOfDay id="filter-audit" size="md"
                                  label="Filter logins since"
                                  prependLabel="true"
@@ -25,36 +23,33 @@
                                  [value]="filterDateValue">
                 </app-date-picker>
               </div>
-              <div class="form-group">
+              <div class="form-group d-flex align-items-center gap-2 flex-wrap">
                 @if (confirm.noneOutstanding()) {
                   <input type="submit" [disabled]="notifyTarget.busy"
                          value="Back to admin"
                          (click)="backToAdmin()"
-                         class="button-form ml-2 mr-2"
-                         [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
+                         class="btn btn-secondary">
                 }
                 @if (confirm.noneOutstanding()) {
                   <input type="submit"
                          [disabled]="notifyTarget.busy || auditFilter.results.length==0"
                          value="Delete displayed audit"
                          (click)="confirm.as(ConfirmType.DELETE);"
-                         class="button-form mr-2"
-                         [ngClass]="{'disabled-button-form': notifyTarget.busy || auditFilter.results.length==0 }">
+                         class="btn btn-danger">
                 }
                 @if (confirm.deleteConfirmOutstanding()) {
                   <input type="submit"
                          [disabled]="notifyTarget.busy"
                          value="Confirm delete of {{auditFilter.results.length}} audit records"
                          (click)="deleteSelectedMemberAuditConfirm()"
-                         class="button-form button-confirm ml-2 mr-2"
-                         [ngClass]="{'disabled-button-form': notifyTarget.busy}">
+                         class="btn btn-danger">
                 }
                 @if (confirm.deleteConfirmOutstanding()) {
                   <input type="submit"
                          [disabled]="notifyTarget.busy"
                          value="Cancel"
                          (click)="confirm.clear();"
-                         class="button-form green-confirm" [ngClass]="{'disabled-button-form': notifyTarget.busy}">
+                         class="btn btn-success">
                 }
               </div>
             </div>

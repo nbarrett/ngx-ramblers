@@ -55,21 +55,26 @@ import { NgClass } from "@angular/common";
                 </p>
               </div>
             </div>
+            <div class="row">
+              <div class="col-sm-12 d-flex align-items-center gap-2 flex-wrap mt-2">
+                <input type="submit" [disabled]="false" value="Back to admin" (click)="profileService.backToAdmin()"
+                       class="btn btn-secondary">
+                <input type="submit" [disabled]="!member || notifyTarget.busy" value="Save Changes"
+                       (click)="saveContactPreferences()"
+                       class="btn"
+                       [class.btn-primary]="member && !notifyTarget.busy"
+                       [class.btn-secondary]="!(member && !notifyTarget.busy)">
+                <input type="submit" [disabled]="!member || notifyTarget.busy" value="Undo Changes"
+                       (click)="undoContactPreferences()"
+                       class="btn"
+                       [class.btn-primary]="member && !notifyTarget.busy"
+                       [class.btn-secondary]="!(member && !notifyTarget.busy)"
+                >
+              </div>
+            </div>
           </div>
         </div>
       }
-      <div class="row">
-        <div class="col-sm-12">
-          <input type="submit" [disabled]="false" value="Back to admin" (click)="profileService.backToAdmin()"
-                 class="button-form button-form-left">
-          <input type="submit" [disabled]="!member || notifyTarget.busy" value="Save Changes"
-                 (click)="saveContactPreferences()"
-                 [ngClass]="member && !notifyTarget.busy? 'button-form button-form-left': 'disabled-button-form button-form-left'">
-          <input type="submit" [disabled]="!member || notifyTarget.busy" value="Undo Changes"
-                 (click)="undoContactPreferences()"
-                 [ngClass]="member && !notifyTarget.busy? 'button-form button-form-left': 'disabled-button-form button-form-left'">
-        </div>
-      </div>
       <div class="row">
         <div class="col-sm-12">
           @if (notifyTarget.showAlert) {

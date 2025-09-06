@@ -15,33 +15,33 @@ import { FormsModule } from "@angular/forms";
     selector: "app-email-subscriptions-mailchimp",
     template: `
     @if (mailchimpConfig?.lists?.walks) {
-      <div class="custom-control custom-checkbox">
-        <input [(ngModel)]="member.mailchimpLists.walks.subscribed" type="checkbox" class="custom-control-input"
+      <div class="form-check">
+        <input [(ngModel)]="member.mailchimpLists.walks.subscribed" type="checkbox" class="form-check-input"
           name="walks-subscribed"
           id="prof-subscribe-walks-emails">
-        <label class="custom-control-label"
+        <label class="form-check-label"
           for="prof-subscribe-walks-emails">Walks emails
         </label>
       </div>
     }
     @if (mailchimpConfig?.lists?.socialEvents) {
-      <div class="custom-control custom-checkbox">
+      <div class="form-check">
         <input [(ngModel)]="member.mailchimpLists.socialEvents.subscribed" type="checkbox"
-          class="custom-control-input"
+          class="form-check-input"
           name="social-events-subscribed"
           id="prof-subscribe-social-events-emails">
-        <label class="custom-control-label"
+        <label class="form-check-label"
           for="prof-subscribe-social-events-emails">Social events emails
         </label>
       </div>
     }
     @if (mailchimpConfig?.lists?.general) {
-      <div class="custom-control custom-checkbox">
+      <div class="form-check">
         <input [(ngModel)]="member.mailchimpLists.general.subscribed" type="checkbox"
-          class="custom-control-input"
+          class="form-check-input"
           name="general-subscribed"
           id="prof-subscribe-general-emails">
-        <label class="custom-control-label"
+        <label class="form-check-label"
           for="prof-subscribe-general-emails">General emails
         </label>
       </div>

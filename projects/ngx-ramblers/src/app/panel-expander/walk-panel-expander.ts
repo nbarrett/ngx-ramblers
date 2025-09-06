@@ -13,7 +13,7 @@ import { ExtendedGroupEvent } from "../models/group-event.model";
 @Component({
     selector: "app-walk-panel-expander",
     template: `
-    <div class="form-inline" [ngClass]="display.walkMode(walk)">
+    <div class="d-inline-flex align-items-center flex-wrap" [ngClass]="display.walkMode(walk)">
       @if (expandable) {
         <fa-icon (click)="expand()"
           placement="auto" [tooltip]="expandAction" [icon]="faCaretUp"
@@ -22,7 +22,7 @@ import { ExtendedGroupEvent } from "../models/group-event.model";
       @if (collapsable) {
         <fa-icon placement="auto" [tooltip]="collapseAction"
           (click)="collapse()" [icon]="faCaretDown"
-        class="fa-2x markdown-preview-icon ml-1"></fa-icon>
+        class="fa-2x markdown-preview-icon ms-1"></fa-icon>
       }
     </div>`,
     styleUrls: ["./walk-panel-expander.sass"],

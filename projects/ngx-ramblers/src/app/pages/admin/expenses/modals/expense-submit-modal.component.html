@@ -1,7 +1,7 @@
 <div class="modal-content">
   <div class="modal-header">
     <h4 class="modal-title">Submit <em>Expense Claim</em></h4>
-    <button type="button" class="close float-right" aria-label="Close" (click)="bsModalRef.hide()">&times;</button>
+    <button type="button" class="close float-end" aria-label="Close" (click)="bsModalRef.hide()">&times;</button>
   </div>
   <div class="modal-body">
     <h5>You are about to {{resubmit ? 'resubmit' : 'submit'}} your expense claim</h5>
@@ -14,23 +14,23 @@
       </li>
     </ul>
     <div class="mb-2">
-      <div class="custom-control custom-radio custom-control-inline">
+      <div class="form-check form-check-inline">
         <input [disabled]="notifyTarget.busy" id="supply-bank-details"
           type="radio"
-          class="custom-control-input"
+          class="form-check-input"
           [(ngModel)]="supplyBankDetailsChoice"
           (change)="supplyBankDetails(true)"
           value="true"/>
-        <label class="custom-control-label" for="supply-bank-details">I'll supply bank details now</label>
+        <label class="form-check-label" for="supply-bank-details">I'll supply bank details now</label>
       </div>
-      <div class="custom-control custom-radio custom-control-inline">
+      <div class="form-check form-check-inline">
         <input [disabled]="notifyTarget.busy" id="send-me-a-cheque"
           type="radio"
-          class="custom-control-input"
+          class="form-check-input"
           [(ngModel)]="supplyBankDetailsChoice"
           (change)="supplyBankDetails(false)"
           value="false"/>
-        <label class="custom-control-label" for="send-me-a-cheque">Please send me a cheque or contact me for bank
+        <label class="form-check-label" for="send-me-a-cheque">Please send me a cheque or contact me for bank
         details, or I've already given you bank details in the past</label>
       </div>
     </div>
@@ -82,15 +82,14 @@
         </div>
       }
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer d-flex gap-2">
       <input type="submit" value="Confirm Submit" [disabled]="!supplyBankDetailsChoice || notifyTarget.busy"
         (click)="confirmSubmitExpenseClaim()"
         title="Confirm submission of this Expense Claim (you won't be able to make any more changes to it after this)"
-        [ngClass]="!notificationConfig ||!supplyBankDetailsChoice || notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
+        class="btn btn-success">
       <input type="submit" value="Cancel Submit" [disabled]="notifyTarget.busy"
         (click)="cancelSubmitExpenseClaim()"
         title="Cancel submission of this Expense Claim (maybe you want to make some final changes to it?)"
-        [ngClass]="notifyTarget.busy ? 'disabled-button-form button-form-left': 'button-form button-confirm button-form-left'">
+        class="btn btn-secondary">
     </div>
   </div>
-

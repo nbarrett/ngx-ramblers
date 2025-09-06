@@ -11,7 +11,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
     selector: "app-badge-button,[app-badge-button]",
     template: `
       <div [ngClass]="{'badge-button': !inline, 'inline-button':inline, 'disabled' : disabled,
-              'mr-0': noRightMargin, 'badge-button-active': active, 'w-100': fullWidth, 'float-right': alignRight}"
+              'me-0': noRightMargin, 'badge-button-active': active, 'w-100': fullWidth, 'float-end': alignRight}"
         delay=500 tooltip="{{tooltip? null: caption}}" [ngStyle]="{'height.px': height}">
         @if (!iconPositionRight) {
           <fa-icon [icon]="icon"></fa-icon>
@@ -21,7 +21,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
         }
         <ng-content/>
         @if (iconPositionRight) {
-          <fa-icon class="ml-2" [icon]="icon"></fa-icon>
+          <fa-icon class="ms-2" [icon]="icon"></fa-icon>
         }
       </div>`,
     imports: [NgClass, TooltipDirective, NgStyle, FontAwesomeModule]

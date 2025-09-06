@@ -58,14 +58,14 @@ import { StringUtilsService } from "../../../services/string-utils.service";
               <ng-container>
                 <div class="row">
                   <div class="col-sm-12">
-                    <div class="custom-control custom-radio custom-control-inline">
+                    <div class="form-check form-check-inline">
                       <input [id]="WalkCopyOption.COPY_SELECTED_WALK_LEADER"
                              type="radio"
-                             class="custom-control-input"
+                             class="form-check-input"
                              [(ngModel)]="copySource"
                              (change)="populateWalkTemplates()"
                              [value]="WalkCopyOption.COPY_SELECTED_WALK_LEADER"/>
-                      <label class="custom-control-label" [for]="WalkCopyOption.COPY_SELECTED_WALK_LEADER">Previously
+                      <label class="form-check-label" [for]="WalkCopyOption.COPY_SELECTED_WALK_LEADER">Previously
                         led
                         by:
                         <select
@@ -83,14 +83,14 @@ import { StringUtilsService } from "../../../services/string-utils.service";
                         </select>
                       </label>
                     </div>
-                    <div class="custom-control custom-radio custom-control-inline">
+                    <div class="form-check form-check-inline">
                       <input [id]="WalkCopyOption.COPY_WITH_OS_MAPS_ROUTE_SELECTED"
                              type="radio"
-                             class="custom-control-input"
+                             class="form-check-input"
                              [(ngModel)]="copySource"
                              (change)="populateWalkTemplates()"
                              [value]="WalkCopyOption.COPY_WITH_OS_MAPS_ROUTE_SELECTED"/>
-                      <label class="custom-control-label" [for]="WalkCopyOption.COPY_WITH_OS_MAPS_ROUTE_SELECTED">
+                      <label class="form-check-label" [for]="WalkCopyOption.COPY_WITH_OS_MAPS_ROUTE_SELECTED">
                         With an OS Maps route I can follow</label>
                     </div>
                   </div>

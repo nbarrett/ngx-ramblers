@@ -3,7 +3,7 @@
     <ng-template app-notification-directive></ng-template>
   </div>
   <div class="p-3">
-    <div class="float-right pr-3">
+    <div class="float-end pe-3">
       @if (expandable) {
         <fa-icon [attr.aria-expanded]="!expandable"
                  (click)="expand()"
@@ -50,25 +50,27 @@
           <div class="col-sm-12">
             <div class="no-bullets">
               <div class="mb-4">
-                <div class="form-inline">
+                <div class="d-inline-flex align-items-center flex-wrap gap-2">
                   @if (allowClearError()) {
                     <div class="form-group">
                       <input type="submit" value="Show All Expense Claims"
                              (click)="showAllExpenseClaims()" title="Show All Expense Claims"
-                             [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
+                             [disabled]="notifyTarget.busy"
+                             class="btn btn-primary">
                     </div>
                   }
                   @if (allowAddExpenseClaim()) {
-                    <div class="form-group">
+                    <div class="form-group d-flex gap-2">
                       <input type="submit" [disabled]="notifyTarget.busy" value="Back to admin" (click)="backToAdmin()"
-                             [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
+                             class="btn btn-secondary">
                       <input type="submit" value="Add Expense Claim"
                              (click)="addExpenseClaim()" title="Add new Expense Claim"
-                             [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
+                             [disabled]="notifyTarget.busy"
+                             class="btn btn-primary">
                     </div>
                   }
-                  <div class="form-group">
-                    <label for="filter-expenses">Filter for:</label>
+                  <div class="form-group d-flex align-items-center gap-2">
+                    <label for="filter-expenses" class="mb-0">Filter for:</label>
                     <select class="form-control input-sm rounded spaced-controls" id="filter-expenses"
                             (ngModelChange)="changeFilter($event)"
                             [ngModel]="selected.filter">
@@ -82,11 +84,11 @@
                     </select>
                   </div>
                   @if (display.allowAdminFunctions()) {
-                    <div class="form-group ml-3">
-                      <div class="custom-control custom-checkbox">
+                    <div class="form-group">
+                      <div class="form-check">
                         <input [(ngModel)]="selected.showOnlyMine"
-                               type="checkbox" class="custom-control-input" id="show-only-mine">
-                        <label class="custom-control-label"
+                               type="checkbox" class="form-check-input" id="show-only-mine">
+                        <label class="form-check-label"
                                (click)="refreshExpenses()"
                                for="show-only-mine">Show only mine
                         </label>
@@ -135,7 +137,7 @@
                                     </div>
                                   }
                                 </td>
-                                <td class="text-right" [textContent]="expenseItem.cost | asMoney"></td>
+                                <td class="text-end" [textContent]="expenseItem.cost | asMoney"></td>
                               </tr>
                             }
                           <tr>
@@ -145,68 +147,69 @@
                                 [textContent]="expenseClaim.expenseItems.length +' item(s)'"></strong>
                               </td>
                             }
-                            <td class="text-right"><strong [textContent]="expenseClaim.cost | asMoney"></strong></td>
+                            <td class="text-end"><strong [textContent]="expenseClaim.cost | asMoney"></strong></td>
                           </tr>
                           </tbody>
                         </table>
                         @if (isActive(expenseClaim)) {
-                          <div class="row" class="mb-3">
-                            <div class="form-group">
+                          <div class="row mb-3">
+                            <div class="form-group d-flex gap-2 flex-wrap">
                               @if (!confirm.notificationsOutstanding()) {
                                 @if (display.allowAddExpenseItem(selected.expenseClaim) && confirm.noneOutstanding()) {
                                   <input type="submit"
                                          [disabled]="notifyTarget.busy"
                                          value="Add Item" (click)="addExpenseItem()" title="Add Item"
-                                         [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
+                                         class="btn btn-primary">
                                 }
                                 @if (display.allowEditExpenseItem(selected.expenseClaim) && confirm.noneOutstanding()) {
                                   <input type="submit"
                                          [disabled]="notifyTarget.busy"
                                          value="Edit Item" (click)="editExpenseItem(selected.expenseItem)"
-                                         [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
+                                         class="btn btn-primary">
                                 }
                                 @if (display.allowDeleteExpenseItem(selected.expenseClaim) && confirm.noneOutstanding()) {
                                   <input type="submit"
                                          [disabled]="notifyTarget.busy"
                                          value="Delete Item" (click)="confirm.toggleOnDeleteConfirm()"
-                                         [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
+                                         class="btn btn-danger">
                                 }
                                 @if (allowSubmitExpenseClaim(selected.expenseClaim) && confirm.noneOutstanding()) {
                                   <input type="submit"
                                          [disabled]="notifyTarget.busy"
                                          value="Submit Claim" (click)="submitExpenseClaim(false)"
-                                         [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form green-confirm'">
+                                         class="btn btn-success">
                                 }
                                 @if (allowApproveExpenseClaim() && confirm.noneOutstanding()) {
                                   <input type="submit"
                                          [disabled]="notifyTarget.busy"
                                          value="{{nextApprovalStage()}}"
                                          (click)="approveExpenseClaim()" title="Approve Claim"
-                                         [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form green-confirm'">
+                                         class="btn btn-success">
                                 }
                                 @if (allowPaidExpenseClaim()) {
                                   <input type="submit"
                                          [disabled]="notifyTarget.busy"
                                          value="Claim Paid" (click)="paidExpenseClaim()"
-                                         [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form green-confirm'">
+                                         class="btn btn-success">
                                 }
                                 @if (allowReturnExpenseClaim()) {
                                   <input type="submit"
                                          [disabled]="notifyTarget.busy"
                                          value="Return Claim" (click)="returnExpenseClaim()"
-                                         [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form amber-confirm'">
+                                         class="btn btn-warning">
                                 }
                                 @if (allowResubmitExpenseClaim() && confirm.noneOutstanding()) {
                                   <input type="submit"
                                          [disabled]="notifyTarget.busy"
                                          value="Resubmit Claim" (click)="resubmitExpenseClaim()"
-                                         [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form green-confirm'">
+                                         class="btn btn-success">
                                 }
                               }
                               @if (!confirm.notificationsOutstanding() && display.allowDeleteExpenseClaim(selected.expenseClaim)) {
                                 <input type="submit"
                                        value="Delete Expense Claim" (click)="confirm.toggleOnDeleteConfirm()"
-                                       [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form'">
+                                       [disabled]="notifyTarget.busy"
+                                       class="btn btn-danger">
                               }
                               @if (confirm.deleteConfirmOutstanding()) {
                                 @if (display.allowDeleteExpenseItem(selected.expenseClaim)) {
@@ -214,25 +217,26 @@
                                          [disabled]="notifyTarget.busy"
                                          value="Confirm Delete of Item"
                                          (click)="display.deleteExpenseItem(confirm, notify, expenseClaim, selected.expenseItem, expenseClaim.expenseItems.indexOf(selected.expenseItem))"
-                                         class="button-form button-confirm">
+                                         class="btn btn-danger">
                                 }
                                 @if (display.allowDeleteExpenseItem(selected.expenseClaim)) {
                                   <input
                                     [disabled]="notifyTarget.busy"
                                     value="Cancel Delete of Item" (click)="confirm.clear()" type="submit"
-                                    class="button-form button-form-left green-confirm">
+                                    class="btn btn-success">
                                 }
                                 @if (display.allowDeleteExpenseClaim(selected.expenseClaim)) {
                                   <input
                                     value="Confirm Delete of Expense Claim" type="submit"
                                     (click)="confirmDeleteExpenseClaim()"
-                                    class="button-form button-confirm">
+                                    class="btn btn-danger">
                                 }
                                 @if (display.allowDeleteExpenseClaim(selected.expenseClaim)) {
                                   <input
                                     value="Cancel Delete of Expense Claim" type="submit"
                                     (click)="cancelDeleteExpenseClaim()"
-                                    [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form green-confirm'">
+                                    [disabled]="notifyTarget.busy"
+                                    class="btn btn-success">
                                 }
                               }
                               @if (confirm.approveConfirmOutstanding()) {
@@ -252,11 +256,11 @@
                                   <input [disabled]="notifyTarget.busy" type="submit"
                                          value="Confirm {{nextApprovalStage()}}"
                                          (click)="confirmApproveExpenseClaim()"
-                                         [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form green-confirm'">
+                                         class="btn btn-success">
                                   <input [disabled]="notifyTarget.busy" type="submit"
                                          value="Cancel {{nextApprovalStage()}}"
                                          (click)="confirm.clear()"
-                                         [ngClass]="notifyTarget.busy ? 'disabled-button-form': 'button-form amber-confirm'">
+                                         class="btn btn-warning">
                                 }
                               }
                             </div>

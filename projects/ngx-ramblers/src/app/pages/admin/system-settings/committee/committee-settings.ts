@@ -82,11 +82,11 @@ import { NgClass } from "@angular/common";
                       </div>
                       <div class="col-sm-3">
                         <div class="form-group mt-5">
-                          <div class="custom-control custom-checkbox">
+                          <div class="form-check">
                             <input [(ngModel)]="fileType.public"
-                                   type="checkbox" class="custom-control-input"
+                                   type="checkbox" class="form-check-input"
                                    [id]="stringUtils.kebabCase('public', fileTypeIndex)">
-                            <label class="custom-control-label" [for]="stringUtils.kebabCase('public', fileTypeIndex)">
+                            <label class="form-check-label" [for]="stringUtils.kebabCase('public', fileTypeIndex)">
                               Visible by Public</label>
                           </div>
                         </div>
@@ -140,13 +140,13 @@ import { NgClass } from "@angular/common";
         </div>
         <div class="col-sm-12">
           <input type="submit" value="Save settings and exit" (click)="saveAndExit()"
-                 [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
+                 [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady()">
           <input type="submit" value="Save" (click)="save()"
-                 [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm green-confirm button-form-left'">
+                 [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady()">
           <input type="submit" value="Undo Changes" (click)="undoChanges()"
-                 [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm button-form-left'">
+                 [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-primary me-2'" [disabled]="notReady()">
           <input type="submit" value="Exit Without Saving" (click)="cancel()"
-                 [ngClass]="notReady() ? 'disabled-button-form button-form-left': 'button-form button-confirm button-form-left'">
+                 [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-primary me-2'" [disabled]="notReady()">
         </div>
       </div>
     </app-page>`,

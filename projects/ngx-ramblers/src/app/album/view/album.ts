@@ -39,7 +39,7 @@ import { CarouselComponent } from "../../carousel/view/carousel";
     <div class="row h-100">
       @if (album.allowSwitchView || preview) {
         <div class="col-sm-12">
-          <div class="float-right mb-1">
+          <div class="float-end mb-1">
             <ng-content/>
             @if (album.allowSwitchView) {
               <app-badge-button [tooltip]="'view as carousel'" [active]="albumView===AlbumView.CAROUSEL"
@@ -67,7 +67,7 @@ import { CarouselComponent } from "../../carousel/view/carousel";
         @if (noImages) {
           <div class="alert alert-warning">
             <fa-icon [icon]="faCircleInfo"/>
-            <strong class="ml-1">No images exist in this album</strong>
+            <strong class="ms-1">No images exist in this album</strong>
             <div>Click the <strong>Edit images in album</strong> button to create new images in
             the {{ album.name }} album
           </div>

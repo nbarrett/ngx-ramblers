@@ -18,7 +18,7 @@ import { SvgComponent } from "../../modules/common/svg/svg";
           target="_blank"
           class="d-block p-1">
           <app-svg icon="i-facebook" width="24" height="24" [colour]="colour"/>
-          <span class="sr-only">
+          <span class="visually-hidden">
             Visit our Facebook page (opens a new browser tag)
           </span>
         </a>
@@ -30,7 +30,7 @@ import { SvgComponent } from "../../modules/common/svg/svg";
         target="_blank"
         class="d-block p-1">
         <app-svg icon="i-twitter" width="24" height="24" [colour]="colour"/>
-        <span class="sr-only">
+        <span class="visually-hidden">
           Visit our Twitter page (opens a new browser tag)
         </span>
       </a></li>
@@ -41,7 +41,7 @@ import { SvgComponent } from "../../modules/common/svg/svg";
         target="_blank"
         class="d-block p-1">
         <app-svg icon="i-linkedin-in" width="24" height="24" [colour]="colour"/>
-        <span class="sr-only">
+        <span class="visually-hidden">
           Visit our Linkedin page (opens a new browser tag)
         </span>
       </a></li>
@@ -51,7 +51,7 @@ import { SvgComponent } from "../../modules/common/svg/svg";
         [tooltip]="'View our Youtube page (opens a new browser tab)'"><a [href]="externalSystems?.youtube"
         target="_blank" class="d-block p-1">
         <app-svg icon="i-youtube" width="24" height="24" [colour]="colour"/>
-        <span class="sr-only">
+        <span class="visually-hidden">
           Visit our Youtube page (opens a new browser tag)
         </span>
       </a></li>
@@ -62,7 +62,7 @@ import { SvgComponent } from "../../modules/common/svg/svg";
         [href]="externalSystems?.instagram?.groupUrl" target="_blank"
         class="d-block p-1">
         <app-svg icon="i-instagram" width="24" height="24" [colour]="colour"/>
-        <span class="sr-only">
+        <span class="visually-hidden">
           Visit our Instagram page (opens a new browser tag)
         </span>
       </a></li>
@@ -73,7 +73,7 @@ import { SvgComponent } from "../../modules/common/svg/svg";
         [href]="externalSystems.meetup.groupUrl+'/'+externalSystems.meetup.groupName" target="_blank"
         class="d-block p-1">
         <app-svg icon="i-meetup" width="24" height="24" [colour]="colour"/>
-        <span class="sr-only">
+        <span class="visually-hidden">
           Visit our {{ externalSystems?.meetup?.groupName }} Meetup page (opens a new browser tag)
         </span>
       </a></li>

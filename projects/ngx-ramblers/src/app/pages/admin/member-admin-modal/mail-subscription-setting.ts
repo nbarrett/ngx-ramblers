@@ -17,11 +17,11 @@ import { FormsModule } from "@angular/forms";
     selector: "app-mail-subscription-setting",
     template: `
     @if (subscription && this.mailMessagingConfig) {
-      <div class="custom-control custom-checkbox">
+      <div class="form-check">
         <input [(ngModel)]="subscription.subscribed"
           (ngModelChange)="subscriptionChange($event)"
-          type="checkbox" class="custom-control-input" id="mail-list-{{subscription.id}}-subscription">
-        <label class="custom-control-label"
+          type="checkbox" class="form-check-input" id="mail-list-{{subscription.id}}-subscription">
+        <label class="form-check-label"
         for="mail-list-{{subscription.id}}-subscription">{{ checkboxTitle() }}</label>
       </div>
     }`,

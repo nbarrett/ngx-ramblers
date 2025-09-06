@@ -37,12 +37,12 @@ import { LinksService } from "../../../services/links.service";
         </div>
         @if (allowEdits()) {
           <div class="col-sm-12">
-            <div class="custom-control custom-checkbox">
+            <div class="form-check">
               <input [disabled]="!allowEdits() || saveInProgress"
                      (ngModelChange)="changedPublishMeetup($event)"
                      [(ngModel)]="displayedWalk.walk.fields.publishing.meetup"
-                     type="checkbox" class="custom-control-input" id="walk-publish-meetup">
-              <label class="custom-control-label"
+                     type="checkbox" class="form-check-input" id="walk-publish-meetup">
+              <label class="form-check-label"
                      for="walk-publish-meetup">Publish this walk to Meetup
               </label>
             </div>

@@ -32,18 +32,18 @@ import { JsonPipe } from "@angular/common";
         <div class="row">
           <div class="col-sm-12">
             <div class="form-group">
-              <div class="custom-control custom-radio custom-control-inline">
-                <input id="showOnlyWalkLeadersTrue" type="radio" class="custom-control-input"
+              <div class="form-check form-check-inline">
+                <input id="showOnlyWalkLeadersTrue" type="radio" class="form-check-input"
                        name="showOnlyWalkLeaders"
                        [(ngModel)]="showOnlyWalkLeaders" [value]="true">
-                <label class="custom-control-label" for="showOnlyWalkLeadersTrue">
+                <label class="form-check-label" for="showOnlyWalkLeadersTrue">
                   Show Only Walk Leaders ({{ previousWalkLeadersWithAliasOrMe.length }})</label>
               </div>
-              <div class="custom-control custom-radio custom-control-inline">
-                <input id="showOnlyWalkLeadersFalse" type="radio" class="custom-control-input"
+              <div class="form-check form-check-inline">
+                <input id="showOnlyWalkLeadersFalse" type="radio" class="form-check-input"
                        name="showOnlyWalkLeaders"
                        [(ngModel)]="showOnlyWalkLeaders" [value]="false">
-                <label class="custom-control-label" for="showOnlyWalkLeadersFalse">
+                <label class="form-check-label" for="showOnlyWalkLeadersFalse">
                   Show All Members ({{ membersWithAliasOrMe.length }})</label>
               </div>
             </div>
@@ -109,7 +109,7 @@ import { JsonPipe } from "@angular/common";
               <input [disabled]="inputDisabled"
                      [(ngModel)]="displayedWalk.walk.fields.publishing.ramblers.contactName"
                      type="text"
-                     class="form-control input-sm flex-grow-1 mr-2" id="walk-leader-contact-id"
+                     class="form-control input-sm flex-grow-1 me-2" id="walk-leader-contact-id"
                      placeholder="Name that matches the User Details in Assemble. This will be sent in Ramblers in CSV export file">
             </div>
           </div>

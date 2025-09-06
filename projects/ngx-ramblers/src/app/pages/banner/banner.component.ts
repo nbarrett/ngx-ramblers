@@ -70,7 +70,7 @@ import { BannerLogoAndTextLinesOutputComponent } from "./banner-logo-and-text-li
         <div class="btn-group" dropdown>
           <button aria-controls="dropdown-banner-animated" class="dropdown-toggle btn btn-primary" dropdownToggle
             type="button">
-            <span class="ml-1">New</span><span class="caret"></span>
+            <span class="ms-1">New</span><span class="caret"></span>
           </button>
           <ul *dropdownMenu class="dropdown-menu"
             id="dropdown-banner-animated" role="menu">
@@ -87,36 +87,36 @@ import { BannerLogoAndTextLinesOutputComponent } from "./banner-logo-and-text-li
           </ul>
         </div>
         <button [attr.aria-expanded]="!isCollapsed" (click)="isCollapsed = !isCollapsed" [disabled]="saving"
-          class="btn btn-primary ml-1"
+          class="btn btn-primary ms-1"
           type="button">{{ isCollapsed ? 'Edit' : 'Close Edit' }}
         </button>
         @if (allowContentEdits) {
           @if (!bannerPhotoEditActive) {
-            <button [disabled]="saving" class="btn btn-primary ml-1" type="button"
+            <button [disabled]="saving" class="btn btn-primary ms-1" type="button"
               (click)="editPhoto()">Edit
               Photo
             </button>
           }
-          <button (click)="duplicate()" [disabled]="saving" class="btn btn-primary ml-1"
+          <button (click)="duplicate()" [disabled]="saving" class="btn btn-primary ms-1"
             type="button">Duplicate
           </button>
-          <button (click)="delete()" [disabled]="saving" class="btn btn-primary ml-1"
+          <button (click)="delete()" [disabled]="saving" class="btn btn-primary ms-1"
             type="button">Delete
           </button>
-          <button class="btn btn-primary ml-1" [disabled]="saving||!this.dataChanged()" type="button" (click)="undo()">
+          <button class="btn btn-primary ms-1" [disabled]="saving||!this.dataChanged()" type="button" (click)="undo()">
             Undo
           </button>
-          <button class="btn btn-primary ml-1" [disabled]="saving||!this.dataChanged()" type="button"
+          <button class="btn btn-primary ms-1" [disabled]="saving||!this.dataChanged()" type="button"
             (click)="saveImage()">Save
           </button>
-          <button class="btn btn-primary ml-1" type="button" [disabled]="saving" (click)="exportBanner()">Export
+          <button class="btn btn-primary ms-1" type="button" [disabled]="saving" (click)="exportBanner()">Export
           </button>
         }
-        <button class="btn btn-primary ml-1" name="editable" [(ngModel)]="imageDisplay.editable"
+        <button class="btn btn-primary ms-1" name="editable" [(ngModel)]="imageDisplay.editable"
           [class.active]="imageDisplay.editable"
           btnCheckbox tabindex="0" role="button">Editable
         </button>
-        <button class="btn btn-primary ml-1" [(ngModel)]="imageDisplay.saved" [class.active]="imageDisplay.saved"
+        <button class="btn btn-primary ms-1" [(ngModel)]="imageDisplay.saved" [class.active]="imageDisplay.saved"
           btnCheckbox tabindex="0" name="saved" role="button">Saved
         </button>
         <div class="mt-3">
