@@ -2,7 +2,8 @@
 
 # Welcome to NGX-Ramblers!
 
-![Deploy to Fly.io](https://github.com/nbarrett/ngx-ramblers/actions/workflows/build-push-and-deploy-ngx-ramblers-docker-image.yml/badge.svg?branch=main)
+![Deploy to Fly.io (main)](https://github.com/nbarrett/ngx-ramblers/actions/workflows/build-push-and-deploy-ngx-ramblers-docker-image.yml/badge.svg?branch=main)
+![Pre-main Build & Tests](https://github.com/nbarrett/ngx-ramblers/actions/workflows/build-push-and-deploy-ngx-ramblers-docker-image.yml/badge.svg?branch=pre-main)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub issues](https://img.shields.io/github/issues/nbarrett/ngx-ramblers)](https://github.com/nbarrett/ngx-ramblers/issues)

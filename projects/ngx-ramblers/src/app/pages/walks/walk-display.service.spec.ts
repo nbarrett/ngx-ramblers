@@ -20,6 +20,7 @@ import { EventType } from "../../models/walk.model";
 import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 import { SearchFilterPipe } from "../../pipes/search-filter.pipe";
 import { DateUtilsService } from "../../services/date-utils.service";
+import { InputSource } from "../../models/group-event.model";
 
 const anyWalkDate = 123364;
 const walkLeaderMemberId = "walk-leader-id";
@@ -64,6 +65,7 @@ export function createExtendedGroupEvent(dateUtilsService: DateUtilsService, dat
       publishing: null,
       riskAssessment: [],
       migratedFromId: null,
+      inputSource: InputSource.MANUALLY_CREATED,
     },
     groupEvent: {
       item_type: RamblersEventType.GROUP_WALK,

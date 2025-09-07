@@ -1,4 +1,5 @@
-import AWS from "aws-sdk";
+import { GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3 } from "@aws-sdk/client-s3";
+import { Readable } from "stream";
 import sharp from "sharp";
 import { queryAWSConfig } from "./aws-controllers";
 import * as crudController from "../mongo/controllers/crud-controller";
@@ -27,7 +28,7 @@ debugLog.enabled = false;
 const debugNoLog = debug(envConfig.logNamespace("s3-image-resize-no-log"));
 debugNoLog.enabled = false;
 
-const s3 = new AWS.S3();
+const s3 = new S3({});
 const config: AWSConfig = queryAWSConfig();
 
 export async function resizeSavedImages(ws: WebSocket, contentMetadataResizeRequest: ContentMetadataResizeRequest): Promise<void> {
@@ -174,11 +175,10 @@ export async function resizeUnsavedImages(ws: WebSocket, contentMetadataResizeRe
 
 async function listImages(contentMetadata: ContentMetadata): Promise<string[]> {
   debugLog(`ℹ️ Listing ${(config.bucket)} objects in ${contentMetadata.rootFolder}/${contentMetadata.name}`);
-  const params: AWS.S3.ListObjectsV2Request = {
+  const { Contents } = await s3.send(new ListObjectsV2Command({
     Bucket: config.bucket,
     Prefix: `${contentMetadata.rootFolder}/${contentMetadata.name}`
-  };
-  const {Contents} = await s3.listObjectsV2(params).promise();
+  }));
   const fileNames = contentMetadata.files.map(item => lastItemFrom(item.image));
   const objects = Contents || [];
   debugLog(`✅️ Found ${objects.length} ${(config.bucket)} objects in ${contentMetadata.rootFolder}/${contentMetadata.name}`);
@@ -193,21 +193,39 @@ async function listImages(contentMetadata: ContentMetadata): Promise<string[]> {
 }
 
 async function downloadImage(imagePath: string): Promise<Buffer> {
-  const params: AWS.S3.GetObjectRequest = {Bucket: config.bucket, Key: imagePath};
-  const {Body} = await s3.getObject(params).promise();
-  return Body as Buffer;
+  const { Body } = await s3.send(new GetObjectCommand({ Bucket: config.bucket, Key: imagePath }));
+  if (!Body) {
+    return Buffer.alloc(0);
+  }
+  if (Body instanceof Readable) {
+    return new Promise<Buffer>((resolve, reject) => {
+      const chunks: Uint8Array[] = [];
+      Body.on("data", (chunk: Uint8Array) => chunks.push(chunk));
+      Body.on("error", reject);
+      Body.on("end", () => resolve(Buffer.concat(chunks)));
+    });
+  }
+  if (Body instanceof Uint8Array) {
+    return Buffer.from(Body);
+  }
+  const blob = Body as Blob;
+  if (typeof blob.arrayBuffer === "function") {
+    const ab = await blob.arrayBuffer();
+    return Buffer.from(ab);
+  }
+  return Buffer.alloc(0);
 }
 
 async function uploadImage(imageName: string, buffer: Buffer, contentMetadata: ContentMetadata): Promise<string> {
   const uploadImageName = contentMetadata.id ? imageName : generateUid() + extensionFrom(imageName);
   const uploadImagePath = `${contentMetadata.rootFolder}/${contentMetadata.name}/${uploadImageName}`;
-  await s3.putObject({
+  await s3.send(new PutObjectCommand({
     Bucket: config.bucket,
     Key: uploadImagePath,
     Body: buffer,
     ContentType: contentTypeFrom(imageName),
     ACL: "public-read"
-  }).promise();
+  }));
   debugLog(`✅ Uploaded: ${uploadImagePath} (${humanFileSize(buffer.length)}) from input ${imageName}`);
   return uploadImageName;
 }

@@ -66,18 +66,20 @@ describe("DateUtilsService", () => {
       const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
       const dateValue = dateUtils.asDateValue(1402614000000);
       expect(dateValue.value).toEqual(1402614000000);
-      expect(dateValue.date.getDate()).toEqual(13);
-      expect(dateValue.date.getMonth()).toEqual(5);
-      expect(dateValue.date.getFullYear()).toEqual(2014);
+      const london = moment.tz(dateValue.value, "Europe/London");
+      expect(london.date()).toEqual(13);
+      expect(london.month()).toEqual(5);
+      expect(london.year()).toEqual(2014);
     });
 
     it("should support a Date as an argument", () => {
       const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
       const dateValue = dateUtils.asDateValue(new Date(2014, 5, 13));
       expect(dateValue.value).toEqual(1402614000000);
-      expect(dateValue.date.getDate()).toEqual(13);
-      expect(dateValue.date.getMonth()).toEqual(5);
-      expect(dateValue.date.getFullYear()).toEqual(2014);
+      const london = moment.tz(dateValue.value, "Europe/London");
+      expect(london.date()).toEqual(13);
+      expect(london.month()).toEqual(5);
+      expect(london.year()).toEqual(2014);
     });
   });
 

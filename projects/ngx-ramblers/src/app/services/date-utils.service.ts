@@ -50,10 +50,31 @@ export class DateUtilsService {
 
   asMoment(dateValue?: any, inputFormat?: string): moment {
     if (isDateValue(dateValue)) {
+      // Treat stored numeric epoch as an instant; convert to Europe/London time
       return moment(dateValue.value, inputFormat).tz("Europe/London");
-    } else {
-      return moment(dateValue, inputFormat).tz("Europe/London");
     }
+    if (dateValue instanceof Date) {
+      // Build the moment in Europe/London using the Date's local components to avoid env tz drift
+      return moment.tz({
+        year: dateValue.getFullYear(),
+        month: dateValue.getMonth(),
+        day: dateValue.getDate(),
+        hour: dateValue.getHours(),
+        minute: dateValue.getMinutes(),
+        second: dateValue.getSeconds(),
+        millisecond: dateValue.getMilliseconds()
+      }, "Europe/London");
+    }
+    if (typeof dateValue === "string") {
+      // Normalize some common time notations (e.g., "10.0" when format expects a space)
+      let input = dateValue;
+      if (inputFormat && /HH\s*mm/.test(inputFormat) && /\d+\.\d+/.test(input)) {
+        input = input.replace(/\./g, " ");
+      }
+      // Parse string as local wall-clock in Europe/London (no shifting on zone apply)
+      return moment(input, inputFormat).tz("Europe/London", true);
+    }
+    return moment(dateValue, inputFormat).tz("Europe/London");
   }
 
   momentNow(): moment {

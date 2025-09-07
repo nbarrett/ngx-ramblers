@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Read refs from stdin: local_ref local_sha remote_ref remote_sha
+should_run=false
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    *refs/heads/main|refs/heads/main)
+      should_run=true;
+      ;;
+    *refs/heads/pre-main|refs/heads/pre-main)
+      should_run=true;
+      ;;
+  esac
+done
+
+if [ "$should_run" = true ]; then
+  echo "Pre-push: running unit tests for frontend and server..."
+  echo "-> Frontend tests"
+  npm run test
+  echo "-> Server tests"
+  npm run test:server
+  echo "All tests passed. Proceeding with push."
+else
+  echo "Pre-push: target branch is not main or pre-main. Skipping tests."
+fi
+
+exit 0
+

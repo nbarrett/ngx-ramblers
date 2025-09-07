@@ -25,7 +25,8 @@
     "test": "failsafe serenity report",
     "tsc": "tsc --project ./tsconfig.json",
     "tsc-watch": "tsc --project ./tsconfig.json --watch",
-    "unit-test": ". test-setenv.sh && mocha  --watch"
+    "unit-test": ". test-setenv.sh && mocha  --watch",
+    "unit-test:once": "bash -lc 'source ./test-setenv.sh && mocha'"
   },
   "nodemonConfig": {
     "ignore": [
