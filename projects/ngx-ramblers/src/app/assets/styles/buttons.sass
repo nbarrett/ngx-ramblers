@@ -14,6 +14,10 @@
   border-radius: .25rem
   transition: color .15s ease-in-out, background-color .15s ease-in-out, border-color .15s ease-in-out, box-shadow .15s ease-in-out
 
+// Provide sensible default horizontal spacing between adjacent buttons
+.btn + .btn
+  margin-left: var(--space-2)
+
 .btn-primary
   color: $ramblers-colour-black
   background-color: $ramblers-colour-sunrise
@@ -111,35 +115,35 @@
 
 
 .btn-info
-  color: $ramblers-colour-cloudy
-  background-color: #17a2b8
-  border-color: #17a2b8
+  color: $ramblers-colour-black
+  background-color: $ramblers-colour-sunrise
+  border-color: $ramblers-colour-sunrise
 
 
 .btn-info.focus, .btn-info:focus, .btn-info:hover
-  color: $ramblers-colour-cloudy
-  background-color: #138496
-  border-color: #117a8b
+  color: $ramblers-colour-black
+  background-color: $ramblers-colour-sunrise-hover-background
+  border-color: $ramblers-colour-sunrise-hover-border
 
 
 .btn-info.focus, .btn-info:focus
-  box-shadow: 0 0 0 .2rem rgba(58, 176, 195, .5)
+  box-shadow: 0 0 0 .2rem rgba(217, 156, 10, .5)
 
 
 .btn-info.disabled, .btn-info:disabled
-  color: $ramblers-colour-cloudy
-  background-color: #17a2b8
-  border-color: #17a2b8
+  color: $ramblers-colour-black
+  background-color: $ramblers-colour-sunrise
+  border-color: $ramblers-colour-sunrise
 
 
 .btn-info:not(:disabled):not(.disabled).active, .btn-info:not(:disabled):not(.disabled):active, .show > .btn-info.dropdown-toggle
   color: $ramblers-colour-cloudy
-  background-color: #117a8b
-  border-color: #10707f
+  background-color: $ramblers-colour-sunrise-hover-border
+  border-color: #ba8403
 
 
 .btn-info:not(:disabled):not(.disabled).active:focus, .btn-info:not(:disabled):not(.disabled):active:focus, .show > .btn-info.dropdown-toggle:focus
-  box-shadow: 0 0 0 .2rem rgba(58, 176, 195, .5)
+  box-shadow: 0 0 0 .2rem rgba(217, 156, 10, .5)
 
 
 .btn-warning

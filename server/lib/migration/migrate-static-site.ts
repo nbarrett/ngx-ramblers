@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import puppeteer from "puppeteer";
 import TurndownService from "turndown";
-import AWS from "aws-sdk";
+import { S3, PutObjectCommand } from "@aws-sdk/client-s3";
 import {
   AlbumView,
   ContentText,
@@ -30,7 +30,7 @@ import { ContentMetadata } from "../../../projects/ngx-ramblers/src/app/models/c
 const debugLog = debug(envConfig.logNamespace("static-html-site-migrator"));
 debugLog.enabled = true;
 const turndownService = new TurndownService();
-const s3 = new AWS.S3();
+const s3 = new S3({});
 const persistData = false;
 const uploadTos3 = false;
 const config: AWSConfig = queryAWSConfig();
@@ -146,13 +146,13 @@ async function uploadImageToS3(img: ScrapedImage): Promise<string> {
     const fileName = generateUid() + extensionFrom(img.src);
     const awsFileName = `${RootFolder.siteContent}/${fileName}`;
     debugLog(`✅ Uploading image ${img.src} to S3 as ${awsFileName}`);
-    await s3.putObject({
+    await s3.send(new PutObjectCommand({
       Bucket: config.bucket,
       Key: fileName,
       Body: buffer,
       ContentType: contentTypeFrom(img.src),
       ACL: "public-read"
-    }).promise();
+    }));
     return awsFileName;
   } catch (error) {
     debugLog(`❌ Error uploading image ${img.src}:`, error);
