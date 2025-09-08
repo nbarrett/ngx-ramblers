@@ -1,4 +1,3 @@
-@import "bootstrap/scss/bootstrap.scss"
 @import "../../assets/styles/colours"
 
 .carousel-wrapper
@@ -11,19 +10,19 @@
 .carousel-caption h4
   font-size: 14px
 
-@include media-breakpoint-up(sm)
+@media (min-width: 576px)
   .carousel-caption h4
     font-size: 10px
 
-@include media-breakpoint-up(md)
+@media (min-width: 768px)
   .carousel-caption h4
     font-size: 12px
 
-@include media-breakpoint-up(lg)
+@media (min-width: 992px)
   .carousel-caption h4
     font-size: 1.125rem
 
-@include media-breakpoint-up(xl)
+@media (min-width: 1200px)
   .carousel-caption h4
     font-size: 20px
 
@@ -46,3 +45,27 @@
 .carousel-caption h4
   color: $ramblers-colour-cloudy
   @extend .drop-shadow
+
+::ng-deep carousel .carousel-control-prev,
+::ng-deep carousel .carousel-control-next
+  background-color: transparent !important
+  background: transparent !important
+  &:focus, &:active, &:hover, &:focus-visible
+    background-color: transparent !important
+    background: transparent !important
+
+::ng-deep .carousel-control-prev-icon,
+::ng-deep .carousel-control-next-icon
+  background-size: 100% 100%
+  background-color: transparent !important
+  filter: invert(0)
+  width: 30px
+  height: 30px
+  &:hover
+    filter: invert(0.3)
+.fallback-carousel
+  position: relative
+  display: flex
+  align-items: center
+  justify-content: center
+  overflow: hidden

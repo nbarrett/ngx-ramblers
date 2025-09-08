@@ -17,27 +17,26 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
     selector: "app-group-event-images",
     template: `
       <div class="pointer" [tooltip]="currentBasicMedia()?.alt" [placement]="'bottom'">
-        <div class="d-flex align-items-center">
+        <div class="d-flex align-items-center flex-nowrap">
           @if (extendedGroupEvent?.groupEvent?.media?.length > 1) {
-            <div>
+            <div class="d-flex align-items-center flex-shrink-0">
               <app-svg colour="rgb(155, 200, 171)" (click)="back()"
                        [disabled]="backDisabled()"
                        height="20"
                        icon="i-back-round"/>
               <span class="visually-hidden">Previous slide</span>
-              <span class="px-2">Image {{ imageIndex + 1 }}
+              <span class="px-2 text-nowrap">Image {{ imageIndex + 1 }}
                 of {{ extendedGroupEvent?.groupEvent?.media?.length }}</span>
               <app-svg colour="rgb(155, 200, 171)" (click)="next()"
                        [disabled]="forwardDisabled()"
                        height="20"
                        icon="i-forward-round"/>
-
               <span class="visually-hidden">Next slide</span>
             </div>
           }
           @if (allowEditImage) {
-            <div class="d-flex justify-content-center align-items-center mx-3">
-              <span class="px-2">Remove image {{ imageIndex + 1 }}</span>
+            <div class="d-flex align-items-center mx-3 flex-shrink-0">
+              <span class="px-2 text-nowrap">Remove image {{ imageIndex + 1 }}</span>
               <app-svg colour="rgb(255, 0, 0)" (click)="removeImage()"
                        [disabled]="deleteDisabled()"
                        height="20"
@@ -45,13 +44,13 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
                        [tooltip]="'Remove this image'"/>
             </div>
             @if (extendedGroupEvent?.groupEvent?.media?.length > 1) {
-              <div class="ms-auto">
+              <div class="d-flex align-items-center ms-auto flex-shrink-0">
                 <app-svg [tooltip]="backDisabled()? '':'move this image back to position '+ imageIndex"
                          colour="rgb(155, 200, 171)" (click)="moveImageBack()"
                          [disabled]="backDisabled()"
                          height="20"
                          icon="i-up"/>
-                <span class="px-2">Reorder image {{ imageIndex + 1 }}</span>
+                <span class="px-2 text-nowrap">Reorder image {{ imageIndex + 1 }}</span>
                 <app-svg [tooltip]="forwardDisabled()?'':'move this image forward to position '+(imageIndex + 2)"
                          colour="rgb(155, 200, 171)"
                          (click)="moveImageForward()"
@@ -62,14 +61,14 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
             }
           }
         </div>
-        @if (allowEditImage) {
-          <input id="edit-image-{{extendedGroupEvent.id}}" type="submit"
-                 value="edit"
-                 (click)="this.mediaChanged.emit(currentMedia())"
-                 class="btn btn-primary button-edit-image">
-        }
-        <div [ngClass]="extendedGroupEvent?.groupEvent?.media?.length > 1 ? 'mt-2': 'mt-3'">
+        <div class="position-relative" [ngClass]="extendedGroupEvent?.groupEvent?.media?.length > 1 ? 'mt-2': 'mt-3'">
           <app-card-image fixedHeight [imageSource]="imageSourceOrPreview()"/>
+          @if (allowEditImage) {
+            <input id="edit-image-{{extendedGroupEvent.id}}" type="submit"
+                   value="edit"
+                   (click)="this.mediaChanged.emit(currentMedia())"
+                   class="btn btn-primary position-absolute top-0 end-0 m-2">
+          }
         </div>
       </div>`,
     styleUrls: ["./walk-view.sass"],

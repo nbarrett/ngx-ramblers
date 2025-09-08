@@ -95,7 +95,7 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
             [inputDisabled]="inputDisabled()"
             [saveInProgress]="saveInProgress"/>
         </tab>
-        <tab heading="Walk Leader">
+        <tab heading="Leader">
           <app-walk-edit-leader
             [notify]="notify"
             [displayedWalk]="displayedWalk"
@@ -118,7 +118,7 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
           </tab>
         }
         @if (displayedWalk?.walk?.fields?.contactDetails?.memberId) {
-          <tab heading="Copy From...">
+          <tab heading="Copy...">
             <app-walk-edit-copy-from
               [notify]="notify"
               [displayedWalk]="displayedWalk"

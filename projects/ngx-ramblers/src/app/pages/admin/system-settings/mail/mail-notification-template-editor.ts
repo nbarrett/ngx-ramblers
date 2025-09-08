@@ -65,13 +65,13 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
                 [disabled]="nextConfigDisabled()"/>
             </div>
             <div class="col pe-1">
-              <app-badge-button fullWidth="true" [icon]="faCopy" caption="Duplicate" (click)="duplicateConfig()"/>
+              <app-badge-button fullWidth [icon]="faCopy" caption="Duplicate" (click)="duplicateConfig()"/>
             </div>
             <div class="col">
               <app-badge-button fullWidth [icon]="faAdd" caption="Add New" (click)="addNewConfig()"/>
             </div>
             <div class="col pe-1">
-              <app-badge-button fullWidth="true" [icon]="faEraser" caption="Delete" (click)="deleteConfig()"/>
+              <app-badge-button fullWidth [icon]="faEraser" caption="Delete" (click)="deleteConfig()"/>
             </div>
           </div>
         </div>

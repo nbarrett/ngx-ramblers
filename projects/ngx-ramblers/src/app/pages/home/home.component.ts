@@ -13,9 +13,23 @@ import { BuiltInAnchor } from "../../models/content-text.model";
 
 @Component({
     selector: "app-home",
-    templateUrl: "./home.component.html",
+  template: `
+    <app-dynamic-content [anchor]="BuiltInAnchor.HOME_CONTENT" contentPathReadOnly/>
+    <div class="row g-3">
+      @if (externalSystems?.facebook?.showFeed) {
+        <div class="col-lg-6">
+          <app-facebook/>
+        </div>
+      }
+      @if (externalSystems?.instagram?.showFeed) {
+        <div class="col-lg-6">
+          <app-instagram/>
+        </div>
+      }
+    </div>
+  `,
     styleUrls: ["./home.component.sass"],
-    imports: [DynamicContentComponent, FacebookComponent, InstagramComponent]
+  imports: [DynamicContentComponent, FacebookComponent, InstagramComponent]
 })
 export class HomeComponent implements OnInit, OnDestroy {
 

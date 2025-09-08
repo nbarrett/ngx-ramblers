@@ -181,7 +181,7 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
                                [index]="actions.carouselOrAlbumIndex(row, pageContent)">
                       <app-badge-button [icon]="faChevronRight"
                                         (click)="actions.toggleEditMode(rowIndex)"
-                                        [caption]="'Edit images in album'" iconPositionRight>
+                                        [caption]="'Edit images in album'" iconPositionRight noRightMargin>
                       </app-badge-button>
                     </app-album>
                   }
