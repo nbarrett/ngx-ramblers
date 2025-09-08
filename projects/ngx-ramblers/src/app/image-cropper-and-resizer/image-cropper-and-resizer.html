@@ -72,7 +72,7 @@
   </div>
   <div class="col-sm-6 mb-2">
     <label for="compression">Compress to size ({{ imageQuality }}%):</label>
-    <input type="range" min="1" max="100" value="90" step="1" class="custom-range" id="compression"
+    <input type="range" min="1" max="100" value="90" step="1" class="form-range" id="compression"
            [disabled]="actionDisabled" (change)="changeRange($event, true)" (input)="changeRange($event, false)">
   </div>
 </div>

@@ -86,28 +86,6 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
             </div>
           </div>
         </div>
-        @if (true) {
-          <div class="row">
-            <div class="col-sm-3">
-              <div class="form-group">
-                <label for="ramblers-id">Ramblers Id</label>
-                <input [(ngModel)]="displayedWalk.walk.groupEvent.id" type="text"
-                          name="ramblers-id"
-                          class="form-control input-sm"
-                          id="ramblers-id"/>
-              </div>
-            </div>
-            <div class="col-sm-9">
-              <div class="form-group">
-                <label for="ramblers-url">Ramblers Url</label>
-                <input [(ngModel)]="displayedWalk.walk.groupEvent.url" type="text"
-                          name="ramblers-url"
-                          class="form-control input-sm"
-                          id="ramblers-url"/>
-              </div>
-            </div>
-          </div>
-        }
         <div class="row">
           <div class="col-sm-12">
             <div class="form-group">
@@ -152,6 +130,34 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
             </div>
           </div>
         </div>
+        @if (displayedWalk?.walk?.groupEvent?.id) {
+          <div class="row">
+            <div class="col-sm-3">
+              <div class="form-group">
+                <label for="ramblers-id">Ramblers Id</label>
+                <input [(ngModel)]="displayedWalk.walk.groupEvent.id" type="text"
+                       name="ramblers-id"
+                       class="form-control input-sm"
+                       id="ramblers-id"
+                       disabled/>
+              </div>
+            </div>
+            <div class="col-sm-9">
+              <div class="form-group">
+                <label for="ramblers-url">Ramblers Url</label>
+                <a [href]="displayedWalk.walk.groupEvent.url"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="form-control input-sm d-block text-truncate"
+                   id="ramblers-url"
+                   [title]="displayedWalk.walk.groupEvent.url">
+                  {{ displayedWalk.walk.groupEvent.url }}
+                </a>
+              </div>
+            </div>
+          </div>
+        }
+
       </form>
     </div>
   `,
@@ -159,7 +165,6 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
     .duration
       width: 146px
   `],
-
 })
 export class WalkEditMainDetailsComponent implements OnInit {
   public inputDisabled = false;

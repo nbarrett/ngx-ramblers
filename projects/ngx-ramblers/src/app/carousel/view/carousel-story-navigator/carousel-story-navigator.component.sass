@@ -5,26 +5,55 @@
   cursor: pointer
   display: block
   z-index: 1000
-  float: right
-  right: 0
+  right: 10px
   top: 6px
+  left: 10px
+  height: auto
+  overflow: visible
   ul
     list-style: none
     margin: 0
+    padding: 0
+    line-height: 1.5
     li
-      float: left
+      display: inline
+      margin-right: 4px
       a
-        padding: 1px 12px 8px
+        padding: 1px 8px 4px
         font-size: 12px
         font-weight: normal
         @extend .drop-shadow
         color: $ramblers-colour-cloudy
+        text-decoration: none !important
+        display: inline
+        white-space: nowrap
         &:hover
           color: $ramblers-colour-hover
+          text-decoration: none
+        &:focus
+          color: $ramblers-colour-cloudy
+          text-decoration: none
+        &:active
+          color: $ramblers-colour-hover
+          text-decoration: none
+        &.active
+          color: $ramblers-colour-cloudy
+          font-weight: bold
+          text-decoration: underline
+          &::before, &::after
+            display: none !important
+            content: none !important
 
 .carousel-ul
-  display: flex
-  flex-wrap: wrap
+  list-style: none !important
+  margin: 0 !important
+  padding: 0 !important
+  display: flex !important
+  flex-wrap: wrap !important
+  justify-content: flex-start !important
+  width: 100% !important
+  
+  li
+    flex: 0 0 auto !important
+    margin: 2px !important
 
-.carousel-ul li
-  white-space: nowrap

@@ -19,25 +19,26 @@ import { LazyLoadDirective } from "../../notifications/common/lazy-load.directiv
 
 @Component({
     selector: "app-album-grid",
-    styleUrls: ["./album-grid.sass"],
     template: `
-      <div class="card-columns">
+      <div class="row g-3">
         @for (image of lazyLoadingMetadata?.selectedSlides; track image._id) {
-          <div class="card">
-            <img class="card-img-top"
-                 (load)="loaded(image)"
-                 lazyLoad="{{ urlService.imageSourceFor(image, lazyLoadingMetadata?.contentMetadata) }}"
-                 [alt]="image.text">
-            @if (gridViewOptions.showTitles) {
-              <div class="card-body">
-                <h5 class="card-title">{{ image.text }}</h5>
-                @if (gridViewOptions.showDates) {
-                  <p class="card-text">
-                    <small class="text-muted">{{ dateUtils.displayDate(image.date) }}
-                      <span class="ms-2 float-end">{{ slideNumber(image) }}</span></small></p>
-                }
-              </div>
-            }
+          <div class="col-lg-6 col-sm-12">
+            <div class="card h-100">
+              <img class="card-img-top"
+                   (load)="loaded(image)"
+                   lazyLoad="{{ urlService.imageSourceFor(image, lazyLoadingMetadata?.contentMetadata) }}"
+                   [alt]="image.text">
+              @if (gridViewOptions.showTitles) {
+                <div class="card-body">
+                  <h5 class="card-title">{{ image.text }}</h5>
+                  @if (gridViewOptions.showDates) {
+                    <p class="card-text">
+                      <small class="text-muted">{{ dateUtils.displayDate(image.date) }}
+                        <span class="ms-2 float-end">{{ slideNumber(image) }}</span></small></p>
+                  }
+                </div>
+              }
+            </div>
           </div>
         }
       </div>

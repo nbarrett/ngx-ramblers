@@ -12,3 +12,23 @@
 
 .tabset-container
   position: relative
+
+.custom-tabset
+  .nav-tabs
+    display: flex
+    flex-wrap: nowrap
+    overflow-x: auto
+    overflow-y: hidden
+    scrollbar-width: none
+    -ms-overflow-style: none
+    &::-webkit-scrollbar
+      display: none
+  
+  .nav-item
+    flex-shrink: 0
+    white-space: nowrap
+  
+  .nav-link
+    font-size: 0.8rem
+    padding: 0.4rem 0.6rem
+    white-space: nowrap

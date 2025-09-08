@@ -21,6 +21,7 @@ import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { ImageDuplicatesService } from "../../services/image-duplicates-service";
 import { RootFolder } from "../../models/system.model";
+import { FALLBACK_MEDIA } from "../../models/walk.model";
 import { CarouselStoryNavigatorComponent } from "./carousel-story-navigator/carousel-story-navigator.component";
 import { CarouselComponent as CarouselComponent_1, SlideComponent } from "ngx-bootstrap/carousel";
 import { NgStyle } from "@angular/common";
@@ -55,7 +56,9 @@ import { DisplayDatePipe } from "../../pipes/display-date.pipe";
                   'min-width': '100%',
                    'max-width': '100%',
                    'object-fit': 'cover',
-                   'object-position': 'center'}">
+                   'object-position': 'center'}"
+                         (load)="onImageLoad($event)"
+                         (error)="onImageError($event)">
                   }
                   <div class="carousel-caption">
                     <h4>{{ slide.text || album.subtitle }}</h4>
@@ -72,6 +75,20 @@ import { DisplayDatePipe } from "../../pipes/display-date.pipe";
                 </slide>
               }
             </carousel>
+          } @else {
+            <div class="fallback-carousel" [ngStyle]="{'height.px': album?.height || DEFAULT_HEIGHT}">
+              <img [src]="FALLBACK_MEDIA.url"
+                   [alt]="FALLBACK_MEDIA.alt"
+                   [ngStyle]="{
+                     'height.px': album?.height || DEFAULT_HEIGHT,
+                     'min-width': '100%',
+                     'max-width': '100%',
+                     'object-fit': 'cover',
+                     'object-position': 'center'}">
+              <div class="carousel-caption">
+                <h4>{{ album?.subtitle || 'Loading...' }}</h4>
+              </div>
+            </div>
           }
         </div>
       </div>
@@ -92,6 +109,7 @@ export class CarouselComponent implements OnInit, OnDestroy {
   public faPencil = faPencil;
   public album: AlbumData;
   public preview: boolean;
+  public FALLBACK_MEDIA = FALLBACK_MEDIA;
 
   @Input("preview") set previewValue(value: boolean) {
     this.preview = coerceBooleanProperty(value);
@@ -114,6 +132,7 @@ export class CarouselComponent implements OnInit, OnDestroy {
   @Input()
   public hideStoryNavigator: boolean;
   public noPause = true;
+  DEFAULT_HEIGHT = 400;
 
   @HostListener("window:resize", ["$event"])
   onResize(event) {
@@ -180,6 +199,14 @@ export class CarouselComponent implements OnInit, OnDestroy {
   mouseLeave($event: MouseEvent) {
     this.noPause = true;
     this.logger.info("mouseLeave:", $event, "noPause:", this.noPause);
+  }
+
+  onImageLoad($event: Event) {
+    this.logger.info("Image loaded:", $event);
+  }
+
+  onImageError($event: ErrorEvent) {
+    this.logger.error("Image failed to load:", $event);
   }
 
 }

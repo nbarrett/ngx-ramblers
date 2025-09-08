@@ -36,69 +36,63 @@ import { CarouselComponent } from "../../carousel/view/carousel";
 @Component({
     selector: "app-album",
     template: `
-    <div class="row h-100">
-      @if (album.allowSwitchView || preview) {
-        <div class="col-sm-12">
-          <div class="float-end mb-1">
-            <ng-content/>
-            @if (album.allowSwitchView) {
-              <app-badge-button [tooltip]="'view as carousel'" [active]="albumView===AlbumView.CAROUSEL"
-                                [icon]="faImage"
-                                (click)="switchToView(AlbumView.CAROUSEL)" caption="carousel"/>
-              <app-badge-button [tooltip]="'view as gallery'" [active]="albumView===AlbumView.GALLERY"
-                                [icon]="faPhotoFilm"
-                                (click)="switchToView(AlbumView.GALLERY)" caption="gallery"/>
-              <app-badge-button [tooltip]="'view as grid'" [active]="albumView===AlbumView.GRID"
-                                [icon]="faTableCells"
-                                [noRightMargin]="albumView!==AlbumView.GRID"
-                                (click)="switchToView(AlbumView.GRID)" caption="grid"/>
-              @if (albumView === AlbumView.GRID) {
-                <app-badge-button [tooltip]="'show titles'"
-                                  [active]="gridViewOptions?.showTitles" [icon]="faRectangleAd"
-                                  noRightMargin
-                                  (click)="toggleShowTitles()"
-                                  [caption]="gridViewOptions?.showTitles? 'hide titles':'show titles'"/>
+      <div class="row h-100">
+        @if (album.allowSwitchView || preview) {
+          <div class="col-sm-12">
+            <div class="d-flex gap-1 justify-content-end mb-1">
+              <ng-content/>
+              @if (album.allowSwitchView) {
+                <app-badge-button [tooltip]="'view as carousel'" [active]="albumView===AlbumView.CAROUSEL"
+                                  [icon]="faImage" noRightMargin
+                                  (click)="switchToView(AlbumView.CAROUSEL)" caption="carousel"/>
+                <app-badge-button [tooltip]="'view as gallery'" [active]="albumView===AlbumView.GALLERY"
+                                  [icon]="faPhotoFilm" noRightMargin
+                                  (click)="switchToView(AlbumView.GALLERY)" caption="gallery"/>
+                <app-badge-button [tooltip]="'view as grid'" [active]="albumView===AlbumView.GRID"
+                                  [icon]="faTableCells" noRightMargin
+                                  (click)="switchToView(AlbumView.GRID)" caption="grid"/>
+                @if (albumView === AlbumView.GRID) {
+                  <app-badge-button [tooltip]="'show titles'"
+                                    [active]="gridViewOptions?.showTitles" [icon]="faRectangleAd"
+                                    noRightMargin
+                                    (click)="toggleShowTitles()"
+                                    [caption]="gridViewOptions?.showTitles? 'hide titles':'show titles'"/>
+                }
               }
-            }
+            </div>
           </div>
+        }
+        <div class="col-sm-12 my-auto">
+          @if (noImages) {
+            <div class="alert alert-warning">
+              <fa-icon [icon]="faCircleInfo"/>
+              <strong class="ms-1">No images exist in this album</strong>
+              <div>Click the <strong>Edit images in album</strong> button to create new images in
+                the {{ album.name }} album
+              </div>
+            </div>
+          }
+          @if (albumView === AlbumView.GALLERY) {
+            <app-album-gallery [lazyLoadingMetadata]="lazyLoadingMetadata"
+                               [album]="album"
+                               [preview]="preview"/>
+          }
+          @if (albumView === AlbumView.GRID) {
+            <app-album-grid [lazyLoadingMetadata]="lazyLoadingMetadata"
+                            [album]="album"
+                            [preview]="preview"
+                            [gridViewOptions]="gridViewOptions"/>
+          }
+          @if (albumView === AlbumView.CAROUSEL) {
+            <app-carousel [lazyLoadingMetadata]="lazyLoadingMetadata"
+                          [duplicateImages]="duplicateImages"
+                          [preview]="preview"
+                          [album]="album"
+                          [index]="index"/>
+          }
         </div>
-      }
-      <div class="col-sm-12  my-auto">
-        @if (noImages) {
-          <div class="alert alert-warning">
-            <fa-icon [icon]="faCircleInfo"/>
-            <strong class="ms-1">No images exist in this album</strong>
-            <div>Click the <strong>Edit images in album</strong> button to create new images in
-            the {{ album.name }} album
-          </div>
-        </div>
-        }
-        @if (albumView === AlbumView.GALLERY) {
-          <app-album-gallery
-            [lazyLoadingMetadata]="lazyLoadingMetadata"
-            [album]="album"
-            [preview]="preview">
-        </app-album-gallery>
-        }
-        @if (albumView === AlbumView.GRID) {
-          <app-album-grid
-            [lazyLoadingMetadata]="lazyLoadingMetadata"
-            [album]="album"
-            [preview]="preview"
-            [gridViewOptions]="gridViewOptions">
-        </app-album-grid>
-        }
-        @if (albumView === AlbumView.CAROUSEL) {
-          <app-carousel
-            [lazyLoadingMetadata]="lazyLoadingMetadata"
-            [duplicateImages]="duplicateImages"
-            [preview]="preview"
-            [album]="album"
-            [index]="index"></app-carousel>
-        }
       </div>
-    </div>
-  `,
+    `,
     imports: [BadgeButtonComponent, TooltipDirective, FontAwesomeModule, AlbumGalleryComponent, AlbumGridComponent, CarouselComponent]
 })
 export class AlbumComponent implements OnInit {

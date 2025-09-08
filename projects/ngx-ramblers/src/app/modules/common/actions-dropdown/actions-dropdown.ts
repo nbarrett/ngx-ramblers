@@ -31,7 +31,7 @@ import { ColourSelectorComponent } from "../../../pages/banner/colour-selector";
   `],
     template: `
     <div class="btn-group" dropdown>
-      <button aria-controls="dropdown-animated" class="dropdown-toggle badge-button" dropdownToggle
+      <button aria-controls="dropdown-animated" class="dropdown-toggle badge-button border-0" dropdownToggle
               type="button">
         <fa-icon [icon]="faTableCells"></fa-icon>
         <span class="ms-2">{{ actionType() }} Actions</span><span class="caret"></span>

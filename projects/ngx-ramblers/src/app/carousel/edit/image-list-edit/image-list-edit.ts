@@ -109,6 +109,13 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
       overflow: hidden
       text-overflow: ellipsis
       white-space: nowrap
+
+    ::ng-deep .d-flex .btn-group
+      margin-right: 0.25rem !important
+      margin-left: 0 !important
+      
+    ::ng-deep .d-flex .btn-group:last-child
+      margin-right: 0 !important
   `],
   template: `
     @if (allow.edit && contentMetadata) {
@@ -137,81 +144,83 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
       <input #fileElement class="d-none" type="file" ng2FileSelect multiple
              (onFileSelected)="onFileSelectOrDropped($event)"
              [uploader]="uploader">
-      <div class="row g-0">
-        <div class="col pe-1">
-          <app-badge-button fullWidth="true" [icon]="faSave" caption="Save changes and exit"
+      <div class="d-flex w-100">
+        <div class="flex-fill me-1">
+          <app-badge-button fullWidth [icon]="faSave" caption="Save changes and exit"
                             (click)="requestSaveChangesAndExit()"
                             [disabled]="disabled()"/>
         </div>
-        <div class="col pe-1">
-          <app-badge-button fullWidth="true" [icon]="faSave" caption="Save" (click)="requestSaveChanges()"
+        <div class="flex-fill me-1">
+          <app-badge-button fullWidth [icon]="faSave" caption="Save" (click)="requestSaveChanges()"
                             [disabled]="disabled()"/>
         </div>
-        <div class="col pe-1">
-          <app-badge-button fullWidth="true" [icon]="faUndo" caption="Exit without saving"
+        <div class="flex-fill me-1">
+          <app-badge-button fullWidth [icon]="faUndo" caption="Exit without saving"
                             [disabled]="disabled()"
                             (click)="exitBackWithoutSaving()"/>
         </div>
-        <div class="col pe-1">
+        <div class="flex-fill me-1">
           <app-badge-button fullWidth [icon]="faUndo" [caption]="'Undo'" (click)="undoChanges()"
                             [disabled]="disabled()"/>
         </div>
-        <div class="btn-group" dropdown>
-          <button [disabled]="disabled()" aria-controls="dropdown-animated"
-                  class="dropdown-toggle badge-button"
-                  [ngClass]="{'disabled': disabled()}"
-                  dropdownToggle
-                  type="button">
-            <fa-icon [icon]="faTableCells"/>
-            <span class="ms-2">Image Actions</span><span class="caret"></span>
-          </button>
-          <ul *dropdownMenu class="dropdown-menu" role="menu">
-            @if (imagesExist()) {
-              @if (contentMetadata?.maxImageSize > 0) {
+        <div class="flex-fill">
+          <div class="btn-group w-100" dropdown>
+            <button [disabled]="disabled()" aria-controls="dropdown-animated"
+                    class="dropdown-toggle badge-button w-100 border-0"
+                    [ngClass]="{'disabled': disabled()}"
+                    dropdownToggle
+                    type="button">
+              <fa-icon [icon]="faTableCells"/>
+              <span class="ms-2">Image Actions</span><span class="caret"></span>
+            </button>
+            <ul *dropdownMenu class="dropdown-menu" role="menu">
+              @if (imagesExist()) {
+                @if (contentMetadata?.maxImageSize > 0) {
+                  <li role="menuitem">
+                    <a (click)="resizeSavedImages()" class="dropdown-item">
+                      <fa-icon [icon]="faCompress"/>
+                      Resize Existing Images To {{ numberUtils.humanFileSize(contentMetadata.maxImageSize) }}
+                    </a>
+                  </li>
+                }
                 <li role="menuitem">
-                  <a (click)="resizeSavedImages()" class="dropdown-item">
-                    <fa-icon [icon]="faCompress"/>
-                    Resize Existing Images To {{ numberUtils.humanFileSize(contentMetadata.maxImageSize) }}
+                  <a (click)="sortByDate()" class="dropdown-item">
+                    <fa-icon [icon]="faSortNumericDown"/>
+                    Sort by image date
+                  </a>
+                </li>
+                <li role="menuitem">
+                  <a (click)="reverseSortOrder()" class="dropdown-item">
+                    <fa-icon [icon]="faSortNumericUp"/>
+                    Reverse sort order
+                  </a>
+                </li>
+                <li role="menuitem">
+                  <a (click)="clearImages()" class="dropdown-item">
+                    <fa-icon [icon]="faEraser"/>
+                    Clear images
+                  </a>
+                </li>
+              } @else {
+                <li role="menuitem">
+                  <a (click)="insertToEmptyList()" class="dropdown-item">
+                    <fa-icon [icon]="faAdd"/>
+                    Create First Image
                   </a>
                 </li>
               }
-              <li role="menuitem">
-                <a (click)="sortByDate()" class="dropdown-item">
-                  <fa-icon [icon]="faSortNumericDown"/>
-                  Sort by image date
-                </a>
-              </li>
-              <li role="menuitem">
-                <a (click)="reverseSortOrder()" class="dropdown-item">
-                  <fa-icon [icon]="faSortNumericUp"/>
-                  Reverse sort order
-                </a>
-              </li>
-              <li role="menuitem">
-                <a (click)="clearImages()" class="dropdown-item">
-                  <fa-icon [icon]="faEraser"/>
-                  Clear images
-                </a>
-              </li>
-            } @else {
-              <li role="menuitem">
-                <a (click)="insertToEmptyList()" class="dropdown-item">
-                  <fa-icon [icon]="faAdd"/>
-                  Create First Image
-                </a>
-              </li>
-            }
-            @if (contentMetadata?.imageTags?.length > 0) {
-              <li role="menuitem">
-                <a (click)="toggleManageTags()" class="dropdown-item">
-                  <fa-icon [icon]="faTags"/>
-                  {{ manageTags ? "Close Tags" : "Manage Tags" }}
-                </a>
-              </li>
-            }
-          </ul>
+              @if (contentMetadata?.imageTags?.length > 0) {
+                <li role="menuitem">
+                  <a (click)="toggleManageTags()" class="dropdown-item">
+                    <fa-icon [icon]="faTags"/>
+                    {{ manageTags ? "Close Tags" : "Manage Tags" }}
+                  </a>
+                </li>
+              }
+            </ul>
+          </div>
         </div>
-        <div class="col-auto">
+        <div class="flex-fill">
           <app-badge-button fullWidth [disabled]="disabled()"
                             [icon]="faFile"
                             caption="Choose Files"
