@@ -101,7 +101,12 @@ export class DatePicker implements OnInit {
       this.logger.info("dateValueFrom: date:", date, "retuning null");
       return null;
     } else if (midnight && this.lastEmittedValue && !this.startOfDay) {
-      const dateValue: DateValue = this.dateUtils.asDateValue(this.dateUtils.asMoment(date).hours(this.lastEmittedValue.date.getHours()).minutes(this.lastEmittedValue.date.getHours()));
+      const baseDateTime = this.dateUtils.asDateTime(date);
+      const withTime = baseDateTime.set({ 
+        hour: this.lastEmittedValue.date.getHours(), 
+        minute: this.lastEmittedValue.date.getMinutes() 
+      });
+      const dateValue: DateValue = this.dateUtils.asDateValue(withTime.toMillis());
       this.logger.info("dateValueFrom: date is at midnight:", date, "dateValue:", dateValue);
       return dateValue;
     } else {

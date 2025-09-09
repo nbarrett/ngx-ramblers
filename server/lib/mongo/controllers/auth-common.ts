@@ -12,7 +12,7 @@ import {
 import { AuthResponse } from "../../../../projects/ngx-ramblers/src/app/models/auth-data.model";
 import { Response } from "express";
 import * as transforms from "./transforms";
-import { momentNowAsValue } from "../../shared/dates";
+import { dateTimeNowAsValue } from "../../shared/dates";
 
 const debugLog = debug(envConfig.logNamespace("database:auth:common"));
 export const pleaseTryAgain = `. Please try again or`;
@@ -86,7 +86,7 @@ export function auditMemberLogin(userName: string, loginResponse: LoginResponse,
     debugLog("auditMemberLogin:userName", userName);
     return new memberAudit({
       userName,
-      loginTime: momentNowAsValue(),
+      loginTime: dateTimeNowAsValue(),
       loginResponse,
       member: isMemberCookie(member) ? member : member ? toMemberCookie(member) : member
     }).save()

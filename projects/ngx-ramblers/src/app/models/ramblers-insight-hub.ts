@@ -39,7 +39,7 @@ export const AUDIT_FIELDS: AuditField[] = [
     fieldName: "groupMember",
     writeDataIf: WriteDataRule.TRANSITION_TO_TRUE_NEW_VALUE,
     type: WriteDataType.BOOLEAN,
-    memberDerivedValue: (member: Member, dateUtils: DateUtilsService) => !member?.membershipExpiryDate || member.membershipExpiryDate >= dateUtils.momentNowNoTime().valueOf()
+    memberDerivedValue: (member: Member, dateUtils: DateUtilsService) => !member?.membershipExpiryDate || member.membershipExpiryDate >= dateUtils.dateTimeNowNoTime().toMillis()
   },
   {fieldName: "jointWith", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.STRING},
   {fieldName: "title", writeDataIf: WriteDataRule.NO_OLD_VALUE, type: WriteDataType.STRING},

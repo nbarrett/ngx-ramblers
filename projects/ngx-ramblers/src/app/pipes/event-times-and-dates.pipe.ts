@@ -21,12 +21,12 @@ export class EventDatesAndTimesPipe implements PipeTransform {
     if (!start && !end) {
       return "";
     } else {
-      const startMoment = this.dateUtilsService.asMoment(start);
-      const endMoment = this.dateUtilsService.asMoment(end);
+      const startMoment = this.dateUtilsService.asDateTime(start);
+      const endMoment = this.dateUtilsService.asDateTime(end);
       const startPrefix = config?.prefixes ? `Start time: ` : " ";
       const finishPrefix = config?.prefixes ? `Finish Time: ` : " ";
       const startDate = config?.noDates ? "" : this.dateUtilsService.asString(startMoment, null, this.dateUtilsService.formats.displayDate);
-      if (startMoment.isSame(endMoment, "day") || !end) {
+      if (startMoment.hasSame(endMoment, "day") || !end) {
         const startTime = config?.noTimes ? "" : this.displayTimePipe.transform(start);
         const endTime = config?.noTimes ? "" : this.displayTimePipe.transform(end);
         return `${startDate} ${startPrefix}${startTime}${!endTime ? "" : EM_DASH_WITH_SPACES}${finishPrefix}${endTime}`.trim();

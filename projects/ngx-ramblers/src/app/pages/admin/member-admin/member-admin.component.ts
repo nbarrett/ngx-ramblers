@@ -114,7 +114,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.profileService.subscribeToLogout(this.logger));
     this.logger.off("ngOnInit");
     this.notify.setBusy();
-    this.today = this.dateUtils.momentNowNoTime().valueOf();
+    this.today = this.dateUtils.dateTimeNowNoTime().toMillis();
     this.subscriptions.push(this.searchChangeObservable.pipe(debounceTime(250))
       .pipe(distinctUntilChanged())
       .subscribe(searchTerm => this.applyFilterToMembers(searchTerm)));

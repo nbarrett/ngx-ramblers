@@ -154,7 +154,7 @@ export class RamblersWalksAndEventsService {
   async queryWalkLeaders(): Promise<Contact[]> {
     this.logger.info("queryWalkLeaders:");
     const date = WALKS_MANAGER_GO_LIVE_DATE;
-    const dateEnd = this.dateUtils.asMoment().add(12, "month").format(DateFormat.WALKS_MANAGER_API);
+    const dateEnd = this.dateUtils.dateTimeNow().plus({ months: 12 }).toFormat(DateFormat.WALKS_MANAGER_API);
     const body: EventsListRequest = {
       suppressEventLinking: true,
       types: [RamblersEventType.GROUP_WALK], date, dateEnd, limit: MAXIMUM_PAGE_SIZE
@@ -214,11 +214,11 @@ export class RamblersWalksAndEventsService {
 
   private createStartDate(criteria: object): string {
     if (RamblersWalksAndEventsService.isEventStartDateGreaterThanOrEqualTo(criteria)) {
-      return this.dateUtils.asMoment(criteria?.[GroupEventField.START_DATE]?.$gte)?.format(DateFormat.WALKS_MANAGER_API);
+      return this.dateUtils.asDateTime(criteria?.[GroupEventField.START_DATE]?.$gte)?.toFormat(DateFormat.WALKS_MANAGER_API);
     } else if (RamblersWalksAndEventsService.isWalkDateLessThan(criteria) || isEmpty(criteria)) {
-      return this.dateUtils.asMoment().subtract(2, "year").format(DateFormat.WALKS_MANAGER_API);
+      return this.dateUtils.dateTimeNow().minus({ years: 2 }).toFormat(DateFormat.WALKS_MANAGER_API);
     } else {
-      return this.dateUtils.asMoment().format(DateFormat.WALKS_MANAGER_API);
+      return this.dateUtils.dateTimeNow().toFormat(DateFormat.WALKS_MANAGER_API);
     }
   }
 
@@ -233,13 +233,13 @@ export class RamblersWalksAndEventsService {
   }
 
   private createEndDate(criteria: any): string {
-    this.logger.off("createEndDate.criteria:", criteria, "walkDate value:", criteria?.walkDate, "walkDate formatted:", this.dateUtils.asMoment(criteria?.walkDate).format(DateFormat.WALKS_MANAGER_API));
+    this.logger.off("createEndDate.criteria:", criteria, "walkDate value:", criteria?.walkDate, "walkDate formatted:", this.dateUtils.asDateTime(criteria?.walkDate).toFormat(DateFormat.WALKS_MANAGER_API));
     if (RamblersWalksAndEventsService.isWalkDateLessThan(criteria)) {
-      return this.dateUtils.asMoment(criteria?.[GroupEventField.START_DATE]?.$lt).subtract(1, "day")?.format(DateFormat.WALKS_MANAGER_API);
+      return this.dateUtils.asDateTime(criteria?.[GroupEventField.START_DATE]?.$lt).minus({ days: 1 })?.toFormat(DateFormat.WALKS_MANAGER_API);
     } else if (RamblersWalksAndEventsService.isWalkDateLessThanOrEqualTo(criteria)) {
-      return this.dateUtils.asMoment(criteria?.[GroupEventField.START_DATE]?.$lte)?.format(DateFormat.WALKS_MANAGER_API);
+      return this.dateUtils.asDateTime(criteria?.[GroupEventField.START_DATE]?.$lte)?.toFormat(DateFormat.WALKS_MANAGER_API);
     } else {
-      return this.dateUtils.asMoment().add(2, "year")?.format(DateFormat.WALKS_MANAGER_API);
+      return this.dateUtils.dateTimeNow().plus({ years: 2 })?.toFormat(DateFormat.WALKS_MANAGER_API);
     }
   }
 
@@ -250,7 +250,7 @@ export class RamblersWalksAndEventsService {
   }
 
   exportWalksFileName(omitExtension?: boolean): string {
-    return `walks-export-${this.dateUtils.asMoment().format("DD-MMMM-YYYY-HH-mm")}${omitExtension ? "" : ".csv"}`;
+    return `walks-export-${this.dateUtils.dateTimeNow().toFormat(DateFormat.EXPORT_FILENAME)}${omitExtension ? "" : ".csv"}`;
   }
 
   selectedExportableWalks(walkExports: WalkExport[]): WalkExport[] {
@@ -364,7 +364,7 @@ export class RamblersWalksAndEventsService {
   }
 
   returnWalksExport(localAndRamblersWalks: LocalAndRamblersWalk[]): WalkExport[] {
-    const todayValue = this.dateUtils.momentNowNoTime().format();
+    const todayValue = this.dateUtils.isoDateTimeStartOfDay();
     return localAndRamblersWalks
       .filter(walk => (walk.localWalk.groupEvent.start_date_time >= todayValue) && walk.localWalk.groupEvent.title)
       .map(walk => this.toWalkExport(walk));
@@ -637,15 +637,16 @@ export class RamblersWalksAndEventsService {
   public walkFinishTime(extendedGroupEvent: ExtendedGroupEvent, milesPerHour?: number): string {
     const finishTimeMillis = this.dateUtils.startTimeAsValue(extendedGroupEvent) +
       this.dateUtils.durationInMsecsForDistanceInMiles(extendedGroupEvent?.groupEvent?.distance_miles, extendedGroupEvent.fields.milesPerHour || milesPerHour);
-    let finishMoment = this.dateUtils.asMoment(finishTimeMillis);
-    const minutes = finishMoment.minutes();
+    let finishDateTime = this.dateUtils.asDateTime(finishTimeMillis);
+    const minutes = finishDateTime.minute;
     const remainder = minutes % 15;
     if (remainder !== 0) {
-      finishMoment = finishMoment.add(15 - remainder, "minutes");
+      finishDateTime = finishDateTime.plus({ minutes: 15 - remainder });
     }
-    finishMoment = finishMoment.seconds(0).milliseconds(0);
+    finishDateTime = finishDateTime.set({ second: 0 });
+    finishDateTime = finishDateTime.set({ millisecond: 0 });
 
-    return this.dateUtils.isoDateTime(finishMoment.valueOf());
+    return this.dateUtils.isoDateTime(finishDateTime.toMillis());
   }
 
   walkStartTime(extendedGroupEvent: ExtendedGroupEvent): string {

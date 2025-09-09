@@ -15,7 +15,7 @@ import {
   StatusMappedResponseSingleInput
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import omit from "lodash/omit";
-import { momentNow } from "../../shared/dates";
+import { dateTimeNow } from "../../shared/dates";
 
 const messageType = "brevo:send-email-campaign";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -33,7 +33,7 @@ export async function createCampaign(req: Request, res: Response, next: NextFunc
     if (createCampaignRequest.createAsDraft) {
       debugLog("Email will be created as a draft so it can be edited and reviewed before sending.");
     } else {
-      const scheduledAt = momentNow().add(1, "day").format();
+      const scheduledAt = dateTimeNow().plus({ days: 1 }).toISO();
       debugLog("Email campaign preparation scheduling at:", scheduledAt);
       createEmailCampaign.scheduledAt = scheduledAt;
     }

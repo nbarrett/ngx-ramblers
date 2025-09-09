@@ -4,7 +4,7 @@ import { envConfig } from "../../env-config/env-config";
 import { ramblersUploadAudit } from "../models/ramblers-upload-audit";
 import { parseError } from "./transforms";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
-import { momentNow } from "../../shared/dates";
+import { dateTimeNow } from "../../shared/dates";
 import {
   AuditType,
   FileUploadSummary,
@@ -15,7 +15,7 @@ const debugLog = debug(envConfig.logNamespace("ramblers-upload-audit"));
 debugLog.enabled = false;
 
 export async function queryUploadSessions(req: Request, res: Response): Promise<any> {
-  const oneMonthAgo = momentNow().subtract(1, "month").valueOf();
+  const oneMonthAgo = dateTimeNow().minus({ months: 1 }).toMillis();
 
   try {
     const detailedResult = await ramblersUploadAudit.aggregate([

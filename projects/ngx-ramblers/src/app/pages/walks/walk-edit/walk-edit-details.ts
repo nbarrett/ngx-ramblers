@@ -39,9 +39,8 @@ import { JsonPipe } from "@angular/common";
                 @if (allowDetailView) {
                   <select [compareWith]="difficultyComparer" [disabled]="inputDisabled"
                           [(ngModel)]="displayedWalk.walk.groupEvent.difficulty"
-                          (ngModelChange)="difficultyChange()"
                           class="form-control input-sm" id="grade">
-                    @for (difficulty of display.difficulties(); track difficulty.code) {
+                    @for (difficulty of difficulties; track difficulty.code) {
                       <option
                         [ngValue]="difficulty">{{ difficulty.description }}
                       </option>
@@ -66,9 +65,12 @@ import { JsonPipe } from "@angular/common";
               </div>
             </div>
             <div class="col-sm-4">
-              <label for="ascent">Ascent</label>
-              <div class="form-group" app-event-ascent-edit [groupEvent]="displayedWalk?.walk?.groupEvent"
-                   id="ascent" [disabled]="inputDisabled"></div>
+              <div class="form-group">
+                <label for="ascent">Ascent</label>
+                <div app-event-ascent-edit [groupEvent]="displayedWalk?.walk?.groupEvent"
+                     id="ascent" [disabled]="inputDisabled">
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -116,12 +118,8 @@ export class WalkEditDetailsComponent {
 
   protected readonly WalkType = WalkType;
   protected display = inject(WalkDisplayService);
-
+  difficulties = this.display.difficulties();
   protected readonly enumValueForKey = enumValueForKey;
-
-  difficultyChange() {
-    // Placeholder for future logic
-  }
 
   walkTypeChange() {
     if (enumValueForKey(WalkType, this.displayedWalk?.walk?.groupEvent?.shape) === WalkType.LINEAR && !this.displayedWalk?.walk?.groupEvent.end_location) {

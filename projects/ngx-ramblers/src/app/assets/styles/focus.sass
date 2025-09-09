@@ -2,3 +2,33 @@
   outline: var(--focus-outline-width) solid var(--focus-color)
   outline-offset: var(--focus-outline-offset)
   box-shadow: none !important
+
+timepicker .btn, timepicker button,
+bs-timepicker .btn, bs-timepicker button,
+.timepicker .btn, .timepicker button
+  &:focus, &:focus-visible, &.focus, &:active, &:hover
+    outline: none !important
+    box-shadow: none !important
+    border: none !important
+    text-decoration: none !important
+    background-color: transparent !important
+    border-color: transparent !important
+
+timepicker .btn-warning, timepicker .btn-secondary, timepicker .btn-primary,
+bs-timepicker .btn-warning, bs-timepicker .btn-secondary, bs-timepicker .btn-primary,
+.timepicker .btn-warning, .timepicker .btn-secondary, .timepicker .btn-primary
+  &:focus, &:focus-visible, &.focus, &:active, &:hover
+    outline: none !important
+    box-shadow: none !important
+    background-color: transparent !important
+    border-color: transparent !important
+    border: none !important
+
+[app-time-picker] timepicker .btn,
+[app-time-picker] timepicker button
+  &:focus, &:focus-visible, &.focus, &:active, &:hover, &:not(:disabled):not(.disabled):active:focus
+    outline: none !important
+    box-shadow: none !important
+    background-color: transparent !important
+    border-color: transparent !important
+    border: none !important

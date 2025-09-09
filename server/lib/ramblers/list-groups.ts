@@ -24,7 +24,7 @@ export function listGroups(req, res): void {
           protocol: defaultOptions.protocol,
           headers: defaultOptions.headers,
           method: "get",
-          path: `/api/volunteers/groups?limit=${limit}&groups=${groups}&api-key=${systemConfig?.national?.walksManager?.apiKey}`
+          path: `/api/volunteers/groups?limit=${limit}&groups=${encodeURIComponent(groups)}&api-key=${encodeURIComponent(systemConfig?.national?.walksManager?.apiKey)}`
         },
         debug: debugLog,
         res,

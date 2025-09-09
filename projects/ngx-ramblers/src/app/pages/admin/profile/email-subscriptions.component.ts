@@ -97,7 +97,7 @@ import { NgClass } from "@angular/common";
       </div>
     </app-page>`,
     styleUrls: ["../admin/admin.component.sass"],
-    imports: [PageComponent, FontAwesomeModule, EmailSubscriptionsMailchimpComponent, MailSubscriptionSettingComponent, ContactUsComponent, NgClass]
+    imports: [PageComponent, FontAwesomeModule, EmailSubscriptionsMailchimpComponent, MailSubscriptionSettingComponent, ContactUsComponent]
 })
 export class EmailSubscriptionsComponent implements OnInit, OnDestroy {
 

@@ -5,12 +5,12 @@ import {
   MAXIMUM_PAGE_SIZE,
   WALKS_MANAGER_GO_LIVE_DATE
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
-import moment from "moment-timezone";
-import { momentNow } from "../shared/dates";
+import { DateTime } from "luxon";
+import { dateTimeNow } from "../shared/dates";
 
 export function dateParameter(body: EventsListRequest, debugLog: debug.Debugger): string {
   if (body?.ids?.length > 0) {
-    const dateParameter = moment(WALKS_MANAGER_GO_LIVE_DATE).tz("Europe/London").startOf("day").format(DateFormat.WALKS_MANAGER_API);
+    const dateParameter = DateTime.fromISO(WALKS_MANAGER_GO_LIVE_DATE).setZone("Europe/London").startOf("day").toFormat(DateFormat.WALKS_MANAGER_API);
     debugLog("returning dateParameter:", dateParameter, "given id request:", body.ids, "and dateEnd:", body.date);
     return dateParameter;
   } else {
@@ -21,7 +21,7 @@ export function dateParameter(body: EventsListRequest, debugLog: debug.Debugger)
 
 export function dateEndParameter(body: EventsListRequest, debugLog: debug.Debugger): string {
   if (body?.ids?.length > 0) {
-    const dateEndParameter = momentNow().add(12, "month").format(DateFormat.WALKS_MANAGER_API);
+    const dateEndParameter = dateTimeNow().plus({ months: 12 }).toFormat(DateFormat.WALKS_MANAGER_API);
     debugLog("returning dateEndParameter:", dateEndParameter, "given id request:", body.ids, "and dateEnd:", body.dateEnd);
     return dateEndParameter;
   } else {

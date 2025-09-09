@@ -20,7 +20,7 @@ export async function requestAuthorisation(req: Request, res: Response): Promise
     } else if (!meetupConfig?.clientRedirectUrl) {
       res.status(400).json({error: "Meetup client Redirect URL not configured"});
     } else {
-      const requestAuthorisationUrl = `https://secure.meetup.com/oauth2/authorize?client_id=${meetupConfig.clientId}&response_type=code&redirect_uri=${meetupConfig.clientRedirectUrl}`;
+      const requestAuthorisationUrl = `https://secure.meetup.com/oauth2/authorize?client_id=${encodeURIComponent(meetupConfig.clientId)}&response_type=code&redirect_uri=${encodeURIComponent(meetupConfig.clientRedirectUrl)}`;
       debug("requestAuthorisationUrl:", requestAuthorisationUrl);
       const apiResponse: MeetupRequestAuthorisationApiResponse = {
         request: req.query,

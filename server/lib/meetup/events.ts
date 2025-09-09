@@ -5,7 +5,7 @@ import * as messageHandlers from "../shared/message-handlers";
 import * as requestDefaults from "./request-defaults";
 import { Meetup } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { configuredMeetup } from "./meetup-config";
-import { momentInTimezone } from "../shared/dates";
+import { dateTimeInTimezone } from "../shared/dates";
 
 const debug = debugLib(envConfig.logNamespace("meetup:events"));
 debug.enabled = false;
@@ -69,7 +69,7 @@ function toConciseResponse(jsonData: any[]): any[] {
       link: result.link,
       title: result.name,
       description: result.description,
-      date: momentInTimezone(result.time).startOf("day").valueOf(),
+      date: dateTimeInTimezone(result.time).startOf("day").valueOf(),
       startTime: result.time,
     };
 

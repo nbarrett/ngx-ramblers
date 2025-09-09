@@ -60,7 +60,7 @@ export class MemberLoginAuditComponent implements OnInit, OnDestroy {
     this.logger.debug("ngOnInit");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.notify.setBusy();
-    this.filterDateValue = this.dateUtils.asDateValue(this.dateUtils.momentNowNoTime().subtract(2, "weeks"));
+    this.filterDateValue = this.dateUtils.asDateValue(this.dateUtils.dateTimeNowNoTime().minus({ weeks: 2 }));
     this.subscriptions.push(this.searchChangeObservable.pipe(debounceTime(250))
       .pipe(distinctUntilChanged())
       .subscribe(searchTerm => this.applyFilterToAudits(searchTerm)));

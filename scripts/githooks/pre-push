@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Load nvm
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # Load nvm
+nvm use 22.19.0 2>/dev/null || { echo "Error: nvm or Node.js 22.19.0 not found"; exit 1; }
+
+# Diagnostic output
+echo "Node.js version in hook: $(node --version)"
+echo "Node.js path in hook: $(which node)"
+
 # Read refs from stdin: local_ref local_sha remote_ref remote_sha
 should_run=false
 while read -r local_ref local_sha remote_ref remote_sha; do
   case "$remote_ref" in
-    *refs/heads/main|refs/heads/main)
-      should_run=true;
-      ;;
-    *refs/heads/pre-main|refs/heads/pre-main)
-      should_run=true;
+    *refs/heads/main|*refs/heads/pre-main)
+      should_run=true
       ;;
   esac
 done
@@ -26,4 +32,3 @@ else
 fi
 
 exit 0
-

@@ -1,8 +1,9 @@
 import debug from "debug";
 import isEmpty from "lodash/isEmpty";
-import moment from "moment-timezone";
+import { DateTime } from "luxon";
 import {
   ALL_EVENT_TYPES,
+  DateFormat,
   EventsListRequest,
   RamblersEventsApiResponse,
   RamblersEventSummaryApiResponse,
@@ -221,14 +222,14 @@ function transformEventsResponse(config: SystemConfig): (response: RamblersGroup
       return [];
     }
     return response.data.map(event => {
-      const walkMoment = moment(event.start_date_time, moment.ISO_8601).tz("Europe/London");
+      const walkDateTime = DateTime.fromISO(event.start_date_time).setZone("Europe/London");
       const transformedEvent = {
         id: event.id,
         url: event.url,
         walksManagerUrl: event.url.replace(config.national.mainSite.href, config.national.walksManager.href),
         title: event.title,
-        startDate: walkMoment.format("dddd, Do MMMM YYYY"),
-        startDateValue: walkMoment.valueOf(),
+        startDate: walkDateTime.toFormat(DateFormat.DISPLAY_DATE_FULL),
+        startDateValue: walkDateTime.toMillis(),
         start_location: event.start_location,
         end_location: event.end_location,
         media: event.media

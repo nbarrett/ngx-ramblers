@@ -129,7 +129,7 @@ export class MeetupService {
   async synchroniseWalkWithEvent(notify: AlertInstance, displayedWalk: DisplayedWalk, meetupDescription: string): Promise<any> {
     try {
       if (displayedWalk.status === EventType.APPROVED
-        && this.dateUtils.asMoment(displayedWalk.walk?.groupEvent?.start_date_time).valueOf() > this.dateUtils.momentNowNoTime().valueOf()
+        && this.dateUtils.asDateTime(displayedWalk.walk?.groupEvent?.start_date_time).toMillis() > this.dateUtils.dateTimeNowNoTime().toMillis()
         && displayedWalk.walk.fields?.meetup
         && displayedWalk.walk.fields?.publishing?.meetup?.publish) {
         const eventExists: boolean = await this.eventExists(notify, displayedWalk.walk);

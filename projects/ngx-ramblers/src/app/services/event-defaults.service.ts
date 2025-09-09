@@ -106,7 +106,7 @@ export class EventDefaultsService {
     shape?: WalkType,
     events?: WalkEvent[];
   }) {
-    const now = this.dateUtils.momentNow().format();
+    const now = this.dateUtils.isoDateTimeNow();
     const itemType: RamblersEventType = defaults?.item_type || RamblersEventType.GROUP_WALK;
     const startDateTime = defaults?.start_date_time || now;
     const walk: ExtendedGroupEvent = {

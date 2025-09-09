@@ -9,7 +9,7 @@ import { ExtendedFields, ExtendedGroupEvent, GroupEvent, InputSource } from "../
 import { SocialEvent, Walk } from "../../models/deprecated";
 import { WalksLocalLegacyService } from "../walks/walks-local-legacy.service";
 import { Time } from "@angular/common";
-import moment from "moment-timezone";
+import { DateTime } from "luxon";
 import { LegacyDistanceValidationService } from "./legacy-distance-validation.service";
 import { LegacyAscentValidationService } from "./legacy-ascent-validation.service";
 import { StringUtilsService } from "../string-utils.service";
@@ -210,7 +210,7 @@ export class EventsMigrationService {
   }
 
   private finishTime(startDateTime: string, walkOrSocialEvent: Walk, milesPerHour: number): string {
-    return this.dateUtils.asMoment(this.dateUtils.asValue(startDateTime) + this.dateUtils.durationInMsecsForDistanceInMiles(walkOrSocialEvent.distance, milesPerHour)).toISOString();
+    return this.dateUtils.isoDateTime(this.dateUtils.asValue(startDateTime) + this.dateUtils.durationInMsecsForDistanceInMiles(walkOrSocialEvent.distance, milesPerHour));
   }
 
   private toLocation(socialEvent: SocialEvent): LocationDetails {
@@ -282,8 +282,8 @@ export class EventsMigrationService {
   socialEventFinishTime(socialEvent: SocialEvent): string {
     if (socialEvent?.eventTimeEnd) {
       const finishTime: Time = this.dateUtils.parseTime(socialEvent?.eventTimeEnd);
-      const socialDateMoment: moment = this.dateUtils.asMoment(socialEvent?.eventDate);
-      const socialEventEndTimeValue = this.dateUtils.calculateWalkDateAndTimeValue(socialDateMoment, finishTime);
+      const socialDateTime = this.dateUtils.asDateTime(socialEvent?.eventDate);
+      const socialEventEndTimeValue = this.dateUtils.calculateWalkDateAndTimeValue(socialDateTime, finishTime);
       const socialEventEndTime = this.dateUtils.isoDateTime(socialEventEndTimeValue);
       this.logger.info("text based finishTime:", socialEvent?.eventTimeEnd,
         "finishTime:", finishTime,

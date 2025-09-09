@@ -391,8 +391,8 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   }
 
   durationInFutureFor(walk: ExtendedGroupEvent) {
-    return this.dateUtils.asValueNoTime(walk?.groupEvent?.start_date_time) === this.dateUtils.momentNowNoTime().valueOf() ? "today"
-      : (this.dateUtils.asMoment(this.dateUtils.startTimeAsValue(walk)).fromNow());
+    return this.dateUtils.asValueNoTime(walk?.groupEvent?.start_date_time) === this.dateUtils.dateTimeNowNoTime().toMillis() ? "today"
+      : (this.dateUtils.asDateTime(this.dateUtils.startTimeAsValue(walk)).toRelative());
   }
 
   changeMapView(newValue: MapDisplay) {
