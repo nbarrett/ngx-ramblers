@@ -7,7 +7,7 @@ import {
   Status,
   DomainEventData
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
-import { momentInTimezone, momentNowAsValue } from "../shared/dates";
+import { dateTimeInTimezone, dateTimeNowAsValue } from "../shared/dates";
 
 const errorIcons = ["⨯", "✗", "✖"];
 const successIcons = ["✓", "✓", "✓"];
@@ -76,7 +76,7 @@ export function parseStandardOut(auditMessage: string): ParsedRamblersUploadAudi
       return {
         audit: true,
         data: {
-        auditTime: momentNowAsValue(),
+        auditTime: dateTimeNowAsValue(),
         type: AuditType.STEP,
         status,
         message
@@ -86,7 +86,7 @@ export function parseStandardOut(auditMessage: string): ParsedRamblersUploadAudi
       return {
         audit: true,
         data: {
-        auditTime: momentNowAsValue(),
+        auditTime: dateTimeNowAsValue(),
         type: AuditType.STEP,
         status: toStatusFromIcon(auditMessageItem),
         message: removeTokensFromMessage(auditMessageItem)
@@ -96,7 +96,7 @@ export function parseStandardOut(auditMessage: string): ParsedRamblersUploadAudi
       return {
         audit: true,
         data: {
-        auditTime: momentNowAsValue(),
+        auditTime: dateTimeNowAsValue(),
         type: AuditType.STEP,
         status: toStatusFromNpmMessage(auditMessageItem),
         message: removeTokensFromMessage(auditMessageItem)
@@ -112,7 +112,7 @@ export function parseTestStepEvent(testStepEvent: DomainEventData): ParsedRamble
   const parsedRamblersUploadAudit: ParsedRamblersUploadAudit = {
     audit: true,
     data: {
-      auditTime: momentInTimezone(testStepEvent.timestamp).valueOf(),
+      auditTime: dateTimeInTimezone(testStepEvent.timestamp).toMillis(),
       type: AuditType.STEP,
       status,
       message: testStepEvent.details.name,
@@ -140,7 +140,7 @@ export function parseStandardError(auditMessage: string): ParsedRamblersUploadAu
         return {
           audit: true,
           data: {
-          auditTime: momentNowAsValue(),
+          auditTime: dateTimeNowAsValue(),
           type: AuditType.STDERR,
           status: Status.ERROR,
           message: removeTokensFromMessage(auditMessageItem)
@@ -154,7 +154,7 @@ export function parseStandardError(auditMessage: string): ParsedRamblersUploadAu
         return {
           audit: true,
           data: {
-          auditTime: momentNowAsValue(),
+          auditTime: dateTimeNowAsValue(),
           type: AuditType.STEP,
           status,
           message
@@ -164,7 +164,7 @@ export function parseStandardError(auditMessage: string): ParsedRamblersUploadAu
         return {
           audit: true,
           data: {
-          auditTime: momentNowAsValue(),
+          auditTime: dateTimeNowAsValue(),
           type: AuditType.STDERR,
           status: Status.INFO,
           message: removeTokensFromMessage(auditMessageItem)
@@ -180,7 +180,7 @@ export function parseExit(auditMessage: string, status: Status): ParsedRamblersU
   return [{
     audit: true,
     data: {
-      auditTime: momentNowAsValue(),
+      auditTime: dateTimeNowAsValue(),
       type: AuditType.SUMMARY,
       status,
       message: removeTokensFromMessage(auditMessage)

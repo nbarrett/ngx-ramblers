@@ -6,8 +6,10 @@
   "private": true,
   "scripts": {
     "aws-backup": "ts-node aws-backup/backup-s3-images.ts",
+    "build": "npm run clean-ts && npm run tsc",
     "clean": "rimraf target/site/serenity",
     "clean-node": "rm -rf node_modules",
+    "clean-ts": "rimraf ts-gen",
     "deploy": "ts-node deploy/deploy-to-environments.ts",
     "lint": "tslint --config ./tslint.json --project ./tsconfig.json --format stylish",
     "lintfix": "tslint --config ./tslint.json --project ./tsconfig.json --format stylish --fix",
@@ -25,8 +27,9 @@
     "test": "failsafe serenity report",
     "tsc": "tsc --project ./tsconfig.json",
     "tsc-watch": "tsc --project ./tsconfig.json --watch",
-    "unit-test": ". test-setenv.sh && mocha  --watch",
-    "unit-test:once": "bash -lc 'source ./test-setenv.sh && mocha'"
+    "tsc-check": "tsc --project ./tsconfig.json --noEmit",
+    "unit-test": ". test-setenv.sh && npm run build && mocha --watch",
+    "unit-test:once": "bash -lc 'source ./test-setenv.sh && npm run build && mocha'"
   },
   "nodemonConfig": {
     "ignore": [
@@ -51,6 +54,7 @@
     "@types/inquirer": "9.0.8",
     "@types/jsonwebtoken": "9.0.6",
     "@types/lodash-es": "4.17.3",
+    "@types/luxon": "3.7.1",
     "@types/mailchimp__mailchimp_marketing": "3.0.9",
     "@types/mocha": "10.0.10",
     "@types/mongoose": "5.11.97",
@@ -87,11 +91,10 @@
     "jsonwebtoken": "8.5.1",
     "lodash": "4.17.20",
     "lodash-es": "4.17.21",
+    "luxon": "3.7.2",
     "matchdep": "0.3.0",
     "mkdirpsync": "0.1.0",
     "mocha": "11.1.0",
-    "moment": "2.19.3",
-    "moment-timezone": "0.5.13",
     "mongoose": "8.17.1",
     "mongoose-unique-validator": "5.0.1",
     "morgan": "1.9.1",

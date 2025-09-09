@@ -66,12 +66,12 @@ export class ExtendedGroupEventQueryService {
   }
 
   criteriaFor(filterParameters: HasBasicEventSelection, dateComparison?: string, upperDateComparison?: string): MongoCriteria {
-    const date: Date = dateComparison ? this.dateUtils.asMoment(dateComparison).toDate() : this.dateUtils.momentNowNoTime().toDate();
+    const date: Date = dateComparison ? this.dateUtils.asDateTime(dateComparison).toJSDate() : this.dateUtils.dateTimeNowNoTime().toJSDate();
     switch (filterParameters.selectType) {
       case FilterCriteria.FUTURE_EVENTS:
         return {[GroupEventField.START_DATE]: {$gte: date}};
       case FilterCriteria.DATE_RANGE:
-        return {[GroupEventField.START_DATE]: {$gte: date, $lte: this.dateUtils.asMoment(upperDateComparison).toDate()}};
+        return {[GroupEventField.START_DATE]: {$gte: date, $lte: this.dateUtils.asDateTime(upperDateComparison).toJSDate()}};
       case FilterCriteria.PAST_EVENTS:
         return {[GroupEventField.START_DATE]: {$lt: date}};
       case FilterCriteria.ALL_EVENTS:
@@ -168,8 +168,8 @@ export class ExtendedGroupEventQueryService {
   }
 
   nextWalkId(walks: ExtendedGroupEvent[]): string {
-    const today = this.dateUtils.momentNow().valueOf();
-    const nextWalk: ExtendedGroupEvent = first(cloneDeep(walks)?.filter((walk: ExtendedGroupEvent) => this.dateUtils.asMoment(walk?.groupEvent?.start_date_time).valueOf() >= today)?.sort(sortBy("walk.groupEvent.start_date_time")));
+    const today = this.dateUtils.dateTimeNow().toMillis();
+    const nextWalk: ExtendedGroupEvent = first(cloneDeep(walks)?.filter((walk: ExtendedGroupEvent) => this.dateUtils.asDateTime(walk?.groupEvent?.start_date_time).toMillis() >= today)?.sort(sortBy("walk.groupEvent.start_date_time")));
     const nextWalkId = nextWalk?.id || nextWalk?.groupEvent?.id;
     this.logger.info("nextWalk:", nextWalk, "nextWalkId:", nextWalkId);
     return nextWalkId;

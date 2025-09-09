@@ -114,7 +114,7 @@ export class FileUtilsService {
     return {
       eventId: null,
       dateSource: "upload",
-      date: this.dateUtils.asMoment(base64File.file.lastModified).valueOf(),
+      date: this.dateUtils.asDateTime(base64File.file.lastModified).toMillis(),
       base64Content: base64File.base64Content,
       originalFileName: base64File.file.name,
       tags: []

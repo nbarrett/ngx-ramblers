@@ -30,6 +30,9 @@ import { AscentValidationService } from "../../../services/walks/ascent-validati
     .ascent-input
       width: 120px
       margin-right: 12px
+    select.form-control
+      width: 80px
+      margin-left: 4px
   `],
   imports: [
     FormsModule

@@ -26,7 +26,6 @@ COPY package*.json ./
 
 # Copy Angular configuration files
 COPY angular.json ./
-COPY custom-webpack.config.js ./
 COPY ts*.json ./
 
 # Copy the Angular application code to the working directory

@@ -221,8 +221,8 @@ export class DynamicContentSiteEditEvents implements OnInit {
         maxColumns: 2,
         allow,
         eventTypes: [RamblersEventType.GROUP_EVENT],
-        fromDate: this.dateUtils.asMoment().valueOf(),
-        toDate: this.dateUtils.asMoment().add(2, "weeks").valueOf(),
+        fromDate: this.dateUtils.dateTimeNow().toMillis(),
+        toDate: this.dateUtils.dateTimeNow().plus({ weeks: 2 }).toMillis(),
         filterCriteria: FilterCriteria.DATE_RANGE,
         sortOrder: SortOrder.DATE_ASCENDING
       };

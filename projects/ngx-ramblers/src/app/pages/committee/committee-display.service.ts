@@ -47,8 +47,8 @@ export class CommitteeDisplayService {
 
   defaultCommitteeFile(): CommitteeFile {
     return cloneDeep({
-      createdDate: this.dateUtils.momentNow().valueOf(),
-      eventDate: this.dateUtils.momentNowNoTime().valueOf(),
+      createdDate: this.dateUtils.dateTimeNow().toMillis(),
+      eventDate: this.dateUtils.dateTimeNowNoTime().toMillis(),
       fileType: this.fileTypes()[0]?.description
     });
   }

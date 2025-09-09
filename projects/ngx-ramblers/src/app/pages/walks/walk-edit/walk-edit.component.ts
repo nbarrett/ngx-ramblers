@@ -73,7 +73,7 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
       <tabset class="custom-tabset">
         <tab heading="Main Details">
           <app-walk-edit-main-details [displayedWalk]="displayedWalk"
-            [inputDisabled]="inputDisabled()"/>
+                                      [inputDisabled]="inputDisabled()"/>
         </tab>
         <tab heading="Walk Details" (selectTab)="onTabSelect($event)">
           <app-walk-edit-details
@@ -139,17 +139,17 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
     </div>
     @if (displayedWalk?.walk) {
       @if (showChangedItems) {
-        <div>
+        <pre>
           changedItems: {{ walkEventService.walkDataAuditFor(this.displayedWalk?.walk, status(), true)?.changedItems | json }}
-        </div>
+        </pre>
       }
       @if (display.walkLink(displayedWalk.walk)) {
         <div class="mb-2">
-            <app-copy-icon [icon]="faCopy" title [value]="display.walkLink(displayedWalk.walk)"
-                           [elementName]="'event link'">copy link to this
-            </app-copy-icon>
-            <a class="rams-text-decoration-pink" [href]="display.walkLink(displayedWalk.walk)"
-               target="_blank">{{stringUtils.asTitle(displayedWalk.walk?.groupEvent?.item_type)}}</a>
+          <app-copy-icon [icon]="faCopy" title [value]="display.walkLink(displayedWalk.walk)"
+                         [elementName]="'event link'">copy link to this
+          </app-copy-icon>
+          <a class="rams-text-decoration-pink" [href]="display.walkLink(displayedWalk.walk)"
+             target="_blank">{{ stringUtils.asTitle(displayedWalk.walk?.groupEvent?.item_type) }}</a>
         </div>
       }
       <div class="d-inline-flex align-items-center flex-wrap mb-4 align-middle">

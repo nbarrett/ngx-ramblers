@@ -43,7 +43,7 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
           walkAccessMode: WalksReferenceService.walkAccessModes.add,
           walk: this.eventDefaultsService.createDefault({
             inputSource: InputSource.MANUALLY_CREATED,
-            start_date_time: this.dateUtils.momentNowNoTime().valueOf()
+            start_date_time: this.dateUtils.isoDateTimeStartOfDay()
           }),
           status: EventType.AWAITING_LEADER,
           showEndpoint: false

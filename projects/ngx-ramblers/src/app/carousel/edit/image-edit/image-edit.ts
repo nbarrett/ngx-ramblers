@@ -343,7 +343,7 @@ export class ImageEditComponent implements OnInit {
 
   callInsert() {
     this.logger.debug("inserting image  with filteredFiles:", this.filteredFiles);
-    const newItem: ContentMetadataItem = {date: this.dateUtils.momentNow().valueOf(), dateSource: "upload", tags: this.item?.tags || []};
+    const newItem: ContentMetadataItem = {date: this.dateUtils.dateTimeNow().toMillis(), dateSource: "upload", tags: this.item?.tags || []};
     this.imageInsert.emit(newItem);
   }
 

@@ -2,6 +2,8 @@ import { Component, inject, Input } from "@angular/core";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DOCUMENT } from "@angular/common";
+import isString from "lodash-es/isString";
+import isBoolean from "lodash-es/isBoolean";
 
 export interface CsvOptions {
   filename: string;
@@ -155,7 +157,7 @@ export class CsvExportComponent {
       return data.toString().replace(".", this._options.decimalSeparator);
     }
 
-    if (typeof data === "string") {
+    if (isString(data)) {
       data = data.replace(/"/g, "\"\"");
       if (this._options.quoteStrings || data.indexOf(",") > -1
         || data.indexOf("\n") > -1 || data.indexOf("\r") > -1) {
@@ -164,7 +166,7 @@ export class CsvExportComponent {
       return data;
     }
 
-    if (typeof data === "boolean") {
+    if (isBoolean(data)) {
       return data ? "TRUE" : "FALSE";
     }
     return data;

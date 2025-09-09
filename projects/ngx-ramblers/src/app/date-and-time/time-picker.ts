@@ -35,7 +35,7 @@ export class TimePicker {
   @Input() disabled: boolean;
 
   @Input("value") set valueValue(value: string) {
-    this.time = this.dateUtils.asMoment(value).toDate();
+    this.time = this.dateUtils.asDateTime(value).toJSDate();
   }
 
   @Output() change: EventEmitter<string> = new EventEmitter();

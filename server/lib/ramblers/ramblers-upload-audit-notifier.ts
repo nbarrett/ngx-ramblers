@@ -9,7 +9,7 @@ import {
   RamblersUploadAudit,
   Status
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-upload-audit.model";
-import { momentNowAsValue } from "../shared/dates";
+import { dateTimeNowAsValue } from "../shared/dates";
 import WebSocket from "ws";
 import {
   MessageType,
@@ -27,7 +27,7 @@ export async function sendAudit<T>(ws: WebSocket, props: AuditRamblersUploadPara
       currentUploadSession.record++;
       const data = uploadAudit.data;
       return mongooseClient.create<RamblersUploadAudit>(ramblersUploadAudit, {
-        auditTime: data.auditTime || momentNowAsValue(),
+        auditTime: data.auditTime || dateTimeNowAsValue(),
         fileName: currentUploadSession.fileName,
         record: currentUploadSession.record,
         type: data.type,

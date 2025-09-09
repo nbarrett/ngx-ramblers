@@ -102,7 +102,7 @@ export class CommitteeQueryService {
             slug: this.stringUtilsService.lastItemFrom(event?.groupEvent?.url || this.stringUtilsService.kebabCase(event?.groupEvent?.title)),
             selected: true,
             eventType: this.display.groupEventType(event),
-            eventDate: this.dateUtils.asMoment(event?.groupEvent?.start_date_time).valueOf(),
+            eventDate: this.dateUtils.asDateTime(event?.groupEvent?.start_date_time).toMillis(),
             eventTime: this.displayTimePipe.transform(event?.groupEvent?.start_date_time),
             distance: this.distanceValidationService.walkDistances(event),
             location: (event?.groupEvent?.start_location || event?.groupEvent?.location)?.description,

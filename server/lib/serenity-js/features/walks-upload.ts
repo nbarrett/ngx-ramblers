@@ -9,7 +9,8 @@ import { Actors } from "./config/actors";
 import { after, beforeEach, describe, it } from "mocha";
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
-import { momentNow } from "../../shared/dates";
+import { dateTimeNow } from "../../shared/dates";
+import { DateFormat } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { CheckAndReportOn } from "../screenplay/tasks/ramblers/walks/check-and-report-on";
 import { SaveBrowserSource } from "../screenplay/tasks/common/save-browser-source";
 
@@ -29,7 +30,7 @@ describe("Walks Upload", () => {
   });
 
   it(`Walks Upload to Ramblers Walks Manager`, () => {
-    const today = momentNow().startOf("day").format("YYYY-MM-DD");
+    const today = dateTimeNow().startOf("day").toFormat(DateFormat.WALKS_MANAGER_API);
     return actorCalled(actor).attemptsTo(
       Start.onWalksAndEventsManager(),
       Login.toRamblers(),

@@ -1,13 +1,13 @@
-import moment from "moment-timezone";
+import { DateTime } from "luxon";
 
-export function momentNowAsValue(): number {
-  return momentNow().valueOf();
+export function dateTimeNowAsValue(): number {
+  return dateTimeNow().toMillis();
 }
 
-export function momentNow(): moment {
-  return moment().tz("Europe/London");
+export function dateTimeNow(): DateTime {
+  return DateTime.now().setZone("Europe/London");
 }
 
-export function momentInTimezone(time: string, format?: string) {
-  return moment(time, format).tz("Europe/London");
+export function dateTimeInTimezone(time: string, format?: string): DateTime {
+  return format ? DateTime.fromFormat(time, format, { zone: "Europe/London" }) : DateTime.fromISO(time, { zone: "Europe/London" });
 }

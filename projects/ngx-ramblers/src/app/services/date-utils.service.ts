@@ -1,7 +1,9 @@
 import { Time } from "@angular/common";
 import { inject, Injectable } from "@angular/core";
 import range from "lodash-es/range";
-import moment from "moment-timezone";
+import isString from "lodash-es/isString";
+import isNumber from "lodash-es/isNumber";
+import { DateTime, Duration } from "luxon";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateValue } from "../models/date.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";
@@ -9,6 +11,9 @@ import { NumberUtilsService } from "./number-utils.service";
 import { isDateValue } from "./type-guards";
 import { ExtendedGroupEvent } from "../models/group-event.model";
 import { StringUtilsService } from "./string-utils.service";
+
+type DateInput = string | number | Date | DateValue | DateTime;
+
 
 @Injectable({
   providedIn: "root"
@@ -25,128 +30,144 @@ export class DateUtilsService {
     ramblersTime: "HH:mm",
     displayTime: "h:mm a",
     displayTimeWithSeconds: "h:mm:ss a",
-    displayDateAndTime: "dddd, D MMMM YYYY, h:mm:ss a",
-    displayDateTh: "MMMM Do YYYY",
-    displayDate: "dddd, D MMMM YYYY",
-    displayDateNoDay: "D MMMM YYYY",
-    displayDay: "dddd MMMM D, YYYY",
-    dayMonthYearWithSlashes: "DD/MM/YYYY",
-    yearMonthDayWithDashes: "YYYY-MM-DD",
-    yearMonthDay: "YYYYMMDD"
+    displayDateAndTime: "cccc, d MMMM yyyy, h:mm:ss a",
+    displayDateTh: "MMMM do yyyy",
+    displayDate: "cccc, d MMMM yyyy",
+    displayDateNoDay: "d MMMM yyyy",
+    displayDay: "cccc MMMM d, yyyy",
+    dayMonthYearWithSlashes: "dd/MM/yyyy",
+    yearMonthDayWithDashes: "yyyy-MM-dd",
+    yearMonthDay: "yyyyMMdd"
   };
 
-  isMidnight(dateValue: any): boolean {
-    const momentDate = this.asMoment(dateValue);
-    return momentDate.hours() === 0 && momentDate.minutes() === 0;
+  isMidnight(dateValue: DateInput): boolean {
+    const dateTime = this.asDateTime(dateValue);
+    return dateTime.hour === 0 && dateTime.minute === 0;
   }
 
   yearFromDate(dateValue: number): number {
-    return dateValue ? parseInt(this.asString(dateValue, undefined, "YYYY"), 10) : null;
+    return dateValue ? parseInt(this.asString(dateValue, undefined, "yyyy"), 10) : null;
   }
 
   isDate(value) {
-    return value && this.asMoment(value).isValid();
+    return value && this.asDateTime(value).isValid;
   }
 
-  asMoment(dateValue?: any, inputFormat?: string): moment {
+  asDateTime(dateValue?: DateInput, inputFormat?: string): DateTime {
     if (isDateValue(dateValue)) {
-      // Treat stored numeric epoch as an instant; convert to Europe/London time
-      return moment(dateValue.value, inputFormat).tz("Europe/London");
+      return DateTime.fromMillis(dateValue.value).setZone("Europe/London");
     }
     if (dateValue instanceof Date) {
-      // Build the moment in Europe/London using the Date's local components to avoid env tz drift
-      return moment.tz({
+      return DateTime.fromObject({
         year: dateValue.getFullYear(),
-        month: dateValue.getMonth(),
+        month: dateValue.getMonth() + 1,
         day: dateValue.getDate(),
         hour: dateValue.getHours(),
         minute: dateValue.getMinutes(),
         second: dateValue.getSeconds(),
         millisecond: dateValue.getMilliseconds()
-      }, "Europe/London");
+      }, { zone: "Europe/London" });
     }
-    if (typeof dateValue === "string") {
-      // Normalize some common time notations (e.g., "10.0" when format expects a space)
+    if (isString(dateValue)) {
       let input = dateValue;
-      if (inputFormat && /HH\s*mm/.test(inputFormat) && /\d+\.\d+/.test(input)) {
-        input = input.replace(/\./g, " ");
+      if (inputFormat && /HH[\s]*mm/.test(inputFormat) && /\d+\.\d+/.test(input)) {
+        const parts = input.split(".");
+        const hours = parts[0].padStart(2, "0");
+        const minutes = parts[1].padStart(2, "0");
+        input = `${hours} ${minutes}`;
       }
-      // Parse string as local wall-clock in Europe/London (no shifting on zone apply)
-      return moment(input, inputFormat).tz("Europe/London", true);
+      if (inputFormat) {
+        return DateTime.fromFormat(input, inputFormat, { zone: "Europe/London" });
+      } else {
+        return DateTime.fromISO(input, { zone: "Europe/London" });
+      }
     }
-    return moment(dateValue, inputFormat).tz("Europe/London");
+    if (isNumber(dateValue)) {
+      return DateTime.fromMillis(dateValue).setZone("Europe/London");
+    }
+    return DateTime.now().setZone("Europe/London");
   }
 
-  momentNow(): moment {
-    return this.asMoment();
+  dateTimeNow(): DateTime {
+    return this.asDateTime();
   }
 
   asString(dateValue, inputFormat, outputFormat): string {
-    return dateValue ? this.asMoment(dateValue, inputFormat).format(outputFormat) : undefined;
+    if (!dateValue) return undefined;
+    const formatted = this.asDateTime(dateValue, inputFormat).toFormat(outputFormat);
+    return this.convertToLowercaseAmPm(formatted);
   }
 
-  asValue(dateValue: any, inputFormat?: string): number {
-    return this.asMoment(dateValue, inputFormat).valueOf();
+  private convertToLowercaseAmPm(formatted: string): string {
+    return formatted.replace(/\bAM\b/g, "am").replace(/\bPM\b/g, "pm");
+  }
+
+  asValue(dateValue: DateInput, inputFormat?: string): number {
+    return this.asDateTime(dateValue, inputFormat).toMillis();
   }
 
   nowAsValue(): number {
-    return this.asMoment(undefined, undefined).valueOf();
+    return this.asDateTime(undefined, undefined).toMillis();
   }
 
-  displayDateAndTime(dateValue: any): string {
+  displayDateAndTime(dateValue: DateInput): string {
     return this.asString(dateValue, undefined, this.formats.displayDateAndTime);
   }
 
-  displayDate(dateValue: any): string {
+  displayDate(dateValue: DateInput): string {
     return this.asString(dateValue, undefined, this.formats.displayDate);
   }
 
-  displayDateNoDay(dateValue: any): string {
+  displayDateNoDay(dateValue: DateInput): string {
     return this.asString(dateValue, undefined, this.formats.displayDateNoDay);
   }
 
-  displayDay(dateValue: any): string {
+  displayDay(dateValue: DateInput): string {
     return this.asString(dateValue, undefined, this.formats.displayDay);
   }
 
-  displayTime(dateValue: any): string {
+  displayTime(dateValue: DateInput): string {
     return this.asString(dateValue, undefined, this.formats.displayTime);
   }
 
-  ramblersTime(dateValue: any): string {
+  ramblersTime(dateValue: DateInput): string {
     return this.asString(dateValue, undefined, this.formats.ramblersTime);
   }
 
-  yearMonthDayWithDashes(dateValue: any): string {
+  yearMonthDayWithDashes(dateValue: DateInput): string {
     return this.asString(dateValue, undefined, this.formats.yearMonthDayWithDashes);
   }
 
-  displayTimeWithSeconds(dateValue: any): string {
+  displayTimeWithSeconds(dateValue: DateInput): string {
     return this.asString(dateValue, undefined, this.formats.displayTimeWithSeconds);
   }
 
-  isoDateTime(dateValue?: any): string {
-    return this.asMoment(dateValue)?.format();
+  isoDateTime(dateValue?: DateInput): string {
+    return this.asDateTime(dateValue)?.toISO({ suppressMilliseconds: true });
+  }
+
+  isoDateTimeNow(): string {
+    return this.isoDateTime();
   }
 
   isoDateTimeStartOfDay(): string {
-    return this.isoDateTime(this.momentNowNoTime());
+    return this.isoDateTime(this.dateTimeNowNoTime());
   }
 
-  asDateValue(dateValue?: any, inputFormat?: string): DateValue {
-    const moment = this.asMoment(dateValue, inputFormat);
+  asDateValue(dateValue?: DateInput, inputFormat?: string): DateValue {
+    const dateTime = this.asDateTime(dateValue, inputFormat);
     return {
-      value: moment.valueOf(),
-      date: moment.toDate()
+      value: dateTime.toMillis(),
+      date: dateTime.toJSDate()
     };
   }
 
-  asValueNoTime(dateValue?: any, inputFormat?: string): number {
-    return this.asMoment(dateValue, inputFormat).startOf("day").valueOf();
+  asValueNoTime(dateValue?: DateInput, inputFormat?: string): number {
+    return this.asDateTime(dateValue, inputFormat).startOf("day").toMillis();
   }
 
-  momentNowNoTime(): moment {
-    return this.asMoment().startOf("day");
+  dateTimeNowNoTime(): DateTime {
+    return this.asDateTime().startOf("day");
   }
 
   convertDateFieldInObject(object, field) {
@@ -155,7 +176,7 @@ export class DateUtilsService {
     return object;
   }
 
-  convertDateField(inputValue: any) {
+  convertDateField(inputValue: DateInput) {
     if (inputValue) {
       const dateValue = this.asValueNoTime(inputValue);
       if (dateValue !== inputValue) {
@@ -177,11 +198,11 @@ export class DateUtilsService {
 
   startTimeAsValue(walk: ExtendedGroupEvent): number {
     if (walk) {
-      const walkDateMoment: moment = this.asMoment(walk?.groupEvent?.start_date_time);
-      const walkDateAndTimeValue: number = walkDateMoment.valueOf();
+      const walkDateTime: DateTime = this.asDateTime(walk?.groupEvent?.start_date_time);
+      const walkDateAndTimeValue: number = walkDateTime.toMillis();
       this.logger.info("text based start_date_time:", walk?.groupEvent.start_date_time,
-        "walkDateMoment:", walkDateMoment.format(),
-        "displayDateAndTime(walkDateMoment):", this.displayDateAndTime(walkDateMoment));
+        "walkDateTime:", this.isoDateTime(walkDateTime),
+        "displayDateAndTime(walkDateTime):", this.displayDateAndTime(walkDateTime));
       return walkDateAndTimeValue;
     } else {
       return null;
@@ -193,12 +214,12 @@ export class DateUtilsService {
   }
 
   currentYear(): number {
-    return +this.asString(this.momentNow().valueOf(), undefined, "YYYY");
+    return +this.asString(this.dateTimeNow().toMillis(), undefined, "yyyy");
   }
 
   formatDuration(fromTime: number, toTime: number) {
-    const duration = moment.duration(toTime - fromTime);
-    const seconds = duration.asSeconds();
+    const duration = Duration.fromMillis(toTime - fromTime);
+    const seconds = duration.as("seconds");
     if (!fromTime || !toTime) {
       return "0 secs";
     } else if (seconds < 1) {
@@ -206,16 +227,16 @@ export class DateUtilsService {
     } else if (seconds < 60) {
       return `${seconds.toFixed(0)} secs`;
     } else if (seconds < 3600) {
-      const minutes = duration.asMinutes();
+      const minutes = duration.as("minutes");
       return `${minutes.toFixed(1)} mins`;
     } else if (seconds < 86400) {
-      const hours = Math.floor(duration.asHours());
-      const minutes = Math.round(duration.asMinutes() % 60);
+      const hours = Math.floor(duration.as("hours"));
+      const minutes = Math.round(duration.as("minutes") % 60);
       return `${this.stringUtilsService.pluraliseWithCount(hours, "hour")}${minutes > 0 ? ` ${this.stringUtilsService.pluraliseWithCount(minutes, "min")}` : ""}`;
     } else {
-      const days = Math.floor(duration.asDays());
-      const hours = Math.floor(duration.asHours() % 24);
-      const minutes = Math.round(duration.asMinutes() % 60);
+      const days = Math.floor(duration.as("days"));
+      const hours = Math.floor(duration.as("hours") % 24);
+      const minutes = Math.round(duration.as("minutes") % 60);
       let result = this.stringUtilsService.pluraliseWithCount(days, "day");
       if (hours > 0) {
         result += ` ${this.stringUtilsService.pluraliseWithCount(hours, "hour")}`;
@@ -227,21 +248,19 @@ export class DateUtilsService {
     }
   }
 
-  calculateWalkDateAndTimeValue(walkDateMoment: moment, startTime: Time): number {
-    let walkDateAndTime = walkDateMoment.clone().add(startTime?.hours, "hours").add(startTime?.minutes, "minutes");
-    // Adjust for DST end transition
-    if (walkDateMoment.isDST() && !walkDateAndTime.isDST()) {
-      walkDateAndTime = walkDateAndTime.add(1, "hour");
+  calculateWalkDateAndTimeValue(walkDateTime: DateTime, startTime: Time): number {
+    let walkDateAndTime = walkDateTime.plus({ hours: startTime?.hours, minutes: startTime?.minutes });
+    if (walkDateTime.isInDST && !walkDateAndTime.isInDST) {
+      walkDateAndTime = walkDateAndTime.plus({ hours: 1 });
     }
-    // Adjust for DST start transition
-    if (!walkDateMoment.isDST() && walkDateAndTime.isDST()) {
-      walkDateAndTime = walkDateAndTime.subtract(1, "hour");
+    if (!walkDateTime.isInDST && walkDateAndTime.isInDST) {
+      walkDateAndTime = walkDateAndTime.minus({ hours: 1 });
     }
-    return walkDateAndTime.valueOf();
+    return walkDateAndTime.toMillis();
   }
 
   public parseCsvDate(dateValue: string, timeValue: string) {
-    return this.startTimeFrom(timeValue, this.asMoment(dateValue).valueOf());
+    return this.startTimeFrom(timeValue, this.asDateTime(dateValue).toMillis());
   }
 
   public parseTime(startTime: string): Time {
@@ -264,14 +283,21 @@ export class DateUtilsService {
 
   public startTimeFrom(startTimeAsString: string, eventDate: number): string {
     const startTime: Time = this.parseTime(startTimeAsString);
-    const walkDateMoment: moment = this.asMoment(eventDate);
-    const walkDateAndTimeValue = this.calculateWalkDateAndTimeValue(walkDateMoment, startTime);
-    const toISOString = this.asMoment(walkDateAndTimeValue).toISOString();
+    const walkDateTime: DateTime = this.asDateTime(eventDate);
+    const walkDateAndTimeValue = this.calculateWalkDateAndTimeValue(walkDateTime, startTime);
+    const toISOString = this.isoDateTime(walkDateAndTimeValue);
     this.logger.debug("text based startTime:", startTime,
       "startTime:", startTime,
       "walkDateAndTimeValue:", walkDateAndTimeValue,
       "toISOString:", toISOString);
     return toISOString;
+  }
+
+
+
+
+  dateTimeNowAsValue(): number {
+    return this.dateTimeNow().toMillis();
   }
 
 

@@ -187,8 +187,8 @@ export class ContentMetadataService {
 
   private filterForLastMonths(months: number, imageTags: ImageTag[], showDuplicates: boolean, allSlides: ContentMetadataItem[], filterText: string, tag: ImageTag, duplicateImages: DuplicateImages) {
     const excludingKeys = this.excludeFromRecentKeys(imageTags);
-    const sinceDate = this.dateUtils.momentNow().subtract(months, "months");
-    const filteredSlides = this.filterAndSort(showDuplicates, allSlides?.filter(file => file.date >= sinceDate.valueOf() && !(file.tags.find(tag => excludingKeys.includes(tag)))), filterText, duplicateImages);
+    const sinceDate = this.dateUtils.dateTimeNow().minus({ months });
+    const filteredSlides = this.filterAndSort(showDuplicates, allSlides?.filter(file => file.date >= sinceDate.toMillis() && !(file.tags.find(tag => excludingKeys.includes(tag)))), filterText, duplicateImages);
     this.logger.debug(filteredSlides?.length, "slides selected from", tag?.subject, "since", this.dateUtils.displayDate(sinceDate), "excludingKeys:", excludingKeys.join(", "), "showDuplicates:", showDuplicates);
     return filteredSlides;
   }

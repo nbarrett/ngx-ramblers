@@ -272,7 +272,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
     this.logger.info("constructed with", this.stringUtils.pluraliseWithCount(this.members.length, "member"));
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));
-    this.memberFilterDate = this.dateUtils.asDateValue(this.dateUtils.momentNowNoTime().valueOf());
+    this.memberFilterDate = this.dateUtils.asDateValue(this.dateUtils.dateTimeNowNoTime().toMillis());
     this.mailMessagingService.events().subscribe((mailMessagingConfig: MailMessagingConfig) => {
       this.logger.info("mailMessagingConfig:", mailMessagingConfig);
       this.mailMessagingConfig = mailMessagingConfig;
@@ -393,7 +393,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   }
 
   calculateMemberFilterDate() {
-    const dateFilter = this.dateUtils.momentNowNoTime().subtract(this.notificationConfig.monthsInPast, "months");
+    const dateFilter = this.dateUtils.dateTimeNowNoTime().minus({ months: this.notificationConfig.monthsInPast });
     this.memberFilterDate = this.dateUtils.asDateValue(dateFilter);
     this.logger.info("calculateMemberFilterDate:for this.emailConfig:", this.notificationConfig, "memberFilterDate:", this.memberFilterDate);
   }
@@ -408,7 +408,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
 
   renderExpiryInformation(member: Member): MemberFilterSelection {
     const disabled = !member.email;
-    const today = this.dateUtils.momentNowNoTime().valueOf();
+    const today = this.dateUtils.dateTimeNowNoTime().toMillis();
     const expiredActive = member.membershipExpiryDate < today ? "expired" : "active";
     const memberGrouping = disabled ? "no email address" : this.memberBulkLoadAuditService.receivedInBulkLoad(member, true, this.latestMemberBulkLoadAudit) ? expiredActive : "missing from last bulk load";
     const datePrefix = memberGrouping === "expired" ? ": " : ", " + (member.membershipExpiryDate < today ? "expired" : "expiry") + ": ";
@@ -418,7 +418,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
 
   renderCreatedInformation(member: Member): MemberFilterSelection {
     const disabled = !member.email;
-    const memberGrouping = disabled ? "no email address" : member.membershipExpiryDate < this.dateUtils.momentNowNoTime().valueOf() ? "expired" : "active";
+    const memberGrouping = disabled ? "no email address" : member.membershipExpiryDate < this.dateUtils.dateTimeNowNoTime().toMillis() ? "expired" : "active";
     const memberInformation = `${this.fullNameWithAliasPipe.transform(member)} (created ${this.dateUtils.displayDate(member.createdDate) || "not known"})`;
     return {id: member.id, member, memberInformation, memberGrouping, disabled};
   }

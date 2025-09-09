@@ -649,7 +649,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   insertToEmptyList() {
     this.logger.debug("inserting image with filteredFiles:", this.filteredFiles);
-    const newItem: ContentMetadataItem = {date: this.dateUtils.momentNow().valueOf(), dateSource: "upload", tags: []};
+    const newItem: ContentMetadataItem = {date: this.dateUtils.dateTimeNow().toMillis(), dateSource: "upload", tags: []};
     this.contentMetadata.rootFolder = RootFolder.carousels;
     this.contentMetadata.name = this.name;
     this.imageInsert(newItem);
@@ -692,7 +692,6 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   filterByTag(tagSubject: string) {
     this.logger.debug("filterByTag:tagSubject:", tagSubject);
     if (this.changeUrlOnChangeOfTag) {
-      // causes full component reload so don't do this
       this.imageTagDataService.select(this.contentMetadata?.imageTags, tagSubject);
     }
     this.applyFilter();

@@ -7,7 +7,7 @@ import { Request, Response } from "express";
 import * as fs from "fs";
 import * as https from "https";
 import { omit } from "lodash";
-import moment from "moment-timezone";
+import { DateTime } from "luxon";
 import * as path from "path";
 import {
   S3Metadata,
@@ -49,7 +49,7 @@ export function listObjects(req: Request, res: Response) {
     .then((data: ListObjectsCommandOutput) => {
       const response: S3Metadata[] = data.Contents?.map(item => ({
         key: item.Key,
-        lastModified: moment(item.LastModified).tz("Europe/London").valueOf(),
+        lastModified: DateTime.fromJSDate(item.LastModified).setZone("Europe/London").toMillis(),
         size: item.Size
       })) || [];
       debugLog("listObjects:response data for:bucketParams:", bucketParams, "returned:", response.length, "items");

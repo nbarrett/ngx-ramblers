@@ -19,7 +19,7 @@ export class MemberBulkDeleteService {
   private dateUtils = inject(DateUtilsService);
 
   async performBulkDelete(members: Member[], memberIds: string[]) {
-    const deletedAt: number = this.dateUtils.momentNowNoTime().valueOf();
+    const deletedAt: number = this.dateUtils.dateTimeNowNoTime().toMillis();
     const deletedBy: string = this.memberLoginService.loggedInMember().memberId;
     const membersToDelete: Member[] = members.filter(member => memberIds.includes(member.id));
     const deletedMemberResponses = await this.memberService.deleteAll(membersToDelete);

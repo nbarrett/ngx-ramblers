@@ -201,7 +201,7 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
   protected committeeMember: CommitteeMember;
   protected validateTokenRequest: ValidateTokenRequest = {captchaToken: null};
   protected contactFormDetails: ContactFormDetails = {
-    timestamp: this.dateUtils.momentNow().valueOf(),
+    timestamp: this.dateUtils.dateTimeNow().toMillis(),
     name: null,
     email: null,
     subject: null,

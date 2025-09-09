@@ -92,8 +92,8 @@ export class GroupEventSelectorComponent implements OnInit {
   public dataSource: string;
   public groupEvents: GroupEventSummary[] = [];
   private search: string;
-  public fromDate: number = this.dateUtils.asMoment().subtract(2, "weeks").valueOf();
-  public toDate: number = this.dateUtils.asMoment().add(1, "day").valueOf();
+  public fromDate: number = this.dateUtils.dateTimeNow().minus({ weeks: 2 }).toMillis();
+  public toDate: number = this.dateUtils.dateTimeNow().plus({ days: 1 }).toMillis();
   public id: string;
   public groupEventType: GroupEventType;
 
@@ -110,8 +110,8 @@ export class GroupEventSelectorComponent implements OnInit {
   }
 
   initialiseDateRange(referenceDate: number) {
-    this.fromDate = this.dateUtils.asMoment(referenceDate).subtract(2, "weeks").valueOf();
-    this.toDate = this.dateUtils.asMoment(referenceDate).add(2, "weeks").valueOf();
+    this.fromDate = this.dateUtils.asDateTime(referenceDate).minus({ weeks: 2 }).toMillis();
+    this.toDate = this.dateUtils.asDateTime(referenceDate).plus({ weeks: 2 }).toMillis();
   }
 
   queryGroupEvents(): Promise<GroupEventSummary[]> {

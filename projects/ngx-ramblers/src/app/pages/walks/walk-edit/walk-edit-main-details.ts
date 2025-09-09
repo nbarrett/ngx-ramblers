@@ -199,6 +199,7 @@ export class WalkEditMainDetailsComponent implements OnInit {
       const startDateTime = this.dateUtils.isoDateTime(date.value);
       this.logger.info("onDateChange:date", date, "of type", typeof date, "setting start_date_time:", startDateTime);
       this.displayedWalk.walk.groupEvent.start_date_time = startDateTime;
+      this.calculateAndSetFinishTime();
     }
   }
 

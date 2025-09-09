@@ -6,7 +6,7 @@ import {
   BrowserDynamicTestingModule,
   platformBrowserDynamicTesting
 } from "@angular/platform-browser-dynamic/testing";
-import moment from "moment-timezone";
+import { Settings } from "luxon";
 
 // First, initialize the Angular testing environment.
 getTestBed().initTestEnvironment(
@@ -15,4 +15,4 @@ platformBrowserDynamicTesting()
 );
 
 // Ensure consistent timezone for all date tests across CI/local
-moment.tz.setDefault("Europe/London");
+Settings.defaultZone = "Europe/London";

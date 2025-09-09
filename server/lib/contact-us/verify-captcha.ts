@@ -15,7 +15,7 @@ export async function verifyCaptcha(token: string): Promise<CaptchaVerificationR
   } else  if (!secretKey) {
     throw new Error("Captcha configuration missing secret key");
   } else {
-    const verificationUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${token}`;
+    const verificationUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${encodeURIComponent(secretKey)}&response=${encodeURIComponent(token)}`;
     try {
       const response = await axios.post<CaptchaVerificationResponse>(verificationUrl);
       return response.data;

@@ -3,7 +3,7 @@ import * as path from "path";
 import { UploadError } from "../../../questions/ramblers/upload-error";
 import { RequestParameterExtractor } from "../common/request-parameter-extractor";
 import { pluraliseWithCount } from "../../../../../shared/string-utils";
-import { momentNowAsValue } from "../../../../../shared/dates";
+import { dateTimeNowAsValue } from "../../../../../shared/dates";
 
 import {
   AuditType,

@@ -201,8 +201,8 @@ export class WalkAddSlotsComponent implements OnInit {
       } else {
       }
     });
-    this.todayValue = this.dateUtils.momentNowNoTime().valueOf();
-    const momentUntil = this.dateUtils.momentNowNoTime().day(7 * 12);
+    this.todayValue = this.dateUtils.dateTimeNowNoTime().toMillis();
+    const momentUntil = this.dateUtils.dateTimeNowNoTime().set({ weekday: 7 }).plus({ weeks: 12 });
     this.untilDate = this.dateUtils.asDateValue(momentUntil.valueOf());
     this.singleDate = this.dateUtils.asDateValue(this.todayValue);
     this.bulk = true;
@@ -254,10 +254,10 @@ export class WalkAddSlotsComponent implements OnInit {
       .then((walks: ExtendedGroupEvent[]) => this.extendedGroupEventQueryService.activeEvents(walks))
       .then((walks: ExtendedGroupEvent[]) => {
         this.notify.clearBusy();
-        const sunday = this.dateUtils.momentNowNoTime().day(7);
-        const until = this.dateUtils.asMoment(this.untilDate).startOf("day");
+        const sunday = this.dateUtils.dateTimeNowNoTime().set({ weekday: 7 });
+        const until = this.dateUtils.asDateTime(this.untilDate).startOf("day");
         const allGeneratedSlots = this.dateUtils.inclusiveDayRange(sunday.valueOf(), until.valueOf())
-          .filter(item => this.dateUtils.asMoment(item).day() === 0).filter((date) => {
+          .filter(item => this.dateUtils.asDateTime(item).weekday === 7).filter((date) => {
             return this.dateUtils.asString(date, undefined, "DD-MMM") !== "25-Dec";
           });
         const existingDates: number[] = this.extendedGroupEventQueryService.activeEvents(walks).map(walk => this.dateUtils.asValueNoTime(walk?.groupEvent?.start_date_time));

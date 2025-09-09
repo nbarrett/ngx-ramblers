@@ -11,10 +11,11 @@ import {
   MemberBulkLoadAuditApiResponse,
   RamblersMember
 } from "../../../projects/ngx-ramblers/src/app/models/member.model";
+import { DateFormat } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import * as aws from "../aws/aws-controllers";
 import { envConfig } from "../env-config/env-config";
 import { isAwsUploadErrorResponse } from "../aws/aws-utils";
-import { momentNow } from "../shared/dates";
+import { dateTimeNow } from "../shared/dates";
 import { pluraliseWithCount } from "../shared/string-utils";
 
 const BULK_LOAD_SUFFIX = "MemberList.csv";
@@ -23,8 +24,8 @@ const EXCEL_SUFFIX = ".xls";
 const debugLog = debug(envConfig.logNamespace("ramblers:memberBulkLoad"));
 
 export function uploadRamblersData(req, res) {
-  const momentInstance = momentNow();
-  const uploadSessionFolder = `memberAdmin/${momentInstance.format("YYYY-MM-DD-HH-mm-ss")}`;
+  const dateTimeInstance = dateTimeNow();
+  const uploadSessionFolder = `memberAdmin/${dateTimeInstance.toFormat(DateFormat.FILE_TIMESTAMP)}`;
   const uploadedFile = uploadedFileInfo();
   const bulkUploadResponse: MemberBulkLoadAudit = {members: [], files: {archive: null, data: null}, auditLog: []};
   const bulkUploadError = {error: undefined};

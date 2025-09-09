@@ -9,7 +9,7 @@ import { isArray } from "lodash";
 export function optionalParameter(key: string, value: any): string {
   if (key && value) {
     const appliedValue = isArray(value) ? value.join(",") : value;
-    return `${key}=${appliedValue}`;
+    return `${key}=${encodeURIComponent(appliedValue)}`;
   } else {
     return "";
   }
