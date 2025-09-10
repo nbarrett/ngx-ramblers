@@ -1,6 +1,6 @@
 import { Component, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { NgOptgroupTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
-import map from "lodash-es/map";
+import { map } from "es-toolkit/compat";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -27,7 +27,7 @@ import {
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
 import { MailService } from "../../../services/mail/mail.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
-import first from "lodash-es/first";
+import { first } from "es-toolkit/compat";
 import { KEY_NULL_VALUE_NONE } from "../../../functions/enums";
 import { MemberBulkDeleteService } from "../../../services/member/member-bulk-delete.service";
 import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk-load-audit.service";

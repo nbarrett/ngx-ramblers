@@ -13,7 +13,7 @@ import {
   RECENT_PHOTOS,
   SlideInitialisation
 } from "../models/content-metadata.model";
-import range from "lodash-es/range";
+import { range } from "es-toolkit";
 import { StringUtilsService } from "./string-utils.service";
 
 @Injectable({

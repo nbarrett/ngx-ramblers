@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
-import last from "lodash-es/last";
+import { last } from "es-toolkit/compat";
 import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";

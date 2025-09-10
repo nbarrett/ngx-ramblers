@@ -1,5 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import first from "lodash-es/first";
+import { first } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FirstAndLastName, HasEmailFirstAndLastName, Member, RamblersMember } from "../../models/member.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";

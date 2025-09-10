@@ -10,7 +10,7 @@ import {
   faSpinner,
   faThumbsUp
 } from "@fortawesome/free-solid-svg-icons";
-import map from "lodash-es/map";
+import { map } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { KeyValue } from "../../functions/enums";
 import { Logger, LoggerFactory } from "../logger-factory.service";

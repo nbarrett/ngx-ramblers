@@ -1,5 +1,5 @@
 import { Component, EventEmitter, inject, Input, Output } from "@angular/core";
-import kebabCase from "lodash-es/kebabCase";
+import { kebabCase, isDate } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateUtilsService } from "../services/date-utils.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
@@ -7,7 +7,6 @@ import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TimepickerComponent } from "ngx-bootstrap/timepicker";
 import { NumberUtilsService } from "../services/number-utils.service";
-import { isDate } from "lodash-es";
 
 @Component({
   selector: "[app-time-picker]",

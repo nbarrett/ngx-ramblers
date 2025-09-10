@@ -1,8 +1,8 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import isEmpty from "lodash-es/isEmpty";
-import isNaN from "lodash-es/isNaN";
-import without from "lodash-es/without";
+import { isEmpty } from "es-toolkit/compat";
+import { isNaN } from "es-toolkit/compat";
+import { without } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
 import {
@@ -61,7 +61,7 @@ import { SystemConfigService } from "../system/system-config.service";
 import { AscentValidationService } from "../walks/ascent-validation.service";
 import { DistanceValidationService } from "../walks/distance-validation.service";
 import { LocalWalksAndEventsService } from "./local-walks-and-events.service";
-import isEqual from "lodash-es/isEqual";
+import { isEqual } from "es-toolkit/compat";
 import { RiskAssessmentService } from "../walks/risk-assessment.service";
 import { AlertMessage } from "../../models/alert-target.model";
 import { sortBy } from "../../functions/arrays";
@@ -77,10 +77,10 @@ import { marked } from "marked";
 import { ExtendedFields, ExtendedGroupEvent, GroupEvent, InputSource } from "../../models/group-event.model";
 import { MemberNamingService } from "../member/member-naming.service";
 import { UrlService } from "../url.service";
-import isString from "lodash-es/isString";
+import { isString } from "es-toolkit/compat";
 import { FeaturesService } from "../features.service";
-import keys from "lodash-es/keys";
-import cloneDeep from "lodash-es/clone";
+import { keys } from "es-toolkit/compat";
+import { cloneDeep } from "es-toolkit/compat";
 import { LinksService } from "../links.service";
 
 @Injectable({

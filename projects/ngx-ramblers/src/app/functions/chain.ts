@@ -1,14 +1,14 @@
-import filter from "lodash-es/filter";
-import find from "lodash-es/find";
-import groupBy from "lodash-es/groupBy";
-import last from "lodash-es/last";
-import map from "lodash-es/map";
-import mapValues from "lodash-es/mapValues";
-import orderBy from "lodash-es/orderBy";
-import reduce from "lodash-es/reduce";
-import sortBy from "lodash-es/sortBy";
-import toPairs from "lodash-es/toPairs";
-import unique from "lodash-es/uniq";
+import { filter } from "es-toolkit/compat";
+import { find } from "es-toolkit/compat";
+import { groupBy } from "es-toolkit/compat";
+import { last } from "es-toolkit/compat";
+import { map } from "es-toolkit/compat";
+import { mapValues } from "es-toolkit/compat";
+import { orderBy } from "es-toolkit/compat";
+import { reduce } from "es-toolkit/compat";
+import { sortBy } from "es-toolkit/compat";
+import { toPairs } from "es-toolkit/compat";
+import { uniq as unique } from "es-toolkit/compat";
 
 const supportedFunctions = {
   map,

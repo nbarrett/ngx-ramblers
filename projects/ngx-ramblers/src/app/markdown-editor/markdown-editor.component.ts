@@ -11,10 +11,10 @@ import {
   faSpinner,
   faUnlink
 } from "@fortawesome/free-solid-svg-icons";
-import cloneDeep from "lodash-es/cloneDeep";
-import isEmpty from "lodash-es/isEmpty";
-import isEqual from "lodash-es/isEqual";
-import pick from "lodash-es/pick";
+import { cloneDeep } from "es-toolkit/compat";
+import { isEmpty } from "es-toolkit/compat";
+import { isEqual } from "es-toolkit/compat";
+import { pick } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
 import {

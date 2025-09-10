@@ -2,7 +2,7 @@ import { booleanAttribute, Component, inject, Input, OnInit } from "@angular/cor
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { PageService } from "../services/page.service";
-import isEmpty from "lodash-es/isEmpty";
+import { isEmpty } from "es-toolkit/compat";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { RouterLink } from "@angular/router";
 

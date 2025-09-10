@@ -15,7 +15,7 @@ import {
   SuccessfulResponse
 } from "../common/messages";
 import { UpdateBatchContacts } from "@getbrevo/brevo/model/updateBatchContacts";
-import { chunk, first, omit } from "lodash";
+import { chunk, first, omit } from "es-toolkit/compat";
 import { ContactsApi } from "@getbrevo/brevo";
 
 const messageType = "brevo:contacts:batch-update";

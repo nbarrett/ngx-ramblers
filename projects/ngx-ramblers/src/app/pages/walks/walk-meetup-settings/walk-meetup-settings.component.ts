@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, ViewChild } from "@angular/core";
 import { faMeetup } from "@fortawesome/free-brands-svg-icons";
-import first from "lodash-es/first";
-import range from "lodash-es/range";
+import { first } from "es-toolkit/compat";
+import { range } from "es-toolkit";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { NgxLoggerLevel } from "ngx-logger";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";

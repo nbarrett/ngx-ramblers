@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { Title } from "@angular/platform-browser";
-import last from "lodash-es/last";
+import { last } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Link } from "../models/page.model";
 import { Organisation } from "../models/system.model";
@@ -8,9 +8,9 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 import { StringUtilsService } from "./string-utils.service";
 import { SystemConfigService } from "./system/system-config.service";
 import { UrlService } from "./url.service";
-import isEmpty from "lodash-es/isEmpty";
-import first from "lodash-es/first";
-import uniq from "lodash-es/uniq";
+import { isEmpty } from "es-toolkit/compat";
+import { first } from "es-toolkit/compat";
+import { uniq } from "es-toolkit/compat";
 import { Observable, ReplaySubject } from "rxjs";
 import { shareReplay } from "rxjs/operators";
 

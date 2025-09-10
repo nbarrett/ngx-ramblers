@@ -2,8 +2,7 @@ import { Component, inject, Input } from "@angular/core";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DOCUMENT } from "@angular/common";
-import isString from "lodash-es/isString";
-import isBoolean from "lodash-es/isBoolean";
+import { isString, isBoolean } from "es-toolkit";
 
 export interface CsvOptions {
   filename: string;

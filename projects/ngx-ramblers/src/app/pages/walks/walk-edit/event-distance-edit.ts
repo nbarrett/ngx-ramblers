@@ -6,7 +6,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { GroupEvent } from "../../../models/group-event.model";
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
 import { DistanceUnit } from "../../../models/walk.model";
-import kebabCase from "lodash-es/kebabCase";
+import { kebabCase } from "es-toolkit/compat";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 
 @Component({

@@ -1,6 +1,6 @@
 import { envConfig } from "../env-config/env-config";
 import debug from "debug";
-import { includes, isEmpty, isUndefined, some } from "lodash";
+import { includes, isEmpty, isUndefined, some } from "es-toolkit/compat";
 import {
   AuditType,
   ParsedRamblersUploadAudit,

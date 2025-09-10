@@ -2,7 +2,7 @@ import { inject } from "@angular/core";
 import { LoggerFactory } from "../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { RouterStateSnapshot } from "@angular/router";
-import { isUndefined } from "lodash-es";
+import { isUndefined } from "es-toolkit/compat";
 import { ContactUsModalService } from "./contact-us-modal.service";
 
 export function contactUsGuard(route: any, state: RouterStateSnapshot) {

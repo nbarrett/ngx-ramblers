@@ -6,7 +6,7 @@ import debug from "debug";
 import { Request, Response } from "express";
 import * as fs from "fs";
 import * as https from "https";
-import { omit } from "lodash";
+import { omit } from "es-toolkit/compat";
 import { DateTime } from "luxon";
 import * as path from "path";
 import {

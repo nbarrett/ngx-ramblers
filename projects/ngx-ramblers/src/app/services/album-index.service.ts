@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
-import first from "lodash-es/first";
-import last from "lodash-es/last";
+import { first } from "es-toolkit/compat";
+import { last } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   ContentPathMatchConfigs,

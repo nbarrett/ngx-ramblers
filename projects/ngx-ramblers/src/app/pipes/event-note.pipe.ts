@@ -1,5 +1,5 @@
 import { Pipe, PipeTransform } from "@angular/core";
-import compact from "lodash-es/compact";
+import { compact } from "es-toolkit/compat";
 
 @Pipe({ name: "asEventNote" })
 export class EventNotePipe implements PipeTransform {

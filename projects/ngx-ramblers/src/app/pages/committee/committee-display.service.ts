@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
-import cloneDeep from "lodash-es/cloneDeep";
-import last from "lodash-es/last";
+import { cloneDeep } from "es-toolkit/compat";
+import { last } from "es-toolkit/compat";
 import { ModalOptions } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable } from "rxjs";

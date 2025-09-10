@@ -1,6 +1,6 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import uniq from "lodash-es/uniq";
+import { uniq } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DataQueryOptions } from "../models/api-request.model";
 import { AlbumPath, PageContent, PageContentApiResponse } from "../models/content-text.model";
@@ -9,7 +9,7 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 import { MemberLoginService } from "./member/member-login.service";
 import { PageContentActionsService } from "./page-content-actions.service";
 import { sortBy } from "../functions/arrays";
-import { uniqBy } from "lodash-es";
+import { uniqBy } from "es-toolkit/compat";
 import { fieldContainsValue } from "../functions/mongo";
 
 @Injectable({

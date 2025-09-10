@@ -1,5 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import isEmpty from "lodash-es/isEmpty";
+import { isEmpty } from "es-toolkit/compat";
 import { DistanceUnit, WalkAscent } from "../../models/walk.model";
 import { NumberUtilsService } from "../number-utils.service";
 import { ExtendedGroupEvent, FEET_TO_METRES_FACTOR, GroupEvent } from "../../models/group-event.model";

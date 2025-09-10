@@ -7,7 +7,7 @@ import { DateUtilsService } from "../../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
-import cloneDeep from "lodash-es/cloneDeep";
+import { cloneDeep } from "es-toolkit/compat";
 import { BadgeButtonComponent } from "../../../../modules/common/badge-button/badge-button";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { SystemImageEditComponent } from "../image/system-image-edit";

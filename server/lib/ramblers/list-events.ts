@@ -1,5 +1,5 @@
 import debug from "debug";
-import isEmpty from "lodash/isEmpty";
+import { isEmpty } from "es-toolkit/compat";
 import { DateTime } from "luxon";
 import {
   ALL_EVENT_TYPES,

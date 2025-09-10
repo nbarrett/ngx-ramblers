@@ -12,7 +12,7 @@ import { BroadcastService } from "../../../services/broadcast-service";
 import { FormsModule } from "@angular/forms";
 import { NgStyle } from "@angular/common";
 import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
-import first from "lodash-es/first";
+import { first } from "es-toolkit/compat";
 
 @Component({
   selector: "app-image-list-select",

@@ -6,7 +6,7 @@ import { LoggerFactory } from "../../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { NotificationConfig, NotificationConfigListing } from "../../../../models/mail.model";
 import { MailLinkService } from "../../../../services/mail/mail-link.service";
-import first from "lodash-es/first";
+import { first } from "es-toolkit/compat";
 import { BannerConfig } from "../../../../models/banner-configuration.model";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";

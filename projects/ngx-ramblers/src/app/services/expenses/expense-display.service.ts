@@ -1,8 +1,8 @@
 import { inject, Injectable } from "@angular/core";
-import cloneDeep from "lodash-es/clone";
-import find from "lodash-es/find";
-import isEmpty from "lodash-es/isEmpty";
-import last from "lodash-es/last";
+import { cloneDeep } from "es-toolkit/compat";
+import { find } from "es-toolkit/compat";
+import { isEmpty } from "es-toolkit/compat";
+import { last } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Member } from "../../models/member.model";
 import { Confirm, EditMode } from "../../models/ui-actions";

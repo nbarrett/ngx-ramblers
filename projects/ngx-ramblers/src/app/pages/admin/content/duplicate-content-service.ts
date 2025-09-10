@@ -7,10 +7,10 @@ import {
   DuplicatePageContent,
   PageContent
 } from "../../../models/content-text.model";
-import groupBy from "lodash-es/groupBy";
+import { groupBy } from "es-toolkit/compat";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
-import first from "lodash-es/first";
+import { first } from "es-toolkit/compat";
 
 
 @Injectable({

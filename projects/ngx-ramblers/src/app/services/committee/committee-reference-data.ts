@@ -1,8 +1,8 @@
 import { BuiltInRole, CommitteeConfig, CommitteeMember, ExpensesConfig } from "../../models/committee.model";
 import { MemberLoginService } from "../member/member-login.service";
 import { FileType } from "./committee-file-type.model";
-import isArray from "lodash-es/isArray";
-import kebabCase from "lodash-es/kebabCase";
+import { isArray } from "es-toolkit/compat";
+import { kebabCase } from "es-toolkit/compat";
 
 export class CommitteeReferenceData {
 

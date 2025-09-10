@@ -1,5 +1,5 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
-import first from "lodash-es/first";
+import { first } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { TitleLine } from "../../models/banner-configuration.model";

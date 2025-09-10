@@ -2,7 +2,7 @@ import * as childProcess from "child_process";
 import parse from "csv-parse/sync";
 import debug from "debug";
 import * as fs from "fs";
-import { find, first, isEmpty, isObject, trim } from "lodash";
+import { find, first, isEmpty, isObject, trim } from "es-toolkit/compat";
 import * as path from "path";
 import * as xlsx from "xlsx";
 import { UploadedFile } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";

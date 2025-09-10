@@ -9,7 +9,7 @@ import { EventPopulation, Organisation } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
 import { EventQueryParameters, RamblersEventType } from "../../models/ramblers-walks-manager";
 import { ExtendedGroupEvent, ExtendedGroupEventApiResponse } from "../../models/group-event.model";
-import groupBy from "lodash-es/groupBy";
+import { groupBy } from "es-toolkit/compat";
 
 @Injectable({
   providedIn: "root"

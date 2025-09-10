@@ -11,7 +11,7 @@ import { FileUploadModule } from "ng2-file-upload";
 import { Subscription } from "rxjs";
 import { FormsModule } from "@angular/forms";
 import { NgClass } from "@angular/common";
-import first from "lodash-es/first";
+import { first } from "es-toolkit/compat";
 import { ExtendedGroupEvent, HasGroupCodeAndName } from "../../../models/group-event.model";
 import { GroupSelector } from "../walk-edit/group-selector";
 import { RamblersGroupsApiResponse } from "../../../models/ramblers-walks-manager";

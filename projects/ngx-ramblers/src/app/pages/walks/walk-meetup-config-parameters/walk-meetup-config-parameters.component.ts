@@ -1,5 +1,5 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
-import range from "lodash-es/range";
+import { range } from "es-toolkit";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { ContentText } from "../../../models/content-text.model";
@@ -7,7 +7,7 @@ import { MeetupConfig } from "../../../models/meetup-config.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MeetupService } from "../../../services/meetup.service";
-import { isString } from "lodash-es";
+import { isString } from "es-toolkit/compat";
 import { FormsModule } from "@angular/forms";
 
 @Component({

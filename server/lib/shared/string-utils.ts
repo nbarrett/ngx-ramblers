@@ -1,5 +1,5 @@
-import escapeRegExp from "lodash/escapeRegExp";
-import isNumber from "lodash/isNumber";
+import { escapeRegExp } from "es-toolkit/compat";
+import { isNumber } from "es-toolkit/compat";
 
 export const uidFormat = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
 

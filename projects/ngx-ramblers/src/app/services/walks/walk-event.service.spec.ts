@@ -16,7 +16,7 @@ import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { createExtendedGroupEvent } from "../../pages/walks/walk-display.service.spec";
 import { DateUtilsService } from "../date-utils.service";
 import { ChangedItem } from "../../models/changed-item.model";
-import pick from "lodash-es/pick";
+import { pick } from "es-toolkit/compat";
 import { AUDITED_FIELDS } from "../../models/walk-event.model";
 
 describe("WalksEventService", () => {

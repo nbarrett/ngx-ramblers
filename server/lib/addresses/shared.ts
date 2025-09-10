@@ -3,7 +3,7 @@ import {
   PostcodeLookupResult,
   PostcodeLookupServiceResponse
 } from "../../../projects/ngx-ramblers/src/app/models/address-model";
-import { isArray, padStart } from "lodash";
+import { isArray, padStart } from "es-toolkit/compat";
 import debug from "debug";
 
 export const ENDPOINT = "https://api.postcodes.io";

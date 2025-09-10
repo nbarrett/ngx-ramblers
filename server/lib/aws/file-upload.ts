@@ -1,4 +1,4 @@
-import { isObject, map } from "lodash";
+import { isObject, map } from "es-toolkit/compat";
 import { AuditStatus } from "../../../projects/ngx-ramblers/src/app/models/audit";
 import {
   AwsFileUploadResponse,

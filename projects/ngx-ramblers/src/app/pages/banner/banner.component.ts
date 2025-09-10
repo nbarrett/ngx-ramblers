@@ -1,6 +1,6 @@
 import { NgxCaptureService } from "ngx-capture";
 import { Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
-import range from "lodash-es/range";
+import { range } from "es-toolkit";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../auth/auth.service";
@@ -34,8 +34,8 @@ import { AlertInstance, NotifierService } from "../../services/notifier.service"
 import { AlertTarget } from "../../models/alert-target.model";
 import { FileUtilsService } from "../../file-utils.service";
 import { IMAGE_JPEG } from "../../models/content-metadata.model";
-import cloneDeep from "lodash-es/cloneDeep";
-import isEqual from "lodash-es/isEqual";
+import { cloneDeep } from "es-toolkit/compat";
+import { isEqual } from "es-toolkit/compat";
 import { PageComponent } from "../../page/page.component";
 import { FormsModule } from "@angular/forms";
 import { BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective } from "ngx-bootstrap/dropdown";

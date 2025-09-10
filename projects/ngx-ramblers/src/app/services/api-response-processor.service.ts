@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
-import cloneDeep from "lodash-es/cloneDeep";
-import isArray from "lodash-es/isArray";
+import { cloneDeep } from "es-toolkit/compat";
+import { isArray } from "es-toolkit/compat";
 import { ApiAction, ApiResponse, Identifiable } from "../models/api-response.model";
 import { Logger } from "./logger-factory.service";
 import { StringUtilsService } from "./string-utils.service";

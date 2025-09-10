@@ -1,5 +1,5 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
-import kebabCase from "lodash-es/kebabCase";
+import { kebabCase } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DisplayedWalk, RiskAssessmentRecord } from "../../../../models/walk.model";
 import { MemberIdToFullNamePipe } from "../../../../pipes/member-id-to-full-name.pipe";

@@ -1,5 +1,5 @@
 import { Pipe, PipeTransform } from "@angular/core";
-import startCase from "lodash-es/startCase";
+import { startCase } from "es-toolkit/compat";
 import { ChangedItem } from "../models/changed-item.model";
 
 @Pipe({ name: "toAuditDeltaChangedItems" })

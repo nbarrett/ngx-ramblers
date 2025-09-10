@@ -1,7 +1,7 @@
 import debug from "debug";
 import { Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
-import kebabCase from "lodash/kebabCase";
+import { kebabCase } from "es-toolkit/compat";
 import { extendedGroupEvent } from "../models/extended-group-event";
 import * as crudController from "./crud-controller";
 import { ExtendedGroupEvent } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";

@@ -1,5 +1,5 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
-import { range } from "lodash-es";
+import { range } from "es-toolkit";
 import { NgxLoggerLevel } from "ngx-logger";
 import { TitleLine } from "../../../models/banner-configuration.model";
 import { Margin } from "../../../models/content-text.model";

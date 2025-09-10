@@ -15,7 +15,7 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
-import last from "lodash-es/last";
+import { last } from "es-toolkit/compat";
 import { StringUtilsService } from "../../../services/string-utils.service";
 
 @Component({

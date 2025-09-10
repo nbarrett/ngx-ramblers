@@ -13,7 +13,7 @@ import {
 import { contentTypeFrom, extensionFrom } from "./aws-utils";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
-import { cloneDeep } from "lodash";
+import { cloneDeep } from "es-toolkit/compat";
 import { generateUid, lastItemFrom, pluraliseWithCount } from "../shared/string-utils";
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import * as transforms from "../mongo/controllers/transforms";

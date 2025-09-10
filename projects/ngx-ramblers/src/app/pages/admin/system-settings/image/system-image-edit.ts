@@ -1,6 +1,6 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { faAdd, faEdit, faRemove, faSave } from "@fortawesome/free-solid-svg-icons";
-import { remove } from "lodash-es";
+import { remove } from "es-toolkit/compat";
 import { FileUploader } from "ng2-file-upload";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertMessage, AlertTarget } from "../../../../models/alert-target.model";

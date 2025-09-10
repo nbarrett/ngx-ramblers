@@ -1,9 +1,9 @@
 import { inject, Injectable } from "@angular/core";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute, Router } from "@angular/router";
-import find from "lodash-es/find";
-import isEmpty from "lodash-es/isEmpty";
-import isNumber from "lodash-es/isNumber";
+import { find } from "es-toolkit/compat";
+import { isEmpty } from "es-toolkit/compat";
+import { isNumber } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Member } from "../../models/member.model";
 import { EventPopulation, Organisation } from "../../models/system.model";

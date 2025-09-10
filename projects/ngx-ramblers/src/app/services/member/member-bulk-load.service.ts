@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
-import isEmpty from "lodash-es/isEmpty";
-import omit from "lodash-es/omit";
+import { isEmpty } from "es-toolkit/compat";
+import { omit } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   BulkLoadMemberAndMatch,
@@ -28,8 +28,8 @@ import { MemberDefaultsService } from "./member-defaults.service";
 import { NumberUtilsService } from "../number-utils.service";
 import { StringUtilsService } from "../string-utils.service";
 import { AUDIT_FIELDS, AuditField } from "../../models/ramblers-insight-hub";
-import { isString } from "lodash-es";
-import isNumber from "lodash-es/isNumber";
+import { isString } from "es-toolkit/compat";
+import { isNumber } from "es-toolkit/compat";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
 
 @Injectable({

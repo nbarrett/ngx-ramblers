@@ -1,7 +1,7 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
-import isArray from "lodash-es/isArray";
-import sortBy from "lodash-es/sortBy";
+import { isArray } from "es-toolkit/compat";
+import { sortBy } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";

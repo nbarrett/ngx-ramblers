@@ -17,7 +17,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
 import { GroupEventService } from "../../../services/walks-and-events/group-event.service";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { AlertInstance } from "../../../services/notifier.service";
-import { cloneDeep } from "lodash-es";
+import { cloneDeep } from "es-toolkit/compat";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { isNumber } from "lodash";
+import { isNumber } from "es-toolkit/compat";
 import mongoose, { Model } from "mongoose";
 import { DataQueryOptions } from "../../../../projects/ngx-ramblers/src/app/models/api-request.model";
 import { envConfig } from "../../env-config/env-config";

@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
-import cloneDeep from "lodash-es/cloneDeep";
-import first from "lodash-es/first";
+import { cloneDeep } from "es-toolkit/compat";
+import { first } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   EventEventField,

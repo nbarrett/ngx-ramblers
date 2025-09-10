@@ -6,7 +6,7 @@ import { ContentMetadataService } from "../../services/content-metadata.service"
 import { UrlService } from "../../services/url.service";
 import { LoggerFactory } from "../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
-import take from "lodash-es/take";
+import { take } from "es-toolkit/compat";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { faImages, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { AlbumData, GridViewOptions } from "../../models/content-text.model";

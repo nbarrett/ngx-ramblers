@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
-import has from "lodash-es/has";
-import isEmpty from "lodash-es/isEmpty";
+import { has } from "es-toolkit/compat";
+import { isEmpty } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Auditable } from "../models/member.model";
 import { DateUtilsService } from "./date-utils.service";

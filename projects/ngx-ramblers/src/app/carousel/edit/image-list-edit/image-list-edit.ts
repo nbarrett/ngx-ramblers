@@ -1,8 +1,8 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
-import min from "lodash-es/min";
-import range from "lodash-es/range";
+import { min } from "es-toolkit/compat";
+import { range } from "es-toolkit";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -60,8 +60,8 @@ import {
 } from "../../../models/aws-object.model";
 import { FileUtilsService } from "../../../file-utils.service";
 import { base64ToFile } from "ngx-image-cropper";
-import keys from "lodash-es/keys";
-import isEmpty from "lodash-es/isEmpty";
+import { keys } from "es-toolkit/compat";
+import { isEmpty } from "es-toolkit/compat";
 import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
 import { NgClass, NgStyle } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -73,10 +73,10 @@ import { ImageEditComponent } from "../image-edit/image-edit";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { FileSizeSelectorComponent } from "../file-size-selector/file-size-selector";
 import { SystemConfigService } from "../../../services/system/system-config.service";
-import isUndefined from "lodash-es/isUndefined";
+import { isUndefined } from "es-toolkit/compat";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { ApiResponse } from "../../../models/api-response.model";
-import isArray from "lodash-es/isArray";
+import { isArray } from "es-toolkit/compat";
 import { EventType, MessageType, ProgressResponse } from "../../../models/websocket.model";
 
 @Component({

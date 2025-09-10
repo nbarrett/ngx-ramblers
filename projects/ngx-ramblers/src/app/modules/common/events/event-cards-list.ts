@@ -1,6 +1,6 @@
 import { Component, inject, Input } from "@angular/core";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
-import min from "lodash-es/min";
+import { min } from "es-toolkit/compat";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { EventsData } from "../../../models/social-events.model";
 import { CARD_MARGIN_BOTTOM, cardClasses } from "../../../services/card-utils";

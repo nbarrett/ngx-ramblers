@@ -1,6 +1,6 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import last from "lodash-es/last";
+import { last } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../models/api-request.model";
@@ -27,9 +27,9 @@ import { ImageTagDataService } from "./image-tag-data-service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { RootFolder } from "../models/system.model";
 import { StringUtilsService } from "./string-utils.service";
-import first from "lodash-es/first";
+import { first } from "es-toolkit/compat";
 import { MemberLoginService } from "./member/member-login.service";
-import take from "lodash-es/take";
+import { take } from "es-toolkit/compat";
 import { UrlService } from "./url.service";
 
 @Injectable({

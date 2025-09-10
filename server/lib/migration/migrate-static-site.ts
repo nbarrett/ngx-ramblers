@@ -16,7 +16,7 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
-import first from "lodash/first";
+import { first } from "es-toolkit/compat";
 import { toKebabCase } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { AWSConfig } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { queryAWSConfig } from "../aws/aws-controllers";
