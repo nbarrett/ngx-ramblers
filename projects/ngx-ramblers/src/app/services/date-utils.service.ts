@@ -1,8 +1,7 @@
 import { Time } from "@angular/common";
 import { inject, Injectable } from "@angular/core";
 import { range } from "es-toolkit";
-import { isString } from "es-toolkit/compat";
-import { isNumber } from "es-toolkit/compat";
+import { isNumber, isString } from "es-toolkit/compat";
 import { DateTime, Duration } from "luxon";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateValue } from "../models/date.model";
@@ -218,33 +217,38 @@ export class DateUtilsService {
   }
 
   formatDuration(fromTime: number, toTime: number) {
-    const duration = Duration.fromMillis(toTime - fromTime);
-    const seconds = duration.as("seconds");
-    if (!fromTime || !toTime) {
-      return "0 secs";
-    } else if (seconds < 1) {
-      return `${(seconds * 1000)} ms`;
-    } else if (seconds < 60) {
-      return `${seconds.toFixed(0)} secs`;
-    } else if (seconds < 3600) {
-      const minutes = duration.as("minutes");
-      return `${minutes.toFixed(1)} mins`;
-    } else if (seconds < 86400) {
-      const hours = Math.floor(duration.as("hours"));
-      const minutes = Math.round(duration.as("minutes") % 60);
-      return `${this.stringUtilsService.pluraliseWithCount(hours, "hour")}${minutes > 0 ? ` ${this.stringUtilsService.pluraliseWithCount(minutes, "min")}` : ""}`;
+    if (isNumber(fromTime) && isNumber(toTime)) {
+      const duration = Duration.fromMillis(toTime - fromTime);
+      const seconds = duration.as("seconds");
+      if (!fromTime || !toTime) {
+        return "0 secs";
+      } else if (seconds < 1) {
+        return `${(seconds * 1000)} ms`;
+      } else if (seconds < 60) {
+        return `${seconds.toFixed(0)} secs`;
+      } else if (seconds < 3600) {
+        const minutes = duration.as("minutes");
+        return `${minutes.toFixed(1)} mins`;
+      } else if (seconds < 86400) {
+        const hours = Math.floor(duration.as("hours"));
+        const minutes = Math.round(duration.as("minutes") % 60);
+        return `${this.stringUtilsService.pluraliseWithCount(hours, "hour")}${minutes > 0 ? ` ${this.stringUtilsService.pluraliseWithCount(minutes, "min")}` : ""}`;
+      } else {
+        const days = Math.floor(duration.as("days"));
+        const hours = Math.floor(duration.as("hours") % 24);
+        const minutes = Math.round(duration.as("minutes") % 60);
+        let result = this.stringUtilsService.pluraliseWithCount(days, "day");
+        if (hours > 0) {
+          result += ` ${this.stringUtilsService.pluraliseWithCount(hours, "hour")}`;
+        }
+        if (minutes > 0) {
+          result += ` ${this.stringUtilsService.pluraliseWithCount(minutes, "min")}`;
+        }
+        return result;
+      }
     } else {
-      const days = Math.floor(duration.as("days"));
-      const hours = Math.floor(duration.as("hours") % 24);
-      const minutes = Math.round(duration.as("minutes") % 60);
-      let result = this.stringUtilsService.pluraliseWithCount(days, "day");
-      if (hours > 0) {
-        result += ` ${this.stringUtilsService.pluraliseWithCount(hours, "hour")}`;
-      }
-      if (minutes > 0) {
-        result += ` ${this.stringUtilsService.pluraliseWithCount(minutes, "min")}`;
-      }
-      return result;
+      this.logger.warn("formatDuration: both fromTime and toTime are not a number:fromTime:", fromTime, "toTime:", toTime);
+      return "";
     }
   }
 

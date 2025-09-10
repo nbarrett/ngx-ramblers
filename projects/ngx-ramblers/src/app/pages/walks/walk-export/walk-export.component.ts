@@ -563,9 +563,12 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     const summary = audit.type === AuditType.SUMMARY;
     const currentIndex = this.filteredAudits.findIndex(item => item.id === audit.id);
     if (summary) {
-      return this.dateUtils.formatDuration(last(this?.audits)?.auditTime, audit?.auditTime);
+      const lastAudit = last(this?.audits)?.auditTime;
+      this.logger.info("timing:summary:lastAudit:", lastAudit, "currentIndex:", currentIndex, "audit:", audit);
+      return this.dateUtils.formatDuration(lastAudit, audit?.auditTime);
     } else {
       const previousAudit = this.filteredAudits?.[currentIndex + 1];
+      this.logger.info("timing:summary:previousAudit:", previousAudit, "currentIndex:", currentIndex, "audit:", audit);
       return this.dateUtils.formatDuration(previousAudit?.auditTime, audit?.auditTime);
     }
   }
