@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
-import cloneDeep from "lodash-es/cloneDeep";
-import last from "lodash-es/last";
+import { cloneDeep } from "es-toolkit/compat";
+import { last } from "es-toolkit/compat";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";

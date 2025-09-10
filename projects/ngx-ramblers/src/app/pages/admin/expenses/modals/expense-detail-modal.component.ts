@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import first from "lodash-es/first";
+import { first } from "es-toolkit/compat";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";

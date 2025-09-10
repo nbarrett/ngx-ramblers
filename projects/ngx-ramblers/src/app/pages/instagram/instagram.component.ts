@@ -1,5 +1,5 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import take from "lodash-es/take";
+import { take } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { InstagramMediaPost, InstagramRecentMediaData } from "../../models/instagram.model";

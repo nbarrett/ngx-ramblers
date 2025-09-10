@@ -7,7 +7,7 @@ import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberLoginService } from "../member/member-login.service";
 import { CommitteeReferenceData } from "./committee-reference-data";
-import map from "lodash-es/map";
+import { map } from "es-toolkit/compat";
 
 @Injectable({
   providedIn: "root"

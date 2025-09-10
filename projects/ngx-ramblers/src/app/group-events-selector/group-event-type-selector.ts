@@ -1,5 +1,5 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
-import map from "lodash-es/map";
+import { map } from "es-toolkit/compat";
 import { GroupEventType, GroupEventTypes, uploadGroupEventType } from "../models/committee.model";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ContentMetadata, ContentMetadataItem } from "../models/content-metadata.model";

@@ -1,4 +1,4 @@
-import isString from "lodash-es/isString";
+import { isString } from "es-toolkit/compat";
 
 export function isMongoId(id: string): boolean {
   return isString(id) && /^[a-fA-F0-9]{24}$/.test(id);

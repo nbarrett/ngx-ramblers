@@ -15,7 +15,7 @@ import { MailMessagingConfig } from "../../../../models/mail.model";
 import { MailchimpListService } from "../../../../services/mailchimp/mailchimp-list.service";
 import { MailchimpConfig } from "../../../../models/mailchimp.model";
 import { MailchimpConfigService } from "../../../../services/mailchimp-config.service";
-import first from "lodash-es/first";
+import { first } from "es-toolkit/compat";
 import { FormsModule } from "@angular/forms";
 import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
 import { MailchimpButtonComponent } from "../../../../modules/common/third-parties/mailchimp-button";

@@ -13,7 +13,7 @@ import { dateTimeNow } from "../shared/dates";
 import * as requestDefaults from "./request-defaults";
 import { lastItemFrom, pluraliseWithCount, toKebabCase } from "../shared/string-utils";
 import { httpRequest, optionalParameter } from "../shared/message-handlers";
-import isEmpty from "lodash/isEmpty";
+import { isEmpty } from "es-toolkit/compat";
 import { GroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";

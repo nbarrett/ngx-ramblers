@@ -30,10 +30,10 @@ import { MailListUpdaterService } from "../../../services/mail/mail-list-updater
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
 import { MailService } from "../../../services/mail/mail.service";
-import first from "lodash-es/first";
+import { first } from "es-toolkit/compat";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
-import { isUndefined, set } from "lodash-es";
-import get from "lodash-es/get";
+import { isUndefined, set } from "es-toolkit/compat";
+import { get } from "es-toolkit/compat";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { NotificationConfigSelectorComponent } from "../../admin/system-settings/mail/notification-config-selector";
 import { FormsModule } from "@angular/forms";
@@ -50,9 +50,9 @@ import { CreateOrAmendSenderComponent } from "../../admin/send-emails/create-or-
 import { BrevoButtonComponent } from "../../../modules/common/third-parties/brevo-button";
 import { TitleCasePipe } from "@angular/common";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
-import last from "lodash-es/last";
+import { last } from "es-toolkit/compat";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
-import cloneDeep from "lodash-es/cloneDeep";
+import { cloneDeep } from "es-toolkit/compat";
 
 @Component({
     selector: "app-social-send-notification-modal",

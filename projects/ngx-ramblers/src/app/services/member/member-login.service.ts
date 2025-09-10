@@ -1,5 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import isEmpty from "lodash-es/isEmpty";
+import { isEmpty } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AuthService } from "../../auth/auth.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";

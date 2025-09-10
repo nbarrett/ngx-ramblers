@@ -20,9 +20,9 @@ import { ExtendedGroupEventQueryService } from "../walks-and-events/extended-gro
 import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-events.service";
 import { WalksConfigService } from "../system/walks-config.service";
 import { WalksConfig } from "../../models/walk-notification.model";
-import groupBy from "lodash-es/groupBy";
+import { groupBy } from "es-toolkit/compat";
 import { firstPopulated, sortBy } from "../../functions/arrays";
-import last from "lodash-es/last";
+import { last } from "es-toolkit/compat";
 import { SocialEventsLocalLegacyService } from "../social-events/social-events-local-legacy.service";
 import { MediaQueryService } from "../committee/media-query.service";
 import { EventDefaultsService } from "../event-defaults.service";

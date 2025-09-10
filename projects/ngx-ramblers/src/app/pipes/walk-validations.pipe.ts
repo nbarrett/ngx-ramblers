@@ -1,6 +1,6 @@
 import { Pipe, PipeTransform } from "@angular/core";
-import last from "lodash-es/last";
-import without from "lodash-es/without";
+import { last } from "es-toolkit/compat";
+import { without } from "es-toolkit/compat";
 
 @Pipe({ name: "asWalkValidationsList" })
 export class WalkValidationsListPipe implements PipeTransform {

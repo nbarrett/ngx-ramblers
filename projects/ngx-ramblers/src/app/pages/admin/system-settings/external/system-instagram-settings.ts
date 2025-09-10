@@ -12,8 +12,8 @@ import { HttpErrorResponse } from "@angular/common/http";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { UrlService } from "../../../../services/url.service";
-import cloneDeep from "lodash-es/cloneDeep";
-import isEqual from "lodash-es/isEqual";
+import { cloneDeep } from "es-toolkit/compat";
+import { isEqual } from "es-toolkit/compat";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 

@@ -1,4 +1,4 @@
-import { each, includes, isArray, isEmpty, omit, set } from "lodash";
+import { each, includes, isArray, isEmpty, omit, set } from "es-toolkit/compat";
 import debug from "debug";
 import mongoose from "mongoose";
 import { DataQueryOptions, MongoId } from "../../../../projects/ngx-ramblers/src/app/models/api-request.model";

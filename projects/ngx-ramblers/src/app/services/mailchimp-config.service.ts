@@ -4,7 +4,7 @@ import { ConfigKey } from "../models/config.model";
 import { MailchimpCampaignDefaults, MailchimpConfig } from "../models/mailchimp.model";
 import { ConfigService } from "./config.service";
 import { KeyValue } from "../functions/enums";
-import map from "lodash-es/map";
+import { map } from "es-toolkit/compat";
 
 @Injectable({
   providedIn: "root"

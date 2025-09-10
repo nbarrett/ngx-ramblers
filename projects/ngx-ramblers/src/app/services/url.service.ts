@@ -1,9 +1,9 @@
 import { DOCUMENT, Location } from "@angular/common";
 import { inject, Injectable } from "@angular/core";
 import { ActivatedRoute, Params, QueryParamsHandling, Router } from "@angular/router";
-import first from "lodash-es/first";
-import last from "lodash-es/last";
-import tail from "lodash-es/tail";
+import { first } from "es-toolkit/compat";
+import { last } from "es-toolkit/compat";
+import { tail } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   BASE64_PREFIX_HEIC,
@@ -18,7 +18,7 @@ import { AWSLinkConfig, LinkConfig, LinkTextConfig } from "../models/link.model"
 import { SiteEditService } from "../site-edit/site-edit.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { isMongoId } from "./mongo-utils";
-import isEmpty from "lodash-es/isEmpty";
+import { isEmpty } from "es-toolkit/compat";
 import { isNumericRamblersId } from "./path-matchers";
 import { StringUtilsService } from "./string-utils.service";
 import { Organisation, RootFolder } from "../models/system.model";

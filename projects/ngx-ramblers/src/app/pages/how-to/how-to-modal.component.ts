@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { AfterViewInit, Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
-import first from "lodash-es/first";
+import { first } from "es-toolkit/compat";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";

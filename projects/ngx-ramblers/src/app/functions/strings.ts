@@ -1,4 +1,4 @@
-import kebabCase from "lodash/kebabCase";
+import { kebabCase } from "es-toolkit/compat";
 
 export function toKebabCase(...strings: any[]) {
   return strings

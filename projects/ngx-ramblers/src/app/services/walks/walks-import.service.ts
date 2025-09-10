@@ -8,10 +8,10 @@ import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-
 import { RamblersWalksAndEventsService } from "../walks-and-events/ramblers-walks-and-events.service";
 import { Organisation, SystemConfig } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
-import first from "lodash-es/first";
-import last from "lodash-es/last";
+import { first } from "es-toolkit/compat";
+import { last } from "es-toolkit/compat";
 import { DateUtilsService } from "../date-utils.service";
-import omit from "lodash-es/omit";
+import { omit } from "es-toolkit/compat";
 import { GroupEventService } from "../walks-and-events/group-event.service";
 import { MemberService } from "../member/member.service";
 import { NumberUtilsService } from "../number-utils.service";
@@ -41,8 +41,8 @@ import { enumValues, TypedKeyValue } from "../../functions/enums";
 import { Feature } from "../../models/walk-feature.model";
 import { ExtendedGroupEventQueryService } from "../walks-and-events/extended-group-event-query.service";
 import { EventDefaultsService } from "../event-defaults.service";
-import groupBy from "lodash-es/groupBy";
-import isEqual from "lodash-es/isEqual";
+import { groupBy } from "es-toolkit/compat";
+import { isEqual } from "es-toolkit/compat";
 
 @Injectable({
   providedIn: "root"

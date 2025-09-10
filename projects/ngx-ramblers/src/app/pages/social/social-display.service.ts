@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
-import cloneDeep from "lodash-es/cloneDeep";
-import isEmpty from "lodash-es/isEmpty";
+import { cloneDeep } from "es-toolkit/compat";
+import { isEmpty } from "es-toolkit/compat";
 import { ModalOptions } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AuthService } from "../../auth/auth.service";

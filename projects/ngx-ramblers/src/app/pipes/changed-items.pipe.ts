@@ -1,6 +1,6 @@
 import { inject, Pipe, PipeTransform } from "@angular/core";
-import map from "lodash-es/map";
-import startCase from "lodash-es/startCase";
+import { map } from "es-toolkit/compat";
+import { startCase } from "es-toolkit/compat";
 import { Member } from "../models/member.model";
 import { WalkEvent } from "../models/walk-event.model";
 import { AuditDeltaValuePipe } from "./audit-delta-value.pipe";

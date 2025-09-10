@@ -13,7 +13,7 @@ import { WalkDisplayService } from "../walk-display.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
-import isString from "lodash-es/isString";
+import { isString } from "es-toolkit/compat";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";

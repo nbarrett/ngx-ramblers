@@ -4,7 +4,7 @@ import isEmpty = require("lodash/isEmpty");
 import querystring from "querystring";
 import { envConfig } from "../env-config/env-config";
 import { MessageHandlerOptions } from "../../../projects/ngx-ramblers/src/app/models/server-models";
-import { isArray } from "lodash";
+import { isArray } from "es-toolkit/compat";
 
 export function optionalParameter(key: string, value: any): string {
   if (key && value) {

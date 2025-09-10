@@ -14,7 +14,7 @@ import {
   CreateCampaignRequest,
   StatusMappedResponseSingleInput
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
-import omit from "lodash/omit";
+import { omit } from "es-toolkit/compat";
 import { dateTimeNow } from "../../shared/dates";
 
 const messageType = "brevo:send-email-campaign";

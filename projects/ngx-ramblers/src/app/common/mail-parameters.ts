@@ -1,5 +1,5 @@
 import { KeyValue } from "../functions/enums";
-import { keys, map } from "lodash";
+import { keys, map } from "es-toolkit/compat";
 import { NotificationConfig, ProcessToTemplateMappings, SendSmtpEmailParams } from "../models/mail.model";
 
 export function extractParametersFrom(params: SendSmtpEmailParams, wrapInParams: boolean): KeyValue<any>[] {

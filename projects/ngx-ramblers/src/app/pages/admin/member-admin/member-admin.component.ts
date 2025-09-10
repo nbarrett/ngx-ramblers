@@ -1,7 +1,7 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import cloneDeep from "lodash-es/cloneDeep";
-import extend from "lodash-es/extend";
-import sortBy from "lodash-es/sortBy";
+import { cloneDeep } from "es-toolkit/compat";
+import { extend } from "es-toolkit/compat";
+import { sortBy } from "es-toolkit/compat";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
@@ -34,7 +34,7 @@ import { MemberBulkDeleteService } from "../../../services/member/member-bulk-de
 import { MailProvider, SystemConfig } from "../../../models/system.model";
 import { ListInfo, MailMessagingConfig } from "../../../models/mail.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
-import uniq from "lodash-es/uniq";
+import { uniq } from "es-toolkit/compat";
 import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk-load-audit.service";
 import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
 import { MailchimpConfig } from "../../../models/mailchimp.model";

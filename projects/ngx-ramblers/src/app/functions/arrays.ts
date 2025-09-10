@@ -1,4 +1,4 @@
-import get from "lodash-es/get";
+import { get } from "es-toolkit/compat";
 
 export const range = (start: number, end: number) => {
   return Array.from({length: end - start + 1}, (v, k) => k + start);

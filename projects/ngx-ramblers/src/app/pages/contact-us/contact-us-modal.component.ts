@@ -16,7 +16,7 @@ import { MailMessagingService } from "../../services/mail/mail-messaging.service
 import { StringUtilsService } from "../../services/string-utils.service";
 import { NotificationConfig, SendSmtpEmailRequest } from "../../models/mail.model";
 import { NotificationDirective } from "../../notifications/common/notification.directive";
-import { omit } from "lodash-es";
+import { omit } from "es-toolkit/compat";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { FirstAndLastName } from "../../models/member.model";
 import { MemberNamingService } from "../../services/member/member-naming.service";

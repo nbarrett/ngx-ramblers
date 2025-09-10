@@ -12,7 +12,7 @@ import {
   MailSubscription
 } from "../../../models/mail.model";
 import { MailLinkService } from "../../../services/mail/mail-link.service";
-import cloneDeep from "lodash-es/cloneDeep";
+import { cloneDeep } from "es-toolkit/compat";
 import { SystemConfig } from "../../../models/system.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { MailSubscriptionSettingComponent } from "./mail-subscription-setting";

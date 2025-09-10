@@ -4,7 +4,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { FormsModule } from "@angular/forms";
-import range from "lodash-es/range";
+import { range } from "es-toolkit";
 
 
 @Component({

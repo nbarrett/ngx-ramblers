@@ -1,6 +1,6 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import has from "lodash-es/has";
+import { has } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { mergeMap } from "rxjs/operators";

@@ -1,11 +1,11 @@
 import { inject, Injectable } from "@angular/core";
 import { Router } from "@angular/router";
-import max from "lodash-es/max";
+import { max } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ALL_PHOTOS, ImageTag, RECENT_PHOTOS } from "../models/content-metadata.model";
 import { sortBy } from "../functions/arrays";
 import { Logger, LoggerFactory } from "./logger-factory.service";
-import kebabCase from "lodash-es/kebabCase";
+import { kebabCase } from "es-toolkit/compat";
 import { StoredValue } from "../models/ui-actions";
 import { StringUtilsService } from "./string-utils.service";
 

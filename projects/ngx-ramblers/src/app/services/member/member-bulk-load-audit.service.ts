@@ -7,7 +7,7 @@ import { Member, MemberBulkLoadAudit, MemberBulkLoadAuditApiResponse } from "../
 import { CommonDataService } from "../common-data-service";
 import { DbUtilsService } from "../db-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import first from "lodash-es/first";
+import { first } from "es-toolkit/compat";
 
 @Injectable({
   providedIn: "root"

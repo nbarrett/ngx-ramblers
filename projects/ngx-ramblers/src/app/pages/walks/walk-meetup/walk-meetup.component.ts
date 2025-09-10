@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, inject, Input, OnInit } from "@angular/core";
-import has from "lodash-es/has";
+import { has } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";

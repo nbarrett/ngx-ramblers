@@ -1,6 +1,6 @@
 import { UrlMatchResult, UrlSegment } from "@angular/router";
 import { isMongoId } from "./mongo-utils";
-import last from "lodash-es/last";
+import { last } from "es-toolkit/compat";
 
 function relativePathFrom(urlSegments: UrlSegment[]) {
   return new UrlSegment(urlSegments.map(urlSegment => urlSegment.path).join("/"), {});

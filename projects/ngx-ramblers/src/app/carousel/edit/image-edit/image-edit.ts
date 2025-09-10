@@ -1,5 +1,5 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
-import isArray from "lodash-es/isArray";
+import { isArray } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { AwsFileData } from "../../../models/aws-object.model";
@@ -35,7 +35,7 @@ import {
   faPencil,
   faRemove
 } from "@fortawesome/free-solid-svg-icons";
-import isEmpty from "lodash-es/isEmpty";
+import { isEmpty } from "es-toolkit/compat";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { KeyValue } from "../../../functions/enums";
 import { ImageMessage } from "../../../models/images.model";

@@ -1,5 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import { isEqual } from "lodash-es";
+import { isEqual } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { PageContentEditEvent } from "../models/content-text.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";

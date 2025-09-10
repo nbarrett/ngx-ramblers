@@ -1,5 +1,5 @@
 import { Component, inject, OnInit } from "@angular/core";
-import difference from "lodash-es/difference";
+import { difference } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertMessage, AlertTarget } from "../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
@@ -16,7 +16,7 @@ import { ExtendedGroupEventQueryService } from "../../../services/walks-and-even
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { DisplayDatesAndTimesPipe } from "../../../pipes/display-dates-and-times.pipe";
-import uniq from "lodash-es/uniq";
+import { uniq } from "es-toolkit/compat";
 import { DisplayDatesPipe } from "../../../pipes/display-dates.pipe";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { WalkDisplayService } from "../walk-display.service";

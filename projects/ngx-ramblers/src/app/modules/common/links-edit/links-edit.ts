@@ -3,7 +3,7 @@ import { faAdd } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Link } from "../../../models/page.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { remove } from "lodash-es";
+import { remove } from "es-toolkit/compat";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { LinkEditComponent } from "../link-edit/link-edit";

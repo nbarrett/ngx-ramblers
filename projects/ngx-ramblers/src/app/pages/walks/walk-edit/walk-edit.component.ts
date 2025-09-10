@@ -2,8 +2,8 @@ import { Component, inject, Input, OnDestroy, OnInit, Type, ViewChild } from "@a
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute } from "@angular/router";
 import { faCopy, faPencil } from "@fortawesome/free-solid-svg-icons";
-import cloneDeep from "lodash-es/cloneDeep";
-import isEmpty from "lodash-es/isEmpty";
+import { cloneDeep } from "es-toolkit/compat";
+import { isEmpty } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { GridReferenceLookupResponse } from "../../../models/address-model";
@@ -49,7 +49,7 @@ import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.mod
 import { EventDefaultsService } from "../../../services/event-defaults.service";
 import { NotificationComponent } from "../../../notifications/common/notification.component";
 import { WalkDataAudit } from "../../../models/walk-data-audit.model";
-import isEqual from "lodash-es/isEqual";
+import { isEqual } from "es-toolkit/compat";
 import { WalkEditMainDetailsComponent } from "./walk-edit-main-details";
 import { WalkEditDetailsComponent } from "./walk-edit-details";
 import { WalkRiskAssessmentComponent } from "../walk-risk-assessment/walk-risk-assessment.component";

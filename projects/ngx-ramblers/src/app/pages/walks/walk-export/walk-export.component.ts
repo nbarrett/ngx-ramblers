@@ -1,6 +1,6 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { faCheckCircle, faEnvelope, faExclamationCircle, faRemove } from "@fortawesome/free-solid-svg-icons";
-import map from "lodash-es/map";
+import { map } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -42,7 +42,7 @@ import { EventType, MessageType, RamblersUploadAuditProgressResponse } from "../
 import { ApiResponse } from "../../../models/api-response.model";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { StatusIconComponent } from "../../admin/status-icon";
-import last from "lodash-es/last";
+import { last } from "es-toolkit/compat";
 import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
 import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pipe";

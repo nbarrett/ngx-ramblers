@@ -1,5 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import { cloneDeep } from "lodash-es";
+import { cloneDeep } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AuditStatus } from "../../models/audit";
 import {

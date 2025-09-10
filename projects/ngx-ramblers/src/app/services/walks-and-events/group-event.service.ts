@@ -1,9 +1,9 @@
-import cloneDeep from "lodash-es/cloneDeep";
-import compact from "lodash-es/compact";
-import get from "lodash-es/get";
-import isArray from "lodash-es/isArray";
-import pick from "lodash-es/pick";
-import take from "lodash-es/take";
+import { cloneDeep } from "es-toolkit/compat";
+import { compact } from "es-toolkit/compat";
+import { get } from "es-toolkit/compat";
+import { isArray } from "es-toolkit/compat";
+import { pick } from "es-toolkit/compat";
+import { take } from "es-toolkit/compat";
 import { AUDITED_FIELDS, WalkEvent } from "../../models/walk-event.model";
 import { AuditDeltaChangedItemsPipePipe } from "../../pipes/audit-delta-changed-items.pipe";
 import { ChangedItem } from "../../models/changed-item.model";

@@ -6,7 +6,7 @@ import { EventAscentEdit } from "./event-ascent-edit.component";
 import { Difficulty } from "../../../models/ramblers-walks-manager";
 import { WalkDisplayService } from "../walk-display.service";
 import { AlertInstance } from "../../../services/notifier.service";
-import { cloneDeep } from "lodash-es";
+import { cloneDeep } from "es-toolkit/compat";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { enumValueForKey } from "../../../functions/enums";
 import { JsonPipe } from "@angular/common";

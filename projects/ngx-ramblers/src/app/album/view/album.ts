@@ -1,7 +1,7 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { LoggerFactory } from "../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
-import take from "lodash-es/take";
+import { take } from "es-toolkit/compat";
 import {
   faCircleInfo,
   faImage,

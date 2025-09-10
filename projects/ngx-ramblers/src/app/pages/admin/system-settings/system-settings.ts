@@ -21,7 +21,7 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { UrlService } from "../../../services/url.service";
 import { Member } from "../../../models/member.model";
 import { MemberService } from "../../../services/member/member.service";
-import kebabCase from "lodash-es/kebabCase";
+import { kebabCase } from "es-toolkit/compat";
 import { ActivatedRoute, Router } from "@angular/router";
 import { StoredValue } from "../../../models/ui-actions";
 import { PageComponent } from "../../../page/page.component";

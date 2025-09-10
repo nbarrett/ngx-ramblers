@@ -24,15 +24,15 @@ import {
 } from "../../models/mail.model";
 import { MailService } from "./mail.service";
 import { MemberService } from "../member/member.service";
-import groupBy from "lodash-es/groupBy";
-import map from "lodash-es/map";
+import { groupBy } from "es-toolkit/compat";
+import { map } from "es-toolkit/compat";
 import { MailProviderStats } from "../../models/system.model";
-import cloneDeep from "lodash-es/cloneDeep";
+import { cloneDeep } from "es-toolkit/compat";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
 import { MailListAuditService } from "./mail-list-audit.service";
 import { AuditStatus } from "../../models/audit";
-import omit from "lodash-es/omit";
-import first from "lodash-es/first";
+import { omit } from "es-toolkit/compat";
+import { first } from "es-toolkit/compat";
 import { MailMessagingService } from "./mail-messaging.service";
 
 

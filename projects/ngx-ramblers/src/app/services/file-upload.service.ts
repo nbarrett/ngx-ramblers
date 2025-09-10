@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import isUndefined from "lodash-es/isUndefined";
+import { isUndefined } from "es-toolkit/compat";
 import { FileItem, FileUploader } from "ng2-file-upload";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AuthService } from "../auth/auth.service";
@@ -11,7 +11,7 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 import { UrlService } from "./url.service";
 import { FileUtilsService } from "../file-utils.service";
 import { AwsFileUploadResponse, AwsFileUploadResponseData, AwsUploadErrorResponse } from "../models/aws-object.model";
-import first from "lodash-es/first";
+import { first } from "es-toolkit/compat";
 import { AlertInstance } from "./notifier.service";
 import { StringUtilsService } from "./string-utils.service";
 import { AlertMessage } from "../models/alert-target.model";

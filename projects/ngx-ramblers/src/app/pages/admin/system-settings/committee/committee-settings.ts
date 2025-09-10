@@ -16,7 +16,7 @@ import { StringUtilsService } from "../../../../services/string-utils.service";
 import { UrlService } from "../../../../services/url.service";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
 import { Subscription } from "rxjs";
-import isEqual from "lodash-es/isEqual";
+import { isEqual } from "es-toolkit/compat";
 import { PageComponent } from "../../../../page/page.component";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { MarkdownEditorComponent } from "../../../../markdown-editor/markdown-editor.component";

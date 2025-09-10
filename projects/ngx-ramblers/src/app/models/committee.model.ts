@@ -1,4 +1,4 @@
-import map from "lodash-es/map";
+import { map } from "es-toolkit/compat";
 import { ApiResponse, Identifiable } from "./api-response.model";
 import { FileNameData } from "./aws-object.model";
 import { DateValue } from "./date.model";

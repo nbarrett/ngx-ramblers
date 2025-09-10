@@ -1,7 +1,7 @@
 import { inject, Injectable } from "@angular/core";
-import first from "lodash-es/first";
-import isEmpty from "lodash-es/isEmpty";
-import last from "lodash-es/last";
+import { first } from "es-toolkit/compat";
+import { isEmpty } from "es-toolkit/compat";
+import { last } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateUtilsService } from "./services/date-utils.service";
 import { Logger, LoggerFactory } from "./services/logger-factory.service";

@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
-import first from "lodash-es/first";
-import kebabCase from "lodash-es/kebabCase";
+import { first } from "es-toolkit/compat";
+import { kebabCase } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
 import {
@@ -26,8 +26,8 @@ import { Logger, LoggerFactory } from "./logger-factory.service";
 import { NumberUtilsService } from "./number-utils.service";
 import { StringUtilsService } from "./string-utils.service";
 import { KeyValue } from "../functions/enums";
-import remove from "lodash-es/remove";
-import cloneDeep from "lodash-es/cloneDeep";
+import { remove } from "es-toolkit/compat";
+import { cloneDeep } from "es-toolkit/compat";
 import { UrlService } from "./url.service";
 import { ContentTextService } from "./content-text.service";
 

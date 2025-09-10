@@ -9,8 +9,8 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { NgxLoggerLevel } from "ngx-logger";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { move } from "../../../functions/arrays";
-import last from "lodash-es/last";
-import first from "lodash-es/first";
+import { last } from "es-toolkit/compat";
+import { first } from "es-toolkit/compat";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 
 @Component({

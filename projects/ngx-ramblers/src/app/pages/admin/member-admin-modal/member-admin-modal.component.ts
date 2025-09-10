@@ -1,6 +1,6 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { faPaste } from "@fortawesome/free-solid-svg-icons";
-import omit from "lodash-es/omit";
+import { omit } from "es-toolkit/compat";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";

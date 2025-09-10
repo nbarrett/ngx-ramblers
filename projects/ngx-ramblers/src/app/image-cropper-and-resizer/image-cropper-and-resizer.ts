@@ -25,7 +25,7 @@ import {
   faSave,
   faUpDown
 } from "@fortawesome/free-solid-svg-icons";
-import first from "lodash-es/first";
+import { first } from "es-toolkit/compat";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import {
   Dimensions,

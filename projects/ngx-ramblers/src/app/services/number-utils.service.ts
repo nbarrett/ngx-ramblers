@@ -1,15 +1,15 @@
 import { inject, Injectable } from "@angular/core";
-import isNaN from "lodash-es/isNaN";
-import isNumber from "lodash-es/isNumber";
+import { isNaN } from "es-toolkit/compat";
+import { isNumber } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { humanFileSize } from "../functions/file-utils";
-import isString from "lodash-es/isString";
-import isBoolean from "lodash-es/isBoolean";
-import isArray from "lodash-es/isArray";
-import isObject from "lodash-es/isObject";
-import isUndefined from "lodash-es/isUndefined";
-import isNull from "lodash-es/isNull";
+import { isString } from "es-toolkit/compat";
+import { isBoolean } from "es-toolkit/compat";
+import { isArray } from "es-toolkit/compat";
+import { isObject } from "es-toolkit/compat";
+import { isUndefined } from "es-toolkit/compat";
+import { isNull } from "es-toolkit/compat";
 
 @Injectable({
   providedIn: "root"

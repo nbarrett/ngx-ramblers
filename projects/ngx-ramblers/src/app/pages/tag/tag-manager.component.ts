@@ -1,6 +1,6 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { faRemove } from "@fortawesome/free-solid-svg-icons";
-import remove from "lodash-es/remove";
+import { remove } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { TagData } from "ngx-tagify";
 import { ContentMetadata, ImageTag } from "../../models/content-metadata.model";

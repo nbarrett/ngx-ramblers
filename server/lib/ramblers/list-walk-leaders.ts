@@ -4,11 +4,7 @@ import {
   RamblersGroupEventsRawApiResponse
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { GroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
-import omit from "lodash/omit";
-import isEmpty from "lodash/isEmpty";
-import groupBy from "lodash/groupBy";
-import map from "lodash/map";
-import first from "lodash/first";
+import { omit, isEmpty, groupBy, map, first } from "es-toolkit/compat";
 import { Request, Response } from "express";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { systemConfig } from "../config/system-config";

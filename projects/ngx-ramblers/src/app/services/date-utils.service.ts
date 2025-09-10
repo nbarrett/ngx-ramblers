@@ -1,8 +1,8 @@
 import { Time } from "@angular/common";
 import { inject, Injectable } from "@angular/core";
-import range from "lodash-es/range";
-import isString from "lodash-es/isString";
-import isNumber from "lodash-es/isNumber";
+import { range } from "es-toolkit";
+import { isString } from "es-toolkit/compat";
+import { isNumber } from "es-toolkit/compat";
 import { DateTime, Duration } from "luxon";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateValue } from "../models/date.model";

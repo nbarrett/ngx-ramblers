@@ -1,6 +1,6 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
-import { range } from "lodash-es";
-import first from "lodash-es/first";
+import { range } from "es-toolkit";
+import { first } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { BannerImageItem } from "../../models/banner-configuration.model";

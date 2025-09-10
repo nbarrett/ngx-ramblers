@@ -10,7 +10,7 @@ import {
   NumberOrString,
   StatusMappedResponseSingleInput
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
-import { isString } from "lodash";
+import { isString } from "es-toolkit/compat";
 import { createBottleneckWithRatePerSecond } from "../common/rate-limiting";
 
 const messageType = "brevo:contacts-delete";

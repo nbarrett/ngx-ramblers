@@ -1,5 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import isEmpty from "lodash-es/isEmpty";
+import { isEmpty } from "es-toolkit/compat";
 import { DistanceUnit } from "../../models/walk.model";
 import { NumberUtilsService } from "../number-utils.service";
 import { LegacyWalkAscent, Walk } from "../../models/deprecated";

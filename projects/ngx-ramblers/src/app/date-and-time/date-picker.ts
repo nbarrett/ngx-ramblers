@@ -1,6 +1,6 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { faCalendar } from "@fortawesome/free-solid-svg-icons";
-import kebabCase from "lodash-es/kebabCase";
+import { kebabCase, isString, isNumber } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateValue } from "../models/date.model";
 import { DateUtilsService } from "../services/date-utils.service";
@@ -10,8 +10,6 @@ import { NgClass } from "@angular/common";
 import { BsDatepickerDirective, BsDatepickerInputDirective } from "ngx-bootstrap/datepicker";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import isString from "lodash-es/isString";
-import isNumber from "lodash-es/isNumber";
 import { NumberUtilsService } from "../services/number-utils.service";
 
 type SupportedInputTypes = DateValue | number | string;

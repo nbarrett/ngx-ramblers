@@ -19,8 +19,8 @@ import { MediaQueryService } from "../../services/committee/media-query.service"
 import { EditMode } from "../../models/ui-actions";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { EventDefaultsService } from "../../services/event-defaults.service";
-import isUndefined from "lodash-es/isUndefined";
-import isNull from "lodash-es/isNull";
+import { isUndefined } from "es-toolkit/compat";
+import { isNull } from "es-toolkit/compat";
 
 @Component({
   selector: "[app-edit-group-event-images]",

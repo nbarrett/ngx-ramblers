@@ -1,6 +1,6 @@
 import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
-import cloneDeep from "lodash-es/cloneDeep";
-import isEqual from "lodash-es/isEqual";
+import { cloneDeep } from "es-toolkit/compat";
+import { isEqual } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { TagData, TagifyModule, TagifySettings } from "ngx-tagify";
 import { BehaviorSubject, Subscription } from "rxjs";

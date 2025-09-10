@@ -1,5 +1,5 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
-import isEmpty from "lodash-es/isEmpty";
+import { isEmpty } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { MailchimpListCreateRequest } from "../../../../models/server-models";
 import { NamedEvent, NamedEventType } from "../../../../models/broadcast.model";

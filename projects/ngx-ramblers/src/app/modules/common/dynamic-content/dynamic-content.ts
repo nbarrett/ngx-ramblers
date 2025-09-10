@@ -14,7 +14,7 @@ import { UrlService } from "../../../services/url.service";
 import { NamedEventType } from "../../../models/broadcast.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
-import cloneDeep from "lodash-es/cloneDeep";
+import { cloneDeep } from "es-toolkit/compat";
 import { DynamicContentSiteEditComponent } from "./dynamic-content-site-edit";
 import { DynamicContentViewComponent } from "./dynamic-content-view";
 

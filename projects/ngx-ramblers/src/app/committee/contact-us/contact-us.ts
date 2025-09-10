@@ -6,7 +6,7 @@ import { CommitteeConfigService } from "../../services/committee/commitee-config
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { UrlService } from "../../services/url.service";
-import first from "lodash-es/first";
+import { first } from "es-toolkit/compat";
 import { NgStyle } from "@angular/common";
 
 @Component({
