@@ -10,7 +10,40 @@ import { LinkEditComponent } from "../link-edit/link-edit";
 
 @Component({
     selector: "app-links-edit",
-    templateUrl: "./links-edit.html",
+    template: `
+      <div class="row img-thumbnail thumbnail-2">
+        <div class="thumbnail-heading">{{ heading }} ({{ links.length }})</div>
+        <div class="col-sm-12">
+          @if (!newEditInProgress()) {
+            <div class="badge-button mb-2" (click)="createNew()"
+                 delay=500 tooltip="Add new link">
+              <fa-icon [icon]="faAdd"></fa-icon>
+              <span>add link</span>
+            </div>
+          }
+          <div class="col-sm-12">
+            <div class="row g-2">
+              <div class="col-md-3">
+                <label>Web Url</label>
+              </div>
+              <div class="col-md-3">
+                <label>Title</label>
+              </div>
+              <div class="col-md-3">
+                <label>Actions</label>
+              </div>
+              <div class="col-md-3">
+                <label>Link Preview</label>
+              </div>
+            </div>
+            @for (link of links; track link.href) {
+              <app-link-edit [link]="link" [links]="links" (delete)="deleteLink($event)"/>
+            }
+          </div>
+        </div>
+        <ng-content/>
+      </div>
+    `,
     imports: [TooltipDirective, FontAwesomeModule, LinkEditComponent]
 })
 export class LinksEditComponent implements OnInit {

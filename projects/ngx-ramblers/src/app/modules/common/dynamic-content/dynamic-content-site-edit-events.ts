@@ -68,7 +68,7 @@ import { HasStartAndEndTime } from "../../../models/group-event.model";
           <div class="form-group">
             <label for="from-date-{{id}}">Select Events From</label>
             <app-date-picker startOfDay
-                             [disabled]="this.row.events.filterCriteria !== FilterCriteria.DATE_RANGE"
+                             [disabled]="row.events.filterCriteria !== FilterCriteria.DATE_RANGE"
                              id="from-date-{{id}}"
                              [size]="'md round'"
                              (change)="row.events.fromDate=$event.value;broadcastChange()"
@@ -80,7 +80,7 @@ import { HasStartAndEndTime } from "../../../models/group-event.model";
           <div class="form-group">
             <label for="to-date-{{id}}">Select Events To</label>
             <app-date-picker startOfDay
-                             [disabled]="this.row.events.filterCriteria !== FilterCriteria.DATE_RANGE"
+                             [disabled]="row.events.filterCriteria !== FilterCriteria.DATE_RANGE"
                              id="to-date-{{id}}"
                              [size]="'md round'"
                              (change)="row.events.toDate=$event.value;broadcastChange()"
@@ -105,9 +105,9 @@ import { HasStartAndEndTime } from "../../../models/group-event.model";
         </div>
       </div>
       <div class="row d-flex">
-        <div class="col-md-12 d-inline-flex align-items-center flex-wrap px-0 pb-2">
+        <div class="col-md-12 d-inline-flex align-items-center flex-wrap gap-3 px-0 pb-2 ms-3">
           <div class="col-auto">
-            <div class="form-check">
+            <div class="form-check form-check-inline mb-0">
               <input name="showSwiper" [(ngModel)]="row.events.allow.quickSearch"
                      [checked]="row.events.allow.quickSearch"
                      type="checkbox" class="form-check-input"
@@ -118,7 +118,7 @@ import { HasStartAndEndTime } from "../../../models/group-event.model";
             </div>
           </div>
           <div class="col-auto">
-            <div class="form-check">
+            <div class="form-check form-check-inline mb-0">
               <input name="showSwiper" [(ngModel)]="row.events.allow.pagination"
                      [checked]="row.events.allow.pagination"
                      type="checkbox" class="form-check-input"
@@ -129,7 +129,7 @@ import { HasStartAndEndTime } from "../../../models/group-event.model";
             </div>
           </div>
           <div class="col-auto">
-            <div class="form-check">
+            <div class="form-check form-check-inline mb-0">
               <input name="showSwiper" [(ngModel)]="row.events.allow.alert"
                      [checked]="row.events.allow.alert"
                      type="checkbox" class="form-check-input"
@@ -140,7 +140,7 @@ import { HasStartAndEndTime } from "../../../models/group-event.model";
             </div>
           </div>
           <div class="col-auto">
-            <div class="form-check">
+            <div class="form-check form-check-inline mb-0">
               <input name="showSwiper" [(ngModel)]="row.events.allow.autoTitle"
                      [checked]="row.events.allow.autoTitle"
                      type="checkbox" class="form-check-input"
@@ -151,7 +151,7 @@ import { HasStartAndEndTime } from "../../../models/group-event.model";
             </div>
           </div>
           <div class="col-auto">
-            <div class="form-check">
+            <div class="form-check form-check-inline mb-0">
               <input name="showSwiper" [(ngModel)]="row.events.allow.addNew"
                      [checked]="row.events.allow.addNew"
                      type="checkbox" class="form-check-input"

@@ -1,15 +1,9 @@
 import { ApiResponse } from "./api-response.model";
 import { DataQueryOptions } from "./api-request.model";
 import { GroupEvent, InputSource } from "./group-event.model";
+import { RamblersWalksManagerDateFormat } from "./date-format.model";
 
-
-export enum DateFormat {
-  WALKS_MANAGER_CSV = "dd/MM/yyyy",
-  WALKS_MANAGER_API = "yyyy-MM-dd",
-  FILE_TIMESTAMP = "yyyy-MM-dd-HH-mm-ss",
-  EXPORT_FILENAME = "dd-MMMM-yyyy-HH-mm",
-  DISPLAY_DATE_FULL = "cccc, d MMMM yyyy"
-}
+export { RamblersWalksManagerDateFormat as DateFormat } from "./date-format.model";
 
 export const WALKS_MANAGER_GO_LIVE_DATE = "2023-04-01";
 

@@ -12,7 +12,7 @@ import {
 } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { CommitteeMember, CommitteeRolesChangeEvent } from "../../models/committee.model";
+import { CommitteeMember, CommitteeRolesChangeEvent, RoleType } from "../../models/committee.model";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { StringUtilsService } from "../../services/string-utils.service";
@@ -32,12 +32,15 @@ import { FormsModule } from "@angular/forms";
                  class="dropdown b-dropdown btn-group filter-dropdown dropdown-custom xform-control"
                  [ngClass]="{'show':expanded}">
               <button aria-haspopup="menu" [attr.aria-expanded]="expanded"
-                      class="btn dropdown-toggle btn-secondary btn-sm btn-normal text-truncate text-wrap">{{ roleSelection() }}
+                      class="btn dropdown-toggle btn-outline-dark btn-sm btn-normal text-truncate text-wrap w-100 bg-white">{{ roleSelection() }}
               </button>
               <ul role="menu" tabindex="-1" class="dropdown-menu p-3"
                   [ngClass]="{'show':expanded}">
+                <li role="presentation" class="d-flex justify-content-end">
+                  <button type="button" class="btn-close btn-close-sm" [attr.aria-label]="acceptTooltip()" [title]="acceptTooltip()" (click)="closeDropdown($event)" style="font-size: 0.75rem; padding: 0.25rem;"></button>
+                </li>
                 <li role="presentation">
-                  <form tabindex="-1" class="b-dropdown-form">
+                  <form tabindex="-1" class="b-dropdown-form" (click)="$event.stopPropagation()">
                     <fieldset class="form-group">
                       <div class="form-check">
                         <input aria-describedby="role-description"
@@ -143,13 +146,17 @@ export class CommitteeRoleMultiSelectComponent implements OnInit, OnDestroy {
     if (this.allSelected()) {
       this.roles=[]
     } else {
-      this.roles=this.display.committeeReferenceData.committeeMembers().map(item => item.type);
+      this.roles=this.display.committeeReferenceData.committeeMembers()
+        .filter(item => item.roleType === RoleType.COMMITTEE_MEMBER)
+        .map(item => item.type);
     }
     this.rolesChange.emit({committeeMember: null, roles: this.roles});
   }
 
   allSelected() {
-    return this.roles.length === this.display.committeeReferenceData.committeeMembers().length;
+    const committeeMembersOnly = this.display.committeeReferenceData.committeeMembers()
+      .filter(item => item.roleType === RoleType.COMMITTEE_MEMBER);
+    return this.roles.length === committeeMembersOnly.length;
   }
 
   selectRole($event: Event, committeeMember: CommitteeMember) {
@@ -169,5 +176,15 @@ export class CommitteeRoleMultiSelectComponent implements OnInit, OnDestroy {
 
   roleSelection() {
     return this.display.committeeReferenceData.committeeMembersForRole(this.roles).map(role => role[this.showRoleSelectionAs || "fullName"]).join(", ") || "Select Roles";
+  }
+
+  closeDropdown(event: Event) {
+    event.stopPropagation();
+    this.expanded = false;
+  }
+
+  acceptTooltip(): string {
+    const count = this.roles.length;
+    return `Accept ${count} selection${count === 1 ? '' : 's'}`;
   }
 }

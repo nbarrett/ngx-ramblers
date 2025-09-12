@@ -117,7 +117,7 @@ export class RamblersWalksAndEventsService {
   private ramblers: Ramblers;
   private BASE_URL = "/api/ramblers/walks-manager";
   private conversionOptions = {markdownToHtml: false, markdownLinksToText: true};
-  private dryRun = false;
+  private dryRun = true;
 
   constructor() {
     inject(CommitteeConfigService).committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data);
@@ -271,16 +271,18 @@ export class RamblersWalksAndEventsService {
 
   updateWalksWithRamblersWalkData(ramblersWalksResponses: RamblersEventSummaryResponse[], localEvents: ExtendedGroupEvent[]): Promise<LocalAndRamblersWalk[]> {
     let unreferencedUrls: string[] = this.collectExistingRamblersUrlsFrom(localEvents);
-    this.logger.info(this.stringUtilsService.pluraliseWithCount(unreferencedUrls.length, "existing ramblers walk url"), "found:", unreferencedUrls);
+    this.logger.info(this.stringUtilsService.pluraliseWithCount(unreferencedUrls.length, "existing ramblers walk url"), "found unreferencedUrls:", unreferencedUrls);
     this.logger.info(this.stringUtilsService.pluraliseWithCount(localEvents.length, "local walk"), "found:", localEvents);
     const savePromises = [];
     this.logger.info(this.stringUtilsService.pluraliseWithCount(ramblersWalksResponses.length, "localEvents manager walk"), "found:", ramblersWalksResponses);
     ramblersWalksResponses.forEach((ramblersWalksResponse: RamblersEventSummaryResponse) => {
-      const walkMatchedByDate: ExtendedGroupEvent = localEvents.find(walk => this.dateUtils.asString(walk?.groupEvent?.start_date_time, undefined, "dddd, Do MMMM YYYY") === ramblersWalksResponse.startDate);
+      const walkMatchedByDate: ExtendedGroupEvent = localEvents.find(walk => this.dateUtils.asString(walk?.groupEvent?.start_date_time, undefined, this.dateUtils.formats.displayDate) === ramblersWalksResponse.startDate);
       if (!walkMatchedByDate) {
         this.logger.info("no date match found for ramblersWalksResponse", ramblersWalksResponse);
       } else {
+        this.logger.info("removing ramblersWalksResponse.url", ramblersWalksResponse.url , "from unreferencedUrls:", unreferencedUrls);
         unreferencedUrls = without(unreferencedUrls, ramblersWalksResponse.url);
+        this.logger.info("unreferencedUrls are now:", unreferencedUrls);
         if (walkMatchedByDate) {
           if (this.notMatchedByIdOrUrl(walkMatchedByDate, ramblersWalksResponse)) {
             this.logger.info("updating walk from", walkMatchedByDate?.groupEvent?.id || "empty", "->", ramblersWalksResponse.id, "and", walkMatchedByDate?.groupEvent?.url || "empty", "->", ramblersWalksResponse.url, "on", this.displayDate.transform(walkMatchedByDate.groupEvent.start_date_time));

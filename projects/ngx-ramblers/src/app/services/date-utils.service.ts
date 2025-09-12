@@ -10,6 +10,7 @@ import { NumberUtilsService } from "./number-utils.service";
 import { isDateValue } from "./type-guards";
 import { ExtendedGroupEvent } from "../models/group-event.model";
 import { StringUtilsService } from "./string-utils.service";
+import { UIDateFormat } from "../models/date-format.model";
 
 type DateInput = string | number | Date | DateValue | DateTime;
 
@@ -26,17 +27,17 @@ export class DateUtilsService {
   MILLISECONDS_IN_ONE_DAY = 86400000;
 
   public formats = {
-    ramblersTime: "HH:mm",
-    displayTime: "h:mm a",
-    displayTimeWithSeconds: "h:mm:ss a",
-    displayDateAndTime: "cccc, d MMMM yyyy, h:mm:ss a",
-    displayDateTh: "MMMM do yyyy",
-    displayDate: "cccc, d MMMM yyyy",
-    displayDateNoDay: "d MMMM yyyy",
-    displayDay: "cccc MMMM d, yyyy",
-    dayMonthYearWithSlashes: "dd/MM/yyyy",
-    yearMonthDayWithDashes: "yyyy-MM-dd",
-    yearMonthDay: "yyyyMMdd"
+    ramblersTime: UIDateFormat.RAMBLERS_TIME,
+    displayTime: UIDateFormat.DISPLAY_TIME,
+    displayTimeWithSeconds: UIDateFormat.DISPLAY_TIME_WITH_SECONDS,
+    displayDateAndTime: UIDateFormat.DISPLAY_DATE_AND_TIME,
+    displayDateTh: UIDateFormat.DISPLAY_DATE_TH,
+    displayDate: UIDateFormat.DISPLAY_DATE,
+    displayDateNoDay: UIDateFormat.DISPLAY_DATE_NO_DAY,
+    displayDay: UIDateFormat.DISPLAY_DAY,
+    dayMonthYearWithSlashes: UIDateFormat.DAY_MONTH_YEAR_WITH_SLASHES,
+    yearMonthDayWithDashes: UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES,
+    yearMonthDay: UIDateFormat.YEAR_MONTH_DAY
   };
 
   isMidnight(dateValue: DateInput): boolean {

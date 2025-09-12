@@ -34,14 +34,15 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
     @if (mailMessagingConfig) {
       <div class="row img-thumbnail thumbnail-2">
         <div class="thumbnail-heading-with-select">
-          <div class="form-inline">
+          <div class="d-flex flex-wrap align-items-center gap-2">
             <label for="template-mapping">Email Configuration
               {{ mailMessagingConfig.notificationConfigs.indexOf(notificationConfig) + 1 }}
             of {{ mailMessagingConfig.notificationConfigs.length }}: </label>
             <select [(ngModel)]="notificationConfig"
               (ngModelChange)="select(notificationConfig)"
               id="template-mapping"
-              class="ms-2 form-control input-sm">
+              class="form-control input-sm"
+              style="width: auto; max-width: 300px;">
               @for (mapping of mailMessagingConfig.notificationConfigs; track mapping.subject.text) {
                 <option
                   [ngValue]="mapping">{{ mapping?.subject?.text || '(no subject)' }}
@@ -337,7 +338,7 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   }
 
   subject(): string {
-    return this.notificationConfig?.subject?.text || "(no subject)";
+    return this.notificationConfig?.subject?.text || '(no subject)';
   }
 
   toBannerInformation(bannerConfig: BannerConfig) {

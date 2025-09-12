@@ -1,10 +1,9 @@
 import { Member, RamblersMember, WriteDataRule, WriteDataType } from "./member.model";
 import { DateUtilsService } from "../services/date-utils.service";
+import { RamblersInsightHubDateFormat } from "./date-format.model";
 
-export enum InsightHubDateFormat {
-  JOIN_DATE = "DD/MM/YY",
-  OTHER_DATES = "DD/MM/YYYY",
-}
+export { RamblersInsightHubDateFormat as InsightHubDateFormat } from "./date-format.model";
+type InsightHubDateFormat = RamblersInsightHubDateFormat;
 
 export interface AuditField {
   fieldName: keyof Member;
@@ -22,7 +21,7 @@ export const AUDIT_FIELDS: AuditField[] = [
     fieldName: "membershipExpiryDate",
     writeDataIf: WriteDataRule.CHANGED,
     type: WriteDataType.DATE,
-    dateFormat: InsightHubDateFormat.OTHER_DATES
+    dateFormat: RamblersInsightHubDateFormat.OTHER_DATES
   },
   {fieldName: "membershipNumber", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.STRING},
   {fieldName: "mobileNumber", writeDataIf: WriteDataRule.NO_OLD_VALUE, type: WriteDataType.STRING},
@@ -49,6 +48,6 @@ export const AUDIT_FIELDS: AuditField[] = [
     fieldName: "emailPermissionLastUpdated",
     writeDataIf: WriteDataRule.CHANGED,
     type: WriteDataType.DATE,
-    dateFormat: InsightHubDateFormat.OTHER_DATES
+    dateFormat: RamblersInsightHubDateFormat.OTHER_DATES
   },
 ];

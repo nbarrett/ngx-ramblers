@@ -131,6 +131,7 @@ export interface Header {
 
 export interface NavBar extends HasClass {
   location: string;
+  justification?: NavBarJustification;
 }
 
 
@@ -160,6 +161,12 @@ export enum BuiltInAlbumName {
 export enum NavBarLocation {
   LOGO_RIGHT = "logo-right",
   BELOW_LOGO = "below-logo",
+}
+
+export enum NavBarJustification {
+  LEFT = "left",
+  CENTER = "center",
+  RIGHT = "right",
 }
 
 export interface Images {
@@ -273,7 +280,8 @@ export const defaultRamblersConfig: Ramblers = {
 
 export const defaultNavbar: NavBar = {
   class: classBackgroundLight,
-  location: NavBarLocation.LOGO_RIGHT
+  location: NavBarLocation.LOGO_RIGHT,
+  justification: NavBarJustification.RIGHT
 };
 
 export const defaultHeaderBar: HeaderBar = {
