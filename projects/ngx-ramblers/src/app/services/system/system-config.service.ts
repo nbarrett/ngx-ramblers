@@ -119,6 +119,10 @@ export class SystemConfigService {
       config.header.navBar = defaultNavbar;
       this.logger.info("config.header.navBar initialised as:", config.header.navBar);
     }
+    if (!config?.header?.navBar?.justification) {
+      config.header.navBar.justification = defaultNavbar.justification;
+      this.logger.info("config.header.navBar.justification initialised as:", config.header.navBar.justification);
+    }
     if (!config?.header?.headerBar) {
       config.header.headerBar = defaultHeaderBar;
       this.logger.info("config.header.headerBar initialised as:", config.header.headerBar);

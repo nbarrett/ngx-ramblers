@@ -11,6 +11,7 @@ import { BsDatepickerDirective, BsDatepickerInputDirective } from "ngx-bootstrap
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NumberUtilsService } from "../services/number-utils.service";
+import { BsDatepickerFormat, UIDateFormat } from "../models/date-format.model";
 
 type SupportedInputTypes = DateValue | number | string;
 
@@ -32,7 +33,7 @@ type SupportedInputTypes = DateValue | number | string;
                [placeholder]="placeholder ||'enter date'"
                #dp="bsDatepicker"
                bsDatepicker
-               [bsConfig]="{withTimepicker: false, showClearButton: true, clearPosition: 'right', showTodayButton: true, todayPosition: 'center', isAnimated: true, dateInputFormat: 'ddd DD-MMM-YYYY', containerClass: 'theme-ramblers'}"
+               [bsConfig]="{withTimepicker: false, showClearButton: true, clearPosition: 'right', showTodayButton: true, todayPosition: 'center', isAnimated: true, dateInputFormat: BsDatepickerFormat.DATE_INPUT, containerClass: 'theme-ramblers'}"
                type="text" class="form-control" [ngClass]="size ? 'input-' + size: 'input-sm'"/>
         <button type="button" class="btn btn-outline-secondary" (click)="disabled? null:dp.toggle()">
           <fa-icon [icon]="faCalendar" class="fa-icon"/>
@@ -68,6 +69,8 @@ export class DatePicker implements OnInit {
   @Output() change: EventEmitter<DateValue> = new EventEmitter();
   public startOfDay = false;
   faCalendar = faCalendar;
+  protected readonly UIDateFormat = UIDateFormat;
+  protected readonly BsDatepickerFormat = BsDatepickerFormat;
 
   ngOnInit() {
     if (!this.id) {
@@ -100,9 +103,9 @@ export class DatePicker implements OnInit {
       return null;
     } else if (midnight && this.lastEmittedValue && !this.startOfDay) {
       const baseDateTime = this.dateUtils.asDateTime(date);
-      const withTime = baseDateTime.set({ 
-        hour: this.lastEmittedValue.date.getHours(), 
-        minute: this.lastEmittedValue.date.getMinutes() 
+      const withTime = baseDateTime.set({
+        hour: this.lastEmittedValue.date.getHours(),
+        minute: this.lastEmittedValue.date.getMinutes()
       });
       const dateValue: DateValue = this.dateUtils.asDateValue(withTime.toMillis());
       this.logger.info("dateValueFrom: date is at midnight:", date, "dateValue:", dateValue);

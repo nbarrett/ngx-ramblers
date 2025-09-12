@@ -12,7 +12,36 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
 
 @Component({
     selector: "app-link-edit",
-    templateUrl: "./link-edit.html",
+    template: `
+      <div class="row g-2 mb-2">
+        <div class="col-md-3">
+          <input [(ngModel)]="link.href"
+                 type="text" value="" class="form-control input-sm" [id]="uniqueIdFor('page-edit-href')"
+                 placeholder="Enter a link">
+        </div>
+        <div class="col-md-3">
+          <input [(ngModel)]="link.title"
+                 type="text" value="" class="form-control input-sm" [id]="uniqueIdFor('page-edit-title')"
+                 placeholder="Enter a title for link">
+        </div>
+        <div class="col-md-3">
+          <div class="badge-button" (click)="deleteLink()"
+               delay=500 tooltip="Delete link">
+            <fa-icon [icon]="faClose"></fa-icon>
+          </div>
+          <div [ngClass]="buttonClass(links.indexOf(link) < links.length - 1)" (click)="moveDown()"
+               delay=500 tooltip="Move down">
+            <fa-icon [icon]="faDownLong"></fa-icon>
+          </div>
+          <div [ngClass]="buttonClass(links.indexOf(link)>0)" (click)="moveUp()"
+               delay=500 tooltip="Move up">
+            <fa-icon [icon]="faUpLong"></fa-icon>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <a [id]="uniqueIdFor('page-edit-preview')" [href]="link.href">{{ link.title || link.href }}</a>
+        </div>
+      </div>`,
     imports: [FormsModule, TooltipDirective, FontAwesomeModule, NgClass]
 })
 export class LinkEditComponent implements OnInit {

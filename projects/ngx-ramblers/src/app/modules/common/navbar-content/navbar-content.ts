@@ -3,7 +3,7 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { UrlService } from "../../../services/url.service";
 import { NgxLoggerLevel } from "ngx-logger";
-import { SystemConfig } from "../../../models/system.model";
+import { NavBarJustification, SystemConfig } from "../../../models/system.model";
 import { Subscription } from "rxjs";
 import { PageNavigatorComponent } from "../../../page-navigator/page-navigator.component";
 import { HeaderButtonsComponent } from "../../../header-buttons/header-buttons";
@@ -11,13 +11,13 @@ import { HeaderButtonsComponent } from "../../../header-buttons/header-buttons";
 @Component({
     selector: "app-navbar-content",
     template: `
-      <div class="w-100 {{systemConfig?.header?.navBar?.class}}">
-        <div class="ramblers-list-{{systemConfig?.header?.navBar?.class}} d-flex justify-content-center justify-content-lg-end">
-          <ul class="d-flex gap-2">
+      <div>
+        <div [class]="'ramblers-list-' + (systemConfig?.header?.navBar?.class || '') + ' ' + containerClasses()">
+          <ul [class]="listClasses()">
             <app-page-navigator/>
           </ul>
         </div>
-        <div class="row mx-auto py-2 w-100 align-items-center justify-content-between bg-dark d-flex d-lg-none">
+        <div class="row py-2 align-items-center justify-content-between bg-dark d-flex d-lg-none">
           <div
             class="d-block d-sm-flex align-items-center justify-content-center justify-content-lg-end order-sm-3 col-12 order-3">
             @if (systemConfig?.header?.headerBar?.showNavigationButtons) {
@@ -48,6 +48,29 @@ export class NavbarContentComponent  implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  containerClasses(): string {
+    const location = this.systemConfig?.header?.navBar?.location;
+    const justification = this.systemConfig?.header?.navBar?.justification || NavBarJustification.RIGHT;
+
+    if (location === 'below-logo') {
+      switch (justification) {
+        case NavBarJustification.LEFT:
+          return "d-flex justify-content-start";
+        case NavBarJustification.CENTER:
+          return "d-flex justify-content-center";
+        case NavBarJustification.RIGHT:
+        default:
+          return "d-flex justify-content-end";
+      }
+    } else {
+      return "d-flex justify-content-center justify-content-lg-end";
+    }
+  }
+
+  listClasses(): string {
+    return "mx-auto text-center ml-lg-auto mr-lg-0";
   }
 
 }

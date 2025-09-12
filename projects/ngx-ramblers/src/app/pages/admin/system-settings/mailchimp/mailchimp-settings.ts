@@ -413,7 +413,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                     <div class="col-sm-12">
                       <div class="form-group">
                         <label for="expired-members-campaign-initial">Campaign Master</label>
-                        <div class="form-inline">
+                        <div class="d-flex flex-wrap align-items-center gap-2">
                           <select [(ngModel)]="mailchimpConfig.campaigns.expiredMembersWarning.campaignId"
                             id="expired-members-campaign-initial"
                             class="form-control input-sm flex-grow-1 me-2">
@@ -452,7 +452,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                     <div class="col-sm-12">
                       <div class="form-group">
                         <label for="expired-members-campaign">Campaign Master</label>
-                        <div class="form-inline">
+                        <div class="d-flex flex-wrap align-items-center gap-2">
                           <select [(ngModel)]="mailchimpConfig.campaigns.expiredMembers.campaignId"
                             id="expired-members-campaign"
                             class="form-control input-sm flex-grow-1 me-2">

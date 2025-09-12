@@ -6,6 +6,7 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import {
   colourSelectors,
   colourSelectorsDarkLight,
+  NavBarJustification,
   NavBarLocation,
   RootFolder,
   SystemConfig,
@@ -187,19 +188,29 @@ import { RamblersSettings } from "./external/ramblers-settings";
                     <div class="img-thumbnail thumbnail-2">
                       <div class="thumbnail-heading">Navbar</div>
                       <div class="row">
-                        <div class="col-sm-6">
+                        <div class="col-sm-4">
                           <label for="navbar-location">Navbar Location</label>
                           <select class="form-control input-sm"
                                   [(ngModel)]="config.header.navBar.location"
                                   id="navbar-location">
                             @for (type of navbarLocations; track type.key) {
-                              <option
-                                [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+                              <option [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
                               </option>
                             }
                           </select>
                         </div>
-                        <div class="col-sm-6">
+                        <div class="col-sm-4">
+                          <label for="navbar-justification">Navbar Justification</label>
+                          <select class="form-control input-sm"
+                                  [(ngModel)]="config.header.navBar.justification"
+                                  id="navbar-justification">
+                            @for (type of navbarJustifications; track type.key) {
+                              <option [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+                              </option>
+                            }
+                          </select>
+                        </div>
+                        <div class="col-sm-4">
                           <app-colour-selector [itemWithClassOrColour]="config.header.navBar"
                                                [colours]="colourSelectorsDarkLight"
                                                label="Navbar Colour"/>
@@ -379,6 +390,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("SystemSettingsComponent", NgxLoggerLevel.ERROR);
   navbarLocations: KeyValue<string>[] = enumKeyValues(NavBarLocation);
+  navbarJustifications: KeyValue<string>[] = enumKeyValues(NavBarJustification);
   protected readonly colourSelectorsDarkLight = colourSelectorsDarkLight;
   protected readonly colourSelectors = colourSelectors;
   private tab: any;

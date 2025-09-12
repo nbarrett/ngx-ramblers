@@ -11,13 +11,11 @@ import { DataPopulationService } from "../pages/admin/data-population.service";
 @Component({
     selector: "app-root",
     template: `
-    <div class="container-fluid">
-      @if (config?.header?.headerBar?.show) {
-        <app-header-bar/>
-      }
-      <app-navbar/>
-    </div>
+    @if (config?.header?.headerBar?.show) {
+      <app-header-bar/>
+    }
     <div class="container">
+      <app-navbar/>
       <router-outlet/>
     </div>
     <app-footer/>
