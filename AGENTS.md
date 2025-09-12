@@ -40,6 +40,36 @@ NGX‑Ramblers is an Angular‑based website framework for local Ramblers groups
 - ❌ `Co-Authored-By: Claude <noreply@anthropic.com>`
 - ❌ Any similar AI tool attribution
 
+### Semantic Commit Conventions
+Use [Conventional Commits](https://www.conventionalcommits.org/) format for clear, categorized commit history:
+
+**Format:** `<type>(<scope>): <description>`
+
+**Types:**
+- `feat` - New features or enhancements
+- `fix` - Bug fixes
+- `refactor` - Code restructuring without behavior changes
+- `test` - Adding or updating tests
+- `docs` - Documentation changes
+- `style` - Code formatting, missing semicolons, etc.
+- `build` - Build system or dependency changes
+- `ci` - Continuous integration changes
+
+**Scopes (common for this project):**
+- `social`, `walks`, `committee` - Feature areas
+- `ui`, `forms`, `pipes`, `models` - Technical components
+- `auth`, `config`, `api` - System areas
+- `test`, `docs`, `build` - Supporting areas
+
+**Examples:**
+```
+feat(social): add event filtering by date range
+fix(walks): resolve incorrect distance calculation
+refactor(dates): consolidate date formats into single model
+test(pipes): add comprehensive EventDatesAndTimesPipe test suite
+docs(readme): update installation instructions
+```
+
 ### Code Style Rules  
 - **No comments in code**: Use self-documenting method names instead of inline comments
 - **Double quotes**: Always use `"` instead of `'` for strings
