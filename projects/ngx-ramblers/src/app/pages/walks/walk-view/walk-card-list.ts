@@ -22,6 +22,7 @@ import { WalkCardViewComponent } from "./walk-card-view";
 import { WalkViewComponent } from "./walk-view";
 import { WalkEditComponent } from "../walk-edit/walk-edit.component";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { TrackByService } from "../../../services/track-by.service";
 
 @Component({
     selector: "app-walk-card-list",
@@ -50,7 +51,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
             </div>
           }
           <div class="row">
-            @for (displayedWalk of currentPageWalks; let index = $index; track displayedWalk?.walk?.id || index) {
+            @for (displayedWalk of currentPageWalks; let index = $index; track trackByService.displayedWalk(index, displayedWalk)) {
               <div
                 [ngClass]="{'pt-2 mb-3 col-lg-4 col-md-6 col-sm-12': !viewExpanded(displayedWalk.walk), 'w-100': viewExpanded(displayedWalk.walk)}"
                 class="d-flex flex-column">
@@ -94,6 +95,7 @@ export class WalkCardListComponent implements OnInit, OnChanges, OnDestroy {
   private notifierService = inject(NotifierService);
   private logger = inject(LoggerFactory).createLogger("WalkCardViewComponent", NgxLoggerLevel.ERROR);
   protected notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
+  public trackByService = inject(TrackByService);
   activeSlide = 0;
   @Input() currentPageWalks!: DisplayedWalk[];
 

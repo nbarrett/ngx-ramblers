@@ -52,9 +52,18 @@ export class CardImageOrMap implements OnInit {
   protected basicMedia: BasicMedia;
   protected imageConfig: { class: string, height: number };
   protected imageNavigationEnabled: boolean;
-  @Input() displayedWalk!: DisplayedWalk;
+  private _displayedWalk: DisplayedWalk;
   @Input() notify!: AlertInstance;
   @Input() maxColumns!: number;
+
+  @Input() set displayedWalk(value: DisplayedWalk) {
+    this._displayedWalk = value;
+    this.updateBasicMedia();
+  }
+
+  get displayedWalk(): DisplayedWalk {
+    return this._displayedWalk;
+  }
 
   @Input("imageNavigationEnabled") set imageNavigationEnabledValue(imageNavigationEnabled: boolean) {
     this.imageNavigationEnabled = coerceBooleanProperty(imageNavigationEnabled);
@@ -63,7 +72,14 @@ export class CardImageOrMap implements OnInit {
   ngOnInit() {
     this.imageConfig = {class: this.determineClass(), height: this.determineHeight()};
     this.logger.info("ngOnInit:displayedWalk", this.displayedWalk);
-    this.basicMedia = this.mediaQueryService.imageSourceWithFallback(this.displayedWalk.walk);
+    this.updateBasicMedia();
+  }
+
+  private updateBasicMedia() {
+    if (this.displayedWalk?.walk) {
+      this.basicMedia = this.mediaQueryService.imageSourceWithFallback(this.displayedWalk.walk);
+      this.logger.info("updateBasicMedia: updated basicMedia for walk", this.displayedWalk.walk.id, "to", this.basicMedia);
+    }
   }
 
   imageError(event: ErrorEvent) {

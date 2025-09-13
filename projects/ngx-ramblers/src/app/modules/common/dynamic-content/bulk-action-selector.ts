@@ -7,7 +7,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
 @Component({
     selector: "app-bulk-action-selector",
     template: `
-      <div class="form-check float-end">
+      <div class="form-check form-check-inline mb-0 float-end d-inline-flex align-items-center">
           <input (click)="pageContentRowService.toggleSelection(row)"
                  [checked]="pageContentRowService.isSelected(row)"
                  type="checkbox" class="form-check-input"

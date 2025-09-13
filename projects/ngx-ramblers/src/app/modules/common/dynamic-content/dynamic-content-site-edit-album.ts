@@ -43,7 +43,7 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
                 <div class="col-sm-12">
                   <div class="row">
                     <div class="col-sm-6">
-                      <div class="form-check">
+                      <div class="form-check mb-0">
                         <input [(ngModel)]="row.carousel.showStoryNavigator"
                                type="checkbox" class="form-check-input"
                                [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-story-navigator')">
@@ -53,7 +53,7 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
                       </div>
                     </div>
                     <div class="col-sm-6">
-                      <div class="form-check">
+                      <div class="form-check mb-0">
                         <input [(ngModel)]="row.carousel.showIndicators"
                                type="checkbox" class="form-check-input"
                                [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-story-indicators')">
@@ -63,7 +63,7 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
                       </div>
                     </div>
                     <div class="col-sm-6">
-                      <div class="form-check">
+                      <div class="form-check mb-0">
                         <input [(ngModel)]="row.carousel.gridViewOptions.showTitles"
                                type="checkbox" class="form-check-input"
                                [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-image-titles')">
@@ -73,7 +73,7 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
                       </div>
                     </div>
                     <div class="col-sm-6">
-                      <div class="form-check">
+                      <div class="form-check mb-0">
                         <input [(ngModel)]="row.carousel.galleryViewOptions.thumb"
                                type="checkbox" class="form-check-input"
                                [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-hide-thumbnail-selector')">
@@ -194,7 +194,7 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
             <div class="img-thumbnail thumbnail-admin-edit">
               <div class="row">
                 <div class="col-sm-12">
-                  <div class="form-check">
+                  <div class="form-check mb-0">
                     <input [(ngModel)]="row.carousel.showTitle"
                            type="checkbox" class="form-check-input"
                            [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-titles')">
