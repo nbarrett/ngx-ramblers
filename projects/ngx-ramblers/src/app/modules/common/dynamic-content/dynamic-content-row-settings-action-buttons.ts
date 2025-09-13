@@ -10,10 +10,10 @@ import { DynamicContentMaxColumnsEditorComponent } from "./dynamic-content-max-c
     selector: "[app-row-settings-action-buttons]",
     template: `
       @if (actions.isActionButtons(row) || actions.isAlbumIndex(row)) {
-        <div class="row align-items-end">
+        <div class="row align-items-center">
           <div class="col-auto" app-dynamic-content-max-columns-editor [hasMaxColumns]="row"></div>
           <div class="col-auto">
-            <div class="form-check">
+            <div class="form-check form-check-inline mb-0">
               <input name="showSwiper" [(ngModel)]="row.showSwiper"
                      [checked]="row.showSwiper"
                      type="checkbox" class="form-check-input"
