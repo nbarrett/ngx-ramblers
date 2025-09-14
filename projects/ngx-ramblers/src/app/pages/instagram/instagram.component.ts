@@ -8,16 +8,16 @@ import { DateUtilsService } from "../../services/date-utils.service";
 import { InstagramService } from "../../services/instagram.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { SystemConfigService } from "../../services/system/system-config.service";
-import { CardContainerComponent } from "../../modules/common/card-container/card-container.component";
 import { DynamicContentComponent } from "../../modules/common/dynamic-content/dynamic-content";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { BuiltInAnchor } from "../../models/content-text.model";
+import { SiteEditService } from "../../site-edit/site-edit.service";
 
 @Component({
     selector: "app-instagram",
     templateUrl: "./instagram.component.html",
     styleUrls: ["./instagram.component.sass"],
-    imports: [CardContainerComponent, DynamicContentComponent, TooltipDirective]
+    imports: [DynamicContentComponent, TooltipDirective]
 })
 export class InstagramComponent implements OnInit, OnDestroy {
 
@@ -25,6 +25,7 @@ export class InstagramComponent implements OnInit, OnDestroy {
   private instagramServiceActive = false;
   private instagramService = inject(InstagramService);
   private systemConfigService = inject(SystemConfigService);
+  public siteEditService = inject(SiteEditService);
   dateUtils = inject(DateUtilsService);
   public recentMedia: InstagramMediaPost[] = [];
   public externalSystems: ExternalSystems;
