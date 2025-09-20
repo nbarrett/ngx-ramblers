@@ -77,7 +77,7 @@ export class CardEditorComponent implements OnInit {
     this.uniqueCheckboxId = `card-editor-${this.numberUtils.generateUid()}`;
     this.row = this.pageContent.rows[this.rowIndex];
     this.columnIndex = this.row.columns.indexOf(this.column);
-    this.imageType = this.column.imageSource ? ImageType.IMAGE : ImageType.ICON;
+    this.imageType = (this.column.imageSource || this.column.showPlaceholderImage) ? ImageType.IMAGE : ImageType.ICON;
     this.pageContentEdit = {
       path: this.pageContent.path,
       columnIndex: this.columnIndex,
