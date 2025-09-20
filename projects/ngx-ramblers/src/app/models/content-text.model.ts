@@ -7,6 +7,7 @@ import { HasClass } from "./banner-configuration.model";
 import { EventsData } from "./social-events.model";
 import { MarkdownEditorComponent } from "../markdown-editor/markdown-editor.component";
 import { HasTrackingAttribute } from "./ui-actions";
+import { DescribedDimensions } from "./aws-object.model";
 
 export const EM_DASH = " — ";
 export const EM_DASH_WITH_SPACES = ` ${EM_DASH} `;
@@ -111,6 +112,8 @@ export interface PageContentColumn extends Link, HasPageContentRows {
   imageBorderRadius?: number;
   icon?: string;
   accessLevel?: AccessLevel;
+  showPlaceholderImage?: boolean;
+  imageAspectRatio?: DescribedDimensions;
 }
 
 export interface PageContentEditEvent {
