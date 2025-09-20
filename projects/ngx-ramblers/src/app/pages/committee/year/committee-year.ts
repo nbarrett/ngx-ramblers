@@ -20,6 +20,7 @@ import { UrlService } from "../../../services/url.service";
 import { CommitteeDisplayService } from "../committee-display.service";
 import { CommitteeEditFileModalComponent } from "../edit/committee-edit-file-modal.component";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { FALLBACK_MEDIA } from "../../../models/walk.model";
 
 @Component({
     selector: "app-committee-year",
@@ -93,14 +94,14 @@ export class CommitteeYearComponent implements OnInit, OnDestroy {
     const pageContentRow: PageContentRow = pageContent.rows.find(row => this.actions.isActionButtons(row) && this.columnHasRelativePathMatch(row, relativeUrl));
     const pageContentColumn = this.columnHasRelativePathMatch(pageContentRow, relativeUrl);
     this.logger.off("pageContentRow:", pageContentRow, "relativeUrl:", relativeUrl, "committeeYear:", this.committeeYear, "pageContentColumn:", pageContentColumn);
-    return this.urlService.imageSource(pageContentColumn?.imageSource);
+    return pageContentColumn?.imageSource;
   }
 
   private columnHasRelativePathMatch(pageContentRow: PageContentRow, relativeUrl: string) {
     const pageContentColumn: PageContentColumn = pageContentRow?.columns.find(column => {
       const relativePathMatch = relativeUrl.endsWith(column.href);
       this.logger.off("column:", column, "relativePathMatch:", relativePathMatch, "column?.imageSource:", column?.imageSource);
-      return relativePathMatch && column?.imageSource;
+      return relativePathMatch;
     });
     return pageContentColumn;
   }
@@ -136,5 +137,13 @@ export class CommitteeYearComponent implements OnInit, OnDestroy {
 
   deleteCommitteeFile() {
     this.display.confirm.as(ConfirmType.DELETE);
+  }
+
+  imageSourceWithFallback(): string {
+    if (this.imageSource) {
+      return this.urlService.imageSource(this.imageSource);
+    } else {
+      return this.urlService.imageSource(FALLBACK_MEDIA.url);
+    }
   }
 }

@@ -2,10 +2,10 @@
                      description="Introduction"></app-markdown-editor>
 <div class="card mb-3">
   <div class="wrapper w-100 position-relative">
-    @if (imageSource) {
+    @if (committeeYear) {
       <img class="h-100 w-100 position-absolute"
            role="presentation"
-           [src]="urlService.imageSource(imageSource)">
+           [src]="imageSourceWithFallback()">
     }
   </div>
   <div class="card-body">
