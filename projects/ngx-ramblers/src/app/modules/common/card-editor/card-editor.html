@@ -3,6 +3,7 @@
     [smallIconContainer]="smallIconContainer"
     [imageType]="imageType"
     [icon]="iconService.iconForName(column.icon)"
+    [aspectRatio]="column?.imageAspectRatio"
     [imageSource]="imageSourceOrPreview()"
     [imageLink]="column.href"/>
   <div class="card-body">
@@ -19,6 +20,7 @@
     </h4>
     @if (pageContentEdit?.editActive) {
       <app-image-cropper-and-resizer
+        [selectAspectRatio]="column?.imageAspectRatio?.description"
         [preloadImage]="column?.imageSource"
         (imageChange)="imageChanged($event)"
         (quit)="exitImageEdit()"
@@ -89,6 +91,27 @@
                  class="form-control input-sm" placeholder="Enter image source value"
                  type="text">
         </div>
+        <div class="form-group">
+          <div class="form-check form-check-inline mb-0">
+            <input [name]="generateUniqueCheckboxId('show-placeholder-image')"
+                   type="checkbox" class="form-check-input"
+                   [id]="generateUniqueCheckboxId('show-placeholder-image')"
+                   [checked]="column.showPlaceholderImage"
+                   (change)="onShowPlaceholderImageChanged($event)">
+            <label class="form-check-label"
+                   [for]="generateUniqueCheckboxId('show-placeholder-image')">Show Placeholder Image
+            </label>
+          </div>
+        </div>
+        @if (column.showPlaceholderImage) {
+          <div class="form-group">
+            <app-aspect-ratio-selector
+              label="Image Aspect Ratio"
+              [dimensionsDescription]="column.imageAspectRatio?.description"
+              (dimensionsChanged)="onImageAspectRatioChanged($event)">
+            </app-aspect-ratio-selector>
+          </div>
+        }
       }
       <div class="form-group">
         <label [for]="idFor('access-level')">Access</label>

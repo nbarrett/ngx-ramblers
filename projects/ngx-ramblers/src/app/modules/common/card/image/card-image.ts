@@ -12,6 +12,7 @@ import { RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { MediaQueryService } from "../../../../services/committee/media-query.service";
 import { FALLBACK_MEDIA } from "../../../../models/walk.model";
+import { DescribedDimensions } from "../../../../models/aws-object.model";
 
 @Component({
     selector: "app-card-image",
@@ -20,7 +21,7 @@ import { FALLBACK_MEDIA } from "../../../../models/walk.model";
       @if (unconstrainedHeight) {
         <img class="card-img-top" (load)="imageLoaded($event)"
              (error)="imageError($event)"
-             [ngStyle]="{'border-radius.px': borderRadius}"
+             [ngStyle]="imageStyles()"
              [ngClass]="{'card-img-fixed-height': fixedHeight}"
              [src]="urlService.imageSource(imageSource, false, true)"
              [routerLink]="urlService.routerLinkUrl(imageLink)">
@@ -29,7 +30,7 @@ import { FALLBACK_MEDIA } from "../../../../models/walk.model";
         <img class="card-img-top" [height]="constrainedHeight"
              (load)="imageLoaded($event)"
              (error)="imageError($event)"
-             [ngStyle]="{'border-radius.px': borderRadius}"
+             [ngStyle]="imageStyles()"
              [ngClass]="{'card-img-fixed-height': fixedHeight}"
              [src]="urlService.imageSource(imageSource, false, true)"
              [routerLink]="urlService.routerLinkUrl(imageLink)">
@@ -89,6 +90,7 @@ export class CardImageComponent implements OnInit {
   @Input() public imageLink: string;
   @Input() public icon: IconProp;
   @Input() public borderRadius: number;
+  @Input() public aspectRatio: DescribedDimensions;
 
   public height: number;
   public unconstrainedHeight: boolean;
@@ -135,5 +137,19 @@ export class CardImageComponent implements OnInit {
   imageLoaded(event: Event) {
     this.logger.info("imageLoaded:", event);
     this.imageText = null;
+  }
+
+  imageStyles(): any {
+    const styles: any = {};
+    if (this.borderRadius) {
+      styles["border-radius.px"] = this.borderRadius;
+    }
+    if (this.aspectRatio && this.imageSource === FALLBACK_MEDIA.url) {
+      styles["aspect-ratio"] = `${this.aspectRatio.width} / ${this.aspectRatio.height}`;
+      styles["object-fit"] = "cover";
+      styles["width"] = "100%";
+      styles["height"] = "auto";
+    }
+    return styles;
   }
 }

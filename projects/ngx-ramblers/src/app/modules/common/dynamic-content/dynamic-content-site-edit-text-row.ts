@@ -14,6 +14,7 @@ import { MemberResourcesReferenceDataService } from "../../../services/member/me
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { PageContentEditService } from "../../../services/page-content-edit.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { NumberUtilsService } from "../../../services/number-utils.service";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { FormsModule } from "@angular/forms";
 import { ColumnWidthComponent } from "./column-width";
@@ -23,6 +24,9 @@ import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resi
 import { CardImageComponent } from "../card/image/card-image";
 import { NgClass } from "@angular/common";
 import { MarginSelectComponent } from "./dynamic-content-margin-select";
+import { FALLBACK_MEDIA } from "../../../models/walk.model";
+import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-ratio-selector/aspect-ratio-selector";
+import { DescribedDimensions } from "../../../models/aws-object.model";
 
 @Component({
     selector: "app-dynamic-content-site-edit-text-row",
@@ -62,18 +66,42 @@ import { MarginSelectComponent } from "./dynamic-content-margin-select";
                       <div class="form-group">
                         <app-column-width [column]="column" (expandToggle)="expanded=$event"/>
                       </div>
-                      <app-badge-button (click)="editImage(rowIndex, columnIndex)"
-                                        [icon]="column.imageSource? faPencil : faAdd"
-                                        [caption]="(column?.imageSource ? 'edit' : 'add') + ' image'"/>
-                      @if (column.imageSource) {
-                        <app-badge-button (click)="removeImage(column)"
-                                          [icon]="faRemove"
-                                          [caption]="'remove image'"/>
+                      <div class="form-group">
+                        <div class="form-check form-check-inline mb-0">
+                          <input [name]="getUniqueCheckboxId('show-placeholder-image')"
+                                 type="checkbox" class="form-check-input"
+                                 [id]="getUniqueCheckboxId('show-placeholder-image')"
+                                 [checked]="column.showPlaceholderImage"
+                                 (change)="onShowPlaceholderImageChanged($event, columnIndex)">
+                          <label class="form-check-label"
+                                 [for]="getUniqueCheckboxId('show-placeholder-image')">Show Placeholder Image
+                          </label>
+                        </div>
+                      </div>
+                      @if (column.showPlaceholderImage) {
+                        <div class="form-group">
+                          <app-aspect-ratio-selector
+                            label="Image Aspect Ratio"
+                            [dimensionsDescription]="column.imageAspectRatio?.description"
+                            (dimensionsChanged)="onImageAspectRatioChanged(columnIndex, $event)">
+                          </app-aspect-ratio-selector>
+                        </div>
+                      }
+                      @if (!column.imageSource) {
+                        <app-badge-button (click)="editImage(rowIndex, columnIndex)"
+                                          [icon]="faAdd"
+                                          [caption]="'add image'"/>
                       }
                       @if (column.imageSource) {
+                        <app-badge-button (click)="editImage(rowIndex, columnIndex)"
+                                          [icon]="faPencil"
+                                          [caption]="'edit image'"/>
                         <app-badge-button (click)="replaceImage(column, rowIndex, columnIndex)"
                                           [icon]="faAdd"
                                           [caption]="'replace image'"/>
+                        <app-badge-button (click)="removeImage(column)"
+                                          [icon]="faRemove"
+                                          [caption]="'remove image'"/>
                       }
                       <app-actions-dropdown
                         [markdownEditorComponent]="markdownEditorComponent"
@@ -83,12 +111,31 @@ import { MarginSelectComponent } from "./dynamic-content-margin-select";
                         [row]="row"/>
                     </ng-container>
                   </app-markdown-editor>
-                  @if (imageSource(rowIndex, columnIndex, column?.imageSource) || editActive(rowIndex, columnIndex)) {
-                    <div
-                      class="mt-2 mb-3">
+
+                  <!-- Always show image source URL field when editing -->
+                  <div class="row mt-2">
+                    <div [class]="imagePropertyColumnClasses(column)">
+                      <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'name')">
+                        Image Source</label>
+                      <input [(ngModel)]="column.imageSource"
+                             [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'name')"
+                             type="text" class="form-control">
+                    </div>
+                    <div [class]="imagePropertyColumnClasses(column)">
+                      <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')">
+                        Border Radius</label>
+                      <input [(ngModel)]="column.imageBorderRadius"
+                             [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')"
+                             type="number" class="form-control">
+                    </div>
+                  </div>
+
+                  @if (shouldShowImage(rowIndex, columnIndex, column)) {
+                    <div class="mt-2 mb-3">
                       <div class="mb-2">
                         @if (editActive(rowIndex, columnIndex)) {
                           <app-image-cropper-and-resizer
+                            [selectAspectRatio]="column?.imageAspectRatio?.description"
                             [preloadImage]="column?.imageSource"
                             (imageChange)="imageChanged(rowIndex, columnIndex, $event)"
                             (quit)="exitImageEdit(rowIndex, columnIndex)"
@@ -98,25 +145,10 @@ import { MarginSelectComponent } from "./dynamic-content-margin-select";
                       </div>
                       <app-card-image
                         [borderRadius]="column?.imageBorderRadius"
+                        [aspectRatio]="column?.imageAspectRatio"
                         unconstrainedHeight
-                        [imageSource]="imageSource(rowIndex, columnIndex, column?.imageSource)">
+                        [imageSource]="imageSourceFor(rowIndex, columnIndex, column)">
                       </app-card-image>
-                      <div class="row mt-2">
-                        <div [class]="imagePropertyColumnClasses(column)">
-                          <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'name')">
-                            Image Source</label>
-                          <input [(ngModel)]="column.imageSource"
-                                 [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'name')"
-                                 type="text" class="form-control">
-                        </div>
-                        <div [class]="imagePropertyColumnClasses(column)">
-                          <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')">
-                            Border Radius</label>
-                          <input [(ngModel)]="column.imageBorderRadius"
-                                 [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')"
-                                 type="number" class="form-control">
-                        </div>
-                      </div>
                     </div>
                   }
                 </div>
@@ -184,7 +216,7 @@ import { MarginSelectComponent } from "./dynamic-content-margin-select";
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-    imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent]
+    imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent]
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
@@ -192,6 +224,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   pageContentEditService = inject(PageContentEditService);
   memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   stringUtils = inject(StringUtilsService);
+  numberUtils = inject(NumberUtilsService);
   actions = inject(PageContentActionsService);
   public expanded: boolean;
 
@@ -210,11 +243,17 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   faPencil = faPencil;
   faAdd = faAdd;
   public pageContentEditEvents: PageContentEditEvent[] = [];
+  private uniqueCheckboxId: string;
 
   protected readonly faRemove = faRemove;
 
   ngOnInit() {
+    this.uniqueCheckboxId = `text-row-${this.numberUtils.generateUid()}`;
     this.logger.info("ngOnInit called for", this.row, "containing", this.stringUtils.pluraliseWithCount(this.row?.columns.length, "column"));
+  }
+
+  getUniqueCheckboxId(suffix: string): string {
+    return `${this.uniqueCheckboxId}-${suffix}`;
   }
 
   imageSource(rowIndex: number, columnIndex: number, imageSource: string) {
@@ -287,4 +326,43 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   markdownEditorFocusChange(editorInstanceState: EditorInstanceState) {
     this.logger.info("markdownEditorFocusChange:editorInstanceState:", editorInstanceState);
   }
+
+  shouldShowImage(rowIndex: number, columnIndex: number, column: PageContentColumn): boolean {
+    const hasActualImage = !!this.imageSource(rowIndex, columnIndex, column?.imageSource) || this.editActive(rowIndex, columnIndex);
+    const showPlaceholder = column?.showPlaceholderImage && !column?.imageSource;
+    return hasActualImage || showPlaceholder;
+  }
+
+  imageSourceFor(rowIndex: number, columnIndex: number, column: PageContentColumn): string {
+    const actualImage = this.imageSource(rowIndex, columnIndex, column?.imageSource);
+    if (column?.showPlaceholderImage && !column?.imageSource) {
+      return FALLBACK_MEDIA.url;
+    } else {
+      return actualImage;
+    }
+  }
+
+  onShowPlaceholderImageChanged(event: Event, columnIndex: number) {
+    const target = event.target as HTMLInputElement;
+    const column = this.row.columns[columnIndex];
+    column.showPlaceholderImage = target.checked;
+
+    if (target.checked && !column.imageAspectRatio) {
+      column.imageAspectRatio = {
+        width: 16,
+        height: 9,
+        description: "16:9 (Landscape)"
+      };
+    }
+  }
+
+  onImageAspectRatioChanged(columnIndex: number, dimensions: DescribedDimensions) {
+    this.row.columns[columnIndex].imageAspectRatio = dimensions;
+  }
+
+
+
+
+
+
 }

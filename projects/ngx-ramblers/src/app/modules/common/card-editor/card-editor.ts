@@ -1,7 +1,7 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { faPencil } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { AwsFileData } from "../../../models/aws-object.model";
+import { AwsFileData, DescribedDimensions } from "../../../models/aws-object.model";
 import {
   ImageType,
   PageContent,
@@ -29,12 +29,15 @@ import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-edito
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ActionsDropdownComponent } from "../actions-dropdown/actions-dropdown";
+import { FALLBACK_MEDIA } from "../../../models/walk.model";
+import { NumberUtilsService } from "../../../services/number-utils.service";
+import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-ratio-selector/aspect-ratio-selector";
 
 @Component({
     selector: "app-card-editor",
     templateUrl: "./card-editor.html",
     styleUrls: ["./card-editor.sass", "./../dynamic-content/dynamic-content.sass"],
-    imports: [CardImageComponent, RouterLink, ImageCropperAndResizerComponent, FormsModule, TypeaheadDirective, MarkdownEditorComponent, TooltipDirective, FontAwesomeModule, ActionsDropdownComponent]
+  imports: [CardImageComponent, RouterLink, ImageCropperAndResizerComponent, FormsModule, TypeaheadDirective, MarkdownEditorComponent, TooltipDirective, FontAwesomeModule, ActionsDropdownComponent, AspectRatioSelectorComponent]
 })
 export class CardEditorComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("CardEditorComponent", NgxLoggerLevel.ERROR);
@@ -45,6 +48,7 @@ export class CardEditorComponent implements OnInit {
   pageContentService = inject(PageContentService);
   actions = inject(PageContentActionsService);
   private broadcastService = inject<BroadcastService<number>>(BroadcastService);
+  private numberUtils = inject(NumberUtilsService);
 
   @Output() pageContentEditEvents: EventEmitter<PageContentEditEvent> = new EventEmitter();
   @Input()
@@ -67,8 +71,10 @@ export class CardEditorComponent implements OnInit {
   public imageType: ImageType;
   public columnIndex: number;
   public routerLink: string;
+  private uniqueCheckboxId: string;
 
   ngOnInit() {
+    this.uniqueCheckboxId = `card-editor-${this.numberUtils.generateUid()}`;
     this.row = this.pageContent.rows[this.rowIndex];
     this.columnIndex = this.row.columns.indexOf(this.column);
     this.imageType = this.column.imageSource ? ImageType.IMAGE : ImageType.ICON;
@@ -86,13 +92,38 @@ export class CardEditorComponent implements OnInit {
     });
   }
 
+  generateUniqueCheckboxId(suffix: string): string {
+    return `${this.uniqueCheckboxId}-${suffix}`;
+  }
+
   idFor(name?: string) {
     return this.actions.rowColumnIdentifierFor(this.rowIndex, this.columnIndex, this.pageContent.path + (name ? ("-" + name) : ""));
   }
 
   imageSourceOrPreview(): string {
-    return this.awsFileData?.image || this.column?.imageSource;
+    const actualImage = this.awsFileData?.image || this.column?.imageSource;
+    if (this.column?.showPlaceholderImage && !this.column?.imageSource) {
+      return FALLBACK_MEDIA.url;
+    }
+    return actualImage;
   }
+
+  onShowPlaceholderImageChanged(event: Event) {
+    const target = event.target as HTMLInputElement;
+    this.column.showPlaceholderImage = target.checked;
+    if (target.checked && !this.column.imageAspectRatio) {
+      this.column.imageAspectRatio = {
+        width: 16,
+        height: 9,
+        description: "16:9 (Landscape)"
+      };
+    }
+  }
+
+  onImageAspectRatioChanged(dimensions: DescribedDimensions) {
+    this.column.imageAspectRatio = dimensions;
+  }
+
 
   columnIndexChanged() {
     const oldIndex = this.columnIndex;

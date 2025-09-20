@@ -10,6 +10,8 @@ const PageContentColumn = new mongoose.Schema({
   columns: {type: Number},
   contentTextId: {type: String},
   accessLevel: {type: String},
+  showPlaceholderImage: {type: Boolean},
+  imageAspectRatio: {type: Object},
   rows: {type: Object, required: false},
 }, { _id : false });
 
