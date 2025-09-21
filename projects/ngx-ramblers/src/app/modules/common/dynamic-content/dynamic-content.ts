@@ -56,6 +56,10 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
     this.contentPathReadOnly = coerceBooleanProperty(contentPathReadOnly);
   }
 
+  @Input("preventRedirect") set preventRedirectValue(preventRedirect: boolean) {
+    this.preventRedirect = coerceBooleanProperty(preventRedirect);
+  }
+
   @Input("defaultPageContent") set acceptChangesFrom(defaultPageContent: PageContent) {
     this.logger.info("acceptChangesFrom:defaultPageContent:", defaultPageContent);
     this.defaultPageContent = defaultPageContent;
@@ -67,6 +71,7 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
   public notifier: AlertInstance;
   private areaAsContentPath: boolean;
   contentPathReadOnly: boolean;
+  private preventRedirect: boolean;
   public defaultPageContent: PageContent;
   public pageContent: PageContent;
   public notify: AlertInstance;
@@ -84,7 +89,9 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
       } else {
         this.contentPath = this.pageService.contentPath(this.anchor);
       }
-      this.urlService.redirectToNormalisedUrl(this.contentPath);
+      if (!this.preventRedirect) {
+        this.urlService.redirectToNormalisedUrl(this.contentPath);
+      }
       this.contentDescription = this.pageService.contentDescription(this.anchor);
       this.logger.info("areaAsContentPath:", this.areaAsContentPath, "initialised with contentPath:", this.contentPath);
       this.pageTitle = this.pageService.pageSubtitle();
