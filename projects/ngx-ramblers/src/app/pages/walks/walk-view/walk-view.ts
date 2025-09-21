@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, ElementRef, ViewChild, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -159,7 +159,7 @@ import { PageService } from "../../../services/page.service";
                       Google Maps</label>
                   </div>
                 </div>
-                <div class="col-sm-12 ms-2 me-2">
+                <div class="col-sm-12 ms-2 me-2 mt-2">
                   <div class="form-check form-check-inline">
                     <input class="form-check-input" id="{{displayedWalk?.walk?.id}}-show-start-point"
                            type="radio"
@@ -180,26 +180,28 @@ import { PageService } from "../../../services/page.service";
                         At finish point {{ displayedWalk?.walk?.groupEvent?.end_location?.postcode }}</label>
                     </div>
                   }
-                  @if (this.showGoogleMapsView) {
-                    <div class="form-check form-check-inline">
-                      <input id="{{displayedWalk?.walk?.id}}-show-driving-directions"
-                             type="radio"
-                             class="form-check-input align-middle"
-                             (ngModelChange)="changeMapView($event)"
-                             [ngModel]="mapDisplay" name="mapDisplay"
-                             [value]="MapDisplay.SHOW_DRIVING_DIRECTIONS"/>
-                      <label class="form-check-label text-nowrap align-middle"
-                             [ngClass]="{'postcode-label-second-line' : displayedWalk?.walk?.groupEvent?.end_location?.postcode}"
-                             for="{{displayedWalk?.walk?.id}}-show-driving-directions">
-                        Driving from</label>
-                      <input class="form-control input-sm text-uppercase ms-2 postcode-input align-middle"
-                             [ngClass]="{'postcode-input-second-line' : displayedWalk?.walk?.groupEvent?.end_location?.postcode}"
-                             [ngModel]="fromPostcode" name="fromPostcode"
-                             (ngModelChange)="changeFromPostcode($event)"
-                             type="text">
-                    </div>
-                  }
                 </div>
+                @if (this.showGoogleMapsView) {
+                  <div class="col-sm-12 ms-2 me-2 mt-2">
+                    <div class="form-check">
+                      <div class="d-flex align-items-center flex-wrap">
+                        <input id="{{displayedWalk?.walk?.id}}-show-driving-directions"
+                               type="radio"
+                               class="form-check-input align-middle"
+                               (ngModelChange)="changeMapView($event)"
+                               [ngModel]="mapDisplay" name="mapDisplay"
+                               [value]="MapDisplay.SHOW_DRIVING_DIRECTIONS"/>
+                        <label class="form-check-label text-nowrap align-middle ms-2"
+                               for="{{displayedWalk?.walk?.id}}-show-driving-directions">
+                          Driving from</label>
+                        <input class="form-control input-sm text-uppercase ms-2 postcode-input align-middle"
+                               [ngModel]="fromPostcode" name="fromPostcode"
+                               (ngModelChange)="changeFromPostcode($event)"
+                               type="text" #fromPostcodeInput>
+                      </div>
+                    </div>
+                  </div>
+                }
               </form>
               <app-walk-details [displayedWalk]="displayedWalk"/>
             }
@@ -251,9 +253,11 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   public area = this.urlService.area();
   public showGoogleMapsView = false;
+  public suppressMapToggle = false;
   protected readonly MapDisplay = MapDisplay;
   protected readonly EventType = EventType;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
+  @ViewChild("fromPostcodeInput") fromPostcodeInput: ElementRef<HTMLInputElement>;
 
   @Input("displayedWalk") set init(displayedWalk: DisplayedWalk) {
     this.applyWalk(displayedWalk);
@@ -305,7 +309,14 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       this.mapDisplay = MapDisplay.SHOW_START_POINT;
       this.logger.info("configureMapDisplay:mapDisplay changed to:", this.mapDisplay);
     }
-    this.updateGoogleMapIfApplicable();
+    if (this.showGoogleMapsView && this.validFromPostcodeEntered() && !this.showDrivingDirections()) {
+      this.changeMapView(MapDisplay.SHOW_DRIVING_DIRECTIONS);
+    } else {
+      this.updateGoogleMapIfApplicable();
+      if (this.showGoogleMapsView) {
+        this.focusFromPostcodeInput();
+      }
+    }
   }
 
   async queryIfRequired(): Promise<void> {
@@ -352,7 +363,11 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     if (this.showGoogleMapsView) {
       this.googleMapsUrl = this.display.googleMapsUrl(!this.drivingDirectionsDisabled() && this.showDrivingDirections(), this.fromPostcode, this.showEndPoint() ? this.displayedWalk?.walk?.groupEvent?.end_location?.postcode : this.displayedWalk?.walk?.groupEvent?.start_location?.postcode);
       this.logger.info("updateGoogleMap:Should show details - rendering googleMapsUrl:", this.googleMapsUrl);
-      this.toggleGoogleOrLeafletMapViewAndBack();
+      if (!this.suppressMapToggle) {
+        this.toggleGoogleOrLeafletMapViewAndBack();
+      } else {
+        this.suppressMapToggle = false;
+      }
     } else {
       this.logger.info("updateGoogleMap:not performed as:this.showGoogleMapsView", this.showGoogleMapsView);
     }
@@ -398,13 +413,20 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   changeMapView(newValue: MapDisplay) {
     this.logger.info("changeShowDrivingDirections:", newValue);
     this.mapDisplay = newValue;
-    this.updateGoogleMapIfApplicable();
+    if (this.showGoogleMapsView && newValue === MapDisplay.SHOW_DRIVING_DIRECTIONS) {
+      this.suppressMapToggle = true;
+      this.updateGoogleMapIfApplicable();
+      this.focusFromPostcodeInput();
+    } else {
+      this.updateGoogleMapIfApplicable();
+    }
   }
 
   changeFromPostcode(fromPostcode: string) {
     this.logger.info("changeFromPostcode:", fromPostcode);
     this.fromPostcode = fromPostcode;
     this.autoSelectMapDisplay();
+    this.suppressMapToggle = true;
     this.updateGoogleMapIfApplicable();
   }
 
@@ -425,5 +447,9 @@ export class WalkViewComponent implements OnInit, OnDestroy {
 
   navigateToArea() {
     this.urlService.navigateTo([this.area]);
+  }
+
+  private focusFromPostcodeInput() {
+    setTimeout(() => this.fromPostcodeInput?.nativeElement?.focus(), 0);
   }
 }
