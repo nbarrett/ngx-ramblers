@@ -15,6 +15,27 @@ import { NgxLoggerLevel } from "ngx-logger";
 @Component({
   selector: "app-related-links",
   template: `
+    @if (displayedWalk?.walk?.groupEvent?.id) {
+      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
+           class="col-sm-12">
+        <img title class="related-links-ramblers-image"
+             src="favicon.ico"
+             alt="On Ramblers"/>
+        <a content tooltip="Click to view on Ramblers Walks and Events Manager" target="_blank"
+           [href]="displayedWalk?.ramblersLink">On Ramblers</a>
+      </div>
+    }
+    @if (displayedWalk.walkLink) {
+      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
+           class="col-sm-12">
+        <app-copy-icon title [value]="displayedWalk.walkLink"
+                       elementName="This {{display.eventTypeTitle(displayedWalk.walk)}}"/>
+        <div content>
+          <a [href]="displayedWalk.walkLink "
+             target="_blank">This {{ display.eventTypeTitle(displayedWalk.walk) }}</a>
+        </div>
+      </div>
+    }
     @if (links?.meetup) {
       <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
            class="col-sm-12">
@@ -24,16 +45,6 @@ import { NgxLoggerLevel } from "ngx-logger";
         <a content target="_blank" tooltip="Click to view the route for This Walk on Meetup"
            [href]="links.meetup.href">View {{ meetupService.meetupPublishedStatus(displayedWalk) }}
           event on Meetup</a>
-      </div>
-    }
-    @if (displayedWalk?.walk?.groupEvent?.id) {
-      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
-           class="col-sm-12">
-        <img title class="related-links-ramblers-image"
-             src="favicon.ico"
-             alt="On Ramblers"/>
-        <a content tooltip="Click to view on Ramblers Walks and Events Manager" target="_blank"
-           [href]="displayedWalk?.ramblersLink">On Ramblers</a>
       </div>
     }
     @if (links?.osMapsRoute) {
@@ -71,17 +82,6 @@ import { NgxLoggerLevel } from "ngx-logger";
            target="_blank">
           {{ displayedWalk?.walk?.fields.venue.type }}: {{ displayedWalk?.walk?.fields.venue.name }}
         </a>
-      </div>
-    }
-    @if (displayedWalk.walkLink) {
-      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
-           class="col-sm-12">
-        <app-copy-icon title [value]="displayedWalk.walkLink"
-                       elementName="This {{display.eventTypeTitle(displayedWalk.walk)}}"/>
-        <div content>
-          <a [href]="displayedWalk.walkLink "
-             target="_blank">This {{ display.eventTypeTitle(displayedWalk.walk) }}</a>
-        </div>
       </div>
     }
   `,

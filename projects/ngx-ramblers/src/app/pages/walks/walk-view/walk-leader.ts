@@ -61,17 +61,18 @@ import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalki
               </div>
             }
             @if (loggedIn) {
-              @if (displayedWalk?.walk?.fields?.contactDetails?.phone || displayedWalk?.walk?.fields?.contactDetails?.email) {
+              @if (displayedWalk?.walk?.fields?.contactDetails?.phone) {
                 <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
                   <app-copy-icon [icon]="faPhone" title [value]="displayedWalk?.walk?.fields?.contactDetails?.phone"
                                  [elementName]="'mobile number for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName "/>
-                  phone:{{ displayedWalk?.walk?.fields?.contactDetails?.phone }}
-                  <a content [href]="'tel:' + displayedWalk?.walk?.fields?.contactDetails?.phone"
-                     tooltip="Click to ring {{displayedWalk?.walk?.fields?.contactDetails?.displayName}} on {{displayedWalk?.walk?.fields?.contactDetails?.phone}} (mobile devices only)">
-                    {{ displayedWalk?.walk?.fields?.contactDetails?.phone }}
-                  </a>
+                  <div content>
+                    <a [href]="'tel:' + displayedWalk?.walk?.fields?.contactDetails?.phone"
+                       tooltip="Click to ring {{displayedWalk?.walk?.fields?.contactDetails?.displayName}} on {{displayedWalk?.walk?.fields?.contactDetails?.phone}} (mobile devices only)">
+                      {{ displayedWalk?.walk?.fields?.contactDetails?.phone }}
+                    </a>
+                  </div>
                 </div>
-              } @else {
+              } @else if (!displayedWalk?.walk?.fields?.contactDetails?.email) {
                 <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
                   <app-copy-icon [icon]="faPersonWalking" title
                                  [value]="displayedWalk?.walk?.fields?.contactDetails?.displayName"

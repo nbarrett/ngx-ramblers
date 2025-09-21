@@ -25,7 +25,7 @@ import { enumValueForKey } from "../../../functions/enums";
 @Component({
     selector: "app-walk-details",
     template: `
-      <div class="event-panel rounded">
+      <div class="event-panel rounded event-panel-inner">
         <h1>
           <fa-icon class="{{display.eventType(displayedWalk.walk)}}"
                    tooltip="{{stringUtils.asTitle(displayedWalk.walk?.groupEvent?.item_type)}}" adaptivePosition
