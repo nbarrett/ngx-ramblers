@@ -16,7 +16,7 @@ export enum UIDateFormat {
   DISPLAY_TIME = "h:mm a",
   DISPLAY_TIME_WITH_SECONDS = "h:mm:ss a",
   DISPLAY_DATE_AND_TIME = "cccc, d MMMM yyyy, h:mm:ss a",
-  DISPLAY_DATE_TH = "MMMM do yyyy",
+  DISPLAY_DATE_TH = "MMMM d, yyyy",
   DISPLAY_DATE = "cccc, d MMMM yyyy",
   DISPLAY_DATE_NO_DAY = "d MMMM yyyy",
   DISPLAY_DAY = "cccc MMMM d, yyyy",
