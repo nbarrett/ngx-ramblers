@@ -60,7 +60,7 @@ import { TrackByService } from "../../../services/track-by.service";
                     [displayedWalk]="displayedWalk" [index]="index"/>
                 }
                 @if (expandedViewDisplay(displayedWalk.walk)) {
-                  <app-walk-view [displayedWalk]="displayedWalk"/>
+                  <app-walk-view [displayedWalk]="displayedWalk" [index]="index"/>
                 }
                 @if (walkEditDisplay(displayedWalk.walk)) {
                   <app-walk-edit

@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, inject, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, ElementRef, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -29,7 +29,6 @@ import { RouterLink } from "@angular/router";
 import { GroupEventImages } from "./group-event-images";
 import { MapEditComponent } from "../walk-edit/map-edit";
 import { FormsModule } from "@angular/forms";
-import { NgClass } from "@angular/common";
 import { WalkDetailsComponent } from "./walk-details";
 import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
 import { RelatedLinksComponent } from "../../../modules/common/related-links/related-links";
@@ -145,54 +144,56 @@ import { PageService } from "../../../services/page.service";
                 <div class="ms-2 me-2 d-flex align-items-center flex-wrap">
                   <span class="me-2 fw-bold">Show Map As</span>
                   <div class="form-check form-check-inline ms-2">
-                    <input class="form-check-input" type="radio" name="mapView" [(ngModel)]="showGoogleMapsView"
-                           id="{{displayedWalk?.walk?.id}}-pin-view-mode-start"
+                    <input class="form-check-input" type="radio" [name]="'mapView-' + index"
+                           [(ngModel)]="showGoogleMapsView" [ngModelOptions]="{standalone: true}"
+                           id="{{index}}-pin-view-mode-start"
                            [value]="false" (ngModelChange)="configureMapDisplay()">
-                    <label class="form-check-label" for="{{displayedWalk?.walk?.id}}-pin-view-mode-start">
+                    <label class="form-check-label" for="{{index}}-pin-view-mode-start">
                       Pin Location View</label>
                   </div>
                   <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="mapView" [(ngModel)]="showGoogleMapsView"
-                           id="{{displayedWalk?.walk?.id}}-google-maps-mode-start"
+                    <input class="form-check-input" type="radio" [name]="'mapView-' + index"
+                           [(ngModel)]="showGoogleMapsView" [ngModelOptions]="{standalone: true}"
+                           id="{{index}}-google-maps-mode-start"
                            [value]="true" (ngModelChange)="configureMapDisplay()">
-                    <label class="form-check-label" for="{{displayedWalk?.walk?.id}}-google-maps-mode-start">
+                    <label class="form-check-label" for="{{index}}-google-maps-mode-start">
                       Google Maps</label>
                   </div>
                 </div>
                 <div class="col-sm-12 ms-2 me-2 mt-2">
                   <div class="form-check form-check-inline">
-                    <input class="form-check-input" id="{{displayedWalk?.walk?.id}}-show-start-point"
+                    <input class="form-check-input" id="{{index}}-show-start-point"
                            type="radio"
-                           [ngModel]="mapDisplay" name="mapDisplay"
+                           [ngModel]="mapDisplay" [ngModelOptions]="{standalone: true}" [name]="'mapDisplay-' + index"
                            (ngModelChange)="changeMapView($event)"
                            [value]="MapDisplay.SHOW_START_POINT"/>
-                    <label class="form-check-label" for="{{displayedWalk?.walk?.id}}-show-start-point">
+                    <label class="form-check-label" for="{{index}}-show-start-point">
                       At start point {{ displayedWalk?.walk?.groupEvent?.start_location?.postcode }}</label>
                   </div>
                   @if (displayedWalk?.walk?.groupEvent?.end_location?.postcode) {
                     <div class="form-check form-check-inline">
-                      <input class="form-check-input" id="{{displayedWalk?.walk?.id}}-show-end-point"
+                      <input class="form-check-input" id="{{index}}-show-end-point"
                              type="radio"
-                             [ngModel]="mapDisplay" name="mapDisplay"
+                             [ngModel]="mapDisplay" [ngModelOptions]="{standalone: true}" [name]="'mapDisplay-' + index"
                              (ngModelChange)="changeMapView($event)"
                              [value]="MapDisplay.SHOW_END_POINT"/>
-                      <label class="form-check-label" for="{{displayedWalk?.walk?.id}}-show-end-point">
+                      <label class="form-check-label" for="{{index}}-show-end-point">
                         At finish point {{ displayedWalk?.walk?.groupEvent?.end_location?.postcode }}</label>
                     </div>
                   }
                 </div>
-                @if (this.showGoogleMapsView) {
+                @if (showGoogleMapsView) {
                   <div class="col-sm-12 ms-2 me-2 mt-2">
                     <div class="form-check">
                       <div class="d-flex align-items-center flex-wrap">
-                        <input id="{{displayedWalk?.walk?.id}}-show-driving-directions"
+                        <input id="{{index}}-show-driving-directions"
                                type="radio"
                                class="form-check-input align-middle"
                                (ngModelChange)="changeMapView($event)"
-                               [ngModel]="mapDisplay" name="mapDisplay"
+                               [ngModel]="mapDisplay" [ngModelOptions]="{standalone: true}" [name]="'mapDisplay-' + index"
                                [value]="MapDisplay.SHOW_DRIVING_DIRECTIONS"/>
                         <label class="form-check-label text-nowrap align-middle ms-2"
-                               for="{{displayedWalk?.walk?.id}}-show-driving-directions">
+                               for="{{index}}-show-driving-directions">
                           Driving from</label>
                         <input class="form-control input-sm text-uppercase ms-2 postcode-input align-middle"
                                [ngModel]="fromPostcode" name="fromPostcode"
@@ -219,7 +220,7 @@ import { PageService } from "../../../services/page.service";
       </div>
     }`,
   styleUrls: ["./walk-view.sass"],
-  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, WalkLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, FormsModule, NgClass, WalkDetailsComponent, DisplayDayPipe, RelatedLinksComponent, DisplayTimePipe]
+  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, WalkLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksComponent, DisplayTimePipe]
 })
 
 export class WalkViewComponent implements OnInit, OnDestroy {
@@ -258,6 +259,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected readonly EventType = EventType;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
   @ViewChild("fromPostcodeInput") fromPostcodeInput: ElementRef<HTMLInputElement>;
+  @Input() index: number;
 
   @Input("displayedWalk") set init(displayedWalk: DisplayedWalk) {
     this.applyWalk(displayedWalk);
@@ -312,6 +314,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     if (this.showGoogleMapsView && this.validFromPostcodeEntered() && !this.showDrivingDirections()) {
       this.changeMapView(MapDisplay.SHOW_DRIVING_DIRECTIONS);
     } else {
+      this.suppressMapToggle = true;
       this.updateGoogleMapIfApplicable();
       if (this.showGoogleMapsView) {
         this.focusFromPostcodeInput();
