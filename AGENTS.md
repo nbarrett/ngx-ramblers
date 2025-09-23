@@ -164,10 +164,21 @@ Use standalone components with explicit imports:
 @Component({
   selector: "app-example",
   templateUrl: "./example.component.html",
-  styleUrls: ["./example.component.sass"],
+  styleUrls: ["./example.component.sass"],  // For shared/reusable styles
+  // OR preferably
+  styles: [`
+    .component-specific {
+      /* Use inline styles for single-use, component-specific styling */
+    }
+  `],
   imports: [CommonModule, FormsModule, ComponentDependencies]
 })
 ```
+
+**Styling Guidelines:**
+- **Inline styles first**: Use `styles: [...]` for component-specific CSS used only once
+- **External SASS files**: Use `styleUrls: [...]` for shared styles or complex styling that benefits from SASS features
+- **Avoid global styles**: Keep component styles scoped to avoid side effects
 
 ### Dependency Injection
 Use `inject()` function over constructor injection:

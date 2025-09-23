@@ -15,21 +15,25 @@ import { WalkDisplayService } from "../walk-display.service";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FilterParameters } from "../../../models/search.model";
+import { UiActionsService } from "../../../services/ui-actions.service";
+import { StoredValue } from "../../../models/ui-actions";
+import { Router } from "@angular/router";
+import { StringUtilsService } from "../../../services/string-utils.service";
 
 @Component({
     selector: "app-walks-search",
     template: `
     @if (!currentWalkId) {
       @if (showPagination) {
-        <div class="row pb-md-2 pb-sm-0">
-          <div class="col-xs-12 mb-3 mb-md-0 col-md-4">
+        <div class="row pb-md-2 pb-sm-0 align-items-center g-2">
+          <div class="col-12 col-md-3">
             <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
               (ngModelChange)="onSearchChange($event)"
               name="quickSearch"
               class="form-control rounded me-3"
               type="text" placeholder="Quick Search">
           </div>
-          <div class="col-xs-12 mb-3 mb-md-0 col-md-4">
+          <div class="col-12 col-md-3">
             <select [(ngModel)]="filterParameters.selectType"
               (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
               class="form-control rounded me-3">
@@ -40,7 +44,7 @@ import { FilterParameters } from "../../../models/search.model";
               }
             </select>
           </div>
-          <div class="col-xs-12 mb-3 mb-md-0 col-md-4">
+          <div class="col-12 col-md-3">
             <select [(ngModel)]="filterParameters.ascending"
               (ngModelChange)="refreshWalks('change filterParameters.ascending')" name="ascending"
               class="form-control rounded">
@@ -48,13 +52,16 @@ import { FilterParameters } from "../../../models/search.model";
               <option [value]="false">Sort (date descending)</option>
             </select>
           </div>
+          <div class="col-12 col-md-3">
+            <ng-content select="[view-selector]"/>
+          </div>
         </div>
         <div class="d-flex" [class.align-items-center]="showAlertInline()" [class.full-width-pagination]="!showAlertInline()">
           <ng-content/>
-          @if (showAlertInline()) {
-            <div class="flex-grow-1">
+          @if (showAlerts && showAlertInline()) {
+            <div class="flex-grow-1 d-flex align-items-center">
               @if (notifyTarget.showAlert) {
-                <div class="alert {{notifyTarget.alertClass}} mt-1 mb-1">
+                <div class="alert {{notifyTarget.alertClass}} my-0 w-100">
                   <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
                   <strong>{{ notifyTarget.alertTitle }}</strong>
                   {{ notifyTarget.alertMessage }}
@@ -63,7 +70,7 @@ import { FilterParameters } from "../../../models/search.model";
             </div>
           }
         </div>
-        @if (!showAlertInline()) {
+        @if (showAlerts && !showAlertInline()) {
           @if (notifyTarget.showAlert) {
             <div class="alert {{notifyTarget.alertClass}} mt-2 mb-0">
               <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
@@ -73,45 +80,48 @@ import { FilterParameters } from "../../../models/search.model";
           }
         }
       }
-      @if (!showPagination) {
-        <div class="d-lg-flex pb-0">
-          <div class="form-group me-lg-3 mb-lg-0">
-            <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
-              (ngModelChange)="onSearchChange($event)"
-              name="quickSearch"
-              class="form-control rounded me-3"
-              type="text" placeholder="Quick Search">
-          </div>
-          <div class="form-group me-lg-3 mb-lg-0">
-            <select [(ngModel)]="filterParameters.selectType"
-              (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
-              class="form-control rounded me-3">
-              @for (filter of walksFilter(); track filter.value) {
-                <option [ngValue]="filter.value"
-                  [selected]="filter.selected">{{ filter.description }}
-                </option>
-              }
-            </select>
-          </div>
-          <div class="form-group me-lg-3 mb-lg-0">
-            <select [(ngModel)]="filterParameters.ascending"
-              (ngModelChange)="refreshWalks('change filterParameters.ascending')" name="ascending"
-              class="form-control rounded">
-              <option selected [value]="true">Sort (date ascending)</option>
-              <option [value]="false">Sort (date descending)</option>
-            </select>
-          </div>
-          <div class="form-group mb-0 flex-grow-1">
-            @if (notifyTarget.showAlert) {
-              <div class="alert {{notifyTarget.alertClass}}">
-                <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                <strong>{{ notifyTarget.alertTitle }}</strong>
-                {{ notifyTarget.alertMessage }}
-              </div>
-            }
-          </div>
-        </div>
-      }
+       @if (!showPagination) {
+         <div class="d-lg-flex pb-0 align-items-center">
+           <div class="form-group me-lg-3 mb-lg-0">
+             <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
+               (ngModelChange)="onSearchChange($event)"
+               name="quickSearch"
+               class="form-control rounded me-3"
+               type="text" placeholder="Quick Search">
+           </div>
+           <div class="form-group me-lg-3 mb-lg-0">
+             <select [(ngModel)]="filterParameters.selectType"
+               (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
+               class="form-control rounded me-3">
+               @for (filter of walksFilter(); track filter.value) {
+                 <option [ngValue]="filter.value"
+                   [selected]="filter.selected">{{ filter.description }}
+                 </option>
+               }
+             </select>
+           </div>
+           <div class="form-group me-lg-3 mb-lg-0">
+             <select [(ngModel)]="filterParameters.ascending"
+               (ngModelChange)="refreshWalks('change filterParameters.ascending')" name="ascending"
+               class="form-control rounded">
+               <option selected [value]="true">Sort (date ascending)</option>
+               <option [value]="false">Sort (date descending)</option>
+             </select>
+           </div>
+           <div class="form-group me-lg-3 mb-lg-0">
+             <ng-content select="[view-selector]"/>
+           </div>
+           <div class="form-group mb-0 flex-grow-1">
+             @if (showAlerts && notifyTarget.showAlert) {
+               <div class="alert {{notifyTarget.alertClass}}">
+                 <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+                 <strong>{{ notifyTarget.alertTitle }}</strong>
+                 {{ notifyTarget.alertMessage }}
+               </div>
+             }
+           </div>
+         </div>
+       }
     }`,
     imports: [FormsModule, FontAwesomeModule]
 })
@@ -119,6 +129,7 @@ export class WalkSearchComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkSearchComponent", NgxLoggerLevel.ERROR);
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private walksReferenceService = inject(WalksReferenceService);
   private displayService = inject(WalkDisplayService);
   private memberLoginService = inject(MemberLoginService);
@@ -128,11 +139,16 @@ export class WalkSearchComponent implements OnInit, OnDestroy {
   public group: Organisation;
   private searchChangeObservable: Subject<string> = new Subject<string>();
   private subscriptions: Subscription[] = [];
+  private ui = inject(UiActionsService);
+  private stringUtils = inject(StringUtilsService);
   @Input()
   notifyTarget: AlertTarget;
 
   @Input()
   filterParameters: FilterParameters;
+
+  @Input()
+  showAlerts = true;
 
 
   ngOnInit(): void {
@@ -148,9 +164,13 @@ export class WalkSearchComponent implements OnInit, OnDestroy {
       this.logger.info("showPagination:", namedEvent.data.group);
       return this.group = namedEvent.data.group;
     });
-    this.subscriptions.push(this.searchChangeObservable.pipe(debounceTime(1000))
+    this.subscriptions.push(this.searchChangeObservable.pipe(debounceTime(500))
       .pipe(distinctUntilChanged())
-      .subscribe(searchTerm => this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.APPLY_FILTER, searchTerm))));
+      .subscribe(searchTerm => {
+        this.ui.saveValueFor(StoredValue.WALK_QUICK_SEARCH, searchTerm || "");
+        this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.WALK_QUICK_SEARCH)]: searchTerm || null });
+        this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.APPLY_FILTER, searchTerm));
+      }));
   }
 
   ngOnDestroy(): void {
@@ -173,7 +193,20 @@ export class WalkSearchComponent implements OnInit, OnDestroy {
 
   refreshWalks(selectType: string) {
     this.logger.info("filterParameters:", this.filterParameters);
+    this.ui.saveValueFor(StoredValue.WALK_SELECT_TYPE, this.filterParameters.selectType);
+    this.ui.saveValueFor(StoredValue.WALK_SORT_ASC, this.filterParameters.ascending);
+    const typeKebab = this.stringUtils.kebabCase(this.filterParameters.selectType);
+    const sortValue = this.filterParameters.ascending ? "true" : "false";
+    this.replaceQueryParams({
+      [this.stringUtils.kebabCase(StoredValue.WALK_SELECT_TYPE)]: typeKebab,
+      [this.stringUtils.kebabCase(StoredValue.WALK_SORT_ASC)]: sortValue
+    });
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.REFRESH, selectType));
+  }
+
+  private replaceQueryParams(params: { [key: string]: any }) {
+    const queryParams = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined));
+    this.router.navigate([], { relativeTo: this.route, queryParams, queryParamsHandling: 'merge' });
   }
 
   showAlertInline(): boolean {

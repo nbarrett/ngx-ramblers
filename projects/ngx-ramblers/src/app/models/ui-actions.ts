@@ -25,6 +25,12 @@ export enum StoredValue {
   AUTH_TOKEN = "auth-token",
   CAROUSEL="carousel",
   EDIT_SITE = "edit-site",
+  MAP_AUTO_SHOW_ALL = "walks-map-auto-show-all",
+  MAP_HEIGHT = "walks-map-height",
+  MAP_OS_STYLE = "walks-map-os-style",
+  MAP_PROVIDER = "walks-map-provider",
+  MAP_SHOW_CONTROLS = "walks-map-show-controls",
+  MAP_SMOOTH_SCROLL = "walks-map-smooth-scroll",
   MARKDOWN_FIELD_HIDDEN = "markdown-field-hidden",
   REFRESH_TOKEN = "refresh-token",
   SHOW_UNREFERENCED_PAGES = "show-unreferenced-pages",
@@ -34,6 +40,9 @@ export enum StoredValue {
   STORY = "story",
   TAB = "tab",
   WALK_LIST_VIEW = "walk-list-view",
+  WALK_QUICK_SEARCH = "walk-quick-search",
+  WALK_SELECT_TYPE = "walk-select-type",
+  WALK_SORT_ASC = "walk-sort-asc",
 }
 
 export enum LegacyStoredValue {

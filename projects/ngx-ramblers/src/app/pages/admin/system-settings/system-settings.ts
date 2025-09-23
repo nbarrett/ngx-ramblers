@@ -34,6 +34,7 @@ import { MailProviderSettingsComponent } from "./mail-provider/mail-provider-set
 import { SystemMeetupSettingsComponent } from "./external/system-meetup-settings";
 import { SystemRecaptchaSettingsComponent } from "./external/system-recaptcha-settings";
 import { SystemGoogleAnalyticsSettings } from "./google-analytics/system-google-analytics-settings";
+import { SystemOsMapsSettings } from "./os-maps/system-os-maps-settings";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgClass } from "@angular/common";
 import { faAdd, faPencil } from "@fortawesome/free-solid-svg-icons";
@@ -332,6 +333,7 @@ import { RamblersSettings } from "./external/ramblers-settings";
                                                 (membersPendingSave)="membersPendingSave=$event"/>
                     <app-system-instagram-settings/>
                     <app-system-meetup-settings/>
+                    <app-system-os-maps-settings [config]="config"/>
                     <app-system-recaptcha-settings [config]="config"/>
                     <app-system-google-analytics-settings [config]="config"/>
                   </div>
@@ -366,7 +368,7 @@ import { RamblersSettings } from "./external/ramblers-settings";
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemOsMapsSettings, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 
