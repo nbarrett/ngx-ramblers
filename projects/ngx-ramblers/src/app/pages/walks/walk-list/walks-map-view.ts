@@ -1,4 +1,14 @@
-import { Component, EventEmitter, Output, inject, Input, OnChanges, OnInit, SimpleChanges, NgZone } from "@angular/core";
+import {
+  Component,
+  EventEmitter,
+  inject,
+  Input,
+  NgZone,
+  OnChanges,
+  OnInit,
+  Output,
+  SimpleChanges
+} from "@angular/core";
 import * as L from "leaflet";
 import "leaflet.markercluster";
 import "proj4leaflet";
@@ -73,6 +83,56 @@ type Provider = "osm" | "os";
 
     :host ::ng-deep .leaflet-top .leaflet-control
       margin-top: 19px
+
+    .map-wrapper
+      position: relative
+
+    .map-overlay
+      position: absolute
+      z-index: 600
+      pointer-events: auto
+
+    .map-controls-docked
+      z-index: 700
+
+    :host ::ng-deep .leaflet-popup.popup-below .leaflet-popup-tip
+      transform: rotate(180deg)
+      margin-top: -1px
+      margin-bottom: 0
+
+    :host
+      --os-explorer-color: rgb(68 61 144)
+
+    :host ::ng-deep .os-explorer-pin
+      display: block
+
+    :host ::ng-deep .os-explorer-cluster
+      background: var(--os-explorer-color)
+      color: #ffffff
+      border: 3px solid rgba(0, 0, 0, 0.12)
+      border-radius: 20px
+      text-align: center
+      line-height: 1
+      display: flex
+      align-items: center
+      justify-content: center
+      font-weight: 700
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2)
+
+    :host ::ng-deep .os-explorer-cluster.marker-cluster-small
+      width: 30px
+      height: 30px
+      font-size: 12px
+
+    :host ::ng-deep .os-explorer-cluster.marker-cluster-medium
+      width: 38px
+      height: 38px
+      font-size: 13px
+
+    :host ::ng-deep .os-explorer-cluster.marker-cluster-large
+      width: 46px
+      height: 46px
+      font-size: 14px
   `],
   template: `
     @if (filteredWalks?.length || loading) {
@@ -200,6 +260,9 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
   protected readonly faEye = faEye;
   protected readonly faEyeSlash = faEyeSlash;
   public smoothScroll = true;
+  private openPopupRefs: Array<{ popup: L.Popup, marker: L.Marker }> = [];
+  private customPopupPositioningEnabled = false;
+  private escAttached = false;
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalksMapViewComponent", NgxLoggerLevel.INFO);
   private dateUtils = inject(DateUtilsService);
@@ -350,61 +413,156 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
     const points: L.Marker[] = [];
     let validCoords = 0;
     let invalidCoords = 0;
+    const clusters: { lat: number; lng: number; walks: DisplayedWalk[]; postcodes: Set<string> }[] = [];
+    const thresholdMeters = 60;
     this.logger.info("createMarkers: processing", items.length, "walks");
     for (const dw of items) {
       const lat = dw?.walk?.groupEvent?.start_location?.latitude;
       const lng = dw?.walk?.groupEvent?.start_location?.longitude;
-
       if (typeof lat === "number" && typeof lng === "number" && lat !== 0 && lng !== 0 && Math.abs(lat) > 0.001 && Math.abs(lng) > 0.001) {
         validCoords++;
-        const marker = L.marker([lat, lng]);
-        const popupId = `view-${dw?.walk?.groupEvent?.id}`;
-        const popup = this.popupHtml(dw, popupId);
-        marker.bindPopup(popup, {
-          autoClose: false,
-          closeOnClick: false,
-          autoPan: false
-        });
-        marker.on("popupopen", () => {
-          this.zone.run(() => {
-            this.openPopupCount++;
-          });
-          setTimeout(() => {
-            const popupRoot = marker.getPopup()?.getElement() as HTMLElement;
-            try { (L as any).DomEvent?.disableClickPropagation?.(popupRoot); } catch {}
-            try { (L as any).DomEvent?.disableScrollPropagation?.(popupRoot); } catch {}
-            const el = document.getElementById(popupId);
-            this.logger.info("popupopen: looking for element with ID", popupId, "found:", !!el);
-            if (el) {
-              this.logger.info("popupopen: adding click listener to element:", el);
-              el.addEventListener("click", (ev) => {
-                this.logger.info("popup button clicked for walk:", dw?.walk?.groupEvent?.title);
-                ev.preventDefault();
-                ev.stopPropagation();
-                try { (L as any).DomEvent?.stop?.(ev as any); } catch {}
-                this.zone.run(() => {
-                  this.logger.info("emitting selected event for walk:", dw?.walk?.groupEvent?.title);
-                  this.selected.emit(dw);
-                });
-              }, { once: true });
-            } else {
-              this.logger.warn("popupopen: element not found with ID", popupId, "DOM contents:", document.querySelector('.leaflet-popup-content')?.innerHTML);
-            }
-          }, 50);
-        });
-        marker.on("popupclose", () => {
-          this.zone.run(() => {
-            this.openPopupCount = Math.max(0, this.openPopupCount - 1);
-          });
-        });
-        points.push(marker);
+        const pc = (dw?.walk?.groupEvent?.start_location?.postcode || "").toString().toUpperCase().replace(/\s+/g, "");
+        let placed = false;
+        for (const c of clusters) {
+          const d = L.latLng(lat, lng).distanceTo(L.latLng(c.lat, c.lng));
+          const samePostcode = pc && c.postcodes.has(pc);
+          if (d <= thresholdMeters || samePostcode) {
+            c.walks.push(dw);
+            if (pc) c.postcodes.add(pc);
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          const set = new Set<string>();
+          if (pc) set.add(pc);
+          clusters.push({lat, lng, walks: [dw], postcodes: set});
+        }
       } else {
         invalidCoords++;
       }
     }
-    this.logger.info("createMarkers: results - valid coordinates:", validCoords, "invalid coordinates:", invalidCoords, "total:", validCoords + invalidCoords);
+
+    clusters.forEach((cluster) => {
+      const lat = cluster.walks.reduce((a, b) => a + (b?.walk?.groupEvent?.start_location?.latitude || 0), 0) / cluster.walks.length;
+      const lng = cluster.walks.reduce((a, b) => a + (b?.walk?.groupEvent?.start_location?.longitude || 0), 0) / cluster.walks.length;
+      const marker = this.isOsExplorer() ? L.marker([lat, lng], {icon: this.explorerMarkerIcon()}) : L.marker([lat, lng]);
+      const ordered = cluster.walks.slice().sort((a, b) => {
+        const at = (a?.walk?.groupEvent?.title || "").toLowerCase().trim();
+        const bt = (b?.walk?.groupEvent?.title || "").toLowerCase().trim();
+        if (at !== bt) return at.localeCompare(bt);
+        const ad = a?.walk?.groupEvent?.start_date_time;
+        const bd = b?.walk?.groupEvent?.start_date_time;
+        const am = ad ? this.dateUtils.asDateTime(ad).toMillis() : 0;
+        const bm = bd ? this.dateUtils.asDateTime(bd).toMillis() : 0;
+        return bm - am;
+      });
+      const popup = ordered.length === 1 ? this.popupHtml(ordered[0], `view-${ordered[0]?.walk?.groupEvent?.id}`) : this.multiPopupHtml(ordered);
+      marker.bindPopup(popup, {
+        autoClose: false,
+        closeOnClick: false,
+        autoPan: true,
+        keepInView: true,
+        autoPanPadding: L.point(24, 24) as any
+      });
+      marker.on("popupopen", () => {
+        this.zone.run(() => {
+          this.openPopupCount++;
+        });
+        setTimeout(() => {
+          const popupRoot = marker.getPopup()?.getElement() as HTMLElement;
+          try {
+            (L as any).DomEvent?.disableClickPropagation?.(popupRoot);
+          } catch {
+          }
+          try {
+            (L as any).DomEvent?.disableScrollPropagation?.(popupRoot);
+          } catch {
+          }
+          const opened = marker.getPopup();
+          if (opened) {
+            this.openPopupRefs = this.openPopupRefs.filter(ref => ref.popup !== opened).concat([{
+              popup: opened,
+              marker
+            }]);
+            setTimeout(() => this.adjustOpenPopups(), 0);
+            if (!this.escAttached) {
+              document.addEventListener("keydown", this.onKeyDown, true);
+              this.escAttached = true;
+            }
+          }
+          if (ordered.length === 1) {
+            const id = `view-${ordered[0]?.walk?.groupEvent?.id}`;
+            const el = document.getElementById(id);
+            if (el) {
+              el.addEventListener("click", (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                try {
+                  (L as any).DomEvent?.stop?.(ev as any);
+                } catch {
+                }
+                this.zone.run(() => this.selected.emit(ordered[0]));
+              });
+            }
+          } else {
+            ordered.forEach((dw, index) => {
+              const id = `view-${dw?.walk?.groupEvent?.id}-${index}`;
+              const el = document.getElementById(id);
+              if (el) {
+                el.addEventListener("click", (ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  try {
+                    (L as any).DomEvent?.stop?.(ev as any);
+                  } catch {
+                  }
+                  this.zone.run(() => this.selected.emit(dw));
+                });
+              }
+            });
+          }
+        }, 50);
+      });
+      marker.on("popupclose", () => {
+        this.zone.run(() => {
+          this.openPopupCount = Math.max(0, this.openPopupCount - 1);
+        });
+        const closed = marker.getPopup();
+        if (closed) {
+          this.openPopupRefs = this.openPopupRefs.filter(ref => ref.popup !== closed);
+          setTimeout(() => this.adjustOpenPopups(), 0);
+          if (this.openPopupRefs.length === 0 && this.escAttached) {
+            document.removeEventListener("keydown", this.onKeyDown, true);
+            this.escAttached = false;
+          }
+        }
+      });
+      points.push(marker);
+    });
+
+    this.logger.info("createMarkers: results - proximity clusters:", clusters.length, "valid coordinates:", validCoords, "invalid coordinates:", invalidCoords);
     this.allMarkers = points;
     return points;
+  }
+
+  private onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      if (this.openPopupRefs.length > 0) {
+        const last = this.openPopupRefs[this.openPopupRefs.length - 1];
+        try {
+          last.marker.closePopup();
+        } catch {
+        }
+        event.preventDefault();
+        event.stopPropagation();
+      } else if (this.mapRef) {
+        try {
+          this.mapRef.closePopup();
+        } catch {
+        }
+      }
+    }
   }
 
   private popupHtml(dw: DisplayedWalk, linkId: string): string {
@@ -412,9 +570,11 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
     const start = dw?.walk?.groupEvent?.start_date_time;
     const time = start ? `${this.dateUtils.displayDay(start)}${EM_DASH_WITH_SPACES}${this.dateUtils.displayTime(start)}` : "";
     const group = dw?.walk?.groupEvent?.group_name || "";
-    const leader = dw?.walk?.groupEvent?.walk_leader?.name?.replace(/\.$/, '');
+    const leader = dw?.walk?.groupEvent?.walk_leader?.name?.replace(/\.$/, "");
     const groupWithLeader = leader ? `${group} (${leader})` : group;
     const distance = this.distanceValidationService.walkDistances(dw?.walk);
+    const postcode = dw?.walk?.groupEvent?.start_location?.postcode || "";
+    const extraDetails = this.joinWithEmDash([postcode, distance]);
     return `<div style=\"min-width:220px;\">\n`+
            `  <div class=\"small fw-bold mb-1\">${this.escape(title)}</div>\n`+
            `  <div class=\"d-flex align-items-start\">\n`+
@@ -424,7 +584,7 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
            `    <div class=\"flex-grow-1\">\n`+
            `      <div class=\"small text-muted\">${this.escape(groupWithLeader)}</div>\n`+
            `      <div class=\"small\">${this.escape(time)}</div>\n`+
-           `      <div class=\"small\">${this.escape(distance)}</div>\n`+
+      `      <div class=\"small\">${this.escape(extraDetails)}</div>\n` +
            `    </div>\n`+
            `  </div>\n`+
            `</div>`;
@@ -434,25 +594,78 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
     return value?.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") || "";
   }
 
+  private multiPopupHtml(group: DisplayedWalk[]): string {
+    let runningIndex = 0;
+    let lastTitleKey = "";
+    const items = group.map((dw) => {
+      const title = dw?.walk?.groupEvent?.title || "Walk";
+      const titleKey = title.toLowerCase().trim();
+      const start = dw?.walk?.groupEvent?.start_date_time;
+      const time = start ? `${this.dateUtils.displayDay(start)}${EM_DASH_WITH_SPACES}${this.dateUtils.displayTime(start)}` : "";
+      const groupName = dw?.walk?.groupEvent?.group_name || "";
+      const leader = dw?.walk?.groupEvent?.walk_leader?.name?.replace(/\.$/, "");
+      const groupWithLeader = leader ? `${groupName} (${leader})` : groupName;
+      const distance = this.distanceValidationService.walkDistances(dw?.walk);
+      const postcode = dw?.walk?.groupEvent?.start_location?.postcode || "";
+      const extraDetails = this.joinWithEmDash([postcode, distance]);
+      const linkId = `view-${dw?.walk?.groupEvent?.id}-${runningIndex++}`;
+      const titleHeader = titleKey !== lastTitleKey ? `<div class=\"small fw-bold mt-1\">${this.escape(title)}</div>` : "";
+      lastTitleKey = titleKey;
+      return `
+        ${titleHeader}\n` +
+        `        <div class=\"d-flex align-items-start py-1\">\n` +
+        `          <div class=\"me-2 d-flex align-items-center\">\n` +
+        `            <button type=\"button\" class=\"badge bg-primary border-0\" id=\"${linkId}\">view</button>\n` +
+        `          </div>\n` +
+        `          <div class=\"flex-grow-1\">\n` +
+        `            <div class=\"small text-muted\">${this.escape(groupWithLeader)}</div>\n` +
+        `            <div class=\"small\">${this.escape(time)}</div>\n` +
+        `            <div class=\"small\">${this.escape(extraDetails)}</div>\n` +
+        `          </div>\n` +
+        `        </div>`;
+    }).join("");
+    return `<div style=\"min-width:260px; max-width:320px;\">\n` +
+      `  <div style=\"max-height:260px; overflow-y:auto; padding-right:4px;\">${items}</div>\n` +
+      `</div>`;
+  }
+
+  private joinWithEmDash(parts: string[]): string {
+    const filtered = parts.filter(p => !!p && p.toString().trim().length > 0);
+    return filtered.join(EM_DASH_WITH_SPACES);
+  }
+
   private createCluster(markers: L.Marker[]): L.Layer | null {
     const mc: any = (L as any).markerClusterGroup;
     if (mc && typeof mc === "function") {
-      const clusterGroup = mc({ showCoverageOnHover: false, removeOutsideVisibleBounds: true });
+      const explorer = this.isOsExplorer();
+      const clusterGroup = mc({
+        showCoverageOnHover: false,
+        removeOutsideVisibleBounds: true,
+        iconCreateFunction: explorer ? (cluster: any) => {
+          const childCount = cluster.getChildCount();
+          const c = childCount < 10 ? "small" : childCount < 50 ? "medium" : "large";
+          return L.divIcon({
+            html: `<span>${childCount}</span>`,
+            className: `os-explorer-cluster marker-cluster marker-cluster-${c}`,
+            iconSize: undefined as any
+          });
+        } : undefined
+      });
       markers.forEach(m => clusterGroup.addLayer(m));
 
-      clusterGroup.on('animationend', () => {
+      clusterGroup.on("animationend", () => {
         if (this.autoShowAll) {
           setTimeout(() => this.showAllVisiblePopups(), 300);
         }
       });
 
-      clusterGroup.on('spiderfied', () => {
+      clusterGroup.on("spiderfied", () => {
         if (this.autoShowAll) {
           setTimeout(() => this.showAllVisiblePopups(), 100);
         }
       });
 
-      clusterGroup.on('clusterclick', (e: any) => {
+      clusterGroup.on("clusterclick", (e: any) => {
         const cluster = e?.layer;
         if (!cluster || !this.mapRef) return;
         const bounds: L.LatLngBounds | undefined = cluster.getBounds ? cluster.getBounds() : undefined;
@@ -491,16 +704,36 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
     (L.Icon.Default as any).mergeOptions(mergeOptions);
   }
 
+  private explorerMarkerIcon(): L.DivIcon {
+    const html = `
+      <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg" style="display:block;color: var(--os-explorer-color)">
+        <path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.268 21.732 0 14 0z" fill="currentColor" stroke="#ffffff" stroke-width="2"/>
+        <circle cx="14" cy="14" r="4.5" fill="#ffffff"/>
+      </svg>`;
+    return L.divIcon({
+      className: "os-explorer-pin",
+      html,
+      iconSize: [28, 36] as any,
+      iconAnchor: [14, 36] as any,
+      popupAnchor: [0, -28] as any
+    });
+  }
+
+  private isOsExplorer(): boolean {
+    return this.provider === "os" && this.osStyle?.startsWith("Leisure");
+  }
+
   private viewWalk(dw: DisplayedWalk) {}
 
   onMapReady(map: L.Map) {
     this.logger.info("onMapReady:received map, invalidating size and fitting bounds");
     this.mapRef = map;
 
-    map.on('moveend zoomend', () => {
+    map.on("moveend zoomend", () => {
       if (this.autoShowAll) {
         setTimeout(() => this.showAllVisiblePopups(), 300);
       }
+      setTimeout(() => this.adjustOpenPopups(), 0);
     });
 
     setTimeout(() => {
@@ -512,6 +745,58 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
         setTimeout(() => this.showAllVisiblePopups(), 500);
       }
     }, 0);
+  }
+
+  private adjustOpenPopups() {
+    if (!this.customPopupPositioningEnabled) return;
+    if (!this.mapRef || !this.openPopupRefs.length) return;
+    const used: Array<{ left: number; top: number; right: number; bottom: number }> = [];
+    const topPrimary: [number, number] = [0, -28];
+    const topRow: Array<[number, number]> = [[0, -28], [48, -28], [-48, -28], [96, -28], [-96, -28]];
+    const topRow2: Array<[number, number]> = [[0, -56], [48, -56], [-48, -56]];
+    const bottomRow: Array<[number, number]> = [[0, 48], [56, 48], [-56, 48], [112, 48], [-112, 48]];
+
+    for (let i = 0; i < this.openPopupRefs.length; i++) {
+      const ref = this.openPopupRefs[i];
+      const popup = ref.popup;
+      const el = popup.getElement() as HTMLElement;
+      if (!el) continue;
+      const size = el.getBoundingClientRect();
+      const base = this.mapRef.latLngToContainerPoint((ref.marker as any).getLatLng());
+
+      let candidates: Array<[number, number]>;
+      if (i === 0) {
+        candidates = [topPrimary];
+      } else if (i === 1) {
+        candidates = bottomRow.concat(topRow).concat(topRow2);
+      } else {
+        candidates = topRow.concat(topRow2).concat(bottomRow);
+      }
+
+      let chosen: [number, number] | null = null;
+      for (const cand of candidates) {
+        const left = base.x + cand[0] - size.width / 2;
+        const top = base.y + cand[1] - size.height;
+        const rect = {left, top, right: left + size.width, bottom: top + size.height};
+        const overlaps = used.some(u => !(rect.right < u.left || rect.left > u.right || rect.bottom < u.top || rect.top > u.bottom));
+        if (!overlaps) {
+          chosen = cand;
+          used.push(rect);
+          break;
+        }
+      }
+      const offset: [number, number] = chosen || (i === 0 ? topPrimary : bottomRow[0]);
+      (popup as any).options.offset = L.point(offset[0], offset[1]);
+      const el2 = popup.getElement() as HTMLElement;
+      if (el2) {
+        if (offset[1] > 0) {
+          el2.classList.add("popup-below");
+        } else {
+          el2.classList.remove("popup-below");
+        }
+      }
+      popup.update();
+    }
   }
 
   private maxZoomForCurrentStyle(): number {
@@ -560,11 +845,13 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
     this.allMarkers = [];
     this.openPopupCount = 0;
     this.showMap = false;
+    this.fitBounds = undefined;
+    this.options = null;
 
     setTimeout(() => {
       this.showMap = true;
-      setTimeout(() => this.rebuildMap(), 0);
-    }, 100);
+      requestAnimationFrame(() => setTimeout(() => this.rebuildMap(), 0));
+    }, 50);
   }
 
   onSmoothScrollChange(value: boolean) {
@@ -662,10 +949,10 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
       } catch {}
     }
 
-    if (this.clusterGroupRef && typeof this.clusterGroupRef.eachLayer === 'function') {
+    if (this.clusterGroupRef && typeof this.clusterGroupRef.eachLayer === "function") {
       try {
         this.clusterGroupRef.eachLayer((layer: any) => {
-          if (layer.closePopup && typeof layer.closePopup === 'function') {
+          if (layer.closePopup && typeof layer.closePopup === "function") {
             layer.closePopup();
           }
         });

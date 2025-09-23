@@ -474,7 +474,13 @@ export class WalkListComponent implements OnInit, OnDestroy {
 
   onMapSelect(displayedWalk: DisplayedWalk) {
     this.logger.info("onMapSelect called with walk:", displayedWalk?.walk?.groupEvent?.title);
-    this.mapSelected = displayedWalk;
+    const same = this.mapSelected?.walk?.id === displayedWalk?.walk?.id;
+    if (same) {
+      this.mapSelected = null as any;
+      setTimeout(() => this.mapSelected = displayedWalk, 0);
+    } else {
+      this.mapSelected = displayedWalk;
+    }
     const smooth = this.uiActionsService.initialBooleanValueFor(StoredValue.MAP_SMOOTH_SCROLL, true);
     if (smooth) {
       setTimeout(() => {
