@@ -111,6 +111,10 @@ export class SystemConfigService {
     } else {
       this.logger.info("nothing to migrate for meetup", config.externalSystems.meetup);
     }
+    if (!config.externalSystems.osMaps) {
+      config.externalSystems.osMaps = {apiKey: null};
+      this.logger.info("config.externalSystems.osMaps initialised as:", config.externalSystems.osMaps);
+    }
     if (!config?.national?.mainSite) {
       config.national = defaultRamblersConfig;
       this.logger.info("config.national.mainSite initialised as:", config.national);
@@ -136,14 +140,8 @@ export class SystemConfigService {
       this.logger.info("config.images initialised as:", config.images);
     }
     if (externalSystemsMigrate || facebookMigrate || instagramMigrate || meetupMigrate || !isEqual(preMigrationConfig, config)) {
-      if (this.dryRun) {
-        this.logger.info("Would normally save here but dry run for config:", config);
-        return Promise.resolve(config);
-      } else {
-        this.logger.info("Saving migrated config:", config);
-        await this.saveConfig(config);
-        return this.cachedSystemConfig;
-      }
+      this.logger.info("Applying in-memory migration only (no save during app bootstrap)", config);
+      return Promise.resolve(config);
     } else {
       this.logger.info("nothing to migrate for config:", config);
       return Promise.resolve(config);
@@ -238,6 +236,7 @@ export class SystemConfigService {
       images: this.imagesDefaults(),
       externalSystems: {
         facebook: {appId: null, pagesUrl: null, groupUrl: null},
+        osMaps: {apiKey: null},
         meetup: null,
         instagram: null,
         linkedIn: null

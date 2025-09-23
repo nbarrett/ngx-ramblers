@@ -99,6 +99,7 @@ export interface ExternalSystems {
   instagram?: Instagram;
   meetup?: Meetup;
   linkedIn?: ExternalSystem;
+  osMaps?: { apiKey: string };
   twitter?: ExternalSystem;
   youtube?: ExternalSystem;
 }
@@ -322,4 +323,3 @@ export interface CaptchaVerificationResponse {
   action?: string;
   "error-codes"?: string[];
 }
-

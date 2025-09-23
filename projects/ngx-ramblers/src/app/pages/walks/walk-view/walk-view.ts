@@ -43,9 +43,11 @@ import { PageService } from "../../../services/page.service";
   template: `
     @if (displayedWalk) {
       <div class="event-thumbnail card shadow tabset-container">
-        <app-walk-panel-expander [walk]="displayedWalk.walk" [expandable]="allowWalkAdminEdits"
-                                 (collapsed)="navigateToArea()"
-                                 collapsable [collapseAction]="'collapse'"/>
+        @if (showPanelExpander) {
+          <app-walk-panel-expander [walk]="displayedWalk.walk" [expandable]="allowWalkAdminEdits"
+                                   (collapsed)="navigateToArea()"
+                                   collapsable [collapseAction]="'collapse'"/>
+        }
         <div class="row">
           <div class="col-sm-12 col-lg-6 rounded">
             @if (displayedWalk?.walk?.groupEvent?.title) {
@@ -258,6 +260,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected readonly MapDisplay = MapDisplay;
   protected readonly EventType = EventType;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
+  @Input() showPanelExpander: boolean = true;
   @ViewChild("fromPostcodeInput") fromPostcodeInput: ElementRef<HTMLInputElement>;
   @Input() index: number;
 

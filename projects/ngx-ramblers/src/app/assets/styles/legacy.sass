@@ -109,6 +109,65 @@ audio[controls], canvas, video
 .map-walk-view-google
   margin-top: 16px
 
+.map-walks-list-view
+  border-radius: 8px
+  overflow: visible
+  width: 100%
+  margin-top: 8px
+  margin-bottom: 0
+  height: 520px
+
+.map-wrapper
+  position: relative
+
+.map-overlay
+  position: absolute
+  z-index: 1500
+  pointer-events: none
+  .overlay-content
+    pointer-events: auto
+
+.map-overlay.top-right
+  top: 8px
+  right: 8px
+
+.map-overlay.top-left
+  top: 8px
+  left: 8px
+
+.map-overlay.bottom-right
+  right: 8px
+  bottom: 28px
+
+.map-selected-walk
+  margin-top: 20px
+
+.leaflet-container .leaflet-popup-pane
+  z-index: 10000
+
+.leaflet-container .leaflet-control
+  z-index: 500
+
+.leaflet-container .leaflet-top,
+.leaflet-container .leaflet-bottom
+  z-index: 500
+
+.dropdown-menu
+  z-index: 1100
+
+.map-resize-handle
+  height: 10px
+  cursor: ns-resize
+  background: linear-gradient(180deg, rgba(0,0,0,0.06), rgba(0,0,0,0.02))
+  border-radius: 0 0 6px 6px
+  margin-top: 4px
+
+.leaflet-container .leaflet-marker-pane
+  z-index: 900
+
+.leaflet-container .leaflet-tile-pane
+  z-index: 200
+
 .map-card-image
   border-radius: 5px
   width: 100%

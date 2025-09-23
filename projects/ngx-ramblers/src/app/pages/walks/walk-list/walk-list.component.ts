@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { ActivatedRoute, ParamMap } from "@angular/router";
+import { ActivatedRoute, ParamMap, Router } from "@angular/router";
 import { range } from "es-toolkit";
 import { uniq } from "es-toolkit/compat";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
@@ -38,6 +38,7 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
 import { WalkCardListComponent } from "../walk-view/walk-card-list";
+import { WalksMapViewComponent } from "./walks-map-view";
 import { WalkViewComponent } from "../walk-view/walk-view";
 import { WalkEditComponent } from "../walk-edit/walk-edit.component";
 import { NgClass } from "@angular/common";
@@ -68,49 +69,41 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
             </div>
           }
           <div class="mb-3 col-sm-12">
-            <app-walks-search [filterParameters]="filterParameters" [notifyTarget]="notifyTarget">
-              <div class="row g-0 flex-md-nowrap align-items-center">
-                <div class="col-12 col-md-auto pe-md-2 mb-2 mb-md-0">
-                  @if (systemConfig?.group?.allowSwitchWalkView) {
-                    <div class="btn-group mb-0 btn-group-custom me-md-2 w-100 w-md-auto" dropdown>
-                      <button aria-controls="dropdown-animated" class="dropdown-toggle btn pager-btn me-0"
-                               dropdownToggle
-                               type="button">
-                        <fa-icon [icon]="walkListView === WalkListView.CARDS ? faImages : faTableCells"/>
-                        <span class="ms-2">{{ stringUtils.asTitle(walkListView) }} View</span>
-                        <span class="caret"></span>
-                      </button>
-                      <ul *dropdownMenu class="dropdown-menu" id="dropdown-animated" role="menu">
-                        <li role="menuitem">
-                          <a (click)="switchToView(WalkListView.CARDS)" class="dropdown-item">
-                            <div>
-                              <fa-icon [icon]="faImages" class="me-2"/>
-                              {{ stringUtils.asTitle(WalkListView.CARDS) }} View
-                            </div>
-                          </a>
-                        </li>
-                        <li role="menuitem">
-                          <a (click)="switchToView(WalkListView.TABLE)" class="dropdown-item">
-                            <div>
-                              <fa-icon [icon]="faTableCells" class="me-2"/>
-                              {{ stringUtils.asTitle(WalkListView.TABLE) }} View
-                            </div>
-                          </a>
-                        </li>
-                      </ul>
-                    </div>
-                  }
+            <app-walks-search [filterParameters]="filterParameters" [notifyTarget]="notifyTarget" [showAlerts]="walkListView !== WalkListView.MAP">
+              <div view-selector>
+                <div class="btn-group mb-0 btn-group-custom me-md-2 w-100 w-md-auto" dropdown>
+                  <button aria-controls="dropdown-animated" class="dropdown-toggle btn pager-btn me-0"
+                           dropdownToggle type="button">
+                    <fa-icon [icon]="walkListView === WalkListView.CARDS ? faImages : (walkListView === WalkListView.TABLE ? faTableCells : faWalking)"/>
+                    <span class="ms-2">{{ stringUtils.asTitle(walkListView) }} View</span>
+                    <span class="caret"></span>
+                  </button>
+                  <ul *dropdownMenu class="dropdown-menu" id="dropdown-animated" role="menu">
+                    <li role="menuitem"><a (click)="switchToView(WalkListView.CARDS)" class="dropdown-item"><div><fa-icon [icon]="faImages" class="me-2"/>{{ stringUtils.asTitle(WalkListView.CARDS) }} View</div></a></li>
+                    <li role="menuitem"><a (click)="switchToView(WalkListView.TABLE)" class="dropdown-item"><div><fa-icon [icon]="faTableCells" class="me-2"/>{{ stringUtils.asTitle(WalkListView.TABLE) }} View</div></a></li>
+                    <li role="menuitem"><a (click)="switchToView(WalkListView.MAP)" class="dropdown-item"><div><fa-icon [icon]="faWalking" class="me-2"/>{{ stringUtils.asTitle(WalkListView.MAP) }} View</div></a></li>
+                  </ul>
                 </div>
-                <div class="col-12 col-md d-flex align-items-center mt-0 mt-md-0 flex-grow-1 w-100">
-                  <pagination class="pagination rounded mb-0 w-100" [boundaryLinks]=true [rotate]="true"
+              </div>
+              @if (walkListView !== WalkListView.MAP) {
+                <div class="d-flex align-items-center mt-0 mt-md-0 me-2 flex-shrink-0">
+                  <pagination class="pagination rounded mb-0" [boundaryLinks]=true [rotate]="true"
                                [maxSize]="maxSize()"
                                [totalItems]="filteredWalks?.length" [(ngModel)]="pageNumber"
                                (pageChanged)="pageChanged($event)"/>
                 </div>
-              </div>
+              }
             </app-walks-search>
             @if (walkListView === WalkListView.CARDS) {
               <app-walk-card-list [currentPageWalks]="currentPageWalks"/>
+            }
+            @if (walkListView === WalkListView.MAP) {
+              <app-walks-map-view [filteredWalks]="filteredWalks" [loading]="notifyTarget.busy" (selected)="onMapSelect($event)"/>
+              @if (mapSelected) {
+                <div class="map-selected-walk" id="map-selected-walk">
+                  <app-walk-view [displayedWalk]="mapSelected" [showPanelExpander]="false"/>
+                </div>
+              }
             }
             @if (!walkListView || walkListView === WalkListView.TABLE) {
               @for (displayedWalk of currentPageWalks; track walkTracker(index, displayedWalk); let index = $index) {
@@ -250,7 +243,7 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
     `,
     styleUrls: ["./walk-list.component.sass"],
     changeDetection: ChangeDetectionStrategy.Default,
-  imports: [PageComponent, DynamicContentComponent, WalkSearchComponent, BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective, PaginationComponent, FormsModule, WalkCardListComponent, WalkViewComponent, WalkEditComponent, NgClass, WalkGradingComponent, TooltipDirective, WalkPanelExpanderComponent, DisplayDatePipe, DisplayTimePipe]
+  imports: [PageComponent, DynamicContentComponent, WalkSearchComponent, BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective, PaginationComponent, FormsModule, WalkCardListComponent, WalkViewComponent, WalkEditComponent, NgClass, WalkGradingComponent, TooltipDirective, WalkPanelExpanderComponent, DisplayDatePipe, DisplayTimePipe, WalksMapViewComponent]
 })
 export class WalkListComponent implements OnInit, OnDestroy {
 
@@ -270,6 +263,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
   protected stringUtils = inject(StringUtilsService);
   private searchFilterPipe = inject(SearchFilterPipe);
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private notifierService = inject(NotifierService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
@@ -286,6 +280,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
   public pageNumber: number;
   public pageCount: number;
   public pages: number[] = [];
+  public mapSelected: DisplayedWalk | null = null;
   config: ModalOptions = {
     animated: false,
     initialState: {}
@@ -300,6 +295,25 @@ export class WalkListComponent implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.logger.debug("ngOnInit");
+    this.route.queryParamMap.subscribe(params => {
+      const q = params.get(this.stringUtils.kebabCase(StoredValue.WALK_QUICK_SEARCH)) ?? params.get("quick-search") ?? params.get("q");
+      const type = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SELECT_TYPE)) ?? params.get("select-type") ?? params.get("type");
+      const sort = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SORT_ASC)) ?? params.get("sort-order") ?? params.get("asc");
+      const view = params.get(this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW)) ?? params.get("view");
+      if (q !== null) {
+        this.filterParameters.quickSearch = q;
+      }
+      if (type) {
+        this.filterParameters.selectType = type.replace(/-/g, "_").toUpperCase() as any;
+      }
+      if (sort !== null) {
+        this.filterParameters.ascending = sort === "date-ascending" || sort === "1" || sort === "true";
+      }
+      if (view === "cards" || view === "table" || view === "map") {
+        this.walkListView = view as any;
+        this.uiActionsService.saveValueFor(StoredValue.WALK_LIST_VIEW, this.walkListView);
+      }
+    });
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
       this.systemConfig = systemConfig;
       this.walkListView = this.uiActionsService.initialValueFor(StoredValue.WALK_LIST_VIEW, this.systemConfig.group.defaultWalkListView) as WalkListView;
@@ -369,9 +383,12 @@ export class WalkListComponent implements OnInit, OnDestroy {
     const offset = hasWalks ? ((this.pageNumber - 1) * this.pageSize + 1) : 0;
     const pageIndicator = this.pages.length > 1 ? `page ${this.pageNumber} of ${this.pageCount}` : "";
     const toWalkNumber = hasWalks ? Math.min(this.pageNumber * this.pageSize, this.filteredWalks?.length || 0) : 0;
-    const alertMessage = hasWalks ? `${offset} to ${toWalkNumber} of ${this.stringUtils.pluraliseWithCount(this.filteredWalks?.length, "walk")}${pageIndicator ? EM_DASH_WITH_SPACES + pageIndicator : ""}` : "No walks found";
+    const totalOnly = `${this.stringUtils.pluraliseWithCount(this.filteredWalks?.length || 0, "walk")}`;
+    const alertMessage = this.walkListView === WalkListView.MAP
+      ? (this.filteredWalks?.length ? `Showing ${totalOnly}` : "No walks found")
+      : (hasWalks ? `${offset} to ${toWalkNumber} of ${totalOnly}${pageIndicator ? EM_DASH_WITH_SPACES + pageIndicator : ""}` : "No walks found");
     this.notify.progress(alertMessage);
-    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SHOW_PAGINATION, this.pageCount > 1));
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SHOW_PAGINATION, (this.filteredWalks?.length || 0) > 0 || this.walkListView === WalkListView.MAP));
   }
 
   allowDetailView() {
@@ -455,6 +472,22 @@ export class WalkListComponent implements OnInit, OnDestroy {
     this.applyPagination();
   }
 
+  onMapSelect(displayedWalk: DisplayedWalk) {
+    this.logger.info("onMapSelect called with walk:", displayedWalk?.walk?.groupEvent?.title);
+    this.mapSelected = displayedWalk;
+    const smooth = this.uiActionsService.initialBooleanValueFor(StoredValue.MAP_SMOOTH_SCROLL, true);
+    if (smooth) {
+      setTimeout(() => {
+        const el = document.getElementById("map-selected-walk");
+        this.logger.info("looking for map-selected-walk element:", !!el);
+        if (el) {
+          el.scrollIntoView({behavior: "smooth", block: "start"});
+        }
+      }, 0);
+    }
+  }
+
+
   private queryGroups(walks: ExtendedGroupEvent[]): void {
     const groups: string[] = uniq(walks.map((groupWalk: ExtendedGroupEvent) => groupWalk?.groupEvent?.group_code)).filter(item => item);
     if (groups.length > 0) {
@@ -469,5 +502,11 @@ export class WalkListComponent implements OnInit, OnDestroy {
     this.walkListView = walkListView;
     this.logger.info("switching to", walkListView, "view");
     this.uiActionsService.saveValueFor(StoredValue.WALK_LIST_VIEW, walkListView);
+    this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW)]: this.stringUtils.kebabCase(walkListView) });
+  }
+
+  private replaceQueryParams(params: { [key: string]: any }) {
+    const queryParams = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined));
+    this.router.navigate([], { relativeTo: this.route, queryParams, queryParamsHandling: "merge" });
   }
 }

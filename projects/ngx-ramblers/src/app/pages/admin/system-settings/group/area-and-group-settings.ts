@@ -214,7 +214,7 @@ export class AreaAndGroupSettingsComponent implements OnInit {
   dateUtils = inject(DateUtilsService);
   ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   populationMethods: KeyValue<string>[] = enumKeyValues(EventPopulation);
-  walkListViews: KeyValue<string>[] = enumKeyValues(WalkListView).filter(item => item.value !== WalkListView.MAP);
+  walkListViews: KeyValue<string>[] = enumKeyValues(WalkListView);
   walkListViewsJoined = this.walkListViews.map(item => this.stringUtils.asTitle(item.value)).join(" and ");
   faAdd = faAdd;
   faRemove = faRemove;
