@@ -20,3 +20,25 @@
 .pagination
   align-self: center
   margin-bottom: 0
+
+.cards-view-spacing
+  @media (max-width: 767.98px)
+    margin-top: 0.5rem !important
+    margin-bottom: 0.25rem !important
+    margin-right: 0 !important
+    flex-shrink: 1 !important
+    width: 100% !important
+
+    .pagination
+      width: 100% !important
+      display: flex !important
+
+      .page-item
+        flex: 1 1 0 !important
+
+        &:last-child
+          margin-right: 0 !important
+
+      .page-link
+        width: 100% !important
+        text-align: center !important

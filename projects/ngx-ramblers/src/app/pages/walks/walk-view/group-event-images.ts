@@ -20,14 +20,14 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
         <div class="d-flex align-items-center flex-nowrap">
           @if (extendedGroupEvent?.groupEvent?.media?.length > 1) {
             <div class="d-flex align-items-center flex-shrink-0">
-              <app-svg colour="rgb(155, 200, 171)" (click)="back()"
+              <app-svg [colour]="mintcakeColor" (click)="back()"
                        [disabled]="backDisabled()"
                        height="20"
                        icon="i-back-round"/>
               <span class="visually-hidden">Previous slide</span>
               <span class="px-2 text-nowrap">Image {{ imageIndex + 1 }}
                 of {{ extendedGroupEvent?.groupEvent?.media?.length }}</span>
-              <app-svg colour="rgb(155, 200, 171)" (click)="next()"
+              <app-svg [colour]="mintcakeColor" (click)="next()"
                        [disabled]="forwardDisabled()"
                        height="20"
                        icon="i-forward-round"/>
@@ -37,7 +37,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
           @if (allowEditImage) {
             <div class="d-flex align-items-center mx-3 flex-shrink-0">
               <span class="px-2 text-nowrap">Remove image {{ imageIndex + 1 }}</span>
-              <app-svg colour="rgb(255, 0, 0)" (click)="removeImage()"
+              <app-svg [colour]="removeColor" (click)="removeImage()"
                        [disabled]="deleteDisabled()"
                        height="20"
                        icon="i-cross"
@@ -46,13 +46,13 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
             @if (extendedGroupEvent?.groupEvent?.media?.length > 1) {
               <div class="d-flex align-items-center ms-auto flex-shrink-0">
                 <app-svg [tooltip]="backDisabled()? '':'move this image back to position '+ imageIndex"
-                         colour="rgb(155, 200, 171)" (click)="moveImageBack()"
+                         [colour]="mintcakeColor" (click)="moveImageBack()"
                          [disabled]="backDisabled()"
                          height="20"
                          icon="i-up"/>
                 <span class="px-2 text-nowrap">Reorder image {{ imageIndex + 1 }}</span>
                 <app-svg [tooltip]="forwardDisabled()?'':'move this image forward to position '+(imageIndex + 2)"
-                         colour="rgb(155, 200, 171)"
+                         [colour]="mintcakeColor"
                          (click)="moveImageForward()"
                          [disabled]="forwardDisabled()"
                          height="20"
@@ -81,6 +81,8 @@ export class GroupEventImages implements OnInit {
   imagePreview: string;
   protected allowEditImage: boolean;
   protected imageIndex = 0;
+  protected readonly mintcakeColor = "var(--ramblers-colour-mintcake)";
+  protected readonly removeColor = "rgb(255, 0, 0)";
   @Output() mediaChanged = new EventEmitter<Media>();
   protected extendedGroupEvent: ExtendedGroupEvent;
 
