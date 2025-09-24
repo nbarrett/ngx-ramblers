@@ -86,7 +86,8 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                 </div>
               </div>
               @if (walkListView !== WalkListView.MAP) {
-                <div class="d-flex align-items-center mt-0 mt-md-0 me-2 flex-shrink-0">
+                <div class="d-flex align-items-center mt-0 mt-md-0 me-2 flex-shrink-0"
+                     [class.cards-view-spacing]="walkListView === WalkListView.CARDS">
                   <pagination class="pagination rounded mb-0" [boundaryLinks]=true [rotate]="true"
                                [maxSize]="maxSize()"
                                [totalItems]="filteredWalks?.length" [(ngModel)]="pageNumber"
@@ -296,10 +297,10 @@ export class WalkListComponent implements OnInit, OnDestroy {
   async ngOnInit() {
     this.logger.debug("ngOnInit");
     this.route.queryParamMap.subscribe(params => {
-      const q = params.get(this.stringUtils.kebabCase(StoredValue.WALK_QUICK_SEARCH)) ?? params.get("quick-search") ?? params.get("q");
-      const type = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SELECT_TYPE)) ?? params.get("select-type") ?? params.get("type");
-      const sort = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SORT_ASC)) ?? params.get("sort-order") ?? params.get("asc");
-      const view = params.get(this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW)) ?? params.get("view");
+      const q = params.get(this.stringUtils.kebabCase(StoredValue.WALK_QUICK_SEARCH));
+      const type = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SELECT_TYPE));
+      const sort = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SORT_ASC));
+      const view = params.get(this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW));
       if (q !== null) {
         this.filterParameters.quickSearch = q;
       }

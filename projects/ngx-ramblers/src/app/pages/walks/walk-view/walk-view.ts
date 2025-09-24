@@ -28,6 +28,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { RouterLink } from "@angular/router";
 import { GroupEventImages } from "./group-event-images";
 import { MapEditComponent } from "../walk-edit/map-edit";
+import { MapTilesService } from "../../../services/maps/map-tiles.service";
 import { FormsModule } from "@angular/forms";
 import { WalkDetailsComponent } from "./walk-details";
 import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
@@ -151,7 +152,7 @@ import { PageService } from "../../../services/page.service";
                            id="{{index}}-pin-view-mode-start"
                            [value]="false" (ngModelChange)="configureMapDisplay()">
                     <label class="form-check-label" for="{{index}}-pin-view-mode-start">
-                      Pin Location View</label>
+                      {{ mapViewLabel }}</label>
                   </div>
                   <div class="form-check form-check-inline">
                     <input class="form-check-input" type="radio" [name]="'mapView-' + index"
@@ -252,6 +253,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected stringUtils = inject(StringUtilsService);
   private systemConfigService = inject(SystemConfigService);
   private notifierService = inject(NotifierService);
+  private mapTiles = inject(MapTilesService);
   protected eventsMigrationService = inject(EventsMigrationService);
   protected notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   public area = this.urlService.area();
@@ -261,6 +263,14 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected readonly EventType = EventType;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
   @Input() showPanelExpander: boolean = true;
+
+  get hasOsApiKey(): boolean {
+    return this.mapTiles.hasOsApiKey();
+  }
+
+  get mapViewLabel(): string {
+    return this.hasOsApiKey ? "OS Maps" : "Pin Location View";
+  }
   @ViewChild("fromPostcodeInput") fromPostcodeInput: ElementRef<HTMLInputElement>;
   @Input() index: number;
 

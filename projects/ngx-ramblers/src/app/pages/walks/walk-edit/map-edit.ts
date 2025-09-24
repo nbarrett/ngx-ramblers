@@ -1,6 +1,8 @@
 import { Component, EventEmitter, inject, Input, NgZone, OnDestroy, OnInit, Output } from "@angular/core";
 import * as L from "leaflet";
 import { LatLng, LatLngBounds, Layer, LeafletEvent } from "leaflet";
+import "proj4leaflet";
+import proj4 from "proj4";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -17,6 +19,9 @@ import { LocationDetails } from "../../../models/ramblers-walks-manager";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { sortBy } from "../../../functions/arrays";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
+import { MapTilesService } from "../../../services/maps/map-tiles.service";
+import { SystemConfigService } from "../../../services/system/system-config.service";
+import { MapMarkerStyleService } from "../../../services/maps/map-marker-style.service";
 
 @Component({
     selector: "[app-map-edit]",
@@ -25,12 +30,16 @@ import { LeafletModule } from "@bluehalo/ngx-leaflet";
       <div [class]="class"
         leaflet [leafletOptions]="options"
         [leafletLayers]="layers"
-        [leafletFitBounds]="fitBounds"
+        
         (leafletMapZoom)="onMapZoom($event)"
         (leafletMapReady)="onMapReady($event)"
         (leafletClick)="onMapClick($event)">
       </div>
     }`,
+    styles: [`
+      :host ::ng-deep .leaflet-bottom
+        bottom: 9px
+    `],
     imports: [LeafletModule]
 })
 export class MapEditComponent implements OnInit, OnDestroy {
@@ -69,10 +78,20 @@ export class MapEditComponent implements OnInit, OnDestroy {
   protected notifierService = inject(NotifierService);
   private logger: Logger = inject(LoggerFactory).createLogger("MapEditComponent", NgxLoggerLevel.ERROR);
   private zone = inject(NgZone);
+  private systemConfigService = inject(SystemConfigService);
+  private mapTiles = inject(MapTilesService);
+  private markerStyle = inject(MapMarkerStyleService);
 
   async ngOnInit() {
     this.initializeSubscriptions();
     this.logger.debug("locationDetails:", this.locationDetails);
+    const projNS: any = (L as any).Proj;
+    if (projNS?.setProj4) {
+      projNS.setProj4(proj4);
+    }
+    if ((proj4 as any).defs && !(proj4 as any).defs["EPSG:27700"]) {
+      (proj4 as any).defs("EPSG:27700", "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=-446.448,125.157,-542.06,-0.1502,-0.2470,-0.8421,20.4894 +units=m +no_defs");
+    }
   }
 
   ngOnDestroy(): void {
@@ -138,29 +157,71 @@ export class MapEditComponent implements OnInit, OnDestroy {
 
   private configureMap() {
     const {latitude, longitude} = this.locationDetails;
+    const hasKey = this.hasOsApiKey();
+    const provider = hasKey ? "os" : "osm";
+    const style = hasKey ? "Leisure_27700" : "";
+    const base = this.mapTiles.createBaseLayer(provider as any, style);
+    const crs = this.mapTiles.crsForStyle(provider as any, style);
+    const maxZoom = this.mapTiles.maxZoomForStyle(provider as any, style);
+    const initialZoom = Math.max(1, Math.min(15, maxZoom) - 1);
     this.options = {
-      layers: [
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom: 16,
-          attribution: "© OpenStreetMap"
-        }),
-      ],
-      zoom: 15,
+      layers: [base],
+      zoom: initialZoom,
       center: L.latLng(latitude, longitude),
+      crs,
+      maxZoom
     };
 
+    const markerIcon = this.markerStyle.markerIcon(provider as any, style);
     this.layers = [
-      L.marker([latitude, longitude], {draggable: !this.readonly}).on("dragend", (event) =>
+      L.marker([latitude, longitude], { draggable: !this.readonly, icon: markerIcon as any }).on("dragend", (event) =>
         this.zone.run(() => this.onMarkerDragEnd(event))
       ),
     ];
 
-    this.fitBounds = L.latLngBounds([L.latLng(latitude, longitude)]);
+    this.fitBounds = undefined as any;
     this.logger.info("Map configured with options:", this.options, "layers:", this.layers, "fitBounds:", this.fitBounds);
   }
 
+  private osApiKey(): string {
+    const cfg: any = this.systemConfigService.systemConfig();
+    const keyFromConfig = cfg?.externalSystems?.osMaps?.apiKey || cfg?.externalSystems?.os_maps?.apiKey || cfg?.osMaps?.apiKey;
+    return keyFromConfig || "";
+  }
+
+  private hasOsApiKey(): boolean {
+    return !!this.osApiKey();
+  }
+
+  private osZxyUrl(layer: string, key: string): string {
+    return `https://api.os.uk/maps/raster/v1/zxy/${layer}/{z}/{x}/{y}.png?key=${key || ""}`;
+  }
+
+  private createOsLayer(style: string | null): L.TileLayer {
+    const key = this.osApiKey();
+    const url = this.osZxyUrl(style || "Leisure_27700", key);
+    if ((style || "").endsWith("27700") && (L as any).Proj?.TileLayer) {
+      return new (L as any).Proj.TileLayer(url, { attribution: "© Ordnance Survey", continuousWorld: true, noWrap: true, maxZoom: 9 });
+    }
+    return L.tileLayer(url, { attribution: "© Ordnance Survey", maxZoom: 19, noWrap: true });
+  }
+
+  private crs27700(): any {
+    const crsCtor = (L as any).Proj?.CRS;
+    if (crsCtor) {
+      return new crsCtor("EPSG:27700",
+        "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.15,0.247,0.842,-20.489 +units=m +no_defs",
+        {
+          resolutions: [896, 448, 224, 112, 56, 28, 14, 7, 3.5, 1.75],
+          origin: [-238375.0, 1376256.0],
+          bounds: L.bounds([-238375.0, 0.0], [900000.0, 1376256.0])
+        });
+    }
+    return L.CRS.EPSG3857;
+  }
+
   mapReady(): boolean {
-    return !!(this.options && this.layers && this.fitBounds);
+    return !!(this.options && this.layers);
   }
 
   onMapReady(map: L.Map): void {
@@ -176,6 +237,13 @@ export class MapEditComponent implements OnInit, OnDestroy {
         });
       });
       this.logger.info("Map ready:", map, "detectChanges called");
+      try {
+        const { latitude, longitude } = this.locationDetails;
+        const current = map.getZoom() || 15;
+        const clamped = Math.min(current, map.getMaxZoom());
+        const oneOut = Math.max(1, clamped - 1);
+        map.setView(L.latLng(latitude, longitude), oneOut);
+      } catch {}
     }
 
   }

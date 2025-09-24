@@ -96,15 +96,29 @@ audio[controls], canvas, video
   margin: 0px 20px 3px 0px
   width: 100%
   height: 400px
+  border: 1px solid #dee2e6
+  box-shadow: none
 
 .map-walk-view
   border-radius: 8px
-  overflow: hidden
   float: right
   width: 100%
-  margin-top: 8px
+  margin-top: 16px
   margin-bottom: 0
   height: 380px
+  border: 1px solid #dee2e6
+
+.map-walk-view .leaflet-container
+  height: 100% !important
+  width: 100% !important
+  margin: 0 !important
+  padding: 0 !important
+
+.map-walk-view .leaflet-control-attribution
+  margin-bottom: 0 !important
+
+.map-walk-view .leaflet-bottom
+  bottom: 0 !important
 
 .map-walk-view-google
   margin-top: 16px
@@ -165,6 +179,29 @@ audio[controls], canvas, video
 .leaflet-container .leaflet-marker-pane
   z-index: 900
 
+.leaflet-popup-pane
+  z-index: 1000 !important
+
+.leaflet-popup
+  z-index: 1000 !important
+
+.leaflet-popup-content-wrapper
+  z-index: 1000 !important
+
+.leaflet-popup-tip
+  z-index: 1000 !important
+
+.popup-thumb-wrap
+  margin-left: 8px
+  position: relative
+
+.popup-thumb
+  width: 80px !important
+  height: 80px !important
+  border-radius: 6px
+  object-fit: cover
+  display: block
+
 .leaflet-container .leaflet-tile-pane
   z-index: 200
 
@@ -176,6 +213,44 @@ audio[controls], canvas, video
 .map-card-image-events
   @extend .map-card-image
   height: 250px
+
+// Shared OS Explorer map styles (marker + clusters)
+:root
+  --os-explorer-color: rgb(68 61 144)
+  --ramblers-colour-sunrise: #{$ramblers-colour-sunrise}
+  --ramblers-colour-mintcake: #{$ramblers-colour-mintcake}
+  --disabled-color: #{$disabled-color}
+
+.os-explorer-pin
+  display: block
+
+.os-explorer-cluster
+  background: var(--os-explorer-color) !important
+  color: #ffffff !important
+  border: 3px solid rgba(0, 0, 0, 0.12) !important
+  border-radius: 20px !important
+  text-align: center !important
+  line-height: 1 !important
+  display: flex !important
+  align-items: center !important
+  justify-content: center !important
+  font-weight: 700
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important
+
+.os-explorer-cluster.marker-cluster-small
+  width: 30px
+  height: 30px
+  font-size: 12px
+
+.os-explorer-cluster.marker-cluster-medium
+  width: 38px
+  height: 38px
+  font-size: 13px
+
+.os-explorer-cluster.marker-cluster-large
+  width: 46px
+  height: 46px
+  font-size: 14px
 
 h3 small
   font-size: 75%
