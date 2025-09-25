@@ -43,6 +43,7 @@ export enum Status {
   COMPLETE = "complete",
   SUCCESS = "success",
   INFO = "info",
+  WARNING = "warning",
   ERROR = "error",
 }
 

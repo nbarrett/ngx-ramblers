@@ -34,11 +34,13 @@ NGX‑Ramblers is an Angular‑based website framework for local Ramblers groups
 
 ## Important Rules for AI Assistants
 
-### Commit Message Policy
+### Git workflow rules and Commit Message Policy
 **NEVER** add AI assistant attribution lines to commit messages. This includes:
 - ❌ `🤖 Generated with [Claude Code](https://claude.ai/code)`
 - ❌ `Co-Authored-By: Claude <noreply@anthropic.com>`
 - ❌ Any similar AI tool attribution
+- Do not include literal escape sequences like `\n` in commit messages. Use real new lines. When scripting commits, pass multiple `-m` flags instead of embedding `\n`.
+- Do not commit or push by default but feel free to write to exiting and add any new files without needing to confirm this
 
 ### Semantic Commit Conventions
 Use [Conventional Commits](https://www.conventionalcommits.org/) format for clear, categorized commit history:

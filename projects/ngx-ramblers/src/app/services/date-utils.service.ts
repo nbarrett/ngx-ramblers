@@ -305,5 +305,12 @@ export class DateUtilsService {
     return this.dateTimeNow().toMillis();
   }
 
+  parseDisplayDateWithFormat(dateString: string, format: string): DateTime | null {
+    try {
+      return DateTime.fromFormat(dateString, format);
+    } catch (error) {
+      return null;
+    }
+  }
 
 }

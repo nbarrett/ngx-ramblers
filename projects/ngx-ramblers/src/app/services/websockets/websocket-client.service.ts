@@ -17,6 +17,7 @@ export class WebSocketClientService {
   private logger: Logger = inject(LoggerFactory).createLogger("WebSocketClientService", NgxLoggerLevel.ERROR);
   private urlService = inject(UrlService);
   private numberUtilsService = inject(NumberUtilsService);
+  private pingInterval: any;
 
   connect(): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -26,6 +27,7 @@ export class WebSocketClientService {
       this.socket.onopen = () => {
         const openMessage = `onopen event to ${url}`;
         this.logger.info(openMessage);
+        this.startPingInterval();
         resolve(openMessage);
       };
       this.socket.onmessage = (event) => {
@@ -38,6 +40,7 @@ export class WebSocketClientService {
       this.socket.onclose = (closeEvent: CloseEvent) => {
         const code = closeEvent.code;
         const mappedCloseMessage: MappedCloseMessage = mapStatusCode(code);
+        this.stopPingInterval();
         if (mappedCloseMessage.success) {
           this.logger.info(`onclose event occurred with allowable status code:`, mappedCloseMessage);
         } else {
@@ -67,5 +70,20 @@ export class WebSocketClientService {
     return this.subjects[type].asObservable();
   }
 
+  private startPingInterval(): void {
+    this.stopPingInterval();
+    this.pingInterval = setInterval(() => {
+      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+        this.socket.send(JSON.stringify({ type: EventType.PING, data: {} }));
+        this.logger.debug("Sent ping to keep connection alive");
+      }
+    }, 30000);
+  }
 
+  private stopPingInterval(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+  }
 }

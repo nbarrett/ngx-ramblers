@@ -39,6 +39,7 @@ import { download } from "./files/files";
 import { setupSerenityReports } from "./reports/serenity-reports";
 import { extendedGroupEventRoutes } from "./mongo/routes/extended-group-event";
 import { configureLogging } from "./logging/logging";
+import { downloadStatusRoutes } from "./ramblers/download-status-routes";
 import bodyParser = require("body-parser");
 import compression = require("compression");
 import errorHandler = require("errorhandler");
@@ -54,7 +55,6 @@ install();
 const debugLog = debug(envConfig.logNamespace("server"));
 debugLog.enabled = true;
 const folderNavigationsUp = process.env.NODE_ENV === "production" ? "../../" : "";
-// Angular 20 custom-webpack:browser outputs to "dist/ngx-ramblers" (no "browser" subfolder)
 const distFolder = path.resolve(__dirname, folderNavigationsUp, "../../dist/ngx-ramblers");
 const currentDir = path.resolve(__dirname);
 const port: number = +envConfig.server.listenPort;
@@ -65,7 +65,6 @@ const server: Server = http.createServer(app);
 app.use(compression());
 app.set("port", port);
 app.disable("view cache");
-// Mount favicon only if the built asset exists (primarily in production)
 const faviconPath = path.join(distFolder, "favicon.ico");
 if (fs.existsSync(faviconPath)) {
   app.use(favicon(faviconPath));
@@ -77,6 +76,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.get("/api/files/download", download);
 app.get("/api/health", health);
+app.use("/api/download-status", downloadStatusRoutes);
 app.use("/api/ramblers", ramblersRoutes);
 app.use("/api/aws", awsRoutes);
 app.use("/api/contact-us", contactUsRoutes);
@@ -109,7 +109,6 @@ app.use("/api/database/config", configRoutes);
 app.use("/api/database/walks", walksRoutes);
 app.use("/api/database/group-event", extendedGroupEventRoutes);
 setupSerenityReports(app);
-// Serve static assets and index.html only if build output exists
 if (fs.existsSync(distFolder)) {
   app.use("/", express.static(distFolder));
   app.use((req, res, next) => {

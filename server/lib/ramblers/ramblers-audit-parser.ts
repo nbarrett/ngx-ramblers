@@ -46,7 +46,8 @@ function toStatusFromIcon(auditMessageItem: string): Status {
   if (anyMatch(auditMessageItem, successIcons)) {
     return Status.SUCCESS;
   } else if (anyMatch(auditMessageItem, errorIcons)) {
-    return Status.ERROR;
+    const isRetry = auditMessageItem.toLowerCase().includes("retrying");
+    return isRetry ? Status.WARNING : Status.ERROR;
   } else {
     return Status.INFO;
   }
@@ -108,7 +109,17 @@ export function parseStandardOut(auditMessage: string): ParsedRamblersUploadAudi
 
 export function parseTestStepEvent(testStepEvent: DomainEventData): ParsedRamblersUploadAudit[] {
   debugLog("parseStandardOut:testStepEvent:", testStepEvent);
-  const status: Status = testStepEvent.outcome.code === 64 ? Status.SUCCESS : Status.ERROR;
+  let status: Status;
+  const isRetry = testStepEvent.details.name.toLowerCase().includes("retry");
+
+  if (testStepEvent.outcome.code === 64) {
+    status = Status.SUCCESS;
+  } else if (isRetry) {
+    status = Status.WARNING;
+  } else {
+    status = Status.ERROR;
+  }
+
   const parsedRamblersUploadAudit: ParsedRamblersUploadAudit = {
     audit: true,
     data: {
@@ -161,12 +172,13 @@ export function parseStandardError(auditMessage: string): ParsedRamblersUploadAu
           }
         };
       } else {
+        const isRetry = auditMessageItem.toLowerCase().includes("retrying");
         return {
           audit: true,
           data: {
           auditTime: dateTimeNowAsValue(),
           type: AuditType.STDERR,
-          status: Status.INFO,
+          status: isRetry ? Status.WARNING : Status.INFO,
           message: removeTokensFromMessage(auditMessageItem)
           }
         };

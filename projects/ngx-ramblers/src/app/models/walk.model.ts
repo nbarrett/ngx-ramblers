@@ -44,6 +44,24 @@ export enum ImageSource {
   WALKS_MANAGER = "WALKS_MANAGER"
 }
 
+export enum ServerDownloadStatusType {
+  ACTIVE = "ACTIVE",
+  COMPLETED = "COMPLETED",
+  ERROR = "ERROR",
+  HUNG = "HUNG"
+}
+
+export interface OperationResult {
+  success: boolean;
+  message: string;
+}
+
+export interface DownloadConflictResponse {
+  allowed: boolean;
+  reason?: string;
+  activeDownload?: ServerDownloadStatus;
+}
+
 export interface WalkDistance {
   rawData: string;
   miles: ValueAndFormatted;
@@ -346,4 +364,13 @@ export interface ImportTypeOptions {
   importType: ImportType;
   existingGroupCodeAndName: HasGroupCodeAndName;
   unlistedGroupCodeAndName: HasGroupCodeAndName;
+}
+
+export interface ServerDownloadStatus {
+  fileName: string;
+  status: ServerDownloadStatusType;
+  startTime: number;
+  processId?: number;
+  canOverride: boolean;
+  lastActivity?: number;
 }

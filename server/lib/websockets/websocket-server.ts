@@ -25,6 +25,10 @@ const messageHandlers: MessageHandlers = {
   [EventType.RESIZE_SAVED_IMAGES]: (ws: WebSocket, data: ContentMetadataResizeRequest) => resizeSavedImages(ws, data),
   [EventType.RESIZE_UNSAVED_IMAGES]: (ws: WebSocket, data: ContentMetadataResizeRequest) => resizeUnsavedImages(ws, data),
   [EventType.TEST_STEP_REPORTER]: (ws: WebSocket, data: string) => processTestStepEvent(clientWebSocketInstance.instance || ws, data),
+  [EventType.PING]: (ws: WebSocket, data: any) => {
+    debugLog("✅ Received ping, responding with pong");
+    ws.send(JSON.stringify({ type: "pong", data: {} }));
+  },
 };
 export function createWebSocketServer(server: Server, port: number): void {
   const wss = new WebSocketServer({

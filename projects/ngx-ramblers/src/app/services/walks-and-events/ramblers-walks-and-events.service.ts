@@ -117,7 +117,7 @@ export class RamblersWalksAndEventsService {
   private ramblers: Ramblers;
   private BASE_URL = "/api/ramblers/walks-manager";
   private conversionOptions = {markdownToHtml: false, markdownLinksToText: true};
-  private dryRun = true;
+  private dryRun = false;
 
   constructor() {
     inject(CommitteeConfigService).committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data);

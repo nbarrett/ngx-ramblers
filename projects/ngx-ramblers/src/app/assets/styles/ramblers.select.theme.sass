@@ -240,7 +240,13 @@ $colour-light-blue: $ramblers-colour-highlight-dark
   background-color: $ramblers-colour-cloudy
   border: 1px solid $colour-grey-3
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06)
-  left: 0
+
+.ng-select .ng-dropdown-panel
+  width: 100%
+
+.ng-dropdown-panel .ng-dropdown-panel-items
+  max-height: 70vh !important
+  overflow-y: auto
 
 
 .ng-dropdown-panel.ng-select-bottom
