@@ -9,6 +9,8 @@ import * as auditNotifier from "./ramblers-upload-audit-notifier";
 import * as fs from "fs";
 import * as stringDecoder from "string_decoder";
 import json2csv from "json2csv";
+import { downloadStatusManager } from "./download-status-manager";
+import { ServerDownloadStatusType } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload"));
 debugLog.enabled = false;
@@ -20,8 +22,17 @@ const decoder = new StringDecoder("utf8");
 
 export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWalksUploadRequest): Promise<void> {
   debugLog("request made with walksUploadRequest:", walksUploadRequest);
-  const csvData = json2csv({data: walksUploadRequest.rows, fields: walksUploadRequest.headings});
+
   const fileName = walksUploadRequest.fileName;
+  const canStart = downloadStatusManager.canStartNewDownload();
+
+  if (!canStart.allowed) {
+    const error = new Error(canStart.reason || "Another download is in progress");
+    auditNotifier.reportErrorAndClose(error, ws);
+    return;
+  }
+
+  const csvData = json2csv({data: walksUploadRequest.rows, fields: walksUploadRequest.headings});
   const filePath = path + fileName;
   debugLog("csv data:", csvData, "filePath:", filePath);
   if (!fs.existsSync(path)) {
@@ -32,9 +43,10 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
     fs.writeFileSync(filePath, csvData);
   } catch (error) {
     auditNotifier.reportErrorAndClose(error, ws);
+    return;
   }
   debugLog("file", filePath, "saved");
-
+  downloadStatusManager.startDownload(fileName);
   process.env.RAMBLERS_USER = walksUploadRequest.ramblersUser;
   process.env.RAMBLERS_DELETE_WALKS = walksUploadRequest.walkIdDeletionList.join(",");
   process.env.RAMBLERS_FILENAME = filePath;
@@ -54,6 +66,7 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
   subprocess.unref();
   subprocess.stdout.on("data", (data: any) => {
     const auditMessage = decoder.write(data);
+    downloadStatusManager.updateActivity();
     if (auditNotifier.queryCurrentUploadSession().logStandardOut) {
       auditNotifier.sendAudit(ws, {
         messageType: MessageType.PROGRESS,
@@ -71,6 +84,7 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
 
   subprocess.on("error", (error: any) => {
     debugLog(`Subprocess error: ${error.message}`);
+    downloadStatusManager.completeDownload(ServerDownloadStatusType.ERROR);
     auditNotifier.reportErrorAndClose(error, ws);
   });
 
@@ -80,6 +94,7 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
     const auditMessage = `Upload completed with ${status} for ${fileName}${codeSuffix}`;
     const signalMessage = signal ? `Subprocess exit: Process terminated by signal: ${signal}` : `Process exited with code: ${code}`;
     debugLog(signalMessage);
+    downloadStatusManager.completeDownload(status === Status.SUCCESS ? ServerDownloadStatusType.COMPLETED : ServerDownloadStatusType.ERROR);
     auditNotifier.sendAudit(ws, {
       messageType: MessageType.COMPLETE,
       auditMessage,

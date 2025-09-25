@@ -95,7 +95,7 @@
                 </div>
               }
             </div>
-            <div class="table-responsive">
+            <div class="member-table-scroll">
               <table class="round tbl-green-g table-striped table-hover table-sm">
                 <thead>
                 <tr class="pointer">
@@ -104,43 +104,26 @@
                   }
                   @if (confirm.bulkDeleteOutstanding()) {
                     <th (click)="sortMembersBy('markedForDelete')">
-                      Marked For Delete<span class="sorting-header">{{ memberFilter.sortDirection }}</span></th>
+                      <span class="nowrap">Marked For Delete<span class="sorting-header">{{ memberFilter.sortDirection }}</span></span></th>
                   }
-                  <th (click)="sortMembersBy('memberName')">Member Name
-                    @if (showMembersColumn('memberName')) {
-                      <span class="sorting-header">
-                          {{ memberFilter.sortDirection }}</span>
-                    }
-                  </th>
-                  <th (click)="sortMembersBy('email')">Email
-                    @if (showMembersColumn('email')) {
-                      <span class="sorting-header">
-                          {{ memberFilter.sortDirection }}</span>
-                    }
-                  </th>
-                  <th (click)="sortMembersBy('mobileNumber')">Mobile Number
-                    @if (showMembersColumn('mobileNumber')) {
-                      <span class="sorting-header">
-                          {{ memberFilter.sortDirection }}</span>
-                    }
-                  </th>
-                  <th (click)="sortMembersBy('createdDate')">Created Date
-                    @if (showMembersColumn('createdDate')) {
-                      <span class="sorting-header">
-                          {{ memberFilter.sortDirection }}</span>
-                    }
-                  </th>
-                  <th (click)="sortMembersBy('membershipExpiryDate')">Expiry Date
-                    @if (showMembersColumn('membershipExpiryDate')) {
-                      <span class="sorting-header">
-                          {{ memberFilter.sortDirection }}</span>
-                    }
-                  </th>
+                  <th (click)="sortMembersBy('memberName')"><span class="nowrap">Member Name
+                    @if (showMembersColumn('memberName')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
+                  </span></th>
+                  <th (click)="sortMembersBy('email')"><span class="nowrap">Email
+                    @if (showMembersColumn('email')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
+                  </span></th>
+                  <th (click)="sortMembersBy('mobileNumber')"><span class="nowrap">Mobile Number
+                    @if (showMembersColumn('mobileNumber')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
+                  </span></th>
+                  <th (click)="sortMembersBy('createdDate')"><span class="nowrap">Created Date
+                    @if (showMembersColumn('createdDate')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
+                  </span></th>
+                  <th (click)="sortMembersBy('membershipExpiryDate')"><span class="nowrap">Expiry Date
+                    @if (showMembersColumn('membershipExpiryDate')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
+                  </span></th>
                   <th class="switch-heading" (click)="sortMembersBy('receivedInLastBulkLoad')">
-                    Last Bulk Load @if (showMembersColumn('receivedInLastBulkLoad')) {
-                    <span class="sorting-header">
-                        {{ memberFilter.sortDirection }}</span>
-                  }
+                    <span class="nowrap">Last Bulk Load @if (showMembersColumn('receivedInLastBulkLoad')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
+                    </span>
                   </th>
                   <th (click)="sortMembersBy('groupMember')">Group Member
                     @if (showMembersColumn('groupMember')) {
@@ -157,46 +140,32 @@
                   @if (systemConfig?.mailDefaults?.mailProvider == MailProvider.MAILCHIMP) {
                     @if (mailchimpConfig?.lists?.walks) {
                       <th (click)="sortMembersBy('mailchimpLists.walks.subscribed')">
-                        Walks emails
-                        @if (showMembersColumn('mailchimpLists.walks.subscribed')) {
-                          <div class="sorting-header">
-                            {{ memberFilter.sortDirection }}
-                          </div>
-                        }
+                        <span class="nowrap">Walks emails
+                        @if (showMembersColumn('mailchimpLists.walks.subscribed')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
+                        </span>
                       </th>
                     }
                     @if (mailchimpConfig?.lists?.socialEvents) {
-                      <th
-                        (click)="sortMembersBy('mailchimpLists.socialEvents.subscribed')">
-                        Social emails
-                        @if (showMembersColumn('mailchimpLists.socialEvents.subscribed')) {
-                          <div class="sorting-header">
-                            {{ memberFilter.sortDirection }}
-                          </div>
-                        }
+                      <th (click)="sortMembersBy('mailchimpLists.socialEvents.subscribed')">
+                        <span class="nowrap">Social emails
+                        @if (showMembersColumn('mailchimpLists.socialEvents.subscribed')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
+                        </span>
                       </th>
                     }
                     @if (mailchimpConfig?.lists?.general) {
-                      <th
-                        (click)="sortMembersBy('mailchimpLists.general.subscribed')">
-                        General emails
-                        @if (showMembersColumn('mailchimpLists.general.subscribed')) {
-                          <div class="sorting-header"
-                          >{{ memberFilter.sortDirection }}
-                          </div>
-                        }
+                      <th (click)="sortMembersBy('mailchimpLists.general.subscribed')">
+                        <span class="nowrap">General emails
+                        @if (showMembersColumn('mailchimpLists.general.subscribed')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
+                        </span>
                       </th>
                     }
                   }
                   @if (systemConfig?.mailDefaults?.mailProvider == MailProvider.BREVO) {
                     @for (listInfo of mailMessagingConfig?.brevo?.lists?.lists; track listInfo.id) {
-                      <th
-                        (click)="sortMembersBy(listInfo.name)">
-                        {{ listInfo.name | titlecase }} emails
-                        @if (showMembersColumn(listInfo.name)) {
-                          <span class="sorting-header">
-                            {{ memberFilter.sortDirection }}</span>
-                        }
+                      <th (click)="sortMembersBy(listInfo.name)">
+                        <span class="nowrap">{{ listInfo.name | titlecase }} emails
+                        @if (showMembersColumn(listInfo.name)) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
+                        </span>
                       </th>
                     }
                   }

@@ -13,6 +13,10 @@ export interface Identifiable {
   id?: string;
 }
 
+export interface ApiResponseWrapper<T> {
+  response: T;
+}
+
 export enum ApiAction {
   CREATE = "create",
   DELETE = "delete",

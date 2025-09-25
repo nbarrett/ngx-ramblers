@@ -17,3 +17,62 @@
 .member-delete-confirm
   @extend .member-delete
   color: $confirm-initial
+
+.member-table-scroll
+  position: relative
+  max-height: 60vh
+  overflow-y: auto
+  overflow-x: auto
+  -webkit-overflow-scrolling: touch
+  --first-col-width: 110px
+
+.member-table-scroll table
+  margin-bottom: 0
+
+.member-table-scroll thead
+  position: sticky
+  top: 0
+  z-index: 20
+  background-clip: padding-box
+  background-color: $ramblers-colour-granite
+
+.member-table-scroll thead th
+  position: sticky
+  top: 0
+  z-index: 20
+  box-shadow: 0 1px 0 rgba(0,0,0,0.05)
+  background-color: inherit
+  color: $ramblers-colour-cloudy
+  background-color: $ramblers-colour-granite
+  color: $ramblers-colour-cloudy
+
+.member-table-scroll tbody td
+  background-color: $ramblers-colour-cloudy
+
+.member-table-scroll thead th:nth-child(1)
+  position: sticky
+  left: 0
+  z-index: 30
+  width: var(--first-col-width)
+  min-width: var(--first-col-width)
+  box-shadow: 1px 0 0 rgba(0,0,0,0.08), 0 1px 0 rgba(0,0,0,0.05)
+
+.member-table-scroll tbody td:nth-child(1)
+  position: sticky
+  left: 0
+  z-index: 15
+  width: var(--first-col-width)
+  min-width: var(--first-col-width)
+  box-shadow: 1px 0 0 rgba(0,0,0,0.08)
+
+.member-table-scroll thead th:nth-child(2)
+  position: sticky
+  left: var(--first-col-width)
+  z-index: 29
+  box-shadow: 1px 0 0 rgba(0,0,0,0.08), 0 1px 0 rgba(0,0,0,0.05)
+
+.member-table-scroll tbody td:nth-child(2)
+  position: sticky
+  left: var(--first-col-width)
+  z-index: 14
+  box-shadow: 1px 0 0 rgba(0,0,0,0.08)

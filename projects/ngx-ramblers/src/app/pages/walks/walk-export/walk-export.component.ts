@@ -1,4 +1,5 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { ActivatedRoute, Router } from "@angular/router";
 import { faCheckCircle, faEnvelope, faExclamationCircle, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { map } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -12,7 +13,13 @@ import {
   Status
 } from "../../../models/ramblers-upload-audit.model";
 import { RamblersEventType, RamblersWalksUploadRequest, WalkUploadRow } from "../../../models/ramblers-walks-manager";
-import { GroupEventField, WalkExport } from "../../../models/walk.model";
+import {
+  DownloadConflictResponse,
+  GroupEventField,
+  ServerDownloadStatus,
+  ServerDownloadStatusType,
+  WalkExport
+} from "../../../models/walk.model";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -37,22 +44,28 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgOptionComponent, NgSelectComponent } from "@ng-select/ng-select";
 import { ValueOrDefaultPipe } from "../../../pipes/value-or-default.pipe";
 import { sortBy } from "../../../functions/arrays";
+import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 import { DisplayTimeWithSecondsPipe } from "../../../pipes/display-time.pipe-with-seconds";
 import { EventType, MessageType, RamblersUploadAuditProgressResponse } from "../../../models/websocket.model";
 import { ApiResponse } from "../../../models/api-response.model";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { StatusIconComponent } from "../../admin/status-icon";
-import { last } from "es-toolkit/compat";
 import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
 import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pipe";
+import { ServerDownloadStatusService } from "../../../services/walks/download-status.service";
+
+export enum WalkExportTab {
+  WALK_UPLOAD_SELECTION = "walk-upload-selection",
+  WALK_UPLOAD_AUDIT = "walk-upload-audit"
+}
 
 @Component({
   selector: "app-walk-export",
   template: `
     <app-page>
       <tabset class="custom-tabset">
-        <tab active="true" heading="Walk upload selection">
+        <tab [active]="activeTabId === WalkExportTab.WALK_UPLOAD_SELECTION" (selectTab)="selectTab(WalkExportTab.WALK_UPLOAD_SELECTION)" heading="Walk upload selection">
           <app-csv-export hidden #csvComponent
                           [data]="walksDownloadFileContents"
                           [filename]="walksDownloadFileName()"
@@ -67,6 +80,36 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
                     <strong>
                       {{ walkExportTarget.alertTitle }}: </strong>
                   } {{ walkExportTarget.alertMessage }}
+                  @if (!downloadConflict.allowed && downloadConflict.activeDownload) {
+                    <div class="mt-3">
+                      <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                          @if (downloadConflict.activeDownload.canOverride) {
+                            @if (!confirmOverrideRequested) {
+                              <button type="button" class="btn btn-sm btn-warning"
+                                      (click)="requestOverride()"
+                                      title="Force terminate the current download">
+                                Override Download
+                              </button>
+                            } @else {
+                              <div class="d-inline-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-danger" (click)="overrideDownload()">Confirm Override</button>
+                                <button type="button" class="btn btn-sm btn-secondary" (click)="cancelOverrideRequest()">Cancel</button>
+                              </div>
+                            }
+                          }
+                        </div>
+                      </div>
+                      @if (downloadConflict.activeDownload) {
+                        <div class="mt-2">
+                          <small class="text-muted">
+                            Active download: {{ downloadConflict.activeDownload.fileName }}
+                            (Started: {{ dateUtils.displayDateAndTime(downloadConflict.activeDownload.startTime) }})
+                          </small>
+                        </div>
+                      }
+                    </div>
+                  }
                 </div>
               }
             </div>
@@ -94,10 +137,10 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
               </div>
               <div class="col-lg-6 d-sm-none"></div>
             </div>
-            <div class="row">
+            <div class="row mt-2">
               @for (walkExport of walksForExport; track walkExport.displayedWalk?.walk?.id) {
-                <div class="py-2 col-lg-4 col-md-6 col-sm-12 d-flex flex-column">
-                  <div class="card mb-0 h-100 pointer">
+                <div class="col-lg-4 col-md-6 col-sm-12 d-flex flex-column mb-2">
+                  <div class="card mb-0 h-100 pointer walk-export-card">
                     <div class="card-body shadow">
                       <dl (click)="toggleWalkExportSelection(walkExport)" class="d-flex pointer checkbox-toggle my-2">
                         <dt class="font-weight-bold me-2 flex-nowrap checkbox-toggle">Publish this walk:</dt>
@@ -172,10 +215,10 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
                   </div>
                 </div>
               }
-            </div>
+          </div>
           </div>
         </tab>
-        <tab heading="Walk upload audit">
+        <tab [active]="activeTabId === WalkExportTab.WALK_UPLOAD_AUDIT" (selectTab)="selectTab(WalkExportTab.WALK_UPLOAD_AUDIT)" heading="Walk upload audit">
           <div class="img-thumbnail thumbnail-admin-edit">
             <div class="form-group">
               @if (auditTarget.showAlert) {
@@ -190,89 +233,133 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
             </div>
             @if (!display.walkPopulationWalksManager()) {
               <div class="row">
-                <div class="col-auto">
-                  <div class="d-inline-flex align-items-center flex-wrap">
-                    <div class="form-group">
-                      <label for="fileName" class="inline-label">Upload: </label>
-                      @if (showSelect) {
-                        <ng-select
-                          [disabled]="exportInProgress"
-                          [clearable]="false"
-                          name="fileName"
-                          [(ngModel)]="fileName"
-                          (ngModelChange)="refreshAuditForCurrentSession()"
-                          class="filename-select rounded"
-                          [appendTo]="'body'"
-                          [dropdownPosition]="'auto'">
-                          @for (fileName of fileNames; track fileName.fileName) {
-                            <ng-option [value]="fileName">
-                              <div class="d-inline-flex align-items-center flex-wrap">
-                                <app-status-icon noLabel [status]="fileName.status"/>
-                                {{ fileName.fileName }}
-                              </div>
-                            </ng-option>
-                          }
-                        </ng-select>
-                      } @else {
-                        <app-status-icon noLabel [status]="Status.ACTIVE"/>
-                        <div class="ms-1">Finding sessions...</div>
-                      }
+                <div class="col-12 mb-3">
+                  <div class="d-flex flex-column gap-2">
+                    <div class="row g-2 g-md-3 align-items-md-center">
+                      <div class="col-12 col-md-auto">
+                        <label for="fileName" class="form-label mb-0 text-nowrap">Upload Session:</label>
+                      </div>
+                      <div class="col-12 col-md" style="min-width: 0;">
+                        @if (showSelect) {
+                          <ng-select
+                            [disabled]="exportInProgress"
+                            [clearable]="false"
+                            name="fileName"
+                            [(ngModel)]="fileName"
+                            (ngModelChange)="onSessionChange()"
+                            class="filename-select"
+                            [dropdownPosition]="'auto'"
+                            [virtualScroll]="false">
+                            @for (fileName of fileNames; track fileName.fileName) {
+                              <ng-option [value]="fileName">
+                                <div class="d-flex align-items-center">
+                                  <app-status-icon noLabel [status]="fileName.status"/>
+                                  <span class="ms-2 text-truncate" [title]="fileName.fileName">{{ displayForUploadSession(fileName.fileName) }}</span>
+                                </div>
+                              </ng-option>
+                            }
+                          </ng-select>
+                        } @else {
+                          <div class="d-flex align-items-center">
+                            <app-status-icon noLabel [status]="Status.ACTIVE"/>
+                            <span class="ms-2">Finding sessions...</span>
+                          </div>
+                        }
+                      </div>
+                      <div class="col-12 col-md-auto d-none d-md-block">
+                        <div class="form-check">
+                          <input [(ngModel)]="showDetail"
+                                 (ngModelChange)="applyFilter()"
+                                 name="showDetail" type="checkbox" class="form-check-input"
+                                 id="show-detailed-audit-messages"/>
+                          <label class="form-check-label text-nowrap"
+                                 for="show-detailed-audit-messages">Show details
+                          </label>
+                        </div>
+                      </div>
                     </div>
-                    <div class="form-group">
-                      <div class="form-check">
+                    <div class="d-md-none">
+                      <div class="form-check text-start">
                         <input [(ngModel)]="showDetail"
                                (ngModelChange)="applyFilter()"
                                name="showDetail" type="checkbox" class="form-check-input"
-                               id="show-detailed-audit-messages"/>
-                        <label class="form-check-label"
-                               for="show-detailed-audit-messages">Show details
+                               id="show-detailed-audit-messages-mobile"/>
+                        <label class="form-check-label text-nowrap"
+                               for="show-detailed-audit-messages-mobile">Show details
                         </label>
                       </div>
                     </div>
                   </div>
                 </div>
-                <div class="col">
-                  <div class="form-group">
-                    <input type="submit" value="Last Import Report" (click)="navigateToLastReport($event)"
-                           title="Back to walks"
-                           class="btn btn-primary w-100"/>
-                  </div>
-                </div>
-                <div class="col">
-                  <div class="form-group">
-                    <input type="submit" value="Back To Walks Admin" (click)="navigateBackToWalksAdmin()"
-                           title="Back to walks"
-                           class="btn btn-primary w-100"/>
+                <div class="col-12">
+                  <div class="row">
+                    <div class="col-12 col-sm-6 mb-2">
+                      <input type="submit" value="Last Import Report" (click)="navigateToLastReport($event)"
+                             title="View last import report"
+                             [disabled]="exportInProgress"
+                             class="btn btn-primary w-100"/>
+                    </div>
+                    <div class="col-12 col-sm-6 mb-2">
+                      <input type="submit" value="Back To Walks Admin" (click)="navigateBackToWalksAdmin()"
+                             title="Return to walks admin"
+                             class="btn btn-primary w-100"/>
+                    </div>
                   </div>
                 </div>
               </div>
             }
-            <div class="row">
+            <div class="row mt-2">
               <div class="col col-sm-12">
-                <table class="round styled-table table-striped table-hover table-sm table-pointer">
+                <div class="d-none d-md-block">
+                  <div class="audit-table-scroll">
+                  <table class="round styled-table table-striped table-hover table-sm table-pointer">
                   <thead>
                   <tr>
-                    <th>Time</th>
-                    <th>Duration</th>
-                    <th>Status</th>
-                    <th>Audit Message</th>
+                    <th (click)="sortAuditsBy('status')"><span class="nowrap">Status
+                      @if (auditSortField === 'status') {<span class="sorting-header">{{ auditSortDirection }}</span>}</span>
+                    </th>
+                    <th (click)="sortAuditsBy('auditTime')"><span class="nowrap">Time
+                      @if (auditSortField === 'auditTime') {<span class="sorting-header">{{ auditSortDirection }}</span>}</span>
+                    </th>
+                    <th (click)="sortAuditsBy('durationMs')"><span class="nowrap">Duration
+                      @if (auditSortField === 'durationMs') {<span class="sorting-header">{{ auditSortDirection }}</span>}</span>
+                    </th>
+                    <th (click)="sortAuditsBy('message')"><span class="nowrap">Audit Message
+                      @if (auditSortField === 'message') {<span class="sorting-header">{{ auditSortDirection }}</span>}</span>
+                    </th>
                   </tr>
                   </thead>
                   <tbody>
                     @for (audit of filteredAudits; track audit.id) {
                       <tr>
-                        <td class="nowrap">{{ audit.auditTime | displayTimeWithSeconds }}</td>
-                        <td class="nowrap">{{ timing(audit) }}</td>
                         <td>
                           <app-status-icon noLabel [status]="audit.status"/>
                         </td>
-                        <td>{{ audit.message }}@if (audit.errorResponse) {
+                        <td class="nowrap">{{ audit.auditTime | displayTimeWithSeconds }}</td>
+                        <td class="nowrap">{{ timing(audit) }}</td>
+                        <td class="text-break">{{ audit.message }}@if (audit.errorResponse) {
                           <div>: {{ audit.errorResponse | valueOrDefault }}</div>
                         }</td>
                       </tr>
                     }
                   </tbody>
-                </table>
+                  </table>
+                  </div>
+                </div>
+                <div class="d-md-none">
+                  @for (audit of filteredAudits; track audit.id) {
+                    <div class="border rounded p-2 mb-2">
+                      <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                        <app-status-icon noLabel [status]="audit.status"/>
+                        <span class="fw-semibold">{{ audit.auditTime | displayTimeWithSeconds }}</span>
+                        <span>{{ timing(audit) }}</span>
+                      </div>
+                      <div class="text-break">{{ audit.message }}@if (audit.errorResponse) {
+                        <div>: {{ audit.errorResponse | valueOrDefault }}</div>
+                      }</div>
+                    </div>
+                  }
+                </div>
               </div>
             </div>
           </div>
@@ -281,7 +368,9 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
     </app-page>`,
   styles: [`
     .filename-select
-      width: 350px
+      width: 100%
+      min-width: 200px
+      --ng-option-height: 40px
 
     .card-disabled
       opacity: 0.5
@@ -289,6 +378,81 @@ import { EventDatesAndTimesPipe } from "../../../pipes/event-times-and-dates.pip
 
     dl
       margin-bottom: 0
+
+    .flex-grow-1 .filename-select
+      width: 100%
+
+    .filename-select .ng-dropdown-panel
+      max-height: 70vh !important
+      max-width: 100% !important
+      width: 100% !important
+
+    .filename-select .ng-dropdown-panel .ng-option
+      height: var(--ng-option-height)
+      line-height: var(--ng-option-height)
+
+    ::ng-deep .filename-select .ng-dropdown-panel
+      max-height: 70vh !important
+      max-width: 100% !important
+      width: 100% !important
+
+    ::ng-deep .filename-select .ng-dropdown-panel .ng-option
+      height: var(--ng-option-height)
+      line-height: var(--ng-option-height)
+
+    ::ng-deep ng-select.filename-select .ng-dropdown-panel
+      max-height: 70vh !important
+      max-width: 100% !important
+      width: 100% !important
+
+    ::ng-deep ng-select.filename-select .ng-dropdown-panel .ng-option
+      height: var(--ng-option-height)
+      line-height: var(--ng-option-height)
+
+    .walk-export-card .card-body
+      padding: .5rem .75rem
+
+    .checkbox-toggle dt
+      margin-bottom: 0
+      align-self: center
+
+    .checkbox-toggle .form-check
+      margin: 0
+      display: flex
+      align-items: center
+
+    .checkbox-toggle .form-check-input
+      margin-top: 0
+      width: 1.1rem
+      height: 1.1rem
+
+    .audit-table-scroll
+      position: relative
+      max-height: 60vh
+      overflow-y: auto
+      overflow-x: hidden
+
+    .audit-table-scroll table
+      margin-bottom: 0
+
+    .audit-table-scroll thead
+      position: sticky
+      top: 0
+      z-index: 20
+      background-clip: padding-box
+
+    .audit-table-scroll thead th
+      position: sticky
+      top: 0
+      z-index: 20
+      box-shadow: 0 1px 0 rgba(0,0,0,0.05)
+
+    @media (max-width: 576px)
+      .filename-select .ng-dropdown-panel,
+      ::ng-deep .filename-select .ng-dropdown-panel,
+      ::ng-deep ng-select.filename-select .ng-dropdown-panel
+        width: 100% !important
+        max-width: 100% !important
   `],
   styleUrls: ["./walk-export.component.sass"],
   imports: [PageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, NgClass, RelatedLinkComponent, TooltipDirective, NgSelectComponent, NgOptionComponent, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, EventDatesAndTimesPipe]
@@ -307,10 +471,13 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   private systemConfigService: SystemConfigService = inject(SystemConfigService);
   private extendedGroupEventQueryService: ExtendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   public display: WalkDisplayService = inject(WalkDisplayService);
-  private dateUtils: DateUtilsService = inject(DateUtilsService);
+  public dateUtils: DateUtilsService = inject(DateUtilsService);
   protected stringUtils: StringUtilsService = inject(StringUtilsService);
   private urlService: UrlService = inject(UrlService);
   public distanceValidationService = inject(DistanceValidationService);
+  private downloadStatusService = inject(ServerDownloadStatusService);
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
   public audits: RamblersUploadAudit[];
   public filteredAudits: RamblersUploadAudit[];
   public walksForExport: WalkExport[] = [];
@@ -328,12 +495,31 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   showSelect = false;
   protected readonly Status = Status;
+  protected readonly WalkExportTab = WalkExportTab;
+  currentDownload: ServerDownloadStatus | null = null;
+  downloadConflict: DownloadConflictResponse = { allowed: true };
+  activeTabId = WalkExportTab.WALK_UPLOAD_SELECTION;
+  private pendingSessionParam: string | null = null;
+  public auditSortField = "auditTime";
+  public auditSortDirection = DESCENDING;
+  private auditReverseSort = true;
+  public confirmOverrideRequested = false;
+  private sessionDurations: { [fileName: string]: string } = {};
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
     this.audits = [];
     this.walkExportNotifier = this.notifierService.createAlertInstance(this.walkExportTarget);
     this.auditNotifier = this.notifierService.createAlertInstance(this.auditTarget);
+
+    this.subscriptions.push(this.route.queryParams.subscribe(params => {
+      const tabParam = params["tab"];
+      if (tabParam && Object.values(WalkExportTab).includes(tabParam)) {
+        this.activeTabId = tabParam as WalkExportTab;
+      }
+      this.pendingSessionParam = params["session"];
+    }));
+
     this.systemConfigService.events().subscribe(async (_unused: SystemConfig) => {
       if (this.display.walkPopulationWalksManager()) {
         const message = {
@@ -352,6 +538,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
         this.logger.info("Progress response received:", progressResponse.audits);
         this.audits = (this.audits.concat(progressResponse?.audits)).sort(sortBy("-auditTime", "-record"));
         this.applyFilter();
+        this.updateCurrentSessionDurationLabel();
         this.auditNotifier.warning(`Total of ${this.stringUtils.pluraliseWithCount(this.audits.length, "audit item")} - ${this.stringUtils.pluraliseWithCount(progressResponse.audits.length, "audit record")} just received`);
       }
     }));
@@ -365,7 +552,11 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     );
     this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.COMPLETE).subscribe(async (message: ApiResponse) => {
         this.exportInProgress = false;
-      this.fileName.status = this.audits.find(item => item.status === Status.ERROR) ? Status.ERROR : Status.SUCCESS;
+      const hasCompletionErrors = this.audits.filter(item =>
+        item.status === Status.ERROR &&
+        item.type === AuditType.SUMMARY
+      ).length > 0;
+      this.fileName.status = hasCompletionErrors ? Status.ERROR : Status.SUCCESS;
         this.logger.info(`Task completed:`, message, "set file status:", this.fileName);
         this.renderInitialView();
       })
@@ -376,10 +567,8 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     await this.showAvailableWalkExports();
     this.populateWalksDownloadFileContents();
     await this.showAllAudits();
-    this.walkExportNotifier.success({
-      title: "Walks Export Initialisation",
-      message: `${this.stringUtils.pluraliseWithCount(this.walksDownloadFileContents.length, "walk")} ${this.stringUtils.pluralise(this.walksDownloadFileContents.length, "was", "were")} preselected for export`
-    });
+    await this.checkDownloadStatus();
+    this.updateExportStatusMessage();
   }
 
   ngOnDestroy(): void {
@@ -387,9 +576,21 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   }
 
   async uploadToRamblers() {
+    const downloadCheck = await this.downloadStatusService.canStartNewDownload();
+    if (!downloadCheck.allowed) {
+      this.downloadConflict = downloadCheck;
+      this.walkExportNotifier.error({
+        title: "Download Conflict",
+        message: downloadCheck.reason || "Another download is in progress"
+      });
+      return;
+    }
+
     this.logger.debug("Refreshing audit trail for file", this.fileName, "count =", this.audits.length);
     this.audits = [];
     this.exportInProgress = true;
+    this.downloadConflict = { allowed: true };
+
     const ramblersWalksUploadRequest: RamblersWalksUploadRequest = await this.ramblersWalksAndEventsService.createWalksUploadRequest(this.walksForExport);
     this.webSocketClientService.connect().then(() => {
       this.webSocketClientService.sendMessage(EventType.RAMBLERS_WALKS_UPLOAD, ramblersWalksUploadRequest);
@@ -398,12 +599,68 @@ export class WalkExportComponent implements OnInit, OnDestroy {
         this.fileNames = [this.fileName].concat(this.fileNames);
         this.logger.info("added", this.fileName, "to filenames of", this.fileNames.length, "audit trail records");
       }
+      this.downloadStatusService.updateServerDownloadStatus({
+        fileName: ramblersWalksUploadRequest.fileName,
+        status: ServerDownloadStatusType.ACTIVE,
+        startTime: Date.now(),
+        canOverride: false,
+        lastActivity: Date.now()
+      });
       this.ramblersWalksAndEventsService.notifyWalkUploadStarted(this.walkExportNotifier, ramblersWalksUploadRequest);
+      this.selectTab(WalkExportTab.WALK_UPLOAD_AUDIT);
     });
   }
 
   public newActionsDisabled(): boolean {
-    return (this.walksDownloadFileContents.length === 0) || this.exportInProgress;
+    return (this.walksDownloadFileContents.length === 0) || this.exportInProgress || !this.downloadConflict.allowed;
+  }
+
+  private async checkDownloadStatus(): Promise<void> {
+    try {
+      this.currentDownload = await this.downloadStatusService.getCurrentServerDownloadStatus();
+      this.downloadConflict = await this.downloadStatusService.canStartNewDownload();
+
+      if (this.currentDownload && this.currentDownload.status === ServerDownloadStatusType.ACTIVE) {
+        this.walkExportNotifier.warning({
+          title: "Active Download Detected",
+          message: `Download "${this.currentDownload.fileName}" is currently in progress`
+        });
+      }
+      this.updateExportStatusMessage();
+    } catch (error) {
+      this.logger.error("Failed to check download status:", error);
+    }
+  }
+
+  requestOverride(): void {
+    this.confirmOverrideRequested = true;
+  }
+
+  cancelOverrideRequest(): void {
+    this.confirmOverrideRequested = false;
+  }
+
+  async overrideDownload(): Promise<void> {
+    if (!this.downloadConflict.activeDownload) {
+      return;
+    }
+
+    const fileName = this.downloadConflict.activeDownload.fileName;
+    this.confirmOverrideRequested = false;
+    const result = await this.downloadStatusService.overrideDownload(fileName);
+
+    if (result.success) {
+      this.walkExportNotifier.success({
+        title: "Download Override Successful",
+        message: result.message
+      });
+      await this.checkDownloadStatus();
+    } else {
+      this.walkExportNotifier.error({
+        title: "Download Override Failed",
+        message: result.message
+      });
+    }
   }
 
   public options(): CsvOptions {
@@ -432,14 +689,46 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     }).then((auditItems: RamblersUploadAuditApiResponse) => {
       this.audits = auditItems.response;
       this.applyFilter();
+      this.updateCurrentSessionDurationLabel();
       this.walkExportNotifier.clearBusy();
     });
+  }
+
+  private updateCurrentSessionDurationLabel(): void {
+    if (!this.fileName?.fileName || !this.audits?.length) {
+      return;
+    }
+    const chronologicalAll = this.audits.slice().sort(sortBy("-auditTime", "-record"));
+    const latest = chronologicalAll[0]?.auditTime;
+    const earliest = chronologicalAll[chronologicalAll.length - 1]?.auditTime;
+    this.sessionDurations[this.fileName.fileName] = this.dateUtils.formatDuration(earliest, latest);
   }
 
   protected applyFilter(): void {
     this.filteredAudits = this.audits.filter(auditItem => {
       return this.showDetail || [Status.COMPLETE, Status.ERROR, Status.SUCCESS].includes(auditItem.status);
     });
+    const timeSorted = this.filteredAudits.slice().sort(sortBy("-auditTime", "-record"));
+    const allChrono = this.audits.slice().sort(sortBy("-auditTime", "-record"));
+    const lastAudit = allChrono[0];
+    const firstAudit = allChrono[allChrono.length - 1];
+    const durations = new Map<string, number>();
+    timeSorted.forEach((audit, index) => {
+      if (audit.type === AuditType.SUMMARY) {
+        durations.set(audit.id, Math.max(0, (lastAudit?.auditTime || 0) - (firstAudit?.auditTime || 0)));
+      } else {
+        const previous = timeSorted[index + 1];
+        durations.set(audit.id, Math.max(0, (audit?.auditTime || 0) - (previous?.auditTime || 0)));
+      }
+    });
+    this.filteredAudits = this.filteredAudits.map(a => ({...a, durationMs: durations.get(a.id) || 0} as any));
+    const direction = this.auditSortDirection === ASCENDING ? "" : "-";
+    const primary = `${direction}${this.auditSortField}`;
+    if (this.auditSortField === "auditTime") {
+      this.filteredAudits = this.filteredAudits.sort(sortBy(primary, `${direction}record`));
+    } else {
+      this.filteredAudits = this.filteredAudits.sort(sortBy(primary));
+    }
     if (this.filteredAudits.length === this.audits.length) {
       this.auditNotifier.warning(`Showing ${this.stringUtils.pluraliseWithCount(this.audits.length, "audit item")}`);
     } else {
@@ -464,10 +753,6 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.logger.info("populateWalkExport: found", this.stringUtils.pluraliseWithCount(walksForExport.length, "exportable walk"), "walks:", walksForExport);
     this.walksForExport = walksForExport;
     this.sortWalksForExport();
-    this.walkExportNotifier.success({
-      title: "Export status",
-      message: `Found total of ${this.stringUtils.pluraliseWithCount(this.walksForExport.length, "walk")}, ${this.walksDownloadFileContents.length} preselected for export`
-    });
     this.walkExportNotifier.clearBusy();
     return walksForExport;
   }
@@ -488,7 +773,20 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.showSelect = false;
     this.walkExportNotifier.warning("Refreshing past download sessions", false, true);
     this.fileNames = await this.ramblersUploadAuditService.uniqueUploadSessions();
+
+    this.cleanupStaleInProgressSessions();
+    await this.calculateAllSessionDurations();
+
     this.fileName = this.fileNames?.[0];
+
+    if (this.pendingSessionParam) {
+      const matchingSession = this.fileNames.find(f => this.sessionToUrlParam(f.fileName) === this.pendingSessionParam);
+      if (matchingSession) {
+        this.fileName = matchingSession;
+      }
+      this.pendingSessionParam = null;
+    }
+
     this.logger.info("Total of", this.fileNames.length, "download sessions - current session:", this.fileName);
     await this.refreshAuditForCurrentSession();
     this.showSelect = true;
@@ -522,13 +820,13 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     }
   }
 
-  toggleWalkExportSelection(walkExport: WalkExport) {
+  async toggleWalkExportSelection(walkExport: WalkExport) {
     if (walkExport.validationMessages.length === 0) {
       walkExport.selected = !walkExport.selected;
       this.logWalkSelected(walkExport);
       this.sortWalksForExport();
-      this.populateWalksDownloadFileContents();
-      this.walkExportNotifier.hide();
+      await this.populateWalksDownloadFileContents();
+      this.updateExportStatusMessage();
     } else {
       this.walkExportNotifier.error({
         title: `You can't export the walk for ${this.displayDate.transform(walkExport.displayedWalk.walk?.groupEvent?.start_date_time)}`,
@@ -539,6 +837,25 @@ export class WalkExportComponent implements OnInit, OnDestroy {
 
   private async populateWalksDownloadFileContents() {
     this.walksDownloadFileContents = await this.createWalksDownloadFileContents();
+  }
+
+  private updateExportStatusMessage(): void {
+    if (this.downloadConflict.allowed && this.walksDownloadFileContents.length > 0) {
+      this.walkExportNotifier.success({
+        title: "Walks Export Initialisation",
+        message: `${this.stringUtils.pluraliseWithCount(this.walksDownloadFileContents.length, "walk")} ${this.stringUtils.pluralise(this.walksDownloadFileContents.length, "was", "were")} preselected for export`
+      });
+    } else if (!this.downloadConflict.allowed) {
+      this.walkExportNotifier.warning({
+        title: "Upload Unavailable",
+        message: `${this.downloadConflict.reason} ${this.stringUtils.pluraliseWithCount(this.walksDownloadFileContents.length, "walk")} selected but cannot be uploaded until resolved.`
+      });
+    } else if (this.walksDownloadFileContents.length === 0) {
+      this.walkExportNotifier.warning({
+        title: "No Walks Selected",
+        message: "No walks are currently selected for export. Please select one or more walks to enable upload."
+      });
+    }
   }
 
   walksDownloadFileName() {
@@ -561,15 +878,161 @@ export class WalkExportComponent implements OnInit, OnDestroy {
 
   timing(audit: RamblersUploadAudit): string {
     const summary = audit.type === AuditType.SUMMARY;
-    const currentIndex = this.filteredAudits.findIndex(item => item.id === audit.id);
+    const chronologicalAll = this.audits.slice().sort(sortBy("-auditTime", "-record"));
+    const currentIndex = chronologicalAll.findIndex(item => item.id === audit.id);
+    const latest = chronologicalAll[0]?.auditTime;
+    const earliest = chronologicalAll[chronologicalAll.length - 1]?.auditTime;
     if (summary) {
-      const lastAudit = last(this?.audits)?.auditTime;
-      this.logger.info("timing:summary:lastAudit:", lastAudit, "currentIndex:", currentIndex, "audit:", audit);
-      return this.dateUtils.formatDuration(lastAudit, audit?.auditTime);
+      return this.dateUtils.formatDuration(earliest, latest);
     } else {
-      const previousAudit = this.filteredAudits?.[currentIndex + 1];
-      this.logger.info("timing:summary:previousAudit:", previousAudit, "currentIndex:", currentIndex, "audit:", audit);
+      const previousAudit = chronologicalAll?.[currentIndex + 1];
       return this.dateUtils.formatDuration(previousAudit?.auditTime, audit?.auditTime);
+    }
+  }
+
+  selectTab(tab: WalkExportTab): void {
+    this.activeTabId = tab;
+    this.updateUrl();
+  }
+
+  sortAuditsBy(field: string): void {
+    if (this.auditSortField === field) {
+      this.auditReverseSort = !this.auditReverseSort;
+    } else {
+      this.auditReverseSort = this.auditSortDirection === DESCENDING;
+    }
+    this.auditSortField = field;
+    this.auditSortDirection = this.auditReverseSort ? DESCENDING : ASCENDING;
+    this.applyFilter();
+  }
+
+  onSessionChange(): void {
+    this.refreshAuditForCurrentSession();
+    this.updateUrl();
+  }
+
+  private updateUrl(): void {
+    const queryParams: any = { tab: this.activeTabId };
+    if (this.fileName?.fileName) {
+      queryParams.session = this.sessionToUrlParam(this.fileName.fileName);
+    }
+
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams,
+      queryParamsHandling: "merge"
+    });
+  }
+
+  private cleanupStaleInProgressSessions(): void {
+    const now = Date.now();
+    const staleThresholdMinutes = 15;
+
+    this.fileNames = this.fileNames.map(session => {
+      if (session.status === Status.ACTIVE) {
+        const sessionTime = this.extractSessionTime(session.fileName);
+        if (sessionTime) {
+          const timeDifferenceMinutes = (now - sessionTime) / (1000 * 60);
+          if (timeDifferenceMinutes > staleThresholdMinutes) {
+            this.logger.info(`Cleaning up stale in-progress session: ${session.fileName}`);
+            return { ...session, status: Status.ERROR };
+          }
+        }
+      }
+      return session;
+    });
+  }
+
+  private extractSessionTime(fileName: string): number | null {
+    const match = fileName.match(/walks-export-(\d{1,2})-(\w+)-(\d{4})-(\d{2})-(\d{2})\.csv$/);
+    if (match) {
+      const [, day, month, year, hour, minute] = match;
+      const dateString = `${day} ${month} ${year} ${hour}:${minute}`;
+      return this.dateUtils.parseDisplayDateWithFormat(dateString, "d MMMM yyyy HH:mm")?.toMillis() || null;
+    }
+    return null;
+  }
+
+  public displayForUploadSession(fileName: string): string {
+    const ts = this.extractSessionTime(fileName);
+    if (ts) {
+      const duration = this.sessionDurations[fileName] || this.calculateSessionDuration(fileName);
+      const label = this.dateUtils.displayDateAndTime(ts);
+      return duration ? `${label} (${duration})` : label;
+    }
+    return this.formatUploadSessionName(fileName);
+  }
+
+  formatUploadSessionName(fileName: string): string {
+    if (!fileName) return "";
+
+    const match = fileName.match(/walks-export-(\d{1,2})-(\w+)-(\d{4})-(\d{2})-(\d{2})\.csv$/);
+    if (match) {
+      const [, day, month, year, hour, minute] = match;
+      const date = `${day} ${month} ${year}`;
+      const time = `${hour}:${minute}`;
+      return `${date} at ${time}`;
+    }
+
+    return fileName.replace(/^walks-export-/, "").replace(/\.csv$/, "").replace(/-/g, " ");
+  }
+
+  private sessionToUrlParam(fileName: string): string {
+    if (!fileName) return "";
+
+    const sessionTime = this.extractSessionTime(fileName);
+    if (sessionTime) {
+      return this.dateUtils.asDateTime(sessionTime).toFormat("yyyy-MM-dd'T'HHmm");
+    }
+
+    return fileName.replace(/^walks-export-/, "").replace(/\.csv$/, "").replace(/[^a-z0-9]/gi, "-").toLowerCase();
+  }
+
+  private calculateSessionDuration(fileName: string): string | null {
+    if (this.sessionDurations[fileName]) {
+      return this.sessionDurations[fileName];
+    }
+
+    const audits = this.audits?.filter(audit => audit.fileName === fileName);
+    if (!audits || audits.length === 0) {
+      return null;
+    }
+
+    const chronological = audits.slice().sort(sortBy("-auditTime", "-record"));
+    const latest = chronological[0]?.auditTime;
+    const earliest = chronological[chronological.length - 1]?.auditTime;
+
+    if (latest && earliest) {
+      const duration = this.dateUtils.formatDuration(earliest, latest);
+      this.sessionDurations[fileName] = duration;
+      return duration;
+    }
+
+    return null;
+  }
+
+  private async calculateAllSessionDurations(): Promise<void> {
+    for (const session of this.fileNames) {
+      if (!this.sessionDurations[session.fileName]) {
+        try {
+          const audits = await this.ramblersUploadAuditService.all({
+            criteria: { fileName: session.fileName },
+            sort: { auditTime: -1, record: -1 }
+          });
+
+          if (audits.response?.length > 0) {
+            const chronological = audits.response.slice().sort(sortBy("-auditTime", "-record"));
+            const latest = chronological[0]?.auditTime;
+            const earliest = chronological[chronological.length - 1]?.auditTime;
+
+            if (latest && earliest) {
+              this.sessionDurations[session.fileName] = this.dateUtils.formatDuration(earliest, latest);
+            }
+          }
+        } catch (error) {
+          this.logger.error("Failed to calculate duration for session:", session.fileName, error);
+        }
+      }
     }
   }
 }
