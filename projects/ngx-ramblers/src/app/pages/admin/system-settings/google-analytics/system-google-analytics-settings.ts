@@ -9,7 +9,7 @@ import { FormsModule } from "@angular/forms";
 @Component({
     selector: "app-system-google-analytics-settings",
     template: `
-    <div class="row img-thumbnail thumbnail-2">
+    <div class="row thumbnail-heading-frame">
       <div class="thumbnail-heading">Google Analytics</div>
       @if (systemConfigInternal?.googleAnalytics) {
         <div class="col-sm-12">

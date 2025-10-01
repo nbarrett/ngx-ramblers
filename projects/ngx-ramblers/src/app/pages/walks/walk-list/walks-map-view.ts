@@ -1,18 +1,6 @@
-import {
-  Component,
-  EventEmitter,
-  inject,
-  Input,
-  NgZone,
-  OnChanges,
-  OnInit,
-  Output,
-  SimpleChanges
-} from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 import * as L from "leaflet";
 import "leaflet.markercluster";
-import "proj4leaflet";
-import proj4 from "proj4";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
 import { FormsModule } from "@angular/forms";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
@@ -21,7 +9,6 @@ import { DisplayedWalk } from "../../../models/walk.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateUtilsService } from "../../../services/date-utils.service";
-import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { StoredValue } from "../../../models/ui-actions";
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
@@ -31,8 +18,15 @@ import { MapMarkerStyleService } from "../../../services/maps/map-marker-style.s
 import { UrlService } from "../../../services/url.service";
 import { MediaQueryService } from "../../../services/committee/media-query.service";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faEye, faEyeSlash, faCircleInfo } from "@fortawesome/free-solid-svg-icons";
-import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
+import {
+  MapControlsComponent,
+  MapControlsConfig,
+  MapControlsState
+} from "../../../shared/components/map-controls.component";
+import { MapControlsStateService } from "../../../shared/services/map-controls-state.service";
+import { MapRecreationService } from "../../../shared/services/map-recreation.service";
+import { MapOverlayComponent } from "../../../shared/components/map-overlay.component";
 
 @Component({
   selector: "app-walks-map-view",
@@ -128,44 +122,15 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
     @if (filteredWalks?.length || loading) {
       @if (showControls) {
         <div class="rounded-top img-thumbnail p-2 map-controls-docked">
-          <div class="d-flex flex-wrap align-items-center map-controls-gap">
-            <div class="d-flex align-items-center map-control-item">
-              <span class="small mx-2 text-nowrap">Provider</span>
-              <select class="form-select form-select-sm map-control-select" [(ngModel)]="provider"
-                      (ngModelChange)="onProviderChange($event)">
-                <option value="osm">OpenStreetMap</option>
-                <option value="os" [disabled]="!hasOsApiKey">{{ hasOsApiKey ? 'OS Maps' : 'OS Maps (API key required)' }}</option>
-              </select>
-            </div>
-            @if (provider === 'os') {
-              <div class="d-flex align-items-center map-control-item">
-                <span class="small mx-2 text-nowrap">Style</span>
-                <select class="form-select form-select-sm map-control-select" [(ngModel)]="osStyle"
-                        (ngModelChange)="onStyleChange($event)">
-                  @for (style of osStyles; track style.key) {
-                    <option [value]="style.key" [title]="style.description">{{ style.name }}</option>
-                  }
-                </select>
-                <fa-icon class="ms-2 colour-mintcake" [icon]="faCircleInfo" tooltip="{{ selectedStyleInfo()?.description }}" placement="auto"></fa-icon>
-              </div>
-            }
-            <div class="d-flex align-items-center map-control-item">
-              <span class="small mx-2 text-nowrap">Height</span>
-              <input type="range" class="form-range map-control-range" min="300" max="900" step="10"
-                     [ngModel]="mapHeight" (input)="onHeightInput($event)" [title]="'Map height: ' + mapHeight + 'px'">
-              <span class="ms-1 text-muted small map-control-value">{{ mapHeight }}px</span>
-            </div>
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="scroll-toggle" [(ngModel)]="smoothScroll"
-                     (ngModelChange)="onSmoothScrollChange($event)" title="Auto scroll on view">
-              <label class="form-check-label small text-nowrap map-control-label" for="scroll-toggle">Auto scroll on view</label>
-            </div>
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="autoshow-toggle" [(ngModel)]="autoShowAll"
-                     (ngModelChange)="onAutoShowAllChange($event)" title="Auto-show walk details popups">
-              <label class="form-check-label small text-nowrap map-control-label" for="autoshow-toggle">Auto-show popups</label>
-            </div>
-          </div>
+          <app-map-controls
+            [config]="mapControlsConfig"
+            [state]="mapControlsState"
+            (providerChange)="onProviderChange($event)"
+            (styleChange)="onStyleChange($event)"
+            (heightChange)="onHeightChange($event)"
+            (smoothScrollChange)="onSmoothScrollChange($event)"
+            (autoShowAllChange)="onAutoShowAllChange($event)">
+          </app-map-controls>
         </div>
       }
       <div [class]="showControls ? 'map-controls-overlap' : 'rounded'">
@@ -183,29 +148,25 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                  [leafletLayers]="leafletLayers"
                  [leafletFitBounds]="fitBounds"
                  (leafletMapReady)="onMapReady($event)"></div>
-            <div class="map-overlay top-right" [style.top]="showControls ? '20px' : '8px'">
-              <div class="overlay-content">
-                <div class="d-flex flex-column gap-2">
-                  <button type="button" class="badge bg-warning text-dark border-0" (click)="toggleControls()">
-                    <fa-icon [icon]="showControls ? faEyeSlash : faEye"></fa-icon>
-                    <span class="ms-1">{{ showControls ? 'Hide map options' : 'Show map options' }}</span>
+            <app-map-overlay
+              [showControls]="showControls"
+              (toggleControls)="toggleControls()">
+              <div slot="additional-buttons">
+                @if (openPopupCount > 1) {
+                  <button type="button" class="badge bg-warning text-dark border-0" (click)="closeAllPopups()">
+                    <fa-icon [icon]="faEyeSlash"></fa-icon>
+                    <span class="ms-1">Close all popups</span>
                   </button>
-                  @if (openPopupCount > 1) {
-                    <button type="button" class="badge bg-warning text-dark border-0" (click)="closeAllPopups()">
-                      <fa-icon [icon]="faEyeSlash"></fa-icon>
-                      <span class="ms-1">Close all popups</span>
-                    </button>
-                  }
+                }
+              </div>
+              <div slot="bottom-overlay" class="map-overlay bottom-right">
+                <div class="overlay-content">
+                  <span class="badge bg-primary text-white border rounded-pill small fw-bold">
+                    {{ walkCountText }}
+                  </span>
                 </div>
               </div>
-            </div>
-            <div class="map-overlay bottom-right">
-              <div class="overlay-content">
-                <span class="badge bg-primary text-white border rounded-pill small fw-bold">
-                  {{ walkCountText }}
-                </span>
-              </div>
-            </div>
+            </app-map-overlay>
           }
         </div>
       </div>
@@ -213,18 +174,33 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
       <div class="mt-3"></div>
     }
   `,
-  imports: [LeafletModule, FormsModule, FontAwesomeModule, TooltipDirective]
+  imports: [LeafletModule, FormsModule, FontAwesomeModule, MapControlsComponent, MapOverlayComponent]
 })
 export class WalksMapViewComponent implements OnInit, OnChanges {
   @Input() filteredWalks: DisplayedWalk[] = [];
   @Input() loading = false;
   @Output() selected = new EventEmitter<DisplayedWalk>();
   @Output() autoShowAllChange = new EventEmitter<boolean>();
-
   public provider: MapProvider = "osm";
   public osStyle = "Leisure_27700";
   public osStyles: MapStyleInfo[] = OS_MAP_STYLE_LIST;
-
+  public mapControlsConfig: MapControlsConfig = {
+    showProvider: true,
+    showStyle: true,
+    showHeight: true,
+    showSmoothScroll: true,
+    showAutoShowAll: true,
+    minHeight: 300,
+    maxHeight: 900,
+    heightStep: 10
+  };
+  public mapControlsState: MapControlsState = {
+    provider: "osm",
+    osStyle: "Leisure_27700",
+    mapHeight: 520,
+    smoothScroll: true,
+    autoShowAll: false
+  };
   public options: any;
   public leafletLayers: L.Layer[] = [];
   public fitBounds: L.LatLngBounds | undefined;
@@ -232,9 +208,6 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
   public showMap = true;
   public hasMarkers = false;
   public mapHeight = 520;
-  private resizing = false;
-  private startY = 0;
-  private startHeight = 520;
   public showControls = true;
   public autoShowAll = false;
   private clusterGroupRef: any;
@@ -243,65 +216,41 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
   private lastValidCoords = 0;
   protected readonly faEye = faEye;
   protected readonly faEyeSlash = faEyeSlash;
-  protected readonly faCircleInfo = faCircleInfo;
   public smoothScroll = true;
-  private openPopupRefs: Array<{ popup: L.Popup, marker: L.Marker }> = [];
-  private customPopupPositioningEnabled = false;
-  private escAttached = false;
   private savedCenter: L.LatLng | null = null;
   private savedZoom: number | null = null;
   private preserveNextView = false;
-  private preserveSameCrs = false;
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalksMapViewComponent", NgxLoggerLevel.ERROR);
   private dateUtils = inject(DateUtilsService);
-  private systemConfigService = inject(SystemConfigService);
   private uiActions = inject(UiActionsService);
-  private zone = inject(NgZone);
   private distanceValidationService = inject(DistanceValidationService);
   private mediaQueryService = inject(MediaQueryService);
   private mapTiles = inject(MapTilesService);
   private popupService = inject(MapPopupService);
   private markerStyle = inject(MapMarkerStyleService);
   private urlService = inject(UrlService);
+  private mapControlsStateService = inject(MapControlsStateService);
+  private mapRecreation = inject(MapRecreationService);
 
   ngOnInit() {
-    const projNS: any = (L as any).Proj;
-    if (projNS?.setProj4) {
-      projNS.setProj4(proj4);
-    }
-    if ((proj4 as any).defs && !(proj4 as any).defs["EPSG:27700"]) {
-      (proj4 as any).defs("EPSG:27700", "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=-446.448,125.157,-542.06,-0.1502,-0.2470,-0.8421,20.4894 +units=m +no_defs");
-    }
-    const storedProvider = this.uiActions.initialValueFor(StoredValue.MAP_PROVIDER, null) as MapProvider;
-    const storedStyle = this.uiActions.initialValueFor(StoredValue.MAP_OS_STYLE, null) as string;
-    const storedSmooth = this.uiActions.initialBooleanValueFor(StoredValue.MAP_SMOOTH_SCROLL, true);
-    const storedHeight = this.uiActions.initialValueFor(StoredValue.MAP_HEIGHT, this.mapHeight) as any;
-    const storedShow = this.uiActions.initialBooleanValueFor(StoredValue.MAP_SHOW_CONTROLS, true);
-    const storedAuto = this.uiActions.initialBooleanValueFor(StoredValue.MAP_AUTO_SHOW_ALL, false);
+    this.mapTiles.initializeProjections();
 
-    const hasKey = this.hasOsApiKey;
-    if (storedProvider === "os" || storedProvider === "osm") {
-      this.provider = storedProvider;
-    } else {
-      this.provider = hasKey ? "os" : "osm";
-    }
+    const initialState = this.mapControlsStateService.queryInitialState({
+      mapHeight: this.mapHeight,
+      smoothScroll: this.smoothScroll,
+      autoShowAll: this.autoShowAll
+    });
 
-    if (this.provider === "os" && !this.hasOsApiKey) {
-      this.logger.info("ngOnInit: OS Maps selected but no API key available, switching to OpenStreetMap");
-      this.provider = "osm";
-      this.uiActions.saveValueFor(StoredValue.MAP_PROVIDER, "osm");
-    }
+    this.provider = initialState.provider;
+    this.osStyle = initialState.osStyle;
+    this.mapHeight = initialState.mapHeight || 520;
+    this.smoothScroll = initialState.smoothScroll || true;
+    this.autoShowAll = initialState.autoShowAll || false;
+    this.showControls = this.uiActions.initialBooleanValueFor(StoredValue.MAP_SHOW_CONTROLS, true);
 
-    const allowedStyles = this.osStyles.map(s => s.key);
-    this.osStyle = (storedStyle && allowedStyles.includes(storedStyle)) ? storedStyle : (hasKey ? "Leisure_27700" : this.osStyle);
-    this.smoothScroll = storedSmooth;
-    this.showControls = storedShow;
-    this.autoShowAll = storedAuto;
-    const parsed = parseInt(storedHeight as string, 10);
-    if (!isNaN(parsed)) {
-      this.mapHeight = Math.min(900, Math.max(300, parsed));
-    }
+    this.mapControlsState = initialState;
+
     this.logger.info("ngOnInit:filteredWalks:", this.filteredWalks?.length, "provider:", this.provider, "osStyle:", this.osStyle);
     this.rebuildMap();
   }
@@ -346,13 +295,6 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
     }
   }
 
-  private createBaseLayer(): L.TileLayer { return this.mapTiles.createBaseLayer(this.provider, this.osStyle); }
-
-  private osZxyUrl(layer: string, key: string): string { return ""; }
-
-  private osmUrl(): string { return ""; }
-
-  private osApiKey(): string { return ""; }
 
   get hasOsApiKey(): boolean { return this.mapTiles.hasOsApiKey(); }
 
@@ -367,24 +309,6 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
     return `${withCoords} ${withCoords === 1 ? "walk" : "walks"}${missing > 0 ? ` (${missing} missing location)` : ""}`;
   }
 
-  private crsForCurrentStyle(): any {
-    if (this.provider === "os" && this.osStyle.endsWith("27700")) {
-      this.logger.info("crsForCurrentStyle:EPSG:27700");
-      const crsCtor = (L as any).Proj?.CRS;
-      if (crsCtor) {
-        return new crsCtor("EPSG:27700",
-          "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.15,0.247,0.842,-20.489 +units=m +no_defs",
-          {
-            resolutions: [896, 448, 224, 112, 56, 28, 14, 7, 3.5, 1.75],
-            origin: [-238375.0, 1376256.0],
-            bounds: L.bounds([-238375.0, 0.0], [900000.0, 1376256.0])
-          });
-      }
-      return L.CRS.EPSG3857;
-    }
-    this.logger.info("crsForCurrentStyle:EPSG:3857");
-    return L.CRS.EPSG3857;
-  }
 
   private createMarkers(): L.Marker[] {
     const items = this.filteredWalks || [];
@@ -456,24 +380,6 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
     return points;
   }
 
-  private onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === "Escape") {
-      if (this.openPopupRefs.length > 0) {
-        const last = this.openPopupRefs[this.openPopupRefs.length - 1];
-        try {
-          last.marker.closePopup();
-        } catch {
-        }
-        event.preventDefault();
-        event.stopPropagation();
-      } else if (this.mapRef) {
-        try {
-          this.mapRef.closePopup();
-        } catch {
-        }
-      }
-    }
-  }
 
   private popupHtml(dw: DisplayedWalk, linkId: string): string {
     const title = dw?.walk?.groupEvent?.title || "Walk";
@@ -619,7 +525,6 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
   }
 
 
-  private viewWalk(dw: DisplayedWalk) {}
 
   onMapReady(map: L.Map) {
     this.logger.info("onMapReady:received map, invalidating size and fitting bounds");
@@ -629,7 +534,10 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
       if (this.autoShowAll) {
         setTimeout(() => this.showAllVisiblePopups(), 300);
       }
-      try { this.uiActions.saveValueFor(StoredValue.MAP_ZOOM, map.getZoom()); } catch {}
+      try {
+        this.mapControlsStateService.saveZoom(map.getZoom());
+      } catch {
+      }
     });
 
     setTimeout(() => {
@@ -638,7 +546,7 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
         this.mapRef?.fitBounds(this.normalizeBounds(this.fitBounds));
       }
       if (this.preserveNextView && this.savedCenter && this.savedZoom != null) {
-        const targetZoom = this.preserveSameCrs ? this.savedZoom : Math.min(this.savedZoom, this.maxZoomForCurrentStyle());
+        const targetZoom = Math.min(this.savedZoom, this.maxZoomForCurrentStyle());
         try { this.mapRef?.setView(this.savedCenter, targetZoom); } catch {}
         this.preserveNextView = false;
       }
@@ -673,68 +581,83 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
 
   onProviderChange(value: MapProvider) {
     this.provider = value;
-    this.uiActions.saveValueFor(StoredValue.MAP_PROVIDER, value);
+    this.mapControlsState.provider = value;
+    this.mapControlsStateService.saveProvider(value);
     this.recreateMap(true);
   }
 
   onStyleChange(value: string) {
     this.osStyle = value;
-    this.uiActions.saveValueFor(StoredValue.MAP_OS_STYLE, value);
+    this.mapControlsState.osStyle = value;
+    this.mapControlsStateService.saveOsStyle(value);
     this.recreateMap(true);
   }
 
+  onHeightChange(value: number) {
+    this.mapHeight = value;
+    this.mapControlsState.mapHeight = value;
+    this.mapControlsStateService.saveHeight(value);
+    requestAnimationFrame(() => this.mapRef?.invalidateSize(true));
+  }
+
   private recreateMap(preserveView?: boolean) {
-    this.logger.info("recreateMap: tearing down and rebuilding map for provider/style change");
-    if (preserveView && this.mapRef) {
-      try { this.savedCenter = this.mapRef.getCenter(); } catch { this.savedCenter = null; }
-      this.savedZoom = this.mapRef.getZoom();
-      this.preserveNextView = true;
-    }
+    const context = {
+      mapRef: this.mapRef,
+      savedCenter: this.savedCenter,
+      savedZoom: this.savedZoom,
+      preserveNextView: this.preserveNextView,
+      showMap: this.showMap,
+      logger: this.logger,
+      leafletLayers: this.leafletLayers,
+      clusterGroupRef: this.clusterGroupRef,
+      allMarkers: this.allMarkers,
+      openPopupCount: this.openPopupCount,
+      fitBounds: this.fitBounds,
+      options: this.options
+    };
 
-    if (this.mapRef) {
-      this.mapRef.remove();
-      this.mapRef = undefined;
-    }
+    this.mapRecreation.recreateMap(
+      context,
+      {
+        onRebuildMap: () => this.rebuildMap(),
+        onSetShowMap: (show: boolean) => this.showMap = show
+      },
+      preserveView
+    );
 
-    this.leafletLayers = [];
-    this.clusterGroupRef = undefined;
-    this.allMarkers = [];
-    this.openPopupCount = 0;
-    this.showMap = false;
-    this.fitBounds = undefined;
-    this.options = null;
-
-    setTimeout(() => {
-      this.showMap = true;
-      requestAnimationFrame(() => setTimeout(() => this.rebuildMap(), 0));
-    }, 50);
+    this.mapRef = context.mapRef;
+    this.savedCenter = context.savedCenter;
+    this.savedZoom = context.savedZoom;
+    this.preserveNextView = context.preserveNextView;
+    this.showMap = context.showMap;
+    this.leafletLayers = context.leafletLayers || [];
+    this.clusterGroupRef = context.clusterGroupRef;
+    this.allMarkers = context.allMarkers || [];
+    this.openPopupCount = context.openPopupCount || 0;
+    this.fitBounds = context.fitBounds;
+    this.options = context.options;
   }
 
   onSmoothScrollChange(value: boolean) {
     this.smoothScroll = value;
-    this.uiActions.saveValueFor(StoredValue.MAP_SMOOTH_SCROLL, value);
+    this.mapControlsState.smoothScroll = value;
+    this.mapControlsStateService.saveSmoothScroll(value);
   }
 
   selectedStyleInfo(): MapStyleInfo | undefined {
     return this.osStyles.find(s => s.key === this.osStyle);
   }
 
-  onHeightInput(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const value = parseInt(input.value, 10);
-    this.mapHeight = Math.min(900, Math.max(300, isNaN(value) ? this.mapHeight : value));
-    this.uiActions.saveValueFor(StoredValue.MAP_HEIGHT, this.mapHeight);
-    requestAnimationFrame(() => this.mapRef?.invalidateSize(true));
-  }
 
   toggleControls() {
     this.showControls = !this.showControls;
-    this.uiActions.saveValueFor(StoredValue.MAP_SHOW_CONTROLS, this.showControls);
+    this.mapControlsStateService.saveShowControls(this.showControls);
   }
 
   onAutoShowAllChange(value: boolean) {
     this.autoShowAll = value;
-    this.uiActions.saveValueFor(StoredValue.MAP_AUTO_SHOW_ALL, value);
+    this.mapControlsState.autoShowAll = value;
+    this.mapControlsStateService.saveAutoShowAll(value);
     this.autoShowAllChange.emit(value);
     if (value && this.mapRef) {
       setTimeout(() => this.showAllVisiblePopups(), 100);

@@ -32,7 +32,7 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
     selector: "app-mail-notification-template-mapping-editor",
     template: `
     @if (mailMessagingConfig) {
-      <div class="row img-thumbnail thumbnail-2">
+      <div class="row thumbnail-heading-frame">
         <div class="thumbnail-heading-with-select">
           <div class="d-flex flex-wrap align-items-center gap-2">
             <label for="template-mapping">Email Configuration
@@ -78,7 +78,7 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
         </div>
         @if (notificationConfig) {
           <div>
-            <div class="row img-thumbnail thumbnail-2">
+            <div class="row thumbnail-heading-frame">
               <div class="thumbnail-heading">Notification Settings</div>
               @if (notificationConfig?.subject) {
                 <div class="col-sm-12">
@@ -167,7 +167,7 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
                 </div>
               </div>
             </div>
-            <div class="img-thumbnail thumbnail-2">
+            <div class="thumbnail-heading-frame">
               <div class="thumbnail-heading">Member Selection And Actions</div>
               @if (mailMessagingService.workflowIdsFor(mailMessagingConfig?.mailConfig)?.includes(notificationConfig.id)) {
                 <div class="row"

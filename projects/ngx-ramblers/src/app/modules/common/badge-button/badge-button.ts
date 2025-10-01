@@ -13,14 +13,14 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
       <div [ngClass]="{'badge-button': !inline, 'inline-button':inline, 'disabled' : disabled,
               'me-0': noRightMargin, 'badge-button-active': active, 'w-100': fullWidth, 'float-end': alignRight}"
         delay=500 tooltip="{{tooltip? null: caption}}" [ngStyle]="{'height.px': height}">
-        @if (!iconPositionRight) {
+        @if (!iconPositionRight && icon) {
           <fa-icon [icon]="icon"></fa-icon>
         }
         @if (caption) {
           <span>{{caption}}</span>
         }
         <ng-content/>
-        @if (iconPositionRight) {
+        @if (iconPositionRight && icon) {
           <fa-icon class="ms-2" [icon]="icon"></fa-icon>
         }
       </div>`,
@@ -30,7 +30,6 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 export class BadgeButtonComponent {
   siteEditService = inject(SiteEditService);
   actions = inject(PageContentActionsService);
-
 
   @Input() public tooltip: string;
   @Input() public caption: string;

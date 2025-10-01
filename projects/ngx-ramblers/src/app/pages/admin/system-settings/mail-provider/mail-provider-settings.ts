@@ -24,7 +24,7 @@ import { MailchimpButtonComponent } from "../../../../modules/common/third-parti
     selector: "app-mail-provider-settings",
     template: `
     @if (this.config?.mailDefaults) {
-      <div class="row img-thumbnail thumbnail-2">
+      <div class="row thumbnail-heading-frame">
         <div class="thumbnail-heading">Mail</div>
         @if (config.mailDefaults.mailProvider===MailProvider.MAILCHIMP) {
           <div class="col-md-12">

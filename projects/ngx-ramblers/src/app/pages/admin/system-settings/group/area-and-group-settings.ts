@@ -264,6 +264,7 @@ export class AreaAndGroupSettingsComponent implements OnInit {
         this.groupQueryStatus = Status.ACTIVE;
         this.loadingGroups = true;
         this.groups = await this.ramblersWalksAndEventsService.listRamblersGroups([group]);
+        this.logger.info("Raw groups data returned from API:", this.groups);
         this.groupQueryStatus = this.groups.length > 0 ? Status.COMPLETE : Status.ERROR;
         const suffix = this.groups.length === 0 ? `${EM_DASH}try entering a different 2 character value into the Ramblers Area Code` : "";
         this.groupSearchMessage = `${this.stringUtils.pluraliseWithCount(this.groups.length, "area and group record")} found${suffix}`;
@@ -272,6 +273,7 @@ export class AreaAndGroupSettingsComponent implements OnInit {
         }));
         this.areaGroup = this.groups.find(group => group.scope === "A");
         this.logger.info("finding group:", group, "found:", this.groups, "areaGroup:", this.areaGroup);
+        this.logger.info("Available groups (scope=G):", this.availableGroups.map(g => `${g.name} (${g.group_code})`).join(", "));
         if (this.areaGroup) {
           this.config.area.groupCode = this.areaGroup.group_code;
           this.config.area.shortName = this.areaGroup.name;

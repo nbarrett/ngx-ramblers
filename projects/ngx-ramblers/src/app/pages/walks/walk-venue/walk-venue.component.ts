@@ -15,7 +15,7 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
 @Component({
     selector: "app-walk-venue",
     template: `
-      <div class="row img-thumbnail thumbnail-2">
+      <div class="row thumbnail-heading-frame">
         <div class="thumbnail-heading">Venue</div>
         <div class="col-sm-12">
           <app-markdown-editor name="meetup-venue-help" description="Walk venue or pub"></app-markdown-editor>

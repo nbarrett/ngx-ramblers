@@ -12,7 +12,7 @@ import { FormsModule } from "@angular/forms";
     selector: "app-notification-config-to-process-mapping",
     template: `
     @if (mailMessagingConfig) {
-      <div class="row img-thumbnail thumbnail-2">
+      <div class="row thumbnail-heading-frame">
         <div class="thumbnail-heading">Process Mappings</div>
         <div class="col-sm-12 mb-3">
           <app-markdown-editor category="admin" name="mail-settings-process-mappings"/>

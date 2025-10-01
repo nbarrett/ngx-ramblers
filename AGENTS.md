@@ -72,11 +72,18 @@ test(pipes): add comprehensive EventDatesAndTimesPipe test suite
 docs(readme): update installation instructions
 ```
 
-### Code Style Rules  
+### Code Style Rules
 - **No comments in code**: Use self-documenting method names instead of inline comments
 - **Double quotes**: Always use `"` instead of `'` for strings
 - **Minimal changes**: Keep patches targeted and scoped to the request
 - **Follow existing patterns**: Don't introduce new patterns without discussion
+- **Method naming**: Never prefix methods with "get" - the type system conveys that. Use more meaningful terms:
+  - ✅ `user()` - returns user
+  - ✅ `queryUsers()` - fetches users from database/API
+  - ✅ `createUser()` - creates a new user
+  - ✅ `defaultContent()` - returns default content
+  - ❌ `getUser()` - redundant "get" prefix
+  - ❌ `getUserData()` - redundant "get" prefix
 
 ## Development Commands
 
@@ -203,6 +210,20 @@ ngOnInit() {
 ngOnDestroy(): void {
   this.subscriptions.forEach(subscription => subscription.unsubscribe());
 }
+```
+
+### Input Change Handling
+Prefer lifecycle-specific input setters over `OnChanges`:
+```typescript
+// Preferred approach
+@Input() set pageContent(value: PageContent | null) {
+  if (value) {
+    this.initializeWithPageContent(value);
+  }
+}
+
+// Avoid generic OnChanges when possible
+// OnChanges should only be used when multiple inputs need coordinated handling
 ```
 
 ### Template Syntax

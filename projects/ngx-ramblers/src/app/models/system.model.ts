@@ -5,6 +5,7 @@ import { HasStyles } from "./content-text.model";
 
 export enum SystemSettingsTab {
   AREA_AND_GROUP = "Area & Group",
+  AREA_MAP_SYNC = "Area Map Data",
   BACKGROUNDS = "Backgrounds",
   ICONS = "Icons",
   LOGOS = "Logos",
@@ -32,6 +33,15 @@ export interface Group {
   groupCode?: string;
 }
 
+export interface AreaGroup {
+  groupCode: string;
+  name: string;
+  url?: string;
+  onsDistricts: string | string[];
+  color?: string;
+  nonGeographic?: boolean;
+}
+
 export interface Organisation extends Group {
   defaultWalkListView: WalkListView;
   walkPopulation: EventPopulation;
@@ -42,6 +52,9 @@ export interface Organisation extends Group {
   shortName?: string;
   href?: string;
   pages: Link[];
+  groups?: AreaGroup[];
+  center?: [number, number];
+  zoom?: number;
 }
 
 export interface Ramblers {

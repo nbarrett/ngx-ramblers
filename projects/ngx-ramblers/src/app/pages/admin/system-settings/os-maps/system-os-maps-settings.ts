@@ -8,7 +8,7 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
 @Component({
   selector: "app-system-os-maps-settings",
   template: `
-    <div class="row img-thumbnail thumbnail-2">
+    <div class="row thumbnail-heading-frame">
       <div class="thumbnail-heading">OS Maps</div>
       @if (configInternal?.externalSystems) {
         <div class="col-sm-12">
