@@ -297,7 +297,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
   async ngOnInit() {
     this.logger.debug("ngOnInit");
     this.route.queryParamMap.subscribe(params => {
-      const q = params.get(this.stringUtils.kebabCase(StoredValue.WALK_QUICK_SEARCH));
+      const q = params.get(this.stringUtils.kebabCase(StoredValue.SEARCH));
       const type = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SELECT_TYPE));
       const sort = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SORT_ASC));
       const view = params.get(this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW));

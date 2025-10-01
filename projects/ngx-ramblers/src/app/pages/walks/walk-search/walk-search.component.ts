@@ -167,8 +167,8 @@ export class WalkSearchComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.searchChangeObservable.pipe(debounceTime(500))
       .pipe(distinctUntilChanged())
       .subscribe(searchTerm => {
-        this.ui.saveValueFor(StoredValue.WALK_QUICK_SEARCH, searchTerm || "");
-        this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.WALK_QUICK_SEARCH)]: searchTerm || null });
+        this.ui.saveValueFor(StoredValue.SEARCH, searchTerm || "");
+        this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.SEARCH)]: searchTerm || null });
         this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.APPLY_FILTER, searchTerm));
       }));
   }

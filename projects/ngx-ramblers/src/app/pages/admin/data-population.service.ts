@@ -24,9 +24,29 @@ export class DataPopulationService {
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private systemConfig: SystemConfig;
   private logger = this.loggerFactory.createLogger("DataPopulationService", NgxLoggerLevel.OFF);
+  private defaultContentMap: Map<string, string> = new Map();
 
   constructor() {
     this.systemConfigService.events().subscribe((systemConfig: SystemConfig) => this.systemConfig = systemConfig);
+    this.buildDefaultContentMap();
+  }
+
+  private buildDefaultContentMap(): void {
+    const defaultContent = this.defaultContentArray();
+    defaultContent.forEach(item => {
+      const key = `${item.category}:${item.name}`;
+      this.defaultContentMap.set(key, item.text);
+    });
+  }
+
+  public hasDefaultContent(category: string, name: string): boolean {
+    const key = `${category}:${name}`;
+    return this.defaultContentMap.has(key);
+  }
+
+  public defaultContent(category: string, name: string): string | undefined {
+    const key = `${category}:${name}`;
+    return this.defaultContentMap.get(key);
   }
 
   public clearLegacyLocalStorage(): void {
@@ -43,9 +63,8 @@ export class DataPopulationService {
     }
   }
 
-  public async generateDefaultContentTextItems() {
-    this.logger.info("generating defaultContentTextItems");
-    const defaultContent: ContentText[] = [
+  private defaultContentArray(): ContentText[] {
+    return [
       {
         category: "admin",
         name: "walks-manager-fields-help",
@@ -136,8 +155,19 @@ export class DataPopulationService {
           "* When you are happy with the proposed import information, click the **Save Walks** button and the walks will be saved into your database.\n" +
           "* If you are not happy with the import at any stage before saving, click the **Reset** button and you can start again or leave the import page.",
         category: "admin"
+      },
+      {
+        name: "area-map-group-configuration-help",
+        text: "* For each Group, configure one of more districts and associate a colour that will represent the group's polygon on an Area Map. \n" +
+          "* Mark as **Non-Geographic**, groups that don't cover a specific geographical area.",
+        category: "admin"
       }
     ];
+  }
+
+  public async generateDefaultContentTextItems() {
+    this.logger.info("generating defaultContentTextItems");
+    const defaultContent: ContentText[] = this.defaultContentArray();
     const defaultContentTextItems = await Promise.all(defaultContent.map(async (contentText: ContentText) => await this.contentTextService.findOrCreateByNameAndCategory(contentText.name, contentText.category, contentText.text)));
     this.logger.info("generated defaultContentTextItems", defaultContentTextItems);
     return defaultContentTextItems;

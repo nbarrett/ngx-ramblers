@@ -323,6 +323,10 @@ export class PageContentActionsService {
     return row?.type === PageContentType.CAROUSEL;
   }
 
+  public isAreaMap(row: PageContentRow) {
+    return row?.type === PageContentType.AREA_MAP;
+  }
+
   public pageContentFound(pageContent: PageContent, queryCompleted: boolean) {
     const hasRows = pageContent?.rows?.length > 0;
     this.logger.debug("pageContentFound:hasRows:", hasRows, "queryCompleted:", queryCompleted);

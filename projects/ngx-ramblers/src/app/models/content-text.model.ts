@@ -93,6 +93,28 @@ export interface PageContentApiResponse extends ApiResponse {
   response?: PageContent | PageContent[];
 }
 
+export enum AreaMapClickAction {
+  GROUP_WEBSITE = "group-website",
+  FILTER_WALKS = "filter-walks"
+}
+
+export interface AreaMapData {
+  region?: string;
+  title?: string;
+  mapCenter?: [number, number];
+  mapZoom?: number;
+  mapHeight?: number;
+  showControls?: boolean;
+  selectedGroups?: string[];
+  clickAction?: AreaMapClickAction;
+  opacityNormal?: number;
+  opacityHover?: number;
+  textOpacity?: number;
+  provider?: string;
+  osStyle?: string;
+  areaColors?: Record<string, string>;
+}
+
 export interface PageContentRow extends HasMaxColumns {
   type: PageContentType;
   showSwiper: boolean;
@@ -102,6 +124,7 @@ export interface PageContentRow extends HasMaxColumns {
   carousel?: AlbumData;
   events?: EventsData;
   albumIndex?: AlbumIndex;
+  areaMap?: AreaMapData;
 }
 
 export interface PageContentColumn extends Link, HasPageContentRows {
@@ -210,6 +233,7 @@ export enum PageContentType {
   ALBUM_INDEX = "album-index",
   CAROUSEL = "carousel",
   EVENTS = "events",
+  AREA_MAP = "area-map",
   TEXT = "text",
 }
 

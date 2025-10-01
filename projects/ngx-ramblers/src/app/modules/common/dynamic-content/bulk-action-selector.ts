@@ -12,7 +12,7 @@ import { PageContentActionsService } from "../../../services/page-content-action
                  [checked]="pageContentRowService.isSelected(row)"
                  type="checkbox" class="form-check-input"
                  [id]="id">
-          <label class="form-check-label"
+          <label class="form-check-label ms-2"
                  [for]="id">Select Row
           </label>
       </div>`

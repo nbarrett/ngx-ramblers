@@ -15,6 +15,7 @@ import { DynamicContentViewAlbumIndexComponent } from "./dynamic-content-view-al
 import { DynamicContentViewAlbumComponent } from "./dynamic-content-view-album";
 import { EventsRow } from "../events/events-row";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { AreaMapComponent } from "../../../pages/area-map/area-map";
 
 @Component({
     selector: "app-dynamic-content-view",
@@ -52,6 +53,9 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
           @if (actions.isEvents(row)) {
             <app-events-row [row]="row" [rowIndex]="rowIndex"/>
           }
+          @if (actions.isAreaMap(row)) {
+            <app-area-map [row]="row" [pageContent]="viewablePageContent"/>
+          }
         }
         @if (!actions.pageContentFound(viewablePageContent, !!viewablePageContent?.id)) {
           @if (notify.alertTarget.showAlert) {
@@ -67,7 +71,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
         }
       }`,
     styleUrls: ["./dynamic-content.sass"],
-  imports: [ActionButtonsComponent, DynamicContentViewTextRowComponent, DynamicContentViewCarouselComponent, DynamicContentViewAlbumIndexComponent, DynamicContentViewAlbumComponent, EventsRow, FontAwesomeModule]
+  imports: [ActionButtonsComponent, DynamicContentViewTextRowComponent, DynamicContentViewCarouselComponent, DynamicContentViewAlbumIndexComponent, DynamicContentViewAlbumComponent, EventsRow, FontAwesomeModule, AreaMapComponent]
 })
 export class DynamicContentViewComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewComponent", NgxLoggerLevel.ERROR);

@@ -14,7 +14,7 @@ import { MarkdownComponent } from "ngx-markdown";
   selector: "[app-global-styles]",
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
-      <div class="img-thumbnail thumbnail-2">
+      <div class="thumbnail-heading-frame">
         <div class="thumbnail-heading">Global Style Defaults</div>
         @if (config?.globalStyles) {
           <div class="row align-items-center">

@@ -26,6 +26,7 @@ const PageContentRow = new mongoose.Schema({
   carousel: {type: Object},
   events: {type: Object},
   albumIndex: {type: Object},
+  areaMap: {type: Object},
 }, { _id : false });
 
 const pageContentSchema = new mongoose.Schema({

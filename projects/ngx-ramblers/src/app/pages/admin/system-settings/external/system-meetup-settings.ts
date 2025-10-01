@@ -22,7 +22,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 @Component({
     selector: "app-system-meetup-settings",
     template: `
-    <div class="row img-thumbnail thumbnail-2">
+    <div class="row thumbnail-heading-frame">
       <div class="thumbnail-heading">Meetup</div>
       @if (config?.externalSystems.meetup) {
         <div class="col-sm-12">

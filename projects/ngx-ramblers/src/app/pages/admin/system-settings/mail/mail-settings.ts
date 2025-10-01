@@ -63,7 +63,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                 (selectTab)="selectTab(MailSettingsTab.MAIL_API_SETTINGS)"
                 [heading]="MailSettingsTab.MAIL_API_SETTINGS">
                 <div class="img-thumbnail thumbnail-admin-edit">
-                  <div class="img-thumbnail thumbnail-2">
+                  <div class="thumbnail-heading-frame">
                     <div class="thumbnail-heading">Global Settings</div>
                     <div class="row">
                       <div class="col-sm-12 mb-3 mx-2">
@@ -129,7 +129,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                     </div>
                   </div>
                   @if (mailMessagingConfig.brevo.account) {
-                    <div class="img-thumbnail thumbnail-2">
+                    <div class="thumbnail-heading-frame">
                       <div class="thumbnail-heading">Account Profile</div>
                       <div class="row">
                         <div class="col-sm-12 mt-2 mb-2">
@@ -200,7 +200,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                     </div>
                   }
                   @if (mailMessagingConfig.brevo.account) {
-                    <div class="img-thumbnail thumbnail-2">
+                    <div class="thumbnail-heading-frame">
                       <div class="thumbnail-heading">Free Email Plan Usage</div>
                       <div class="row">
                         <div class="col-sm-12">
@@ -218,7 +218,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                 (selectTab)="selectTab(MailSettingsTab.MAIL_LIST_SETTINGS)"
                 [heading]="MailSettingsTab.MAIL_LIST_SETTINGS">
                 <div class="img-thumbnail thumbnail-admin-edit">
-                  <div class="img-thumbnail thumbnail-2">
+                  <div class="thumbnail-heading-frame">
                     <div class="thumbnail-heading">List Settings</div>
                     <div class="col-sm-12 mb-3">
                       <app-markdown-editor category="admin" name="mail-settings-list-settings"></app-markdown-editor>

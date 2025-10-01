@@ -11,7 +11,7 @@ import { LinkEditComponent } from "../link-edit/link-edit";
 @Component({
     selector: "app-links-edit",
     template: `
-      <div class="row img-thumbnail thumbnail-2">
+      <div class="row thumbnail-heading-frame">
         <div class="thumbnail-heading">{{ heading }} ({{ links.length }})</div>
         <div class="col-sm-12">
           @if (!newEditInProgress()) {

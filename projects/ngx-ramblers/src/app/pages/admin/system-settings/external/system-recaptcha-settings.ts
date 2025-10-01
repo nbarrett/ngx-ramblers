@@ -13,7 +13,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 @Component({
     selector: "app-system-recaptcha-settings",
     template: `
-    <div class="row img-thumbnail thumbnail-2">
+    <div class="row thumbnail-heading-frame">
       <div class="thumbnail-heading">reCAPTCHA</div>
       @if (systemConfigInternal?.recaptcha) {
         <div class="col-sm-12">
