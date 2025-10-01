@@ -21,7 +21,7 @@ import { MarkdownComponent } from "ngx-markdown";
     selector: "app-committee-member",
     template: `
     @if (committeeMember) {
-      <div class="img-thumbnail thumbnail-2">
+      <div class="thumbnail-heading-frame">
         <div class="thumbnail-heading">Role {{ index + 1 }} of {{ roles.length }}
           : {{ committeeMember.nameAndDescription }}
         </div>

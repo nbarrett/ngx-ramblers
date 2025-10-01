@@ -60,6 +60,7 @@ import { DuplicateContentDetectionService } from "../../../services/duplicate-co
 import { last } from "es-toolkit/compat";
 import { ALERT_ERROR } from "../../../models/alert-target.model";
 import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events";
+import { DynamicContentSiteEditAreaMapComponent } from "./dynamic-content-site-edit-area-map";
 
 @Component({
     selector: "app-dynamic-content-site-edit",
@@ -274,6 +275,9 @@ import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events
                   @if (actions.isEvents(row)) {
                     <app-dynamic-content-site-edit-events [row]="row" [rowIndex]="rowIndex"/>
                   }
+                  @if (actions.isAreaMap(row)) {
+                    <app-dynamic-content-site-edit-area-map [row]="row" [id]="'area-map-' + rowIndex" [pageContent]="pageContent"/>
+                  }
                 </div>
               }
               <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
@@ -327,7 +331,7 @@ import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events
         </ng-template>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtonsComponent, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents]
+  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtonsComponent, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   protected duplicateUsageMessages: DuplicateUsageMessage[] = [];

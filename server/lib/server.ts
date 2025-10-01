@@ -50,6 +50,8 @@ import favicon = require("serve-favicon");
 import fs = require("fs");
 import committeeFile = require("./mongo/routes/committee-file");
 import memberResource = require("./mongo/routes/member-resource");
+import { geoJsonRoutes } from "./geojson/geojson-routes";
+import { regions } from "./geojson/regions";
 
 install();
 const debugLog = debug(envConfig.logNamespace("server"));
@@ -76,6 +78,8 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.get("/api/files/download", download);
 app.get("/api/health", health);
+app.use("/api/areas", geoJsonRoutes);
+app.get("/api/regions", regions);
 app.use("/api/download-status", downloadStatusRoutes);
 app.use("/api/ramblers", ramblersRoutes);
 app.use("/api/aws", awsRoutes);

@@ -7,6 +7,7 @@ import {
   faEraser,
   faMagnifyingGlass,
   faPencil,
+  faRefresh,
   faRemove,
   faSpinner,
   faUnlink
@@ -48,6 +49,7 @@ import { ALERT_WARNING } from "../models/alert-target.model";
 import { UrlService } from "../services/url.service";
 import { SystemConfig } from "../models/system.model";
 import { Subscription } from "rxjs";
+import { DataPopulationService } from "../pages/admin/data-population.service";
 import { SystemConfigService } from "../services/system/system-config.service";
 
 @Component({
@@ -74,7 +76,7 @@ import { SystemConfigService } from "../services/system/system-config.service";
             </app-badge-button>
           }
           @if (!buttonsAvailableOnlyOnFocus || componentHasFocus()) {
-            <ng-content select="[prepend]"></ng-content>
+            <ng-content select="[prepend]"/>
             @if (editorState.view) {
               <app-badge-button (click)="toggleEdit()" delay=500 [tooltip]="tooltip()"
                                 [icon]="icon()"
@@ -84,6 +86,11 @@ import { SystemConfigService } from "../services/system/system-config.service";
               <app-badge-button (click)="save()" [tooltip]="'Save content for ' + description"
                                 delay=500 [icon]="saving() ? faSpinner: faCircleCheck"
                                 [caption]="'save'"/>
+            }
+            @if (hasDefaultContent()) {
+              <app-badge-button (click)="loadDefault()"
+                                delay=500 [tooltip]="'Load default content for ' + description"
+                                [icon]="faRefresh" caption="default"/>
             }
             @if (dirty() && !saving()) {
               <app-badge-button (click)="revert()"
@@ -224,7 +231,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.queryOnlyById = coerceBooleanProperty(queryOnlyById);
   }
 
-  private logger: Logger = inject(LoggerFactory).createLogger("MarkdownEditorComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("MarkdownEditorComponent", NgxLoggerLevel.INFO);
   private systemConfigService: SystemConfigService = inject(SystemConfigService);
   private uiActionsService = inject(UiActionsService);
   private broadcastService = inject<BroadcastService<ContentText>>(BroadcastService);
@@ -234,6 +241,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   protected stringUtilsService = inject(StringUtilsService);
   protected siteEditService = inject(SiteEditService);
   private urlService = inject(UrlService);
+  private dataPopulationService = inject(DataPopulationService);
   private systemConfig: SystemConfig;
   @Input() id: string;
   @Input() rows: number;
@@ -262,6 +270,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   faAngleUp = faAngleUp;
   faAngleDown = faAngleDown;
   protected readonly faUnlink = faUnlink;
+  protected readonly faRefresh = faRefresh;
   private noSave: boolean;
   private originalContent: ContentText;
   public editorState: EditorState;
@@ -273,6 +282,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   private hideParameterName: StoredValue;
   protected readonly ALERT_WARNING = ALERT_WARNING;
   private subscriptions: Subscription[] = [];
+
   async ngOnInit() {
     this.logger.debug("ngOnInit:name", this.name, "data:", this.data, "description:", this.description);
     this.hideParameterName = this.stringUtilsService.kebabCase(StoredValue.MARKDOWN_FIELD_HIDDEN, this.name) as StoredValue;
@@ -439,7 +449,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   toggleEdit(): void {
-    this.logger.debug("toggleEdit called");
+    this.logger.info("toggleEdit called");
     if (this.siteEditService.active() && this.editorState.dataAction !== DataAction.QUERY) {
       const priorState: View = this.editorState.view;
       if (priorState === View.VIEW) {
@@ -447,7 +457,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       } else if (this.editorState.view === View.EDIT) {
         this.toggleToView();
       }
-      this.logger.debug("toggleEdit: changing state from ", priorState, "to", this.editorState.view);
+      this.logger.info("toggleEdit: changing state from ", priorState, "to", this.editorState.view);
     }
   }
 
@@ -591,7 +601,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     const contentStyle = this.content?.styles?.class ? `${this.content?.styles?.class} background-panel` : null;
     const linkStyle = this.systemConfig?.globalStyles?.link || defaultStyles.link;
     const classes = [listStyle, contentStyle, linkStyle].filter(Boolean).join(" ");
-    this.logger.info("contentStyleClasses:listStyle:", listStyle, "contentStyle:", contentStyle, "linkStyle:", linkStyle, "classes:", classes);
+    this.logger.off("contentStyleClasses:listStyle:", listStyle, "contentStyle:", contentStyle, "linkStyle:", linkStyle, "classes:", classes);
     return classes;
   }
 
@@ -618,5 +628,17 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
   isOnThisPage(contentPath: string): boolean {
     return this.urlService.pathContains(contentPath);
+  }
+
+  hasDefaultContent(): boolean {
+    return this.category && this.name && this.dataPopulationService.hasDefaultContent(this.category, this.name);
+  }
+
+  loadDefault(): void {
+    const defaultText = this.dataPopulationService.defaultContent(this.category, this.name);
+    if (defaultText) {
+      this.content.text = defaultText;
+      this.changeText(defaultText);
+    }
   }
 }

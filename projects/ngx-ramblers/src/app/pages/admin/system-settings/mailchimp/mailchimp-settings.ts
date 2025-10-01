@@ -40,7 +40,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
               <tab heading="General">
                 <div class="img-thumbnail thumbnail-admin-edit">
                   @if (mailchimpConfig) {
-                    <div class="img-thumbnail thumbnail-2">
+                    <div class="thumbnail-heading-frame">
                       <div class="thumbnail-heading">Global Settings</div>
                       <div class="col-sm-12">
                         <div class="form-check">
@@ -72,7 +72,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                       </div>
                     </div>
                   }
-                  <div class="img-thumbnail thumbnail-2">
+                  <div class="thumbnail-heading-frame">
                     <div class="thumbnail-heading">List Settings</div>
                     <app-mailchimp-list-settings label="General"
                       [mailchimpListingResponse]="mailchimpListingResponse"
@@ -97,7 +97,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                     </app-mailchimp-list-settings>
                   </div>
                   @if (mailchimpConfig) {
-                    <div class="img-thumbnail thumbnail-2">
+                    <div class="thumbnail-heading-frame">
                       <div class="thumbnail-heading">Mailchimp Segments</div>
                       <app-mailchimp-segment-editor [segments]="mailchimpConfig.segments.general">
                       </app-mailchimp-segment-editor>
@@ -108,12 +108,12 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
               <tab heading="Defaults">
                 <div class="img-thumbnail thumbnail-admin-edit">
                   @if (mailchimpConfig.contactDefaults) {
-                    <div class="img-thumbnail thumbnail-2">
+                    <div class="thumbnail-heading-frame">
                       <div class="thumbnail-heading">Contact Defaults</div>
                       <app-mailchimp-contact [mailchimpContact]="mailchimpConfig.contactDefaults"></app-mailchimp-contact>
                     </div>
                   }
-                  <div class="img-thumbnail thumbnail-2">
+                  <div class="thumbnail-heading-frame">
                     <div class="thumbnail-heading">Campaign Defaults</div>
                     <app-mailchimp-campaign-defaults [campaignDefaults]="mailchimpConfig.campaignDefaults">
                     </app-mailchimp-campaign-defaults>
@@ -122,7 +122,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
               </tab>
               <tab [heading]="'Walks'">
                 <div class="img-thumbnail thumbnail-admin-edit">
-                  <div class="row img-thumbnail thumbnail-2">
+                  <div class="row thumbnail-heading-frame">
                     <div class="thumbnail-heading">Walk Leader</div>
                     <div class="col-sm-12">
                       <div class="form-group">
@@ -157,7 +157,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
               </tab>
               <tab [heading]="'Social Events'">
                 <div class="img-thumbnail thumbnail-admin-edit">
-                  <div class="row img-thumbnail thumbnail-2">
+                  <div class="row thumbnail-heading-frame">
                     <div class="thumbnail-heading">Social Events</div>
                     <div class="col-sm-12">
                       <div class="form-group">
@@ -192,7 +192,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
               </tab>
               <tab [heading]="'Committee'">
                 <div class="img-thumbnail thumbnail-admin-edit">
-                  <div class="row img-thumbnail thumbnail-2">
+                  <div class="row thumbnail-heading-frame">
                     <div class="thumbnail-heading">AGM and Committee</div>
                     <div class="col-sm-12">
                       <div class="form-group">
@@ -223,7 +223,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                       </div>
                     </div>
                   </div>
-                  <div class="row img-thumbnail thumbnail-2">
+                  <div class="row thumbnail-heading-frame">
                     <div class="thumbnail-heading">Newsletter</div>
                     <div class="col-sm-12">
                       <div class="form-group">
@@ -258,7 +258,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
               </tab>
               <tab [heading]="'Expenses'">
                 <div class="img-thumbnail thumbnail-admin-edit">
-                  <div class="row img-thumbnail thumbnail-2">
+                  <div class="row thumbnail-heading-frame">
                     <div class="thumbnail-heading">Expenses</div>
                     <div class="col-sm-12">
                       <div class="form-group">
@@ -294,7 +294,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
               </tab>
               <tab [heading]="'Passwords'">
                 <div class="img-thumbnail thumbnail-admin-edit">
-                  <div class="row img-thumbnail thumbnail-2">
+                  <div class="row thumbnail-heading-frame">
                     <div class="thumbnail-heading">Password Reset</div>
                     <div class="col-sm-12">
                       <div class="form-group">
@@ -333,7 +333,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                       </div>
                     </div>
                   </div>
-                  <div class="row img-thumbnail thumbnail-2">
+                  <div class="row thumbnail-heading-frame">
                     <div class="thumbnail-heading">Forgotten Password</div>
                     <div class="col-sm-12">
                       <div class="form-group">
@@ -369,7 +369,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
               </tab>
               <tab [heading]="'Membership'">
                 <div class="img-thumbnail thumbnail-admin-edit">
-                  <div class="row img-thumbnail thumbnail-2">
+                  <div class="row thumbnail-heading-frame">
                     <div class="thumbnail-heading">Welcome to {{ group?.shortName }}</div>
                     <div class="col-sm-12">
                       <div class="form-group">
@@ -408,7 +408,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                       </div>
                     </div>
                   </div>
-                  <div class="row img-thumbnail thumbnail-2">
+                  <div class="row thumbnail-heading-frame">
                     <div class="thumbnail-heading">Expired Members - initial notification</div>
                     <div class="col-sm-12">
                       <div class="form-group">
@@ -447,7 +447,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                       </div>
                     </div>
                   </div>
-                  <div class="row img-thumbnail thumbnail-2">
+                  <div class="row thumbnail-heading-frame">
                     <div class="thumbnail-heading">Expired Members - final notification</div>
                     <div class="col-sm-12">
                       <div class="form-group">

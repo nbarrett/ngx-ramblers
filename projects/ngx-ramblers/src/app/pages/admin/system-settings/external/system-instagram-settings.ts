@@ -20,7 +20,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 @Component({
     selector: "app-system-instagram-settings",
     template: `
-      <div class="row img-thumbnail thumbnail-2">
+      <div class="row thumbnail-heading-frame">
         <div class="thumbnail-heading">Instagram</div>
         <div class="col-sm-12">
           @if (config?.externalSystems.instagram) {

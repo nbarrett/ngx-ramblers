@@ -44,6 +44,7 @@ import { ImageSettings } from "./images/image-settings";
 import { GlobalStyles } from "./styles/global-styles";
 import { InstagramSettings } from "./external/system-instagram-settings";
 import { RamblersSettings } from "./external/ramblers-settings";
+import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
 
 @Component({
     selector: "app-system-settings",
@@ -92,7 +93,7 @@ import { RamblersSettings } from "./external/ramblers-settings";
                      (selectTab)="selectTab(SystemSettingsTab.WEBSITE_HEADER)">
                   <div class="img-thumbnail thumbnail-admin-edit">
                     <app-links-edit heading="Header Buttons" [links]="config.header.navigationButtons"/>
-                    <div class="img-thumbnail thumbnail-2">
+                    <div class="thumbnail-heading-frame">
                       <div class="thumbnail-heading">Header Bar</div>
                       <div class="row">
                         <div class="col-md-12">
@@ -127,7 +128,7 @@ import { RamblersSettings } from "./external/ramblers-settings";
                         </div>
                       </div>
                     </div>
-                    <div class="img-thumbnail thumbnail-2">
+                    <div class="thumbnail-heading-frame">
                       <div class="thumbnail-heading">Header Right Panel</div>
                       <div class="row">
                         <div class="col-md-12">
@@ -186,7 +187,7 @@ import { RamblersSettings } from "./external/ramblers-settings";
                         </div>
                       </div>
                     </div>
-                    <div class="img-thumbnail thumbnail-2">
+                    <div class="thumbnail-heading-frame">
                       <div class="thumbnail-heading">Navbar</div>
                       <div class="row">
                         <div class="col-sm-4">
@@ -224,7 +225,7 @@ import { RamblersSettings } from "./external/ramblers-settings";
                      [active]="tabActive(SystemSettingsTab.WEBSITE_FOOTER)"
                      (selectTab)="selectTab(SystemSettingsTab.WEBSITE_FOOTER)">
                   <div class="img-thumbnail thumbnail-admin-edit">
-                    <div class="row img-thumbnail thumbnail-2">
+                    <div class="row thumbnail-heading-frame">
                       <div class="thumbnail-heading">Column 1: External Urls</div>
                       <div class="col-md-12">
                         <div class="form-check">
@@ -305,7 +306,7 @@ import { RamblersSettings } from "./external/ramblers-settings";
                     <app-links-edit [heading]='"Column 2: Quick Links"'
                                     [links]="config.footer.quickLinks"/>
                     <app-links-edit [heading]='"Column 3: Legals"' [links]="config.footer.legals"/>
-                    <div class="row img-thumbnail thumbnail-2">
+                    <div class="row thumbnail-heading-frame">
                       <div class="thumbnail-heading">Column 4: Download Links</div>
                       <div class="col-sm-12">
                         <div class="form-group">
@@ -323,6 +324,11 @@ import { RamblersSettings } from "./external/ramblers-settings";
                       </div>
                     </div>
                   </div>
+                </tab>
+                <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.AREA_MAP_SYNC)}}"
+                     [active]="tabActive(SystemSettingsTab.AREA_MAP_SYNC)"
+                     (selectTab)="selectTab(SystemSettingsTab.AREA_MAP_SYNC)">
+                  <app-area-map-sync-settings [config]="config" (busyChange)="areaMapSyncBusy=$event"/>
                 </tab>
                 <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.EXTERNAL_SYSTEMS)}}"
                      [active]="tabActive(SystemSettingsTab.EXTERNAL_SYSTEMS)"
@@ -357,18 +363,18 @@ import { RamblersSettings } from "./external/ramblers-settings";
           <div class="col-sm-12">
             <div class="col-sm-12">
               <input type="submit" value="Save settings and exit" (click)="saveAndExit()"
-                     [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady()">
+                     [ngClass]="notReady() || areaMapSyncBusy ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady() || areaMapSyncBusy">
               <input type="submit" value="Save" (click)="save()"
-                     [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady()">
+                     [ngClass]="notReady() || areaMapSyncBusy ? 'btn btn-secondary me-2': 'btn btn-success me-2'" [disabled]="notReady() || areaMapSyncBusy">
               <input type="submit" value="Undo Changes" (click)="undoChanges()"
-                     [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-primary me-2'" [disabled]="notReady()">
+                     [ngClass]="notReady() || areaMapSyncBusy ? 'btn btn-secondary me-2': 'btn btn-primary me-2'" [disabled]="notReady() || areaMapSyncBusy">
               <input type="submit" value="Exit Without Saving" (click)="cancel()"
-                     [ngClass]="notReady() ? 'btn btn-secondary me-2': 'btn btn-primary me-2'" [disabled]="notReady()">
+                     [ngClass]="notReady() || areaMapSyncBusy ? 'btn btn-secondary me-2': 'btn btn-primary me-2'" [disabled]="notReady() || areaMapSyncBusy">
             </div>
           </div>
         </div>
       </app-page>`,
-  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemOsMapsSettings, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles]
+  imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, LinksEditComponent, ImageSettings, ColourSelectorComponent, MailProviderSettingsComponent, InstagramSettings, SystemRecaptchaSettingsComponent, SystemGoogleAnalyticsSettings, SystemOsMapsSettings, FontAwesomeModule, NgClass, AreaAndGroupSettingsComponent, ImageSettings, ImageCollectionSettingsComponent, RamblersSettings, InstagramSettings, SystemMeetupSettingsComponent, RamblersSettings, GlobalStyles, SystemAreaMapSyncComponent]
 })
 export class SystemSettingsComponent implements OnInit, OnDestroy {
 
@@ -380,6 +386,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   public backgrounds: RootFolder = RootFolder.backgrounds;
   private subscriptions: Subscription[] = [];
   public membersPendingSave: Member[] = [];
+  public areaMapSyncBusy = false;
   private memberService: MemberService = inject(MemberService);
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
   private notifierService: NotifierService = inject(NotifierService);

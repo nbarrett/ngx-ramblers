@@ -18,7 +18,7 @@ import { FormsModule, ReactiveFormsModule } from "@angular/forms";
     selector: "[app-image-collection-settings]",
     template: `
       <div class="img-thumbnail thumbnail-admin-edit">
-        <div class="row img-thumbnail thumbnail-2">
+        <div class="row thumbnail-heading-frame">
           <div class="thumbnail-heading">{{ imageTypeDescription }} ({{ images?.images?.length || 0 }})</div>
           <div class="col-sm-12">
             @if (pasteActive) {

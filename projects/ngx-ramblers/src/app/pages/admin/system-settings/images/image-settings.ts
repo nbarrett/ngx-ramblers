@@ -13,7 +13,7 @@ import { FileSizeSelectorComponent } from "../../../../carousel/edit/file-size-s
   selector: "[app-image-settings]",
   template: `
     <div class="img-thumbnail thumbnail-admin-edit">
-      <div class="row img-thumbnail thumbnail-2">
+      <div class="row thumbnail-heading-frame">
         <div class="thumbnail-heading">Image List Defaults</div>
         @if (config?.images?.imageLists) {
           <div class="col-sm-12">

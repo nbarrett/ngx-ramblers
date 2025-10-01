@@ -10,7 +10,7 @@ import { FormsModule, ReactiveFormsModule } from "@angular/forms";
   selector: "app-ramblers-settings",
   template: `
     @if (config?.national?.mainSite) {
-      <div class="row img-thumbnail thumbnail-2">
+      <div class="row thumbnail-heading-frame">
         <div class="thumbnail-heading">Ramblers</div>
         <div class="row">
           <div class="col-md-5">
