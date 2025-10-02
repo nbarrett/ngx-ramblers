@@ -102,6 +102,7 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
             [inputDisabled]="inputDisabled()"
             [saveInProgress]="saveInProgress"
             (walkLeaderChange)="walkLeaderMemberIdChanged()"
+            (clearWalkLeaderRequest)="requestClearWalkLeader()"
             (statusChange)="onWalkStatusChange($event)"/>
         </tab>
         <tab app-walk-edit-features heading="Features"
@@ -217,6 +218,16 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
           <input [disabled]="saveInProgress" type="submit"
                  value="Contact {{personToNotify()}}" (click)="confirmContactOther()"
                  title="Contact {{personToNotify()}} via email"
+                 class="btn btn-primary me-2">
+        }
+        @if (pendingClearWalkLeader()) {
+          <input [disabled]="saveInProgress" type="submit"
+                 value="Keep Walk Details" (click)="confirmClearWalkLeaderKeepDetails()"
+                 title="Clear walk leader but keep all walk details"
+                 class="btn btn-primary me-2">
+          <input [disabled]="saveInProgress" type="submit"
+                 value="Free Slot" (click)="confirmClearWalkLeaderFreeSlot()"
+                 title="Reset walk to empty slot and clear all details"
                  class="btn btn-primary me-2">
         }
         @if (pendingConfirmation()) {
@@ -447,6 +458,10 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     return this.confirmAction === ConfirmType.CONTACT_OTHER;
   }
 
+  pendingClearWalkLeader() {
+    return this.confirmAction === ConfirmType.CLEAR_WALK_LEADER;
+  }
+
   pendingConfirmation() {
     return this.confirmAction !== ConfirmType.NONE;
   }
@@ -498,7 +513,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         this.displayedWalk.walk.fields.contactDetails.memberId = this.memberLoginService.loggedInMember().memberId;
         this.walkLeaderMemberIdChanged();
         this.notify.success({
-          title: "Thanks for offering to lead this walk " + this.memberLoginService.loggedInMember().firstName + "!",
+          title: `Thanks for offering to lead this walk ${this.memberLoginService.loggedInMember().firstName}!`,
           message: "Please complete as many details you can, then click Save to allocate this slot on the walks programme. " +
             "It will be published to the public once it's approved. If you want to release this slot again, just click Cancel."
         });
@@ -540,8 +555,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.confirmAction = ConfirmType.DELETE;
     this.notify.warning({
       title: "Confirm delete of walk details",
-      message: "If you confirm this, the slot for " +
-        this.displayDate.transform(this.displayedWalk.walk?.groupEvent?.start_date_time) + " will be deleted from the site."
+      message: `If you confirm this, the slot for ${this.displayDate.transform(this.displayedWalk.walk?.groupEvent?.start_date_time)} will be deleted from the site.`
     });
   }
 
@@ -549,8 +563,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.confirmAction = ConfirmType.CANCEL;
     this.notify.warning({
       title: "Cancel changes",
-      message: "Click Confirm to lose any changes you've just made for " +
-        this.displayDate.transform(this.displayedWalk.walk?.groupEvent?.start_date_time) + ", or Cancel to carry on editing."
+      message: `Click Confirm to lose any changes you've just made for ${this.displayDate.transform(this.displayedWalk.walk?.groupEvent?.start_date_time)}, or Cancel to carry on editing.`
     });
   }
 
@@ -566,17 +579,15 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       this.notify.warning(
         {
           title: "Walk leader needed",
-          message: "This walk cannot be changed to " + eventType.description + " yet."
+          message: `This walk cannot be changed to ${eventType.description} yet`
         });
       this.logger.info("isWalkReadyForStatusChangeTo:false - this.displayedWalk.status ->", this.displayedWalk.status);
       return false;
     } else if (eventType.mustPassValidation && walkValidations.length > 0) {
       this.notify.warning(
         {
-          title: "This walk is not ready to be " + eventType.readyToBe + " yet due to the following "
-            + walkValidations.length + " reasons(s)",
-          message: walkValidations.join(", ") +
-            ". You can still save this walk, then come back later on to complete the rest of the details."
+          title: `This walk is not ready to be ${eventType.readyToBe} yet due to the following ${walkValidations.length} reasons(s)`,
+          message: `${walkValidations.join(", ")}. You can still save this walk, then come back later on to complete the rest of the details.`
         });
       return false;
     } else {
@@ -699,7 +710,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     if (validationMessages.length > 0) {
       this.notify.warning({
         title: `This walk still has the following ${this.stringUtils.pluraliseWithCount(validationMessages.length, "area")} that ${this.stringUtils.pluralise(validationMessages.length, "needs", "need")} attention`,
-        message: validationMessages.join(", ") + ". You'll have to get the rest of these details completed before you mark the walk as approved."
+        message: `${validationMessages.join(", ")}. You'll have to get the rest of these details completed before you mark the walk as approved.`
       });
     } else {
       this.notify.success({
@@ -718,6 +729,47 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   cancelConfirmableAction() {
     this.confirmAction = ConfirmType.NONE;
     this.notify.hide();
+  }
+
+  requestClearWalkLeader() {
+    this.confirmAction = ConfirmType.CLEAR_WALK_LEADER;
+    this.notify.warning({
+      title: "Clear Walk Leader",
+      message: "Choose 'Keep Walk Details' to clear the walk leader but keep all walk information, or 'Free Slot' to reset this to an empty walk slot."
+    });
+  }
+
+  confirmClearWalkLeaderKeepDetails() {
+    this.confirmAction = ConfirmType.NONE;
+    this.notify.hide();
+    this.displayedWalk.walk.fields.contactDetails.memberId = null;
+    this.displayedWalk.walk.fields.contactDetails.displayName = null;
+    this.displayedWalk.walk.fields.contactDetails.phone = null;
+    this.displayedWalk.walk.fields.contactDetails.email = null;
+    this.displayedWalk.walk.fields.publishing.ramblers.contactName = null;
+    this.setStatus(EventType.AWAITING_LEADER);
+  }
+
+  confirmClearWalkLeaderFreeSlot() {
+    this.confirmAction = ConfirmType.NONE;
+    this.notify.hide();
+    const walkDate = this.displayedWalk.walk?.groupEvent?.start_date_time;
+    const endDateTime = this.displayedWalk.walk?.groupEvent?.end_date_time;
+    this.displayedWalk.walk = this.eventDefaultsService.createDefault({
+      inputSource: InputSource.MANUALLY_CREATED,
+      item_type: this.displayedWalk.walk?.groupEvent?.item_type,
+      id: this.displayedWalk.walk.id,
+      start_date_time: walkDate,
+      events: this.displayedWalk.walk.events,
+    });
+    if (endDateTime) {
+      this.displayedWalk.walk.groupEvent.end_date_time = endDateTime;
+    }
+    this.setStatus(EventType.AWAITING_LEADER);
+    this.notify.success({
+      title: `Walk details reset for ${this.displayDate.transform(walkDate)}`,
+      message: `Status is now ${this.walksReferenceService.toWalkEventType(EventType.AWAITING_LEADER).description}`
+    });
   }
 
   personToNotify() {
@@ -780,18 +832,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
       this.setStatus(eventType.eventType);
       switch (eventType.eventType) {
         case EventType.AWAITING_LEADER: {
-          const walkDate = this.displayedWalk.walk?.groupEvent?.start_date_time;
-          this.displayedWalk.walk = this.eventDefaultsService.createDefault({
-            inputSource: InputSource.MANUALLY_CREATED,
-            item_type: this.displayedWalk.walk?.groupEvent?.item_type,
-            id: this.displayedWalk.walk.id,
-            start_date_time: walkDate,
-            events: this.displayedWalk.walk.events,
-          });
-          return this.notify.success({
-            title: "Walk details reset for " + this.displayDate.transform(walkDate),
-            message: "Status is now " + this.walksReferenceService.toWalkEventType(EventType.AWAITING_LEADER).description
-          });
+          return this.requestClearWalkLeader();
         }
         case EventType.APPROVED: {
           return this.approveWalkDetails();

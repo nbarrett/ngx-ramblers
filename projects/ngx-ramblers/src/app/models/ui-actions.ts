@@ -9,6 +9,7 @@ export enum ConfirmType {
   CONTACT_OTHER = "contactOther",
   PUBLISH_MEETUP = "publishMeetup",
   SEND_NOTIFICATION = "sendNotification",
+  CLEAR_WALK_LEADER = "clearWalkLeader",
   NONE = "none"
 }
 

@@ -75,7 +75,7 @@ import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalki
                   {{ displayedWalk?.walk?.groupEvent?.start_location?.postcode }}</a></dd>
               </dl>
             }
-            @if (displayedWalk?.walk?.fields?.contactDetails?.displayName) {
+            @if (display.hasWalkLeader(displayedWalk.walk)) {
               <dl class="d-flex mb-1">
                 <dt class="font-weight-bold me-2">Leader:</dt>
                 <dd>
@@ -126,7 +126,7 @@ import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalki
                               {{ displayedWalk?.walk?.fields?.contactDetails?.phone }}
                             </a>
                           </div>
-                        } @else if (displayedWalk?.walk?.fields?.contactDetails?.displayName) {
+                        } @else if (display.hasWalkLeader(displayedWalk.walk)) {
                           <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
                             <app-copy-icon [icon]="faPersonWalking" title
                                            [value]="displayedWalk?.walk?.fields?.contactDetails?.displayName"
