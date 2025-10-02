@@ -3,7 +3,7 @@ import { DisplayedWalk, EventType } from "../../../models/walk.model";
 import { FormsModule } from "@angular/forms";
 import { WalkDisplayService } from "../walk-display.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
-import { DisplayMember } from "../../../models/member.model";
+import { DisplayMember, Member } from "../../../models/member.model";
 import { FullNameWithAliasOrMePipe } from "../../../pipes/full-name-with-alias-or-me.pipe";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { AlertInstance } from "../../../services/notifier.service";
@@ -14,11 +14,12 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { JsonPipe } from "@angular/common";
+import { MemberSelector } from "../../../shared/components/member-selector";
 
 @Component({
   selector: "app-walk-edit-leader",
   standalone: true,
-  imports: [FormsModule, JsonPipe],
+  imports: [FormsModule, JsonPipe, MemberSelector],
   styles: `
     .button-bottom-aligned
       margin: 34px 0px 0px -14px
@@ -72,21 +73,24 @@ import { JsonPipe } from "@angular/common";
             <div class="form-group">
               <label for="contact-member">Walk Leader</label>
               @if (allowDetailView) {
-                <select [disabled]="!display.allowAdminEdits()"
-                        (change)="walkLeaderChange.emit()"
-                        [(ngModel)]="displayedWalk.walk.fields.contactDetails.memberId"
-                        class="form-control" id="contact-member">
-                  <option value="">(no walk leader selected)</option>
-                  @for (member of memberLookup; track member.memberId) {
-                    <option [ngValue]="member.memberId">{{ member.name }}</option>
-                  }
-                </select>
+                <app-member-selector
+                  [selectedMember]="selectedWalkLeader"
+                  (selectedMemberChange)="onWalkLeaderChange($event)"
+                  placeholder="(no walk leader selected)">
+                </app-member-selector>
               }
             </div>
           </div>
-          <div class="col-sm-2">
+          <div class="col-sm-1">
             <div class="form-group">
               <input type="submit" [disabled]="saveInProgress" value="Me" (click)="setWalkLeaderToMe()"
+                     class="btn btn-primary button-bottom-aligned w-100">
+            </div>
+          </div>
+          <div class="col-sm-1">
+            <div class="form-group">
+              <input type="submit" [disabled]="saveInProgress || !display.hasWalkLeader(displayedWalk.walk)"
+                     value="Clear" (click)="clearWalkLeader()"
                      class="btn btn-primary button-bottom-aligned w-100">
             </div>
           </div>
@@ -171,6 +175,7 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
   @Input() notify!: AlertInstance;
   @Output() statusChange = new EventEmitter<EventType>();
   @Output() walkLeaderChange = new EventEmitter<void>();
+  @Output() clearWalkLeaderRequest = new EventEmitter<void>();
   showOnlyWalkLeaders = true;
   previousWalkLeadersWithAliasOrMe: DisplayMember[] = [];
   membersWithAliasOrMe: DisplayMember[] = [];
@@ -220,6 +225,30 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
 
   get toggleRamblersWalkLeaderContactName(): string {
     return this.displayedWalk.walk.fields.publishing.ramblers.contactName === this.myContactId ? "Leader" : "Me";
+  }
+
+  get selectedWalkLeader(): Member | null {
+    const memberId = this.displayedWalk?.walk?.fields?.contactDetails?.memberId;
+    if (!memberId) {
+      return null;
+    }
+    return this.display.members.find(member => member.id === memberId) || null;
+  }
+
+  onWalkLeaderChange(member: Member | null) {
+    if (member) {
+      this.displayedWalk.walk.fields.contactDetails.memberId = member.id;
+      this.walkLeaderChange.emit();
+    } else {
+      this.clearWalkLeaderRequest.emit();
+    }
+  }
+
+  clearWalkLeader() {
+    if (!this.display.hasWalkLeader(this.displayedWalk.walk)) {
+      return;
+    }
+    this.clearWalkLeaderRequest.emit();
   }
 
 

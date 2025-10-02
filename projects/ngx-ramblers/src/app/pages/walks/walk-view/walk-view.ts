@@ -88,7 +88,9 @@ import { PageService } from "../../../services/page.service";
                 <p class="list-arrow" markdown [data]="displayedWalk?.walk?.groupEvent?.description"></p>
               </div>
             }
-            <app-walk-leader [displayedWalk]="displayedWalk"/>
+            @if (display.hasWalkLeader(displayedWalk.walk)) {
+              <app-walk-leader [displayedWalk]="displayedWalk"/>
+            }
             @if (displayedWalk?.hasFeatures) {
               <app-walk-features [extendedGroupEvent]="displayedWalk?.walk"/>
             }

@@ -86,6 +86,11 @@ export class WalkDisplayService {
     return this.walkEventService.latestEvent(walk)?.eventType === EventType.AWAITING_LEADER;
   }
 
+  public hasWalkLeader(walk: ExtendedGroupEvent): boolean {
+    const contactDetails = walk?.fields?.contactDetails;
+    return !!contactDetails?.memberId || !!contactDetails?.displayName;
+  }
+
   public memberEvents(): Observable<Member[]> {
     return this.subject.asObservable();
   }
