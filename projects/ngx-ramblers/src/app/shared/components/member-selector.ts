@@ -16,6 +16,7 @@ import { sortBy } from "../../functions/arrays";
       bindLabel="ngSelectAttributes.label"
       [searchable]="true"
       [clearable]="true"
+      dropdownPosition="bottom"
       [placeholder]="placeholder"
       [(ngModel)]="selectedMember"
       (ngModelChange)="onMemberChange($event)">

@@ -145,11 +145,17 @@ export async function bulkUpdateEvents(req: Request, res: Response) {
 export async function recreateIndex(req: Request, res: Response) {
   try {
     debugLog("recreateIndex: starting");
-    const oldIndexKey = { "groupEvent.start_date_time": 1, "groupEvent.item_type": 1, "groupEvent.group_code": 1 };
+    const oldIndexFields = ["groupEvent.start_date_time", "groupEvent.item_type", "groupEvent.group_code"];
     const indexes = await extendedGroupEvent.collection.indexInformation();
+    debugLog("recreateIndex: existing indexes:", JSON.stringify(indexes, null, 2));
+
     const oldIndexName = Object.keys(indexes).find(name => {
       const indexKeyObj = Object.fromEntries(indexes[name]);
-      return JSON.stringify(indexKeyObj) === JSON.stringify(oldIndexKey);
+      const indexFields = Object.keys(indexKeyObj).sort();
+      const hasExactlyTheseFields = indexFields.length === oldIndexFields.length &&
+        oldIndexFields.every(field => indexKeyObj[field] === 1);
+      debugLog(`recreateIndex: checking index ${name}:`, indexKeyObj, "matches old:", hasExactlyTheseFields);
+      return hasExactlyTheseFields;
     });
 
     if (oldIndexName) {

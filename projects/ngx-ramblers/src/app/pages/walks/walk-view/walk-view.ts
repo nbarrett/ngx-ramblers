@@ -76,7 +76,7 @@ import { PageService } from "../../../services/page.service";
                 Time: {{ displayedWalk?.walk?.groupEvent?.start_date_time | displayTime }}{{ EM_DASH_WITH_SPACES }}
                 Estimated Finish Time: {{ displayedWalk?.walk?.groupEvent?.end_date_time | displayTime }}</h2>
             }
-            @if (displayedWalk?.walk?.groupEvent?.description) {
+            @if (displayedWalk?.walkAccessMode?.walkWritable || displayedWalk?.walk?.groupEvent?.description) {
               <div class="event-description">
                 @if (displayedWalk?.walkAccessMode?.walkWritable) {
                   <input type="submit"
@@ -85,7 +85,9 @@ import { PageService } from "../../../services/page.service";
                          [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
                          class="btn btn-primary float-end ms-2 mb-2">
                 }
-                <p class="list-arrow" markdown [data]="displayedWalk?.walk?.groupEvent?.description"></p>
+                @if (displayedWalk?.walk?.groupEvent?.description) {
+                  <p class="list-arrow" markdown [data]="displayedWalk?.walk?.groupEvent?.description"></p>
+                }
               </div>
             }
             @if (display.hasWalkLeader(displayedWalk.walk)) {

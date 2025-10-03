@@ -15,6 +15,8 @@ import { DEFAULT_BASIC_EVENT_SELECTION } from "../models/search.model";
 import { Observable, ReplaySubject } from "rxjs";
 import { shareReplay } from "rxjs/operators";
 import { StringUtilsService } from "./string-utils.service";
+import { has, isArray, isObject, isUndefined } from "es-toolkit/compat";
+import { DeepPartial } from "../models/utility-types";
 
 @Injectable({
   providedIn: "root"
@@ -65,7 +67,7 @@ export class EventDefaultsService {
       email: null,
       phone: null
     };
-  };
+  }
 
   memberToContact(member: Member): Contact {
     return {
@@ -97,30 +99,28 @@ export class EventDefaultsService {
     };
   };
 
-  public createDefault(defaults?: {
-    title?: string;
-    id?: string,
-    inputSource: InputSource;
-    start_date_time?: string,
-    item_type?: RamblersEventType,
-    shape?: WalkType,
-    events?: WalkEvent[];
-  }) {
+  public createDefault(overrides?: DeepPartial<ExtendedGroupEvent>) {
     const now = this.dateUtils.isoDateTimeNow();
-    const itemType: RamblersEventType = defaults?.item_type || RamblersEventType.GROUP_WALK;
-    const startDateTime = defaults?.start_date_time || now;
+    const id = overrides?.id ?? null;
+    const overridingGroupEvent = overrides?.groupEvent;
+    const overridingFields = overrides?.fields;
+    const itemType: RamblersEventType = isUndefined(overridingGroupEvent?.item_type) ? RamblersEventType.GROUP_WALK : overridingGroupEvent?.item_type as RamblersEventType;
+    const startDateTime = isUndefined(overridingGroupEvent?.start_date_time) ? now : overridingGroupEvent?.start_date_time;
+    const groupEventId = overridingGroupEvent && has(overridingGroupEvent, "id") ? overridingGroupEvent.id : id;
+    const inputSource = isUndefined(overridingFields?.inputSource) ? InputSource.MANUALLY_CREATED : overridingFields?.inputSource;
     const walk: ExtendedGroupEvent = {
+      id,
       groupEvent: {
-        id: defaults.id || null,
+        id: groupEventId,
         item_type: itemType,
-        title: defaults.title,
+        title: overrides?.groupEvent?.title,
         group_code: this.systemConfig.group.groupCode,
         group_name: this.systemConfig.group.longName,
         area_code: this.systemConfig.area.groupCode,
         description: null,
         additional_details: null,
         start_date_time: startDateTime,
-        end_date_time: null,
+        end_date_time: startDateTime,
         meeting_date_time: null,
         location: itemType === RamblersEventType.GROUP_EVENT ? this.defaultLocation() : null,
         start_location: itemType === RamblersEventType.GROUP_EVENT ? null : this.defaultLocation(),
@@ -131,10 +131,10 @@ export class EventDefaultsService {
         ascent_feet: 0,
         ascent_metres: 0,
         difficulty: MODERATE,
-        shape: defaults?.shape || WalkType.CIRCULAR,
+        shape: isUndefined(overridingGroupEvent?.shape) ? WalkType.CIRCULAR : overridingGroupEvent?.shape,
         duration: 0,
         walk_leader: null,
-        url: this.initialUrl(defaults.title, startDateTime),
+        url: this.initialUrl(overrides?.groupEvent?.title, startDateTime),
         external_url: null,
         status: WalkStatus.DRAFT,
         cancellation_reason: null,
@@ -147,7 +147,7 @@ export class EventDefaultsService {
         date_updated: null
       },
       fields: {
-        inputSource: defaults.inputSource,
+        inputSource,
         migratedFromId: null,
         contactDetails: this.defaultContactDetails(),
         publishing: {
@@ -161,14 +161,52 @@ export class EventDefaultsService {
         milesPerHour: this.walksConfig.milesPerHour,
         attendees: []
       },
-      events: defaults?.events || [],
+      events: [],
     };
-    return walk;
+    return this.mergeExtendedGroupEvent(walk, overrides);
+  }
+
+  private mergeExtendedGroupEvent(target: ExtendedGroupEvent, source?: DeepPartial<ExtendedGroupEvent>): ExtendedGroupEvent {
+    if (!source) {
+      return target;
+    }
+    return this.assignDeep(target, source);
+  }
+
+  private assignDeep<T>(target: T, source: DeepPartial<T>): T {
+    if (!source) {
+      return target;
+    }
+    const targetRecord = target as Record<string, any>;
+    const sourceRecord = source as Record<string, any>;
+    Object.keys(sourceRecord).forEach(key => {
+      const sourceValue = sourceRecord[key];
+      if (isUndefined(sourceValue)) {
+        return;
+      }
+      if (isObject(sourceValue) && !isArray(sourceValue)) {
+        const currentTarget = isObject(targetRecord[key]) && !isArray(targetRecord[key]) ? targetRecord[key] : {};
+        targetRecord[key] = this.assignDeep(currentTarget, sourceValue as DeepPartial<any>);
+      } else {
+        targetRecord[key] = sourceValue;
+      }
+    });
+    return target;
   }
 
 
   public initialUrl(title: string, startDateTime: string) {
     return this.stringUtilsService.kebabCase(title, this.dateUtils.yearMonthDayWithDashes(startDateTime));
+  }
+
+  public migrateOldWalkData(walk: ExtendedGroupEvent): void {
+    if (!walk?.groupEvent) {
+      return;
+    }
+    if (walk.groupEvent.end_date_time === null) {
+      this.logger.info("Migrating old walk data: setting end_date_time to start_date_time for walk", walk.id);
+      walk.groupEvent.end_date_time = walk.groupEvent.start_date_time;
+    }
   }
 
   private defaultLocation(): LocationDetails {

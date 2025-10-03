@@ -476,6 +476,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     if (!memberId) {
       this.setStatus(EventType.AWAITING_LEADER);
       this.displayedWalk.walk.fields.contactDetails.memberId = null;
+      this.displayedWalk.walk.fields.contactDetails.contactId = null;
       this.displayedWalk.walk.fields.publishing.ramblers.contactName = null;
       this.displayedWalk.walk.fields.contactDetails.phone = null;
       this.displayedWalk.walk.fields.contactDetails.phone = null;
@@ -488,7 +489,9 @@ export class WalkEditComponent implements OnInit, OnDestroy {
         this.logger.info("selectedMember", selectedMember);
         this.setStatus(EventType.AWAITING_WALK_DETAILS);
         this.displayedWalk.walk.fields.contactDetails.memberId = selectedMember.id;
-        this.displayedWalk.walk.fields.publishing.ramblers.contactName = selectedMember.contactId;
+        const selectedContactId = selectedMember.contactId ?? null;
+        this.displayedWalk.walk.fields.contactDetails.contactId = selectedContactId;
+        this.displayedWalk.walk.fields.publishing.ramblers.contactName = selectedContactId;
         this.displayedWalk.walk.fields.contactDetails.displayName = selectedMember.displayName;
         this.displayedWalk.walk.fields.contactDetails.phone = selectedMember.mobileNumber;
         this.displayedWalk.walk.fields.contactDetails.email = selectedMember.email;
@@ -602,6 +605,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   async confirmDeleteWalkDetails() {
+    this.displayedWalk.walk.groupEvent.title = `Deleted walk ${this.displayedWalk.walk.id}`;
     this.setStatus(EventType.DELETED);
     try {
       return this.sendNotificationsSaveAndCloseIfNotSent();
@@ -743,6 +747,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.confirmAction = ConfirmType.NONE;
     this.notify.hide();
     this.displayedWalk.walk.fields.contactDetails.memberId = null;
+    this.displayedWalk.walk.fields.contactDetails.contactId = null;
     this.displayedWalk.walk.fields.contactDetails.displayName = null;
     this.displayedWalk.walk.fields.contactDetails.phone = null;
     this.displayedWalk.walk.fields.contactDetails.email = null;
@@ -756,15 +761,18 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     const walkDate = this.displayedWalk.walk?.groupEvent?.start_date_time;
     const endDateTime = this.displayedWalk.walk?.groupEvent?.end_date_time;
     this.displayedWalk.walk = this.eventDefaultsService.createDefault({
-      inputSource: InputSource.MANUALLY_CREATED,
-      item_type: this.displayedWalk.walk?.groupEvent?.item_type,
       id: this.displayedWalk.walk.id,
-      start_date_time: walkDate,
-      events: this.displayedWalk.walk.events,
+      groupEvent: {
+        id: this.displayedWalk.walk.groupEvent.id,
+        item_type: this.displayedWalk.walk?.groupEvent?.item_type,
+        start_date_time: walkDate,
+        end_date_time: endDateTime
+      },
+      fields: {
+        inputSource: InputSource.MANUALLY_CREATED
+      },
+      events: this.displayedWalk.walk.events
     });
-    if (endDateTime) {
-      this.displayedWalk.walk.groupEvent.end_date_time = endDateTime;
-    }
     this.setStatus(EventType.AWAITING_LEADER);
     this.notify.success({
       title: `Walk details reset for ${this.displayDate.transform(walkDate)}`,
