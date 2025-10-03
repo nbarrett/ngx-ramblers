@@ -10,7 +10,7 @@ import { RouterLink } from "@angular/router";
     selector: "app-page",
     template: `
     <main>
-      <div class="container">
+      <div>
         @if (pageService.nested()) {
           <ul class="breadcrumb bg-transparent mb-1 ms-0 p-1">
             <span class="d-md-none">...</span>
