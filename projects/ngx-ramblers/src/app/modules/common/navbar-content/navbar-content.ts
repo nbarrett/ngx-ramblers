@@ -17,9 +17,8 @@ import { HeaderButtonsComponent } from "../../../header-buttons/header-buttons";
             <app-page-navigator/>
           </ul>
         </div>
-        <div class="row py-2 align-items-center justify-content-between bg-dark d-flex d-lg-none">
-          <div
-            class="d-block d-sm-flex align-items-center justify-content-center justify-content-lg-end order-sm-3 col-12 order-3">
+        <div class="bg-dark px-3 pt-4 pb-2 d-lg-none">
+          <div class="d-block d-sm-flex align-items-center justify-content-center gap-3">
             @if (systemConfig?.header?.headerBar?.showNavigationButtons) {
               <app-header-buttons/>
             }
@@ -57,20 +56,35 @@ export class NavbarContentComponent  implements OnInit, OnDestroy {
     if (location === 'below-logo') {
       switch (justification) {
         case NavBarJustification.LEFT:
-          return "d-flex justify-content-start";
+          return "d-flex justify-content-center justify-content-lg-start";
         case NavBarJustification.CENTER:
           return "d-flex justify-content-center";
         case NavBarJustification.RIGHT:
         default:
-          return "d-flex justify-content-end";
+          return "d-flex justify-content-center justify-content-lg-end";
       }
     } else {
-      return "d-flex justify-content-center justify-content-lg-end";
+      return "d-flex justify-content-center justify-content-lg-end w-100";
     }
   }
 
   listClasses(): string {
-    return "mx-auto text-center ml-lg-auto mr-lg-0";
+    const location = this.systemConfig?.header?.navBar?.location;
+    const justification = this.systemConfig?.header?.navBar?.justification || NavBarJustification.RIGHT;
+
+    if (location === 'below-logo') {
+      switch (justification) {
+        case NavBarJustification.LEFT:
+          return "text-center text-lg-start justify-content-center justify-content-lg-start";
+        case NavBarJustification.CENTER:
+          return "text-center justify-content-center";
+        case NavBarJustification.RIGHT:
+        default:
+          return "text-center text-lg-end justify-content-center justify-content-lg-end";
+      }
+    }
+
+    return "text-center text-lg-end";
   }
 
 }
