@@ -1,20 +1,22 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import { escapeRegExp } from "es-toolkit/compat";
-import { isNumber } from "es-toolkit/compat";
-import { isObject } from "es-toolkit/compat";
-import { map } from "es-toolkit/compat";
-import { startCase } from "es-toolkit/compat";
-import { toLower } from "es-toolkit/compat";
-import { words } from "es-toolkit/compat";
+import {
+  escapeRegExp,
+  isArray,
+  isBoolean,
+  isEmpty,
+  isNull,
+  isNumber,
+  isObject,
+  isUndefined,
+  map,
+  startCase,
+  toLower,
+  words
+} from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertMessage } from "../models/alert-target.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";
-import { isArray } from "es-toolkit/compat";
-import { isBoolean } from "es-toolkit/compat";
-import { isNull } from "es-toolkit/compat";
-import { isUndefined } from "es-toolkit/compat";
-import { isEmpty } from "es-toolkit/compat";
 import { toKebabCase } from "../functions/strings";
 import he from "he";
 
@@ -124,6 +126,10 @@ StringUtilsService {
   stripLineBreaks(str, andTrim: boolean) {
     const replacedValue = str.replace(/(\r\n|\n|\r)/gm, "");
     return andTrim && replacedValue ? replacedValue.trim() : replacedValue;
+  }
+
+  truncate(str: string, chars: number = 20) {
+    return this.left(str, chars) + (str.length > chars ? "..." : "");
   }
 
   left(str: string, chars: number): string {

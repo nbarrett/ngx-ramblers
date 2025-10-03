@@ -113,7 +113,7 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
     ::ng-deep .d-flex .btn-group
       margin-right: 0.25rem !important
       margin-left: 0 !important
-      
+
     ::ng-deep .d-flex .btn-group:last-child
       margin-right: 0 !important
   `],
@@ -385,7 +385,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   @Output() exit: EventEmitter<ContentMetadata> = new EventEmitter();
 
-  private logger: Logger = inject(LoggerFactory).createLogger("ImageListEditComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("ImageListEditComponent", NgxLoggerLevel.INFO);
   public notifyTarget: AlertTarget = {};
   private notifierService: NotifierService = inject(NotifierService);
   private webSocketClientService: WebSocketClientService = inject(WebSocketClientService);

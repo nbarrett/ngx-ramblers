@@ -1,7 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import { first } from "es-toolkit/compat";
-import { isEmpty } from "es-toolkit/compat";
-import { last } from "es-toolkit/compat";
+import { first, isEmpty, last } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateUtilsService } from "./services/date-utils.service";
 import { Logger, LoggerFactory } from "./services/logger-factory.service";
@@ -11,12 +9,14 @@ import {
   CheckedImage,
   ContentMetadataItem,
   FileTypeAttributes,
-  fileTypeAttributes, IMAGE_JPEG
+  fileTypeAttributes,
+  IMAGE_JPEG
 } from "./models/content-metadata.model";
 import { AwsFileData } from "./models/aws-object.model";
 import { base64ToFile } from "ngx-image-cropper";
 import heic2any from "heic2any";
 import { basename } from "./functions/file-utils";
+import { StringUtilsService } from "./services/string-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -26,6 +26,7 @@ export class FileUtilsService {
   private logger: Logger = inject(LoggerFactory).createLogger("FileUtilsService", NgxLoggerLevel.ERROR);
   protected dateUtils = inject(DateUtilsService);
   private urlService = inject(UrlService);
+  private stringUtils = inject(StringUtilsService);
 
   public async convertHEICFile(file: Base64File): Promise<CheckedImage> {
     try {
@@ -125,14 +126,16 @@ export class FileUtilsService {
     return {
       awsFileName,
       image,
-      file: this.applyBase64ToFile(image, originalFile)
+      file: this.applyBase64ToFile(image, originalFile, awsFileName)
     };
   }
 
   public applyBase64ToFile(base64Image: string, originalFile: File, renamedFile?: string, newType?: string): File {
+    const type = newType || originalFile?.type;
+    this.logger.info("applyBase64ToFile:base64Image:", this.stringUtils.truncate(base64Image, 50), "originalFile:", originalFile, "renamedFile:", this.stringUtils.truncate(renamedFile, 50), "type:", type);
     return new File([base64ToFile(base64Image)], renamedFile || originalFile?.name, {
       lastModified: originalFile?.lastModified,
-      type: newType || originalFile?.type
+      type
     });
   }
 
