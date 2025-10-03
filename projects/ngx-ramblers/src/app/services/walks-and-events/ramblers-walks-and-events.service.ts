@@ -216,7 +216,7 @@ export class RamblersWalksAndEventsService {
     if (RamblersWalksAndEventsService.isEventStartDateGreaterThanOrEqualTo(criteria)) {
       return this.dateUtils.asDateTime(criteria?.[GroupEventField.START_DATE]?.$gte)?.toFormat(DateFormat.WALKS_MANAGER_API);
     } else if (RamblersWalksAndEventsService.isWalkDateLessThan(criteria) || isEmpty(criteria)) {
-      return this.dateUtils.dateTimeNow().minus({ years: 2 }).toFormat(DateFormat.WALKS_MANAGER_API);
+      return WALKS_MANAGER_GO_LIVE_DATE;
     } else {
       return this.dateUtils.dateTimeNow().toFormat(DateFormat.WALKS_MANAGER_API);
     }
