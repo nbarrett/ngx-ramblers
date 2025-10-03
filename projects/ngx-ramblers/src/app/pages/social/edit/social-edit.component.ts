@@ -471,9 +471,13 @@ export class SocialEditComponent implements OnInit, OnDestroy {
     } else if (this.display.inNewEventMode()) {
       this.eventDefaultsService.events().subscribe(ready => {
         this.socialEvent = this.eventDefaultsService.createDefault({
-        inputSource: InputSource.MANUALLY_CREATED,
-        item_type: RamblersEventType.GROUP_EVENT,
-        shape: null
+          fields: {
+            inputSource: InputSource.MANUALLY_CREATED
+          },
+          groupEvent: {
+            item_type: RamblersEventType.GROUP_EVENT,
+            shape: null
+          }
         });
         this.logger.info("ngOnInit:created new socialEvent:", this.socialEvent);
       })

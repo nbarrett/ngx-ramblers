@@ -42,8 +42,12 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
           hasFeatures: false,
           walkAccessMode: WalksReferenceService.walkAccessModes.add,
           walk: this.eventDefaultsService.createDefault({
-            inputSource: InputSource.MANUALLY_CREATED,
-            start_date_time: this.dateUtils.isoDateTimeStartOfDay()
+            fields: {
+              inputSource: InputSource.MANUALLY_CREATED
+            },
+            groupEvent: {
+              start_date_time: this.dateUtils.isoDateTimeStartOfDay()
+            }
           }),
           status: EventType.AWAITING_LEADER,
           showEndpoint: false
@@ -55,6 +59,7 @@ export class WalkEditFullPageComponent implements OnInit, OnDestroy {
         this.walksAndEventsService.queryById(walkId)
           .then((walk: ExtendedGroupEvent) => {
             this.logger.info("found walk", walk);
+            this.eventDefaultsService.migrateOldWalkData(walk);
             this.displayedWalk = this.display.toDisplayedWalk(walk);
             if (this.displayedWalk?.latestEventType) {
               this.setStatus(this.displayedWalk?.latestEventType.eventType);

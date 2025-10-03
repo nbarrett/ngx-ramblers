@@ -16,6 +16,7 @@
     "postbuild": "npm install --prefix server",
     "serve": "ng serve --project ngx-ramblers --configuration development --verbose",
     "test": "ng test --project ngx-ramblers --watch=false --browsers=ChromeHeadless",
+    "test:watch": "ng test --project ngx-ramblers",
     "test:server": "sh -c 'cd server && npm run unit-test:once'"
   },
   "cacheDirectories": [

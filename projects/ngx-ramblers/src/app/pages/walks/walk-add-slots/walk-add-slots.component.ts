@@ -215,8 +215,12 @@ export class WalkAddSlotsComponent implements OnInit {
   createSlots(requiredSlots: number[], message: AlertMessage) {
     this.requiredWalkSlots = requiredSlots.map(date => {
       const walk = this.eventDefaultsService.createDefault({
-        inputSource: InputSource.MANUALLY_CREATED,
-        start_date_time: this.dateUtils.isoDateTime(date)
+        fields: {
+          inputSource: InputSource.MANUALLY_CREATED
+        },
+        groupEvent: {
+          start_date_time: this.dateUtils.isoDateTime(date)
+        }
       });
       walk.events = [this.walkEventService.createEventIfRequired(walk, this.walksReferenceService.walkEventTypeMappings.awaitingLeader.eventType, "Walk slot created")];
       return walk;

@@ -2,6 +2,10 @@ import { cloneDeep } from "es-toolkit/compat";
 import { compact } from "es-toolkit/compat";
 import { get } from "es-toolkit/compat";
 import { isArray } from "es-toolkit/compat";
+import { isNull } from "es-toolkit/compat";
+import { isObject } from "es-toolkit/compat";
+import { isString } from "es-toolkit/compat";
+import { isUndefined } from "es-toolkit/compat";
 import { pick } from "es-toolkit/compat";
 import { take } from "es-toolkit/compat";
 import { AUDITED_FIELDS, WalkEvent } from "../../models/walk-event.model";
@@ -144,7 +148,7 @@ export class GroupEventService {
     return compact(AUDITED_FIELDS.map((key) => {
       const currentValue = get(currentData, key.split("."));
       const previousValue = get(previousData, key.split("."));
-      if (this.stringUtils.stringifyObject(previousValue) !== this.stringUtils.stringifyObject(currentValue)) {
+      if (!this.valuesEqual(previousValue, currentValue)) {
         return {
           fieldName: key,
           previousValue,
@@ -152,6 +156,52 @@ export class GroupEventService {
         };
       }
     }));
+  }
+
+  private valuesEqual(previousValue: any, currentValue: any): boolean {
+    if (previousValue === currentValue) {
+      return true;
+    }
+    const previousNullish = isNull(previousValue) || isUndefined(previousValue);
+    const currentNullish = isNull(currentValue) || isUndefined(currentValue);
+    if (previousNullish && currentNullish) {
+      return true;
+    }
+    if (isString(previousValue) && isString(currentValue) && this.isoDateTimePattern().test(previousValue) && this.isoDateTimePattern().test(currentValue)) {
+      return this.dateUtils.asValue(previousValue) === this.dateUtils.asValue(currentValue);
+    }
+    if (isArray(previousValue) && isArray(currentValue)) {
+      if (previousValue.length !== currentValue.length) {
+        return false;
+      }
+      return previousValue.every((item, index) => this.valuesEqual(item, currentValue[index]));
+    }
+    if (isObject(previousValue) && isObject(currentValue)) {
+      const currKeys = Object.keys(currentValue);
+      const prevKeys = Object.keys(previousValue);
+      const allKeys = new Set([...currKeys, ...prevKeys]);
+      for (const key of allKeys) {
+        const prevVal = previousValue[key];
+        const currVal = currentValue[key];
+        const prevNullish = isNull(prevVal) || isUndefined(prevVal);
+        const currNullish = isNull(currVal) || isUndefined(currVal);
+        if (prevNullish && currNullish) {
+          continue;
+        }
+        if (prevNullish !== currNullish) {
+          continue;
+        }
+        if (!this.valuesEqual(prevVal, currVal)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+
+  private isoDateTimePattern(): RegExp {
+    return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?$/;
   }
 
 }

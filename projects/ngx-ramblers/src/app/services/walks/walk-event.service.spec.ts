@@ -2,7 +2,7 @@ import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
 import { RouterTestingModule } from "@angular/router/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
-import { EventType, GroupEventField } from "../../models/walk.model";
+import { EventType } from "../../models/walk.model";
 import { AuditDeltaChangedItemsPipePipe } from "../../pipes/audit-delta-changed-items.pipe";
 import { FullNameWithAliasPipe } from "../../pipes/full-name-with-alias.pipe";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
@@ -35,7 +35,7 @@ describe("WalksEventService", () => {
 }));
 
   describe("dataAuditDelta", () => {
-    xit("changedItems should correctly calculate difference", () => {
+    it("changedItems should correctly calculate difference", () => {
       const service: GroupEventService = TestBed.inject(GroupEventService);
       const dateUtilsService: DateUtilsService = TestBed.inject(DateUtilsService);
       const oldStartLocation = {
@@ -46,7 +46,7 @@ describe("WalksEventService", () => {
         grid_reference_8: "",
         w3w: ""
       };
-      const oldWalk: ExtendedGroupEvent = createExtendedGroupEvent(dateUtilsService, 12, [], "any-walk-id", oldStartLocation);
+      const oldWalk: ExtendedGroupEvent = createExtendedGroupEvent(dateUtilsService, 12, [], "any-walk-id", null);
       const data: ExtendedGroupEvent = pick(oldWalk, AUDITED_FIELDS) as ExtendedGroupEvent;
       const events = [{
         eventType: EventType.AWAITING_APPROVAL, date: 23, memberId: "12",
@@ -60,7 +60,8 @@ describe("WalksEventService", () => {
         grid_reference_8: "",
         w3w: ""
       };
-      const walk: ExtendedGroupEvent = createExtendedGroupEvent(dateUtilsService, 12, events, "any-walk-id", startLocation);
+      const walk: ExtendedGroupEvent = createExtendedGroupEvent(dateUtilsService, 12, {}, "any-walk-id", startLocation);
+      walk.events = events;
       const actual: ChangedItem[] = service.walkDataAuditFor(walk, EventType.AWAITING_APPROVAL, true).changedItems;
       const expected: ChangedItem[] = [{
         fieldName: "groupEvent.start_location",
@@ -73,11 +74,7 @@ describe("WalksEventService", () => {
           grid_reference_8: "",
           w3w: ""
         }
-      },
-        {fieldName: GroupEventField.START_DATE, previousValue: undefined, currentValue: 12},
-      ];
-      console.log("actual", JSON.stringify(actual));
-      console.log("expected", JSON.stringify(expected));
+      }];
       expect(actual).toEqual(expected);
     });
   });

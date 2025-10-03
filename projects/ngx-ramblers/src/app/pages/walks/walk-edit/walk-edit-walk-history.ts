@@ -8,6 +8,7 @@ import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pip
 import { EventNotePipe } from "../../../pipes/event-note.pipe";
 import { ChangedItemsPipe } from "../../../pipes/changed-items.pipe";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
+import { sortBy } from "../../../functions/arrays";
 
 @Component({
   selector: "app-walk-edit-history",
@@ -59,7 +60,7 @@ export class WalkEditHistoryComponent {
 
   get walkEvents(): DisplayedEvent[] {
     return this.displayedWalk?.walk?.events
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .sort(sortBy("-date"))
       .map((event) => ({
         member: this.memberIdToFullNamePipe.transform(event.memberId, this.display.members),
         date: this.displayDateAndTime.transform(event.date),

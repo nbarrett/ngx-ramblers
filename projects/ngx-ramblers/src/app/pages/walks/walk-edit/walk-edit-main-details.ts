@@ -13,7 +13,7 @@ import { WalkDisplayService } from "../walk-display.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
-import { isString } from "es-toolkit/compat";
+import { isNumber, isString } from "es-toolkit/compat";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
@@ -249,7 +249,15 @@ export class WalkEditMainDetailsComponent implements OnInit {
   }
 
   durationCalculated() {
-    return this.dateUtils.formatDuration(this.dateUtils.asDateValue(this.displayedWalk.walk.groupEvent.start_date_time)?.value, this.dateUtils.asDateValue(this.displayedWalk.walk.groupEvent.end_date_time)?.value);
+    const startDateTime = this.displayedWalk.walk.groupEvent.start_date_time;
+    const endDateTime = this.displayedWalk.walk.groupEvent.end_date_time;
+    const startValue = this.dateUtils.asDateValue(startDateTime)?.value;
+    const endValue = this.dateUtils.asDateValue(endDateTime)?.value;
+    if (startDateTime && endDateTime && isNumber(startValue) && isNumber(endValue) && endValue >= startValue) {
+      return this.dateUtils.formatDuration(startValue, endValue);
+    } else {
+      return "";
+    }
   }
 
   async afterTitleChange() {

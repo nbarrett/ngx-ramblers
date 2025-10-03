@@ -31,127 +31,127 @@ import { CardImageOrMap } from "../../../modules/common/card/image/card-image-or
 import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalking";
 
 @Component({
-    selector: "app-walk-card-view",
-    template: `
-      <div (click)="toggleView()">
-        <app-card-image-or-map [displayedWalk]="displayedWalk" [notify]="notify" [maxColumns]="maxColumns"/>
-        <div class="card-body">
-          <h3 class="card-title">
-            <a [href]="displayedWalk.walkLink" class="rams-text-decoration-pink active"
-               target="_self">{{ displayedWalk.walk?.groupEvent?.title || displayedWalk.latestEventType.description }}</a>
-          </h3>
-          <dl class="d-flex mb-2">
-            <dt class="font-weight-bold me-2">Start:</dt>
-            <time>{{ displayedWalk.walk?.groupEvent?.start_date_time | displayDate }} {{ displayedWalk.walk?.groupEvent?.start_date_time | displayTime }}</time>
-          </dl>
-          @if (display.notAwaitingLeader(displayedWalk.walk)) {
-            @if (displayedWalk.walk?.groupEvent?.difficulty) {
-              <dl class="d-flex mb-1">
-                <dt class="font-weight-bold me-2">Difficulty:</dt>
-                <dd>
-                  <app-walk-grading [grading]="displayedWalk.walk?.groupEvent?.difficulty.code"/>
-                </dd>
-              </dl>
-            }
-            @if (displayedWalk.walk?.groupEvent?.distance_miles) {
-              <dl class="d-flex mb-1">
-                <dt class="font-weight-bold me-2">Distance:</dt>
-                <dd>{{ distanceValidationService.walkDistances(displayedWalk.walk) }}</dd>
-              </dl>
-            }
-            @if (displayedWalk?.walk?.groupEvent?.ascent_feet) {
-              <dl class="d-flex mb-1">
-                <dt class="font-weight-bold me-2">Ascent:</dt>
-                <dd>{{ ascentValidationService.walkAscents(displayedWalk.walk) }}</dd>
-              </dl>
-            }
-            @if (displayedWalk?.walk?.groupEvent?.start_location?.postcode) {
-              <dl (click)="ignoreClicks($event)" class="d-flex mb-1">
-                <dt class="font-weight-bold me-2">Postcode:</dt>
-                <dd><a class="rams-text-decoration-pink"
-                       tooltip="Click to locate postcode {{displayedWalk?.walk?.groupEvent?.start_location?.postcode}} on Google Maps"
-                       [href]="googleMapsService.urlForPostcode(displayedWalk?.walk?.groupEvent?.start_location?.postcode)"
-                       target="_blank">
-                  {{ displayedWalk?.walk?.groupEvent?.start_location?.postcode }}</a></dd>
-              </dl>
-            }
-            @if (display.hasWalkLeader(displayedWalk.walk)) {
-              <dl class="d-flex mb-1">
-                <dt class="font-weight-bold me-2">Leader:</dt>
-                <dd>
-                  <div class="row g-0">
-                    @if (display.walkPopulationWalksManager()) {
-                      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-6 nowrap">
-                        <fa-icon title
-                                 tooltip="contact walk leader {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}"
-                                 [icon]="faEnvelope"
-                                 class="fa-icon me-1 pointer"/>
-                        <a content
-                           [href]="displayedWalk?.walk?.fields?.contactDetails?.email">{{ displayedWalk?.walk?.fields?.contactDetails?.displayName || "Contact Via Ramblers" }}</a>
+  selector: "app-walk-card-view",
+  template: `
+    <div (click)="toggleView()">
+      <app-card-image-or-map [displayedWalk]="displayedWalk" [notify]="notify" [maxColumns]="maxColumns"/>
+      <div class="card-body">
+        <h3 class="card-title">
+          <a [href]="displayedWalk.walkLink" class="rams-text-decoration-pink active"
+             target="_self">{{ displayedWalk.walk?.groupEvent?.title || displayedWalk.latestEventType.description }}</a>
+        </h3>
+        <dl class="d-flex mb-2">
+          <dt class="font-weight-bold me-2">Start:</dt>
+          <time>{{ displayedWalk.walk?.groupEvent?.start_date_time | displayDate }} {{ displayedWalk.walk?.groupEvent?.start_date_time | displayTime }}</time>
+        </dl>
+        @if (display.notAwaitingLeader(displayedWalk.walk)) {
+          @if (displayedWalk.walk?.groupEvent?.difficulty) {
+            <dl class="d-flex mb-1">
+              <dt class="font-weight-bold me-2">Difficulty:</dt>
+              <dd>
+                <app-walk-grading [grading]="displayedWalk.walk?.groupEvent?.difficulty.code"/>
+              </dd>
+            </dl>
+          }
+          @if (displayedWalk.walk?.groupEvent?.distance_miles) {
+            <dl class="d-flex mb-1">
+              <dt class="font-weight-bold me-2">Distance:</dt>
+              <dd>{{ distanceValidationService.walkDistances(displayedWalk.walk) }}</dd>
+            </dl>
+          }
+          @if (displayedWalk?.walk?.groupEvent?.ascent_feet) {
+            <dl class="d-flex mb-1">
+              <dt class="font-weight-bold me-2">Ascent:</dt>
+              <dd>{{ ascentValidationService.walkAscents(displayedWalk.walk) }}</dd>
+            </dl>
+          }
+          @if (displayedWalk?.walk?.groupEvent?.start_location?.postcode) {
+            <dl (click)="ignoreClicks($event)" class="d-flex mb-1">
+              <dt class="font-weight-bold me-2">Postcode:</dt>
+              <dd><a class="rams-text-decoration-pink"
+                     tooltip="Click to locate postcode {{displayedWalk?.walk?.groupEvent?.start_location?.postcode}} on Google Maps"
+                     [href]="googleMapsService.urlForPostcode(displayedWalk?.walk?.groupEvent?.start_location?.postcode)"
+                     target="_blank">
+                {{ displayedWalk?.walk?.groupEvent?.start_location?.postcode }}</a></dd>
+            </dl>
+          }
+          @if (display.hasWalkLeader(displayedWalk.walk)) {
+            <dl class="d-flex mb-1">
+              <dt class="font-weight-bold me-2">Leader:</dt>
+              <dd>
+                <div class="row g-0">
+                  @if (display.walkPopulationWalksManager()) {
+                    <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-6 nowrap">
+                      <fa-icon title
+                               tooltip="contact walk leader {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}"
+                               [icon]="faEnvelope"
+                               class="fa-icon me-1 pointer"/>
+                      <a content
+                         [href]="displayedWalk?.walk?.fields?.contactDetails?.email">{{ displayedWalk?.walk?.fields?.contactDetails?.displayName || "Contact Via Ramblers" }}</a>
+                    </div>
+                  }
+                  @if (!display.walkPopulationWalksManager()) {
+                    @if (displayedWalk?.walk?.fields?.contactDetails?.email) {
+                      <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
+                           class="col-sm-6 col-md-12">
+                        <app-copy-icon [disabled]="!loggedIn" [icon]="faEnvelope" title
+                                       [value]="displayedWalk?.walk?.fields?.contactDetails?.email"
+                                       [elementName]="'email address for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
+                        <div content>
+                          @if (loggedIn) {
+                            <a class="nowrap" [href]="'mailto:' + displayedWalk?.walk?.fields?.contactDetails?.email"
+                               tooltip="Click to email {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}">
+                              {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}
+                            </a>
+                          }
+                          @if (!loggedIn) {
+                            <div (click)="login()" class="tooltip-link span-margin"
+                                 tooltip="Login as an {{group?.shortName}} member and send an email to {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}">
+                              {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}
+                            </div>
+                          }
+                        </div>
                       </div>
                     }
-                    @if (!display.walkPopulationWalksManager()) {
-                      @if (displayedWalk?.walk?.fields?.contactDetails?.email) {
+                    @if (loggedIn) {
+                      @if (displayedWalk?.walk?.fields?.contactDetails?.phone) {
                         <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
-                             class="col-sm-6 col-md-12">
-                          <app-copy-icon [disabled]="!loggedIn" [icon]="faEnvelope" title
-                                         [value]="displayedWalk?.walk?.fields?.contactDetails?.email"
-                                         [elementName]="'email address for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
+                             class="col-sm-6  col-md-12">
+                          <app-copy-icon [icon]="faPhone" title
+                                         [value]="displayedWalk?.walk?.fields?.contactDetails?.phone"
+                                         [elementName]="'mobile number for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName "/>
+                          <a content [href]="'tel:' + displayedWalk?.walk?.fields?.contactDetails?.phone"
+                             class="nowrap"
+                             tooltip="Click to ring {{displayedWalk?.walk?.fields?.contactDetails?.displayName}} on {{displayedWalk?.walk?.fields?.contactDetails?.phone}} (mobile devices only)">
+                            {{ displayedWalk?.walk?.fields?.contactDetails?.phone }}
+                          </a>
+                        </div>
+                      } @else if (display.hasWalkLeader(displayedWalk.walk)) {
+                        <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
+                          <app-copy-icon [icon]="faPersonWalking" title
+                                         [value]="displayedWalk?.walk?.fields?.contactDetails?.displayName"
+                                         [elementName]="'walk leader '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
                           <div content>
-                            @if (loggedIn) {
-                              <a class="nowrap" [href]="'mailto:' + displayedWalk?.walk?.fields?.contactDetails?.email"
-                                 tooltip="Click to email {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}">
-                                {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}
-                              </a>
-                            }
-                            @if (!loggedIn) {
-                              <div (click)="login()" class="tooltip-link span-margin"
-                                   tooltip="Login as an {{group?.shortName}} member and send an email to {{displayedWalk?.walk?.fields?.contactDetails?.displayName}}">
-                                {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}
-                              </div>
-                            }
+                            {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}
                           </div>
                         </div>
                       }
-                      @if (loggedIn) {
-                        @if (displayedWalk?.walk?.fields?.contactDetails?.phone) {
-                          <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth"
-                               class="col-sm-6  col-md-12">
-                            <app-copy-icon [icon]="faPhone" title
-                                           [value]="displayedWalk?.walk?.fields?.contactDetails?.phone"
-                                           [elementName]="'mobile number for '+ displayedWalk?.walk?.fields?.contactDetails?.displayName "/>
-                            <a content [href]="'tel:' + displayedWalk?.walk?.fields?.contactDetails?.phone"
-                               class="nowrap"
-                               tooltip="Click to ring {{displayedWalk?.walk?.fields?.contactDetails?.displayName}} on {{displayedWalk?.walk?.fields?.contactDetails?.phone}} (mobile devices only)">
-                              {{ displayedWalk?.walk?.fields?.contactDetails?.phone }}
-                            </a>
-                          </div>
-                        } @else if (display.hasWalkLeader(displayedWalk.walk)) {
-                          <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
-                            <app-copy-icon [icon]="faPersonWalking" title
-                                           [value]="displayedWalk?.walk?.fields?.contactDetails?.displayName"
-                                           [elementName]="'walk leader '+ displayedWalk?.walk?.fields?.contactDetails?.displayName"/>
-                            <div content>
-                              {{ displayedWalk?.walk?.fields?.contactDetails?.displayName }}
-                            </div>
-                          </div>
-                        }
-                      }
                     }
-                  </div>
-                </dd>
-              </dl>
-            }
-            @if (display.walkPopulationLocal() && displayedWalk.status !== EventType.APPROVED) {
-              <div id="{{displayedWalk?.walk?.id}}-status"
-                   class="badge event-badge sunset-badge ms-0">{{ displayedWalk?.latestEventType?.description }}
-              </div>
-            }
+                  }
+                </div>
+              </dd>
+            </dl>
           }
-        </div>
-      </div>`,
+        }
+        @if (display.walkPopulationLocal() && displayedWalk.status !== EventType.APPROVED) {
+          <div id="{{displayedWalk?.walk?.id}}-status"
+               class="badge event-badge sunset-badge ms-0">{{ displayedWalk?.latestEventType?.description }}
+          </div>
+        }
+      </div>
+    </div>`,
   styleUrls: ["./walk-view.sass", "../../../modules/common/card/image/card-image.sass"],
-    styles: [`
+  styles: [`
     .card-body
       position: relative
       padding-bottom: 50px

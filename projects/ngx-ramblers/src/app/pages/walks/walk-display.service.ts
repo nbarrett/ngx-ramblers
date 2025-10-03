@@ -79,7 +79,7 @@ export class WalkDisplayService {
   }
 
   public notAwaitingLeader(walk: ExtendedGroupEvent): boolean {
-    return this.walkEventService.latestEvent(walk)?.eventType !== EventType.AWAITING_LEADER;
+    return !this.awaitingLeader(walk);
   }
 
   public awaitingLeader(walk: ExtendedGroupEvent): boolean {
