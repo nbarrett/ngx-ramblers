@@ -1,5 +1,5 @@
-import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
-import { ActivatedRoute, ParamMap } from "@angular/router";
+import { AfterViewChecked, Component, ElementRef, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { ActivatedRoute, ParamMap, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
@@ -17,49 +17,62 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FilterParameters } from "../../../models/search.model";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { StoredValue } from "../../../models/ui-actions";
-import { Router } from "@angular/router";
 import { StringUtilsService } from "../../../services/string-utils.service";
 
 @Component({
     selector: "app-walks-search",
     template: `
     @if (!currentWalkId) {
-      @if (showPagination) {
-        <div class="row pb-md-2 pb-sm-0 align-items-center g-2">
-          <div class="col-12 col-md-3">
-            <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
-              (ngModelChange)="onSearchChange($event)"
-              name="quickSearch"
-              class="form-control rounded me-3"
-              type="text" placeholder="Quick Search">
-          </div>
-          <div class="col-12 col-md-3">
-            <select [(ngModel)]="filterParameters.selectType"
-              (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
-              class="form-control rounded me-3">
-              @for (filter of walksFilter(); track filter.value) {
-                <option [ngValue]="filter.value"
-                  [selected]="filter.selected">{{ filter.description }}
-                </option>
-              }
-            </select>
-          </div>
-          <div class="col-12 col-md-3">
-            <select [(ngModel)]="filterParameters.ascending"
-              (ngModelChange)="refreshWalks('change filterParameters.ascending')" name="ascending"
-              class="form-control rounded">
-              <option selected [value]="true">Sort (date ascending)</option>
-              <option [value]="false">Sort (date descending)</option>
-            </select>
-          </div>
-          <div class="col-12 col-md-3">
-            <ng-content select="[view-selector]"/>
-          </div>
+      <div [class]="showPagination ? 'd-flex pb-md-2 pb-sm-0 align-items-center gap-3 flex-wrap' : 'd-lg-flex pb-0 align-items-center gap-3'">
+        {{ logAlertDebug(showPagination ? 'paginated view' : 'non-paginated view') }}
+        <div [class]="showPagination ? 'flex-fill' : 'form-group mb-lg-0 flex-fill'">
+          <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
+            (ngModelChange)="onSearchChange($event)"
+            name="quickSearch"
+                 class="form-control rounded"
+            type="text" placeholder="Quick Search">
         </div>
+        <div [class]="showPagination ? 'flex-fill' : 'form-group mb-lg-0 flex-fill'">
+          <select [(ngModel)]="filterParameters.selectType"
+            (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
+                  class="form-control rounded">
+            @for (filter of walksFilter(); track filter.value) {
+              <option [ngValue]="filter.value"
+                [selected]="filter.selected">{{ filter.description }}
+              </option>
+            }
+          </select>
+        </div>
+        <div [class]="showPagination ? 'flex-fill' : 'form-group mb-lg-0 flex-fill'">
+          <select [(ngModel)]="filterParameters.ascending"
+            (ngModelChange)="refreshWalks('change filterParameters.ascending')" name="ascending"
+                  class="form-control rounded">
+            <option selected [value]="true">Sort (date ascending)</option>
+            <option [value]="false">Sort (date descending)</option>
+          </select>
+        </div>
+        <div [class]="showPagination ? 'flex-shrink-0' : 'form-group mb-lg-0 flex-shrink-0'">
+          <ng-content select="[view-selector]"/>
+        </div>
+        @if (!showPagination && showAlerts && notifyTarget.showAlert) {
+          <div class="form-group mb-0 flex-fill">
+            <div class="alert {{notifyTarget.alertClass}} mb-0">
+              <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+              <strong>{{ notifyTarget.alertTitle }}</strong>
+              {{ notifyTarget.alertMessage }}
+            </div>
+          </div>
+        }
+        @if (showPagination) {
+          <ng-content select="[alert-content]"/>
+        }
+      </div>
+      @if (showPagination) {
         <div class="d-flex" [class.align-items-center]="showAlertInline()" [class.full-width-pagination]="!showAlertInline()">
           <ng-content/>
           @if (showAlerts && showAlertInline()) {
             <div class="flex-grow-1 d-flex align-items-center">
+              {{ logAlertDebug('inline alert check') }}
               @if (notifyTarget.showAlert) {
                 <div class="alert {{notifyTarget.alertClass}} my-0 w-100">
                   <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
@@ -70,62 +83,11 @@ import { StringUtilsService } from "../../../services/string-utils.service";
             </div>
           }
         </div>
-        @if (showAlerts && !showAlertInline()) {
-          @if (notifyTarget.showAlert) {
-            <div class="alert {{notifyTarget.alertClass}} mt-2 mb-0">
-              <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-              <strong>{{ notifyTarget.alertTitle }}</strong>
-              {{ notifyTarget.alertMessage }}
-            </div>
-          }
-        }
       }
-       @if (!showPagination) {
-         <div class="d-lg-flex pb-0 align-items-center">
-           <div class="form-group me-lg-3 mb-lg-0">
-             <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
-               (ngModelChange)="onSearchChange($event)"
-               name="quickSearch"
-               class="form-control rounded me-3"
-               type="text" placeholder="Quick Search">
-           </div>
-           <div class="form-group me-lg-3 mb-lg-0">
-             <select [(ngModel)]="filterParameters.selectType"
-               (ngModelChange)="refreshWalks('change filterParameters.selectType')" name="selectType"
-               class="form-control rounded me-3">
-               @for (filter of walksFilter(); track filter.value) {
-                 <option [ngValue]="filter.value"
-                   [selected]="filter.selected">{{ filter.description }}
-                 </option>
-               }
-             </select>
-           </div>
-           <div class="form-group me-lg-3 mb-lg-0">
-             <select [(ngModel)]="filterParameters.ascending"
-               (ngModelChange)="refreshWalks('change filterParameters.ascending')" name="ascending"
-               class="form-control rounded">
-               <option selected [value]="true">Sort (date ascending)</option>
-               <option [value]="false">Sort (date descending)</option>
-             </select>
-           </div>
-           <div class="form-group me-lg-3 mb-lg-0">
-             <ng-content select="[view-selector]"/>
-           </div>
-           <div class="form-group mb-0 flex-grow-1">
-             @if (showAlerts && notifyTarget.showAlert) {
-               <div class="alert {{notifyTarget.alertClass}}">
-                 <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                 <strong>{{ notifyTarget.alertTitle }}</strong>
-                 {{ notifyTarget.alertMessage }}
-               </div>
-             }
-           </div>
-         </div>
-       }
     }`,
     imports: [FormsModule, FontAwesomeModule]
 })
-export class WalkSearchComponent implements OnInit, OnDestroy {
+export class WalkSearchComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkSearchComponent", NgxLoggerLevel.ERROR);
   private route = inject(ActivatedRoute);
@@ -141,15 +103,25 @@ export class WalkSearchComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   private ui = inject(UiActionsService);
   private stringUtils = inject(StringUtilsService);
+  private shouldFocusSearch = false;
+  @ViewChild("quickSearch") quickSearchInput: ElementRef;
   @Input()
   notifyTarget: AlertTarget;
-
   @Input()
   filterParameters: FilterParameters;
-
   @Input()
   showAlerts = true;
 
+  logAlertDebug(location: string) {
+    this.logger.off(`logAlertDebug walk-search ${location}:`, {
+      showAlerts: this.showAlerts,
+      showPagination: this.showPagination,
+      showAlert: this.notifyTarget.showAlert,
+      alertMessage: this.notifyTarget.alertMessage,
+      busy: this.notifyTarget.busy
+    });
+    return "";
+  }
 
   ngOnInit(): void {
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
@@ -158,7 +130,13 @@ export class WalkSearchComponent implements OnInit, OnDestroy {
     }));
     this.broadcastService.on(NamedEventType.SHOW_PAGINATION, (show: NamedEvent<boolean>) => {
       this.logger.info("showPagination:", show);
-      return this.showPagination = show.data;
+      if (this.showPagination !== show.data) {
+        this.showPagination = show.data;
+        if (this.filterParameters?.quickSearch) {
+          this.shouldFocusSearch = true;
+        }
+      }
+      return this.showPagination;
     });
     this.broadcastService.on(NamedEventType.SYSTEM_CONFIG_LOADED, (namedEvent: NamedEvent<SystemConfig>) => {
       this.logger.info("showPagination:", namedEvent.data.group);
@@ -175,6 +153,13 @@ export class WalkSearchComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  ngAfterViewChecked(): void {
+    if (this.shouldFocusSearch && this.quickSearchInput) {
+      this.quickSearchInput.nativeElement.focus();
+      this.shouldFocusSearch = false;
+    }
   }
 
   onSearchChange(searchEntry: string) {
@@ -206,7 +191,7 @@ export class WalkSearchComponent implements OnInit, OnDestroy {
 
   private replaceQueryParams(params: { [key: string]: any }) {
     const queryParams = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined));
-    this.router.navigate([], { relativeTo: this.route, queryParams, queryParamsHandling: 'merge' });
+    this.router.navigate([], {relativeTo: this.route, queryParams, queryParamsHandling: "merge"});
   }
 
   showAlertInline(): boolean {

@@ -71,7 +71,7 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
           <div class="mb-3 col-sm-12">
             <app-walks-search [filterParameters]="filterParameters" [notifyTarget]="notifyTarget" [showAlerts]="walkListView !== WalkListView.MAP">
               <div view-selector>
-                <div class="btn-group mb-0 btn-group-custom me-md-2 w-100 w-md-auto" dropdown>
+                <div class="btn-group mb-0 btn-group-custom w-100 w-md-auto" dropdown>
                   <button aria-controls="dropdown-animated" class="dropdown-toggle btn pager-btn me-0"
                            dropdownToggle type="button">
                     <fa-icon [icon]="walkListView === WalkListView.CARDS ? faImages : (walkListView === WalkListView.TABLE ? faTableCells : faWalking)"/>
@@ -85,7 +85,7 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
                   </ul>
                 </div>
               </div>
-              @if (walkListView !== WalkListView.MAP) {
+              @if (walkListView !== WalkListView.MAP && pageCount > 1) {
                 <div class="d-flex align-items-center mt-0 mt-md-0 me-2 flex-shrink-0"
                      [class.cards-view-spacing]="walkListView === WalkListView.CARDS">
                   <pagination class="pagination rounded mb-0" [boundaryLinks]=true [rotate]="true"
@@ -108,7 +108,7 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
             }
             @if (!walkListView || walkListView === WalkListView.TABLE) {
               @for (displayedWalk of currentPageWalks; track walkTracker(index, displayedWalk); let index = $index) {
-                <div class="table-responsive">
+                <div class="table-responsive mt-2">
                   @if (display.isExpanded(displayedWalk?.walk)) {
                     <div>
                       @if (!display.isEdit(displayedWalk?.walk)) {
@@ -364,8 +364,9 @@ export class WalkListComponent implements OnInit, OnDestroy {
     this.notify.setBusy();
     const sort = this.extendedGroupEventQueryService.localWalksSortObject(this.filterParameters);
     this.logger.info("applyFilterToWalks:searchTerm:", searchTerm, "filterParameters:", this.filterParameters, "localWalksSortObject:", sort);
-    this.filteredWalks = this.searchFilterPipe.transform(this.walks, this.filterParameters.quickSearch)
-      .map(walk => this.display.toDisplayedWalk(walk)).sort(sortBy(sort));
+    const displayedWalks = this.walks.map(walk => this.display.toDisplayedWalk(walk));
+    this.filteredWalks = this.searchFilterPipe.transform(displayedWalks, this.filterParameters.quickSearch)
+      .sort(sortBy(sort));
     this.pageNumber = 1;
     this.applyPagination();
     if (this.currentPageWalks.length > 0 && this.display.expandedWalks.length === 0) {
@@ -385,15 +386,44 @@ export class WalkListComponent implements OnInit, OnDestroy {
     const pageIndicator = this.pages.length > 1 ? `page ${this.pageNumber} of ${this.pageCount}` : "";
     const toWalkNumber = hasWalks ? Math.min(this.pageNumber * this.pageSize, this.filteredWalks?.length || 0) : 0;
     const totalOnly = `${this.stringUtils.pluraliseWithCount(this.filteredWalks?.length || 0, "walk")}`;
+    const hasSearchTerm = this.filterParameters?.quickSearch && this.filterParameters.quickSearch.trim().length > 0;
+    const noResultsMessage = hasSearchTerm ? `No results match search "${this.filterParameters.quickSearch}"` : "No walks found";
     const alertMessage = this.walkListView === WalkListView.MAP
-      ? (this.filteredWalks?.length ? `Showing ${totalOnly}` : "No walks found")
-      : (hasWalks ? `${offset} to ${toWalkNumber} of ${totalOnly}${pageIndicator ? EM_DASH_WITH_SPACES + pageIndicator : ""}` : "No walks found");
+      ? (this.filteredWalks?.length ? `Showing ${totalOnly}` : noResultsMessage)
+      : (hasWalks ? (this.pageCount <= 1 ? totalOnly : `${offset} to ${toWalkNumber} of ${totalOnly}${pageIndicator ? EM_DASH_WITH_SPACES + pageIndicator : ""}`) : noResultsMessage);
+    this.logger.info("ALERT DEBUG - applyPagination:", {
+      walkListView: this.walkListView,
+      pageCount: this.pageCount,
+      filteredWalksLength: this.filteredWalks?.length,
+      hasWalks,
+      alertMessage,
+      notifyTargetBefore_showAlert: this.notifyTarget.showAlert,
+      notifyTargetBefore_alertMessage: this.notifyTarget.alertMessage,
+      notifyTargetBefore_busy: this.notifyTarget.busy
+    });
     this.notify.progress(alertMessage);
-    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SHOW_PAGINATION, (this.filteredWalks?.length || 0) > 0 || this.walkListView === WalkListView.MAP));
+    this.logger.info("ALERT DEBUG - after notify.progress:", {
+      notifyTargetAfter_showAlert: this.notifyTarget.showAlert,
+      notifyTargetAfter_alertMessage: this.notifyTarget.alertMessage,
+      notifyTargetAfter_busy: this.notifyTarget.busy
+    });
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SHOW_PAGINATION, this.pageCount > 1 || this.walkListView === WalkListView.MAP));
   }
 
   allowDetailView() {
     return this.memberLoginService.memberLoggedIn();
+  }
+
+  logAlertDebug(location: string, walkListView: any, pageCount: number, notifyTarget: any) {
+    this.logger.info(`ALERT DEBUG - ${location}:`, {
+      walkListView,
+      pageCount,
+      showAlert: notifyTarget.showAlert,
+      alertMessage: notifyTarget.alertMessage,
+      alertClass: notifyTarget.alertClass,
+      busy: notifyTarget.busy
+    });
+    return '';
   }
 
 
