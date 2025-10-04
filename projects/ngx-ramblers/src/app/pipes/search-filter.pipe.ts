@@ -13,6 +13,9 @@ export class SearchFilterPipe implements PipeTransform {
     }
 
     searchText = searchText.toLowerCase();
-    return itemsToSearch.filter(item => JSON.stringify(item).toLowerCase().includes(searchText));
+    return itemsToSearch.filter(item => {
+      const searchableContent = item.searchableText || JSON.stringify(item);
+      return searchableContent.toLowerCase().includes(searchText);
+    });
   }
 }

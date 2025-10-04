@@ -293,6 +293,7 @@ export interface DisplayedWalk {
   ramblersLink?: string;
   showEndpoint: boolean;
   hasFeatures: boolean;
+  searchableText?: string;
 }
 
 export interface LocalContact {

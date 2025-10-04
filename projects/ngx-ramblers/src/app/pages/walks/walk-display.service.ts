@@ -33,6 +33,7 @@ import { CommitteeReferenceData } from "../../services/committee/committee-refer
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 import { Observable, ReplaySubject } from "rxjs";
 import { StringUtilsService } from "../../services/string-utils.service";
+import { DateUtilsService } from "../../services/date-utils.service";
 import { Difficulty, LocationDetails, RamblersEventType } from "../../models/ramblers-walks-manager";
 import { BuiltInRole } from "../../models/committee.model";
 import { MediaQueryService } from "../../services/committee/media-query.service";
@@ -61,6 +62,7 @@ export class WalkDisplayService {
   private walksReferenceService = inject(WalksReferenceService);
   private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private committeeConfig = inject(CommitteeConfigService);
+  private dateUtils = inject(DateUtilsService);
   private subject = new ReplaySubject<Member[]>();
   public relatedLinksMediaWidth = 22;
   public expandedWalks: ExpandedWalk [] = [];
@@ -258,6 +260,17 @@ export class WalkDisplayService {
   toDisplayedWalk(extendedGroupEvent: ExtendedGroupEvent): DisplayedWalk {
     const isLinear = enumValueForKey(WalkType, extendedGroupEvent?.groupEvent?.shape) === WalkType.LINEAR;
     this.logger.debug("toDisplayedWalk:extendedGroupEvent:", extendedGroupEvent, "shape:", extendedGroupEvent?.groupEvent?.shape, "isLinear:", isLinear);
+    const startDate = extendedGroupEvent?.groupEvent?.start_date_time;
+    const searchableText = [
+      this.dateUtils.displayDate(startDate),
+      this.dateUtils.displayDay(startDate),
+      extendedGroupEvent?.groupEvent?.title,
+      extendedGroupEvent?.groupEvent?.description,
+      extendedGroupEvent?.fields?.contactDetails?.displayName,
+      extendedGroupEvent?.groupEvent?.start_location?.postcode,
+      extendedGroupEvent?.groupEvent?.end_location?.postcode,
+      extendedGroupEvent?.groupEvent?.distance_miles
+    ].filter(item => item).join(" ");
     return {
       hasFeatures: this.featuresService.combinedFeatures(extendedGroupEvent?.groupEvent)?.length > 0,
       walk: extendedGroupEvent,
@@ -266,7 +279,8 @@ export class WalkDisplayService {
       latestEventType: this.latestEventTypeFor(extendedGroupEvent),
       walkLink: this.walkLink(extendedGroupEvent),
       ramblersLink: this.ramblersLink(extendedGroupEvent),
-      showEndpoint: isLinear && !isEmpty(extendedGroupEvent?.groupEvent?.end_location?.postcode)
+      showEndpoint: isLinear && !isEmpty(extendedGroupEvent?.groupEvent?.end_location?.postcode),
+      searchableText
     };
   }
 

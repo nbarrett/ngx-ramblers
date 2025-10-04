@@ -385,7 +385,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   @Output() exit: EventEmitter<ContentMetadata> = new EventEmitter();
 
-  private logger: Logger = inject(LoggerFactory).createLogger("ImageListEditComponent", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("ImageListEditComponent", NgxLoggerLevel.ERROR);
   public notifyTarget: AlertTarget = {};
   private notifierService: NotifierService = inject(NotifierService);
   private webSocketClientService: WebSocketClientService = inject(WebSocketClientService);

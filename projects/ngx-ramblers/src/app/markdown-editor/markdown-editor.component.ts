@@ -231,7 +231,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.queryOnlyById = coerceBooleanProperty(queryOnlyById);
   }
 
-  private logger: Logger = inject(LoggerFactory).createLogger("MarkdownEditorComponent", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("MarkdownEditorComponent", NgxLoggerLevel.ERROR);
   private systemConfigService: SystemConfigService = inject(SystemConfigService);
   private uiActionsService = inject(UiActionsService);
   private broadcastService = inject<BroadcastService<ContentText>>(BroadcastService);
