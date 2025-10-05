@@ -262,14 +262,9 @@ export class WalkDisplayService {
     this.logger.debug("toDisplayedWalk:extendedGroupEvent:", extendedGroupEvent, "shape:", extendedGroupEvent?.groupEvent?.shape, "isLinear:", isLinear);
     const startDate = extendedGroupEvent?.groupEvent?.start_date_time;
     const searchableText = [
+      JSON.stringify(extendedGroupEvent),
       this.dateUtils.displayDate(startDate),
-      this.dateUtils.displayDay(startDate),
-      extendedGroupEvent?.groupEvent?.title,
-      extendedGroupEvent?.groupEvent?.description,
-      extendedGroupEvent?.fields?.contactDetails?.displayName,
-      extendedGroupEvent?.groupEvent?.start_location?.postcode,
-      extendedGroupEvent?.groupEvent?.end_location?.postcode,
-      extendedGroupEvent?.groupEvent?.distance_miles
+      this.dateUtils.displayDay(startDate)
     ].filter(item => item).join(" ");
     return {
       hasFeatures: this.featuresService.combinedFeatures(extendedGroupEvent?.groupEvent)?.length > 0,
