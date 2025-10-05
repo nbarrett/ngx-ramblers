@@ -129,7 +129,7 @@ StringUtilsService {
   }
 
   truncate(str: string, chars: number = 20) {
-    return this.left(str, chars) + (str.length > chars ? "..." : "");
+    return str ? this.left(str, chars) + (str.length > chars ? "..." : "") : "";
   }
 
   left(str: string, chars: number): string {
