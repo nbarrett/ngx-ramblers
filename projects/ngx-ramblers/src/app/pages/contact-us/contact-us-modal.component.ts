@@ -25,82 +25,98 @@ import { RecaptchaModule } from "ng-recaptcha-2";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { MarkdownComponent } from "ngx-markdown";
 import { DisplayDateAndTimePipe } from "../../pipes/display-date-and-time.pipe";
+import { UrlService } from "../../services/url.service";
 
 @Component({
     selector: "app-contact-modal",
     template: `
-    <div class="modal-content">
-      <div class="modal-header">
-        <h4 class="modal-title">Contact <em>{{ committeeMember?.fullName }}</em></h4>
-        <button type="button" class="close" (click)="close()">&times;</button>
-      </div>
-      <div class="modal-body">
-        @if (committeeMember) {
-          <form #contactForm="ngForm" (ngSubmit)="sendEmail()" class="p-2" novalidate>
-            <h6 class="my-3">Please complete the following details and we'll send your message to
-            {{ committeeMember?.fullName }}, our {{ committeeMember?.description }}.</h6>
-            <div class="form-group">
-              <label for="contact-name">Your Name</label>
-              <input #contactNameInput [(ngModel)]="contactFormDetails.name" name="name" type="text" id="contact-name"
-                class="form-control" required>
-              @if (contactForm.submitted && !contactForm.controls.name?.valid) {
-                <div class="text-danger">
-                  Name is required.
-                </div>
-              }
-            </div>
-            <div class="form-group">
-              <label for="contact-email">Your Email Address</label>
-              <input [(ngModel)]="contactFormDetails.email" name="email" type="email" id="contact-email"
-                class="form-control" required>
-              @if (contactForm.submitted && !contactForm.controls.email?.valid) {
-                <div class="text-danger">
-                  Valid email is required.
-                </div>
-              }
-            </div>
-            <div class="form-group">
-              <label for="contact-subject">Subject</label>
-              <input [(ngModel)]="contactFormDetails.subject" name="subject" type="text" id="contact-subject"
-                class="form-control" required>
-              @if (contactForm.submitted && !contactForm.controls.subject?.valid) {
-                <div class="text-danger">
-                  Subject is required.
-                </div>
-              }
-            </div>
-            <div class="form-group">
-              <label for="contact-message">Your Message</label>
-              <textarea [(ngModel)]="contactFormDetails.message" name="message" id="contact-message" class="form-control"
-              rows="8" required></textarea>
-              @if (contactForm.submitted && !contactForm.controls.message?.valid) {
-                <div class="text-danger">
-                  Message is required.
-                </div>
-              }
-            </div>
-            <div class="form-group">
-              <div class="form-check">
-                <input [(ngModel)]="contactFormDetails.sendCopy" name="sendCopy" type="checkbox" id="contact-email-copy"
-                  class="form-check-input">
-                <label for="contact-email-copy" class="form-check-label">Send a copy to yourself</label>
-              </div>
-            </div>
-            @if (config?.recaptcha?.siteKey) {
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title">Contact <em>{{ committeeMember?.fullName }}</em></h4>
+          <button type="button" class="close" (click)="close()">&times;</button>
+        </div>
+        <div class="modal-body">
+          @if (committeeMember) {
+            <form #contactForm="ngForm" (ngSubmit)="sendEmail()" class="p-2" novalidate>
+              <h6 class="my-3">Please complete the following details and we'll send your message to
+                {{ committeeMember?.fullName }}, our {{ committeeMember?.description }}.</h6>
               <div class="form-group">
-                <re-captcha (resolved)="onCaptchaResolved($event)"
-                  [siteKey]="config?.recaptcha?.siteKey"/>
+                <label for="contact-name">Your Name</label>
+                <input #contactNameInput [(ngModel)]="contactFormDetails.name" name="name" type="text" id="contact-name"
+                       class="form-control" required>
+                @if (contactForm.submitted && !contactForm.controls.name?.valid) {
+                  <div class="text-danger">
+                    Name is required.
+                  </div>
+                }
               </div>
-            }
-            <button type="submit" #hiddenSubmitButton class="d-none"></button>
-          </form>
-        }
-        @if (notifyTarget.showAlert) {
-          <div class="alert {{notifyTarget.alertClass}}">
-            <fa-icon [icon]="notifyTarget.alert.icon"/>
-            @if (notifyTarget.alertTitle) {
-              <strong>
-              {{ notifyTarget.alertTitle }}: </strong>
+              <div class="form-group">
+                <div class="form-check">
+                  <input [(ngModel)]="contactFormDetails.anonymous" name="isAnonymous" type="checkbox"
+                         id="contact-anonymous"
+                         class="form-check-input" (ngModelChange)="onAnonymousChange()">
+                  <label for="contact-anonymous" class="form-check-label">Submit anonymously (you won't receive a
+                    reply)</label>
+                </div>
+              </div>
+              @if (!contactFormDetails.anonymous) {
+                <div class="form-group">
+                  <label for="contact-email">Your Email Address</label>
+                  <input [(ngModel)]="contactFormDetails.email" name="email" type="email" id="contact-email"
+                         class="form-control" [required]="!contactFormDetails.anonymous">
+                  @if (contactForm.submitted && !contactForm.controls.email?.valid && !contactFormDetails.anonymous) {
+                    <div class="text-danger">
+                      Valid email is required.
+                    </div>
+                  }
+                </div>
+              }
+              <div class="form-group">
+                <label for="contact-subject">Subject</label>
+                <input [(ngModel)]="contactFormDetails.subject" name="subject" type="text" id="contact-subject"
+                       class="form-control" required>
+                @if (contactForm.submitted && !contactForm.controls.subject?.valid) {
+                  <div class="text-danger">
+                    Subject is required.
+                  </div>
+                }
+              </div>
+              <div class="form-group">
+                <label for="contact-message">Your Message</label>
+                <textarea [(ngModel)]="contactFormDetails.message" name="message" id="contact-message"
+                          class="form-control"
+                          rows="8" required></textarea>
+                @if (contactForm.submitted && !contactForm.controls.message?.valid) {
+                  <div class="text-danger">
+                    Message is required.
+                  </div>
+                }
+              </div>
+              @if (!contactFormDetails.anonymous) {
+                <div class="form-group">
+                  <div class="form-check">
+                    <input [(ngModel)]="contactFormDetails.sendCopy" name="sendCopy" type="checkbox"
+                           id="contact-email-copy"
+                           class="form-check-input">
+                    <label for="contact-email-copy" class="form-check-label">Send a copy to yourself</label>
+                  </div>
+                </div>
+              }
+              @if (config?.recaptcha?.siteKey) {
+                <div class="form-group">
+                  <re-captcha (resolved)="onCaptchaResolved($event)"
+                              [siteKey]="config?.recaptcha?.siteKey"/>
+                </div>
+              }
+              <button type="submit" #hiddenSubmitButton class="d-none"></button>
+            </form>
+          }
+          @if (notifyTarget.showAlert) {
+            <div class="alert {{notifyTarget.alertClass}}">
+              <fa-icon [icon]="notifyTarget.alert.icon"/>
+              @if (notifyTarget.alertTitle) {
+                <strong>
+                  {{ notifyTarget.alertTitle }}: </strong>
               } {{ notifyTarget.alertMessage }}
             </div>
           }
@@ -108,7 +124,7 @@ import { DisplayDateAndTimePipe } from "../../pipes/display-date-and-time.pipe";
         <div class="modal-footer">
           <div class="d-flex gap-2 flex-wrap">
             <button class="btn btn-primary" [disabled]="emailSendDisabled()"
-              (click)="triggerSubmit()">Send
+                    (click)="triggerSubmit()">Send
               Email
             </button>
             <button class="btn btn-primary" (click)="close()">Close</button>
@@ -141,7 +157,7 @@ import { DisplayDateAndTimePipe } from "../../pipes/display-date-and-time.pipe";
             <dt>
               <b>Contact Email:</b>
             </dt>
-            <dd>{{ contactFormDetails.email }}</dd>
+            <dd>{{ contactFormDetails.anonymous ? 'Anonymous' : contactFormDetails.email }}</dd>
           </dl>
           <dl>
             <dt>
@@ -191,6 +207,7 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
   private memberNamingService: MemberNamingService = inject(MemberNamingService);
   protected mailMessagingService: MailMessagingService = inject(MailMessagingService);
   protected stringUtils: StringUtilsService = inject(StringUtilsService);
+  private urlService: UrlService = inject(UrlService);
   public notifyTarget: AlertTarget = {};
   private notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   protected config: SystemConfig;
@@ -263,6 +280,13 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
     this.logger.info("Captcha resolved with response:", captchaResponse);
   }
 
+  onAnonymousChange() {
+    if (this.contactFormDetails.anonymous) {
+      this.contactFormDetails.sendCopy = false;
+      this.contactFormDetails.email = null;
+    }
+  }
+
   close() {
     this.bsModalRef.hide();
   }
@@ -308,9 +332,10 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
     this.logger.info("sendInboundEmailRequest:contactFormDetails:", this.contactFormDetails);
     const name: FirstAndLastName = this.memberNamingService.firstAndLastNameFrom(this.committeeMember.fullName);
     this.logger.info("sendInboundEmailRequest:name:", name, "given:", this.committeeMember);
-    const replyTo = {email: this.contactFormDetails.email, name: this.contactFormDetails.name};
+    const email = this.contactFormDetails.anonymous ? `noreply@${this.urlService.baseDomain()}` : this.contactFormDetails.email;
+    const replyTo = {email, name: this.contactFormDetails.name};
     const emailRequest: SendSmtpEmailRequest = this.mailMessagingService.createEmailRequest({
-      member: {email: this.contactFormDetails.email, firstName: name.firstName, lastName: name.lastName},
+      member: {email, firstName: name.firstName, lastName: name.lastName},
       notificationConfig: this.notificationConfig,
       notificationDirective: this.notificationDirective,
       emailSubject: this.contactFormDetails.subject,
