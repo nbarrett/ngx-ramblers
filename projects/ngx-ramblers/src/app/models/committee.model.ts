@@ -199,6 +199,7 @@ export interface ContactFormDetails {
   subject: string;
   message: string;
   sendCopy: boolean;
+  anonymous?: boolean;
 }
 
 export interface ValidateTokenRequest {

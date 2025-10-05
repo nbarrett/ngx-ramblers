@@ -113,6 +113,14 @@ export class UrlService {
     return url.hostname === "localhost" || url.hostname === "127.0.0.1";
   }
 
+  baseDomain(): string {
+    const hostname = this.group?.href ? new URL(this.group.href).hostname : window.location.hostname;
+    const parts = hostname.split('.');
+    return parts.length >= 3 && parts[parts.length - 2].length <= 3
+      ? parts.slice(-3).join('.')
+      : parts.slice(-2).join('.');
+  }
+
   websocketHost(): string {
     const url = new URL(this.absoluteUrl());
     return url.protocol === "https:" ? url.host.split(":")[0] : url.host;

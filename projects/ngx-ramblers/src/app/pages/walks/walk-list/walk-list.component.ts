@@ -296,12 +296,14 @@ export class WalkListComponent implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.logger.debug("ngOnInit");
+    this.pageSize = 10;
+    this.pageNumber = 1;
     this.route.queryParamMap.subscribe(params => {
       const q = params.get(this.stringUtils.kebabCase(StoredValue.SEARCH));
       const type = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SELECT_TYPE));
       const sort = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SORT_ASC));
       const view = params.get(this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW));
-      const page = params.get("page");
+      const page = params.get(this.stringUtils.kebabCase(StoredValue.PAGE));
       if (q !== null) {
         this.filterParameters.quickSearch = q;
       }
@@ -326,8 +328,6 @@ export class WalkListComponent implements OnInit, OnDestroy {
       this.systemConfig = systemConfig;
       this.walkListView = this.uiActionsService.initialValueFor(StoredValue.WALK_LIST_VIEW, this.systemConfig.group.defaultWalkListView) as WalkListView;
     }));
-    this.pageSize = 10;
-    this.pageNumber = 1;
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.broadcastService.on(NamedEventType.SYSTEM_CONFIG_LOADED, () => this.refreshWalks(NamedEventType.SYSTEM_CONFIG_LOADED));
     this.broadcastService.on(NamedEventType.WALK_SLOTS_CREATED, () => this.refreshWalks(NamedEventType.WALK_SLOTS_CREATED));
@@ -374,7 +374,10 @@ export class WalkListComponent implements OnInit, OnDestroy {
     const displayedWalks = this.walks.map(walk => this.display.toDisplayedWalk(walk));
     this.filteredWalks = this.searchFilterPipe.transform(displayedWalks, this.filterParameters.quickSearch)
       .sort(sortBy(sort));
-    this.pageNumber = 1;
+    if (searchTerm) {
+      this.pageNumber = 1;
+      this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.PAGE)]: 1 });
+    }
     this.applyPagination();
     if (this.currentPageWalks.length > 0 && this.display.expandedWalks.length === 0) {
       this.display.view(this.currentPageWalks[0].walk);
@@ -384,6 +387,10 @@ export class WalkListComponent implements OnInit, OnDestroy {
 
   private applyPagination() {
     this.pageCount = Math.ceil(this.filteredWalks?.length / this.pageSize);
+    if (this.pageNumber > this.pageCount && this.pageCount > 0) {
+      this.pageNumber = 1;
+      this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.PAGE)]: 1 });
+    }
     this.currentPageWalks = this.paginate(this.filteredWalks, this.pageSize, this.pageNumber);
     this.pages = range(1, this.pageCount + 1);
     this.logger.debug("total walks count", this.walks?.length, "walks:", this.walks, "filteredWalks count", this.filteredWalks?.length, "currentPageWalks count", this.currentPageWalks.length, "pageSize:", this.pageSize, "pageCount", this.pageCount, "pages", this.pages);
@@ -420,19 +427,6 @@ export class WalkListComponent implements OnInit, OnDestroy {
   allowDetailView() {
     return this.memberLoginService.memberLoggedIn();
   }
-
-  logAlertDebug(location: string, walkListView: any, pageCount: number, notifyTarget: any) {
-    this.logger.info(`ALERT DEBUG - ${location}:`, {
-      walkListView,
-      pageCount,
-      showAlert: notifyTarget.showAlert,
-      alertMessage: notifyTarget.alertMessage,
-      alertClass: notifyTarget.alertClass,
-      busy: notifyTarget.busy
-    });
-    return '';
-  }
-
 
   query() {
     return this.walksAndEventsService.all({
@@ -508,7 +502,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
   goToPage(pageNumber) {
     this.pageNumber = pageNumber;
     this.applyPagination();
-    this.replaceQueryParams({ page: pageNumber });
+    this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.PAGE)]: pageNumber });
   }
 
   onMapSelect(displayedWalk: DisplayedWalk) {
