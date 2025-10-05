@@ -301,6 +301,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
       const type = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SELECT_TYPE));
       const sort = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SORT_ASC));
       const view = params.get(this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW));
+      const page = params.get("page");
       if (q !== null) {
         this.filterParameters.quickSearch = q;
       }
@@ -313,6 +314,12 @@ export class WalkListComponent implements OnInit, OnDestroy {
       if (view === "cards" || view === "table" || view === "map") {
         this.walkListView = view as any;
         this.uiActionsService.saveValueFor(StoredValue.WALK_LIST_VIEW, this.walkListView);
+      }
+      if (page) {
+        const pageNum = parseInt(page, 10);
+        if (!isNaN(pageNum) && pageNum > 0) {
+          this.pageNumber = pageNum;
+        }
       }
     });
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
@@ -501,6 +508,7 @@ export class WalkListComponent implements OnInit, OnDestroy {
   goToPage(pageNumber) {
     this.pageNumber = pageNumber;
     this.applyPagination();
+    this.replaceQueryParams({ page: pageNumber });
   }
 
   onMapSelect(displayedWalk: DisplayedWalk) {
