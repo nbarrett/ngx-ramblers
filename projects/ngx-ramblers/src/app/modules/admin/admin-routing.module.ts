@@ -4,7 +4,6 @@ import { LoggedInGuard } from "../../guards/admin-login-guard";
 import { hasDynamicPath } from "../../services/path-matchers";
 import { AreaExistsGuard } from "../../guards/area-exists-guard";
 import { AdminAuthGuard } from "../../guards/admin-auth-guard";
-import { DuplicateContentTextNavigatorComponent } from "../../pages/admin/content/duplicate-content-text-navigator";
 
 @NgModule({
   imports: [RouterModule.forChild([
@@ -92,6 +91,12 @@ import { DuplicateContentTextNavigatorComponent } from "../../pages/admin/conten
       path: "committee-settings",
       loadComponent: () => import("../../pages/admin/system-settings/committee/committee-settings")
         .then(m => m.CommitteeSettingsComponent),
+      canActivate: [AdminAuthGuard]
+    },
+    {
+      path: "migration-settings",
+      loadComponent: () => import("../../pages/admin/system-settings/migration/migration-settings")
+        .then(m => m.MigrationSettingsComponent),
       canActivate: [AdminAuthGuard]
     },
     {

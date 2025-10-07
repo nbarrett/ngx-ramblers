@@ -40,16 +40,17 @@ import { DescribedDimensions } from "../../../models/aws-object.model";
               @if (!column.rows) {
                 <div class="thumbnail-site-edit h-100">
                   <div class="thumbnail-heading">Col {{ columnIndex + 1 }}</div>
-                  <app-markdown-editor #markdownEditorComponent
-                                       (saved)="actions.saveContentTextId($event, column)"
-                                       (focusChange)="markdownEditorFocusChange($event)"
-                                       buttonsAvailableOnlyOnFocus queryOnlyById allowMaximise
-                                       [description]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentDescription)"
-                                       [id]="column?.contentTextId"
-                                       [initialView]="actions.view()"
-                                       [name]="actions.parentRowColFor(parentRowIndex, rowIndex, columnIndex)"
-                                       [category]="contentPath">
-                    <ng-container prepend>
+                  @if (column?.contentText !== undefined) {
+                    <app-markdown-editor #markdownEditorComponent
+                                         (changed)="actions.saveInlineContentText($event, column)"
+                                         (focusChange)="markdownEditorFocusChange($event)"
+                                         buttonsAvailableOnlyOnFocus noSave allowMaximise
+                                         [description]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentDescription)"
+                                         [text]="column?.contentText"
+                                         [initialView]="actions.view()"
+                                         [name]="actions.parentRowColFor(parentRowIndex, rowIndex, columnIndex)"
+                                         [category]="contentPath">
+                      <ng-container prepend>
                       <div class="form-group">
                         <label
                           [for]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'access-level-' + contentPath)">Access</label>
@@ -111,6 +112,79 @@ import { DescribedDimensions } from "../../../models/aws-object.model";
                         [row]="row"/>
                     </ng-container>
                   </app-markdown-editor>
+                  } @else {
+                    <app-markdown-editor #markdownEditorComponent
+                                         (saved)="actions.saveContentTextId($event, column)"
+                                         (focusChange)="markdownEditorFocusChange($event)"
+                                         buttonsAvailableOnlyOnFocus queryOnlyById allowMaximise
+                                         [description]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentDescription)"
+                                         [id]="column?.contentTextId"
+                                         [initialView]="actions.view()"
+                                         [name]="actions.parentRowColFor(parentRowIndex, rowIndex, columnIndex)"
+                                         [category]="contentPath">
+                      <ng-container prepend>
+                        <div class="form-group">
+                          <label
+                            [for]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'access-level-' + contentPath)">Access</label>
+                          <select [(ngModel)]="column.accessLevel"
+                                  [id]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'access-level-' + contentPath)"
+                                  class="form-control input-sm">
+                            @for (accessLevel of memberResourcesReferenceData.accessLevels(); track accessLevel.description) {
+                              <option
+                                [textContent]="accessLevel.description"
+                                [ngValue]="accessLevel.id"></option>
+                            }
+                          </select>
+                        </div>
+                        <div class="form-group">
+                          <app-column-width [column]="column" (expandToggle)="expanded=$event"/>
+                        </div>
+                        <div class="form-group">
+                          <div class="form-check form-check-inline mb-0">
+                            <input [name]="getUniqueCheckboxId('show-placeholder-image')"
+                                   type="checkbox" class="form-check-input"
+                                   [id]="getUniqueCheckboxId('show-placeholder-image')"
+                                   [checked]="column.showPlaceholderImage"
+                                   (change)="onShowPlaceholderImageChanged($event, columnIndex)">
+                            <label class="form-check-label"
+                                   [for]="getUniqueCheckboxId('show-placeholder-image')">Show Placeholder Image
+                            </label>
+                          </div>
+                        </div>
+                        @if (column.showPlaceholderImage) {
+                          <div class="form-group">
+                            <app-aspect-ratio-selector
+                              label="Image Aspect Ratio"
+                              [dimensionsDescription]="column.imageAspectRatio?.description"
+                              (dimensionsChanged)="onImageAspectRatioChanged(columnIndex, $event)">
+                            </app-aspect-ratio-selector>
+                          </div>
+                        }
+                        @if (!column.imageSource) {
+                          <app-badge-button (click)="editImage(rowIndex, columnIndex)"
+                                            [icon]="faAdd"
+                                            [caption]="'add image'"/>
+                        }
+                        @if (column.imageSource) {
+                          <app-badge-button (click)="editImage(rowIndex, columnIndex)"
+                                            [icon]="faPencil"
+                                            [caption]="'edit image'"/>
+                          <app-badge-button (click)="replaceImage(column, rowIndex, columnIndex)"
+                                            [icon]="faAdd"
+                                            [caption]="'replace image'"/>
+                          <app-badge-button (click)="removeImage(column)"
+                                            [icon]="faRemove"
+                                            [caption]="'remove image'"/>
+                        }
+                        <app-actions-dropdown
+                          [markdownEditorComponent]="markdownEditorComponent"
+                          [columnIndex]="columnIndex"
+                          [pageContent]="pageContent"
+                          [column]="column"
+                          [row]="row"/>
+                      </ng-container>
+                    </app-markdown-editor>
+                  }
 
                   <!-- Always show image source URL field when editing -->
                   <div class="row mt-2">

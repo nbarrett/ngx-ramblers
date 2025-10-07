@@ -66,8 +66,6 @@ async function scrapeStaticSite(baseUrl: string): Promise<ScrapedPage[]> {
   debugLog(`✅ Scraping page links from ${baseUrl}`);
   const browser = await puppeteer.launch({headless: true});
   const page = await browser.newPage();
-  await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
-  page.on("console", msg => console.log("PAGE LOG:", msg.text()));
   try {
     const response = await page.goto(baseUrl, {waitUntil: "networkidle2", timeout: 30000});
     if (response && !response.ok()) {
@@ -75,12 +73,12 @@ async function scrapeStaticSite(baseUrl: string): Promise<ScrapedPage[]> {
       return [];
     }
 
-    const pageLinks: PageLink[] = await page.evaluate(() => {
+    const pageLinks: PageLink[] = await page.evaluate((baseUrl: string) => {
       const links = Array.from(document.querySelectorAll(".BMenu a"))
         .filter((a: HTMLAnchorElement) => a.href.startsWith(baseUrl))
         .map((a: HTMLAnchorElement) => ({path: a.href, title: a.textContent!.trim()}));
       return [...new Set(links.map(l => JSON.stringify(l)))].map(l => JSON.parse(l));
-    });
+    }, baseUrl);
     if (!pageLinks.some(link => link.path === baseUrl)) {
       pageLinks.unshift({path: baseUrl, title: "Home"});
     }
@@ -263,9 +261,6 @@ async function createPhotoGalleryAlbums(baseUrl: string, specificAlbums: PageLin
   debugLog(`✅ Scraping photo gallery albums from ${baseUrl}`);
   const browser = await puppeteer.launch({headless: true});
   const page = await browser.newPage();
-  await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
-  page.on("console", msg => console.log("PAGE LOG:", msg.text()));
-
   let galleryLinks: PageLink[] = specificAlbums;
   if (!specificAlbums.length) {
     const pageUrl = `${baseUrl}/PhotoGallery`;
@@ -275,29 +270,32 @@ async function createPhotoGalleryAlbums(baseUrl: string, specificAlbums: PageLin
       if (response && !response.ok()) {
         debugLog(`❌ Failed to load ${pageUrl}: Status ${response.status()}`);
       } else {
-        galleryLinks = await page.evaluate((pageUrl: string, imagePath: string) => {
-          console.info(`✅ Scraping pageUrl: ${pageUrl}`);
-          const links = Array.from(document.querySelectorAll("#ctl00_phLeftNavigation_divLeftNavigation ul li ul li a"))
-            .filter((a: HTMLAnchorElement) => {
-              const matched = a.href.startsWith(`${location.origin}/${imagePath}/`) && a.textContent?.trim();
-              console.info(`✅ Scraping link: ${a.href}, text: ${a.textContent}, matched: ${matched}`);
-              return matched;
-            })
+        const evalResult = await page.evaluate((pageUrl: string, imagePath: string) => {
+          const logs: string[] = [];
+          logs.push(`Evaluating gallery page ${pageUrl}`);
+          const raw = Array.from(document.querySelectorAll("#ctl00_phLeftNavigation_divLeftNavigation ul li ul li a"))
+            .filter((a: HTMLAnchorElement) => a.href.startsWith(`${location.origin}/${imagePath}/`) && a.textContent?.trim())
             .map((a: HTMLAnchorElement) => ({path: a.href, title: a.textContent!.trim()}));
-          return [...new Set(links.map(l => JSON.stringify(l)))].map(l => JSON.parse(l));
+          const links = [...new Set(raw.map(l => JSON.stringify(l)))].map(l => JSON.parse(l));
+          logs.push(`Matched ${links.length} gallery links`);
+          return { links, logs };
         }, pageUrl, "PhotoGallery");
+        if (Array.isArray(evalResult.logs)) {
+          evalResult.logs.forEach(m => debugLog(m));
+        }
+        galleryLinks = evalResult.links as PageLink[];
       }
     } catch (error) {
       debugLog(`❌ Error scraping ${pageUrl}:`, error);
     }
-    console.info(`✅ Found ${pluraliseWithCount(galleryLinks.length, "gallery link")}:`, galleryLinks);
+    debugLog(`✅ Found ${pluraliseWithCount(galleryLinks.length, "gallery link")}:`, galleryLinks);
   } else {
-    console.info(`✅ Processing specific albums:`, galleryLinks);
+    debugLog(`✅ Processing specific albums:`, galleryLinks);
   }
 
   const albums: MigratedAlbum[] = [];
   for (const {path, title} of galleryLinks) {
-    console.info(`✅ Scraping gallery ${path}`);
+    debugLog(`✅ Scraping gallery ${path}`);
     try {
       const response = await page.goto(path, {waitUntil: "networkidle2", timeout: 60000});
       if (response && !response.ok()) {
@@ -311,16 +309,22 @@ async function createPhotoGalleryAlbums(baseUrl: string, specificAlbums: PageLin
       const html = await page.content();
       require("fs").writeFileSync(`debug-${toKebabCase(title)}.html`, html);
       debugLog(`Saved HTML for ${path} to debug-${toKebabCase(title)}.html`);
-      const images = await page.evaluate(() => {
+      const imageEval = await page.evaluate(() => {
+        const logs: string[] = [];
         const contentNode = document.querySelector("#ctl00_phContent_divContent table[width=\"1015px\"] td") || document.body;
-        console.info(`Content node selected: ${contentNode.tagName}`);
+        logs.push(`Album content node: ${contentNode.tagName}`);
         const imageNodes = contentNode.querySelectorAll("img");
-        console.info(`Found ${imageNodes.length} images in contentNode`);
-        return Array.from(imageNodes).map((img: HTMLImageElement) => ({
+        logs.push(`Album images found: ${imageNodes.length}`);
+        const images = Array.from(imageNodes).map((img: HTMLImageElement) => ({
           src: img.src,
           alt: img.alt
         })).filter(item => item.alt !== "logo");
+        return { images, logs };
       });
+      if (Array.isArray(imageEval.logs)) {
+        imageEval.logs.forEach(m => debugLog(m));
+      }
+      const images = imageEval.images as { src: string; alt: string }[];
 
       const files = images.map((img, index) => ({
         image: decodeURIComponent(img.src),

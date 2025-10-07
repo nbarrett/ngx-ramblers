@@ -83,6 +83,13 @@ export class PageContentActionsService {
     }
   }
 
+  saveInlineContentText(contentText: ContentText, column: PageContentColumn) {
+    this.logger.info("saveInlineContentText:", contentText, "for column:", column, "existing contentText:", column.contentText, "new text:", contentText?.text);
+    if (column.contentText !== contentText?.text) {
+      column.contentText = contentText?.text;
+    }
+  }
+
   rowClasses(row: PageContentRow): string {
     const rowClasses = "row" + (row.marginTop ? (" mt-" + row.marginTop) : "") + (row.marginBottom ? (" mb-" + row.marginBottom) : "");
     this.logger.debug("rowClasses:", rowClasses, "for row:", row);

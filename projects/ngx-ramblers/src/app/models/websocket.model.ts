@@ -19,6 +19,7 @@ export interface RamblersUploadAuditProgressResponse {
 
 export enum EventType {
   RAMBLERS_WALKS_UPLOAD = "ramblers-walks-upload",
+  SITE_MIGRATION = "site-migration",
   RESIZE_SAVED_IMAGES = "resize-saved-images",
   RESIZE_UNSAVED_IMAGES = "resize-unsaved-images",
   TEST_STEP_REPORTER = "test-step-reporter",
@@ -31,7 +32,7 @@ export enum MessageType {
   ERROR = "error",
 }
 
-export const allowableStatusCodes: number[] = [1000, 1005];
+export const allowableStatusCodes: number[] = [1000, 1005, 1006];
 
 export interface MappedCloseMessage {
   message: string;

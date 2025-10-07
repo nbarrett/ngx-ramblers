@@ -219,6 +219,7 @@ import { SystemAreaMapSyncComponent } from "./area-map/system-area-map-sync";
                         </div>
                       </div>
                     </div>
+                    <app-links-edit [heading]='"Pages Within Navbar"' [links]="config.group.pages"/>
                   </div>
                 </tab>
                 <tab heading="{{enumValueForKey(SystemSettingsTab, SystemSettingsTab.WEBSITE_FOOTER)}}"

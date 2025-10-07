@@ -32,9 +32,17 @@ import { FALLBACK_MEDIA } from "../../../models/walk.model";
                 }
               }
               @if (!column.rows) {
-                <app-markdown-editor [id]="column?.contentTextId"
-                                     queryOnlyById>
-                </app-markdown-editor>
+                @if (column?.contentText) {
+                  <app-markdown-editor [text]="column.contentText"
+                                       [name]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentPath)"
+                                       [category]="contentPath">
+                  </app-markdown-editor>
+                }
+                @if (column?.contentTextId) {
+                  <app-markdown-editor [id]="column?.contentTextId"
+                                       queryOnlyById>
+                  </app-markdown-editor>
+                }
                 @if (shouldShowImage(column)) {
                   <app-card-image
                     [borderRadius]="column?.imageBorderRadius"

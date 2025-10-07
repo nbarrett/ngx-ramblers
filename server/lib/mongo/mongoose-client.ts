@@ -44,6 +44,26 @@ export async function create<T>(model: Model<T>, data: T, debugLog?: debug.Debug
   return performCreate();
 }
 
+export async function upsert<T>(model: Model<T>, filter: any, data: T, debugLog?: debug.Debugger): Promise<T> {
+  const debugUpsert: debug.Debugger = debugLog || createDebugFor(model);
+  const performUpsert = async () => {
+    const document = transforms.createDocumentRequest<T>(data);
+    debugUpsert("upsert:filter:", filter, "document:", document);
+    try {
+      const result = await model.findOneAndUpdate(filter, document, { upsert: true, new: true, setDefaultsOnInsert: true });
+      return transforms.toObjectWithId(result) as T;
+    } catch (error) {
+      debugUpsert("upsert:error:", error);
+      throw new Error(`Failed to upsert document: ${error.message}`);
+    }
+  };
+  if (!connected) {
+    debugUpsert("establishing database connection");
+    await connect(debugUpsert);
+  }
+  return performUpsert();
+}
+
 export async function connect(debug?: debug.Debugger): Promise<boolean> {
   const mongoUri = envConfig.mongo.uri.replace(/^"|"$/g, "");
   const debugConnect = debug || debugLog;

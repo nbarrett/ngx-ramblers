@@ -8,6 +8,7 @@ const PageContentColumn = new mongoose.Schema({
   imageBorderRadius: {type: Number},
   icon: {type: String},
   columns: {type: Number},
+  contentText: {type: String},
   contentTextId: {type: String},
   accessLevel: {type: String},
   showPlaceholderImage: {type: Boolean},

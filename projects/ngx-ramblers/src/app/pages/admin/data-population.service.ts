@@ -161,6 +161,14 @@ export class DataPopulationService {
         text: "* For each Group, configure one of more districts and associate a colour that will represent the group's polygon on an Area Map. \n" +
           "* Mark as **Non-Geographic**, groups that don't cover a specific geographical area.",
         category: "admin"
+      },
+      {
+        name: "migration-settings-help",
+        text: "* This page allows you to configure settings for migrating content from legacy static websites.\n" +
+          "* Add multiple site configurations with specific selectors and options.\n" +
+          "* Test migrations with dry-run mode before persisting data.\n" +
+          "* Each site can be enabled/disabled individually.",
+        category: "admin"
       }
     ];
   }
@@ -261,6 +269,13 @@ export class DataPopulationService {
         icon: "faUsersCog",
         href: "admin/committee-settings",
         contentTextId: null
+      },
+      {
+        accessLevel: AccessLevel.committee,
+        title: "Migration Settings",
+        icon: "faExchangeAlt",
+        href: "admin/migration-settings",
+        contentTextId: (await this.contentTextService.findOrCreateByNameAndCategory("migration-settings-help", "admin", "Configure settings for migrating content from legacy static websites."))?.id
       }];
     const part2: PageContentColumn[] = [await this.deriveMailSettingsPageContentColumn()];
     const part3: PageContentColumn[] = [
