@@ -494,7 +494,7 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
         const sw = bounds.getSouthWest();
         const degenerate = ne.equals(sw);
         if (degenerate) {
-          try { (L as any).DomEvent?.stop?.(e.originalEvent); } catch {}
+          try { (L as any).DomEvent?.stop?.(e.originalEvent); } catch (error) { this.logger.debug("DomEvent.stop failed", error); }
           if (cluster.spiderfy) {
             cluster.spiderfy();
           }
@@ -534,10 +534,7 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
       if (this.autoShowAll) {
         setTimeout(() => this.showAllVisiblePopups(), 300);
       }
-      try {
-        this.mapControlsStateService.saveZoom(map.getZoom());
-      } catch {
-      }
+      try { this.mapControlsStateService.saveZoom(map.getZoom()); } catch (error) { this.logger.debug("saveZoom failed", error); }
     });
 
     setTimeout(() => {
@@ -547,7 +544,7 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
       }
       if (this.preserveNextView && this.savedCenter && this.savedZoom != null) {
         const targetZoom = Math.min(this.savedZoom, this.maxZoomForCurrentStyle());
-        try { this.mapRef?.setView(this.savedCenter, targetZoom); } catch {}
+        try { this.mapRef?.setView(this.savedCenter, targetZoom); } catch (error) { this.logger.debug("mapRef.setView failed", error); }
         this.preserveNextView = false;
       }
       if (this.autoShowAll) {
@@ -679,37 +676,26 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
     this.allMarkers.forEach((marker, index) => {
       if (this.isMarkerInViewport(marker)) {
         setTimeout(() => {
-          try {
-            marker.openPopup();
-          } catch {}
+          try { marker.openPopup(); } catch (error) { this.logger.debug("marker.openPopup failed", error); }
         }, index * 50);
       }
     });
   }
 
   closeAllPopups() {
-    if (this.mapRef) {
-      try {
-        this.mapRef.closePopup();
-      } catch {}
-    }
+    if (this.mapRef) { try { this.mapRef.closePopup(); } catch (error) { this.logger.debug("mapRef.closePopup failed", error); } }
 
     if (this.clusterGroupRef && typeof this.clusterGroupRef.eachLayer === "function") {
       try {
         this.clusterGroupRef.eachLayer((layer: any) => {
-          if (layer.closePopup && typeof layer.closePopup === "function") {
-            layer.closePopup();
-          }
+          if (layer.closePopup && typeof layer.closePopup === "function") { layer.closePopup(); }
         });
-      } catch {}
+      } catch (error) { this.logger.debug("clusterGroupRef.eachLayer closePopup failed", error); }
     }
 
     this.allMarkers.forEach(marker => {
-      try {
-        if (marker.isPopupOpen && marker.isPopupOpen()) {
-          marker.closePopup();
-        }
-      } catch {}
+      try { if (marker.isPopupOpen && marker.isPopupOpen()) { marker.closePopup(); } }
+      catch (error) { this.logger.debug("marker.closePopup failed", error); }
     });
 
     this.openPopupCount = 0;

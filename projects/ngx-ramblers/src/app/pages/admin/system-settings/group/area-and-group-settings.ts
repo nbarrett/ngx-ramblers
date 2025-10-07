@@ -5,7 +5,6 @@ import { EventPopulation, SystemConfig } from "../../../../models/system.model";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
-import { LinksEditComponent } from "../../../../modules/common/links-edit/links-edit";
 import { UiSwitchModule } from "ngx-ui-switch";
 import { enumKeyValues, KeyValue } from "../../../../functions/enums";
 import { WalkListView } from "../../../../models/walk.model";
@@ -204,9 +203,8 @@ import { EM_DASH } from "../../../../models/content-text.model";
           </div>
         </div>
       </div>
-      <app-links-edit [heading]='"Pages on Site"' [links]="config.group.pages"/>
     </div>`,
-  imports: [LinksEditComponent, UiSwitchModule, NgSelectComponent, StatusIconComponent, AlertComponent, FontAwesomeModule]
+  imports: [UiSwitchModule, NgSelectComponent, StatusIconComponent, AlertComponent, FontAwesomeModule]
 })
 export class AreaAndGroupSettingsComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("GroupSettingsComponent", NgxLoggerLevel.ERROR);

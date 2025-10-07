@@ -85,6 +85,13 @@ docs(readme): update installation instructions
   - ❌ `getUser()` - redundant "get" prefix
   - ❌ `getUserData()` - redundant "get" prefix
 
+### Error Handling
+- **No empty catches**: Never add `catch {}` or `catch (e) {}` blocks without at least one of:
+  - Logging a meaningful message through the appropriate logger, or
+  - Returning/falling back to a safe default value
+- Prefer small, targeted try/catch blocks close to the failing operation
+- When logging errors inside browser evaluation (Puppeteer), capture messages and surface them to the Node logger after evaluation
+
 ## Development Commands
 
 ```bash

@@ -5,8 +5,7 @@
     "types": []
   },
   "include": [
-    "src/main.ts",
-    "src/polyfills.ts"
+    "src/**/*.ts"
   ],
   "exclude": [
     "src/test.ts",
