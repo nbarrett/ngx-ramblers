@@ -100,7 +100,7 @@ export class PageContentService {
 
   refreshLookups() {
     if (this.memberLoginService.allowContentEdits()) {
-      return this.all().then(response => {
+      return this.all({select: {path: 1}}).then(response => {
         this.siteLinks = uniq(response.map(item => item.path)).sort();
         this.logger.info("siteLinks:", this.siteLinks);
       });

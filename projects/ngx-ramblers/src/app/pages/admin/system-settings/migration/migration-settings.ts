@@ -253,7 +253,7 @@ import { sortBy } from "../../../../functions/arrays";
                             <div class="form-group">
                               <div class="form-check">
                                 <input [(ngModel)]="site.useNestedRows" type="checkbox" class="form-check-input" [id]="stringUtils.kebabCase('use-nested-rows', siteIndex)">
-                                <label class="form-check-label" [for]="stringUtils.kebabCase('use-nested-rows', siteIndex)">Use Nested Rows</label>
+                                <label class="form-check-label" [for]="stringUtils.kebabCase('use-nested-rows', siteIndex)" delay=500 tooltip="When checked: keeps all content in one row with nested sub-rows. When unchecked: splits markdown into separate rows">Keep Content Together (Nested Rows)</label>
                               </div>
                             </div>
                           </div>

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
+import { Component, ElementRef, EventEmitter, ViewChild, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import {
   faAngleDown,
@@ -10,7 +10,15 @@ import {
   faRefresh,
   faRemove,
   faSpinner,
-  faUnlink
+  faUnlink,
+  faBold,
+  faItalic,
+  faLink,
+  faListUl,
+  faListOl,
+  faCode,
+  faQuoteRight,
+  faHeading
 } from "@fortawesome/free-solid-svg-icons";
 import { cloneDeep } from "es-toolkit/compat";
 import { isEmpty } from "es-toolkit/compat";
@@ -40,6 +48,7 @@ import { StringUtilsService } from "../services/string-utils.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { BadgeButtonComponent } from "../modules/common/badge-button/badge-button";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { FormsModule } from "@angular/forms";
 import { MarkdownComponent } from "ngx-markdown";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -68,7 +77,7 @@ import { SystemConfigService } from "../services/system/system-config.service";
     @if (siteEditActive()) {
       <div class="row">
         <div class="col-12">
-          @if (buttonsAvailableOnlyOnFocus) {
+          @if (buttonsAvailableOnlyOnFocus && !hideEditToggle) {
             <app-badge-button
               (click)="componentHasFocus() ? toggleToView() : toggleToEdit()" delay=500
               [tooltip]="(componentHasFocus()? 'Exit edit' : 'Edit') + ' content for ' + description"
@@ -77,7 +86,7 @@ import { SystemConfigService } from "../services/system/system-config.service";
           }
           @if (!buttonsAvailableOnlyOnFocus || componentHasFocus()) {
             <ng-content select="[prepend]"/>
-            @if (editorState.view) {
+            @if (editorState.view && !hideEditToggle) {
               <app-badge-button (click)="toggleEdit()" delay=500 [tooltip]="tooltip()"
                                 [icon]="icon()"
                                 [caption]="nextActionCaption()"/>
@@ -138,12 +147,46 @@ import { SystemConfigService } from "../services/system/system-config.service";
       </div>
     }
     @if (editorState.view === 'edit') {
-      <textarea [wrap]="'hard'"
+      <div class="d-flex align-items-center flex-wrap mt-2">
+        <div class="btn-group btn-group-sm flex-wrap" role="group">
+          <div class="btn-group btn-group-sm" dropdown>
+            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" dropdownToggle type="button"
+                    tooltip="Make selection a Heading" container="body">
+              <fa-icon [icon]="faHeading"></fa-icon>
+            </button>
+            <ul *dropdownMenu class="dropdown-menu">
+              <li><a class="dropdown-item" (click)="formatHeadingLevel(1)">Heading 1</a></li>
+              <li><a class="dropdown-item" (click)="formatHeadingLevel(2)">Heading 2</a></li>
+              <li><a class="dropdown-item" (click)="formatHeadingLevel(3)">Heading 3</a></li>
+              <li><a class="dropdown-item" (click)="formatHeadingLevel(4)">Heading 4</a></li>
+              <li><a class="dropdown-item" (click)="formatHeadingLevel(5)">Heading 5</a></li>
+              <li><a class="dropdown-item" (click)="formatHeadingLevel(6)">Heading 6</a></li>
+            </ul>
+          </div>
+          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatBold()"
+                  tooltip="Make selection Bold" container="body"><fa-icon [icon]="faBold"></fa-icon></button>
+          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatItalic()"
+                  tooltip="Make selection Italic" container="body"><fa-icon [icon]="faItalic"></fa-icon></button>
+          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatCode()"
+                  tooltip="Make selection Code" container="body"><fa-icon [icon]="faCode"></fa-icon></button>
+          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatQuote()"
+                  tooltip="Make selection a Quotation" container="body"><fa-icon [icon]="faQuoteRight"></fa-icon></button>
+          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatList('ul')"
+                  tooltip="Make selection a Bulleted List" container="body"><fa-icon [icon]="faListUl"></fa-icon></button>
+          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatList('ol')"
+                  tooltip="Make selection a Numbered List" container="body"><fa-icon [icon]="faListOl"></fa-icon></button>
+          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatLink()"
+                  tooltip="Make selection a Link" container="body"><fa-icon [icon]="faLink"></fa-icon></button>
+        </div>
+      </div>
+      <textarea #textArea [wrap]="'hard'"
                 [(ngModel)]="content.text"
                 (ngModelChange)="changeText($event)"
-                class="form-control markdown-textarea" [rows]="rows"
+                (input)="autoResize(textArea)"
+                class="form-control markdown-textarea"
+                [style.overflow]="'hidden'" [rows]="1"
                 placeholder="Enter {{description}} text here">
-        </textarea>
+      </textarea>
     }
     @if (siteEditActive() && duplicateContentDetectionService.isDuplicate(content?.id)) {
       <div class="alert alert-warning">
@@ -167,9 +210,10 @@ import { SystemConfigService } from "../services/system/system-config.service";
       </div>
     }
   `,
-  imports: [BadgeButtonComponent, TooltipDirective, FormsModule, MarkdownComponent, FontAwesomeModule, KebabCasePipe]
+  imports: [BadgeButtonComponent, TooltipDirective, FormsModule, MarkdownComponent, FontAwesomeModule, KebabCasePipe, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective]
 })
 export class MarkdownEditorComponent implements OnInit, OnDestroy {
+  @ViewChild("textArea") textArea?: ElementRef<HTMLTextAreaElement>;
 
   @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {
     this.presentationMode = coerceBooleanProperty(presentationMode);
@@ -223,6 +267,10 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.buttonsAvailableOnlyOnFocus = coerceBooleanProperty(buttonsAvailableOnlyOnFocus);
   }
 
+  @Input("hideEditToggle") set hideEditToggleValue(hideEditToggle: boolean) {
+    this.hideEditToggle = coerceBooleanProperty(hideEditToggle);
+  }
+
   @Input("deleteEnabled") set deleteEnabledValue(deleteEnabled: boolean) {
     this.deleteEnabled = coerceBooleanProperty(deleteEnabled);
   }
@@ -251,6 +299,14 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   @Output() changed: EventEmitter<ContentText> = new EventEmitter();
   @Output() saved: EventEmitter<ContentText> = new EventEmitter();
   @Output() focusChange: EventEmitter<EditorInstanceState> = new EventEmitter();
+  faBold = faBold;
+  faItalic = faItalic;
+  faLink = faLink;
+  faListUl = faListUl;
+  faListOl = faListOl;
+  faCode = faCode;
+  faQuoteRight = faQuoteRight;
+  faHeading = faHeading;
   private presentationMode: boolean;
   public minimumRows = 10;
   public data: ContentText;
@@ -258,6 +314,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   public allowSave: boolean;
   public buttonsAvailableOnlyOnFocus: boolean;
   public allowHide: boolean;
+  public hideEditToggle: boolean;
   public deleteEnabled: boolean;
   public queryOnlyById: boolean;
   private show = true;
@@ -391,6 +448,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.originalContent = cloneDeep(this.content);
     this.editorState.dataAction = DataAction.NONE;
     this.calculateRows();
+    this.deferAutoResize();
     this.logger.debug("retrieved content:", this.content, "editor state:", this.editorState);
     return this.content;
   }
@@ -471,6 +529,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.editorState.view = View.EDIT;
     this.focusChange.emit({view: this.editorState.view, instance: this});
     this.setFocus();
+    this.deferAutoResize();
   }
 
   private setFocus() {
@@ -484,6 +543,17 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     if (this.buttonsAvailableOnlyOnFocus) {
       this.markdownEditorFocusService.clearFocus(this);
     }
+  }
+
+  autoResize(elOrRef?: any) {
+    const el: HTMLTextAreaElement | undefined = elOrRef?.nativeElement ? elOrRef.nativeElement : elOrRef;
+    if (!el) { return; }
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }
+
+  private deferAutoResize() {
+    setTimeout(() => this.autoResize(this.textArea), 0);
   }
 
   nextActionCaption(): string {
@@ -544,7 +614,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   canSave() {
-    return this.saveEnabled;
+    return this.saveEnabled && !this.noSave && this.allowSave !== false;
   }
 
   changeText($event: any) {
@@ -552,6 +622,146 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.renameIfRequired();
     this.broadcastChange();
     this.publishUnsavedChanges();
+  }
+
+  private selection(): { start: number; end: number; value: string } {
+    const el = this.textArea?.nativeElement;
+    const start = el?.selectionStart || 0;
+    const end = el?.selectionEnd || 0;
+    const value = el?.value || "";
+    return {start, end, value};
+  }
+
+  private replaceSelection(before: string, after: string, transform?: (s: string) => string) {
+    const el = this.textArea?.nativeElement;
+    const {start, end, value} = this.selection();
+    const sel = value.substring(start, end) || "";
+    const body = transform ? transform(sel) : sel;
+    const updated = value.substring(0, start) + before + body + after + value.substring(end);
+    this.content.text = updated;
+    this.changeText(updated);
+    this.deferAutoResize();
+    setTimeout(() => {
+      const pos = start + before.length + body.length + after.length;
+      el?.setSelectionRange(pos, pos);
+      el?.focus();
+    }, 0);
+  }
+
+  formatHeadingLevel(level: number) {
+    const lvl = Math.min(Math.max(level, 1), 6);
+    this.transformSelectionLines((line) => {
+      const info = this.stripKnownPrefix(line);
+      if (info.type === "heading" && info.level === lvl) { return info.stripped; }
+      return "#".repeat(lvl) + " " + info.stripped;
+    });
+  }
+
+  formatBold() {
+    this.replaceSelection("**", "**", s => s || "bold");
+  }
+
+  formatItalic() {
+    this.replaceSelection("_", "_", s => s || "italic");
+  }
+
+  formatCode() {
+    this.replaceSelection("`", "`", s => s || "code");
+  }
+
+  formatQuote() {
+    this.transformSelectionLines((line) => {
+      const info = this.stripKnownPrefix(line);
+      if (info.type === "quote") { return info.stripped; }
+      return "> " + info.stripped;
+    });
+  }
+
+  formatList(type: "ul" | "ol") {
+    this.transformSelectionLines((line, idx) => {
+      const info = this.stripKnownPrefix(line);
+      if (type === "ul") {
+        if (info.type === "ul") { return info.stripped; }
+        return "- " + info.stripped;
+      } else {
+        if (info.type === "ol") { return info.stripped; }
+        return `${idx + 1}. ` + info.stripped;
+      }
+    });
+  }
+
+  async formatLink() {
+    let url = "url";
+    try {
+      const clip = await (navigator as any)?.clipboard?.readText?.();
+      const text = (clip || "").trim();
+      if (/^https?:\/\/\S+$/i.test(text)) { url = text; }
+    } catch {}
+    this.replaceSelection("[", `](${url})`, s => s || "title");
+  }
+
+  private applyPrefixToSelectionOrLine(prefix: string, placeholder?: string) {
+    const el = this.textArea?.nativeElement;
+    const {start, end, value} = this.selection();
+    const hasSelection = end > start;
+    if (hasSelection) {
+      const sel = value.substring(start, end);
+      const lines = (sel || placeholder || "").split(/\r?\n/).map(line => prefix + line).join("\n");
+      const updated = value.substring(0, start) + lines + value.substring(end);
+      this.content.text = updated;
+      this.changeText(updated);
+      this.deferAutoResize();
+      setTimeout(() => {
+        const pos = start + lines.length;
+        el?.setSelectionRange(pos, pos);
+        el?.focus();
+      }, 0);
+    } else {
+      const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+      const lineEndIdx = value.indexOf("\n", start);
+      const lineEnd = lineEndIdx === -1 ? value.length : lineEndIdx;
+      const current = value.substring(lineStart, lineEnd);
+      const content = current || placeholder || "";
+      const updatedLine = prefix + content;
+      const updated = value.substring(0, lineStart) + updatedLine + value.substring(lineEnd);
+      this.content.text = updated;
+      this.changeText(updated);
+      this.deferAutoResize();
+      setTimeout(() => {
+        const pos = lineStart + updatedLine.length;
+        el?.setSelectionRange(pos, pos);
+        el?.focus();
+      }, 0);
+    }
+  }
+
+  private transformSelectionLines(mapper: (line: string, index: number) => string) {
+    const el = this.textArea?.nativeElement;
+    const {start, end, value} = this.selection();
+    const hasSelection = end > start;
+    const blockStart = value.lastIndexOf("\n", start - 1) + 1;
+    const blockEnd = (value.indexOf("\n", hasSelection ? end : start) === -1 ? value.length : value.indexOf("\n", hasSelection ? end : start));
+    const target = value.substring(blockStart, blockEnd);
+    const lines = target.split(/\r?\n/);
+    const newText = lines.map((line, i) => mapper(line, i)).join("\n");
+    const updated = value.substring(0, blockStart) + newText + value.substring(blockEnd);
+    this.content.text = updated;
+    this.changeText(updated);
+    this.deferAutoResize();
+    setTimeout(() => {
+      const pos = blockStart + newText.length;
+      el?.setSelectionRange(pos, pos);
+      el?.focus();
+    }, 0);
+  }
+
+  private stripKnownPrefix(line: string): { stripped: string; type: "heading" | "quote" | "ul" | "ol" | null; level?: number } {
+    const heading = line.match(/^\s{0,3}(#{1,6})\s+/);
+    if (heading) { return { stripped: line.replace(/^\s{0,3}#{1,6}\s+/, ""), type: "heading", level: heading[1].length }; }
+    if (/^\s{0,3}>\s+/.test(line)) { return { stripped: line.replace(/^\s{0,3}>\s+/, ""), type: "quote" }; }
+    if (/^\s{0,3}[-*+]\s+/.test(line)) { return { stripped: line.replace(/^\s{0,3}[-*+]\s+/, ""), type: "ul" }; }
+    if (/^\s{0,3}\d+\.\s+/.test(line)) { return { stripped: line.replace(/^\s{0,3}\d+\.\s+/, ""), type: "ol" }; }
+    return { stripped: line, type: null };
   }
 
   private broadcastChange() {

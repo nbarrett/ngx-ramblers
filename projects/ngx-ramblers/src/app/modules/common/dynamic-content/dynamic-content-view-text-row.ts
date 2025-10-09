@@ -19,8 +19,7 @@ import { FALLBACK_MEDIA } from "../../../models/walk.model";
               [class]="'col-sm-' + (column.columns||12)">
               @for (row of column.rows; track row; let innerRowIndex = $index) {
                 @if (false) {
-                  <div>Row {{ rowIndex + 1 }}: {{ 'nested row ' + (innerRowIndex + 1) + ' ' + row.type }}
-                  </div>
+                  <div>Row {{ rowIndex + 1 }}: {{ 'nested row ' + (innerRowIndex + 1) + ' ' + row.type }}</div>
                 }
                 @if (actions.isTextRow(row)) {
                   <app-dynamic-content-view-text-row
@@ -33,6 +32,15 @@ import { FALLBACK_MEDIA } from "../../../models/walk.model";
               }
               @if (!column.rows) {
                 @if (column?.contentText) {
+                  @if (showImageBeforeText(column)) {
+                    <app-card-image
+                      [borderRadius]="column?.imageBorderRadius"
+                      [aspectRatio]="column?.imageAspectRatio"
+                      [alt]="column?.alt"
+                      unconstrainedHeight
+                      [imageSource]="imageSourceFor(column)">
+                    </app-card-image>
+                  }
                   <app-markdown-editor [text]="column.contentText"
                                        [name]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentPath)"
                                        [category]="contentPath">
@@ -43,10 +51,11 @@ import { FALLBACK_MEDIA } from "../../../models/walk.model";
                                        queryOnlyById>
                   </app-markdown-editor>
                 }
-                @if (shouldShowImage(column)) {
+                @if (showImageAfterText(column)) {
                   <app-card-image
                     [borderRadius]="column?.imageBorderRadius"
                     [aspectRatio]="column?.imageAspectRatio"
+                    [alt]="column?.alt"
                     unconstrainedHeight
                     [imageSource]="imageSourceFor(column)">
                   </app-card-image>
@@ -96,4 +105,11 @@ export class DynamicContentViewTextRowComponent implements OnInit {
     }
   }
 
+  showImageAfterText(column: PageContentColumn) {
+    return !column.showTextAfterImage && this.shouldShowImage(column);
+  }
+
+  showImageBeforeText(column: PageContentColumn) {
+    return column.showTextAfterImage && this.shouldShowImage(column);
+  }
 }

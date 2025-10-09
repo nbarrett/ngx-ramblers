@@ -12,7 +12,7 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { textStyleSelectors } from "../../../models/system.model";
-import { BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective } from "ngx-bootstrap/dropdown";
+import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgClass } from "@angular/common";
 import { ColourSelectorComponent } from "../../../pages/banner/colour-selector";
@@ -30,92 +30,113 @@ import { ColourSelectorComponent } from "../../../pages/banner/colour-selector";
       height: 29px
   `],
     template: `
-    <div class="btn-group" dropdown>
-      <button aria-controls="dropdown-animated" class="dropdown-toggle badge-button border-0" dropdownToggle
+    <div class="btn-group" [ngClass]="{'w-100': fullWidth}" dropdown>
+      <button aria-controls="dropdown-animated" class="dropdown-toggle badge-button border-0" [ngClass]="{'w-100': fullWidth}" dropdownToggle
               type="button">
         <fa-icon [icon]="faTableCells"></fa-icon>
         <span class="ms-2">{{ actionType() }} Actions</span><span class="caret"></span>
       </button>
-      <ul *dropdownMenu class="dropdown-menu" (click)="actionClicked($event)"
+      <ul *dropdownMenu class="dropdown-menu" [ngClass]="{'w-100': fullWidth}" (click)="actionClicked($event)"
           id="dropdown-animated" role="menu">
-        @if (allowMoveRowUp()) {
+        @if (showRowActions && allowMoveRowUp()) {
           <li role="menuitem">
             <a (click)="actions.moveRowUp(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
               Move <b>Row</b> up
             </a>
           </li>
         }
-        @if (allowMoveRowDown()) {
+        @if (showRowActions && allowEqualiseColumnWidths()) {
+          <li role="menuitem">
+            <a (click)="actions.equaliseColumnWidths(row, pageContent)" class="dropdown-item">
+              Column Widths Equal
+            </a>
+          </li>
+        }
+        @if (showRowActions && allowMoveRowDown()) {
           <li role="menuitem">
             <a (click)="actions.moveRowDown(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
               Move <b>Row</b> down
             </a>
           </li>
         }
-        @if (allowTextRowActions()) {
+        @if (showRowActions && allowTextRowActions()) {
           <li role="menuitem">
             <a (click)="actions.duplicateRow(row, rowIndex, pageContent)" class="dropdown-item">
               Duplicate <b>Row</b>
             </a>
           </li>
         }
-        @if (allowDeleteRow()) {
+        @if (showRowActions && allowDeleteRow()) {
           <li role="menuitem">
             <a (click)="actions.deleteRow(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
               Delete <b>Row</b>
             </a>
           </li>
         }
-        @if (allowInsertNestedRows()) {
+        @if (showColumnActions && allowInsertNestedRows()) {
           <li role="menuitem">
             <a (click)="actions.addNestedRows(column)" class="dropdown-item">
               Insert <b>Nested Rows</b>
             </a>
           </li>
         }
-        @if (allowDeleteNestedRows()) {
+        @if (showColumnActions && allowDeleteNestedRows()) {
           <li role="menuitem">
             <a (click)="actions.removeNestedRows(column)" class="dropdown-item">
               Delete <b>Nested Rows</b>
             </a>
           </li>
         }
-        @if (allowColumnActions()) {
+        @if (showColumnActions && allowColumnActions()) {
           <li role="menuitem">
             <a (click)="actions.addColumn(row, columnIndex, pageContent)" class="dropdown-item">
               Insert <b>Column</b> to left
             </a>
           </li>
         }
-        @if (allowColumnActions()) {
+        @if (showColumnActions && allowColumnActions()) {
           <li role="menuitem">
             <a (click)="actions.addColumn(row, columnIndex+1, pageContent)" class="dropdown-item">
               Insert <b>Column</b> to right
             </a>
           </li>
         }
-        @if (allowColumnMoveLeft()) {
+        @if (showColumnActions && allowColumnMoveLeft()) {
           <li role="menuitem">
             <a (click)="actions.moveColumnLeft(row.columns, columnIndex, pageContent)" class="dropdown-item">
               Move <b>Column</b> to left
             </a>
           </li>
         }
-        @if (allowColumnMoveRight()) {
+        @if (showColumnActions && allowColumnMoveRight()) {
           <li role="menuitem">
             <a (click)="actions.moveColumnRight(row.columns, columnIndex, pageContent)" class="dropdown-item">
               Move <b>Column</b> to right
             </a>
           </li>
         }
-        @if (allowColumnActions()) {
+        @if (showColumnActions && allowMoveColumnToPreviousRow()) {
+          <li role="menuitem">
+            <a (click)="actions.moveColumnToPreviousRow(pageContent, row, columnIndex)" class="dropdown-item">
+              Move <b>Column</b> to previous row
+            </a>
+          </li>
+        }
+        @if (showColumnActions && allowMoveColumnToNextRow()) {
+          <li role="menuitem">
+            <a (click)="actions.moveColumnToNextRow(pageContent, row, columnIndex)" class="dropdown-item">
+              Move <b>Column</b> to next row
+            </a>
+          </li>
+        }
+        @if (showColumnActions && allowColumnActions()) {
           <li role="menuitem">
             <a (click)="actions.duplicateColumn(row, columnIndex, pageContent)" class="dropdown-item">
               Duplicate <b>Column</b>
             </a>
           </li>
         }
-        @if (allowColumnDelete()) {
+        @if (showColumnActions && allowColumnDelete()) {
           <li role="menuitem">
             <a (click)="actions.deleteColumn(row, columnIndex, pageContent)" class="dropdown-item">
               Delete <b>Column</b>
@@ -157,28 +178,28 @@ import { ColourSelectorComponent } from "../../../pages/banner/colour-selector";
             </li>
           </a>
         }
-        @if (allowTextRowActions()) {
+        @if (showRowActions && allowTextRowActions()) {
           <li role="menuitem">
             <a (click)="actions.addRow(rowIndex,'text', rows())" class="dropdown-item">
               Add <b>Row</b> above
             </a>
           </li>
         }
-        @if (allowTextRowActions()) {
+        @if (showRowActions && allowTextRowActions()) {
           <li role="menuitem">
             <a (click)="actions.addRow(rowIndex + 1, 'text', rows())" class="dropdown-item">
               Add <b>Row</b> below
             </a>
           </li>
         }
-        @if (allowActionButtonActions()) {
+        @if (showRowActions && allowActionButtonActions()) {
           <li role="menuitem">
             <a (click)="actions.addRow(rowIndex, 'action-buttons', rows())" class="dropdown-item">
               Add <b>Action Buttons</b> above
             </a>
           </li>
         }
-        @if (allowActionButtonActions()) {
+        @if (showRowActions && allowActionButtonActions()) {
           <li role="menuitem">
             <a (click)="actions.addRow(rowIndex + 1, 'action-buttons', rows())" class="dropdown-item">
               Add <b>Action Buttons</b> below
@@ -204,22 +225,21 @@ export class ActionsDropdownComponent implements OnInit {
   protected readonly faTableCells = faTableCells;
   protected readonly ListStyle = ListStyle;
   protected readonly textStyleSelectors = textStyleSelectors;
-
-  @Input()
-  public pageContent: PageContent;
-  @Input()
-  public row: PageContentRow;
-  @Input()
-  public column: PageContentColumn;
-  @Input()
-  public columnIndex: number;
-  @Input()
-  public rowIndex: number;
-  @Input()
-  public rowIsNested: boolean;
+  @Input() public fullWidth = false;
+  @Input() public pageContent: PageContent;
+  @Input() public row: PageContentRow;
+  @Input() public column: PageContentColumn;
+  @Input() public columnIndex: number;
+  @Input() public rowIndex: number;
+  @Input() public rowIsNested: boolean;
+  @Input() public showRowActions = true;
+  @Input() public showColumnActions = true;
 
   ngOnInit() {
-    this.logger.info("actionType:", this.actionType(), "row:", this.row, "column:", this.column, "rowIndex:", this.rowIndex, "columnIndex:", this.columnIndex, "rowIsNested:", this.rowIsNested, "pageContent:", this.pageContent, "markdownEditorComponent:", this.markdownEditorComponent);
+    if (this.columnIndex === undefined || this.columnIndex === null || isNaN(this.columnIndex as any)) {
+      this.showColumnActions = false;
+    }
+    this.logger.info("actionType:", this.actionType(), "row:", this.row, "column:", this.column, "rowIndex:", this.rowIndex, "columnIndex:", this.columnIndex, "rowIsNested:", this.rowIsNested, "pageContent:", this.pageContent, "markdownEditorComponent:", this.markdownEditorComponent, "showRowActions:", this.showRowActions, "showColumnActions:", this.showColumnActions);
   }
 
   rows(): PageContentRow[] {
@@ -258,6 +278,14 @@ export class ActionsDropdownComponent implements OnInit {
     return this.columnIndex >= 0;
   }
 
+  allowMoveColumnToPreviousRow(): boolean {
+    return !this.rowIsNested && this.rowIndex > 0 && this.columnIndex >= 0;
+  }
+
+  allowMoveColumnToNextRow(): boolean {
+    return !this.rowIsNested && this.rowIndex >= 0 && this.rowIndex < this.rows().length - 1 && this.columnIndex >= 0;
+  }
+
   allowTextRowActions() {
     return this.rowIndex >= 0;
   }
@@ -268,6 +296,10 @@ export class ActionsDropdownComponent implements OnInit {
 
   allowColumnDelete() {
     return this.columnIndex >= 0;
+  }
+
+  allowEqualiseColumnWidths() {
+    return this.row?.columns?.length > 0;
   }
 
   assignListStyleTo(listStyle: ListStyle) {

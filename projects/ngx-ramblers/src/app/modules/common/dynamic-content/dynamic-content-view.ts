@@ -16,12 +16,13 @@ import { DynamicContentViewAlbumComponent } from "./dynamic-content-view-album";
 import { EventsRow } from "../events/events-row";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { AreaMapComponent } from "../../../pages/area-map/area-map";
+import { FragmentService } from "../../../services/fragment.service";
 
 @Component({
     selector: "app-dynamic-content-view",
     template: `
-      @if (!siteEditService.active()) {
-        @for (row of viewablePageContent.rows; let rowIndex = $index; track rowIndex) {
+      @if (forceView || !siteEditService.active()) {
+        @for (row of viewablePageContent?.rows || []; let rowIndex = $index; track rowIndex) {
           @if (false) {
             {{ 'row ' + (rowIndex + 1) + ' ' + row.type + ' of ' + viewablePageContent.rows.length }}
           }
@@ -56,13 +57,16 @@ import { AreaMapComponent } from "../../../pages/area-map/area-map";
           @if (actions.isAreaMap(row)) {
             <app-area-map [row]="row" [pageContent]="viewablePageContent"/>
           }
+          @if (actions.isSharedFragment(row) && row?.fragment?.pageContentId) {
+            <app-dynamic-content-view [pageContent]="fragmentContentFor(row)" [contentPath]="fragmentPathFor(row)"/>
+          }
         }
         @if (!actions.pageContentFound(viewablePageContent, !!viewablePageContent?.id)) {
-          @if (notify.alertTarget.showAlert) {
+          @if (notify?.alertTarget?.showAlert) {
             <div class="col-12 alert {{notify.alertTarget.alertClass}} mt-3">
-              <fa-icon [icon]="notify.alertTarget.alert.icon"></fa-icon>
-              <strong class="ms-2">{{ notify.alertTarget.alertTitle }}</strong>
-              <span class="p-2">{{ notify.alertTarget.alertMessage }}. <a [href]="area"
+              <fa-icon [icon]="notify?.alertTarget?.alert?.icon"></fa-icon>
+              <strong class="ms-2">{{ notify?.alertTarget?.alertTitle }}</strong>
+              <span class="p-2">{{ notify?.alertTarget?.alertMessage }}. <a [href]="area"
                                                                           class="rams-text-decoration-pink"
                                                                           type="button"> Go Back to {{ area }}
                 page</a></span>
@@ -77,6 +81,7 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewComponent", NgxLoggerLevel.ERROR);
   private memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   private urlService = inject(UrlService);
+  fragmentService = inject(FragmentService);
   actions = inject(PageContentActionsService);
   siteEditService = inject(SiteEditService);
   private pageContentRawData: PageContent;
@@ -87,6 +92,8 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
 
   @Input()
   public contentPath: string;
+  @Input()
+  public forceView: boolean;
   @Input()
   public contentDescription: string;
   @Input()
@@ -114,12 +121,15 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
     this.pageContentRawData = pageContent;
     this.viewablePageContent = this.pageContentFilteredForAccessLevel(pageContent);
     this.logger.info("pageContent:", pageContent, "filteredPageContent:", this.viewablePageContent);
+    this.loadSharedFragments(this.viewablePageContent);
   }
 
   pageContentFilteredForAccessLevel(pageContent: PageContent): PageContent {
+    if (!pageContent) { return { path: this.contentPath, rows: [] } as PageContent; }
     const filteredPageContent: PageContent = {
-      ...pageContent, rows: this.visibleRows(pageContent)?.map(row => {
-        const columns = this.columnsFilteredForAccessLevel(row.columns);
+      ...pageContent,
+      rows: this.visibleRows(pageContent)?.map(row => {
+        const columns = this.columnsFilteredForAccessLevel(row.columns || []);
         return {...row, columns};
       }) || []
     };
@@ -128,18 +138,35 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
   }
 
   columnsFilteredForAccessLevel(columns: PageContentColumn[]): PageContentColumn[] {
-    return columns.filter(item => {
+    return (columns || []).filter(item => {
       const accessLevelData = this.memberResourcesReferenceData.accessLevelFor(item.accessLevel);
       return accessLevelData ? accessLevelData.filter() : true;
     });
   }
 
   visibleRows(pageContent: PageContent): PageContentRow[] {
-    return pageContent?.rows?.filter(row => this.rowIsVisible(row));
+    return (pageContent?.rows || []).filter(row => this.rowIsVisible(row));
   }
 
   private rowIsVisible(row: PageContentRow): boolean {
     return row.columns.length === 0 || this.columnsFilteredForAccessLevel(row.columns).length > 0;
   }
+
+  private async loadSharedFragments(pageContent: PageContent) {
+    const fragmentRows = (pageContent?.rows || [])
+      .filter(row => this.actions.isSharedFragment(row) && row?.fragment?.pageContentId);
+    for (const row of fragmentRows) {
+      await this.fragmentService.ensureLoadedById(row.fragment.pageContentId);
+    }
+  }
+
+  fragmentContentFor(row: PageContentRow): PageContent {
+    return row?.fragment?.pageContentId ? this.fragmentService.contentById(row.fragment.pageContentId) : null;
+  }
+
+  fragmentPathFor(row: PageContentRow): string {
+    return this.fragmentService.contentById(row?.fragment?.pageContentId)?.path;
+  }
+
 
 }

@@ -1,8 +1,15 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
-import { faAdd, faEye, faPencil, faRemove, faSave, faUndo } from "@fortawesome/free-solid-svg-icons";
-import { cloneDeep } from "es-toolkit/compat";
-import { first } from "es-toolkit/compat";
-import { isEmpty } from "es-toolkit/compat";
+import {
+  faAdd,
+  faArrowsUpDown,
+  faEye,
+  faPencil,
+  faRemove,
+  faSave,
+  faSpinner,
+  faUndo
+} from "@fortawesome/free-solid-svg-icons";
+import { cloneDeep, first, isEmpty, last, uniq } from "es-toolkit/compat";
 import { BsDropdownConfig } from "ngx-bootstrap/dropdown";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
@@ -37,7 +44,6 @@ import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { fieldStartsWithValue } from "../../../functions/mongo";
 import { PageService } from "../../../services/page.service";
 import { AlbumIndexService } from "../../../services/album-index.service";
-import { uniq } from "es-toolkit/compat";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { StoredValue } from "../../../models/ui-actions";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -47,6 +53,7 @@ import { NgClass, NgTemplateOutlet } from "@angular/common";
 import { RouterLink } from "@angular/router";
 import { FormsModule } from "@angular/forms";
 import { TypeaheadDirective } from "ngx-bootstrap/typeahead";
+import { NgSelectComponent } from "@ng-select/ng-select";
 import { RowSettingsCarouselComponent } from "./dynamic-content-site-edit-carousel-row";
 import { RowSettingsActionButtonsComponent } from "./dynamic-content-row-settings-action-buttons";
 import { MarginSelectComponent } from "./dynamic-content-margin-select";
@@ -57,10 +64,12 @@ import { ActionButtonsComponent } from "../action-buttons/action-buttons";
 import { DynamicContentSiteEditAlbumComponent } from "./dynamic-content-site-edit-album";
 import { DynamicContentSiteEditTextRowComponent } from "./dynamic-content-site-edit-text-row";
 import { DuplicateContentDetectionService } from "../../../services/duplicate-content-detection-service";
-import { last } from "es-toolkit/compat";
+import { move } from "../../../functions/arrays";
 import { ALERT_ERROR } from "../../../models/alert-target.model";
 import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events";
 import { DynamicContentSiteEditAreaMapComponent } from "./dynamic-content-site-edit-area-map";
+import { DynamicContentViewComponent } from "./dynamic-content-view";
+import { FragmentService } from "../../../services/fragment.service";
 
 @Component({
     selector: "app-dynamic-content-site-edit",
@@ -141,73 +150,88 @@ import { DynamicContentSiteEditAreaMapComponent } from "./dynamic-content-site-e
                            type="text" class="form-control">
                   </form>
                 </div>
-                @if (pageContentRowService.rowsSelected()) {
-                  <div class="col-sm-4 col-md-2">
-                    <label for="action">Action</label>
-                    <select class="form-control input-sm"
-                            [(ngModel)]="action"
-                            id="action">
-                      @for (action of contentActions; track action) {
-                        <option [ngValue]="action">{{ action }}</option>
-                      }
-                    </select>
-                  </div>
-                  <div class="col-md-10 mt-3">
-                    <form>
-                      <label class="me-2" for="move-or-copy-to-path">
-                        {{ action }}
-                        {{ stringUtils.pluraliseWithCount(pageContentRowService.selectedRowCount(), "row") }} to</label>
-                      <input id="move-or-copy-to-path"
-                             [typeahead]="pageContentService.siteLinks"
-                             name="destinationPath"
-                             autocomplete="nope"
-                             [typeaheadMinLength]="0"
-                             [disabled]="!pageContentRowService.rowsSelected()"
-                             (ngModelChange)="destinationPathLookupChange($event)"
-                             [ngModel]="destinationPath"
-                             type="text" class="form-control">
-                    </form>
-                  </div>
-                  <div class="col-sm-4 col-md-2 mt-3">
-                    <label for="before-after">Position</label>
-                    <select class="form-control input-sm"
-                            [(ngModel)]="destinationPathInsertBeforeAfterIndex"
-                            id="before-after">
-                      @for (insertionRow of insertionRowPosition; track insertionRow) {
-                        <option [ngValue]="insertionRow.index">{{ insertionRow.description }}
-                        </option>
-                      }
-                    </select>
-                  </div>
-                  <div class="col-md-10 mt-3">
-                    <label for="insert-at-row">Row</label>
-                    <select class="form-control input-sm"
-                            [(ngModel)]="destinationPathInsertionRowIndex"
-                            (ngModelChange)="destinationPathInsertionRowIndexChange($event)"
-                            id="insert-at-row">
-                      @for (insertionRow of insertionRowLookup; track insertionRow) {
-                        <option
-                          [ngValue]="insertionRow.index">{{ insertionRow.description }}
-                        </option>
-                      }
-                    </select>
-                  </div>
-                  <div class="col mt-3">
-                    <button [disabled]="actionDisabled()"
-                            delay=500 tooltip="{{action}} rows to {{destinationPath}}"
-                            type="submit"
-                            (click)="performCopyOrMoveAction()"
-                            [ngClass]="buttonClass(!actionDisabled())">
-                      <fa-icon [icon]="faSave"></fa-icon>
-                      <span class="ms-2">Perform {{ action }}</span>
-                    </button>
-                  </div>
-                }
               </div>
               @for (row of pageContent?.rows; track row; let rowIndex = $index) {
-                <div class="thumbnail-site-edit-top-bottom-margins">
-                  <div class="thumbnail-heading">Row {{ rowIndex + 1 }}
+                @if (pageContentRowService.rowsSelected() && rowIndex === firstSelectedRowIndex()) {
+                  <div class="thumbnail-site-edit mt-2">
+                    <fieldset class="p-2 border rounded">
+                      <legend class="float-none w-auto px-2 mb-0">Row Actions</legend>
+                      <div class="row align-items-end">
+                        <div class="col-sm-4 col-md-2">
+                          <label for="action">Action</label>
+                          <select class="form-control"
+                                  [(ngModel)]="action"
+                                  id="action">
+                            @for (action of contentActions; track action) {
+                              <option [ngValue]="action">{{ action }}</option>
+                            }
+                          </select>
+                        </div>
+                        @if (action !== Action.CREATE_FRAGMENT) {
+                          <div class="col-md-8">
+                            <form>
+                              <label class="me-2" for="move-or-copy-to-path">
+                                {{ action }}
+                                {{ stringUtils.pluraliseWithCount(pageContentRowService.selectedRowCount(), "row") }} to</label>
+                              <input id="move-or-copy-to-path"
+                                     [typeahead]="pageContentService.siteLinks"
+                                     name="destinationPath"
+                                     autocomplete="nope"
+                                     [typeaheadMinLength]="0"
+                                     [disabled]="!pageContentRowService.rowsSelected()"
+                                     (ngModelChange)="destinationPathLookupChange($event)"
+                                     [ngModel]="destinationPath"
+                                     type="text" class="form-control">
+                            </form>
+                          </div>
+                          <div class="col-sm-4 col-md-2">
+                            <label for="before-after">Position</label>
+                            <select class="form-control input-sm"
+                                    [(ngModel)]="destinationPathInsertBeforeAfterIndex"
+                                    id="before-after">
+                              @for (insertionRow of insertionRowPosition; track insertionRow) {
+                                <option [ngValue]="insertionRow.index">{{ insertionRow.description }}</option>
+                              }
+                            </select>
+                          </div>
+                          <div class="col-md-10 mt-2">
+                            <label for="insert-at-row">Row</label>
+                            <select class="form-control input-sm"
+                                    [(ngModel)]="destinationPathInsertionRowIndex"
+                                    (ngModelChange)="destinationPathInsertionRowIndexChange($event)"
+                                    id="insert-at-row">
+                              @for (insertionRow of insertionRowLookup; track insertionRow) {
+                                <option [ngValue]="insertionRow.index">{{ insertionRow.description }}</option>
+                              }
+                            </select>
+                          </div>
+                        }
+                        @if (action === Action.CREATE_FRAGMENT) {
+                          <div class="col-md-6">
+                            <label for="fragment-name">Create Named Fragment</label>
+                            <input id="fragment-name" [(ngModel)]="fragmentName" type="text" class="form-control" placeholder="Fragment name e.g. homepage-hero"/>
+                          </div>
+                        }
+                        <div class="col-auto mt-2">
+                          <button [disabled]="actionDisabled()"
+                                  delay=500 tooltip="{{action}} rows"
+                                  type="submit"
+                                  (click)="performCopyOrMoveAction()"
+                                  [ngClass]="buttonClass(!actionDisabled())">
+                            <fa-icon [icon]="faSave"></fa-icon>
+                            <span class="ms-2">Perform {{ action }}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </fieldset>
+                  </div>
+                }
+                <div class="thumbnail-site-edit-top-bottom-margins" (dragover)="onRowDragOver(rowIndex, $event)" (drop)="onRowDrop(rowIndex)">
+                  <div class="thumbnail-heading" [attr.draggable]="true" (dragstart)="onRowDragStart($event, rowIndex)" (dragend)="onRowDragEnd()" [tooltip]="rowDragTooltip(rowIndex)" [isOpen]="!!rowDragTooltip(rowIndex)" container="body" triggers="">Row {{ rowIndex + 1 }}
                     ({{ stringUtils.pluraliseWithCount(row?.columns.length, 'column') }})
+                    <span class="drag-handle ms-2 float-end" [attr.draggable]="true" (dragstart)="onRowDragStart($event, rowIndex)">
+                      <fa-icon [icon]="faArrowsUpDown"></fa-icon>
+                    </span>
                   </div>
                   <div class="row align-items-end mb-3 d-flex">
                     <div class="col-auto">
@@ -230,10 +254,10 @@ import { DynamicContentSiteEditAreaMapComponent } from "./dynamic-content-site-e
                       </div>
                     }
                     @if (!editAlbumName) {
-                      @if (actions.isActionButtons(row) || actions.isAlbumIndex(row)) {
-                        <div class="col-auto" app-row-settings-action-buttons [row]="row"></div>
-                      }
-                      <div class="col-auto">
+                    @if (actions.isActionButtons(row) || actions.isAlbumIndex(row)) {
+                      <div class="col-auto" app-row-settings-action-buttons [row]="row"></div>
+                    }
+                    <div class="col-auto">
                         <div class="d-inline-flex align-items-center flex-wrap">
                           <div app-margin-select label="Margin Top"
                                [data]="row"
@@ -245,18 +269,45 @@ import { DynamicContentSiteEditAreaMapComponent } from "./dynamic-content-site-e
                           </div>
                         </div>
                       </div>
-                      <div class="col-auto">
-                        <div class="d-inline-flex align-items-center flex-wrap float-end">
-                          <app-actions-dropdown [rowIndex]="rowIndex"
-                                                [pageContent]="pageContent"
-                                                [row]="row"/>
-                          <app-bulk-action-selector [row]="row"/>
-                        </div>
+                    <div class="col-auto">
+                      <div class="d-inline-flex align-items-center flex-wrap float-end" [ngClass]="actions.isActionButtons(row) ? 'mt-2' : ''">
+                        <app-actions-dropdown [rowIndex]="rowIndex"
+                                              [pageContent]="pageContent"
+                                              [row]="row"/>
+                        <app-bulk-action-selector [row]="row"/>
                       </div>
+                    </div>
                     }
                   </div>
                   @if (actions.isAlbumIndex(row)) {
                     <app-album-index-site-edit [row]="row" [rowIndex]="rowIndex"/>
+                  }
+                  @if (actions.isSharedFragment(row)) {
+                    <div class="row mt-2">
+                      <div class="col-12">
+                        <label [for]="'shared-fragment-path-' + rowIndex">Shared Fragment</label>
+                        <ng-select [id]="'shared-fragment-path-' + rowIndex"
+                                   [items]="fragmentService.fragmentLinks"
+                                   [searchable]="true"
+                                   [clearable]="true"
+                                   [multiple]="false"
+                                   [addTag]="false"
+                                   placeholder="Select or search fragment"
+                                   [(ngModel)]="row.fragment.path"
+                                   (ngModelChange)="onSharedFragmentPathChange(row, $event)"
+                                   name="shared-fragment-path-{{rowIndex}}">
+                        </ng-select>
+                      </div>
+                    </div>
+                    @if (row?.fragment?.pageContentId) {
+                      <div class="mt-2 panel-border">
+                        <app-dynamic-content-view [pageContent]="fragmentContent(row)" [contentPath]="fragmentPath(row)"
+                                                  [forceView]="true"/>
+                      </div>
+                      @if (!fragmentContent(row) && fragmentService.failedToLoad(row.fragment.pageContentId)) {
+                        <div class="alert alert-warning mt-2">Fragment not found: {{ row.fragment.pageContentId }}</div>
+                      }
+                    }
                   }
                   @if (actions.isActionButtons(row)) {
                     <app-action-buttons [pageContent]="pageContent"
@@ -286,11 +337,11 @@ import { DynamicContentSiteEditAreaMapComponent } from "./dynamic-content-site-e
         }
         <ng-template #saveButtonsAndPath>
           <div class="d-inline-flex align-items-center flex-wrap">
-            <app-badge-button [disabled]="actions.rowsInEdit.length>0" (click)="savePageContent()"
+            <app-badge-button [disabled]="actions.rowsInEdit.length>0 || savingPage" (click)="onSaveClicked()"
                               [tooltip]="actions.rowsInEdit.length>0?'Finish current row edit before saving':'Save page changes'"
-                              [icon]="faSave"
+                              [icon]="savingPage?faSpinner:faSave" [spin]="savingPage"
                               caption="Save page changes"/>
-            <app-badge-button (click)="revertPageContent()"
+            <app-badge-button [disabled]="savingPage" (click)="revertPageContent()"
                               [tooltip]="'Revert page changes'"
                               [icon]="faUndo"
                               caption="Revert page changes"/>
@@ -315,7 +366,7 @@ import { DynamicContentSiteEditAreaMapComponent } from "./dynamic-content-site-e
                               [icon]="faRemove"
                               delay=500 caption="Delete page"
                               [tooltip]="deletePagContentTooltip()"
-                              [disabled]="allReferringPages().length !== 0"/>
+                              [disabled]="savingPage || allReferringPages().length !== 0"/>
             @if (this.allReferringPageCount() > 0) {
               <div class="align-middle">Referred to
                 by: @for (referringPage of allReferringPages(); track referringPage; let linkIndex = $index) {
@@ -331,7 +382,7 @@ import { DynamicContentSiteEditAreaMapComponent } from "./dynamic-content-site-e
         </ng-template>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtonsComponent, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent]
+  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, NgSelectComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtonsComponent, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentViewComponent]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   protected duplicateUsageMessages: DuplicateUsageMessage[] = [];
@@ -348,7 +399,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     this.clearAlert(pageContent);
   }
 
-  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.INFO);
   private systemConfigService = inject(SystemConfigService);
   protected pageContentRowService = inject(PageContentRowService);
   protected siteEditService = inject(SiteEditService);
@@ -360,19 +411,15 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   protected uiActionsService = inject(UiActionsService);
   protected stringUtils = inject(StringUtilsService);
   protected pageContentService = inject(PageContentService);
+  protected fragmentService = inject(FragmentService);
   private contentTextService = inject(ContentTextService);
   protected actions = inject(PageContentActionsService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
-  @Input()
-  contentPathReadOnly: boolean;
-  @Input()
-  public queryCompleted: boolean;
-  @Input()
-  public notify: AlertInstance;
-  @Input()
-  public contentDescription: string;
-  @Input()
-  public contentPath: string;
+  @Input() contentPathReadOnly: boolean;
+  @Input() public queryCompleted: boolean;
+  @Input() public notify: AlertInstance;
+  @Input() public contentDescription: string;
+  @Input() public contentPath: string;
   private queriedContentPath: string;
   private albumIndexDataRows: PageContent[] = [];
   public showUnreferenced: boolean;
@@ -387,6 +434,9 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   faAdd = faAdd;
   faSave = faSave;
   faUndo = faUndo;
+  faSpinner = faSpinner;
+  faArrowsUpDown = faArrowsUpDown;
+  public savingPage = false;
   providers: [{ provide: BsDropdownConfig, useValue: { isAnimated: true, autoClose: true } }];
   enumKeyValuesForPageContentType: KeyValue<string>[] = enumKeyValues(PageContentType);
   public unsavedMarkdownComponents: Set<MarkdownEditorComponent> = new Set();
@@ -395,7 +445,8 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   destinationPathInsertionRowIndex = 0;
   destinationPathInsertBeforeAfterIndex = 0;
   insertionRowLookup: InsertionRow[] = [];
-  contentActions: string[] = [Action.MOVE, Action.COPY];
+  contentActions: string[] = [Action.MOVE, Action.COPY, Action.CREATE_FRAGMENT];
+  public fragmentName: string;
   action: string = this.contentActions[0];
   insertionRowPosition: InsertionRow[] = [{index: 0, description: InsertionPosition.BEFORE}, {index: 1, description: InsertionPosition.AFTER}];
   public referringPages: PageContent[] = [];
@@ -408,6 +459,8 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   protected readonly faEye = faEye;
   protected readonly last = last;
   protected readonly ALERT_ERROR = ALERT_ERROR;
+  protected readonly Action = Action;
+  private rowDragTargetIndex: number = null;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -435,9 +488,9 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
       this.savePageContent();
     });
     this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_UNSAVED, (namedEvent: NamedEvent<MarkdownEditorComponent>) => {
-      this.logger.info("event received:", namedEvent);
+      this.logger.debug("event received:", namedEvent);
       this.unsavedMarkdownComponents.add(namedEvent.data);
-      this.logger.info("added:", namedEvent.data, "to unsavedMarkdownComponents:", this.unsavedMarkdownComponents);
+      this.logger.debug("added:", namedEvent.data, "to unsavedMarkdownComponents:", this.unsavedMarkdownComponents);
     });
     this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_SYNCED, (namedEvent: NamedEvent<MarkdownEditorComponent>) => {
       this.logger.debug("event received:", namedEvent);
@@ -565,9 +618,86 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
         row.albumIndex = this.actions.defaultAlbumIndex();
         this.logger.debug("initialising albumIndex to:", row.albumIndex);
       }
+    } else if (this.actions.isSharedFragment(row)) {
+      if (!row?.fragment) {
+        row.fragment = { pageContentId: "", path: "" };
+      } else if (row.fragment.pageContentId) {
+        this.fragmentService.ensureLoadedById(row.fragment.pageContentId).then(() => {
+          const fragment = this.fragmentService.contentById(row.fragment.pageContentId);
+          if (fragment?.path) {
+            row.fragment.path = fragment.path;
+          }
+        });
+      }
     } else {
       this.logger.debug("not initialising data for ", row.type);
     }
+  }
+
+  async onSharedFragmentPathChange(row: PageContentRow, path: string) {
+    this.logger.info("onSharedFragmentPathChange received path:", path);
+    if (path) {
+      await this.fragmentService.ensureLoaded(path);
+      const fragment = this.fragmentService.content(path);
+      if (fragment?.id) {
+        row.fragment = { pageContentId: fragment.id, path };
+        this.logger.info("Set pageContentId:", fragment.id, "for path:", path);
+      } else {
+        this.logger.warn("No fragment found for path:", path);
+        row.fragment = { pageContentId: "", path };
+      }
+      this.actions.notifyPageContentChanges(this.pageContent);
+    } else {
+      row.fragment = null;
+    }
+  }
+
+  fragmentContent(row: PageContentRow): PageContent {
+    return row?.fragment?.pageContentId ? this.fragmentService.contentById(row.fragment.pageContentId) : null;
+  }
+
+  fragmentPath(row: PageContentRow): string {
+    return this.fragmentService.contentById(row?.fragment?.pageContentId)?.path;
+  }
+
+  allowDrop($event: DragEvent) { $event.preventDefault(); }
+
+  onRowDragStart(event: DragEvent, index: number) {
+    this.actions.draggedRowIndex = index;
+    this.actions.dragStartX = event?.clientX ?? null;
+    this.actions.dragStartY = event?.clientY ?? null;
+    this.actions.dragHasMoved = false;
+  }
+
+  onRowDragOver(targetIndex: number, $event: DragEvent) {
+    $event.preventDefault();
+    const dx = ($event?.clientX ?? 0) - (this.actions.dragStartX ?? 0);
+    const dy = ($event?.clientY ?? 0) - (this.actions.dragStartY ?? 0);
+    if (!this.actions.dragHasMoved && (Math.abs(dx) + Math.abs(dy) > 3)) { this.actions.dragHasMoved = true; }
+    this.rowDragTargetIndex = targetIndex;
+  }
+
+  onRowDrop(targetIndex: number) {
+    if (this.actions.draggedRowIndex === null || this.actions.draggedRowIndex === undefined) { return; }
+    if (targetIndex === this.actions.draggedRowIndex) { this.actions.draggedRowIndex = null; return; }
+    move(this.pageContent.rows, this.actions.draggedRowIndex, targetIndex);
+    this.actions.draggedRowIndex = null;
+    this.actions.notifyPageContentChanges(this.pageContent);
+    this.rowDragTargetIndex = null;
+  }
+
+  onRowDragEnd() {
+    this.rowDragTargetIndex = null;
+  }
+
+  rowDragTooltip(index: number): string | null {
+    const dragged = this.actions.draggedRowIndex;
+    const target = this.rowDragTargetIndex;
+    if (dragged === null || dragged === undefined) { return null; }
+    if (!this.actions.dragHasMoved) { return null; }
+    if (target !== index) { return null; }
+    if (dragged === target) { return "Drop: no change"; }
+    return `Drop row ${dragged + 1} ${dragged < target ? 'after' : 'before'} row ${target + 1}`;
   }
 
   public contentPathWithIndex(row: PageContentRow): string {
@@ -651,13 +781,21 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   async performCopyOrMoveAction() {
     const createNewPage: boolean = !this.destinationPageContent;
-    if (createNewPage) {
+    if (this.action === Action.CREATE_FRAGMENT) {
+      const fragmentPath = this.urlService.reformatLocalHref(`fragments/${this.fragmentName}`);
+      const newPageContent: PageContent = {
+        path: fragmentPath,
+        rows: await this.actions.copyContentTextIdsInRows(this.pageContentRowService.selectedRows())
+      };
+      this.logger.debug("new fragment newPageContent:", newPageContent);
+      this.performAction(newPageContent, true, fragmentPath);
+    } else if (createNewPage) {
       const newPageContent: PageContent = {
         path: this.destinationPath,
         rows: await this.actions.copyContentTextIdsInRows(this.pageContentRowService.selectedRows())
       };
       this.logger.debug("newPageContent:", newPageContent);
-      this.performAction(newPageContent, createNewPage);
+      this.performAction(newPageContent, createNewPage, this.destinationPath);
     } else {
       this.logger.debug("destinationPageContent.rows before:", cloneDeep(this.destinationPageContent.rows));
       const duplicatedRows: PageContentRow[] = this.action === Action.COPY
@@ -669,29 +807,34 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
         ...duplicatedRows
       );
       this.logger.debug("destinationPageContent.rows after:", cloneDeep(this.destinationPageContent.rows));
-      this.performAction(this.destinationPageContent, createNewPage);
+      this.performAction(this.destinationPageContent, createNewPage, this.destinationPath);
     }
   }
 
 
-  private performAction(newPageContent: PageContent, createNewPage: boolean) {
+  private performAction(newPageContent: PageContent, createNewPage: boolean, destinationLabel: string) {
     this.copyOrMoveActionComplete = false;
     this.pageContentService.createOrUpdate(newPageContent)
       .then(() => {
         if (this.action === Action.MOVE) {
           this.pageContent.rows = this.pageContent.rows.filter(row => !newPageContent.rows.includes(row));
-          this.savePageContent().then(() => this.notifyActionCompleted(createNewPage));
+          this.savePageContent().then(() => this.notifyActionCompleted(createNewPage, destinationLabel));
         } else {
-          this.notifyActionCompleted(createNewPage);
+          this.notifyActionCompleted(createNewPage, destinationLabel);
         }
       });
   }
 
-  private notifyActionCompleted(createNewPage: boolean) {
+  private notifyActionCompleted(createNewPage: boolean, destinationLabel: string) {
     this.copyOrMoveActionComplete = true;
+    const count = this.pageContentRowService.selectedRowCount();
+    const verb = count === 1 ? "was" : "were";
+    const operation = this.action === Action.MOVE ? "moved" : "copied";
+    const targetType = this.action === Action.CREATE_FRAGMENT ? "fragment" : "page";
+    const destination = destinationLabel || this.destinationPath || this.pageContent?.path;
     this.notify.success({
       title: `${this.action} Rows`,
-      message: `${this.stringUtils.pluraliseWithCount(this.pageContentRowService.selectedRowCount(), "row")} were ${this.action === Action.MOVE ? "moved" : "copied"} to ${createNewPage ? "new" : "existing"} page ${this.destinationPath} successfully`
+      message: `${this.stringUtils.pluraliseWithCount(count, "row")} ${verb} ${operation} to ${createNewPage ? "new" : "existing"} ${targetType} ${destination} successfully`
     });
     this.pageContentRowService.deselectAll();
   }
@@ -719,13 +862,20 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   actionDisabled() {
-    return !this.pageContentRowService.rowsSelected() || isEmpty(this.destinationPath) || (this.destinationPath === this.pageContent.path);
+    if (!this.pageContentRowService.rowsSelected()) { return true; }
+    if (this.action === Action.CREATE_FRAGMENT) { return isEmpty(this.fragmentName); }
+    return isEmpty(this.destinationPath) || (this.destinationPath === this.pageContent.path);
   }
 
   destinationPathLookupChange(value: string) {
     this.logger.debug("destinationPathLookupChange:", value);
     this.destinationPathLookup.next(value);
     this.destinationPath = value;
+  }
+
+  firstSelectedRowIndex(): number {
+    const indexes = this.pageContent?.rows?.map((row, index) => this.pageContentRowService.isSelected(row) ? index : null).filter(v => v !== null) as number[];
+    return indexes?.length ? Math.min(...indexes) : -1;
   }
 
   private clearAlert(pageContent: PageContent) {
@@ -767,5 +917,15 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   toggleShowUnreferencedPages() {
     this.showUnreferenced = !this.showUnreferenced;
     this.uiActionsService.saveValueFor(StoredValue.SHOW_UNREFERENCED_PAGES, this.showUnreferenced);
+  }
+
+  onSaveClicked() {
+    if (this.actions.rowsInEdit.length > 0 || this.savingPage) {
+      return;
+    }
+    this.savingPage = true;
+    this.savePageContent()
+      ?.catch(error => this.notify.error({title: "Failed to save page", message: error}))
+      ?.finally(() => this.savingPage = false);
   }
 }
