@@ -12,6 +12,10 @@ import { AdminAuthGuard } from "../../guards/admin-auth-guard";
         .then(m => m.AdminComponent), canActivate: [AreaExistsGuard]
     },
     {
+      path: "fragment-index", loadComponent: () => import("../../pages/admin/content/fragment-index")
+        .then(m => m.FragmentIndexComponent), canActivate: [AdminAuthGuard]
+    },
+    {
       path: "expenses", loadComponent: () => import("../../pages/admin/expenses/expenses.component")
         .then(m => m.ExpensesComponent), canActivate: [LoggedInGuard]
     },

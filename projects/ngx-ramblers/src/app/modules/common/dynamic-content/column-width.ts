@@ -1,5 +1,5 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
-import { faCaretDown, faCaretUp } from "@fortawesome/free-solid-svg-icons";
+import { faArrowsLeftRight, faArrowsLeftRightToLine } from "@fortawesome/free-solid-svg-icons";
 import { PageContentColumn } from "../../../models/content-text.model";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
@@ -19,7 +19,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                  placeholder="Enter number of columns (1-12)"
                  type="number">
           <button type="button" class="btn btn-outline-secondary" [tooltip]="expandAction" (click)="toggleExpand()">
-              <fa-icon [icon]="expanded? faCaretDown:faCaretUp" class="fa-icon"></fa-icon>
+              <fa-icon [icon]="expanded? faArrowsLeftRightToLine:faArrowsLeftRight" class="fa-icon"></fa-icon>
           </button>
       </div>
   `,
@@ -35,11 +35,11 @@ export class ColumnWidthComponent implements OnInit {
   public id: string;
   public expanded = false;
 
-  protected readonly faCaretDown = faCaretDown;
-  protected readonly faCaretUp = faCaretUp;
+  protected readonly faArrowsLeftRight = faArrowsLeftRight;
+  protected readonly faArrowsLeftRightToLine = faArrowsLeftRightToLine;
 
   expandAction: string;
-  INITIAL_EXPAND_TOOLTIP = "Temporarily expand width";
+  INITIAL_EXPAND_TOOLTIP = "Temporarily expand this column to full width to make it easier to edit content";
 
   ngOnInit() {
     this.id = this.numberUtils.generateUid();

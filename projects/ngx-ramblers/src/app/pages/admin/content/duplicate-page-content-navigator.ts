@@ -1,4 +1,4 @@
-import { Component, effect, inject, signal } from "@angular/core";
+import { Component, computed, effect, inject, signal } from "@angular/core";
 import { DuplicateContentService } from "./duplicate-content-service";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
 import { PageComponent } from "../../../page/page.component";
@@ -17,33 +17,36 @@ import { AlertComponent } from "ngx-bootstrap/alert";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FormControl, FormGroup } from "@angular/forms";
+import { VisibilityObserverDirective } from "../../../notifications/common/visibility-observer.directive";
 
 @Component({
   selector: "app-duplicate-page-content-navigator",
   template: `
     <app-page autoTitle>
       <app-markdown-editor category="admin" name="duplicate-page-content-navigator"/>
-      <div class="mb-3">
-        <label class="me-2">View Mode: </label>
-        <button class="btn btn-sm btn-primary me-2"
+      <div class="mb-3 d-flex align-items-center flex-nowrap">
+        <label class="me-2 text-nowrap">View Mode: </label>
+        <button class="btn btn-sm btn-primary me-2 text-nowrap"
                 [class.active]="viewMode() === 'duplicates'"
                 (click)="viewMode.set('duplicates')">
           <fa-icon [icon]="faWarning"/> Duplicates
         </button>
-        <button class="btn btn-sm btn-primary"
+        <button class="btn btn-sm btn-primary me-3 text-nowrap"
                 [class.active]="viewMode() === 'all'"
                 (click)="viewMode.set('all')">
           <fa-icon [icon]="faList"/> All Content
         </button>
+        <input class="form-control flex-grow-1" style="min-width: 0" type="text" placeholder="Filter by path"
+                [ngModel]="searchTerm()" (ngModelChange)="onSearchChange($event)">
       </div>
-      @if (contentItems().length > 0) {
+      @if (filteredContentItems().length > 0) {
         <section>
           <form [formGroup]="selectionForm">
             <div class="mb-3">
               <select multiple class="form-control"
                       formControlName="selectedIds"
                       size="10">
-                @for (item of allContentItems(); track item.id) {
+                @for (item of filteredAllContentItems(); track item.id) {
                   <option [ngValue]="item.id">
                     {{ item.path }}
                   </option>
@@ -56,20 +59,20 @@ import { FormControl, FormGroup } from "@angular/forms";
               }
             </div>
           </form>
-          @for (item of contentItems(); track $index) {
+          @for (item of filteredContentItems(); track $index) {
             <h3>
               @if (viewMode() === 'duplicates') {
                 <fa-icon class="fa-icon-sunrise me-1" [icon]="faWarning"/>
-                Duplicate {{ $index + 1 }} of {{ contentItems().length }}:
+                Duplicate {{ $index + 1 }} of {{ filteredContentItems().length }}:
               } @else {
-                Content Item {{ $index + 1 }} of {{ contentItems().length }}:
+                Content Item {{ $index + 1 }} of {{ filteredContentItems().length }}:
               }
               <a class="rams-text-decoration-pink" [href]="item.path">{{ item.path }}</a>
               @if (viewMode() === 'duplicates') {
                 {{ EM_DASH_WITH_SPACES }} {{ stringUtils.pluraliseWithCount(getDuplicateCount(item), "duplicate") }}
               }
             </h3>
-            @for (content of getContentItems(item); track content.id) {
+            @for (content of getContentItems(item); track content.id; let contentIndex = $index) {
               <div class="dotted-content">
                 <div class="row align-items-start d-flex">
                   <div class="col-auto">
@@ -95,11 +98,21 @@ import { FormControl, FormGroup } from "@angular/forms";
                       of {{ getContentItems(item).length }}
                     </button>
                   </div>
+                  <div class="col-auto">
+                    <button class="btn btn-outline-secondary mb-3"
+                            (click)="toggleRender(content.id)">
+                      {{ shouldRender(content) ? "Hide Content" : "Show Content" }}
+                    </button>
+                  </div>
                 </div>
-                <app-dynamic-content-view [pageContent]="content"
-                                          [notify]="notify"
-                                          [contentPath]="content.path"
-                                          [contentDescription]="content.path"/>
+                <div [app-visibility-observer]="visibilityLabel(item, content, contentIndex)"
+                     (visible)="markVisible(content.id)" style="height:1px"></div>
+                @if (shouldRender(content)) {
+                  <app-dynamic-content-view [pageContent]="content"
+                                            [notify]="notify"
+                                            [contentPath]="content.path"
+                                            [contentDescription]="content.path"/>
+                }
               </div>
             }
           }
@@ -128,21 +141,15 @@ import { FormControl, FormGroup } from "@angular/forms";
     ReactiveFormsModule,
     UiSwitchModule,
     TypeaheadDirective,
-    AlertComponent
+    AlertComponent,
+    VisibilityObserverDirective
   ]
 })
 export class DuplicatePageContentNavigatorComponent {
   private logger: Logger = inject(LoggerFactory).createLogger("DuplicatePageContentNavigatorComponent", NgxLoggerLevel.ERROR);
   constructor() {
     effect(async () => {
-      if (this.viewMode() === "duplicates") {
-        this.contentItems.set(await this.duplicateContentService.findDuplicates());
-      } else {
-        const allContent = await this.pageContentService.all();
-        this.contentItems.set(allContent.map(item => ({ path: item.path, duplicatePageContents: [item] } as DuplicatePageContent)));
-      }
-      this.updateAllContentItems();
-      this.selectionForm.patchValue({ selectedIds: this.selectedIds() });
+      await this.loadAndReset();
     });
 
     this.selectionForm.get("selectedIds")?.valueChanges.subscribe(() => {
@@ -165,6 +172,15 @@ export class DuplicatePageContentNavigatorComponent {
   contentItems = signal<DuplicatePageContent[]>([]);
   selectedIds = signal<string[]>([]);
   allContentItems = signal<PageContent[]>([]);
+  rendered = signal<Record<string, boolean>>({});
+  searchTerm = signal<string>("");
+  filteredContentItems = computed<DuplicatePageContent[]>(() => {
+    const term = this.searchTerm().trim().toLowerCase();
+    if (!term) return this.contentItems();
+    return this.contentItems().filter(item => (item.path || "").toLowerCase().includes(term));
+  });
+  filteredAllContentItems = computed<PageContent[]>(() => this.filteredContentItems().flatMap(item => item.duplicatePageContents || []));
+  private searchDebounce: any;
 
   protected readonly ALERT_SUCCESS = ALERT_SUCCESS;
 
@@ -199,14 +215,7 @@ export class DuplicatePageContentNavigatorComponent {
   }
 
   private async refreshContent(): Promise<void> {
-    if (this.viewMode() === "duplicates") {
-      this.contentItems.set(await this.duplicateContentService.findDuplicates());
-    } else {
-      const allContent = await this.pageContentService.all();
-      this.contentItems.set(allContent.map(item => ({ path: item.path, duplicatePageContents: [item] } as DuplicatePageContent)));
-    }
-    this.updateAllContentItems();
-    this.selectionForm.patchValue({ selectedIds: this.selectedIds() });
+    await this.loadAndReset();
   }
 
   getContentItems(item: DuplicatePageContent): PageContent[] {
@@ -220,5 +229,64 @@ export class DuplicatePageContentNavigatorComponent {
   private updateAllContentItems(): void {
     const flattenedItems = this.contentItems().flatMap(item => item.duplicatePageContents || []);
     this.allContentItems.set(flattenedItems);
+  }
+
+  markVisible(id?: string): void {
+    if (!id) return;
+    const next = { ...this.rendered() };
+    next[id] = true;
+    this.rendered.set(next);
+  }
+
+  toggleRender(id?: string): void {
+    if (!id) return;
+    const next = { ...this.rendered() };
+    next[id] = !next[id];
+    this.rendered.set(next);
+  }
+
+  shouldRender(content: PageContent): boolean {
+    return !!(content?.id && this.rendered()[content.id]);
+  }
+
+  private async loadAndReset(): Promise<void> {
+    await this.loadForViewMode();
+    this.afterLoad();
+  }
+
+  private async loadForViewMode(): Promise<void> {
+    if (this.viewMode() === "duplicates") {
+      this.contentItems.set(await this.duplicateContentService.findDuplicates());
+    } else {
+      const allContent = await this.pageContentService.all();
+      this.contentItems.set(this.wrapAsDuplicatePageContent(allContent));
+    }
+  }
+
+  private afterLoad(): void {
+    this.updateAllContentItems();
+    this.rendered.set({});
+    this.selectionForm.patchValue({ selectedIds: this.selectedIds() });
+  }
+
+  private wrapAsDuplicatePageContent(allContent: PageContent[]): DuplicatePageContent[] {
+    return allContent.map(item => ({ path: item.path, duplicatePageContents: [item] } as DuplicatePageContent));
+  }
+
+  onSearchChange(value: string) {
+    const v = value || "";
+    if (this.searchDebounce) {
+      clearTimeout(this.searchDebounce);
+    }
+    this.searchDebounce = setTimeout(() => this.searchTerm.set(v), 300);
+  }
+
+  visibilityLabel(item: DuplicatePageContent, content: PageContent, index: number): string {
+    const base = item.path || content.path || "";
+    const count = this.getContentItems(item).length;
+    const position = index + 1;
+    const tail = content.id || "";
+    const qualifier = count === 1 ? "unduplicated item" : `duplicate ${position}/${count}`;
+    return `${base} — ${qualifier} — ${tail}`;
   }
 }

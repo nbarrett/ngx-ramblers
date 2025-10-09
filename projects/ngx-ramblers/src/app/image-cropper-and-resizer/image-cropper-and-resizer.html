@@ -40,7 +40,11 @@
   </div>
 </div>
 <div class="row mt-2 mb-2">
-  <div class="col-sm-12 img-fluid w-100">
+  <div class="col-sm-12 img-fluid w-100"
+       (mousedown)="$event.stopPropagation()"
+       (pointerdown)="$event.stopPropagation()"
+       (touchstart)="$event.stopPropagation()"
+       (dragstart)="$event.stopPropagation(); $event.preventDefault()">
     @if (fileTypeAttributes?.croppable) {
       <image-cropper
         [allowMoveImage]="true"
@@ -73,6 +77,11 @@
   <div class="col-sm-6 mb-2">
     <label for="compression">Compress to size ({{ imageQuality }}%):</label>
     <input type="range" min="1" max="100" value="90" step="1" class="form-range" id="compression"
+           [attr.draggable]="false"
+           (mousedown)="$event.stopPropagation()"
+           (pointerdown)="$event.stopPropagation()"
+           (touchstart)="$event.stopPropagation()"
+           (dragstart)="$event.stopPropagation(); $event.preventDefault()"
            [disabled]="actionDisabled" (change)="changeRange($event, true)" (input)="changeRange($event, false)">
   </div>
 </div>

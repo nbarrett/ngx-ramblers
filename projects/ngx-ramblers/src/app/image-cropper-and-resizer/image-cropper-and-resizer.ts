@@ -150,11 +150,11 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
         this.uploader = this.fileUploadService.createUploaderFor(rootFolder, false);
         this.subscriptions.push(this.uploader.response.subscribe((response: string | HttpErrorResponse) => {
             const awsFileUploadResponseData: AwsFileUploadResponseData = this.fileUploadService.handleSingleResponseDataItem(response, this.notify, this.logger);
-            this.fileNameData = awsFileUploadResponseData.fileNameData;
+            this.fileNameData = awsFileUploadResponseData?.fileNameData;
             this.fileNameData.title = this?.existingTitle;
             this.notify.success({title: "File uploaded", message: this.fileNameData.title});
             // extra bit from other handler
-            const awsFileName = `${awsFileUploadResponseData.fileNameData?.rootFolder}/${awsFileUploadResponseData.fileNameData?.awsFileName}`;
+            const awsFileName = `${awsFileUploadResponseData?.fileNameData?.rootFolder}/${awsFileUploadResponseData?.fileNameData?.awsFileName}`;
             this.croppedFile.awsFileName = awsFileName;
             this.logger.info("received response:", awsFileUploadResponseData, "awsFileName:", awsFileName, "local originalFile.name:", this.originalFile.name, "aws originalFileName", awsFileUploadResponseData?.fileNameData.originalFileName);
             this.save.next(this.croppedFile);
@@ -238,6 +238,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
     imageLoaded(loadedImage: LoadedImage) {
         this.originalImageData = loadedImage.original;
         this.logger.info("Image loaded:", this.originalImageData);
+        this.manuallySubmitCrop();
     }
 
     private cropForCurrentCompression() {

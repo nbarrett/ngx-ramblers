@@ -13,6 +13,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { MediaQueryService } from "../../../../services/committee/media-query.service";
 import { FALLBACK_MEDIA } from "../../../../models/walk.model";
 import { DescribedDimensions } from "../../../../models/aws-object.model";
+import { FileUtilsService } from "../../../../file-utils.service";
 
 @Component({
     selector: "app-card-image",
@@ -24,6 +25,7 @@ import { DescribedDimensions } from "../../../../models/aws-object.model";
              [ngStyle]="imageStyles()"
              [ngClass]="{'card-img-fixed-height': fixedHeight}"
              [src]="urlService.imageSource(imageSource, false, true)"
+             [alt]="fileUtils.altFrom(alt, imageSource)"
              [routerLink]="urlService.routerLinkUrl(imageLink)">
       }
       @if (!unconstrainedHeight) {
@@ -33,6 +35,7 @@ import { DescribedDimensions } from "../../../../models/aws-object.model";
              [ngStyle]="imageStyles()"
              [ngClass]="{'card-img-fixed-height': fixedHeight}"
              [src]="urlService.imageSource(imageSource, false, true)"
+             [alt]="fileUtils.altFrom(alt, imageSource)"
              [routerLink]="urlService.routerLinkUrl(imageLink)">
       }
     }
@@ -48,11 +51,13 @@ import { DescribedDimensions } from "../../../../models/aws-object.model";
       </div>
     }`,
     styleUrls: ["./card-image.sass"],
+    host: {class: "d-block w-100"},
     imports: [NgStyle, NgClass, RouterLink, FontAwesomeModule]
 })
 export class CardImageComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("CardImageComponent", NgxLoggerLevel.ERROR);
   urlService = inject(UrlService);
+  public fileUtils: FileUtilsService = inject(FileUtilsService);
   mediaQueryService = inject(MediaQueryService);
   faImage = faImage;
   public constrainedHeight: number;
@@ -88,6 +93,7 @@ export class CardImageComponent implements OnInit {
 
   @Input() public imageType: ImageType;
   @Input() public imageLink: string;
+  @Input() public alt: string;
   @Input() public icon: IconProp;
   @Input() public borderRadius: number;
   @Input() public aspectRatio: DescribedDimensions;
@@ -141,14 +147,14 @@ export class CardImageComponent implements OnInit {
 
   imageStyles(): any {
     const styles: any = {};
+    styles["width"] = "100%";
+    styles["height"] = "auto";
     if (this.borderRadius) {
       styles["border-radius.px"] = this.borderRadius;
     }
     if (this.aspectRatio && this.imageSource === FALLBACK_MEDIA.url) {
       styles["aspect-ratio"] = `${this.aspectRatio.width} / ${this.aspectRatio.height}`;
       styles["object-fit"] = "cover";
-      styles["width"] = "100%";
-      styles["height"] = "auto";
     }
     return styles;
   }

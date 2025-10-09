@@ -30,3 +30,23 @@
   transform: scale(0.5)
   transform-origin: top left
 
+.drag-handle
+  opacity: 0
+  cursor: grab
+  transition: opacity .15s ease-in-out
+
+.thumbnail-site-edit:hover .drag-handle,
+.thumbnail-site-edit-top-bottom-margins:hover .drag-handle
+  opacity: 1
+
+.thumbnail-heading
+  cursor: grab
+
+.thumbnail-site-edit-top-bottom-margins
+  user-select: auto
+
+.empty-drop-zone
+  border: 2px dashed #dee2e6
+  border-radius: 6px
+  min-height: 60px
+  background-color: rgba(0,0,0,0.02)

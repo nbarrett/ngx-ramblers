@@ -12,6 +12,7 @@ const PageContentColumn = new mongoose.Schema({
   contentTextId: {type: String},
   accessLevel: {type: String},
   showPlaceholderImage: {type: Boolean},
+  showTextAfterImage: {type: Boolean},
   imageAspectRatio: {type: Object},
   rows: {type: Object, required: false},
 }, { _id : false });
@@ -28,6 +29,7 @@ const PageContentRow = new mongoose.Schema({
   events: {type: Object},
   albumIndex: {type: Object},
   areaMap: {type: Object},
+  fragment: {type: Object},
 }, { _id : false });
 
 const pageContentSchema = new mongoose.Schema({

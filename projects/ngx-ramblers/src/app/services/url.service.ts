@@ -1,9 +1,7 @@
 import { DOCUMENT, Location } from "@angular/common";
 import { inject, Injectable } from "@angular/core";
 import { ActivatedRoute, Params, QueryParamsHandling, Router } from "@angular/router";
-import { first } from "es-toolkit/compat";
-import { last } from "es-toolkit/compat";
-import { tail } from "es-toolkit/compat";
+import { first, isEmpty, last, tail } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   BASE64_PREFIX_HEIC,
@@ -18,13 +16,13 @@ import { AWSLinkConfig, LinkConfig, LinkTextConfig } from "../models/link.model"
 import { SiteEditService } from "../site-edit/site-edit.service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { isMongoId } from "./mongo-utils";
-import { isEmpty } from "es-toolkit/compat";
 import { isNumericRamblersId } from "./path-matchers";
 import { StringUtilsService } from "./string-utils.service";
 import { Organisation, RootFolder } from "../models/system.model";
 import { SystemConfigService } from "./system/system-config.service";
 import { DateUtilsService } from "./date-utils.service";
 import { FALLBACK_MEDIA } from "../models/walk.model";
+import { FileUtilsService } from "../file-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -115,10 +113,10 @@ export class UrlService {
 
   baseDomain(): string {
     const hostname = this.group?.href ? new URL(this.group.href).hostname : window.location.hostname;
-    const parts = hostname.split('.');
+    const parts = hostname.split(".");
     return parts.length >= 3 && parts[parts.length - 2].length <= 3
-      ? parts.slice(-3).join('.')
-      : parts.slice(-2).join('.');
+      ? parts.slice(-3).join(".")
+      : parts.slice(-2).join(".");
   }
 
   websocketHost(): string {

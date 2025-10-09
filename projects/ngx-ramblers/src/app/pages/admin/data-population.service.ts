@@ -49,6 +49,15 @@ export class DataPopulationService {
     return this.defaultContentMap.get(key);
   }
 
+  public fragmentPaths(): string[] {
+    try {
+      return Array.from(this.defaultContentMap.keys())
+        .filter(() => false);
+    } catch {
+      return [];
+    }
+  }
+
   public clearLegacyLocalStorage(): void {
     try {
       const keys = Object.values(LegacyStoredValue);
@@ -65,6 +74,11 @@ export class DataPopulationService {
 
   private defaultContentArray(): ContentText[] {
     return [
+      {
+        category: "admin",
+        name: "fragment-index",
+        text: "This page lists all Shared Fragments (paths starting with `fragments/`), renders a live preview of each, and shows links to every page that references them. Use the filter to quickly find a fragment by path."
+      },
       {
         category: "admin",
         name: "walks-manager-fields-help",
@@ -306,6 +320,13 @@ export class DataPopulationService {
         icon: "faPencil",
         href: "admin/duplicate-page-content-navigator",
         contentTextId: (await this.contentTextService.findOrCreateByNameAndCategory("duplicate-page-content-navigator-help", "admin", "Allows the user to navigate to the page content that is duplicated in the system."))?.id
+      },
+      {
+        accessLevel: AccessLevel.committee,
+        title: "Fragment Index",
+        icon: "faList",
+        href: "admin/fragment-index",
+        contentTextId: (await this.contentTextService.findOrCreateByNameAndCategory("fragment-index-help", "admin", "Lists all Shared Fragments, shows a live preview for each, and links to all pages that reference them."))?.id
       }];
     const defaultPageContent: PageContent = {
       path: PageContentPath.ADMIN_ACTION_BUTTONS, rows: [

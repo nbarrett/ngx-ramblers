@@ -43,6 +43,19 @@ export class PageContentActionsService {
   private urlService = inject(UrlService);
   private numberUtils = inject(NumberUtilsService);
   public rowsInEdit: number[] = [];
+  public draggedRowIndex: number = null;
+  public draggedColumnRowIndex: number = null;
+  public draggedColumnIndex: number = null;
+  public draggedColumnSourceRow: PageContentRow = null;
+  public draggedNestedColumnIndex: number = null;
+  public draggedNestedRowIndex: number = null;
+  public draggedColumnIsNested: boolean = false;
+  public dragStartX: number = null;
+  public dragStartY: number = null;
+  public dragHasMoved: boolean = false;
+  public dragOverColumnRowIndex: number = null;
+  public dragOverColumnIndex: number = null;
+  public dragInsertAfter: boolean = false;
 
   public actionType(columnIndex: number, rowIndex: number, rowIsNested: boolean): string {
     const actionType = rowIsNested ? columnIndex >= 0 ?
@@ -334,6 +347,10 @@ export class PageContentActionsService {
     return row?.type === PageContentType.AREA_MAP;
   }
 
+  public isSharedFragment(row: PageContentRow) {
+    return row?.type === PageContentType.SHARED_FRAGMENT;
+  }
+
   public pageContentFound(pageContent: PageContent, queryCompleted: boolean) {
     const hasRows = pageContent?.rows?.length > 0;
     this.logger.debug("pageContentFound:hasRows:", hasRows, "queryCompleted:", queryCompleted);
@@ -364,6 +381,70 @@ export class PageContentActionsService {
 
   public moveRowDown(pageContent: PageContent, rowIndex: number, rowIsNested: boolean, column: PageContentColumn) {
     move(this.rowContainer(pageContent, rowIsNested, column).rows, rowIndex, rowIndex + 1);
+  }
+
+  public reorderRows(pageContent: PageContent, fromIndex: number, toIndex: number) {
+    move(pageContent.rows, fromIndex, toIndex);
+    this.notifyPageContentChanges(pageContent);
+  }
+
+  public moveColumnBetweenRows(sourceRow: PageContentRow, sourceIndex: number, targetRow: PageContentRow, targetIndex: number, pageContent: PageContent) {
+    if (!Array.isArray(sourceRow?.columns)) { return; }
+    const [col] = sourceRow.columns.splice(sourceIndex, 1);
+    if (!Array.isArray(targetRow.columns)) { targetRow.columns = []; }
+    const safeIndex = Math.max(0, Math.min(targetIndex, targetRow.columns.length));
+    targetRow.columns.splice(safeIndex, 0, col);
+    const sourceIncrement = -1;
+    const targetIncrement = 1;
+    this.calculateColumnsFor(sourceRow, sourceIncrement);
+    this.calculateColumnsFor(targetRow, targetIncrement);
+    this.notifyPageContentChanges(pageContent);
+  }
+
+  public moveColumnToPreviousRow(pageContent: PageContent, currentRow: PageContentRow, columnIndex: number) {
+    const rows = pageContent?.rows || [];
+    const rowIndex = rows.indexOf(currentRow);
+    if (rowIndex > 0) {
+      this.calculateColumnsFor(rows[rowIndex - 1], 1);
+      this.calculateColumnsFor(currentRow, -1);
+      const [col] = currentRow.columns.splice(columnIndex, 1);
+      rows[rowIndex - 1].columns.push(col);
+      this.notifyPageContentChanges(pageContent);
+    }
+  }
+
+  public moveColumnToNextRow(pageContent: PageContent, currentRow: PageContentRow, columnIndex: number) {
+    const rows = pageContent?.rows || [];
+    const rowIndex = rows.indexOf(currentRow);
+    if (rowIndex >= 0 && rowIndex < rows.length - 1) {
+      this.calculateColumnsFor(rows[rowIndex + 1], 1);
+      this.calculateColumnsFor(currentRow, -1);
+      const [col] = currentRow.columns.splice(columnIndex, 1);
+      rows[rowIndex + 1].columns.unshift(col);
+      this.notifyPageContentChanges(pageContent);
+    }
+  }
+
+  public equaliseColumnWidths(row: PageContentRow, pageContent: PageContent) {
+    const count = row?.columns?.length || 0;
+    if (count <= 0) { return; }
+    const base = Math.floor(12 / count);
+    let remainder = 12 - (base * count);
+    row.columns.forEach((column, index) => {
+      const extra = remainder > 0 ? 1 : 0;
+      column.columns = base + extra;
+      if (remainder > 0) { remainder--; }
+    });
+    this.notifyPageContentChanges(pageContent);
+  }
+
+  public moveColumnToEmptyRow(sourceRow: PageContentRow, sourceIndex: number, targetRow: PageContentRow, pageContent: PageContent) {
+    const [col] = sourceRow.columns.splice(sourceIndex, 1);
+    this.calculateColumnsFor(sourceRow, -1);
+    if (!targetRow.columns) { targetRow.columns = []; }
+    col.columns = 12;
+    targetRow.columns.splice(0, 0, col);
+    this.notifyPageContentChanges(pageContent);
   }
 
   public calculateInsertableContent(existingData: PageContent, defaultData: PageContent): ColumnInsertData[] {

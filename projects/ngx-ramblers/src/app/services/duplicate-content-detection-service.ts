@@ -46,7 +46,7 @@ export class DuplicateContentDetectionService {
       this.detectionStarted = true;
       this.logger.info("initialiseForAll:starting detection");
       this.usageMap = new Map();
-      const pages: PageContent[] = await this.pageContentService.all();
+      const pages: PageContent[] = await this.pageContentService.all({select: {path: 1, "rows.columns.contentTextId": 1, "rows.columns.rows.columns.contentTextId": 1}});
       pages.forEach(pageContent => this.applyPageContent(pageContent, this.usageMap));
       this.detectionStarted = false;
       this.logger.info("initialiseForAll:completed detection");
@@ -64,11 +64,12 @@ export class DuplicateContentDetectionService {
   }
 
   private processRows(pageContent: HasPageContentRows, contentPath: string, usageMap: ContentTextUsageMap) {
-    pageContent.rows.forEach((row, rowIndex) => {
-      row.columns.forEach((column: PageContentColumn, columnIndex) => {
-        if (column.contentTextId) {
-          if (!usageMap.has(column.contentTextId)) {
-            usageMap.set(column.contentTextId, []);
+    (pageContent?.rows || []).forEach((row, rowIndex) => {
+      (row?.columns || []).forEach((column: PageContentColumn, columnIndex) => {
+        const contentTextId = column?.contentTextId;
+        if (contentTextId) {
+          if (!usageMap.has(contentTextId)) {
+            usageMap.set(contentTextId, []);
           }
           const usage: ContentTextUsage = {
             contentPath,
@@ -76,9 +77,9 @@ export class DuplicateContentDetectionService {
             column: columnIndex + 1,
             editorInstance: null
           };
-          usageMap.get(column.contentTextId).push(usage);
-        } else if (column.rows) {
-          this.processRows(column, contentPath, usageMap);
+          usageMap.get(contentTextId).push(usage);
+        } else if ((column as any)?.rows) {
+          this.processRows(column as unknown as HasPageContentRows, contentPath, usageMap);
         }
       });
     });

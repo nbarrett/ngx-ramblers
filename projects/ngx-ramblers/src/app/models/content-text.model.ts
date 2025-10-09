@@ -125,6 +125,7 @@ export interface PageContentRow extends HasMaxColumns {
   events?: EventsData;
   albumIndex?: AlbumIndex;
   areaMap?: AreaMapData;
+  fragment?: Fragment;
 }
 
 export interface PageContentColumn extends Link, HasPageContentRows {
@@ -132,10 +133,12 @@ export interface PageContentColumn extends Link, HasPageContentRows {
   contentTextId?: string;
   contentText?: string;
   imageSource?: string;
+  alt?: string;
   imageBorderRadius?: number;
   icon?: string;
   accessLevel?: AccessLevel;
   showPlaceholderImage?: boolean;
+  showTextAfterImage?: boolean;
   imageAspectRatio?: DescribedDimensions;
 }
 
@@ -235,6 +238,7 @@ export enum PageContentType {
   EVENTS = "events",
   AREA_MAP = "area-map",
   TEXT = "text",
+  SHARED_FRAGMENT = "shared-fragment",
 }
 
 export enum ImageType {
@@ -303,7 +307,13 @@ export interface InsertionRow {
 
 export enum Action {
   MOVE = "Move",
-  COPY = "Copy"
+  COPY = "Copy",
+  CREATE_FRAGMENT = "Create Named Fragment"
+}
+
+export interface Fragment {
+  pageContentId: string;
+  path?: string; // Transient UI-only property, not persisted to database
 }
 
 export enum AlbumView {

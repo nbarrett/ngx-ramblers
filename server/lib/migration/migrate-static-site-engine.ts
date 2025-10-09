@@ -77,7 +77,9 @@ function configurePageDiagnostics(page: Page): void {
       if (status >= 400) {
         const url = res.url();
         debugLog(`❌ Subresource ${status}: ${url}`);
-        progress(`Resource load error ${status}: ${url}`);
+        if (status !== 404) {
+          progress(`Resource load error ${status}: ${url}`);
+        }
       }
     } catch (error) {
       debugLog("response diagnostics handler failed", error);
@@ -191,7 +193,7 @@ async function scrapePageContent(ctx: Ctx, pageLink: PageLink): Promise<ScrapedP
       const html = contentNode.innerHTML;
       const images = Array.from(contentNode.querySelectorAll("img")).map((img: HTMLImageElement) => ({
         src: img.src,
-        alt: img.alt || "Image"
+        alt: img.alt || ""
       }));
       return {html, images, failedSelectors: failed} as any;
     }, ctx.config.contentSelector, exclusions.coerceList(ctx.config.excludeSelectors));
@@ -203,11 +205,17 @@ async function scrapePageContent(ctx: Ctx, pageLink: PageLink): Promise<ScrapedP
     });
     const segments: ScrapedSegment[] = [];
     let remainingText = markdown;
+    debugLog(`✅ Segmenting page ${pageLink.path}: found ${pluraliseWithCount(images.length, "image")}`);
+    debugLog(`   First 500 chars of markdown:`, markdown.substring(0, 500));
     for (const img of images) {
       const url = new URL(img.src);
       const absoluteMarker = `![${img.alt}](${img.src})`;
       const pathMarker = `![${img.alt}](${url.pathname})`;
       const fileMarker = `![${img.alt}](${url.pathname.split("/").pop()})`;
+      debugLog(` Trying markers for img.alt="${img.alt}", img.src="${img.src}"`);
+      debugLog(` absoluteMarker: ${absoluteMarker}`);
+      debugLog(` pathMarker: ${pathMarker}`);
+      debugLog(` fileMarker: ${fileMarker}`);
       let split = remainingText.split(absoluteMarker);
       let markerUsed = absoluteMarker;
       if (split.length === 1) {
@@ -221,11 +229,18 @@ async function scrapePageContent(ctx: Ctx, pageLink: PageLink): Promise<ScrapedP
       if (split.length > 1) {
         const [before, ...after] = split;
         if (before.trim()) segments.push({text: before.trim()});
-        segments.push({text: img.alt, image: img});
+        segments.push({text: img.alt || "Image", image: img});
         remainingText = after.join(markerUsed);
+        debugLog(`✅ Split on marker: ${markerUsed}, split.length=${split.length}`);
+      } else {
+        debugLog(`⚠️ No match found! Checking if marker exists in remainingText...`);
+        debugLog(`   Contains absoluteMarker: ${remainingText.includes(absoluteMarker)}`);
+        debugLog(`   Contains pathMarker: ${remainingText.includes(pathMarker)}`);
+        debugLog(`   Contains fileMarker: ${remainingText.includes(fileMarker)}`);
       }
     }
     if (remainingText.trim()) segments.push({text: remainingText.trim()});
+    debugLog(`✅ Created ${pluraliseWithCount(segments.length, "segment")} for ${pageLink.path}`);
     const firstImage = (images || []).find(img => !isExcludedImage(ctx, img.src)) || images?.[0];
     return {path: pageLink.path, title: pageLink.title, segments, firstImage};
   } catch (error) {
@@ -282,7 +297,7 @@ async function createPageContentWithNestedRows(ctx: Ctx, content: ScrapedPage, c
   let imageCount = 0;
   let lastRowHasText = false;
   let lastRowIsHeading = false;
-  let pendingImageSource: string | null = null;
+  let pendingImageSource: {src: string, alt: string} | null = null;
   if (content.segments) {
     for (const segment of content.segments) {
       if (segment.text && !segment.image) {
@@ -294,7 +309,8 @@ async function createPageContentWithNestedRows(ctx: Ctx, content: ScrapedPage, c
             type: PageContentType.TEXT, maxColumns: 2, showSwiper: false,
             columns: [{columns: 9, contentText: markdown}, {
               columns: 3,
-              imageSource: pendingImageSource,
+              imageSource: pendingImageSource.src,
+              alt: pendingImageSource.alt,
               imageBorderRadius: 6
             }]
           });
@@ -309,13 +325,14 @@ async function createPageContentWithNestedRows(ctx: Ctx, content: ScrapedPage, c
         lastRowIsHeading = isHeading;
       } else if (segment.image) {
         const imageSource = await uploadImageToS3(ctx, segment.image);
+        const imageAlt = segment.image.alt || segment.text || "Image";
         imageCount++;
         if (lastRowHasText && !lastRowIsHeading && !pendingImageSource) {
           const prev = nestedRows[nestedRows.length - 1];
           prev.maxColumns = 2;
-          prev.columns = [prev.columns[0], {columns: 3, imageSource, imageBorderRadius: 6}];
+          prev.columns = [prev.columns[0], {columns: 3, imageSource, alt: imageAlt, imageBorderRadius: 6}];
         } else {
-          pendingImageSource = imageSource;
+          pendingImageSource = {src: imageSource, alt: imageAlt};
         }
       }
     }
@@ -340,7 +357,7 @@ async function createPageContent(ctx: Ctx, content: ScrapedPage, contentTextItem
   let imageCount = 0;
   let lastRowHasText = false;
   let lastRowIsHeading = false;
-  let pendingImageSource: string | null = null;
+  let pendingImageSource: {src: string, alt: string} | null = null;
   if (content.segments) {
     for (const segment of content.segments) {
       if (segment.text && !segment.image) {
@@ -354,7 +371,8 @@ async function createPageContent(ctx: Ctx, content: ScrapedPage, contentTextItem
             showSwiper: false,
             columns: [{columns: 9, contentText: markdown}, {
               columns: 3,
-              imageSource: pendingImageSource,
+              imageSource: pendingImageSource.src,
+              alt: pendingImageSource.alt,
               imageBorderRadius: 6
             }]
           });
@@ -371,6 +389,7 @@ async function createPageContent(ctx: Ctx, content: ScrapedPage, contentTextItem
         lastRowIsHeading = isHeading;
       } else if (segment.image) {
         const imageSource = await uploadImageToS3(ctx, segment.image);
+        const imageAlt = segment.image.alt || segment.text || "Image";
         if (segment.text) {
           const markdown = exclusions.cleanMarkdown(segment.text);
           textCount++;
@@ -379,16 +398,16 @@ async function createPageContent(ctx: Ctx, content: ScrapedPage, contentTextItem
             type: PageContentType.TEXT,
             maxColumns: 2,
             showSwiper: false,
-            columns: [{columns: 9, contentText: markdown}, {columns: 3, imageSource, imageBorderRadius: 6}]
+            columns: [{columns: 9, contentText: markdown}, {columns: 3, imageSource, alt: imageAlt, imageBorderRadius: 6}]
           });
         } else {
           imageCount++;
           if (lastRowHasText && !lastRowIsHeading && !pendingImageSource) {
             const prev = pageContentRows[pageContentRows.length - 1];
             prev.maxColumns = 2;
-            prev.columns = [prev.columns[0], {columns: 3, imageSource, imageBorderRadius: 6}];
+            prev.columns = [prev.columns[0], {columns: 3, imageSource, alt: imageAlt, imageBorderRadius: 6}];
           } else {
-            pendingImageSource = imageSource;
+            pendingImageSource = {src: imageSource, alt: imageAlt};
           }
         }
       }
@@ -639,11 +658,12 @@ async function migrateParentPageChild(ctx: Ctx, childLink: PageLink, contentText
         });
       } else if (segment.image) {
         const imageSource = await uploadImageToS3(ctx, segment.image);
+        const imageAlt = segment.image.alt || segment.text || "Image";
         nestedRows.push({
           type: PageContentType.TEXT,
           maxColumns: 1,
           showSwiper: false,
-          columns: [{columns: 12, imageSource, imageBorderRadius: 6}]
+          columns: [{columns: 12, imageSource, alt: imageAlt, imageBorderRadius: 6}]
         });
       }
     }
@@ -670,6 +690,7 @@ async function migrateParentPageChild(ctx: Ctx, childLink: PageLink, contentText
       });
     } else if (segment.image) {
       const imageSource = await uploadImageToS3(ctx, segment.image);
+      const imageAlt = segment.image.alt || segment.text || "Image";
       if (segment.text) {
         pageContentRows.push({
           type: PageContentType.TEXT,
@@ -678,6 +699,7 @@ async function migrateParentPageChild(ctx: Ctx, childLink: PageLink, contentText
           columns: [{columns: 9, contentText: exclusions.cleanMarkdown(segment.text)}, {
             columns: 3,
             imageSource,
+            alt: imageAlt,
             imageBorderRadius: 6
           }]
         });
@@ -686,7 +708,7 @@ async function migrateParentPageChild(ctx: Ctx, childLink: PageLink, contentText
           type: PageContentType.TEXT,
           maxColumns: 1,
           showSwiper: false,
-          columns: [{columns: 12, imageSource, imageBorderRadius: 6}]
+          columns: [{columns: 12, imageSource, alt: imageAlt, imageBorderRadius: 6}]
         });
       }
     }
@@ -723,7 +745,14 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
       if (parentPageContent) pageContents.push(parentPageContent);
     } else if (mode === "action-buttons") {
       const parentContentPath = (parentPageConfig.pathPrefix || "").replace(/^\/+|\/+$/g, "");
-      const childLinks = await scrapeParentPageLinks(ctx, parentPageConfig);
+      const allChildLinks = await scrapeParentPageLinks(ctx, parentPageConfig);
+      const childLinks = parentPageConfig.maxChildren && parentPageConfig.maxChildren > 0
+        ? allChildLinks.slice(0, parentPageConfig.maxChildren)
+        : allChildLinks;
+      if (parentPageConfig.maxChildren && parentPageConfig.maxChildren > 0) {
+        debugLog(`✅ Limiting to ${parentPageConfig.maxChildren} child pages`);
+        progress(`Limiting to ${pluraliseWithCount(parentPageConfig.maxChildren, "child page")}`);
+      }
       const buttons: any[] = [];
       for (const link of childLinks) {
         const cleanedTitle = (link.title || "").replace(/\s+/g, " ").trim();
@@ -737,6 +766,7 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
         let firstImage = segments.find(s => s.image && !isExcludedImage(ctx, s.image.src))?.image;
         if (!firstImage && scraped.firstImage && !isExcludedImage(ctx, scraped.firstImage.src)) firstImage = scraped.firstImage;
         const imageSource = firstImage ? await uploadImageToS3(ctx, firstImage) : undefined;
+        const imageAlt = firstImage ? (firstImage.alt || cleanedTitle) : undefined;
         const contentTextValue = firstSentence || cleanedTitle;
         debugLog("Action button text for", cleanedTitle, "->", contentTextValue, "image:", imageSource);
         buttons.push({
@@ -745,6 +775,7 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
           title: cleanedTitle,
           contentText: contentTextValue,
           imageSource,
+          alt: imageAlt,
           imageBorderRadius: imageSource ? 6 : undefined,
           accessLevel: AccessLevel.public
         });
@@ -762,7 +793,14 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
         progress(`Prepared action buttons (dry run) on ${pageContent.path} with ${pluraliseWithCount(buttons.length, "button")}`);
       }
     }
-    const childLinks = await scrapeParentPageLinks(ctx, parentPageConfig);
+    const allChildLinksForPages = await scrapeParentPageLinks(ctx, parentPageConfig);
+    const childLinks = parentPageConfig.maxChildren && parentPageConfig.maxChildren > 0
+      ? allChildLinksForPages.slice(0, parentPageConfig.maxChildren)
+      : allChildLinksForPages;
+    if (parentPageConfig.maxChildren && parentPageConfig.maxChildren > 0 && mode !== "action-buttons") {
+      debugLog(`✅ Limiting to ${parentPageConfig.maxChildren} child pages`);
+      progress(`Limiting to ${pluraliseWithCount(parentPageConfig.maxChildren, "child page")}`);
+    }
     for (const childLink of childLinks) {
       const pageContent = await migrateParentPageChild(ctx, childLink, contentTextItems);
       if (pageContent) {

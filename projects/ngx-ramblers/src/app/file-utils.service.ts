@@ -63,7 +63,15 @@ export class FileUtilsService {
       u8arr[n] = bstr.charCodeAt(n);
     }
 
-    return new File([u8arr], filename, {type: mime});
+    const name = filename ? filename : this.defaultPastedFilename(mime);
+
+    return new File([u8arr], name, {type: mime});
+  }
+
+  private defaultPastedFilename(mime: string): string {
+    const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : mime.includes("gif") ? "gif" : "jpeg";
+    const stamped = this.dateUtils.displayDateAndTime(this.dateUtils.dateTimeNow());
+    return `${stamped} pasted content.${ext}`;
   }
 
   async localUrlToBlob(url: string): Promise<Blob> {
@@ -187,4 +195,10 @@ export class FileUtilsService {
   fileTypeAttributesForFile(file: File): FileTypeAttributes {
     return fileTypeAttributes.find(fileTypeAttributes => fileTypeAttributes.contentType === file.type);
   }
+
+  altFrom(alt: string, url: string): string {
+    const source = this.fileNameNoExtension(url);
+    return (alt || source || "Image");
+  }
+
 }
