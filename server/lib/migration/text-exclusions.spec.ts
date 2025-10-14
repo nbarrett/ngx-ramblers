@@ -110,11 +110,109 @@ describe("text-exclusions.applyTextExclusions", () => {
         "https://www.kentramblers.org.uk/banners/autumn_oasts.jpg"
       ]
     });
-    console.log("OUT:", out);
     expect(out.includes("Path Problems")).toBeFalsy();
     expect(out.includes("autumn_oasts.jpg")).toBeFalsy();
     expect(out.includes("route.gif")).toBeTruthy();
     expect(out.includes("Darent Valley Path")).toBeTruthy();
+  });
+
+  it("removes class attributes from inline HTML blocks", () => {
+    const input = [
+      "<div class=\"container\"><p class=\"lead\">Hello <span class='note'>world</span></p></div>",
+      "",
+      "<img class=\"img-fluid\" alt=\"Alt\" src=\"/path/to.jpg\">"
+    ].join("\n");
+    const out = applyTextExclusions(input, {
+      excludeTextPatterns: [],
+      excludeMarkdownBlocks: [],
+      excludeImageUrls: []
+    } as any);
+    expect(out.includes("class=\"container\"")).toBeFalsy();
+    expect(out.includes("class=\"lead\"")).toBeFalsy();
+    expect(out.includes("class='note'")).toBeFalsy();
+    expect(out.includes("class=\"img-fluid\""));
+  });
+
+  it("removes presentational HTML attributes including unquoted values", () => {
+    const input = [
+      "<table border=\"1\" cellpadding=\"0\" cellspacing='0' align=center>",
+      "  <tr valign=top bgcolor=#ffffff>",
+      "    <td width=600 height=400 hspace=10 vspace=5>Cell</td>",
+      "  </tr>",
+      "</table>"
+    ].join("\n");
+    const out = applyTextExclusions(input, { excludeTextPatterns: [], excludeMarkdownBlocks: [], excludeImageUrls: [] } as any);
+    expect(out.includes("border=")).toBeFalsy();
+    expect(out.includes("cellpadding=")).toBeFalsy();
+    expect(out.includes("cellspacing=")).toBeFalsy();
+    expect(out.includes("align=")).toBeFalsy();
+    expect(out.includes("valign=")).toBeFalsy();
+    expect(out.includes("bgcolor=")).toBeFalsy();
+    expect(out.includes("width=")).toBeFalsy();
+    expect(out.includes("height=")).toBeFalsy();
+    expect(out.includes("hspace=")).toBeFalsy();
+    expect(out.includes("vspace=")).toBeFalsy();
+  });
+
+  it("removes inline event handler attributes", () => {
+    const input = "<a href=\"#\" onclick=\"alert('x')\" onmouseover='noop()'>link</a>";
+    const out = applyTextExclusions(input, { excludeTextPatterns: [], excludeMarkdownBlocks: [], excludeImageUrls: [] } as any);
+    expect(out.includes("onclick=")).toBeFalsy();
+    expect(out.includes("onmouseover=")).toBeFalsy();
+  });
+
+  it("removes inline CSS rule blocks from markdown text", () => {
+    const input = "Title\n\n.auto-style9 { font-family: Arial; } body { color: #000; } h2 { font-size: 120%; }\n\nContent here";
+    const out = applyTextExclusions(input, { excludeTextPatterns: [], excludeMarkdownBlocks: [], excludeImageUrls: [] } as any);
+    expect(out.includes("auto-style9")).toBeFalsy();
+    expect(out.includes("font-family")).toBeFalsy();
+    expect(out.includes("body {" )).toBeFalsy();
+    expect(out.includes("h2 {" )).toBeFalsy();
+    expect(out.includes("Content here")).toBeTruthy();
+  });
+
+  it("removes HTML comments and script/style/noscript blocks", () => {
+    const input = [
+      "Title",
+      "",
+      "<!-- hidden note -->",
+      "",
+      "<style>h1{color:red}</style>",
+      "<script>console.log('x')</script>",
+      "<noscript>Enable JS</noscript>",
+      "",
+      "Body"
+    ].join("\n");
+    const out = applyTextExclusions(input, { excludeTextPatterns: [], excludeMarkdownBlocks: [], excludeImageUrls: [] } as any);
+    expect(out.includes("hidden note")).toBeFalsy();
+    expect(out.includes("<style>")).toBeFalsy();
+    expect(out.includes("<script>")).toBeFalsy();
+    expect(out.includes("<noscript>")).toBeFalsy();
+    expect(out.includes("Body")).toBeTruthy();
+  });
+
+  it("unwraps presentational tags while preserving content", () => {
+    const input = "<center><font color=\"#000\"><big>Hello</big> <small>World</small></font></center>";
+    const out = applyTextExclusions(input, { excludeTextPatterns: [], excludeMarkdownBlocks: [], excludeImageUrls: [] } as any);
+    expect(out.includes("<center>")).toBeFalsy();
+    expect(out.includes("<font")).toBeFalsy();
+    expect(out.includes("<big>")).toBeFalsy();
+    expect(out.includes("<small>")).toBeFalsy();
+    expect(out.includes("Hello World")).toBeTruthy();
+  });
+
+  it("removes attribute-list blocks but keeps hash links", () => {
+    const md = [
+      "### Eden Valley {#eden .title style=\"color:#060\"}",
+      "",
+      "![Alt](img.jpg){#hero .rounded style=\"border:0\"}",
+      "",
+      "See [Jump](#eden) section"
+    ].join("\n");
+    const out = applyTextExclusions(md, { excludeTextPatterns: [], excludeMarkdownBlocks: [], excludeImageUrls: [] } as any);
+    expect(out.includes("{#eden")).toBeFalsy();
+    expect(out.includes("{#hero")).toBeFalsy();
+    expect(out.includes("[Jump](#eden)")).toBeTruthy();
   });
 });
 

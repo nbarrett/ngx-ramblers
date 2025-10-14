@@ -131,8 +131,8 @@ export class DataPopulationService {
         category: "admin"
       },
       {
-        name: "duplicate-page-content-navigator",
-        text: "This page allows the content administrator to navigate to the page content items where more than one item has the same content path. It's not normal for this to be the case, as the system should prevent duplicates from being created. This page allows potentially duplicated content for the same content path to be identified, with an option to delete the one(s) that are incorrect.",
+        name: "page-content-navigator",
+        text: "This page allows the content administrator to navigate and manage all page content items. It provides two viewing modes: **Duplicates** to identify and resolve page content items where more than one item has the same content path, and **All Content** to browse and manage all page content. You can filter by path and perform bulk operations on page content items.",
         category: "admin"
       },
       {
@@ -316,10 +316,10 @@ export class DataPopulationService {
       },
       {
         accessLevel: AccessLevel.committee,
-        title: "Duplicate Page Content",
+        title: "Page Content Navigator",
         icon: "faPencil",
-        href: "admin/duplicate-page-content-navigator",
-        contentTextId: (await this.contentTextService.findOrCreateByNameAndCategory("duplicate-page-content-navigator-help", "admin", "Allows the user to navigate to the page content that is duplicated in the system."))?.id
+        href: "admin/page-content-navigator",
+        contentTextId: (await this.contentTextService.findOrCreateByNameAndCategory("page-content-navigator-help", "admin", "Allows the user to navigate and manage all page content, including identifying and resolving duplicates."))?.id
       },
       {
         accessLevel: AccessLevel.committee,

@@ -148,7 +148,9 @@ export class CardImageComponent implements OnInit {
   imageStyles(): any {
     const styles: any = {};
     styles["width"] = "100%";
-    styles["height"] = "auto";
+    if (this.unconstrainedHeight && !this.fixedHeight && !this.constrainedHeight) {
+      styles["height"] = "auto";
+    }
     if (this.borderRadius) {
       styles["border-radius.px"] = this.borderRadius;
     }

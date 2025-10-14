@@ -4,7 +4,7 @@ import {
   BuiltInContentConfigs,
   BuiltInPageContentConfig,
   BuiltInPath,
-  DuplicatePageContent,
+  PageContentGroup,
   PageContent
 } from "../../../models/content-text.model";
 import { groupBy } from "es-toolkit/compat";
@@ -16,17 +16,17 @@ import { first } from "es-toolkit/compat";
 @Injectable({
   providedIn: "root",
 })
-export class DuplicateContentService {
+export class PageContentManagementService {
 
   private pageContentService = inject(PageContentService);
-  private logger: Logger = inject(LoggerFactory).createLogger("DuplicateContentService", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("PageContentManagementService", NgxLoggerLevel.ERROR);
 
-  async findDuplicates(): Promise<DuplicatePageContent[]> {
+  async findDuplicates(): Promise<PageContentGroup[]> {
     const allContent: PageContent[] = await this.pageContentService.all();
     const filteredContent = allContent.filter(item => this.notABuiltInPath(item.path));
-    const duplicates: DuplicatePageContent[] = Object.entries(groupBy(filteredContent, (item: PageContent) => first(item.path.split("#") || BuiltInPath.HOME)))
+    const duplicates: PageContentGroup[] = Object.entries(groupBy(filteredContent, (item: PageContent) => first(item.path.split("#") || BuiltInPath.HOME)))
       .filter((entry: [key: string, values: PageContent[]]) => entry[1].length > 1)
-      .map((entry: [path: string, duplicates: PageContent[]]) => ({path: entry[0], duplicatePageContents: entry[1]}));
+      .map((entry: [path: string, contents: PageContent[]]) => ({path: entry[0], pageContents: entry[1]}));
     this.logger.info("allContent:", allContent, "filteredContent:", filteredContent, "duplicates:", duplicates);
     return duplicates;
   }
@@ -41,8 +41,8 @@ export class DuplicateContentService {
     return notABuiltInPath;
   }
 
-  async deleteDuplicate(contentPathId: string) {
-    this.logger.info("deleteDuplicate:", contentPathId);
+  async deleteContent(contentPathId: string) {
+    this.logger.info("deleteContent:", contentPathId);
     return await this.pageContentService.delete(contentPathId);
   }
 

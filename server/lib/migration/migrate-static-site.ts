@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import puppeteer from "puppeteer";
 import TurndownService from "turndown";
-import { S3, PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, S3 } from "@aws-sdk/client-s3";
 import {
   AlbumView,
   ContentText,
@@ -29,7 +29,9 @@ import { ContentMetadata } from "../../../projects/ngx-ramblers/src/app/models/c
 
 const debugLog = debug(envConfig.logNamespace("static-html-site-migrator"));
 debugLog.enabled = true;
-const turndownService = new TurndownService();
+const turndownService = new TurndownService({
+  headingStyle: "atx"
+});
 const s3 = new S3({});
 const persistData = false;
 const uploadTos3 = false;
@@ -64,7 +66,7 @@ interface MigratedAlbum {
 
 async function scrapeStaticSite(baseUrl: string): Promise<ScrapedPage[]> {
   debugLog(`✅ Scraping page links from ${baseUrl}`);
-  const browser = await puppeteer.launch({headless: true});
+  const browser = await puppeteer.launch({headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"]});
   const page = await browser.newPage();
   try {
     const response = await page.goto(baseUrl, {waitUntil: "networkidle2", timeout: 30000});
@@ -73,7 +75,7 @@ async function scrapeStaticSite(baseUrl: string): Promise<ScrapedPage[]> {
       return [];
     }
 
-    const pageLinks: PageLink[] = await page.evaluate((baseUrl: string) => {
+    const pageLinks: PageLink[] = await page.evaluate(function pageLinksEval(baseUrl: string) {
       const links = Array.from(document.querySelectorAll(".BMenu a"))
         .filter((a: HTMLAnchorElement) => a.href.startsWith(baseUrl))
         .map((a: HTMLAnchorElement) => ({path: a.href, title: a.textContent!.trim()}));
@@ -94,7 +96,7 @@ async function scrapeStaticSite(baseUrl: string): Promise<ScrapedPage[]> {
           continue;
         }
 
-        const {html, images} = await page.evaluate(() => {
+        const {html, images} = await page.evaluate(function scrapeEval() {
           const contentNode = document.querySelector("table[width=\"1015px\"] td") || document.body;
           const html = contentNode.innerHTML;
           const images = Array.from(contentNode.querySelectorAll("img")).map((img: HTMLImageElement) => ({
@@ -259,7 +261,7 @@ function albumFrom(title: string) {
 
 async function createPhotoGalleryAlbums(baseUrl: string, specificAlbums: PageLink[] = []): Promise<MigratedAlbum[]> {
   debugLog(`✅ Scraping photo gallery albums from ${baseUrl}`);
-  const browser = await puppeteer.launch({headless: true});
+  const browser = await puppeteer.launch({headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"]});
   const page = await browser.newPage();
   let galleryLinks: PageLink[] = specificAlbums;
   if (!specificAlbums.length) {
@@ -270,7 +272,7 @@ async function createPhotoGalleryAlbums(baseUrl: string, specificAlbums: PageLin
       if (response && !response.ok()) {
         debugLog(`❌ Failed to load ${pageUrl}: Status ${response.status()}`);
       } else {
-        const evalResult = await page.evaluate((pageUrl: string, imagePath: string) => {
+        const evalResult = await page.evaluate(function galleryEval(pageUrl: string, imagePath: string) {
           const logs: string[] = [];
           logs.push(`Evaluating gallery page ${pageUrl}`);
           const raw = Array.from(document.querySelectorAll("#ctl00_phLeftNavigation_divLeftNavigation ul li ul li a"))
@@ -309,7 +311,7 @@ async function createPhotoGalleryAlbums(baseUrl: string, specificAlbums: PageLin
       const html = await page.content();
       require("fs").writeFileSync(`debug-${toKebabCase(title)}.html`, html);
       debugLog(`Saved HTML for ${path} to debug-${toKebabCase(title)}.html`);
-      const imageEval = await page.evaluate(() => {
+      const imageEval = await page.evaluate(function imageEvalFn() {
         const logs: string[] = [];
         const contentNode = document.querySelector("#ctl00_phContent_divContent table[width=\"1015px\"] td") || document.body;
         logs.push(`Album content node: ${contentNode.tagName}`);

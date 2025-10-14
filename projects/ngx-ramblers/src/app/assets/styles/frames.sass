@@ -86,11 +86,22 @@ iframe
   margin-left: 0
   margin-bottom: -14px
   background-color: white
-  display: inline-block
+  display: inline-flex
+  align-items: center
+  gap: 5px
   width: auto
   padding: 0 6px
   font-size: 17px
   font-weight: bold
+  > *
+    display: inline-block
+    vertical-align: middle
+  > * + *
+    margin-left: 5px
+
+.thumbnail-heading-frame-compact
+  @extend .thumbnail-heading-frame
+  margin: 0px 0 20px 0
 
 .thumbnail-heading-with-select
   @extend .thumbnail-heading

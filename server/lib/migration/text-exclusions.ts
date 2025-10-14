@@ -124,8 +124,15 @@ export function applyTextExclusions(text: string, cfg: ExclusionsConfig): string
   const builtIns = [String.raw`^\s*\[Path\s+Problems\]\([^)]*\)\s*$`]
   const patterns = [...coerceList(cfg.excludeTextPatterns), ...builtIns]
   let out = removeTextPatterns(text, patterns)
+  out = removeHtmlComments(out)
+  out = removeHtmlTagBlocks(out, ["script", "style", "noscript"]) 
+  out = unwrapPresentationalTags(out, ["font", "center", "big", "small", "u", "s", "strike", "tt", "acronym"]) 
   out = removeMarkdownBlocks(out, coerceBlocks(cfg.excludeMarkdownBlocks))
   out = removeExcludedImages(out, coerceList(cfg.excludeImageUrls))
+  out = removeHtmlAttributes(out, ["class", "id", "style", "align", "border", "valign", "bgcolor", "cellpadding", "cellspacing", "hspace", "vspace", "frame", "rules", "width", "height"]) 
+  out = removeEventHandlerAttributes(out)
+  out = removeAttributeLists(out)
+  out = removeInlineCssRules(out)
   out = collapseExcessBlankLines(out)
   debugLog("applyTextExclusions:text:", text, "cfg:", cfg, "out:", out);
   return out
@@ -157,4 +164,66 @@ export function cleanMarkdown(text: string): string {
     .replace(/\\\[/g, "[")
     .replace(/\\]/g, "]")
     .replace(/\\n/g, "\n")
+}
+
+export function removeHtmlAttributes(input: string, attributes: string[]): string {
+  let out = input
+  for (const attr of attributes) {
+    const re = new RegExp(`\\s${attr}\\s*=\\s*("[^"]*"|'[^']*'|[^\s>]+)`, "gim")
+    out = out.replace(re, "")
+  }
+  return out
+}
+
+export function removeInlineCssRules(input: string): string {
+  let out = input
+  const cssRule = /(^|\s)(?:[.#][a-zA-Z0-9_-]+|body|h[1-6]|p|div|span)\s*\{[^}]*\}/gms
+  let prev
+  do {
+    prev = out
+    out = out.replace(cssRule, " ")
+  } while (out !== prev)
+  return out
+}
+
+export function removeAttributeLists(input: string): string {
+  return input.replace(/\{([^}]*)\}/g, (m, inner) => {
+    const s = String(inner)
+    const hasMarkers = /(^|\s)(#[A-Za-z0-9_-]+|\.[A-Za-z0-9_-]+)\b/.test(s) || /(\bid\s*=|\bclass\s*=|\bstyle\s*=)/i.test(s)
+    return hasMarkers ? "" : m
+  })
+}
+
+export function removeEventHandlerAttributes(input: string): string {
+  return input.replace(/\s(on[a-z]+)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gim, "")
+}
+
+export function removeHtmlComments(input: string): string {
+  return input.replace(/<!--[\s\S]*?-->/g, "")
+}
+
+export function removeHtmlTagBlocks(input: string, tags: string[]): string {
+  let out = input
+  for (const tag of tags) {
+    try {
+      const re = new RegExp(`<${tag}[^>]*>[\\s\\S]*?<\\/${tag}>`, "gim")
+      out = out.replace(re, "")
+    } catch (error) {
+      debugLog("removeHtmlTagBlocks failed", tag, error)
+    }
+  }
+  return out
+}
+
+export function unwrapPresentationalTags(input: string, tags: string[]): string {
+  let out = input
+  for (const tag of tags) {
+    try {
+      const re = new RegExp(`</?${tag}[^>]*>`, "gim")
+      out = out.replace(re, "")
+    } catch (error) {
+      debugLog("unwrapPresentationalTags failed", tag, error)
+    }
+  }
+  return out
 }

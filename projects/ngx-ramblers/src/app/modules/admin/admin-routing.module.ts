@@ -24,8 +24,11 @@ import { AdminAuthGuard } from "../../guards/admin-auth-guard";
         .then(m => m.DuplicateContentTextNavigatorComponent), canActivate: [AdminAuthGuard]
     },
     {
-      path: "duplicate-page-content-navigator", loadComponent: () => import("../../pages/admin/content/duplicate-page-content-navigator")
-        .then(m => m.DuplicatePageContentNavigatorComponent), canActivate: [AdminAuthGuard]
+      path: "page-content-navigator", loadComponent: () => import("../../pages/admin/content/page-content-navigator")
+        .then(m => m.PageContentNavigatorComponent), canActivate: [AdminAuthGuard]
+    },
+    {
+      path: "duplicate-page-content-navigator", redirectTo: "page-content-navigator", pathMatch: "full"
     },
     {
       path: "expenses/:expense-id", loadComponent: () => import("../../pages/admin/expenses/expenses.component")

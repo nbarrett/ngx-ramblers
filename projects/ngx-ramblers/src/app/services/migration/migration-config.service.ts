@@ -20,6 +20,7 @@ export class MigrationConfigService {
 
   emptySiteMigrationConfig(): SiteMigrationConfig {
     return {
+      expanded: true,
       name: "New Site",
       baseUrl: "",
       siteIdentifier: "",

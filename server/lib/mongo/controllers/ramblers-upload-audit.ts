@@ -15,19 +15,18 @@ const debugLog = debug(envConfig.logNamespace("ramblers-upload-audit"));
 debugLog.enabled = false;
 
 export async function queryUploadSessions(req: Request, res: Response): Promise<any> {
-  const oneMonthAgo = dateTimeNow().minus({ months: 1 }).toMillis();
+  const monthsParam = parseInt(String((req.query.months as string) || ""), 10);
+  const months = isNaN(monthsParam) ? 6 : Math.max(1, monthsParam);
+  const threshold = dateTimeNow().minus({ months }).toMillis();
 
   try {
     const detailedResult = await ramblersUploadAudit.aggregate([
-      {
-        $match: {
-          auditTime: {$gt: oneMonthAgo}
-        }
-      },
+      { $match: { auditTime: { $gt: threshold } } },
       {
         $group: {
           _id: "$fileName",
           latestAuditTime: {$max: "$auditTime"},
+          earliestAuditTime: {$min: "$auditTime"},
           records: {
             $push: {
               status: "$status",
@@ -62,7 +61,9 @@ export async function queryUploadSessions(req: Request, res: Response): Promise<
 
       return {
         fileName,
-        status
+        status,
+        earliestAuditTime: file.earliestAuditTime,
+        latestAuditTime: file.latestAuditTime
       };
     });
 

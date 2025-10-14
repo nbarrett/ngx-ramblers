@@ -10,14 +10,13 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { MemberLoginService } from "../services/member/member-login.service";
 import { RouterHistoryService } from "../services/router-history.service";
 import { SystemConfigService } from "../services/system/system-config.service";
-import { NgClass } from "@angular/common";
 import { SiteEditComponent } from "../site-edit/site-edit.component";
 
 @Component({
     selector: "app-login-panel",
     templateUrl: "./login-panel.component.html",
     styleUrls: ["./login-panel.component.sass"],
-    imports: [NgClass, SiteEditComponent]
+    imports: [SiteEditComponent]
 })
 export class LoginPanelComponent implements OnInit, OnDestroy {
 

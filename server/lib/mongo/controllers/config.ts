@@ -84,7 +84,7 @@ export function handleQuery(req: Request, res: Response): Promise<any> {
         });
       })
       .catch(error => {
-        debugLog(`findByConditions: ${config.modelName} error: ${error}`);
+        controller.errorDebugLog(`findByConditions: ${config.modelName} error: ${error}`);
         res.status(500).json({
           message: `${config.modelName} query failed`,
           request: req.query,
@@ -93,7 +93,7 @@ export function handleQuery(req: Request, res: Response): Promise<any> {
         });
       });
   } catch (e) {
-    debugLog("findByConditions:catch", e);
+    controller.errorDebugLog("findByConditions:catch", e);
     res.status(500).json({
       message: `query of config key failed`,
       request: req.query,

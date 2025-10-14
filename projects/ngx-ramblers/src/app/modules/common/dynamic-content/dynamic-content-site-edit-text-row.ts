@@ -1,14 +1,15 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
-import { faAdd, faPencil, faRemove, faArrowsLeftRight } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faArrowsLeftRight, faPencil, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { AwsFileData } from "../../../models/aws-object.model";
+import { AwsFileData, DescribedDimensions } from "../../../models/aws-object.model";
 import {
+  ContentText,
   EditorInstanceState,
+  FragmentWithLabel,
   PageContent,
   PageContentColumn,
   PageContentEditEvent,
-  PageContentRow,
-  ContentText
+  PageContentRow
 } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
@@ -28,11 +29,13 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { MarginSelectComponent } from "./dynamic-content-margin-select";
 import { FALLBACK_MEDIA } from "../../../models/walk.model";
 import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-ratio-selector/aspect-ratio-selector";
-import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { ImageActionsDropdownComponent } from "./image-actions-dropdown";
-  import { DescribedDimensions } from "../../../models/aws-object.model";
-  import { isUndefined } from "es-toolkit/compat";
-  import { FileUtilsService } from "../../../file-utils.service";
+import { isUndefined } from "es-toolkit/compat";
+import { FileUtilsService } from "../../../file-utils.service";
+import { RowTypeSelectorComponent } from "./row-type-selector";
+import { FragmentService } from "../../../services/fragment.service";
+import { FragmentSelectorComponent } from "./fragment-selector.component";
+import { DynamicContentViewComponent } from "./dynamic-content-view";
 
 @Component({
     selector: "app-dynamic-content-site-edit-text-row",
@@ -46,10 +49,14 @@ import { ImageActionsDropdownComponent } from "./image-actions-dropdown";
               @if (!column.rows) {
                 <div class="thumbnail-site-edit h-100 mt-2" (dragover)="onColumnDragOver($event, rowIndex, columnIndex)" (drop)="onColumnDrop($event, rowIndex, columnIndex)">
                   <div class="thumbnail-heading" [attr.draggable]="true" (dragstart)="onColumnDragStart(rowIndex, columnIndex)" [tooltip]="columnDragTooltip(rowIndex, columnIndex)" [isOpen]="!!columnDragTooltip(rowIndex, columnIndex)" container="body" triggers="">Col {{ columnIndex + 1 }}
-                    <app-badge-button class="ms-2"
+                    <app-badge-button noRightMargin class="ms-2"
                                       (click)="toggleAll(columnIndex, markdownEditorComponent)"
                                       [icon]="faPencil"
                                       [caption]="controlsShown(columnIndex) ? 'Exit edit' : 'Edit'"/>
+                    <app-badge-button noRightMargin class="ms-2"
+                                      (click)="actions.deleteColumn(row, columnIndex, pageContent)"
+                                      [icon]="faRemove"
+                                      [tooltip]="'Delete column'"/>
                     @if (controlsShown(columnIndex) && !isNarrow(column)) {
                       <span class="ms-2 d-inline-flex align-items-center gap-2">
                         <app-image-actions-dropdown [fullWidth]="false" [hasImage]="!!column.imageSource"
@@ -287,8 +294,17 @@ import { ImageActionsDropdownComponent } from "./image-actions-dropdown";
                       <div class="thumbnail-heading" [attr.draggable]="true" (dragstart)="onNestedRowDragStart(columnIndex, nestedRowIndex)" (dragend)="onNestedRowDragEnd()" [tooltip]="nestedRowDragTooltip(columnIndex, nestedRowIndex)" [isOpen]="!!nestedRowDragTooltip(columnIndex, nestedRowIndex)" container="body" triggers="">Row {{ rowIndex + 1 }} (nested row {{ nestedRowIndex + 1 }}
                         column {{ columnIndex + 1 }}
                         ({{ stringUtils.pluraliseWithCount(nestedRow?.columns.length, 'column') }}))
+                        <app-badge-button class="ms-2"
+                                          (click)="actions.deleteRow(pageContent, nestedRowIndex, true, column)"
+                                          [icon]="faRemove"
+                                          [tooltip]="'Delete nested row'"/>
                       </div>
                       <div class="row align-items-end mb-3">
+                        <app-row-type-selector
+                          [row]="nestedRow"
+                          [rowIndex]="nestedRowIndex"
+                          [contentPath]="contentPath"
+                          (typeChange)="onNestedRowTypeChange(nestedRow)"/>
                         <div [ngClass]="column.columns > 6 || expanded ? 'col': 'col-sm-12'">
                           <app-margin-select label="Margin Top"
                                              [data]="nestedRow"
@@ -307,6 +323,26 @@ import { ImageActionsDropdownComponent } from "./image-actions-dropdown";
                                                 [row]="nestedRow"/>
                         </div>
                       </div>
+                      @if (actions.isSharedFragment(nestedRow)) {
+                        <div class="row mt-2">
+                          <div class="col-12">
+                            <label [for]="'nested-shared-fragment-path-' + rowIndex + '-' + nestedRowIndex">Shared Fragment</label>
+                            <app-fragment-selector
+                              [elementId]="'nested-shared-fragment-path-' + rowIndex + '-' + nestedRowIndex"
+                              [selectedFragment]="selectedFragmentForRow(nestedRow)"
+                              (fragmentChange)="onSharedFragmentChange(nestedRow, $event)"/>
+                          </div>
+                        </div>
+                        @if (nestedRow?.fragment?.pageContentId) {
+                          <div class="mt-2 panel-border">
+                            <app-dynamic-content-view [pageContent]="fragmentContent(nestedRow)" [contentPath]="fragmentPath(nestedRow)"
+                                                      [forceView]="true"/>
+                          </div>
+                          @if (!fragmentContent(nestedRow) && fragmentService.failedToLoad(nestedRow.fragment.pageContentId)) {
+                            <div class="alert alert-warning mt-2">Fragment not found: {{ nestedRow.fragment.pageContentId }}</div>
+                          }
+                        }
+                      }
                       @if (false) {
                         <div>nested row {{ nestedRowIndex + 1 }} that has {{ nestedRow.columns.length }} cols</div>
                       }
@@ -335,19 +371,20 @@ import { ImageActionsDropdownComponent } from "./image-actions-dropdown";
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-    imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, ImageActionsDropdownComponent, TooltipDirective]
+  imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent]
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditTextRowComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditTextRowComponent", NgxLoggerLevel.INFO);
   pageContentEditService = inject(PageContentEditService);
   memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   stringUtils = inject(StringUtilsService);
   numberUtils = inject(NumberUtilsService);
-    actions = inject(PageContentActionsService);
-    public expanded: boolean;
-    isUndefined = isUndefined;
-    private fileUtils = inject(FileUtilsService);
+  actions = inject(PageContentActionsService);
+  fragmentService = inject(FragmentService);
+  public expanded: boolean;
+  isUndefined = isUndefined;
+  private fileUtils = inject(FileUtilsService);
 
   @Input()
   public row: PageContentRow;
@@ -370,9 +407,23 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   protected readonly faRemove = faRemove;
   protected readonly faArrowsLeftRight = faArrowsLeftRight;
 
+  nestedDragTargetColumnIndex: number = null;
+  nestedDragTargetRowIndex: number = null;
+
   ngOnInit() {
     this.uniqueCheckboxId = `text-row-${this.numberUtils.generateUid()}`;
     this.logger.info("ngOnInit called for", this.row, "containing", this.stringUtils.pluraliseWithCount(this.row?.columns.length, "column"));
+    this.loadNestedFragments();
+  }
+
+  private async loadNestedFragments() {
+    if (this.row?.columns) {
+      for (const column of this.row.columns) {
+        if (column.rows) {
+          await this.fragmentService.loadFragmentsRecursivelyFromRows(column.rows);
+        }
+      }
+    }
   }
 
   getUniqueCheckboxId(suffix: string): string {
@@ -473,7 +524,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   }
   onEditorFocusChange(editorInstanceState: EditorInstanceState, columnIndex: number) {
     this.markdownEditorFocusChange(editorInstanceState);
-    this.controlsVisible[columnIndex] = editorInstanceState.view === 'edit';
+    this.controlsVisible[columnIndex] = editorInstanceState.view === "edit";
   }
 
   toggleAll(columnIndex: number, editor: MarkdownEditorComponent) {
@@ -501,10 +552,16 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     this.actions.dragStartX = event?.clientX ?? null;
     this.actions.dragStartY = event?.clientY ?? null;
     this.actions.dragHasMoved = false;
+    try {
+      if (event?.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        const dragEl = (event.target as HTMLElement) || (event.currentTarget as HTMLElement);
+        if (dragEl && event.dataTransfer.setDragImage) {
+          event.dataTransfer.setDragImage(dragEl, 10, 10);
+        }
+      }
+    } catch {}
   }
-
-  nestedDragTargetColumnIndex: number = null;
-  nestedDragTargetRowIndex: number = null;
 
   onNestedRowDragOver(columnIndex: number, nestedRowIndex: number, $event: DragEvent) {
     $event.preventDefault();
@@ -524,7 +581,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     if (this.nestedDragTargetColumnIndex !== columnIndex || this.nestedDragTargetRowIndex !== nestedRowIndex) { return null; }
     if (sCol === columnIndex && sRow === nestedRowIndex) { return "Drop: no change"; }
     const where = sCol === columnIndex ? (sRow < nestedRowIndex ? "after" : "before") : "into column " + (columnIndex + 1);
-    return `Drop nested row ${sRow + 1} ${where} ${sCol === columnIndex ? 'row ' + (nestedRowIndex + 1) : ''}`.trim();
+    return `Drop nested row ${sRow + 1} ${where} ${sCol === columnIndex ? "row " + (nestedRowIndex + 1) : ""}`.trim();
   }
 
   onColumnDrop($event: DragEvent, targetRowIndex: number, targetColumnIndex: number) {
@@ -581,11 +638,23 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     const dx = ($event?.clientX ?? 0) - (this.actions.dragStartX ?? 0);
     const dy = ($event?.clientY ?? 0) - (this.actions.dragStartY ?? 0);
     if (!this.actions.dragHasMoved && (Math.abs(dx) + Math.abs(dy) > 3)) { this.actions.dragHasMoved = true; }
+    this.autoScrollViewport($event?.clientY ?? 0);
     const rect = ($event.currentTarget as HTMLElement).getBoundingClientRect();
     const x = $event.clientX - rect.left;
     this.actions.dragOverColumnRowIndex = rowIndex;
     this.actions.dragOverColumnIndex = columnIndex;
     this.actions.dragInsertAfter = x > rect.width / 2;
+  }
+
+  private autoScrollViewport(clientY: number) {
+    const threshold = 100;
+    const speed = 20;
+    const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (clientY < threshold) {
+      window.scrollBy({ top: -speed, behavior: "auto" });
+    } else if (clientY > vh - threshold) {
+      window.scrollBy({ top: speed, behavior: "auto" });
+    }
   }
 
   columnDragTooltip(rowIndex: number, columnIndex: number): string | null {
@@ -706,6 +775,70 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
   controlsShown(columnIndex: number): boolean {
     return !!this.controlsVisible[columnIndex];
+  }
+
+  onNestedRowTypeChange(row: PageContentRow) {
+    this.logger.info("onNestedRowTypeChange called for row with type:", row.type);
+    this.initialiseRowIfRequired(row);
+    this.logger.info("Row after type change:", row);
+  }
+
+  private initialiseRowIfRequired(row: PageContentRow) {
+    this.logger.debug("initialiseRowIfRequired for row:", row);
+    if (this.actions.isSharedFragment(row)) {
+      if (!row?.fragment) {
+        row.fragment = {pageContentId: ""};
+      } else if (row.fragment.pageContentId) {
+        this.fragmentService.ensureLoadedById(row.fragment.pageContentId);
+      }
+    }
+  }
+
+  private fragmentCache = new Map<string, FragmentWithLabel>();
+
+  selectedFragmentForRow(row: PageContentRow): FragmentWithLabel | null {
+    if (!row?.fragment?.pageContentId) {
+      return null;
+    }
+
+    if (this.fragmentCache.has(row.fragment.pageContentId)) {
+      return this.fragmentCache.get(row.fragment.pageContentId);
+    }
+
+    const fragment = this.fragmentService.fragments.find(f => f.id === row.fragment.pageContentId);
+    if (!fragment) {
+      return null;
+    }
+
+    const fragmentWithLabel: FragmentWithLabel = {
+      pageContentId: fragment.id,
+      ngSelectAttributes: {label: fragment.path}
+    };
+
+    this.fragmentCache.set(row.fragment.pageContentId, fragmentWithLabel);
+    return fragmentWithLabel;
+  }
+
+  onSharedFragmentChange(row: PageContentRow, fragmentWithLabel: FragmentWithLabel) {
+    this.logger.info("onSharedFragmentChange received fragmentWithLabel:", fragmentWithLabel);
+    if (fragmentWithLabel?.pageContentId) {
+      row.fragment = {pageContentId: fragmentWithLabel.pageContentId};
+      this.logger.info("Set fragment:", row.fragment);
+      // Load the fragment immediately to avoid UI hang
+      this.fragmentService.ensureLoadedById(fragmentWithLabel.pageContentId).then(() => {
+        this.logger.info("Fragment loaded:", fragmentWithLabel.pageContentId);
+      });
+    } else {
+      row.fragment = null;
+    }
+  }
+
+  fragmentContent(row: PageContentRow): PageContent {
+    return row?.fragment?.pageContentId ? this.fragmentService.contentById(row.fragment.pageContentId) : null;
+  }
+
+  fragmentPath(row: PageContentRow): string {
+    return this.fragmentService.contentById(row?.fragment?.pageContentId)?.path;
   }
 
 }

@@ -30,6 +30,7 @@ export enum StoredValue {
   AREA_MAP_ZOOM = "area-map-zoom",
   AUTH_TOKEN = "auth-token",
   CAROUSEL="carousel",
+  CONTENT_VIEW_MODE = "view-mode",
   EDIT_SITE = "edit-site",
   GROUP_AREA_COLORS = "group-area-colors",
   GROUP_AREA_OPACITY_HOVER = "group-area-opacity-hover",

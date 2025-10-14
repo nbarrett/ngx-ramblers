@@ -29,11 +29,11 @@ export class RamblersUploadAuditService {
   all(dataQueryOptions?: DataQueryOptions): Promise<RamblersUploadAuditApiResponse> {
     const params = this.commonDataService.toHttpParams(dataQueryOptions);
     this.logger.debug("all:dataQueryOptions", dataQueryOptions, "params", params.toString());
-    return this.commonDataService.responseFrom(this.logger, this.http.get<RamblersUploadAuditApiResponse>(`${this.BASE_URL}/all`, {params}), this.auditNotifications);
+    return this.commonDataService.responseFrom(this.logger, this.http.get<RamblersUploadAuditApiResponse>(`${this.BASE_URL}/all`, {params}), this.auditNotifications, true);
   }
 
-  async uniqueUploadSessions(): Promise<FileUploadSummary[]> {
-    const uploadSessionsResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<RamblersUploadSummaryResponse>(`${this.BASE_URL}/upload-sessions`));
+  async uniqueUploadSessions(months: number = 6): Promise<FileUploadSummary[]> {
+    const uploadSessionsResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<RamblersUploadSummaryResponse>(`${this.BASE_URL}/upload-sessions`, { params: this.commonDataService.toHttpParams({ months }) }));
     const sessions = uploadSessionsResponse.response;
     this.logger.info("uniqueUploadSessions:", sessions);
     return sessions;

@@ -1,9 +1,10 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { PageContent } from "../models/content-text.model";
+import { PageContent, PageContentRow } from "../models/content-text.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { PageContentService } from "./page-content.service";
 import { UrlService } from "./url.service";
+import { PageContentActionsService } from "./page-content-actions.service";
 
 @Injectable({
   providedIn: "root"
@@ -12,6 +13,7 @@ export class FragmentService {
   private logger: Logger = inject(LoggerFactory).createLogger("FragmentService", NgxLoggerLevel.ERROR);
   private pageContentService = inject(PageContentService);
   private urlService = inject(UrlService);
+  private actions = inject(PageContentActionsService);
   private fragmentsById: Map<string, PageContent> = new Map();
   private fragmentsByPath: Map<string, PageContent> = new Map();
   private failed: Set<string> = new Set();
@@ -89,5 +91,30 @@ export class FragmentService {
 
   get fragments(): PageContent[] {
     return Array.from(this.fragmentsById.values());
+  }
+
+  async loadFragmentsRecursivelyFromRows(rows: PageContentRow[]): Promise<void> {
+    if (rows) {
+      for (const row of rows) {
+        await this.loadTopLevelFragmentRows(row);
+        await this.loadNestedFragmentRowsWithinTextRowColumns(row);
+      }
+    }
+  }
+
+  private async loadNestedFragmentRowsWithinTextRowColumns(row: PageContentRow) {
+    if (this.actions.isTextRow(row) && row.columns) {
+      for (const column of row.columns) {
+        if (column.rows) {
+          await this.loadFragmentsRecursivelyFromRows(column.rows);
+        }
+      }
+    }
+  }
+
+  private async loadTopLevelFragmentRows(row: PageContentRow) {
+    if (this.actions.isSharedFragment(row) && row?.fragment?.pageContentId) {
+      await this.ensureLoadedById(row.fragment.pageContentId);
+    }
   }
 }

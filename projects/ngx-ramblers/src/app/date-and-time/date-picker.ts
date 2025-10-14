@@ -6,7 +6,6 @@ import { DateValue } from "../models/date.model";
 import { DateUtilsService } from "../services/date-utils.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
-import { NgClass } from "@angular/common";
 import { BsDatepickerDirective, BsDatepickerInputDirective } from "ngx-bootstrap/datepicker";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -18,7 +17,7 @@ type SupportedInputTypes = DateValue | number | string;
 @Component({
     selector: "app-date-picker",
   template: `
-    <div [ngClass]="(label && prependLabel) ? 'd-flex align-items-center flex-wrap' : null">
+    <div [class]="(label && prependLabel) ? 'd-flex align-items-center flex-wrap' : ''">
       @if (label && !prependLabel) {
         <label [for]="id">{{ label }}</label>
       }
@@ -34,7 +33,7 @@ type SupportedInputTypes = DateValue | number | string;
                #dp="bsDatepicker"
                bsDatepicker
                [bsConfig]="{withTimepicker: false, showClearButton: true, clearPosition: 'right', showTodayButton: true, todayPosition: 'center', isAnimated: true, dateInputFormat: BsDatepickerFormat.DATE_INPUT, containerClass: 'theme-ramblers'}"
-               type="text" class="form-control" [ngClass]="size ? 'input-' + size: 'input-sm'"/>
+               type="text" [class]="'form-control ' + (size ? 'input-' + size: 'input-sm')"/>
         <button type="button" class="btn btn-outline-secondary" (click)="disabled? null:dp.toggle()">
           <fa-icon [icon]="faCalendar" class="fa-icon"/>
         </button>
@@ -42,7 +41,7 @@ type SupportedInputTypes = DateValue | number | string;
     </div>
     `,
     styleUrls: ["./date-picker.sass"],
-    imports: [NgClass, BsDatepickerInputDirective, FormsModule, BsDatepickerDirective, FontAwesomeModule]
+    imports: [BsDatepickerInputDirective, FormsModule, BsDatepickerDirective, FontAwesomeModule]
 })
 export class DatePicker implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("DatePicker", NgxLoggerLevel.ERROR);

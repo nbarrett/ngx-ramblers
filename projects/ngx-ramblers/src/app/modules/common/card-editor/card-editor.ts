@@ -7,7 +7,8 @@ import {
   PageContent,
   PageContentColumn,
   PageContentEditEvent,
-  PageContentRow
+  PageContentRow,
+  PageContentType
 } from "../../../models/content-text.model";
 import { IconService } from "../../../services/icon-service/icon-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -72,6 +73,7 @@ export class CardEditorComponent implements OnInit {
   public columnIndex: number;
   public routerLink: string;
   private uniqueCheckboxId: string;
+  protected readonly PageContentType = PageContentType;
 
   ngOnInit() {
     this.uniqueCheckboxId = `card-editor-${this.numberUtils.generateUid()}`;
@@ -195,4 +197,3 @@ export class CardEditorComponent implements OnInit {
     }
   }
 }
-

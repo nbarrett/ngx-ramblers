@@ -5,6 +5,8 @@
     [icon]="iconService.iconForName(column.icon)"
     [aspectRatio]="column?.imageAspectRatio"
     [imageSource]="imageSourceOrPreview()"
+    [fixedHeight]="actions.isActionButtons(row)"
+    [height]="actions.isActionButtons(row) ? (row?.carousel?.coverImageHeight || 200) : null"
     [imageLink]="column.href"/>
   <div class="card-body">
     <h4 class="card-title">

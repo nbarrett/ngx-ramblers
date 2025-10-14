@@ -225,6 +225,7 @@ import { InputSource } from "../../../models/group-event.model";
                         bindLabel="ngSelectAttributes.label"
                         [searchable]="true"
                         [clearable]="true"
+                        dropdownPosition="bottom"
                         placeholder="Select member"
                         [(ngModel)]="bulkLoadMemberAndMatch.bulkLoadMemberAndMatch.member"
                         [ngModelOptions]="{standalone: true}"

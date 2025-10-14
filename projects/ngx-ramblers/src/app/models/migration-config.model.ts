@@ -1,4 +1,5 @@
 import { Identifiable } from "./api-response.model";
+import { PageTransformationConfig } from "./page-transformation.model";
 
 export interface PageLink {
   path: string;
@@ -13,9 +14,11 @@ export interface ParentPageConfig {
   migrateParent?: boolean;
   parentPageMode?: "as-is" | "action-buttons";
   maxChildren?: number;
+  pageTransformation?: PageTransformationConfig;
 }
 
 export interface SiteMigrationConfig extends Identifiable {
+  expanded: boolean;
   name: string;
   baseUrl: string;
   siteIdentifier: string;
@@ -34,6 +37,7 @@ export interface SiteMigrationConfig extends Identifiable {
   excludeTextPatterns?: string[] | string;
   excludeMarkdownBlocks?: string;
   excludeImageUrls?: string[] | string;
+  defaultPageTransformation?: PageTransformationConfig;
 }
 
 export interface ExclusionsConfig {

@@ -8,3 +8,4 @@ non-vcs/
 node_modules/
 server/target/
 server/ts-gen/
+server/test-data/
