@@ -18,7 +18,7 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { CommitteeDisplayService } from "../../pages/committee/committee-display.service";
 import { NumberUtilsService } from "../../services/number-utils.service";
-import { NgClass, NgTemplateOutlet } from "@angular/common";
+import { NgTemplateOutlet } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 
 
@@ -30,12 +30,12 @@ import { FormsModule } from "@angular/forms";
           <div [id]="id" (click)="toggleExpanded()">
             <div #dropdownMenu
                  class="dropdown b-dropdown btn-group filter-dropdown dropdown-custom xform-control"
-                 [ngClass]="{'show':expanded}">
+                 [class.show]="expanded">
               <button aria-haspopup="menu" [attr.aria-expanded]="expanded"
                       class="btn dropdown-toggle btn-outline-dark btn-sm btn-normal text-truncate text-wrap w-100 bg-white">{{ roleSelection() }}
               </button>
               <ul role="menu" tabindex="-1" class="dropdown-menu p-3"
-                  [ngClass]="{'show':expanded}">
+                  [class.show]="expanded">
                 <li role="presentation" class="d-flex justify-content-end">
                   <button type="button" class="btn-close btn-close-sm" [attr.aria-label]="acceptTooltip()" [title]="acceptTooltip()" (click)="closeDropdown($event)" style="font-size: 0.75rem; padding: 0.25rem;"></button>
                 </li>
@@ -90,7 +90,7 @@ import { FormsModule } from "@angular/forms";
       }
     `,
     styleUrls: ["./committee-role-multi-select.sass"],
-  imports: [NgClass, FormsModule, NgTemplateOutlet]
+  imports: [FormsModule, NgTemplateOutlet]
 })
 
 export class CommitteeRoleMultiSelectComponent implements OnInit, OnDestroy {
@@ -185,6 +185,6 @@ export class CommitteeRoleMultiSelectComponent implements OnInit, OnDestroy {
 
   acceptTooltip(): string {
     const count = this.roles.length;
-    return `Accept ${count} selection${count === 1 ? '' : 's'}`;
+    return `Accept ${count} selection${count === 1 ? "" : "s"}`;
   }
 }

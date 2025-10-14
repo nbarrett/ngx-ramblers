@@ -14,10 +14,10 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { first } from "es-toolkit/compat";
 import { toKebabCase } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { generateUid, humaniseFileStemFromUrl, pluraliseWithCount, titleCase } from "../shared/string-utils";
 import { AWSConfig } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { queryAWSConfig } from "../aws/aws-controllers";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import { generateUid, pluraliseWithCount } from "../shared/string-utils";
 import { contentTypeFrom, extensionFrom } from "../aws/aws-utils";
 import { contentMetadata } from "../mongo/models/content-metadata";
 import { progress } from "./migration-progress";
@@ -36,16 +36,19 @@ import {
   ScrapedPage,
   ScrapedSegment
 } from "../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
+import { PageTransformationEngine } from "./page-transformation-engine";
 
 const debugLog = debug(envConfig.logNamespace("static-html-site-migrator"));
 debugLog.enabled = true;
-const turndownService = new TurndownService();
+const turndownService = new TurndownService({
+  headingStyle: "atx"
+});
 const s3 = new S3({});
 const awsConfig: AWSConfig = queryAWSConfig();
 
 type Ctx = {
   config: SiteMigrationConfig;
-  browser: Browser | null;
+  browser: Browser;
 };
 
 function withDefaults(config: SiteMigrationConfig): SiteMigrationConfig {
@@ -53,12 +56,15 @@ function withDefaults(config: SiteMigrationConfig): SiteMigrationConfig {
     persistData: false,
     uploadTos3: false,
     ...config
-  } as SiteMigrationConfig;
+  };
 }
 
 async function launchBrowser(ctx: Ctx): Promise<Browser> {
   if (!ctx.browser) {
-    ctx.browser = await puppeteer.launch({headless: true});
+    ctx.browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    });
   }
   return ctx.browser;
 }
@@ -104,10 +110,6 @@ async function createPage(ctx: Ctx): Promise<Page> {
   return page;
 }
 
-function toTitleCase(str: string): string {
-  return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
-}
-
 function toContentPath(path: string): string {
   const url = new URL(path);
   const contentPath = toKebabCase(...first(url.pathname.split(".")).split("/").filter(item => !["index"].includes(item.toLowerCase())));
@@ -147,7 +149,7 @@ async function scrapePageLinks(ctx: Ctx): Promise<PageLink[]> {
       debugLog(`❌ Failed to load ${ctx.config.baseUrl}: Status ${response.status()}`);
       return [];
     }
-    const pageLinks: PageLink[] = await page.evaluate((baseUrl: string, menuSelector: string) => {
+    const pageLinks: PageLink[] = await page.evaluate(function pageLinksEval(baseUrl: string, menuSelector: string) {
       const links = Array.from(document.querySelectorAll(menuSelector))
         .filter((a: HTMLAnchorElement) => a.href.startsWith(baseUrl))
         .map((a: HTMLAnchorElement) => ({path: a.href, title: a.textContent!.trim()}));
@@ -175,27 +177,29 @@ async function scrapePageContent(ctx: Ctx, pageLink: PageLink): Promise<ScrapedP
       debugLog(`❌ Failed to load ${pageLink.path}: Status ${response.status()}`);
       return {path: pageLink.path, title: pageLink.title, segments: []};
     }
-    const {html, images} = await page.evaluate((contentSelector: string, excludeSelectors: string[]) => {
-      const contentNode = (document.querySelector(contentSelector) || document.body) as HTMLElement;
-      const selectors: string[] = Array.isArray(excludeSelectors) ? excludeSelectors : [];
-      const failed: string[] = [];
+    const {
+      html,
+      images
+    } = await page.evaluate(function scrapeContentEval(contentSelector: string, excludeSelectors: string[]) {
+      const node = document.querySelector(contentSelector) || document.body;
+      const selectors = Array.isArray(excludeSelectors) ? excludeSelectors : [];
       selectors.forEach(sel => {
         try {
-          contentNode.querySelectorAll(sel).forEach(n => n.remove());
-        } catch (error) {
-          failed.push(sel);
+          node.querySelectorAll(sel).forEach(n => n.remove());
+        } catch (e) {
+          debugLog(`   Invalid selector:`, sel, "error:", e);
         }
       });
-      Array.from(contentNode.querySelectorAll("img")).forEach((img: HTMLImageElement) => {
+      Array.from(node.querySelectorAll("img")).forEach(img => {
         const src = img.getAttribute("src");
         if (src) img.setAttribute("src", new URL(src, location.href).href);
       });
-      const html = contentNode.innerHTML;
-      const images = Array.from(contentNode.querySelectorAll("img")).map((img: HTMLImageElement) => ({
+      const html = node.innerHTML;
+      const images = Array.from(node.querySelectorAll("img")).map(img => ({
         src: img.src,
         alt: img.alt || ""
       }));
-      return {html, images, failedSelectors: failed} as any;
+      return {html, images};
     }, ctx.config.contentSelector, exclusions.coerceList(ctx.config.excludeSelectors));
     let markdown = turndownService.turndown(html);
     markdown = exclusions.applyTextExclusions(markdown, {
@@ -241,6 +245,12 @@ async function scrapePageContent(ctx: Ctx, pageLink: PageLink): Promise<ScrapedP
     }
     if (remainingText.trim()) segments.push({text: remainingText.trim()});
     debugLog(`✅ Created ${pluraliseWithCount(segments.length, "segment")} for ${pageLink.path}`);
+    debugLog(`   First segment preview:`, segments[0] ? {
+      hasText: !!segments[0].text,
+      hasImage: !!segments[0].image,
+      textPreview: segments[0].text ? segments[0].text.substring(0, 100) : null,
+      imageSrc: segments[0].image ? segments[0].image.src : null
+    } : "no segments");
     const firstImage = (images || []).find(img => !isExcludedImage(ctx, img.src)) || images?.[0];
     return {path: pageLink.path, title: pageLink.title, segments, firstImage};
   } catch (error) {
@@ -297,7 +307,7 @@ async function createPageContentWithNestedRows(ctx: Ctx, content: ScrapedPage, c
   let imageCount = 0;
   let lastRowHasText = false;
   let lastRowIsHeading = false;
-  let pendingImageSource: {src: string, alt: string} | null = null;
+  let pendingImageSource: {src: string, alt: string} = null;
   if (content.segments) {
     for (const segment of content.segments) {
       if (segment.text && !segment.image) {
@@ -357,7 +367,7 @@ async function createPageContent(ctx: Ctx, content: ScrapedPage, contentTextItem
   let imageCount = 0;
   let lastRowHasText = false;
   let lastRowIsHeading = false;
-  let pendingImageSource: {src: string, alt: string} | null = null;
+  let pendingImageSource: {src: string, alt: string} = null;
   if (content.segments) {
     for (const segment of content.segments) {
       if (segment.text && !segment.image) {
@@ -453,7 +463,7 @@ async function scrapeGalleryLinks(ctx: Ctx): Promise<PageLink[]> {
       debugLog(`❌ Failed to load ${pageUrl}: Status ${response.status()}`);
       return [];
     }
-    const galleryLinks = await page.evaluate((gallerySelector: string, imagePath: string) => {
+    const galleryLinks = await page.evaluate(function galleryLinksEval(gallerySelector: string, imagePath: string) {
       const links = Array.from(document.querySelectorAll(gallerySelector))
         .filter((a: HTMLAnchorElement) => a.href.startsWith(`${location.origin}/${imagePath}/`) && a.textContent?.trim())
         .map((a: HTMLAnchorElement) => ({path: a.href, title: a.textContent!.trim()}));
@@ -471,7 +481,7 @@ async function scrapeGalleryLinks(ctx: Ctx): Promise<PageLink[]> {
   }
 }
 
-async function scrapeAlbum(ctx: Ctx, albumLink: PageLink): Promise<MigratedAlbum | null> {
+async function scrapeAlbum(ctx: Ctx, albumLink: PageLink): Promise<MigratedAlbum> {
   const page = await createPage(ctx);
   debugLog(`✅ Scraping gallery ${albumLink.path}`);
   try {
@@ -480,7 +490,7 @@ async function scrapeAlbum(ctx: Ctx, albumLink: PageLink): Promise<MigratedAlbum
       debugLog(`❌ Failed to load ${albumLink.path}: Status ${response.status()}`);
       return null;
     }
-    const images = await page.evaluate((contentSelector: string) => {
+    const images = await page.evaluate(function imagesEval(contentSelector: string) {
       const contentNode = document.querySelector(contentSelector) || document.body;
       const imageNodes = contentNode.querySelectorAll("img");
       return Array.from(imageNodes).map((img: HTMLImageElement) => ({
@@ -491,7 +501,13 @@ async function scrapeAlbum(ctx: Ctx, albumLink: PageLink): Promise<MigratedAlbum
     const files = images.map((img, index) => ({
       image: decodeURIComponent(img.src),
       originalFileName: decodeURIComponent(img.src.split("/").pop() || `image-${index + 1}.jpg`),
-      text: img.alt,
+      text: (() => {
+        const a = (img.alt || "").trim();
+        if (a) return a;
+        const base = decodeURIComponent((img.src || "")
+          .split("/").pop() || "").replace(/\.[^.]+$/, "");
+        return base.replace(/[\-_]+/g, " ").replace(/\s+/g, " ").trim();
+      })(),
       tags: []
     }));
     const name = albumFrom(albumLink.title);
@@ -517,7 +533,7 @@ async function scrapeAlbum(ctx: Ctx, albumLink: PageLink): Promise<MigratedAlbum
           createdBy: null,
           eventType: "walks",
           title: albumLink.title,
-          subtitle: `Photos from ${toTitleCase(albumLink.title)}`,
+          subtitle: `Photos from ${titleCase(albumLink.title)}`,
           showTitle: true,
           introductoryText: "To be completed",
           coverImageHeight: 400,
@@ -598,7 +614,7 @@ async function scrapeParentPageLinks(ctx: Ctx, parentPageConfig: ParentPageConfi
     const pathPrefix = (parentPageConfig.pathPrefix || "").replace(/^\/+|\/+$/g, "");
     const contentSelector = ctx.config.contentSelector;
     const parentPathPrefix = new URL(parentUrl).pathname.replace(/\/index\.[a-zA-Z0-9]+$/, "").replace(/^\/+|\/+$/g, "");
-    const childLinks: PageLink[] = await page.evaluate((selector: string | null, base: string, prefix: string, contentSelectorString: string, parentPath: string) => {
+    const childLinks: PageLink[] = await page.evaluate(function childLinksEval(selector: string, base: string, prefix: string, contentSelectorString: string, parentPath: string) {
       const collectedAnchors: Element[] = [];
       if (selector && selector.length > 0) {
         collectedAnchors.push(...Array.from(document.querySelectorAll(selector)));
@@ -638,13 +654,27 @@ async function scrapeParentPageLinks(ctx: Ctx, parentPageConfig: ParentPageConfi
   }
 }
 
-async function migrateParentPageChild(ctx: Ctx, childLink: PageLink, contentTextItems: ContentText[]): Promise<PageContent | null> {
+async function migrateChildPage(ctx: Ctx, childLink: PageLink, pageTransformationConfig?: any): Promise<PageContent> {
   const scrapedPage = await scrapePageContent(ctx, childLink);
   if (!scrapedPage.segments || scrapedPage.segments.length === 0) {
     debugLog(`⚠️ No content found for ${childLink.path}`);
     return null;
   }
   const pagePath = childLink.contentPath || toContentPath(childLink.path);
+
+  if (pageTransformationConfig && pageTransformationConfig.enabled) {
+    debugLog(`✅ Using page transformation: ${pageTransformationConfig.name}`);
+    const engine = new PageTransformationEngine();
+    const transformedPage = await engine.transform(scrapedPage, pageTransformationConfig, (img: ScrapedImage) => uploadImageToS3(ctx, img));
+    transformedPage.path = pagePath;
+    if (ctx.config.persistData) {
+      const saved = await mongooseClient.upsert<PageContent>(pageContentModel, {path: pagePath}, transformedPage);
+      progress(`✅ Migrated ${childLink.title} to [${pagePath}](${pagePath}) using transformation: ${pageTransformationConfig.name}`);
+      return saved;
+    }
+    progress(`✅ Migrated ${childLink.title} to [${pagePath}](${pagePath}) (dry run) using transformation: ${pageTransformationConfig.name}`);
+    return transformedPage;
+  }
   const pageContentRows: PageContentRow[] = [];
   if (ctx.config.useNestedRows) {
     const nestedRows: PageContentRow[] = [];
@@ -658,7 +688,10 @@ async function migrateParentPageChild(ctx: Ctx, childLink: PageLink, contentText
         });
       } else if (segment.image) {
         const imageSource = await uploadImageToS3(ctx, segment.image);
-        const imageAlt = segment.image.alt || segment.text || "Image";
+        const imageAlt = (() => {
+          const a = (segment.image.alt || "").trim() || (segment.text || "").trim();
+          return a || humaniseFileStemFromUrl(segment.image.src);
+        })();
         nestedRows.push({
           type: PageContentType.TEXT,
           maxColumns: 1,
@@ -673,13 +706,12 @@ async function migrateParentPageChild(ctx: Ctx, childLink: PageLink, contentText
     };
     if (ctx.config.persistData) {
       const saved = await mongooseClient.upsert<PageContent>(pageContentModel, {path: pagePath}, pageContent);
-      progress(`✅ Migrated ${childLink.title} to ${pagePath}`);
+      progress(`✅ Migrated ${childLink.title} to [${pagePath}](${pagePath})`);
       return saved;
     }
-    progress(`✅ Migrated ${childLink.title} to ${pagePath} (dry run)`);
+    progress(`✅ Migrated ${childLink.title} to [${pagePath}](${pagePath}) (dry run)`);
     return pageContent;
   }
-  // not nested
   for (const segment of scrapedPage.segments) {
     if (segment.text && !segment.image) {
       pageContentRows.push({
@@ -690,7 +722,10 @@ async function migrateParentPageChild(ctx: Ctx, childLink: PageLink, contentText
       });
     } else if (segment.image) {
       const imageSource = await uploadImageToS3(ctx, segment.image);
-      const imageAlt = segment.image.alt || segment.text || "Image";
+      const imageAlt = (() => {
+        const a = (segment.image.alt || "").trim() || (segment.text || "").trim();
+        return a || humaniseFileStemFromUrl(segment.image.src);
+      })();
       if (segment.text) {
         pageContentRows.push({
           type: PageContentType.TEXT,
@@ -732,16 +767,17 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
   for (const parentPageConfig of ctx.config.parentPages) {
     debugLog(`✅ Processing parent page: ${parentPageConfig.url}`);
     const mode = parentPageConfig.parentPageMode || (parentPageConfig.migrateParent ? "as-is" : undefined);
+    const transformationConfig = parentPageConfig.pageTransformation || ctx.config.defaultPageTransformation;
     if (mode === "as-is") {
       const parentLink: PageLink = {
         path: parentPageConfig.url.startsWith("http") ? parentPageConfig.url : `${ctx.config.baseUrl}/${parentPageConfig.url}`,
         title: parentPageConfig.pathPrefix
       };
       const parentContentPath = (parentPageConfig.pathPrefix || "").replace(/^\/+|\/+$/g, "");
-      const parentPageContent = await migrateParentPageChild(ctx, {
+      const parentPageContent = await migrateChildPage(ctx, {
         ...parentLink,
         contentPath: parentContentPath
-      }, contentTextItems);
+      }, transformationConfig);
       if (parentPageContent) pageContents.push(parentPageContent);
     } else if (mode === "action-buttons") {
       const parentContentPath = (parentPageConfig.pathPrefix || "").replace(/^\/+|\/+$/g, "");
@@ -766,7 +802,10 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
         let firstImage = segments.find(s => s.image && !isExcludedImage(ctx, s.image.src))?.image;
         if (!firstImage && scraped.firstImage && !isExcludedImage(ctx, scraped.firstImage.src)) firstImage = scraped.firstImage;
         const imageSource = firstImage ? await uploadImageToS3(ctx, firstImage) : undefined;
-        const imageAlt = firstImage ? (firstImage.alt || cleanedTitle) : undefined;
+        const imageAlt = firstImage ? (() => {
+          const a = (firstImage.alt || "").trim() || cleanedTitle;
+          return a || humaniseFileStemFromUrl(firstImage.src);
+        })() : undefined;
         const contentTextValue = firstSentence || cleanedTitle;
         debugLog("Action button text for", cleanedTitle, "->", contentTextValue, "image:", imageSource);
         buttons.push({
@@ -802,7 +841,7 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
       progress(`Limiting to ${pluraliseWithCount(parentPageConfig.maxChildren, "child page")}`);
     }
     for (const childLink of childLinks) {
-      const pageContent = await migrateParentPageChild(ctx, childLink, contentTextItems);
+      const pageContent = await migrateChildPage(ctx, childLink, transformationConfig);
       if (pageContent) {
         pageContents.push(pageContent);
         debugLog(`✅ Migrated ${childLink.title} to /${pageContent.path}`);
@@ -813,7 +852,7 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
 }
 
 export async function migrateStaticSite(configInput: SiteMigrationConfig): Promise<MigrationResult> {
-  const config = withDefaults(configInput);
+  const config: SiteMigrationConfig = withDefaults(configInput);
   const ctx: Ctx = {config, browser: null};
   try {
     debugLog(`✅ Starting migration for ${config.siteIdentifier}`);

@@ -129,6 +129,13 @@ import { ColourSelectorComponent } from "../../../pages/banner/colour-selector";
             </a>
           </li>
         }
+        @if (showColumnActions && allowMoveColumnToFirstEmptyRow()) {
+          <li role="menuitem">
+            <a (click)="actions.moveColumnToFirstEmptyRow(pageContent, row, columnIndex)" class="dropdown-item">
+              Move <b>Column</b> to first empty row
+            </a>
+          </li>
+        }
         @if (showColumnActions && allowColumnActions()) {
           <li role="menuitem">
             <a (click)="actions.duplicateColumn(row, columnIndex, pageContent)" class="dropdown-item">
@@ -284,6 +291,10 @@ export class ActionsDropdownComponent implements OnInit {
 
   allowMoveColumnToNextRow(): boolean {
     return !this.rowIsNested && this.rowIndex >= 0 && this.rowIndex < this.rows().length - 1 && this.columnIndex >= 0;
+  }
+
+  allowMoveColumnToFirstEmptyRow(): boolean {
+    return !this.rowIsNested && this.columnIndex >= 0;
   }
 
   allowTextRowActions() {

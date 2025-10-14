@@ -49,7 +49,9 @@ export enum Status {
 
 export interface FileUploadSummary {
   fileName: string,
-  status: Status
+  status: Status,
+  earliestAuditTime?: number,
+  latestAuditTime?: number
 }
 
 export interface DomainEventDataWithFinished {

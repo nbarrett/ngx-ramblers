@@ -164,6 +164,55 @@ export class PageContentActionsService {
     if (!column.rows) {
       column.rows = [];
       this.addRow(0, PageContentType.TEXT, column.rows);
+
+      // If the column has existing content, move it to the first nested row's first column
+      const firstNestedRow = column.rows[0];
+      const firstNestedColumn = firstNestedRow?.columns?.[0];
+
+      if (firstNestedColumn) {
+        // Transfer contentText (inline content)
+        if (column.contentText) {
+          firstNestedColumn.contentText = column.contentText;
+          delete column.contentText;
+        }
+
+        // Transfer contentTextId (referenced content)
+        if (column.contentTextId) {
+          firstNestedColumn.contentTextId = column.contentTextId;
+          delete column.contentTextId;
+        }
+
+        // Transfer image data if present
+        if (column.imageSource) {
+          firstNestedColumn.imageSource = column.imageSource;
+          delete column.imageSource;
+        }
+
+        if (column.alt) {
+          firstNestedColumn.alt = column.alt;
+          delete column.alt;
+        }
+
+        if (column.imageBorderRadius !== undefined) {
+          firstNestedColumn.imageBorderRadius = column.imageBorderRadius;
+          delete column.imageBorderRadius;
+        }
+
+        if (column.imageAspectRatio) {
+          firstNestedColumn.imageAspectRatio = column.imageAspectRatio;
+          delete column.imageAspectRatio;
+        }
+
+        if (column.showTextAfterImage !== undefined) {
+          firstNestedColumn.showTextAfterImage = column.showTextAfterImage;
+          delete column.showTextAfterImage;
+        }
+
+        if (column.showPlaceholderImage !== undefined) {
+          firstNestedColumn.showPlaceholderImage = column.showPlaceholderImage;
+          delete column.showPlaceholderImage;
+        }
+      }
     }
   }
 
@@ -445,6 +494,17 @@ export class PageContentActionsService {
     col.columns = 12;
     targetRow.columns.splice(0, 0, col);
     this.notifyPageContentChanges(pageContent);
+  }
+
+  public moveColumnToFirstEmptyRow(pageContent: PageContent, currentRow: PageContentRow, columnIndex: number) {
+    const rows = pageContent?.rows || [];
+    let targetRow = rows.find(r => (r?.columns?.length || 0) === 0);
+    if (!targetRow) {
+      const insertAfter = rows.indexOf(currentRow);
+      targetRow = { type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [] } as PageContentRow;
+      rows.splice(insertAfter >= 0 ? insertAfter + 1 : rows.length, 0, targetRow);
+    }
+    this.moveColumnToEmptyRow(currentRow, columnIndex, targetRow, pageContent);
   }
 
   public calculateInsertableContent(existingData: PageContent, defaultData: PageContent): ColumnInsertData[] {

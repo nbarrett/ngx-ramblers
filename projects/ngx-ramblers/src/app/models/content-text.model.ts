@@ -8,6 +8,7 @@ import { EventsData } from "./social-events.model";
 import { MarkdownEditorComponent } from "../markdown-editor/markdown-editor.component";
 import { HasTrackingAttribute } from "./ui-actions";
 import { DescribedDimensions } from "./aws-object.model";
+import { HasNgSelectAttributes } from "./ramblers-walks-manager";
 
 export const EM_DASH = " — ";
 export const EM_DASH_WITH_SPACES = ` ${EM_DASH} `;
@@ -313,7 +314,9 @@ export enum Action {
 
 export interface Fragment {
   pageContentId: string;
-  path?: string; // Transient UI-only property, not persisted to database
+}
+
+export interface FragmentWithLabel extends Fragment, HasNgSelectAttributes {
 }
 
 export enum AlbumView {
@@ -416,7 +419,12 @@ export interface DuplicateTextNavigation {
 }
 
 
-export interface DuplicatePageContent {
+export interface PageContentGroup {
   path: string;
+  pageContents: PageContent[];
+}
+
+/** @deprecated Use PageContentGroup instead */
+export interface DuplicatePageContent extends PageContentGroup {
   duplicatePageContents: PageContent[];
 }

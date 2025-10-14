@@ -1,5 +1,4 @@
-import { escapeRegExp } from "es-toolkit/compat";
-import { isNumber } from "es-toolkit/compat";
+import { escapeRegExp, isNumber } from "es-toolkit/compat";
 
 export const uidFormat = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
 
@@ -54,4 +53,19 @@ export function toKebabCase(input: string): string {
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .trim();
+}
+
+export function titleCase(str: string): string {
+    return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+}
+
+export function humaniseFileStemFromUrl(input: string): string {
+  try {
+    const url = new URL(input || "");
+    const name = decodeURIComponent((url.pathname.split("/").pop() || "").replace(/\.[^.]+$/, ""));
+    return name.replace(/[\-_]+/g, " ").replace(/\s+/g, " ").trim();
+  } catch (_) {
+    const raw = decodeURIComponent((input || "").split("/").pop() || "").replace(/\.[^.]+$/, "");
+    return raw.replace(/[\-_]+/g, " ").replace(/\s+/g, " ").trim();
+  }
 }

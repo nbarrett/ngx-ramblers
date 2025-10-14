@@ -10,8 +10,8 @@ const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);
 router.get("", controller.findByConditions);
-router.get("/all", authConfig.authenticate(), controller.all);
-router.get("/upload-sessions", authConfig.authenticate(), queryUploadSessions);
+router.get("/all", controller.all);
+router.get("/upload-sessions", queryUploadSessions);
 router.delete("/:id", authConfig.authenticate(), controller.deleteOne);
 
 export const ramblersUploadAuditRoutes = router;

@@ -28,6 +28,7 @@ import { FragmentService } from "../../../services/fragment.service";
           }
           @if (actions.isActionButtons(row)) {
             <app-action-buttons
+              [presentationMode]="true"
               [pageContent]="viewablePageContent"
               [rowIndex]="rowIndex"/>
           }
@@ -153,11 +154,7 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
   }
 
   private async loadSharedFragments(pageContent: PageContent) {
-    const fragmentRows = (pageContent?.rows || [])
-      .filter(row => this.actions.isSharedFragment(row) && row?.fragment?.pageContentId);
-    for (const row of fragmentRows) {
-      await this.fragmentService.ensureLoadedById(row.fragment.pageContentId);
-    }
+    await this.fragmentService.loadFragmentsRecursivelyFromRows(pageContent?.rows || []);
   }
 
   fragmentContentFor(row: PageContentRow): PageContent {

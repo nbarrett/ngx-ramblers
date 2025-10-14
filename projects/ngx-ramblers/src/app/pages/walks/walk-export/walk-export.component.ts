@@ -38,7 +38,6 @@ import { PageComponent } from "../../../page/page.component";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
-import { NgClass } from "@angular/common";
 import { RelatedLinkComponent } from "../../../modules/common/related-links/related-link";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgOptionComponent, NgSelectComponent } from "@ng-select/ng-select";
@@ -65,7 +64,8 @@ export enum WalkExportTab {
   template: `
     <app-page>
       <tabset class="custom-tabset">
-        <tab [active]="activeTabId === WalkExportTab.WALK_UPLOAD_SELECTION" (selectTab)="selectTab(WalkExportTab.WALK_UPLOAD_SELECTION)" heading="Walk upload selection">
+        <tab [active]="activeTabId === WalkExportTab.WALK_UPLOAD_SELECTION"
+             (selectTab)="selectTab(WalkExportTab.WALK_UPLOAD_SELECTION)" heading="Walk upload selection">
           <app-csv-export hidden #csvComponent
                           [data]="walksDownloadFileContents"
                           [filename]="walksDownloadFileName()"
@@ -93,8 +93,12 @@ export enum WalkExportTab {
                               </button>
                             } @else {
                               <div class="d-inline-flex gap-2">
-                                <button type="button" class="btn btn-sm btn-danger" (click)="overrideDownload()">Confirm Override</button>
-                                <button type="button" class="btn btn-sm btn-secondary" (click)="cancelOverrideRequest()">Cancel</button>
+                                <button type="button" class="btn btn-sm btn-danger" (click)="overrideDownload()">Confirm
+                                  Override
+                                </button>
+                                <button type="button" class="btn btn-sm btn-secondary"
+                                        (click)="cancelOverrideRequest()">Cancel
+                                </button>
                               </div>
                             }
                           }
@@ -155,7 +159,7 @@ export enum WalkExportTab {
                            [href]="walkExport.displayedWalk?.walkLink" class="rams-text-decoration-pink active"
                            target="_blank">{{ walkExport.displayedWalk?.walk?.groupEvent?.title || walkExport.displayedWalk?.latestEventType.description }}</a>
                       </h3>
-                      <div (click)="ignoreClicks($event)" [ngClass]="{'card-disabled': !walkExport.selected}">
+                      <div (click)="ignoreClicks($event)" [class.card-disabled]="!walkExport.selected">
                         <dl class="d-flex">
                           <dt class="font-weight-bold me-2">Date and Time:</dt>
                           <time>
@@ -207,7 +211,8 @@ export enum WalkExportTab {
                       </dl>
                       <div>
                         <fa-icon class="me-1"
-                                 [ngClass]="walkExport.publishStatus.actionRequired? 'yellow-icon':'green-icon'"
+                                 [class.yellow-icon]="walkExport.publishStatus.actionRequired"
+                                 [class.green-icon]="!walkExport.publishStatus.actionRequired"
                                  [icon]="walkExport.publishStatus.actionRequired?faExclamationCircle:faCheckCircle"/>
                         {{ walkExport.publishStatus.messages.join(", ") }}
                       </div>
@@ -215,10 +220,11 @@ export enum WalkExportTab {
                   </div>
                 </div>
               }
-          </div>
+            </div>
           </div>
         </tab>
-        <tab [active]="activeTabId === WalkExportTab.WALK_UPLOAD_AUDIT" (selectTab)="selectTab(WalkExportTab.WALK_UPLOAD_AUDIT)" heading="Walk upload audit">
+        <tab [active]="activeTabId === WalkExportTab.WALK_UPLOAD_AUDIT"
+             (selectTab)="selectTab(WalkExportTab.WALK_UPLOAD_AUDIT)" heading="Walk upload audit">
           <div class="img-thumbnail thumbnail-admin-edit">
             <div class="form-group">
               @if (auditTarget.showAlert) {
@@ -248,13 +254,14 @@ export enum WalkExportTab {
                             [(ngModel)]="fileName"
                             (ngModelChange)="onSessionChange()"
                             class="filename-select"
-                            [dropdownPosition]="'auto'"
+                            dropdownPosition="bottom"
                             [virtualScroll]="false">
                             @for (fileName of fileNames; track fileName.fileName) {
                               <ng-option [value]="fileName">
                                 <div class="d-flex align-items-center">
                                   <app-status-icon noLabel [status]="fileName.status"/>
-                                  <span class="ms-2 text-truncate" [title]="fileName.fileName">{{ displayForUploadSession(fileName.fileName) }}</span>
+                                  <span class="ms-2 text-truncate"
+                                        [title]="fileName.fileName">{{ displayForUploadSession(fileName.fileName) }}</span>
                                 </div>
                               </ng-option>
                             }
@@ -312,38 +319,46 @@ export enum WalkExportTab {
               <div class="col col-sm-12">
                 <div class="d-none d-md-block">
                   <div class="audit-table-scroll">
-                  <table class="round styled-table table-striped table-hover table-sm table-pointer">
-                  <thead>
-                  <tr>
-                    <th (click)="sortAuditsBy('status')"><span class="nowrap">Status
-                      @if (auditSortField === 'status') {<span class="sorting-header">{{ auditSortDirection }}</span>}</span>
-                    </th>
-                    <th (click)="sortAuditsBy('auditTime')"><span class="nowrap">Time
-                      @if (auditSortField === 'auditTime') {<span class="sorting-header">{{ auditSortDirection }}</span>}</span>
-                    </th>
-                    <th (click)="sortAuditsBy('durationMs')"><span class="nowrap">Duration
-                      @if (auditSortField === 'durationMs') {<span class="sorting-header">{{ auditSortDirection }}</span>}</span>
-                    </th>
-                    <th (click)="sortAuditsBy('message')"><span class="nowrap">Audit Message
-                      @if (auditSortField === 'message') {<span class="sorting-header">{{ auditSortDirection }}</span>}</span>
-                    </th>
-                  </tr>
-                  </thead>
-                  <tbody>
-                    @for (audit of filteredAudits; track audit.id) {
+                    <table class="round styled-table table-striped table-hover table-sm table-pointer">
+                      <thead>
                       <tr>
-                        <td>
-                          <app-status-icon noLabel [status]="audit.status"/>
-                        </td>
-                        <td class="nowrap">{{ audit.auditTime | displayTimeWithSeconds }}</td>
-                        <td class="nowrap">{{ timing(audit) }}</td>
-                        <td class="text-break">{{ audit.message }}@if (audit.errorResponse) {
-                          <div>: {{ audit.errorResponse | valueOrDefault }}</div>
-                        }</td>
+                        <th (click)="sortAuditsBy('status')"><span class="nowrap">Status
+                          @if (auditSortField === 'status') {
+                            <span class="sorting-header">{{ auditSortDirection }}</span>
+                          }</span>
+                        </th>
+                        <th (click)="sortAuditsBy('auditTime')"><span class="nowrap">Time
+                          @if (auditSortField === 'auditTime') {
+                            <span class="sorting-header">{{ auditSortDirection }}</span>
+                          }</span>
+                        </th>
+                        <th (click)="sortAuditsBy('durationMs')"><span class="nowrap">Duration
+                          @if (auditSortField === 'durationMs') {
+                            <span class="sorting-header">{{ auditSortDirection }}</span>
+                          }</span>
+                        </th>
+                        <th (click)="sortAuditsBy('message')"><span class="nowrap">Audit Message
+                          @if (auditSortField === 'message') {
+                            <span class="sorting-header">{{ auditSortDirection }}</span>
+                          }</span>
+                        </th>
                       </tr>
-                    }
-                  </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        @for (audit of filteredAudits; track audit.id) {
+                          <tr>
+                            <td>
+                              <app-status-icon noLabel [status]="audit.status"/>
+                            </td>
+                            <td class="nowrap">{{ audit.auditTime | displayTimeWithSeconds }}</td>
+                            <td class="nowrap">{{ timing(audit) }}</td>
+                            <td class="text-break">{{ audit.message }}@if (audit.errorResponse) {
+                              <div>: {{ audit.errorResponse | valueOrDefault }}</div>
+                            }</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
                   </div>
                 </div>
                 <div class="d-md-none">
@@ -455,13 +470,13 @@ export enum WalkExportTab {
         max-width: 100% !important
   `],
   styleUrls: ["./walk-export.component.sass"],
-  imports: [PageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, NgClass, RelatedLinkComponent, TooltipDirective, NgSelectComponent, NgOptionComponent, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, EventDatesAndTimesPipe]
+  imports: [PageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, RelatedLinkComponent, TooltipDirective, NgSelectComponent, NgOptionComponent, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, EventDatesAndTimesPipe]
 })
 
 export class WalkExportComponent implements OnInit, OnDestroy {
   faExclamationCircle = faExclamationCircle;
   faCheckCircle = faCheckCircle;
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkExportComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkExportComponent", NgxLoggerLevel.INFO);
   private webSocketClientService: WebSocketClientService = inject(WebSocketClientService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private walksAndEventsService: WalksAndEventsService = inject(WalksAndEventsService);
@@ -480,6 +495,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   public audits: RamblersUploadAudit[];
   public filteredAudits: RamblersUploadAudit[];
+  private readonly maxAuditRows = 500;
   public walksForExport: WalkExport[] = [];
   public fileName: FileUploadSummary;
   public fileNames: FileUploadSummary[] = [];
@@ -685,11 +701,16 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.walkExportNotifier.setBusy();
     return this.ramblersUploadAuditService.all({
       criteria: {fileName: this.fileName?.fileName},
-      sort: {auditTime: -1, record: -1}
+      sort: {auditTime: -1, record: -1},
+      limit: this.maxAuditRows
     }).then((auditItems: RamblersUploadAuditApiResponse) => {
       this.audits = auditItems.response;
       this.applyFilter();
       this.updateCurrentSessionDurationLabel();
+      this.walkExportNotifier.clearBusy();
+    }).catch(error => {
+      const message = typeof error === "string" ? error : (error?.message || "Failed to load audit history");
+      this.auditNotifier.error({title: "Audit Load Error", message});
       this.walkExportNotifier.clearBusy();
     });
   }
@@ -712,16 +733,18 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     const allChrono = this.audits.slice().sort(sortBy("-auditTime", "-record"));
     const lastAudit = allChrono[0];
     const firstAudit = allChrono[allChrono.length - 1];
-    const durations = new Map<string, number>();
-    timeSorted.forEach((audit, index) => {
-      if (audit.type === AuditType.SUMMARY) {
-        durations.set(audit.id, Math.max(0, (lastAudit?.auditTime || 0) - (firstAudit?.auditTime || 0)));
-      } else {
-        const previous = timeSorted[index + 1];
-        durations.set(audit.id, Math.max(0, (audit?.auditTime || 0) - (previous?.auditTime || 0)));
-      }
-    });
-    this.filteredAudits = this.filteredAudits.map(a => ({...a, durationMs: durations.get(a.id) || 0} as any));
+    if (this.showDetail) {
+      const durations = new Map<string, number>();
+      timeSorted.forEach((audit, index) => {
+        if (audit.type === AuditType.SUMMARY) {
+          durations.set(audit.id, Math.max(0, (lastAudit?.auditTime || 0) - (firstAudit?.auditTime || 0)));
+        } else {
+          const previous = timeSorted[index + 1];
+          durations.set(audit.id, Math.max(0, (audit?.auditTime || 0) - (previous?.auditTime || 0)));
+        }
+      });
+      this.filteredAudits = this.filteredAudits.map(a => ({...a, durationMs: durations.get(a.id) || 0} as any));
+    }
     const direction = this.auditSortDirection === ASCENDING ? "" : "-";
     const primary = `${direction}${this.auditSortField}`;
     if (this.auditSortField === "auditTime") {
@@ -735,6 +758,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
       this.auditNotifier.warning(`Showing ${this.filteredAudits.length} of ${this.stringUtils.pluraliseWithCount(this.audits.length, "audit item")}`);
     }
     this.logger.off("applyFilter:filtered:", this.filteredAudits.length, "unfiltered:", this.audits.length);
+    this.filteredAudits = this.filteredAudits.slice(0, this.maxAuditRows);
   }
 
   exportableWalks(): WalkExport[] {
@@ -772,10 +796,16 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   async showAllAudits() {
     this.showSelect = false;
     this.walkExportNotifier.warning("Refreshing past download sessions", false, true);
-    this.fileNames = await this.ramblersUploadAuditService.uniqueUploadSessions();
+    try {
+      this.fileNames = await this.ramblersUploadAuditService.uniqueUploadSessions(6);
+    } catch (e) {
+      const message = (e as any)?.message || "Failed to query upload sessions";
+      this.auditNotifier.error({title: "Audit Load Error", message});
+      this.showSelect = true;
+      return;
+    }
 
     this.cleanupStaleInProgressSessions();
-    await this.calculateAllSessionDurations();
 
     this.fileName = this.fileNames?.[0];
 
@@ -954,9 +984,14 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   }
 
   public displayForUploadSession(fileName: string): string {
+    const session = this.fileNames.find(f => f.fileName === fileName);
     const ts = this.extractSessionTime(fileName);
     if (ts) {
-      const duration = this.sessionDurations[fileName] || this.calculateSessionDuration(fileName);
+      let duration = this.sessionDurations[fileName];
+      if (!duration && session?.earliestAuditTime && session?.latestAuditTime) {
+        duration = this.dateUtils.formatDuration(session.earliestAuditTime, session.latestAuditTime);
+        this.sessionDurations[fileName] = duration;
+      }
       const label = this.dateUtils.displayDateAndTime(ts);
       return duration ? `${label} (${duration})` : label;
     }
@@ -986,53 +1021,5 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     }
 
     return fileName.replace(/^walks-export-/, "").replace(/\.csv$/, "").replace(/[^a-z0-9]/gi, "-").toLowerCase();
-  }
-
-  private calculateSessionDuration(fileName: string): string | null {
-    if (this.sessionDurations[fileName]) {
-      return this.sessionDurations[fileName];
-    }
-
-    const audits = this.audits?.filter(audit => audit.fileName === fileName);
-    if (!audits || audits.length === 0) {
-      return null;
-    }
-
-    const chronological = audits.slice().sort(sortBy("-auditTime", "-record"));
-    const latest = chronological[0]?.auditTime;
-    const earliest = chronological[chronological.length - 1]?.auditTime;
-
-    if (latest && earliest) {
-      const duration = this.dateUtils.formatDuration(earliest, latest);
-      this.sessionDurations[fileName] = duration;
-      return duration;
-    }
-
-    return null;
-  }
-
-  private async calculateAllSessionDurations(): Promise<void> {
-    for (const session of this.fileNames) {
-      if (!this.sessionDurations[session.fileName]) {
-        try {
-          const audits = await this.ramblersUploadAuditService.all({
-            criteria: { fileName: session.fileName },
-            sort: { auditTime: -1, record: -1 }
-          });
-
-          if (audits.response?.length > 0) {
-            const chronological = audits.response.slice().sort(sortBy("-auditTime", "-record"));
-            const latest = chronological[0]?.auditTime;
-            const earliest = chronological[chronological.length - 1]?.auditTime;
-
-            if (latest && earliest) {
-              this.sessionDurations[session.fileName] = this.dateUtils.formatDuration(earliest, latest);
-            }
-          }
-        } catch (error) {
-          this.logger.error("Failed to calculate duration for session:", session.fileName, error);
-        }
-      }
-    }
   }
 }

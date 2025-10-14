@@ -25,6 +25,7 @@ import { memberBulkLoadAuditRoutes } from "./mongo/routes/member-bulk-load-updat
 import { socialEventsRoutes } from "./mongo/routes/social-event";
 import { authRoutes } from "./mongo/routes/auth";
 import { contentTextRoutes } from "./mongo/routes/content-text";
+import { migrationHistoryRoutes } from "./mongo/routes/migration-history";
 import { expenseClaimRoutes } from "./mongo/routes/expense-claim";
 import { instagramRoutes } from "./instagram/instagram";
 import { meetupRoutes } from "./meetup/meetup";
@@ -93,6 +94,7 @@ app.use("/api/database/auth", authRoutes);
 app.use("/api/database/banners", bannerRoutes);
 app.use("/api/database/notification-config", notificationConfigRoutes);
 app.use("/api/database/content-text", contentTextRoutes);
+app.use("/api/database/migration-history", migrationHistoryRoutes);
 app.use("/api/database/page-content", pageContentRoutes);
 app.use("/api/database/content-metadata", contentMetadataRoutes);
 app.use("/api/database/expense-claim", expenseClaimRoutes);

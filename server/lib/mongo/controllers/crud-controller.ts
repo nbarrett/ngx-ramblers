@@ -218,6 +218,7 @@ export function create<T>(model: Model<T>, debugEnabled = false) {
           response
         });
       } catch (error) {
+        errorDebugLog("deleteOne: " + model.modelName + " failed:", error);
         res.status(500).json({
           message: "Delete of " + model.modelName + " failed",
           error: transforms.parseError(error)
@@ -243,11 +244,15 @@ export function create<T>(model: Model<T>, debugEnabled = false) {
       }
     },
     all: async (req: Request, res: Response) => {
-      const parameters: DataQueryOptions = transforms.parseQueryStringParameters(req);
       try {
+        const parameters: DataQueryOptions = transforms.parseQueryStringParameters(req);
         const query = model.find(parameters.criteria).select(parameters.select).sort(parameters.sort);
         if (isNumber(parameters.limit)) {
           query.limit(parameters.limit);
+        }
+        const allowDisk = (query as any).allowDiskUse;
+        if (typeof allowDisk === "function") {
+          allowDisk.call(query, true);
         }
         const results = await query.exec();
         debugLog(req.query, "find - criteria:found", results.length, "documents:", results);
@@ -256,7 +261,7 @@ export function create<T>(model: Model<T>, debugEnabled = false) {
           response: results.map(result => transforms.toObjectWithId(result))
         });
       } catch (error) {
-        debugLog("all:query", req.query, "error");
+        errorDebugLog("all:query", req.query, "error:", error);
         res.status(500).json({
           message: model.modelName + " query failed",
           error: transforms.parseError(error)
@@ -291,6 +296,7 @@ export function create<T>(model: Model<T>, debugEnabled = false) {
       const parameters: DataQueryOptions = transforms.parseQueryStringParameters(req);
       await findOne(req, res, parameters);
     },
+    errorDebugLog,
     findOne,
     findOneDocument,
     findDocumentById,

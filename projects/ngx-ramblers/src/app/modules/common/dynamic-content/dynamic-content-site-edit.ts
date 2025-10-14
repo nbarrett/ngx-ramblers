@@ -21,6 +21,7 @@ import {
   ColumnInsertData,
   ContentText,
   DuplicateUsageMessage,
+  FragmentWithLabel,
   InsertionPosition,
   InsertionRow,
   PageContent,
@@ -53,7 +54,7 @@ import { NgClass, NgTemplateOutlet } from "@angular/common";
 import { RouterLink } from "@angular/router";
 import { FormsModule } from "@angular/forms";
 import { TypeaheadDirective } from "ngx-bootstrap/typeahead";
-import { NgSelectComponent } from "@ng-select/ng-select";
+import { FragmentSelectorComponent } from "./fragment-selector.component";
 import { RowSettingsCarouselComponent } from "./dynamic-content-site-edit-carousel-row";
 import { RowSettingsActionButtonsComponent } from "./dynamic-content-row-settings-action-buttons";
 import { MarginSelectComponent } from "./dynamic-content-margin-select";
@@ -70,6 +71,7 @@ import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events
 import { DynamicContentSiteEditAreaMapComponent } from "./dynamic-content-site-edit-area-map";
 import { DynamicContentViewComponent } from "./dynamic-content-view";
 import { FragmentService } from "../../../services/fragment.service";
+import { RowTypeSelectorComponent } from "./row-type-selector";
 
 @Component({
     selector: "app-dynamic-content-site-edit",
@@ -229,25 +231,20 @@ import { FragmentService } from "../../../services/fragment.service";
                 <div class="thumbnail-site-edit-top-bottom-margins" (dragover)="onRowDragOver(rowIndex, $event)" (drop)="onRowDrop(rowIndex)">
                   <div class="thumbnail-heading" [attr.draggable]="true" (dragstart)="onRowDragStart($event, rowIndex)" (dragend)="onRowDragEnd()" [tooltip]="rowDragTooltip(rowIndex)" [isOpen]="!!rowDragTooltip(rowIndex)" container="body" triggers="">Row {{ rowIndex + 1 }}
                     ({{ stringUtils.pluraliseWithCount(row?.columns.length, 'column') }})
+                    <app-badge-button noRightMargin class="ms-2"
+                                      (click)="deleteRow(rowIndex)"
+                                      [icon]="faRemove"
+                                      [tooltip]="'Delete row'"/>
                     <span class="drag-handle ms-2 float-end" [attr.draggable]="true" (dragstart)="onRowDragStart($event, rowIndex)">
                       <fa-icon [icon]="faArrowsUpDown"></fa-icon>
                     </span>
                   </div>
                   <div class="row align-items-end mb-3 d-flex">
-                    <div class="col-auto">
-                      <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-type')">
-                        Row Type</label>
-                      <select class="form-control input-sm"
-                              [(ngModel)]="row.type"
-                              (ngModelChange)="changePageContentRowType(row)"
-                              [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.contentPath + '-type')">
-                        @for (type of enumKeyValuesForPageContentType; track type) {
-                          <option
-                            [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
-                          </option>
-                        }
-                      </select>
-                    </div>
+                    <app-row-type-selector
+                      [row]="row"
+                      [rowIndex]="rowIndex"
+                      [contentPath]="contentPath"
+                      (typeChange)="changePageContentRowType(row)"/>
                     @if (actions.isCarouselOrAlbum(row)) {
                       <div (nameInputChange)="editAlbumName=$event" class="col" app-row-settings-carousel
                            [row]="row">
@@ -286,17 +283,10 @@ import { FragmentService } from "../../../services/fragment.service";
                     <div class="row mt-2">
                       <div class="col-12">
                         <label [for]="'shared-fragment-path-' + rowIndex">Shared Fragment</label>
-                        <ng-select [id]="'shared-fragment-path-' + rowIndex"
-                                   [items]="fragmentService.fragmentLinks"
-                                   [searchable]="true"
-                                   [clearable]="true"
-                                   [multiple]="false"
-                                   [addTag]="false"
-                                   placeholder="Select or search fragment"
-                                   [(ngModel)]="row.fragment.path"
-                                   (ngModelChange)="onSharedFragmentPathChange(row, $event)"
-                                   name="shared-fragment-path-{{rowIndex}}">
-                        </ng-select>
+                        <app-fragment-selector
+                          [elementId]="'shared-fragment-path-' + rowIndex"
+                          [selectedFragment]="selectedFragmentForRow(row)"
+                          (fragmentChange)="onSharedFragmentChange(row, $event)"/>
                       </div>
                     </div>
                     @if (row?.fragment?.pageContentId) {
@@ -382,7 +372,7 @@ import { FragmentService } from "../../../services/fragment.service";
         </ng-template>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, NgSelectComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtonsComponent, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentViewComponent]
+  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtonsComponent, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentViewComponent, RowTypeSelectorComponent]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   protected duplicateUsageMessages: DuplicateUsageMessage[] = [];
@@ -438,7 +428,6 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   faArrowsUpDown = faArrowsUpDown;
   public savingPage = false;
   providers: [{ provide: BsDropdownConfig, useValue: { isAnimated: true, autoClose: true } }];
-  enumKeyValuesForPageContentType: KeyValue<string>[] = enumKeyValues(PageContentType);
   public unsavedMarkdownComponents: Set<MarkdownEditorComponent> = new Set();
   public destinationPath: string;
   public destinationPathLookup: Subject<string> = new Subject<string>();
@@ -461,6 +450,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   protected readonly ALERT_ERROR = ALERT_ERROR;
   protected readonly Action = Action;
   private rowDragTargetIndex: number = null;
+  private fragmentCache = new Map<string, FragmentWithLabel>();
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -563,6 +553,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   private async runInitCode() {
     this.showUnreferenced = this.uiActionsService.initialBooleanValueFor(StoredValue.SHOW_UNREFERENCED_PAGES, false);
     this.logger.debug("ngOnInit:runInitCode:pageContent:", this.pageContent, "path:", this.urlService.urlPath());
+    await this.loadAllFragments();
     await this.pageContentService.allReferringPages(this.contentPath)
       .then(referringPages => {
         const referringPagesFilteredForExactPath = referringPages.filter(pageContent => this.actions.allPageHrefs(pageContent).includes(this.urlService.urlPath()));
@@ -573,6 +564,17 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
         this.queryCompleted = true;
         this.error = error;
       });
+  }
+
+  private async loadAllFragments() {
+    const fragmentPaths = this.fragmentService.fragmentLinks;
+    this.logger.debug("loadAllFragments: loading", fragmentPaths.length, "fragments");
+    await Promise.all(fragmentPaths.map(path => this.fragmentService.ensureLoaded(path)));
+    this.logger.debug("loadAllFragments: loaded", this.fragmentService.fragments.length, "fragments");
+  }
+
+  deleteRow(rowIndex: number) {
+    this.actions.deleteRow(this.pageContent, rowIndex, false, null);
   }
 
   buttonClass(enabledIf: any) {
@@ -620,32 +622,43 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
       }
     } else if (this.actions.isSharedFragment(row)) {
       if (!row?.fragment) {
-        row.fragment = { pageContentId: "", path: "" };
+        row.fragment = {pageContentId: ""};
       } else if (row.fragment.pageContentId) {
-        this.fragmentService.ensureLoadedById(row.fragment.pageContentId).then(() => {
-          const fragment = this.fragmentService.contentById(row.fragment.pageContentId);
-          if (fragment?.path) {
-            row.fragment.path = fragment.path;
-          }
-        });
+        this.fragmentService.ensureLoadedById(row.fragment.pageContentId);
       }
     } else {
       this.logger.debug("not initialising data for ", row.type);
     }
   }
 
-  async onSharedFragmentPathChange(row: PageContentRow, path: string) {
-    this.logger.info("onSharedFragmentPathChange received path:", path);
-    if (path) {
-      await this.fragmentService.ensureLoaded(path);
-      const fragment = this.fragmentService.content(path);
-      if (fragment?.id) {
-        row.fragment = { pageContentId: fragment.id, path };
-        this.logger.info("Set pageContentId:", fragment.id, "for path:", path);
-      } else {
-        this.logger.warn("No fragment found for path:", path);
-        row.fragment = { pageContentId: "", path };
-      }
+  selectedFragmentForRow(row: PageContentRow): FragmentWithLabel | null {
+    if (!row?.fragment?.pageContentId) {
+      return null;
+    }
+
+    if (this.fragmentCache.has(row.fragment.pageContentId)) {
+      return this.fragmentCache.get(row.fragment.pageContentId);
+    }
+
+    const fragment = this.fragmentService.fragments.find(f => f.id === row.fragment.pageContentId);
+    if (!fragment) {
+      return null;
+    }
+
+    const fragmentWithLabel: FragmentWithLabel = {
+      pageContentId: fragment.id,
+      ngSelectAttributes: {label: fragment.path}
+    };
+
+    this.fragmentCache.set(row.fragment.pageContentId, fragmentWithLabel);
+    return fragmentWithLabel;
+  }
+
+  onSharedFragmentChange(row: PageContentRow, fragmentWithLabel: FragmentWithLabel) {
+    this.logger.info("onSharedFragmentChange received fragmentWithLabel:", fragmentWithLabel);
+    if (fragmentWithLabel?.pageContentId) {
+      row.fragment = {pageContentId: fragmentWithLabel.pageContentId};
+      this.logger.info("Set fragment:", row.fragment);
       this.actions.notifyPageContentChanges(this.pageContent);
     } else {
       row.fragment = null;
@@ -667,14 +680,35 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     this.actions.dragStartX = event?.clientX ?? null;
     this.actions.dragStartY = event?.clientY ?? null;
     this.actions.dragHasMoved = false;
+    try {
+      if (event?.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        const dragEl = (event.target as HTMLElement) || (event.currentTarget as HTMLElement);
+        if (dragEl && event.dataTransfer.setDragImage) {
+          event.dataTransfer.setDragImage(dragEl, 10, 10);
+        }
+      }
+    } catch {}
   }
 
   onRowDragOver(targetIndex: number, $event: DragEvent) {
     $event.preventDefault();
+    this.autoScrollViewport($event?.clientY ?? 0);
     const dx = ($event?.clientX ?? 0) - (this.actions.dragStartX ?? 0);
     const dy = ($event?.clientY ?? 0) - (this.actions.dragStartY ?? 0);
     if (!this.actions.dragHasMoved && (Math.abs(dx) + Math.abs(dy) > 3)) { this.actions.dragHasMoved = true; }
     this.rowDragTargetIndex = targetIndex;
+  }
+
+  private autoScrollViewport(clientY: number) {
+    const threshold = 100;
+    const speed = 20;
+    const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (clientY < threshold) {
+      window.scrollBy({ top: -speed, behavior: "auto" });
+    } else if (clientY > vh - threshold) {
+      window.scrollBy({ top: speed, behavior: "auto" });
+    }
   }
 
   onRowDrop(targetIndex: number) {
