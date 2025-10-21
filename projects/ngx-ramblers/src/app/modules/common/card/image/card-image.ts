@@ -151,9 +151,8 @@ export class CardImageComponent implements OnInit {
     if (this.unconstrainedHeight && !this.fixedHeight && !this.constrainedHeight) {
       styles["height"] = "auto";
     }
-    if (this.borderRadius) {
-      styles["border-radius.px"] = this.borderRadius;
-    }
+    const radius = this.borderRadius !== undefined ? this.borderRadius : 6;
+    styles["border-radius.px"] = radius;
     if (this.aspectRatio && this.imageSource === FALLBACK_MEDIA.url) {
       styles["aspect-ratio"] = `${this.aspectRatio.width} / ${this.aspectRatio.height}`;
       styles["object-fit"] = "cover";

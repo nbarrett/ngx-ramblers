@@ -230,7 +230,9 @@ import { RowTypeSelectorComponent } from "./row-type-selector";
                 }
                 <div class="thumbnail-site-edit-top-bottom-margins" (dragover)="onRowDragOver(rowIndex, $event)" (drop)="onRowDrop(rowIndex)">
                   <div class="thumbnail-heading" [attr.draggable]="true" (dragstart)="onRowDragStart($event, rowIndex)" (dragend)="onRowDragEnd()" [tooltip]="rowDragTooltip(rowIndex)" [isOpen]="!!rowDragTooltip(rowIndex)" container="body" triggers="">Row {{ rowIndex + 1 }}
-                    ({{ stringUtils.pluraliseWithCount(row?.columns.length, 'column') }})
+                    @if (actions.isTextRow(row)) {
+                      ({{ stringUtils.pluraliseWithCount(row?.columns.length, 'column') }})
+                    }
                     <app-badge-button noRightMargin class="ms-2"
                                       (click)="deleteRow(rowIndex)"
                                       [icon]="faRemove"

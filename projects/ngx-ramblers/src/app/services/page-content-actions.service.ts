@@ -432,6 +432,56 @@ export class PageContentActionsService {
     move(this.rowContainer(pageContent, rowIsNested, column).rows, rowIndex, rowIndex + 1);
   }
 
+  public unnestToPreviousOuterRow(pageContent: PageContent, nestedRowIndex: number, column: PageContentColumn) {
+    if (!column?.rows || nestedRowIndex < 0 || nestedRowIndex >= column.rows.length) {
+      this.logger.warn("Cannot unnest: invalid parameters");
+      return;
+    }
+
+    // Find the parent row that contains this column
+    const parentRowIndex = pageContent.rows.findIndex(row =>
+      row.columns.some(col => col === column)
+    );
+
+    if (parentRowIndex < 0) {
+      this.logger.warn("Cannot find parent row for column");
+      return;
+    }
+
+    // Remove the nested row
+    const [nestedRow] = column.rows.splice(nestedRowIndex, 1);
+
+    // Insert it as a regular row before the parent row
+    pageContent.rows.splice(parentRowIndex, 0, nestedRow);
+
+    this.notifyPageContentChanges(pageContent);
+  }
+
+  public unnestToNextOuterRow(pageContent: PageContent, nestedRowIndex: number, column: PageContentColumn) {
+    if (!column?.rows || nestedRowIndex < 0 || nestedRowIndex >= column.rows.length) {
+      this.logger.warn("Cannot unnest: invalid parameters");
+      return;
+    }
+
+    // Find the parent row that contains this column
+    const parentRowIndex = pageContent.rows.findIndex(row =>
+      row.columns.some(col => col === column)
+    );
+
+    if (parentRowIndex < 0) {
+      this.logger.warn("Cannot find parent row for column");
+      return;
+    }
+
+    // Remove the nested row
+    const [nestedRow] = column.rows.splice(nestedRowIndex, 1);
+
+    // Insert it as a regular row after the parent row
+    pageContent.rows.splice(parentRowIndex + 1, 0, nestedRow);
+
+    this.notifyPageContentChanges(pageContent);
+  }
+
   public reorderRows(pageContent: PageContent, fromIndex: number, toIndex: number) {
     move(pageContent.rows, fromIndex, toIndex);
     this.notifyPageContentChanges(pageContent);
@@ -472,6 +522,83 @@ export class PageContentActionsService {
       rows[rowIndex + 1].columns.unshift(col);
       this.notifyPageContentChanges(pageContent);
     }
+  }
+
+  public joinWithPreviousRow(pageContent: PageContent, currentRow: PageContentRow, nestedParentColumn?: PageContentColumn) {
+    const rows = nestedParentColumn?.rows || pageContent?.rows || [];
+    const rowIndex = rows.indexOf(currentRow);
+
+    if (rowIndex <= 0) {
+      return;
+    }
+
+    const previousRow = rows[rowIndex - 1];
+    if (!this.canJoinRows(currentRow, previousRow)) {
+      return;
+    }
+
+    const currentColumn = currentRow.columns[0];
+    const previousColumn = previousRow.columns[0];
+
+    const combinedText = [previousColumn.contentText || "", currentColumn.contentText || ""]
+      .filter(t => t.trim().length > 0)
+      .join("\n\n");
+
+    previousColumn.contentText = combinedText;
+
+    if (currentColumn.imageSource && !previousColumn.imageSource) {
+      previousColumn.imageSource = currentColumn.imageSource;
+      previousColumn.alt = currentColumn.alt;
+      previousColumn.imageBorderRadius = currentColumn.imageBorderRadius;
+      previousColumn.imageAspectRatio = currentColumn.imageAspectRatio;
+      previousColumn.showTextAfterImage = currentColumn.showTextAfterImage;
+    }
+
+    rows.splice(rowIndex, 1);
+    this.notifyPageContentChanges(pageContent);
+  }
+
+  public joinWithNextRow(pageContent: PageContent, currentRow: PageContentRow, nestedParentColumn?: PageContentColumn) {
+    const rows = nestedParentColumn?.rows || pageContent?.rows || [];
+    const rowIndex = rows.indexOf(currentRow);
+
+    if (rowIndex < 0 || rowIndex >= rows.length - 1) {
+      return;
+    }
+
+    const nextRow = rows[rowIndex + 1];
+    if (!this.canJoinRows(currentRow, nextRow)) {
+      return;
+    }
+
+    const currentColumn = currentRow.columns[0];
+    const nextColumn = nextRow.columns[0];
+
+    const combinedText = [currentColumn.contentText || "", nextColumn.contentText || ""]
+      .filter(t => t.trim().length > 0)
+      .join("\n\n");
+
+    currentColumn.contentText = combinedText;
+
+    if (nextColumn.imageSource && !currentColumn.imageSource) {
+      currentColumn.imageSource = nextColumn.imageSource;
+      currentColumn.alt = nextColumn.alt;
+      currentColumn.imageBorderRadius = nextColumn.imageBorderRadius;
+      currentColumn.imageAspectRatio = nextColumn.imageAspectRatio;
+      currentColumn.showTextAfterImage = nextColumn.showTextAfterImage;
+    }
+
+    rows.splice(rowIndex + 1, 1);
+    this.notifyPageContentChanges(pageContent);
+  }
+
+  public canJoinRows(row1: PageContentRow, row2: PageContentRow): boolean {
+    return row1?.type === "text"
+      && row2?.type === "text"
+      && row1?.columns?.length === 1
+      && row2?.columns?.length === 1
+      && !row1.columns[0]?.rows
+      && !row2.columns[0]?.rows;
   }
 
   public equaliseColumnWidths(row: PageContentRow, pageContent: PageContent) {

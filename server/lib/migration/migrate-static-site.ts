@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
-import puppeteer from "puppeteer";
-import TurndownService from "turndown";
+import { launchBrowser } from "./puppeteer-utils";
 import { PutObjectCommand, S3 } from "@aws-sdk/client-s3";
 import {
   AlbumView,
@@ -26,12 +25,11 @@ import { contentTypeFrom, extensionFrom } from "../aws/aws-utils";
 import { contentMetadata } from "../mongo/models/content-metadata";
 import { AccessLevel } from "../../../projects/ngx-ramblers/src/app/models/member-resource.model";
 import { ContentMetadata } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
+import { createTurndownService } from "./turndown-service-factory";
 
 const debugLog = debug(envConfig.logNamespace("static-html-site-migrator"));
 debugLog.enabled = true;
-const turndownService = new TurndownService({
-  headingStyle: "atx"
-});
+const turndownService = createTurndownService();
 const s3 = new S3({});
 const persistData = false;
 const uploadTos3 = false;
@@ -66,7 +64,7 @@ interface MigratedAlbum {
 
 async function scrapeStaticSite(baseUrl: string): Promise<ScrapedPage[]> {
   debugLog(`✅ Scraping page links from ${baseUrl}`);
-  const browser = await puppeteer.launch({headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"]});
+  const browser = await launchBrowser();
   const page = await browser.newPage();
   try {
     const response = await page.goto(baseUrl, {waitUntil: "networkidle2", timeout: 30000});
@@ -261,7 +259,7 @@ function albumFrom(title: string) {
 
 async function createPhotoGalleryAlbums(baseUrl: string, specificAlbums: PageLink[] = []): Promise<MigratedAlbum[]> {
   debugLog(`✅ Scraping photo gallery albums from ${baseUrl}`);
-  const browser = await puppeteer.launch({headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"]});
+  const browser = await launchBrowser();
   const page = await browser.newPage();
   let galleryLinks: PageLink[] = specificAlbums;
   if (!specificAlbums.length) {

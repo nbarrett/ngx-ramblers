@@ -59,6 +59,20 @@ import { ColourSelectorComponent } from "../../../pages/banner/colour-selector";
             </a>
           </li>
         }
+        @if (showRowActions && allowUnnestToPreviousOuterRow()) {
+          <li role="menuitem">
+            <a (click)="actions.unnestToPreviousOuterRow(pageContent, rowIndex, column)" class="dropdown-item">
+              Unnest to <b>previous outer row</b>
+            </a>
+          </li>
+        }
+        @if (showRowActions && allowUnnestToNextOuterRow()) {
+          <li role="menuitem">
+            <a (click)="actions.unnestToNextOuterRow(pageContent, rowIndex, column)" class="dropdown-item">
+              Unnest to <b>next outer row</b>
+            </a>
+          </li>
+        }
         @if (showRowActions && allowTextRowActions()) {
           <li role="menuitem">
             <a (click)="actions.duplicateRow(row, rowIndex, pageContent)" class="dropdown-item">
@@ -259,6 +273,14 @@ export class ActionsDropdownComponent implements OnInit {
 
   allowMoveRowDown() {
     return this.rows().length > 0 && this.rowIndex < this.rows().length - 1;
+  }
+
+  allowUnnestToPreviousOuterRow(): boolean {
+    return this.rowIsNested && this.rowIndex >= 0;
+  }
+
+  allowUnnestToNextOuterRow(): boolean {
+    return this.rowIsNested && this.rowIndex >= 0;
   }
 
   allowDeleteRow() {

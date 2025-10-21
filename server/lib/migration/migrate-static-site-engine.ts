@@ -1,5 +1,5 @@
-import puppeteer, { Browser, Page } from "puppeteer";
-import TurndownService from "turndown";
+import { Browser, Page } from "puppeteer";
+import { launchBrowser as sharedLaunchBrowser } from "./puppeteer-utils";
 import { PutObjectCommand, S3 } from "@aws-sdk/client-s3";
 import {
   AlbumView,
@@ -37,12 +37,11 @@ import {
   ScrapedSegment
 } from "../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
 import { PageTransformationEngine } from "./page-transformation-engine";
+import { createTurndownService } from "./turndown-service-factory";
 
 const debugLog = debug(envConfig.logNamespace("static-html-site-migrator"));
 debugLog.enabled = true;
-const turndownService = new TurndownService({
-  headingStyle: "atx"
-});
+const turndownService = createTurndownService();
 const s3 = new S3({});
 const awsConfig: AWSConfig = queryAWSConfig();
 
@@ -61,10 +60,7 @@ function withDefaults(config: SiteMigrationConfig): SiteMigrationConfig {
 
 async function launchBrowser(ctx: Ctx): Promise<Browser> {
   if (!ctx.browser) {
-    ctx.browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"]
-    });
+    ctx.browser = await sharedLaunchBrowser();
   }
   return ctx.browser;
 }
