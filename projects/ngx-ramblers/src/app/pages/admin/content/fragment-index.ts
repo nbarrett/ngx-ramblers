@@ -22,14 +22,14 @@ import { FormsModule } from "@angular/forms";
         <section>
           @for (frag of filteredFragments(); track frag.path; let idx = $index) {
             <h3>Fragment {{ idx + 1 }} of {{ filteredFragments().length }}: <a class="rams-text-decoration-pink"
-                                                                               [href]="frag.path">{{ frag.path }}</a>
+                                                                               [href]="'/' + (frag.path || '')">{{ frag.path }}</a>
             </h3>
             <div class="dotted-content">
               <app-dynamic-content-view [pageContent]="frag" [contentPath]="frag.path" [forceView]="true"/>
               <div class="mt-2 mb-3">
                 <div class="mb-1">Usages ({{ usagesFor(frag.path).length }}):</div>
                 @for (u of usagesFor(frag.path); track u) {
-                  <a class="me-2 rams-text-decoration-pink" [href]="u">{{ u }}</a>
+                  <a class="me-2 rams-text-decoration-pink" [href]="'/' + u">{{ u }}</a>
                 }
               </div>
             </div>
@@ -54,7 +54,26 @@ export class FragmentIndexComponent {
   stringUtils = inject(StringUtilsService);
 
   all = signal<PageContent[]>([]);
-  fragments = computed<PageContent[]>(() => this.all().filter(p => (p.path || "").startsWith("fragments/")));
+  fragments = computed<PageContent[]>(() => this.all().filter(p => (p.path || "").replace(/^\/+/, "").startsWith("fragments/")));
+  private normaliseFragmentPath(value: string): string {
+    const reformatted = this.urlService.reformatLocalHref(value || "");
+    return reformatted.replace(/^\/+/, "");
+  }
+
+  fragmentIdsByPath = computed<Record<string, string[]>>(() => {
+    const map: Record<string, string[]> = {};
+    for (const f of this.fragments()) {
+      const key = this.normaliseFragmentPath(f.path || "");
+      const id = f.id || "";
+      if (!map[key]) {
+        map[key] = [];
+      }
+      if (id) {
+        map[key].push(id);
+      }
+    }
+    return map;
+  });
   searchTerm = signal<string>("");
   filteredFragments = computed<PageContent[]>(() => {
     const term = (this.searchTerm() || "").toLowerCase();
@@ -75,24 +94,27 @@ export class FragmentIndexComponent {
   }
 
   usagesFor(fragmentPath: string): string[] {
-    const normalised = this.urlService.reformatLocalHref(fragmentPath);
+    const normalised = this.normaliseFragmentPath(fragmentPath);
+    const ids = new Set((this.fragmentIdsByPath()[normalised] || []).filter(v => !!v));
     const refers = this.all().filter(p => {
       const isFragment = (p.path || "").startsWith("fragments/");
       if (isFragment) return false;
-      return this.hasFragmentUsage(p.rows || [], normalised);
+      return this.hasFragmentUsage(p.rows || [], normalised, ids);
     });
     return refers.map(p => p.path);
   }
 
-  private hasFragmentUsage(rows: PageContentRow[], normalised: string): boolean {
+  private hasFragmentUsage(rows: PageContentRow[], normalised: string, ids: Set<string>): boolean {
     for (const row of rows) {
-      const rowFrag = (row as any)?.fragment?.path;
-      if (rowFrag && this.urlService.reformatLocalHref(rowFrag) === normalised) {
+      const frag = (row as any)?.fragment;
+      const rowPath = frag?.path ? this.normaliseFragmentPath(frag.path) : "";
+      const rowId = frag?.pageContentId || "";
+      if ((rowPath && rowPath === normalised) || (rowId && ids.has(rowId))) {
         return true;
       }
       for (const col of row.columns || []) {
         const nested = (col as any)?.rows as PageContentRow[] | undefined;
-        if (nested && this.hasFragmentUsage(nested, normalised)) {
+        if (nested && this.hasFragmentUsage(nested, normalised, ids)) {
           return true;
         }
       }
