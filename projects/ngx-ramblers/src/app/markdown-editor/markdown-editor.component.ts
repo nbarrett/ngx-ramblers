@@ -1122,6 +1122,12 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const plain = (pastedText || "").trim();
+    const looksLikeLocalPath = /^\/[A-Za-z0-9\-\/._~#?=&%]+$/.test(plain) && !/^\/\//.test(plain);
+    if (looksLikeLocalPath) {
+      return;
+    }
+
     const htmlDetected = pastedHtml && pastedHtml.trim().length > 0;
     const htmlContent = htmlDetected ? pastedHtml : null;
 
