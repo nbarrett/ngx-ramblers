@@ -8,7 +8,7 @@ import {
   QueryList,
   ViewChildren
 } from "@angular/core";
-import { faAdd, faClose, faCompress, faCopy, faExpand, faPlay } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faClose, faCompress, faCopy, faExpand, faPaste, faPlay } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../../models/alert-target.model";
 import { MigrationConfig, ParentPageConfig, SiteMigrationConfig } from "../../../../models/migration-config.model";
@@ -41,6 +41,10 @@ import { MigrationHistory } from "../../../../models/migration-history.model";
 import { MigrationHistoryService } from "../../../../services/migration/migration-history.service";
 import { EM_DASH_WITH_SPACES } from "../../../../models/content-text.model";
 import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
+import { CopyIconComponent } from "../../../../modules/common/copy-icon/copy-icon";
+import { ClipboardService } from "../../../../services/clipboard.service";
+
+type SitePasteState = { active: boolean; value: string; error?: string };
 
 @Component({
   selector: "app-migration-settings",
@@ -79,6 +83,10 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                                             tooltip="Delete site configuration"/>
                           <app-badge-button noRightMargin [icon]="faClone" (click)="duplicateSite(site)" delay=500
                                             tooltip="Duplicate this site configuration"/>
+                          <app-badge-button noRightMargin [icon]="faPaste" (click)="activateSitePaste(site)" delay=500
+                                            tooltip="Paste site configuration from clipboard"/>
+                          <app-badge-button noRightMargin [icon]="faCopy" (click)="copySiteConfig(site)" delay=500
+                                            tooltip="Copy site configuration to clipboard"/>
                         </div>
                         @if (site.expanded) {
                           <div class="row">
@@ -86,6 +94,26 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
                               <ng-container [ngTemplateOutlet]="migrationBtn" [ngTemplateOutletContext]="{site: site}"/>
                             </div>
                           </div>
+                          @if (sitePasteActive(site)) {
+                            <div class="row">
+                              <div class="col-sm-12">
+                                <div class="form-group">
+                                  <label [for]="stringUtils.kebabCase('site-config-paste', siteIndex)">Paste Site Configuration JSON</label>
+                                  <textarea rows="8" class="form-control form-control-sm"
+                                            [id]="stringUtils.kebabCase('site-config-paste', siteIndex)"
+                                            placeholder="Paste full SiteMigrationConfig JSON here"
+                                            [ngModel]="sitePasteValue(site)"
+                                            (ngModelChange)="transformSitePaste(site, $event)"></textarea>
+                                  @if (sitePasteError(site)) {
+                                    <div class="text-danger mt-1">{{ sitePasteError(site) }}</div>
+                                  }
+                                  <div class="mt-2">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelSitePaste(site)">Cancel</button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          }
                           <div class="row">
                             <div class="col-sm-6">
                               <div class="form-group">
@@ -610,7 +638,7 @@ import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
     .thumbnail-heading-frame-compact:has(details[open])
       overflow: visible
   `],
-  imports: [PageComponent, MarkdownEditorComponent, BadgeButtonComponent, TooltipDirective, FontAwesomeModule, FormsModule, NgClass, NgTemplateOutlet, NgSelectComponent, NgLabelTemplateDirective, TabsetComponent, TabDirective, DisplayTimeWithSecondsPipe, StatusIconComponent, MarkdownComponent, PageTransformationEditorComponent, NgOptionComponent]
+  imports: [PageComponent, MarkdownEditorComponent, BadgeButtonComponent, TooltipDirective, FontAwesomeModule, FormsModule, NgClass, NgTemplateOutlet, NgSelectComponent, NgLabelTemplateDirective, TabsetComponent, TabDirective, DisplayTimeWithSecondsPipe, StatusIconComponent, MarkdownComponent, PageTransformationEditorComponent, NgOptionComponent, CopyIconComponent]
 })
 export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewInit {
 
@@ -633,11 +661,14 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
   protected readonly faExpand = faExpand;
   protected readonly faClone = faClone;
   protected readonly faCompress = faCompress;
+  protected readonly faPaste = faPaste;
+  protected readonly faCopy = faCopy;
   public activityMessages: string[] = [];
   public activityNotifier: AlertInstance;
   public MigrationTab = { SETTINGS: "settings", ACTIVITY: "activity" } as const;
   public activeTabId: string = this.MigrationTab.SETTINGS;
   private webSocketClientService: WebSocketClientService = inject(WebSocketClientService);
+  private clipboardService = inject(ClipboardService);
   private migrationHistoryService = inject(MigrationHistoryService);
   public logs: { id: string; status: string; time: number; message: string }[] = [];
   public filteredLogs: { id: string; status: string; time: number; message: string }[] = [];
@@ -650,6 +681,7 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
   public logSortDirection = "DESC";
   private pendingSessionParam: string | null = null;
   @ViewChildren("transformationDetails") transformationDetailsElements: QueryList<ElementRef<HTMLDetailsElement>>;
+  private sitePasteState: Map<SiteMigrationConfig, SitePasteState> = new Map();
 
   ngOnInit() {
     this.subscription = this.migrationConfigService.migrationConfigEvents().subscribe(migrationConfig => {
@@ -780,6 +812,74 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
     const rowIndex = this.migrationConfig.sites.indexOf(site);
     this.logger.info("duplicateSite:site:", duplicatedSite, "at index position:", rowIndex);
     this.migrationConfig.sites.splice(rowIndex, 0, duplicatedSite);
+  }
+
+  activateSitePaste(site: SiteMigrationConfig) {
+    this.sitePasteState.set(site, {active: true, value: "", error: ""});
+    site.expanded = true;
+  }
+
+  sitePasteActive(site: SiteMigrationConfig): boolean {
+    return this.sitePasteState.get(site)?.active ?? false;
+  }
+
+  sitePasteValue(site: SiteMigrationConfig): string {
+    return this.sitePasteState.get(site)?.value ?? "";
+  }
+
+  sitePasteError(site: SiteMigrationConfig): string | null {
+    return this.sitePasteState.get(site)?.error || null;
+  }
+
+  cancelSitePaste(site: SiteMigrationConfig) {
+    this.sitePasteState.delete(site);
+  }
+
+  transformSitePaste(site: SiteMigrationConfig, value: string) {
+    const state = this.sitePasteState.get(site) || {active: true, value: "", error: ""};
+    state.value = value;
+    try {
+      const parsed = JSON.parse(value) as SiteMigrationConfig;
+      const normalised = this.normaliseSiteConfig(parsed);
+      const expanded = site.expanded;
+      Object.assign(site, normalised);
+      site.expanded = expanded ?? true;
+      this.sitePasteState.delete(site);
+      this.logger.info("Applied pasted site configuration for", site.name);
+    } catch (error) {
+      state.error = "Invalid site configuration JSON";
+      this.sitePasteState.set(site, state);
+    }
+  }
+
+  siteConfigJson(site: SiteMigrationConfig): string {
+    return JSON.stringify(this.prepareSiteForCopy(site), null, 2);
+  }
+
+  copySiteConfig(site: SiteMigrationConfig) {
+    const value = this.siteConfigJson(site);
+    this.clipboardService.copyToClipboard(value);
+  }
+
+  private normaliseSiteConfig(site: SiteMigrationConfig): SiteMigrationConfig {
+    const defaults = this.migrationConfigService.emptySiteMigrationConfig();
+    const cloned = cloneDeep(site);
+    return {
+      ...defaults,
+      ...cloned,
+      specificAlbums: (cloned.specificAlbums || []).map(album => ({...album})),
+      parentPages: (cloned.parentPages || []).map(parent => ({
+        ...parent,
+        pageTransformation: parent.pageTransformation ? cloneDeep(parent.pageTransformation) : undefined
+      })),
+      expanded: true
+    };
+  }
+
+  private prepareSiteForCopy(site: SiteMigrationConfig): SiteMigrationConfig {
+    const clone = cloneDeep(site);
+    delete (clone as any).expanded;
+    return clone;
   }
 
   addSite() {

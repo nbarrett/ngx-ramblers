@@ -74,6 +74,11 @@ const routes: Routes = [
     canActivate: [AreaExistsGuard, SocialPopulationLocalGuard, SocialAuthGuard]
   },
   {
+    path: "fragments",
+    redirectTo: "/admin/fragment-index",
+    pathMatch: "full"
+  },
+  {
     matcher: hasDynamicPath,
     loadComponent: () => import("./modules/common/dynamic-content-page/dynamic-content-page")
       .then(m => m.DynamicContentPageComponent)

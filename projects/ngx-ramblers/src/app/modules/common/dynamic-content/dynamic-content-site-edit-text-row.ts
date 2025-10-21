@@ -1,5 +1,5 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
-import { faAdd, faArrowsLeftRight, faPencil, faRemove } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faArrowDown, faArrowUp, faArrowsLeftRight, faPencil, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AwsFileData, DescribedDimensions } from "../../../models/aws-object.model";
 import {
@@ -18,6 +18,7 @@ import { PageContentEditService } from "../../../services/page-content-edit.serv
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { HtmlPasteResult, HtmlPasteRow } from "../../../models/html-paste.model";
 import { FormsModule } from "@angular/forms";
 import { ColumnWidthComponent } from "./column-width";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
@@ -57,6 +58,18 @@ import { DynamicContentViewComponent } from "./dynamic-content-view";
                                       (click)="actions.deleteColumn(row, columnIndex, pageContent)"
                                       [icon]="faRemove"
                                       [tooltip]="'Delete column'"/>
+                    @if (controlsShown(columnIndex) && !isNarrow(column) && canJoinWithPreviousRow()) {
+                      <app-badge-button noRightMargin class="ms-2"
+                                        (click)="joinWithPreviousRow()"
+                                        [icon]="faArrowUp"
+                                        [tooltip]="'Join with row above'"/>
+                    }
+                    @if (controlsShown(columnIndex) && !isNarrow(column) && canJoinWithNextRow()) {
+                      <app-badge-button noRightMargin class="ms-2"
+                                        (click)="joinWithNextRow()"
+                                        [icon]="faArrowDown"
+                                        [tooltip]="'Join with row below'"/>
+                    }
                     @if (controlsShown(columnIndex) && !isNarrow(column)) {
                       <span class="ms-2 d-inline-flex align-items-center gap-2">
                         <app-image-actions-dropdown [fullWidth]="false" [hasImage]="!!column.imageSource"
@@ -96,6 +109,8 @@ import { DynamicContentViewComponent } from "./dynamic-content-view";
                                          (changed)="actions.saveInlineContentText($event, column)"
                                          (saved)="onSaved($event, column)"
                                          (focusChange)="onEditorFocusChange($event, columnIndex)"
+                                         (split)="onSplit($event, rowIndex, columnIndex)"
+                                         (htmlPaste)="onHtmlPaste($event, rowIndex, columnIndex)"
                                          [buttonsAvailableOnlyOnFocus]="false" allowMaximise hideEditToggle
                                          [allowSave]="false"
                                          [presentationMode]="!controlsShown(columnIndex)"
@@ -406,6 +421,8 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
   protected readonly faRemove = faRemove;
   protected readonly faArrowsLeftRight = faArrowsLeftRight;
+  protected readonly faArrowUp = faArrowUp;
+  protected readonly faArrowDown = faArrowDown;
 
   nestedDragTargetColumnIndex: number = null;
   nestedDragTargetRowIndex: number = null;
@@ -765,6 +782,88 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     }
   }
 
+  onSplit(splitData: {textBefore: string; textAfter?: string; additionalRows?: string[]}, rowIndex: number, columnIndex: number) {
+    this.logger.info("onSplit called with splitData:", splitData, "rowIndex:", rowIndex, "columnIndex:", columnIndex, "parentRowIndex:", this.parentRowIndex);
+
+    const rowsToInsert: PageContentRow[] = [];
+
+    if (splitData.textAfter !== undefined) {
+      rowsToInsert.push(this.createRowFromSplitRow({text: splitData.textAfter}));
+    }
+
+    if (splitData.additionalRows && splitData.additionalRows.length > 0) {
+      for (const additionalText of splitData.additionalRows) {
+        rowsToInsert.push(this.createRowFromSplitRow({text: additionalText}));
+      }
+    }
+
+    this.insertRowsAfterCurrent(rowsToInsert, rowIndex, columnIndex);
+    this.actions.notifyPageContentChanges(this.pageContent);
+  }
+
+  onHtmlPaste(result: HtmlPasteResult, rowIndex: number, columnIndex: number) {
+    this.logger.info("onHtmlPaste called with result:", result, "rowIndex:", rowIndex, "columnIndex:", columnIndex);
+    const column = this.row.columns?.[columnIndex];
+    if (column) {
+      const firstRow = result?.firstRow;
+      if (firstRow) {
+        column.contentText = firstRow.text ?? "";
+        column.imageSource = firstRow.imageSource ?? null;
+        column.alt = firstRow.alt ?? null;
+      } else {
+        column.contentText = "";
+        column.imageSource = null;
+        column.alt = null;
+      }
+    }
+
+    const rowsToInsert: PageContentRow[] = [];
+    for (const rowData of result?.additionalRows || []) {
+      rowsToInsert.push(this.createRowFromSplitRow(rowData));
+    }
+
+    this.insertRowsAfterCurrent(rowsToInsert, rowIndex, columnIndex);
+    this.actions.notifyPageContentChanges(this.pageContent);
+  }
+
+  private createRowFromSplitRow(rowData: HtmlPasteRow): PageContentRow {
+    const newRow: PageContentRow = this.actions.defaultRowFor("text");
+    const newColumn = newRow.columns && newRow.columns.length > 0 ? newRow.columns[0] : null;
+    if (newColumn) {
+      if (rowData.text !== undefined) {
+        newColumn.contentText = rowData.text;
+      }
+      if (rowData.imageSource !== undefined) {
+        newColumn.imageSource = rowData.imageSource ?? null;
+      }
+      if (rowData.alt !== undefined) {
+        newColumn.alt = rowData.alt ?? null;
+      }
+    }
+    return newRow;
+  }
+
+  private insertRowsAfterCurrent(rowsToInsert: PageContentRow[], rowIndex: number, _columnIndex: number) {
+    if (!rowsToInsert || rowsToInsert.length === 0) {
+      return;
+    }
+
+    const isNestedRow = this.parentRowIndex !== undefined && this.parentRowIndex !== null;
+
+    if (isNestedRow) {
+      const parentRow = this.pageContent.rows[this.parentRowIndex];
+      const parentColumn = parentRow?.columns?.find(col => col.rows && col.rows.includes(this.row));
+
+      if (parentColumn && parentColumn.rows) {
+        parentColumn.rows.splice(rowIndex + 1, 0, ...rowsToInsert);
+      } else {
+        this.logger.warn("Could not find parent column for nested row split");
+      }
+    } else {
+      this.pageContent.rows.splice(rowIndex + 1, 0, ...rowsToInsert);
+    }
+  }
+
   isDefined(value: unknown): boolean {
     return !isUndefined(value);
   }
@@ -839,6 +938,47 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
   fragmentPath(row: PageContentRow): string {
     return this.fragmentService.contentById(row?.fragment?.pageContentId)?.path;
+  }
+
+  canJoinWithPreviousRow(): boolean {
+    const rows = this.getRows();
+    if (this.rowIndex <= 0 || rows.length <= 1) {
+      return false;
+    }
+    const previousRow = rows[this.rowIndex - 1];
+    return this.actions.canJoinRows(this.row, previousRow);
+  }
+
+  canJoinWithNextRow(): boolean {
+    const rows = this.getRows();
+    if (this.rowIndex < 0 || this.rowIndex >= rows.length - 1) {
+      return false;
+    }
+    const nextRow = rows[this.rowIndex + 1];
+    return this.actions.canJoinRows(this.row, nextRow);
+  }
+
+  joinWithPreviousRow(): void {
+    const nestedParentColumn = this.getNestedParentColumn();
+    this.actions.joinWithPreviousRow(this.pageContent, this.row, nestedParentColumn);
+  }
+
+  joinWithNextRow(): void {
+    const nestedParentColumn = this.getNestedParentColumn();
+    this.actions.joinWithNextRow(this.pageContent, this.row, nestedParentColumn);
+  }
+
+  private getRows(): PageContentRow[] {
+    const nestedParentColumn = this.getNestedParentColumn();
+    return nestedParentColumn?.rows || this.pageContent?.rows || [];
+  }
+
+  private getNestedParentColumn(): PageContentColumn | undefined {
+    if (!this.isNestedLevel()) {
+      return undefined;
+    }
+    const parentRow = this.pageContent.rows[this.parentRowIndex];
+    return parentRow?.columns?.find(col => col.rows && col.rows.includes(this.row));
   }
 
 }
