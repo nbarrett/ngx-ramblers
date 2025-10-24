@@ -17,8 +17,7 @@ export function deriveBaseUrl(pageUrl: string, docBaseHref?: string): string {
     }
     return base.toString();
   } catch {
-    const fallback = pageUrl.endsWith("/") ? pageUrl : `${pageUrl}/`;
-    return fallback;
+    return pageUrl.endsWith("/") ? pageUrl : `${pageUrl}/`;
   }
 }
 

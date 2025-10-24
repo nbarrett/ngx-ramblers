@@ -1,5 +1,6 @@
 import { Injectable } from "@angular/core";
 import { faCutlery, faMapMarker } from "@fortawesome/free-solid-svg-icons";
+import { isString } from "es-toolkit/compat";
 import { WalkAccessMode } from "../../models/walk-edit-mode.model";
 import { WalkEventType } from "../../models/walk-event-type.model";
 import { VenueType } from "../../models/event-venue.model";
@@ -120,7 +121,7 @@ export class WalksReferenceService {
   }
 
   toEventType(eventType: EventType | string): EventType {
-    if (typeof eventType === "string") {
+    if (isString(eventType)) {
       return this.toWalkEventType(eventType).eventType;
     } else {
       return eventType;

@@ -195,7 +195,7 @@ export class DataPopulationService {
     return defaultContentTextItems;
   }
 
-  private async deriveMailSettingsPageContentColumn(): Promise<PageContentColumn> {
+  private deriveMailSettingsPageContentColumn(): PageContentColumn {
     switch (this.systemConfig?.mailDefaults?.mailProvider) {
       case MailProvider.BREVO:
         return {
@@ -203,7 +203,7 @@ export class DataPopulationService {
           title: "Mail Settings",
           icon: "faMailBulk",
           href: "admin/mail-settings",
-          contentTextId: (await this.contentTextService.findOrCreateByNameAndCategory("mail-settings-help", "admin", "This page allows you to configure the email settings for the site"))?.id
+          contentText: "This page allows you to configure the email settings for the site"
         };
       case MailProvider.MAILCHIMP:
         return {
@@ -211,14 +211,14 @@ export class DataPopulationService {
           title: "Mailchimp Settings",
           icon: "faMailBulk",
           href: "admin/mailchimp-settings",
-          contentTextId: null
+          contentText: "Configure Mailchimp integration and defaults for the site"
         };
       default:
         return null;
     }
   }
 
-  async defaultPageContentForAdminActionButtons(): Promise<PageContent> {
+  defaultPageContentForAdminActionButtons(): PageContent {
 
     const part1: PageContentColumn[] = [
       {
@@ -226,107 +226,116 @@ export class DataPopulationService {
         title: "Contact details",
         icon: "faIdCard",
         href: "admin/contact-details",
-        contentTextId: (await this.contentTextService.findByNameAndCategory("personal-details-help", "admin"))?.id
+        contentText: "Amend name, email address and address information"
       },
       {
         accessLevel: AccessLevel.loggedInMember,
         title: "Change Password",
         icon: "faUnlockAlt",
         href: "admin/change-password",
-        contentTextId: (await this.contentTextService.findByNameAndCategory("change-password-help", "admin"))?.id
+        contentText: "On this page you can:\n\n- Change your password\n- Change your username"
       },
       {
         accessLevel: AccessLevel.loggedInMember,
         title: "Email subscriptions",
         icon: "faEnvelopeOpenText",
         href: "admin/email-subscriptions",
-        contentTextId: (await this.contentTextService.findByNameAndCategory("contact-preferences-help", "admin"))?.id
+        contentText: "Subscribe to or unsubscribe from EKWG mailing lists for walks, social and general comms"
       },
       {
         accessLevel: AccessLevel.loggedInMember,
         title: "Expenses",
         icon: "faCashRegister",
         href: "admin/expenses",
-        contentTextId: (await this.contentTextService.findByNameAndCategory("expenses-help", "admin"))?.id
+        contentText: "- Create expense claims\n- Approve expense claims (admins)"
       },
       {
         accessLevel: AccessLevel.committee,
         title: "Member Admin",
         icon: "faUsersCog",
         href: "admin/member-admin",
-        contentTextId: (await this.contentTextService.findByNameAndCategory("member-admin-help", "admin"))?.id
+        contentText: "- Manually edit member details\n- Send member emails"
       },
       {
         accessLevel: AccessLevel.committee,
         title: "Member Bulk Load",
         icon: "faMailBulk",
         href: "admin/member-bulk-load",
-        contentTextId: (await this.contentTextService.findByNameAndCategory("bulk-load-help", "admin"))?.id
+        contentText: "Load monthly reports from Ramblers"
       },
       {
         accessLevel: AccessLevel.committee,
         title: "Member Login Audit",
         icon: "faBook",
         href: "admin/member-login-audit",
-        contentTextId: (await this.contentTextService.findByNameAndCategory("member-login-audit-help", "admin"))?.id
+        contentText: "View login history on system to help diagnose:\n\n- Member login problems\n- Unauthorised hacking attempts\n- Success/failure of password resets"
       },
       {
         accessLevel: AccessLevel.committee,
         title: "System Settings",
         icon: "faCogs",
         href: "admin/system-settings",
-        contentTextId: null
+        contentText: "Enter settings that affect:\n\n- Group\n- Area\n- National Ramblers\n- External Systems"
       },
       {
         accessLevel: AccessLevel.committee,
         title: "Committee Settings",
         icon: "faUsersCog",
         href: "admin/committee-settings",
-        contentTextId: null
+        contentText: "Enter settings that affect:\n\n- The list of Committee members\n- The file types can be uploaded to the committee page"
       },
       {
         accessLevel: AccessLevel.committee,
         title: "Migration Settings",
         icon: "faExchangeAlt",
         href: "admin/migration-settings",
-        contentTextId: (await this.contentTextService.findOrCreateByNameAndCategory("migration-settings-help", "admin", "Configure settings for migrating content from legacy static websites."))?.id
-      }];
-    const part2: PageContentColumn[] = [await this.deriveMailSettingsPageContentColumn()];
+        contentText: "Configure settings for migrating content from legacy static websites"
+      },
+      {
+        accessLevel: AccessLevel.committee,
+        title: "Maintenance",
+        icon: "faTools",
+        href: "admin/maintenance",
+        contentText: "View system maintenance status, retry migrations, and access admin controls when required"
+      }
+    ];
+    const mailSettings = this.deriveMailSettingsPageContentColumn();
+    const part2: PageContentColumn[] = mailSettings ? [mailSettings] : [];
     const part3: PageContentColumn[] = [
       {
         accessLevel: AccessLevel.committee,
         title: "Configure Banners",
         icon: "faImages",
         href: "admin/banners",
-        contentTextId: null
+        contentText: "Edit Banners with latest Ramblers styling that can be saved as images and then used in Mailchimp Campaign Masters"
       },
       {
         accessLevel: AccessLevel.committee,
         title: "Edit Carousel Images",
         icon: "faImages",
         href: "admin/carousel-editor",
-        contentTextId: null
+        contentText: "Edit photos that are used in albums across the website"
       },
       {
         accessLevel: AccessLevel.committee,
         title: "Duplicate Content Text",
         icon: "faPencil",
         href: "admin/duplicate-content-text-navigator",
-        contentTextId: (await this.contentTextService.findOrCreateByNameAndCategory("duplicate-content-text-navigator-help", "admin", "Allows the user to navigate to the content text items that are duplicated in the system."))?.id
+        contentText: "Allows the user to navigate to the content text items that are duplicated in the system"
       },
       {
         accessLevel: AccessLevel.committee,
         title: "Page Content Navigator",
         icon: "faPencil",
         href: "admin/page-content-navigator",
-        contentTextId: (await this.contentTextService.findOrCreateByNameAndCategory("page-content-navigator-help", "admin", "Allows the user to navigate and manage all page content, including identifying and resolving duplicates."))?.id
+        contentText: "Allows the user to navigate and manage all page content, including identifying and resolving duplicates"
       },
       {
         accessLevel: AccessLevel.committee,
         title: "Fragment Index",
         icon: "faList",
         href: "admin/fragment-index",
-        contentTextId: (await this.contentTextService.findOrCreateByNameAndCategory("fragment-index-help", "admin", "Lists all Shared Fragments, shows a live preview for each, and links to all pages that reference them."))?.id
+        contentText: "Lists all Shared Fragments, shows a live preview for each, and links to all pages that reference them"
       }];
     const defaultPageContent: PageContent = {
       path: PageContentPath.ADMIN_ACTION_BUTTONS, rows: [

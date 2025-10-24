@@ -8,7 +8,7 @@ const controller = crudController.create<ContentText>(contentText);
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);
-router.get("/all", authConfig.authenticate(), controller.all);
+router.get("/all", controller.all);
 router.put("/:id", authConfig.authenticate(), controller.update);
 router.get("/:id", controller.findById);
 router.get("", controller.findByConditions);

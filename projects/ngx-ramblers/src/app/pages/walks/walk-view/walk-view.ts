@@ -266,7 +266,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected readonly MapDisplay = MapDisplay;
   protected readonly EventType = EventType;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
-  @Input() showPanelExpander: boolean = true;
+  @Input() showPanelExpander = true;
 
   get hasOsApiKey(): boolean {
     return this.mapTiles.hasOsApiKey();

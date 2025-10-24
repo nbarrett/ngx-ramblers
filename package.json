@@ -71,10 +71,10 @@
     "ngx-tagify": "15.0.5",
     "ngx-ui-switch": "15.0.0",
     "papaparse": "5.5.3",
-    "rxjs": "7.8.1",
-    "server": "1.0.41",
     "proj4": "2.11.0",
     "proj4leaflet": "1.0.2",
+    "rxjs": "7.8.1",
+    "server": "1.0.41",
     "turndown": "7.2.0",
     "url-polyfill": "1.1.12",
     "zone.js": "0.15.0"

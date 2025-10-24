@@ -1,22 +1,23 @@
-import { Injectable } from "@angular/core";
+import { Injectable, inject } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
 import { map, Observable } from "rxjs";
 import { EditableEventStats, EventStats } from "../../../models/group-event.model";
+import { DateUtilsService } from "../../../services/date-utils.service";
 
 @Injectable({
   providedIn: "root"
 })
 export class WalkGroupAdminService {
-  constructor(private http: HttpClient) {
-  }
+  private dateUtils = inject(DateUtilsService);
+  constructor(private http: HttpClient) {}
 
   eventStats(): Observable<EventStats[]> {
     return this.http.get<EventStats[]>(`api/database/walks/event-stats`)
       .pipe(
         map(groups => groups.map(g => ({
           ...g,
-          minDate: new Date(g.minDate),
-          maxDate: new Date(g.maxDate),
+          minDate: this.dateUtils.asDateTime(g.minDate).toJSDate(),
+          maxDate: this.dateUtils.asDateTime(g.maxDate).toJSDate(),
           selected: false
         })))
       );

@@ -4,6 +4,8 @@ import { uid } from "rand-token";
 import passport from "passport";
 import { envConfig } from "../env-config/env-config";
 import passportJwt from "passport-jwt";
+import { DateTime } from "luxon";
+import { dateTimeNow } from "../shared/dates";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 
 const SECRET = envConfig.auth.secret;
@@ -16,8 +18,8 @@ const passportOpts = {
 };
 
 passport.use(new passportJwt.Strategy(passportOpts, (jwtPayload, done) => {
-  const expirationDate = new Date(jwtPayload.exp * 1000);
-  if (expirationDate < new Date()) {
+  const expirationDate: DateTime = DateTime.fromMillis(jwtPayload.exp * 1000);
+  if (expirationDate.toMillis() < dateTimeNow().toMillis()) {
     return done(null, false);
   }
   done(null, jwtPayload);

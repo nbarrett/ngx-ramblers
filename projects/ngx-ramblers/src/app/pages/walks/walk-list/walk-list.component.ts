@@ -51,9 +51,7 @@ import { BuiltInAnchor, EM_DASH_WITH_SPACES } from "../../../models/content-text
 import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
-import { DataMigrationService } from "../../../services/walks/data-migration.service";
 import { FilterCriteria } from "../../../models/api-request.model";
-import { EventsMigrationService } from "../../../services/migration/events-migration.service";
 
 @Component({
     selector: "app-walk-list",
@@ -61,13 +59,6 @@ import { EventsMigrationService } from "../../../services/migration/events-migra
       <app-page>
         <app-dynamic-content [anchor]="BuiltInAnchor.PAGE_HEADER" contentPathReadOnly/>
         <div class="row mb-n3">
-          @if (display.allowAdminEdits() && systemConfig?.enableMigration?.events) {
-            <div class="mb-3 col-sm-12">
-              <button (click)="performMigration()" class="btn btn-primary me-2"
-                      type="button">Migrate
-              </button>
-            </div>
-          }
           <div class="mb-3 col-sm-12">
             <app-walks-search [filterParameters]="filterParameters" [notifyTarget]="notifyTarget" [showAlerts]="walkListView !== WalkListView.MAP">
               <div view-selector>
@@ -255,8 +246,6 @@ export class WalkListComponent implements OnInit, OnDestroy {
   private pageService = inject(PageService);
   googleMapsService = inject(GoogleMapsService);
   protected walksAndEventsService = inject(WalksAndEventsService);
-  protected eventsMigrationService = inject(EventsMigrationService);
-  protected dataMigrationService = inject(DataMigrationService);
   private authService = inject(AuthService);
   ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   memberLoginService = inject(MemberLoginService);
@@ -341,12 +330,6 @@ export class WalkListComponent implements OnInit, OnDestroy {
     this.display.refreshCachedData();
     this.pageService.setTitle("Home");
     this.subscriptions.push(this.authService.authResponse().subscribe((loginResponse: LoginResponse) => this.refreshWalks(loginResponse)));
-  }
-
-  public async performMigration() {
-    // const migrated = await this.eventsMigrationService.migrateWalks(true);
-    // this.applyWalks(migrated);
-    this.dataMigrationService.migrateMedia(false);
   }
 
   ngOnDestroy(): void {
