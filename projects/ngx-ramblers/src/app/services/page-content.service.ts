@@ -77,6 +77,14 @@ export class PageContentService {
     if (pageContent.id) {
       return this.update(pageContent);
     } else {
+      if (pageContent.path) {
+        const existing = await this.findByPath(pageContent.path);
+        if (existing?.id) {
+          this.logger.info("Found existing page content with path", pageContent.path, "- updating instead of creating");
+          pageContent.id = existing.id;
+          return this.update(pageContent);
+        }
+      }
       return this.create(pageContent);
     }
   }

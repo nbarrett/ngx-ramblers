@@ -32,10 +32,11 @@ import { meetupRoutes } from "./meetup/meetup";
 import { googleMapsRoutes } from "./google-maps/google-maps";
 import { contactUsRoutes } from "./contact-us/contact-us-routes";
 import { migrationRoutes } from "./migration/migration-routes";
+import { migrationsRoutes } from "./mongo/routes/migrations";
 import { createWebSocketServer } from "./websockets/websocket-server";
 import http from "http";
 import { Server } from "node:http";
-import { health } from "./health/health";
+import { health, systemStatus } from "./health/health";
 import { download } from "./files/files";
 import { setupSerenityReports } from "./reports/serenity-reports";
 import { extendedGroupEventRoutes } from "./mongo/routes/extended-group-event";
@@ -53,12 +54,13 @@ import committeeFile = require("./mongo/routes/committee-file");
 import memberResource = require("./mongo/routes/member-resource");
 import { geoJsonRoutes } from "./geojson/geojson-routes";
 import { regions } from "./geojson/regions";
+import { migrationRunner } from "./mongo/migrations/migrations-runner";
+import { resolveClientPath } from "./shared/path-utils";
 
 install();
 const debugLog = debug(envConfig.logNamespace("server"));
 debugLog.enabled = true;
-const folderNavigationsUp = process.env.NODE_ENV === "production" ? "../../" : "";
-const distFolder = path.resolve(__dirname, folderNavigationsUp, "../../dist/ngx-ramblers");
+const distFolder = resolveClientPath("dist/ngx-ramblers");
 const currentDir = path.resolve(__dirname);
 const port: number = +envConfig.server.listenPort;
 debugLog("currentDir:", currentDir, "distFolder:", distFolder, "NODE_ENV:", process.env.NODE_ENV, "port:", port);
@@ -79,6 +81,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.get("/api/files/download", download);
 app.get("/api/health", health);
+app.get("/api/system-status", systemStatus);
 app.use("/api/areas", geoJsonRoutes);
 app.get("/api/regions", regions);
 app.use("/api/download-status", downloadStatusRoutes);
@@ -114,6 +117,7 @@ app.use("/api/database/social-event", socialEventsRoutes);
 app.use("/api/database/config", configRoutes);
 app.use("/api/database/walks", walksRoutes);
 app.use("/api/database/group-event", extendedGroupEventRoutes);
+app.use("/api/database/migrations", migrationsRoutes);
 setupSerenityReports(app);
 if (fs.existsSync(distFolder)) {
   app.use("/", express.static(distFolder));
@@ -132,8 +136,43 @@ if (fs.existsSync(distFolder)) {
 if (app.get("env") === "dev") {
   app.use(errorHandler());
 }
-mongooseClient.connect();
-server.listen(port, "0.0.0.0", () => {
-  debugLog(`Server is listening on port for ${envConfig.env} environment`, port);
-});
-createWebSocketServer(server, port);
+
+async function startServer() {
+  try {
+    debugLog("Connecting to MongoDB...");
+    await mongooseClient.connect();
+
+    const runMigrationsOnStartup = process.env.RUN_MIGRATIONS_ON_STARTUP === "true";
+    if (runMigrationsOnStartup) {
+      debugLog("Checking database migrations...");
+      try {
+        const migrationResult = await migrationRunner.runPendingMigrations();
+
+        if (migrationResult.appliedFiles.length > 0) {
+          debugLog(`✅ Applied ${migrationResult.appliedFiles.length} migration(s):`, migrationResult.appliedFiles);
+        }
+
+        if (!migrationResult.success) {
+          debugLog("❌ Migration failed:", migrationResult.error);
+          debugLog("ℹ Server will continue but site will show maintenance page");
+        }
+      } catch (migrationError) {
+        debugLog("❌ Migration check failed:", migrationError);
+        debugLog("⚠️ Server will continue but site will show maintenance page");
+      }
+    } else {
+      debugLog("⏭️ Skipping automatic migrations (RUN_MIGRATIONS_ON_STARTUP not set to 'true')");
+    }
+
+    server.listen(port, "0.0.0.0", () => {
+      debugLog(`🚀 Server is listening on port for ${envConfig.env} environment`, port);
+    });
+
+    createWebSocketServer(server, port);
+  } catch (error) {
+    debugLog("❌ Failed to start server:", error);
+    process.exit(1);
+  }
+}
+
+startServer();

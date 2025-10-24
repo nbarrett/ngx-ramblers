@@ -209,6 +209,7 @@ export interface SystemConfig {
     mailProvider: MailProvider;
     autoSubscribeNewMembers: boolean;
   }
+  activeChangelogCollection?: string;
 }
 
 export interface GoogleAnalyticsConfig {

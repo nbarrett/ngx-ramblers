@@ -2,6 +2,7 @@ import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
+import { isString } from "es-toolkit/compat";
 import { chain } from "../../functions/chain";
 import { DataQueryOptions } from "../../models/api-request.model";
 import { Identifiable } from "../../models/api-response.model";
@@ -190,7 +191,7 @@ export class MemberService {
   }
 
   toIdentifiable(member: MemberFilterSelection | Member | string): Identifiable {
-    return typeof member === "string" ? {id: member} : {id: member.id};
+    return isString(member) ? {id: member} : {id: member.id};
   }
 
 

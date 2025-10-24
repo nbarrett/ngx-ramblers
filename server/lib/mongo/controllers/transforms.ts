@@ -1,4 +1,4 @@
-import { each, includes, isArray, isEmpty, omit, set } from "es-toolkit/compat";
+import { each, includes, isArray, isEmpty, isObject, isString, omit, set } from "es-toolkit/compat";
 import debug from "debug";
 import mongoose from "mongoose";
 import { DataQueryOptions, MongoId } from "../../../../projects/ngx-ramblers/src/app/models/api-request.model";
@@ -30,7 +30,7 @@ export function setUnSetDocument<T>(document: T, parent?: string, parentResponse
   const parentPath = parent ? parent + "." : "";
   const setUnSetDocumentResponse: SetUnSetDocument = parentResponse || {};
   each(document as any, (value: any, field) => {
-    if (typeof value === "string") {
+    if (isString(value)) {
       value = value.trim();
     }
     const fullPath = parentPath + field;
@@ -40,7 +40,7 @@ export function setUnSetDocument<T>(document: T, parent?: string, parentResponse
     } else if (isArray(value)) {
       debugLog("setting array:", fullPath, "[" + typeof (value) + "]", "value:", value);
       set(setUnSetDocumentResponse, ["$set", fullPath], value);
-    } else if (typeof (value) === "object") {
+    } else if (isObject(value)) {
       debugLog("setting nested field:", fullPath, "[" + typeof (value) + "]", "value:", value);
       setUnSetDocument(value, fullPath, setUnSetDocumentResponse);
     } else {
@@ -83,7 +83,7 @@ export function mongoIdCriteria(controllerRequest: ControllerRequest | Identifia
 export function parse(req: Request, queryParameter: string) {
   if (req.query) {
     const value = req.query[queryParameter];
-    return value ? typeof value === "string" ? JSON.parse(value) : value : {};
+    return value ? isString(value) ? JSON.parse(value) : value : {};
   } else {
     return {};
   }

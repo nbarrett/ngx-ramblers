@@ -21,6 +21,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import { contentTypeFrom } from "./aws-utils";
+import { dateTimeNow } from "../shared/dates";
 
 const logObject = false;
 const s3Config: AWSConfig = {
@@ -134,10 +135,10 @@ export function urlToFile(req: Request, res: Response) {
 }
 
 function expiryTime() {
-  const _date = new Date();
-  const expiryDate = `${_date.getFullYear()}-${_date.getMonth() + 1}-${_date.getDate() + 1}T${_date.getHours() + 3}:00:00.000Z`;
-  debugLog("expiryDate:", expiryDate);
-  return expiryDate;
+  const now = dateTimeNow();
+  const expiry = now.plus({ days: 1, hours: 3 }).toUTC().toISO();
+  debugLog("expiryDate:", expiry);
+  return expiry;
 }
 
 function optionsFrom(req: Request): GetObjectRequest {

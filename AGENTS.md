@@ -2,6 +2,32 @@
 
 This document provides guidance for AI code assistants working in this repository.
 
+## ⚠️ CRITICAL RULES - READ FIRST
+
+These rules MUST be followed in EVERY session without exception:
+
+### 1. NO CODE COMMENTS
+- **NEVER add comments to code** - use self-documenting method names instead
+- This includes `//`, `/* */`, and any explanatory text in code
+- Remove any comments you see during refactoring
+
+### 2. NO AI ATTRIBUTION IN COMMITS
+- **NEVER add AI attribution to commit messages**
+- This means NO:
+  - `🤖 Generated with [Claude Code](https://claude.ai/code)`
+  - `Co-Authored-By: Claude <noreply@anthropic.com>`
+  - Any similar AI tool attribution lines
+- Commits should appear as if written by a human developer
+
+### 3. FILE OPERATIONS
+- **Always free to write/edit existing files and create new files** - no confirmation needed
+- **NEVER commit or push without being explicitly asked**
+
+### 4. CODE STYLE
+- **Always use double quotes** `"` not single quotes `'` for strings
+- **No "get" prefixes** on methods (use `user()` not `getUser()`)
+- **Follow existing patterns** - don't introduce new approaches
+
 ## Project Overview
 
 NGX‑Ramblers is an Angular‑based website framework for local Ramblers groups, with an Express backend and MongoDB Atlas. It provides content management, member management, and walks/events with third‑party integrations.

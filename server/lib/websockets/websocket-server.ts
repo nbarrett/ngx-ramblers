@@ -3,14 +3,13 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { resizeSavedImages, resizeUnsavedImages } from "../aws/bulk-image-resizer";
 import { ContentMetadataResizeRequest } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
-import { Server, IncomingMessage } from "node:http";
+import { IncomingMessage, Server } from "node:http";
 import {
   EventType,
   MappedCloseMessage,
   MessageHandlers,
   WebSocketInstance,
-  WebSocketRequest,
-  MessageType
+  WebSocketRequest
 } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { RamblersWalksUploadRequest } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { uploadWalks } from "../ramblers/ramblers-upload-walks";

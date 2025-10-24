@@ -41,7 +41,6 @@ import { MigrationHistory } from "../../../../models/migration-history.model";
 import { MigrationHistoryService } from "../../../../services/migration/migration-history.service";
 import { EM_DASH_WITH_SPACES } from "../../../../models/content-text.model";
 import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
-import { CopyIconComponent } from "../../../../modules/common/copy-icon/copy-icon";
 import { ClipboardService } from "../../../../services/clipboard.service";
 
 type SitePasteState = { active: boolean; value: string; error?: string };
@@ -638,7 +637,7 @@ type SitePasteState = { active: boolean; value: string; error?: string };
     .thumbnail-heading-frame-compact:has(details[open])
       overflow: visible
   `],
-  imports: [PageComponent, MarkdownEditorComponent, BadgeButtonComponent, TooltipDirective, FontAwesomeModule, FormsModule, NgClass, NgTemplateOutlet, NgSelectComponent, NgLabelTemplateDirective, TabsetComponent, TabDirective, DisplayTimeWithSecondsPipe, StatusIconComponent, MarkdownComponent, PageTransformationEditorComponent, NgOptionComponent, CopyIconComponent]
+  imports: [PageComponent, MarkdownEditorComponent, BadgeButtonComponent, TooltipDirective, FontAwesomeModule, FormsModule, NgClass, NgTemplateOutlet, NgSelectComponent, NgLabelTemplateDirective, TabsetComponent, TabDirective, DisplayTimeWithSecondsPipe, StatusIconComponent, MarkdownComponent, PageTransformationEditorComponent, NgOptionComponent]
 })
 export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewInit {
 

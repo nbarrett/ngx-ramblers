@@ -1,5 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
+import { isBoolean, isObject, isString } from "es-toolkit/compat";
 import { StoredValue } from "../models/ui-actions";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 
@@ -20,7 +21,7 @@ export class UiActionsService {
   initialObjectValueFor<T>(parameter: string, defaultValue?: any): T {
     const value = this.initialValueFor(parameter, defaultValue);
     this.logger.debug("value", value);
-    return typeof value === "string" ? JSON.parse(value) : defaultValue;
+    return isString(value) ? JSON.parse(value) : defaultValue;
   }
 
   initialBooleanValueFor(parameter: string, defaultValue?: any): boolean {
@@ -29,7 +30,7 @@ export class UiActionsService {
 
   saveValueFor(parameter: StoredValue, value?: any) {
     if (parameter) {
-      const storedValue: string = typeof value === "object" ? JSON.stringify(value) : value?.toString();
+      const storedValue: string = isObject(value) ? JSON.stringify(value) : value?.toString();
       this.logger.debug("saving value for:", parameter, "as:", storedValue);
       localStorage.setItem(parameter, storedValue);
     } else {
@@ -56,7 +57,7 @@ export class UiActionsService {
   }
 
   booleanOf(value: string | boolean) {
-    const returnedValue = typeof value === "boolean" ? value : (["true", "false"].includes(value)) ? value === "true" : false;
+    const returnedValue = isBoolean(value) ? value : (["true", "false"].includes(value)) ? value === "true" : false;
     this.logger.debug("booleanOf:value:", value, typeof value, "returning:", returnedValue);
     return returnedValue;
   }

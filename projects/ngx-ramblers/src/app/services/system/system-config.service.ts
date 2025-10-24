@@ -23,8 +23,7 @@ import { BroadcastService } from "../broadcast-service";
 import { ConfigService } from "../config.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { StringUtilsService } from "../string-utils.service";
-import { cloneDeep } from "es-toolkit/compat";
-import { isEqual } from "es-toolkit/compat";
+import { cloneDeep, isEqual, isString } from "es-toolkit/compat";
 import { WalkListView } from "../../models/walk.model";
 import { RAMBLERS_LANDING_PAGE } from "../../models/images.model";
 import { HasStyles, LinkStyle, ListStyle } from "../../models/content-text.model";
@@ -172,7 +171,7 @@ export class SystemConfigService {
   }
 
   private needsMigration(externalSystems: ExternalSystems, field: string): boolean {
-    return typeof externalSystems[field] === "string";
+    return isString(externalSystems[field]);
   }
 
   imageTypeDescription(imageType: RootFolder) {

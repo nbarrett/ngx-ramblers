@@ -33,7 +33,7 @@ const PageContentRow = new mongoose.Schema({
 }, { _id : false });
 
 const pageContentSchema = new mongoose.Schema({
-  path: {type: String, required: true},
+  path: {type: String, required: true, unique: true},
   rows: [PageContentRow]
 }, {collection: "pageContent"});
 

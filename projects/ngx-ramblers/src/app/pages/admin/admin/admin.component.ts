@@ -93,7 +93,7 @@ export class AdminComponent implements OnInit, OnDestroy, OnDestroy {
     const content = await this.dataPopulationService.generateDefaultContentTextItems();
     this.logger.info("generated default content text items:", content);
     try {
-      this.defaultPageContent = await this.dataPopulationService.defaultPageContentForAdminActionButtons();
+      this.defaultPageContent = this.dataPopulationService.defaultPageContentForAdminActionButtons();
     } catch (error) {
         this.logger.debug("error:", error);
     }

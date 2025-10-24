@@ -68,4 +68,19 @@ export class MemberLoginService {
     return this.loggedInMember().socialMember;
   }
 
+  isAdmin(): boolean {
+    return this.allowCommittee() ||
+      this.allowContentEdits() ||
+      this.allowMemberAdminEdits() ||
+      this.allowFinanceAdmin() ||
+      this.allowTreasuryAdmin() ||
+      this.allowFileAdmin() ||
+      this.allowWalkAdminEdits() ||
+      this.allowSocialAdminEdits();
+  }
+
+  memberHasAnyPrivilege(): boolean {
+    return this.isAdmin();
+  }
+
 }

@@ -41,6 +41,7 @@ import { CustomReuseStrategy } from "../../routing/custom-reuse-strategy";
 import { initializeGtag } from "../../pages/admin/system-settings/google-analytics/tag-manager";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { LoggerFactory } from "../../services/logger-factory.service";
+import { checkMigrationStatus } from "../../services/site-maintenance-initializer";
 import { LastConfirmedDateDisplayed } from "../../pipes/last-confirmed-date-displayed.pipe";
 import { LineFeedsToBreaksPipe } from "../../pipes/line-feeds-to-breaks.pipe";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
@@ -146,7 +147,8 @@ import { EventDatesAndTimesPipe } from "../../pipes/event-times-and-dates.pipe";
     provideAppInitializer(() => {
       const initializerFn = (initializeGtag)(inject(SystemConfigService), inject(LoggerFactory));
       return initializerFn();
-    })
+    }),
+    provideAppInitializer(checkMigrationStatus)
   ]
 })
 export class AppModule implements DoBootstrap {

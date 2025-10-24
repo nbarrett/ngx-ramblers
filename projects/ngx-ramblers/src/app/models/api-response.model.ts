@@ -24,3 +24,8 @@ export enum ApiAction {
   UPDATE = "update",
   UPSERT = "upsert",
 }
+
+export enum ApiErrorCode {
+  PATH_REQUIRED = "PATH_REQUIRED",
+  DUPLICATE_PATH = "DUPLICATE_PATH"
+}
