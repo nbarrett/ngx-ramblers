@@ -391,7 +391,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     this.clearAlert(pageContent);
   }
 
-  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.ERROR);
   private systemConfigService = inject(SystemConfigService);
   protected pageContentRowService = inject(PageContentRowService);
   protected siteEditService = inject(SiteEditService);

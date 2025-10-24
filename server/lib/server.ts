@@ -42,6 +42,10 @@ import { setupSerenityReports } from "./reports/serenity-reports";
 import { extendedGroupEventRoutes } from "./mongo/routes/extended-group-event";
 import { configureLogging } from "./logging/logging";
 import { downloadStatusRoutes } from "./ramblers/download-status-routes";
+import { geoJsonRoutes } from "./geojson/geojson-routes";
+import { regions } from "./geojson/regions";
+import { migrationRunner } from "./mongo/migrations/migrations-runner";
+import { resolveClientPath } from "./shared/path-utils";
 import bodyParser = require("body-parser");
 import compression = require("compression");
 import errorHandler = require("errorhandler");
@@ -52,10 +56,6 @@ import favicon = require("serve-favicon");
 import fs = require("fs");
 import committeeFile = require("./mongo/routes/committee-file");
 import memberResource = require("./mongo/routes/member-resource");
-import { geoJsonRoutes } from "./geojson/geojson-routes";
-import { regions } from "./geojson/regions";
-import { migrationRunner } from "./mongo/migrations/migrations-runner";
-import { resolveClientPath } from "./shared/path-utils";
 
 install();
 const debugLog = debug(envConfig.logNamespace("server"));
@@ -63,7 +63,7 @@ debugLog.enabled = true;
 const distFolder = resolveClientPath("dist/ngx-ramblers");
 const currentDir = path.resolve(__dirname);
 const port: number = +envConfig.server.listenPort;
-debugLog("currentDir:", currentDir, "distFolder:", distFolder, "NODE_ENV:", process.env.NODE_ENV, "port:", port);
+debugLog("⏳currentDir:", currentDir, "distFolder:", distFolder, "NODE_ENV:", process.env.NODE_ENV, "port:", port);
 const app = express();
 configureLogging(app);
 const server: Server = http.createServer(app);
@@ -126,12 +126,12 @@ if (fs.existsSync(distFolder)) {
     if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);
     } else {
-      debugLog("Warning: index.html not found in", distFolder, "— likely running in dev before build.");
+      debugLog("⚠️ index.html not found in", distFolder, "— likely running in dev before build.");
       next();
     }
   });
 } else {
-  debugLog("Warning: dist folder not found at", distFolder, "— static assets will not be served.");
+  debugLog("⚠️ dist folder not found at", distFolder, "— static assets will not be served.");
 }
 if (app.get("env") === "dev") {
   app.use(errorHandler());
@@ -139,12 +139,12 @@ if (app.get("env") === "dev") {
 
 async function startServer() {
   try {
-    debugLog("Connecting to MongoDB...");
+    debugLog("⏳Connecting to MongoDB...");
     await mongooseClient.connect();
 
     const runMigrationsOnStartup = process.env.RUN_MIGRATIONS_ON_STARTUP === "true";
     if (runMigrationsOnStartup) {
-      debugLog("Checking database migrations...");
+      debugLog("⏳Checking database migrations...");
       try {
         const migrationResult = await migrationRunner.runPendingMigrations();
 
@@ -153,8 +153,7 @@ async function startServer() {
         }
 
         if (!migrationResult.success) {
-          debugLog("❌ Migration failed:", migrationResult.error);
-          debugLog("ℹ Server will continue but site will show maintenance page");
+          debugLog("❌ Migration failed:", migrationResult.error, "⚠️ Server will continue but site will show maintenance page");
         }
       } catch (migrationError) {
         debugLog("❌ Migration check failed:", migrationError);

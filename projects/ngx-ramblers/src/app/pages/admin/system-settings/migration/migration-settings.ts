@@ -641,7 +641,7 @@ type SitePasteState = { active: boolean; value: string; error?: string };
 })
 export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewInit {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("MigrationSettingsComponent", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("MigrationSettingsComponent", NgxLoggerLevel.ERROR);
   stringUtils = inject(StringUtilsService);
   private urlService = inject(UrlService);
   private migrationConfigService = inject(MigrationConfigService);

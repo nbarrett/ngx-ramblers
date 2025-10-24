@@ -427,4 +427,53 @@ describe("HTML Paste E2E", () => {
       expect(markdown).toMatch(/turn left back to Post Office/);
     });
   });
+
+  describe("Interactive paste preview scenarios", () => {
+    it("should split markdown with images and captions for paste preview", () => {
+      const markdown = `# Walk Title
+
+![Banner](banner.jpg)
+
+![Map](map.jpg)
+
+Route description here.`;
+
+      const { buildMarkdownPastePreview } = require("./html-paste-preview");
+      const preview = buildMarkdownPastePreview(markdown);
+
+      expect(preview.rows.length).toBeGreaterThan(0);
+      const imageRows = preview.rows.filter((r: any) => r.imageSource);
+      expect(imageRows.length).toBe(2);
+    });
+
+    it("should handle short captions with images for paste", () => {
+      const html = `
+        <h2>Section Title</h2>
+        <img src="photo.jpg" alt="Photo">
+        <p>Short caption</p>
+      `;
+      const baseUrl = "https://example.com/";
+      const { buildHtmlPastePreview } = require("./html-paste-preview");
+
+      const preview = buildHtmlPastePreview(html, baseUrl);
+
+      expect(preview.rows).toBeDefined();
+      expect(preview.rows.length).toBeGreaterThan(0);
+
+      const imageRow = preview.rows.find((r: any) => r.imageSource === "https://example.com/photo.jpg");
+      expect(imageRow).toBeDefined();
+    });
+
+    it("should preserve image alt text in paste preview", () => {
+      const markdown = `![Detailed description of photo](photo.jpg)
+
+Caption text`;
+      const { buildMarkdownPastePreview } = require("./html-paste-preview");
+      const preview = buildMarkdownPastePreview(markdown);
+
+      const imageRow = preview.rows.find((r: any) => r.imageSource);
+      expect(imageRow).toBeDefined();
+      expect(imageRow.alt).toBe("Detailed description of photo");
+    });
+  });
 });
