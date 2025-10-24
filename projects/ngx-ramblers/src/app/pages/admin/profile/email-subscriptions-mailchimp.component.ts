@@ -59,7 +59,7 @@ export class EmailSubscriptionsMailchimpComponent implements OnInit, OnDestroy {
   protected dateUtils: DateUtilsService = inject(DateUtilsService);
   private mailchimpConfigService: MailchimpConfigService = inject(MailchimpConfigService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  private logger = this.loggerFactory.createLogger("EmailSubscriptionsMailchimpComponent", NgxLoggerLevel.DEBUG);
+  private logger = this.loggerFactory.createLogger("EmailSubscriptionsMailchimpComponent", NgxLoggerLevel.ERROR);
 
   @Input() public member: Member;
   public mailchimpConfig: MailchimpConfig;

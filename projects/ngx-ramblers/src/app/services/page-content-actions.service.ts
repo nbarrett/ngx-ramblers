@@ -263,6 +263,10 @@ export class PageContentActionsService {
       this.logger.info("Duplicated content text item for:", pageContentColumn?.contentTextId, "is:", copiedContentText, "setting copied Id:", copiedContentText.id);
       pageContentColumn.contentTextId = copiedContentText.id;
     }
+    if (pageContentColumn.rows) {
+      this.logger.info("Duplicating", pageContentColumn.rows.length, "nested rows in column");
+      pageContentColumn.rows = await this.copyContentTextIdsInRows(pageContentColumn.rows);
+    }
     return pageContentColumn;
   }
 

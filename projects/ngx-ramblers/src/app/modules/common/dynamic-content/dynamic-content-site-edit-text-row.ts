@@ -49,7 +49,7 @@ import { DynamicContentViewComponent } from "./dynamic-content-view";
               <!-- beginning of row content editing-->
               @if (!column.rows) {
                 <div class="thumbnail-site-edit h-100 mt-2" (dragover)="onColumnDragOver($event, rowIndex, columnIndex)" (drop)="onColumnDrop($event, rowIndex, columnIndex)">
-                  <div class="thumbnail-heading" [attr.draggable]="true" (dragstart)="onColumnDragStart(rowIndex, columnIndex)" [tooltip]="columnDragTooltip(rowIndex, columnIndex)" [isOpen]="!!columnDragTooltip(rowIndex, columnIndex)" container="body" triggers="">Col {{ columnIndex + 1 }}
+                  <div class="thumbnail-heading" [attr.draggable]="true" (dragstart)="onColumnDragStart($event, rowIndex, columnIndex)" [tooltip]="columnDragTooltip(rowIndex, columnIndex)" [isOpen]="!!columnDragTooltip(rowIndex, columnIndex)" container="body" triggers="">Col {{ columnIndex + 1 }}
                     <app-badge-button noRightMargin class="ms-2"
                                       (click)="toggleAll(columnIndex, markdownEditorComponent)"
                                       [icon]="faPencil"
@@ -116,6 +116,7 @@ import { DynamicContentViewComponent } from "./dynamic-content-view";
                                          [presentationMode]="!controlsShown(columnIndex)"
                                          [description]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentDescription)"
                                          [text]="column?.contentText"
+                                         [parentRowColumnCount]="row.columns?.length"
                                          [id]="column?.contentTextId"
                                          [queryOnlyById]="!isDefined(column?.contentText)"
                                          [noSave]="isDefined(column?.contentText)"
@@ -390,7 +391,7 @@ import { DynamicContentViewComponent } from "./dynamic-content-view";
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditTextRowComponent", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditTextRowComponent", NgxLoggerLevel.ERROR);
   pageContentEditService = inject(PageContentEditService);
   memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   stringUtils = inject(StringUtilsService);
@@ -426,6 +427,8 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
   nestedDragTargetColumnIndex: number = null;
   nestedDragTargetRowIndex: number = null;
+
+  private fragmentCache = new Map<string, FragmentWithLabel>();
 
   ngOnInit() {
     this.uniqueCheckboxId = `text-row-${this.numberUtils.generateUid()}`;
@@ -782,8 +785,15 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     }
   }
 
-  onSplit(splitData: {textBefore: string; textAfter?: string; additionalRows?: string[]}, rowIndex: number, columnIndex: number) {
-    this.logger.info("onSplit called with splitData:", splitData, "rowIndex:", rowIndex, "columnIndex:", columnIndex, "parentRowIndex:", this.parentRowIndex);
+  onSplit(splitData: {textBefore: string; textAfter?: string; additionalRows?: string[]; createNested?: boolean}, rowIndex: number, columnIndex: number) {
+    this.logger.info("═══ onSplit START ═══");
+    this.logger.info("splitData:", splitData, "rowIndex:", rowIndex, "columnIndex:", columnIndex, "parentRowIndex:", this.parentRowIndex);
+
+    const column = this.row.columns?.[columnIndex];
+    if (!column) {
+      this.logger.warn("Column not found at index", columnIndex);
+      return;
+    }
 
     const rowsToInsert: PageContentRow[] = [];
 
@@ -797,12 +807,36 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
       }
     }
 
-    this.insertRowsAfterCurrent(rowsToInsert, rowIndex, columnIndex);
+    if (rowsToInsert.length > 0) {
+      const parentRowHasMultipleColumns = (this.row.columns?.length || 0) > 1;
+      const userChoice = splitData.createNested;
+      const createNestedRows = userChoice !== undefined ? userChoice : parentRowHasMultipleColumns;
+
+      this.logger.info("Parent row has", this.row.columns?.length, "columns, userChoice:", userChoice, "createNestedRows:", createNestedRows);
+
+      if (createNestedRows) {
+        this.logger.info("Creating nested rows in column", columnIndex, "count:", rowsToInsert.length);
+        if (!column.rows) {
+          column.rows = [];
+        }
+        column.rows.push(...rowsToInsert);
+        this.logger.info("Column now has", column.rows.length, "nested rows");
+      } else {
+        this.logger.info("Creating sibling rows at page level, count:", rowsToInsert.length);
+        this.insertRowsAfterCurrent(rowsToInsert, rowIndex, columnIndex);
+      }
+    }
+
+    this.logger.info("═══ onSplit END ═══");
     this.actions.notifyPageContentChanges(this.pageContent);
   }
 
   onHtmlPaste(result: HtmlPasteResult, rowIndex: number, columnIndex: number) {
-    this.logger.info("onHtmlPaste called with result:", result, "rowIndex:", rowIndex, "columnIndex:", columnIndex);
+    this.logger.info("═══ onHtmlPaste START ═══");
+    this.logger.info("Component UID:", this.uniqueCheckboxId, "rowIndex:", rowIndex, "columnIndex:", columnIndex, "parentRowIndex:", this.parentRowIndex);
+    this.logger.info("result:", result);
+    this.logger.info("this.row (first 100 chars of contentText):", this.row.columns?.map(c => c.contentText?.substring(0, 100)));
+    this.logger.info("pageContent.rows.length:", this.pageContent?.rows?.length);
     const column = this.row.columns?.[columnIndex];
     if (column) {
       const firstRow = result?.firstRow;
@@ -815,14 +849,34 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
         column.imageSource = null;
         column.alt = null;
       }
+
+      const rowsToInsert: PageContentRow[] = [];
+      for (const rowData of result?.additionalRows || []) {
+        rowsToInsert.push(this.createRowFromSplitRow(rowData));
+      }
+
+      if (rowsToInsert.length > 0) {
+        const parentRowHasMultipleColumns = (this.row.columns?.length || 0) > 1;
+        const userChoice = result.createNested;
+        const createNestedRows = userChoice !== undefined ? userChoice : parentRowHasMultipleColumns;
+
+        this.logger.info("Parent row has", this.row.columns?.length, "columns, userChoice:", userChoice, "createNestedRows:", createNestedRows);
+
+        if (createNestedRows) {
+          this.logger.info("Creating nested rows in column", columnIndex, "count:", rowsToInsert.length);
+          if (!column.rows) {
+            column.rows = [];
+          }
+          column.rows.push(...rowsToInsert);
+          this.logger.info("Column now has", column.rows.length, "nested rows");
+        } else {
+          this.logger.info("Creating sibling rows at page level, count:", rowsToInsert.length);
+          this.insertRowsAfterCurrent(rowsToInsert, rowIndex, columnIndex);
+        }
+      }
     }
 
-    const rowsToInsert: PageContentRow[] = [];
-    for (const rowData of result?.additionalRows || []) {
-      rowsToInsert.push(this.createRowFromSplitRow(rowData));
-    }
-
-    this.insertRowsAfterCurrent(rowsToInsert, rowIndex, columnIndex);
+    this.logger.info("═══ onHtmlPaste END ═══");
     this.actions.notifyPageContentChanges(this.pageContent);
   }
 
@@ -840,6 +894,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
         newColumn.alt = rowData.alt ?? null;
       }
     }
+    this.logger.info("Created new row from split, text length:", newColumn?.contentText?.length, "has image:", !!newColumn?.imageSource);
     return newRow;
   }
 
@@ -849,18 +904,29 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     }
 
     const isNestedRow = this.parentRowIndex !== undefined && this.parentRowIndex !== null;
+    this.logger.info("insertRowsAfterCurrent: isNestedRow:", isNestedRow, "parentRowIndex:", this.parentRowIndex, "rowIndex:", rowIndex, "rowsToInsert.length:", rowsToInsert.length);
+    this.logger.info("this.row:", this.row);
 
     if (isNestedRow) {
       const parentRow = this.pageContent.rows[this.parentRowIndex];
+      this.logger.info("Nested row mode - parentRow:", parentRow);
       const parentColumn = parentRow?.columns?.find(col => col.rows && col.rows.includes(this.row));
+      this.logger.info("Found parentColumn:", parentColumn, "will insert at index:", rowIndex + 1);
 
       if (parentColumn && parentColumn.rows) {
-        parentColumn.rows.splice(rowIndex + 1, 0, ...rowsToInsert);
+        const actualRowIndex = parentColumn.rows.indexOf(this.row);
+        this.logger.info("Before insert - parentColumn.rows.length:", parentColumn.rows.length, "actualRowIndex:", actualRowIndex);
+        parentColumn.rows.splice(actualRowIndex + 1, 0, ...rowsToInsert);
+        this.logger.info("After insert - parentColumn.rows.length:", parentColumn.rows.length);
       } else {
         this.logger.warn("Could not find parent column for nested row split");
       }
     } else {
-      this.pageContent.rows.splice(rowIndex + 1, 0, ...rowsToInsert);
+      const actualRowIndex = this.pageContent.rows.indexOf(this.row);
+      this.logger.info("Top-level row mode - inserting at pageContent.rows index:", actualRowIndex + 1, "(input rowIndex was:", rowIndex, ")");
+      this.logger.info("Before insert - pageContent.rows.length:", this.pageContent.rows.length);
+      this.pageContent.rows.splice(actualRowIndex + 1, 0, ...rowsToInsert);
+      this.logger.info("After insert - pageContent.rows.length:", this.pageContent.rows.length);
     }
   }
 
@@ -893,8 +959,6 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     }
   }
 
-  private fragmentCache = new Map<string, FragmentWithLabel>();
-
   selectedFragmentForRow(row: PageContentRow): FragmentWithLabel | null {
     if (!row?.fragment?.pageContentId) {
       return null;
@@ -923,13 +987,16 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     if (fragmentWithLabel?.pageContentId) {
       row.fragment = {pageContentId: fragmentWithLabel.pageContentId};
       this.logger.info("Set fragment:", row.fragment);
-      // Load the fragment immediately to avoid UI hang
-      this.fragmentService.ensureLoadedById(fragmentWithLabel.pageContentId).then(() => {
-        this.logger.info("Fragment loaded:", fragmentWithLabel.pageContentId);
-      });
+      this.loadTheFragmentImmediatelyToAvoidUiHang(fragmentWithLabel);
     } else {
       row.fragment = null;
     }
+  }
+
+  private loadTheFragmentImmediatelyToAvoidUiHang(fragmentWithLabel: FragmentWithLabel) {
+    this.fragmentService.ensureLoadedById(fragmentWithLabel.pageContentId).then(() => {
+      this.logger.info("Fragment loaded:", fragmentWithLabel.pageContentId);
+    });
   }
 
   fragmentContent(row: PageContentRow): PageContent {

@@ -4,13 +4,14 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { HtmlPastePreview } from "../models/html-paste.model";
 import { firstValueFrom } from "rxjs";
+import { isString } from "es-toolkit/compat";
 
 @Injectable({
   providedIn: "root"
 })
 export class ContentConversionService {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("ContentConversionService", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("ContentConversionService", NgxLoggerLevel.ERROR);
   private http = inject(HttpClient);
   private BASE_URL = "/api/migration";
 
@@ -18,7 +19,7 @@ export class ContentConversionService {
     try {
       this.logger.info("Converting HTML to markdown, length:", html.length, "baseUrl:", baseUrl);
       const response = await firstValueFrom(this.http.post<{ markdown: string }>(`${this.BASE_URL}/html-to-markdown`, { html, baseUrl }));
-      if (!response || typeof response.markdown !== "string") {
+      if (!response || !isString(response.markdown)) {
         const error = new Error("Empty markdown response received from html-to-markdown endpoint");
         this.logger.error(error, "response:", response);
         throw error;
@@ -75,7 +76,7 @@ export class ContentConversionService {
     try {
       this.logger.info("Fetching HTML from URL:", url);
       const response = await firstValueFrom(this.http.post<{ html: string; baseUrl?: string }>(`${this.BASE_URL}/html-from-url`, { url }));
-      if (!response || typeof response.html !== "string") {
+      if (!response || !isString(response.html)) {
         const error = new Error("Invalid html-from-url response received");
         this.logger.error(error, "response:", response);
         throw error;

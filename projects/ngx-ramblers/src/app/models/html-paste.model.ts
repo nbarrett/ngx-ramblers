@@ -12,4 +12,5 @@ export interface HtmlPastePreview {
 export interface HtmlPasteResult {
   firstRow: HtmlPasteRow | null;
   additionalRows: HtmlPasteRow[];
+  createNested?: boolean;
 }

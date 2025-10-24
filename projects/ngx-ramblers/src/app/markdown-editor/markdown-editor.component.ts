@@ -1,31 +1,39 @@
-import { Component, ElementRef, EventEmitter, ViewChild, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
+import {
+  Component,
+  ElementRef,
+  EventEmitter,
+  inject,
+  Input,
+  OnDestroy,
+  OnInit,
+  Output,
+  ViewChild
+} from "@angular/core";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import {
   faAngleDown,
   faAngleUp,
-  faCircleCheck,
-  faEraser,
-  faMagnifyingGlass,
-  faPencil,
-  faRefresh,
-  faRemove,
-  faSpinner,
-  faUnlink,
   faBold,
+  faCircleCheck,
+  faCode,
+  faEraser,
+  faHeading,
+  faImage,
   faItalic,
   faLink,
-  faListUl,
   faListOl,
-  faCode,
+  faListUl,
+  faMagnifyingGlass,
+  faPencil,
   faQuoteRight,
-  faHeading,
+  faRefresh,
+  faRemove,
+  faRotateLeft,
   faScissors,
-  faRotateLeft
+  faSpinner,
+  faUnlink
 } from "@fortawesome/free-solid-svg-icons";
-import { cloneDeep } from "es-toolkit/compat";
-import { isEmpty } from "es-toolkit/compat";
-import { isEqual } from "es-toolkit/compat";
-import { pick } from "es-toolkit/compat";
+import { cloneDeep, isEmpty, isEqual, pick } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
 import {
@@ -34,7 +42,8 @@ import {
   ContentTextUsageWithTracking,
   DataAction,
   EditorInstanceState,
-  EditorState, HasStyles,
+  EditorState,
+  HasStyles,
   ListStyle,
   ListStyleMappings,
   View
@@ -49,6 +58,7 @@ import { SiteEditService } from "../site-edit/site-edit.service";
 import { UiActionsService } from "../services/ui-actions.service";
 import { StoredValue } from "../models/ui-actions";
 import { StringUtilsService } from "../services/string-utils.service";
+import { PasteDetectionService } from "../services/paste-detection.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { BadgeButtonComponent } from "../modules/common/badge-button/badge-button";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -83,7 +93,7 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
       background: white
       border: 1px solid #ccc
       border-radius: 4px
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15)
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15)
       z-index: 10000
       min-width: 200px
 
@@ -130,6 +140,30 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
       display: flex
       justify-content: flex-end
       gap: 8px
+
+    .paste-processing-indicator
+      position: fixed
+      top: 50%
+      left: 50%
+      transform: translate(-50%, -50%)
+      background: rgba(0, 0, 0, 0.8)
+      color: white
+      padding: 20px 30px
+      border-radius: 8px
+      z-index: 10002
+      display: flex
+      align-items: center
+      gap: 12px
+      font-size: 16px
+
+      fa-icon
+        animation: spin 1s linear infinite
+
+    @keyframes spin
+      from
+        transform: rotate(0deg)
+      to
+        transform: rotate(360deg)
   `],
   template: `
     @if (siteEditActive()) {
@@ -189,7 +223,7 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
       @if (renderInline()) {
         <span [class]="content?.styles?.class"
               (click)="toggleEdit()" markdown ngPreserveWhitespaces [data]="content.text">
-          </span>
+              </span>
       }
       @if (!renderInline()) {
         <div [class]="contentStyleClasses()"
@@ -200,7 +234,7 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
     @if (allowHide && editorState.view === 'view') {
       <div class="badge-button"
            (click)="toggleShowHide()" [tooltip]="showHideCaption()">
-        <fa-icon [icon]="showing() ? faAngleUp:faAngleDown"></fa-icon>
+        <fa-icon [icon]="showing() ? faAngleUp:faAngleDown"/>
         <span>{{ showHideCaption() }}</span>
       </div>
     }
@@ -210,13 +244,13 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
           @if (dirty() && !saving()) {
             <button class="btn btn-outline-secondary btn-sm" type="button" (click)="revert()"
                     [tooltip]="'Revert content for ' + description" container="body">
-              <fa-icon [icon]="reverting() ? faSpinner : faRotateLeft" [spin]="reverting()"></fa-icon>
+              <fa-icon [icon]="reverting() ? faSpinner : faRotateLeft" [spin]="reverting()"/>
             </button>
           }
           <div class="btn-group btn-group-sm" dropdown>
             <button class="btn btn-outline-secondary btn-sm dropdown-toggle" dropdownToggle type="button"
                     tooltip="Make selection a Heading" container="body">
-              <fa-icon [icon]="faHeading"></fa-icon>
+              <fa-icon [icon]="faHeading"/>
             </button>
             <ul *dropdownMenu class="dropdown-menu">
               <li><a class="dropdown-item" (click)="formatHeadingLevel(1)">Heading 1</a></li>
@@ -228,21 +262,43 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
             </ul>
           </div>
           <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatBold()"
-                  tooltip="Make selection Bold" container="body"><fa-icon [icon]="faBold"></fa-icon></button>
+                  tooltip="Make selection Bold" container="body">
+            <fa-icon [icon]="faBold"/>
+          </button>
           <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatItalic()"
-                  tooltip="Make selection Italic" container="body"><fa-icon [icon]="faItalic"></fa-icon></button>
+                  tooltip="Make selection Italic" container="body">
+            <fa-icon [icon]="faItalic"/>
+          </button>
           <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatCode()"
-                  tooltip="Make selection Code" container="body"><fa-icon [icon]="faCode"></fa-icon></button>
+                  tooltip="Make selection Code" container="body">
+            <fa-icon [icon]="faCode"/>
+          </button>
           <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatQuote()"
-                  tooltip="Make selection a Quotation" container="body"><fa-icon [icon]="faQuoteRight"></fa-icon></button>
+                  tooltip="Make selection a Quotation" container="body">
+            <fa-icon [icon]="faQuoteRight"/>
+          </button>
           <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatList('ul')"
-                  tooltip="Make selection a Bulleted List" container="body"><fa-icon [icon]="faListUl"></fa-icon></button>
+                  tooltip="Make selection a Bulleted List" container="body">
+            <fa-icon [icon]="faListUl"/>
+          </button>
           <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatList('ol')"
-                  tooltip="Make selection a Numbered List" container="body"><fa-icon [icon]="faListOl"></fa-icon></button>
+                  tooltip="Make selection a Numbered List" container="body">
+            <fa-icon [icon]="faListOl"/>
+          </button>
           <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatLink()"
-                  tooltip="Make selection a Link" container="body"><fa-icon [icon]="faLink"></fa-icon></button>
+                  tooltip="Make selection a Link" container="body">
+            <fa-icon [icon]="faLink"/>
+          </button>
           <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatSplit()"
-                  tooltip="Split text into new row below" container="body"><fa-icon [icon]="faScissors"></fa-icon></button>
+                  tooltip="Split text into new row below" container="body">
+            <fa-icon [icon]="faScissors"/>
+          </button>
+          @if (hasImagesInCurrentContent()) {
+            <button class="btn btn-outline-secondary btn-sm" type="button" (click)="showConvertToRowsPreview()"
+                    [tooltip]="convertToRowsTooltip()" container="body">
+              <fa-icon [icon]="faImage"/>
+            </button>
+          }
         </div>
       </div>
       <textarea #textArea [wrap]="'hard'"
@@ -254,7 +310,7 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
                 class="form-control markdown-textarea"
                 [style.overflow]="'hidden'" [rows]="1"
                 placeholder="Enter {{description}} text here">
-      </textarea>
+          </textarea>
       @if (contextMenuVisible) {
         <div class="markdown-context-menu"
              [style.left.px]="contextMenuX"
@@ -262,9 +318,15 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
              (click)="$event.stopPropagation()"
              (mouseleave)="hideContextMenu()">
           <div class="context-menu-item" (click)="formatSplitFromContextMenu()">
-            <fa-icon [icon]="faScissors"></fa-icon>
+            <fa-icon [icon]="faScissors"/>
             <span class="ms-2">Split text into new row below</span>
           </div>
+        </div>
+      }
+      @if (pasteProcessing && !pastePromptVisible) {
+        <div class="paste-processing-indicator">
+          <fa-icon [icon]="faSpinner" [spin]="true"/>
+          <span>Processing paste...</span>
         </div>
       }
       @if (pastePromptVisible) {
@@ -286,9 +348,9 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
                     type="text"
                     class="form-control"
                     [attr.list]="pastePromptBaseUrls.length > 0 ? 'pastePromptBaseUrlOptions' : null"
-                    [(ngModel)]="pastePromptBaseUrl"
+                    [ngModel]="displayBaseUrl()"
                     (ngModelChange)="pastePromptBaseUrlChanged($event)"
-                    placeholder="https://example.com/path/">
+                    placeholder="https://example.com/path">
                   @if (pastePromptBaseUrls.length > 0) {
                     <datalist id="pastePromptBaseUrlOptions">
                       @for (baseUrl of pastePromptBaseUrls; track baseUrl) {
@@ -300,9 +362,63 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
                     <div class="text-danger small mt-2">{{ pastePromptErrorMessage }}</div>
                   }
                 </div>
+
+                @if (pastePromptHtmlPreview?.rows && pastePromptHtmlPreview.rows.length > 1) {
+                  <div class="mt-3">
+                    <p class="mb-2 fw-bold">Row placement:</p>
+                    <div class="form-check">
+                      <input class="form-check-input" type="radio" name="rowPlacementHtml" id="rowPlacementHtmlNested"
+                             [value]="true" [(ngModel)]="pastePromptCreateNested">
+                      <label class="form-check-label" for="rowPlacementHtmlNested">
+                        Create nested rows within this column
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="radio" name="rowPlacementHtml" id="rowPlacementHtmlSibling"
+                             [value]="false" [(ngModel)]="pastePromptCreateNested">
+                      <label class="form-check-label" for="rowPlacementHtmlSibling">
+                        Create new rows below (at page level)
+                      </label>
+                    </div>
+                  </div>
+                }
               }
               @if (!pastePromptHtmlDetected) {
-                <p>How would you like to paste this content?</p>
+                @if (pastePromptIsConversion) {
+                  @if (pastePromptMarkdownPreview?.rows && pastePromptMarkdownPreview.rows.length > 0) {
+                    <p>Convert this content
+                      into {{ stringUtilsService.pluraliseWithCount(pastePromptMarkdownPreview.rows.length, "row") }}
+                      ?</p>
+                  } @else {
+                    <p>Convert this content into multiple rows?</p>
+                  }
+                } @else {
+                  <p>How would you like to paste this content?</p>
+                  @if (pastePromptMarkdownPreview?.rows && pastePromptMarkdownPreview.rows.length > 0) {
+                    <p class="text-muted small">This will
+                      create {{ stringUtilsService.pluraliseWithCount(pastePromptMarkdownPreview.rows.length, "row") }}</p>
+                  }
+                }
+
+                @if (pastePromptMarkdownPreview?.rows && pastePromptMarkdownPreview.rows.length > 1) {
+                  <div class="mt-3">
+                    <p class="mb-2 fw-bold">Row placement:</p>
+                    <div class="form-check">
+                      <input class="form-check-input" type="radio" name="rowPlacement" id="rowPlacementNested"
+                             [value]="true" [(ngModel)]="pastePromptCreateNested">
+                      <label class="form-check-label" for="rowPlacementNested">
+                        Create nested rows within this column
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="radio" name="rowPlacement" id="rowPlacementSibling"
+                             [value]="false" [(ngModel)]="pastePromptCreateNested">
+                      <label class="form-check-label" for="rowPlacementSibling">
+                        Create new rows below (at page level)
+                      </label>
+                    </div>
+                  </div>
+                }
               }
             </div>
             <div class="paste-prompt-actions">
@@ -319,12 +435,14 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
               }
               @if (!pastePromptHtmlDetected) {
                 <button class="btn btn-primary me-2" (click)="pasteAsRows()">
-                  <fa-icon [icon]="faScissors"></fa-icon>
-                  <span class="ms-2">Split into rows</span>
+                  <fa-icon [icon]="faScissors"/>
+                  <span class="ms-2">{{ pastePromptIsConversion ? 'Convert to rows' : 'Split into rows' }}</span>
                 </button>
-                <button class="btn btn-secondary" (click)="pasteAsIs()">
-                  <span>Paste as-is</span>
-                </button>
+                @if (!pastePromptIsConversion) {
+                  <button class="btn btn-secondary" (click)="pasteAsIs()">
+                    <span>Paste as-is</span>
+                  </button>
+                }
                 <button class="btn btn-outline-secondary ms-2" (click)="hidePastePrompt()">
                   <span>Cancel</span>
                 </button>
@@ -425,7 +543,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.queryOnlyById = coerceBooleanProperty(queryOnlyById);
   }
 
-  private logger: Logger = inject(LoggerFactory).createLogger("MarkdownEditorComponent", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("MarkdownEditorComponent", NgxLoggerLevel.ERROR);
   private systemConfigService: SystemConfigService = inject(SystemConfigService);
   private uiActionsService = inject(UiActionsService);
   private broadcastService = inject<BroadcastService<ContentText>>(BroadcastService);
@@ -438,16 +556,23 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   protected siteEditService = inject(SiteEditService);
   private urlService = inject(UrlService);
   private dataPopulationService = inject(DataPopulationService);
+  private pasteDetectionService = inject(PasteDetectionService);
   private systemConfig: SystemConfig;
   @Input() id: string;
   @Input() rows: number;
   @Input() actionCaptionSuffix: string;
   @Input() initialView: View;
   @Input() description: string;
+  @Input() parentRowColumnCount: number;
   @Output() changed: EventEmitter<ContentText> = new EventEmitter();
   @Output() saved: EventEmitter<ContentText> = new EventEmitter();
   @Output() focusChange: EventEmitter<EditorInstanceState> = new EventEmitter();
-  @Output() split: EventEmitter<{textBefore: string; textAfter: string; additionalRows?: string[]}> = new EventEmitter();
+  @Output() split: EventEmitter<{
+    textBefore: string;
+    textAfter: string;
+    additionalRows?: string[];
+    createNested?: boolean
+  }> = new EventEmitter();
   @Output() htmlPaste: EventEmitter<HtmlPasteResult> = new EventEmitter();
   faBold = faBold;
   faItalic = faItalic;
@@ -458,6 +583,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   faQuoteRight = faQuoteRight;
   faHeading = faHeading;
   faScissors = faScissors;
+  faImage = faImage;
   private presentationMode: boolean;
   public minimumRows = 10;
   public data: ContentText;
@@ -496,6 +622,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   public contextMenuY = 0;
   private savedSelection: { start: number; end: number; value: string } | null = null;
   public pastePromptVisible = false;
+  public pasteProcessing = false;
   private pastePromptMarkdown = "";
   private pastePromptPosition: { start: number; end: number } | null = null;
   public pastePromptBaseUrl = "";
@@ -503,9 +630,11 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   public pastePromptHtmlDetected = false;
   private pastePromptHtml: string | null = null;
   public pastePromptErrorMessage = "";
-  private pastePromptHtmlPreview: HtmlPastePreview | null = null;
+  protected pastePromptHtmlPreview: HtmlPastePreview | null = null;
   private pastePromptPreviewBaseUrl = "";
-  private pastePromptMarkdownPreview: HtmlPastePreview | null = null;
+  protected pastePromptMarkdownPreview: HtmlPastePreview | null = null;
+  public pastePromptIsConversion = false;
+  public pastePromptCreateNested: boolean | null = null;
 
   async ngOnInit() {
     this.logger.debug("ngOnInit:name", this.name, "data:", this.data, "description:", this.description);
@@ -547,26 +676,24 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     }));
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_EDITOR_CREATED, this));
 
-    // Add global click listener to close context menu when clicking outside
     const clickListener = () => {
       if (this.contextMenuVisible) {
         this.hideContextMenu();
       }
     };
-    document.addEventListener('click', clickListener);
+    document.addEventListener("click", clickListener);
     this.subscriptions.push({
-      unsubscribe: () => document.removeEventListener('click', clickListener)
+      unsubscribe: () => document.removeEventListener("click", clickListener)
     } as Subscription);
 
-    // Add keyboard listener for Escape key to close paste prompt
     const keyListener = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && this.pastePromptVisible) {
+      if (event.key === "Escape" && this.pastePromptVisible) {
         this.hidePastePrompt();
       }
     };
-    document.addEventListener('keydown', keyListener);
+    document.addEventListener("keydown", keyListener);
     this.subscriptions.push({
-      unsubscribe: () => document.removeEventListener('keydown', keyListener)
+      unsubscribe: () => document.removeEventListener("keydown", keyListener)
     } as Subscription);
   }
 
@@ -604,6 +731,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.originalContent = cloneDeep(this.content);
     this.setDescription();
     this.calculateRows();
+    this.updateMarkdownPreviewForTooltip();
   }
 
   private setDescription() {
@@ -650,6 +778,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.editorState.dataAction = DataAction.NONE;
     this.calculateRows();
     this.deferAutoResize();
+    this.updateMarkdownPreviewForTooltip();
     this.logger.debug("retrieved content:", this.content, "editor state:", this.editorState);
     return this.content;
   }
@@ -661,6 +790,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   private syncContent() {
     this.content = {category: this.category, text: this.text, name: this.name};
     this.publishUnsavedChanges();
+    this.updateMarkdownPreviewForTooltip();
   }
 
   revert(): void {
@@ -668,6 +798,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.content = cloneDeep(this.originalContent);
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_CONTENT_SYNCED, this));
     this.changed.emit(this.content);
+    this.updateMarkdownPreviewForTooltip();
   }
 
   dirty(): boolean {
@@ -748,7 +879,9 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
   autoResize(elOrRef?: any) {
     const el: HTMLTextAreaElement | undefined = elOrRef?.nativeElement ? elOrRef.nativeElement : elOrRef;
-    if (!el) { return; }
+    if (!el) {
+      return;
+    }
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
   }
@@ -823,6 +956,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.renameIfRequired();
     this.broadcastChange();
     this.publishUnsavedChanges();
+    this.updateMarkdownPreviewForTooltip();
   }
 
   private selection(): { start: number; end: number; value: string } {
@@ -853,7 +987,9 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     const lvl = Math.min(Math.max(level, 1), 6);
     this.transformSelectionLines((line) => {
       const info = this.stripKnownPrefix(line);
-      if (info.type === "heading" && info.level === lvl) { return info.stripped; }
+      if (info.type === "heading" && info.level === lvl) {
+        return info.stripped;
+      }
       return "#".repeat(lvl) + " " + info.stripped;
     });
   }
@@ -873,7 +1009,9 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   formatQuote() {
     this.transformSelectionLines((line) => {
       const info = this.stripKnownPrefix(line);
-      if (info.type === "quote") { return info.stripped; }
+      if (info.type === "quote") {
+        return info.stripped;
+      }
       return "> " + info.stripped;
     });
   }
@@ -882,10 +1020,14 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.transformSelectionLines((line, idx) => {
       const info = this.stripKnownPrefix(line);
       if (type === "ul") {
-        if (info.type === "ul") { return info.stripped; }
+        if (info.type === "ul") {
+          return info.stripped;
+        }
         return "- " + info.stripped;
       } else {
-        if (info.type === "ol") { return info.stripped; }
+        if (info.type === "ol") {
+          return info.stripped;
+        }
         return `${idx + 1}. ` + info.stripped;
       }
     });
@@ -896,8 +1038,11 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     try {
       const clip = await (navigator as any)?.clipboard?.readText?.();
       const text = (clip || "").trim();
-      if (/^https?:\/\/\S+$/i.test(text)) { url = text; }
-    } catch {}
+      if (/^https?:\/\/\S+$/i.test(text)) {
+        url = text;
+      }
+    } catch {
+    }
     this.replaceSelection("[", `](${url})`, s => s || "title");
   }
 
@@ -906,31 +1051,33 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     const hasSelection = end > start;
 
     if (hasSelection) {
-      // Split out the selected text into a new row
-      const textBefore = value.substring(0, start);
-      const textAfter = value.substring(end);
-
-      // Update current content to remove the selected text
-      this.content.text = textBefore + textAfter;
-      this.changeText(this.content.text);
-
-      // Emit the split event with the selected text as the new row content
-      const selectedText = value.substring(start, end);
-      this.split.emit({textBefore: "", textAfter: selectedText});
+      this.splitSelectedTextIntoNewRow(start, end, value);
     } else {
-      // No selection: split at cursor position
-      const textBefore = value.substring(0, start);
-      const textAfter = value.substring(start);
-
-      // Update current content to keep only text before cursor
-      this.content.text = textBefore;
-      this.changeText(this.content.text);
-
-      // Emit the split event
-      this.split.emit({textBefore: "", textAfter});
+      this.splitAtCursorPosition(start, value);
     }
 
     this.deferAutoResize();
+  }
+
+  private splitSelectedTextIntoNewRow(start: number, end: number, value: string) {
+    const textBefore = value.substring(0, start);
+    const textAfter = value.substring(end);
+
+    this.content.text = textBefore + textAfter;
+    this.changeText(this.content.text);
+
+    const selectedText = value.substring(start, end);
+    this.split.emit({textBefore: "", textAfter: selectedText});
+  }
+
+  private splitAtCursorPosition(start: number, value: string) {
+    const textBefore = value.substring(0, start);
+    const textAfter = value.substring(start);
+
+    this.content.text = textBefore;
+    this.changeText(this.content.text);
+
+    this.split.emit({textBefore: "", textAfter});
   }
 
   private applyPrefixToSelectionOrLine(prefix: string, placeholder?: string) {
@@ -988,13 +1135,25 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     }, 0);
   }
 
-  private stripKnownPrefix(line: string): { stripped: string; type: "heading" | "quote" | "ul" | "ol" | null; level?: number } {
+  private stripKnownPrefix(line: string): {
+    stripped: string;
+    type: "heading" | "quote" | "ul" | "ol" | null;
+    level?: number
+  } {
     const heading = line.match(/^\s{0,3}(#{1,6})\s+/);
-    if (heading) { return { stripped: line.replace(/^\s{0,3}#{1,6}\s+/, ""), type: "heading", level: heading[1].length }; }
-    if (/^\s{0,3}>\s+/.test(line)) { return { stripped: line.replace(/^\s{0,3}>\s+/, ""), type: "quote" }; }
-    if (/^\s{0,3}[-*+]\s+/.test(line)) { return { stripped: line.replace(/^\s{0,3}[-*+]\s+/, ""), type: "ul" }; }
-    if (/^\s{0,3}\d+\.\s+/.test(line)) { return { stripped: line.replace(/^\s{0,3}\d+\.\s+/, ""), type: "ol" }; }
-    return { stripped: line, type: null };
+    if (heading) {
+      return {stripped: line.replace(/^\s{0,3}#{1,6}\s+/, ""), type: "heading", level: heading[1].length};
+    }
+    if (/^\s{0,3}>\s+/.test(line)) {
+      return {stripped: line.replace(/^\s{0,3}>\s+/, ""), type: "quote"};
+    }
+    if (/^\s{0,3}[-*+]\s+/.test(line)) {
+      return {stripped: line.replace(/^\s{0,3}[-*+]\s+/, ""), type: "ul"};
+    }
+    if (/^\s{0,3}\d+\.\s+/.test(line)) {
+      return {stripped: line.replace(/^\s{0,3}\d+\.\s+/, ""), type: "ol"};
+    }
+    return {stripped: line, type: null};
   }
 
   private broadcastChange() {
@@ -1087,11 +1246,13 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
   onContextMenu(event: MouseEvent): void {
     event.preventDefault();
-    // Save the current selection
+    this.saveCurrentSelectionAndShowContextMenu(event.clientX, event.clientY);
+  }
+
+  private saveCurrentSelectionAndShowContextMenu(x: number, y: number): void {
     this.savedSelection = this.selection();
-    // Position and show the context menu
-    this.contextMenuX = event.clientX;
-    this.contextMenuY = event.clientY;
+    this.contextMenuX = x;
+    this.contextMenuY = y;
     this.contextMenuVisible = true;
   }
 
@@ -1101,61 +1262,40 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   formatSplitFromContextMenu(): void {
+    this.restoreSavedSelection();
+    this.hideContextMenu();
+    setTimeout(() => this.formatSplit(), 0);
+  }
+
+  private restoreSavedSelection(): void {
     if (this.savedSelection) {
-      // Restore the selection before splitting
       const el = this.textArea?.nativeElement;
       if (el) {
         el.focus();
         el.setSelectionRange(this.savedSelection.start, this.savedSelection.end);
       }
     }
-    this.hideContextMenu();
-    // Small delay to allow selection to be restored
-    setTimeout(() => this.formatSplit(), 0);
   }
 
   async onPaste(event: ClipboardEvent): Promise<void> {
-    const pastedHtml = event.clipboardData?.getData('text/html');
-    const pastedText = event.clipboardData?.getData('text/plain');
+    const pastedHtml = event.clipboardData?.getData("text/html");
+    const pastedText = event.clipboardData?.getData("text/plain");
 
     if (!pastedHtml && !pastedText) {
       return;
     }
 
-    const plain = (pastedText || "").trim();
-    const looksLikeLocalPath = /^\/[A-Za-z0-9\-\/._~#?=&%]+$/.test(plain) && !/^\/\//.test(plain);
-    if (looksLikeLocalPath) {
+    const rawText = (pastedText || "").trim();
+    const plain = rawText.replace(/\\([#\-*_[\](){}])/g, "$1");
+
+    if (this.pasteDetectionService.isLocalPath(plain)) {
       return;
     }
 
-    const htmlDetected = pastedHtml && pastedHtml.trim().length > 0;
-    const htmlContent = htmlDetected ? pastedHtml : null;
-
-    if (htmlContent) {
-      this.logger.info("HTML paste detected, showing prompt for base URL");
+    if (this.pasteDetectionService.isViewSourceOrHttpUrl(plain) && !pastedHtml) {
       event.preventDefault();
-
-      const {start, end} = this.selection();
-      this.pastePromptPosition = {start, end};
-      this.pastePromptHtmlDetected = true;
-      this.pastePromptHtml = htmlContent;
-      this.pastePromptMarkdown = pastedText || "";
-      this.pastePromptErrorMessage = "";
-      this.pastePromptHtmlPreview = null;
-      this.preparePastePromptBaseUrl();
-      this.pastePromptVisible = true;
-      return;
-    }
-
-    const textToProcess = pastedText || '';
-
-    const rawUrl = textToProcess.trim();
-    const looksLikeViewSourceUrl = /^view-source:https?:\/\//i.test(rawUrl);
-    const looksLikeHttpUrl = /^https?:\/\//i.test(rawUrl);
-
-    if ((looksLikeViewSourceUrl || looksLikeHttpUrl) && !pastedHtml) {
-      event.preventDefault();
-      const cleanedUrl = rawUrl.replace(/^view-source:/i, "");
+      this.pasteProcessing = true;
+      const cleanedUrl = plain.replace(/^view-source:/i, "");
       try {
         const response = await this.contentConversionService.htmlFromUrl(cleanedUrl);
         const resolvedBase = response?.baseUrl ? this.ensureTrailingSlash(response.baseUrl) : this.ensureTrailingSlash(cleanedUrl);
@@ -1163,39 +1303,76 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
         this.pastePromptPosition = {start, end};
         this.pastePromptHtmlDetected = true;
         this.pastePromptHtml = response.html;
+        this.pastePromptMarkdown = "";
         const baseUrls = new Set([resolvedBase, ...this.pastePromptBaseUrls]);
         this.pastePromptBaseUrls = Array.from(baseUrls);
         this.pastePromptBaseUrl = resolvedBase;
         this.pastePromptErrorMessage = "";
         this.pastePromptHtmlPreview = null;
         this.pastePromptPreviewBaseUrl = this.pastePromptBaseUrl;
+        this.pasteProcessing = false;
         this.pastePromptVisible = true;
         return;
       } catch (e) {
         this.logger.error("Failed to fetch HTML for pasted URL", cleanedUrl, e);
+        this.pasteProcessing = false;
       }
     }
 
-    if (!textToProcess) {
+    const hasSignificantHtml = this.pasteDetectionService.isSignificantHtml(pastedHtml || "", plain);
+    this.logger.info("onPaste: hasSignificantHtml =", hasSignificantHtml);
+
+    if (hasSignificantHtml) {
+      this.logger.info("Significant HTML paste detected, showing prompt for base URL");
+      this.logger.info("pastedHtml (first 500 chars):", pastedHtml?.substring(0, 500));
+      this.logger.info("pastedText (first 500 chars):", plain.substring(0, 500));
+      event.preventDefault();
+      this.pasteProcessing = true;
+
+      const {start, end} = this.selection();
+      this.pastePromptPosition = {start, end};
+      this.pastePromptHtmlDetected = true;
+      this.pastePromptHtml = pastedHtml;
+      this.pastePromptMarkdown = "";
+      this.pastePromptErrorMessage = "";
+      this.pastePromptHtmlPreview = null;
+      this.preparePastePromptBaseUrl();
+      this.pastePromptCreateNested = (this.parentRowColumnCount || 1) > 1;
+      this.pasteProcessing = false;
+      this.pastePromptVisible = true;
       return;
     }
 
-    const hasImages = /!\[([^\]]*)]\(([^)]+)\)/.test(textToProcess);
+    const hasImages = this.pasteDetectionService.hasMarkdownImages(plain);
+    this.logger.info("onPaste: hasMarkdownImages =", hasImages);
 
-    if (!hasImages) {
+    if (hasImages) {
+      this.logger.info("Markdown images detected, showing split prompt");
+      event.preventDefault();
+      this.pasteProcessing = true;
+
+      const {start, end} = this.selection();
+      this.pastePromptPosition = {start, end};
+      this.pastePromptHtmlDetected = false;
+      this.pastePromptHtml = null;
+      this.pastePromptMarkdown = plain;
+      this.pastePromptErrorMessage = "";
+      this.pastePromptHtmlPreview = null;
+      this.pastePromptMarkdownPreview = null;
+
+      try {
+        const preview = await this.contentConversionService.markdownPastePreview(plain);
+        this.pastePromptMarkdownPreview = preview;
+        this.logger.info("Markdown paste preview:", this.stringUtilsService.pluraliseWithCount(preview.rows?.length, "row"));
+      } catch (error) {
+        this.logger.error("Failed to build markdown paste preview", error);
+      }
+
+      this.pastePromptCreateNested = (this.parentRowColumnCount || 1) > 1;
+      this.pasteProcessing = false;
+      this.pastePromptVisible = true;
       return;
     }
-
-    event.preventDefault();
-
-    const {start, end} = this.selection();
-    this.pastePromptPosition = {start, end};
-    this.pastePromptHtmlDetected = false;
-    this.pastePromptHtml = null;
-    this.pastePromptMarkdown = textToProcess;
-    this.pastePromptErrorMessage = "";
-    this.pastePromptHtmlPreview = null;
-    this.pastePromptVisible = true;
   }
 
   private preparePastePromptBaseUrl(): void {
@@ -1215,20 +1392,15 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     if (!baseUrl) {
       return "";
     }
-    try {
-      const url = new URL(baseUrl);
-      const path = url.pathname || "/";
-      if (path.endsWith("/")) {
-        url.pathname = path;
-      } else {
-        const lastSlash = path.lastIndexOf("/");
-        const directory = lastSlash >= 0 ? path.substring(0, lastSlash + 1) : "/";
-        url.pathname = directory || "/";
-      }
-      return url.toString();
-    } catch {
-      return baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+    const trimmed = baseUrl.trim();
+    return trimmed.endsWith("/") ? trimmed : `${trimmed}/`;
+  }
+
+  displayBaseUrl(): string {
+    if (!this.pastePromptBaseUrl) {
+      return "";
     }
+    return this.pastePromptBaseUrl.endsWith("/") ? this.pastePromptBaseUrl.slice(0, -1) : this.pastePromptBaseUrl;
   }
 
   private async loadHtmlPreview(): Promise<HtmlPastePreview | null> {
@@ -1242,7 +1414,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
     try {
       const preview = await this.contentConversionService.htmlPastePreview(this.pastePromptHtml, this.pastePromptBaseUrl);
-      this.logger.info("HTML paste preview rows:", preview.rows);
+      this.logger.info("HTML paste preview:", this.stringUtilsService.pluraliseWithCount(preview.rows?.length, "row"));
       this.pastePromptHtmlPreview = preview;
       this.pastePromptPreviewBaseUrl = this.pastePromptBaseUrl;
       this.pastePromptErrorMessage = "";
@@ -1265,7 +1437,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
     try {
       const preview = await this.contentConversionService.markdownPastePreview(this.pastePromptMarkdown);
-      this.logger.info("Markdown paste preview rows:", preview.rows);
+      this.logger.info("Markdown paste preview:", this.stringUtilsService.pluraliseWithCount(preview.rows?.length, "row"));
       this.pastePromptMarkdownPreview = preview;
       this.pastePromptErrorMessage = "";
       return preview;
@@ -1325,7 +1497,8 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
     this.htmlPaste.emit({
       firstRow: firstRow || null,
-      additionalRows
+      additionalRows,
+      createNested: this.pastePromptCreateNested ?? undefined
     });
 
     this.hidePastePrompt();
@@ -1374,6 +1547,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
   hidePastePrompt(): void {
     this.pastePromptVisible = false;
+    this.pasteProcessing = false;
     this.pastePromptMarkdown = "";
     this.pastePromptPosition = null;
     this.pastePromptHtmlDetected = false;
@@ -1382,5 +1556,64 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.pastePromptHtmlPreview = null;
     this.pastePromptMarkdownPreview = null;
     this.pastePromptPreviewBaseUrl = "";
+    this.pastePromptIsConversion = false;
+  }
+
+  hasImagesInCurrentContent(): boolean {
+    const text = this.content?.text || "";
+    return this.pasteDetectionService.hasMarkdownImages(text);
+  }
+
+  private updateMarkdownPreviewForTooltip(): void {
+    const text = this.content?.text || "";
+    const hasImages = this.pasteDetectionService.hasMarkdownImages(text);
+
+    if (hasImages) {
+      this.contentConversionService.markdownPastePreview(text)
+        .then(preview => {
+          this.pastePromptMarkdownPreview = preview;
+        })
+        .catch(error => {
+          this.logger.debug("Failed to build preview for tooltip", error);
+        });
+    } else {
+      this.pastePromptMarkdownPreview = null;
+    }
+  }
+
+  convertToRowsTooltip(): string {
+    if (this.pastePromptMarkdownPreview?.rows && this.pastePromptMarkdownPreview.rows.length > 0) {
+      return `Convert this content into ${this.stringUtilsService.pluraliseWithCount(this.pastePromptMarkdownPreview.rows.length, "row")}`;
+    } else {
+      return "Convert markdown with images into rows";
+    }
+  }
+
+  async showConvertToRowsPreview(): Promise<void> {
+    const text = this.content?.text || "";
+    if (!text || !this.hasImagesInCurrentContent()) {
+      return;
+    }
+
+    this.pastePromptPosition = {start: 0, end: text.length};
+    this.pastePromptHtmlDetected = false;
+    this.pastePromptHtml = null;
+    this.pastePromptMarkdown = text;
+    this.pastePromptErrorMessage = "";
+    this.pastePromptHtmlPreview = null;
+    this.pastePromptMarkdownPreview = null;
+    this.pastePromptIsConversion = true;
+
+    try {
+      const preview = await this.contentConversionService.markdownPastePreview(text);
+      this.pastePromptMarkdownPreview = preview;
+      this.logger.info("Convert to rows preview:", this.stringUtilsService.pluraliseWithCount(preview.rows?.length, "row"));
+    } catch (error) {
+      this.logger.error("Failed to build conversion preview", error);
+      this.pastePromptErrorMessage = "Unable to preview conversion. Please try again.";
+    }
+
+    this.pastePromptCreateNested = (this.parentRowColumnCount || 1) > 1;
+    this.pastePromptVisible = true;
   }
 }

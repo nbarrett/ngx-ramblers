@@ -36,7 +36,7 @@ export class FragmentSelectorComponent implements OnInit {
   @Input() cssClass = "";
   @Output() fragmentChange = new EventEmitter<FragmentWithLabel>();
 
-  private logger: Logger = inject(LoggerFactory).createLogger("FragmentSelectorComponent", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("FragmentSelectorComponent", NgxLoggerLevel.ERROR);
   private fragmentService = inject(FragmentService);
   fragmentsWithLabels: FragmentWithLabel[] = [];
 

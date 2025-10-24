@@ -1,6 +1,7 @@
 import { AfterViewInit, Directive, ElementRef, EventEmitter, Input, inject, Output } from "@angular/core";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
+import { isString } from "es-toolkit/compat";
 
 @Directive({
   selector: "[app-visibility-observer]",
@@ -11,7 +12,7 @@ export class VisibilityObserverDirective implements AfterViewInit {
   @Input("app-visibility-observer") label?: string;
 
   private observer?: IntersectionObserver;
-  private logger: Logger = inject(LoggerFactory).createLogger("VisibilityObserverDirective", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("VisibilityObserverDirective", NgxLoggerLevel.ERROR);
   private el: ElementRef = inject(ElementRef);
 
   ngAfterViewInit(): void {
@@ -35,7 +36,7 @@ export class VisibilityObserverDirective implements AfterViewInit {
   private describeElement(): string {
     const element = this.el.nativeElement as HTMLElement;
     const id = element.id ? `#${element.id}` : "";
-    const className = typeof element.className === "string" && element.className.trim().length > 0 ? "." + element.className.trim().split(/\s+/).join(".") : "";
+    const className = isString(element.className) && element.className.trim().length > 0 ? "." + element.className.trim().split(/\s+/).join(".") : "";
     const tag = element.tagName ? element.tagName.toLowerCase() : "element";
     return `${tag}${id}${className}`;
   }

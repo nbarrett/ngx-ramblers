@@ -28,6 +28,13 @@ These rules MUST be followed in EVERY session without exception:
 - **No "get" prefixes** on methods (use `user()` not `getUser()`)
 - **Follow existing patterns** - don't introduce new approaches
 
+### 5. DEBUGGING AND LOGGING
+- **NEVER use `console.log()` for debugging**
+- **Frontend**: Use the existing `Logger` service (injected via `LoggerFactory`)
+- **Backend**: Use the existing `debug` module (e.g., `debug(envConfig.logNamespace("component-name"))`)
+- **Tests**: Use existing test framework logging or assertions, NOT `console.log()`
+- Logging is already comprehensive - use it instead of adding temporary debug statements
+
 ## Project Overview
 
 NGX‑Ramblers is an Angular‑based website framework for local Ramblers groups, with an Express backend and MongoDB Atlas. It provides content management, member management, and walks/events with third‑party integrations.

@@ -1,7 +1,7 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { faCheckCircle, faEnvelope, faExclamationCircle, faRemove } from "@fortawesome/free-solid-svg-icons";
-import { map } from "es-toolkit/compat";
+import { isString, map } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -476,7 +476,7 @@ export enum WalkExportTab {
 export class WalkExportComponent implements OnInit, OnDestroy {
   faExclamationCircle = faExclamationCircle;
   faCheckCircle = faCheckCircle;
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkExportComponent", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkExportComponent", NgxLoggerLevel.ERROR);
   private webSocketClientService: WebSocketClientService = inject(WebSocketClientService);
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private walksAndEventsService: WalksAndEventsService = inject(WalksAndEventsService);
@@ -709,7 +709,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
       this.updateCurrentSessionDurationLabel();
       this.walkExportNotifier.clearBusy();
     }).catch(error => {
-      const message = typeof error === "string" ? error : (error?.message || "Failed to load audit history");
+      const message = isString(error) ? error : (error?.message || "Failed to load audit history");
       this.auditNotifier.error({title: "Audit Load Error", message});
       this.walkExportNotifier.clearBusy();
     });
