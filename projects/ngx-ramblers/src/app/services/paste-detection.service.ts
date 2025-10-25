@@ -1,9 +1,12 @@
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
+import { Logger, LoggerFactory } from "./logger-factory.service";
+import { NgxLoggerLevel } from "ngx-logger";
 
 @Injectable({
   providedIn: "root"
 })
 export class PasteDetectionService {
+  private logger: Logger = inject(LoggerFactory).createLogger("PasteDetectionService", NgxLoggerLevel.INFO);
 
   isSignificantHtml(html: string, plainText: string): boolean {
     if (!html || html.trim().length === 0) {
@@ -151,8 +154,10 @@ export class PasteDetectionService {
     return /^\/[A-Za-z0-9\-\/._~#?=&%]+$/.test(trimmed) && !/^\/\//.test(trimmed);
   }
 
-  isViewSourceOrHttpUrl(text: string): boolean {
+  isViewSourceUrl(text: string): boolean {
     const trimmed = text.trim();
-    return /^view-source:https?:\/\//i.test(trimmed) || /^https?:\/\//i.test(trimmed);
+    const isViewSourceUrl = /^view-source:https?:\/\//i.test(trimmed);
+    this.logger.info("given text:", text, "isViewSourceUrl:", isViewSourceUrl);
+    return isViewSourceUrl;
   }
 }

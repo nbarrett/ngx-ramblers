@@ -1284,7 +1284,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     if (!pastedHtml && !pastedText) {
       return;
     }
-
     const rawText = (pastedText || "").trim();
     const plain = rawText.replace(/\\([#\-*_[\](){}])/g, "$1");
 
@@ -1292,7 +1291,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.pasteDetectionService.isViewSourceOrHttpUrl(plain) && !pastedHtml) {
+    if (this.pasteDetectionService.isViewSourceUrl(plain) && !pastedHtml) {
       event.preventDefault();
       this.pasteProcessing = true;
       const cleanedUrl = plain.replace(/^view-source:/i, "");

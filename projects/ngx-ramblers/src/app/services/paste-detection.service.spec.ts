@@ -1,11 +1,12 @@
 import { TestBed } from "@angular/core/testing";
 import { PasteDetectionService } from "./paste-detection.service";
+import { LoggerTestingModule } from "ngx-logger/testing";
 
 describe("PasteDetectionService", () => {
   let service: PasteDetectionService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({imports: [LoggerTestingModule]});
     service = TestBed.inject(PasteDetectionService);
   });
 
@@ -186,23 +187,29 @@ Hever Castle`;
     });
   });
 
-  describe("isViewSourceOrHttpUrl", () => {
-    it("should return true for http URLs", () => {
-      expect(service.isViewSourceOrHttpUrl("http://example.com")).toBe(true);
-      expect(service.isViewSourceOrHttpUrl("https://example.com/path")).toBe(true);
-    });
+  describe("isViewSourceUrl", () => {
 
     it("should return true for view-source URLs", () => {
-      expect(service.isViewSourceOrHttpUrl("view-source:http://example.com")).toBe(true);
-      expect(service.isViewSourceOrHttpUrl("view-source:https://example.com")).toBe(true);
+      expect(service.isViewSourceUrl("view-source:http://example.com")).toBe(true);
+      expect(service.isViewSourceUrl("view-source:https://example.com")).toBe(true);
     });
 
     it("should return false for local paths", () => {
-      expect(service.isViewSourceOrHttpUrl("/publications/article")).toBe(false);
+      expect(service.isViewSourceUrl("/publications/article")).toBe(false);
     });
 
     it("should return false for plain text", () => {
-      expect(service.isViewSourceOrHttpUrl("plain text")).toBe(false);
+      expect(service.isViewSourceUrl("plain text")).toBe(false);
     });
+
+    it("should return false for standalone url https://github.com/nbarrett/ngx-ramblers/issues/67", () => {
+      expect(service.isViewSourceUrl("https://github.com/nbarrett/ngx-ramblers/issues/67")).toBe(false);
+    });
+
+    it("should return false for http URLs", () => {
+      expect(service.isViewSourceUrl("http://example.com")).toBe(false);
+      expect(service.isViewSourceUrl("https://example.com/path")).toBe(false);
+    });
+
   });
 });
