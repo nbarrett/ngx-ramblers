@@ -46,6 +46,7 @@ import { geoJsonRoutes } from "./geojson/geojson-routes";
 import { regions } from "./geojson/regions";
 import { migrationRunner } from "./mongo/migrations/migrations-runner";
 import { resolveClientPath } from "./shared/path-utils";
+import { Environment } from "./env-config/environment-model";
 import bodyParser = require("body-parser");
 import compression = require("compression");
 import errorHandler = require("errorhandler");
@@ -63,7 +64,7 @@ debugLog.enabled = true;
 const distFolder = resolveClientPath("dist/ngx-ramblers");
 const currentDir = path.resolve(__dirname);
 const port: number = +envConfig.server.listenPort;
-debugLog("⏳currentDir:", currentDir, "distFolder:", distFolder, "NODE_ENV:", process.env.NODE_ENV, "port:", port);
+debugLog("⏳currentDir:", currentDir, "distFolder:", distFolder, "NODE_ENV:", envConfig.env, "port:", port);
 const app = express();
 configureLogging(app);
 const server: Server = http.createServer(app);
@@ -141,9 +142,9 @@ async function startServer() {
   try {
     debugLog("⏳Connecting to MongoDB...");
     await mongooseClient.connect();
-
-    const runMigrationsOnStartup = process.env.RUN_MIGRATIONS_ON_STARTUP === "true";
-    if (runMigrationsOnStartup) {
+    if (envConfig.booleanValue(Environment.SKIP_MIGRATIONS_ON_STARTUP)) {
+      debugLog(`⏭️ Skipping automatic migrations (${Environment.SKIP_MIGRATIONS_ON_STARTUP} is true)`);
+    } else {
       debugLog("⏳Checking database migrations...");
       try {
         const migrationResult = await migrationRunner.runPendingMigrations();
@@ -159,8 +160,6 @@ async function startServer() {
         debugLog("❌ Migration check failed:", migrationError);
         debugLog("⚠️ Server will continue but site will show maintenance page");
       }
-    } else {
-      debugLog("⏭️ Skipping automatic migrations (RUN_MIGRATIONS_ON_STARTUP not set to 'true')");
     }
 
     server.listen(port, "0.0.0.0", () => {

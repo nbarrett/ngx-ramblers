@@ -11,6 +11,7 @@ import * as stringDecoder from "string_decoder";
 import json2csv from "json2csv";
 import { downloadStatusManager } from "./download-status-manager";
 import { ServerDownloadStatusType } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { Environment } from "../env-config/environment-model";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload"));
 debugLog.enabled = false;
@@ -47,17 +48,17 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
   }
   debugLog("file", filePath, "saved");
   downloadStatusManager.startDownload(fileName);
-  process.env.RAMBLERS_USER = walksUploadRequest.ramblersUser;
-  process.env.RAMBLERS_DELETE_WALKS = walksUploadRequest.walkIdDeletionList.join(",");
-  process.env.RAMBLERS_FILENAME = filePath;
-  process.env.RAMBLERS_WALKCOUNT = walksUploadRequest.rows.length.toString();
-  process.env.RAMBLERS_FEATURE = "walks-upload.ts";
+  process.env[Environment.RAMBLERS_USER] = walksUploadRequest.ramblersUser;
+  process.env[Environment.RAMBLERS_DELETE_WALKS] = walksUploadRequest.walkIdDeletionList.join(",");
+  process.env[Environment.RAMBLERS_FILENAME] = filePath;
+  process.env[Environment.RAMBLERS_WALKCOUNT] = walksUploadRequest.rows.length.toString();
+  process.env[Environment.RAMBLERS_FEATURE] = "walks-upload.ts";
   const spawn = require("child_process").spawn;
   auditNotifier.registerUploadStart(fileName, ws);
-  debugLog("Running RAMBLERS_FEATURE:", process.env.RAMBLERS_FEATURE,
-    "CHROMEDRIVER_PATH:", process.env.CHROMEDRIVER_PATH,
-    "CHROME_BIN:", process.env.CHROME_BIN,
-    "CHROME_VERSION:", process.env.CHROME_VERSION);
+  debugLog("Running RAMBLERS_FEATURE:", process.env[Environment.RAMBLERS_FEATURE],
+    "CHROMEDRIVER_PATH:", process.env[Environment.CHROMEDRIVER_PATH],
+    "CHROME_BIN:", process.env[Environment.CHROME_BIN],
+    "CHROME_VERSION:", process.env[Environment.CHROME_VERSION]);
   const subprocess = spawn("npm", ["run", "serenity"], {
     detached: true,
     stdio: ["pipe", "pipe", "pipe", "ipc"]

@@ -78,13 +78,13 @@ export async function setMigrationSimulation(pending: number, failed: boolean) {
       const SIMULATED_QUALIFIER = " Don't worry - this is a simulated error and not produced by a real migration.";
       await targetCollection.insertMany([
         {
-          fileName: "20251022220737-migrate-inline-content-text.ts",
+          fileName: "20251022220737-migrate-inline-content-text.js",
           appliedAt: dateTimeNow().toJSDate(),
           error: "TypeError: Cannot read property 'text' of undefined at line 42. " +
             "The contentText document was not found in the collection." + SIMULATED_QUALIFIER
         },
         {
-          fileName: "20250115000000-example-failed-migration.ts",
+          fileName: "20250115000000-example-failed-migration.js",
           appliedAt: dateTimeNow().toJSDate(),
           error: "MongoServerError: E11000 duplicate key error collection: ramblers.pageContent index: _id_ dup key: " +
             "{ _id: ObjectId('507f1f77bcf86cd799439011') }" + SIMULATED_QUALIFIER
@@ -113,7 +113,9 @@ export async function clearMigrationSimulation() {
     const result = await changelogCollection.deleteMany({
       fileName: {
         $in: [
+          "20251022220737-migrate-inline-content-text.js",
           "20251022220737-migrate-inline-content-text.ts",
+          "20250115000000-example-failed-migration.js",
           "20250115000000-example-failed-migration.ts"
         ]
       }
@@ -164,6 +166,7 @@ export async function clearFailedMigrations() {
 }
 
 export class MigrationRunner {
+  private normalizedToActualFileMap = new Map<string, string>();
 
   async migrationStatus(): Promise<MigrationStatus> {
     const status: MigrationStatus = {
@@ -189,18 +192,30 @@ export class MigrationRunner {
       });
 
       const allFiles: string[] = [];
+      this.normalizedToActualFileMap.clear();
+
       if (fs.existsSync(migrateMongoConfig.migrationsDir)) {
-        const ext = migrateMongoConfig.migrationFileExtension || ".ts";
-        allFiles.push(...fs.readdirSync(migrateMongoConfig.migrationsDir)
-          .filter(f => f.endsWith(ext))
-          .filter(f => /^\d{14}-.+/.test(f.replace(new RegExp(ext.replace(".", "\\.") + "$"), "")))
-          .sort());
+        const filesOnDisk = fs.readdirSync(migrateMongoConfig.migrationsDir)
+          .filter(f => (f.endsWith(".js") || f.endsWith(".ts")) && !f.endsWith(".d.ts") && !f.endsWith(".d.js"))
+          .filter(f => /^\d{14}-.+/.test(f.replace(/\.(js|ts)$/, "")))
+          .sort();
+
+        for (const file of filesOnDisk) {
+          const normalized = file.replace(/\.ts$/, ".js");
+          if (!this.normalizedToActualFileMap.has(normalized)) {
+            this.normalizedToActualFileMap.set(normalized, file);
+            allFiles.push(normalized);
+          }
+        }
       }
 
       const files: MigrationFile[] = [];
 
       for (const fileName of allFiles) {
-        const applied = appliedMap.get(fileName);
+        const appliedAsIs = appliedMap.get(fileName);
+        const appliedAsTs = appliedMap.get(fileName.replace(/\.js$/, ".ts"));
+        const applied = appliedAsIs || appliedAsTs;
+
         if (applied?.error) {
           files.push({
             fileName,
@@ -223,9 +238,10 @@ export class MigrationRunner {
       }
 
       appliedMigrations.forEach((m: any) => {
-        if (!allFiles.includes(m.fileName) && m.error) {
+        const normalizedFileName = m.fileName.replace(/\.ts$/, ".js");
+        if (!allFiles.includes(normalizedFileName) && m.error) {
           files.push({
-            fileName: m.fileName,
+            fileName: normalizedFileName,
             status: MigrationFileStatus.FAILED,
             timestamp: m.appliedAt ? new Date(m.appliedAt).toISOString() : undefined,
             error: m.error
@@ -286,8 +302,9 @@ export class MigrationRunner {
 
       for (const file of pendingFiles) {
         const fileName = file.fileName;
-        debugLog(`Running migration: ${fileName}`);
-        const migrationPath = path.join(migrateMongoConfig.migrationsDir, fileName);
+        const actualFileName = this.normalizedToActualFileMap.get(fileName) || fileName;
+        debugLog(`Running migration: ${fileName} (actual file: ${actualFileName})`);
+        const migrationPath = path.join(migrateMongoConfig.migrationsDir, actualFileName);
 
         try {
           const loadedMigration = await import(migrationPath);
@@ -338,7 +355,9 @@ export class MigrationRunner {
       const collectionName = await activeChangelogCollection();
       const changelogCollection = db.collection(collectionName);
       await changelogCollection.deleteOne({ fileName });
-      const migrationPath = path.join(migrateMongoConfig.migrationsDir, fileName);
+      await changelogCollection.deleteOne({ fileName: fileName.replace(/\.js$/, ".ts") });
+      const actualFileName = this.normalizedToActualFileMap.get(fileName) || fileName;
+      const migrationPath = path.join(migrateMongoConfig.migrationsDir, actualFileName);
       const loadedMigration = await import(migrationPath);
       const migration = loadedMigration.default || loadedMigration;
 

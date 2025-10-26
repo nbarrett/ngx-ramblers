@@ -1,10 +1,7 @@
 import { PerformsActivities, Task } from "@serenity-js/core";
 import { WalkRequestParameters } from "../../../../models/walk-request-parameters";
 import { Log } from "./log";
-
-const ramblersDeleteWalks = "RAMBLERS_DELETE_WALKS";
-const ramblersWalkCount = "RAMBLERS_WALKCOUNT";
-const ramblersFileName = "RAMBLERS_FILENAME";
+import { Environment } from "../../../../../env-config/environment-model";
 
 export class ExtractTask extends Task {
   performAs(actor: PerformsActivities): Promise<void> {
@@ -17,10 +14,10 @@ export class ExtractTask extends Task {
 
 export class RequestParameterExtractor {
   static extract(): WalkRequestParameters {
-    const walkDeletionsString: string = process.env[ramblersDeleteWalks] || "";
+    const walkDeletionsString: string = process.env[Environment.RAMBLERS_DELETE_WALKS] || "";
     const walkDeletions: string[] = walkDeletionsString.length > 1 ? walkDeletionsString.split(",").filter(walkId => walkId) : [];
-    const fileName: string = process.env[ramblersFileName];
-    const walkCount: number = +process.env[ramblersWalkCount];
+    const fileName: string = process.env[Environment.RAMBLERS_FILENAME];
+    const walkCount: number = +process.env[Environment.RAMBLERS_WALKCOUNT];
     return {
       walkDeletions,
       fileName,

@@ -6,7 +6,7 @@ const debugLog = debug(envConfig.logNamespace("path-utils"));
 debugLog.enabled = true;
 
 export function navigateUpFromCurrentExecutionDirectory(): string {
-  return process.env.NODE_ENV === "production" ? "../../" : "";
+  return envConfig.isProduction() ? "../../" : "";
 }
 
 export function resolveClientPath(...pathSegments: string[]): string {

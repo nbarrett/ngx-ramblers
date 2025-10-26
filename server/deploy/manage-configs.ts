@@ -12,6 +12,7 @@ import {
 } from "./fly-commands";
 import { DeploymentConfig, NewEnvironmentConfig, RuntimeConfig, SecretsConfig } from "./types";
 import { defaults } from "../../non-vcs/defaults";
+import { Environment } from "../lib/env-config/environment-model";
 
 const debugLog = debug("manage-configs");
 debugLog.enabled = true;
@@ -34,8 +35,8 @@ async function generateFlyApiToken(): Promise<string> {
       debugLog(`Generated token ${token} is invalid or incomplete, prompting user`);
       return "";
     }
-    const originalToken = process.env.FLY_API_TOKEN;
-    process.env.FLY_API_TOKEN = token;
+    const originalToken = process.env[Environment.FLY_API_TOKEN];
+    process.env[Environment.FLY_API_TOKEN] = token;
     try {
       runCommand("flyctl auth whoami", true);
       return token;
@@ -43,7 +44,7 @@ async function generateFlyApiToken(): Promise<string> {
       debugLog(`Token validation failed: ${authError}`);
       return "";
     } finally {
-      process.env.FLY_API_TOKEN = originalToken;
+      process.env[Environment.FLY_API_TOKEN] = originalToken;
     }
   } catch (error) {
     debugLog(`Error generating FLY_API_TOKEN: ${error}`);
