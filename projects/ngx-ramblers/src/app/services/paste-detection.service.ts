@@ -6,34 +6,34 @@ import { NgxLoggerLevel } from "ngx-logger";
   providedIn: "root"
 })
 export class PasteDetectionService {
-  private logger: Logger = inject(LoggerFactory).createLogger("PasteDetectionService", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("PasteDetectionService", NgxLoggerLevel.ERROR);
 
   isSignificantHtml(html: string, plainText: string): boolean {
     if (!html || html.trim().length === 0) {
-      console.log("[PasteDetection] No HTML, returning false");
+      this.logger.info("[PasteDetection] No HTML, returning false");
       return false;
     }
 
     const trimmedHtml = html.trim();
     const trimmedPlain = (plainText || "").trim();
 
-    console.log("[PasteDetection] HTML length:", trimmedHtml.length);
-    console.log("[PasteDetection] Plain length:", trimmedPlain.length);
-    console.log("[PasteDetection] HTML (first 300):", trimmedHtml.substring(0, 300));
-    console.log("[PasteDetection] Plain (first 300):", trimmedPlain.substring(0, 300));
+    this.logger.info("[PasteDetection] HTML length:", trimmedHtml.length);
+    this.logger.info("[PasteDetection] Plain length:", trimmedPlain.length);
+    this.logger.info("[PasteDetection] HTML (first 300):", trimmedHtml.substring(0, 300));
+    this.logger.info("[PasteDetection] Plain (first 300):", trimmedPlain.substring(0, 300));
 
     if (!trimmedPlain || trimmedPlain.length === 0) {
-      console.log("[PasteDetection] No plain text, HTML is significant");
+      this.logger.info("[PasteDetection] No plain text, HTML is significant");
       return true;
     }
 
     const hasSignificantTags = this.hasSignificantHtmlTags(trimmedHtml);
-    console.log("[PasteDetection] Has significant tags?", hasSignificantTags);
+    this.logger.info("[PasteDetection] Has significant tags?", hasSignificantTags);
 
     if (!hasSignificantTags) {
       const isBrowserWrapperHtml = this.matchesBrowserWrapperPattern(trimmedHtml, trimmedPlain);
       if (isBrowserWrapperHtml) {
-        console.log("[PasteDetection] Browser wrapper detected, returning false");
+        this.logger.info("[PasteDetection] Browser wrapper detected, returning false");
         return false;
       }
     }
@@ -42,23 +42,23 @@ export class PasteDetectionService {
     const normalizedPlain = trimmedPlain.replace(/\r\n/g, "\n").trim();
     const normalizedStripped = strippedHtml.replace(/\r\n/g, "\n").trim();
 
-    console.log("[PasteDetection] Stripped HTML (first 300):", normalizedStripped.substring(0, 300));
-    console.log("[PasteDetection] Stripped === Plain?", normalizedStripped === normalizedPlain);
+    this.logger.info("[PasteDetection] Stripped HTML (first 300):", normalizedStripped.substring(0, 300));
+    this.logger.info("[PasteDetection] Stripped === Plain?", normalizedStripped === normalizedPlain);
 
     if (normalizedStripped === normalizedPlain && !hasSignificantTags) {
-      console.log("[PasteDetection] Stripped matches plain and no significant tags, returning false");
+      this.logger.info("[PasteDetection] Stripped matches plain and no significant tags, returning false");
       return false;
     }
 
     if (hasSignificantTags) {
       const onlyFormatting = this.isOnlyFormattingTags(trimmedHtml, normalizedStripped, normalizedPlain);
-      console.log("[PasteDetection] Only formatting tags?", onlyFormatting);
+      this.logger.info("[PasteDetection] Only formatting tags?", onlyFormatting);
       if (onlyFormatting) {
-        console.log("[PasteDetection] Only formatting, returning false");
+        this.logger.info("[PasteDetection] Only formatting, returning false");
         return false;
       }
 
-      console.log("[PasteDetection] Has significant tags, returning true");
+      this.logger.info("[PasteDetection] Has significant tags, returning true");
       return true;
     }
 
@@ -66,7 +66,7 @@ export class PasteDetectionService {
     const htmlLength = trimmedHtml.length;
     const isSubstantiallyLonger = htmlLength > plainTextLength * 1.5;
 
-    console.log("[PasteDetection] Substantially longer?", isSubstantiallyLonger, `(${htmlLength} vs ${plainTextLength})`);
+    this.logger.info("[PasteDetection] Substantially longer?", isSubstantiallyLonger, `(${htmlLength} vs ${plainTextLength})`);
     return isSubstantiallyLonger;
   }
 

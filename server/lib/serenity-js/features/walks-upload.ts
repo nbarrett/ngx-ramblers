@@ -13,10 +13,11 @@ import { dateTimeNow } from "../../shared/dates";
 import { DateFormat } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { CheckAndReportOn } from "../screenplay/tasks/ramblers/walks/check-and-report-on";
 import { SaveBrowserSource } from "../screenplay/tasks/common/save-browser-source";
+import { Environment } from "../../env-config/environment-model";
 
 const debugLog = debug(envConfig.logNamespace("serenity-walks-upload"));
 debugLog.enabled = false;
-const actor = process.env["RAMBLERS_USER"] || "Walks Admin";
+const actor = process.env[Environment.RAMBLERS_USER] || "Walks Admin";
 debugLog("About to run Walks Upload scenario for", actor);
 
 describe("Walks Upload", () => {

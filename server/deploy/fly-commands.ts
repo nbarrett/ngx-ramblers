@@ -3,6 +3,7 @@ import fs from "fs";
 import debug from "debug";
 import { execSync } from "child_process";
 import { DeploymentConfig, EnvironmentConfig, RuntimeConfig, VolumeInformation } from "./types";
+import { Environment } from "../lib/env-config/environment-model";
 
 const debugLog = debug("deploy-environments");
 const debugNoLog = debug("deploy-environments-nolog");
@@ -143,7 +144,7 @@ export function createVolumeIfNotExists(appName: string, volumeName: string, reg
 }
 
 export function configureEnvironment(environmentConfig: EnvironmentConfig, config: DeploymentConfig) {
-  process.env.FLY_API_TOKEN = environmentConfig.apiKey;
-  process.env.APP_NAME = environmentConfig.appName;
-  process.env.IMAGE = config.dockerImage;
+  process.env[Environment.FLY_API_TOKEN] = environmentConfig.apiKey;
+  process.env[Environment.APP_NAME] = environmentConfig.appName;
+  process.env[Environment.IMAGE] = config.dockerImage;
 }

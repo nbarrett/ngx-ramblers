@@ -27,19 +27,19 @@ import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 
                 @if (migrationStatus && isAdmin) {
                   <div class="alert" [ngClass]="getAlertClass()" role="alert">
-                    <div class="mb-3">
-                      <strong>Status:</strong> {{ migrationStatus.status }}
-                    </div>
                     @if (migrationStatus.migrations) {
                       <div class="migration-details">
                         <div class="row text-start">
-                          <div class="col-md-4">
+                          <div class="col-md-3">
+                            <strong>Status:</strong> {{ migrationStatus.status }}
+                          </div>
+                          <div class="col-md-3">
                             <strong>Applied:</strong> {{ migrationStatus.migrations.applied }}
                           </div>
-                          <div class="col-md-4">
+                          <div class="col-md-3">
                             <strong>Pending:</strong> {{ migrationStatus.migrations.pending }}
                           </div>
-                          <div class="col-md-4">
+                          <div class="col-md-3">
                             <strong>Failed:</strong> {{ migrationStatus.migrations.failed ? "Yes" : "No" }}
                           </div>
                         </div>
@@ -191,7 +191,6 @@ import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
       padding: 1rem
       background-color: rgba(0, 0, 0, 0.05)
       border-radius: 0.25rem
-      margin-top: 1rem
 
     .admin-controls
       padding: 1.5rem
@@ -213,6 +212,7 @@ import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 
     .table
       margin-bottom: 0
+      border-collapse: collapse
 
       thead th
         position: sticky
@@ -220,6 +220,16 @@ import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
         background-color: white
         z-index: 10
         border-bottom: 2px solid #dee2e6
+        border-right: 1px solid #dee2e6
+
+        &:last-child
+          border-right: none
+
+      tbody tr td
+        border-right: 1px solid #dee2e6
+
+        &:last-child
+          border-right: none
 
       tbody tr td:first-child
         border-left: 4px solid transparent
@@ -293,9 +303,9 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
     this.migrationStatus = await this.siteMaintenanceService.getMigrationStatus();
     this.lastChecked = this.dateUtils.dateTimeNowAsValue();
 
-    console.log("Migration status response:", this.migrationStatus);
-    console.log("Files array:", this.migrationStatus?.migrations?.files);
-    console.log("All migration files:", this.allMigrationFiles());
+    this.logger.info("Migration status response:", this.migrationStatus);
+    this.logger.info("Files array:", this.migrationStatus?.migrations?.files);
+    this.logger.info("All migration files:", this.allMigrationFiles());
 
     const simulationState = await this.siteMaintenanceService.readSimulation();
     this.simulationActive = simulationState.active;
@@ -377,7 +387,7 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
 
   getStatusIcon() {
     if (!this.migrationStatus) return this.faSpinner;
-    if (this.migrationStatus.status === HealthStatus.OK) return this.faCheckCircle;
+    if (this.isSystemHealthy()) return this.faCheckCircle;
     if (!this.isAdmin) return this.faTools;
     if (this.migrationStatus.migrations?.failed) return this.faExclamationTriangle;
     return this.faTools;
@@ -385,7 +395,7 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
 
   getStatusClass() {
     if (!this.migrationStatus) return "text-primary";
-    if (this.migrationStatus.status === HealthStatus.OK) return "text-success";
+    if (this.isSystemHealthy()) return "text-success";
     if (!this.isAdmin) return "text-warning";
     if (this.migrationStatus.migrations?.failed) return "text-danger";
     return "text-warning";
@@ -393,7 +403,7 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
 
   getAlertClass() {
     if (!this.migrationStatus) return "alert-info";
-    if (this.migrationStatus.status === HealthStatus.OK) return "alert-success";
+    if (this.isSystemHealthy()) return "alert-success";
     if (!this.isAdmin) return "alert-warning";
     if (this.migrationStatus.migrations?.failed) return "alert-danger";
     return "alert-warning";
@@ -401,7 +411,7 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
 
   getTitle() {
     if (!this.migrationStatus) return "Checking System Status...";
-    if (this.migrationStatus.status === HealthStatus.OK) return "System Operational";
+    if (this.isSystemHealthy()) return "System Operational";
     if (!this.isAdmin) return "Site Maintenance in Progress";
     if (this.migrationStatus.migrations?.failed) return "Migration Failed";
     return "Site Maintenance in Progress";
@@ -411,7 +421,7 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
     if (!this.migrationStatus) {
       return "Please wait while we check the system status...";
     }
-    if (this.migrationStatus.status === HealthStatus.OK) {
+    if (this.isSystemHealthy()) {
       return "All database migrations have been applied successfully.";
     }
     const nonAdminMessage = "We're performing updates to improve your experience. This should only take a few moments.";
@@ -422,6 +432,12 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
       return "A database migration has failed. Please contact your system administrator.";
     }
     return nonAdminMessage;
+  }
+
+  private isSystemHealthy(): boolean {
+    return this.migrationStatus?.status === HealthStatus.OK &&
+           this.migrationStatus?.migrations?.pending === 0 &&
+           !this.migrationStatus?.migrations?.failed;
   }
 
   allMigrationFiles(): Array<{file: string; status: MigrationFileStatus; timestamp: string; error?: string}> {

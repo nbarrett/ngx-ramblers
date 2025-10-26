@@ -1,46 +1,60 @@
 import debug from "debug";
-
-const ENV_PREFIX: string = "SITE_";
+import { booleanOf } from "../shared/string-utils";
+import { Environment } from "./environment-model";
 
 const debugLog = debug("env-config");
 
-const env = validatedEnvironmentVariable("NODE_ENV");
+const env = environmentVariable(Environment.NODE_ENV) || "development";
 
 function logNamespace(moduleName: string) {
   return `ngx-ramblers:${env}:${moduleName || ""}`;
 }
 
-function validatedEnvironmentVariable(variableName: string, prefixed?: boolean): string {
-  const resolvedName = prefixed ? ENV_PREFIX + variableName : variableName;
-  const variableValue = process.env[resolvedName] || process.env[variableName];
+function environmentVariable(variableName: string) {
+  return process.env[variableName];
+}
+
+function booleanEnvironmentVariable(variableName: string) {
+  return booleanOf(environmentVariable(variableName));
+}
+
+function validatedEnvironmentVariable(variableName: string): string {
+
+  const variableValue = environmentVariable(variableName);
   if (!variableValue) {
-    throw new Error(`Environment variable '${resolvedName}' must be set`);
+    throw new Error(`Environment variable '${variableName}' must be set`);
   } else {
-    debugLog(`Environment variable '${resolvedName}' is set to '${variableValue}'`);
+    debugLog(`Environment variable '${variableName}' is set to '${variableValue}'`);
     return variableValue;
   }
 }
 
+function isProduction(): boolean {
+  return env === "production";
+}
+
 export const envConfig = {
+  booleanValue: booleanEnvironmentVariable,
+  isProduction,
+  logNamespace,
   production: env === "production",
   auth: {
-    secret: validatedEnvironmentVariable("AUTH_SECRET"),
+    secret: validatedEnvironmentVariable(Environment.AUTH_SECRET),
   },
   aws: {
-    accessKeyId: validatedEnvironmentVariable("AWS_ACCESS_KEY_ID"),
-    bucket: validatedEnvironmentVariable("AWS_BUCKET"),
-    region: validatedEnvironmentVariable("AWS_REGION"),
-    secretAccessKey: validatedEnvironmentVariable("AWS_SECRET_ACCESS_KEY"),
-    uploadUrl: `https://${validatedEnvironmentVariable("AWS_BUCKET")}.s3.amazonaws.com`,
+    accessKeyId: validatedEnvironmentVariable(Environment.AWS_ACCESS_KEY_ID),
+    bucket: validatedEnvironmentVariable(Environment.AWS_BUCKET),
+    region: validatedEnvironmentVariable(Environment.AWS_REGION),
+    secretAccessKey: validatedEnvironmentVariable(Environment.AWS_SECRET_ACCESS_KEY),
+    uploadUrl: `https://${validatedEnvironmentVariable(Environment.AWS_BUCKET)}.s3.amazonaws.com`,
   },
   dev: env !== "production",
   env,
   googleMaps: {
-    apiKey: validatedEnvironmentVariable("GOOGLE_MAPS_APIKEY"),
+    apiKey: validatedEnvironmentVariable(Environment.GOOGLE_MAPS_APIKEY),
   },
-  logNamespace,
   mongo: {
-    uri: validatedEnvironmentVariable("MONGODB_URI"),
+    uri: validatedEnvironmentVariable(Environment.MONGODB_URI),
   },
   server: {
     listenPort: 5001,

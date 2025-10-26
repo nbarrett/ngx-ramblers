@@ -199,7 +199,6 @@ describe("WalkDisplayService", () => {
         memberId: ""
       });
       const actual = service.toWalkAccessMode(createExtendedGroupEvent(dateUtilsService, anyWalkDate, dontCare, "another-walk-leader-id"));
-      // console.log("actual", JSON.stringify(actual));
       expect(actual).toEqual(WalksReferenceService.walkAccessModes.view);
     });
   });

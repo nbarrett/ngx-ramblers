@@ -1,12 +1,13 @@
 import express, { Express, NextFunction, Request, Response } from "express";
 import path from "path";
 import debug from "debug";
+import { envConfig } from "../env-config/env-config";
 
 const debugLog = debug("serenity-reports");
 debugLog.enabled = true;
 
 export function setupSerenityReports(app: Express): void {
-  const folderNavigationsUp = process.env.NODE_ENV === "production" ? "../../../../" : "../../";
+  const folderNavigationsUp = envConfig.isProduction() ? "../../../../" : "../../";
   const serenityRelativePath = "target/site/serenity";
   const serenityAbsolutePath: string = path.join(__dirname, folderNavigationsUp, serenityRelativePath);
   const reportsEndpoint = `/reports/${serenityRelativePath}`;

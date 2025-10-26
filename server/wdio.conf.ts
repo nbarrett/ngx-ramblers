@@ -3,6 +3,7 @@ import { Duration } from "@serenity-js/core";
 import { browser } from "@wdio/globals";
 import { ConsoleReporter } from "@serenity-js/console-reporter";
 import { DomainEventPublisher } from "./lib/serenity-js/screenplay/crew/DomainEventPublisher";
+import { Environment } from "./lib/env-config/environment-model";
 
 const featuresDirectory = "lib/serenity-js/features";
 const outputDirectory = "target/site/serenity";
@@ -23,14 +24,14 @@ export const config: WebdriverIOConfig = {
   },
   outputDir: outputDirectory,
   specs: [
-    featuresDirectory + "/" + (process.env.RAMBLERS_FEATURE || "walks-upload.ts")
+    featuresDirectory + "/" + (process.env[Environment.RAMBLERS_FEATURE] || "walks-upload.ts")
   ],
   exclude: [],
   maxInstances: 1,
   capabilities: [{
 
     browserName: "chrome",
-    browserVersion: process.env.CHROME_VERSION,
+    browserVersion: process.env[Environment.CHROME_VERSION],
     acceptInsecureCerts: true,
     "goog:chromeOptions": {
       args: [
@@ -46,7 +47,7 @@ export const config: WebdriverIOConfig = {
   }],
   logLevel: "info",
   bail: 0,
-  baseUrl: process.env.BASE_URL,
+  baseUrl: process.env[Environment.BASE_URL],
   waitforTimeout: TWO_MINUTES_IN_MILLIS,
   connectionRetryTimeout: TWO_MINUTES_IN_MILLIS,
   connectionRetryCount: 3,

@@ -57,7 +57,7 @@ export async function systemStatus(req: Request, res: Response<Partial<HealthRes
     const applied = migrationStatus.files.filter(f => f.status === MigrationFileStatus.APPLIED).length;
     const failed = migrationStatus.files.some(f => f.status === MigrationFileStatus.FAILED);
 
-    const isHealthy = !failed;
+    const isHealthy = !failed && pending === 0;
 
     debugLog("files count:", migrationStatus.files.length);
 
@@ -75,7 +75,7 @@ export async function systemStatus(req: Request, res: Response<Partial<HealthRes
       ...base,
       environment: {
         env: envConfig.env,
-        nodeEnv: process.env.NODE_ENV
+        nodeEnv: envConfig.env
       },
       aws: {
         region: awsConfig?.region,

@@ -1,4 +1,4 @@
-import { escapeRegExp, isNumber } from "es-toolkit/compat";
+import { escapeRegExp, isBoolean, isNumber } from "es-toolkit/compat";
 
 export const uidFormat = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
 
@@ -68,4 +68,8 @@ export function humaniseFileStemFromUrl(input: string): string {
     const raw = decodeURIComponent((input || "").split("/").pop() || "").replace(/\.[^.]+$/, "");
     return raw.replace(/[\-_]+/g, " ").replace(/\s+/g, " ").trim();
   }
+}
+
+export function booleanOf(value: string | boolean) {
+  return isBoolean(value) ? value : (["true", "false"].includes(value)) ? value === "true" : false;
 }

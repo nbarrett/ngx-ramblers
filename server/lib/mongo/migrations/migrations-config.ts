@@ -1,4 +1,5 @@
 import * as path from "path";
+import { envConfig } from "../../env-config/env-config";
 
 export interface MigrateMongoConfig {
   mongodb: {
@@ -16,7 +17,7 @@ export interface MigrateMongoConfig {
 
 export const migrateMongoConfig: MigrateMongoConfig = {
   mongodb: {
-    url: process.env.MONGODB_URI || "mongodb://localhost:27017",
+    url: envConfig.mongo.uri,
     options: {}
   },
 
@@ -28,7 +29,7 @@ export const migrateMongoConfig: MigrateMongoConfig = {
 
   lockTtl: 300,
 
-  migrationFileExtension: process.env.NODE_ENV === "production" ? ".js" : ".ts",
+  migrationFileExtension: ".js",
 
   useFileHash: false,
 
