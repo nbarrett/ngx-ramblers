@@ -135,17 +135,12 @@ export class CommitteeHomeComponent implements OnInit, OnDestroy {
         if (!response) {
           const unresolvedColumns: Promise<PageContentColumn>[] = this.committeeQueryService.committeeFileYears()
             .map(async (year: CommitteeYear) => {
-              const contentTextId: string = (await this.contentTextService.create({
-                name: `committee-year-${year.year}`,
-                category: "committee-years",
-                text: `View committee files for ${year.year}`
-              })).id;
               const column: PageContentColumn = {
                 accessLevel: AccessLevel.public,
                 title: year.year.toString(),
                 icon: "faCalendarAlt",
                 href: `committee/${year.year}`,
-                contentTextId
+                contentText: `View committee files for ${year.year}`
               };
               return column;
             });

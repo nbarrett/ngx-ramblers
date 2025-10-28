@@ -1,8 +1,6 @@
 import { inject, Injectable } from "@angular/core";
-import { first } from "es-toolkit/compat";
-import { kebabCase } from "es-toolkit/compat";
+import { cloneDeep, first, isEqual, kebabCase, remove } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
-import { NamedEvent, NamedEventType } from "../models/broadcast.model";
 import {
   ActionType,
   AlbumData,
@@ -11,7 +9,8 @@ import {
   ColumnInsertData,
   ContentText,
   DEFAULT_GALLERY_OPTIONS,
-  DEFAULT_GRID_OPTIONS, HasMaxColumns,
+  DEFAULT_GRID_OPTIONS,
+  HasMaxColumns,
   HasPageContentRows,
   PageContent,
   PageContentColumn,
@@ -21,15 +20,11 @@ import {
 } from "../models/content-text.model";
 import { AccessLevel } from "../models/member-resource.model";
 import { move } from "../functions/arrays";
-import { BroadcastService } from "./broadcast-service";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { NumberUtilsService } from "./number-utils.service";
 import { StringUtilsService } from "./string-utils.service";
 import { KeyValue } from "../functions/enums";
-import { remove } from "es-toolkit/compat";
-import { cloneDeep } from "es-toolkit/compat";
 import { UrlService } from "./url.service";
-import { ContentTextService } from "./content-text.service";
 
 @Injectable({
   providedIn: "root"
@@ -38,8 +33,6 @@ export class PageContentActionsService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("PageContentActionsService", NgxLoggerLevel.ERROR);
   private stringUtils = inject(StringUtilsService);
-  private broadcastService = inject<BroadcastService<PageContent>>(BroadcastService);
-  private contentTextService = inject(ContentTextService);
   private urlService = inject(UrlService);
   private numberUtils = inject(NumberUtilsService);
   public rowsInEdit: number[] = [];
@@ -49,13 +42,13 @@ export class PageContentActionsService {
   public draggedColumnSourceRow: PageContentRow = null;
   public draggedNestedColumnIndex: number = null;
   public draggedNestedRowIndex: number = null;
-  public draggedColumnIsNested: boolean = false;
+  public draggedColumnIsNested = false;
   public dragStartX: number = null;
   public dragStartY: number = null;
-  public dragHasMoved: boolean = false;
+  public dragHasMoved = false;
   public dragOverColumnRowIndex: number = null;
   public dragOverColumnIndex: number = null;
-  public dragInsertAfter: boolean = false;
+  public dragInsertAfter = false;
 
   public actionType(columnIndex: number, rowIndex: number, rowIsNested: boolean): string {
     const actionType = rowIsNested ? columnIndex >= 0 ?
@@ -74,7 +67,7 @@ export class PageContentActionsService {
   }
 
   public initialView(column: PageContentColumn): View {
-    return column?.contentTextId ? View.VIEW : View.EDIT;
+    return View.EDIT;
   }
 
   public view(): View {
@@ -89,17 +82,16 @@ export class PageContentActionsService {
     return (pageContent?.rows?.map(row => row.columns.map(col => this.urlService.pathOnlyFrom(col?.href))?.filter(item => item)))?.flat(2) || [];
   }
 
-  saveContentTextId(contentText: ContentText, column: PageContentColumn) {
-    this.logger.info("saveContentTextId:", contentText, "for column:", column, "existing contentTextId:", column.contentTextId, "new contentTextId:", contentText?.id);
-    if (column.contentTextId !== contentText?.id) {
-      column.contentTextId = contentText?.id;
-    }
-  }
-
-  saveInlineContentText(contentText: ContentText, column: PageContentColumn) {
-    this.logger.info("saveInlineContentText:", contentText, "for column:", column, "existing contentText:", column.contentText, "new text:", contentText?.text);
+  notifyPageContentTextChange(contentText: ContentText, column: PageContentColumn, pageContent?: PageContent) {
+    this.logger.info("notifyPageContentTextChange:contentText:", contentText,"column:", column, pageContent);
     if (column.contentText !== contentText?.text) {
       column.contentText = contentText?.text;
+    }
+    const incomingStyles = contentText?.styles ? cloneDeep(contentText.styles) : undefined;
+    const currentStyles = column?.styles;
+    const stylesChanged = !isEqual(incomingStyles, currentStyles);
+    if (stylesChanged || (!incomingStyles && currentStyles)) {
+      column.styles = incomingStyles;
     }
   }
 
@@ -164,61 +156,47 @@ export class PageContentActionsService {
     if (!column.rows) {
       column.rows = [];
       this.addRow(0, PageContentType.TEXT, column.rows);
-
-      // If the column has existing content, move it to the first nested row's first column
-      const firstNestedRow = column.rows[0];
-      const firstNestedColumn = firstNestedRow?.columns?.[0];
-
-      if (firstNestedColumn) {
-        // Transfer contentText (inline content)
-        if (column.contentText) {
-          firstNestedColumn.contentText = column.contentText;
-          delete column.contentText;
-        }
-
-        // Transfer contentTextId (referenced content)
-        if (column.contentTextId) {
-          firstNestedColumn.contentTextId = column.contentTextId;
-          delete column.contentTextId;
-        }
-
-        // Transfer image data if present
-        if (column.imageSource) {
-          firstNestedColumn.imageSource = column.imageSource;
-          delete column.imageSource;
-        }
-
-        if (column.alt) {
-          firstNestedColumn.alt = column.alt;
-          delete column.alt;
-        }
-
-        if (column.imageBorderRadius !== undefined) {
-          firstNestedColumn.imageBorderRadius = column.imageBorderRadius;
-          delete column.imageBorderRadius;
-        }
-
-        if (column.imageAspectRatio) {
-          firstNestedColumn.imageAspectRatio = column.imageAspectRatio;
-          delete column.imageAspectRatio;
-        }
-
-        if (column.showTextAfterImage !== undefined) {
-          firstNestedColumn.showTextAfterImage = column.showTextAfterImage;
-          delete column.showTextAfterImage;
-        }
-
-        if (column.showPlaceholderImage !== undefined) {
-          firstNestedColumn.showPlaceholderImage = column.showPlaceholderImage;
-          delete column.showPlaceholderImage;
-        }
-      }
+      this.transferColumnContentToNestedColumn(column, column.rows[0]?.columns?.[0]);
     }
   }
 
   removeNestedRows(column: PageContentColumn) {
     if (column.rows) {
       delete column.rows;
+    }
+  }
+
+  private transferColumnContentToNestedColumn(sourceColumn: PageContentColumn, targetColumn?: PageContentColumn) {
+    if (!targetColumn) {
+      return;
+    }
+    if (sourceColumn.contentText) {
+      targetColumn.contentText = sourceColumn.contentText;
+      delete sourceColumn.contentText;
+    }
+    if (sourceColumn.imageSource) {
+      targetColumn.imageSource = sourceColumn.imageSource;
+      delete sourceColumn.imageSource;
+    }
+    if (sourceColumn.alt) {
+      targetColumn.alt = sourceColumn.alt;
+      delete sourceColumn.alt;
+    }
+    if (sourceColumn.imageBorderRadius !== undefined) {
+      targetColumn.imageBorderRadius = sourceColumn.imageBorderRadius;
+      delete sourceColumn.imageBorderRadius;
+    }
+    if (sourceColumn.imageAspectRatio) {
+      targetColumn.imageAspectRatio = sourceColumn.imageAspectRatio;
+      delete sourceColumn.imageAspectRatio;
+    }
+    if (sourceColumn.showTextAfterImage !== undefined) {
+      targetColumn.showTextAfterImage = sourceColumn.showTextAfterImage;
+      delete sourceColumn.showTextAfterImage;
+    }
+    if (sourceColumn.showPlaceholderImage !== undefined) {
+      targetColumn.showPlaceholderImage = sourceColumn.showPlaceholderImage;
+      delete sourceColumn.showPlaceholderImage;
     }
   }
 
@@ -238,31 +216,24 @@ export class PageContentActionsService {
       {href: null, imageSource: null, title: null, accessLevel: AccessLevel.hidden};
     row.columns.splice(columnIndex, 0, columnData);
     this.logger.debug("pageContent:", pageContent);
-    this.notifyPageContentChanges(pageContent);
   }
 
   async duplicateColumn(row: PageContentRow, columnIndex: number, pageContent: PageContent) {
     const columnData: PageContentColumn = await this.duplicateContentItemsInColumn(row, columnIndex);
     row.columns.splice(columnIndex, 0, columnData);
     this.logger.debug("pageContent:", pageContent);
-    this.notifyPageContentChanges(pageContent);
   }
 
   async duplicateRow(row: PageContentRow, rowIndex: number, pageContent: PageContent) {
     const pageContentRow: PageContentRow = await this.duplicateContentItemsInRow(row);
     pageContent.rows.splice(rowIndex, 0, pageContentRow);
     this.logger.debug("pageContent:", pageContent);
-    this.notifyPageContentChanges(pageContent);
   }
 
   private async duplicateContentItemsInColumn(row: PageContentRow, columnIndex: number): Promise<PageContentColumn> {
     const pageContentColumn = cloneDeep(row.columns[columnIndex]);
     this.logger.info("About to duplicate content items in:", row, "columnIndex:", columnIndex, "pageContentColumn:", pageContentColumn);
-    if (pageContentColumn?.contentTextId) {
-      const copiedContentText: ContentText = await this.contentTextService.copy(pageContentColumn?.contentTextId);
-      this.logger.info("Duplicated content text item for:", pageContentColumn?.contentTextId, "is:", copiedContentText, "setting copied Id:", copiedContentText.id);
-      pageContentColumn.contentTextId = copiedContentText.id;
-    }
+
     if (pageContentColumn.rows) {
       this.logger.info("Duplicating", pageContentColumn.rows.length, "nested rows in column");
       pageContentColumn.rows = await this.copyContentTextIdsInRows(pageContentColumn.rows);
@@ -282,7 +253,6 @@ export class PageContentActionsService {
     this.calculateColumnsFor(row, -1);
     row.columns = row.columns.filter((item, index) => index !== columnIndex);
     this.logger.info("pageContent:", pageContent);
-    this.notifyPageContentChanges(pageContent);
   }
 
   private calculateColumnsFor(row: PageContentRow, columnIncrement: number) {
@@ -352,22 +322,6 @@ export class PageContentActionsService {
     return kebabCase(`${identifier}-${this.rowColFor(null, columnIndex)}`);
   }
 
-  rowIdentifierFor(rowIndex: number, identifier: string): string {
-    return kebabCase(`${identifier}-${this.rowColFor(rowIndex, null)}`);
-  }
-
-  descriptionFor(rowIndex, columnIndex, identifier: string): string {
-    return (this.stringUtils.replaceAll("-", " ", this.rowColumnIdentifierFor(rowIndex, columnIndex, identifier)) as string).trim();
-  }
-
-  descriptionForContent(relativePath: string): string | number {
-    return this.stringUtils.replaceAll("-", " ", relativePath);
-  }
-
-  public notifyPageContentChanges(pageContent: PageContent) {
-    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.PAGE_CONTENT_CHANGED, pageContent));
-  }
-
   public isActionButtons(row: PageContentRow): boolean {
     return ["slides", PageContentType.ACTION_BUTTONS].includes(row?.type.toString());
   }
@@ -418,14 +372,12 @@ export class PageContentActionsService {
     const toIndex = fromIndex - 1;
     this.logger.info("moving column left fromIndex:", fromIndex, "toIndex:", toIndex);
     move(columns, fromIndex, toIndex);
-    this.notifyPageContentChanges(pageContent);
   }
 
   public moveColumnRight(columns: PageContentColumn[], fromIndex: number, pageContent: PageContent) {
     const toIndex = fromIndex + 1;
     this.logger.info("moving column left fromIndex:", fromIndex, "toIndex:", toIndex);
     move(columns, fromIndex, toIndex);
-    this.notifyPageContentChanges(pageContent);
   }
 
   public moveRowUp(pageContent: PageContent, rowIndex: number, rowIsNested: boolean, column: PageContentColumn) {
@@ -437,58 +389,36 @@ export class PageContentActionsService {
   }
 
   public unnestToPreviousOuterRow(pageContent: PageContent, nestedRowIndex: number, column: PageContentColumn) {
-    if (!column?.rows || nestedRowIndex < 0 || nestedRowIndex >= column.rows.length) {
-      this.logger.warn("Cannot unnest: invalid parameters");
-      return;
-    }
-
-    // Find the parent row that contains this column
-    const parentRowIndex = pageContent.rows.findIndex(row =>
-      row.columns.some(col => col === column)
-    );
-
-    if (parentRowIndex < 0) {
-      this.logger.warn("Cannot find parent row for column");
-      return;
-    }
-
-    // Remove the nested row
-    const [nestedRow] = column.rows.splice(nestedRowIndex, 1);
-
-    // Insert it as a regular row before the parent row
-    pageContent.rows.splice(parentRowIndex, 0, nestedRow);
-
-    this.notifyPageContentChanges(pageContent);
+    this.transferNestedRowToParent(pageContent, column, nestedRowIndex, 0);
   }
 
   public unnestToNextOuterRow(pageContent: PageContent, nestedRowIndex: number, column: PageContentColumn) {
+    this.transferNestedRowToParent(pageContent, column, nestedRowIndex, 1);
+  }
+
+  private transferNestedRowToParent(pageContent: PageContent, column: PageContentColumn, nestedRowIndex: number, parentInsertOffset: number) {
     if (!column?.rows || nestedRowIndex < 0 || nestedRowIndex >= column.rows.length) {
       this.logger.warn("Cannot unnest: invalid parameters");
       return;
     }
-
-    // Find the parent row that contains this column
-    const parentRowIndex = pageContent.rows.findIndex(row =>
-      row.columns.some(col => col === column)
-    );
-
+    const parentRowIndex = this.parentRowIndexForColumn(pageContent, column);
     if (parentRowIndex < 0) {
       this.logger.warn("Cannot find parent row for column");
       return;
     }
-
-    // Remove the nested row
     const [nestedRow] = column.rows.splice(nestedRowIndex, 1);
+    if (!nestedRow) {
+      return;
+    }
+    pageContent.rows.splice(parentRowIndex + parentInsertOffset, 0, nestedRow);
+  }
 
-    // Insert it as a regular row after the parent row
-    pageContent.rows.splice(parentRowIndex + 1, 0, nestedRow);
-
-    this.notifyPageContentChanges(pageContent);
+  private parentRowIndexForColumn(pageContent: PageContent, column: PageContentColumn): number {
+    return pageContent.rows.findIndex(row => row.columns.includes(column));
   }
 
   public reorderRows(pageContent: PageContent, fromIndex: number, toIndex: number) {
     move(pageContent.rows, fromIndex, toIndex);
-    this.notifyPageContentChanges(pageContent);
   }
 
   public moveColumnBetweenRows(sourceRow: PageContentRow, sourceIndex: number, targetRow: PageContentRow, targetIndex: number, pageContent: PageContent) {
@@ -501,7 +431,6 @@ export class PageContentActionsService {
     const targetIncrement = 1;
     this.calculateColumnsFor(sourceRow, sourceIncrement);
     this.calculateColumnsFor(targetRow, targetIncrement);
-    this.notifyPageContentChanges(pageContent);
   }
 
   public moveColumnToPreviousRow(pageContent: PageContent, currentRow: PageContentRow, columnIndex: number) {
@@ -512,7 +441,6 @@ export class PageContentActionsService {
       this.calculateColumnsFor(currentRow, -1);
       const [col] = currentRow.columns.splice(columnIndex, 1);
       rows[rowIndex - 1].columns.push(col);
-      this.notifyPageContentChanges(pageContent);
     }
   }
 
@@ -524,7 +452,6 @@ export class PageContentActionsService {
       this.calculateColumnsFor(currentRow, -1);
       const [col] = currentRow.columns.splice(columnIndex, 1);
       rows[rowIndex + 1].columns.unshift(col);
-      this.notifyPageContentChanges(pageContent);
     }
   }
 
@@ -559,7 +486,6 @@ export class PageContentActionsService {
     }
 
     rows.splice(rowIndex, 1);
-    this.notifyPageContentChanges(pageContent);
   }
 
   public joinWithNextRow(pageContent: PageContent, currentRow: PageContentRow, nestedParentColumn?: PageContentColumn) {
@@ -593,7 +519,6 @@ export class PageContentActionsService {
     }
 
     rows.splice(rowIndex + 1, 1);
-    this.notifyPageContentChanges(pageContent);
   }
 
   public canJoinRows(row1: PageContentRow, row2: PageContentRow): boolean {
@@ -615,7 +540,6 @@ export class PageContentActionsService {
       column.columns = base + extra;
       if (remainder > 0) { remainder--; }
     });
-    this.notifyPageContentChanges(pageContent);
   }
 
   public moveColumnToEmptyRow(sourceRow: PageContentRow, sourceIndex: number, targetRow: PageContentRow, pageContent: PageContent) {
@@ -624,7 +548,6 @@ export class PageContentActionsService {
     if (!targetRow.columns) { targetRow.columns = []; }
     col.columns = 12;
     targetRow.columns.splice(0, 0, col);
-    this.notifyPageContentChanges(pageContent);
   }
 
   public moveColumnToFirstEmptyRow(pageContent: PageContent, currentRow: PageContentRow, columnIndex: number) {
@@ -689,10 +612,6 @@ export class PageContentActionsService {
 
   public async copyContentTextItemsInRow(row: PageContentRow): Promise<void> {
     for (const column of row.columns) {
-      if (column.contentTextId) {
-        const copiedContentText: ContentText = await this.contentTextService.copy(column.contentTextId);
-        column.contentTextId = copiedContentText.id;
-      }
       if (column.rows) {
         column.rows = await this.copyContentTextIdsInRows(column.rows);
       }

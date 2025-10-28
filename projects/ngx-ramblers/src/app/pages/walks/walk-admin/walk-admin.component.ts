@@ -25,7 +25,7 @@ import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
                   <fa-icon [icon]="faFileExport" class="fa-3x ramblers"/>
                   <h5>Ramblers Walk Export</h5>
                 </div>
-                <app-markdown-editor class="item-text" name="ramblers-export-help"
+                <app-markdown-editor standalone class="item-text" name="ramblers-export-help"
                                      description="Ramblers export help"/>
               </div>
             </div>
@@ -35,7 +35,7 @@ import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
                   <fa-icon [icon]="faFileImport" class="fa-3x ramblers"/>
                   <h5>Ramblers Walk Import</h5>
                 </div>
-                <app-markdown-editor class="item-text" name="ramblers-import-help"
+                <app-markdown-editor standalone class="item-text" name="ramblers-import-help"
                                      description="Ramblers import help"/>
               </div>
             </div>
@@ -45,7 +45,7 @@ import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
                   <fa-icon [icon]="faCalendarPlus" class="fa-3x calendar"/>
                   <h5>Add Walk Slots</h5>
                 </div>
-                <app-markdown-editor class="item-text" name="add-walks-slots-help"
+                <app-markdown-editor standalone class="item-text" name="add-walks-slots-help"
                                      description="Add walk slots help"/>
               </div>
             </div>
@@ -55,7 +55,7 @@ import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
                   <fa-icon [icon]="faMeetup" class="fa-3x meetup"/>
                   <h5>Meetup Settings</h5>
                 </div>
-                <app-markdown-editor class="item-text" name="meetup-settings-help"
+                <app-markdown-editor standalone class="item-text" name="meetup-settings-help"
                                      description="Meetup settings help"/>
               </div>
             </div>
@@ -65,7 +65,7 @@ import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
                   <fa-icon [icon]="faDatabase" class="fa-3x meetup"/>
                   <h5>Event Data Management</h5>
                 </div>
-                <app-markdown-editor class="item-text" name="event-data-management-help"
+                <app-markdown-editor standalone class="item-text" name="event-data-management-help"
                                      description="Event data management help"/>
               </div>
             </div>

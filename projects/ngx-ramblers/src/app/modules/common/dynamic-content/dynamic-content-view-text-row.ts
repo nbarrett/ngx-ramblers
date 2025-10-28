@@ -109,14 +109,9 @@ import { AreaMapComponent } from "../../../pages/area-map/area-map";
                     </app-card-image>
                   }
                   <app-markdown-editor [text]="column.contentText"
+                                       [styles]="column?.styles"
                                        [name]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentPath)"
-                                       [category]="contentPath">
-                  </app-markdown-editor>
-                }
-                @if (column?.contentTextId) {
-                  <app-markdown-editor [id]="column?.contentTextId"
-                                       queryOnlyById>
-                  </app-markdown-editor>
+                                       [category]="contentPath"/>
                 }
                 @if (showImageAfterText(column)) {
                   <app-card-image

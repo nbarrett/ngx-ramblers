@@ -7,12 +7,14 @@ import { PageContentService } from "../../../services/page-content.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
 import { FormsModule } from "@angular/forms";
+import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
+import { NgxLoggerLevel } from "ngx-logger";
 
 @Component({
   selector: "app-fragment-index",
   template: `
     <app-page autoTitle>
-      <app-markdown-editor category="admin" name="fragment-index"/>
+      <app-markdown-editor standalone category="admin" name="fragment-index"/>
       <div class="mb-3 d-flex align-items-center flex-nowrap">
         <input class="form-control flex-grow-1" style="min-width: 0" type="text" placeholder="Filter by path"
                [ngModel]="searchTerm()" (ngModelChange)="onSearchChange($event)">
@@ -43,7 +45,9 @@ import { FormsModule } from "@angular/forms";
   imports: [MarkdownEditorComponent, PageComponent, DynamicContentViewComponent, FormsModule]
 })
 export class FragmentIndexComponent {
+  private logger: Logger = inject(LoggerFactory).createLogger("PageContentNavigatorComponent", NgxLoggerLevel.ERROR);
   constructor() {
+    this.logger.info("PageContentNavigatorComponent created");
     effect(async () => {
       await this.load();
     });
@@ -55,11 +59,6 @@ export class FragmentIndexComponent {
 
   all = signal<PageContent[]>([]);
   fragments = computed<PageContent[]>(() => this.all().filter(p => (p.path || "").replace(/^\/+/, "").startsWith("fragments/")));
-  private normaliseFragmentPath(value: string): string {
-    const reformatted = this.urlService.reformatLocalHref(value || "");
-    return reformatted.replace(/^\/+/, "");
-  }
-
   fragmentIdsByPath = computed<Record<string, string[]>>(() => {
     const map: Record<string, string[]> = {};
     for (const f of this.fragments()) {
@@ -81,6 +80,11 @@ export class FragmentIndexComponent {
     return this.fragments().filter(f => (f.path || "").toLowerCase().includes(term));
   });
   private searchDebounce: any;
+
+  private normaliseFragmentPath(value: string): string {
+    const reformatted = this.urlService.reformatLocalHref(value || "");
+    return reformatted.replace(/^\/+/, "");
+  }
 
   async load(): Promise<void> {
     const content = await this.pageContentService.all();

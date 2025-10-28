@@ -40,7 +40,7 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
               <app-card-image
                 [height]="row.carousel?.coverImageHeight"
                 [borderRadius]="row.carousel?.coverImageBorderRadius"
-                          [imageSource]="urlService.imageSourceFor({image:lazyLoadingMetadata.contentMetadata?.coverImage},
+                [imageSource]="urlService.imageSourceFor({image:lazyLoadingMetadata.contentMetadata?.coverImage},
                                   lazyLoadingMetadata.contentMetadata)">
               </app-card-image>
             }

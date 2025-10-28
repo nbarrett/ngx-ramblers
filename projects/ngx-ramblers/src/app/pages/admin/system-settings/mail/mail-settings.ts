@@ -67,8 +67,8 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                     <div class="thumbnail-heading">Global Settings</div>
                     <div class="row">
                       <div class="col-sm-12 mb-3 mx-2">
-                        <app-markdown-editor category="admin" name="mail-settings-global-help"
-                        description="Mail Settings Global Configuration Help"></app-markdown-editor>
+                        <app-markdown-editor standalone category="admin" name="mail-settings-global-help"
+                        description="Mail Settings Global Configuration Help"/>
                       </div>
                     </div>
                     <div class="col-sm-12">
@@ -133,8 +133,8 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                       <div class="thumbnail-heading">Account Profile</div>
                       <div class="row">
                         <div class="col-sm-12 mt-2 mb-2">
-                          <app-markdown-editor category="admin" name="mail-settings-account-help"
-                          description="Mail Settings Account Help"></app-markdown-editor>
+                          <app-markdown-editor standalone category="admin" name="mail-settings-account-help"
+                          description="Mail Settings Account Help"/>
                         </div>
                       </div>
                       <div class="row align-items-end">
@@ -221,7 +221,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                   <div class="thumbnail-heading-frame">
                     <div class="thumbnail-heading">List Settings</div>
                     <div class="col-sm-12 mb-3">
-                      <app-markdown-editor category="admin" name="mail-settings-list-settings"></app-markdown-editor>
+                      <app-markdown-editor standalone category="admin" name="mail-settings-list-settings"/>
                     </div>
                     <div class="px-3">
                       <div class="row">

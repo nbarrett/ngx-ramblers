@@ -197,7 +197,7 @@ async function createPageContent(content: ScrapedPage, contentTextItems: Content
           type: PageContentType.TEXT,
           maxColumns: 1,
           showSwiper: false,
-          columns: [{columns: 12, contentTextId: contentText.id}]
+          columns: [{columns: 12, contentText: contentText.text}]
         });
       } else if (segment.image) {
         const imageSource = uploadTos3 ? await uploadImageToS3(segment.image) : segment.image.src;
@@ -209,7 +209,7 @@ async function createPageContent(content: ScrapedPage, contentTextItems: Content
             maxColumns: 2,
             showSwiper: false,
             columns: [
-              {columns: 9, contentTextId: contentText.id},
+              {columns: 9, contentText: contentText.text},
               {columns: 3, imageSource, imageBorderRadius: 6}
             ]
           });

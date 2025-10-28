@@ -13,7 +13,7 @@ import {
 import { Identifiable } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("transforms"));
-debugLog.enabled = false;
+debugLog.enabled = true;
 
 export function toObjectWithId(document: any) {
   if (!document) {

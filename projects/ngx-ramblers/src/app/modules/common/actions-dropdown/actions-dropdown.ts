@@ -11,11 +11,10 @@ import {
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
-import { textStyleSelectors } from "../../../models/system.model";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgClass } from "@angular/common";
-import { ColourSelectorComponent } from "../../../pages/banner/colour-selector";
+import { ContentFormattingSelectorComponent } from "../content-formatting-selector/content-formatting-selector";
 
 @Component({
     selector: "app-actions-dropdown",
@@ -165,39 +164,13 @@ import { ColourSelectorComponent } from "../../../pages/banner/colour-selector";
           </li>
         }
         @if (allowColumnActions() && markdownEditorComponentInjected()) {
-          <hr>
-          <div class="ms-2">Bullet style</div>
-          <a (click)="assignListStyleTo(ListStyle.ARROW)" class="dropdown-item">
-            <li role="menuitem" class="list-style-arrow">
-              <small class="p-2"
-                     [ngClass]="{'font-weight-bold': listStyleIs(ListStyle.ARROW)}">{{ listStyleIs(ListStyle.ARROW) ? 'Selected' : '' }}</small>
-            </li>
-          </a>
-          <a (click)="assignListStyleTo(ListStyle.TICK_MEDIUM)" class="dropdown-item">
-            <li role="menuitem" class="list-style-tick-medium">
-              <small class="p-2"
-                     [ngClass]="{'font-weight-bold': listStyleIs(ListStyle.TICK_MEDIUM)}">{{ listStyleIs(ListStyle.TICK_MEDIUM) ? 'Selected' : '' }}</small>
-            </li>
-          </a>
-          <a (click)="assignListStyleTo(ListStyle.TICK_LARGE)" class="dropdown-item">
-            <li role="menuitem" class="list-style-tick-large">
-              <small class="p-2"
-                     [ngClass]="{'font-weight-bold': listStyleIs(ListStyle.TICK_LARGE)}">{{ listStyleIs(ListStyle.TICK_LARGE) ? 'Selected' : '' }}</small>
-            </li>
-          </a>
-          <a (click)="assignListStyleTo(ListStyle.NO_IMAGE)" class="dropdown-item">
-            <li role="menuitem" class="list-style-none"><small>(no image)</small>
-              <small class="p-2"
-                     [ngClass]="{'font-weight-bold': listStyleIs(ListStyle.NO_IMAGE)}">{{ listStyleIs(ListStyle.NO_IMAGE) ? 'Selected' : '' }}</small>
-            </li>
-          </a>
-          <hr>
-          <div class="ms-2 mb-2">Styling Options</div>
-          <a (click)="backgroundColourClick($event)" class="dropdown-item">
-            <li role="menuitem">
-              <app-colour-selector noLabel [colours]="textStyleSelectors" [itemWithClassOrColour]="styles()"/>
-            </li>
-          </a>
+          <li><hr class="dropdown-divider"></li>
+          <app-content-formatting-selector
+            [styles]="styles()"
+            [standaloneMenu]="false"
+            (listStyleChange)="assignListStyleTo($event)"
+            (textStyleChange)="assignTextStyleTo($event)">
+          </app-content-formatting-selector>
         }
         @if (showRowActions && allowTextRowActions()) {
           <li role="menuitem">
@@ -229,7 +202,7 @@ import { ColourSelectorComponent } from "../../../pages/banner/colour-selector";
         }
       </ul>
     </div>`,
-    imports: [BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective, NgClass, ColourSelectorComponent]
+    imports: [BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective, NgClass, ContentFormattingSelectorComponent]
 })
 export class ActionsDropdownComponent implements OnInit {
 
@@ -245,7 +218,6 @@ export class ActionsDropdownComponent implements OnInit {
   private markdownEditorComponent: MarkdownEditorComponent;
   protected readonly faTableCells = faTableCells;
   protected readonly ListStyle = ListStyle;
-  protected readonly textStyleSelectors = textStyleSelectors;
   @Input() public fullWidth = false;
   @Input() public pageContent: PageContent;
   @Input() public row: PageContentRow;
@@ -339,8 +311,8 @@ export class ActionsDropdownComponent implements OnInit {
     this.markdownEditorComponent.assignListStyleTo(listStyle);
   }
 
-  listStyleIs(listStyle: ListStyle): boolean {
-    return this.markdownEditorComponent.listStyleIs(listStyle);
+  assignTextStyleTo(className: string) {
+    this.markdownEditorComponent.assignTextStyleTo(className);
   }
 
   actionClicked($event: MouseEvent) {
@@ -354,11 +326,6 @@ export class ActionsDropdownComponent implements OnInit {
   styles(): ContentTextStyles {
     this.logger.info("markdownEditorComponent content:", this?.markdownEditorComponent?.content, "background:", this?.markdownEditorComponent?.content?.styles?.class);
     return this?.markdownEditorComponent?.content?.styles;
-  }
-
-  backgroundColourClick($event: MouseEvent) {
-    this.logger.info("backgroundColourClick:", $event);
-    $event.stopPropagation();
   }
 
   public actionType(): string {

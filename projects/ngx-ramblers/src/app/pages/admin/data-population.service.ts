@@ -126,11 +126,6 @@ export class DataPopulationService {
         category: "admin"
       },
       {
-        name: "duplicate-content-text-navigator",
-        text: "This page allows the content administrator to navigate to the content text items that are referenced from multiple locations on the site. It's not normal for this to be the case, because content changes from one page on the site will cause another page on the site to be updated with the same content. This page allows potentially duplicated content to be identified and to be navigated to, so that it can be unlinked and created as new separate content, or for the duplicate content to be deleted.",
-        category: "admin"
-      },
-      {
         name: "page-content-navigator",
         text: "This page allows the content administrator to navigate and manage all page content items. It provides two viewing modes: **Duplicates** to identify and resolve page content items where more than one item has the same content path, and **All Content** to browse and manage all page content. You can filter by path and perform bulk operations on page content items.",
         category: "admin"
@@ -315,13 +310,6 @@ export class DataPopulationService {
         icon: "faImages",
         href: "admin/carousel-editor",
         contentText: "Edit photos that are used in albums across the website"
-      },
-      {
-        accessLevel: AccessLevel.committee,
-        title: "Duplicate Content Text",
-        icon: "faPencil",
-        href: "admin/duplicate-content-text-navigator",
-        contentText: "Allows the user to navigate to the content text items that are duplicated in the system"
       },
       {
         accessLevel: AccessLevel.committee,

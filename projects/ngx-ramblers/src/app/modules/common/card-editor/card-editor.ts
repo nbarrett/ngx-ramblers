@@ -18,8 +18,6 @@ import { PageContentService } from "../../../services/page-content.service";
 import { UrlService } from "../../../services/url.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
-import { BroadcastService } from "../../../services/broadcast-service";
-import { NamedEventType } from "../../../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { CardImageComponent } from "../card/image/card-image";
 import { RouterLink } from "@angular/router";
@@ -36,11 +34,171 @@ import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-rati
 
 @Component({
     selector: "app-card-editor",
-    templateUrl: "./card-editor.html",
-    styleUrls: ["./card-editor.sass", "./../dynamic-content/dynamic-content.sass"],
+  template: `
+    <div class="card shadow clickable h-100 mb-4">
+      <app-card-image noBorderRadius
+        [smallIconContainer]="smallIconContainer"
+        [imageType]="imageType"
+        [icon]="iconService.iconForName(column.icon)"
+        [aspectRatio]="column?.imageAspectRatio"
+        [imageSource]="imageSourceOrPreview()"
+        [fixedHeight]="actions.isActionButtons(row)"
+        [height]="actions.isActionButtons(row) ? (row?.carousel?.coverImageHeight || 200) : null"
+        [imageLink]="column.href"
+        [borderRadius]="imageBorderRadius(column)"/>
+      <div [class]="columnClass()">
+        <h4 class="card-title">
+          @if (routerLink) {
+            <a class="rams-text-decoration-pink"
+               [routerLink]="routerLink"
+               target="_self">{{ column.title }}</a>
+          }
+          @if (!routerLink) {
+            <a class="rams-text-decoration-pink" [href]="column.href"
+               target="_self">{{ column.title }}</a>
+          }
+        </h4>
+        @if (pageContentEdit?.editActive) {
+          <app-image-cropper-and-resizer
+            [selectAspectRatio]="column?.imageAspectRatio?.description"
+            [preloadImage]="column?.imageSource"
+            (imageChange)="imageChanged($event)"
+            (quit)="exitImageEdit()"
+            (save)="imagedSaved($event)"/>
+        }
+        @if (siteEditActive()) {
+          <div class="form-group">
+            <label class="form-label"
+                   [for]="idFor('title')">Title</label>
+            <input [(ngModel)]="column.title"
+                   [id]="idFor('title')"
+                   class="form-control input-sm" placeholder="Enter slide title"
+                   type="text">
+          </div>
+          <form class="form-group">
+            <label class="form-label"
+                   [for]="idFor('href')">Link</label>
+            <input [(ngModel)]="column.href"
+                   name="href"
+                   autocomplete="nope"
+                   (blur)="reformatHref($event)"
+                   [typeahead]="pageContentService.siteLinks"
+                   [id]="idFor('href')"
+                   class="form-control input-sm" placeholder="Enter href value">
+          </form>
+          <div class="form-group">
+            <div class="form-check form-check-inline">
+              <input [id]="idFor('use-image')"
+                     type="radio"
+                     class="form-check-input"
+                     [name]="idFor('image-type')"
+                     [ngModel]="imageType"
+                     (change)="changeToImageType()"
+                     value="image"/>
+              <label class="form-check-label"
+                     [for]="idFor('use-image')">
+                Use Image</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input [id]="idFor('use-icon')"
+                     type="radio"
+                     [name]="idFor('image-type')"
+                     class="form-check-input"
+                     [ngModel]="imageType"
+                     (change)="changeToIconType()"
+                     value="icon"/>
+              <label class="form-check-label"
+                     [for]="idFor('use-icon')">
+                Use Icon</label>
+            </div>
+          </div>
+          @if (imageType === 'icon') {
+            <div class="form-group">
+              <label class="form-label"
+                     [for]="idFor('icon')">Icon</label>
+              <input [(ngModel)]="column.icon"
+                     [typeahead]="iconService.iconKeys"
+                     [id]="idFor('icon')"
+                     class="form-control input-sm" placeholder="Enter icon value">
+            </div>
+          }
+          @if (imageType === 'image') {
+            <div class="form-group">
+              <label class="form-label"
+                     [for]="idFor('imageSource')">Image Source</label>
+              <input [(ngModel)]="column.imageSource"
+                     [id]="idFor('imageSource')"
+                     class="form-control input-sm" placeholder="Enter image source value"
+                     type="text">
+            </div>
+            <div class="form-group">
+              <div class="form-check form-check-inline mb-0">
+                <input [name]="generateUniqueCheckboxId('show-placeholder-image')"
+                       type="checkbox" class="form-check-input"
+                       [id]="generateUniqueCheckboxId('show-placeholder-image')"
+                       [checked]="column.showPlaceholderImage"
+                       (change)="onShowPlaceholderImageChanged($event)">
+                <label class="form-check-label"
+                       [for]="generateUniqueCheckboxId('show-placeholder-image')">Show Placeholder Image
+                </label>
+              </div>
+            </div>
+            @if (column.showPlaceholderImage) {
+              <div class="form-group">
+                <app-aspect-ratio-selector
+                  label="Image Aspect Ratio"
+                  [dimensionsDescription]="column.imageAspectRatio?.description"
+                  (dimensionsChanged)="onImageAspectRatioChanged($event)">
+                </app-aspect-ratio-selector>
+              </div>
+            }
+          }
+          <div class="form-group">
+            <label [for]="idFor('access-level')">Access</label>
+            <select [(ngModel)]="column.accessLevel" [id]="idFor('access-level')"
+                    class="form-control input-sm">
+              @for (accessLevel of memberResourcesReferenceData.accessLevels(); track accessLevel.description) {
+                <option
+                  [textContent]="accessLevel.description"
+                  [ngValue]="accessLevel.id">
+                  }
+            </select>
+          </div>
+        }
+        <app-markdown-editor [presentationMode]="presentationMode"
+                             (changed)="actions.notifyPageContentTextChange($event, column, pageContent)"
+                             class="card-text"
+                             [text]="column?.contentText"
+                             [styles]="column?.styles"
+                             [actionCaptionSuffix]="'text'"
+                             [category]="pageContent.path"
+                             [description]="idFor(pageContent.path)"
+                             [name]="actions.rowColFor(rowIndex, columnIndex)">
+          @if (!pageContentEdit?.editActive) {
+            <div
+              (click)="editImage()"
+              delay=500 tooltip="edit image" class="badge-button">
+              <fa-icon [icon]="faPencil"></fa-icon>
+              <span>edit image</span>
+            </div>
+          }
+          <app-actions-dropdown [columnIndex]="columnIndex"
+                                [pageContent]="pageContent"
+                                [row]="row"/>
+        </app-markdown-editor>
+      </div>
+    </div>
+  `,
+  styleUrls: ["./../dynamic-content/dynamic-content.sass"],
+  styles: [`
+    .card-body-styled
+      border-bottom-left-radius: 0.375rem
+      border-bottom-right-radius: 0.375rem
+  `],
   imports: [CardImageComponent, RouterLink, ImageCropperAndResizerComponent, FormsModule, TypeaheadDirective, MarkdownEditorComponent, TooltipDirective, FontAwesomeModule, ActionsDropdownComponent, AspectRatioSelectorComponent]
 })
 export class CardEditorComponent implements OnInit {
+
   private logger: Logger = inject(LoggerFactory).createLogger("CardEditorComponent", NgxLoggerLevel.ERROR);
   memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   iconService = inject(IconService);
@@ -48,50 +206,68 @@ export class CardEditorComponent implements OnInit {
   siteEditService = inject(SiteEditService);
   pageContentService = inject(PageContentService);
   actions = inject(PageContentActionsService);
-  private broadcastService = inject<BroadcastService<number>>(BroadcastService);
   private numberUtils = inject(NumberUtilsService);
-
-  @Output() pageContentEditEvents: EventEmitter<PageContentEditEvent> = new EventEmitter();
-  @Input()
-  public pageContent: PageContent;
-  @Input()
-  public column: PageContentColumn;
-  @Input()
-  public rowIndex: number;
-  @Input()
-  public smallIconContainer: boolean;
-  public presentationMode: boolean;
 
   @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {
     this.presentationMode = coerceBooleanProperty(presentationMode);
   }
+
+  @Input() public pageContent: PageContent;
+  @Input() public column: PageContentColumn;
+  @Input() public rowIndex: number;
+  private _columnIndex: number;
+
+  @Input("columnIndex") set columnIndexValue(columnIndex: number) {
+    this._columnIndex = columnIndex;
+    if (this.pageContentEdit) {
+      this.pageContentEdit.columnIndex = columnIndex;
+    }
+  }
+
+  @Input() public smallIconContainer: boolean;
+  @Output() pageContentEditEvents: EventEmitter<PageContentEditEvent> = new EventEmitter();
+  public presentationMode: boolean;
   public pageContentEdit: PageContentEditEvent;
   public row: PageContentRow;
   public awsFileData: AwsFileData;
   public faPencil: IconDefinition = faPencil;
   public imageType: ImageType;
-  public columnIndex: number;
   public routerLink: string;
   private uniqueCheckboxId: string;
   protected readonly PageContentType = PageContentType;
 
+  get columnIndex(): number {
+    return this._columnIndex;
+  }
+
+  columnClass(): string {
+    const custom = this.column?.styles?.class;
+    if (custom) {
+      return ["card-body", "card-body-styled", custom].join(" ");
+    } else {
+      return "card-body";
+    }
+  }
+
+  imageBorderRadius(column: PageContentColumn): number | undefined {
+    return column?.imageBorderRadius;
+  }
+
   ngOnInit() {
     this.uniqueCheckboxId = `card-editor-${this.numberUtils.generateUid()}`;
     this.row = this.pageContent.rows[this.rowIndex];
-    this.columnIndex = this.row.columns.indexOf(this.column);
+    const initialColumnIndex = this._columnIndex;
+    this.row.columns.indexOf(this.column);
+    this._columnIndex = initialColumnIndex;
     this.imageType = (this.column.imageSource || this.column.showPlaceholderImage) ? ImageType.IMAGE : ImageType.ICON;
     this.pageContentEdit = {
       path: this.pageContent.path,
-      columnIndex: this.columnIndex,
+      columnIndex: initialColumnIndex,
       rowIndex: this.rowIndex,
       editActive: false
     };
     this.routerLink = this.urlService.routerLinkUrl(this.column.href);
     this.logger.debug("ngOnInit:column", this.column, "this.row:", this.row, "this.imageType:", this.imageType, "pageContentEdit:", this.pageContentEdit, "content path:", this.pageContent.path);
-    this.broadcastService.on(NamedEventType.PAGE_CONTENT_CHANGED, (pageContentData) => {
-      this.logger.info("received:", pageContentData);
-      this.columnIndexChanged();
-    });
   }
 
   generateUniqueCheckboxId(suffix: string): string {
@@ -126,16 +302,6 @@ export class CardEditorComponent implements OnInit {
     this.column.imageAspectRatio = dimensions;
   }
 
-
-  columnIndexChanged() {
-    const oldIndex = this.columnIndex;
-    const newIndex = this.row.columns.indexOf(this.column);
-    if (oldIndex !== newIndex) {
-      this.columnIndex = newIndex;
-      this.pageContentEdit.columnIndex = this.columnIndex;
-      this.logger.info("columnIndexChanged from:", oldIndex, "to:", this.columnIndex);
-    }
-  }
 
   imageChanged(awsFileData: AwsFileData) {
     this.logger.info("imageChanged:", awsFileData);
@@ -196,4 +362,5 @@ export class CardEditorComponent implements OnInit {
       return this.siteEditService.active();
     }
   }
+
 }

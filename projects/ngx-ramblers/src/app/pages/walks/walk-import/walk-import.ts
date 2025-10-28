@@ -87,9 +87,9 @@ import { InputSource } from "../../../models/group-event.model";
       <div class="row">
         <div class="col-sm-12 mb-3 mx-2">
           @if (importData.inputSource === ImportSource.WALKS_MANAGER_IMPORT) {
-            <app-markdown-editor name="ramblers-import-help-page" description="Ramblers import help page"/>
+            <app-markdown-editor standalone name="ramblers-import-help-page" description="Ramblers import help page"/>
           } @else {
-            <app-markdown-editor name="file-import-help-page" description="File import help page"/>
+            <app-markdown-editor standalone name="file-import-help-page" description="File import help page"/>
           }
         </div>
       </div>

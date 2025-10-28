@@ -39,8 +39,8 @@ import { NgClass } from "@angular/common";
                 @if (committeeConfig) {
                   <div class="img-thumbnail thumbnail-admin-edit">
                     <div class="col-sm-12 mt-2 mb-2">
-                      <app-markdown-editor category="admin" name="committee-roles-help"
-                                           description="Committee roles help"></app-markdown-editor>
+                      <app-markdown-editor standalone category="admin" name="committee-roles-help"
+                                           description="Committee roles help"/>
                     </div>
                     <div class="col-sm-12">
                       <app-badge-button [disabled]="oneOrMoreRolesNotSaved()" [icon]="faAdd" (click)="createNewRole()"
@@ -61,8 +61,8 @@ import { NgClass } from "@angular/common";
                 <div class="img-thumbnail thumbnail-admin-edit">
                   <div class="row">
                     <div class="col-sm-12 mt-2 mb-2">
-                      <app-markdown-editor category="admin" name="committee-file-types-help"
-                                           description="Committee file types help"></app-markdown-editor>
+                      <app-markdown-editor standalone category="admin" name="committee-file-types-help"
+                                           description="Committee file types help"/>
                     </div>
                   </div>
                   <div class="badge-button mb-3" (click)="addFileType()"
@@ -105,8 +105,8 @@ import { NgClass } from "@angular/common";
                 <div class="img-thumbnail thumbnail-admin-edit">
                   <div class="row">
                     <div class="col-sm-12 mt-2 mb-2">
-                      <app-markdown-editor category="admin" name="committee-expenses-help"
-                                           description="Committee file expenses help"></app-markdown-editor>
+                      <app-markdown-editor standalone category="admin" name="committee-expenses-help"
+                                           description="Committee file expenses help"/>
                     </div>
                   </div>
                   <div class="col-sm-12">

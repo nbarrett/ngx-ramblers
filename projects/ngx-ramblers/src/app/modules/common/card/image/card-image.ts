@@ -14,6 +14,7 @@ import { MediaQueryService } from "../../../../services/committee/media-query.se
 import { FALLBACK_MEDIA } from "../../../../models/walk.model";
 import { DescribedDimensions } from "../../../../models/aws-object.model";
 import { FileUtilsService } from "../../../../file-utils.service";
+import { isUndefined } from "es-toolkit/compat";
 
 @Component({
     selector: "app-card-image",
@@ -63,6 +64,7 @@ export class CardImageComponent implements OnInit {
   public constrainedHeight: number;
   public imageText = null;
   public imageSource: string;
+  public noBorderRadius = false;
 
   @Input("imageSource") set acceptChangesFrom(imageSource: string) {
     this.imageSource = imageSource || FALLBACK_MEDIA.url;
@@ -89,6 +91,10 @@ export class CardImageComponent implements OnInit {
 
   @Input("smallIconContainer") set smallIconContainerValue(smallIconContainer: boolean) {
     this.smallIconContainer = coerceBooleanProperty(smallIconContainer);
+  }
+
+  @Input("noBorderRadius") set noBorderRadiusValue(noBorderRadius: boolean) {
+    this.noBorderRadius = coerceBooleanProperty(noBorderRadius);
   }
 
   @Input() public imageType: ImageType;
@@ -151,8 +157,9 @@ export class CardImageComponent implements OnInit {
     if (this.unconstrainedHeight && !this.fixedHeight && !this.constrainedHeight) {
       styles["height"] = "auto";
     }
-    const radius = this.borderRadius !== undefined ? this.borderRadius : 6;
-    styles["border-radius.px"] = radius;
+    if (!this.noBorderRadius) {
+      styles["border-radius.px"] = !isUndefined(this.borderRadius) ? this.borderRadius : 6;
+    }
     if (this.aspectRatio && this.imageSource === FALLBACK_MEDIA.url) {
       styles["aspect-ratio"] = `${this.aspectRatio.width} / ${this.aspectRatio.height}`;
       styles["object-fit"] = "cover";

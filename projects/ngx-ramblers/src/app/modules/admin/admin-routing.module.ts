@@ -26,10 +26,6 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
         .then(m => m.ExpensesComponent), canActivate: [SystemHealthyGuard, LoggedInGuard]
     },
     {
-      path: "duplicate-content-text-navigator", loadComponent: () => import("../../pages/admin/content/duplicate-content-text-navigator")
-        .then(m => m.DuplicateContentTextNavigatorComponent), canActivate: [SystemHealthyGuard, AdminAuthGuard]
-    },
-    {
       path: "page-content-navigator", loadComponent: () => import("../../pages/admin/content/page-content-navigator")
         .then(m => m.PageContentNavigatorComponent), canActivate: [SystemHealthyGuard, AdminAuthGuard]
     },

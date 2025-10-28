@@ -79,8 +79,11 @@ export async function up(db: Db, client: MongoClient) {
               const contentTextDoc = await contentTextCollection.findOne({ _id });
               if (contentTextDoc) {
                 newCol.contentText = contentTextDoc.text || "";
+                if (contentTextDoc.styles) {
+                  newCol.styles = contentTextDoc.styles;
+                }
                 delete newCol.contentTextId;
-                debugLog(`  Inlined contentTextId ${contentTextId}`);
+                debugLog(`  Inlined contentTextId ${contentTextId}` + (contentTextDoc.styles ? " with styles" : ""));
               }
             } catch (error: any) {
               debugLog(`  Failed to inline contentTextId ${contentTextId}:`, error.message);

@@ -16,7 +16,7 @@ import { ImageListEditComponent } from "../image-list-edit/image-list-edit";
     template: `
       <app-page pageTitle="Image Editor">
         <app-login-required>
-          <app-markdown-editor allowHide="true" name="image-editor-help"
+          <app-markdown-editor standalone allowHide name="image-editor-help"
                                description="Image Editor help"/>
           @if (!editing) {
             <app-image-list-selector [name]="name"/>
