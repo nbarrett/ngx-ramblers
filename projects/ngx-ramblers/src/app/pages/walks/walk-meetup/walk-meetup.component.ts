@@ -33,7 +33,7 @@ import { LinksService } from "../../../services/links.service";
           <ng-template app-notification-directive/>
         </div>
         <div class="col-sm-12">
-          <app-markdown-editor name="meetup-help" description="Linking to Meetup"/>
+          <app-markdown-editor standalone name="meetup-help" description="Linking to Meetup"/>
         </div>
         @if (allowEdits()) {
           <div class="col-sm-12">
@@ -59,13 +59,13 @@ import { LinksService } from "../../../services/links.service";
           </div>
           <div class="col-sm-12 mb-2 mt-3">
             @if (meetupConfigExists()) {
-              <app-markdown-editor
-                [initialView]="view"
+              <app-markdown-editor [initialView]="view"
                 [name]="'meetup-event-description'"
                 [category]="ContentTextCategory.MEETUP_DESCRIPTION_PREFIX"
                 [text]="meetupEventDescription"
                 [rows]="7"
-                [description]="'Meetup event description'"/>
+                [description]="'Meetup event description'"
+                (changed)="changeContent($event)"/>
             }
           </div>
           @if (linkWithSource?.href) {
@@ -141,11 +141,10 @@ export class WalkMeetupComponent implements OnInit {
       this.logger.debug("forCategory", ContentTextCategory.MEETUP_DESCRIPTION_PREFIX + ":", contentTextItems);
       this.contentTextItems = contentTextItems;
     });
-    this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_CHANGED, (event: NamedEvent<ContentText>) => this.changeContent(event.data));
     this.broadcastService.on(NamedEventType.MEETUP_DEFAULT_CONTENT_CHANGED, (event: NamedEvent<ContentText>) => this.createMeetupDescription(event.data));
   }
 
-  private changeContent(contentText: ContentText) {
+  protected changeContent(contentText: ContentText) {
     if (contentText.category === ContentTextCategory.MEETUP_DESCRIPTION_PREFIX) {
       this.logger.info("Received changed content", contentText);
       this.linkWithSource.title = contentText.text;

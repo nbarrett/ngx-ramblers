@@ -57,8 +57,8 @@ interface RamblersGroup {
                           </div>
                       } @else {
                           <div class="mb-3">
-                              <app-markdown-editor category="admin" name="area-map-group-configuration-help"
-                                                   description="Area Map Group Configuration Help"></app-markdown-editor>
+                              <app-markdown-editor standalone category="admin" name="area-map-group-configuration-help"
+                                                   description="Area Map Group Configuration Help"/>
                           </div>
                           <div class="table-responsive mb-3">
                               <table class="table table-sm table-striped">

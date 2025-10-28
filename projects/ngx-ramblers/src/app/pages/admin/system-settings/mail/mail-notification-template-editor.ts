@@ -52,8 +52,8 @@ import { ForgotPasswordNotificationDetailsComponent } from "../../../../notifica
           </div>
         </div>
         <div class="col-sm-12 mt-2 mb-2">
-          <app-markdown-editor category="admin" name="mail-settings-email-configurations-help"
-          description="Mail Settings Email Configuration Help"></app-markdown-editor>
+          <app-markdown-editor standalone category="admin" name="mail-settings-email-configurations-help"
+          description="Mail Settings Email Configuration Help"/>
         </div>
         <div class="col-sm-12">
           <div class="row">

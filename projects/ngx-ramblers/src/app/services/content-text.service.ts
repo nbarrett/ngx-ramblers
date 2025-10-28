@@ -94,8 +94,4 @@ export class ContentTextService {
     return this.create({...contentText, id: null});
   }
 
-  // used to test content being copied incorrectly
-  async copySameId(contentTextId: string): Promise<ContentText> {
-    return await this.getById(contentTextId);
-  }
 }

@@ -62,6 +62,7 @@ type SitePasteState = { active: boolean; value: string; error?: string };
                   </ng-template>
                   <div class="col-sm-12 mt-2 mb-2">
                     <app-markdown-editor category="admin" name="migration-settings-help"
+                                         standalone
                                          description="Migration settings help"></app-markdown-editor>
                   </div>
                   <div class="col-sm-12">
@@ -680,6 +681,7 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
   public logSortDirection = "DESC";
   private pendingSessionParam: string | null = null;
   @ViewChildren("transformationDetails") transformationDetailsElements: QueryList<ElementRef<HTMLDetailsElement>>;
+  @ViewChildren(MarkdownEditorComponent) editors: QueryList<MarkdownEditorComponent>;
   private sitePasteState: Map<SiteMigrationConfig, SitePasteState> = new Map();
 
   ngOnInit() {
@@ -789,7 +791,8 @@ export class MigrationSettingsComponent implements OnInit, OnDestroy, AfterViewI
 
   save() {
     this.logger.info("saving config", this.migrationConfig);
-    return this.migrationConfigService.saveConfig(this.migrationConfig);
+    const saveEditors = (this.editors?.toArray() || []).map(e => e.save()).filter(p => !!p);
+    return Promise.all(saveEditors as any).then(() => this.migrationConfigService.saveConfig(this.migrationConfig));
   }
 
   cancel() {

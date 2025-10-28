@@ -15,7 +15,7 @@ import { FormsModule } from "@angular/forms";
       <div class="row thumbnail-heading-frame">
         <div class="thumbnail-heading">Process Mappings</div>
         <div class="col-sm-12 mb-3">
-          <app-markdown-editor category="admin" name="mail-settings-process-mappings"/>
+          <app-markdown-editor standalone category="admin" name="mail-settings-process-mappings"/>
         </div>
         <div class="col-sm-12">
           <div class="form-group">

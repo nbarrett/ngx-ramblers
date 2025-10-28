@@ -26,7 +26,7 @@ import { UiActionsService } from "../../../services/ui-actions.service";
   selector: "app-page-content-navigator",
   template: `
     <app-page autoTitle>
-      <app-markdown-editor category="admin" name="page-content-navigator"/>
+      <app-markdown-editor standalone category="admin" name="page-content-navigator"/>
       <div class="mb-3 d-flex align-items-center flex-nowrap">
         <label class="me-2 text-nowrap">View Mode: </label>
         <button class="btn btn-sm btn-primary me-2 text-nowrap"

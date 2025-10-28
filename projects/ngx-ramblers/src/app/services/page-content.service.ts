@@ -67,9 +67,9 @@ export class PageContentService {
   }
 
   async update(pageContent: PageContent): Promise<PageContent> {
-    this.logger.debug("updating", pageContent);
+    this.logger.info("updating pageContent payload:", pageContent);
     const apiResponse = await this.http.put<{ response: PageContent }>(`${this.BASE_URL}/${pageContent.id}`, pageContent).toPromise();
-    this.logger.debug("updated", pageContent, "- received", apiResponse);
+    this.logger.info("updated response:", apiResponse);
     return apiResponse.response;
   }
 

@@ -3,6 +3,7 @@ import {
   ElementRef,
   EventEmitter,
   inject,
+  Injector,
   Input,
   OnDestroy,
   OnInit,
@@ -24,35 +25,34 @@ import {
   faListOl,
   faListUl,
   faMagnifyingGlass,
+  faPaintBrush,
   faPencil,
   faQuoteRight,
   faRefresh,
   faRemove,
   faRotateLeft,
   faScissors,
-  faSpinner,
-  faUnlink
+  faSpinner
 } from "@fortawesome/free-solid-svg-icons";
 import { cloneDeep, isEmpty, isEqual, pick } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
 import {
   ContentText,
-  ContentTextUsage,
-  ContentTextUsageWithTracking,
+  ContentTextStyles,
   DataAction,
   EditorInstanceState,
   EditorState,
   HasStyles,
   ListStyle,
   ListStyleMappings,
+  SplitEvent,
   View
 } from "../models/content-text.model";
 import { BroadcastService } from "../services/broadcast-service";
 import { ContentTextService } from "../services/content-text.service";
 import { ContentConversionService } from "../services/content-conversion.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
-import { MarkdownEditorFocusService } from "../services/markdown-editor-focus-service";
 import { MigrationConfigService } from "../services/migration/migration-config.service";
 import { SiteEditService } from "../site-edit/site-edit.service";
 import { UiActionsService } from "../services/ui-actions.service";
@@ -67,8 +67,9 @@ import { FormsModule } from "@angular/forms";
 import { MarkdownComponent } from "ngx-markdown";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { KebabCasePipe } from "../pipes/kebabcase.pipe";
-import { DuplicateContentDetectionService } from "../services/duplicate-content-detection-service";
-import { ALERT_WARNING } from "../models/alert-target.model";
+import {
+  ContentFormattingSelectorComponent
+} from "../modules/common/content-formatting-selector/content-formatting-selector";
 import { UrlService } from "../services/url.service";
 import { SystemConfig } from "../models/system.model";
 import { Subscription } from "rxjs";
@@ -164,48 +165,69 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
         transform: rotate(0deg)
       to
         transform: rotate(360deg)
+
+    .editor-toolbar
+      display: inline-flex
+      align-items: center
+      flex-wrap: wrap
+      gap: 6px
+      padding: 4px 8px
+      background-color: #e9ecef
+      border: 1px solid #dee2e6
+      border-radius: .5rem
+      width: auto
+      max-width: 100%
+
+    .toolbar-item
+      display: flex
+      margin: 0
+      padding: 0
+
+    .toolbar-item .btn
+      background: transparent !important
+      border: none !important
+      width: auto
+      padding: .25rem .5rem
+      line-height: 1
+      box-shadow: none !important
+      border-radius: 0 !important
+
+    .toolbar-item .btn:hover,
+    .toolbar-item .btn:focus
+      background-color: rgba(0,0,0,.06) !important
   `],
   template: `
     @if (siteEditActive()) {
       <div class="row">
         <div class="col-12">
-          @if (buttonsAvailableOnlyOnFocus && !hideEditToggle) {
-            <app-badge-button
-              (click)="componentHasFocus() ? toggleToView() : toggleToEdit()" delay=500
-              [tooltip]="(componentHasFocus()? 'Exit edit' : 'Edit') + ' content for ' + description"
-              [icon]="faPencil" [caption]="componentHasFocus() ? 'Exit edit' : 'Edit'">
-            </app-badge-button>
+          <ng-content select="[prepend]"/>
+          @if (editorState.view && !hideEditToggle) {
+            <app-badge-button (click)="toggleEdit()" delay=500 [tooltip]="tooltip()"
+                              [icon]="icon()"
+                              [caption]="nextActionCaption()"/>
           }
-          @if (!buttonsAvailableOnlyOnFocus || componentHasFocus()) {
-            <ng-content select="[prepend]"/>
-            @if (editorState.view && !hideEditToggle) {
-              <app-badge-button (click)="toggleEdit()" delay=500 [tooltip]="tooltip()"
-                                [icon]="icon()"
-                                [caption]="nextActionCaption()"/>
-            }
-            @if (dirty() && canSave()) {
-              <app-badge-button (click)="save()" [tooltip]="'Save content for ' + description"
-                                delay=500 [icon]="saving() ? faSpinner: faCircleCheck"
-                                [caption]="'save'"/>
-            }
-            @if (hasDefaultContent()) {
-              <app-badge-button (click)="loadDefault()"
-                                delay=500 [tooltip]="'Load default content for ' + description"
-                                [icon]="faRefresh" caption="default"/>
-            }
-            @if (dirty() && !saving() && editorState.view !== 'edit') {
-              <app-badge-button (click)="revert()"
-                                delay=500 [tooltip]="'Revert content for ' + description"
-                                [icon]="reverting() ? faSpinner: faRemove" caption="revert"/>
-            }
-            @if (canDelete() && !saving()) {
-              <app-badge-button (click)="delete()" delay=500
-                                [tooltip]="'Delete content for ' + description"
-                                [icon]="reverting() ? faSpinner: faEraser"
-                                caption="delete"/>
-            }
-            <ng-content select=":not([prepend])"/>
+          @if (dirty() && canSave()) {
+            <app-badge-button (click)="save()" [tooltip]="'Save content for ' + description"
+                              delay=500 [icon]="saving() ? faSpinner: faCircleCheck"
+                              [caption]="'save'"/>
           }
+          @if (hasDefaultContent()) {
+            <app-badge-button (click)="loadDefault()"
+                              delay=500 [tooltip]="'Load default content for ' + description"
+                              [icon]="faRefresh" caption="default"/>
+          }
+          @if (dirty() && !saving() && editorState.view !== 'edit') {
+            <app-badge-button (click)="revert()"
+                              delay=500 [tooltip]="'Revert content for ' + description"
+                              [icon]="reverting() ? faSpinner: faRemove" caption="revert"/>
+          }
+          @if (canDelete() && !saving()) {
+            <app-badge-button (click)="delete()" delay=500
+                              [tooltip]="'Delete content for ' + description"
+                              [icon]="reverting() ? faSpinner: faEraser"
+                              caption="delete"/>
+          }
+          <ng-content select=":not([prepend])"/>
         </div>
         @if (editNameEnabled) {
           <div class="col-12">
@@ -221,8 +243,8 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
     }
     @if (showing() && editorState.view === 'view') {
       @if (renderInline()) {
-        <span [class]="content?.styles?.class"
-              (click)="toggleEdit()" markdown ngPreserveWhitespaces [data]="content.text">
+        <span markdown ngPreserveWhitespaces [data]="content.text" [class]="content?.styles?.class"
+              (click)="toggleEdit()">
               </span>
       }
       @if (!renderInline()) {
@@ -239,66 +261,97 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
       </div>
     }
     @if (editorState.view === 'edit') {
-      <div class="d-flex align-items-center flex-wrap mt-2">
-        <div class="btn-group btn-group-sm flex-wrap" role="group">
-          @if (dirty() && !saving()) {
-            <button class="btn btn-outline-secondary btn-sm" type="button" (click)="revert()"
+      <div class="editor-toolbar mt-2">
+        @if (dirty() && !saving()) {
+          <div class="toolbar-item">
+            <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="revert()"
                     [tooltip]="'Revert content for ' + description" container="body">
               <fa-icon [icon]="reverting() ? faSpinner : faRotateLeft" [spin]="reverting()"/>
             </button>
-          }
-          <div class="btn-group btn-group-sm" dropdown>
-            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" dropdownToggle type="button"
-                    tooltip="Make selection a Heading" container="body">
-              <fa-icon [icon]="faHeading"/>
-            </button>
-            <ul *dropdownMenu class="dropdown-menu">
-              <li><a class="dropdown-item" (click)="formatHeadingLevel(1)">Heading 1</a></li>
-              <li><a class="dropdown-item" (click)="formatHeadingLevel(2)">Heading 2</a></li>
-              <li><a class="dropdown-item" (click)="formatHeadingLevel(3)">Heading 3</a></li>
-              <li><a class="dropdown-item" (click)="formatHeadingLevel(4)">Heading 4</a></li>
-              <li><a class="dropdown-item" (click)="formatHeadingLevel(5)">Heading 5</a></li>
-              <li><a class="dropdown-item" (click)="formatHeadingLevel(6)">Heading 6</a></li>
-            </ul>
           </div>
-          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatBold()"
+        }
+        <div class="toolbar-item" dropdown [container]="'body'">
+          <button class="btn btn-outline-secondary btn-sm w-100 dropdown-toggle" dropdownToggle type="button"
+                  tooltip="Make selection a Heading" container="body">
+            <fa-icon [icon]="faHeading"/>
+          </button>
+          <ul *dropdownMenu class="dropdown-menu">
+            <li><a class="dropdown-item" (click)="formatHeadingLevel(1)">Heading 1</a></li>
+            <li><a class="dropdown-item" (click)="formatHeadingLevel(2)">Heading 2</a></li>
+            <li><a class="dropdown-item" (click)="formatHeadingLevel(3)">Heading 3</a></li>
+            <li><a class="dropdown-item" (click)="formatHeadingLevel(4)">Heading 4</a></li>
+            <li><a class="dropdown-item" (click)="formatHeadingLevel(5)">Heading 5</a></li>
+            <li><a class="dropdown-item" (click)="formatHeadingLevel(6)">Heading 6</a></li>
+          </ul>
+        </div>
+        <div class="toolbar-item">
+          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatBold()"
                   tooltip="Make selection Bold" container="body">
             <fa-icon [icon]="faBold"/>
           </button>
-          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatItalic()"
+        </div>
+        <div class="toolbar-item">
+          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatItalic()"
                   tooltip="Make selection Italic" container="body">
             <fa-icon [icon]="faItalic"/>
           </button>
-          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatCode()"
+        </div>
+        <div class="toolbar-item">
+          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatCode()"
                   tooltip="Make selection Code" container="body">
             <fa-icon [icon]="faCode"/>
           </button>
-          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatQuote()"
+        </div>
+        <div class="toolbar-item">
+          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatQuote()"
                   tooltip="Make selection a Quotation" container="body">
             <fa-icon [icon]="faQuoteRight"/>
           </button>
-          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatList('ul')"
+        </div>
+        <div class="toolbar-item">
+          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatList('ul')"
                   tooltip="Make selection a Bulleted List" container="body">
             <fa-icon [icon]="faListUl"/>
           </button>
-          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatList('ol')"
+        </div>
+        <div class="toolbar-item">
+          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatList('ol')"
                   tooltip="Make selection a Numbered List" container="body">
             <fa-icon [icon]="faListOl"/>
           </button>
-          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatLink()"
+        </div>
+        <div class="toolbar-item">
+          <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatLink()"
                   tooltip="Make selection a Link" container="body">
             <fa-icon [icon]="faLink"/>
           </button>
-          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="formatSplit()"
-                  tooltip="Split text into new row below" container="body">
-            <fa-icon [icon]="faScissors"/>
-          </button>
-          @if (hasImagesInCurrentContent()) {
-            <button class="btn btn-outline-secondary btn-sm" type="button" (click)="showConvertToRowsPreview()"
+        </div>
+        @if (!standalone) {
+          <div class="toolbar-item">
+            <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="formatSplit()"
+                    tooltip="Split text into new row below" container="body">
+              <fa-icon [icon]="faScissors"/>
+            </button>
+          </div>
+        }
+        @if (!standalone && hasImagesInCurrentContent()) {
+          <div class="toolbar-item">
+            <button class="btn btn-outline-secondary btn-sm w-100" type="button" (click)="showConvertToRowsPreview()"
                     [tooltip]="convertToRowsTooltip()" container="body">
               <fa-icon [icon]="faImage"/>
             </button>
-          }
+          </div>
+        }
+        <div class="toolbar-item" dropdown [container]="'body'">
+          <button class="btn btn-outline-secondary btn-sm w-100 dropdown-toggle" dropdownToggle type="button"
+                  tooltip="Formatting styles" container="body">
+            <fa-icon [icon]="faPaintBrush"/>
+          </button>
+          <app-content-formatting-selector
+            [styles]="content?.styles"
+            (listStyleChange)="assignListStyleTo($event)"
+            (textStyleChange)="assignTextStyleTo($event)">
+          </app-content-formatting-selector>
         </div>
       </div>
       <textarea #textArea [wrap]="'hard'"
@@ -452,31 +505,11 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
         </div>
       }
     }
-    @if (siteEditActive() && duplicateContentDetectionService.isDuplicate(content?.id)) {
-      <div class="alert alert-warning">
-        <fa-icon [icon]="ALERT_WARNING.icon"/>
-        <b class="ms-2">Content duplicated in</b>
-        <ul>
-          @for (usage of contentTextUsageTrackerMapper(duplicateContentDetectionService.contentTextUsages(content?.id)); track usage.tracking) {
-            <li>
-              @if (isOnThisPage(usage.contentPath)) {
-                <div>Row {{ usage.row }}, Column {{ usage.column }} on {{ clarifyPage(usage.contentPath) }}</div>
-              } @else {
-                Row {{ usage.row }}, Column {{ usage.column }} on
-                <a (click)="navigateToUsage(usage)" [href]="usage.contentPath">{{ clarifyPage(usage.contentPath) }}</a>
-              }
-            </li>
-          }
-        </ul>
-        <app-badge-button class="ms-2" (click)="unlink()" delay=500
-                          [tooltip]="'Unlink and save as new content for ' + description"
-                          [icon]="reverting() ? faSpinner: faUnlink" caption="unlink"/>
-      </div>
-    }
   `,
-  imports: [BadgeButtonComponent, TooltipDirective, FormsModule, MarkdownComponent, FontAwesomeModule, KebabCasePipe, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective]
+  imports: [BadgeButtonComponent, TooltipDirective, FormsModule, MarkdownComponent, FontAwesomeModule, KebabCasePipe, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, ContentFormattingSelectorComponent]
 })
 export class MarkdownEditorComponent implements OnInit, OnDestroy {
+  private logger: Logger = inject(LoggerFactory).createLogger("MarkdownEditorComponent", NgxLoggerLevel.ERROR);
   @ViewChild("textArea") textArea?: ElementRef<HTMLTextAreaElement>;
 
   @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {
@@ -484,30 +517,37 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   @Input("editNameEnabled") set acceptEditNameEnabledChangesFrom(editNameEnabled: boolean) {
-    this.logger.debug("editNameEnabled:", editNameEnabled);
+    this.logger.info("editNameEnabled:", editNameEnabled);
     this.editNameEnabled = editNameEnabled;
   }
 
   @Input("text") set acceptTextChangesFrom(text: string) {
-    this.logger.debug("text:", text);
-    this.text = text;
-    this.syncContent();
+    this.logger.info("text:", text);
+    if (text !== undefined) {
+      this.textInputProvided = true;
+    }
+    if (!this.content) { this.content = {}; }
+    this.content.text = text;
+    this.calculateRows();
+    this.updateMarkdownPreviewForTooltip();
   }
 
   @Input("name") set acceptNameChangesFrom(name: string) {
-    this.logger.debug("acceptNameChangesFrom:name:", name);
-    this.name = name;
-    this.syncContent();
+    this.logger.info("acceptNameChangesFrom:name:", name);
+    if (!this.content) { this.content = {}; }
+    this.content.name = name;
   }
 
   @Input("category") set acceptCategoryChangesFrom(category: string) {
-    this.logger.debug("category:", category);
-    this.category = category;
-    this.syncContent();
+    this.logger.info("category:", category);
+    if (!this.content) { this.content = {}; }
+    this.content.category = category;
   }
 
-  @Input("noSave") set noImageSaveValue(noSave: boolean) {
-    this.noSave = coerceBooleanProperty(noSave);
+  @Input("styles") set acceptStylesChangesFrom(styles: ContentTextStyles) {
+    this.logger.info("styles:", styles);
+    if (!this.content) { this.content = {}; }
+    this.content.styles = styles;
   }
 
   @Input("data") set dataValue(data: ContentText) {
@@ -519,16 +559,8 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.allowMaximise = coerceBooleanProperty(allowMaximise);
   }
 
-  @Input("allowSave") set allowSaveValue(allowSave: boolean) {
-    this.allowSave = coerceBooleanProperty(allowSave);
-  }
-
   @Input("allowHide") set allowHideValue(allowHide: boolean) {
     this.allowHide = coerceBooleanProperty(allowHide);
-  }
-
-  @Input("buttonsAvailableOnlyOnFocus") set buttonsAvailableOnlyOnFocusValue(buttonsAvailableOnlyOnFocus: boolean) {
-    this.buttonsAvailableOnlyOnFocus = coerceBooleanProperty(buttonsAvailableOnlyOnFocus);
   }
 
   @Input("hideEditToggle") set hideEditToggleValue(hideEditToggle: boolean) {
@@ -539,26 +571,22 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.deleteEnabled = coerceBooleanProperty(deleteEnabled);
   }
 
-  @Input("queryOnlyById") set queryOnlyByIdValue(queryOnlyById: boolean) {
-    this.queryOnlyById = coerceBooleanProperty(queryOnlyById);
+  @Input("standalone") set standaloneValue(value: boolean) {
+    this.standalone = coerceBooleanProperty(value);
   }
 
-  private logger: Logger = inject(LoggerFactory).createLogger("MarkdownEditorComponent", NgxLoggerLevel.ERROR);
   private systemConfigService: SystemConfigService = inject(SystemConfigService);
   private uiActionsService = inject(UiActionsService);
   private broadcastService = inject<BroadcastService<ContentText>>(BroadcastService);
   private contentTextService = inject(ContentTextService);
   private contentConversionService = inject(ContentConversionService);
-  private markdownEditorFocusService = inject(MarkdownEditorFocusService);
-  private migrationConfigService = inject(MigrationConfigService);
-  protected duplicateContentDetectionService = inject(DuplicateContentDetectionService);
   protected stringUtilsService = inject(StringUtilsService);
   protected siteEditService = inject(SiteEditService);
   private urlService = inject(UrlService);
   private dataPopulationService = inject(DataPopulationService);
   private pasteDetectionService = inject(PasteDetectionService);
+  private injector = inject(Injector);
   private systemConfig: SystemConfig;
-  @Input() id: string;
   @Input() rows: number;
   @Input() actionCaptionSuffix: string;
   @Input() initialView: View;
@@ -567,12 +595,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   @Output() changed: EventEmitter<ContentText> = new EventEmitter();
   @Output() saved: EventEmitter<ContentText> = new EventEmitter();
   @Output() focusChange: EventEmitter<EditorInstanceState> = new EventEmitter();
-  @Output() split: EventEmitter<{
-    textBefore: string;
-    textAfter: string;
-    additionalRows?: string[];
-    createNested?: boolean
-  }> = new EventEmitter();
+  @Output() split: EventEmitter<SplitEvent> = new EventEmitter();
   @Output() htmlPaste: EventEmitter<HtmlPasteResult> = new EventEmitter();
   faBold = faBold;
   faItalic = faItalic;
@@ -584,16 +607,14 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   faHeading = faHeading;
   faScissors = faScissors;
   faImage = faImage;
+  faPaintBrush = faPaintBrush;
   private presentationMode: boolean;
   public minimumRows = 10;
   public data: ContentText;
   public allowMaximise: boolean;
-  public allowSave: boolean;
-  public buttonsAvailableOnlyOnFocus: boolean;
   public allowHide: boolean;
   public hideEditToggle: boolean;
   public deleteEnabled: boolean;
-  public queryOnlyById: boolean;
   private show = true;
   public editNameEnabled: boolean;
   faSpinner = faSpinner;
@@ -603,19 +624,14 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   faEraser = faEraser;
   faAngleUp = faAngleUp;
   faAngleDown = faAngleDown;
-  protected readonly faUnlink = faUnlink;
   protected readonly faRefresh = faRefresh;
   protected readonly faRotateLeft = faRotateLeft;
-  private noSave: boolean;
   private originalContent: ContentText;
   public editorState: EditorState;
   public content: ContentText = {};
   private saveEnabled = false;
-  public name: string;
-  public text: string;
-  public category: string;
+  public standalone = false;
   private hideParameterName: StoredValue;
-  protected readonly ALERT_WARNING = ALERT_WARNING;
   private subscriptions: Subscription[] = [];
   public contextMenuVisible = false;
   public contextMenuX = 0;
@@ -635,47 +651,42 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   protected pastePromptMarkdownPreview: HtmlPastePreview | null = null;
   public pastePromptIsConversion = false;
   public pastePromptCreateNested: boolean | null = null;
+  private textInputProvided = false;
+  private migrationConfigSubscriptionAdded = false;
 
   async ngOnInit() {
-    this.logger.debug("ngOnInit:name", this.name, "data:", this.data, "description:", this.description);
-    this.hideParameterName = this.stringUtilsService.kebabCase(StoredValue.MARKDOWN_FIELD_HIDDEN, this.name) as StoredValue;
+    this.logger.info("ngOnInit:name", this.content?.name, "data:", this.data, "description:", this.description);
+    this.hideParameterName = this.stringUtilsService.kebabCase(StoredValue.MARKDOWN_FIELD_HIDDEN, this.content?.name) as StoredValue;
     this.editorState = {
       view: this.initialView || View.VIEW,
       dataAction: DataAction.NONE
     };
     if (this.data) {
       this.setDataAttributes();
-    } else if (this.text) {
-      this.content = {name: this.name, text: this.text, category: this.category};
+    } else if (this.textInputProvided || this.content?.text) {
       this.originalContent = cloneDeep(this.content);
-      this.logger.debug("editing injected content", this.content, "editorState:", this.editorState);
-    } else {
+      this.logger.info("editing injected content", this.content, "editorState:", this.editorState);
+    } else if (this.standalone && (this.content?.name || this.content?.category)) {
       await this.queryContent();
       this.setDescription();
+    } else {
+      this.originalContent = cloneDeep(this.content);
     }
     this.subscriptions.push(this.siteEditService.events.subscribe((item: NamedEvent<boolean>) => {
-      this.logger.debug("siteEditService.events.subscribe:", this.name, "this.editorState.view", this.editorState.view, "siteEditService:event", item);
+      this.logger.info("siteEditService.events.subscribe:", this.content?.name, "this.editorState.view", this.editorState.view, "siteEditService:event", item);
       this.editorState.view = item.data ? View.EDIT : View.VIEW;
+      if (item.data) {
+        this.subscribeToMigrationConfigIfNeeded();
+      }
     }));
+    if (this.siteEditService.active()) {
+      this.subscribeToMigrationConfigIfNeeded();
+    }
     if (this.allowHide) {
       const currentlyHidden = this.uiActionsService.initialBooleanValueFor(this.hideParameterName, false);
       this.show = !currentlyHidden;
     }
     this.subscriptions.push(this.systemConfigService.events().subscribe((systemConfig: SystemConfig) => this.systemConfig = systemConfig));
-    this.subscriptions.push(this.migrationConfigService.migrationConfigEvents().subscribe(config => {
-      const baseUrls = (config.sites || [])
-        .map(site => site.baseUrl)
-        .filter(baseUrl => !!baseUrl)
-        .map(baseUrl => this.ensureTrailingSlash(baseUrl.trim()));
-      this.pastePromptBaseUrls = Array.from(new Set(baseUrls));
-      if (!this.pastePromptBaseUrl && this.pastePromptBaseUrls.length > 0) {
-        this.pastePromptBaseUrl = this.pastePromptBaseUrls[0];
-      } else if (this.pastePromptBaseUrl) {
-        this.pastePromptBaseUrl = this.ensureTrailingSlash(this.pastePromptBaseUrl);
-      }
-    }));
-    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_EDITOR_CREATED, this));
-
     const clickListener = () => {
       if (this.contextMenuVisible) {
         this.hideContextMenu();
@@ -698,36 +709,60 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_EDITOR_DESTROYED, this));
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
+  private subscribeToMigrationConfigIfNeeded() {
+    if (this.migrationConfigSubscriptionAdded || this.presentationMode) {
+      return;
+    }
+    const migrationConfigService = this.injector.get(MigrationConfigService);
+    this.migrationConfigSubscriptionAdded = true;
+    this.subscriptions.push(migrationConfigService.migrationConfigEvents().subscribe(config => {
+      const baseUrls = (config.sites || [])
+        .map(site => site.baseUrl)
+        .filter(baseUrl => !!baseUrl)
+        .map(baseUrl => this.ensureTrailingSlash(baseUrl.trim()));
+      this.pastePromptBaseUrls = Array.from(new Set(baseUrls));
+      if (!this.pastePromptBaseUrl && this.pastePromptBaseUrls.length > 0) {
+        this.pastePromptBaseUrl = this.pastePromptBaseUrls[0];
+      } else if (this.pastePromptBaseUrl) {
+        this.pastePromptBaseUrl = this.ensureTrailingSlash(this.pastePromptBaseUrl);
+      }
+    }));
+  }
+
   public assignListStyleTo(listStyle: ListStyle) {
-    this.logger.debug("assignListStyleTo:listStyle:", listStyle, "this.content:", this.content);
+    this.logger.info("assignListStyleTo:listStyle:", listStyle, "this.content:", this.content);
     this.initialiseStyles();
     this.content.styles.list = listStyle;
+    if (!this.content.styles) { this.content.styles = {list: null, class: null}; }
+    this.broadcastChange();
+    this.toggleToView();
+  }
+
+  assignTextStyleTo(className: string) {
+    this.initialiseStyles();
+    this.content.styles.class = className;
+    if (!this.content.styles) { this.content.styles = {list: null, class: null}; }
+    this.broadcastChange();
+    this.toggleToView();
   }
 
   private initialiseStyles() {
     if (this.content && !this.content?.styles) {
       const styles = {list: null, class: null};
-      this.logger.debug("initialiseStyles:for:", this.content, "to:", styles);
+      this.logger.info("initialiseStyles:for:", this.content, "to:", styles);
       this.content.styles = styles;
     }
   }
 
-  listStyleIs(listStyle: ListStyle): boolean {
-    return this.content?.styles?.list === listStyle || (!this.content?.styles && listStyle === ListStyle.ARROW);
-  }
-
   private setDataAttributes() {
-    this.logger.debug("setDataAttributes:data:", this.data);
+    this.logger.info("setDataAttributes:data:", this.data);
     const existingData: boolean = !!this.data.id;
     this.content = this.data;
-    if (!this.noSave) {
-      this.saveEnabled = true;
-    }
-    this.logger.debug("editing:", this.content, "existingData:", existingData, "editorState:", this.editorState, "rows:", this.rows);
+    this.saveEnabled = true;
+    this.logger.info("editing:", this.content, "existingData:", existingData, "editorState:", this.editorState, "rows:", this.rows);
     this.originalContent = cloneDeep(this.content);
     this.setDescription();
     this.calculateRows();
@@ -742,33 +777,18 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
   queryContent(): Promise<ContentText> {
     this.editorState.dataAction = DataAction.QUERY;
-    if (this.id) {
-      this.logger.debug("querying content for id:", this.id, "name:", this.name, "category:", this.category, "editorState:", this.editorState, "id:",);
-      return this.contentTextService.getById(this.id)
-        .then((content) => {
-          return this.apply(content);
-        })
-        .catch(response => {
-          this.logger.error(response);
-          return this.apply({});
-        });
-    } else if (this.queryOnlyById) {
-      this.logger.debug("queryOnlyById:true content:name", this.name, "and category:", this.category, "editorState:", this.editorState, "id:", this.id);
-      return Promise.resolve(this.apply({}));
-    } else if (this.name) {
-      this.logger.debug("querying content:name", this.name, "and category:", this.category, "editorState:", this.editorState, "id:", this.id);
-      return this.contentTextService.findByNameAndCategory(this.name, this.category).then((content) => {
-        return this.apply(content);
-      });
-    }
+      this.logger.info("querying content:name", this.content?.name, "and category:", this.content?.category, "editorState:", this.editorState);
+      return this.contentTextService.findByNameAndCategory(this.content?.name, this.content?.category)
+        .then(content => this.apply(content));
   }
 
   private apply(content: ContentText): ContentText {
     if (isEmpty(content)) {
       if (this.siteEditService.active()) {
-        this.logger.debug("content is empty for", this.description, "assumed to be new content so going into edit mode");
+        this.logger.info("content is empty for", this.description, "assumed to be new content so going into edit mode");
       }
-      this.syncContent();
+      if (!this.content) { this.content = {}; }
+      this.calculateRows();
     } else {
       this.content = content;
       this.initialiseStyles();
@@ -779,7 +799,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.calculateRows();
     this.deferAutoResize();
     this.updateMarkdownPreviewForTooltip();
-    this.logger.debug("retrieved content:", this.content, "editor state:", this.editorState);
+    this.logger.info("retrieved content:", this.content, "editor state:", this.editorState);
     return this.content;
   }
 
@@ -787,16 +807,12 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.rows = this.calculateRowsFrom(this.content);
   }
 
-  private syncContent() {
-    this.content = {category: this.category, text: this.text, name: this.name};
-    this.publishUnsavedChanges();
-    this.updateMarkdownPreviewForTooltip();
-  }
+
 
   revert(): void {
-    this.logger.debug("reverting " + this.name, "content");
+    this.logger.info("reverting ", this.content?.name, "content");
     this.content = cloneDeep(this.originalContent);
-    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_CONTENT_SYNCED, this));
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_CONTENT_SYNCED, this.content));
     this.changed.emit(this.content);
     this.updateMarkdownPreviewForTooltip();
   }
@@ -804,21 +820,21 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   dirty(): boolean {
     const fields = ["id", "name", "category", "text", "styles"];
     const isDirty = !isEqual(pick(this.content, fields), pick(this.originalContent, fields));
-    this.logger.debug("dirty:content", this.content, "originalContent", this.originalContent, "isDirty ->", isDirty);
+    this.logger.off("dirty:content", this.content, "originalContent", this.originalContent, "isDirty ->", isDirty);
     return isDirty;
   }
 
   save(): Promise<ContentText> {
     if (this.saveEnabled && this.editorState.dataAction === DataAction.NONE) {
       this.editorState.dataAction = DataAction.SAVE;
-      this.logger.debug("saving", this.name, "content", "this.editorState", this.editorState);
+      this.logger.info("saving", this.content?.name, "content", "this.editorState", this.editorState);
       return this.contentTextService.createOrUpdate(this.content).then((data) => {
           this.content = data;
           this.originalContent = cloneDeep(this.content);
-          this.logger.debug(this.name, "content retrieved:", this.content);
+          this.logger.info(this.content?.name, "content retrieved:", this.content);
           this.editorState.dataAction = DataAction.NONE;
-          this.logger.debug("saved", this.content, "content", "this.editorState", this.editorState);
-          this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_CONTENT_SYNCED, this));
+          this.logger.info("saved", this.content, "content", "this.editorState", this.editorState);
+          this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_CONTENT_SYNCED, this.content));
           this.saved.emit(data);
           return this.content;
         }
@@ -830,7 +846,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     const text = data?.text;
     const rows = text ? text?.split(/\r*\n/).length + 1 : 1;
     const calculatedRows = Math.max(rows, this.minimumRows);
-    this.logger.debug("number of rows in text ", text, "->", rows, "calculatedRows:", calculatedRows);
+    this.logger.info("number of rows in text ", text, "->", rows, "calculatedRows:", calculatedRows);
     return calculatedRows;
   }
 
@@ -854,27 +870,12 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   toggleToView() {
     this.editorState.view = View.VIEW;
     this.focusChange.emit({view: this.editorState.view, instance: this});
-    this.clearFocus();
   }
 
   toggleToEdit() {
     this.editorState.view = View.EDIT;
     this.focusChange.emit({view: this.editorState.view, instance: this});
-    this.setFocus();
     this.deferAutoResize();
-  }
-
-  private setFocus() {
-    if (this.buttonsAvailableOnlyOnFocus) {
-      this.logger.debug("setFocus:", this.description);
-      this.markdownEditorFocusService.setFocusTo(this);
-    }
-  }
-
-  private clearFocus() {
-    if (this.buttonsAvailableOnlyOnFocus) {
-      this.markdownEditorFocusService.clearFocus(this);
-    }
   }
 
   autoResize(elOrRef?: any) {
@@ -934,7 +935,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
   unlink() {
     delete this.content.id;
-    this.publishUnsavedChanges();
   }
 
   delete() {
@@ -948,14 +948,13 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   canSave() {
-    return this.saveEnabled && !this.noSave && this.allowSave !== false;
+    return this.saveEnabled;
   }
 
   changeText($event: any) {
-    this.logger.debug("name:", this.name, "content name:", this.content.name, "changeText:", $event);
+    this.logger.debug("changeText for:", this.content?.name);
     this.renameIfRequired();
     this.broadcastChange();
-    this.publishUnsavedChanges();
     this.updateMarkdownPreviewForTooltip();
   }
 
@@ -1080,41 +1079,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.split.emit({textBefore: "", textAfter});
   }
 
-  private applyPrefixToSelectionOrLine(prefix: string, placeholder?: string) {
-    const el = this.textArea?.nativeElement;
-    const {start, end, value} = this.selection();
-    const hasSelection = end > start;
-    if (hasSelection) {
-      const sel = value.substring(start, end);
-      const lines = (sel || placeholder || "").split(/\r?\n/).map(line => prefix + line).join("\n");
-      const updated = value.substring(0, start) + lines + value.substring(end);
-      this.content.text = updated;
-      this.changeText(updated);
-      this.deferAutoResize();
-      setTimeout(() => {
-        const pos = start + lines.length;
-        el?.setSelectionRange(pos, pos);
-        el?.focus();
-      }, 0);
-    } else {
-      const lineStart = value.lastIndexOf("\n", start - 1) + 1;
-      const lineEndIdx = value.indexOf("\n", start);
-      const lineEnd = lineEndIdx === -1 ? value.length : lineEndIdx;
-      const current = value.substring(lineStart, lineEnd);
-      const content = current || placeholder || "";
-      const updatedLine = prefix + content;
-      const updated = value.substring(0, lineStart) + updatedLine + value.substring(lineEnd);
-      this.content.text = updated;
-      this.changeText(updated);
-      this.deferAutoResize();
-      setTimeout(() => {
-        const pos = lineStart + updatedLine.length;
-        el?.setSelectionRange(pos, pos);
-        el?.focus();
-      }, 0);
-    }
-  }
-
   private transformSelectionLines(mapper: (line: string, index: number) => string) {
     const el = this.textArea?.nativeElement;
     const {start, end, value} = this.selection();
@@ -1157,33 +1121,14 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   private broadcastChange() {
-    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_CONTENT_CHANGED, this.content));
+    if (this.editorState?.view === View.VIEW) {
+      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_CONTENT_CHANGED, this.content));
+    }
+    this.logger.debug("broadcastChange:content:", this.content);
     this.changed.emit(this.content);
   }
 
-  private publishUnsavedChanges() {
-    const conditionsForSave = this.content.text && this.dirty() && this.siteEditService.active();
-    if (conditionsForSave) {
-      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MARKDOWN_CONTENT_UNSAVED, this));
-    } else {
-      this.logger.debug("publishUnsavedChanges:conditionsForSave not met:content:", this.content);
-    }
-  }
-
-  componentHasFocus(): boolean {
-    return this.markdownEditorFocusService.hasFocus(this);
-  }
-
-  private renameIfRequired() {
-    if (this.name !== this.content.name) {
-      this.logger.debug("changing name from ", this.content.name, "->", this.name);
-      this.content.name = this.name;
-    }
-    if (this.category !== this.content.category) {
-      this.logger.debug("changing category from ", this.content.category, "->", this.category);
-      this.content.category = this.category;
-    }
-  }
+  private renameIfRequired() {}
 
   siteEditActive(): boolean {
     if (this.presentationMode) {
@@ -1194,38 +1139,20 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   renderInline(): boolean {
-    return this.content?.styles?.class === "as-button";
+    const currentClass = this.content?.styles?.class;
+    return currentClass === "as-button";
   }
 
   contentStyleClasses() {
     const defaultStyles: HasStyles = this.systemConfigService.defaultHasStyles();
-    const listStyle = ListStyleMappings[this.content?.styles?.list || this.systemConfig?.globalStyles?.list || defaultStyles.list];
-    const contentStyle = this.content?.styles?.class ? `${this.content?.styles?.class} background-panel` : null;
+    const effectiveStyles: ContentTextStyles = (this.content?.styles ?? {}) as ContentTextStyles;
+    const listKey = effectiveStyles?.list || this.systemConfig?.globalStyles?.list || defaultStyles.list;
+    const listStyle = ListStyleMappings[listKey];
+    const contentStyle = effectiveStyles?.class ? `${effectiveStyles.class} background-panel` : null;
     const linkStyle = this.systemConfig?.globalStyles?.link || defaultStyles.link;
     const classes = [listStyle, contentStyle, linkStyle].filter(Boolean).join(" ");
     this.logger.off("contentStyleClasses:listStyle:", listStyle, "contentStyle:", contentStyle, "linkStyle:", linkStyle, "classes:", classes);
     return classes;
-  }
-
-  navigateToUsage(usage: ContentTextUsage) {
-    if (usage.contentPath) {
-      this.markdownEditorFocusService.setFocusTo(usage?.editorInstance);
-    } else {
-      this.markdownEditorFocusService.setFocusTo(usage?.editorInstance);
-    }
-  }
-
-  contentTextUsageTrackerMapper(usages: ContentTextUsage[]): ContentTextUsageWithTracking[] {
-    return usages.map(usage => this.contentTextUsageTracker(usage));
-  }
-
-  contentTextUsageTracker(usage: ContentTextUsage): ContentTextUsageWithTracking {
-    const tracking = this.stringUtilsService.kebabCase("column", usage.column, "row", usage.row, "path", usage.contentPath);
-    return {...usage, tracking};
-  }
-
-  clarifyPage(contentPath: string) {
-    return this.urlService.pathContains(contentPath) ? "this page" : contentPath;
   }
 
   isOnThisPage(contentPath: string): boolean {
@@ -1233,11 +1160,11 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   hasDefaultContent(): boolean {
-    return this.category && this.name && this.dataPopulationService.hasDefaultContent(this.category, this.name);
+    return this.content?.category && this.content?.name && this.dataPopulationService.hasDefaultContent(this.content?.category, this.content?.name);
   }
 
   loadDefault(): void {
-    const defaultText = this.dataPopulationService.defaultContent(this.category, this.name);
+    const defaultText = this.dataPopulationService.defaultContent(this.content?.category, this.content?.name);
     if (defaultText) {
       this.content.text = defaultText;
       this.changeText(defaultText);
@@ -1447,16 +1374,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     }
   }
 
-  pastePromptRowCount(): number {
-    if (this.pastePromptHtmlPreview?.rows) {
-      return this.pastePromptHtmlPreview.rows.length;
-    }
-    if (this.pastePromptMarkdownPreview?.rows) {
-      return this.pastePromptMarkdownPreview.rows.length;
-    }
-    return 0;
-  }
-
   async pasteAsRows(): Promise<void> {
     if (!this.pastePromptPosition) {
       return;
@@ -1573,7 +1490,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
           this.pastePromptMarkdownPreview = preview;
         })
         .catch(error => {
-          this.logger.debug("Failed to build preview for tooltip", error);
+          this.logger.info("Failed to build preview for tooltip", error);
         });
     } else {
       this.pastePromptMarkdownPreview = null;

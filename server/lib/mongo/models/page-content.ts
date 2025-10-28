@@ -9,11 +9,11 @@ const PageContentColumn = new mongoose.Schema({
   icon: {type: String},
   columns: {type: Number},
   contentText: {type: String},
-  contentTextId: {type: String},
   accessLevel: {type: String},
   showPlaceholderImage: {type: Boolean},
   showTextAfterImage: {type: Boolean},
   imageAspectRatio: {type: Object},
+  styles: {type: Object},
   rows: {type: Object, required: false},
 }, { _id : false });
 

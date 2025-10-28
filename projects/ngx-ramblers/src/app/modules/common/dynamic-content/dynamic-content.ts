@@ -11,10 +11,7 @@ import { PageContentService } from "../../../services/page-content.service";
 import { PageService } from "../../../services/page.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
-import { NamedEventType } from "../../../models/broadcast.model";
-import { BroadcastService } from "../../../services/broadcast-service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
-import { cloneDeep } from "es-toolkit/compat";
 import { DynamicContentSiteEditComponent } from "./dynamic-content-site-edit";
 import { DynamicContentViewComponent } from "./dynamic-content-view";
 
@@ -44,7 +41,6 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
   stringUtils = inject(StringUtilsService);
   private pageContentService = inject(PageContentService);
   private pageService = inject(PageService);
-  private broadcastService = inject<BroadcastService<PageContent>>(BroadcastService);
   private authService = inject(AuthService);
 
 
@@ -98,10 +94,6 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
       this.logger.info("Finding page content for " + this.contentPath);
       this.refreshPageContent();
       this.authService.authResponse().subscribe(() => this.refreshPageContent());
-      this.broadcastService.on(NamedEventType.PAGE_CONTENT_CHANGED, (pageContentData) => {
-        this.logger.info("received:", pageContentData);
-        this.pageContent = cloneDeep(pageContentData.data);
-      });
     }));
   }
 

@@ -1,9 +1,7 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { faPencil } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { NamedEventType } from "../../../models/broadcast.model";
 import { PageContent, PageContentRow } from "../../../models/content-text.model";
-import { BroadcastService } from "../../../services/broadcast-service";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { PageContentService } from "../../../services/page-content.service";
@@ -29,7 +27,6 @@ export class EventsRow implements OnInit {
   public stringUtils: StringUtilsService = inject(StringUtilsService);
   public urlService: UrlService = inject(UrlService);
   public actions: PageContentActionsService = inject(PageContentActionsService);
-  private broadcastService: BroadcastService<PageContent> = inject(BroadcastService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   public logger = this.loggerFactory.createLogger("EventsComponent", NgxLoggerLevel.ERROR);
   public instance = this;
@@ -42,9 +39,6 @@ export class EventsRow implements OnInit {
 
   ngOnInit() {
     this.logger.debug("row:", this.row);
-    this.broadcastService.on(NamedEventType.PAGE_CONTENT_CHANGED, () => {
-      this.logger.debug("event received:", NamedEventType.PAGE_CONTENT_CHANGED);
-    });
   }
 
 }

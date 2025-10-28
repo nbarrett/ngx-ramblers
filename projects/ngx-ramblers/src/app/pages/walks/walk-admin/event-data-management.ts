@@ -30,7 +30,7 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
     <app-page pageTitle="Event Data Management">
       <div class="row">
         <div class="col-sm-12 mb-3 mx-2">
-          <app-markdown-editor name="event-data-management-help-page" description="Event Data Management help page"/>
+          <app-markdown-editor standalone name="event-data-management-help-page" description="Event Data Management help page"/>
         </div>
       </div>
       <div class="row mb-2 align-items-center">

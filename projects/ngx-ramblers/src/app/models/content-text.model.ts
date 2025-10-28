@@ -5,8 +5,6 @@ import { BezierEasingOptions } from "ng-gallery/lib/smooth-scroll";
 import { fieldContainsValue, fieldEqualsValue, fieldStartsWithValue, MongoRegex } from "../functions/mongo";
 import { HasClass } from "./banner-configuration.model";
 import { EventsData } from "./social-events.model";
-import { MarkdownEditorComponent } from "../markdown-editor/markdown-editor.component";
-import { HasTrackingAttribute } from "./ui-actions";
 import { DescribedDimensions } from "./aws-object.model";
 import { HasNgSelectAttributes } from "./ramblers-walks-manager";
 
@@ -48,6 +46,13 @@ export const ListStyleMappings: { [key in ListStyle]: string } = {
   [ListStyle.TICK_LARGE]: "list-tick-large",
   [ListStyle.TICK_MEDIUM]: "list-tick-medium",
 };
+
+export interface SplitEvent {
+  textBefore: string;
+  textAfter: string;
+  additionalRows?: string[];
+  createNested?: boolean;
+}
 
 export interface ContentText {
   id?: string;
@@ -131,7 +136,6 @@ export interface PageContentRow extends HasMaxColumns {
 
 export interface PageContentColumn extends Link, HasPageContentRows {
   columns?: number;
-  contentTextId?: string;
   contentText?: string;
   imageSource?: string;
   alt?: string;
@@ -141,6 +145,7 @@ export interface PageContentColumn extends Link, HasPageContentRows {
   showPlaceholderImage?: boolean;
   showTextAfterImage?: boolean;
   imageAspectRatio?: DescribedDimensions;
+  styles?: ContentTextStyles;
 }
 
 export interface PageContentEditEvent {
@@ -387,36 +392,6 @@ export const DEFAULT_GALLERY_OPTIONS: GalleryViewOptions = {
 };
 
 export const DEFAULT_GRID_OPTIONS = {showTitles: true, showDates: true};
-
-
-export interface ContentTextUsage {
-  row: number;
-  column: number,
-  contentPath: string
-  editorInstance: MarkdownEditorComponent;
-}
-
-export type ContentTextUsageMap = Map<string, ContentTextUsage[]>;
-
-export interface ContentTextUsageWarning {
-  message: string;
-  links: Link[];
-}
-
-export interface DuplicateUsageMessage {
-  id: string;
-  message: string;
-}
-
-export interface ContentTextUsageWithTracking extends HasTrackingAttribute, ContentTextUsage {
-}
-
-export interface DuplicateTextNavigation {
-  id: string;
-  occurrence: number;
-  contentText: ContentText;
-  usages: ContentTextUsage[];
-}
 
 
 export interface PageContentGroup {

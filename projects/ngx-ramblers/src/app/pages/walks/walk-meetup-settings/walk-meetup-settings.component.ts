@@ -61,7 +61,7 @@ export class WalkMeetupSettingsComponent implements OnInit {
       this.contentTextItems = contentTextItems;
       this.onChange(first(this.contentTextItems));
     });
-    this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_SYNCED, (event: NamedEvent<MarkdownEditorComponent>) => this.replaceContent(event.data.content));
+    this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_SYNCED, (event: NamedEvent<ContentText>) => this.replaceContent(event.data));
     this.broadcastService.on(NamedEventType.MARKDOWN_CONTENT_DELETED, (event: NamedEvent<ContentText>) => this.removeContent(event.data));
   }
 

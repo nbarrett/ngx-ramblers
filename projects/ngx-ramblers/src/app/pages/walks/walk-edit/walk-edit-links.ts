@@ -62,7 +62,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
                              class="btn btn-primary">
                     </div>
                     <div class="col-sm-10">
-                      <app-markdown-editor name="ramblers-help"
+                      <app-markdown-editor standalone name="ramblers-help"
                                            description="Linking to Ramblers"/>
                     </div>
                   </div>
@@ -109,7 +109,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
           <div class="row img-thumbnail thumbnail-walk-edit">
             <div class="thumbnail-heading">OS Maps</div>
             <div class="col-sm-12">
-              <app-markdown-editor name="os-maps-help" description="Linking to OS Maps"/>
+              <app-markdown-editor standalone name="os-maps-help" description="Linking to OS Maps"/>
             </div>
             <div class="col-sm-12">
               <div class="row">

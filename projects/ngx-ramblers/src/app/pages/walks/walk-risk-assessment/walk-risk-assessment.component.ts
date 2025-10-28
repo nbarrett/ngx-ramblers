@@ -17,8 +17,8 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
     selector: "app-walk-risk-assessment",
     template: `
       <div class="img-thumbnail thumbnail-admin-edit">
-        <app-markdown-editor [category]="'risk-assessments'" [name]="'risk-assessments-heading'"
-                             [description]="'Risk Assessments Heading'"></app-markdown-editor>
+        <app-markdown-editor standalone [category]="'risk-assessments'" [name]="'risk-assessments-heading'"
+                             [description]="'Risk Assessments Heading'"/>
         <app-walk-risk-assessment-section [displayedWalk]="displayedWalk"
                                           [riskAssessmentSection]="'Traffic'">
 

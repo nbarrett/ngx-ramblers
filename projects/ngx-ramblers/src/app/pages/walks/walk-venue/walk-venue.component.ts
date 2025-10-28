@@ -18,7 +18,7 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
       <div class="row thumbnail-heading-frame">
         <div class="thumbnail-heading">Venue</div>
         <div class="col-sm-12">
-          <app-markdown-editor name="meetup-venue-help" description="Walk venue or pub"></app-markdown-editor>
+          <app-markdown-editor standalone name="meetup-venue-help" description="Walk venue or pub"/>
         </div>
         <div class="col-sm-12">
           <div class="row">
