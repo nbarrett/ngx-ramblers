@@ -75,6 +75,17 @@ export async function ensureActionButton(db: Db, path: string, column: ActionBut
 
   const updatedRows = [{...firstRow, columns: [...(firstRow.columns || []), column]}, ...rows.slice(1)];
   await collection.updateOne({ _id: target._id }, { $set: { rows: updatedRows } });
-  log(`Re-instated action button with href "${column.href}" on "${path}"`);
+  log(`Added action button with href "${column.href}" on "${path}"`);
   return true;
+}
+
+export async function ensureActionButtons(db: Db, path: string, columns: ActionButtonColumn[], log: (message: string) => void = () => {}): Promise<number> {
+  let addedCount = 0;
+  for (const column of columns) {
+    const added = await ensureActionButton(db, path, column, log);
+    if (added) {
+      addedCount++;
+    }
+  }
+  return addedCount;
 }

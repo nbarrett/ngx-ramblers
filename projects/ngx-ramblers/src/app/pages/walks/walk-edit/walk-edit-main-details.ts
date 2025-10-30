@@ -21,8 +21,7 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
 
 @Component({
   selector: "app-walk-edit-main-details",
-  standalone: true,
-  imports: [
+    imports: [
     DatePicker,
     FormsModule,
     FontAwesomeModule,

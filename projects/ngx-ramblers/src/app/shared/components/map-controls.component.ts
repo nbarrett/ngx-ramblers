@@ -27,8 +27,7 @@ export interface MapControlsState {
 
 @Component({
   selector: "app-map-controls",
-  standalone: true,
-  imports: [FormsModule, FontAwesomeModule, TooltipDirective],
+    imports: [FormsModule, FontAwesomeModule, TooltipDirective],
   styles: [`
     .map-controls-gap
       gap: 0.5rem

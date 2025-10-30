@@ -8,8 +8,7 @@ import { sortBy } from "../../functions/arrays";
 
 @Component({
   selector: "app-member-selector",
-  standalone: true,
-  imports: [FormsModule, NgSelectComponent, NgLabelTemplateDirective, NgOptionTemplateDirective, FullNamePipe],
+    imports: [FormsModule, NgSelectComponent, NgLabelTemplateDirective, NgOptionTemplateDirective, FullNamePipe],
   template: `
     <ng-select
       [items]="membersWithLabel"

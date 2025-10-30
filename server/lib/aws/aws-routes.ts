@@ -10,6 +10,7 @@ const router = express.Router();
 router.post("/s3/file-upload", authConfig.authenticate(), multer({dest: envConfig.server.uploadDir}).any(), uploadFile);
 router.get("/list-buckets", controller.listBuckets);
 router.get("/metadata/list-objects", controller.listObjects);
+router.get("/metadata/list-prefixes", controller.listPrefixes);
 router.get("/s3/:bucket*", controller.getObject);
 router.get("/url-to-file", controller.urlToFile);
 

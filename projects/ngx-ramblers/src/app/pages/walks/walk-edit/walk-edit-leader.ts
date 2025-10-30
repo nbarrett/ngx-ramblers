@@ -18,8 +18,7 @@ import { MemberSelector } from "../../../shared/components/member-selector";
 
 @Component({
   selector: "app-walk-edit-leader",
-  standalone: true,
-  imports: [FormsModule, JsonPipe, MemberSelector],
+    imports: [FormsModule, JsonPipe, MemberSelector],
   styles: `
     .button-bottom-aligned
       margin: 34px 0px 0px -14px

@@ -29,3 +29,8 @@ export enum ApiErrorCode {
   PATH_REQUIRED = "PATH_REQUIRED",
   DUPLICATE_PATH = "DUPLICATE_PATH"
 }
+
+export interface NamedError {
+  name: string;
+  error: string;
+}

@@ -8,8 +8,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 
 @Component({
   selector: "app-fragment-selector",
-  standalone: true,
-  imports: [FormsModule, NgSelectModule],
+    imports: [FormsModule, NgSelectModule],
   template: `
     <ng-select
       [id]="elementId"

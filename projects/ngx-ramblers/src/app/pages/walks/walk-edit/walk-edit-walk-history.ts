@@ -12,8 +12,7 @@ import { sortBy } from "../../../functions/arrays";
 
 @Component({
   selector: "app-walk-edit-history",
-  standalone: true,
-  imports: [
+    imports: [
     TooltipDirective
   ],
   template: `

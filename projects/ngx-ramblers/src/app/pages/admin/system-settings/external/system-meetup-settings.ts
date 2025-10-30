@@ -18,6 +18,7 @@ import { FormsModule } from "@angular/forms";
 import { MeetupButtonComponent } from "../../../../modules/common/third-parties/meetup-button";
 import { AlertComponent } from "ngx-bootstrap/alert";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
 
 @Component({
     selector: "app-system-meetup-settings",
@@ -48,19 +49,25 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
             <div class="col-md-6">
               <div class="form-group">
                 <label for="meetup-client-secret">Client Secret (Secret)</label>
-                <input [(ngModel)]="config.externalSystems.meetup.clientSecret"
+                <app-secret-input
+                  [(ngModel)]="config.externalSystems.meetup.clientSecret"
                   id="meetup-client-secret"
-                  type="text" class="form-control input-sm"
+                  name="clientSecret"
+                  size="sm"
                   placeholder="Enter Meetup OAuth Client 'Secret' value">
+                </app-secret-input>
               </div>
             </div>
             <div class="col-md-6">
               <div class="form-group">
                 <label for="meetup-client-id">Client Id (Your Key)</label>
-                <input [(ngModel)]="config.externalSystems.meetup.clientId"
+                <app-secret-input
+                  [(ngModel)]="config.externalSystems.meetup.clientId"
                   id="meetup-client-id"
-                  type="text" class="form-control input-sm"
+                  name="clientId"
+                  size="sm"
                   placeholder="Enter Meetup OAuth Client 'Your Key' value">
+                </app-secret-input>
               </div>
             </div>
             <div class="col-md-6">
@@ -75,19 +82,25 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
             <div class="col-md-6">
               <div class="form-group">
                 <label for="meetup-access-token">Access Token</label>
-                <input [(ngModel)]="config.externalSystems.meetup.accessToken"
+                <app-secret-input
+                  [(ngModel)]="config.externalSystems.meetup.accessToken"
                   id="meetup-access-token"
-                  type="text" class="form-control input-sm"
+                  name="accessToken"
+                  size="sm"
                   placeholder="Enter Meetup Access Token">
+                </app-secret-input>
               </div>
             </div>
             <div class="col-md-6">
               <div class="form-group">
                 <label for="meetup-api-key">Refresh Token</label>
-                <input [(ngModel)]="config.externalSystems.meetup.refreshToken"
+                <app-secret-input
+                  [(ngModel)]="config.externalSystems.meetup.refreshToken"
                   id="meetup-api-key"
-                  type="text" class="form-control input-sm"
+                  name="refreshToken"
+                  size="sm"
                   placeholder="Enter Refresh Token">
+                </app-secret-input>
               </div>
             </div>
             <div class="col-md-6">
@@ -122,7 +135,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
         </div>
       }
     </div>`,
-    imports: [FormsModule, MeetupButtonComponent, AlertComponent, FontAwesomeModule]
+    imports: [FormsModule, MeetupButtonComponent, AlertComponent, FontAwesomeModule, SecretInputComponent]
 })
 export class SystemMeetupSettingsComponent implements OnInit, OnDestroy {
 

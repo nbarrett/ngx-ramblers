@@ -1,5 +1,6 @@
 import * as AWS from "@aws-sdk/client-s3";
 import { GetObjectCommand, GetObjectRequest, S3 } from "@aws-sdk/client-s3";
+import { ListObjectsV2CommandOutput } from "@aws-sdk/client-s3/dist-types/commands/ListObjectsV2Command";
 import { ListObjectsCommandOutput } from "@aws-sdk/client-s3/dist-types/commands/ListObjectsCommand";
 import * as crypto from "crypto";
 import debug from "debug";
@@ -61,6 +62,24 @@ export function listObjects(req: Request, res: Response) {
       debugLog("listObjects:error occurred:bucketParams:", bucketParams, "error:", err);
       res.status(500).send(err);
     });
+}
+
+export async function listPrefixes(req: Request, res: Response) {
+  const bucketParams = {
+    Bucket: s3Config.bucket,
+    Prefix: (req.query.prefix || "").toString(),
+    Delimiter: "/",
+    MaxKeys: 20000
+  };
+  debugLog("listPrefixes:request:bucketParams:", bucketParams);
+  try {
+    const data: ListObjectsV2CommandOutput = await s3.listObjectsV2(bucketParams);
+    const prefixes = (data.CommonPrefixes || []).map(p => p.Prefix);
+    res.status(200).send({ request: bucketParams, response: prefixes });
+  } catch (err) {
+    debugLog("listPrefixes:error occurred:bucketParams:", bucketParams, "error:", err);
+    res.status(500).send(err);
+  }
 }
 
 export async function getObject(req: Request, res: Response) {

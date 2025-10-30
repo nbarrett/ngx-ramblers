@@ -126,10 +126,14 @@
                 <div class="col-sm-6">
                   <form class="form-group">
                     <label for="new-password">Password</label>
-                    <input autocomplete="new-password" name="new-password"
-                           [(ngModel)]="member.password"
-                           type="password" class="form-control input-sm" id="new-password"
-                           placeholder="Enter new password here">
+                    <app-secret-input
+                      autocomplete="new-password"
+                      id="new-password"
+                      name="new-password"
+                      [(ngModel)]="member.password"
+                      size="sm"
+                      placeholder="Enter new password here">
+                    </app-secret-input>
                   </form>
                 </div>
                 <div class="col-sm-6">
