@@ -8,6 +8,19 @@ ARG CHROME_VERSION
 # Install dependencies for Chrome installation and sharp
 RUN apt-get update && apt-get install -y wget curl unzip gnupg2 ca-certificates libvips-dev build-essential
 
+ARG MONGOSH_VERSION=2.2.7
+ARG DBTOOLS_VERSION=100.9.4
+RUN curl -fsSL https://pgp.mongodb.com/server-7.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg \
+  && echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg arch=amd64 ] https://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" > /etc/apt/sources.list.d/mongodb-org-7.0.list \
+  && apt-get update \
+  && apt-get install -y mongodb-mongosh mongodb-database-tools \
+  && mongosh --version \
+  && mongodump --version \
+  && mongorestore --version
+RUN curl -fsSL https://fly.io/install.sh | FLYCTL_INSTALL=/usr/local sh \
+  && ln -sf /usr/local/bin/flyctl /usr/bin/flyctl \
+  && flyctl version
+
 # Install OpenJDK 21 JRE manually
 RUN wget https://download.java.net/java/GA/jdk21.0.2/f2283984656d49d69e91c558476027ac/13/GPL/openjdk-21.0.2_linux-x64_bin.tar.gz -O /tmp/openjdk-21.tar.gz \
   && mkdir -p /usr/local/openjdk-21 \

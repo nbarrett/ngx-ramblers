@@ -28,6 +28,7 @@ import { MailchimpContactComponent } from "./mailchimp-contact";
 import { MailchimpCampaignDefaultsComponent } from "./mailchimp-campaign-defaults";
 import { NgClass } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
 
 @Component({
     selector: "app-mailchimp-settings",
@@ -65,9 +66,13 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                         </div>
                         <div class="form-group">
                           <label for="api-key">API Key</label>
-                          <input [(ngModel)]="mailchimpConfig.apiKey" type="text" class="form-control input-sm"
+                          <app-secret-input
+                            [(ngModel)]="mailchimpConfig.apiKey"
                             id="api-key"
+                            name="apiKey"
+                            size="sm"
                             placeholder="The API key for the mailchimp api">
+                          </app-secret-input>
                         </div>
                       </div>
                     </div>
@@ -515,7 +520,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
         </div>
       </app-page>
     `,
-    imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, MailchimpListSettingsComponent, MailchimpSegmentEditorComponent, MailchimpContactComponent, MailchimpCampaignDefaultsComponent, NgClass, FontAwesomeModule]
+    imports: [PageComponent, TabsetComponent, TabDirective, FormsModule, MailchimpListSettingsComponent, MailchimpSegmentEditorComponent, MailchimpContactComponent, MailchimpCampaignDefaultsComponent, NgClass, FontAwesomeModule, SecretInputComponent]
 })
 export class MailchimpSettingsComponent implements OnInit, OnDestroy {
 

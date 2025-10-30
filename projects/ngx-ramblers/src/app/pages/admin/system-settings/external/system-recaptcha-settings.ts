@@ -9,6 +9,7 @@ import { AlertInstance, NotifierService } from "../../../../services/notifier.se
 import { FormsModule } from "@angular/forms";
 import { RecaptchaModule } from "ng-recaptcha-2";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
 
 @Component({
     selector: "app-system-recaptcha-settings",
@@ -37,10 +38,13 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                 <div class="col-md-12">
                   <div class="form-group">
                     <label for="recaptcha-secret-key">Secret Key (v2)</label>
-                    <input [(ngModel)]="systemConfigInternal.recaptcha.secretKey"
+                    <app-secret-input
+                      [(ngModel)]="systemConfigInternal.recaptcha.secretKey"
                       id="recaptcha-secret-key"
-                      type="text" class="form-control input-sm"
+                      name="secretKey"
+                      size="sm"
                       placeholder="Enter reCAPTCHA Secret Key">
+                    </app-secret-input>
                     @if (!systemConfigInternal?.recaptcha?.secretKey) {
                       <div class="mt-1 small text-danger">
                         Secret Key is required
@@ -78,7 +82,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
           </div>
         }
       </div>`,
-    imports: [FormsModule, RecaptchaModule, FontAwesomeModule]
+    imports: [FormsModule, RecaptchaModule, FontAwesomeModule, SecretInputComponent]
 })
 export class SystemRecaptchaSettingsComponent implements OnInit, OnDestroy {
 

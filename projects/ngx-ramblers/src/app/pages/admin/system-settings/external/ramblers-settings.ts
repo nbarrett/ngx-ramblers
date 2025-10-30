@@ -5,6 +5,7 @@ import { SystemConfig } from "../../../../models/system.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
 import { FormsModule, ReactiveFormsModule } from "@angular/forms";
+import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
 
 @Component({
   selector: "app-ramblers-settings",
@@ -80,30 +81,32 @@ import { FormsModule, ReactiveFormsModule } from "@angular/forms";
           <div class="col-md-4">
             <form class="form-group">
               <label for="walks-manager-password">Walks Manager password</label>
-              <input autocomplete="nope"
-                     [(ngModel)]="config.national.walksManager.password"
-                     type="text" class="form-control input-sm"
-                     id="walks-manager-password"
-                     name="password"
-                     placeholder="Enter Walks Manager password">
+              <app-secret-input
+                [(ngModel)]="config.national.walksManager.password"
+                id="walks-manager-password"
+                name="password"
+                size="sm"
+                placeholder="Enter Walks Manager password">
+              </app-secret-input>
             </form>
           </div>
           <div class="col-md-3">
             <form class="form-group">
               <label for="walks-manager-api-key">Walks Manager API Key</label>
-              <input [(ngModel)]="config.national.walksManager.apiKey"
-                     autocomplete="nope"
-                     id="walks-manager-api-key"
-                     name="apiKey"
-                     type="text" class="form-control input-sm"
-                     placeholder="Enter Walks Manager API key">
+              <app-secret-input
+                [(ngModel)]="config.national.walksManager.apiKey"
+                id="walks-manager-api-key"
+                name="apiKey"
+                size="sm"
+                placeholder="Enter Walks Manager API key">
+              </app-secret-input>
             </form>
           </div>
         </div>
       </div>
     }
   `,
-  imports: [ReactiveFormsModule, FormsModule]
+  imports: [ReactiveFormsModule, FormsModule, SecretInputComponent]
 })
 export class RamblersSettings implements OnInit {
 

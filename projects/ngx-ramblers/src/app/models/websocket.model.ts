@@ -23,6 +23,7 @@ export enum EventType {
   RESIZE_SAVED_IMAGES = "resize-saved-images",
   RESIZE_UNSAVED_IMAGES = "resize-unsaved-images",
   TEST_STEP_REPORTER = "test-step-reporter",
+  BACKUP_RESTORE = "backup-restore",
   PING = "ping",
 }
 

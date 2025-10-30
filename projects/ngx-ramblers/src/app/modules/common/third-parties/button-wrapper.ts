@@ -9,12 +9,9 @@ import { NgClass } from "@angular/common";
     selector: "app-button-wrapper",
     template: `
     <div [tooltip]="showTooltip? (disabled ? 'Not available to ' : 'Click to ') + title : null" placement="auto"
-         [ngClass]="{'btn btn-primary px-2 py-2': button, 'not-allowed disabled': disabled, 'pointer': !disabled}">
-      <div class="d-inline-flex align-items-center flex-wrap">
-        <ng-content/>
-        <div [ngClass]="{'disabled': disabled}" class="ms-2">{{ title }}
-        </div>
-      </div>
+         [ngClass]="{'btn btn-primary d-inline-flex align-items-center justify-content-center gap-2 px-3 py-2': button, 'not-allowed disabled': disabled, 'pointer': !disabled}">
+      <ng-content/>
+      <div [ngClass]="{'disabled': disabled}">{{ title }}</div>
     </div>`,
     imports: [TooltipDirective, NgClass]
 })

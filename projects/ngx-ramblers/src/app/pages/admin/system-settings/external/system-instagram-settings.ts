@@ -16,6 +16,7 @@ import { cloneDeep } from "es-toolkit/compat";
 import { isEqual } from "es-toolkit/compat";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
 
 @Component({
     selector: "app-system-instagram-settings",
@@ -46,10 +47,13 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
               <div class="col-md-12">
                 <div class="form-group">
                   <label for="instagram-access-token">Access Token</label>
-                  <input [(ngModel)]="config.externalSystems.instagram.accessToken"
-                         id="instagram-access-token"
-                         type="text" class="form-control input-sm"
-                         placeholder="Enter Instagram Access Token">
+                  <app-secret-input
+                    [(ngModel)]="config.externalSystems.instagram.accessToken"
+                    id="instagram-access-token"
+                    name="accessToken"
+                    size="sm"
+                    placeholder="Enter Instagram Access Token">
+                  </app-secret-input>
                 </div>
               </div>
               <div class="col-md-12">
@@ -67,7 +71,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
           }
         </div>
       </div>`,
-    imports: [FormsModule, FontAwesomeModule]
+    imports: [FormsModule, FontAwesomeModule, SecretInputComponent]
 })
 export class InstagramSettings implements OnInit, OnDestroy {
 

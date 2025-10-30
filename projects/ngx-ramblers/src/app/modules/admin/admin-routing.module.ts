@@ -110,6 +110,12 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       canActivate: [SystemHealthyGuard, AdminAuthGuard]
     },
     {
+      path: "backup-and-restore",
+      loadComponent: () => import("../../pages/admin/backup-and-restore/backup-and-restore")
+        .then(m => m.BackupAndRestore),
+      canActivate: [SystemHealthyGuard, AdminAuthGuard]
+    },
+    {
       path: "banners", loadComponent: () => import("../../pages/banner/banner.component")
         .then(m => m.BannerComponent),
       canActivate: [SystemHealthyGuard]
