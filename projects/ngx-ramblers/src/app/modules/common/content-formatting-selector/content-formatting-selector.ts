@@ -7,8 +7,7 @@ import { NgTemplateOutlet } from "@angular/common";
 
 @Component({
   selector: "app-content-formatting-selector",
-  standalone: true,
-  imports: [BsDropdownModule, NgTemplateOutlet],
+    imports: [BsDropdownModule, NgTemplateOutlet],
   template: `
     @if (standaloneMenu) {
       <ul *dropdownMenu class="dropdown-menu" (click)="$event.stopPropagation()">

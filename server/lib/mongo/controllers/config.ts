@@ -1,5 +1,6 @@
 import debug from "debug";
 import { Request, Response } from "express";
+import jwt from "jsonwebtoken";
 import { ConfigDocument, ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
 import { envConfig } from "../../env-config/env-config";
 import { config } from "../models/config";
@@ -77,10 +78,12 @@ export function handleQuery(req: Request, res: Response): Promise<any> {
     return config.findOne(criteria)
       .then(response => {
         const configDocument: ConfigDocument = toObjectWithId(response);
-        debugLog(req.query, "findByConditions:criteria", criteria, "configDocument:", configDocument);
+        const isAdmin = isAdminFromRequest(req);
+        const redactedValue = isAdmin ? configDocument?.value : redactSensitive(configDocument?.value);
+        debugLog(req.query, "findByConditions:criteria", criteria, "isAdmin:", isAdmin);
         return res.status(200).json({
           action: ApiAction.QUERY,
-          response: configDocument?.value
+          response: redactedValue
         });
       })
       .catch(error => {
@@ -100,4 +103,47 @@ export function handleQuery(req: Request, res: Response): Promise<any> {
       error: parseError(e)
     });
   }
+}
+
+function isAdminFromRequest(req: Request): boolean {
+  try {
+    const authHeader = req.headers?.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : undefined;
+    if (!token) return false;
+    const payload: any = jwt.verify(token, envConfig.auth.secret);
+    return !!(payload?.memberAdmin || payload?.contentAdmin || payload?.fileAdmin || payload?.walkAdmin || payload?.socialAdmin || payload?.treasuryAdmin || payload?.financeAdmin);
+  } catch {
+    return false;
+  }
+}
+
+function redactSensitive(value: any): any {
+  const sensitiveKeys = new Set([
+    "apiKey",
+    "accessKey",
+    "accessKeyId",
+    "secretAccessKey",
+    "clientSecret",
+    "accessToken",
+    "refreshToken",
+    "password",
+    "username",
+    "userName",
+  ]);
+
+  function cleanse(obj: any): any {
+    if (obj === null || obj === undefined) return obj;
+    if (Array.isArray(obj)) return obj.map(cleanse);
+    if (typeof obj !== "object") return obj;
+    const out: any = Array.isArray(obj) ? [] : {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (sensitiveKeys.has(k)) {
+        continue;
+      }
+      out[k] = cleanse(v);
+    }
+    return out;
+  }
+
+  return cleanse(value);
 }

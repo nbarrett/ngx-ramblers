@@ -17,8 +17,7 @@ import { SocialViewPageComponent } from "../social-view-page/social-view-page";
 
 @Component({
   selector: "app-social-selector",
-  standalone: true,
-  imports: [
+    imports: [
     DynamicContentPageComponent,
     StatusIconComponent,
     HumanisePipe,

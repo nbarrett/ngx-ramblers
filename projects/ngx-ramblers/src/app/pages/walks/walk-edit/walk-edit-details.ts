@@ -13,8 +13,7 @@ import { JsonPipe } from "@angular/common";
 
 @Component({
   selector: "app-walk-edit-details",
-  standalone: true,
-  imports: [
+    imports: [
     FormsModule,
     WalkLocationEditComponent,
     EventAscentEdit,

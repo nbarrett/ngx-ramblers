@@ -185,6 +185,7 @@ export interface BuiltInProcessMappings {
   forgotPasswordNotificationConfigId: string;
   walkNotificationConfigId: string;
   contactUsNotificationConfigId: string;
+  backupNotificationConfigId: string;
 }
 
 export interface NotificationConfigurationApiResponse extends ApiResponse {

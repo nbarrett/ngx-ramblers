@@ -27,8 +27,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 
 @Component({
   selector: "app-walk-edit-copy-from",
-  standalone: true,
-  imports: [
+    imports: [
     FormsModule,
     WalkSummaryPipe
   ],

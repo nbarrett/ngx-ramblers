@@ -172,10 +172,22 @@ export class MailchimpListService {
   }
 
   resetUpdateStatusForMember(member: Member): void {
-    // updated == false means not up to date with mail e.g. next list update will send this data to mailchimp
-    member.mailchimpLists.walks.updated = false;
-    member.mailchimpLists.socialEvents.updated = false;
-    member.mailchimpLists.general.updated = false;
+    if (!member) return;
+    if (!member.mailchimpLists) {
+      (member as any).mailchimpLists = {} as MailchimpSubscription;
+    }
+    if (!member.mailchimpLists["walks"]) {
+      (member.mailchimpLists as any)["walks"] = {} as MailchimpSubscription;
+    }
+    if (!member.mailchimpLists["socialEvents"]) {
+      (member.mailchimpLists as any)["socialEvents"] = {} as MailchimpSubscription;
+    }
+    if (!member.mailchimpLists["general"]) {
+      (member.mailchimpLists as any)["general"] = {} as MailchimpSubscription;
+    }
+    member.mailchimpLists["walks"].updated = false;
+    member.mailchimpLists["socialEvents"].updated = false;
+    member.mailchimpLists["general"].updated = false;
   }
 
   public initialiseSubscription(member: Member, listType: string, subscribed: boolean) {

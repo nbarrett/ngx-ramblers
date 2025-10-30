@@ -18,8 +18,7 @@ import { DisplayedWalk } from "../../../models/walk.model";
 
 @Component({
   selector: "app-walks-selector",
-  standalone: true,
-  imports: [
+    imports: [
     DynamicContentPageComponent,
     WalkViewComponent,
     WalkListComponent,

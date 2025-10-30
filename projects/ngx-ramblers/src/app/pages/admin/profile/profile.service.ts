@@ -6,6 +6,8 @@ import { AuthService } from "../../../auth/auth.service";
 import { LoginResponse, Member, ProfileUpdateType } from "../../../models/member.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MailchimpListService } from "../../../services/mailchimp/mailchimp-list.service";
+import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
+import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { MemberService } from "../../../services/member/member.service";
 import { AlertInstance } from "../../../services/notifier.service";
@@ -21,6 +23,8 @@ export class ProfileService  {
   private memberService = inject(MemberService);
   private urlService = inject(UrlService);
   private mailchimpListService = inject(MailchimpListService);
+  private memberDefaultsService = inject(MemberDefaultsService);
+  private systemConfigService = inject(SystemConfigService);
   private authService = inject(AuthService);
   private memberLoginService = inject(MemberLoginService);
   filters: any;
@@ -65,7 +69,8 @@ export class ProfileService  {
 
   saveMemberDetails(notify: AlertInstance, profileUpdateType: ProfileUpdateType, member: Member) {
     this.logger.debug("saveMemberDetails:", profileUpdateType);
-    this.mailchimpListService.resetUpdateStatusForMember(member);
+    const systemConfig = this.systemConfigService.systemConfig();
+    this.memberDefaultsService.resetUpdateStatusForMember(member, systemConfig);
     return this.memberService.update(member)
       .then(() => this.saveOrUpdateSuccessful(notify, profileUpdateType))
       .catch((error) => this.saveOrUpdateUnsuccessful(notify, profileUpdateType, error));

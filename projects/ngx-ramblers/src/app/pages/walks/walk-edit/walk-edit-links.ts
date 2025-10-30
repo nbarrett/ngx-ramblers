@@ -22,8 +22,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 
 @Component({
   selector: "app-walk-edit-related-links",
-  standalone: true,
-  imports: [
+    imports: [
     FormsModule,
     MarkdownEditorComponent,
     WalkVenueComponent,

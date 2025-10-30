@@ -17,6 +17,7 @@ import { humanFileSize } from "../../../projects/ngx-ramblers/src/app/functions/
 import { mapStatusCode } from "../../../projects/ngx-ramblers/src/app/functions/websockets";
 import { processTestStepEvent } from "../ramblers/process-test-step-event";
 import { handleSiteMigration } from "../migration/site-migration-ws-handler";
+import { handleBackupRestoreWebSocket } from "../backup/backup-ws-handler";
 
 const debugLog = debug(envConfig.logNamespace("websocket-server"));
 debugLog.enabled = true;
@@ -27,6 +28,7 @@ const messageHandlers: MessageHandlers = {
   [EventType.RESIZE_UNSAVED_IMAGES]: (ws: WebSocket, data: ContentMetadataResizeRequest) => resizeUnsavedImages(ws, data),
   [EventType.TEST_STEP_REPORTER]: (ws: WebSocket, data: string) => processTestStepEvent(clientWebSocketInstance.instance || ws, data),
   [EventType.SITE_MIGRATION]: async (ws: WebSocket, data: any) => handleSiteMigration(ws, data),
+  [EventType.BACKUP_RESTORE]: async (ws: WebSocket, data: any) => handleBackupRestoreWebSocket(ws, data),
   [EventType.PING]: (ws: WebSocket, data: any) => {
     debugLog("✅ Received ping, responding with pong");
     ws.send(JSON.stringify({ type: "pong", data: {} }));

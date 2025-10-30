@@ -39,6 +39,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { MailChimpSubscriptionSettingsComponent } from "./mailchimp-subscription-settings";
 import { MailSubscriptionSettingsComponent } from "./mail-subscription-settings";
 import { SwitchIconComponent } from "../system-settings/committee/switch-icon";
+import { SecretInputComponent } from "../../../modules/common/secret-input/secret-input.component";
 import { JsonPipe } from "@angular/common";
 import { CreatedAuditPipe } from "../../../pipes/created-audit-pipe";
 import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
@@ -53,7 +54,7 @@ import { FormatAuditPipe } from "../../../pipes/format-audit-pipe";
   providers: [FormatAuditPipe],
   imports: [TabsetComponent, TabDirective, FormsModule, DatePicker, MarkdownEditorComponent, TooltipDirective,
     FontAwesomeModule, MailChimpSubscriptionSettingsComponent, MailSubscriptionSettingsComponent, SwitchIconComponent,
-    JsonPipe, CreatedAuditPipe, DisplayDateAndTimePipe, FullNameWithAliasPipe, LastConfirmedDateDisplayed, UpdatedAuditPipe]
+    SecretInputComponent, JsonPipe, CreatedAuditPipe, DisplayDateAndTimePipe, FullNameWithAliasPipe, LastConfirmedDateDisplayed, UpdatedAuditPipe]
 })
 export class MemberAdminModalComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MemberAdminModalComponent", NgxLoggerLevel.ERROR);

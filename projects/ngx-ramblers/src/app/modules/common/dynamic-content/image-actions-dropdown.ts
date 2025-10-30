@@ -31,8 +31,7 @@ import { faImage } from "@fortawesome/free-solid-svg-icons";
       </ul>
     </div>
   `,
-  standalone: true,
-  imports: [BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, FontAwesomeModule]
+    imports: [BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, FontAwesomeModule]
 })
 export class ImageActionsDropdownComponent {
   @Input() fullWidth = false;
