@@ -21,6 +21,7 @@ import { VisibilityObserverDirective } from "../../../notifications/common/visib
 import { ActivatedRoute, Router } from "@angular/router";
 import { StoredValue } from "../../../models/ui-actions";
 import { UiActionsService } from "../../../services/ui-actions.service";
+import { sortBy } from "../../../functions/arrays";
 
 @Component({
   selector: "app-page-content-navigator",
@@ -279,7 +280,8 @@ export class PageContentNavigatorComponent implements OnInit {
 
   private async loadForViewMode(): Promise<void> {
     if (this.viewMode() === "duplicates") {
-      this.contentItems.set(await this.pageContentManagementService.findDuplicates());
+      const duplicates = await this.pageContentManagementService.findDuplicates();
+      this.contentItems.set([...duplicates].sort(sortBy("path")));
     } else {
       const allContent = await this.pageContentService.all();
       this.contentItems.set(this.wrapAsPageContentGroup(allContent));
@@ -293,7 +295,7 @@ export class PageContentNavigatorComponent implements OnInit {
   }
 
   private wrapAsPageContentGroup(allContent: PageContent[]): PageContentGroup[] {
-    return allContent.map(item => ({ path: item.path, pageContents: [item] } as PageContentGroup));
+    return [...allContent].sort(sortBy("path")).map(item => ({ path: item.path, pageContents: [item] } as PageContentGroup));
   }
 
   onSearchChange(value: string) {

@@ -95,7 +95,7 @@ router.post("/html-from-url", async (req, res) => {
     try {
       browser = await launchBrowser();
       const page = await browser.newPage();
-      await page.goto(parsed.toString(), { waitUntil: "networkidle2", timeout: 30000 });
+      await page.goto(parsed.toString(), { waitUntil: "domcontentloaded", timeout: 60000 });
       const html = await page.content();
       const { baseHref } = await page.evaluate(() => {
         const el = document.querySelector("base[href]") as HTMLBaseElement | null;

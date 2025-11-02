@@ -54,6 +54,8 @@ import { ContentTextService } from "../services/content-text.service";
 import { ContentConversionService } from "../services/content-conversion.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { MigrationConfigService } from "../services/migration/migration-config.service";
+import { ConfigService } from "../services/config.service";
+import { ConfigKey } from "../models/config.model";
 import { SiteEditService } from "../site-edit/site-edit.service";
 import { UiActionsService } from "../services/ui-actions.service";
 import { StoredValue } from "../models/ui-actions";
@@ -141,6 +143,15 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
       display: flex
       justify-content: flex-end
       gap: 8px
+
+    .paste-processing-backdrop
+      position: fixed
+      top: 0
+      left: 0
+      right: 0
+      bottom: 0
+      background: rgba(0, 0, 0, 0.5)
+      z-index: 10001
 
     .paste-processing-indicator
       position: fixed
@@ -357,11 +368,9 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
       <textarea #textArea [wrap]="'hard'"
                 [(ngModel)]="content.text"
                 (ngModelChange)="changeText($event)"
-                (input)="autoResize(textArea)"
                 (contextmenu)="onContextMenu($event)"
                 (paste)="onPaste($event)"
                 class="form-control markdown-textarea"
-                [style.overflow]="'hidden'" [rows]="1"
                 placeholder="Enter {{description}} text here">
           </textarea>
       @if (contextMenuVisible) {
@@ -377,13 +386,14 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
         </div>
       }
       @if (pasteProcessing && !pastePromptVisible) {
+        <div class="paste-processing-backdrop"></div>
         <div class="paste-processing-indicator">
           <fa-icon [icon]="faSpinner" [spin]="true"/>
           <span>Processing paste...</span>
         </div>
       }
       @if (pastePromptVisible) {
-        <div class="paste-prompt-overlay" (click)="hidePastePrompt()">
+        <div class="paste-prompt-overlay">
           <div class="paste-prompt" (click)="$event.stopPropagation()">
             <div class="paste-prompt-header">
               @if (pastePromptHtmlDetected) {
@@ -397,22 +407,38 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
               @if (pastePromptHtmlDetected) {
                 <p>Select a base URL for resolving relative image paths:</p>
                 <div class="mb-3">
-                  <input
-                    type="text"
-                    class="form-control"
-                    [attr.list]="pastePromptBaseUrls.length > 0 ? 'pastePromptBaseUrlOptions' : null"
-                    [ngModel]="displayBaseUrl()"
-                    (ngModelChange)="pastePromptBaseUrlChanged($event)"
-                    placeholder="https://example.com/path">
                   @if (pastePromptBaseUrls.length > 0) {
-                    <datalist id="pastePromptBaseUrlOptions">
+                    <select
+                      class="form-select mb-2"
+                      [ngModel]="pastePromptBaseUrl"
+                      (ngModelChange)="pastePromptBaseUrlChanged($event)">
                       @for (baseUrl of pastePromptBaseUrls; track baseUrl) {
-                        <option [value]="baseUrl"></option>
+                        <option [value]="baseUrl">{{ baseUrl }}</option>
                       }
-                    </datalist>
+                      <option value="__custom__">Custom URL...</option>
+                    </select>
+                  }
+                  @if (pastePromptShowCustomUrlInput || pastePromptBaseUrls.length === 0) {
+                    <input
+                      type="text"
+                      class="form-control"
+                      [ngModel]="pastePromptCustomUrl"
+                      (ngModelChange)="pastePromptCustomUrlChanged($event)"
+                      placeholder="https://example.com/path">
                   }
                   @if (pastePromptErrorMessage) {
                     <div class="text-danger small mt-2">{{ pastePromptErrorMessage }}</div>
+                  }
+                  @if (pastePromptShowSaveToConfigPrompt) {
+                    <div class="alert alert-info small mt-2">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="saveToConfig"
+                               [(ngModel)]="pastePromptSaveToConfig">
+                        <label class="form-check-label" for="saveToConfig">
+                          Save this URL to migration config for future use
+                        </label>
+                      </div>
+                    </div>
                   }
                 </div>
 
@@ -510,6 +536,7 @@ import { HtmlPastePreview, HtmlPasteResult } from "../models/html-paste.model";
 })
 export class MarkdownEditorComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MarkdownEditorComponent", NgxLoggerLevel.ERROR);
+  private config = inject(ConfigService);
   @ViewChild("textArea") textArea?: ElementRef<HTMLTextAreaElement>;
 
   @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {
@@ -653,6 +680,10 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   public pastePromptCreateNested: boolean | null = null;
   private textInputProvided = false;
   private migrationConfigSubscriptionAdded = false;
+  public pastePromptShowCustomUrlInput = false;
+  public pastePromptCustomUrl = "";
+  public pastePromptShowSaveToConfigPrompt = false;
+  public pastePromptSaveToConfig = false;
 
   async ngOnInit() {
     this.logger.info("ngOnInit:name", this.content?.name, "data:", this.data, "description:", this.description);
@@ -883,8 +914,10 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     if (!el) {
       return;
     }
+    const scrollPos = el.scrollTop;
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
+    el.scrollTop = scrollPos;
   }
 
   private deferAutoResize() {
@@ -1308,10 +1341,36 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   pastePromptBaseUrlChanged(baseUrl: string): void {
-    this.pastePromptBaseUrl = this.ensureTrailingSlash(baseUrl || "");
+    if (baseUrl === "__custom__") {
+      this.pastePromptShowCustomUrlInput = true;
+      this.pastePromptCustomUrl = this.pastePromptCustomUrl || "";
+      this.pastePromptBaseUrl = this.ensureTrailingSlash(this.pastePromptCustomUrl);
+    } else {
+      this.pastePromptShowCustomUrlInput = false;
+      this.pastePromptBaseUrl = this.ensureTrailingSlash(baseUrl || "");
+    }
     this.pastePromptErrorMessage = "";
     this.pastePromptHtmlPreview = null;
     this.pastePromptPreviewBaseUrl = this.pastePromptBaseUrl;
+    this.updateSaveToConfigPrompt();
+  }
+
+  pastePromptCustomUrlChanged(customUrl: string): void {
+    this.pastePromptCustomUrl = customUrl;
+    this.pastePromptBaseUrl = this.ensureTrailingSlash(customUrl || "");
+    this.pastePromptErrorMessage = "";
+    this.pastePromptHtmlPreview = null;
+    this.pastePromptPreviewBaseUrl = this.pastePromptBaseUrl;
+    this.updateSaveToConfigPrompt();
+  }
+
+  private updateSaveToConfigPrompt(): void {
+    const trimmedUrl = this.pastePromptBaseUrl.trim();
+    const isCustom = trimmedUrl && !this.pastePromptBaseUrls.includes(this.ensureTrailingSlash(trimmedUrl));
+    this.pastePromptShowSaveToConfigPrompt = isCustom;
+    if (!isCustom) {
+      this.pastePromptSaveToConfig = false;
+    }
   }
 
   private ensureTrailingSlash(baseUrl: string): string {
@@ -1417,6 +1476,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       createNested: this.pastePromptCreateNested ?? undefined
     });
 
+    await this.saveCustomUrlToConfigIfNeeded();
     this.hidePastePrompt();
   }
 
@@ -1458,7 +1518,33 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       }
     }, 0);
 
+    await this.saveCustomUrlToConfigIfNeeded();
     this.hidePastePrompt();
+  }
+
+  private async saveCustomUrlToConfigIfNeeded(): Promise<void> {
+    if (!this.pastePromptSaveToConfig || !this.pastePromptBaseUrl) {
+      return;
+    }
+
+    try {
+      const migrationConfigService = this.injector.get(MigrationConfigService);
+      const currentConfig = await this.config.queryConfig(ConfigKey.MIGRATION, { sites: [] });
+
+      const newSite = migrationConfigService.emptySiteMigrationConfig();
+      newSite.name = new URL(this.pastePromptBaseUrl).hostname;
+      newSite.baseUrl = this.pastePromptBaseUrl;
+      newSite.siteIdentifier = new URL(this.pastePromptBaseUrl).hostname.replace(/\./g, "-");
+
+      currentConfig.sites = currentConfig.sites || [];
+      currentConfig.sites.push(newSite);
+
+      await migrationConfigService.saveConfig(currentConfig);
+      this.logger.info("Saved new migration config for:", this.pastePromptBaseUrl);
+      migrationConfigService.refreshConfig();
+    } catch (error) {
+      this.logger.error("Failed to save migration config:", error);
+    }
   }
 
   hidePastePrompt(): void {
@@ -1473,6 +1559,10 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.pastePromptMarkdownPreview = null;
     this.pastePromptPreviewBaseUrl = "";
     this.pastePromptIsConversion = false;
+    this.pastePromptShowCustomUrlInput = false;
+    this.pastePromptCustomUrl = "";
+    this.pastePromptShowSaveToConfigPrompt = false;
+    this.pastePromptSaveToConfig = false;
   }
 
   hasImagesInCurrentContent(): boolean {
