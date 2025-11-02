@@ -168,6 +168,11 @@ async function startServer() {
       debugLog(`🚀 Server is listening on port for ${envConfig.env} environment`, port);
     });
 
+    server.timeout = 600000;
+    server.keepAliveTimeout = 610000;
+    server.headersTimeout = 620000;
+    debugLog(`⏱️ Server timeouts configured: timeout=${server.timeout}ms, keepAliveTimeout=${server.keepAliveTimeout}ms, headersTimeout=${server.headersTimeout}ms`);
+
     createWebSocketServer(server, port);
   } catch (error) {
     debugLog("❌ Failed to start server:", error);
