@@ -37,7 +37,9 @@ const messageHandlers: MessageHandlers = {
 export function createWebSocketServer(server: Server, port: number): void {
   const wss = new WebSocketServer({
     noServer: true,
-    maxPayload: 1024 * 1024 * 500
+    maxPayload: 1024 * 1024 * 500,
+    clientTracking: true,
+    perMessageDeflate: false
   });
 
   function upgradeIfWebSocket(request: IncomingMessage, socket: any, head: Buffer): void {
@@ -50,8 +52,14 @@ export function createWebSocketServer(server: Server, port: number): void {
     }
   }
 
-  wss.on("connection", (ws: WebSocket) => {
+  wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
     debugLog("✅ Client connected");
+
+    const socket = request.socket;
+    socket.setTimeout(0);
+    socket.setKeepAlive(true, 30000);
+    debugLog("✅ Socket configured with no timeout and keep-alive every 30s");
+
     ws.on("message", (message: string) => {
       debugLog(`✅ Message received of size: ${humanFileSize(message.length)}`);
       try {
