@@ -21,23 +21,23 @@ import { PageService } from "../../../services/page.service";
 
 @Component({
   selector: "app-events-header",
-  template: `@if (display.allow.admin) {
-    @if (showPagination) {
+  template: `@if (showPagination) {
+    @if (display.allow.admin) {
       <ng-container *ngTemplateOutlet="searchAndFilterActions"/>
-      <div class="d-flex flex-column flex-md-row events-header-full-width">
-        @if (!eventsData || eventsData?.allow?.pagination) {
-          <pagination class="pagination rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="5"
-                      [totalItems]="totalItems" [(ngModel)]="pageNumber"
-                      (pageChanged)="pageChanged.emit($event)"/>
-        }
-        <div class="form-group mb-0 flex-grow-1 mt-md-0">
-          <ng-container *ngTemplateOutlet="alert"/>
-        </div>
+    }
+    <div class="d-flex flex-column flex-md-row events-header-full-width">
+      @if (!eventsData || eventsData?.allow?.pagination) {
+        <pagination class="rounded" [boundaryLinks]=true [rotate]="true" [maxSize]="5"
+                    [totalItems]="totalItems" [(ngModel)]="pageNumber"
+                    (pageChanged)="pageChanged.emit($event)"/>
+      }
+      <div class="form-group mb-0 flex-grow-1 mt-md-0">
+        <ng-container *ngTemplateOutlet="alert"/>
       </div>
-    }
-    @if (!showPagination) {
-      <ng-container *ngTemplateOutlet="searchAndFilterActions"/>
-    }
+    </div>
+  }
+  @if (!showPagination && display.allow.admin) {
+    <ng-container *ngTemplateOutlet="searchAndFilterActions"/>
   }
 
   <div class="row">
@@ -136,10 +136,12 @@ export class EventsHeader implements OnInit, OnDestroy {
   @Input() totalItems!: number;
 
   ngOnInit(): void {
-    this.broadcastService.on(NamedEventType.SHOW_PAGINATION, (show: NamedEvent<boolean>) => {
-      this.logger.info("showPagination:", show);
-      return this.showPagination = show.data;
-    });
+    this.subscriptions.push(
+      this.broadcastService.on(NamedEventType.SHOW_PAGINATION, (show: NamedEvent<boolean>) => {
+        this.logger.info("showPagination:", show);
+        this.showPagination = show.data;
+      })
+    );
     this.subscriptions.push(this.searchChangeObservable.pipe(debounceTime(1000))
       .pipe(distinctUntilChanged())
       .subscribe(searchTerm => this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.APPLY_FILTER, searchTerm))));
