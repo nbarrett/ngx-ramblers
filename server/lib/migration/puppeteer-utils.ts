@@ -1,7 +1,18 @@
 import puppeteer, { Browser } from "puppeteer";
 
 export async function launchBrowser(): Promise<Browser> {
-  return puppeteer.launch({ headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+  return puppeteer.launch({
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-accelerated-2d-canvas",
+      "--no-first-run",
+      "--no-zygote",
+      "--disable-gpu"
+    ]
+  });
 }
 
 export function deriveBaseUrl(pageUrl: string, docBaseHref?: string): string {
