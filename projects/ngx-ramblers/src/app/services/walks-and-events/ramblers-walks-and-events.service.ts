@@ -470,6 +470,8 @@ export class RamblersWalksAndEventsService {
         validationMessages.push("Estimated Finish Time has not been entered");
       } else if (!walk?.groupEvent?.end_date_time?.includes(":")) {
         validationMessages.push(`Estimated Finish time must be entered using hh:mm format but it's been entered as ${walk?.groupEvent?.end_date_time}`);
+      } else if (isEmpty(walk?.groupEvent?.end_date_time?.trim())) {
+        validationMessages.push("Estimated Finish Time cannot be empty");
       }
 
       if (isEmpty(walk?.groupEvent?.shape)) {

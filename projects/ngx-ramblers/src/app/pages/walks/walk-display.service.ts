@@ -289,9 +289,13 @@ export class WalkDisplayService {
 
   walkLink(extendedGroupEvent: ExtendedGroupEvent): string {
     this.logger.info("walkLink:groupEvent:url:", extendedGroupEvent?.groupEvent.url, "title:", extendedGroupEvent?.groupEvent?.title);
+    const urlToUse = extendedGroupEvent?.groupEvent?.url
+      || this.stringUtils.kebabCase(extendedGroupEvent?.groupEvent?.title, this.dateUtils.yearMonthDayWithDashes(extendedGroupEvent?.groupEvent?.start_date_time))
+      || extendedGroupEvent?.groupEvent?.id
+      || extendedGroupEvent?.id;
     return this.urlService.linkUrl({
       area: "walks",
-      id: this.stringUtils.lastItemFrom(extendedGroupEvent?.groupEvent?.url) || extendedGroupEvent?.groupEvent?.id || extendedGroupEvent?.groupEvent?.id
+      id: this.stringUtils.lastItemFrom(urlToUse)
     });
   }
 

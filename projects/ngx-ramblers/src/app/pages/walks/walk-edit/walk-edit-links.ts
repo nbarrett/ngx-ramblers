@@ -251,6 +251,7 @@ export class WalkEditRelatedLinksComponent implements OnInit {
 
   unlinkRamblersDataFromCurrentWalk() {
     this.displayedWalk.walk.groupEvent.id = null;
+    this.displayedWalk.walk.groupEvent.url = null;
     this.notify.progress({title: "Unlink walk", message: "Previous Ramblers walk has now been unlinked."});
   }
 
