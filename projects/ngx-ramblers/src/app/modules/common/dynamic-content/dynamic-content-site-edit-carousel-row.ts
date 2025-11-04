@@ -23,7 +23,7 @@ import { BadgeButtonComponent } from "../badge-button/badge-button";
     <label class="me-2"
            [for]="id">Album Name</label>
     @if (!nameInput) {
-      <app-image-list-select [maxWidth]="220" [id]="id" showNewButton
+      <app-image-list-select [maxWidth]="200" [id]="id" showNewButton
                              [name]="row?.carousel?.name"
                              (metadataChange)="metadataChange(row, $event)"
                              (nameEditToggle)="toggleNameEdit($event)"/>

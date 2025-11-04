@@ -21,7 +21,7 @@ export const AUDIT_FIELDS: AuditField[] = [
     fieldName: "membershipExpiryDate",
     writeDataIf: WriteDataRule.CHANGED,
     type: WriteDataType.DATE,
-    dateFormat: RamblersInsightHubDateFormat.OTHER_DATES
+    dateFormat: RamblersInsightHubDateFormat.TWO_DIGIT_YEAR
   },
   {fieldName: "membershipNumber", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.STRING},
   {fieldName: "mobileNumber", writeDataIf: WriteDataRule.NO_OLD_VALUE, type: WriteDataType.STRING},
@@ -48,6 +48,6 @@ export const AUDIT_FIELDS: AuditField[] = [
     fieldName: "emailPermissionLastUpdated",
     writeDataIf: WriteDataRule.CHANGED,
     type: WriteDataType.DATE,
-    dateFormat: RamblersInsightHubDateFormat.OTHER_DATES
+    dateFormat: RamblersInsightHubDateFormat.FOUR_DIGIT_YEAR
   },
 ];

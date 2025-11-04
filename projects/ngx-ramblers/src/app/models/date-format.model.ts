@@ -7,8 +7,8 @@ export enum RamblersWalksManagerDateFormat {
 }
 
 export enum RamblersInsightHubDateFormat {
-  JOIN_DATE = "dd/MM/yy",
-  OTHER_DATES = "dd/MM/yyyy",
+  FOUR_DIGIT_YEAR = "dd/MM/yyyy",
+  TWO_DIGIT_YEAR = "dd/MM/yy",
 }
 
 export enum UIDateFormat {
