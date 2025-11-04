@@ -3,14 +3,13 @@ import * as fs from "fs/promises";
 import { createWriteStream } from "fs";
 import * as path from "path";
 import {
+  CreateBucketCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
-  S3Client,
-  CreateBucketCommand
+  S3Client
 } from "@aws-sdk/client-s3";
-import { DateTime } from "luxon";
 import { dateTimeInTimezone, dateTimeNow } from "../shared/dates";
 import { backupSession, BackupSession } from "../mongo/models/backup-session";
 import { BackupNotificationService } from "./backup-notification-service";
@@ -536,15 +535,15 @@ export class BackupAndRestoreService {
   }
 
   async sessions(limit: number = 50): Promise<BackupSession[]> {
-    return await backupSession.find().sort({ startTime: -1 }).limit(limit);
+    return backupSession.find().sort({startTime: -1}).limit(limit);
   }
 
   async session(sessionId: string): Promise<BackupSession | null> {
-    return await backupSession.findById(sessionId);
+    return backupSession.findById(sessionId);
   }
 
-  async listEnvironments(): Promise<Array<{ name: string; appName: string; database?: string; hasMongoConfig: boolean }>> {
-    const environments: Array<{ name: string; appName: string; database?: string; hasMongoConfig: boolean }> = [];
+  async listEnvironments(): Promise<{ name: string; appName: string; database?: string; hasMongoConfig: boolean }[]> {
+    const environments: { name: string; appName: string; database?: string; hasMongoConfig: boolean }[] = [];
     const processedNames = new Set<string>();
 
     if (this.backupConfig.environments) {
@@ -576,7 +575,7 @@ export class BackupAndRestoreService {
     return environments;
   }
 
-  async listBackups(): Promise<Array<{ name: string; path: string; timestamp: Date }>> {
+  async listBackups(): Promise<{ name: string; path: string; timestamp: Date }[]> {
     const backupsDir = path.join(this.dumpBaseDir, "backups");
     try {
       const entries = await fs.readdir(backupsDir);
@@ -600,8 +599,8 @@ export class BackupAndRestoreService {
     }
   }
 
-  async listS3Backups(): Promise<Array<{ name: string; path: string; timestamp?: Date }>> {
-    const results: Array<{ name: string; path: string; timestamp?: Date }> = [];
+  async listS3Backups(): Promise<{ name: string; path: string; timestamp?: Date }[]> {
+    const results: { name: string; path: string; timestamp?: Date }[] = [];
     if (!this.backupConfig.environments) return results;
     for (const env of this.backupConfig.environments) {
       try {
@@ -708,7 +707,7 @@ export class BackupAndRestoreService {
         });
       }
 
-      proc.on("close", (code) => {
+      proc.on("close", code => {
         if (code !== 0) {
           reject(new Error(`mongosh exited with code ${code}: ${stderr}`));
         } else {

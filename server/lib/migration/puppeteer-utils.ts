@@ -1,4 +1,8 @@
 import puppeteer, { Browser } from "puppeteer";
+import debug from "debug";
+import { envConfig } from "../env-config/env-config";
+
+const debugLog = debug(envConfig.logNamespace("puppeteer-utils"));
 
 export async function launchBrowser(): Promise<Browser> {
   return puppeteer.launch({
@@ -27,7 +31,8 @@ export function deriveBaseUrl(pageUrl: string, docBaseHref?: string): string {
       base.pathname = directory || "/";
     }
     return base.toString();
-  } catch {
+  } catch (e) {
+    debugLog(`Failed to parse URL "${pageUrl}" with baseHref "${docBaseHref}":`, e instanceof Error ? e.message : String(e));
     return pageUrl.endsWith("/") ? pageUrl : `${pageUrl}/`;
   }
 }

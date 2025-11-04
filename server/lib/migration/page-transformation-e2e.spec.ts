@@ -27,7 +27,8 @@ function toAbsolute(baseUrl: string, url: string): string {
   try {
     const hasScheme = /:\/\//.test(url);
     return hasScheme ? url : new URL(url, baseUrl).href;
-  } catch {
+  } catch (e) {
+    debugLog(`Failed to convert URL "${url}" to absolute with base "${baseUrl}":`, e instanceof Error ? e.message : String(e));
     return url;
   }
 }
