@@ -40,7 +40,8 @@ export class PageTransformationEngine {
   private filenameFromUrl(url: string): string {
     try {
       return decodeURIComponent(new URL(url || "").pathname.split("/").pop() || "");
-    } catch {
+    } catch (e) {
+      debugLog(`Failed to parse URL "${url}":`, e instanceof Error ? e.message : String(e));
       return decodeURIComponent((url || "").split("/").pop() || "");
     }
   }
@@ -59,7 +60,8 @@ export class PageTransformationEngine {
         .replace(/\*/g, ".*");
       try {
         return new RegExp(`^${esc}$`, "i").test(text);
-      } catch {
+      } catch (e) {
+        debugLog(`Failed to create RegExp from pattern "${p}":`, e instanceof Error ? e.message : String(e));
         const pl = p.replace(/\*/g, "").toLowerCase();
         return tl.includes(pl);
       }

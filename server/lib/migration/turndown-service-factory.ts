@@ -173,7 +173,8 @@ export function resolveUrls(html: string, baseUrl: string): string {
     try {
       const resolved = new URL(url, baseUrl).href;
       return `${prefix}${resolved}${suffix}`;
-    } catch {
+    } catch (e) {
+      debugLog(`Failed to resolve image URL "${url}" with base "${baseUrl}":`, e instanceof Error ? e.message : String(e));
       return match;
     }
   });
@@ -183,7 +184,8 @@ export function resolveUrls(html: string, baseUrl: string): string {
     try {
       const resolved = new URL(url, baseUrl).href;
       return `${prefix}${resolved}${suffix}`;
-    } catch {
+    } catch (e) {
+      debugLog(`Failed to resolve link URL "${url}" with base "${baseUrl}":`, e instanceof Error ? e.message : String(e));
       return match;
     }
   });
