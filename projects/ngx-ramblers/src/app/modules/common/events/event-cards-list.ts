@@ -45,6 +45,10 @@ export class EventCardsList {
   protected readonly RamblersEventType = RamblersEventType;
 
   slideClasses() {
-    return cardClasses(min([this.currentPageFilteredEvents.length, this.eventsData?.maxColumns || 2]), CARD_MARGIN_BOTTOM);
+    const eventCount = this.currentPageFilteredEvents.length;
+    const minCols = this.eventsData?.minColumns || 1;
+    const maxCols = this.eventsData?.maxColumns || 2;
+    const columns = Math.max(minCols, Math.min(eventCount, maxCols));
+    return cardClasses(columns, CARD_MARGIN_BOTTOM);
   }
 }

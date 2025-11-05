@@ -1,5 +1,5 @@
 import { Media, RamblersEventType } from "./ramblers-walks-manager";
-import { HasMaxColumns } from "./content-text.model";
+import { HasColumnRange } from "./content-text.model";
 import { FilterCriteria, SortOrder } from "./api-request.model";
 
 export interface HasMedia {
@@ -24,11 +24,12 @@ export interface EventsDataAllows {
   alert?: boolean
 }
 
-export interface EventsData extends HasMaxColumns {
+export interface EventsData extends HasColumnRange {
   fromDate: number;
   toDate: number;
   filterCriteria: FilterCriteria;
   sortOrder: SortOrder;
   allow: EventsDataAllows;
   eventTypes: RamblersEventType[];
+  eventIds?: string[];
 }

@@ -10,7 +10,7 @@ import {
   ContentText,
   DEFAULT_GALLERY_OPTIONS,
   DEFAULT_GRID_OPTIONS,
-  HasMaxColumns,
+  HasColumnRange,
   HasPageContentRows,
   PageContent,
   PageContentColumn,
@@ -266,8 +266,12 @@ export class PageContentActionsService {
     column.columns = this.constrainInput(inputElement, 1, 12);
   }
 
-  changeMaxColumnsFor(inputElement: HTMLInputElement, row: HasMaxColumns) {
+  changeMaxColumnsFor(inputElement: HTMLInputElement, row: HasColumnRange) {
     row.maxColumns = this.constrainInput(inputElement, 1, 4);
+  }
+
+  changeMinColumnsFor(inputElement: HTMLInputElement, row: HasColumnRange) {
+    row.minColumns = this.constrainInput(inputElement, 1, 4);
   }
 
   public constrainInput(inputElement: HTMLInputElement, minValue: number, maxValue: number) {

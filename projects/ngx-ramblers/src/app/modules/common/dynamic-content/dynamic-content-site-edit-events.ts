@@ -24,6 +24,8 @@ import { EventsData, EventsDataAllows } from "../../../models/social-events.mode
 import { DYNAMIC_CONTENT_FILTER_OPTIONS, FilterCriteria, SortOrder } from "../../../models/api-request.model";
 import { SocialDisplayService } from "../../../pages/social/social-display.service";
 import { HasStartAndEndTime } from "../../../models/group-event.model";
+import { GroupEventSummary, GroupEventTypes } from "../../../models/committee.model";
+import { GroupEventSelectorComponent } from "../../../group-events-selector/group-event-selector";
 
 @Component({
   selector: "app-dynamic-content-site-edit-events",
@@ -51,6 +53,8 @@ import { HasStartAndEndTime } from "../../../models/group-event.model";
             </ng-select>
           </div>
         </div>
+      </div>
+      <div class="row align-items-end mb-3 d-flex">
         <div class="col">
           <div class="form-group">
             <label for="filter-criteria-{{id}}">Filter Criteria</label>
@@ -101,7 +105,20 @@ import { HasStartAndEndTime } from "../../../models/group-event.model";
           </div>
         </div>
         <div class="col">
-          <div class="form-group" app-dynamic-content-max-columns-editor [hasMaxColumns]="row.events"></div>
+          <div class="form-group" app-dynamic-content-max-columns-editor [hasColumnRange]="row.events"></div>
+        </div>
+      </div>
+      <div class="row mb-3">
+        <div class="col-md-12">
+          <app-group-event-selector
+            [multiple]="true"
+            [hideDatePickers]="true"
+            [fromDate]="row.events.fromDate"
+            [toDate]="row.events.toDate"
+            [label]="'Specific Events (leave empty to show all events within date range)'"
+            [dataSource]="eventTypeDataSource()"
+            [eventIds]="row.events.eventIds"
+            (eventsChange)="onEventsChange($event)"/>
         </div>
       </div>
       <div class="row d-flex">
@@ -165,7 +182,7 @@ import { HasStartAndEndTime } from "../../../models/group-event.model";
       </div>
     }
     <app-events-row [row]="row" [rowIndex]="rowIndex"/>`,
-  imports: [FormsModule, EventsRow, DatePicker, NgSelectComponent, DynamicContentMaxColumnsEditorComponent]
+  imports: [FormsModule, EventsRow, DatePicker, NgSelectComponent, DynamicContentMaxColumnsEditorComponent, GroupEventSelectorComponent]
 })
 export class DynamicContentSiteEditEvents implements OnInit {
   public display: SocialDisplayService = inject(SocialDisplayService);
@@ -218,6 +235,7 @@ export class DynamicContentSiteEditEvents implements OnInit {
         quickSearch: false
       };
       const events: EventsData = {
+        minColumns: 2,
         maxColumns: 2,
         allow,
         eventTypes: [RamblersEventType.GROUP_EVENT],
@@ -237,6 +255,16 @@ export class DynamicContentSiteEditEvents implements OnInit {
   modelChange(eventTypes: RamblersEventType[]) {
     this.row.events.eventTypes = eventTypes;
     this.logger.info("modelChange:eventTypes:", eventTypes, "row.events:", this.row.events);
+    this.broadcastChange();
+  }
+
+  eventTypeDataSource(): string {
+    return GroupEventTypes.WALK.area;
+  }
+
+  onEventsChange(events: GroupEventSummary[]) {
+    this.row.events.eventIds = events.map(event => event.id);
+    this.logger.info("onEventsChange:", events.length, "events selected, eventIds:", this.row.events.eventIds);
     this.broadcastChange();
   }
 }

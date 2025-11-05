@@ -11,7 +11,7 @@ import { DynamicContentMaxColumnsEditorComponent } from "./dynamic-content-max-c
     template: `
       @if (actions.isActionButtons(row) || actions.isAlbumIndex(row)) {
         <div class="row align-items-center">
-          <div class="col-auto" app-dynamic-content-max-columns-editor [hasMaxColumns]="row"></div>
+          <div class="col-auto" app-dynamic-content-max-columns-editor [hasColumnRange]="row"></div>
           @if (actions.isActionButtons(row) || actions.isAlbumIndex(row)) {
             <div class="col-auto">
               <div class="form-check form-check-inline mb-0">

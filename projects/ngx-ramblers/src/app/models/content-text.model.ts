@@ -80,7 +80,8 @@ export interface HasPageContentRows {
   rows?: PageContentRow[];
 }
 
-export interface HasMaxColumns {
+export interface HasColumnRange {
+  minColumns?: number;
   maxColumns: number;
 }
 
@@ -121,7 +122,7 @@ export interface AreaMapData {
   areaColors?: Record<string, string>;
 }
 
-export interface PageContentRow extends HasMaxColumns {
+export interface PageContentRow extends HasColumnRange {
   type: PageContentType;
   showSwiper: boolean;
   columns: PageContentColumn[];
