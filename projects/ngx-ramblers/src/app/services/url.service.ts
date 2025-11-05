@@ -69,13 +69,13 @@ export class UrlService {
 
   navigateUnconditionallyTo(pathSegments: string[], params?: Params, queryParamsHandling?: QueryParamsHandling): Promise<boolean> {
     const url = `${this.pageUrl(pathSegments.filter(item => item).join("/"))}`;
-    this.logger.info("navigating to pathSegments:", pathSegments, "->", url, "params:", params, "queryParamsHandling:", queryParamsHandling);
+    this.logger.debug("navigating to pathSegments:", pathSegments, "->", url, "params:", params, "queryParamsHandling:", queryParamsHandling);
     return this.router.navigate([url], {
       relativeTo: this.route,
       queryParams: params,
       queryParamsHandling: queryParamsHandling || "merge"
     }).then((activated: boolean) => {
-      this.logger.info("activated:", activated, "area is now:", this.area());
+      this.logger.debug("activated:", activated, "area is now:", this.area());
       return activated;
     });
   }
@@ -231,7 +231,7 @@ export class UrlService {
       area: hasEventId.dateSource,
       id: hasEventId.eventId
     };
-    this.logger.info("eventUrl", hasEventId, "linkConfig:", linkConfig);
+    this.logger.debug("eventUrl", hasEventId, "linkConfig:", linkConfig);
     return this.linkUrl(linkConfig);
   }
 
@@ -241,28 +241,28 @@ export class UrlService {
 
   qualifiedFileNameWithRoot(rootFolder: RootFolder, contentMetaDataName: string, item: ContentMetadataItem): string {
     if (this.isRemoteUrl(item.image)) {
-      this.logger.info("qualifiedFileNameWithRoot:isRemoteUrl:returning", item.image);
+      this.logger.debug("qualifiedFileNameWithRoot:isRemoteUrl:returning", item.image);
       return item.image;
     } else {
       const qualifiedFileNameWithRoot = item.base64Content ? item.base64Content : (item.image && !this.isRemoteUrl(item.image)) ? `${rootFolder}/${contentMetaDataName}/${item.image}` : null;
-      this.logger.info("qualifiedFileNameWithRoot:", qualifiedFileNameWithRoot, "rootFolder:", rootFolder, "contentMetaDataName:", contentMetaDataName, "item:", item);
+      this.logger.debug("qualifiedFileNameWithRoot:", qualifiedFileNameWithRoot, "rootFolder:", rootFolder, "contentMetaDataName:", contentMetaDataName, "item:", item);
       return qualifiedFileNameWithRoot;
     }
   }
 
   imageSource(url: string, absolute?: boolean, cacheBuster?: boolean): string {
     if (this.isRemoteUrl(url)) {
-      this.logger.info("imageSourceUrl:isRemoteUrl:returning", url);
+      this.logger.debug("imageSourceUrl:isRemoteUrl:returning", url);
       return url;
     } else if (FALLBACK_MEDIA.url === url) {
-      this.logger.info("imageSourceUrl:FALLBACK_MEDIA:returning", url);
+      this.logger.debug("imageSourceUrl:FALLBACK_MEDIA:returning", url);
       return url;
     } else if (this.isBase64Image(url)) {
       this.logger.debug("imageSourceUrl:isBase64Image:returning", url);
       return url;
     } else {
       const imageSource = (absolute ? this.absolutePathForAWSFileName(url) : this.resourceRelativePathForAWSFileName(url)) + (cacheBuster ? `?${this.cacheBuster}` : "");
-      this.logger.info("imageSource:url", url, "absolute:", absolute, "returning", imageSource);
+      this.logger.debug("imageSource:url", url, "absolute:", absolute, "returning", imageSource);
       return imageSource;
     }
   }
@@ -316,9 +316,9 @@ export class UrlService {
 
   removeQueryParameter(param: string) {
     const queryParams = {...this.route.snapshot.queryParams};
-    this.logger.info("removing query parameter:", param, "from:", queryParams);
+    this.logger.debug("removing query parameter:", param, "from:", queryParams);
     delete queryParams[param];
-    this.logger.info("now navigating to:", queryParams);
+    this.logger.debug("now navigating to:", queryParams);
     this.router.navigate([], {
       relativeTo: this.route,
       queryParams,
@@ -329,7 +329,7 @@ export class UrlService {
   public redirectToNormalisedUrl(normalisedUrl: string): Promise<boolean>{
     if (normalisedUrl !== this.urlPath()) {
       const navigateToPath = this.pathMinusAnchorForUrl(normalisedUrl);
-      this.logger.info("need to move to:", navigateToPath);
+      this.logger.debug("need to move to:", navigateToPath);
       return this.navigateUnconditionallyTo([navigateToPath]);
     } else {
       return Promise.resolve(true);

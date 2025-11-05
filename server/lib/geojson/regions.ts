@@ -5,7 +5,7 @@ import { queryKey } from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 
 const debugLog = debug(envConfig.logNamespace("regions"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 interface RamblersGroupConfig {
   name: string;

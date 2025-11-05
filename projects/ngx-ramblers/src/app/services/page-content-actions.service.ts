@@ -42,13 +42,29 @@ export class PageContentActionsService {
   public draggedColumnSourceRow: PageContentRow = null;
   public draggedNestedColumnIndex: number = null;
   public draggedNestedRowIndex: number = null;
+  public nestedDragTargetColumnIndex: number = null;
+  public nestedDragTargetRowIndex: number = null;
   public draggedColumnIsNested = false;
+  public draggedColumnParentColumnIndex: number = null;
   public dragStartX: number = null;
   public dragStartY: number = null;
   public dragHasMoved = false;
   public dragOverColumnRowIndex: number = null;
   public dragOverColumnIndex: number = null;
+  public dragOverColumnParentColumnIndex: number = null;
   public dragInsertAfter = false;
+
+  public clearColumnDragState() {
+    this.draggedColumnIndex = null;
+    this.draggedColumnRowIndex = null;
+    this.draggedColumnSourceRow = null;
+    this.dragOverColumnRowIndex = null;
+    this.dragOverColumnIndex = null;
+    this.dragOverColumnParentColumnIndex = null;
+    this.dragInsertAfter = false;
+    this.draggedColumnIsNested = false;
+    this.draggedColumnParentColumnIndex = null;
+  }
 
   public actionType(columnIndex: number, rowIndex: number, rowIsNested: boolean): string {
     const actionType = rowIsNested ? columnIndex >= 0 ?
@@ -302,20 +318,12 @@ export class PageContentActionsService {
     return rowIndex !== null ? `row-${rowIndex + 1}` : "";
   }
 
-  private parentRowPrefixFor(parentRowIndex: number) {
-    return parentRowIndex !== null ? `parent-row-${parentRowIndex + 1}` : "";
-  }
-
   private nestedRowPrefixFor(rowIndex: number) {
     return rowIndex !== null ? `nested-row-${rowIndex + 1}` : "";
   }
 
   private nestedColumnPrefixFor(nestedColumnIndex: number) {
     return nestedColumnIndex !== null ? `nested-column-${nestedColumnIndex + 1}` : "";
-  }
-
-  parentRowColumnIdentifierFor(parentRowIndex: number, rowIndex: number, columnIndex: number, identifier: string): string {
-    return kebabCase(`${identifier}-parent-${parentRowIndex}-${this.rowColFor(rowIndex, columnIndex)}`);
   }
 
   rowColumnIdentifierFor(rowIndex: number, columnIndex: number, identifier: string): string {
@@ -372,7 +380,7 @@ export class PageContentActionsService {
     return rowIsNested && column?.rows ? column : pageContent;
   }
 
-  public moveColumnLeft(columns: PageContentColumn[], fromIndex: number, pageContent: PageContent) {
+  public moveColumnLeft(columns: PageContentColumn[], fromIndex: number) {
     const toIndex = fromIndex - 1;
     this.logger.info("moving column left fromIndex:", fromIndex, "toIndex:", toIndex);
     move(columns, fromIndex, toIndex);
@@ -421,11 +429,21 @@ export class PageContentActionsService {
     return pageContent.rows.findIndex(row => row.columns.includes(column));
   }
 
-  public reorderRows(pageContent: PageContent, fromIndex: number, toIndex: number) {
-    move(pageContent.rows, fromIndex, toIndex);
+  dragHasMovedEvent(event: DragEvent) {
+    this.dragHasMoved = false;
+    try {
+      if (event?.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        const dragEl = (event.target as HTMLElement) || (event.currentTarget as HTMLElement);
+        if (dragEl && event.dataTransfer.setDragImage) {
+          event.dataTransfer.setDragImage(dragEl, 10, 10);
+        }
+      }
+    } catch {
+    }
   }
 
-  public moveColumnBetweenRows(sourceRow: PageContentRow, sourceIndex: number, targetRow: PageContentRow, targetIndex: number, pageContent: PageContent) {
+  public moveColumnBetweenRows(sourceRow: PageContentRow, sourceIndex: number, targetRow: PageContentRow, targetIndex: number) {
     if (!Array.isArray(sourceRow?.columns)) { return; }
     const [col] = sourceRow.columns.splice(sourceIndex, 1);
     if (!Array.isArray(targetRow.columns)) { targetRow.columns = []; }
@@ -459,6 +477,70 @@ export class PageContentActionsService {
     }
   }
 
+  public clearNestedRowDragState() {
+    this.draggedNestedColumnIndex = null;
+    this.draggedNestedRowIndex = null;
+  }
+
+  public clearNestedDragTargets() {
+    this.nestedDragTargetColumnIndex = null;
+    this.nestedDragTargetRowIndex = null;
+  }
+
+  public nestedRowDragTooltip(columnIndex: number, nestedRowIndex: number): string | null {
+    const sCol = this.draggedNestedColumnIndex;
+    const sRow = this.draggedNestedRowIndex;
+    if (sCol === null || sRow === null) {
+      return null;
+    }
+    if (this.nestedDragTargetColumnIndex !== columnIndex || this.nestedDragTargetRowIndex !== nestedRowIndex) {
+      return null;
+    }
+    if (sCol === columnIndex && sRow === nestedRowIndex) {
+      return "Drop: no change";
+    }
+    const where = sCol === columnIndex ? (sRow < nestedRowIndex ? "after" : "before") : "into column " + (columnIndex + 1);
+    return `Drop nested row ${sRow + 1} ${where} ${sCol === columnIndex ? "row " + (nestedRowIndex + 1) : ""}`.trim();
+  }
+
+  public columnDragTooltip(rowIndex: number, columnIndex: number, isNestedLevel: boolean, parentColumnIndex: number | null): string | null {
+    const srcIndex = this.draggedColumnIndex;
+    if (srcIndex === null || srcIndex === undefined) { return null; }
+    if (!this.dragHasMoved) { return null; }
+    if (this.draggedColumnIsNested !== isNestedLevel) { return null; }
+    if (this.dragOverColumnRowIndex !== rowIndex || this.dragOverColumnIndex !== columnIndex) { return null; }
+    if (isNestedLevel && this.dragOverColumnParentColumnIndex !== parentColumnIndex) { return null; }
+    const beforeAfter = this.dragInsertAfter ? "after" : "before";
+    return `Drop ${beforeAfter} Col ${columnIndex + 1}`;
+  }
+
+  public moveNestedRowBetweenColumns(parentRow: PageContentRow, sourceColumnIndex: number, sourceNestedRowIndex: number, targetColumnIndex: number, targetNestedRowIndex: number) {
+    if (!parentRow?.columns) {
+      return;
+    }
+    const ensureRows = (colIndex: number) => {
+      const col = parentRow.columns[colIndex];
+      if (!col) {
+        return;
+      }
+      if (!col.rows) {
+        this.addNestedRows(col);
+      }
+    };
+    ensureRows(sourceColumnIndex);
+    ensureRows(targetColumnIndex);
+    if (sourceColumnIndex === targetColumnIndex) {
+      const rows = parentRow.columns[targetColumnIndex].rows || [];
+      const [item] = rows.splice(sourceNestedRowIndex, 1);
+      rows.splice(targetNestedRowIndex, 0, item);
+    } else {
+      const sourceRows = parentRow.columns[sourceColumnIndex].rows || [];
+      const targetRows = parentRow.columns[targetColumnIndex].rows || [];
+      const [item] = sourceRows.splice(sourceNestedRowIndex, 1);
+      targetRows.splice(targetNestedRowIndex, 0, item);
+    }
+  }
+
   public joinWithPreviousRow(pageContent: PageContent, currentRow: PageContentRow, nestedParentColumn?: PageContentColumn) {
     const rows = nestedParentColumn?.rows || pageContent?.rows || [];
     const rowIndex = rows.indexOf(currentRow);
@@ -475,11 +557,9 @@ export class PageContentActionsService {
     const currentColumn = currentRow.columns[0];
     const previousColumn = previousRow.columns[0];
 
-    const combinedText = [previousColumn.contentText || "", currentColumn.contentText || ""]
+    previousColumn.contentText = [previousColumn.contentText || "", currentColumn.contentText || ""]
       .filter(t => t.trim().length > 0)
       .join("\n\n");
-
-    previousColumn.contentText = combinedText;
 
     if (currentColumn.imageSource && !previousColumn.imageSource) {
       previousColumn.imageSource = currentColumn.imageSource;
@@ -508,11 +588,9 @@ export class PageContentActionsService {
     const currentColumn = currentRow.columns[0];
     const nextColumn = nextRow.columns[0];
 
-    const combinedText = [currentColumn.contentText || "", nextColumn.contentText || ""]
+    currentColumn.contentText = [currentColumn.contentText || "", nextColumn.contentText || ""]
       .filter(t => t.trim().length > 0)
       .join("\n\n");
-
-    currentColumn.contentText = combinedText;
 
     if (nextColumn.imageSource && !currentColumn.imageSource) {
       currentColumn.imageSource = nextColumn.imageSource;
@@ -534,7 +612,7 @@ export class PageContentActionsService {
       && !row2.columns[0]?.rows;
   }
 
-  public equaliseColumnWidths(row: PageContentRow, pageContent: PageContent) {
+  public equaliseColumnWidths(row: PageContentRow) {
     const count = row?.columns?.length || 0;
     if (count <= 0) { return; }
     const base = Math.floor(12 / count);

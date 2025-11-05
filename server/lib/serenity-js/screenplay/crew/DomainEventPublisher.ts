@@ -12,7 +12,7 @@ import {
 import { SceneParametersDetected } from "@serenity-js/core/src/events/SceneParametersDetected";
 
 const debugLog = debug(envConfig.logNamespace("domain-event-publisher"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export class DomainEventPublisher implements StageCrewMember {
   static withDefaults() {

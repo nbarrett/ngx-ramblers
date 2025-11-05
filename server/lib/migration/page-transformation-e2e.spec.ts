@@ -21,7 +21,7 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("page-transformation-engine-spec"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 function toAbsolute(baseUrl: string, url: string): string {
   try {

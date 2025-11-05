@@ -11,7 +11,7 @@ import {
 import { PipelineStage } from "mongoose";
 
 const debugLog = debug(envConfig.logNamespace("walk-admin"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function eventStats(req: Request, res: Response) {
   try {

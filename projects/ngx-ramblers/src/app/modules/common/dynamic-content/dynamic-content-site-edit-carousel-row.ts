@@ -20,27 +20,28 @@ import { BadgeButtonComponent } from "../badge-button/badge-button";
     selector: "[app-row-settings-carousel]",
     styleUrls: ["./dynamic-content.sass"],
   template: `
-    <label class="me-2"
-           [for]="id">Album Name</label>
-    @if (!nameInput) {
-      <app-image-list-select [maxWidth]="200" [id]="id" showNewButton
-                             [name]="row?.carousel?.name"
-                             (metadataChange)="metadataChange(row, $event)"
-                             (nameEditToggle)="toggleNameEdit($event)"/>
-    } @else {
-      <div class="d-flex">
-        <input autocomplete="new-password" [typeahead]="contentMetadataService?.carousels"
-               [typeaheadMinLength]="0"
-               [id]="id"
-               [ngModel]="row.carousel.name"
-               (ngModelChange)="carouselNameChange($event)"
-               name="new-password"
-               [ngModelOptions]="{standalone: true}"
-               type="text" class="form-control me-2 flex-grow-1">
-        <app-badge-button [icon]="faSearch" [caption]="'existing'"
-                          (click)="toggleNameEdit(false)"/>
-      </div>
-    }`,
+    <div class="d-inline-flex align-items-end flex-wrap gap-2 mb-3 w-100">
+      <label class="me-2" [for]="id">Album Name</label>
+      @if (!nameInput) {
+        <app-image-list-select class="flex-grow-1" [style.flex]="'1 1 auto'" [id]="id" showNewButton
+                               [name]="row?.carousel?.name"
+                               (metadataChange)="metadataChange(row, $event)"
+                               (nameEditToggle)="toggleNameEdit($event)"/>
+      } @else {
+        <div class="d-flex flex-grow-1 flex-nowrap">
+          <input autocomplete="new-password" [typeahead]="contentMetadataService?.carousels"
+                 [typeaheadMinLength]="0"
+                 [id]="id"
+                 [ngModel]="row.carousel.name"
+                 (ngModelChange)="carouselNameChange($event)"
+                 name="new-password"
+                 [ngModelOptions]="{standalone: true}"
+                 type="text" class="form-control me-2 flex-grow-1" [style.flex]="'1 1 auto'" [style.min-width.px]="0">
+          <app-badge-button [icon]="faSearch" [caption]="'existing'"
+                            (click)="toggleNameEdit(false)"/>
+        </div>
+      }
+    </div>`,
   imports: [ImageListSelect, FormsModule, TypeaheadDirective, BadgeButtonComponent]
 })
 export class RowSettingsCarouselComponent implements OnInit {

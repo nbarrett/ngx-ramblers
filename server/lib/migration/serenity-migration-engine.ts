@@ -42,7 +42,7 @@ import { NavigateAndWait } from "./screenplay/tasks/navigate-and-wait";
 import { ExecutePageScript, ScrapeResult } from "./screenplay/interactions/execute-page-script";
 
 const debugLog = debug(envConfig.logNamespace("static-html-site-migrator-serenity"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 const turndownService = createTurndownService();
 const s3 = new S3({});
 const awsConfig: AWSConfig = queryAWSConfig();

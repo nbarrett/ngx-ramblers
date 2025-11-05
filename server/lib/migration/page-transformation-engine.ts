@@ -29,7 +29,7 @@ import { humaniseFileStemFromUrl } from "../shared/string-utils";
 import { DateTime } from "luxon";
 
 const debugLog = debug(envConfig.logNamespace("page-transformation-engine"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export class PageTransformationEngine {
   private imageAltFrom(image: ScrapedImage, fallbackText?: string): string {

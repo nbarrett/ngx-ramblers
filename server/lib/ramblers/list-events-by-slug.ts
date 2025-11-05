@@ -22,7 +22,7 @@ import { limitFor } from "./parameters";
 const debugLog = debug(envConfig.logNamespace("ramblers:list-events-by-slug"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:list-events-by-slug-noop"));
 noopDebugLog.enabled = false;
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function listEventsBySlug(req: Request, suppliedSlug?: string): Promise<RamblersEventsApiResponse> {
   const slug = suppliedSlug || req.query.slug as string;
