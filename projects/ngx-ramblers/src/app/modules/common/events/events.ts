@@ -106,12 +106,12 @@ export class Events implements OnInit, OnDestroy {
   public refreshEvents() {
     this.notify.setBusy();
     const dataQueryOptions: DataQueryOptions = {criteria: this.criteria(), sort: this.sort()};
-    this.logger.info("refreshSocialEvents:dataQueryOptions", dataQueryOptions);
+    this.logger.info("refreshSocialEvents:dataQueryOptions", dataQueryOptions, "eventIds:", this?.eventsData?.eventIds);
     this.queryAndReturnEvents(dataQueryOptions)
       .then((extendedGroupEvents: ExtendedGroupEvent[]) => {
         this.display.confirm.clear();
-        this.extendedGroupEvents = extendedGroupEvents;
-        this.logger.info("received extendedGroupEvents:", extendedGroupEvents);
+        this.extendedGroupEvents = this.filterByEventIds(extendedGroupEvents);
+        this.logger.info("received extendedGroupEvents:", extendedGroupEvents.length, "after filtering by eventIds:", this.extendedGroupEvents.length);
         this.applyFilterToSocialEvents();
       })
       .catch(error => {
@@ -121,6 +121,14 @@ export class Events implements OnInit, OnDestroy {
           message: error
         });
       });
+  }
+
+  private filterByEventIds(events: ExtendedGroupEvent[]): ExtendedGroupEvent[] {
+    const eventIds = this?.eventsData?.eventIds;
+    if (!eventIds || eventIds.length === 0) {
+      return events;
+    }
+    return events.filter(event => eventIds.includes(event.groupEvent.id));
   }
 
   private queryAndReturnEvents(dataQueryOptions: DataQueryOptions): Promise<ExtendedGroupEvent[]> {
