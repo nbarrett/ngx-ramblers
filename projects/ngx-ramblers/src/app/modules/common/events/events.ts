@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
 import { ActivatedRoute, ParamMap } from "@angular/router";
 import { range } from "es-toolkit";
 import { PageChangedEvent } from "ngx-bootstrap/pagination";
@@ -43,7 +43,7 @@ import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
   styleUrls: ["../../../pages/social/home/social-home.component.sass"],
   imports: [EventsHeader, FormsModule, EventCardsList]
 })
-export class Events implements OnInit, OnDestroy {
+export class Events implements OnInit, OnChanges, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("Events", NgxLoggerLevel.ERROR);
   private systemConfigService = inject(SystemConfigService);
@@ -78,16 +78,28 @@ export class Events implements OnInit, OnDestroy {
   @Input() eventsData: EventsData;
 
   ngOnInit() {
-    this.logger.info("ngOnInit started");
+    this.logger.info("ngOnInit started for row", this.rowIndex, "with eventsData:", this.eventsData);
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
-    this.systemConfigService.events().subscribe(item => {
-      this.notify.success({
-        title: "Social Events",
-        message: "Querying for data"
-      });
+
+    if (this.eventsData) {
+      this.logger.info("Initial load for row", this.rowIndex);
       this.refreshEvents();
+    }
+
+    this.subscriptions.push(
+      this.systemConfigService.events().subscribe(() => {
+        this.logger.info("systemConfig changed for row", this.rowIndex);
+        if (this.eventsData) {
+          this.refreshEvents();
+        }
+      })
+    );
+    this.broadcastService.on(NamedEventType.REFRESH, () => {
+      this.logger.info("REFRESH broadcast received for row", this.rowIndex);
+      if (this.eventsData) {
+        this.refreshEvents();
+      }
     });
-    this.broadcastService.on(NamedEventType.REFRESH, () => this.refreshEvents());
     this.broadcastService.on(NamedEventType.APPLY_FILTER, (searchTerm?: NamedEvent<string>) => this.applyFilterToSocialEvents(searchTerm));
     this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
       const socialEventId = paramMap.get("relativePath");
@@ -97,6 +109,13 @@ export class Events implements OnInit, OnDestroy {
       }
       this.pageService.setTitle("Home");
     }));
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes.eventsData && !changes.eventsData.firstChange && this.notify) {
+      this.logger.info("eventsData changed for row", this.rowIndex, "new value:", this.eventsData);
+      this.refreshEvents();
+    }
   }
 
   ngOnDestroy(): void {
