@@ -3,7 +3,7 @@ import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("path-utils"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export function navigateUpFromCurrentExecutionDirectory(): string {
   return envConfig.isProduction() ? "../../" : "";

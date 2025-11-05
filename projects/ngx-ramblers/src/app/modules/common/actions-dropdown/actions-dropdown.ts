@@ -29,179 +29,182 @@ import { ContentFormattingSelectorComponent } from "../content-formatting-select
       height: 29px
   `],
     template: `
-    <div class="btn-group" [ngClass]="{'w-100': fullWidth}" dropdown>
-      <button aria-controls="dropdown-animated" class="dropdown-toggle badge-button border-0" [ngClass]="{'w-100': fullWidth}" dropdownToggle
-              type="button">
-        <fa-icon [icon]="faTableCells"></fa-icon>
-        <span class="ms-2">{{ actionType() }} Actions</span><span class="caret"></span>
-      </button>
-      <ul *dropdownMenu class="dropdown-menu" [ngClass]="{'w-100': fullWidth}" (click)="actionClicked($event)"
-          id="dropdown-animated" role="menu">
-        @if (showRowActions && allowMoveRowUp()) {
-          <li role="menuitem">
-            <a (click)="actions.moveRowUp(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
-              Move <b>Row</b> up
-            </a>
-          </li>
-        }
-        @if (showRowActions && allowEqualiseColumnWidths()) {
-          <li role="menuitem">
-            <a (click)="actions.equaliseColumnWidths(row, pageContent)" class="dropdown-item">
-              Column Widths Equal
-            </a>
-          </li>
-        }
-        @if (showRowActions && allowMoveRowDown()) {
-          <li role="menuitem">
-            <a (click)="actions.moveRowDown(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
-              Move <b>Row</b> down
-            </a>
-          </li>
-        }
-        @if (showRowActions && allowUnnestToPreviousOuterRow()) {
-          <li role="menuitem">
-            <a (click)="actions.unnestToPreviousOuterRow(pageContent, rowIndex, column)" class="dropdown-item">
-              Unnest to <b>previous outer row</b>
-            </a>
-          </li>
-        }
-        @if (showRowActions && allowUnnestToNextOuterRow()) {
-          <li role="menuitem">
-            <a (click)="actions.unnestToNextOuterRow(pageContent, rowIndex, column)" class="dropdown-item">
-              Unnest to <b>next outer row</b>
-            </a>
-          </li>
-        }
-        @if (showRowActions && allowTextRowActions()) {
-          <li role="menuitem">
-            <a (click)="actions.duplicateRow(row, rowIndex, pageContent)" class="dropdown-item">
-              Duplicate <b>Row</b>
-            </a>
-          </li>
-        }
-        @if (showRowActions && allowDeleteRow()) {
-          <li role="menuitem">
-            <a (click)="actions.deleteRow(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
-              Delete <b>Row</b>
-            </a>
-          </li>
-        }
-        @if (showColumnActions && allowInsertNestedRows()) {
-          <li role="menuitem">
-            <a (click)="actions.addNestedRows(column)" class="dropdown-item">
-              Insert <b>Nested Rows</b>
-            </a>
-          </li>
-        }
-        @if (showColumnActions && allowDeleteNestedRows()) {
-          <li role="menuitem">
-            <a (click)="actions.removeNestedRows(column)" class="dropdown-item">
-              Delete <b>Nested Rows</b>
-            </a>
-          </li>
-        }
-        @if (showColumnActions && allowColumnActions()) {
-          <li role="menuitem">
-            <a (click)="actions.addColumn(row, columnIndex, pageContent)" class="dropdown-item">
-              Insert <b>Column</b> to left
-            </a>
-          </li>
-        }
-        @if (showColumnActions && allowColumnActions()) {
-          <li role="menuitem">
-            <a (click)="actions.addColumn(row, columnIndex+1, pageContent)" class="dropdown-item">
-              Insert <b>Column</b> to right
-            </a>
-          </li>
-        }
-        @if (showColumnActions && allowColumnMoveLeft()) {
-          <li role="menuitem">
-            <a (click)="actions.moveColumnLeft(row.columns, columnIndex, pageContent)" class="dropdown-item">
-              Move <b>Column</b> to left
-            </a>
-          </li>
-        }
-        @if (showColumnActions && allowColumnMoveRight()) {
-          <li role="menuitem">
-            <a (click)="actions.moveColumnRight(row.columns, columnIndex, pageContent)" class="dropdown-item">
-              Move <b>Column</b> to right
-            </a>
-          </li>
-        }
-        @if (showColumnActions && allowMoveColumnToPreviousRow()) {
-          <li role="menuitem">
-            <a (click)="actions.moveColumnToPreviousRow(pageContent, row, columnIndex)" class="dropdown-item">
-              Move <b>Column</b> to previous row
-            </a>
-          </li>
-        }
-        @if (showColumnActions && allowMoveColumnToNextRow()) {
-          <li role="menuitem">
-            <a (click)="actions.moveColumnToNextRow(pageContent, row, columnIndex)" class="dropdown-item">
-              Move <b>Column</b> to next row
-            </a>
-          </li>
-        }
-        @if (showColumnActions && allowMoveColumnToFirstEmptyRow()) {
-          <li role="menuitem">
-            <a (click)="actions.moveColumnToFirstEmptyRow(pageContent, row, columnIndex)" class="dropdown-item">
-              Move <b>Column</b> to first empty row
-            </a>
-          </li>
-        }
-        @if (showColumnActions && allowColumnActions()) {
-          <li role="menuitem">
-            <a (click)="actions.duplicateColumn(row, columnIndex, pageContent)" class="dropdown-item">
-              Duplicate <b>Column</b>
-            </a>
-          </li>
-        }
-        @if (showColumnActions && allowColumnDelete()) {
-          <li role="menuitem">
-            <a (click)="actions.deleteColumn(row, columnIndex, pageContent)" class="dropdown-item">
-              Delete <b>Column</b>
-            </a>
-          </li>
-        }
-        @if (allowColumnActions() && markdownEditorComponentInjected()) {
-          <li><hr class="dropdown-divider"></li>
-          <app-content-formatting-selector
-            [styles]="styles()"
-            [standaloneMenu]="false"
-            (listStyleChange)="assignListStyleTo($event)"
-            (textStyleChange)="assignTextStyleTo($event)">
-          </app-content-formatting-selector>
-        }
-        @if (showRowActions && allowTextRowActions()) {
-          <li role="menuitem">
-            <a (click)="actions.addRow(rowIndex,'text', rows())" class="dropdown-item">
-              Add <b>Row</b> above
-            </a>
-          </li>
-        }
-        @if (showRowActions && allowTextRowActions()) {
-          <li role="menuitem">
-            <a (click)="actions.addRow(rowIndex + 1, 'text', rows())" class="dropdown-item">
-              Add <b>Row</b> below
-            </a>
-          </li>
-        }
-        @if (showRowActions && allowActionButtonActions()) {
-          <li role="menuitem">
-            <a (click)="actions.addRow(rowIndex, 'action-buttons', rows())" class="dropdown-item">
-              Add <b>Action Buttons</b> above
-            </a>
-          </li>
-        }
-        @if (showRowActions && allowActionButtonActions()) {
-          <li role="menuitem">
-            <a (click)="actions.addRow(rowIndex + 1, 'action-buttons', rows())" class="dropdown-item">
-              Add <b>Action Buttons</b> below
-            </a>
-          </li>
-        }
-      </ul>
-    </div>`,
+      <div class="btn-group" [ngClass]="{'w-100': fullWidth}" dropdown>
+        <button aria-controls="dropdown-animated" class="dropdown-toggle badge-button border-0"
+                [ngClass]="{'w-100': fullWidth}" dropdownToggle
+                type="button">
+          <fa-icon [icon]="faTableCells"></fa-icon>
+          <span class="ms-2">{{ actionType() }} Actions</span><span class="caret"></span>
+        </button>
+        <ul *dropdownMenu class="dropdown-menu" [ngClass]="{'w-100': fullWidth}" (click)="actionClicked($event)"
+            id="dropdown-animated" role="menu">
+          @if (showRowActions && allowMoveRowUp()) {
+            <li role="menuitem">
+              <a (click)="actions.moveRowUp(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
+                Move <b>Row</b> up
+              </a>
+            </li>
+          }
+          @if (showRowActions && allowEqualiseColumnWidths()) {
+            <li role="menuitem">
+              <a (click)="actions.equaliseColumnWidths(row)" class="dropdown-item">
+                Column Widths Equal
+              </a>
+            </li>
+          }
+          @if (showRowActions && allowMoveRowDown()) {
+            <li role="menuitem">
+              <a (click)="actions.moveRowDown(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
+                Move <b>Row</b> down
+              </a>
+            </li>
+          }
+          @if (showRowActions && allowUnnestToPreviousOuterRow()) {
+            <li role="menuitem">
+              <a (click)="actions.unnestToPreviousOuterRow(pageContent, rowIndex, column)" class="dropdown-item">
+                Unnest to <b>previous outer row</b>
+              </a>
+            </li>
+          }
+          @if (showRowActions && allowUnnestToNextOuterRow()) {
+            <li role="menuitem">
+              <a (click)="actions.unnestToNextOuterRow(pageContent, rowIndex, column)" class="dropdown-item">
+                Unnest to <b>next outer row</b>
+              </a>
+            </li>
+          }
+          @if (showRowActions && allowTextRowActions()) {
+            <li role="menuitem">
+              <a (click)="actions.duplicateRow(row, rowIndex, pageContent)" class="dropdown-item">
+                Duplicate <b>Row</b>
+              </a>
+            </li>
+          }
+          @if (showRowActions && allowDeleteRow()) {
+            <li role="menuitem">
+              <a (click)="actions.deleteRow(pageContent, rowIndex, rowIsNested, column)" class="dropdown-item">
+                Delete <b>Row</b>
+              </a>
+            </li>
+          }
+          @if (showColumnActions && allowInsertNestedRows()) {
+            <li role="menuitem">
+              <a (click)="actions.addNestedRows(column)" class="dropdown-item">
+                Insert <b>Nested Rows</b>
+              </a>
+            </li>
+          }
+          @if (showColumnActions && allowDeleteNestedRows()) {
+            <li role="menuitem">
+              <a (click)="actions.removeNestedRows(column)" class="dropdown-item">
+                Delete <b>Nested Rows</b>
+              </a>
+            </li>
+          }
+          @if (showColumnActions && allowColumnActions()) {
+            <li role="menuitem">
+              <a (click)="actions.addColumn(row, columnIndex, pageContent)" class="dropdown-item">
+                Insert <b>Column</b> to left
+              </a>
+            </li>
+          }
+          @if (showColumnActions && allowColumnActions()) {
+            <li role="menuitem">
+              <a (click)="actions.addColumn(row, columnIndex+1, pageContent)" class="dropdown-item">
+                Insert <b>Column</b> to right
+              </a>
+            </li>
+          }
+          @if (showColumnActions && allowColumnMoveLeft()) {
+            <li role="menuitem">
+              <a (click)="actions.moveColumnLeft(row.columns, columnIndex)" class="dropdown-item">
+                Move <b>Column</b> to left
+              </a>
+            </li>
+          }
+          @if (showColumnActions && allowColumnMoveRight()) {
+            <li role="menuitem">
+              <a (click)="actions.moveColumnRight(row.columns, columnIndex, pageContent)" class="dropdown-item">
+                Move <b>Column</b> to right
+              </a>
+            </li>
+          }
+          @if (showColumnActions && allowMoveColumnToPreviousRow()) {
+            <li role="menuitem">
+              <a (click)="actions.moveColumnToPreviousRow(pageContent, row, columnIndex)" class="dropdown-item">
+                Move <b>Column</b> to previous row
+              </a>
+            </li>
+          }
+          @if (showColumnActions && allowMoveColumnToNextRow()) {
+            <li role="menuitem">
+              <a (click)="actions.moveColumnToNextRow(pageContent, row, columnIndex)" class="dropdown-item">
+                Move <b>Column</b> to next row
+              </a>
+            </li>
+          }
+          @if (showColumnActions && allowMoveColumnToFirstEmptyRow()) {
+            <li role="menuitem">
+              <a (click)="actions.moveColumnToFirstEmptyRow(pageContent, row, columnIndex)" class="dropdown-item">
+                Move <b>Column</b> to first empty row
+              </a>
+            </li>
+          }
+          @if (showColumnActions && allowColumnActions()) {
+            <li role="menuitem">
+              <a (click)="actions.duplicateColumn(row, columnIndex, pageContent)" class="dropdown-item">
+                Duplicate <b>Column</b>
+              </a>
+            </li>
+          }
+          @if (showColumnActions && allowColumnDelete()) {
+            <li role="menuitem">
+              <a (click)="actions.deleteColumn(row, columnIndex, pageContent)" class="dropdown-item">
+                Delete <b>Column</b>
+              </a>
+            </li>
+          }
+          @if (allowColumnActions() && markdownEditorComponentInjected()) {
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+            <app-content-formatting-selector
+              [styles]="styles()"
+              [standaloneMenu]="false"
+              (listStyleChange)="assignListStyleTo($event)"
+              (textStyleChange)="assignTextStyleTo($event)">
+            </app-content-formatting-selector>
+          }
+          @if (showRowActions && allowTextRowActions()) {
+            <li role="menuitem">
+              <a (click)="actions.addRow(rowIndex,'text', rows())" class="dropdown-item">
+                Add <b>Row</b> above
+              </a>
+            </li>
+          }
+          @if (showRowActions && allowTextRowActions()) {
+            <li role="menuitem">
+              <a (click)="actions.addRow(rowIndex + 1, 'text', rows())" class="dropdown-item">
+                Add <b>Row</b> below
+              </a>
+            </li>
+          }
+          @if (showRowActions && allowActionButtonActions()) {
+            <li role="menuitem">
+              <a (click)="actions.addRow(rowIndex, 'action-buttons', rows())" class="dropdown-item">
+                Add <b>Action Buttons</b> above
+              </a>
+            </li>
+          }
+          @if (showRowActions && allowActionButtonActions()) {
+            <li role="menuitem">
+              <a (click)="actions.addRow(rowIndex + 1, 'action-buttons', rows())" class="dropdown-item">
+                Add <b>Action Buttons</b> below
+              </a>
+            </li>
+          }
+        </ul>
+      </div>`,
     imports: [BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective, NgClass, ContentFormattingSelectorComponent]
 })
 export class ActionsDropdownComponent implements OnInit {

@@ -4,7 +4,7 @@ import he from "he";
 import { envConfig } from "../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("turndown-service-factory"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 const UNWANTED_ATTRIBUTES = [
   "class", "id", "style", "align", "border", "valign", "bgcolor",

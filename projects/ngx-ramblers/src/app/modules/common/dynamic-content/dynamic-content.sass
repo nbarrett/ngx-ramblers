@@ -31,13 +31,11 @@
   transform-origin: top left
 
 .drag-handle
-  opacity: 0
+  display: none
   cursor: grab
-  transition: opacity .15s ease-in-out
 
-.thumbnail-site-edit:hover .drag-handle,
-.thumbnail-site-edit-top-bottom-margins:hover .drag-handle
-  opacity: 1
+.thumbnail-heading:hover > .drag-handle
+  display: inline
 
 .thumbnail-heading
   cursor: grab

@@ -239,8 +239,8 @@ export class ContentMetadataService {
     return value;
   }
 
-  rootFolderAndName(rootFolder: RootFolder, name: string): string {
-    return rootFolder + "/" + name;
+  rootFolderAndName(rootFolder: RootFolder, name: string): RootFolder {
+    return rootFolder + "/" + name as RootFolder;
   }
 
   contentMetadataName(contentMetadata: ContentMetadata): string {

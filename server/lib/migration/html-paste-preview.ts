@@ -4,7 +4,7 @@ import { htmlToMarkdown } from "./turndown-service-factory";
 import { HtmlPastePreview, HtmlPasteRow } from "../../../projects/ngx-ramblers/src/app/models/html-paste.model";
 
 const debugLog = debug(envConfig.logNamespace("html-paste-preview"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export function buildHtmlPastePreview(html: string, baseUrl?: string): HtmlPastePreview {
   const markdown = htmlToMarkdown(html, baseUrl);

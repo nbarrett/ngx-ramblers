@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { PageContent, PageContentRow } from "../models/content-text.model";
+import { FragmentWithLabel, PageContent, PageContentRow } from "../models/content-text.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { PageContentService } from "./page-content.service";
 import { UrlService } from "./url.service";
@@ -17,6 +17,7 @@ export class FragmentService {
   private fragmentsById: Map<string, PageContent> = new Map();
   private fragmentsByPath: Map<string, PageContent> = new Map();
   private failed: Set<string> = new Set();
+  private fragmentLabelCache: Map<string, FragmentWithLabel> = new Map();
 
   normalise(path: string): string {
     return this.urlService.reformatLocalHref(path);
@@ -91,6 +92,21 @@ export class FragmentService {
 
   get fragments(): PageContent[] {
     return Array.from(this.fragmentsById.values());
+  }
+
+  fragmentWithLabelForId(pageContentId: string): FragmentWithLabel | null {
+    if (!pageContentId) { return null; }
+    if (this.fragmentLabelCache.has(pageContentId)) {
+      return this.fragmentLabelCache.get(pageContentId);
+    }
+    const fragment = this.fragments.find(f => f.id === pageContentId);
+    if (!fragment) { return null; }
+    const withLabel: FragmentWithLabel = {
+      pageContentId: fragment.id,
+      ngSelectAttributes: {label: fragment.path}
+    };
+    this.fragmentLabelCache.set(pageContentId, withLabel);
+    return withLabel;
   }
 
   async loadFragmentsRecursivelyFromRows(rows: PageContentRow[]): Promise<void> {

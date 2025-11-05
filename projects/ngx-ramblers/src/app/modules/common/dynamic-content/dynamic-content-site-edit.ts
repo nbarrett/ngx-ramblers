@@ -104,9 +104,8 @@ import { RowTypeSelectorComponent } from "./row-type-selector";
                     @for (path of unreferencedPaths; track path) {
                       <ul class="breadcrumb bg-transparent mb-1 ms-0 p-1">
                         <span class="d-md-none">...</span>
-                        @for (page of pageService.linksFromPathSegments(urlService.pathSegmentsForUrl(path)); track page) {
-                          <li class="breadcrumb-item d-none d-md-inline"
-                          >
+                        @for (page of pageService.linksFromPathSegments(urlService.pathSegmentsForUrl(path)); track page.href) {
+                          <li class="breadcrumb-item d-none d-md-inline">
                             <a [routerLink]="'/' + page?.href" target="_self">{{ page?.title }}</a>
                           </li>
                         }
@@ -231,92 +230,81 @@ import { RowTypeSelectorComponent } from "./row-type-selector";
                       </span>
                 </div>
                 <div class="row align-items-end mb-3 d-flex">
-                  <app-row-type-selector
-                    [row]="row"
-                    [rowIndex]="rowIndex"
-                    [contentPath]="contentPath"
-                    (typeChange)="changePageContentRowType(row)"/>
-                  @if (actions.isCarouselOrAlbum(row)) {
-                    <div (nameInputChange)="editAlbumName=$event" class="col" app-row-settings-carousel
-                         [row]="row">
+                  <div class="col d-flex align-items-end flex-wrap gap-3">
+                    <div class="flex-grow-1">
+                      <app-row-type-selector
+                        [row]="row"
+                        [rowIndex]="rowIndex"
+                        [contentPath]="contentPath"
+                        (typeChange)="changePageContentRowType(row)"/>
                     </div>
-                  }
-                  @if (!editAlbumName) {
-                    @if (actions.isActionButtons(row) || actions.isAlbumIndex(row)) {
-                      <div class="col-auto" app-row-settings-action-buttons [row]="row"></div>
-                    }
-                    <div class="col-auto">
-                      <div class="d-inline-flex align-items-center flex-wrap">
-                        <div app-margin-select label="Margin Top"
-                             [data]="row"
-                             field="marginTop" class="me-4">
-                        </div>
-                        <div app-margin-select label="Margin Bottom"
-                             [data]="row"
-                             field="marginBottom">
-                        </div>
+                      @if (actions.isActionButtons(row) || actions.isAlbumIndex(row)) {
+                        <div class="d-inline-flex align-items-end flex-wrap gap-3" app-row-settings-action-buttons [row]="row"></div>
+                      }
+                      <div class="d-inline-flex align-items-end flex-wrap gap-3">
+                        <div app-margin-select label="Margin Top" [data]="row" field="marginTop"></div>
+                        <div app-margin-select label="Margin Bottom" [data]="row" field="marginBottom"></div>
                       </div>
-                    </div>
-                    <div class="col-auto">
-                      <div class="d-inline-flex align-items-center flex-wrap float-end"
-                           [ngClass]="actions.isActionButtons(row) ? 'mt-2' : ''">
-                        <app-actions-dropdown [rowIndex]="rowIndex"
-                                              [pageContent]="pageContent"
-                                              [row]="row"/>
+                      <div class="d-inline-flex align-items-end flex-wrap gap-3 ms-auto" [ngClass]="actions.isActionButtons(row) ? 'mt-2' : ''">
+                        <app-actions-dropdown [rowIndex]="rowIndex" [pageContent]="pageContent" [row]="row"/>
                         <app-bulk-action-selector [row]="row"/>
                       </div>
-                    </div>
-                  }
-                </div>
-                @if (actions.isAlbumIndex(row)) {
-                  <app-album-index-site-edit [row]="row" [rowIndex]="rowIndex"/>
-                }
-                @if (actions.isSharedFragment(row)) {
-                  <div class="row mt-2">
-                    <div class="col-12">
-                      <label [for]="'shared-fragment-path-' + rowIndex">Shared Fragment</label>
-                      <app-fragment-selector
-                        [elementId]="'shared-fragment-path-' + rowIndex"
-                        [selectedFragment]="selectedFragmentForRow(row)"
-                        (fragmentChange)="onSharedFragmentChange(row, $event)"/>
-                    </div>
                   </div>
-                  @if (row?.fragment?.pageContentId) {
-                    <div class="mt-2 panel-border">
-                      <app-dynamic-content-view [pageContent]="fragmentContent(row)" [contentPath]="fragmentPath(row)"
-                                                [forceView]="true"/>
+                </div>
+                @if (actions.isCarouselOrAlbum(row)) {
+                  <div class="row">
+                    <div (nameInputChange)="editAlbumName=$event" class="col" app-row-settings-carousel [row]="row"></div>
+                  </div>
+                }
+                  @if (actions.isAlbumIndex(row)) {
+                    <app-album-index-site-edit [row]="row" [rowIndex]="rowIndex"/>
+                  }
+                  @if (actions.isSharedFragment(row)) {
+                    <div class="row mt-2">
+                      <div class="col-12">
+                        <label [for]="'shared-fragment-path-' + rowIndex">Shared Fragment</label>
+                        <app-fragment-selector
+                          [elementId]="'shared-fragment-path-' + rowIndex"
+                          [selectedFragment]="selectedFragmentForRow(row)"
+                          (fragmentChange)="onSharedFragmentChange(row, $event)"/>
+                      </div>
                     </div>
-                    @if (!fragmentContent(row) && fragmentService.failedToLoad(row.fragment.pageContentId)) {
-                      <div class="alert alert-warning mt-2">Fragment not found: {{ row.fragment.pageContentId }}</div>
+                    @if (row?.fragment?.pageContentId) {
+                      <div class="mt-2 panel-border">
+                        <app-dynamic-content-view [pageContent]="fragmentContent(row)" [contentPath]="fragmentPath(row)"
+                                                  [forceView]="true"/>
+                      </div>
+                      @if (!fragmentContent(row) && fragmentService.failedToLoad(row.fragment.pageContentId)) {
+                        <div class="alert alert-warning mt-2">Fragment not found: {{ row.fragment.pageContentId }}</div>
+                      }
                     }
                   }
-                }
-                @if (actions.isActionButtons(row)) {
-                  <app-action-buttons [pageContent]="pageContent"
-                                      [rowIndex]="rowIndex"/>
-                }
-                @if (actions.isCarouselOrAlbum(row)) {
-                  <app-dynamic-content-site-edit-album [row]="row"
-                                                       [rowIndex]="rowIndex"
-                                                       [pageContent]="pageContent"/>
-                }
-                <app-dynamic-content-site-edit-text-row [row]="row"
-                                                        [rowIndex]="rowIndex"
-                                                        [contentDescription]="contentDescription"
-                                                        [contentPath]="contentPath"
-                                                        [pageContent]="pageContent"/>
-                @if (actions.isEvents(row)) {
-                  <app-dynamic-content-site-edit-events [row]="row" [rowIndex]="rowIndex"/>
-                }
-                @if (actions.isAreaMap(row)) {
-                  <app-dynamic-content-site-edit-area-map [row]="row" [id]="'area-map-' + rowIndex"
+                  @if (actions.isActionButtons(row)) {
+                    <app-action-buttons [pageContent]="pageContent"
+                                        [rowIndex]="rowIndex"/>
+                  }
+                  @if (actions.isCarouselOrAlbum(row)) {
+                    <app-dynamic-content-site-edit-album [row]="row"
+                                                         [rowIndex]="rowIndex"
+                                                         [pageContent]="pageContent"/>
+                  }
+                  <app-dynamic-content-site-edit-text-row [row]="row"
+                                                          [rowIndex]="rowIndex"
+                                                          [contentDescription]="contentDescription"
+                                                          [contentPath]="contentPath"
                                                           [pageContent]="pageContent"/>
-                }
-              </div>
-            }
-            <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
+                  @if (actions.isEvents(row)) {
+                    <app-dynamic-content-site-edit-events [row]="row" [rowIndex]="rowIndex"/>
+                  }
+                  @if (actions.isAreaMap(row)) {
+                    <app-dynamic-content-site-edit-area-map [row]="row" [id]="'area-map-' + rowIndex"
+                                                            [pageContent]="pageContent"/>
+                  }
+                </div>
+              }
+              <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
+            </div>
           </div>
-        </div>
       }
       <ng-template #saveButtonsAndPath>
         <div class="d-inline-flex align-items-center flex-wrap">
@@ -377,8 +365,10 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   @Input("pageContent") set acceptPageContentChanges(pageContent: PageContent) {
     this.logger.debug("acceptPageContentChanges:pageContent:", pageContent);
-    this.initialisePageContent(pageContent);
-    this.clearAlert(pageContent);
+    Promise.resolve().then(() => {
+      this.initialisePageContent(pageContent);
+      this.clearAlert(pageContent);
+    });
   }
 
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditComponent", NgxLoggerLevel.ERROR);
@@ -441,7 +431,6 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   protected readonly last = last;
   protected readonly Action = Action;
   private rowDragTargetIndex: number = null;
-  private fragmentCache = new Map<string, FragmentWithLabel>();
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -591,26 +580,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   selectedFragmentForRow(row: PageContentRow): FragmentWithLabel | null {
-    if (!row?.fragment?.pageContentId) {
-      return null;
-    }
-
-    if (this.fragmentCache.has(row.fragment.pageContentId)) {
-      return this.fragmentCache.get(row.fragment.pageContentId);
-    }
-
-    const fragment = this.fragmentService.fragments.find(f => f.id === row.fragment.pageContentId);
-    if (!fragment) {
-      return null;
-    }
-
-    const fragmentWithLabel: FragmentWithLabel = {
-      pageContentId: fragment.id,
-      ngSelectAttributes: {label: fragment.path}
-    };
-
-    this.fragmentCache.set(row.fragment.pageContentId, fragmentWithLabel);
-    return fragmentWithLabel;
+    return this.fragmentService.fragmentWithLabelForId(row?.fragment?.pageContentId);
   }
 
   onSharedFragmentChange(row: PageContentRow, fragmentWithLabel: FragmentWithLabel) {
@@ -635,6 +605,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     this.actions.draggedRowIndex = index;
     this.actions.dragStartX = event?.clientX ?? null;
     this.actions.dragStartY = event?.clientY ?? null;
+    this.actions.dragHasMovedEvent(event)
     this.actions.dragHasMoved = false;
     try {
       if (event?.dataTransfer) {

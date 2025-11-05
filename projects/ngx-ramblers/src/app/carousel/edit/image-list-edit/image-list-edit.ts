@@ -229,7 +229,7 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
       </div>
       <div class="row mt-2">
         <div class="col-sm-12">
-          <div ng2FileDrop [ngClass]="{'file-over': !uploader.isUploading && hasFileOver}"
+          <div ng2FileDrop [ngClass]="{'file-over': !uploader?.isUploading && hasFileOver}"
                (fileOver)="fileOver($event)"
                (onFileDrop)="onFileSelectOrDropped($event)"
                [uploader]="uploader"
@@ -245,7 +245,7 @@ import { EventType, MessageType, ProgressResponse } from "../../../models/websoc
             </div>
           </div>
         }
-        @if (uploader.isUploading) {
+        @if (uploader?.isUploading) {
           <div class="col-sm-12 mb-2 mt-2">
             <div class="progress">
               <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': uploader.progress + '%' }">
@@ -551,10 +551,12 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   }
 
-  private initialiseImageList() {
+  private async initialiseImageList() {
     this.logger.info("initialiseImageList for name:", this.name);
-    this.refreshContentAndS3Metadata(this.name);
-    this.uploader = this.fileUploadService.createUploaderFor(RootFolder.carousels + "/" + this.name, false);
+    await this.refreshContentAndS3Metadata(this.name);
+    const uploadPath = this.contentMetadataService.rootFolderAndName(this.contentMetadata.rootFolder, this.contentMetadata.name);
+    this.logger.info("creating uploader for path:", uploadPath, "from rootFolder:", this.contentMetadata.rootFolder, "name:", this.contentMetadata.name);
+    this.uploader = this.fileUploadService.createUploaderFor(uploadPath, false);
     this.uploader.response.subscribe((response: string | HttpErrorResponse) => {
         const awsFileUploadResponse: AwsFileUploadResponse = this.fileUploadService.handleAwsFileUploadResponse(response, this.notify, this.logger);
         this.logger.info("received awsFileUploadResponse:", awsFileUploadResponse);
@@ -625,8 +627,10 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   private clearUpload() {
-    this.uploader.clearQueue();
-    this.uploader.isUploading = false;
+    this.uploader?.clearQueue();
+    if (this.uploader) {
+      this.uploader.isUploading = false;
+    }
   }
 
   imagesExist() {
@@ -719,14 +723,12 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.setBusy();
     this.name = name;
     this.logger.info("image metadata refresh started for name:", name);
-    return Promise.all([
-      this.contentMetadataService.items(RootFolder.carousels, this.name)
-        .then((contentMetaData: ContentMetadata) => {
-          this.contentMetadata = contentMetaData;
-          this.logger.info("this.contentMetadataService:returned:", contentMetaData);
-        }),
-      this.refreshS3Metadata()]
-    )
+    return this.contentMetadataService.items(RootFolder.carousels, this.name)
+      .then((contentMetaData: ContentMetadata) => {
+        this.contentMetadata = contentMetaData;
+        this.logger.info("this.contentMetadataService:returned:", contentMetaData);
+        return this.refreshS3Metadata();
+      })
       .then(() => {
         this.logger.info("metadata query complete for:", this.name);
         this.postMetadataRetrieveMapping();
@@ -735,7 +737,8 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   private refreshS3Metadata() {
-    const metadataPrefix = this.contentMetadataService.rootFolderAndName(RootFolder.carousels, this.name);
+    const metadataPrefix = this.contentMetadataService.rootFolderAndName(this.contentMetadata.rootFolder, this.contentMetadata.name);
+    this.logger.info("refreshS3Metadata using prefix:", metadataPrefix, "from rootFolder:", this.contentMetadata.rootFolder, "name:", this.contentMetadata.name);
     return this.contentMetadataService.listMetaData(metadataPrefix)
       .then((s3Metadata: S3Metadata[]) => {
         this.s3Metadata = s3Metadata;
@@ -1014,13 +1017,13 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   browseToFile(fileElement: HTMLInputElement) {
-    if (!this.uploader.isUploading) {
+    if (!this.uploader?.isUploading) {
       fileElement.click();
     }
   }
 
   async onFileSelectOrDropped(fileList: any) {
-    if (!this.uploader.isUploading) {
+    if (!this.uploader?.isUploading) {
       this.logger.debug("onFileSelectOrDropped:", fileList);
       this.notify.success({
         title: "Uploading Files",
@@ -1045,7 +1048,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   public fileOver(e: any): void {
-    if (!this.uploader.isUploading) {
+    if (!this.uploader?.isUploading) {
       this.hasFileOver = e;
     }
   }
@@ -1142,6 +1145,6 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   disabled() {
-    return this.uploader.isUploading || this.notifyTarget.busy;
+    return !this.uploader || this.uploader.isUploading || this.notifyTarget.busy;
   }
 }

@@ -24,7 +24,7 @@ interface AreaMappings {
 }
 
 const debugLog = debug(envConfig.logNamespace("areas"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 const s3 = new S3({
   region: envConfig.aws.region,

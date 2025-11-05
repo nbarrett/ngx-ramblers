@@ -18,12 +18,16 @@ import { first } from "es-toolkit/compat";
   selector: "app-image-list-select",
   styleUrls: ["./image-list-select.sass"],
   template: `
-    <div class="d-inline-flex align-items-center flex-wrap">
-      <select [(ngModel)]="selectedContentMetadata"
+    <div class="d-inline-flex align-items-center flex-nowrap w-100">
+      <select class="form-control me-2 flex-grow-1"
+              [(ngModel)]="selectedContentMetadata"
               [id]="id"
               [size]="multiple? allContentMetadata?.length || 1 : null"
               (ngModelChange)="emitAndPublishMetadata($event)"
-              class="form-control me-2" [ngStyle]="{'max-width.px': maxWidth}" [multiple]="multiple">
+              [style.flex]="'1 1 auto'"
+              [style.min-width.px]="0"
+              [ngStyle]="{'max-width.px': maxWidth}"
+              [multiple]="multiple">
         @for (contentMetadata of allContentMetadata; track contentMetadata) {
           <option
             [ngValue]="contentMetadata">

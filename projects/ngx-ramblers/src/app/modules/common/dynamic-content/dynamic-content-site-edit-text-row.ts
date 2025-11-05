@@ -2,6 +2,7 @@ import { Component, inject, Input, OnInit } from "@angular/core";
 import {
   faAdd,
   faArrowDown,
+  faArrowsUpDown,
   faArrowUp,
   faMagnifyingGlass,
   faPencil,
@@ -32,7 +33,7 @@ import { BadgeButtonComponent } from "../badge-button/badge-button";
 import { ActionsDropdownComponent } from "../actions-dropdown/actions-dropdown";
 import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resizer/image-cropper-and-resizer";
 import { CardImageComponent } from "../card/image/card-image";
-import { NgClass } from "@angular/common";
+import { NgClass, NgTemplateOutlet } from "@angular/common";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { MarginSelectComponent } from "./dynamic-content-margin-select";
 import { FALLBACK_MEDIA } from "../../../models/walk.model";
@@ -44,6 +45,7 @@ import { RowTypeSelectorComponent } from "./row-type-selector";
 import { FragmentService } from "../../../services/fragment.service";
 import { FragmentSelectorComponent } from "./fragment-selector.component";
 import { DynamicContentViewComponent } from "./dynamic-content-view";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
     selector: "app-dynamic-content-site-edit-text-row",
@@ -51,39 +53,40 @@ import { DynamicContentViewComponent } from "./dynamic-content-view";
       @if (actions.isTextRow(row)) {
         <div [class]="actions.rowClasses(row)">
           @for (column of row?.columns; let columnIndex = $index; track columnIndex) {
-            <div
-              [class]="'col-sm-' + (focusSensitiveColumns(column))">
-              <!-- beginning of row content editing-->
+            <div [class]="'col-sm-' + (focusSensitiveColumns(column))">
               @if (!column.rows) {
-                <div class="thumbnail-site-edit h-100 mt-2" (dragover)="onColumnDragOver($event, rowIndex, columnIndex)"
-                     (drop)="onColumnDrop($event, rowIndex, columnIndex)">
+                <ng-template #rowContentEditing>
+                  <div class="row-content-editing">
+                    <div class="thumbnail-site-edit h-100 mt-2"
+                         (dragover)="onColumnDragOver($event, rowIndex, columnIndex)"
+                         (drop)="onColumnDrop($event, columnIndex)">
                   <div class="thumbnail-heading" [attr.draggable]="true"
                        (dragstart)="onColumnDragStart($event, rowIndex, columnIndex)"
-                       [tooltip]="columnDragTooltip(rowIndex, columnIndex)"
-                       [isOpen]="!!columnDragTooltip(rowIndex, columnIndex)" container="body" triggers="">
-                    Col {{ columnIndex + 1 }}
-                    <app-badge-button noRightMargin class="ms-2"
-                                      (click)="toggleAll(column, markdownEditorComponent)"
-                                      [icon]="controlsShown(column) ? faMagnifyingGlass : faPencil"
-                                      [caption]="controlsShown(column) ? 'view' : 'Edit'"/>
-                    <app-badge-button noRightMargin class="ms-2"
-                                      (click)="actions.deleteColumn(row, columnIndex, pageContent)"
-                                      [icon]="faRemove"
-                                      [tooltip]="'Delete column'"/>
-                    @if (controlsShown(column) && !isNarrow(column) && canJoinWithPreviousRow()) {
-                      <app-badge-button noRightMargin class="ms-2"
-                                        (click)="joinWithPreviousRow()"
-                                        [icon]="faArrowUp"
-                                        [tooltip]="'Join with row above'"/>
-                    }
-                    @if (controlsShown(column) && !isNarrow(column) && canJoinWithNextRow()) {
-                      <app-badge-button noRightMargin class="ms-2"
-                                        (click)="joinWithNextRow()"
-                                        [icon]="faArrowDown"
-                                        [tooltip]="'Join with row below'"/>
-                    }
-                    @if (controlsShown(column) && !isNarrow(column)) {
-                      <span class="ms-2 d-inline-flex align-items-center gap-2">
+                       [tooltip]="actions.columnDragTooltip(rowIndex, columnIndex, isNestedLevel(), parentColumnIndex)"
+                       [isOpen]="!!actions.columnDragTooltip(rowIndex, columnIndex, isNestedLevel(), parentColumnIndex)" container="body" triggers="">
+                        Col {{ columnIndex + 1 }}
+                        <app-badge-button noRightMargin class="ms-2"
+                                          (click)="toggleAll(column, markdownEditorComponent)"
+                                          [icon]="controlsShown(column) ? faMagnifyingGlass : faPencil"
+                                          [caption]="controlsShown(column) ? 'view' : 'Edit'"/>
+                        <app-badge-button noRightMargin class="ms-2"
+                                          (click)="actions.deleteColumn(row, columnIndex, pageContent)"
+                                          [icon]="faRemove"
+                                          [tooltip]="'Delete column'"/>
+                        @if (controlsShown(column) && !isNarrow(column) && canJoinWithPreviousRow()) {
+                          <app-badge-button noRightMargin class="ms-2"
+                                            (click)="joinWithPreviousRow()"
+                                            [icon]="faArrowUp"
+                                            [tooltip]="'Join with row above'"/>
+                        }
+                        @if (controlsShown(column) && !isNarrow(column) && canJoinWithNextRow()) {
+                          <app-badge-button noRightMargin class="ms-2"
+                                            (click)="joinWithNextRow()"
+                                            [icon]="faArrowDown"
+                                            [tooltip]="'Join with row below'"/>
+                        }
+                        @if (controlsShown(column) && !isNarrow(column)) {
+                          <span class="ms-2 d-inline-flex align-items-center gap-2">
                         <app-image-actions-dropdown [fullWidth]="false" [hasImage]="!!column.imageSource"
                                                     (edit)="editImage(rowIndex, columnIndex)"
                                                     (replace)="replaceImage(column, rowIndex, columnIndex)"
@@ -92,179 +95,44 @@ import { DynamicContentViewComponent } from "./dynamic-content-view";
                                               [pageContent]="pageContent" [column]="column" [row]="row"
                                               [fullWidth]="false" [showRowActions]="false"/>
                       </span>
-                    }
-                  </div>
-                  @if (editActive(rowIndex, columnIndex)) {
-                    <div class="mt-2">
-                      <app-image-cropper-and-resizer
-                        (quit)="exitImageEdit(rowIndex, columnIndex)"
-                        (imageChange)="imageChanged(rowIndex, columnIndex, $event)"
-                        (save)="imagedSaved(rowIndex, columnIndex, column, $event)"
-                        [preloadImage]="imageSource(rowIndex, columnIndex, column?.imageSource)"
-                        wrapButtons>
-                      </app-image-cropper-and-resizer>
-                    </div>
-                  }
-                  <div class="d-flex gap-2 align-items-stretch" [ngClass]="'flex-column'">
-                    @if (showImageBeforeText(rowIndex, columnIndex, column) || showPlaceholderAboveText(rowIndex, columnIndex, column)) {
-                      <div>
-                        <app-card-image class="w-100"
-                                        [borderRadius]="column?.imageBorderRadius"
-                                        [aspectRatio]="column?.imageAspectRatio"
-                                        [alt]="column?.alt"
-                                        unconstrainedHeight
-                                        [imageSource]="imageSourceFor(rowIndex, columnIndex, column)"/>
+                        }
+                        <span class="drag-handle ms-2 float-end" [attr.draggable]="true"
+                              (dragstart)="onColumnDragStart($event, rowIndex, columnIndex)">
+                      <fa-icon [icon]="faArrowsUpDown"/>
+                    </span>
                       </div>
-                    }
-                    <app-markdown-editor #markdownEditorComponent class="flex-grow-1 w-100"
-                                         (changed)="actions.notifyPageContentTextChange($event, column, pageContent)"
-                                         (focusChange)="onEditorFocusChange($event, column)"
-                                         (split)="onSplit($event, rowIndex, columnIndex)"
-                                         (htmlPaste)="onHtmlPaste($event, rowIndex, columnIndex)" allowMaximise hideEditToggle
-                                         [presentationMode]="!controlsShown(column)"
-                                         [description]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentDescription)"
-                                         [text]="column?.contentText"
-                                         [styles]="column?.styles"
-                                         [parentRowColumnCount]="row.columns?.length"
-                                         [initialView]="actions.view()"
-                                         [name]="actions.parentRowColFor(parentRowIndex, rowIndex, columnIndex)"
-                                         [category]="contentPath">
-                      <ng-container prepend/>
-                    </app-markdown-editor>
-                    @if (showImageAfterText(rowIndex, columnIndex, column) || showPlaceholderBelowText(rowIndex, columnIndex, column)) {
-                      <div>
-                        <app-card-image class="w-100"
-                                        [borderRadius]="column?.imageBorderRadius"
-                                        [aspectRatio]="column?.imageAspectRatio"
-                                        [alt]="column?.alt"
-                                        unconstrainedHeight
-                                        [imageSource]="imageSourceFor(rowIndex, columnIndex, column)"/>
-                      </div>
-                    }
-                  </div>
-                  @if (controlsShown(column)) {
-                    <div class="form-group mt-2">
-                      <div class="form-check form-check-inline mb-0 me-4">
-                        <input [name]="getUniqueCheckboxId('show-text-after-image')"
-                               type="checkbox" class="form-check-input"
-                               [id]="getUniqueCheckboxId('show-text-after-image')"
-                               [(ngModel)]="column.showTextAfterImage">
-                        <label class="form-check-label" [for]="getUniqueCheckboxId('show-text-after-image')">Text After
-                          Image</label>
-                      </div>
-                      @if (!column.imageSource && !isNarrow(column)) {
-                        <div class="form-check form-check-inline mb-0">
-                          <input [name]="getUniqueCheckboxId('show-placeholder-image')" type="checkbox"
-                                 class="form-check-input"
-                                 [id]="getUniqueCheckboxId('show-placeholder-image')"
-                                 [checked]="column.showPlaceholderImage"
-                                 (change)="onShowPlaceholderImageChanged($event, column)">
-                          <label class="form-check-label" [for]="getUniqueCheckboxId('show-placeholder-image')">Show
-                            Placeholder Image</label>
+                      @if (editActive(rowIndex, columnIndex)) {
+                        <div class="mt-2">
+                          <app-image-cropper-and-resizer
+                            (quit)="exitImageEdit(rowIndex, columnIndex)"
+                            (imageChange)="imageChanged(rowIndex, columnIndex, $event)"
+                            (save)="imagedSaved(rowIndex, columnIndex, column, $event)"
+                            [preloadImage]="imageSource(rowIndex, columnIndex, column?.imageSource)"
+                            wrapButtons>
+                          </app-image-cropper-and-resizer>
                         </div>
                       }
-                    </div>
-                  }
-
-                  <!-- Editable properties; hidden when controls are off -->
-                  @if (controlsShown(column)) {
-                    @if (isNarrow(column)) {
-                      <div class="row mt-2">
-                        <div class="col-sm-12">
-                          <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'name')">Image
-                            Source</label>
-                          <input [(ngModel)]="column.imageSource"
-                                 (paste)="onImageSourcePaste($event, rowIndex, columnIndex)"
-                                 [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'name')"
-                                 type="text" class="form-control">
-                        </div>
-                        <div class="col-sm-12">
-                          <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-alt')">Alt
-                            Text</label>
-                          <input [(ngModel)]="column.alt"
-                                 [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-alt')"
-                                 type="text" class="form-control"
-                                 placeholder="Describe image for accessibility">
-                        </div>
-                        <div class="col-sm-12">
-                          <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')">Border
-                            Radius</label>
-                          <input [(ngModel)]="column.imageBorderRadius"
-                                 [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')"
-                                 type="number" class="form-control">
-                        </div>
-                      </div>
-                    } @else {
-                      <div class="row mt-2">
-                        <div class="col-12">
-                          <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'name')">Image
-                            Source</label>
-                          <input [(ngModel)]="column.imageSource"
-                                 (paste)="onImageSourcePaste($event, rowIndex, columnIndex)"
-                                 [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'name')"
-                                 type="text" class="form-control">
-                        </div>
-                      </div>
-                      <div class="row mt-2">
-                        <div class="col">
-                          <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-alt')">Alt
-                            Text</label>
-                          <input [(ngModel)]="column.alt"
-                                 [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-alt')"
-                                 type="text" class="form-control"
-                                 placeholder="Describe image for accessibility">
-                        </div>
-                        <div class="col-auto">
-                          <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')">Border
-                            Radius</label>
-                          <input [(ngModel)]="column.imageBorderRadius"
-                                 [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')"
-                                 type="number" class="form-control" style="max-width: 140px;">
-                        </div>
-                      </div>
-                    }
-                  }
-                  @if (controlsShown(column)) {
-                    @if (!column.imageSource && isNarrow(column)) {
-                      <div class="form-group">
-                        <div class="form-check form-check-inline mb-0 me-4">
-                          <input [name]="getUniqueCheckboxId('show-placeholder-image')" type="checkbox"
-                                 class="form-check-input"
-                                 [id]="getUniqueCheckboxId('show-placeholder-image')"
-                                 [checked]="column.showPlaceholderImage"
-                                 (change)="onShowPlaceholderImageChanged($event, column)">
-                          <label class="form-check-label" [for]="getUniqueCheckboxId('show-placeholder-image')">Show
-                            Placeholder Image</label>
-                        </div>
-                      </div>
-                    }
-                    @if (column.showPlaceholderImage && !column.imageSource) {
-                      <div class="form-group">
-                        <app-aspect-ratio-selector label="Image Aspect Ratio"
-                                                   [dimensionsDescription]="column.imageAspectRatio?.description"
-                                                   (dimensionsChanged)="onImageAspectRatioChanged(column, $event)"></app-aspect-ratio-selector>
-                      </div>
-                    }
-                    @if (isNarrow(column)) {
-                      <div class="d-flex gap-2 mt-2" [ngClass]="'flex-column'">
-                        <div class="w-100">
-                          <app-image-actions-dropdown [fullWidth]="true" [hasImage]="!!column.imageSource"
-                                                      (edit)="editImage(rowIndex, columnIndex)"
-                                                      (replace)="replaceImage(column, rowIndex, columnIndex)"
-                                                      (remove)="removeImage(column)"/>
-                        </div>
-                        <div class="w-100">
-                          <app-actions-dropdown [columnIndex]="columnIndex" [rowIndex]="rowIndex"
-                                                [pageContent]="pageContent" [column]="column" [row]="row"
-                                                [fullWidth]="true" [showRowActions]="false"/>
-                        </div>
-                      </div>
-                    }
-                    @if (isNarrow(column)) {
-                      <div class="form-group mt-2">
-                        <app-column-width [column]="column" (expandToggle)="expanded=$event"/>
-                      </div>
-                      <div class="form-group">
+                      <ng-template #imageSourceControl>
+                        <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'name')">Image Source</label>
+                        <input [(ngModel)]="column.imageSource"
+                               (paste)="onImageSourcePaste($event, rowIndex, columnIndex)"
+                               [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'name')"
+                               type="text" class="form-control">
+                      </ng-template>
+                      <ng-template #imageAltControl>
+                        <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-alt')">Alt Text</label>
+                        <input [(ngModel)]="column.alt"
+                               [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-alt')"
+                               type="text" class="form-control"
+                               placeholder="Describe image for accessibility">
+                      </ng-template>
+                      <ng-template #imageBorderRadiusControl let-styleAttr="style">
+                        <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')">Border Radius</label>
+                        <input [(ngModel)]="column.imageBorderRadius"
+                               [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')"
+                               type="number" class="form-control" [style.max-width]="styleAttr">
+                      </ng-template>
+                      <ng-template #accessLevelSelectControl>
                         <label
                           [for]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'access-level-' + contentPath)">Access</label>
                         <select [(ngModel)]="column.accessLevel"
@@ -274,85 +142,218 @@ import { DynamicContentViewComponent } from "./dynamic-content-view";
                             <option [textContent]="accessLevel.description" [ngValue]="accessLevel.id"></option>
                           }
                         </select>
-                      </div>
-                    } @else {
-                      <div class="row g-2 mt-2 align-items-end">
-                        <div class="col-auto">
-                          <app-column-width [column]="column" (expandToggle)="expanded=$event"/>
+                      </ng-template>
+                      <ng-template #cardImageBlock>
+                        <div>
+                          <app-card-image class="w-100"
+                                          [borderRadius]="column?.imageBorderRadius"
+                                          [aspectRatio]="column?.imageAspectRatio"
+                                          [alt]="column?.alt"
+                                          unconstrainedHeight
+                                          [imageSource]="imageDisplay(rowIndex, columnIndex, column).url"/>
                         </div>
-                        <div class="col">
-                          <label
-                            [for]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'access-level-' + contentPath)">Access</label>
-                          <select [(ngModel)]="column.accessLevel"
-                                  [id]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, 'access-level-' + contentPath)"
-                                  class="form-control input-sm">
-                            @for (accessLevel of memberResourcesReferenceData.accessLevels(); track accessLevel.description) {
-                              <option [textContent]="accessLevel.description" [ngValue]="accessLevel.id"></option>
-                            }
-                          </select>
-                        </div>
+                      </ng-template>
+                      <div class="d-flex gap-2 align-items-stretch" [ngClass]="'flex-column'">
+                        @if (imageDisplay(rowIndex, columnIndex, column).showBefore) {
+                          <ng-container [ngTemplateOutlet]="cardImageBlock"></ng-container>
+                        }
+                        <app-markdown-editor #markdownEditorComponent class="flex-grow-1 w-100"
+                                             (changed)="actions.notifyPageContentTextChange($event, column, pageContent)"
+                                             (focusChange)="onEditorFocusChange($event, column)"
+                                             (split)="onSplit($event, rowIndex, columnIndex)"
+                                             (htmlPaste)="onHtmlPaste($event, rowIndex, columnIndex)" allowMaximise
+                                             hideEditToggle
+                                             [presentationMode]="!controlsShown(column)"
+                                             [description]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentDescription)"
+                                             [text]="column?.contentText"
+                                             [styles]="column?.styles"
+                                             [parentRowColumnCount]="row.columns?.length"
+                                             [initialView]="actions.view()"
+                                             [name]="actions.parentRowColFor(parentRowIndex, rowIndex, columnIndex)"
+                                             [category]="contentPath">
+                          <ng-container prepend/>
+                        </app-markdown-editor>
+                        @if (imageDisplay(rowIndex, columnIndex, column).showAfter) {
+                          <ng-container [ngTemplateOutlet]="cardImageBlock"></ng-container>
+                        }
+                    </div>
+                    <ng-template #placeholderToggle>
+                      <div class="form-check form-check-inline mb-0">
+                        <input [name]="getUniqueCheckboxId('show-placeholder-image')" type="checkbox"
+                               class="form-check-input"
+                               [id]="getUniqueCheckboxId('show-placeholder-image')"
+                               [checked]="column.showPlaceholderImage"
+                               (change)="onShowPlaceholderImageChanged($event, column)">
+                        <label class="form-check-label" [for]="getUniqueCheckboxId('show-placeholder-image')">Show
+                          Placeholder Image</label>
                       </div>
+                    </ng-template>
+                    @if (controlsShown(column)) {
+                        <div class="form-group mt-2">
+                          <div class="form-check form-check-inline mb-0 me-4">
+                            <input [name]="getUniqueCheckboxId('show-text-after-image')"
+                                   type="checkbox" class="form-check-input"
+                                   [id]="getUniqueCheckboxId('show-text-after-image')"
+                                   [(ngModel)]="column.showTextAfterImage">
+                            <label class="form-check-label" [for]="getUniqueCheckboxId('show-text-after-image')">Text
+                              After
+                              Image</label>
+                          </div>
+                          @if (!column.imageSource && !isNarrow(column)) {
+                            <ng-container [ngTemplateOutlet]="placeholderToggle"></ng-container>
+                          }
+                        </div>
+                      }
+                    @if (controlsShown(column)) {
+                      @if (isNarrow(column)) {
+                        <div class="row mt-2">
+                          <div class="col-sm-12">
+                            <ng-container [ngTemplateOutlet]="imageSourceControl"></ng-container>
+                          </div>
+                          <div class="col-sm-12">
+                            <ng-container [ngTemplateOutlet]="imageAltControl"></ng-container>
+                          </div>
+                          <div class="col-sm-12">
+                            <ng-container [ngTemplateOutlet]="imageBorderRadiusControl"></ng-container>
+                          </div>
+                        </div>
+                      } @else {
+                        <div class="row mt-2">
+                          <div class="col-12">
+                            <ng-container [ngTemplateOutlet]="imageSourceControl"></ng-container>
+                          </div>
+                        </div>
+                        <div class="row mt-2">
+                          <div class="col">
+                            <ng-container [ngTemplateOutlet]="imageAltControl"></ng-container>
+                          </div>
+                          <div class="col-auto">
+                            <ng-container [ngTemplateOutlet]="imageBorderRadiusControl" [ngTemplateOutletContext]="{style: '140px'}"></ng-container>
+                          </div>
+                        </div>
+                      }
                     }
-                  }
-                </div>
+                      @if (controlsShown(column)) {
+                        @if (!column.imageSource && isNarrow(column)) {
+                          <div class="form-group">
+                            <div class="form-check form-check-inline mb-0 me-4">
+                              <ng-container [ngTemplateOutlet]="placeholderToggle"></ng-container>
+                            </div>
+                          </div>
+                        }
+                        @if (column.showPlaceholderImage && !column.imageSource) {
+                          <div class="form-group">
+                            <app-aspect-ratio-selector label="Image Aspect Ratio"
+                                                       [dimensionsDescription]="column.imageAspectRatio?.description"
+                                                       (dimensionsChanged)="onImageAspectRatioChanged(column, $event)"></app-aspect-ratio-selector>
+                          </div>
+                        }
+                        @if (isNarrow(column)) {
+                          <div class="d-flex gap-2 mt-2" [ngClass]="'flex-column'">
+                            <div class="w-100">
+                              <app-image-actions-dropdown [fullWidth]="true" [hasImage]="!!column.imageSource"
+                                                          (edit)="editImage(rowIndex, columnIndex)"
+                                                          (replace)="replaceImage(column, rowIndex, columnIndex)"
+                                                          (remove)="removeImage(column)"/>
+                            </div>
+                            <div class="w-100">
+                              <app-actions-dropdown [columnIndex]="columnIndex" [rowIndex]="rowIndex"
+                                                    [pageContent]="pageContent" [column]="column" [row]="row"
+                                                    [fullWidth]="true" [showRowActions]="false"/>
+                            </div>
+                          </div>
+                        }
+                        @if (isNarrow(column)) {
+                          <div class="form-group mt-2">
+                            <app-column-width [column]="column" (expandToggle)="expanded=$event"/>
+                          </div>
+                          <div class="form-group">
+                            <ng-container [ngTemplateOutlet]="accessLevelSelectControl"></ng-container>
+                          </div>
+                        } @else {
+                          <div class="row g-2 mt-2 align-items-end">
+                            <div class="col-auto">
+                              <app-column-width [column]="column" (expandToggle)="expanded=$event"/>
+                            </div>
+                            <div class="col">
+                              <ng-container [ngTemplateOutlet]="accessLevelSelectControl"></ng-container>
+                            </div>
+                          </div>
+                        }
+                      }
+                    </div>
+                  </div>
+                </ng-template>
+                <ng-container [ngTemplateOutlet]="rowContentEditing"></ng-container>
               }
-              <!-- end of row content editing-->
-              <!-- start of column nested rows-->
               @if (column.rows) {
-                <div class="thumbnail-site-edit" (dragover)="onColumnDragOver($event, rowIndex, columnIndex)"
-                     (drop)="onColumnDrop($event, rowIndex, columnIndex)">
+                <ng-template #columnNestedRows>
+                  <div class="column-nested-rows">
+                    <div class="thumbnail-site-edit" (dragover)="onColumnDragOver($event, rowIndex, columnIndex)"
+                         (drop)="onColumnDrop($event, columnIndex)">
                   <div class="thumbnail-heading" [attr.draggable]="true"
                        (dragstart)="onColumnDragStart($event, rowIndex, columnIndex)"
-                       [tooltip]="columnDragTooltip(rowIndex, columnIndex)"
-                       [isOpen]="!!columnDragTooltip(rowIndex, columnIndex)" container="body" triggers="">
-                    Row {{ rowIndex + 1 }} column {{ columnIndex + 1 }}
-                    ({{ stringUtils.pluraliseWithCount(column.rows?.length, 'nested row') }})
-                  </div>
-                  <div class="row align-items-end">
-                    <div class="col-auto">
-                      <app-actions-dropdown [pageContent]="pageContent"
-                                            [columnIndex]="columnIndex"
-                                            [row]="row"
-                                            [column]="column"/>
-                    </div>
-                    <div class="col">
-                      <app-column-width [column]="column" (expandToggle)="expanded=$event"/>
-                    </div>
-                  </div>
-                  @for (nestedRow of column.rows; track nestedRow; let nestedRowIndex = $index) {
-                    <div class="thumbnail-site-edit mt-3"
-                         (dragover)="onNestedRowDragOver(columnIndex, nestedRowIndex, $event)"
-                         (drop)="onNestedRowDrop(columnIndex, nestedRowIndex)">
-                      <div class="thumbnail-heading" [attr.draggable]="true"
-                           (dragstart)="onNestedRowDragStart(columnIndex, nestedRowIndex)"
-                           (dragend)="onNestedRowDragEnd()"
-                           [tooltip]="nestedRowDragTooltip(columnIndex, nestedRowIndex)"
-                           [isOpen]="!!nestedRowDragTooltip(columnIndex, nestedRowIndex)" container="body" triggers="">
-                        Row {{ rowIndex + 1 }} (nested row {{ nestedRowIndex + 1 }}
-                        column {{ columnIndex + 1 }}
-                        ({{ stringUtils.pluraliseWithCount(nestedRow?.columns.length, 'column') }}))
-                        <app-badge-button class="ms-2"
-                                          (click)="actions.deleteRow(pageContent, nestedRowIndex, true, column)"
-                                          [icon]="faRemove"
-                                          [tooltip]="'Delete nested row'"/>
+                       [tooltip]="actions.columnDragTooltip(rowIndex, columnIndex, isNestedLevel(), parentColumnIndex)"
+                       [isOpen]="!!actions.columnDragTooltip(rowIndex, columnIndex, isNestedLevel(), parentColumnIndex)" container="body" triggers="">
+                        Row {{ rowIndex + 1 }} column {{ columnIndex + 1 }}
+                        ({{ stringUtils.pluraliseWithCount(column.rows?.length, 'nested row') }})
+                        <span class="drag-handle ms-2 float-end" [attr.draggable]="true"
+                              (dragstart)="onColumnDragStart($event, rowIndex, columnIndex)">
+                      <fa-icon [icon]="faArrowsUpDown"/>
+                    </span>
                       </div>
+                      <div class="row align-items-end">
+                        <div class="col-auto">
+                          <app-actions-dropdown [pageContent]="pageContent"
+                                                [columnIndex]="columnIndex"
+                                                [row]="row"
+                                                [column]="column"/>
+                        </div>
+                        <div class="col">
+                          <app-column-width [column]="column" (expandToggle)="expanded=$event"/>
+                        </div>
+                      </div>
+                      @for (nestedRow of column.rows; track nestedRow; let nestedRowIndex = $index) {
+                        <div class="thumbnail-site-edit mt-3"
+                             (dragover)="onNestedRowDragOver(columnIndex, nestedRowIndex, $event)"
+                             (drop)="onNestedRowDrop(columnIndex, nestedRowIndex)">
+                          <div class="thumbnail-heading" [attr.draggable]="true"
+                               (dragstart)="onNestedRowDragStart(columnIndex, nestedRowIndex)"
+                               (dragend)="onNestedRowDragEnd()"
+                               [tooltip]="actions.nestedRowDragTooltip(columnIndex, nestedRowIndex)"
+                               [isOpen]="!!actions.nestedRowDragTooltip(columnIndex, nestedRowIndex)" container="body"
+                               triggers="">
+                            Row {{ rowIndex + 1 }} (nested row {{ nestedRowIndex + 1 }}
+                            column {{ columnIndex + 1 }}
+                            ({{ stringUtils.pluraliseWithCount(nestedRow?.columns.length, 'column') }}))
+                            <app-badge-button class="ms-2"
+                                              (click)="actions.deleteRow(pageContent, nestedRowIndex, true, column)"
+                                              [icon]="faRemove"
+                                              [tooltip]="'Delete nested row'"/>
+                            <span class="drag-handle ms-2 float-end" [attr.draggable]="true"
+                                  (dragstart)="onNestedRowDragStart(columnIndex, nestedRowIndex)">
+                          <fa-icon [icon]="faArrowsUpDown"/>
+                        </span>
+                          </div>
                       <div class="row align-items-end mb-3">
-                        <app-row-type-selector
-                          [row]="nestedRow"
-                          [rowIndex]="nestedRowIndex"
-                          [contentPath]="contentPath"
-                          (typeChange)="onNestedRowTypeChange(nestedRow)"/>
-                        <div [ngClass]="column.columns > 6 || expanded ? 'col': 'col-sm-12'">
+                        <div [ngClass]="column.columns >= 6 || expanded ? 'col' : 'col-sm-12'">
+                          <app-row-type-selector
+                            [row]="nestedRow"
+                            [rowIndex]="nestedRowIndex"
+                            [contentPath]="contentPath"
+                            (typeChange)="onNestedRowTypeChange(nestedRow)"/>
+                        </div>
+                        <div [ngClass]="column.columns >= 6 || expanded ? 'col' : 'col-sm-12'">
                           <app-margin-select label="Margin Top"
                                              [data]="nestedRow"
                                              field="marginTop"/>
                         </div>
-                        <div class="col">
+                        <div [ngClass]="column.columns >= 6 || expanded ? 'col' : 'col-sm-12'">
                           <app-margin-select label="Margin Bottom"
                                              [data]="nestedRow"
                                              field="marginBottom"/>
                         </div>
-                        <div class="col mt-3">
+                        <div [ngClass]="column.columns >= 6 || expanded ? 'col-auto' : 'col-sm-12 mt-3'">
                           <app-actions-dropdown [rowIndex]="nestedRowIndex" fullWidth
                                                 [pageContent]="pageContent"
                                                 [rowIsNested]="true"
@@ -360,60 +361,65 @@ import { DynamicContentViewComponent } from "./dynamic-content-view";
                                                 [row]="nestedRow"/>
                         </div>
                       </div>
-                      @if (actions.isSharedFragment(nestedRow)) {
-                        <div class="row mt-2">
-                          <div class="col-12">
-                            <label [for]="'nested-shared-fragment-path-' + rowIndex + '-' + nestedRowIndex">Shared
-                              Fragment</label>
-                            <app-fragment-selector
-                              [elementId]="'nested-shared-fragment-path-' + rowIndex + '-' + nestedRowIndex"
-                              [selectedFragment]="selectedFragmentForRow(nestedRow)"
-                              (fragmentChange)="onSharedFragmentChange(nestedRow, $event)"/>
-                          </div>
-                        </div>
-                        @if (nestedRow?.fragment?.pageContentId) {
-                          <div class="mt-2 panel-border">
-                            <app-dynamic-content-view [pageContent]="fragmentContent(nestedRow)"
-                                                      [contentPath]="fragmentPath(nestedRow)"
-                                                      [forceView]="true"/>
-                          </div>
-                          @if (!fragmentContent(nestedRow) && fragmentService.failedToLoad(nestedRow.fragment.pageContentId)) {
-                            <div class="alert alert-warning mt-2">Fragment not
-                              found: {{ nestedRow.fragment.pageContentId }}
+                          @if (actions.isSharedFragment(nestedRow)) {
+                            <div class="row mt-2">
+                              <div class="col-12">
+                                <label [for]="'nested-shared-fragment-path-' + rowIndex + '-' + nestedRowIndex">Shared
+                                  Fragment</label>
+                                <app-fragment-selector
+                                  [elementId]="'nested-shared-fragment-path-' + rowIndex + '-' + nestedRowIndex"
+                                  [selectedFragment]="selectedFragmentForRow(nestedRow)"
+                                  (fragmentChange)="onSharedFragmentChange(nestedRow, $event)"/>
+                              </div>
                             </div>
+                            @if (nestedRow?.fragment?.pageContentId) {
+                              <div class="mt-2 panel-border">
+                                <app-dynamic-content-view [pageContent]="fragmentContent(nestedRow)"
+                                                          [contentPath]="fragmentPath(nestedRow)"
+                                                          [forceView]="true"/>
+                              </div>
+                              @if (!fragmentContent(nestedRow) && fragmentService.failedToLoad(nestedRow.fragment.pageContentId)) {
+                                <div class="alert alert-warning mt-2">Fragment not
+                                  found: {{ nestedRow.fragment.pageContentId }}
+                                </div>
+                              }
+                            }
                           }
-                        }
+                          @if (false) {
+                            <div>nested row {{ nestedRowIndex + 1 }} that has {{ nestedRow.columns.length }} cols</div>
+                          }
+                          <app-dynamic-content-site-edit-text-row
+                            [row]="nestedRow"
+                            [parentRowIndex]="rowIndex"
+                            [parentColumnIndex]="columnIndex"
+                            [rowIndex]="nestedRowIndex"
+                            [contentDescription]="contentDescription"
+                            [contentPath]="contentPath"
+                            [pageContent]="pageContent"/>
+                        </div>
                       }
-                      @if (false) {
-                        <div>nested row {{ nestedRowIndex + 1 }} that has {{ nestedRow.columns.length }} cols</div>
-                      }
-                      <app-dynamic-content-site-edit-text-row
-                        [row]="nestedRow"
-                        [parentRowIndex]="rowIndex"
-                        [rowIndex]="nestedRowIndex"
-                        [contentDescription]="contentDescription"
-                        [contentPath]="contentPath"
-                        [pageContent]="pageContent"/>
                     </div>
-                  }
-                </div>
+                  </div>
+                </ng-template>
+                <ng-container [ngTemplateOutlet]="columnNestedRows"></ng-container>
               }
-              <!-- end of column nested rows-->
             </div>
           }
           @if ((row?.columns?.length || 0) === 0) {
             <div class="col-12">
-              <div
-                class="thumbnail-site-edit h-100 mt-2 empty-drop-zone d-flex align-items-center justify-content-center"
-                (dragover)="allowDrop($event)" (drop)="onEmptyRowDrop()">
-                <div class="text-muted">Drop column here</div>
+              <div class="row-empty-drop-zone">
+                <div
+                  class="thumbnail-site-edit h-100 mt-2 empty-drop-zone d-flex align-items-center justify-content-center"
+                  (dragover)="allowDrop($event)" (drop)="onEmptyRowDrop()">
+                  <div class="text-muted">Drop column here</div>
+                </div>
               </div>
             </div>
           }
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-  imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent]
+  imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet]
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
@@ -433,6 +439,8 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   @Input()
   public parentRowIndex: number;
   @Input()
+  public parentColumnIndex: number;
+  @Input()
   public rowIndex: number;
   @Input()
   public contentDescription: string;
@@ -448,9 +456,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   protected readonly faRemove = faRemove;
   protected readonly faArrowUp = faArrowUp;
   protected readonly faArrowDown = faArrowDown;
-  nestedDragTargetColumnIndex: number = null;
-  nestedDragTargetRowIndex: number = null;
-  private fragmentCache = new Map<string, FragmentWithLabel>();
+  protected readonly faArrowsUpDown = faArrowsUpDown;
   protected readonly faMagnifyingGlass = faMagnifyingGlass;
 
   ngOnInit() {
@@ -551,9 +557,6 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     }, this.pageContentEditEvents);
   }
 
-  imagePropertyColumnClasses(column: PageContentColumn) {
-    return column.columns <= 6 ? "col-sm-12" : "col-sm-12 col-xl-6";
-  }
   isNarrow(column: PageContentColumn): boolean {
     return (column?.columns || 12) <= 6;
   }
@@ -593,42 +596,24 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     this.actions.draggedColumnSourceRow = this.row;
     this.actions.draggedRowIndex = null;
     this.actions.draggedColumnIsNested = this.isNestedLevel();
+    this.actions.draggedColumnParentColumnIndex = this.parentColumnIndex;
     this.actions.dragStartX = event?.clientX;
     this.actions.dragStartY = event?.clientY;
-    this.actions.dragHasMoved = false;
-    try {
-      if (event?.dataTransfer) {
-        event.dataTransfer.effectAllowed = "move";
-        const dragEl = (event.target as HTMLElement) || (event.currentTarget as HTMLElement);
-        if (dragEl && event.dataTransfer.setDragImage) {
-          event.dataTransfer.setDragImage(dragEl, 10, 10);
-        }
-      }
-    } catch {}
+    this.actions.dragHasMovedEvent(event)
   }
+
 
   onNestedRowDragOver(columnIndex: number, nestedRowIndex: number, $event: DragEvent) {
     $event.preventDefault();
-    this.nestedDragTargetColumnIndex = columnIndex;
-    this.nestedDragTargetRowIndex = nestedRowIndex;
+    this.actions.nestedDragTargetColumnIndex = columnIndex;
+    this.actions.nestedDragTargetRowIndex = nestedRowIndex;
   }
 
   onNestedRowDragEnd() {
-    this.nestedDragTargetColumnIndex = null;
-    this.nestedDragTargetRowIndex = null;
+    this.actions.clearNestedDragTargets();
   }
 
-  nestedRowDragTooltip(columnIndex: number, nestedRowIndex: number): string | null {
-    const sCol = this.actions.draggedNestedColumnIndex;
-    const sRow = this.actions.draggedNestedRowIndex;
-    if (sCol === null || sRow === null) { return null; }
-    if (this.nestedDragTargetColumnIndex !== columnIndex || this.nestedDragTargetRowIndex !== nestedRowIndex) { return null; }
-    if (sCol === columnIndex && sRow === nestedRowIndex) { return "Drop: no change"; }
-    const where = sCol === columnIndex ? (sRow < nestedRowIndex ? "after" : "before") : "into column " + (columnIndex + 1);
-    return `Drop nested row ${sRow + 1} ${where} ${sCol === columnIndex ? "row " + (nestedRowIndex + 1) : ""}`.trim();
-  }
-
-  onColumnDrop($event: DragEvent, targetRowIndex: number, targetColumnIndex: number) {
+  onColumnDrop($event: DragEvent, targetColumnIndex: number) {
     $event.preventDefault();
     $event.stopPropagation();
     if (this.actions.draggedColumnIsNested !== this.isNestedLevel()) { return; }
@@ -639,12 +624,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     const insertAfter = this.actions.dragInsertAfter && this.actions.dragOverColumnRowIndex === this.rowIndex && this.actions.dragOverColumnIndex === targetColumnIndex;
     let insertionIndex = targetColumnIndex + (insertAfter ? 1 : 0);
     if (sourceRow === targetRow && sourceColumnIndex === targetColumnIndex && !insertAfter) {
-      this.actions.draggedColumnIndex = null;
-      this.actions.draggedColumnRowIndex = null;
-      this.actions.draggedColumnSourceRow = null;
-      this.actions.dragOverColumnRowIndex = null;
-      this.actions.dragOverColumnIndex = null;
-      this.actions.dragInsertAfter = false;
+      this.actions.clearColumnDragState();
       return;
     }
     if (sourceRow === targetRow) {
@@ -653,15 +633,9 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
       if (insertionIndex > sourceColumnIndex) { insertionIndex--; }
       cols.splice(insertionIndex, 0, item);
     } else {
-      this.actions.moveColumnBetweenRows(sourceRow, sourceColumnIndex, targetRow, insertionIndex, this.pageContent);
+      this.actions.moveColumnBetweenRows(sourceRow, sourceColumnIndex, targetRow, insertionIndex);
     }
-    this.actions.draggedColumnIndex = null;
-    this.actions.draggedColumnRowIndex = null;
-    this.actions.draggedColumnSourceRow = null;
-    this.actions.dragOverColumnRowIndex = null;
-    this.actions.dragOverColumnIndex = null;
-    this.actions.dragInsertAfter = false;
-    this.actions.draggedColumnIsNested = false;
+    this.actions.clearColumnDragState();
   }
 
   onEmptyRowDrop() {
@@ -670,13 +644,12 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     const targetRow = this.row;
     if (sourceRow === null || sourceColumnIndex === null) { return; }
     this.actions.moveColumnToEmptyRow(sourceRow, sourceColumnIndex, targetRow, this.pageContent);
-    this.actions.draggedColumnIndex = null;
-    this.actions.draggedColumnRowIndex = null;
-    this.actions.draggedColumnSourceRow = null;
+    this.actions.clearColumnDragState();
   }
 
   onColumnDragOver($event: DragEvent, rowIndex: number, columnIndex: number) {
     $event.preventDefault();
+    $event.stopPropagation();
     if (this.actions.draggedColumnIsNested !== this.isNestedLevel()) { return; }
     const dx = ($event?.clientX || 0) - (this.actions.dragStartX || 0);
     const dy = ($event?.clientY || 0) - (this.actions.dragStartY || 0);
@@ -686,6 +659,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     const x = $event.clientX - rect.left;
     this.actions.dragOverColumnRowIndex = rowIndex;
     this.actions.dragOverColumnIndex = columnIndex;
+    this.actions.dragOverColumnParentColumnIndex = this.parentColumnIndex;
     this.actions.dragInsertAfter = x > rect.width / 2;
   }
 
@@ -700,15 +674,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     }
   }
 
-  columnDragTooltip(rowIndex: number, columnIndex: number): string | null {
-    const srcIndex = this.actions.draggedColumnIndex;
-    if (srcIndex === null || srcIndex === undefined) { return null; }
-    if (!this.actions.dragHasMoved) { return null; }
-    if (this.actions.draggedColumnIsNested !== this.isNestedLevel()) { return null; }
-    if (this.actions.dragOverColumnRowIndex !== rowIndex || this.actions.dragOverColumnIndex !== columnIndex) { return null; }
-    const beforeAfter = this.actions.dragInsertAfter ? "after" : "before";
-    return `Drop ${beforeAfter} Col ${columnIndex + 1}`;
-  }
+  
 
   private isNestedLevel(): boolean {
     return this.parentRowIndex !== undefined && this.parentRowIndex !== null;
@@ -724,62 +690,26 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     const sourceNestedRowIndex = this.actions.draggedNestedRowIndex;
     if (sourceColumnIndex === null || sourceNestedRowIndex === null) { return; }
     if (sourceColumnIndex === targetColumnIndex && sourceNestedRowIndex === targetNestedRowIndex) {
-      this.actions.draggedNestedColumnIndex = null;
-      this.actions.draggedNestedRowIndex = null;
+      this.actions.clearNestedRowDragState();
       return;
     }
-    const ensureRows = (colIndex: number) => {
-      if (!this.row.columns[colIndex].rows) { this.actions.addNestedRows(this.row.columns[colIndex]); }
-    };
-    ensureRows(sourceColumnIndex);
-    ensureRows(targetColumnIndex);
-    if (sourceColumnIndex === targetColumnIndex) {
-      const rows = this.row.columns[targetColumnIndex].rows || [];
-      const [item] = rows.splice(sourceNestedRowIndex, 1);
-      rows.splice(targetNestedRowIndex, 0, item);
-    } else {
-      const sourceRows = this.row.columns[sourceColumnIndex].rows || [];
-      const targetRows = this.row.columns[targetColumnIndex].rows || [];
-      const [item] = sourceRows.splice(sourceNestedRowIndex, 1);
-      targetRows.splice(targetNestedRowIndex, 0, item);
-    }
-    this.actions.draggedNestedColumnIndex = null;
-    this.actions.draggedNestedRowIndex = null;
+    this.actions.moveNestedRowBetweenColumns(this.row, sourceColumnIndex, sourceNestedRowIndex, targetColumnIndex, targetNestedRowIndex);
+    this.actions.clearNestedRowDragState();
   }
 
-  shouldShowImage(rowIndex: number, columnIndex: number, column: PageContentColumn): boolean {
-    const hasActualImage = !!this.imageSource(rowIndex, columnIndex, column?.imageSource) || this.editActive(rowIndex, columnIndex);
-    const showPlaceholder = column?.showPlaceholderImage && !column?.imageSource;
-    return hasActualImage || showPlaceholder;
+  private resolveActualImage(rowIndex: number, columnIndex: number, column: PageContentColumn): string | null {
+    return this.imageSource(rowIndex, columnIndex, column?.imageSource) || null;
   }
 
-  imageSourceFor(rowIndex: number, columnIndex: number, column: PageContentColumn): string {
-    const actualImage = this.imageSource(rowIndex, columnIndex, column?.imageSource);
-    if (column?.showPlaceholderImage && !column?.imageSource) {
-      return FALLBACK_MEDIA.url;
-    } else {
-      return actualImage;
-    }
-  }
-
-  showImageAfterText(rowIndex: number, columnIndex: number, column: PageContentColumn) {
-    return !column.showTextAfterImage && this.hasActualImage(rowIndex, columnIndex, column);
-  }
-
-  showImageBeforeText(rowIndex: number, columnIndex: number, column: PageContentColumn) {
-    return column.showTextAfterImage && this.hasActualImage(rowIndex, columnIndex, column);
-  }
-
-  showPlaceholderAboveText(rowIndex: number, columnIndex: number, column: PageContentColumn) {
-    return column.showTextAfterImage && !this.hasActualImage(rowIndex, columnIndex, column) && column.showPlaceholderImage;
-  }
-
-  showPlaceholderBelowText(rowIndex: number, columnIndex: number, column: PageContentColumn) {
-    return !column.showTextAfterImage && !this.hasActualImage(rowIndex, columnIndex, column) && column.showPlaceholderImage;
-  }
-
-  hasActualImage(rowIndex: number, columnIndex: number, column: PageContentColumn): boolean {
-    return !!this.imageSource(rowIndex, columnIndex, column?.imageSource);
+  imageDisplay(rowIndex: number, columnIndex: number, column: PageContentColumn): { showBefore: boolean; showAfter: boolean; url: string | null } {
+    const actual = this.resolveActualImage(rowIndex, columnIndex, column);
+    const hasActual = !!actual;
+    const showPlaceholder = !!column?.showPlaceholderImage && !hasActual;
+    const show = hasActual || showPlaceholder;
+    const before = show && !!column?.showTextAfterImage;
+    const after = show && !column?.showTextAfterImage;
+    const url = showPlaceholder ? FALLBACK_MEDIA.url : actual;
+    return { showBefore: before, showAfter: after, url };
   }
 
   onShowPlaceholderImageChanged(event: Event, column: PageContentColumn) {
@@ -812,35 +742,16 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     }
 
     const rowsToInsert: PageContentRow[] = [];
-
     if (splitData.textAfter !== undefined) {
       rowsToInsert.push(this.createRowFromSplitRow({text: splitData.textAfter}));
     }
-
     if (splitData.additionalRows && splitData.additionalRows.length > 0) {
       for (const additionalText of splitData.additionalRows) {
         rowsToInsert.push(this.createRowFromSplitRow({text: additionalText}));
       }
     }
-
     if (rowsToInsert.length > 0) {
-      const parentRowHasMultipleColumns = (this.row.columns?.length || 0) > 1;
-      const userChoice = splitData.createNested;
-      const createNestedRows = userChoice !== undefined ? userChoice : parentRowHasMultipleColumns;
-
-      this.logger.info("Parent row has", this.row.columns?.length, "columns, userChoice:", userChoice, "createNestedRows:", createNestedRows);
-
-      if (createNestedRows) {
-        this.logger.info("Creating nested rows in column", columnIndex, "count:", rowsToInsert.length);
-        if (!column.rows) {
-          column.rows = [];
-        }
-        column.rows.push(...rowsToInsert);
-        this.logger.info("Column now has", column.rows.length, "nested rows");
-      } else {
-        this.logger.info("Creating sibling rows at page level, count:", rowsToInsert.length);
-        this.insertRowsAfterCurrent(rowsToInsert, rowIndex, columnIndex);
-      }
+      this.processRowInsert(rowsToInsert, rowIndex, columnIndex, splitData.createNested, column);
     }
 
     this.logger.info("═══ onSplit END ═══");
@@ -871,23 +782,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
       }
 
       if (rowsToInsert.length > 0) {
-        const parentRowHasMultipleColumns = (this.row.columns?.length || 0) > 1;
-        const userChoice = result.createNested;
-        const createNestedRows = userChoice !== undefined ? userChoice : parentRowHasMultipleColumns;
-
-        this.logger.info("Parent row has", this.row.columns?.length, "columns, userChoice:", userChoice, "createNestedRows:", createNestedRows);
-
-        if (createNestedRows) {
-          this.logger.info("Creating nested rows in column", columnIndex, "count:", rowsToInsert.length);
-          if (!column.rows) {
-            column.rows = [];
-          }
-          column.rows.push(...rowsToInsert);
-          this.logger.info("Column now has", column.rows.length, "nested rows");
-        } else {
-          this.logger.info("Creating sibling rows at page level, count:", rowsToInsert.length);
-          this.insertRowsAfterCurrent(rowsToInsert, rowIndex, columnIndex);
-        }
+        this.processRowInsert(rowsToInsert, rowIndex, columnIndex, result.createNested, column);
       }
     }
 
@@ -910,6 +805,23 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     }
     this.logger.info("Created new row from split, text length:", newColumn?.contentText?.length, "has image:", !!newColumn?.imageSource);
     return newRow;
+  }
+
+  private processRowInsert(rowsToInsert: PageContentRow[], rowIndex: number, columnIndex: number, userChoice: boolean | undefined, column: PageContentColumn) {
+    const parentRowHasMultipleColumns = (this.row.columns?.length || 0) > 1;
+    const createNestedRows = userChoice !== undefined ? userChoice : parentRowHasMultipleColumns;
+    this.logger.info("Parent row has", this.row.columns?.length, "columns, userChoice:", userChoice, "createNestedRows:", createNestedRows);
+    if (createNestedRows) {
+      this.logger.info("Creating nested rows in column", columnIndex, "count:", rowsToInsert.length);
+      if (!column.rows) {
+        column.rows = [];
+      }
+      column.rows.push(...rowsToInsert);
+      this.logger.info("Column now has", column.rows.length, "nested rows");
+    } else {
+      this.logger.info("Creating sibling rows at page level, count:", rowsToInsert.length);
+      this.insertRowsAfterCurrent(rowsToInsert, rowIndex, columnIndex);
+    }
   }
 
   private insertRowsAfterCurrent(rowsToInsert: PageContentRow[], rowIndex: number, _columnIndex: number) {
@@ -944,10 +856,6 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     }
   }
 
-  isDefined(value: unknown): boolean {
-    return !isUndefined(value);
-  }
-
   toggleControls(column: PageContentColumn) {
     this.controlsVisible.set(column, !this.controlsShown(column));
   }
@@ -974,26 +882,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   }
 
   selectedFragmentForRow(row: PageContentRow): FragmentWithLabel | null {
-    if (!row?.fragment?.pageContentId) {
-      return null;
-    }
-
-    if (this.fragmentCache.has(row.fragment.pageContentId)) {
-      return this.fragmentCache.get(row.fragment.pageContentId);
-    }
-
-    const fragment = this.fragmentService.fragments.find(f => f.id === row.fragment.pageContentId);
-    if (!fragment) {
-      return null;
-    }
-
-    const fragmentWithLabel: FragmentWithLabel = {
-      pageContentId: fragment.id,
-      ngSelectAttributes: {label: fragment.path}
-    };
-
-    this.fragmentCache.set(row.fragment.pageContentId, fragmentWithLabel);
-    return fragmentWithLabel;
+    return this.fragmentService.fragmentWithLabelForId(row?.fragment?.pageContentId);
   }
 
   onSharedFragmentChange(row: PageContentRow, fragmentWithLabel: FragmentWithLabel) {
