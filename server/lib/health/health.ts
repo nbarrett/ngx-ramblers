@@ -12,26 +12,13 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/mongo-migration-model";
 
 const debugLog = debug(envConfig.logNamespace("health"));
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function health(req: Request, res: Response) {
-  try {
-    const awsConfig = queryAWSConfig();
-    const config = await systemConfig();
-    debugLog("AWS config retrieved with region:", awsConfig?.region, "bucket:", awsConfig?.bucket,
-      "database config retrieved for:", config.group.shortName, "with group code:", config.group.groupCode);
-    res.status(200).json({
-      status: "OK",
-      bucket: awsConfig?.bucket,
-      region: awsConfig?.region,
-      groupShortName: config?.group?.shortName,
-      groupCode: config?.group?.groupCode,
-      timestamp: dateTimeNow().toISO()
-    });
-  } catch (error) {
-    debugLog("Caught error", error.message);
-    res.status(500).send(error.message);
-  }
+  res.status(200).json({
+    status: "OK",
+    timestamp: dateTimeNow().toISO()
+  });
 }
 
 export async function systemStatus(req: Request, res: Response<Partial<HealthResponse>>) {
