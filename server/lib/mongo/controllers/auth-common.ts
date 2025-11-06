@@ -13,11 +13,14 @@ import { AuthResponse } from "../../../../projects/ngx-ramblers/src/app/models/a
 import { Response } from "express";
 import * as transforms from "./transforms";
 import { dateTimeNowAsValue } from "../../shared/dates";
+import * as crudController from "./crud-controller";
+import { member } from "../models/member";
 
 const debugLog = debug(envConfig.logNamespace("database:auth:common"));
 export const pleaseTryAgain = `. Please try again or`;
 export const please = `. Please`;
 debugLog.enabled = false;
+const controller = crudController.create<Member>(member);
 
 export interface ReturnTokenOnSuccessParams {
   status?: number;
@@ -28,8 +31,12 @@ export interface ReturnTokenOnSuccessParams {
 }
 
 export function returnResponse(options: ReturnTokenOnSuccessParams) {
-  options.loginResponse = this.determineLoginSuccessAndAudit(options.memberCookie, options.member);
-  this.returnTokenOnSuccess(options);
+  try {
+    options.loginResponse = this.determineLoginSuccessAndAudit(options.memberCookie, options.member);
+    this.returnTokenOnSuccess(options);
+  } catch (e) {
+    controller.errorDebugLog("returnResponse:catch:options", options, "error:", e);
+  }
 }
 
 export function determineLoginSuccessAndAudit(memberCookie: MemberCookie, member: Member) {
@@ -50,35 +57,42 @@ export function determineLoginSuccessAndAudit(memberCookie: MemberCookie, member
 }
 
 export function returnTokenOnSuccess(options: ReturnTokenOnSuccessParams) {
-  const response: AuthResponse = {tokens: {auth: null, refresh: null}, loginResponse: options.loginResponse};
-  options.status = response.loginResponse.memberLoggedIn || response.loginResponse.showResetPassword ? 200 : 401;
-  if (response.loginResponse.memberLoggedIn) {
-    const refreshTokenValue = authConfig.randomToken();
-    debugLog("creating new refreshToken:", refreshTokenValue, "for memberPayload:", options.memberCookie);
-    return new refreshToken({
-      refreshToken: refreshTokenValue,
-      memberPayload: options.memberCookie
-    })
-      .save()
-      .then((result: any) => {
-        debugLog("created new refreshToken document:", result);
-        response.tokens = {
-          auth: authConfig.signValue(options.memberCookie, authConfig.tokenExpiry.auth),
-          refresh: refreshTokenValue
-        }
-        debugLog("issuing tokens:", { refresh: response.tokens.refresh, authExpiresInSeconds: authConfig.tokenExpiry.auth });
-        options.res.status(options.status).json(response);
+  try {
+    const response: AuthResponse = {tokens: {auth: null, refresh: null}, loginResponse: options.loginResponse};
+    options.status = response.loginResponse.memberLoggedIn || response.loginResponse.showResetPassword ? 200 : 401;
+    if (response.loginResponse.memberLoggedIn) {
+      const refreshTokenValue = authConfig.randomToken();
+      debugLog("creating new refreshToken:", refreshTokenValue, "for memberPayload:", options.memberCookie);
+      return new refreshToken({
+        refreshToken: refreshTokenValue,
+        memberPayload: options.memberCookie
       })
-      .catch(error => {
-        options.status = 500;
-        response.loginResponse.memberLoggedIn = false;
-        response.error = error;
-        options.res.status(options.status).json(response);
-      });
-  } else {
-    options.res.status(options.status).json(response);
+        .save()
+        .then((result: any) => {
+          debugLog("created new refreshToken document:", result);
+          response.tokens = {
+            auth: authConfig.signValue(options.memberCookie, authConfig.tokenExpiry.auth),
+            refresh: refreshTokenValue
+          };
+          debugLog("issuing tokens:", {
+            refresh: response.tokens.refresh,
+            authExpiresInSeconds: authConfig.tokenExpiry.auth
+          });
+          options.res.status(options.status).json(response);
+        })
+        .catch(error => {
+          options.status = 500;
+          response.loginResponse.memberLoggedIn = false;
+          response.error = error;
+          options.res.status(options.status).json(response);
+        });
+    } else {
+      options.res.status(options.status).json(response);
+    }
+    debugLog("returning", response, "with status", options.status);
+  } catch (error) {
+    controller.errorDebugLog("returnTokenOnSuccess:catch", error);
   }
-  debugLog("returning", response, "with status", options.status);
 }
 
 export function auditMemberLogin(userName: string, loginResponse: LoginResponse, member: Member): Promise<MemberAuthAudit> {
@@ -94,9 +108,13 @@ export function auditMemberLogin(userName: string, loginResponse: LoginResponse,
         const memberAuthAudit = transforms.toObjectWithId(result);
         debugLog("result:", result, "memberAuthAudit:", memberAuthAudit);
         return memberAuthAudit;
+      })
+      .catch(error => {
+        controller.errorDebugLog("auditMemberLogin:save:error", error);
+        return Promise.resolve(null as any);
       });
   } catch (e) {
-    debugLog("auditMemberLogin:for audit of user", userName, "error:", e);
+    controller.errorDebugLog("auditMemberLogin:for audit of user", userName, "error:", e);
     return Promise.reject(e);
   }
 }
