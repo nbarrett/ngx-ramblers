@@ -10,13 +10,16 @@ export const S3_METADATA_URL = "api/aws/metadata/list-objects";
 export const BASE64_PREFIX_HEIC = "data:image/heic;base64";
 export const BASE64_PREFIX_JPEG = "data:image/jpeg;base64";
 export const BASE64_PREFIX_PNG = "data:image/png;base64";
+export const BASE64_PREFIX_WEBP = "data:image/webp;base64";
 export const IMAGE_HEIC = "image/heic";
 export const IMAGE_JPEG = "image/jpeg";
 export const IMAGE_PNG = "image/png";
+export const IMAGE_WEBP = "image/webp";
 export const IMAGE_SVG = "image/svg+xml";
 export enum FileType {
   JPEG = "JPEG",
   PNG = "PNG",
+  WEBP = "WEBP",
   SVG = "SVG",
   HEIC = "HEIC",
 }
@@ -61,6 +64,14 @@ export const fileTypeAttributes: FileTypeAttributes[] = [
     fileExtensions: ["svg"],
     base64Prefix: "",
     croppable: false
+  },
+  {
+    key: FileType.WEBP,
+    contentType: IMAGE_WEBP,
+    fileExtensions: ["webp"],
+    base64Prefix: BASE64_PREFIX_WEBP,
+    croppable: false,
+    cropperFormat: "webp"
   }];
 
 export interface ContentMetadata extends Identifiable {
