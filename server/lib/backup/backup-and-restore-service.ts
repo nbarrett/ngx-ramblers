@@ -171,11 +171,18 @@ export class BackupAndRestoreService {
       throw new Error(`Environment "${options.environment}" has no mongo config`);
     }
 
-    const fromPath = path.join(this.dumpBaseDir, options.from);
-    try {
-      await fs.access(fromPath);
-    } catch {
-      throw new Error(`Dump directory not found: ${fromPath}`);
+    const isS3 = options.from?.startsWith("s3://") || options.from?.startsWith("s3:/");
+    if (isS3) {
+      if (options.from.startsWith("s3:/") && !options.from.startsWith("s3://")) {
+        options.from = options.from.replace(/^s3:\/\//, "s3://").replace(/^s3:\//, "s3://");
+      }
+    } else {
+      const fromPath = path.join(this.dumpBaseDir, options.from);
+      try {
+        await fs.access(fromPath);
+      } catch {
+        throw new Error(`Dump directory not found: ${fromPath}`);
+      }
     }
 
     const dbName = options.database || config.mongo.db;
@@ -340,7 +347,7 @@ export class BackupAndRestoreService {
       const envBackupConfig = getEnvironmentConfig(this.backupConfig, options.environment);
       const s3BucketFromPath = options.from.replace("s3://", "").split("/")[0];
       const s3Prefix = options.from.replace(`s3://${s3BucketFromPath}/`, "");
-      const bucket = envBackupConfig?.aws?.bucket || s3BucketFromPath;
+      const configuredBucket = envBackupConfig?.aws?.bucket;
       const region = envBackupConfig?.aws?.region || "us-east-1";
       const accessKeyId = envBackupConfig?.aws?.accessKeyId;
       const secretAccessKey = envBackupConfig?.aws?.secretAccessKey;
@@ -351,14 +358,53 @@ export class BackupAndRestoreService {
       });
 
       const destDir = path.join(this.dumpBaseDir, s3Prefix);
-      await this.addLog(sessionId, `Downloading backup from s3://${bucket}/${s3Prefix} to ${destDir}`);
-      await this.downloadS3Prefix(s3, bucket, s3Prefix, destDir, sessionId);
+      let usedBucket = configuredBucket || s3BucketFromPath;
+      await this.addLog(sessionId, `Downloading backup from s3://${usedBucket}/${s3Prefix} to ${destDir}`);
+      let downloaded = await this.downloadS3Prefix(s3, usedBucket, s3Prefix, destDir, sessionId);
+
+      if (downloaded === 0 && configuredBucket && configuredBucket !== s3BucketFromPath) {
+        usedBucket = s3BucketFromPath;
+        await this.addLog(sessionId, `No files downloaded; retrying with bucket from path: s3://${usedBucket}/${s3Prefix}`);
+        downloaded = await this.downloadS3Prefix(s3, usedBucket, s3Prefix, destDir, sessionId);
+      }
+      if (downloaded === 0) {
+        throw new Error(`No objects found at s3://${usedBucket}/${s3Prefix}`);
+      }
       options = { ...options, from: s3Prefix };
     }
     await this.updateSession(sessionId, { status: "in_progress" });
 
     const fromPath = path.join(this.dumpBaseDir, options.from);
     const dbName = options.database || config.mongo!.db;
+
+    async function containsBsonFiles(dir: string): Promise<boolean> {
+      try {
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+        for (const e of entries) {
+          if (e.isFile() && (e.name.endsWith(".bson") || e.name.endsWith(".bson.gz"))) return true;
+        }
+        return false;
+      } catch {
+        return false;
+      }
+    }
+
+    let restoreDir = fromPath;
+    if (!(await containsBsonFiles(restoreDir))) {
+      try {
+        const children = await fs.readdir(fromPath, { withFileTypes: true });
+        const dbDir = children.find(d => d.isDirectory() && d.name === dbName)?.name
+          || children.find(d => d.isDirectory())?.name;
+        if (dbDir) {
+          const candidate = path.join(fromPath, dbDir);
+          if (await containsBsonFiles(candidate)) {
+            restoreDir = candidate;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
 
     const mongoUri = this.buildMongoUri(config.mongo!.uri, config.mongo!.username, config.mongo!.password, dbName);
 
@@ -371,22 +417,15 @@ export class BackupAndRestoreService {
       restoreArgs.push("--drop");
     }
 
+    restoreArgs.push("--dir", restoreDir);
     if (options.collections && options.collections.length > 0) {
       for (const collection of options.collections) {
-        const collectionPath = path.join(fromPath, dbName, `${collection.trim()}.bson.gz`);
-        try {
-          await fs.access(collectionPath);
-          restoreArgs.push("--collection", collection.trim());
-          restoreArgs.push(collectionPath);
-        } catch {
-          throw new Error(`Collection file not found: ${collectionPath}`);
-        }
+        const name = collection.trim();
+        restoreArgs.push("--nsInclude", `${dbName}.${name}`);
       }
-    } else {
-      restoreArgs.push(fromPath);
     }
 
-    await this.addLog(sessionId, `Starting mongorestore from ${fromPath}`);
+    await this.addLog(sessionId, `Starting mongorestore from ${restoreDir}`);
     await this.execCommand("mongorestore", restoreArgs, sessionId);
     await this.addLog(sessionId, `Restore completed to ${options.environment}`);
     await this.updateSession(sessionId, { status: "completed", endTime: new Date() });
@@ -400,6 +439,17 @@ export class BackupAndRestoreService {
   }
 
   private async execCommand(cmd: string, args: string[], sessionId: string): Promise<void> {
+    const redactedArgs = (() => {
+      const copy = [...args];
+      for (let i = 0; i < copy.length; i++) {
+        if (copy[i] === "--uri" && i + 1 < copy.length) {
+          copy[i + 1] = "[REDACTED-URI]";
+          i++;
+        }
+      }
+      return copy;
+    })();
+    await this.addLog(sessionId, `Executing: ${cmd} ${redactedArgs.join(" ")}`);
     return new Promise((resolve, reject) => {
       const proc: ChildProcess = spawn(cmd, args);
       let stdout = "";
@@ -440,9 +490,10 @@ export class BackupAndRestoreService {
     prefix: string,
     destDir: string,
     sessionId: string
-  ): Promise<void> {
+  ): Promise<number> {
     await fs.mkdir(destDir, { recursive: true });
     let continuationToken: string | undefined = undefined;
+    let count = 0;
     do {
       const resp = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: continuationToken }));
       const contents = resp.Contents || [];
@@ -462,9 +513,11 @@ export class BackupAndRestoreService {
           ws.on("error", (e: any) => reject(e));
         });
         await this.addLog(sessionId, `Downloaded: s3://${bucket}/${key}`);
+        count++;
       }
       continuationToken = resp.IsTruncated ? resp.NextContinuationToken : undefined;
     } while (continuationToken);
+    return count;
   }
 
   private async scaleApp(config: EnvironmentConfig, count: number): Promise<void> {
@@ -575,7 +628,7 @@ export class BackupAndRestoreService {
     return environments;
   }
 
-  async listBackups(): Promise<{ name: string; path: string; timestamp: Date }[]> {
+  async listBackups(): Promise<{ name: string; path: string; timestamp: Date; environment?: string; database?: string }[]> {
     const backupsDir = path.join(this.dumpBaseDir, "backups");
     try {
       const entries = await fs.readdir(backupsDir);
@@ -585,10 +638,32 @@ export class BackupAndRestoreService {
         const entryPath = path.join(backupsDir, entry);
         const stat = await fs.stat(entryPath);
         if (stat.isDirectory()) {
+          let database: string | undefined = undefined;
+          try {
+            const dirents = await fs.readdir(entryPath, { withFileTypes: true });
+            const dbDir = dirents.find(d => d.isDirectory())?.name;
+            if (dbDir) {
+              database = dbDir;
+            }
+          } catch {}
+
+          let environment: string | undefined = undefined;
+          try {
+            const tsPrefixLen = 19; // yyyy-MM-dd-HH-mm-ss
+            if (entry.length > tsPrefixLen + 1) {
+              const remainder = entry.slice(tsPrefixLen + 1);
+              if (database && remainder.endsWith(`-${database}`)) {
+                environment = remainder.slice(0, remainder.length - (database.length + 1));
+              }
+            }
+          } catch {}
+
           backups.push({
             name: entry,
             path: `backups/${entry}`,
-            timestamp: stat.mtime
+            timestamp: stat.mtime,
+            environment,
+            database
           });
         }
       }

@@ -85,7 +85,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
               <div class="img-thumbnail thumbnail-admin-edit">
                 <div class="row thumbnail-heading-frame">
                   <div class="thumbnail-heading">Backup</div>
-                  <form (ngSubmit)="startBackup()">
+                  <form (ngSubmit)="startBackup()" autocomplete="off">
                     <div class="mb-3">
                       <label class="form-label">Environment(s)</label>
                       <app-environment-select
@@ -165,7 +165,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                       <label class="form-check-label" for="sourceLocal">Local</label>
                     </div>
                   </div>
-                  <form (ngSubmit)="startRestore()">
+                  <form (ngSubmit)="startRestore()" autocomplete="off">
                     <div class="mb-3">
                       <label class="form-label">Target Environment</label>
                       <app-environment-select
@@ -181,12 +181,21 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                       }
                     </div>
                     <div class="mb-3">
+                      <label class="form-label">Source Environment</label>
+                      <app-environment-select
+                        [items]="environmentsWithMongo"
+                        [(selectedName)]="sourceEnvironment"
+                        (selectedNameChange)="onSourceEnvironmentChange($event)"
+                        placeholder="Filter backups by source..."></app-environment-select>
+                    </div>
+                    <div class="mb-3">
                       <label class="form-label">Backup to Restore</label>
                       <ng-select
                         [(ngModel)]="selectedBackupForRestore"
                         [items]="backups"
                         [multiple]="false"
                         [searchable]="true"
+                        [searchFn]="backupSearch"
                         [clearable]="true"
                         [appendTo]="'body'"
                         [dropdownPosition]="'bottom'"
@@ -195,16 +204,17 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                         name="backupForRestore"
                         appearance="outline">
                         <ng-template ng-option-tmp let-item="item">
-                          <div class="d-flex align-items-center gap-2 flex-wrap">
+                          <div class="d-flex flex-column align-items-start gap-1" [title]="item.path || item.name">
                             @if (backupSource === 's3') {
-                              <span class="badge bg-secondary">{{ s3Env(item) }}</span>
-                              <span class="badge bg-secondary">{{ s3Db(item) }}</span>
-                              <span class="badge bg-light text-muted">{{ s3Date(item) }}</span>
+                              <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="badge bg-light text-body border">{{ s3Env(item) }}</span>
+                                <span class="badge bg-light text-muted">{{ s3Date(item) }}</span>
+                              </div>
+                              <div class="text-muted small font-monospace text-truncate" style="max-width: 800px;">{{ item.name }}</div>
                             } @else {
-                              <span
-                                class="badge bg-light text-muted">{{ item.timestamp ? (item.timestamp | date:'medium') : '' }}</span>
+                              <div class="badge bg-light text-muted">{{ item.timestamp ? (item.timestamp | date:'medium') : '' }}</div>
+                              <div class="text-muted small font-monospace text-truncate" style="max-width: 640px;">{{ item.name }}</div>
                             }
-                            <span class="text-truncate">{{ item.name }}</span>
                           </div>
                         </ng-template>
                       </ng-select>
@@ -240,31 +250,33 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                     </button>
                   </form>
                 </div>
-                <div class="mt-4 img-thumbnail thumbnail-admin-edit">
-                  <div class="row thumbnail-heading-frame">
-                    <div class="thumbnail-heading">Bulk Backup Management</div>
-                    <div class="mb-3">
-                      <label class="form-label">Select Backups for Bulk Actions</label>
-                      <app-backups-multi-select
-                        [items]="backups"
-                        [(selected)]="selectedBackups">
-                      </app-backups-multi-select>
-                      @if (selectedBackups.length > 0) {
-                        <small
-                          class="form-text">{{ stringUtils.pluraliseWithCount(selectedBackups.length, 'backup') }}
-                          selected</small>
-                      }
-                    </div>
+              </div>
+            </tab>
+            <tab [active]="tabActive(BackupRestoreTab.BACKUPS)"
+                 (selectTab)="selectTab(BackupRestoreTab.BACKUPS)"
+                 [heading]="BackupRestoreTab.BACKUPS">
+              <div class="img-thumbnail thumbnail-admin-edit">
+                <div class="row thumbnail-heading-frame">
+                  <div class="thumbnail-heading">Bulk Backup Management</div>
+                  <div class="mb-3">
+                    <label class="form-label">Select Backups for Bulk Actions</label>
+                    <app-backups-multi-select
+                      [items]="backups"
+                      [(selected)]="selectedBackups">
+                    </app-backups-multi-select>
                     @if (selectedBackups.length > 0) {
-                      <div class="d-flex gap-2 mb-3">
-                        <button type="button" class="btn btn-danger"
-                                (click)="deleteSelectedBackups()">
-                          <fa-icon [icon]="faTrash"></fa-icon>
-                          Delete {{ selectedBackups.length }} Backup(s)
-                        </button>
-                      </div>
+                      <small class="form-text">{{ stringUtils.pluraliseWithCount(selectedBackups.length, 'backup') }} selected</small>
                     }
                   </div>
+                  @if (selectedBackups.length > 0) {
+                    <div class="d-flex gap-2 mb-3">
+                      <button type="button" class="btn btn-danger"
+                              (click)="deleteSelectedBackups()">
+                        <fa-icon [icon]="faTrash"></fa-icon>
+                        Delete {{ selectedBackups.length }} Backup(s)
+                      </button>
+                    </div>
+                  }
                 </div>
               </div>
             </tab>
@@ -306,32 +318,30 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                             </td>
                             <td>
                               <button class="btn btn-sm btn-info"
-                                      (click)="viewSession(session)">
-                                View Logs
+                                      (click)="toggleSessionLogs(session)">
+                                {{ isSessionExpanded(session) ? 'Hide Logs' : 'View Logs' }}
                               </button>
                             </td>
                           </tr>
+                          @if (isSessionExpanded(session)) {
+                            <tr>
+                              <td colspan="6">
+                                <div class="session-logs">
+                                  @for (log of session.logs; track $index) {
+                                    <div>{{ log }}</div>
+                                  }
+                                  @if (session.error) {
+                                    <div class="text-danger">ERROR: {{ session.error }}</div>
+                                  }
+                                </div>
+                              </td>
+                            </tr>
+                          }
                         }
                       </tbody>
                     </table>
                   </div>
-                  @if (selectedSession) {
-                    <div class="mt-4">
-                      <div class="row thumbnail-heading-frame">
-                        <div class="thumbnail-heading">Session
-                          Logs: {{ selectedSession.sessionId }}
-                        </div>
-                        <div class="session-logs">
-                          @for (log of selectedSession.logs; track $index) {
-                            <div>{{ log }}</div>
-                          }
-                          @if (selectedSession.error) {
-                            <div class="text-danger">ERROR: {{ selectedSession.error }}</div>
-                          }
-                        </div>
-                      </div>
-                    </div>
-                  }
+                  
                 </div>
               </div>
             </tab>
@@ -339,6 +349,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
             <tab [active]="tabActive(BackupRestoreTab.SETTINGS)"
                  (selectTab)="selectTab(BackupRestoreTab.SETTINGS)"
                  [heading]="BackupRestoreTab.SETTINGS">
+              @if (tabActive(BackupRestoreTab.SETTINGS)) {
               <div class="img-thumbnail thumbnail-admin-edit">
                 <div class="row thumbnail-heading-frame">
                   <div class="thumbnail-heading">Backup Configuration</div>
@@ -382,7 +393,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                     </div>
                   }
                   @if (jsonViewMode) {
-                    <form (ngSubmit)="saveConfig()">
+                    <form (ngSubmit)="saveConfig()" autocomplete="off">
                       <div class="mb-3">
                         <label class="form-label">Configuration JSON</label>
                         <textarea
@@ -400,7 +411,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                       </button>
                     </form>
                   } @else {
-                    <form (ngSubmit)="saveConfigFromForm()">
+                    <form (ngSubmit)="saveConfigFromForm()" autocomplete="off">
                       <div class="row thumbnail-heading-frame mb-5">
                         <div class="thumbnail-heading">Global AWS S3 Configuration</div>
                         <div class="row">
@@ -481,6 +492,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                                        class="form-control form-control-sm"
                                        [(ngModel)]="currentEnvironment.environment"
                                        name="envName"
+                                       autocomplete="off"
                                        placeholder="e.g., staging, production">
                               </div>
                             </div>
@@ -493,7 +505,8 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                                 <input type="text"
                                        class="form-control form-control-sm"
                                        [(ngModel)]="currentEnvironment.aws.bucket"
-                                       name="awsBucket">
+                                       name="awsBucket"
+                                       autocomplete="off">
                               </div>
                               <div class="col-md-6 mb-2">
                                 <label class="form-label">Region</label>
@@ -501,6 +514,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                                        class="form-control form-control-sm"
                                        [(ngModel)]="currentEnvironment.aws.region"
                                        name="awsRegion"
+                                       autocomplete="off"
                                        placeholder="us-east-1">
                               </div>
                               <div class="col-md-6 mb-2">
@@ -532,6 +546,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                                        [(ngModel)]="currentEnvironment.mongo.uri"
                                        (blur)="parseMongoUri()"
                                        name="mongoUri"
+                                       autocomplete="off"
                                        placeholder="mongodb+srv://...">
                               </div>
                               <div class="col-md-4 mb-2">
@@ -539,14 +554,16 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                                 <input type="text"
                                        class="form-control form-control-sm"
                                        [(ngModel)]="currentEnvironment.mongo.db"
-                                       name="mongoDb">
+                                       name="mongoDb"
+                                       autocomplete="off">
                               </div>
                               <div class="col-md-4 mb-2">
                                 <label class="form-label">Username</label>
                                 <input type="text"
                                        class="form-control form-control-sm"
                                        [(ngModel)]="currentEnvironment.mongo.username"
-                                       name="mongoUser">
+                                       name="mongoUser"
+                                       autocomplete="off">
                               </div>
                               <div class="col-md-4 mb-2">
                                 <label class="form-label">Password</label>
@@ -574,7 +591,8 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                                 <input type="text"
                                        class="form-control form-control-sm"
                                        [(ngModel)]="currentEnvironment.flyio.appName"
-                                       name="flyAppName">
+                                       name="flyAppName"
+                                       autocomplete="off">
                               </div>
                               <div class="col-md-4 mb-2">
                                 <label class="form-label">Memory</label>
@@ -582,6 +600,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                                        class="form-control form-control-sm"
                                        [(ngModel)]="currentEnvironment.flyio.memory"
                                        name="flyMemory"
+                                       autocomplete="off"
                                        placeholder="512mb">
                               </div>
                               <div class="col-md-4 mb-2">
@@ -589,7 +608,8 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                                 <input type="number"
                                        class="form-control form-control-sm"
                                        [(ngModel)]="currentEnvironment.flyio.scaleCount"
-                                       name="flyScale">
+                                       name="flyScale"
+                                       autocomplete="off">
                               </div>
                               <div class="col-md-12 mb-2">
                                 <label class="form-label">Organisation</label>
@@ -597,6 +617,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                                        class="form-control form-control-sm"
                                        [(ngModel)]="currentEnvironment.flyio.organization"
                                        name="flyOrg"
+                                       autocomplete="off"
                                        placeholder="Fly.io organisation/team name">
                               </div>
                             </div>
@@ -619,6 +640,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                   }
                 </div>
               </div>
+              }
             </tab>
           </tabset>
         </div>
@@ -656,10 +678,13 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   selectedEnvironments: EnvironmentInfo[] = [];
   backups: BackupListItem[] = [];
   selectedBackups: BackupListItem[] = [];
+  allBackups: BackupListItem[] = [];
   selectedBackupForRestore: BackupListItem | null = null;
   backupSource: "s3" | "local" = "s3";
+  sourceEnvironment = "";
   sessions: BackupSession[] = [];
   selectedSession?: BackupSession;
+  expandedSessionIds: string[] = [];
   availableCollections: string[] = [];
   selectedCollections: string[] = [];
   restoreAvailableCollections: string[] = [];
@@ -847,7 +872,8 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     this.subscriptions.push(
       (this.backupSource === "s3" ? this.backupRestoreService.listS3Backups() : this.backupRestoreService.listBackups()).subscribe({
         next: backups => {
-          this.backups = [...backups].sort(sortBy("-timestamp", "name"));
+          this.allBackups = [...backups].sort(sortBy("-timestamp", "name"));
+          this.applyBackupFilter();
           this.logger.info("Loaded backups:", backups);
         },
         error: err => this.notify.error({
@@ -985,6 +1011,29 @@ export class BackupAndRestore implements OnInit, OnDestroy {
 
   viewSession(session: BackupSession) {
     this.selectedSession = session;
+  }
+
+  toggleSessionLogs(session: BackupSession) {
+    const id = session._id || session.sessionId;
+    const idx = this.expandedSessionIds.indexOf(id);
+    if (idx >= 0) {
+      this.expandedSessionIds.splice(idx, 1);
+    } else {
+      this.expandedSessionIds.push(id);
+      this.subscriptions.push(
+        this.backupRestoreService.session(id).subscribe(s => {
+          const i = this.sessions.findIndex(x => (x._id || x.sessionId) === id);
+          if (i >= 0) {
+            this.sessions[i] = s;
+          }
+        })
+      );
+    }
+  }
+
+  isSessionExpanded(session: BackupSession): boolean {
+    const id = session._id || session.sessionId;
+    return this.expandedSessionIds.indexOf(id) >= 0;
   }
 
   duration(start: Date | number, end: Date | number): string {
@@ -1337,6 +1386,8 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     if (env) {
       this.loadCollectionsForEnvironment(env, false);
     }
+    this.sourceEnvironment = env || this.sourceEnvironment;
+    this.applyBackupFilter();
   }
 
   private loadCollectionsForEnvironment(environmentName: string, isBackup: boolean) {
@@ -1386,5 +1437,53 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     const folder = path.split("/").pop() || "";
     const token = folder.split("-")[0];
     return token.replace("-", "/").replace("-", "/");
+  }
+
+  backupSearch(term: string, item: BackupListItem): boolean {
+    const q = (term || "").toLowerCase();
+    if (!q) return true;
+    const parts = [
+      item.name || "",
+      item.path || "",
+      this.s3Env(item) || "",
+      this.s3Db(item) || "",
+      this.s3Date(item) || ""
+    ].join(" ").toLowerCase();
+    return parts.indexOf(q) >= 0;
+  }
+
+  onSourceEnvironmentChange(value: string) {
+    this.sourceEnvironment = value || "";
+    this.selectedBackupForRestore = null;
+    this.applyBackupFilter();
+  }
+
+  private applyBackupFilter() {
+    if (this.sourceEnvironment) {
+      this.backups = this.allBackups.filter(b => this.envOf(b) === this.sourceEnvironment);
+    } else {
+      this.backups = [...this.allBackups];
+    }
+  }
+
+  private envOf(item: BackupListItem): string {
+    const path = item.path || "";
+    const isS3 = path.startsWith("s3://");
+    if (isS3) {
+      return this.s3Env(item);
+    }
+    const anyItem = item as any;
+    if (anyItem.environment) {
+      return anyItem.environment as string;
+    }
+    const name = item.name || "";
+    if (name.length > 20) {
+      const remainder = name.slice(20);
+      const db: string | undefined = anyItem.database;
+      if (db && remainder.endsWith(`-${db}`)) {
+        return remainder.slice(0, remainder.length - (db.length + 1));
+      }
+    }
+    return "";
   }
 }
