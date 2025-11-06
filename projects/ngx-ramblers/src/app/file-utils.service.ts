@@ -10,13 +10,13 @@ import {
   ContentMetadataItem,
   FileTypeAttributes,
   fileTypeAttributes,
-  IMAGE_JPEG
 } from "./models/content-metadata.model";
 import { AwsFileData } from "./models/aws-object.model";
 import { base64ToFile } from "ngx-image-cropper";
 import heic2any from "heic2any";
 import { basename } from "./functions/file-utils";
 import { StringUtilsService } from "./services/string-utils.service";
+import { IMAGE_JPEG, IMAGE_PNG, IMAGE_SVG } from "./models/content-metadata.model";
 
 @Injectable({
   providedIn: "root"
@@ -50,6 +50,123 @@ export class FileUtilsService {
       this.logger.error("Error converting heic file:", error);
       return {file, isImage: false};
     }
+  }
+
+  public isResizableName(name: string): boolean {
+    const attrs = this.fileTypeAttributesForName(name || "");
+    return !!attrs && attrs.contentType !== IMAGE_SVG;
+  }
+
+  public async resizeBase64Image(base64Content: string, fileName: string, maxBytes: number, maxWidth = 1200): Promise<string | null> {
+    try {
+      const contentType = this.fileTypeAttributesForName(fileName)?.contentType || IMAGE_JPEG;
+      const initialFile = new File([base64ToFile(base64Content)], fileName, {type: contentType});
+      if (initialFile.size <= maxBytes) {
+        return null;
+      }
+      const img = await this.loadImageFromBase64(base64Content);
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      const maxEnlargeWidth = Math.min(img.width, 4096);
+      const setCanvasSize = (w: number) => {
+        const width = Math.max(1, Math.min(w, maxEnlargeWidth));
+        const height = Math.round(img.height * (width / img.width));
+        canvas.width = width;
+        canvas.height = height;
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+      };
+      const initialWidth = Math.min(img.width, maxWidth || img.width);
+      setCanvasSize(initialWidth);
+      const hasAlpha = () => {
+        const sampleW = Math.min(canvas.width, 64);
+        const sampleH = Math.min(canvas.height, 64);
+        const data = ctx.getImageData(0, 0, sampleW, sampleH).data;
+        for (let i = 3; i < data.length; i += 4) {
+          if (data[i] !== 255) return true;
+        }
+        return false;
+      };
+
+      const targetBytes = Math.max(1, maxBytes);
+      const targetChars = Math.floor(targetBytes * 0.98); // align with UI which counts base64 chars; add small safety margin
+      const encodeAt = async (type: string, q: number): Promise<{data: string; size: number}> => {
+        const data = await new Promise<string>((resolve) => canvas.toBlob(async blob => {
+          const b = blob as Blob;
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(b);
+        }, type, q));
+        const size = data.length; // compare using base64 length to match UI display
+        return { data, size };
+      };
+
+      const growToTarget = async (type: string): Promise<{data: string; size: number}> => {
+        let probe = await encodeAt(type, 1.0);
+        if (probe.size < targetChars * 0.9) {
+          let width = canvas.width;
+          for (let i = 0; i < 8 && width < maxEnlargeWidth; i++) {
+            const grow = Math.max(1.1, Math.min(2.0, Math.sqrt(targetChars / Math.max(1, probe.size))));
+            const nextWidth = Math.min(Math.round(width * grow), maxEnlargeWidth);
+            if (nextWidth <= width) break;
+            width = nextWidth;
+            setCanvasSize(width);
+            probe = await encodeAt(type, 1.0);
+            if (probe.size >= targetChars * 0.9) break;
+          }
+        }
+        return probe;
+      };
+
+      const preferWebp = contentType === IMAGE_PNG || hasAlpha();
+      const primaryType = preferWebp ? "image/webp" : IMAGE_JPEG;
+      const secondaryType = preferWebp ? IMAGE_JPEG : "image/webp";
+
+      let primaryHi = await growToTarget(primaryType);
+      let chosenType = primaryType;
+      let chosenHi = primaryHi;
+      if (chosenHi.size < targetChars * 0.8 && !hasAlpha()) {
+        const altHi = await growToTarget(secondaryType);
+        if (altHi.size > chosenHi.size && altHi.size <= targetChars) {
+          chosenType = secondaryType;
+          chosenHi = altHi;
+        }
+      }
+
+      const tuneQuality = async (type: string, hiProbe: {data: string; size: number}) => {
+        let lowQ = 0.05;
+        let highQ = 1.0;
+        let best: {data: string; size: number} | null = hiProbe.size <= targetChars ? hiProbe : null;
+        for (let i = 0; i < 12; i++) {
+          const mid = (lowQ + highQ) / 2;
+          const cand = await encodeAt(type, mid);
+          if (cand.size <= targetChars) {
+            best = cand;
+            lowQ = mid + 0.01;
+          } else {
+            highQ = mid - 0.01;
+          }
+        }
+        if (best) return best;
+        return await encodeAt(type, lowQ);
+      };
+
+      const final = await tuneQuality(chosenType, chosenHi);
+      return final.data;
+    } catch (e) {
+      this.logger.error("resizeBase64Image error", e);
+      return null;
+    }
+  }
+
+  private loadImageFromBase64(base64Content: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = (err) => reject(err);
+      img.src = base64Content;
+    });
   }
 
   base64ToFileWithName(data, filename) {

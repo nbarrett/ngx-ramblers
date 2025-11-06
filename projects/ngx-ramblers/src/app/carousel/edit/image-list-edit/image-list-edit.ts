@@ -1100,26 +1100,41 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   private resizeUnsavedImages(items: ContentMetadataItem[]) {
     try {
       this.logger.info("resizeUnsavedImages called with items:", items);
-      if (this.contentMetadata.maxImageSize || 0 > 0 && items?.length > 0) {
+      if ((this.contentMetadata.maxImageSize || 0) > 0 && items?.length > 0) {
         this.setBusy();
+        const resizable = items.filter(i => this.fileUtils.isResizableName(i.originalFileName || ""));
         this.notify.success({
           title: "Auto-Resizing Uploaded Files",
-          message: "Processing " + this.stringUtils.pluraliseWithCount(items?.length, "file")
+          message: "Processing " + this.stringUtils.pluraliseWithCount(resizable.length, "file")
         });
-        const contentMetadataResizeRequest: ContentMetadataResizeRequest = {
-          maxFileSize: this.contentMetadata.maxImageSize,
-          input: items
-        };
-        this.logger.info("about to sendMessage:", EventType.RESIZE_UNSAVED_IMAGES, "with data:", contentMetadataResizeRequest);
-        this.webSocketClientService.connect()
-          .then(() => this.webSocketClientService.sendMessage(EventType.RESIZE_UNSAVED_IMAGES, contentMetadataResizeRequest))
-          .catch(error => this.handleResizeError(error));
+        const maxBytes = this.contentMetadata.maxImageSize;
+        const resized: ContentMetadataItem[] = [];
+        if (resizable.length === 0) {
+          this.notify.success({ title: "Task completed", message: "No files eligible for resizing" });
+          this.clearBusy();
+          return;
+        }
+        const tasks = resizable.map(async item => {
+          const updated = await this.fileUtils.resizeBase64Image(item.base64Content, item.originalFileName, maxBytes, 1200);
+          if (updated) {
+            item.base64Content = updated;
+            resized.push(item);
+          }
+        });
+        Promise.all(tasks).then(() => {
+          if (resized.length > 0) {
+            this.processResizeItemsResponse(resized);
+          } else {
+            this.notify.success({ title: "Task completed", message: "No resizing required" });
+          }
+          this.clearBusy();
+        }).catch(error => this.handleResizeError(error));
       } else {
         this.logger.info("image list not configured for auto-resizing or no images supplied for resizing");
         this.clearBusy();
       }
     } catch (error) {
-      this.handleResizeError(error);
+      this.handleResizeError(error as any);
     }
   }
 
