@@ -223,8 +223,7 @@ async function uploadImage(imageName: string, buffer: Buffer, contentMetadata: C
     Bucket: config.bucket,
     Key: uploadImagePath,
     Body: buffer,
-    ContentType: contentTypeFrom(imageName),
-    ACL: "public-read"
+    ContentType: contentTypeFrom(imageName)
   }));
   debugLog(`✅ Uploaded: ${uploadImagePath} (${humanFileSize(buffer.length)}) from input ${imageName}`);
   return uploadImageName;
