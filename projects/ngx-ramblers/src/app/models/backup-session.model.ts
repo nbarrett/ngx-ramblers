@@ -1,6 +1,7 @@
 export enum BackupRestoreTab {
   BACKUP = "Backup",
   RESTORE = "Restore",
+  BACKUPS = "Backups",
   HISTORY = "History",
   SETTINGS = "Settings"
 }
