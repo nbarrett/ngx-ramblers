@@ -13,7 +13,7 @@ import {
 import { contentTypeFrom, extensionFrom } from "./aws-utils";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
-import { cloneDeep } from "es-toolkit/compat";
+import { cloneDeep, isFunction } from "es-toolkit/compat";
 import { generateUid, lastItemFrom, pluraliseWithCount } from "../shared/string-utils";
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import * as transforms from "../mongo/controllers/transforms";
@@ -209,7 +209,7 @@ async function downloadImage(imagePath: string): Promise<Buffer> {
     return Buffer.from(Body);
   }
   const blob = Body as Blob;
-  if (typeof blob.arrayBuffer === "function") {
+  if (isFunction(blob.arrayBuffer)) {
     const ab = await blob.arrayBuffer();
     return Buffer.from(ab);
   }

@@ -5,7 +5,7 @@ import { ActivatedRoute, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { interval, Subscription } from "rxjs";
 import { switchMap } from "rxjs/operators";
-import { kebabCase } from "es-toolkit/compat";
+import { kebabCase, isString, isNumber } from "es-toolkit/compat";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faBackward, faCopy, faForward, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
@@ -341,7 +341,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                       </tbody>
                     </table>
                   </div>
-                  
+
                 </div>
               </div>
             </tab>
@@ -649,6 +649,32 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
   `
 })
 export class BackupAndRestore implements OnInit, OnDestroy {
+
+  get currentEnvironmentIndex(): number {
+    return this._currentEnvironmentIndex;
+  }
+
+  set currentEnvironmentIndex(value: number) {
+    const numValue = isString(value) ? parseInt(value, 10) : value;
+    const maxIndex = Math.max(0, this.editableConfig.environments.length - 1);
+    this._currentEnvironmentIndex = Math.min(Math.max(0, numValue), maxIndex);
+  }
+
+  get currentEnvironment(): EnvironmentBackupConfig | null {
+    return this.editableConfig.environments[this.currentEnvironmentIndex] ?? null;
+  }
+
+  get environmentCount(): number {
+    return this.editableConfig.environments.length;
+  }
+
+  get canNavigatePrevious(): boolean {
+    return this.currentEnvironmentIndex > 0;
+  }
+
+  get canNavigateNext(): boolean {
+    return this.currentEnvironmentIndex < this.editableConfig.environments.length - 1;
+  }
   private logger: Logger = inject(LoggerFactory).createLogger("BackupAndRestore", NgxLoggerLevel.ERROR);
   private backupRestoreService = inject(BackupAndRestoreService);
   private backupConfigService = inject(BackupConfigService);
@@ -698,22 +724,6 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     aws: { bucket: "", region: "us-east-1" }
   };
 
-  get currentEnvironmentIndex(): number {
-    return this._currentEnvironmentIndex;
-  }
-
-  statusStyle(status: string) {
-    if (status === "completed") return "text-style-mintcake";
-    if (status === "failed") return "text-style-sunset";
-    return "text-style-sunrise";
-  }
-
-  set currentEnvironmentIndex(value: number) {
-    const numValue = typeof value === "string" ? parseInt(value, 10) : value;
-    const maxIndex = Math.max(0, this.editableConfig.environments.length - 1);
-    this._currentEnvironmentIndex = Math.min(Math.max(0, numValue), maxIndex);
-  }
-
   backupRequest: BackupRequest = {
     environment: "",
     scaleDown: false,
@@ -726,6 +736,12 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     drop: true,
     dryRun: false
   };
+
+  statusStyle(status: string) {
+    if (status === "completed") return "text-style-mintcake";
+    if (status === "failed") return "text-style-sunset";
+    return "text-style-sunrise";
+  }
 
   async ngOnInit() {
     this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
@@ -1037,8 +1053,8 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   }
 
   duration(start: Date | number, end: Date | number): string {
-    const startTime = typeof start === "number" ? start : new Date(start).getTime();
-    const endTime = typeof end === "number" ? end : new Date(end).getTime();
+    const startTime = isNumber(start) ? start : new Date(start).getTime();
+    const endTime = isNumber(end) ? end : new Date(end).getTime();
     const durationMs = endTime - startTime;
     const seconds = Math.floor(durationMs / 1000);
     const minutes = Math.floor(seconds / 60);
@@ -1158,22 +1174,6 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     }
   }
 
-  get currentEnvironment(): EnvironmentBackupConfig | null {
-    return this.editableConfig.environments[this.currentEnvironmentIndex] ?? null;
-  }
-
-  get environmentCount(): number {
-    return this.editableConfig.environments.length;
-  }
-
-  get canNavigatePrevious(): boolean {
-    return this.currentEnvironmentIndex > 0;
-  }
-
-  get canNavigateNext(): boolean {
-    return this.currentEnvironmentIndex < this.editableConfig.environments.length - 1;
-  }
-
   navigatePrevious() {
     if (this.canNavigatePrevious) {
       this.currentEnvironmentIndex--;
@@ -1283,7 +1283,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     if (err.message) {
       return err.message;
     }
-    if (typeof err.error === "string") {
+    if (isString(err.error)) {
       return err.error;
     }
     return "An unexpected error occurred. Please check the logs.";

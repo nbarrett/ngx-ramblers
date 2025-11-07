@@ -1,4 +1,4 @@
-import { launchBrowser as sharedLaunchBrowser, deriveBaseUrl, createActor } from "./serenity-migration-utils";
+import { createActor, launchBrowser as sharedLaunchBrowser } from "./serenity-migration-utils";
 import { PutObjectCommand, S3 } from "@aws-sdk/client-s3";
 import {
   AlbumView,
@@ -11,9 +11,9 @@ import * as mongooseClient from "../mongo/mongoose-client";
 import { pageContent as pageContentModel } from "../mongo/models/page-content";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
-import { first } from "es-toolkit/compat";
+import { first, isString } from "es-toolkit/compat";
 import { toKebabCase } from "../../../projects/ngx-ramblers/src/app/functions/strings";
-import { generateUid, humaniseFileStemFromUrl, pluraliseWithCount, titleCase } from "../shared/string-utils";
+import { generateUid, pluraliseWithCount, titleCase } from "../shared/string-utils";
 import { AWSConfig } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { queryAWSConfig } from "../aws/aws-controllers";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -23,11 +23,7 @@ import { progress } from "./migration-progress";
 import * as exclusions from "./text-exclusions";
 import { AccessLevel } from "../../../projects/ngx-ramblers/src/app/models/member-resource.model";
 import { ContentMetadata } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
-import {
-  PageLink,
-  ParentPageConfig,
-  SiteMigrationConfig
-} from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
+import { PageLink, SiteMigrationConfig } from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
 import {
   MigratedAlbum,
   MigrationResult,
@@ -35,7 +31,6 @@ import {
   ScrapedPage,
   ScrapedSegment
 } from "../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
-import { PageTransformationEngine } from "./page-transformation-engine";
 import { createTurndownService } from "./turndown-service-factory";
 import { Actor, Duration } from "@serenity-js/core";
 import { NavigateAndWait } from "./screenplay/tasks/navigate-and-wait";
@@ -519,7 +514,7 @@ async function migrateAlbums(ctx: Ctx): Promise<MigratedAlbum[]> {
     ? ctx.config.specificAlbums
     : [];
 
-  const galleryLinks = (rawLinks || []).filter(l => l && typeof l.path === "string" && /^https?:\/\//i.test(l.path));
+  const galleryLinks = (rawLinks || []).filter(l => l && isString(l.path) && /^https?:\/\//i.test(l.path));
 
   if (!galleryLinks.length) {
     debugLog("⚠️ No gallery links found");

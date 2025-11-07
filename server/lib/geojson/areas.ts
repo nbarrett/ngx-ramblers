@@ -8,6 +8,7 @@ import path from "path";
 import { DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3 } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
 import { systemConfig } from "../config/system-config";
+import { isFunction } from "es-toolkit/compat";
 import {
   EventPopulation,
   Organisation,
@@ -121,11 +122,11 @@ async function loadS3GeoJson(): Promise<GeoJSON.FeatureCollection<GeoJSON.Polygo
 }
 
 async function bodyToString(body: any): Promise<string> {
-  if (typeof body?.transformToString === "function") {
+  if (isFunction(body?.transformToString)) {
     return body.transformToString();
   }
 
-  if (typeof body?.getReader === "function") {
+  if (isFunction(body?.getReader)) {
     const reader = body.getReader();
     const chunks: Uint8Array[] = [];
     while (true) {

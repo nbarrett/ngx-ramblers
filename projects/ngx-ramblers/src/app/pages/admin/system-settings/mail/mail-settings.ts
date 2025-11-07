@@ -35,6 +35,7 @@ import { NgClass, NgStyle } from "@angular/common";
 import { MailListEditorComponent } from "./list-editor";
 import { MailListSettingsComponent } from "./mail-list-settings";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
 
 @Component({
     selector: "app-mail-settings",
@@ -118,9 +119,11 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                       <div class="form-group">
                         <label for="api-key">API Key</label>
                         <div class="input-group">
-                          <input [(ngModel)]="mailMessagingConfig.mailConfig.apiKey" type="text"
-                            class="form-control input-sm" id="api-key"
-                            placeholder="The API key for the mail api">
+                          <app-secret-input
+                            [(ngModel)]="mailMessagingConfig.mailConfig.apiKey"
+                            id="api-key"
+                            size="sm"
+                            placeholder="The API key for the mail api"/>
                           <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
                             (click)="mailLinkService.openUrl(mailLinkService.apiKeysView())"
                           [title]="'View'"></app-brevo-button>
@@ -276,7 +279,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
         </div>
       </app-page>
     `,
-    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateMappingComponent, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, FontAwesomeModule, NgClass]
+    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateMappingComponent, NotificationConfigToProcessMappingComponent, MarkdownEditorComponent, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, FontAwesomeModule, NgClass, SecretInputComponent]
 })
 export class MailSettingsComponent implements OnInit, OnDestroy {
   public deletedConfigs: string[] = [];
