@@ -4,10 +4,11 @@ import { CommonModule } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faEye, faEyeSlash, faCopy, faCheck } from "@fortawesome/free-solid-svg-icons";
 import { ClipboardService } from "../../../services/clipboard.service";
+import { TooltipModule } from "ngx-bootstrap/tooltip";
 
 @Component({
   selector: "app-secret-input",
-    imports: [CommonModule, FormsModule, FontAwesomeModule],
+    imports: [CommonModule, FormsModule, FontAwesomeModule, TooltipModule],
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
@@ -62,7 +63,7 @@ import { ClipboardService } from "../../../services/clipboard.service";
       <input
         [type]="isVisible ? 'text' : 'password'"
         class="form-control secret-input"
-        [class.form-control-sm]="size === 'sm'"
+        [class.input-sm]="size === 'sm'"
         [id]="id"
         [value]="value"
         (input)="onInputChange($event)"
@@ -77,7 +78,9 @@ import { ClipboardService } from "../../../services/clipboard.service";
           class="secret-btn"
           (click)="toggleVisibility()"
           [disabled]="disabled"
-          [title]="isVisible ? 'Hide' : 'Show'">
+          [tooltip]="isVisible ? 'Hide' : 'Show'"
+          delay="500"
+          container="body">
           <fa-icon [icon]="isVisible ? faEyeSlash : faEye"></fa-icon>
         </button>
         <button
@@ -86,7 +89,9 @@ import { ClipboardService } from "../../../services/clipboard.service";
           [class.copied]="justCopied"
           (click)="copyToClipboard()"
           [disabled]="disabled || !value"
-          [title]="justCopied ? 'Copied!' : 'Copy to clipboard'">
+          [tooltip]="justCopied ? 'Copied!' : 'Copy to clipboard'"
+          delay="500"
+          container="body">
           <fa-icon [icon]="justCopied ? faCheck : faCopy"></fa-icon>
         </button>
       </div>

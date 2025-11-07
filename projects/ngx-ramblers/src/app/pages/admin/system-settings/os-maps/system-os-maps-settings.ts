@@ -4,6 +4,7 @@ import { SystemConfig } from "../../../../models/system.model";
 import { LoggerFactory } from "../../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
+import { SecretInputComponent } from "../../../../modules/common/secret-input/secret-input.component";
 
 @Component({
   selector: "app-system-os-maps-settings",
@@ -16,10 +17,10 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
             <div class="col-md-6">
               <div class="form-group">
                 <label for="os-maps-api-key">API Key</label>
-                <input [(ngModel)]="configInternal.externalSystems.osMaps.apiKey"
-                       id="os-maps-api-key"
-                       type="text" class="form-control input-sm"
-                       placeholder="Enter OS Maps API Key">
+                <app-secret-input [(ngModel)]="configInternal.externalSystems.osMaps.apiKey"
+                                  id="os-maps-api-key"
+                                  size="sm"
+                                  placeholder="Enter OS Maps API Key"/>
               </div>
             </div>
           </div>
@@ -27,7 +28,7 @@ import { SystemConfigService } from "../../../../services/system/system-config.s
       }
     </div>
   `,
-  imports: [FormsModule]
+  imports: [FormsModule, SecretInputComponent]
 })
 export class SystemOsMapsSettings implements OnInit, OnDestroy {
   configInternal: SystemConfig;

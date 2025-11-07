@@ -137,79 +137,77 @@ import { RowTypeSelectorComponent } from "./row-type-selector";
             </div>
             @for (row of pageContent?.rows; track row; let rowIndex = $index) {
               @if (pageContentRowService.rowsSelected() && rowIndex === firstSelectedRowIndex()) {
-                <div class="thumbnail-site-edit mt-2">
-                  <fieldset class="p-2 border rounded">
-                    <legend class="float-none w-auto px-2 mb-0">Row Actions</legend>
-                    <div class="row align-items-end">
+                <div class="row thumbnail-heading-frame">
+                  <div class="thumbnail-heading">Row Actions</div>
+                  <div class="row align-items-end">
+                    <div class="col-sm-4 col-md-2">
+                      <label for="action">Action</label>
+                      <select class="form-control"
+                              [(ngModel)]="action"
+                              id="action">
+                        @for (action of contentActions; track action) {
+                          <option [ngValue]="action">{{ action }}</option>
+                        }
+                      </select>
+                    </div>
+                    @if (action !== Action.CREATE_FRAGMENT) {
+                      <div class="col-md-8">
+                        <form>
+                          <label class="me-2" for="move-or-copy-to-path">
+                            {{ action }}
+                            {{ stringUtils.pluraliseWithCount(pageContentRowService.selectedRowCount(), "row") }}
+                            to</label>
+                          <input id="move-or-copy-to-path"
+                                 [typeahead]="pageContentService.siteLinks"
+                                 name="destinationPath"
+                                 autocomplete="nope"
+                                 [typeaheadMinLength]="0"
+                                 [disabled]="!pageContentRowService.rowsSelected()"
+                                 (ngModelChange)="destinationPathLookupChange($event)"
+                                 [ngModel]="destinationPath"
+                                 type="text" class="form-control">
+                        </form>
+                      </div>
                       <div class="col-sm-4 col-md-2">
-                        <label for="action">Action</label>
-                        <select class="form-control"
-                                [(ngModel)]="action"
-                                id="action">
-                          @for (action of contentActions; track action) {
-                            <option [ngValue]="action">{{ action }}</option>
+                        <label for="before-after">Position</label>
+                        <select class="form-control input-sm"
+                                [(ngModel)]="destinationPathInsertBeforeAfterIndex"
+                                id="before-after">
+                          @for (insertionRow of insertionRowPosition; track insertionRow) {
+                            <option [ngValue]="insertionRow.index">{{ insertionRow.description }}</option>
                           }
                         </select>
                       </div>
-                      @if (action !== Action.CREATE_FRAGMENT) {
-                        <div class="col-md-8">
-                          <form>
-                            <label class="me-2" for="move-or-copy-to-path">
-                              {{ action }}
-                              {{ stringUtils.pluraliseWithCount(pageContentRowService.selectedRowCount(), "row") }}
-                              to</label>
-                            <input id="move-or-copy-to-path"
-                                   [typeahead]="pageContentService.siteLinks"
-                                   name="destinationPath"
-                                   autocomplete="nope"
-                                   [typeaheadMinLength]="0"
-                                   [disabled]="!pageContentRowService.rowsSelected()"
-                                   (ngModelChange)="destinationPathLookupChange($event)"
-                                   [ngModel]="destinationPath"
-                                   type="text" class="form-control">
-                          </form>
-                        </div>
-                        <div class="col-sm-4 col-md-2">
-                          <label for="before-after">Position</label>
-                          <select class="form-control input-sm"
-                                  [(ngModel)]="destinationPathInsertBeforeAfterIndex"
-                                  id="before-after">
-                            @for (insertionRow of insertionRowPosition; track insertionRow) {
-                              <option [ngValue]="insertionRow.index">{{ insertionRow.description }}</option>
-                            }
-                          </select>
-                        </div>
-                        <div class="col-md-10 mt-2">
-                          <label for="insert-at-row">Row</label>
-                          <select class="form-control input-sm"
-                                  [(ngModel)]="destinationPathInsertionRowIndex"
-                                  (ngModelChange)="destinationPathInsertionRowIndexChange($event)"
-                                  id="insert-at-row">
-                            @for (insertionRow of insertionRowLookup; track insertionRow) {
-                              <option [ngValue]="insertionRow.index">{{ insertionRow.description }}</option>
-                            }
-                          </select>
-                        </div>
-                      }
-                      @if (action === Action.CREATE_FRAGMENT) {
-                        <div class="col-md-6">
-                          <label for="fragment-name">Create Named Fragment</label>
-                          <input id="fragment-name" [(ngModel)]="fragmentName" type="text" class="form-control"
-                                 placeholder="Fragment name e.g. homepage-hero"/>
-                        </div>
-                      }
-                      <div class="col-auto mt-2">
-                        <button [disabled]="actionDisabled()"
-                                delay=500 tooltip="{{action}} rows"
-                                type="submit"
-                                (click)="performCopyOrMoveAction()"
-                                [ngClass]="buttonClass(!actionDisabled())">
-                          <fa-icon [icon]="faSave"></fa-icon>
-                          <span class="ms-2">Perform {{ action }}</span>
-                        </button>
+                      <div class="col-md-10 mt-2">
+                        <label for="insert-at-row">Row</label>
+                        <select class="form-control input-sm"
+                                [(ngModel)]="destinationPathInsertionRowIndex"
+                                (ngModelChange)="destinationPathInsertionRowIndexChange($event)"
+                                id="insert-at-row">
+                          @for (insertionRow of insertionRowLookup; track insertionRow) {
+                            <option [ngValue]="insertionRow.index">{{ insertionRow.description }}</option>
+                          }
+                        </select>
                       </div>
+                    }
+                    @if (action === Action.CREATE_FRAGMENT) {
+                      <div class="col-md-6">
+                        <label for="fragment-name">Create Named Fragment</label>
+                        <input id="fragment-name" [(ngModel)]="fragmentName" type="text" class="form-control"
+                               placeholder="Fragment name e.g. homepage-hero"/>
+                      </div>
+                    }
+                    <div class="col-auto mt-2">
+                      <button [disabled]="actionDisabled()"
+                              delay=500 tooltip="{{action}} rows"
+                              type="submit"
+                              (click)="performCopyOrMoveAction()"
+                              [ngClass]="buttonClass(!actionDisabled())">
+                        <fa-icon [icon]="faSave"></fa-icon>
+                        <span class="ms-2">Perform {{ action }}</span>
+                      </button>
                     </div>
-                  </fieldset>
+                  </div>
                 </div>
               }
               <div class="thumbnail-site-edit-top-bottom-margins" (dragover)="onRowDragOver(rowIndex, $event)"
@@ -238,73 +236,76 @@ import { RowTypeSelectorComponent } from "./row-type-selector";
                         [contentPath]="contentPath"
                         (typeChange)="changePageContentRowType(row)"/>
                     </div>
-                      @if (actions.isActionButtons(row) || actions.isAlbumIndex(row)) {
-                        <div class="d-inline-flex align-items-end flex-wrap gap-3" app-row-settings-action-buttons [row]="row"></div>
-                      }
-                      <div class="d-inline-flex align-items-end flex-wrap gap-3">
-                        <div app-margin-select label="Margin Top" [data]="row" field="marginTop"></div>
-                        <div app-margin-select label="Margin Bottom" [data]="row" field="marginBottom"></div>
-                      </div>
-                      <div class="d-inline-flex align-items-end flex-wrap gap-3 ms-auto" [ngClass]="actions.isActionButtons(row) ? 'mt-2' : ''">
-                        <app-actions-dropdown [rowIndex]="rowIndex" [pageContent]="pageContent" [row]="row"/>
-                        <app-bulk-action-selector [row]="row"/>
-                      </div>
+                    @if (actions.isActionButtons(row) || actions.isAlbumIndex(row)) {
+                      <div class="d-inline-flex align-items-end flex-wrap gap-3" app-row-settings-action-buttons
+                           [row]="row"></div>
+                    }
+                    <div class="d-inline-flex align-items-end flex-wrap gap-3">
+                      <div app-margin-select label="Margin Top" [data]="row" field="marginTop"></div>
+                      <div app-margin-select label="Margin Bottom" [data]="row" field="marginBottom"></div>
+                    </div>
+                    <div class="d-inline-flex align-items-end flex-wrap gap-3 ms-auto"
+                         [ngClass]="actions.isActionButtons(row) ? 'mt-2' : ''">
+                      <app-actions-dropdown [rowIndex]="rowIndex" [pageContent]="pageContent" [row]="row"/>
+                      <app-bulk-action-selector [row]="row"/>
+                    </div>
                   </div>
                 </div>
                 @if (actions.isCarouselOrAlbum(row)) {
                   <div class="row">
-                    <div (nameInputChange)="editAlbumName=$event" class="col" app-row-settings-carousel [row]="row"></div>
+                    <div (nameInputChange)="editAlbumName=$event" class="col" app-row-settings-carousel
+                         [row]="row"></div>
                   </div>
                 }
-                  @if (actions.isAlbumIndex(row)) {
-                    <app-album-index-site-edit [row]="row" [rowIndex]="rowIndex"/>
-                  }
-                  @if (actions.isSharedFragment(row)) {
-                    <div class="row mt-2">
-                      <div class="col-12">
-                        <label [for]="'shared-fragment-path-' + rowIndex">Shared Fragment</label>
-                        <app-fragment-selector
-                          [elementId]="'shared-fragment-path-' + rowIndex"
-                          [selectedFragment]="selectedFragmentForRow(row)"
-                          (fragmentChange)="onSharedFragmentChange(row, $event)"/>
-                      </div>
+                @if (actions.isAlbumIndex(row)) {
+                  <app-album-index-site-edit [row]="row" [rowIndex]="rowIndex"/>
+                }
+                @if (actions.isSharedFragment(row)) {
+                  <div class="row mt-2">
+                    <div class="col-12">
+                      <label [for]="'shared-fragment-path-' + rowIndex">Shared Fragment</label>
+                      <app-fragment-selector
+                        [elementId]="'shared-fragment-path-' + rowIndex"
+                        [selectedFragment]="selectedFragmentForRow(row)"
+                        (fragmentChange)="onSharedFragmentChange(row, $event)"/>
                     </div>
-                    @if (row?.fragment?.pageContentId) {
-                      <div class="mt-2 panel-border">
-                        <app-dynamic-content-view [pageContent]="fragmentContent(row)" [contentPath]="fragmentPath(row)"
-                                                  [forceView]="true"/>
-                      </div>
-                      @if (!fragmentContent(row) && fragmentService.failedToLoad(row.fragment.pageContentId)) {
-                        <div class="alert alert-warning mt-2">Fragment not found: {{ row.fragment.pageContentId }}</div>
-                      }
+                  </div>
+                  @if (row?.fragment?.pageContentId) {
+                    <div class="mt-2 panel-border">
+                      <app-dynamic-content-view [pageContent]="fragmentContent(row)" [contentPath]="fragmentPath(row)"
+                                                [forceView]="true"/>
+                    </div>
+                    @if (!fragmentContent(row) && fragmentService.failedToLoad(row.fragment.pageContentId)) {
+                      <div class="alert alert-warning mt-2">Fragment not found: {{ row.fragment.pageContentId }}</div>
                     }
                   }
-                  @if (actions.isActionButtons(row)) {
-                    <app-action-buttons [pageContent]="pageContent"
-                                        [rowIndex]="rowIndex"/>
-                  }
-                  @if (actions.isCarouselOrAlbum(row)) {
-                    <app-dynamic-content-site-edit-album [row]="row"
-                                                         [rowIndex]="rowIndex"
-                                                         [pageContent]="pageContent"/>
-                  }
-                  <app-dynamic-content-site-edit-text-row [row]="row"
-                                                          [rowIndex]="rowIndex"
-                                                          [contentDescription]="contentDescription"
-                                                          [contentPath]="contentPath"
+                }
+                @if (actions.isActionButtons(row)) {
+                  <app-action-buttons [pageContent]="pageContent"
+                                      [rowIndex]="rowIndex"/>
+                }
+                @if (actions.isCarouselOrAlbum(row)) {
+                  <app-dynamic-content-site-edit-album [row]="row"
+                                                       [rowIndex]="rowIndex"
+                                                       [pageContent]="pageContent"/>
+                }
+                <app-dynamic-content-site-edit-text-row [row]="row"
+                                                        [rowIndex]="rowIndex"
+                                                        [contentDescription]="contentDescription"
+                                                        [contentPath]="contentPath"
+                                                        [pageContent]="pageContent"/>
+                @if (actions.isEvents(row)) {
+                  <app-dynamic-content-site-edit-events [row]="row" [rowIndex]="rowIndex"/>
+                }
+                @if (actions.isAreaMap(row)) {
+                  <app-dynamic-content-site-edit-area-map [row]="row" [id]="'area-map-' + rowIndex"
                                                           [pageContent]="pageContent"/>
-                  @if (actions.isEvents(row)) {
-                    <app-dynamic-content-site-edit-events [row]="row" [rowIndex]="rowIndex"/>
-                  }
-                  @if (actions.isAreaMap(row)) {
-                    <app-dynamic-content-site-edit-area-map [row]="row" [id]="'area-map-' + rowIndex"
-                                                            [pageContent]="pageContent"/>
-                  }
-                </div>
-              }
-              <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
-            </div>
+                }
+              </div>
+            }
+            <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
           </div>
+        </div>
       }
       <ng-template #saveButtonsAndPath>
         <div class="d-inline-flex align-items-center flex-wrap">

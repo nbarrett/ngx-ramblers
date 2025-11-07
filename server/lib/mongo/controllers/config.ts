@@ -9,10 +9,24 @@ import * as transforms from "./transforms";
 import { createDocumentRequest, parseError, toObjectWithId } from "./transforms";
 import { enumForKey, enumValues } from "../../../../projects/ngx-ramblers/src/app/functions/enums";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
+import { isArray, isObject } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("config"));
 debugLog.enabled = false;
 const controller = crudController.create<ConfigDocument>(config);
+
+const sensitiveKeys = new Set([
+  "apiKey",
+  "accessKey",
+  "accessKeyId",
+  "secretAccessKey",
+  "clientSecret",
+  "accessToken",
+  "refreshToken",
+  "password",
+  "username",
+  "userName",
+]);
 export const create = controller.create;
 export const all = controller.all;
 export const deleteOne = controller.deleteOne;
@@ -46,25 +60,41 @@ function configCriteriaFromQuerystring(req: Request) {
 }
 
 export async function createOrUpdate(req: Request, res: Response) {
+  const isAdmin = isAdminFromRequest(req);
+
+  if (!isAdmin) {
+    return res.status(403).json({
+      message: "Admin access required to update system configuration",
+      error: "Forbidden"
+    });
+  }
+
   const {document} = transforms.criteriaAndDocument(req);
   const criteria = configCriteriaFromBody(req);
   debugLog("pre-update:body:", req.body, "criteria:", criteria, "document:", document);
-  const documentRequest = createDocumentRequest(req);
-  config.findOneAndUpdate(criteria, documentRequest, {upsert: true, new: true, useFindAndModify: false})
-    .then(result => {
-      debugLog("post-update:document:", documentRequest, "result:", result);
-      res.status(200).json({
-        action: ApiAction.UPDATE,
-        response: toObjectWithId(result)
-      });
-    })
-    .catch(error => {
-      return res.status(500).json({
-        message: `Update of ${config.modelName} failed`,
-        request: document,
-        error: parseError(error)
-      });
+
+  try {
+    const existingConfig = await config.findOne(criteria);
+    const incomingValue = req.body?.value;
+
+    if (existingConfig?.value && incomingValue) {
+      req.body.value = restoreSensitiveFields(existingConfig.value, incomingValue);
+    }
+
+    const documentRequest = createDocumentRequest(req);
+    const result = await config.findOneAndUpdate(criteria, documentRequest, {upsert: true, new: true, useFindAndModify: false});
+    debugLog("post-update:document:", documentRequest, "result:", result);
+    res.status(200).json({
+      action: ApiAction.UPDATE,
+      response: toObjectWithId(result)
     });
+  } catch (error) {
+    return res.status(500).json({
+      message: `Update of ${config.modelName} failed`,
+      request: document,
+      error: parseError(error)
+    });
+  }
 }
 
 export function queryKey(configKey: ConfigKey): Promise<ConfigDocument> {
@@ -118,24 +148,11 @@ function isAdminFromRequest(req: Request): boolean {
 }
 
 function redactSensitive(value: any): any {
-  const sensitiveKeys = new Set([
-    "apiKey",
-    "accessKey",
-    "accessKeyId",
-    "secretAccessKey",
-    "clientSecret",
-    "accessToken",
-    "refreshToken",
-    "password",
-    "username",
-    "userName",
-  ]);
-
   function cleanse(obj: any): any {
     if (obj === null || obj === undefined) return obj;
-    if (Array.isArray(obj)) return obj.map(cleanse);
-    if (typeof obj !== "object") return obj;
-    const out: any = Array.isArray(obj) ? [] : {};
+    if (isArray(obj)) return obj.map(cleanse);
+    if (!isObject(obj)) return obj;
+    const out: any = isArray(obj) ? [] : {};
     for (const [k, v] of Object.entries(obj)) {
       if (sensitiveKeys.has(k)) {
         continue;
@@ -146,4 +163,30 @@ function redactSensitive(value: any): any {
   }
 
   return cleanse(value);
+}
+
+function restoreSensitiveFields(existingValue: any, incomingValue: any): any {
+  function restore(existing: any, incoming: any): any {
+    if (existing === null || existing === undefined) return incoming;
+    if (incoming === null || incoming === undefined) return existing;
+    if (isArray(existing) && isArray(incoming)) {
+      return incoming.map((item, idx) => restore(existing[idx], item));
+    }
+    if (isObject(existing) && isObject(incoming)) {
+      const merged = {...incoming};
+      for (const [k, v] of Object.entries(existing)) {
+        if (sensitiveKeys.has(k)) {
+          if (!(k in incoming)) {
+            merged[k] = v;
+          }
+        } else if (isObject(v) && k in incoming && incoming[k] !== null) {
+          merged[k] = restore(v, incoming[k]);
+        }
+      }
+      return merged;
+    }
+    return incoming;
+  }
+
+  return restore(existingValue, incomingValue);
 }
