@@ -31,6 +31,8 @@ export interface RamblersEventSummaryResponse {
   start_location: LocationDetails;
   end_location: LocationDetails;
   media: Media[];
+  status: WalkStatus;
+  cancellation_reason: string;
 }
 
 export interface RamblersEventSummaryApiResponse extends ApiResponse {

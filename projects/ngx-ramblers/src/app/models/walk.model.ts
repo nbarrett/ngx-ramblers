@@ -219,6 +219,7 @@ export enum WalkViewMode {
 export const ID = "_id";
 
 export enum GroupEventField {
+  CANCELLATION_REASON = "groupEvent.cancellation_reason",
   CREATED_BY = "groupEvent.created_by",
   DESCRIPTION = "groupEvent.description",
   GROUP_CODE = "groupEvent.group_code",
@@ -228,6 +229,7 @@ export enum GroupEventField {
   LOCATION_DESCRIPTION = "groupEvent.location.description",
   MEDIA = "groupEvent.media",
   START_DATE = "groupEvent.start_date_time",
+  STATUS = "groupEvent.status",
   TITLE = "groupEvent.title",
   URL = "groupEvent.url",
   WALK_LEADER_NAME = "groupEvent.walk_leader.name"

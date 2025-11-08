@@ -29,6 +29,7 @@ import { AscentValidationService } from "../../../services/walks/ascent-validati
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
 import { CardImageOrMap } from "../../../modules/common/card/image/card-image-or-map";
 import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalking";
+import { WalkStatus } from "../../../models/ramblers-walks-manager";
 
 @Component({
   selector: "app-walk-card-view",
@@ -40,6 +41,14 @@ import { faPersonWalking } from "@fortawesome/free-solid-svg-icons/faPersonWalki
           <a [href]="displayedWalk.walkLink" class="rams-text-decoration-pink active"
              target="_self">{{ displayedWalk.walk?.groupEvent?.title || displayedWalk.latestEventType.description }}</a>
         </h3>
+        @if (displayedWalk.walk?.groupEvent?.status === WalkStatus.CANCELLED) {
+          <div class="alert alert-warning mb-2">
+            <strong>This walk has been cancelled</strong>
+            @if (displayedWalk.walk?.groupEvent?.cancellation_reason) {
+              <p class="mb-0 mt-1">{{ displayedWalk.walk?.groupEvent?.cancellation_reason }}</p>
+            }
+          </div>
+        }
         <dl class="d-flex mb-2">
           <dt class="font-weight-bold me-2">Start:</dt>
           <time>{{ displayedWalk.walk?.groupEvent?.start_date_time | displayDate }} {{ displayedWalk.walk?.groupEvent?.start_date_time | displayTime }}</time>
@@ -192,6 +201,7 @@ export class WalkCardViewComponent implements OnInit, OnDestroy {
   protected readonly faPhone = faPhone;
   protected readonly faEnvelope = faEnvelope;
   protected readonly EventType = EventType;
+  protected readonly WalkStatus = WalkStatus;
   protected readonly faPersonWalking = faPersonWalking;
 
   ngOnInit() {
