@@ -28,6 +28,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
       <div app-map-edit readonly
            [class]="this.imageConfig.class"
            [locationDetails]="displayedWalk.walk?.groupEvent?.start_location"
+           [walkStatus]="displayedWalk.walk?.groupEvent?.status"
            [notify]="notify"></div>
     }
     @if (display.displayImage(displayedWalk.walk)) {

@@ -33,7 +33,7 @@ import { EventField, GroupEventField } from "../../../projects/ngx-ramblers/src/
 const debugLog = debug(envConfig.logNamespace("ramblers:list-events"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:list-events-no-op"));
 noopDebugLog.enabled = false;
-debugLog.enabled = false;
+debugLog.enabled = true;
 
 export async function listEvents(req: Request, res: Response): Promise<void> {
   const body: EventsListRequest = req.body;
@@ -83,42 +83,102 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
     try {
       const config: SystemConfig = await systemConfig();
       const defaultOptions = requestDefaults.createApiRequestOptions(config);
-      const optionalParameters = [
+
+      const buildParameters = (offset?: number) => [
         optionalParameter("groups", [body.groupCode, config?.group?.groupCode].filter(Boolean).join(",")),
         optionalParameter("types", body.types || ALL_EVENT_TYPES),
         optionalParameter("ids", ids),
         optionalParameter("limit", limit),
+        optionalParameter("offset", offset),
         optionalParameter("sort", sort),
         optionalParameter("order", order),
         optionalParameter("date", dateParameter(body, debugLog)),
         optionalParameter("date_end", dateEndParameter(body, debugLog))
       ].filter(item => !isEmpty(item)).join("&");
-      debugLog("optionalParameters:", optionalParameters);
-      const response = await httpRequest({
+
+      const fetchPage = async (parameters: string) => await httpRequest({
         apiRequest: {
           hostname: defaultOptions.hostname,
           protocol: defaultOptions.protocol,
           headers: defaultOptions.headers,
           method: "get",
-          path: `/api/volunteers/walksevents?api-key=${config?.national?.walksManager?.apiKey}&${optionalParameters}`
+          path: `/api/volunteers/walksevents?api-key=${config?.national?.walksManager?.apiKey}&${parameters}`
         },
         debug: noopDebugLog,
         res,
-        req,
-        mapper: rawData ? null : transformEventsResponse(config)
-      });
-      if (rawData && !body.suppressEventLinking) {
-        const rawResponse = response as RamblersEventsApiResponse;
-        debugLog("Processing response:", rawResponse);
-        const persisted = await Promise.all(rawResponse.response.data.map((event: GroupEvent) => cacheEventIfNotFound(config, event)));
-        const filteredPersisted = persisted.filter(Boolean);
-        debugLog("Cached", pluraliseWithCount(filteredPersisted.length, "new event"), "from",
-          pluraliseWithCount(rawResponse.response.data.length, "event"), "with summary:", rawResponse?.response?.summary);
+        req
+      }) as RamblersEventsApiResponse;
+
+      const cacheEvents = async (events: GroupEvent[]) => {
+        if (!body.suppressEventLinking) {
+          const persisted = await Promise.all(events.map((event: GroupEvent) => cacheEventIfNotFound(config, event)));
+          const filteredPersisted = persisted.filter(Boolean);
+          debugLog("Cached", pluraliseWithCount(filteredPersisted.length, "new event"), "from",
+            pluraliseWithCount(events.length, "event"));
+        }
+      };
+
+      if (rawData && !ids) {
+        let offset = 0;
+        const allEvents: GroupEvent[] = [];
+        let totalEvents = 0;
+
+        while (true) {
+          debugLog(`Fetching page at offset ${offset}, limit ${limit}`);
+          const pageResponse = await fetchPage(buildParameters(offset));
+          const {data, summary} = pageResponse.response;
+          allEvents.push(...data);
+          totalEvents = summary.total;
+          debugLog(`Fetched ${data.length} events, total so far: ${allEvents.length} of ${totalEvents}`);
+
+          offset += limit;
+          if (offset >= totalEvents) {
+            debugLog(`Finished pagination: fetched all ${allEvents.length} events`);
+            break;
+          }
+        }
+
+        await cacheEvents(allEvents);
+
+        res.json({
+          request: {},
+          action: "query" as any,
+          apiStatusCode: 200,
+          response: {
+            summary: {
+              count: allEvents.length,
+              offset: 0,
+              limit: allEvents.length,
+              total: totalEvents
+            },
+            data: allEvents
+          }
+        });
       } else {
-        const summaryResponse = response as RamblersEventSummaryApiResponse;
-        debugLog("returned response summary:", summaryResponse?.response?.length, "results");
+        const response = await httpRequest({
+          apiRequest: {
+            hostname: defaultOptions.hostname,
+            protocol: defaultOptions.protocol,
+            headers: defaultOptions.headers,
+            method: "get",
+            path: `/api/volunteers/walksevents?api-key=${config?.national?.walksManager?.apiKey}&${buildParameters()}`
+          },
+          debug: noopDebugLog,
+          res,
+          req,
+          mapper: rawData ? null : transformEventsResponse(config)
+        });
+
+        if (rawData) {
+          const rawResponse = response as RamblersEventsApiResponse;
+          await cacheEvents(rawResponse.response.data);
+        } else {
+          const summaryResponse = response as RamblersEventSummaryApiResponse;
+          debugLog("returned response summary:", summaryResponse?.response?.length, "results");
+        }
+
+        res.json(response);
       }
-      res.json(response);
     } catch (error) {
       debugLog("listEvents:error:", error);
       if (error.name === "ValidationError") {
@@ -232,7 +292,9 @@ function transformEventsResponse(config: SystemConfig): (response: RamblersGroup
         startDateValue: walkDateTime.toMillis(),
         start_location: event.start_location,
         end_location: event.end_location,
-        media: event.media
+        media: event.media,
+        status: event.status,
+        cancellation_reason: event.cancellation_reason
       };
       debugLog("transformedEvent:", transformedEvent);
       return transformedEvent;

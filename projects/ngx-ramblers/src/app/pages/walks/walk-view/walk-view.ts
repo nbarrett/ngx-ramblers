@@ -6,6 +6,7 @@ import { AuthService } from "../../../auth/auth.service";
 import { ALERT_WARNING, AlertTarget } from "../../../models/alert-target.model";
 import { LoginResponse } from "../../../models/member.model";
 import { DisplayedWalk, EventType, MapDisplay } from "../../../models/walk.model";
+import { WalkStatus } from "../../../models/ramblers-walks-manager";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { LoggerFactory } from "../../../services/logger-factory.service";
@@ -54,6 +55,14 @@ import { PageService } from "../../../services/page.service";
             @if (displayedWalk?.walk?.groupEvent?.title) {
               <h1 id="{{displayedWalk?.walk?.id}}-title">
                 {{ displayedWalk.walk?.groupEvent?.title }}</h1>
+            }
+            @if (displayedWalk?.walk?.groupEvent?.status === WalkStatus.CANCELLED) {
+              <div class="alert alert-warning mb-3">
+                <strong>This walk has been cancelled</strong>
+                @if (displayedWalk?.walk?.groupEvent?.cancellation_reason) {
+                  <p class="mb-0 mt-1">{{ displayedWalk.walk?.groupEvent?.cancellation_reason }}</p>
+                }
+              </div>
             }
             <h2
               id="{{displayedWalk?.walk?.id}}-walkDate">{{ displayedWalk.walk?.groupEvent?.start_date_time | displayDay }}
@@ -143,6 +152,7 @@ import { PageService } from "../../../services/page.service";
                   @if (!showGoogleMapsView) {
                     <div app-map-edit class="map-walk-view" readonly
                          [locationDetails]="mapDisplay==MapDisplay.SHOW_START_POINT? displayedWalk?.walk?.groupEvent?.start_location:displayedWalk?.walk?.groupEvent?.end_location"
+                         [walkStatus]="displayedWalk?.walk?.groupEvent?.status"
                          [notify]="notify"></div>
                   }
                 </div>
@@ -266,6 +276,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected readonly MapDisplay = MapDisplay;
   protected readonly EventType = EventType;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
+  protected readonly WalkStatus = WalkStatus;
   @Input() showPanelExpander = true;
 
   get hasOsApiKey(): boolean {

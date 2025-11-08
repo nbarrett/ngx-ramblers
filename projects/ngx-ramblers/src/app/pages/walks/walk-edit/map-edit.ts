@@ -14,7 +14,7 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
 import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
 import { GridReferenceLookupResponse } from "../../../models/address-model";
-import { LocationDetails } from "../../../models/ramblers-walks-manager";
+import { LocationDetails, WalkStatus } from "../../../models/ramblers-walks-manager";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { sortBy } from "../../../functions/arrays";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
@@ -59,6 +59,7 @@ export class MapEditComponent implements OnInit, OnDestroy {
   @Input() class!: string;
   @Input() notify!: AlertInstance;
   @Input() public locationType!: string;
+  @Input() walkStatus?: WalkStatus;
   @Output() postcodeOptionsChange = new EventEmitter<{ postcode: string, distance: number }[]>();
   @Output() showPostcodeSelectChange = new EventEmitter<boolean>();
   public locationDetails: LocationDetails;
@@ -165,7 +166,7 @@ export class MapEditComponent implements OnInit, OnDestroy {
       maxZoom
     };
 
-    const markerIcon = this.markerStyle.markerIcon(provider as any, style);
+    const markerIcon = this.markerStyle.markerIcon(provider as any, style, this.walkStatus);
     this.layers = [
       L.marker([latitude, longitude], { draggable: !this.readonly, icon: markerIcon as any }).on("dragend", (event) =>
         this.zone.run(() => this.onMarkerDragEnd(event))
