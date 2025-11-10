@@ -1,9 +1,7 @@
 import { inject, Injectable } from "@angular/core";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute, Router } from "@angular/router";
-import { find } from "es-toolkit/compat";
-import { isEmpty } from "es-toolkit/compat";
-import { isNumber } from "es-toolkit/compat";
+import { find, isEmpty, isNumber, isUndefined } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Member } from "../../models/member.model";
 import { EventPopulation, Organisation } from "../../models/system.model";
@@ -304,7 +302,7 @@ export class WalkDisplayService {
   }
 
   isNextWalk(walk: ExtendedGroupEvent): boolean {
-    return walk && walk.id === this.nextWalkId;
+    return walk && (walk.id === this.nextWalkId || walk.groupEvent?.id === this.nextWalkId);
   }
 
   setNextWalkId(walks: ExtendedGroupEvent[]) {
@@ -388,7 +386,7 @@ export class WalkDisplayService {
 
   isWalkGrade(object: any): object is WalkGrade {
     const walkGrade: WalkGrade = object as WalkGrade;
-    return walkGrade?.code !== undefined && walkGrade?.description !== undefined;
+    return !isUndefined(walkGrade?.code) && !isUndefined(walkGrade?.description);
   }
 
   public toDifficulty(grade: string | WalkGrade): Difficulty {

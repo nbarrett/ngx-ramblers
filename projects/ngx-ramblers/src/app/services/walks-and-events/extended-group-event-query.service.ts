@@ -169,7 +169,7 @@ export class ExtendedGroupEventQueryService {
 
   nextWalkId(walks: ExtendedGroupEvent[]): string {
     const today = this.dateUtils.dateTimeNow().toMillis();
-    const nextWalk: ExtendedGroupEvent = first(cloneDeep(walks)?.filter((walk: ExtendedGroupEvent) => this.dateUtils.asDateTime(walk?.groupEvent?.start_date_time).toMillis() >= today)?.sort(sortBy("walk.groupEvent.start_date_time")));
+    const nextWalk: ExtendedGroupEvent = first(cloneDeep(walks)?.filter((walk: ExtendedGroupEvent) => this.dateUtils.asDateTime(walk?.groupEvent?.start_date_time).toMillis() >= today)?.sort(sortBy("groupEvent.start_date_time")));
     const nextWalkId = nextWalk?.id || nextWalk?.groupEvent?.id;
     this.logger.info("nextWalk:", nextWalk, "nextWalkId:", nextWalkId);
     return nextWalkId;
