@@ -3,6 +3,7 @@ import { ActivatedRoute, ParamMap, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
+import { isUndefined } from "es-toolkit/compat";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { DeviceSize } from "../../../models/page.model";
@@ -146,7 +147,6 @@ export class WalkSearchComponent implements OnInit, OnDestroy, AfterViewChecked 
       .pipe(distinctUntilChanged())
       .subscribe(searchTerm => {
         this.ui.saveValueFor(StoredValue.SEARCH, searchTerm || "");
-        this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.SEARCH)]: searchTerm || null });
         this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.APPLY_FILTER, searchTerm));
       }));
   }
@@ -189,8 +189,8 @@ export class WalkSearchComponent implements OnInit, OnDestroy, AfterViewChecked 
     this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.REFRESH, selectType));
   }
 
-  private replaceQueryParams(params: { [key: string]: any }) {
-    const queryParams = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined));
+  private replaceQueryParams(params: Record<string, string | number | null>) {
+    const queryParams = Object.fromEntries(Object.entries(params).filter(([, v]) => !isUndefined(v)));
     this.router.navigate([], {relativeTo: this.route, queryParams, queryParamsHandling: "merge"});
   }
 

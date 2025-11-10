@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap, Router } from "@angular/router";
 import { range } from "es-toolkit";
-import { uniq } from "es-toolkit/compat";
+import { isNull, isUndefined, uniq } from "es-toolkit/compat";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -293,13 +293,13 @@ export class WalkListComponent implements OnInit, OnDestroy {
       const sort = params.get(this.stringUtils.kebabCase(StoredValue.WALK_SORT_ASC));
       const view = params.get(this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW));
       const page = params.get(this.stringUtils.kebabCase(StoredValue.PAGE));
-      if (q !== null) {
+      if (!isNull(q)) {
         this.filterParameters.quickSearch = q;
       }
       if (type) {
         this.filterParameters.selectType = type.replace(/-/g, "_").toUpperCase() as any;
       }
-      if (sort !== null) {
+      if (!isNull(sort)) {
         this.filterParameters.ascending = sort === "date-ascending" || sort === "1" || sort === "true";
       }
       if (view === "cards" || view === "table" || view === "map") {
@@ -351,6 +351,9 @@ export class WalkListComponent implements OnInit, OnDestroy {
   }
 
   applyFilterToWalks(searchTerm?: NamedEvent<string>): void {
+    if (!this.walks) {
+      return;
+    }
     this.notify.setBusy();
     const sort = this.extendedGroupEventQueryService.localWalksSortObject(this.filterParameters);
     this.logger.info("applyFilterToWalks:searchTerm:", searchTerm, "filterParameters:", this.filterParameters, "localWalksSortObject:", sort);
@@ -359,7 +362,10 @@ export class WalkListComponent implements OnInit, OnDestroy {
       .sort(sortBy(sort));
     if (searchTerm) {
       this.pageNumber = 1;
-      this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.PAGE)]: 1 });
+      this.replaceQueryParams({
+        [this.stringUtils.kebabCase(StoredValue.PAGE)]: 1,
+        [this.stringUtils.kebabCase(StoredValue.SEARCH)]: this.filterParameters.quickSearch || null
+      });
     }
     this.applyPagination();
     if (this.currentPageWalks.length > 0 && this.display.expandedWalks.length === 0) {
@@ -527,8 +533,10 @@ export class WalkListComponent implements OnInit, OnDestroy {
     this.replaceQueryParams({ [this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW)]: this.stringUtils.kebabCase(walkListView) });
   }
 
-  private replaceQueryParams(params: { [key: string]: any }) {
-    const queryParams = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined));
-    this.router.navigate([], { relativeTo: this.route, queryParams, queryParamsHandling: "merge" });
+  private replaceQueryParams(params: Record<string, string | number | null>) {
+    const queryParams = Object.fromEntries(Object.entries(params).filter(([, v]) => !isUndefined(v)));
+    const extras:any = { relativeTo: this.route, queryParams, queryParamsHandling: "merge" };
+    this.logger.info("replaceQueryParams:navigate to", extras);
+    this.router.navigate([], extras);
   }
 }
