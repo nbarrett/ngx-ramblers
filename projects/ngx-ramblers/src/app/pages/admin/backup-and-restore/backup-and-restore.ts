@@ -5,10 +5,10 @@ import { ActivatedRoute, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { interval, Subscription } from "rxjs";
 import { switchMap } from "rxjs/operators";
-import { kebabCase, isString, isNumber } from "es-toolkit/compat";
+import { isNumber, isString, kebabCase } from "es-toolkit/compat";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faBackward, faCopy, faForward, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faBackward, faCopy, faForward, faPlus, faSpinner, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { PageComponent } from "../../../page/page.component";
 import { SecretInputComponent } from "../../../modules/common/secret-input/secret-input.component";
 import { BackupConfigService } from "../../../services/backup-config.service";
@@ -192,6 +192,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                       <label class="form-label">Backup to Restore</label>
                       <ng-select
                         [(ngModel)]="selectedBackupForRestore"
+                        (ngModelChange)="onBackupForRestoreChange($event)"
                         [items]="backups"
                         [multiple]="false"
                         [searchable]="true"
@@ -246,7 +247,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                     </div>
                     <button type="submit" class="btn btn-warning"
                             [disabled]="!restoreRequest.environment || !selectedBackupForRestore">
-                      Start Restore
+                      {{ restoreButtonLabel() }}
                     </button>
                   </form>
                 </div>
@@ -304,9 +305,12 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                             <td>{{ session.type }}</td>
                             <td>{{ session.environment }}</td>
                             <td>
-                            <span class="session-status" [ngClass]="statusStyle(session.status)">
-                              {{ session.status }}
-                            </span>
+                              <span class="session-status" [ngClass]="statusStyle(session.status)">
+                                @if (session.status === 'in_progress') {
+                                  <fa-icon [icon]="faSpinner" [spin]="true" class="me-1"></fa-icon>
+                                }
+                                {{ humaniseStatus(session.status) }}
+                              </span>
                             </td>
                             <td>{{ session.startTime | date:'medium' }}</td>
                             <td>
@@ -327,7 +331,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                             <tr>
                               <td colspan="6">
                                 <div class="session-logs">
-                                  @for (log of session.logs; track $index) {
+                                  @for (log of logsNewestFirst(session); track $index) {
                                     <div>{{ log }}</div>
                                   }
                                   @if (session.error) {
@@ -695,6 +699,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   protected readonly faCopy = faCopy;
   protected readonly faPlus = faPlus;
   protected readonly faTrash = faTrash;
+  protected readonly faSpinner = faSpinner;
 
   notifyTarget: AlertTarget = {};
   notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -741,6 +746,10 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     if (status === "completed") return "text-style-mintcake";
     if (status === "failed") return "text-style-sunset";
     return "text-style-sunrise";
+  }
+
+  humaniseStatus(status: string): string {
+    return this.stringUtils.asTitle(status);
   }
 
   async ngOnInit() {
@@ -828,6 +837,21 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     });
   }
 
+  logsNewestFirst(session: BackupSession): string[] {
+    const items = session?.logs || [];
+    return [...items].reverse();
+  }
+
+  private ensureInProgressExpanded(sessions: BackupSession[]) {
+    if (!sessions || sessions.length === 0) return;
+    if (this.expandedSessionIds.length > 0) return;
+    const running = sessions.find(s => s.status === "in_progress");
+    if (running) {
+      const id = running._id || running.sessionId;
+      this.expandedSessionIds = [id];
+    }
+  }
+
   selectTab(tab: BackupRestoreTab) {
     this.router.navigate([], {
       queryParams: {[StoredValue.TAB]: kebabCase(tab)},
@@ -852,6 +876,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
       .pipe(switchMap(() => this.backupRestoreService.listSessions(50)))
       .subscribe(sessions => {
         this.sessions = sessions;
+        this.ensureInProgressExpanded(sessions);
         if (this.selectedSession) {
           const updated = sessions.find(s => s._id === this.selectedSession?._id);
           if (updated) {
@@ -903,6 +928,8 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   onBackupSourceChange() {
     this.selectedBackupForRestore = null;
     this.selectedBackups = [];
+    this.selectedRestoreCollections = [];
+    this.restoreRequest.collections = undefined as any;
     this.loadBackups();
   }
 
@@ -912,6 +939,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
         next: sessions => {
           this.sessions = sessions;
           this.logger.info("Loaded sessions:", sessions);
+          this.ensureInProgressExpanded(sessions);
         },
         error: err => this.notify.error({
           title: "Error loading sessions",
@@ -997,6 +1025,8 @@ export class BackupAndRestore implements OnInit, OnDestroy {
 
     if (this.selectedRestoreCollections.length > 0) {
       this.restoreRequest.collections = this.selectedRestoreCollections;
+    } else {
+      this.restoreRequest.collections = undefined as any;
     }
 
     this.subscriptions.push(
@@ -1027,6 +1057,12 @@ export class BackupAndRestore implements OnInit, OnDestroy {
 
   viewSession(session: BackupSession) {
     this.selectedSession = session;
+  }
+
+  onBackupForRestoreChange(item: BackupListItem | null) {
+    this.selectedBackupForRestore = item;
+    this.selectedRestoreCollections = [];
+    this.restoreRequest.collections = undefined as any;
   }
 
   toggleSessionLogs(session: BackupSession) {
@@ -1262,9 +1298,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
       this.currentEnvironment.mongo.uri = `${protocol}://${rest}`;
 
       const dbMatch = rest.match(/^[^\/]+\/([^?]+)/);
-      if (dbMatch && !this.currentEnvironment.mongo.db) {
-        this.currentEnvironment.mongo.db = dbMatch[1];
-      }
+      this.currentEnvironment.mongo.db = dbMatch ? dbMatch[1] : "";
 
       this.notify.success({
         title: "MongoDB URI Parsed",
@@ -1455,6 +1489,8 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   onSourceEnvironmentChange(value: string) {
     this.sourceEnvironment = value || "";
     this.selectedBackupForRestore = null;
+    this.selectedRestoreCollections = [];
+    this.restoreRequest.collections = undefined as any;
     this.applyBackupFilter();
   }
 
@@ -1464,6 +1500,11 @@ export class BackupAndRestore implements OnInit, OnDestroy {
     } else {
       this.backups = [...this.allBackups];
     }
+  }
+
+  restoreButtonLabel(): string {
+    const count = this.selectedRestoreCollections.length;
+    return count > 0 ? `Start Restore of ${this.stringUtils.pluraliseWithCount(count, "collection")}` : "Start Restore of all collections";
   }
 
   private envOf(item: BackupListItem): string {

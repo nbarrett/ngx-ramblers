@@ -17,14 +17,23 @@ import { TooltipModule } from "ngx-bootstrap/tooltip";
     }
   ],
   styles: [`
+    :host
+      display: block
+      flex: 1 1 auto
+
     .secret-input-wrapper
       position: relative
       display: flex
       align-items: stretch
+      width: 100%
 
     .secret-input
       flex: 1
       padding-right: 80px
+
+    .secret-input.masked
+      -webkit-text-security: disc
+      text-security: disc
 
     .secret-input-actions
       position: absolute
@@ -61,8 +70,9 @@ import { TooltipModule } from "ngx-bootstrap/tooltip";
   template: `
     <div class="secret-input-wrapper">
       <input
-        [type]="isVisible ? 'text' : 'password'"
+        type="text"
         class="form-control secret-input"
+        [class.masked]="!isVisible"
         [class.input-sm]="size === 'sm'"
         [id]="id"
         [value]="value"
@@ -71,6 +81,7 @@ import { TooltipModule } from "ngx-bootstrap/tooltip";
         [placeholder]="placeholder"
         [disabled]="disabled"
         [attr.autocomplete]="autocomplete"
+        [attr.data-form-type]="ignorePasswordManagers ? 'other' : null"
       />
       <div class="secret-input-actions">
         <button
@@ -105,6 +116,7 @@ export class SecretInputComponent implements ControlValueAccessor {
   @Input() placeholder = "";
   @Input() size: "sm" | "md" = "md";
   @Input() autocomplete = "new-password";
+  @Input() ignorePasswordManagers = false;
 
   faEye = faEye;
   faEyeSlash = faEyeSlash;

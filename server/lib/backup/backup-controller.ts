@@ -11,41 +11,43 @@ import * as config from "../mongo/controllers/config";
 
 const debugLog = debug(envConfig.logNamespace("backup"));
 debugLog.enabled = true;
-
-const backupServiceRef: { value: BackupAndRestoreService | null } = { value: null };
+let loggedNotificationsStatus = false;
 
 async function service(): Promise<BackupAndRestoreService> {
-  if (!backupServiceRef.value) {
-      const backupConfig = await configuredBackup();
-      debugLog("Loaded backup config:", {
-        environmentCount: backupConfig.environments?.length || 0
-      });
+  const backupConfig = await configuredBackup();
+  debugLog("Loaded backup config:", {
+    environmentCount: backupConfig.environments?.length || 0
+  });
 
-      let notificationService: BackupNotificationService | undefined;
-      try {
-        const mailConfig = await config.queryKey(ConfigKey.MAIL);
-        const mailMessagingConfig: MailMessagingConfig = mailConfig.value;
-        const backupNotificationConfigId = mailMessagingConfig.mailConfig?.backupNotificationConfigId;
+  let notificationService: BackupNotificationService | undefined;
+  let backupNotificationConfigId: string | undefined;
+  try {
+    const mailConfigDoc = await config.queryKey(ConfigKey.MAIL);
+    const mailMessagingConfig: MailMessagingConfig | undefined = mailConfigDoc?.value as any;
+    backupNotificationConfigId = mailMessagingConfig?.mailConfig?.backupNotificationConfigId;
+  } catch {}
 
-        if (backupNotificationConfigId) {
-          debugLog("Found backup notification config ID:", backupNotificationConfigId);
-          notificationService = new BackupNotificationService({
-            notificationConfigId: backupNotificationConfigId,
-            recipients: []
-          });
-        }
-      } catch (error) {
-        debugLog("No mail config or backup notification config found:", error.message);
-      }
-
-      backupServiceRef.value = new BackupAndRestoreService([], backupConfig, undefined, notificationService);
-      debugLog("Initialized BackupAndRestoreService with backup-config environments",
-      backupConfig.environments?.length || 0);
-      if (notificationService) {
-        debugLog("Email notifications enabled");
-      }
+  if (backupNotificationConfigId) {
+    if (!loggedNotificationsStatus) {
+      debugLog("Found backup notification config ID:", backupNotificationConfigId);
+      loggedNotificationsStatus = true;
+    }
+    notificationService = new BackupNotificationService({
+      notificationConfigId: backupNotificationConfigId,
+      recipients: []
+    });
+  } else if (!loggedNotificationsStatus) {
+    debugLog("No mail config or backup notification config found");
+    loggedNotificationsStatus = true;
   }
-  return backupServiceRef.value;
+
+  const svc = new BackupAndRestoreService([], backupConfig, undefined, notificationService);
+  debugLog("Initialized BackupAndRestoreService with backup-config environments",
+    backupConfig.environments?.length || 0);
+  if (notificationService) {
+    debugLog("Email notifications enabled");
+  }
+  return svc;
 }
 
 export async function listEnvironments(req: Request, res: Response) {

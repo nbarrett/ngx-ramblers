@@ -633,9 +633,7 @@ export class WalkEditComponent implements OnInit, OnDestroy {
     this.saveInProgress = false;
     this.confirmAction = ConfirmType.NONE;
     this.display.refreshDisplayedWalk(this.displayedWalk);
-    if (!notificationSent) {
-      this.closeEditView();
-    }
+    this.closeEditView();
   }
 
 

@@ -2,6 +2,8 @@ import { PerformsActivities, Task } from "@serenity-js/core";
 import { WalkRequestParameters } from "../../../../models/walk-request-parameters";
 import { Log } from "./log";
 import { Environment } from "../../../../../env-config/environment-model";
+import { WalkUploadMetadata } from "../../../../../models/walk-upload-metadata";
+import fs from "fs";
 
 export class ExtractTask extends Task {
   performAs(actor: PerformsActivities): Promise<void> {
@@ -14,16 +16,27 @@ export class ExtractTask extends Task {
 
 export class RequestParameterExtractor {
   static extract(): WalkRequestParameters {
-    const walkDeletionsString: string = process.env[Environment.RAMBLERS_DELETE_WALKS] || "";
-    const walkDeletions: string[] = walkDeletionsString.length > 1 ? walkDeletionsString.split(",").filter(walkId => walkId) : [];
-    const fileName: string = process.env[Environment.RAMBLERS_FILENAME];
-    const walkCount: number = +process.env[Environment.RAMBLERS_WALKCOUNT];
-    return {
-      walkDeletions,
-      fileName,
-      walkCount,
-    };
+    const metadataFilePath: string = process.env[Environment.RAMBLERS_METADATA_FILE];
+
+    if (!metadataFilePath || !fs.existsSync(metadataFilePath)) {
+      throw new Error(`Metadata file not found: ${metadataFilePath}`);
+    }
+
+    try {
+      const metadataContent = fs.readFileSync(metadataFilePath, "utf8");
+      const metadata: WalkUploadMetadata = JSON.parse(metadataContent);
+
+      return {
+        fileName: metadata.fileName,
+        walkCount: metadata.walkCount,
+        walkDeletions: metadata.walkDeletions,
+        walkCancellations: metadata.walkCancellations,
+        walkUncancellations: metadata.walkUncancellations,
+      };
+    } catch (error) {
+      throw new Error(`Failed to read or parse metadata file: ${error.message}`);
+    }
   }
 
-  static extractTask = () => new ExtractTask(`Extract parameters from environment variables`);
+  static extractTask = () => new ExtractTask(`Extract parameters from metadata file`);
 }

@@ -417,13 +417,44 @@ export class BackupAndRestoreService {
       restoreArgs.push("--drop");
     }
 
-    restoreArgs.push("--dir", restoreDir);
     if (options.collections && options.collections.length > 0) {
+      const partialRoot = path.join(this.dumpBaseDir, "partial", sessionId, dbName);
+      await fs.mkdir(partialRoot, { recursive: true });
+
+      const tryCopy = async (src: string, dest: string) => {
+        try {
+          await fs.copyFile(src, dest);
+          return true;
+        } catch {
+          return false;
+        }
+      };
+
       for (const collection of options.collections) {
         const name = collection.trim();
+        if (!name) continue;
+        const patterns = [
+          { src: path.join(restoreDir, `${name}.bson.gz`), dest: path.join(partialRoot, `${name}.bson.gz`) },
+          { src: path.join(restoreDir, `${name}.bson`), dest: path.join(partialRoot, `${name}.bson`) }
+        ];
+        const metaPatterns = [
+          { src: path.join(restoreDir, `${name}.metadata.json.gz`), dest: path.join(partialRoot, `${name}.metadata.json.gz`) },
+          { src: path.join(restoreDir, `${name}.metadata.json`), dest: path.join(partialRoot, `${name}.metadata.json`) }
+        ];
+
+        for (const p of patterns) {
+          const copied = await tryCopy(p.src, p.dest);
+          if (copied) break;
+        }
+        for (const p of metaPatterns) {
+          const copied = await tryCopy(p.src, p.dest);
+          if (copied) break;
+        }
         restoreArgs.push("--nsInclude", `${dbName}.${name}`);
       }
+      restoreDir = partialRoot;
     }
+    restoreArgs.push("--dir", restoreDir);
 
     await this.addLog(sessionId, `Starting mongorestore from ${restoreDir}`);
     await this.execCommand("mongorestore", restoreArgs, sessionId);

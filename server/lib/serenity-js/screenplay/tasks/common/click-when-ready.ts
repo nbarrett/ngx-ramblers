@@ -14,6 +14,7 @@ export class ClickWhenReady extends Task {
 
   performAs(actor: PerformsActivities): Promise<void> {
     return actor.attemptsTo(
+      Accept.forceDismissCookieBanners(),
       Accept.cookieBannerIfVisible(),
       Wait.until(this.target, isClickable()),
       Click.on(this.target));

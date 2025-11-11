@@ -1,4 +1,4 @@
-import { Duration, PerformsActivities, Task, Wait } from "@serenity-js/core";
+import { PerformsActivities, Task, Wait } from "@serenity-js/core";
 import { Contact } from "../../../questions/ramblers/contact-listing";
 import { ContactsTargets } from "../../../ui/ramblers/contacts-targets";
 import { SaveBrowserSource } from "../../common/save-browser-source";
@@ -19,7 +19,7 @@ export class CreateContact extends Task {
       Enter.theValue(this.contactData.contactNumber).into(ContactsTargets.contactNumber),
       Click.on(ContactsTargets.save),
       SaveBrowserSource.toFile(this.contactData.firstName + this.contactData.lastName + "-post-save.html"),
-      Wait.upTo(Duration.ofSeconds(20)).until(ContactsTargets.addAnotherContact, isVisible()),
+      Wait.until(ContactsTargets.addAnotherContact, isVisible()),
       Click.on(ContactsTargets.addAnotherContact),
     );
   }

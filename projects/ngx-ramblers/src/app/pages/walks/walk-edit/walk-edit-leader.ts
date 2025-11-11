@@ -15,6 +15,7 @@ import { Subscription } from "rxjs";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { JsonPipe } from "@angular/common";
 import { MemberSelector } from "../../../shared/components/member-selector";
+import { WalkStatus } from "../../../models/ramblers-walks-manager";
 
 @Component({
   selector: "app-walk-edit-leader",
@@ -64,6 +65,37 @@ import { MemberSelector } from "../../../shared/components/member-selector";
               </select>
             </div>
           </div>
+        </div>
+      }
+      @if (display.allowAdminEdits()) {
+        <div class="row">
+          <div class="col-sm-12">
+            <div class="form-group">
+              <div class="form-check">
+                <input id="walk-cancelled" type="checkbox" class="form-check-input"
+                       [disabled]="!display.allowAdminEdits()"
+                       [(ngModel)]="walkCancelled"
+                       (change)="onCancelledChange()">
+                <label class="form-check-label" for="walk-cancelled">
+                  Mark this walk as cancelled
+                </label>
+              </div>
+            </div>
+          </div>
+          @if (walkCancelled) {
+            <div class="col-sm-12">
+              <div class="form-group">
+                <label for="cancellation-reason">Cancellation Reason</label>
+                <textarea [disabled]="!display.allowAdminEdits()"
+                          [(ngModel)]="displayedWalk.walk.groupEvent.cancellation_reason"
+                          class="form-control input-sm"
+                          id="cancellation-reason"
+                          rows="3"
+                          placeholder="Enter reason for cancellation (will be shown to members)">
+                </textarea>
+              </div>
+            </div>
+          }
         </div>
       }
       @if (display.allowAdminEdits()) {
@@ -161,10 +193,13 @@ import { MemberSelector } from "../../../shared/components/member-selector";
 export class WalkEditLeaderComponent implements OnInit, OnDestroy {
   public displayedWalk!: DisplayedWalk;
   public inputDisabled = false;
+  public walkCancelled = false;
+  protected readonly WalkStatus = WalkStatus;
 
   @Input("displayedWalk") set displayedWalkValue(displayedWalk: DisplayedWalk) {
     this.displayedWalk = displayedWalk;
-    this.logger.info("displayedWalkValue:displayedWalk:", displayedWalk);
+    this.walkCancelled = displayedWalk?.walk?.groupEvent?.status === WalkStatus.CANCELLED;
+    this.logger.info("displayedWalkValue:displayedWalk:", displayedWalk, "walkCancelled:", this.walkCancelled);
   }
 
   @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
@@ -277,5 +312,16 @@ export class WalkEditLeaderComponent implements OnInit, OnDestroy {
     this.myContactId = this.display.members.find(member => member.id === this.memberLoginService.loggedInMember().memberId)?.contactId;
     this.walkLeadContactId = this.display.members.find(member => member.id === this.displayedWalk?.walk?.fields?.contactDetails?.memberId)?.contactId;
     this.logger.info("refreshContactIds:myContactId:", this.myContactId, "walkLeadContactId:", this.walkLeadContactId);
+  }
+
+  onCancelledChange() {
+    if (this.walkCancelled) {
+      this.displayedWalk.walk.groupEvent.status = WalkStatus.CANCELLED;
+      this.logger.info("onCancelledChange: walk marked as cancelled");
+    } else {
+      this.displayedWalk.walk.groupEvent.status = WalkStatus.CONFIRMED;
+      this.displayedWalk.walk.groupEvent.cancellation_reason = "";
+      this.logger.info("onCancelledChange: walk marked as confirmed, cancellation reason cleared");
+    }
   }
 }
