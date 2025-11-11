@@ -1,4 +1,4 @@
-import { Duration, PerformsActivities, Task, Wait } from "@serenity-js/core";
+import { PerformsActivities, Task, Wait } from "@serenity-js/core";
 import { WalksPageElements } from "../../../ui/ramblers/walks-page-elements";
 import { RequestParameterExtractor } from "../common/request-parameter-extractor";
 import { DeleteAllWalks } from "./delete-all-walks";
@@ -30,7 +30,7 @@ export class DeleteUnpublishedOrWalksWithIds extends Task {
 
   performAs(actor: PerformsActivities): Promise<void> {
     return actor.attemptsTo(
-      Wait.upTo(Duration.ofSeconds(20)).until(WalksPageElements.walkListTable, isPresent()),
+      Wait.until(WalksPageElements.walkListTable, isPresent()),
       SelectWalks.notPublishedOrWithIds(this.walkIds),
       Delete.selectedWalks()
     );

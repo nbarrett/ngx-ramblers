@@ -9,7 +9,8 @@ import {
   LocationDetails,
   MetadataDescription,
   PublishStatus,
-  RamblersEventSummaryResponse
+  RamblersEventSummaryResponse,
+  WalkStatus
 } from "./ramblers-walks-manager";
 import { HasBasicEventSelection } from "./search.model";
 import { Link } from "./page.model";
@@ -163,6 +164,8 @@ export interface WalkExport {
   publishedOnRamblers: boolean;
   publishStatus: PublishStatus;
   selected: boolean;
+  ramblersStatus?: WalkStatus;
+  ramblersUrl?: string;
 }
 
 

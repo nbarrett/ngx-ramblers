@@ -121,7 +121,7 @@ export enum WalkExportTab {
               @if (!display.walkPopulationWalksManager()) {
                 <div class="col mb-2">
                   <input type="submit"
-                         value="Upload {{stringUtils.pluraliseWithCount(walksDownloadFileContents.length, 'walk')}} to Ramblers"
+                         [value]="uploadButtonLabel()"
                          (click)="uploadToRamblers()"
                          [disabled]="newActionsDisabled()"
                          class="btn btn-primary w-100"/>
@@ -130,7 +130,7 @@ export enum WalkExportTab {
                   <input type="submit"
                          (click)="csvComponent.generateCsv();"
                          value="Export {{stringUtils.pluraliseWithCount(walksDownloadFileContents.length, 'walk')}} file to CSV"
-                         [disabled]="newActionsDisabled()"
+                         [disabled]="csvDisabled()"
                          class="btn btn-primary w-100"/>
                 </div>
               }
@@ -150,6 +150,7 @@ export enum WalkExportTab {
                         <dt class="font-weight-bold me-2 flex-nowrap checkbox-toggle">Publish this walk:</dt>
                         <div class="form-check">
                           <input [ngModel]="walkExport.selected"
+                                 [disabled]="!isActionable(walkExport)"
                                  type="checkbox" class="form-check-input"/>
                           <label class="form-check-label"></label>
                         </div>
@@ -521,6 +522,8 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   private auditReverseSort = true;
   public confirmOverrideRequested = false;
   private sessionDurations: { [fileName: string]: string } = {};
+  private deletionsCleared = false;
+  private actionableMap: { [id: string]: boolean } = {};
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -548,7 +551,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
         await this.renderInitialView();
       }
     });
-    this.subscriptions.push(this.webSocketClientService.receiveMessages<RamblersUploadAuditProgressResponse>(MessageType.PROGRESS).subscribe((progressResponse: RamblersUploadAuditProgressResponse) => {
+    this.subscriptions.push(this.webSocketClientService.receiveMessages<RamblersUploadAuditProgressResponse>(MessageType.PROGRESS).subscribe(async (progressResponse: RamblersUploadAuditProgressResponse) => {
       this.logger.info("Progress response received:", progressResponse);
       if (progressResponse?.audits?.length > 0) {
         this.logger.info("Progress response received:", progressResponse.audits);
@@ -556,6 +559,17 @@ export class WalkExportComponent implements OnInit, OnDestroy {
         this.applyFilter();
         this.updateCurrentSessionDurationLabel();
         this.auditNotifier.warning(`Total of ${this.stringUtils.pluraliseWithCount(this.audits.length, "audit item")} - ${this.stringUtils.pluraliseWithCount(progressResponse.audits.length, "audit record")} just received`);
+        if (!this.postActionRefreshed && this.audits.some(a => a.type === AuditType.SUMMARY && a.status === Status.SUCCESS)) {
+          this.postActionRefreshed = true;
+          try {
+            if (!this.deletionsCleared) {
+              await this.clearLocalRamblersFieldsForDeletions();
+            }
+            await this.showAvailableWalkExports();
+            await this.populateWalksDownloadFileContents();
+            this.updateExportStatusMessage();
+          } catch {}
+        }
       }
     }));
     this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.ERROR).subscribe(error => {
@@ -574,7 +588,12 @@ export class WalkExportComponent implements OnInit, OnDestroy {
       ).length > 0;
       this.fileName.status = hasCompletionErrors ? Status.ERROR : Status.SUCCESS;
         this.logger.info(`Task completed:`, message, "set file status:", this.fileName);
-        this.renderInitialView();
+        if (!hasCompletionErrors && !this.deletionsCleared) {
+          try {
+            await this.clearLocalRamblersFieldsForDeletions();
+          } catch {}
+        }
+        await this.renderInitialView();
       })
     );
   }
@@ -591,6 +610,8 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
+  private postActionRefreshed = false;
+
   async uploadToRamblers() {
     const downloadCheck = await this.downloadStatusService.canStartNewDownload();
     if (!downloadCheck.allowed) {
@@ -605,6 +626,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.logger.debug("Refreshing audit trail for file", this.fileName, "count =", this.audits.length);
     this.audits = [];
     this.exportInProgress = true;
+    this.deletionsCleared = false;
     this.downloadConflict = { allowed: true };
 
     const ramblersWalksUploadRequest: RamblersWalksUploadRequest = await this.ramblersWalksAndEventsService.createWalksUploadRequest(this.walksForExport);
@@ -627,8 +649,42 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     });
   }
 
+  private async clearLocalRamblersFieldsForDeletions(): Promise<void> {
+    const deletions = new Set(this.ramblersWalksAndEventsService.walkDeletionList(this.exportableWalks()));
+    if (deletions.size === 0) {
+      this.deletionsCleared = true;
+      return;
+    }
+    const updates: Promise<any>[] = [];
+    for (const walkExport of this.walksForExport || []) {
+      const local = walkExport?.displayedWalk?.walk;
+      const rmUrl = walkExport?.ramblersUrl;
+      const localUrl = local?.groupEvent?.url ? (this.ramblersWalksAndEventsService as any)["transformUrl"](local) : null;
+      const match = (localUrl && deletions.has(localUrl)) || (rmUrl && deletions.has(rmUrl));
+      if (match && (local?.groupEvent?.id || local?.groupEvent?.url)) {
+        local.groupEvent.id = null;
+        local.groupEvent.url = null;
+        updates.push(this.walksAndEventsService.createOrUpdate(local));
+      }
+    }
+    if (updates.length > 0) {
+      try {
+        await Promise.all(updates);
+        this.logger.info("Cleared Ramblers id/url locally for", updates.length, "walks after deletion");
+      } catch (e) {
+        this.logger.error("Failed to clear Ramblers fields after deletion:", e);
+      }
+    }
+    this.deletionsCleared = true;
+  }
+
   public newActionsDisabled(): boolean {
-    return (this.walksDownloadFileContents.length === 0) || this.exportInProgress || !this.downloadConflict.allowed;
+    const rowsCount = this.walksDownloadFileContents.length;
+    const cancellationCount = this.ramblersWalksAndEventsService.walkCancellationList(this.exportableWalks()).length;
+    const deletionCount = this.ramblersWalksAndEventsService.walkDeletionList(this.exportableWalks()).length;
+    const uncancelCount = this.ramblersWalksAndEventsService.walkUncancellationList(this.exportableWalks()).length;
+    const nothingToProcess = (rowsCount + cancellationCount + deletionCount + uncancelCount) === 0;
+    return nothingToProcess || this.exportInProgress || !this.downloadConflict.allowed;
   }
 
   private async checkDownloadStatus(): Promise<void> {
@@ -778,6 +834,7 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.walksForExport = walksForExport;
     this.sortWalksForExport();
     this.walkExportNotifier.clearBusy();
+    this.computeActionability();
     return walksForExport;
   }
 
@@ -839,7 +896,9 @@ export class WalkExportComponent implements OnInit, OnDestroy {
       this.logger.info("showAvailableWalkExports:all:", all, "active:", active);
       const exports: WalkExport[] = await this.ramblersWalksAndEventsService.createWalksForExportPrompt(active);
       this.logger.info("showAvailableWalkExports:activeEvents:exports:", exports);
-      return this.populateWalkExport(exports);
+      const result = this.populateWalkExport(exports);
+      await this.computeActionability();
+      return result;
     } catch (error) {
             this.logger.error("error->", error);
             this.walkExportNotifier.error({
@@ -851,18 +910,51 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   }
 
   async toggleWalkExportSelection(walkExport: WalkExport) {
-    if (walkExport.validationMessages.length === 0) {
-      walkExport.selected = !walkExport.selected;
-      this.logWalkSelected(walkExport);
-      this.sortWalksForExport();
-      await this.populateWalksDownloadFileContents();
-      this.updateExportStatusMessage();
-    } else {
+    if (walkExport.validationMessages.length > 0) {
       this.walkExportNotifier.error({
         title: `You can't export the walk for ${this.displayDate.transform(walkExport.displayedWalk.walk?.groupEvent?.start_date_time)}`,
         message: walkExport.validationMessages.join(", ")
       });
+      return;
     }
+    if (!this.isActionable(walkExport)) {
+      this.walkExportNotifier.warning({
+        title: "No Action For This Walk",
+        message: "This walk is currently set not to upload and has no Ramblers action to process. Enable publishing or select a different walk."
+      });
+      return;
+    }
+
+    walkExport.selected = !walkExport.selected;
+    this.logWalkSelected(walkExport);
+    this.sortWalksForExport();
+    await this.populateWalksDownloadFileContents();
+    this.updateExportStatusMessage();
+  }
+
+  private async computeActionability(): Promise<void> {
+    const map: { [id: string]: boolean } = {};
+    for (const w of this.walksForExport || []) {
+      const key = w?.displayedWalk?.walk?.id || w?.displayedWalk?.walk?.groupEvent?.url || w?.displayedWalk?.walk?.groupEvent?.title || "";
+      if (!key) { continue; }
+      const selectedClone: WalkExport = { ...w, selected: true } as WalkExport;
+      const single = [selectedClone];
+      try {
+        const uploads = await this.ramblersWalksAndEventsService.walkUploadRows(single);
+        const cancels = this.ramblersWalksAndEventsService.walkCancellationList(single).length;
+        const deletes = this.ramblersWalksAndEventsService.walkDeletionList(single).length;
+        const uncancels = this.ramblersWalksAndEventsService.walkUncancellationList(single).length;
+        map[key] = (uploads.length + cancels + deletes + uncancels) > 0;
+      } catch {
+        map[key] = false;
+      }
+    }
+    this.actionableMap = map;
+  }
+
+  public isActionable(walkExport: WalkExport): boolean {
+    const key = walkExport?.displayedWalk?.walk?.id || walkExport?.displayedWalk?.walk?.groupEvent?.url || walkExport?.displayedWalk?.walk?.groupEvent?.title || "";
+    return !!this.actionableMap[key];
   }
 
   private async populateWalksDownloadFileContents() {
@@ -870,21 +962,36 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   }
 
   private updateExportStatusMessage(): void {
-    if (this.downloadConflict.allowed && this.walksDownloadFileContents.length > 0) {
+    const rowsCount = this.walksDownloadFileContents.length;
+    const cancellationCount = this.ramblersWalksAndEventsService.walkCancellationList(this.exportableWalks()).length;
+    const deletionCount = this.ramblersWalksAndEventsService.walkDeletionList(this.exportableWalks()).length;
+    const uncancelCount = this.ramblersWalksAndEventsService.walkUncancellationList(this.exportableWalks()).length;
+    if (this.downloadConflict.allowed && rowsCount > 0) {
       this.walkExportNotifier.success({
         title: "Walks Export Initialisation",
-        message: `${this.stringUtils.pluraliseWithCount(this.walksDownloadFileContents.length, "walk")} ${this.stringUtils.pluralise(this.walksDownloadFileContents.length, "was", "were")} preselected for export`
+        message: `${this.stringUtils.pluraliseWithCount(rowsCount, "walk")} ${this.stringUtils.pluralise(rowsCount, "was", "were")} preselected for export`
       });
     } else if (!this.downloadConflict.allowed) {
       this.walkExportNotifier.warning({
         title: "Upload Unavailable",
-        message: `${this.downloadConflict.reason} ${this.stringUtils.pluraliseWithCount(this.walksDownloadFileContents.length, "walk")} selected but cannot be uploaded until resolved.`
+        message: `${this.downloadConflict.reason} ${this.stringUtils.pluraliseWithCount(rowsCount, "walk")} selected but cannot be uploaded until resolved.`
       });
-    } else if (this.walksDownloadFileContents.length === 0) {
-      this.walkExportNotifier.warning({
-        title: "No Walks Selected",
-        message: "No walks are currently selected for export. Please select one or more walks to enable upload."
-      });
+    } else if (rowsCount === 0) {
+      if (cancellationCount > 0 || deletionCount > 0 || uncancelCount > 0) {
+        const parts = [] as string[];
+        if (cancellationCount > 0) { parts.push(`${this.stringUtils.pluraliseWithCount(cancellationCount, "cancellation")}`); }
+        if (deletionCount > 0) { parts.push(`${this.stringUtils.pluraliseWithCount(deletionCount, "deletion")}`); }
+        if (uncancelCount > 0) { parts.push(`${this.stringUtils.pluraliseWithCount(uncancelCount, "uncancellation")}`); }
+        this.walkExportNotifier.success({
+          title: "Actions To Process",
+          message: `0 walks will be uploaded; ${parts.join(" and ")} ${this.stringUtils.pluralise(cancellationCount + deletionCount, "will", "will")} be processed.`
+        });
+      } else {
+        this.walkExportNotifier.warning({
+          title: "No Walks Selected",
+          message: "No walks are currently selected for export. Please select one or more walks to enable upload."
+        });
+      }
     }
   }
 
@@ -905,6 +1012,35 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     this.logger.info("walksForExportSorted:", this.walksForExport, "sorted:", sorted);
     this.walksForExport = sorted;
   }
+
+  uploadButtonLabel(): string {
+    const rows = this.walksDownloadFileContents.length;
+    const cancels = this.ramblersWalksAndEventsService.walkCancellationList(this.exportableWalks()).length;
+    const deletes = this.ramblersWalksAndEventsService.walkDeletionList(this.exportableWalks()).length;
+    const uncancels = this.ramblersWalksAndEventsService.walkUncancellationList(this.exportableWalks()).length;
+    if (rows > 0) {
+      const extras: string[] = [];
+      if (deletes > 0) { extras.push(`${this.stringUtils.pluraliseWithCount(deletes, 'deletion')}`); }
+      if (cancels > 0) { extras.push(`${this.stringUtils.pluraliseWithCount(cancels, 'cancellation')}`); }
+      if (uncancels > 0) { extras.push(`${this.stringUtils.pluraliseWithCount(uncancels, 'uncancellation')}`); }
+      const extraText = extras.length ? ` (+ ${extras.join(', ')})` : '';
+      return `Upload ${this.stringUtils.pluraliseWithCount(rows, 'walk')} to Ramblers${extraText}`;
+    }
+    if (cancels > 0 || deletes > 0 || uncancels > 0) {
+      const parts: string[] = [];
+      if (deletes > 0) { parts.push(this.stringUtils.pluraliseWithCount(deletes, 'deletion')); }
+      if (cancels > 0) { parts.push(this.stringUtils.pluraliseWithCount(cancels, 'cancellation')); }
+      if (uncancels > 0) { parts.push(this.stringUtils.pluraliseWithCount(uncancels, 'uncancellation')); }
+      return `Process ${parts.join(' and ')}`;
+    }
+    return `Upload ${this.stringUtils.pluraliseWithCount(rows, 'walk')} to Ramblers`;
+  }
+
+  csvDisabled(): boolean {
+    const rows = this.walksDownloadFileContents.length;
+    return rows === 0 || this.exportInProgress || !this.downloadConflict.allowed;
+  }
+  
 
   timing(audit: RamblersUploadAudit): string {
     const summary = audit.type === AuditType.SUMMARY;

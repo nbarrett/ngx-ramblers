@@ -91,7 +91,7 @@ import { SecretInputComponent } from "../../../../modules/common/secret-input/se
                             placeholder="The Base Url for the Mail Application">
                           <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
                             (click)="mailLinkService.openUrl(mailLinkService.appUrl())"
-                          [title]="'View'"></app-brevo-button>
+                          [title]="'View'"/>
                         </div>
                       </div>
                       <div class="form-group">
@@ -102,7 +102,7 @@ import { SecretInputComponent } from "../../../../modules/common/secret-input/se
                             placeholder="The Base Url for My Mail Application">
                           <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.myBaseUrl"
                             (click)="mailLinkService.openUrl(mailLinkService.myBaseUrl())"
-                          [title]="'View'"></app-brevo-button>
+                          [title]="'View'"/>
                         </div>
                       </div>
                       <div class="form-group">
@@ -110,10 +110,11 @@ import { SecretInputComponent } from "../../../../modules/common/secret-input/se
                         <div class="input-group">
                           <input [(ngModel)]="mailMessagingConfig.mailConfig.editorUrl" type="text"
                             class="form-control input-sm" id="editor-url"
+                            autocomplete="off"
                             placeholder="The Base Url for editor of The Mail Application">
                           <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.editorUrl"
                             (click)="mailLinkService.openUrl(mailLinkService.editorUrl())"
-                          [title]="'View'"></app-brevo-button>
+                          [title]="'View'"/>
                         </div>
                       </div>
                       <div class="form-group">
@@ -123,10 +124,12 @@ import { SecretInputComponent } from "../../../../modules/common/secret-input/se
                             [(ngModel)]="mailMessagingConfig.mailConfig.apiKey"
                             id="api-key"
                             size="sm"
+                            autocomplete="off"
+                            [ignorePasswordManagers]="true"
                             placeholder="The API key for the mail api"/>
                           <app-brevo-button button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
                             (click)="mailLinkService.openUrl(mailLinkService.apiKeysView())"
-                          [title]="'View'"></app-brevo-button>
+                          [title]="'View'"/>
                         </div>
                       </div>
                     </div>
@@ -196,7 +199,7 @@ import { SecretInputComponent } from "../../../../modules/common/secret-input/se
                         <div class="col">
                           <div class="form-group">
                             <app-brevo-button button title="Edit Account Profile Information"
-                            (click)="editAccountProfileInformation()"></app-brevo-button>
+                            (click)="editAccountProfileInformation()"/>
                           </div>
                         </div>
                       </div>
@@ -234,7 +237,7 @@ import { SecretInputComponent } from "../../../../modules/common/secret-input/se
                         @if (!listCreateRequest) {
                           <div class="col-auto">
                             <div class="float-end">
-                              <app-brevo-button button title="Create New List" [disabled]="createNewListDisabled()" (click)="createNewList()"></app-brevo-button>
+                              <app-brevo-button button title="Create New List" [disabled]="createNewListDisabled()" (click)="createNewList()"/>
                             </div>
                           </div>
                         }
@@ -243,8 +246,8 @@ import { SecretInputComponent } from "../../../../modules/common/secret-input/se
                         <app-list-editor [listCreateRequest]="listCreateRequest"></app-list-editor>
                         <div class="row">
                           <div class="col-sm-12">
-                            <app-brevo-button button title="Confirm Create List" (click)="confirmCreateList()" [disabled]="listCreateDisabled()"></app-brevo-button>
-                            <app-brevo-button button title="Cancel Create List" class="ms-2" (click)="listCreateRequest=null"></app-brevo-button>
+                            <app-brevo-button button title="Confirm Create List" (click)="confirmCreateList()" [disabled]="listCreateDisabled()"/>
+                            <app-brevo-button button title="Cancel Create List" class="ms-2" (click)="listCreateRequest=null"/>
                           </div>
                         </div>
                       }

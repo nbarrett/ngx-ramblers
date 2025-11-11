@@ -6,12 +6,13 @@ import { Status } from "../../../projects/ngx-ramblers/src/app/models/ramblers-u
 import WebSocket from "ws";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import * as auditNotifier from "./ramblers-upload-audit-notifier";
-import * as fs from "fs";
+import fs from "fs";
 import * as stringDecoder from "string_decoder";
 import json2csv from "json2csv";
 import { downloadStatusManager } from "./download-status-manager";
 import { ServerDownloadStatusType } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { Environment } from "../env-config/environment-model";
+import { WalkUploadMetadata } from "../models/walk-upload-metadata";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("ramblers-walk-upload"));
 debugLog.enabled = false;
@@ -35,23 +36,32 @@ export async function uploadWalks(ws: WebSocket, walksUploadRequest: RamblersWal
 
   const csvData = json2csv({data: walksUploadRequest.rows, fields: walksUploadRequest.headings});
   const filePath = path + fileName;
+  const metadataPath = path + fileName.replace(".csv", "-metadata.json");
   debugLog("csv data:", csvData, "filePath:", filePath);
   if (!fs.existsSync(path)) {
     fs.mkdirSync(path);
   }
 
+  const metadata: WalkUploadMetadata = {
+    fileName: filePath,
+    walkCount: walksUploadRequest.rows.length,
+    ramblersUser: walksUploadRequest.ramblersUser,
+    walkDeletions: walksUploadRequest.walkIdDeletionList,
+    walkCancellations: walksUploadRequest.walkCancellations,
+    walkUncancellations: walksUploadRequest.walkUncancellations || []
+  };
+
   try {
     fs.writeFileSync(filePath, csvData);
+    fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
   } catch (error) {
     auditNotifier.reportErrorAndClose(error, ws);
     return;
   }
   debugLog("file", filePath, "saved");
+  debugLog("metadata", metadataPath, "saved");
   downloadStatusManager.startDownload(fileName);
-  process.env[Environment.RAMBLERS_USER] = walksUploadRequest.ramblersUser;
-  process.env[Environment.RAMBLERS_DELETE_WALKS] = walksUploadRequest.walkIdDeletionList.join(",");
-  process.env[Environment.RAMBLERS_FILENAME] = filePath;
-  process.env[Environment.RAMBLERS_WALKCOUNT] = walksUploadRequest.rows.length.toString();
+  process.env[Environment.RAMBLERS_METADATA_FILE] = metadataPath;
   process.env[Environment.RAMBLERS_FEATURE] = "walks-upload.ts";
   const spawn = require("child_process").spawn;
   auditNotifier.registerUploadStart(fileName, ws);

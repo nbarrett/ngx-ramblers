@@ -19,6 +19,7 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEventType } from "../../../models/broadcast.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
+import { WalkStatus } from "../../../models/ramblers-walks-manager";
 
 @Component({
   selector: "app-walk-edit-related-links",
@@ -96,6 +97,62 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
                 </div>
               }
             </div>
+            @if (display.allowEdits(displayedWalk.walk)) {
+              <div class="row mt-2">
+                <div class="col-sm-12">
+                  <div class="form-check">
+                    <input id="walk-cancelled-related" type="checkbox" class="form-check-input"
+                           [disabled]="inputDisabled || saveInProgress"
+                           [(ngModel)]="walkCancelled"
+                           (change)="onCancelledChange()">
+                    <label class="form-check-label" for="walk-cancelled-related">Mark this walk as cancelled</label>
+                  </div>
+                </div>
+              </div>
+            }
+            @if (walkCancelled && display.allowEdits(displayedWalk.walk)) {
+              <div class="row">
+                <div class="col-sm-12">
+                  <div class="form-group">
+                    <label for="cancellation-reason-related">Cancellation Reason</label>
+                    <textarea [disabled]="inputDisabled || saveInProgress"
+                              [(ngModel)]="displayedWalk.walk.groupEvent.cancellation_reason"
+                              class="form-control input-sm"
+                              id="cancellation-reason-related"
+                              rows="3"
+                              placeholder="Enter reason for cancellation (will be shown to members)">
+                    </textarea>
+                  </div>
+                </div>
+              </div>
+            }
+            @if ((displayedWalk?.walk?.groupEvent?.id || displayedWalk?.walk?.groupEvent?.url)) {
+              <div class="row mt-2">
+                <div class="col-sm-3">
+                  <div class="form-group">
+                    <label for="ramblers-id-related">Ramblers Id</label>
+                    <input [(ngModel)]="displayedWalk.walk.groupEvent.id" type="text"
+                           name="ramblers-id-related"
+                           class="form-control input-sm"
+                           id="ramblers-id-related"
+                           disabled/>
+                  </div>
+                </div>
+                <div class="col-sm-9">
+                  <div class="form-group">
+                    <label for="ramblers-url-related">Ramblers Url</label>
+                    <a [href]="displayedWalk.walk.groupEvent.url"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="form-control input-sm d-block text-truncate"
+                       id="ramblers-url-related"
+                       [title]="displayedWalk.walk.groupEvent.url">
+                      {{ displayedWalk.walk.groupEvent.url }}
+                    </a>
+                  </div>
+                </div>
+              </div>
+            }
           </div>
         </div>
       </div>
@@ -196,6 +253,7 @@ export class WalkEditRelatedLinksComponent implements OnInit {
   protected allowEditsSignal: WritableSignal<boolean>;
   protected ramblersWalkExistsSignal: WritableSignal<boolean>;
   protected walkExportSignal: Signal<WalkExport>;
+  public walkCancelled = false;
   protected insufficientDataToUploadToRamblers: Signal<boolean> = computed(() => {
     const walk = this.walkSignal?.();
     const allowEdits = this.allowEditsSignal?.();
@@ -221,6 +279,7 @@ export class WalkEditRelatedLinksComponent implements OnInit {
     this.initialiseLinks();
     this.logger.info("constructed with walk links:", this.displayedWalk?.walk?.fields?.links, "links object:", this.links);
     this.ramblersWalkExistsSignal.set(this.walkExportSignal().publishedOnRamblers);
+    this.walkCancelled = this.displayedWalk?.walk?.groupEvent?.status === WalkStatus.CANCELLED;
     this.broadcastService.on(NamedEventType.WALK_CHANGED, (namedEvent) => {
       this.logger.info("received:", namedEvent);
       this.walkSignal.set({...this.displayedWalk.walk});
@@ -278,5 +337,14 @@ export class WalkEditRelatedLinksComponent implements OnInit {
 
   logLinkChange() {
     this.logger.info("links object:", this.links, "publishing:", this.displayedWalk.walk.fields.publishing, "walk links:", this.displayedWalk?.walk?.fields?.links);
+  }
+
+  onCancelledChange() {
+    if (this.walkCancelled) {
+      this.displayedWalk.walk.groupEvent.status = WalkStatus.CANCELLED;
+    } else {
+      this.displayedWalk.walk.groupEvent.status = WalkStatus.CONFIRMED;
+      this.displayedWalk.walk.groupEvent.cancellation_reason = "";
+    }
   }
 }

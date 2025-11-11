@@ -1,6 +1,7 @@
 import { Task } from "@serenity-js/core/lib/screenplay/Task";
 import { Navigate } from "@serenity-js/web";
 import { StartWithNavigation } from "./start-with-navigation";
+import { Accept } from "../ramblers/common/accept-cookie-prompt";
 
 export class Start {
 
@@ -25,6 +26,7 @@ export class Start {
   static onWalksAndEventsManager(): Task {
     return Task.where("#actor starts on the walks and events manager",
       StartWithNavigation.to("https://walks-manager.ramblers.org.uk/walks-manager"),
+      Accept.disableCookieBannerPermanently(),
     );
   }
 

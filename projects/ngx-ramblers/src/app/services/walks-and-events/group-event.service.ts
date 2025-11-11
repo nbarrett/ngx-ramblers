@@ -164,6 +164,12 @@ export class GroupEventService {
     }
     const previousNullish = isNull(previousValue) || isUndefined(previousValue);
     const currentNullish = isNull(currentValue) || isUndefined(currentValue);
+    if (previousNullish && (isString(currentValue) && currentValue.trim().length === 0)) {
+      return true;
+    }
+    if (currentNullish && (isString(previousValue) && previousValue.trim().length === 0)) {
+      return true;
+    }
     if (previousNullish && currentNullish) {
       return true;
     }

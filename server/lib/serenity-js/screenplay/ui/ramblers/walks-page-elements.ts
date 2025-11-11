@@ -59,6 +59,21 @@ export class WalksPageElements {
   public static publishSelected = PageElement.located(By.css("input[value=Publish][name=op]"))
     .describedAs("Publish selected walks button");
 
+  public static cancelSelected = PageElement.located(By.id("ramled_vbo_cancel_open"))
+    .describedAs("Cancel selected walks button");
+
+  public static uncancelSelected = PageElement.located(By.css("input[value=Uncancel][name=op]"))
+    .describedAs("Uncancel selected walks button");
+
+  public static cancelModal = PageElement.located(By.id("ramled_vbo_cancel"))
+    .describedAs("Cancel walks modal");
+
+  public static cancelReasonTextarea = PageElement.located(By.id("edit-cancel-reason"))
+    .describedAs("Cancellation reason textarea");
+
+  public static cancelSubmitButton = PageElement.located(By.id("edit-6--2"))
+    .describedAs("Cancel submit button in modal");
+
   public static chooseFilesButton = PageElement.located(By.id("edit-walk-csv-upload"))
     .describedAs("Choose Files button");
 

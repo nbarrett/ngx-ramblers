@@ -1,8 +1,6 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import { isEmpty } from "es-toolkit/compat";
-import { isNaN } from "es-toolkit/compat";
-import { without } from "es-toolkit/compat";
+import { cloneDeep, isEmpty, isEqual, isNaN, isString, keys, without } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
 import {
@@ -23,7 +21,9 @@ import {
   RamblersGroupsApiResponse,
   RamblersGroupsApiResponseApiResponse,
   RamblersWalksUploadRequest,
+  WalkCancellation,
   WALKS_MANAGER_GO_LIVE_DATE,
+  WalkStatus,
   WalkUploadColumnHeading,
   WalkUploadRow
 } from "../../models/ramblers-walks-manager";
@@ -61,7 +61,6 @@ import { SystemConfigService } from "../system/system-config.service";
 import { AscentValidationService } from "../walks/ascent-validation.service";
 import { DistanceValidationService } from "../walks/distance-validation.service";
 import { LocalWalksAndEventsService } from "./local-walks-and-events.service";
-import { isEqual } from "es-toolkit/compat";
 import { RiskAssessmentService } from "../walks/risk-assessment.service";
 import { AlertMessage } from "../../models/alert-target.model";
 import { sortBy } from "../../functions/arrays";
@@ -77,10 +76,7 @@ import { marked } from "marked";
 import { ExtendedFields, ExtendedGroupEvent, GroupEvent, InputSource } from "../../models/group-event.model";
 import { MemberNamingService } from "../member/member-naming.service";
 import { UrlService } from "../url.service";
-import { isString } from "es-toolkit/compat";
 import { FeaturesService } from "../features.service";
-import { keys } from "es-toolkit/compat";
-import { cloneDeep } from "es-toolkit/compat";
 import { LinksService } from "../links.service";
 
 @Injectable({
@@ -259,7 +255,17 @@ export class RamblersWalksAndEventsService {
   }
 
   async walkUploadRows(walkExports: WalkExport[]): Promise<WalkUploadRow[]> {
-    return await Promise.all(this.selectedExportableWalks(walkExports).map(walkExport => walkExport.displayedWalk.walk).map((walk: ExtendedGroupEvent) => this.walkToUploadRow(walk)));
+    const uncancelSet = new Set(
+      this.walkUncancellationList(walkExports)
+    );
+    return await Promise.all(
+      this.selectedExportableWalks(walkExports)
+        .map(walkExport => walkExport.displayedWalk.walk)
+        .filter(walk => !!walk?.fields?.publishing?.ramblers?.publish)
+        .filter(walk => walk?.groupEvent?.status !== WalkStatus.CANCELLED)
+        .filter(walk => !uncancelSet.has(this.transformUrl(walk)))
+        .map((walk: ExtendedGroupEvent) => this.walkToUploadRow(walk))
+    );
   }
 
   async createWalksForExportPrompt(walks: ExtendedGroupEvent[]): Promise<WalkExport[]> {
@@ -392,6 +398,10 @@ export class RamblersWalksAndEventsService {
 
   public async createWalksUploadRequest(walkExports: WalkExport[]): Promise<RamblersWalksUploadRequest> {
     const walkIdDeletionList = this.walkDeletionList(walkExports);
+    const walkUncancellations = this.walkUncancellationList(walkExports);
+    const uncancelSet = new Set(walkUncancellations);
+    const walkCancellations = this.walkCancellationList(walkExports)
+      .filter(item => !uncancelSet.has(item.walkId));
     this.logger.debug("sourceData", walkExports);
     const rows: WalkUploadRow[] = await this.walkUploadRows(walkExports);
     const fileName = this.exportWalksFileName();
@@ -400,13 +410,45 @@ export class RamblersWalksAndEventsService {
       rows,
       fileName,
       walkIdDeletionList,
+      walkCancellations,
+      walkUncancellations,
       ramblersUser: this.memberLoginService.loggedInMember().firstName
     };
   }
 
   public walkDeletionList(walkExports: WalkExport[]): string[] {
-    return this.selectedExportableWalks(walkExports).map(walkExport => walkExport.displayedWalk.walk)
-      .filter(walk => !isEmpty(walk.groupEvent.url)).map(walk => this.transformUrl(walk));
+    const uncancels = new Set(this.walkUncancellationList(walkExports));
+    return this.selectedExportableWalks(walkExports)
+      .filter(w => !w?.displayedWalk?.walk?.fields?.publishing?.ramblers?.publish)
+      .filter(w => !!(w?.ramblersUrl || w?.displayedWalk?.walk?.groupEvent?.url))
+      .map(w => {
+        const localUrl = w.displayedWalk.walk?.groupEvent?.url;
+        return localUrl ? this.transformUrl(w.displayedWalk.walk) : w.ramblersUrl;
+      })
+      .filter(url => !isEmpty(url))
+      .filter(url => !uncancels.has(url as string)) as string[];
+  }
+
+  public walkCancellationList(walkExports: WalkExport[]): WalkCancellation[] {
+    return this.selectedExportableWalks(walkExports)
+      .map(walkExport => walkExport.displayedWalk.walk)
+      .filter(walk => walk.groupEvent.status === WalkStatus.CANCELLED)
+      .filter(walk => !!walk?.fields?.publishing?.ramblers?.publish)
+      .filter(walk => !isEmpty(walk.groupEvent.url) && !isEmpty(walk.id))
+      .map(walk => ({
+        walkId: this.transformUrl(walk),
+        reason: walk.groupEvent.cancellation_reason || "Walk cancelled"
+      }));
+  }
+
+  public walkUncancellationList(walkExports: WalkExport[]): string[] {
+    return this.selectedExportableWalks(walkExports)
+      .filter(walkExport => walkExport?.displayedWalk?.walk?.groupEvent?.status !== WalkStatus.CANCELLED)
+      .filter(walkExport => !!walkExport?.displayedWalk?.walk?.fields?.publishing?.ramblers?.publish)
+      .filter(walkExport => walkExport.ramblersStatus === WalkStatus.CANCELLED)
+      .map(walkExport => walkExport.displayedWalk.walk)
+      .filter(walk => !isEmpty(walk.groupEvent.url) && !isEmpty(walk.id))
+      .map(walk => this.transformUrl(walk));
   }
 
   private transformUrl(walk: ExtendedGroupEvent) {
@@ -421,7 +463,7 @@ export class RamblersWalksAndEventsService {
 
   public toWalkExport(localAndRamblersWalk: LocalAndRamblersWalk): WalkExport {
     this.logger.off("toWalkExport:localAndRamblersWalk:", localAndRamblersWalk, "entered");
-    const validationMessages = [];
+    let validationMessages = [] as string[];
     const walk: ExtendedGroupEvent = localAndRamblersWalk.localWalk;
     const walkDistance: WalkDistance = this.distanceValidationService.parse(walk);
     const walkAscent: WalkAscent = this.ascentValidationService.parse(walk);
@@ -491,14 +533,41 @@ export class RamblersWalksAndEventsService {
         this.logger.off("unconfirmedRiskAssessmentsExist:given walk", walk, "riskAssessment:", walk?.fields.riskAssessment, "alertMessage:", alertMessage);
         validationMessages.push(`${alertMessage.title}. ${alertMessage.message}`);
       }
+
+      if (walk?.groupEvent?.status === WalkStatus.CANCELLED && isEmpty(walk?.groupEvent?.cancellation_reason)) {
+        validationMessages.push("Walk cancellation reason is missing");
+      }
     }
     const publishStatus = this.toPublishStatus(localAndRamblersWalk);
+    const isCancelledLocally = walk?.groupEvent?.status === WalkStatus.CANCELLED;
+    const ramblersStatus = localAndRamblersWalk.ramblersWalk?.status;
+    const needsCancellationOnRamblers = isCancelledLocally && !!localAndRamblersWalk.ramblersWalk && ramblersStatus !== WalkStatus.CANCELLED;
+    const needsUncancelOnRamblers = !isCancelledLocally && !!localAndRamblersWalk.ramblersWalk && ramblersStatus === WalkStatus.CANCELLED;
+    if (needsCancellationOnRamblers) {
+      const cancellationMsg = "Walk is cancelled locally but is active on Ramblers";
+      publishStatus.messages = [cancellationMsg].concat((publishStatus.messages || []).filter(m => !/details are correct/i.test(m)));
+      publishStatus.actionRequired = true;
+      const reason = walk?.groupEvent?.cancellation_reason?.trim();
+      if (!isEmpty(reason)) {
+        publishStatus.messages.push(`Reason: ${reason}`);
+      }
+    }
+    if (isCancelledLocally) {
+      validationMessages = validationMessages.filter(msg => /cancellation reason/i.test(msg));
+    }
+    if (needsUncancelOnRamblers) {
+      publishStatus.messages = ["Walk is active locally but is cancelled on Ramblers"].concat((publishStatus.messages || []).filter(m => !/details are correct/i.test(m)));
+      publishStatus.actionRequired = true;
+      validationMessages = [];
+    }
     const returnValue = {
       publishStatus,
       displayedWalk: this.walkDisplayService.toDisplayedWalk(walk),
       validationMessages,
       publishedOnRamblers: walk && !isEmpty(walk.groupEvent.id),
-      selected: publishStatus.publish && validationMessages.length === 0
+      selected: needsCancellationOnRamblers || needsUncancelOnRamblers || (publishStatus.publish && validationMessages.length === 0),
+      ramblersStatus,
+      ramblersUrl: localAndRamblersWalk.ramblersWalk?.walksManagerUrl || localAndRamblersWalk.ramblersWalk?.url
     };
     this.logger.info("toWalkExport:localAndRamblersWalk:", localAndRamblersWalk, "returnValue:", returnValue);
     return returnValue;
@@ -711,7 +780,7 @@ export class RamblersWalksAndEventsService {
     const isApproved = this.walkEventService.latestEventWithStatusChangeIs(walk, EventType.APPROVED);
     const publishRequired = true;
     const actionRequired = true;
-    if (walk?.fields.publishing.ramblers.publish) {
+    if (walk?.fields?.publishing?.ramblers?.publish) {
       if (!ramblersWalk) {
         if (!isApproved) {
           publishStatus.messages.push(`Walk is ${this.walksReferenceService.toWalkEventType(eventType)?.description}`);
@@ -747,7 +816,7 @@ export class RamblersWalksAndEventsService {
       }
     } else {
       if (ramblersWalk) {
-        publishStatus.messages.push("Walk needs to be unpublished from Ramblers");
+        publishStatus.messages.push("Will be deleted from Ramblers");
         publishStatus.publish = publishRequired;
       } else {
         publishStatus.messages.push("Walk is not to be published");
