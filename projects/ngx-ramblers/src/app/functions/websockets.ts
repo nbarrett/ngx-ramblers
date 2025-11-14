@@ -1,10 +1,15 @@
 import { allowableStatusCodes, MappedCloseMessage } from "../models/websocket.model";
 
+export function isTransientWebSocketClose(code: number): boolean {
+  return [1001, 1006, 1011].includes(code);
+}
+
 export function mapStatusCode(code: number) {
   const mappedCloseMessage: MappedCloseMessage = {
     message: mapWebSocketErrorMessage(code),
     code,
     success: allowableStatusCodes.includes(code),
+    transient: isTransientWebSocketClose(code),
   };
   return mappedCloseMessage;
 }
