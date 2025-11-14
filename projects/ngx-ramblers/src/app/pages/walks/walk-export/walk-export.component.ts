@@ -572,14 +572,30 @@ export class WalkExportComponent implements OnInit, OnDestroy {
         }
       }
     }));
-    this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.ERROR).subscribe(error => {
+    this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.ERROR).subscribe(async error => {
         this.logger.error(`Error:`, error);
+        const lastSummarySuccess = this.audits?.some(a => a.type === AuditType.SUMMARY && a.status === Status.SUCCESS);
+        const transient = !!(error as any)?.transient;
         this.exportInProgress = false;
-        this.auditNotifier.error({title: "Error", message: error});
-        this.fileName.status = Status.ERROR;
-        this.renderInitialView();
-      })
-    );
+        if (lastSummarySuccess || transient) {
+          try {
+            await this.refreshAuditForCurrentSession();
+            this.applyFilter();
+            this.updateCurrentSessionDurationLabel();
+            if (!lastSummarySuccess) {
+              this.auditNotifier.warning({title: "Connection Restored", message: "WebSocket reconnected; audit refreshed"});
+            }
+          } catch {}
+          return;
+        }
+        const messageText = isString(error) ? error : ((error as any)?.message || "WebSocket error");
+        this.auditNotifier.error({title: "Error", message: messageText});
+        if (this.fileName) {
+          this.fileName.status = Status.ERROR;
+        }
+        await this.renderInitialView();
+      }))
+    ;
     this.subscriptions.push(this.webSocketClientService.receiveMessages(MessageType.COMPLETE).subscribe(async (message: ApiResponse) => {
         this.exportInProgress = false;
       const hasCompletionErrors = this.audits.filter(item =>

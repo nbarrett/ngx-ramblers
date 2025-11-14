@@ -39,6 +39,7 @@ export interface MappedCloseMessage {
   message: string;
   code: number;
   success: boolean;
+  transient?: boolean;
 }
 
 export interface WebSocketInstance {
