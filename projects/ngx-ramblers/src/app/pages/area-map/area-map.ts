@@ -262,7 +262,6 @@ export class AreaMapComponent implements OnInit, OnDestroy {
     mapHeight: 480
   };
   private mapRef: L.Map | undefined;
-  private pendingRebuild = false;
   private areaColors: Record<string, string> = {};
   private isInitialized = false;
   private cmsSettingsSubscription?: Subscription;
@@ -373,6 +372,8 @@ export class AreaMapComponent implements OnInit, OnDestroy {
             (!this.savedCenter ||
              this.row.areaMap.mapCenter[0] !== this.savedCenter.lat ||
              this.row.areaMap.mapCenter[1] !== this.savedCenter.lng);
+          const providerChanged = this.row.areaMap.provider !== this.provider;
+          const osStyleChanged = this.row.areaMap.osStyle !== this.osStyle;
 
           if (selectedGroupsChanged) {
             this.selectedGroups = this.row.areaMap.selectedGroups || [];
@@ -395,15 +396,26 @@ export class AreaMapComponent implements OnInit, OnDestroy {
             setTimeout(() => this.mapRef?.invalidateSize(true), 0);
           }
 
+          if (providerChanged) {
+            this.provider = this.row.areaMap.provider as MapProvider;
+            this.mapControlsState.provider = this.provider;
+          }
+
+          if (osStyleChanged) {
+            this.osStyle = this.row.areaMap.osStyle || this.osStyle;
+            this.mapControlsState.osStyle = this.osStyle;
+          }
+
           if (zoomChanged && this.mapRef) {
             this.savedZoom = this.row.areaMap.mapZoom;
             this.mapRef.off("zoomend");
             this.mapRef.setZoom(this.row.areaMap.mapZoom);
             setTimeout(() => {
               if (this.mapRef) {
+                this.mapRef.invalidateSize();
                 this.mapRef.on("zoomend", () => this.handleZoomEnd());
               }
-            }, 0);
+            }, 50);
           }
 
           if (centerChanged && this.mapRef && this.row.areaMap.mapCenter) {
@@ -418,7 +430,9 @@ export class AreaMapComponent implements OnInit, OnDestroy {
           }
 
           if (selectedGroupsChanged || opacityNormalChanged || opacityHoverChanged || textOpacityChanged) {
-            this.updateMap();
+            if (this.mapRef) {
+              this.updateMap();
+            }
           }
         }
       });
@@ -600,12 +614,6 @@ export class AreaMapComponent implements OnInit, OnDestroy {
         this.logger.debug("Map not fully initialized yet, will retry on next render:", e);
       }
     }, 100);
-
-    if (this.pendingRebuild) {
-      this.logger.info("onMapReady: processing pending rebuild");
-      this.pendingRebuild = false;
-      this.rebuildMap();
-    }
   }
 
   private recreateMap(preserveView = false) {
@@ -615,22 +623,20 @@ export class AreaMapComponent implements OnInit, OnDestroy {
       savedZoom: this.savedZoom,
       preserveNextView: this.preserveNextView,
       showMap: this.showMap,
-      logger: this.logger
+      logger: this.logger,
+      leafletLayers: this.layers,
+      fitBounds: this.fitBounds,
+      options: this.options
     };
 
     this.mapRecreation.recreateMap(
       context,
       {
         onRebuildMap: () => {
-          this.layers = [];
-          this.fitBounds = undefined;
-          this.options = undefined;
           this.mapKey++;
-          this.pendingRebuild = true;
         },
         onSetShowMap: (show: boolean) => this.showMap = show,
         onAfterShowMap: () => {
-          this.pendingRebuild = false;
           this.rebuildMap();
         }
       },
@@ -642,6 +648,9 @@ export class AreaMapComponent implements OnInit, OnDestroy {
     this.savedZoom = context.savedZoom;
     this.preserveNextView = context.preserveNextView;
     this.showMap = context.showMap;
+    this.layers = context.leafletLayers || [];
+    this.fitBounds = context.fitBounds;
+    this.options = context.options;
   }
 
   private rebuildMap() {
@@ -760,6 +769,8 @@ export class AreaMapComponent implements OnInit, OnDestroy {
     let center: L.LatLng;
     if (this.preserveNextView && this.savedCenter) {
       center = this.savedCenter;
+    } else if (this.cmsSettings?.mapCenter && isArray(this.cmsSettings.mapCenter)) {
+      center = L.latLng(this.cmsSettings.mapCenter[0], this.cmsSettings.mapCenter[1]);
     } else {
       const savedCenter = this.standalone ? this.uiActions.initialObjectValueFor<{
         lat: number,
@@ -772,32 +783,36 @@ export class AreaMapComponent implements OnInit, OnDestroy {
       }
     }
 
-    const savedZoom = this.standalone ? this.uiActions.initialValueFor(StoredValue.AREA_MAP_ZOOM, null) as any : null;
     let zoom = 9;
 
     if (this.preserveNextView && this.savedZoom) {
       zoom = Math.min(18, Math.max(2, this.savedZoom));
-    } else if (savedZoom !== null) {
-      let parsedZoom = 9;
-      if (isNumber(savedZoom) && !isNaN(savedZoom) && isFinite(savedZoom)) {
-        parsedZoom = savedZoom;
-      } else if (isString(savedZoom)) {
-        const parsed = parseFloat(savedZoom);
-        if (!isNaN(parsed) && isFinite(parsed)) {
-          parsedZoom = parsed;
+    } else if (this.cmsSettings?.mapZoom && isNumber(this.cmsSettings.mapZoom)) {
+      zoom = Math.min(18, Math.max(2, this.cmsSettings.mapZoom));
+    } else {
+      const savedZoom = this.standalone ? this.uiActions.initialValueFor(StoredValue.AREA_MAP_ZOOM, null) as any : null;
+      if (savedZoom !== null) {
+        let parsedZoom = 9;
+        if (isNumber(savedZoom) && !isNaN(savedZoom) && isFinite(savedZoom)) {
+          parsedZoom = savedZoom;
+        } else if (isString(savedZoom)) {
+          const parsed = parseFloat(savedZoom);
+          if (!isNaN(parsed) && isFinite(parsed)) {
+            parsedZoom = parsed;
+          }
         }
-      }
 
-      if (parsedZoom >= 2 && parsedZoom <= 18) {
-        zoom = parsedZoom;
-      } else {
-        if (this.row?.areaMap) {
-          this.row.areaMap.mapZoom = 9;
-          this.broadcastCmsChange();
+        if (parsedZoom >= 2 && parsedZoom <= 18) {
+          zoom = parsedZoom;
         } else {
-          this.uiActions.saveValueFor(StoredValue.AREA_MAP_ZOOM, 9);
+          if (this.row?.areaMap) {
+            this.row.areaMap.mapZoom = 9;
+            this.broadcastCmsChange();
+          } else {
+            this.uiActions.saveValueFor(StoredValue.AREA_MAP_ZOOM, 9);
+          }
+          zoom = 9;
         }
-        zoom = 9;
       }
     }
 

@@ -177,18 +177,8 @@ export class MapEditComponent implements OnInit, OnDestroy {
     this.logger.info("Map configured with options:", this.options, "layers:", this.layers, "fitBounds:", this.fitBounds);
   }
 
-  private osApiKey(): string {
-    const cfg: any = this.systemConfigService.systemConfig();
-    const keyFromConfig = cfg?.externalSystems?.osMaps?.apiKey || cfg?.externalSystems?.os_maps?.apiKey || cfg?.osMaps?.apiKey;
-    return keyFromConfig || "";
-  }
-
   private hasOsApiKey(): boolean {
-    return !!this.osApiKey();
-  }
-
-  private osZxyUrl(layer: string, key: string): string {
-    return `https://api.os.uk/maps/raster/v1/zxy/${layer}/{z}/{x}/{y}.png?key=${key || ""}`;
+    return this.mapTiles.hasOsApiKey();
   }
 
 

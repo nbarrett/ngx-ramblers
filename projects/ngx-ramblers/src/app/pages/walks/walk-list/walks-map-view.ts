@@ -265,9 +265,10 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
   }
 
   rebuildMap() {
-    this.logger.info("rebuildMap:provider:", this.provider, "osStyle:", this.osStyle);
+    this.logger.info("rebuildMap START:provider:", this.provider, "osStyle:", this.osStyle, "savedZoom:", this.savedZoom);
     this.setupDefaultIcon();
     const base = this.mapTiles.createBaseLayer(this.provider, this.osStyle);
+    this.logger.info("rebuildMap:base layer created for provider:", this.provider);
     const markers = this.createMarkers();
     this.logger.info("rebuildMap:markers:", markers.length);
     this.hasMarkers = markers.length > 0;
@@ -577,10 +578,16 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
   }
 
   onProviderChange(value: MapProvider) {
+    const oldProvider = this.provider;
+
     this.provider = value;
     this.mapControlsState.provider = value;
     this.mapControlsStateService.saveProvider(value);
-    this.recreateMap(true);
+
+    this.savedZoom = undefined;
+    this.savedCenter = undefined;
+    this.preserveNextView = false;
+    this.recreateMap(false);
   }
 
   onStyleChange(value: string) {
