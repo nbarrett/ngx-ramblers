@@ -5,7 +5,7 @@ import { WalkStatus } from "../../models/ramblers-walks-manager";
 @Injectable({ providedIn: "root" })
 export class MapMarkerStyleService {
   markerIcon(provider: "osm" | "os", style: string, walkStatus?: WalkStatus): L.Icon | L.DivIcon {
-    if (provider === "os" && style?.startsWith("Leisure")) {
+    if (provider === "os") {
       return this.explorerPinIcon(walkStatus);
     }
     return new L.Icon.Default();

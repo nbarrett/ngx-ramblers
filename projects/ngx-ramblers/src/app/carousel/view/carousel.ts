@@ -47,7 +47,7 @@ import { DisplayDatePipe } from "../../pipes/display-date.pipe";
                       [showIndicators]="album.showIndicators && showIndicators"
                       [(activeSlide)]="lazyLoadingMetadata.activeSlideIndex"
                       (activeSlideChange)="activeSlideChange(false, $event)">
-              @for (slide of lazyLoadingMetadata?.selectedSlides; track slide.image || slide.base64Content) {
+              @for (slide of lazyLoadingMetadata?.selectedSlides; track imageSourceFor(slide)) {
                 <slide>
                   @if (slide) {
                     <img loading="lazy" [src]="imageSourceFor(slide)"

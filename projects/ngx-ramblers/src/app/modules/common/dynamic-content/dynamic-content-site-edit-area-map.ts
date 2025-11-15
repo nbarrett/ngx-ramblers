@@ -1,8 +1,7 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { PageContentRow, AreaMapData, PageContent } from "../../../models/content-text.model";
+import { AreaMapData, PageContent, PageContentRow } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { PageContentActionsService } from "../../../services/page-content-actions.service";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { CommonModule } from "@angular/common";
@@ -11,10 +10,9 @@ import { NgSelectComponent } from "@ng-select/ng-select";
 import { KeyValue } from "../../../functions/enums";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
 import { faUndo } from "@fortawesome/free-solid-svg-icons";
-import { isNumber, isArray } from "es-toolkit/compat";
+import { isArray, isNumber } from "es-toolkit/compat";
 import { AreaMapComponent } from "../../../pages/area-map/area-map";
 import { MapProvider, MapStyleInfo, OS_MAP_STYLE_LIST } from "../../../models/map.model";
-import { AreaMapCmsService } from "../../../services/area-map-cms.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { GroupAreasService } from "../../../services/group-areas.service";
 
@@ -213,7 +211,9 @@ interface RegionOption extends KeyValue<string> {}
       <div class="row mb-3">
         <div class="col-12">
           <h6>Live Preview</h6>
-          <app-area-map [row]="row" [pageContent]="pageContent"/>
+          @if (showAreaMap) {
+            <app-area-map [row]="row" [pageContent]="pageContent"/>
+          }
         </div>
       </div>
     }
@@ -223,8 +223,6 @@ interface RegionOption extends KeyValue<string> {}
 export class DynamicContentSiteEditAreaMapComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditAreaMapComponent", NgxLoggerLevel.OFF);
   private broadcastService = inject(BroadcastService);
-  private pageContentActionsService = inject(PageContentActionsService);
-  private cmsService = inject(AreaMapCmsService);
   private systemConfigService = inject(SystemConfigService);
   private groupAreasService = inject(GroupAreasService);
   @Input() row!: PageContentRow;
@@ -241,6 +239,7 @@ export class DynamicContentSiteEditAreaMapComponent implements OnInit {
   public centerLat = 51.25;
   public centerLng = 0.75;
   public availableGroups: string[] = [];
+  public showAreaMap = true;
 
   protected readonly faUndo = faUndo;
   ngOnInit() {
@@ -324,6 +323,7 @@ export class DynamicContentSiteEditAreaMapComponent implements OnInit {
       this.row.areaMap.osStyle = this.osStyles[0].key;
     }
     this.broadcastChange();
+    this.recreateAreaMap();
   }
 
   updateOsStyle(style: string) {
@@ -332,6 +332,7 @@ export class DynamicContentSiteEditAreaMapComponent implements OnInit {
     }
     this.row.areaMap.osStyle = style;
     this.broadcastChange();
+    this.recreateAreaMap();
   }
 
   updateMapCenter() {
@@ -379,6 +380,13 @@ export class DynamicContentSiteEditAreaMapComponent implements OnInit {
 
   onGroupSelectionChange() {
     this.broadcastChange();
+  }
+
+  private recreateAreaMap() {
+    this.showAreaMap = false;
+    setTimeout(() => {
+      this.showAreaMap = true;
+    }, 50);
   }
 
 }

@@ -6,9 +6,6 @@ import { SystemConfigService } from "../system/system-config.service";
 
 @Injectable({ providedIn: "root" })
 export class MapTilesService {
-  private systemConfig = inject(SystemConfigService);
-  private projInitialized = false;
-
   private static readonly EPSG_27700_PROJ4_DEF = "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=-446.448,125.157,-542.06,-0.1502,-0.2470,-0.8421,20.4894 +units=m +no_defs";
   private static readonly EPSG_27700_CRS_OPTIONS = {
     resolutions: [896, 448, 224, 112, 56, 28, 14, 7, 3.5, 1.75],
@@ -16,8 +13,11 @@ export class MapTilesService {
     bounds: L.bounds([-238375.0, 0.0], [900000.0, 1376256.0])
   };
 
+  private systemConfig = inject(SystemConfigService);
+  private projInitialized = false;
+
   hasOsApiKey(): boolean {
-    return !!this.osApiKey();
+    return this.osApiKeyConfigured();
   }
 
   initializeProjections(): void {
@@ -36,12 +36,14 @@ export class MapTilesService {
 
   createBaseLayer(provider: "osm" | "os", style: string): L.TileLayer {
     this.initializeProjections();
+
     if (provider === "os") {
-      const apiKey = this.osApiKey();
-      if (!apiKey) {
+      if (!this.osApiKeyConfigured()) {
         return L.tileLayer(this.osmUrl(), { attribution: "© OpenStreetMap (OS Maps unavailable)", maxZoom: 19, noWrap: true });
       }
-      const url = this.osZxyUrl(style, apiKey);
+
+      const url = this.osProxyUrl(style);
+
       if (style.endsWith("27700") && (L as any).Proj?.TileLayer) {
         return new (L as any).Proj.TileLayer(url, { attribution: "© Ordnance Survey", continuousWorld: true, noWrap: true, maxZoom: 9 });
       }
@@ -68,17 +70,16 @@ export class MapTilesService {
     return 19;
   }
 
-  private osZxyUrl(layer: string, key: string): string {
-    return `https://api.os.uk/maps/raster/v1/zxy/${layer}/{z}/{x}/{y}.png?key=${key || ""}`;
+  private osProxyUrl(layer: string): string {
+    return `/api/os-maps/tiles/${layer}/{z}/{x}/{y}.png`;
   }
 
   private osmUrl(): string {
     return "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
   }
 
-  private osApiKey(): string {
+  private osApiKeyConfigured(): boolean {
     const cfg: any = this.systemConfig.systemConfig();
-    const keyFromConfig = cfg?.externalSystems?.osMaps?.apiKey || cfg?.externalSystems?.os_maps?.apiKey || cfg?.osMaps?.apiKey;
-    return keyFromConfig || "";
+    return !!(cfg?.externalSystems?.osMaps);
   }
 }
