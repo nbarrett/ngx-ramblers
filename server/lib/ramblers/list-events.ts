@@ -5,6 +5,7 @@ import {
   ALL_EVENT_TYPES,
   DateFormat,
   EventsListRequest,
+  MAXIMUM_PAGE_SIZE,
   RamblersEventsApiResponse,
   RamblersEventSummaryApiResponse,
   RamblersEventSummaryResponse,
@@ -22,6 +23,7 @@ import { dateEndParameter, dateParameter, limitFor } from "./parameters";
 import { lastItemFrom, pluraliseWithCount, toKebabCase } from "../shared/string-utils";
 import { extendedGroupEvent } from "../mongo/models/extended-group-event";
 import {
+  ExtendedFields,
   ExtendedGroupEvent,
   GroupEvent,
   InputSource
@@ -199,6 +201,98 @@ function groupNameFrom(config: SystemConfig, event: GroupEvent): string {
   return event?.group_name || config?.group?.longName || "Unknown Group";
 }
 
+export function mapToExtendedGroupEvent(config: SystemConfig, event: GroupEvent): ExtendedGroupEvent {
+
+  const groupEvent: GroupEvent = {
+    accessibility: [],
+    additional_details: null,
+    ascent_feet: 0,
+    ascent_metres: 0,
+    cancellation_reason: null,
+    date_created: null,
+    date_updated: null,
+    description: null,
+    difficulty: null,
+    distance_km: 0,
+    duration: 0,
+    end_location: null,
+    external_url: "",
+    facilities: [],
+    linked_event: "",
+    media: [],
+    meeting_date_time: "",
+    meeting_location: null,
+    shape: "",
+    start_location: null,
+    transport: [],
+    item_type: event.item_type || RamblersEventType.GROUP_WALK,
+    group_code: event.group_code || config?.group?.groupCode,
+    group_name: groupNameFrom(config, event),
+    area_code: event.area_code || config?.area?.groupCode,
+    id: event.id,
+    url: event.url,
+    start_date_time: event.start_date_time,
+    end_date_time: event.end_date_time,
+    title: event.title,
+    status: event.status,
+    distance_miles: event.distance_miles,
+    walk_leader: event.walk_leader,
+    event_organiser: event.event_organiser
+  };
+
+  const fields: ExtendedFields = {
+    links: [],
+    meetup: null,
+    migratedFromId: null,
+    milesPerHour: null,
+    notifications: [],
+    publishing: null,
+    riskAssessment: [],
+    contactDetails: {
+      displayName: event.item_type === RamblersEventType.GROUP_EVENT
+        ? event.event_organiser?.name || ""
+        : event.walk_leader?.name || "",
+      memberId: null,
+      contactId: null,
+      email: null,
+      phone: null
+    },
+    attendees: [],
+    inputSource: InputSource.URL_TO_ID_LOOKUP
+  };
+
+  return {
+    groupEvent,
+    fields,
+    events: [],
+  };
+}
+
+export async function fetchMappedEvents(config: SystemConfig, fromDate: number, toDate: number): Promise<ExtendedGroupEvent[]> {
+  const defaultOptions = requestDefaults.createApiRequestOptions(config);
+  const params = [
+    optionalParameter("groups", [config?.group?.groupCode].filter(Boolean).join(",")),
+    optionalParameter("types", [RamblersEventType.GROUP_WALK, RamblersEventType.GROUP_EVENT].join(",")),
+    optionalParameter("date", DateTime.fromMillis(fromDate).toFormat(DateFormat.WALKS_MANAGER_API)),
+    optionalParameter("date_end", DateTime.fromMillis(toDate).toFormat(DateFormat.WALKS_MANAGER_API)),
+    optionalParameter("limit", MAXIMUM_PAGE_SIZE)
+  ].filter(item => !isEmpty(item)).join("&");
+
+  const response = await httpRequest({
+    apiRequest: {
+      hostname: defaultOptions.hostname,
+      protocol: defaultOptions.protocol,
+      headers: defaultOptions.headers,
+      method: "get",
+      path: `/api/volunteers/walksevents?api-key=${config?.national?.walksManager?.apiKey}&${params}`
+    },
+    debug: debugLog,
+  }) as RamblersEventsApiResponse;
+
+  const events = response.response?.data || [];
+  return events.map(event => mapToExtendedGroupEvent(config, event));
+}
+
 async function cacheEventIfNotFound(config: SystemConfig, event: GroupEvent): Promise<mongoose.Document | null> {
   try {
     const existingEvent = await extendedGroupEvent.findOne({
@@ -232,15 +326,12 @@ async function cacheEventIfNotFound(config: SystemConfig, event: GroupEvent): Pr
       const document = {
         fields: {inputSource: InputSource.URL_TO_ID_LOOKUP},
         groupEvent: {
-          id: event.id,
+          ...mapToExtendedGroupEvent(config, event).groupEvent,
           url: event.url,
+          id: event.id,
           start_date_time: event.start_date_time,
-          title: event.title,
-          item_type: event.item_type || RamblersEventType.GROUP_WALK,
-          group_code: event.group_code || config?.group?.groupCode,
-          group_name: groupNameFrom(config, event),
-          area_code: event.area_code || config?.area?.groupCode,
-        },
+          title: event.title
+        }
       };
       const created = await extendedGroupEvent.create(document);
       debugLog("Successfully cached event for url:", event.url, "event id:", event.id, "group code:", document.groupEvent.group_code);

@@ -53,6 +53,10 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
         .then(m => m.MemberAdminComponent), canActivate: [SystemHealthyGuard, AdminAuthGuard]
     },
     {
+      path: "agm-stats", loadComponent: () => import("../../pages/admin/agm-stats/agm-stats")
+        .then(m => m.AGMStatsComponent), canActivate: [SystemHealthyGuard, AdminAuthGuard]
+    },
+    {
       path: "change-password", loadComponent: () => import("../../pages/admin/profile/change-password.component")
         .then(m => m.ChangePasswordComponent), canActivate: [SystemHealthyGuard, LoggedInGuard]
     },

@@ -138,6 +138,124 @@ export interface EventStats extends EventStatsRequest {
   uniqueCreators: string[],
 }
 
+export interface AGMStatsRequest {
+  fromDate: number;
+  toDate: number;
+}
+
+export interface LeaderStats {
+  id: string;
+  name: string;
+  email: string;
+  walkCount: number;
+  totalMiles: number;
+}
+
+export interface WalkListItem {
+  id: string;
+  title: string;
+  startDate: number;
+  walkDate: string;
+  walkLeader?: string;
+  distance?: number;
+  url?: string;
+}
+
+export interface WalkAGMStats {
+  totalWalks: number;
+  confirmedWalks: number;
+  cancelledWalks: number;
+  cancelledWalksList: WalkListItem[];
+  eveningWalks?: number;
+  eveningWalksList: WalkListItem[];
+  totalMiles: number;
+  totalAttendees: number;
+  activeLeaders: number;
+  newLeaders: number;
+  newLeadersList: LeaderStats[];
+  topLeader: LeaderStats;
+  allLeaders: LeaderStats[];
+  unfilledSlots: number;
+  unfilledSlotsList: WalkListItem[];
+}
+
+export interface DateWithLink {
+  date: number;
+  description: string;
+  link?: string;
+  linkTitle?: string;
+}
+
+export interface OrganiserStats {
+  id: string;
+  name: string;
+  eventCount: number;
+}
+
+export interface SocialAGMStats {
+  totalSocials: number;
+  socialsList: DateWithLink[];
+  uniqueOrganisers: number;
+  organisersList: OrganiserStats[];
+}
+
+export interface ExpenseItem {
+  description: string;
+  cost: number;
+  paidDate: number | null;
+}
+
+export interface PayeeStats {
+  id: string;
+  name: string;
+  totalCost: number;
+  totalItems: number;
+  claimCount: number;
+  items: ExpenseItem[];
+}
+
+export interface UnpaidExpenseItem {
+  id: string;
+  claimantName: string;
+  description: string;
+  cost: number;
+  expenseDate: number;
+}
+
+export interface ExpenseAGMStats {
+  totalClaims: number;
+  totalItems: number;
+  totalCost: number;
+  totalUnpaidCost: number;
+  payees: PayeeStats[];
+  unpaidExpenses: UnpaidExpenseItem[];
+}
+
+export interface MembershipAGMStats {
+  totalMembers: number;
+  newJoiners: number;
+  leavers: number;
+  deletions: number;
+}
+
+export interface YearComparison {
+  year: number;
+  periodFrom: number;
+  periodTo: number;
+  walks: WalkAGMStats;
+  socials: SocialAGMStats;
+  expenses: ExpenseAGMStats;
+  membership: MembershipAGMStats;
+}
+
+export interface AGMStatsResponse {
+  currentYear: YearComparison;
+  previousYear: YearComparison | null;
+  twoYearsAgo: YearComparison | null;
+  earliestDate?: number;
+  yearlyStats?: YearComparison[];
+}
+
 export enum InputSource {
   FILE_IMPORT = "file-import",
   WALKS_MANAGER_IMPORT = "walks-manager-import",

@@ -6,6 +6,7 @@ import { envConfig } from "../env-config/env-config";
 import { MessageHandlerOptions } from "../../../projects/ngx-ramblers/src/app/models/server-models";
 import { isArray } from "es-toolkit/compat";
 
+const logRawData = false;
 export function optionalParameter(key: string, value: any): string {
   if (key && value) {
     const appliedValue = isArray(value) ? value.join(",") : value;
@@ -62,7 +63,9 @@ export function httpRequest(options: MessageHandlerOptions) {
         } else {
           const rawData = Buffer.concat(data).toString();
           try {
-            options.debug("parsing raw data", rawData);
+            if (logRawData) {
+              options.debug("parsing raw data", rawData);
+            }
             const parsedDataJSON = isEmpty(rawData) ? {} : JSON.parse(rawData);
             returnValue.response = parsedDataJSON.errors ? parsedDataJSON : (options.mapper ? options.mapper(parsedDataJSON) : parsedDataJSON);
           } catch (err) {

@@ -225,6 +225,7 @@ export enum GroupEventField {
   CANCELLATION_REASON = "groupEvent.cancellation_reason",
   CREATED_BY = "groupEvent.created_by",
   DESCRIPTION = "groupEvent.description",
+  EXTERNAL_URL = "groupEvent.external_url",
   GROUP_CODE = "groupEvent.group_code",
   GROUP_NAME = "groupEvent.group_name",
   ID = "groupEvent.id",

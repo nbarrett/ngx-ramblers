@@ -1,18 +1,41 @@
 import { Request, Response } from "express";
 import { extendedGroupEvent } from "../models/extended-group-event";
+import { socialEvent } from "../models/social-event";
+import { memberBulkLoadAudit } from "../models/member-bulk-load-audit";
+import { deletedMember } from "../models/deleted-member";
 import { EventField, GroupEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import {
+  AGMStatsRequest,
+  AGMStatsResponse,
   EditableEventStats,
   EventStats,
-  EventStatsRequest
+  EventStatsRequest,
+  ExpenseAGMStats,
+  ExtendedGroupEvent,
+  LeaderStats,
+  MembershipAGMStats,
+  SocialAGMStats,
+  WalkAGMStats,
+  YearComparison
 } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { PipelineStage } from "mongoose";
+import { expenseClaim } from "../models/expense-claim";
+import * as transforms from "./transforms";
+import { kebabCase } from "es-toolkit/compat";
+import { sortBy } from "../../../../projects/ngx-ramblers/src/app/functions/arrays";
+import { dateTimeFromMillis, dateTimeInTimezone } from "../../shared/dates";
+import { DateTime } from "luxon";
+import { systemConfig } from "../../config/system-config";
+import { EventPopulation } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
+import * as crudController from "./crud-controller";
+import { fetchMappedEvents } from "../../ramblers/list-events";
 
 const debugLog = debug(envConfig.logNamespace("walk-admin"));
 debugLog.enabled = false;
-
+const controller = crudController.create<ExtendedGroupEvent>(extendedGroupEvent);
 export async function eventStats(req: Request, res: Response) {
   try {
     const pipeline: PipelineStage[] = [
@@ -172,4 +195,1182 @@ export async function recreateIndex(req: Request, res: Response) {
     debugLog("recreateIndex error:", error);
     res.status(500).json({ error: error.message });
   }
+}
+
+export async function earliestDate(req: Request, res: Response) {
+  try {
+    const earliest = await earliestDataDate();
+    res.json({ earliestDate: earliest });
+  } catch (error) {
+    debugLog("earliestDate error:", error);
+    res.status(500).json({
+      message: "Failed to fetch earliest date",
+      error: transforms.parseError(error)
+    });
+  }
+}
+
+export async function agmStats(req: Request, res: Response) {
+  try {
+    const {fromDate, toDate} = req.body as AGMStatsRequest;
+    debugLog("agmStats request:", {fromDate, toDate});
+
+    const earliestDate = await earliestDataDate();
+    const totalRange = toDate - fromDate;
+    const rangeInYears = totalRange / (365.25 * 24 * 60 * 60 * 1000);
+    const numPeriods = Math.max(1, Math.round(rangeInYears));
+    const oneYearMs = 365.25 * 24 * 60 * 60 * 1000;
+
+    debugLog(`Range: ${rangeInYears.toFixed(2)} years, numPeriods: ${numPeriods}`);
+    const yearlyStats: YearComparison[] = [];
+
+    for (let i = 0; i < numPeriods; i++) {
+      const periodFrom = i === 0 ? fromDate : fromDate + i * oneYearMs;
+      const periodTo = i === numPeriods - 1 ? toDate : fromDate + (i + 1) * oneYearMs;
+      const periodYear = dateTimeFromMillis(periodFrom).year;
+
+      debugLog(`Period ${i + 1}: from=${dateTimeFromMillis(periodFrom).toISO()}, to=${dateTimeFromMillis(periodTo).toISO()}, year=${periodYear}`);
+
+      const stats = await calculateYearStats(periodFrom, periodTo, periodYear);
+      yearlyStats.push(stats);
+    }
+
+    if (yearlyStats.length === 0) {
+      throw new Error("No yearly stats generated");
+    }
+
+    const currentYear = yearlyStats[yearlyStats.length - 1];
+    const previousYear = yearlyStats.length >= 2 ? yearlyStats[yearlyStats.length - 2] : null;
+    const twoYearsAgo = yearlyStats.length >= 3 ? yearlyStats[yearlyStats.length - 3] : null;
+
+    const response: AGMStatsResponse = {
+      currentYear,
+      previousYear,
+      twoYearsAgo,
+      earliestDate,
+      yearlyStats
+    };
+
+    debugLog("agmStats response:", JSON.stringify(response));
+    res.json(response);
+  } catch (error) {
+    debugLog("agmStats error:", error);
+    controller.errorDebugLog(`agmStats error: ${error}`);
+    res.status(500).json({
+      message: "AGM stats query failed",
+      request: req.body,
+      error: transforms.parseError(error),
+      stack: error?.stack
+    });
+  }
+}
+
+async function calculateYearStats(fromDate: number, toDate: number, year: number): Promise<YearComparison> {
+  const walkStats = await calculateWalkStats(fromDate, toDate);
+  const socialStats = await calculateSocialStats(fromDate, toDate);
+  const expenseStats = await calculateExpenseStats(fromDate, toDate);
+  const membershipStats = await calculateMembershipStats(fromDate, toDate);
+
+  return {
+    year,
+    periodFrom: fromDate,
+    periodTo: toDate,
+    walks: walkStats,
+    socials: socialStats,
+    expenses: expenseStats,
+    membership: membershipStats
+  };
+}
+
+async function calculateWalkStats(fromDate: number, toDate: number): Promise<WalkAGMStats> {
+  const config = await systemConfig();
+  const isWalksManager = config.group.walkPopulation === EventPopulation.WALKS_MANAGER;
+
+  const leaderIdFields = isWalksManager
+    ? [`$${GroupEventField.WALK_LEADER_NAME}`, `$${EventField.CONTACT_DETAILS_MEMBER_ID}`, "$fields.contactDetails.email", `$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`]
+    : [`$${EventField.CONTACT_DETAILS_MEMBER_ID}`, "$groupEvent.walk_leader.id", "$fields.contactDetails.email", `$${GroupEventField.WALK_LEADER_NAME}`, `$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`];
+
+  const leaderNameFields = isWalksManager
+    ? [`$${GroupEventField.WALK_LEADER_NAME}`, `$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`, `$${EventField.CONTACT_DETAILS_MEMBER_ID}`, "Unknown"]
+    : [`$${EventField.CONTACT_DETAILS_DISPLAY_NAME}`, `$${GroupEventField.WALK_LEADER_NAME}`, "$groupEvent.walk_leader.id", `$${EventField.CONTACT_DETAILS_MEMBER_ID}`, "Unknown"];
+
+  const leaderEmailFields = isWalksManager
+    ? ["$groupEvent.walk_leader.email", "$fields.contactDetails.email", ""]
+    : ["$fields.contactDetails.email", "$groupEvent.walk_leader.email", ""];
+
+  const confirmedStatusMatch = isWalksManager
+    ? {
+        $or: [
+          {[`${GroupEventField.STATUS}`]: "confirmed"},
+          {[`${GroupEventField.STATUS}`]: {$exists: false}},
+          {[`${GroupEventField.STATUS}`]: null},
+          {[`${GroupEventField.STATUS}`]: ""},
+          {[`${GroupEventField.STATUS}`]: {$nin: ["cancelled", "deleted"]}}
+        ]
+      }
+    : {[`${GroupEventField.STATUS}`]: "confirmed"};
+
+  const confirmedStatusExpression = isWalksManager
+    ? {
+        $or: [
+          {$eq: [`$${GroupEventField.STATUS}`, "confirmed"]},
+          {$eq: [`$${GroupEventField.STATUS}`, null]},
+          {$eq: [`$${GroupEventField.STATUS}`, ""]},
+          {$not: [{$ifNull: [`$${GroupEventField.STATUS}`, false]}]},
+          {$not: [{$in: [`$${GroupEventField.STATUS}`, ["cancelled", "deleted"]]}]}
+        ]
+      }
+    : {$eq: [`$${GroupEventField.STATUS}`, "confirmed"]};
+
+  const walkPipeline: PipelineStage[] = [
+    {
+      $match: {
+        [`${GroupEventField.START_DATE}`]: {
+          $gte: dateTimeFromMillis(fromDate).toISO(),
+          $lte: dateTimeFromMillis(toDate).toISO()
+        }
+      }
+    },
+    {
+        $facet: {
+        totals: [
+          {
+            $group: {
+              _id: null,
+              totalWalks: {$sum: 1},
+              confirmedWalks: {
+                $sum: {
+                  $cond: [confirmedStatusExpression, 1, 0]
+                }
+              },
+              eveningWalks: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        confirmedStatusExpression,
+                        {
+                          $gte: [
+                            {
+                              $toInt: {
+                                $dateToString: {
+                                  format: "%H",
+                                  date: {$toDate: `$${GroupEventField.START_DATE}`},
+                                  timezone: "Europe/London"
+                                }
+                              }
+                            },
+                            18
+                          ]
+                        }
+                      ]
+                    },
+                    1,
+                    0
+                  ]
+                }
+              },
+              cancelledWalks: {
+                $sum: {
+                  $cond: [
+                    {
+                      $or: [
+                        {$eq: [`$${GroupEventField.STATUS}`, "cancelled"]},
+                        {$regexMatch: {input: {$ifNull: [`$${GroupEventField.TITLE}`, ""]}, regex: /cancelled/i}}
+                      ]
+                    },
+                    1,
+                    0
+                  ]
+                }
+              },
+              walksAwaitingLeader: isWalksManager
+                ? {$sum: 0}
+                : {
+                    $sum: {
+                      $cond: [
+                        {
+                          $and: [
+                            {$eq: [`$${GroupEventField.ITEM_TYPE}`, RamblersEventType.GROUP_WALK]},
+                            {$lte: [{$toDate: `$${GroupEventField.START_DATE}`}, new Date()]},
+                            {
+                              $or: [
+                                {$eq: [`$${GroupEventField.STATUS}`, null]},
+                                {$not: [{$in: [`$${GroupEventField.STATUS}`, ["confirmed", "cancelled", "deleted"]]}]}
+                              ]
+                            }
+                          ]
+                        },
+                        1,
+                        0
+                      ]
+                    }
+                  },
+              totalMiles: {
+                $sum: {
+                  $cond: [
+                    confirmedStatusExpression,
+                    {$ifNull: ["$groupEvent.distance_miles", 0]},
+                    0
+                  ]
+                }
+              },
+              totalAttendees: {
+                $sum: {
+                  $cond: [
+                    confirmedStatusExpression,
+                    {$size: {$ifNull: ["$fields.attendees", []]}},
+                    0
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        leaders: [
+          {
+            $match: {
+              ...confirmedStatusMatch
+            }
+          },
+          {
+            $addFields: {
+              leaderId: {
+                $reduce: {
+                  input: leaderIdFields,
+                  initialValue: "",
+                  in: {
+                    $cond: [
+                      {
+                        $and: [
+                          {$eq: ["$$value", ""]},
+                          {$ne: ["$$this", null]},
+                          {$ne: ["$$this", ""]}
+                        ]
+                      },
+                      "$$this",
+                      "$$value"
+                    ]
+                  }
+                }
+              },
+              leaderName: {
+                $reduce: {
+                  input: leaderNameFields,
+                  initialValue: "",
+                  in: {
+                    $cond: [
+                      {
+                        $and: [
+                          {$eq: ["$$value", ""]},
+                          {$ne: ["$$this", null]},
+                          {$ne: ["$$this", ""]}
+                        ]
+                      },
+                      "$$this",
+                      "$$value"
+                    ]
+                  }
+                }
+              },
+              leaderEmail: {
+                $reduce: {
+                  input: leaderEmailFields,
+                  initialValue: "",
+                  in: {
+                    $cond: [
+                      {
+                        $and: [
+                          {$eq: ["$$value", ""]},
+                          {$ne: ["$$this", null]},
+                          {$ne: ["$$this", ""]}
+                        ]
+                      },
+                      "$$this",
+                      "$$value"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+          $group: {
+            _id: {$ifNull: ["$leaderId", ""]},
+            name: {$first: {$ifNull: ["$leaderName", "Unknown"]}},
+            email: {$first: {$ifNull: ["$leaderEmail", ""]}},
+            walkCount: {$sum: 1},
+            totalMiles: {
+                $sum: {$ifNull: ["$groupEvent.distance_miles", 0]}
+              },
+            firstWalkDate: {$min: `$${GroupEventField.START_DATE}`}
+            }
+          },
+          {
+            $sort: {walkCount: -1, totalMiles: -1}
+          }
+        ]
+      }
+    }
+  ];
+
+  const sampleBeforeAgg = await extendedGroupEvent.find({
+    [`${GroupEventField.START_DATE}`]: {
+      $gte: dateTimeFromMillis(fromDate).toISO(),
+      $lte: dateTimeFromMillis(toDate).toISO()
+    },
+    ...confirmedStatusMatch
+  }).limit(3).lean();
+
+  debugLog(`Sample confirmed walks (${sampleBeforeAgg.length}):`, JSON.stringify(sampleBeforeAgg.map(w => ({
+    title: w.groupEvent?.title,
+    status: w.groupEvent?.status,
+    walk_leader: w.groupEvent?.walk_leader,
+    contactDetails: w.fields?.contactDetails
+  })), null, 2));
+
+  const result = await extendedGroupEvent.aggregate(walkPipeline);
+  const data = result[0];
+
+  const totals = data.totals[0] || {
+    totalWalks: 0,
+    confirmedWalks: 0,
+    cancelledWalks: 0,
+    eveningWalks: 0,
+    walksAwaitingLeader: 0,
+    totalMiles: 0,
+    totalAttendees: 0
+  };
+
+  debugLog(`calculateWalkStats(${dateTimeFromMillis(fromDate).toISO()} to ${dateTimeFromMillis(toDate).toISO()}): eveningWalks=${totals.eveningWalks}, confirmedWalks=${totals.confirmedWalks}, totalWalks=${totals.totalWalks}`);
+
+  const sampleWalks = await extendedGroupEvent.aggregate([
+    {
+      $match: {
+        [`${GroupEventField.START_DATE}`]: {
+          $gte: dateTimeFromMillis(fromDate).toISO(),
+          $lte: dateTimeFromMillis(toDate).toISO()
+        },
+        ...confirmedStatusMatch
+      }
+    },
+    {
+      $limit: 5
+    },
+    {
+      $project: {
+        startDate: `$${GroupEventField.START_DATE}`,
+        title: `$${GroupEventField.TITLE}`,
+        extractedHour: {
+          $toInt: {
+            $dateToString: {
+              format: "%H",
+              date: {$toDate: `$${GroupEventField.START_DATE}`},
+              timezone: "Europe/London"
+            }
+          }
+        }
+      }
+    }
+  ]);
+  debugLog("Sample walks with extracted hours:", JSON.stringify(sampleWalks, null, 2));
+
+  let leaders: LeaderStats[] = (data.leaders || []).map((leader: any) => ({
+    id: leader._id || "",
+    name: leader.name || "",
+    email: leader.email || "",
+    walkCount: leader.walkCount || 0,
+    totalMiles: Math.round(leader.totalMiles * 10) / 10
+  }));
+
+  let remoteEvents: ExtendedGroupEvent[] = [];
+  if (isWalksManager) {
+    remoteEvents = await fetchMappedEvents(config, fromDate, toDate);
+  }
+
+  if (isWalksManager) {
+    const leaderMap = new Map<string, {id: string; name: string; email: string; walkCount: number; totalMiles: number}>();
+    const firstValue = (candidates: (string | null | undefined)[]) => {
+      for (const value of candidates) {
+        if (value !== undefined && value !== null && value !== "") {
+          return value;
+        }
+      }
+      return "";
+    };
+
+    const normalizeText = (value: string) => value ? value.trim().replace(/\.$/, "") : "";
+
+    const addLeaderCount = (id: string, name: string, email: string, walkCount: number, miles: number) => {
+      const normalizedId = normalizeText(id);
+      const normalizedName = normalizeText(name);
+      if (!normalizedId) {
+        return;
+      }
+      const existing = leaderMap.get(normalizedId) || {id: normalizedId, name: normalizedName, email, walkCount: 0, totalMiles: 0};
+      existing.walkCount += walkCount;
+      existing.totalMiles += miles;
+      if (!existing.name && normalizedName) {
+        existing.name = normalizedName;
+      }
+      if (!existing.email && email) {
+        existing.email = email;
+      }
+      leaderMap.set(normalizedId, existing);
+    };
+
+    leaders.forEach(leader => addLeaderCount(leader.id, leader.name, leader.email, leader.walkCount, leader.totalMiles));
+
+    remoteEvents.forEach(event => {
+      const status = event.groupEvent?.status;
+      if ([ "cancelled", "deleted" ].includes(status || "")) {
+        return;
+      }
+      const id = firstValue([
+        event.groupEvent?.walk_leader?.name,
+        event.groupEvent?.walk_leader?.telephone,
+        event.groupEvent?.walk_leader?.email_form,
+        event.fields?.contactDetails?.memberId,
+        event.fields?.contactDetails?.displayName
+      ]);
+      if (!id) {
+        return;
+      }
+      const name = firstValue([
+        event.groupEvent?.walk_leader?.name,
+        event.fields?.contactDetails?.displayName,
+        event.fields?.contactDetails?.memberId
+      ]) || "Unknown";
+      const email = firstValue([
+        event.fields?.contactDetails?.email
+      ]);
+      addLeaderCount(id, name, email, 1, event.groupEvent?.distance_miles || 0);
+    });
+
+    leaders = Array.from(leaderMap.values()).map(leader => ({
+      ...leader,
+      totalMiles: Math.round(leader.totalMiles * 10) / 10
+    })).sort((a, b) => {
+      if (b.walkCount !== a.walkCount) {
+        return b.walkCount - a.walkCount;
+      }
+      return b.totalMiles - a.totalMiles;
+    });
+  }
+
+  const topLeader = leaders.length > 0 ? leaders[0] : {
+    id: "",
+    name: "None",
+    email: "",
+    walkCount: 0,
+    totalMiles: 0
+  };
+
+  const historicalLeaders = await getAllHistoricalLeaders(fromDate);
+  const newLeaderIds = new Set(leaders.map(l => l.id).filter(id => id && !historicalLeaders.has(id)));
+  const newLeadersList = leaders.filter(leader => newLeaderIds.has(leader.id));
+
+  const cancelledWalksList = await extendedGroupEvent.find({
+    [`${GroupEventField.START_DATE}`]: {
+      $gte: dateTimeFromMillis(fromDate).toISO(),
+      $lte: dateTimeFromMillis(toDate).toISO()
+    },
+    $or: [
+      {[`${GroupEventField.STATUS}`]: "cancelled"},
+      {[`${GroupEventField.TITLE}`]: {$regex: /cancelled/i}}
+    ]
+  }).sort({[`${GroupEventField.START_DATE}`]: 1}).lean();
+
+  const eveningWalksListFromDb = await extendedGroupEvent.aggregate([
+    {
+      $match: {
+        [`${GroupEventField.START_DATE}`]: {
+          $gte: dateTimeFromMillis(fromDate).toISO(),
+          $lte: dateTimeFromMillis(toDate).toISO()
+        },
+        ...confirmedStatusMatch
+      }
+    },
+    {
+      $match: {
+        $expr: {
+          $gte: [
+            {
+              $toInt: {
+                $dateToString: {
+                  format: "%H",
+                  date: {$toDate: `$${GroupEventField.START_DATE}`},
+                  timezone: "Europe/London"
+                }
+              }
+            },
+            18
+          ]
+        }
+      }
+    },
+    {$sort: {[`${GroupEventField.START_DATE}`]: 1}}
+  ]);
+
+  const eveningWalksListFromRamblers = isWalksManager ? remoteEvents.filter(event => {
+    const status = event.groupEvent?.status;
+    if ([ "cancelled", "deleted" ].includes(status || "")) {
+      return false;
+    }
+    if (event.groupEvent?.item_type !== RamblersEventType.GROUP_WALK) {
+      return false;
+    }
+    const start = event.groupEvent?.start_date_time;
+    if (!start) {
+      return false;
+    }
+    const startDate = DateTime.fromISO(start).setZone("Europe/London");
+    return startDate.toMillis() >= fromDate && startDate.toMillis() <= toDate && startDate.hour >= 18;
+  }).sort((a, b) => DateTime.fromISO(a.groupEvent?.start_date_time || "").toMillis() - DateTime.fromISO(b.groupEvent?.start_date_time || "").toMillis()) : [];
+
+  const eveningWalksList = isWalksManager
+    ? [...eveningWalksListFromRamblers]
+    : eveningWalksListFromDb;
+
+  const unfilledSlotsList = isWalksManager ? [] : await extendedGroupEvent.find({
+    [`${GroupEventField.ITEM_TYPE}`]: RamblersEventType.GROUP_WALK,
+    [`${GroupEventField.START_DATE}`]: {
+      $gte: dateTimeFromMillis(fromDate).toISO(),
+      $lte: new Date().toISOString()
+    },
+    $or: [
+      {[`${EventField.CONTACT_DETAILS_MEMBER_ID}`]: null},
+      {[`${EventField.CONTACT_DETAILS_MEMBER_ID}`]: {$exists: false}},
+      {[`${EventField.CONTACT_DETAILS_MEMBER_ID}`]: ""},
+      {[`${GroupEventField.TITLE}`]: null},
+      {[`${GroupEventField.TITLE}`]: {$exists: false}},
+      {[`${GroupEventField.TITLE}`]: ""}
+    ]
+  }).sort({[`${GroupEventField.START_DATE}`]: 1}).lean();
+
+  const formatWalkListItem = (walk: any) => {
+    const walkId = walk._id?.toString() || walk.groupEvent?.id || "";
+    const title = walk.groupEvent?.title || "";
+    const startDate = walk.groupEvent?.start_date_time;
+    const dateStr = startDate ? DateTime.fromISO(startDate).toFormat("yyyy-MM-dd") : "";
+    const urlSlug = walk.groupEvent?.url
+      || kebabCase([title, dateStr].filter(Boolean).join("-"))
+      || walk.groupEvent?.id
+      || walkId;
+    const lastSegment = urlSlug.split("/").pop() || urlSlug;
+    const walkLeaderFromManager = walk.groupEvent?.walk_leader?.name;
+    const walkLeaderFromFields = walk.fields?.contactDetails?.displayName;
+    const walkLeader = isWalksManager
+      ? walkLeaderFromManager || walkLeaderFromFields || ""
+      : walkLeaderFromFields || walkLeaderFromManager || "";
+
+    return {
+      id: walkId,
+      title,
+      startDate: DateTime.fromISO(startDate).toMillis(),
+      walkDate: startDate || "",
+      walkLeader,
+      distance: walk.groupEvent?.distance_miles || 0,
+      url: `/walks/${lastSegment}`
+    };
+  };
+
+  return {
+    totalWalks: totals.totalWalks,
+    confirmedWalks: isWalksManager ? totals.totalWalks : totals.confirmedWalks,
+    cancelledWalks: totals.cancelledWalks,
+    cancelledWalksList: cancelledWalksList.map(formatWalkListItem),
+    eveningWalks: isWalksManager ? eveningWalksList.length : (totals.eveningWalks || 0),
+    eveningWalksList: eveningWalksList.map(formatWalkListItem),
+    totalMiles: Math.round(totals.totalMiles * 10) / 10,
+    totalAttendees: totals.totalAttendees,
+    activeLeaders: leaders.length,
+    newLeaders: newLeaderIds.size,
+    newLeadersList,
+    topLeader,
+    allLeaders: leaders,
+    unfilledSlots: isWalksManager ? 0 : unfilledSlotsList.length,
+    unfilledSlotsList: unfilledSlotsList.map(formatWalkListItem)
+  };
+}
+
+async function getAllHistoricalLeaders(beforeDate: number): Promise<Set<string>> {
+  const config = await systemConfig();
+  const isWalksManager = config.group.walkPopulation === EventPopulation.WALKS_MANAGER;
+
+  const leaderIdFields = isWalksManager
+    ? [`$${GroupEventField.WALK_LEADER_NAME}`, `$${EventField.CONTACT_DETAILS_MEMBER_ID}`]
+    : [`$${EventField.CONTACT_DETAILS_MEMBER_ID}`, "$groupEvent.walk_leader.id"];
+
+  const confirmedStatusMatch = isWalksManager
+    ? {
+        $or: [
+          {[`${GroupEventField.STATUS}`]: "confirmed"},
+          {[`${GroupEventField.STATUS}`]: {$exists: false}},
+          {[`${GroupEventField.STATUS}`]: null},
+          {[`${GroupEventField.STATUS}`]: ""}
+        ]
+      }
+    : {[`${GroupEventField.STATUS}`]: "confirmed"};
+
+  const pipeline: PipelineStage[] = [
+    {
+      $match: {
+        [`${GroupEventField.START_DATE}`]: {
+          $lt: dateTimeFromMillis(beforeDate).toISO()
+        },
+        ...confirmedStatusMatch
+      }
+    },
+    {
+      $addFields: {
+        leaderId: {
+          $reduce: {
+            input: leaderIdFields,
+            initialValue: "",
+            in: {
+              $cond: [
+                {
+                  $and: [
+                    {$eq: ["$$value", ""]},
+                    {$ne: ["$$this", null]},
+                    {$ne: ["$$this", ""]}
+                  ]
+                },
+                "$$this",
+                "$$value"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      $group: {
+        _id: {$ifNull: ["$leaderId", ""]}
+      }
+    }
+  ];
+
+  const result = await extendedGroupEvent.aggregate(pipeline);
+  return new Set(result.map((r: any) => r._id).filter(id => id));
+}
+
+async function calculateSocialStats(fromDate: number, toDate: number): Promise<SocialAGMStats> {
+  const config = await systemConfig();
+  const isSocialsWalksManager = config.group.socialEventPopulation === EventPopulation.WALKS_MANAGER;
+
+  debugLog(`calculateSocialStats: isSocialsWalksManager=${isSocialsWalksManager}, fromDate=${dateTimeFromMillis(fromDate).toISO()}, toDate=${dateTimeFromMillis(toDate).toISO()}`);
+
+  const organiserNameFields = isSocialsWalksManager
+    ? ["$groupEvent.event_organiser.name", "$fields.contactDetails.displayName", "$fields.contactDetails.memberId"]
+    : ["$fields.contactDetails.displayName", "$groupEvent.event_organiser.name", "$fields.contactDetails.memberId"];
+
+  const organiserIdFields = isSocialsWalksManager
+    ? ["$groupEvent.event_organiser.name", "$fields.contactDetails.memberId", "$fields.contactDetails.displayName"]
+    : ["$fields.contactDetails.memberId", "$groupEvent.event_organiser.id", "$fields.contactDetails.displayName", "$groupEvent.event_organiser.name"];
+
+  const socialPipeline: PipelineStage[] = [
+    {
+      $match: {
+        [`${GroupEventField.ITEM_TYPE}`]: "group-event",
+        [`${GroupEventField.START_DATE}`]: {
+          $gte: dateTimeFromMillis(fromDate).toISO(),
+          $lte: dateTimeFromMillis(toDate).toISO()
+        }
+      }
+    },
+    {
+      $facet: {
+        events: [
+          {
+            $project: {
+              date: `$${GroupEventField.START_DATE}`,
+              description: {$ifNull: [`$${GroupEventField.TITLE}`, `$${GroupEventField.DESCRIPTION}`]},
+              link: `$${GroupEventField.EXTERNAL_URL}`,
+              linkTitle: {$ifNull: [`$${GroupEventField.TITLE}`, `$${GroupEventField.DESCRIPTION}`]},
+              organiserName: {$ifNull: organiserNameFields}
+            }
+          },
+          {
+            $sort: {date: 1}
+          }
+        ],
+        organisers: [
+          {
+            $group: {
+              _id: {$ifNull: organiserIdFields},
+              name: {$first: {$ifNull: organiserNameFields}},
+              eventCount: {$sum: 1}
+            }
+          },
+          {
+            $sort: {eventCount: -1}
+          }
+        ]
+      }
+    }
+  ];
+
+  const result = await extendedGroupEvent.aggregate(socialPipeline);
+  const data = result[0];
+
+  let socialsList = (data.events || []).map((event: any) => ({
+    date: event.date,
+    description: event.description || "Social event",
+    link: event.link,
+    linkTitle: event.linkTitle,
+    organiserName: event.organiserName || "Unknown"
+  }));
+
+  let organisersList = (data.organisers || []).map((org: any) => ({
+    id: org._id || "",
+    name: org.name || "Unknown",
+    eventCount: org.eventCount || 0
+  }));
+
+  if (isSocialsWalksManager) {
+    const remoteEvents = await fetchMappedEvents(config, fromDate, toDate);
+    debugLog(`calculateSocialStats: fetchMappedEvents returned ${remoteEvents.length} events`);
+
+    const socials = remoteEvents.filter(event => {
+      if (event.groupEvent?.item_type !== RamblersEventType.GROUP_EVENT) {
+        return false;
+      }
+      const start = event.groupEvent?.start_date_time;
+      if (!start) {
+        return false;
+      }
+      const startMillis = DateTime.fromISO(start).toMillis();
+      return startMillis >= fromDate && startMillis <= toDate;
+    });
+
+    debugLog(`calculateSocialStats: filtered to ${socials.length} social events`);
+
+    socials.forEach(event => {
+      debugLog(`calculateSocialStats: RAW EVENT - title="${event.groupEvent?.title}", event_organiser=${JSON.stringify(event.groupEvent?.event_organiser)}, contactDetails=${JSON.stringify(event.fields?.contactDetails)}`);
+    });
+
+    socialsList = socials.map(event => {
+      const organiserName = event.groupEvent?.event_organiser?.name
+        || event.fields?.contactDetails?.displayName
+        || "Unknown";
+
+      debugLog(`calculateSocialStats: event="${event.groupEvent?.title}", event_organiser.name="${event.groupEvent?.event_organiser?.name}", contactDetails.displayName="${event.fields?.contactDetails?.displayName}", final organiserName="${organiserName}"`);
+
+      return {
+        date: event.groupEvent?.start_date_time,
+        description: event.groupEvent?.title || "Social event",
+        link: event.groupEvent?.external_url || event.groupEvent?.url,
+        linkTitle: event.groupEvent?.title,
+        organiserName
+      };
+    });
+    socialsList = socialsList.sort(sortBy("date"));
+
+    const organiserMap = new Map<string, { id: string; name: string; eventCount: number }>();
+    socials.forEach(event => {
+      const name = event.groupEvent?.event_organiser?.name
+        || event.fields?.contactDetails?.displayName
+        || "";
+      const id = name || "";
+      if (!id) {
+        debugLog(`calculateSocialStats: skipping event with no organiser id/name - event="${event.groupEvent?.title}"`);
+        return;
+      }
+      const existing = organiserMap.get(id) || {id, name, eventCount: 0};
+      existing.eventCount += 1;
+      organiserMap.set(id, existing);
+    });
+
+    organisersList = Array.from(organiserMap.values()).sort(sortBy("-eventCount", "name"));
+    debugLog(`calculateSocialStats: organisersList has ${organisersList.length} organisers:`, organisersList);
+  }
+
+  debugLog(`calculateSocialStats: returning ${socialsList.length} socials and ${organisersList.length} organisers`);
+
+  return {
+    totalSocials: socialsList.length,
+    socialsList,
+    uniqueOrganisers: organisersList.length,
+    organisersList
+  };
+}
+
+async function calculateExpenseStats(fromDate: number, toDate: number): Promise<ExpenseAGMStats> {
+  debugLog(`calculateExpenseStats: fromDate=${dateTimeFromMillis(fromDate).toISO()}, toDate=${dateTimeFromMillis(toDate).toISO()}, fromMillis=${fromDate}, toMillis=${toDate}`);
+  const expensePipeline: PipelineStage[] = [
+    {
+      $addFields: {
+        expenseEvents: {$ifNull: ["$expenseEvents", []]},
+        expenseItems: {$ifNull: ["$expenseItems", []]},
+        paidEvents: {
+          $filter: {
+            input: {$ifNull: ["$expenseEvents", []]},
+            as: "event",
+            cond: {$eq: ["$$event.eventType.description", "Paid"]}
+          }
+        }
+      }
+    },
+    {
+      $addFields: {
+        paidDate: {
+          $ifNull: [
+            {$first: "$paidEvents.date"},
+            {$min: "$expenseItems.expenseDate"},
+            toDate
+          ]
+        },
+        createdBy: {
+          $ifNull: [
+            {$first: "$expenseEvents.memberId"},
+            "unknown"
+          ]
+        },
+        createdByName: {
+          $ifNull: [
+            {$first: "$expenseEvents.name"},
+            {$first: "$expenseEvents.displayName"},
+            "Unknown"
+          ]
+        }
+      }
+    },
+    {
+      $match: {
+        paidDate: {
+          $gte: fromDate,
+          $lte: toDate
+        }
+      }
+    },
+    {
+      $project: {
+        paidDate: "$paidDate",
+        createdBy: "$createdBy",
+        createdByName: "$createdByName",
+        expenseItems: "$expenseItems",
+        costField: "$cost"
+      }
+    },
+    {
+      $addFields: {
+        itemDetails: {
+          $map: {
+            input: {$ifNull: ["$expenseItems", []]},
+            as: "item",
+            in: {
+              description: {$ifNull: ["$$item.description", "Expense item"]},
+              cost: {$ifNull: ["$$item.cost", 0]},
+              paidDate: "$paidDate"
+            }
+          }
+        },
+        itemCount: {
+          $size: {
+            $ifNull: ["$expenseItems", []]
+          }
+        },
+        totalCost: {
+          $sum: {
+            $map: {
+              input: {$ifNull: ["$expenseItems", []]},
+              as: "item",
+              in: {$ifNull: ["$$item.cost", 0]}
+            }
+          }
+        }
+      }
+    },
+    {
+      $addFields: {
+        totalCost: {
+          $cond: [
+            {$gt: ["$totalCost", 0]},
+            "$totalCost",
+            {$ifNull: ["$costField", 0]}
+          ]
+        }
+      }
+    },
+    {
+      $lookup: {
+        from: "members",
+        let: {memberId: "$createdBy"},
+        pipeline: [
+          {
+            $match: {
+              $expr: {$eq: ["$memberId", "$$memberId"]}
+            }
+          },
+          {
+            $project: {
+              displayName: 1
+            }
+          }
+        ],
+        as: "claimant"
+      }
+    },
+    {
+      $addFields: {
+        claimantName: {$ifNull: [{$first: "$claimant.displayName"}, "$createdByName", "Unknown"]}
+      }
+    },
+    {
+      $facet: {
+        totals: [
+          {
+            $group: {
+              _id: null,
+              totalClaims: {$sum: 1},
+              totalItems: {$sum: "$itemCount"},
+              totalCost: {$sum: "$totalCost"}
+            }
+          }
+        ],
+        payees: [
+          {
+            $group: {
+              _id: {$ifNull: ["$createdBy", "unknown"]},
+              name: {$first: {$ifNull: ["$claimantName", "Unknown"]}},
+              totalCost: {$sum: "$totalCost"},
+              totalItems: {$sum: "$itemCount"},
+              claimCount: {$sum: 1},
+              items: {$push: "$itemDetails"}
+            }
+          },
+          {
+            $sort: {totalCost: -1}
+          },
+          {
+            $addFields: {
+              items: {
+                $reduce: {
+                  input: {$ifNull: ["$items", []]},
+                  initialValue: [],
+                  in: {$concatArrays: ["$$value", {$ifNull: ["$$this", []]}]}
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ];
+
+  const result = await expenseClaim.aggregate(expensePipeline);
+  const totals = result[0]?.totals[0] || {totalClaims: 0, totalItems: 0, totalCost: 0};
+  const payees = result[0]?.payees || [];
+  debugLog(`calculateExpenseStats: found ${totals.totalClaims} claims, ${totals.totalItems} items, £${totals.totalCost}, ${payees.length} payees`);
+
+  const unpaidExpensePipeline: PipelineStage[] = [
+    {
+      $addFields: {
+        expenseEvents: {$ifNull: ["$expenseEvents", []]},
+        expenseItems: {$ifNull: ["$expenseItems", []]},
+        paidEvents: {
+          $filter: {
+            input: {$ifNull: ["$expenseEvents", []]},
+            as: "event",
+            cond: {$eq: ["$$event.eventType.description", "Paid"]}
+          }
+        }
+      }
+    },
+    {
+      $match: {
+        "paidEvents.0": {$exists: false}
+      }
+    },
+    {
+      $addFields: {
+        createdBy: {
+          $ifNull: [
+            {$first: "$expenseEvents.memberId"},
+            "unknown"
+          ]
+        },
+        createdByName: {
+          $ifNull: [
+            {$first: "$expenseEvents.name"},
+            {$first: "$expenseEvents.displayName"},
+            "Unknown"
+          ]
+        }
+      }
+    },
+    {
+      $lookup: {
+        from: "members",
+        let: {memberId: "$createdBy"},
+        pipeline: [
+          {
+            $match: {
+              $expr: {$eq: ["$memberId", "$$memberId"]}
+            }
+          },
+          {
+            $project: {
+              displayName: 1
+            }
+          }
+        ],
+        as: "claimant"
+      }
+    },
+    {
+      $addFields: {
+        claimantName: {$ifNull: [{$first: "$claimant.displayName"}, "$createdByName", "Unknown"]}
+      }
+    },
+    {$unwind: {path: "$expenseItems", preserveNullAndEmptyArrays: true}},
+    {
+      $project: {
+        id: {$toString: "$_id"},
+        claimantName: "$claimantName",
+        description: {$ifNull: ["$expenseItems.description", "Expense item"]},
+        cost: {$ifNull: ["$expenseItems.cost", 0]},
+        expenseDate: {$ifNull: ["$expenseItems.expenseDate", "$expenseItems.date", 0]}
+      }
+    },
+    {
+      $match: {
+        cost: {$gt: 0},
+        expenseDate: {
+          $gte: fromDate,
+          $lte: toDate
+        }
+      }
+    },
+    {
+      $sort: {expenseDate: -1}
+    }
+  ];
+
+  const unpaidExpenses = await expenseClaim.aggregate(unpaidExpensePipeline);
+  const totalUnpaidCost = unpaidExpenses.reduce((sum, item) => sum + (item.cost || 0), 0);
+  debugLog(`calculateExpenseStats: found ${unpaidExpenses.length} unpaid expense items, total unpaid cost: £${totalUnpaidCost}`);
+
+  return {
+    totalClaims: totals.totalClaims || 0,
+    totalItems: totals.totalItems || 0,
+    totalCost: Math.round((totals.totalCost || 0) * 100) / 100,
+    totalUnpaidCost: Math.round(totalUnpaidCost * 100) / 100,
+    payees: payees.map((payer: any) => ({
+      id: payer._id || "",
+      name: payer.name || "Unknown",
+      totalCost: Math.round((payer.totalCost || 0) * 100) / 100,
+      totalItems: payer.totalItems || 0,
+      claimCount: payer.claimCount || 0,
+      items: (payer.items || []).map((item: any) => ({
+        description: item.description || "Expense item",
+        cost: Math.round((item.cost || 0) * 100) / 100,
+        paidDate: item.paidDate || null
+      }))
+    })),
+    unpaidExpenses: unpaidExpenses.map((item: any) => ({
+      id: item.id || "",
+      claimantName: item.claimantName || "Unknown",
+      description: item.description || "Expense item",
+      cost: Math.round((item.cost || 0) * 100) / 100,
+      expenseDate: item.expenseDate || 0
+    }))
+  };
+}
+
+async function calculateMembershipStats(fromDate: number, toDate: number): Promise<MembershipAGMStats> {
+  debugLog(`calculateMembershipStats: fromDate=${dateTimeFromMillis(fromDate).toISO()}, toDate=${dateTimeFromMillis(toDate).toISO()}`);
+
+  const startSnapshot = await memberBulkLoadAudit.findOne({
+    createdDate: {$lte: fromDate}
+  }).sort({createdDate: -1});
+
+  const endSnapshot = await memberBulkLoadAudit.findOne({
+    createdDate: {$lte: toDate}
+  }).sort({createdDate: -1});
+
+  const startMembers = new Set((startSnapshot?.members || []).map(m => m.membershipNumber || m.email));
+  const endMembers = new Set((endSnapshot?.members || []).map(m => m.membershipNumber || m.email));
+
+  const totalMembers = endMembers.size;
+
+  const joiners = [...endMembers].filter(m => !startMembers.has(m)).length;
+
+  const leavers = [...startMembers].filter(m => !endMembers.has(m)).length;
+
+  const deletionsInPeriod = await deletedMember.countDocuments({
+    deletedAt: {
+      $gte: fromDate,
+      $lte: toDate
+    }
+  });
+
+  debugLog(`Membership stats: total=${totalMembers}, joiners=${joiners}, leavers=${leavers}, deletions=${deletionsInPeriod}`);
+
+  return {
+    totalMembers,
+    newJoiners: joiners,
+    leavers,
+    deletions: deletionsInPeriod
+  };
+}
+
+async function earliestDataDate(): Promise<number | null> {
+  const [walks, socials, expenses] = await Promise.all([
+    extendedGroupEvent.aggregate([
+      {
+        $group: {
+          _id: null,
+          minDate: {$min: `$${GroupEventField.START_DATE}`}
+        }
+      }
+    ]),
+    socialEvent.aggregate([
+      {
+        $group: {
+          _id: null,
+          minDate: {$min: "$eventDate"}
+        }
+      }
+    ]),
+    expenseClaim.aggregate([
+      {
+        $project: {
+          paidEvents: {
+            $filter: {
+              input: {$ifNull: ["$expenseEvents", []]},
+              as: "event",
+              cond: {$eq: ["$$event.eventType.description", "Paid"]}
+            }
+          }
+        }
+      },
+      {$unwind: {path: "$paidEvents", preserveNullAndEmptyArrays: false}},
+      {
+        $group: {
+          _id: null,
+          minDate: {$min: "$paidEvents.date"}
+        }
+      }
+    ])
+  ]);
+
+  const dates: number[] = [];
+  const walkDate = walks?.[0]?.minDate ? dateTimeInTimezone(walks[0].minDate).toMillis() : null;
+  const socialDate = socials?.[0]?.minDate || null;
+  const expenseDate = expenses?.[0]?.minDate || null;
+
+  [walkDate, socialDate, expenseDate].forEach(d => {
+    if (typeof d === "number" && d > 0) {
+      dates.push(d);
+    }
+  });
+
+  if (!dates.length) {
+    return null;
+  }
+
+  return Math.min(...dates);
 }
