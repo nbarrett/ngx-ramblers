@@ -12,6 +12,7 @@ import { FormsModule } from "@angular/forms";
 import { WalkSummaryPipe } from "../../../pipes/walk-summary.pipe";
 import { DisplayMember } from "../../../models/member.model";
 import { ExtendedGroupEvent, InputSource } from "../../../models/group-event.model";
+import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { WalkDisplayService } from "../walk-display.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { GroupEventService } from "../../../services/walks-and-events/group-event.service";
@@ -177,7 +178,8 @@ export class WalkEditCopyFromComponent {
       case WalkCopyOption.COPY_SELECTED_WALK_LEADER: {
         criteria = {
           [EventField.CONTACT_DETAILS_MEMBER_ID]: this.copySourceFromWalkLeaderMemberId,
-          [GroupEventField.TITLE]: {$exists: true}
+          [GroupEventField.TITLE]: {$exists: true},
+          [GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_WALK
         };
         break;
       }
@@ -185,12 +187,16 @@ export class WalkEditCopyFromComponent {
         criteria = {
           [EventField.LINKS]: {
             $elemMatch: {source: LinkSource.OS_MAPS}
-          }
+          },
+          [GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_WALK
         };
         break;
       }
       default: {
-        criteria = {[EventField.CONTACT_DETAILS_MEMBER_ID]: memberId};
+        criteria = {
+          [EventField.CONTACT_DETAILS_MEMBER_ID]: memberId,
+          [GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_WALK
+        };
       }
     }
     this.logger.info("selecting extended group events", this.copySource, criteria);
