@@ -16,6 +16,13 @@
 - Visit the [Project website](https://ngx-ramblers.org.uk/) and have a look around to find out more. The site acts as the documentation centre for the project as well as showing many example pages that show the kind of content you can create.
 - You may be interested to note that all the content you see on this site was created using [NGX-Ramblers](https://ngx-ramblers.org.uk/)!
 
+## Recent Feature: AGM Statistics Enhancements
+
+- End-to-end AGM statistics experience refreshed (801b0a05435f8922119a9b40748e57503e4bd430, 18b02ca8ce7204375d75186442d971abd2256754, 08fdd6505bf20ce1183542d38fbe16a5de247baa): tabbed layout, responsive date presets, branded SASS styling, and Chart.js views across walks, socials, and expenses.
+- Expense reporting now renders yearly and period totals with GBP currency formatting alongside claimant-accurate breakdowns, ensuring totals align with per-transaction displays.
+- Social and expense tables surface organiser/claimant names and accurate links while preserving yearly range boundaries for trustworthy AGM reporting.
+- AGM stats refactored into standalone tab components, shared summary table, and restored full-height charts for walks and socials.
+
 ## What does NGX-Ramblers do?
 
 - [NGX-Ramblers](https://ngx-ramblers.org.uk/) provides a way to create a website for your group without your webmaster _ever needing to do any programming at all_. Yes, you read that right! You will be able to build any aspect of your group’s website _without ever having to write a single line of HTML, Javascript or CSS_!

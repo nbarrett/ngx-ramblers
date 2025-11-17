@@ -111,4 +111,52 @@ const extendedGroupEventSchema = new Schema({
 });
 groupEvent.index({start_date_time: 1, item_type: 1, title: 1, group_code: 1}, {unique: true});
 extendedGroupEventSchema.plugin(uniqueValidator);
+
+extendedGroupEventSchema.pre("save", function(next) {
+  deriveStatusFromEvents(this);
+  next();
+});
+
+extendedGroupEventSchema.pre("findOneAndUpdate", function(next) {
+  const update = this.getUpdate() as any;
+  if (update?.events) {
+    const doc = {events: update.events, groupEvent: update.groupEvent || {}};
+    deriveStatusFromEvents(doc);
+    update.groupEvent = doc.groupEvent;
+  }
+  next();
+});
+
+function deriveStatusFromEvents(doc: any) {
+  if (!doc.events || !Array.isArray(doc.events) || doc.events.length === 0) {
+    return;
+  }
+
+  const statusChangeEventTypes = ["approved", "deleted", "awaitingLeader", "awaitingWalkDetails", "awaitingApproval"];
+  const statusChangeEvents = doc.events.filter((event: any) =>
+    statusChangeEventTypes.includes(event.eventType)
+  );
+
+  if (statusChangeEvents.length === 0) {
+    return;
+  }
+
+  const latestEvent = statusChangeEvents[statusChangeEvents.length - 1];
+
+  if (!doc.groupEvent) {
+    doc.groupEvent = {};
+  }
+
+  switch (latestEvent.eventType) {
+    case "approved":
+      doc.groupEvent.status = "confirmed";
+      break;
+    case "deleted":
+      doc.groupEvent.status = "deleted";
+      break;
+    default:
+      doc.groupEvent.status = null;
+  }
+}
+
 export const extendedGroupEvent: Model<ExtendedGroupEvent> = mongoose.model<ExtendedGroupEvent>("extendedGroupEvents", extendedGroupEventSchema);

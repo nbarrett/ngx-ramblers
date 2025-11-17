@@ -52,6 +52,13 @@ export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
   },
   {
     accessLevel: "committee",
+    title: "AGM Statistics Report",
+    icon: "faChartBar",
+    href: "admin/agm-stats",
+    contentText: "View comprehensive statistics for walks and social events:\n\n- Walk metrics including miles walked, leaders, and attendance\n- Social event statistics and organisers\n- Year-over-year comparisons\n- Ideal for preparing AGM reports"
+  },
+  {
+    accessLevel: "committee",
     title: "System Settings",
     icon: "faCogs",
     href: "admin/system-settings",

@@ -1,0 +1,86 @@
+@import "../../../assets/styles/colours"
+
+.table-responsive
+  margin-top: 1rem
+  border-radius: 0.5rem
+  overflow: hidden
+
+.table-warning
+  background-color: #fff3cd !important
+
+h2, h3
+  margin-top: 1rem
+  margin-bottom: 1rem
+  color: $ramblers-colour-granite
+
+.text-success
+  font-weight: bold
+
+.text-danger
+  font-weight: bold
+
+.spinner-border-sm
+  width: 1rem
+  height: 1rem
+
+.chart-container
+  position: relative
+  min-height: 400px
+  margin-bottom: 2rem
+  width: 100%
+
+.chart-container canvas
+  width: 100% !important
+  height: 400px !important
+  display: block
+
+.sortable
+  cursor: pointer
+  user-select: none
+
+.sortable:hover
+  background-color: lighten($ramblers-colour-granite, 10%) !important
+
+.table-dark
+  background-color: $ramblers-colour-granite !important
+  color: $ramblers-colour-cloudy !important
+
+.table-dark th
+  background-color: $ramblers-colour-granite !important
+  border-color: lighten($ramblers-colour-granite, 10%) !important
+
+.table
+  border-radius: 0.5rem
+  overflow: hidden
+
+.table-bordered
+  border: 1px solid $ramblers-colour-grey
+  border-radius: 0.5rem
+  overflow: hidden
+
+.table thead:first-child tr:first-child th:first-child
+  border-top-left-radius: 0.5rem
+
+.table thead:first-child tr:first-child th:last-child
+  border-top-right-radius: 0.5rem
+
+.table tbody:last-child tr:last-child td:first-child
+  border-bottom-left-radius: 0.5rem
+
+.table tbody:last-child tr:last-child td:last-child
+  border-bottom-right-radius: 0.5rem
+
+.table thead th
+  border-bottom: 2px solid lighten($ramblers-colour-granite, 10%)
+
+.loading-alert
+  animation: slideDown 0.3s ease-out
+  margin-bottom: 1rem
+
+@keyframes slideDown
+  from
+    opacity: 0
+    transform: translateY(-10px)
+  to
+    opacity: 1
+    transform: translateY(0)

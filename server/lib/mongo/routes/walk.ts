@@ -2,13 +2,15 @@ import express from "express";
 import * as authConfig from "../../auth/auth-config";
 import { walk } from "../models/walk";
 import * as crudController from "../controllers/crud-controller";
-import { bulkDeleteEvents, bulkUpdateEvents, eventStats, recreateIndex } from "../controllers/walk-admin";
+import { bulkDeleteEvents, bulkUpdateEvents, eventStats, recreateIndex, agmStats, earliestDate } from "../controllers/walk-admin";
 import { queryWalkLeaders } from "../controllers/extended-group-event";
 import { Walk } from "../../../../projects/ngx-ramblers/src/app/models/deprecated";
 
 const controller = crudController.create<Walk>(walk, false);
 const router = express.Router();
 router.get("/event-stats", authConfig.authenticate(), eventStats);
+router.get("/earliest-date", earliestDate);
+router.post("/agm-stats", authConfig.authenticate(), agmStats);
 router.post("/bulk-delete", authConfig.authenticate(), bulkDeleteEvents);
 router.post("/bulk-update", authConfig.authenticate(), bulkUpdateEvents);
 router.post("/recreate-index", authConfig.authenticate(), recreateIndex);

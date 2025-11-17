@@ -138,6 +138,72 @@ export interface EventStats extends EventStatsRequest {
   uniqueCreators: string[],
 }
 
+export interface AGMStatsRequest {
+  fromDate: number;
+  toDate: number;
+}
+
+export interface LeaderStats {
+  id: string;
+  name: string;
+  email: string;
+  walkCount: number;
+  totalMiles: number;
+}
+
+export interface WalkAGMStats {
+  totalWalks: number;
+  confirmedWalks: number;
+  cancelledWalks: number;
+  eveningWalks?: number;
+  totalMiles: number;
+  totalAttendees: number;
+  activeLeaders: number;
+  newLeaders: number;
+  topLeader: LeaderStats;
+  allLeaders: LeaderStats[];
+  unfilledSlots: number;
+}
+
+export interface SocialAGMStats {
+  totalSocials: number;
+  socialsList: Array<{date: number, description: string, link?: string, linkTitle?: string}>;
+  uniqueOrganisers: number;
+  organisersList: Array<{id: string, name: string, eventCount: number}>;
+}
+
+export interface ExpenseAGMStats {
+  totalClaims: number;
+  totalItems: number;
+  totalCost: number;
+  payees: Array<{id: string, name: string, totalCost: number, totalItems: number, claimCount: number, items: Array<{description: string, cost: number, paidDate: number | null}>}>;
+}
+
+export interface MembershipAGMStats {
+  totalMembers: number;
+  newJoiners: number;
+  leavers: number;
+  deletions: number;
+}
+
+export interface YearComparison {
+  year: number;
+  periodFrom: number;
+  periodTo: number;
+  walks: WalkAGMStats;
+  socials: SocialAGMStats;
+  expenses: ExpenseAGMStats;
+  membership: MembershipAGMStats;
+}
+
+export interface AGMStatsResponse {
+  currentYear: YearComparison;
+  previousYear: YearComparison | null;
+  twoYearsAgo: YearComparison | null;
+  earliestDate?: number;
+  yearlyStats?: YearComparison[];
+}
+
 export enum InputSource {
   FILE_IMPORT = "file-import",
   WALKS_MANAGER_IMPORT = "walks-manager-import",

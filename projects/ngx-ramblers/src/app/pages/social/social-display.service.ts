@@ -1,6 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import { cloneDeep } from "es-toolkit/compat";
-import { isEmpty } from "es-toolkit/compat";
+import { cloneDeep, isEmpty } from "es-toolkit/compat";
 import { ModalOptions } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AuthService } from "../../auth/auth.service";
@@ -160,13 +159,15 @@ export class SocialDisplayService {
     return socialEvent?.fields?.attachment ? (socialEvent.fields.attachment.title || `Attachment: ${socialEvent.fields.attachment.originalFileName}`) : "";
   }
 
-  groupEventLink(extendedGroupEvent: ExtendedGroupEvent, relative: boolean) {
+  groupEventLink(extendedGroupEvent: ExtendedGroupEvent, relative: boolean): string {
     const eventId: string = this.stringUtils.lastItemFrom(extendedGroupEvent?.groupEvent?.url) || this.stringUtils.kebabCase(extendedGroupEvent?.groupEvent?.title) || extendedGroupEvent?.groupEvent?.id || extendedGroupEvent?.id;
-    return eventId ? this.urlService.linkUrl({
+    const url = eventId ? this.urlService.linkUrl({
       area: extendedGroupEvent.groupEvent.item_type === RamblersEventType.GROUP_EVENT ? this.pageService.socialPage()?.href : this.pageService.walksPage()?.href,
       id: eventId,
       relative
     }) : null;
+    this.logger.off("groupEventLink:extendedGroupEvent:", extendedGroupEvent, "url:", url);
+    return url;
   }
 
   attachmentUrl(socialEvent: ExtendedGroupEvent) {
