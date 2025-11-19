@@ -88,12 +88,16 @@ import { WalksAndEventsService } from "../../../services/walks-and-events/walks-
         <div class="row">
           <div class="col-sm-12">
             <div class="form-group">
-              <label for="brief-description-and-start-point">Walk Title</label>
+              <label for="brief-description-and-start-point">Walk Title ({{100 - (displayedWalk.walk.groupEvent.title?.length || 0)}} characters left)</label>
               <textarea [(ngModel)]="displayedWalk.walk.groupEvent.title" type="text"
                         (ngModelChange)="walkChanged($event)" name="title"
                         class="form-control input-sm" rows="3"
                         id="brief-description-and-start-point"
+                        maxlength="100"
                         (change)="afterTitleChange()" placeholder="Enter walk title here"></textarea>
+              @if (displayedWalk.walk.groupEvent.title?.length > 100) {
+                <div class="text-danger">Title must not exceed 100 characters.</div>
+              }
             </div>
           </div>
         </div>

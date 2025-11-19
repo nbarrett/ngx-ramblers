@@ -479,6 +479,8 @@ export class RamblersWalksAndEventsService {
         validationMessages.push("title is missing");
       } else if (this.walkTitle(walk).length > 100) {
         validationMessages.push("title must not exceed 100 characters");
+      } else if (this.walkTitle(walk).length > 100) {
+        validationMessages.push("title must not exceed 100 characters");
       }
       if (walkDistance.validationMessage) {
         validationMessages.push(walkDistance.validationMessage);
