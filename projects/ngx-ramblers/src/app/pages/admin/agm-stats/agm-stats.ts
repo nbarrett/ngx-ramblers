@@ -22,12 +22,17 @@ import { faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
 import { sortBy } from "../../../functions/arrays";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
-import { kebabCase } from "es-toolkit/compat";
+import { isNumber, kebabCase } from "es-toolkit/compat";
 import { AGMWalksTabComponent } from "./agm-walks-tab";
 import { AGMSocialsTabComponent, SocialRow } from "./agm-socials-tab";
 import { AGMExpensesTabComponent } from "./agm-expenses-tab";
 import { AGMMembershipTabComponent } from "./agm-membership-tab";
 import { PageComponent } from "../../../page/page.component";
+import { SummaryRow } from "./agm-summary-table";
+
+interface RankedLeaderRow extends LeaderStats {
+  rank: number;
+}
 
 Chart.register(...registerables);
 
@@ -308,7 +313,7 @@ export class AGMStatsComponent implements OnInit {
     if (value === null || value === undefined) {
       return fallback;
     }
-    if (typeof value === "number") {
+    if (isNumber(value)) {
       return value > 0 ? value : fallback;
     }
     const parsedFromFormat = this.dateUtils.asValue(value, UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
@@ -664,6 +669,8 @@ export class AGMStatsComponent implements OnInit {
       return {key: "totalCost", direction: "desc"};
     }
     switch (table) {
+      case "expensesSummary":
+        return {key: "order", direction: "asc"};
       case "aggregateLeaders":
         return {key: "walkCount", direction: "desc"};
       case "leaders":
@@ -677,7 +684,7 @@ export class AGMStatsComponent implements OnInit {
     }
   }
 
-  walkSummaryRows() {
+  walkSummaryRows(): SummaryRow[] {
     if (!this.stats) {
       return [];
     }
@@ -704,7 +711,7 @@ export class AGMStatsComponent implements OnInit {
     });
   }
 
-  socialSummaryRows() {
+  socialSummaryRows(): SummaryRow[] {
     if (!this.stats) {
       return [];
     }
@@ -725,7 +732,7 @@ export class AGMStatsComponent implements OnInit {
     });
   }
 
-  expenseSummaryRows() {
+  expenseSummaryRows(): SummaryRow[] {
     if (!this.stats) {
       return [];
     }
@@ -734,18 +741,21 @@ export class AGMStatsComponent implements OnInit {
     const isCurrencyMetric = (metric: string) =>
       metric === "Total Cost" || metric === "Total Paid" || metric === "Total Unpaid";
 
-    return [
-      {metric: "Total Claims", values: periods.map(p => this.periodValue(p, "expenses", "totalClaims"))},
-      {metric: "Total Expense Items", values: periods.map(p => this.periodValue(p, "expenses", "totalItems"))},
-      {metric: "Total Paid", values: periods.map(p => this.periodValue(p, "expenses", "totalCost"))},
-      {metric: "Total Unpaid", values: periods.map(p => this.periodValue(p, "expenses", "totalUnpaidCost"))},
+    const rows: {metric: string; values: number[]; order: number}[] = [
+      {metric: "Total Claims", values: periods.map(p => this.periodValue(p, "expenses", "totalClaims")), order: 0},
+      {metric: "Total Expense Items", values: periods.map(p => this.periodValue(p, "expenses", "totalItems")), order: 1},
+      {metric: "Total Paid", values: periods.map(p => this.periodValue(p, "expenses", "totalCost")), order: 2},
+      {metric: "Total Unpaid", values: periods.map(p => this.periodValue(p, "expenses", "totalUnpaidCost")), order: 3},
       {
         metric: "Total Cost",
         values: periods.map(p =>
           this.periodValue(p, "expenses", "totalCost") + this.periodValue(p, "expenses", "totalUnpaidCost")
-        )
+        ),
+        order: 4
       }
-    ].map(row => {
+    ];
+
+    return rows.map(row => {
       const previous = row.values[row.values.length - 2] ?? 0;
       const current = row.values[row.values.length - 1] ?? 0;
       const total = row.values.reduce((sum, val) => sum + (val ?? 0), 0);
@@ -761,7 +771,7 @@ export class AGMStatsComponent implements OnInit {
     });
   }
 
-  membershipSummaryRows() {
+  membershipSummaryRows(): SummaryRow[] {
     if (!this.stats) {
       return [];
     }
@@ -784,7 +794,7 @@ export class AGMStatsComponent implements OnInit {
     });
   }
 
-  leaderRows() {
+  leaderRows(): RankedLeaderRow[] {
     if (!this.stats?.currentYear) {
       return [];
     }
@@ -794,7 +804,7 @@ export class AGMStatsComponent implements OnInit {
     }));
   }
 
-  aggregateLeaderRows() {
+  aggregateLeaderRows(): RankedLeaderRow[] {
     if (!this.stats) {
       return [];
     }
@@ -837,7 +847,7 @@ export class AGMStatsComponent implements OnInit {
       return acc;
     }, {} as Record<string, {id: string; name: string; email: string; walkCount: number; totalMiles: number}>);
 
-    const result = Object.values(aggregate)
+    const result: RankedLeaderRow[] = Object.values(aggregate)
       .sort(sortBy("-walkCount", "-totalMiles"))
       .map((leader, index) => ({
         ...leader,

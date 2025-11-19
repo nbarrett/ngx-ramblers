@@ -12,6 +12,7 @@ import { setErrorSender, setProgressSender } from "./migration-progress";
 import { migrateStaticSite } from "./migrate-static-site-engine";
 import * as mongooseClient from "../mongo/mongoose-client";
 import { migrationHistory } from "../mongo/models/migration-history";
+import { isString } from "es-toolkit/compat";
 
 export async function handleSiteMigration(ws: WebSocket, data: any): Promise<void> {
   try {
@@ -26,7 +27,7 @@ export async function handleSiteMigration(ws: WebSocket, data: any): Promise<voi
     });
     const recordProgress = async (payload: any, status: string = "info") => {
       try {
-        const message = payload?.message || (typeof payload === "string" ? payload : `[${status}]`);
+        const message = payload?.message || (isString(payload) ? payload : `[${status}]`);
         const log = { time: Date.now(), status, message };
         await mongooseClient.upsert<any>(migrationHistory as any, { _id: (history as any).id }, { ...history, auditLog: [...(history as any).auditLog, log] } as any);
         (history as any).auditLog.push(log);

@@ -19,8 +19,7 @@ import { MediaQueryService } from "../../services/committee/media-query.service"
 import { EditMode } from "../../models/ui-actions";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { EventDefaultsService } from "../../services/event-defaults.service";
-import { isUndefined } from "es-toolkit/compat";
-import { isNull } from "es-toolkit/compat";
+import { isNull, isObject, isUndefined } from "es-toolkit/compat";
 
 @Component({
   selector: "[app-edit-group-event-images]",
@@ -122,14 +121,14 @@ export class EditGroupEventImagesComponent implements OnInit {
   }
 
   setDefaults(target: any, defaults: any) {
-    if (!target || typeof target !== "object" || !defaults || typeof defaults !== "object") {
+    if (!isObject(target) || !isObject(defaults)) {
       this.logger.info("setDefaults:target:", target, "defaults:", defaults, "(target is not an object)");
     } else {
       Object.keys(defaults).forEach((key) => {
         if (isUndefined(target[key]) || isNull(target[key])) {
           this.logger.info("setDefaults:key:", key, "setting:", target[key], "to default", defaults[key]);
           target[key] = defaults[key];
-        } else if (typeof defaults[key] === "object" && !Array.isArray(defaults[key])) {
+        } else if (isObject(defaults[key]) && !Array.isArray(defaults[key])) {
           this.setDefaults(target[key], defaults[key]);
         }
       });

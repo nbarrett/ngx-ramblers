@@ -2,7 +2,7 @@ import { Component, inject, Input } from "@angular/core";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DOCUMENT } from "@angular/common";
-import { isString, isBoolean } from "es-toolkit";
+import { isBoolean, isString } from "es-toolkit";
 
 export interface CsvOptions {
   filename: string;
@@ -61,7 +61,7 @@ export class CsvExportComponent {
   private csv = "";
 
   @Input("data") set acceptData(data: any[]) {
-    this.data = typeof data !== "object" ? JSON.parse(data) : data;
+    this.data = typeof data === "string" ? JSON.parse(data) : data;
     this.logger.off("input:data:", data);
   }
 

@@ -12,7 +12,7 @@ import * as mongooseClient from "../mongo/mongoose-client";
 import { pageContent as pageContentModel } from "../mongo/models/page-content";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
-import { first } from "es-toolkit/compat";
+import { first, isString } from "es-toolkit/compat";
 import { toKebabCase } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { generateUid, humaniseFileStemFromUrl, pluraliseWithCount, titleCase } from "../shared/string-utils";
 import { AWSConfig } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
@@ -572,7 +572,7 @@ async function scrapeAlbum(ctx: Ctx, albumLink: PageLink): Promise<MigratedAlbum
 
 async function migrateAlbums(ctx: Ctx): Promise<MigratedAlbum[]> {
   const rawLinks = ctx.config.specificAlbums && ctx.config.specificAlbums.length > 0 ? ctx.config.specificAlbums : await scrapeGalleryLinks(ctx);
-  const galleryLinks = (rawLinks || []).filter(l => l && typeof l.path === "string" && /^https?:\/\//i.test(l.path));
+  const galleryLinks = (rawLinks || []).filter(l => l && isString(l.path) && /^https?:\/\//i.test(l.path));
   if (!galleryLinks.length) {
     debugLog("⚠️ No gallery links found");
     progress("No gallery links found; skipping album migration");

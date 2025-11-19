@@ -1,5 +1,6 @@
 import { Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 import * as L from "leaflet";
+import { isFunction, isNumber } from "es-toolkit/compat";
 import "leaflet.markercluster";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
 import { FormsModule } from "@angular/forms";
@@ -322,7 +323,7 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
     for (const dw of items) {
       const lat = dw?.walk?.groupEvent?.start_location?.latitude;
       const lng = dw?.walk?.groupEvent?.start_location?.longitude;
-      if (typeof lat === "number" && typeof lng === "number" && lat !== 0 && lng !== 0 && Math.abs(lat) > 0.001 && Math.abs(lng) > 0.001) {
+      if (isNumber(lat) && isNumber(lng) && lat !== 0 && lng !== 0 && Math.abs(lat) > 0.001 && Math.abs(lng) > 0.001) {
         validCoords++;
         const pc = (dw?.walk?.groupEvent?.start_location?.postcode || "").toString().toUpperCase().replace(/\s+/g, "");
         let placed = false;
@@ -465,7 +466,7 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
 
   private createCluster(markers: L.Marker[]): L.Layer | null {
     const mc: any = (L as any).markerClusterGroup;
-    if (mc && typeof mc === "function") {
+    if (mc && isFunction(mc)) {
       const clusterIconFn = this.markerStyle.clusterIconCreate(this.provider, this.osStyle);
       const clusterGroup = mc({
         showCoverageOnHover: false,
@@ -692,10 +693,10 @@ export class WalksMapViewComponent implements OnInit, OnChanges {
   closeAllPopups() {
     if (this.mapRef) { try { this.mapRef.closePopup(); } catch (error) { this.logger.debug("mapRef.closePopup failed", error); } }
 
-    if (this.clusterGroupRef && typeof this.clusterGroupRef.eachLayer === "function") {
+    if (this.clusterGroupRef && isFunction(this.clusterGroupRef.eachLayer)) {
       try {
         this.clusterGroupRef.eachLayer((layer: any) => {
-          if (layer.closePopup && typeof layer.closePopup === "function") { layer.closePopup(); }
+          if (layer.closePopup && isFunction(layer.closePopup)) { layer.closePopup(); }
         });
       } catch (error) { this.logger.debug("clusterGroupRef.eachLayer closePopup failed", error); }
     }

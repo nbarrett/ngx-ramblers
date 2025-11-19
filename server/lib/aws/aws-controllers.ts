@@ -8,7 +8,6 @@ import { Request, Response } from "express";
 import * as fs from "fs";
 import * as https from "https";
 import { omit } from "es-toolkit/compat";
-import { DateTime } from "luxon";
 import * as path from "path";
 import {
   S3Metadata,
@@ -22,7 +21,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import { contentTypeFrom } from "./aws-utils";
-import { dateTimeNow } from "../shared/dates";
+import { dateTimeFromJsDate, dateTimeNow } from "../shared/dates";
 
 const logObject = false;
 const s3Config: AWSConfig = {
@@ -51,7 +50,7 @@ export function listObjects(req: Request, res: Response) {
     .then((data: ListObjectsCommandOutput) => {
       const response: S3Metadata[] = data.Contents?.map(item => ({
         key: item.Key,
-        lastModified: DateTime.fromJSDate(item.LastModified).setZone("Europe/London").toMillis(),
+        lastModified: dateTimeFromJsDate(item.LastModified).toMillis(),
         size: item.Size
       })) || [];
       debugLog("listObjects:response data for:bucketParams:", bucketParams, "returned:", response.length, "items");

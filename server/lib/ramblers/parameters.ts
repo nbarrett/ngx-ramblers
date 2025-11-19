@@ -5,12 +5,11 @@ import {
   MAXIMUM_PAGE_SIZE,
   WALKS_MANAGER_GO_LIVE_DATE
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
-import { DateTime } from "luxon";
-import { dateTimeNow } from "../shared/dates";
+import { dateTimeNow, dateTimeFromIso } from "../shared/dates";
 
 export function dateParameter(body: EventsListRequest, debugLog: debug.Debugger): string {
   if (body?.ids?.length > 0) {
-    const dateParameter = DateTime.fromISO(WALKS_MANAGER_GO_LIVE_DATE).setZone("Europe/London").startOf("day").toFormat(DateFormat.WALKS_MANAGER_API);
+    const dateParameter = dateTimeFromIso(WALKS_MANAGER_GO_LIVE_DATE).startOf("day").toFormat(DateFormat.WALKS_MANAGER_API);
     debugLog("returning dateParameter:", dateParameter, "given id request:", body.ids, "and dateEnd:", body.date);
     return dateParameter;
   } else {

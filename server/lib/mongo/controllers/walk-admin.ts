@@ -13,7 +13,6 @@ import {
   EditableEventStats,
   EventStats,
   EventStatsRequest,
-  ExpenseAGMStats,
   ExtendedGroupEvent,
   LeaderStats,
   MembershipAGMStats,
@@ -22,16 +21,17 @@ import {
   YearComparison
 } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { PipelineStage } from "mongoose";
-import { expenseClaim } from "../models/expense-claim";
 import * as transforms from "./transforms";
 import { kebabCase } from "es-toolkit/compat";
 import { sortBy } from "../../../../projects/ngx-ramblers/src/app/functions/arrays";
-import { dateTimeFromMillis, dateTimeInTimezone } from "../../shared/dates";
-import { DateTime } from "luxon";
+import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone } from "../../shared/dates";
+import { isNumber } from "es-toolkit/compat";
 import { systemConfig } from "../../config/system-config";
 import { EventPopulation } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import * as crudController from "./crud-controller";
 import { fetchMappedEvents } from "../../ramblers/list-events";
+import { calculateExpenseStats } from "./agm-expense-stats";
+import { expenseClaim } from "../models/expense-claim";
 
 const debugLog = debug(envConfig.logNamespace("walk-admin"));
 debugLog.enabled = false;
@@ -666,7 +666,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
     totalMiles: 0
   };
 
-  const historicalLeaders = await getAllHistoricalLeaders(fromDate);
+  const historicalLeaders = await allHistoricalLeaders(fromDate);
   const newLeaderIds = new Set(leaders.map(l => l.id).filter(id => id && !historicalLeaders.has(id)));
   const newLeadersList = leaders.filter(leader => newLeaderIds.has(leader.id));
 
@@ -724,9 +724,9 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
     if (!start) {
       return false;
     }
-    const startDate = DateTime.fromISO(start).setZone("Europe/London");
+    const startDate = dateTimeFromIso(start);
     return startDate.toMillis() >= fromDate && startDate.toMillis() <= toDate && startDate.hour >= 18;
-  }).sort((a, b) => DateTime.fromISO(a.groupEvent?.start_date_time || "").toMillis() - DateTime.fromISO(b.groupEvent?.start_date_time || "").toMillis()) : [];
+  }).sort((a, b) => dateTimeFromIso(a.groupEvent?.start_date_time || "").toMillis() - dateTimeFromIso(b.groupEvent?.start_date_time || "").toMillis()) : [];
 
   const eveningWalksList = isWalksManager
     ? [...eveningWalksListFromRamblers]
@@ -752,7 +752,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
     const walkId = walk._id?.toString() || walk.groupEvent?.id || "";
     const title = walk.groupEvent?.title || "";
     const startDate = walk.groupEvent?.start_date_time;
-    const dateStr = startDate ? DateTime.fromISO(startDate).toFormat("yyyy-MM-dd") : "";
+    const dateStr = startDate ? dateTimeFromIso(startDate).toFormat("yyyy-MM-dd") : "";
     const urlSlug = walk.groupEvent?.url
       || kebabCase([title, dateStr].filter(Boolean).join("-"))
       || walk.groupEvent?.id
@@ -767,7 +767,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
     return {
       id: walkId,
       title,
-      startDate: DateTime.fromISO(startDate).toMillis(),
+      startDate: dateTimeFromIso(startDate).toMillis(),
       walkDate: startDate || "",
       walkLeader,
       distance: walk.groupEvent?.distance_miles || 0,
@@ -794,7 +794,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
   };
 }
 
-async function getAllHistoricalLeaders(beforeDate: number): Promise<Set<string>> {
+async function allHistoricalLeaders(beforeDate: number): Promise<Set<string>> {
   const config = await systemConfig();
   const isWalksManager = config.group.walkPopulation === EventPopulation.WALKS_MANAGER;
 
@@ -941,7 +941,7 @@ async function calculateSocialStats(fromDate: number, toDate: number): Promise<S
       if (!start) {
         return false;
       }
-      const startMillis = DateTime.fromISO(start).toMillis();
+      const startMillis = dateTimeFromIso(start).toMillis();
       return startMillis >= fromDate && startMillis <= toDate;
     });
 
@@ -994,289 +994,6 @@ async function calculateSocialStats(fromDate: number, toDate: number): Promise<S
     socialsList,
     uniqueOrganisers: organisersList.length,
     organisersList
-  };
-}
-
-async function calculateExpenseStats(fromDate: number, toDate: number): Promise<ExpenseAGMStats> {
-  debugLog(`calculateExpenseStats: fromDate=${dateTimeFromMillis(fromDate).toISO()}, toDate=${dateTimeFromMillis(toDate).toISO()}, fromMillis=${fromDate}, toMillis=${toDate}`);
-  const expensePipeline: PipelineStage[] = [
-    {
-      $addFields: {
-        expenseEvents: {$ifNull: ["$expenseEvents", []]},
-        expenseItems: {$ifNull: ["$expenseItems", []]},
-        paidEvents: {
-          $filter: {
-            input: {$ifNull: ["$expenseEvents", []]},
-            as: "event",
-            cond: {$eq: ["$$event.eventType.description", "Paid"]}
-          }
-        }
-      }
-    },
-    {
-      $addFields: {
-        paidDate: {
-          $ifNull: [
-            {$first: "$paidEvents.date"},
-            {$min: "$expenseItems.expenseDate"},
-            toDate
-          ]
-        },
-        createdBy: {
-          $ifNull: [
-            {$first: "$expenseEvents.memberId"},
-            "unknown"
-          ]
-        },
-        createdByName: {
-          $ifNull: [
-            {$first: "$expenseEvents.name"},
-            {$first: "$expenseEvents.displayName"},
-            "Unknown"
-          ]
-        }
-      }
-    },
-    {
-      $match: {
-        paidDate: {
-          $gte: fromDate,
-          $lte: toDate
-        }
-      }
-    },
-    {
-      $project: {
-        paidDate: "$paidDate",
-        createdBy: "$createdBy",
-        createdByName: "$createdByName",
-        expenseItems: "$expenseItems",
-        costField: "$cost"
-      }
-    },
-    {
-      $addFields: {
-        itemDetails: {
-          $map: {
-            input: {$ifNull: ["$expenseItems", []]},
-            as: "item",
-            in: {
-              description: {$ifNull: ["$$item.description", "Expense item"]},
-              cost: {$ifNull: ["$$item.cost", 0]},
-              paidDate: "$paidDate"
-            }
-          }
-        },
-        itemCount: {
-          $size: {
-            $ifNull: ["$expenseItems", []]
-          }
-        },
-        totalCost: {
-          $sum: {
-            $map: {
-              input: {$ifNull: ["$expenseItems", []]},
-              as: "item",
-              in: {$ifNull: ["$$item.cost", 0]}
-            }
-          }
-        }
-      }
-    },
-    {
-      $addFields: {
-        totalCost: {
-          $cond: [
-            {$gt: ["$totalCost", 0]},
-            "$totalCost",
-            {$ifNull: ["$costField", 0]}
-          ]
-        }
-      }
-    },
-    {
-      $lookup: {
-        from: "members",
-        let: {memberId: "$createdBy"},
-        pipeline: [
-          {
-            $match: {
-              $expr: {$eq: ["$memberId", "$$memberId"]}
-            }
-          },
-          {
-            $project: {
-              displayName: 1
-            }
-          }
-        ],
-        as: "claimant"
-      }
-    },
-    {
-      $addFields: {
-        claimantName: {$ifNull: [{$first: "$claimant.displayName"}, "$createdByName", "Unknown"]}
-      }
-    },
-    {
-      $facet: {
-        totals: [
-          {
-            $group: {
-              _id: null,
-              totalClaims: {$sum: 1},
-              totalItems: {$sum: "$itemCount"},
-              totalCost: {$sum: "$totalCost"}
-            }
-          }
-        ],
-        payees: [
-          {
-            $group: {
-              _id: {$ifNull: ["$createdBy", "unknown"]},
-              name: {$first: {$ifNull: ["$claimantName", "Unknown"]}},
-              totalCost: {$sum: "$totalCost"},
-              totalItems: {$sum: "$itemCount"},
-              claimCount: {$sum: 1},
-              items: {$push: "$itemDetails"}
-            }
-          },
-          {
-            $sort: {totalCost: -1}
-          },
-          {
-            $addFields: {
-              items: {
-                $reduce: {
-                  input: {$ifNull: ["$items", []]},
-                  initialValue: [],
-                  in: {$concatArrays: ["$$value", {$ifNull: ["$$this", []]}]}
-                }
-              }
-            }
-          }
-        ]
-      }
-    }
-  ];
-
-  const result = await expenseClaim.aggregate(expensePipeline);
-  const totals = result[0]?.totals[0] || {totalClaims: 0, totalItems: 0, totalCost: 0};
-  const payees = result[0]?.payees || [];
-  debugLog(`calculateExpenseStats: found ${totals.totalClaims} claims, ${totals.totalItems} items, £${totals.totalCost}, ${payees.length} payees`);
-
-  const unpaidExpensePipeline: PipelineStage[] = [
-    {
-      $addFields: {
-        expenseEvents: {$ifNull: ["$expenseEvents", []]},
-        expenseItems: {$ifNull: ["$expenseItems", []]},
-        paidEvents: {
-          $filter: {
-            input: {$ifNull: ["$expenseEvents", []]},
-            as: "event",
-            cond: {$eq: ["$$event.eventType.description", "Paid"]}
-          }
-        }
-      }
-    },
-    {
-      $match: {
-        "paidEvents.0": {$exists: false}
-      }
-    },
-    {
-      $addFields: {
-        createdBy: {
-          $ifNull: [
-            {$first: "$expenseEvents.memberId"},
-            "unknown"
-          ]
-        },
-        createdByName: {
-          $ifNull: [
-            {$first: "$expenseEvents.name"},
-            {$first: "$expenseEvents.displayName"},
-            "Unknown"
-          ]
-        }
-      }
-    },
-    {
-      $lookup: {
-        from: "members",
-        let: {memberId: "$createdBy"},
-        pipeline: [
-          {
-            $match: {
-              $expr: {$eq: ["$memberId", "$$memberId"]}
-            }
-          },
-          {
-            $project: {
-              displayName: 1
-            }
-          }
-        ],
-        as: "claimant"
-      }
-    },
-    {
-      $addFields: {
-        claimantName: {$ifNull: [{$first: "$claimant.displayName"}, "$createdByName", "Unknown"]}
-      }
-    },
-    {$unwind: {path: "$expenseItems", preserveNullAndEmptyArrays: true}},
-    {
-      $project: {
-        id: {$toString: "$_id"},
-        claimantName: "$claimantName",
-        description: {$ifNull: ["$expenseItems.description", "Expense item"]},
-        cost: {$ifNull: ["$expenseItems.cost", 0]},
-        expenseDate: {$ifNull: ["$expenseItems.expenseDate", "$expenseItems.date", 0]}
-      }
-    },
-    {
-      $match: {
-        cost: {$gt: 0},
-        expenseDate: {
-          $gte: fromDate,
-          $lte: toDate
-        }
-      }
-    },
-    {
-      $sort: {expenseDate: -1}
-    }
-  ];
-
-  const unpaidExpenses = await expenseClaim.aggregate(unpaidExpensePipeline);
-  const totalUnpaidCost = unpaidExpenses.reduce((sum, item) => sum + (item.cost || 0), 0);
-  debugLog(`calculateExpenseStats: found ${unpaidExpenses.length} unpaid expense items, total unpaid cost: £${totalUnpaidCost}`);
-
-  return {
-    totalClaims: totals.totalClaims || 0,
-    totalItems: totals.totalItems || 0,
-    totalCost: Math.round((totals.totalCost || 0) * 100) / 100,
-    totalUnpaidCost: Math.round(totalUnpaidCost * 100) / 100,
-    payees: payees.map((payer: any) => ({
-      id: payer._id || "",
-      name: payer.name || "Unknown",
-      totalCost: Math.round((payer.totalCost || 0) * 100) / 100,
-      totalItems: payer.totalItems || 0,
-      claimCount: payer.claimCount || 0,
-      items: (payer.items || []).map((item: any) => ({
-        description: item.description || "Expense item",
-        cost: Math.round((item.cost || 0) * 100) / 100,
-        paidDate: item.paidDate || null
-      }))
-    })),
-    unpaidExpenses: unpaidExpenses.map((item: any) => ({
-      id: item.id || "",
-      claimantName: item.claimantName || "Unknown",
-      description: item.description || "Expense item",
-      cost: Math.round((item.cost || 0) * 100) / 100,
-      expenseDate: item.expenseDate || 0
-    }))
   };
 }
 
@@ -1363,7 +1080,7 @@ async function earliestDataDate(): Promise<number | null> {
   const expenseDate = expenses?.[0]?.minDate || null;
 
   [walkDate, socialDate, expenseDate].forEach(d => {
-    if (typeof d === "number" && d > 0) {
+    if (isNumber(d) && d > 0) {
       dates.push(d);
     }
   });

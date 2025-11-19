@@ -1,6 +1,5 @@
 import debug from "debug";
 import { isEmpty } from "es-toolkit/compat";
-import { DateTime } from "luxon";
 import {
   ALL_EVENT_TYPES,
   DateFormat,
@@ -31,6 +30,8 @@ import {
 import { findBySlug, identifierLooksLikeASlug } from "../mongo/controllers/extended-group-event";
 import mongoose from "mongoose";
 import { EventField, GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { dateTimeFromIso } from "../shared/dates";
+import { DateTime } from "luxon";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:list-events"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:list-events-no-op"));
@@ -373,7 +374,7 @@ function transformEventsResponse(config: SystemConfig): (response: RamblersGroup
       return [];
     }
     return response.data.map(event => {
-      const walkDateTime = DateTime.fromISO(event.start_date_time).setZone("Europe/London");
+      const walkDateTime = dateTimeFromIso(event.start_date_time);
       const transformedEvent = {
         id: event.id,
         url: event.url,

@@ -83,7 +83,7 @@ StringUtilsService {
     let i = 0;
 
     return (key, value) => {
-      if (i !== 0 && typeof (censor) === "object" && typeof (value) === "object" && censor === value) {
+      if (i !== 0 && isObject(censor) && isObject(value) && censor === value) {
         return "[Circular]";
       }
 
@@ -98,7 +98,7 @@ StringUtilsService {
   }
 
   stringifyObject(inputValue: any, defaultValue?: string): string {
-    if (typeof inputValue === "object") {
+    if (isObject(inputValue)) {
       return map(inputValue, (value, key) => {
         if (isObject(value)) {
           return `${startCase(key)} -> ${this.stringifyObject(value, defaultValue)}`;
