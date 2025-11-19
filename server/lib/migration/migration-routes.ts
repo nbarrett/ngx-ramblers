@@ -10,6 +10,7 @@ import { Environment } from "../env-config/environment-model";
 import { htmlToMarkdown } from "./turndown-service-factory";
 import { buildHtmlPastePreview, buildMarkdownPastePreview } from "./html-paste-preview";
 import { BaseHrefResult } from "./migration-types";
+import { isString } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("migration-routes"));
 const router = express.Router();
@@ -19,7 +20,7 @@ router.post("/html-to-markdown", (req, res) => {
   try {
     const { html, baseUrl } = req.body;
 
-    if (!html || typeof html !== "string") {
+    if (!isString(html) || !html) {
       return res.status(400).json({
         error: "Invalid request: html string required in request body"
       });
@@ -42,7 +43,7 @@ router.post("/html-paste-preview", (req, res) => {
   try {
     const { html, baseUrl } = req.body;
 
-    if (!html || typeof html !== "string") {
+    if (!isString(html) || !html) {
       return res.status(400).json({
         error: "Invalid request: html string required in request body"
       });
@@ -63,7 +64,7 @@ router.post("/markdown-paste-preview", (req, res) => {
   try {
     const { markdown } = req.body;
 
-    if (!markdown || typeof markdown !== "string") {
+    if (!isString(markdown) || !markdown) {
       return res.status(400).json({
         error: "Invalid request: markdown string required in request body"
       });
@@ -83,7 +84,7 @@ router.post("/markdown-paste-preview", (req, res) => {
 router.post("/html-from-url", async (req, res) => {
   try {
     const { url } = req.body as { url?: string };
-    if (!url || typeof url !== "string") {
+    if (!isString(url) || !url) {
       return res.status(400).json({ error: "Invalid request: url string required in request body" });
     }
 

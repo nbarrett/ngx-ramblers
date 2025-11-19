@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
 import { queryKey } from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
+import { isString } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("regions"));
 debugLog.enabled = false;
@@ -27,7 +28,7 @@ export async function regions(req: Request, res: Response) {
   try {
     const { regionName } = req.query;
 
-    if (!regionName || typeof regionName !== "string") {
+    if (!isString(regionName) || !regionName) {
       debugLog("Missing or invalid regionName query parameter");
       return res.status(400).json({ "error": "regionName query parameter is required" });
     }

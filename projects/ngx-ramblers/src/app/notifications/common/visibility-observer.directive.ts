@@ -1,7 +1,7 @@
 import { AfterViewInit, Directive, ElementRef, EventEmitter, Input, inject, Output } from "@angular/core";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
-import { isString } from "es-toolkit/compat";
+import { isBrowser, isString } from "es-toolkit";
 
 @Directive({
   selector: "[app-visibility-observer]",
@@ -16,7 +16,7 @@ export class VisibilityObserverDirective implements AfterViewInit {
   private el: ElementRef = inject(ElementRef);
 
   ngAfterViewInit(): void {
-    if (typeof window !== "undefined" && "IntersectionObserver" in window) {
+    if (isBrowser() && "IntersectionObserver" in window) {
       this.observer = new IntersectionObserver(entries => {
         for (const entry of entries) {
           if (entry.isIntersecting) {

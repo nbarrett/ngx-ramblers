@@ -5,6 +5,7 @@ import { IconDefinition } from "@fortawesome/free-solid-svg-icons";
 
 export interface SummaryRow {
   metric: string;
+  order?: number;
   values?: Array<number | string>;
   displayValues?: Array<number | string>;
   totalForPeriod?: number;

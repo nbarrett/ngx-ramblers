@@ -62,11 +62,64 @@ export interface ExpenseYearStats {
           </div>
         </div>
       </div>
-
+      @if (unpaidExpenses.length > 0) {
+        <div class="row mb-4">
+          <div class="col-12">
+            <h4 class="pointer" (click)="showUnpaid = !showUnpaid">
+              <fa-icon [icon]="showUnpaid ? faChevronUp : faChevronDown" class="me-2"/>
+              Unpaid Expenses ({{ unpaidExpenses.length }})
+            </h4>
+            @if (showUnpaid) {
+              <div class="table-responsive">
+                <table class="table table-sm table-striped table-bordered">
+                  <thead class="table-dark">
+                  <tr>
+                    <th class="sortable" (click)="toggleSortFn('unpaidExpenses', 'claimantName')">
+                      Claimant
+                      @if (sortIconFn('unpaidExpenses', 'claimantName')) {
+                        <fa-icon [icon]="sortIconFn('unpaidExpenses', 'claimantName')" class="ms-1" size="xs"/>
+                      }
+                    </th>
+                    <th class="sortable" (click)="toggleSortFn('unpaidExpenses', 'description')">
+                      Description
+                      @if (sortIconFn('unpaidExpenses', 'description')) {
+                        <fa-icon [icon]="sortIconFn('unpaidExpenses', 'description')" class="ms-1" size="xs"/>
+                      }
+                    </th>
+                    <th class="sortable" (click)="toggleSortFn('unpaidExpenses', 'cost')">
+                      Amount
+                      @if (sortIconFn('unpaidExpenses', 'cost')) {
+                        <fa-icon [icon]="sortIconFn('unpaidExpenses', 'cost')" class="ms-1" size="xs"/>
+                      }
+                    </th>
+                    <th class="sortable" (click)="toggleSortFn('unpaidExpenses', 'expenseDate')">
+                      Date
+                      @if (sortIconFn('unpaidExpenses', 'expenseDate')) {
+                        <fa-icon [icon]="sortIconFn('unpaidExpenses', 'expenseDate')" class="ms-1" size="xs"/>
+                      }
+                    </th>
+                  </tr>
+                  </thead>
+                  <tbody>
+                    @for (expense of sortedRowsFn(unpaidExpenses, 'unpaidExpenses'); track expense.id) {
+                      <tr>
+                        <td>{{ expense.claimantName }}</td>
+                        <td>{{ expense.description }}</td>
+                        <td>{{ expense.cost | currency:"GBP":"symbol":"1.2-2" }}</td>
+                        <td>{{ expense.expenseDate | date: UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+      }
       @for (yearStats of yearlyStats; track yearStats.year) {
         <div class="row mb-4">
           <div class="col-12">
-            <h3>Expenses by Claimant {{ periodLabel(yearStats.periodFrom, yearStats.periodTo) }}</h3>
+            <h3>Paid Expenses by Claimant {{ periodLabel(yearStats.periodFrom, yearStats.periodTo) }}</h3>
             <div class="table-responsive">
               <table class="table table-striped table-bordered">
                 <thead class="table-dark">
@@ -123,61 +176,6 @@ export interface ExpenseYearStats {
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      }
-
-      @if (unpaidExpenses.length > 0) {
-        <div class="row mb-4">
-          <div class="col-12">
-            <h4 class="pointer" (click)="showUnpaid = !showUnpaid">
-              <fa-icon [icon]="showUnpaid ? faChevronUp : faChevronDown" class="me-2"/>
-              Unpaid Expenses ({{ unpaidExpenses.length }})
-            </h4>
-            @if (showUnpaid) {
-              <div class="table-responsive">
-                <table class="table table-sm table-striped table-bordered">
-                  <thead class="table-dark">
-                  <tr>
-                    <th class="sortable" (click)="toggleSortFn('unpaidExpenses', 'claimantName')">
-                      Claimant
-                      @if (sortIconFn('unpaidExpenses', 'claimantName')) {
-                        <fa-icon [icon]="sortIconFn('unpaidExpenses', 'claimantName')" class="ms-1" size="xs"/>
-                      }
-                    </th>
-                    <th class="sortable" (click)="toggleSortFn('unpaidExpenses', 'description')">
-                      Description
-                      @if (sortIconFn('unpaidExpenses', 'description')) {
-                        <fa-icon [icon]="sortIconFn('unpaidExpenses', 'description')" class="ms-1" size="xs"/>
-                      }
-                    </th>
-                    <th class="sortable" (click)="toggleSortFn('unpaidExpenses', 'cost')">
-                      Amount
-                      @if (sortIconFn('unpaidExpenses', 'cost')) {
-                        <fa-icon [icon]="sortIconFn('unpaidExpenses', 'cost')" class="ms-1" size="xs"/>
-                      }
-                    </th>
-                    <th class="sortable" (click)="toggleSortFn('unpaidExpenses', 'expenseDate')">
-                      Date
-                      @if (sortIconFn('unpaidExpenses', 'expenseDate')) {
-                        <fa-icon [icon]="sortIconFn('unpaidExpenses', 'expenseDate')" class="ms-1" size="xs"/>
-                      }
-                    </th>
-                  </tr>
-                  </thead>
-                  <tbody>
-                    @for (expense of sortedRowsFn(unpaidExpenses, 'unpaidExpenses'); track expense.id) {
-                      <tr>
-                        <td>{{ expense.claimantName }}</td>
-                        <td>{{ expense.description }}</td>
-                        <td>{{ expense.cost | currency:"GBP":"symbol":"1.2-2" }}</td>
-                        <td>{{ expense.expenseDate | date: UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED }}</td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            }
           </div>
         </div>
       }

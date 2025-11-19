@@ -1,7 +1,6 @@
 import { Request } from "express";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { systemConfig } from "../config/system-config";
-import { DateTime } from "luxon";
 import {
   ALL_EVENT_TYPES,
   DateFormat,
@@ -9,7 +8,7 @@ import {
   RamblersGroupEventsRawApiResponse,
   WALKS_MANAGER_GO_LIVE_DATE
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
-import { dateTimeNow } from "../shared/dates";
+import { dateTimeFromIso, dateTimeNow } from "../shared/dates";
 import * as requestDefaults from "./request-defaults";
 import { lastItemFrom, pluraliseWithCount, toKebabCase } from "../shared/string-utils";
 import { httpRequest, optionalParameter } from "../shared/message-handlers";
@@ -38,7 +37,7 @@ export async function listEventsBySlug(req: Request, suppliedSlug?: string): Pro
     noopDebugLog("listEventsBySlug: No group code configured");
     throw new Error("No group code configured");
   }
-  const date = DateTime.fromISO(WALKS_MANAGER_GO_LIVE_DATE).setZone("Europe/London").startOf("day").toFormat(DateFormat.WALKS_MANAGER_API);
+  const date = dateTimeFromIso(WALKS_MANAGER_GO_LIVE_DATE).startOf("day").toFormat(DateFormat.WALKS_MANAGER_API);
   const dateEnd = dateTimeNow().plus({ months: 12 }).toFormat(DateFormat.WALKS_MANAGER_API);
   const limit = limitFor(req.body);
   const types = ALL_EVENT_TYPES;

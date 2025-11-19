@@ -16,9 +16,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { AreaMapClickAction, AreaMapData, PageContent, PageContentRow } from "../../models/content-text.model";
 import { AreaMapCmsService } from "../../services/area-map-cms.service";
 import { Subscription } from "rxjs";
-import { isNumber } from "es-toolkit/compat";
-import { isString } from "es-toolkit/compat";
-import { isArray } from "es-toolkit/compat";
+import { isArray, isFunction, isNumber, isString } from "es-toolkit/compat";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { BroadcastService } from "../../services/broadcast-service";
@@ -972,7 +970,7 @@ export class AreaMapComponent implements OnInit, OnDestroy {
 
         const bounds = overlays.reduce((b, layer: any) => {
           try {
-            if (layer && typeof layer.getBounds === "function") {
+            if (layer && isFunction(layer.getBounds)) {
               return b.extend(layer.getBounds());
             }
           } catch (error) {

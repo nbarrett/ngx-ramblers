@@ -47,7 +47,7 @@ export class ImageTagDataService {
   findTag(imageTags: ImageTag[], value: ImageTag | number | string): ImageTag {
     if (!value) {
       this.logger.info("findTag:can't search for:", value);
-    } else if (typeof value === "object") {
+    } else if (this.isImageTag(value)) {
       return this.findTag(imageTags, value.key);
     } else {
       return this.recentPhotosPlusImageTagsPlusAll(imageTags).find(item => item.key === +value || kebabCase(item.subject) === kebabCase(value.toString()));

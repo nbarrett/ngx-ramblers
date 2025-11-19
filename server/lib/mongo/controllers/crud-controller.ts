@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { isNumber } from "es-toolkit/compat";
+import { isFunction, isNumber } from "es-toolkit/compat";
 import mongoose, { Model } from "mongoose";
 import { DataQueryOptions } from "../../../../projects/ngx-ramblers/src/app/models/api-request.model";
 import { envConfig } from "../../env-config/env-config";
@@ -251,7 +251,7 @@ export function create<T>(model: Model<T>, debugEnabled = false) {
           query.limit(parameters.limit);
         }
         const allowDisk = (query as any).allowDiskUse;
-        if (typeof allowDisk === "function") {
+        if (isFunction(allowDisk)) {
           allowDisk.call(query, true);
         }
         const results = await query.exec();

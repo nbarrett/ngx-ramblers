@@ -1,6 +1,6 @@
 import { HttpErrorResponse, HttpParams } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import { forEach as each } from "es-toolkit/compat";
+import { forEach as each, isObject } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { share } from "rxjs/operators";
@@ -34,7 +34,7 @@ export class CommonDataService {
   public toHttpParams(criteria: object): HttpParams {
     let params = new HttpParams();
     each(criteria, (value, field) => {
-      const paramValue = typeof value === "object" ? JSON.stringify(value) : value;
+      const paramValue = isObject(value) ? JSON.stringify(value) : value;
       params = params.set(field, paramValue);
       this.logger.off("query setting params field:", field, "value:", paramValue);
     });

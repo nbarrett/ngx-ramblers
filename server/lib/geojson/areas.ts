@@ -19,6 +19,7 @@ import { dateTimeNow } from "../shared/dates";
 import { DateFormat, RamblersGroupsApiResponse } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { isArray, isNumber, isString } from "es-toolkit/compat";
 import { fetchRamblersGroupsFromApi } from "../ramblers/list-groups";
+import { isBlob } from "es-toolkit";
 
 interface AreaMappings {
   [areaName: string]: string | string[];
@@ -141,7 +142,7 @@ async function bodyToString(body: any): Promise<string> {
     return Buffer.concat(chunks).toString("utf-8");
   }
 
-  if (typeof Blob !== "undefined" && body instanceof Blob) {
+  if (isBlob(body)) {
     return body.text();
   }
 

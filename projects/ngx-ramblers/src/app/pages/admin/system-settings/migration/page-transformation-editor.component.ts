@@ -28,6 +28,7 @@ import {
   TransformationAction,
   TransformationActionType
 } from "../../../../models/page-transformation.model";
+import { isObject } from "es-toolkit/compat";
 
 @Component({
   selector: "app-page-transformation-editor",
@@ -781,12 +782,12 @@ export class PageTransformationEditorComponent implements OnInit {
     const baseline = JSON.parse(JSON.stringify(this.baselineConfig));
     const paths: string[] = [];
     const walk = (a: any, b: any, p: string) => {
-      const keys = Array.from(new Set([...(Object.keys(a||{})), ...(Object.keys(b||{}))]));
+      const keys = Array.from(new Set([...(Object.keys(a || {})), ...(Object.keys(b || {}))]));
       for (const k of keys) {
         const ap = a ? a[k] : undefined;
         const bp = b ? b[k] : undefined;
         const path = p ? `${p}.${k}` : k;
-        if (typeof ap === "object" && ap && typeof bp === "object" && bp) {
+        if (isObject(ap) && ap && isObject(bp) && bp) {
           walk(ap, bp, path);
         } else if (JSON.stringify(ap) !== JSON.stringify(bp)) {
           if (k !== "preset") paths.push(path);
