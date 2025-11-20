@@ -243,6 +243,8 @@ Member privileges control access to different areas of the system and determine 
 - Enables access to committee pages and private committee files
 - Allows viewing of documents marked as "Committee Only"
 - Unlocks committee-specific sections of the website
+- Grants access to most Admin tools (admin dashboard, system settings, migration, backup and restore, etc.)
+- Does not grant access to the Member Admin page or member privilege editing
 
 **When to assign:**
 - Assign to all elected committee members
@@ -285,6 +287,7 @@ The app reads a logged‑in member profile and gates features accordingly:
 - Member Admin → member admin edits
 - Finance Admin / Treasury Admin → expense notifications
 - File Admin / Committee → committee files and visibility
+- Committee Member → admin dashboard and most admin tools (excluding Member Admin page)
 - Social Member → view social details
 
 ### Email notifications
