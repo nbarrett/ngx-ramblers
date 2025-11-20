@@ -164,6 +164,7 @@ export interface WalkListItem {
 export interface WalkAGMStats {
   totalWalks: number;
   confirmedWalks: number;
+  morningWalks: number;
   cancelledWalks: number;
   cancelledWalksList: WalkListItem[];
   eveningWalks?: number;
@@ -177,6 +178,7 @@ export interface WalkAGMStats {
   allLeaders: LeaderStats[];
   unfilledSlots: number;
   unfilledSlotsList: WalkListItem[];
+  confirmedWalksList: WalkListItem[];
 }
 
 export interface DateWithLink {

@@ -282,6 +282,11 @@ async function calculateYearStats(fromDate: number, toDate: number, year: number
   };
 }
 
+export function morningWalksCount(totalWalks: number, cancelledWalks: number, eveningWalks: number, unfilledSlots: number): number {
+  const value = (totalWalks || 0) - (cancelledWalks || 0) - (eveningWalks || 0) - (unfilledSlots || 0);
+  return value > 0 ? value : 0;
+}
+
 async function calculateWalkStats(fromDate: number, toDate: number): Promise<WalkAGMStats> {
   const config = await systemConfig();
   const isWalksManager = config.group.walkPopulation === EventPopulation.WALKS_MANAGER;
@@ -328,7 +333,9 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
         [`${GroupEventField.START_DATE}`]: {
           $gte: dateTimeFromMillis(fromDate).toISO(),
           $lte: dateTimeFromMillis(toDate).toISO()
-        }
+        },
+        [`${GroupEventField.ITEM_TYPE}`]: RamblersEventType.GROUP_WALK,
+        [`${GroupEventField.STATUS}`]: {$ne: "deleted"}
       }
     },
     {
@@ -728,6 +735,23 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
     return startDate.toMillis() >= fromDate && startDate.toMillis() <= toDate && startDate.hour >= 18;
   }).sort((a, b) => dateTimeFromIso(a.groupEvent?.start_date_time || "").toMillis() - dateTimeFromIso(b.groupEvent?.start_date_time || "").toMillis()) : [];
 
+  const confirmedWalksListFromDb = await extendedGroupEvent.find({
+    [`${GroupEventField.START_DATE}`]: {
+      $gte: dateTimeFromMillis(fromDate).toISO(),
+      $lte: dateTimeFromMillis(toDate).toISO()
+    },
+    ...confirmedStatusMatch
+  }).sort({[`${GroupEventField.START_DATE}`]: 1}).lean();
+
+  const morningWalksListFromDb = confirmedWalksListFromDb.filter(walk => {
+    const startDate = walk.groupEvent?.start_date_time;
+    if (!startDate) {
+      return false;
+    }
+    const dt = dateTimeFromIso(startDate);
+    return dt.hour < 18;
+  });
+
   const eveningWalksList = isWalksManager
     ? [...eveningWalksListFromRamblers]
     : eveningWalksListFromDb;
@@ -775,12 +799,17 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
     };
   };
 
+  const eveningWalksCount = isWalksManager ? eveningWalksList.length : (totals.eveningWalks || 0);
+  const unfilledCount = isWalksManager ? 0 : unfilledSlotsList.length;
+  const morningWalks = morningWalksCount(totals.totalWalks, totals.cancelledWalks, eveningWalksCount, unfilledCount);
+
   return {
     totalWalks: totals.totalWalks,
-    confirmedWalks: isWalksManager ? totals.totalWalks : totals.confirmedWalks,
+    confirmedWalks: totals.confirmedWalks,
+    morningWalks,
     cancelledWalks: totals.cancelledWalks,
     cancelledWalksList: cancelledWalksList.map(formatWalkListItem),
-    eveningWalks: isWalksManager ? eveningWalksList.length : (totals.eveningWalks || 0),
+    eveningWalks: eveningWalksCount,
     eveningWalksList: eveningWalksList.map(formatWalkListItem),
     totalMiles: Math.round(totals.totalMiles * 10) / 10,
     totalAttendees: totals.totalAttendees,
@@ -789,8 +818,9 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
     newLeadersList,
     topLeader,
     allLeaders: leaders,
-    unfilledSlots: isWalksManager ? 0 : unfilledSlotsList.length,
-    unfilledSlotsList: unfilledSlotsList.map(formatWalkListItem)
+    unfilledSlots: unfilledCount,
+    unfilledSlotsList: unfilledSlotsList.map(formatWalkListItem),
+    confirmedWalksList: morningWalksListFromDb.map(formatWalkListItem)
   };
 }
 

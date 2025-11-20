@@ -70,7 +70,8 @@ Chart.register(...registerables);
                [aggregateYearsLabel]="aggregateYearsLabel()"
                [cancelledWalksList]="cancelledWalksList()"
                [eveningWalksList]="eveningWalksList()"
-               [unfilledSlotsList]="unfilledSlotsList()">
+               [unfilledSlotsList]="unfilledSlotsList()"
+               [confirmedWalksList]="confirmedWalksList()">
           </tab>
 
           <tab app-agm-socials-tab
@@ -524,17 +525,17 @@ export class AGMStatsComponent implements OnInit {
       labels,
       datasets: [
         {
-          label: "Total Walks",
-          data: yearlyPeriods.length ? yearlyPeriods.map(period => period.walks.totalWalks) : walkPeriods.map(period => period.data.totalWalks),
-          backgroundColor: "rgba(54, 162, 235, 0.5)",
-          borderColor: "rgba(54, 162, 235, 1)",
+          label: "Walk Slots Not Filled",
+          data: yearlyPeriods.length ? yearlyPeriods.map(period => period.walks.unfilledSlots || 0) : walkPeriods.map(period => period.data.unfilledSlots || 0),
+          backgroundColor: "rgba(255, 159, 64, 0.5)",
+          borderColor: "rgba(255, 159, 64, 1)",
           borderWidth: 2,
           tension: 0.3,
           fill: false
         },
         {
-          label: "Confirmed Walks",
-          data: yearlyPeriods.length ? yearlyPeriods.map(period => period.walks.confirmedWalks) : walkPeriods.map(period => period.data.confirmedWalks),
+          label: "Morning Walks",
+          data: yearlyPeriods.length ? yearlyPeriods.map(period => period.walks.morningWalks || 0) : walkPeriods.map(period => period.data.morningWalks || 0),
           backgroundColor: "rgba(75, 192, 192, 0.5)",
           borderColor: "rgba(75, 192, 192, 1)",
           borderWidth: 2,
@@ -555,6 +556,15 @@ export class AGMStatsComponent implements OnInit {
           data: yearlyPeriods.length ? yearlyPeriods.map(period => period.walks.eveningWalks || 0) : walkPeriods.map(period => period.data.eveningWalks || 0),
           backgroundColor: "rgba(255, 206, 86, 0.5)",
           borderColor: "rgba(255, 206, 86, 1)",
+          borderWidth: 2,
+          tension: 0.3,
+          fill: false
+        },
+        {
+          label: "Total Walks on Programme",
+          data: yearlyPeriods.length ? yearlyPeriods.map(period => period.walks.totalWalks) : walkPeriods.map(period => period.data.totalWalks),
+          backgroundColor: "rgba(54, 162, 235, 0.5)",
+          borderColor: "rgba(54, 162, 235, 1)",
           borderWidth: 2,
           tension: 0.3,
           fill: false
@@ -671,6 +681,8 @@ export class AGMStatsComponent implements OnInit {
     switch (table) {
       case "expensesSummary":
         return {key: "order", direction: "asc"};
+      case "walkSummary":
+        return {key: "order", direction: "asc"};
       case "aggregateLeaders":
         return {key: "walkCount", direction: "desc"};
       case "leaders":
@@ -689,16 +701,18 @@ export class AGMStatsComponent implements OnInit {
       return [];
     }
     const periods = this.yearsInRange();
-    return [
-      {metric: "Total Walks on Programme", values: periods.map(p => this.periodValue(p, "walks", "totalWalks"))},
-      {metric: "Successfully Led Walks", values: periods.map(p => this.periodValue(p, "walks", "confirmedWalks"))},
-      {metric: "Evening Walks", values: periods.map(p => this.periodValue(p, "walks", "eveningWalks"))},
-      {metric: "Cancelled Walks", values: periods.map(p => this.periodValue(p, "walks", "cancelledWalks"))},
-      {metric: "Walk Slots Not Filled", values: periods.map(p => this.periodValue(p, "walks", "unfilledSlots"))},
-      {metric: "Total Miles Walked", values: periods.map(p => this.periodValue(p, "walks", "totalMiles"))},
-      {metric: "Active Walk Leaders", values: periods.map(p => this.periodValue(p, "walks", "activeLeaders"))},
-      {metric: "New Walk Leaders", values: periods.map(p => this.periodValue(p, "walks", "newLeaders"))}
-    ].map(row => {
+    const rows: {metric: string; values: number[]; order: number}[] = [
+      {metric: "New Walk Leaders", values: periods.map(p => this.periodValue(p, "walks", "newLeaders")), order: 0},
+      {metric: "Active Walk Leaders", values: periods.map(p => this.periodValue(p, "walks", "activeLeaders")), order: 1},
+      {metric: "Walk Slots Not Filled", values: periods.map(p => this.periodValue(p, "walks", "unfilledSlots")), order: 2},
+      {metric: "Morning Walks", values: periods.map(p => this.periodValue(p, "walks", "morningWalks")), order: 3},
+      {metric: "Cancelled Walks", values: periods.map(p => this.periodValue(p, "walks", "cancelledWalks")), order: 4},
+      {metric: "Evening Walks", values: periods.map(p => this.periodValue(p, "walks", "eveningWalks")), order: 5},
+      {metric: "Total Walks on Programme", values: periods.map(p => this.periodValue(p, "walks", "totalWalks")), order: 6},
+      {metric: "Total Miles Walked", values: periods.map(p => this.periodValue(p, "walks", "totalMiles")), order: 7}
+    ];
+
+    return rows.map(row => {
       const previous = row.values[row.values.length - 2] ?? 0;
       const current = row.values[row.values.length - 1] ?? 0;
       return {
@@ -883,6 +897,10 @@ export class AGMStatsComponent implements OnInit {
 
   unfilledSlotsList() {
     return this.stats?.currentYear?.walks?.unfilledSlotsList || [];
+  }
+
+  confirmedWalksList() {
+    return this.stats?.currentYear?.walks?.confirmedWalksList || [];
   }
 
   aggregateOrganisers() {
