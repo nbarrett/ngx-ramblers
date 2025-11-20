@@ -64,10 +64,6 @@ export class MemberLoginService {
     return this.loggedInMember().socialAdmin;
   }
 
-  allowSocialDetailView() {
-    return this.loggedInMember().socialMember;
-  }
-
   isAdmin(): boolean {
     return this.allowCommittee() ||
       this.allowContentEdits() ||
@@ -77,10 +73,6 @@ export class MemberLoginService {
       this.allowFileAdmin() ||
       this.allowWalkAdminEdits() ||
       this.allowSocialAdminEdits();
-  }
-
-  memberHasAnyPrivilege(): boolean {
-    return this.isAdmin();
   }
 
 }

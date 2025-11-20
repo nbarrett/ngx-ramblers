@@ -6,10 +6,20 @@ export function AdminAuthGuard(): boolean {
   const memberLoginService: MemberLoginService = inject(MemberLoginService);
   const router: Router = inject(Router);
 
-  const allowed = memberLoginService.allowMemberAdminEdits();
+  const allowed = memberLoginService.isAdmin();
   if (!allowed) {
     router.navigate(["/"]);
   }
   return allowed;
 }
 
+export function MemberAdminAuthGuard(): boolean {
+  const memberLoginService: MemberLoginService = inject(MemberLoginService);
+  const router: Router = inject(Router);
+
+  const allowed = memberLoginService.allowMemberAdminEdits();
+  if (!allowed) {
+    router.navigate(["/"]);
+  }
+  return allowed;
+}

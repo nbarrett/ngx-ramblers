@@ -3,7 +3,7 @@ import { RouterModule } from "@angular/router";
 import { LoggedInGuard } from "../../guards/admin-login-guard";
 import { hasDynamicPath } from "../../services/path-matchers";
 import { AreaExistsGuard } from "../../guards/area-exists-guard";
-import { AdminAuthGuard } from "../../guards/admin-auth-guard";
+import { AdminAuthGuard, MemberAdminAuthGuard } from "../../guards/admin-auth-guard";
 import { MaintenanceGuard } from "../../guards/maintenance-guard";
 import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
 
@@ -50,7 +50,7 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
     },
     {
       path: "member-admin", loadComponent: () => import("../../pages/admin/member-admin/member-admin.component")
-        .then(m => m.MemberAdminComponent), canActivate: [SystemHealthyGuard, AdminAuthGuard]
+        .then(m => m.MemberAdminComponent), canActivate: [SystemHealthyGuard, MemberAdminAuthGuard]
     },
     {
       path: "agm-stats", loadComponent: () => import("../../pages/admin/agm-stats/agm-stats")
