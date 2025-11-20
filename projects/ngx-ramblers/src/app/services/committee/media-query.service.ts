@@ -46,9 +46,9 @@ export class MediaQueryService {
     return this.basicMediaFrom(walk?.groupEvent)?.[0];
   }
 
-  imageSourceWithFallback(extendedGroupEvent: ExtendedGroupEvent): BasicMedia {
+  imageSourceWithFallback(extendedGroupEvent: ExtendedGroupEvent, absolute = false): BasicMedia {
     const basicMedia = this.imageSource(extendedGroupEvent);
-    return basicMedia ? {...basicMedia, url:this.urlService.imageSource(basicMedia.url, false, true)} : FALLBACK_MEDIA;
+    return basicMedia ? {...basicMedia, url:this.urlService.imageSource(basicMedia.url, absolute, true)} : FALLBACK_MEDIA;
   }
 
   applyImageSource(hasMedia: HasMedia, title: string, imageUrl: string): void {

@@ -23,8 +23,8 @@ import { StringUtilsService } from "../../../services/string-utils.service";
     template: `
       @if (socialEvent?.groupEvent?.media?.length > 0) {
         <img
-          src="{{mediaQueryService.imageSourceWithFallback(socialEvent)?.url}}"
-          alt="{{mediaQueryService.imageSourceWithFallback(socialEvent)?.alt}}" height="150"
+          src="{{mediaQueryService.imageSourceWithFallback(socialEvent, true)?.url}}"
+          alt="{{mediaQueryService.imageSourceWithFallback(socialEvent, true)?.alt}}" height="150"
           class="card-img-top"/>
       }
       @if (latestNotification?.content?.title?.include) {
