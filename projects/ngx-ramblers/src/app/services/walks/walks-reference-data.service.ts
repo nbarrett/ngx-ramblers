@@ -26,6 +26,7 @@ export class WalksReferenceService {
     {value: FilterCriteria.ALL_EVENTS, description: "All Walks"},
     {value: FilterCriteria.NO_CONTACT_DETAILS, description: "Walks With No Leader", localWalkPopulationOnly: true},
     {value: FilterCriteria.NO_EVENT_TITLE, description: "Walks With No Details", localWalkPopulationOnly: true},
+    {value: FilterCriteria.MISSING_LOCATION, description: "Walks With Missing Location", localWalkPopulationOnly: true},
     {value: FilterCriteria.DELETED_EVENTS, description: "Deleted Walks", adminOnly: true, localWalkPopulationOnly: true}
   ];
 

@@ -181,7 +181,8 @@ export class WalkSearchComponent implements OnInit, OnDestroy, AfterViewChecked 
     this.ui.saveValueFor(StoredValue.WALK_SELECT_TYPE, this.filterParameters.selectType);
     this.ui.saveValueFor(StoredValue.WALK_SORT_ASC, this.filterParameters.ascending);
     const typeKebab = this.stringUtils.kebabCase(this.filterParameters.selectType);
-    const sortValue = this.filterParameters.ascending ? "true" : "false";
+    const ascending = this.stringUtils.asBoolean(this.filterParameters.ascending);
+    const sortValue = ascending ? "true" : "false";
     this.replaceQueryParams({
       [this.stringUtils.kebabCase(StoredValue.WALK_SELECT_TYPE)]: typeKebab,
       [this.stringUtils.kebabCase(StoredValue.WALK_SORT_ASC)]: sortValue

@@ -1,5 +1,7 @@
 import { Db, MongoClient } from "mongodb";
 import createMigrationLogger from "../migrations-logger";
+import { WalkStatus } from "../../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { EventType } from "../../../../../projects/ngx-ramblers/src/app/models/walk.model";
 
 const debugLog = createMigrationLogger("set-status-on-migrated-walks");
 
@@ -40,7 +42,13 @@ export async function up(db: Db, client: MongoClient) {
                     cond: {
                       $in: [
                         "$$event.eventType",
-                        ["approved", "deleted", "awaitingLeader", "awaitingWalkDetails", "awaitingApproval"]
+                        [
+                          EventType.APPROVED,
+                          EventType.DELETED,
+                          EventType.AWAITING_LEADER,
+                          EventType.AWAITING_WALK_DETAILS,
+                          EventType.AWAITING_APPROVAL
+                        ]
                       ]
                     }
                   }
@@ -61,10 +69,10 @@ export async function up(db: Db, client: MongoClient) {
                           in: {
                             $switch: {
                               branches: [
-                                { case: { $eq: ["$$latestEvent.eventType", "approved"] }, then: "confirmed" },
-                                { case: { $eq: ["$$latestEvent.eventType", "deleted"] }, then: "deleted" }
+                                { case: { $eq: ["$$latestEvent.eventType", EventType.APPROVED] }, then: WalkStatus.CONFIRMED },
+                                { case: { $eq: ["$$latestEvent.eventType", EventType.DELETED] }, then: "deleted" }
                               ],
-                              default: null
+                              default: WalkStatus.DRAFT
                             }
                           }
                         }
@@ -75,7 +83,7 @@ export async function up(db: Db, client: MongoClient) {
                   else: {
                     $cond: {
                       if: "$$isWalk",
-                      then: "confirmed",
+                      then: WalkStatus.CONFIRMED,
                       else: null
                     }
                   }
@@ -99,7 +107,7 @@ export async function down(db: Db, client: MongoClient) {
 
   const criteria = {
     "fields.migratedFromId": { $exists: true },
-    "groupEvent.status": "confirmed"
+    "groupEvent.status": WalkStatus.CONFIRMED
   };
 
   const result = await collection.updateMany(

@@ -232,6 +232,8 @@ export enum GroupEventField {
   ITEM_TYPE = "groupEvent.item_type",
   LOCATION_DESCRIPTION = "groupEvent.location.description",
   MEDIA = "groupEvent.media",
+  START_LOCATION_LATITUDE = "groupEvent.start_location.latitude",
+  START_LOCATION_LONGITUDE = "groupEvent.start_location.longitude",
   START_DATE = "groupEvent.start_date_time",
   STATUS = "groupEvent.status",
   TITLE = "groupEvent.title",

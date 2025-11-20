@@ -16,6 +16,7 @@ import { KeyValue } from "../../functions/enums";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { FontAwesomeIcon } from "../../models/images.model";
 import { MemberAction } from "../../models/member.model";
+import { WalkStatus } from "../../models/ramblers-walks-manager";
 
 @Injectable({
   providedIn: "root"
@@ -40,7 +41,7 @@ export class IconService {
   }
 
   public toFontAwesomeIcon(status: string): FontAwesomeIcon {
-    if (status === "cancelled") {
+    if (status === WalkStatus.CANCELLED) {
       return {icon: faBan, class: "red-icon"};
     }
     if (status === "created") {

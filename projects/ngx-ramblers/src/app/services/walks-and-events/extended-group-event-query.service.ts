@@ -80,6 +80,17 @@ export class ExtendedGroupEventQueryService {
         return {[EventField.CONTACT_DETAILS_PHONE]: {$exists: false}};
       case FilterCriteria.NO_EVENT_TITLE:
         return {[GroupEventField.TITLE]: {$exists: false}};
+      case FilterCriteria.MISSING_LOCATION:
+        return {
+          $or: [
+            {[GroupEventField.START_LOCATION_LATITUDE]: {$exists: false}},
+            {[GroupEventField.START_LOCATION_LATITUDE]: null},
+            {[GroupEventField.START_LOCATION_LATITUDE]: 0},
+            {[GroupEventField.START_LOCATION_LONGITUDE]: {$exists: false}},
+            {[GroupEventField.START_LOCATION_LONGITUDE]: null},
+            {[GroupEventField.START_LOCATION_LONGITUDE]: 0}
+          ]
+        };
       case FilterCriteria.DELETED_EVENTS:
         return {[EventEventField.EVENT_TYPE]: {$eq: EventType.DELETED.toString()}};
     }
