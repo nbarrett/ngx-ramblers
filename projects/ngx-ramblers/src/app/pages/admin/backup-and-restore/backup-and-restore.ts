@@ -816,6 +816,7 @@ export class BackupAndRestore implements OnInit, OnDestroy {
   private handleComplete(data: any) {
     this.logger.info("Operation complete:", data);
     this.loadSessions();
+    this.loadBackups();
     if (data.status === "completed") {
       this.notify.success({
         title: "Operation Completed",

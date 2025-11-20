@@ -281,8 +281,8 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
   lastChecked: number = this.dateUtils.dateTimeNowAsValue();
   lastRetryMessage = "";
   lastRetrySuccess = false;
-  sortColumn: MigrationSortColumn = MigrationSortColumn.STATUS;
-  sortDirection: string = ASCENDING;
+  sortColumn: MigrationSortColumn = MigrationSortColumn.TIMESTAMP;
+  sortDirection: string = DESCENDING;
 
   private subscriptions: Subscription[] = [];
 
@@ -445,12 +445,16 @@ export class SiteMaintenanceComponent implements OnInit, OnDestroy {
       return [];
     }
 
-    return this.migrationStatus.migrations.files.map(migrationFile => ({
-      file: migrationFile.fileName,
-      status: migrationFile.status,
-      timestamp: migrationFile.timestamp || "",
-      error: migrationFile.error
-    }));
+    return this.migrationStatus.migrations.files.map(migrationFile => {
+      const pendingTimestamp = migrationFile.status === MigrationFileStatus.PENDING ? this.dateUtils.isoDateTime(this.lastChecked) : "";
+      const timestamp = migrationFile.timestamp || pendingTimestamp;
+      return {
+        file: migrationFile.fileName,
+        status: migrationFile.status,
+        timestamp,
+        error: migrationFile.error
+      };
+    });
   }
 
   toggleSort(column: MigrationSortColumn) {

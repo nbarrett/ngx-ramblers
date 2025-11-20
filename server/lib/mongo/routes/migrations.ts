@@ -8,9 +8,13 @@ import {
   clearFailedMigrations
 } from "../migrations/migrations-runner";
 import debug from "debug";
+import * as crudController from "../controllers/crud-controller";
+import { config } from "../models/config";
+import { ConfigDocument } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
 
 const debugLog = debug("ngx-ramblers:migrations-routes");
 debugLog.enabled = true;
+const controller = crudController.create<ConfigDocument>(config);
 
 const router = express.Router();
 
@@ -29,6 +33,7 @@ router.post("/retry", authConfig.authenticate(), async (req: Request, res: Respo
     });
   } catch (error: any) {
     debugLog("Retry migrations error:", error);
+    controller.errorDebugLog("retry:catch", error);
     res.status(500).json({
       success: false,
       message: "Failed to retry migrations",
@@ -43,6 +48,7 @@ router.get("/status", async (req: Request, res: Response) => {
     res.json(status);
   } catch (error: any) {
     debugLog("Get migration status error:", error);
+    controller.errorDebugLog("status:catch", error);
     res.status(500).json({
       error: error.message
     });
@@ -63,6 +69,7 @@ router.post("/retry/:fileName", authConfig.authenticate(), async (req: Request, 
     }
   } catch (error: any) {
     debugLog("Retry single migration error:", error);
+    controller.errorDebugLog("retry:file:catch", error);
     res.status(500).json({ success: false, message: "Failed to retry migration", error: error.message });
   }
 });
@@ -75,6 +82,7 @@ router.post("/simulate-failure", authConfig.authenticate(), async (req: Request,
     res.json({ success: true, pending, failed });
   } catch (error: any) {
     debugLog("Simulate failure error:", error);
+    controller.errorDebugLog("simulate-failure:catch", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -85,6 +93,7 @@ router.post("/clear-simulation", authConfig.authenticate(), async (req: Request,
     res.json({ success: true });
   } catch (error: any) {
     debugLog("Clear simulation error:", error);
+    controller.errorDebugLog("clear-simulation:catch", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -94,6 +103,7 @@ router.get("/simulation", authConfig.authenticate(), async (req: Request, res: R
     const simulation = await readMigrationSimulation();
     res.json(simulation);
   } catch (error: any) {
+    controller.errorDebugLog("simulation:catch", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -104,6 +114,7 @@ router.post("/clear-failed", authConfig.authenticate(), async (req: Request, res
     res.json(result);
   } catch (error: any) {
     debugLog("Clear failed migrations error:", error);
+    controller.errorDebugLog("clear-failed:catch", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

@@ -4,6 +4,8 @@ import { media, metaData, riskAssessmentRecord, walkEvent, walkVenue } from "./w
 import { notification } from "./social-event";
 import { fileNameData } from "./banner";
 import { ExtendedGroupEvent } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
+import { WalkStatus } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { EventType } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 
 const groupEvent = new Schema({
   id: {type: String},
@@ -132,7 +134,13 @@ function deriveStatusFromEvents(doc: any) {
     return;
   }
 
-  const statusChangeEventTypes = ["approved", "deleted", "awaitingLeader", "awaitingWalkDetails", "awaitingApproval"];
+  const statusChangeEventTypes = [
+    EventType.APPROVED,
+    EventType.DELETED,
+    EventType.AWAITING_LEADER,
+    EventType.AWAITING_WALK_DETAILS,
+    EventType.AWAITING_APPROVAL
+  ];
   const statusChangeEvents = doc.events.filter((event: any) =>
     statusChangeEventTypes.includes(event.eventType)
   );
@@ -148,14 +156,14 @@ function deriveStatusFromEvents(doc: any) {
   }
 
   switch (latestEvent.eventType) {
-    case "approved":
-      doc.groupEvent.status = "confirmed";
+    case EventType.APPROVED:
+      doc.groupEvent.status = WalkStatus.CONFIRMED;
       break;
-    case "deleted":
+    case EventType.DELETED:
       doc.groupEvent.status = "deleted";
       break;
     default:
-      doc.groupEvent.status = null;
+      doc.groupEvent.status = WalkStatus.DRAFT;
   }
 }
 

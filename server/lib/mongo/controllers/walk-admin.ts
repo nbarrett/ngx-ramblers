@@ -327,6 +327,32 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
       }
     : {$eq: [`$${GroupEventField.STATUS}`, "confirmed"]};
 
+  const nonCancelledNonDeletedStatusMatch = {[`${GroupEventField.STATUS}`]: {$nin: ["cancelled", "deleted"]}};
+
+  const eveningStatusExpression = isWalksManager
+    ? confirmedStatusExpression
+    : {
+        $and: [
+          {$ne: [`$${GroupEventField.STATUS}`, "cancelled"]},
+          {$ne: [`$${GroupEventField.STATUS}`, "deleted"]}
+        ]
+      };
+
+  const eveningHourExpression = {
+    $gte: [
+      {
+        $toInt: {
+          $dateToString: {
+            format: "%H",
+            date: {$toDate: `$${GroupEventField.START_DATE}`},
+            timezone: "Europe/London"
+          }
+        }
+      },
+      15
+    ]
+  };
+
   const walkPipeline: PipelineStage[] = [
     {
       $match: {
@@ -355,21 +381,8 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
                   $cond: [
                     {
                       $and: [
-                        confirmedStatusExpression,
-                        {
-                          $gte: [
-                            {
-                              $toInt: {
-                                $dateToString: {
-                                  format: "%H",
-                                  date: {$toDate: `$${GroupEventField.START_DATE}`},
-                                  timezone: "Europe/London"
-                                }
-                              }
-                            },
-                            18
-                          ]
-                        }
+                        eveningStatusExpression,
+                        eveningHourExpression
                       ]
                     },
                     1,
@@ -695,24 +708,14 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
           $gte: dateTimeFromMillis(fromDate).toISO(),
           $lte: dateTimeFromMillis(toDate).toISO()
         },
-        ...confirmedStatusMatch
+        [`${GroupEventField.ITEM_TYPE}`]: RamblersEventType.GROUP_WALK,
+        ...(isWalksManager ? confirmedStatusMatch : nonCancelledNonDeletedStatusMatch)
       }
     },
     {
       $match: {
         $expr: {
-          $gte: [
-            {
-              $toInt: {
-                $dateToString: {
-                  format: "%H",
-                  date: {$toDate: `$${GroupEventField.START_DATE}`},
-                  timezone: "Europe/London"
-                }
-              }
-            },
-            18
-          ]
+          $and: [eveningHourExpression]
         }
       }
     },
@@ -732,7 +735,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
       return false;
     }
     const startDate = dateTimeFromIso(start);
-    return startDate.toMillis() >= fromDate && startDate.toMillis() <= toDate && startDate.hour >= 18;
+    return startDate.toMillis() >= fromDate && startDate.toMillis() <= toDate && startDate.hour >= 15;
   }).sort((a, b) => dateTimeFromIso(a.groupEvent?.start_date_time || "").toMillis() - dateTimeFromIso(b.groupEvent?.start_date_time || "").toMillis()) : [];
 
   const confirmedWalksListFromDb = await extendedGroupEvent.find({
@@ -740,7 +743,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
       $gte: dateTimeFromMillis(fromDate).toISO(),
       $lte: dateTimeFromMillis(toDate).toISO()
     },
-    ...confirmedStatusMatch
+    ...(isWalksManager ? confirmedStatusMatch : nonCancelledNonDeletedStatusMatch)
   }).sort({[`${GroupEventField.START_DATE}`]: 1}).lean();
 
   const morningWalksListFromDb = confirmedWalksListFromDb.filter(walk => {
@@ -749,7 +752,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
       return false;
     }
     const dt = dateTimeFromIso(startDate);
-    return dt.hour < 18;
+    return dt.hour < 15;
   });
 
   const eveningWalksList = isWalksManager
