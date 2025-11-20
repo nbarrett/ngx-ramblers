@@ -46,7 +46,6 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
           </div>
         </div>
       </div>
-
       <div class="row mb-4">
         <div class="col-12">
           <h3>Walk Statistics Summary</h3>
@@ -64,7 +63,6 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
           </div>
         </div>
       </div>
-
       @if (unfilledSlotsList.length > 0) {
         <div class="row mb-4">
           <div class="col-12">
@@ -101,7 +99,44 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
           </div>
         </div>
       }
-
+      @if (confirmedWalksList.length > 0) {
+        <div class="row mb-4">
+          <div class="col-12">
+            <h4 class="pointer" (click)="showConfirmed = !showConfirmed">
+              <fa-icon [icon]="showConfirmed ? faChevronUp : faChevronDown" class="me-2"/>
+              Morning Walks ({{ confirmedWalksList.length }})
+            </h4>
+            @if (showConfirmed) {
+              <div class="table-responsive">
+                <table class="table table-sm table-striped table-bordered">
+                  <thead class="table-dark">
+                  <tr>
+                    <th>Date</th>
+                    <th>Title</th>
+                    <th>Leader</th>
+                    <th>Distance (miles)</th>
+                  </tr>
+                  </thead>
+                  <tbody>
+                    @for (walk of sortedRowsFn(confirmedWalksList, 'confirmedWalks'); track walk.id) {
+                      <tr>
+                        <td>{{ walk.startDate | date: UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED }}</td>
+                        <td>
+                          <a [href]="walk.url" target="_blank" rel="noreferrer">
+                            {{ walk.title || 'Untitled' }}
+                          </a>
+                        </td>
+                        <td>{{ walk.walkLeader || '-' }}</td>
+                        <td>{{ walk.distance || '-' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+      }
       @if (cancelledWalksList.length > 0) {
         <div class="row mb-4">
           <div class="col-12">
@@ -142,7 +177,6 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
           </div>
         </div>
       }
-
       @if (eveningWalksList.length > 0) {
         <div class="row mb-4">
           <div class="col-12">
@@ -183,7 +217,6 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
           </div>
         </div>
       }
-
       @if (newLeadersList.length > 0) {
         <div class="row mb-4">
           <div class="col-12">
@@ -230,7 +263,6 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
           </div>
         </div>
       }
-
       <div class="row mb-4">
         <div class="col-12">
           <h3>Top Walk Leaders (Current Year)</h3>
@@ -282,7 +314,6 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
           </div>
         </div>
       </div>
-
       <div class="row mb-4">
         <div class="col-12">
           <h3>Aggregate Walk Leaders ({{ aggregateYearsLabel }})</h3>
@@ -358,6 +389,7 @@ export class AGMWalksTabComponent implements AfterViewInit, OnChanges {
   @Input() cancelledWalksList: WalkListItem[] = [];
   @Input() eveningWalksList: WalkListItem[] = [];
   @Input() unfilledSlotsList: WalkListItem[] = [];
+  @Input() confirmedWalksList: WalkListItem[] = [];
   @Input() sortedRowsFn: SortedRowsFn;
   @Input() toggleSortFn: ToggleSortFn;
   @Input() sortIconFn: SortIconFn;
@@ -367,6 +399,7 @@ export class AGMWalksTabComponent implements AfterViewInit, OnChanges {
   showCancelled = false;
   showEvening = false;
   showUnfilled = false;
+  showConfirmed = false;
 
   ngAfterViewInit() {
     this.logger.info("ngAfterViewInit:", {
