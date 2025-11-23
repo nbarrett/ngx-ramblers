@@ -75,9 +75,24 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
                 <table class="table table-sm table-striped table-bordered">
                   <thead class="table-dark">
                   <tr>
-                    <th>Date</th>
-                    <th>Title</th>
-                    <th>Distance (miles)</th>
+                    <th class="sortable" (click)="toggleSortFn('unfilledSlots', 'startDate')">
+                      Date
+                      @if (sortIconFn('unfilledSlots', 'startDate')) {
+                        <fa-icon [icon]="sortIconFn('unfilledSlots', 'startDate')" class="ms-1" size="xs"/>
+                      }
+                    </th>
+                    <th class="sortable" (click)="toggleSortFn('unfilledSlots', 'title')">
+                      Title
+                      @if (sortIconFn('unfilledSlots', 'title')) {
+                        <fa-icon [icon]="sortIconFn('unfilledSlots', 'title')" class="ms-1" size="xs"/>
+                      }
+                    </th>
+                    <th class="sortable" (click)="toggleSortFn('unfilledSlots', 'distance')">
+                      Distance (miles)
+                      @if (sortIconFn('unfilledSlots', 'distance')) {
+                        <fa-icon [icon]="sortIconFn('unfilledSlots', 'distance')" class="ms-1" size="xs"/>
+                      }
+                    </th>
                   </tr>
                   </thead>
                   <tbody>
@@ -99,26 +114,46 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
           </div>
         </div>
       }
-      @if (confirmedWalksList.length > 0) {
+      @if (morningWalksList.length > 0) {
         <div class="row mb-4">
           <div class="col-12">
             <h4 class="pointer" (click)="showConfirmed = !showConfirmed">
               <fa-icon [icon]="showConfirmed ? faChevronUp : faChevronDown" class="me-2"/>
-              Morning Walks ({{ confirmedWalksList.length }})
+              Morning Walks ({{ morningWalksList.length }})
             </h4>
             @if (showConfirmed) {
               <div class="table-responsive">
                 <table class="table table-sm table-striped table-bordered">
                   <thead class="table-dark">
                   <tr>
-                    <th>Date</th>
-                    <th>Title</th>
-                    <th>Leader</th>
-                    <th>Distance (miles)</th>
+                    <th class="sortable" (click)="toggleSortFn('confirmedWalks', 'startDate')">
+                      Date
+                      @if (sortIconFn('confirmedWalks', 'startDate')) {
+                        <fa-icon [icon]="sortIconFn('confirmedWalks', 'startDate')" class="ms-1" size="xs"/>
+                      }
+                    </th>
+                    <th class="sortable" (click)="toggleSortFn('confirmedWalks', 'title')">
+                      Title
+                      @if (sortIconFn('confirmedWalks', 'title')) {
+                        <fa-icon [icon]="sortIconFn('confirmedWalks', 'title')" class="ms-1" size="xs"/>
+                      }
+                    </th>
+                    <th class="sortable" (click)="toggleSortFn('confirmedWalks', 'walkLeader')">
+                      Leader
+                      @if (sortIconFn('confirmedWalks', 'walkLeader')) {
+                        <fa-icon [icon]="sortIconFn('confirmedWalks', 'walkLeader')" class="ms-1" size="xs"/>
+                      }
+                    </th>
+                    <th class="sortable" (click)="toggleSortFn('confirmedWalks', 'distance')">
+                      Distance (miles)
+                      @if (sortIconFn('confirmedWalks', 'distance')) {
+                        <fa-icon [icon]="sortIconFn('confirmedWalks', 'distance')" class="ms-1" size="xs"/>
+                      }
+                    </th>
                   </tr>
                   </thead>
                   <tbody>
-                    @for (walk of sortedRowsFn(confirmedWalksList, 'confirmedWalks'); track walk.id) {
+                    @for (walk of sortedRowsFn(morningWalksList, 'confirmedWalks'); track walk.id) {
                       <tr>
                         <td>{{ walk.startDate | date: UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED }}</td>
                         <td>
@@ -149,10 +184,30 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
                 <table class="table table-sm table-striped table-bordered">
                   <thead class="table-dark">
                   <tr>
-                    <th>Date</th>
-                    <th>Title</th>
-                    <th>Leader</th>
-                    <th>Distance (miles)</th>
+                    <th class="sortable" (click)="toggleSortFn('cancelledWalks', 'startDate')">
+                      Date
+                      @if (sortIconFn('cancelledWalks', 'startDate')) {
+                        <fa-icon [icon]="sortIconFn('cancelledWalks', 'startDate')" class="ms-1" size="xs"/>
+                      }
+                    </th>
+                    <th class="sortable" (click)="toggleSortFn('cancelledWalks', 'title')">
+                      Title
+                      @if (sortIconFn('cancelledWalks', 'title')) {
+                        <fa-icon [icon]="sortIconFn('cancelledWalks', 'title')" class="ms-1" size="xs"/>
+                      }
+                    </th>
+                    <th class="sortable" (click)="toggleSortFn('cancelledWalks', 'walkLeader')">
+                      Leader
+                      @if (sortIconFn('cancelledWalks', 'walkLeader')) {
+                        <fa-icon [icon]="sortIconFn('cancelledWalks', 'walkLeader')" class="ms-1" size="xs"/>
+                      }
+                    </th>
+                    <th class="sortable" (click)="toggleSortFn('cancelledWalks', 'distance')">
+                      Distance (miles)
+                      @if (sortIconFn('cancelledWalks', 'distance')) {
+                        <fa-icon [icon]="sortIconFn('cancelledWalks', 'distance')" class="ms-1" size="xs"/>
+                      }
+                    </th>
                   </tr>
                   </thead>
                   <tbody>
@@ -189,10 +244,30 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
                 <table class="table table-sm table-striped table-bordered">
                   <thead class="table-dark">
                   <tr>
-                    <th>Date</th>
-                    <th>Title</th>
-                    <th>Leader</th>
-                    <th>Distance (miles)</th>
+                    <th class="sortable" (click)="toggleSortFn('eveningWalks', 'startDate')">
+                      Date
+                      @if (sortIconFn('eveningWalks', 'startDate')) {
+                        <fa-icon [icon]="sortIconFn('eveningWalks', 'startDate')" class="ms-1" size="xs"/>
+                      }
+                    </th>
+                    <th class="sortable" (click)="toggleSortFn('eveningWalks', 'title')">
+                      Title
+                      @if (sortIconFn('eveningWalks', 'title')) {
+                        <fa-icon [icon]="sortIconFn('eveningWalks', 'title')" class="ms-1" size="xs"/>
+                      }
+                    </th>
+                    <th class="sortable" (click)="toggleSortFn('eveningWalks', 'walkLeader')">
+                      Leader
+                      @if (sortIconFn('eveningWalks', 'walkLeader')) {
+                        <fa-icon [icon]="sortIconFn('eveningWalks', 'walkLeader')" class="ms-1" size="xs"/>
+                      }
+                    </th>
+                    <th class="sortable" (click)="toggleSortFn('eveningWalks', 'distance')">
+                      Distance (miles)
+                      @if (sortIconFn('eveningWalks', 'distance')) {
+                        <fa-icon [icon]="sortIconFn('eveningWalks', 'distance')" class="ms-1" size="xs"/>
+                      }
+                    </th>
                   </tr>
                   </thead>
                   <tbody>
@@ -389,7 +464,7 @@ export class AGMWalksTabComponent implements AfterViewInit, OnChanges {
   @Input() cancelledWalksList: WalkListItem[] = [];
   @Input() eveningWalksList: WalkListItem[] = [];
   @Input() unfilledSlotsList: WalkListItem[] = [];
-  @Input() confirmedWalksList: WalkListItem[] = [];
+  @Input() morningWalksList: WalkListItem[] = [];
   @Input() sortedRowsFn: SortedRowsFn;
   @Input() toggleSortFn: ToggleSortFn;
   @Input() sortIconFn: SortIconFn;

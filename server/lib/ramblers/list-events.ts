@@ -36,7 +36,7 @@ import { DateTime } from "luxon";
 const debugLog = debug(envConfig.logNamespace("ramblers:list-events"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:list-events-no-op"));
 noopDebugLog.enabled = false;
-debugLog.enabled = true;
+debugLog.enabled = false;
 
 export async function listEvents(req: Request, res: Response): Promise<void> {
   const body: EventsListRequest = req.body;
