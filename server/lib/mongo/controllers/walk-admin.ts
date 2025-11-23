@@ -3,7 +3,7 @@ import { extendedGroupEvent } from "../models/extended-group-event";
 import { socialEvent } from "../models/social-event";
 import { memberBulkLoadAudit } from "../models/member-bulk-load-audit";
 import { deletedMember } from "../models/deleted-member";
-import { EventField, GroupEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { EventField, GroupEventField, EventType } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
@@ -738,22 +738,14 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
     return startDate.toMillis() >= fromDate && startDate.toMillis() <= toDate && startDate.hour >= 15;
   }).sort((a, b) => dateTimeFromIso(a.groupEvent?.start_date_time || "").toMillis() - dateTimeFromIso(b.groupEvent?.start_date_time || "").toMillis()) : [];
 
-  const confirmedWalksListFromDb = await extendedGroupEvent.find({
+  const allWalksForStats = isWalksManager ? [] : await extendedGroupEvent.find({
+    [`${GroupEventField.ITEM_TYPE}`]: RamblersEventType.GROUP_WALK,
     [`${GroupEventField.START_DATE}`]: {
       $gte: dateTimeFromMillis(fromDate).toISO(),
       $lte: dateTimeFromMillis(toDate).toISO()
     },
-    ...(isWalksManager ? confirmedStatusMatch : nonCancelledNonDeletedStatusMatch)
+    [`${GroupEventField.STATUS}`]: {$ne: "deleted"}
   }).sort({[`${GroupEventField.START_DATE}`]: 1}).lean();
-
-  const morningWalksListFromDb = confirmedWalksListFromDb.filter(walk => {
-    const startDate = walk.groupEvent?.start_date_time;
-    if (!startDate) {
-      return false;
-    }
-    const dt = dateTimeFromIso(startDate);
-    return dt.hour < 15;
-  });
 
   const eveningWalksList = isWalksManager
     ? [...eveningWalksListFromRamblers]
@@ -805,15 +797,115 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
   const eveningWalksCount = isWalksManager ? eveningWalksList.length : (totals.eveningWalks || 0);
   const unfilledCount = isWalksManager ? 0 : unfilledSlotsList.length;
   const morningWalks = morningWalksCount(totals.totalWalks, totals.cancelledWalks, eveningWalksCount, unfilledCount);
+  const idForWalk = (walk: any) => walk._id?.toString() || walk.groupEvent?.id || "";
+
+  const localMorningWalks: any[] = [];
+  const localEveningWalks: any[] = [];
+  const localCancelledWalks: any[] = [];
+  const localUnfilledWalks: any[] = [];
+
+  const classifyLocalWalk = (walk: any): "deleted" | "unfilled" | "cancelled" | "evening" | "morning" => {
+    const events: any[] = Array.isArray(walk.events) ? walk.events : [];
+    const hasDeletedEvent = events.some(event => event?.eventType === EventType.DELETED);
+    if (hasDeletedEvent) {
+      return "deleted";
+    }
+    const title = (walk.groupEvent?.title || "") as string;
+    const status = walk.groupEvent?.status as string | undefined;
+    const memberId = walk.fields?.contactDetails?.memberId as string | undefined;
+    const leaderMissing = !memberId;
+    const titleMissing = !title;
+
+    const start = walk.groupEvent?.start_date_time as string | undefined;
+
+    const cancelledByStatus = status === "cancelled";
+    const cancelledByTitle = /cancelled/i.test(title);
+    const cancelled = cancelledByStatus || cancelledByTitle;
+
+    if (cancelled) {
+      return "cancelled";
+    }
+
+    if (!start) {
+      return "unfilled";
+    }
+
+    const dt = dateTimeFromIso(start);
+    const nowMillis = Date.now();
+    const pastOrToday = dt.toMillis() <= nowMillis;
+
+    if (pastOrToday && (leaderMissing || titleMissing)) {
+      return "unfilled";
+    }
+
+    if (dt.hour >= 15) {
+      return "evening";
+    }
+
+    return "morning";
+  };
+
+  if (!isWalksManager) {
+    for (const walk of allWalksForStats) {
+      const bucket = classifyLocalWalk(walk);
+      if (bucket === "deleted") {
+        continue;
+      }
+      if (bucket === "unfilled") {
+        localUnfilledWalks.push(walk);
+      } else if (bucket === "cancelled") {
+        localCancelledWalks.push(walk);
+      } else if (bucket === "evening") {
+        localEveningWalks.push(walk);
+      } else {
+        localMorningWalks.push(walk);
+      }
+    }
+
+    debugLog("localWalkBuckets", {
+      totalWalks: totals.totalWalks,
+      allWalksForStats: allWalksForStats.length,
+      morning: localMorningWalks.length,
+      evening: localEveningWalks.length,
+      cancelled: localCancelledWalks.length,
+      unfilled: localUnfilledWalks.length,
+      sum: localMorningWalks.length + localEveningWalks.length + localCancelledWalks.length + localUnfilledWalks.length
+    });
+  }
+
+  const totalWalksFinal = isWalksManager
+    ? totals.totalWalks
+    : localMorningWalks.length + localEveningWalks.length + localCancelledWalks.length + localUnfilledWalks.length;
+
+  const morningWalksFinal = isWalksManager ? morningWalks : localMorningWalks.length;
+  const cancelledWalksFinal = isWalksManager ? totals.cancelledWalks : localCancelledWalks.length;
+  const eveningWalksFinal = isWalksManager ? eveningWalksCount : localEveningWalks.length;
+  const unfilledSlotsFinal = isWalksManager ? unfilledCount : localUnfilledWalks.length;
+
+  const cancelledWalksListFinal = isWalksManager
+    ? cancelledWalksList.map(formatWalkListItem)
+    : localCancelledWalks.map(formatWalkListItem);
+
+  const eveningWalksListFinal = isWalksManager
+    ? eveningWalksList.map(formatWalkListItem)
+    : localEveningWalks.map(formatWalkListItem);
+
+  const unfilledSlotsListFinal = isWalksManager
+    ? unfilledSlotsList.map(formatWalkListItem)
+    : localUnfilledWalks.map(formatWalkListItem);
+
+  const morningWalksListFinal = isWalksManager
+    ? []
+    : localMorningWalks.map(formatWalkListItem);
 
   return {
-    totalWalks: totals.totalWalks,
+    totalWalks: totalWalksFinal,
     confirmedWalks: totals.confirmedWalks,
-    morningWalks,
-    cancelledWalks: totals.cancelledWalks,
-    cancelledWalksList: cancelledWalksList.map(formatWalkListItem),
-    eveningWalks: eveningWalksCount,
-    eveningWalksList: eveningWalksList.map(formatWalkListItem),
+    morningWalks: morningWalksFinal,
+    cancelledWalks: cancelledWalksFinal,
+    cancelledWalksList: cancelledWalksListFinal,
+    eveningWalks: eveningWalksFinal,
+    eveningWalksList: eveningWalksListFinal,
     totalMiles: Math.round(totals.totalMiles * 10) / 10,
     totalAttendees: totals.totalAttendees,
     activeLeaders: leaders.length,
@@ -821,9 +913,9 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
     newLeadersList,
     topLeader,
     allLeaders: leaders,
-    unfilledSlots: unfilledCount,
-    unfilledSlotsList: unfilledSlotsList.map(formatWalkListItem),
-    confirmedWalksList: morningWalksListFromDb.map(formatWalkListItem)
+    unfilledSlots: unfilledSlotsFinal,
+    unfilledSlotsList: unfilledSlotsListFinal,
+    morningWalksList: morningWalksListFinal
   };
 }
 

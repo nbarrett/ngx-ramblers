@@ -178,7 +178,7 @@ export interface WalkAGMStats {
   allLeaders: LeaderStats[];
   unfilledSlots: number;
   unfilledSlotsList: WalkListItem[];
-  confirmedWalksList: WalkListItem[];
+  morningWalksList: WalkListItem[];
 }
 
 export interface DateWithLink {

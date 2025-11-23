@@ -71,7 +71,7 @@ Chart.register(...registerables);
                [cancelledWalksList]="cancelledWalksList()"
                [eveningWalksList]="eveningWalksList()"
                [unfilledSlotsList]="unfilledSlotsList()"
-               [confirmedWalksList]="confirmedWalksList()">
+               [morningWalksList]="morningWalksList()">
           </tab>
 
           <tab app-agm-socials-tab
@@ -86,8 +86,8 @@ Chart.register(...registerables);
                [sortIconFn]="sortIconFn"
                [changeClassFn]="changeClassFn"
                [getYearLabelFn]="getYearLabelFn"
-               [fromDate]="fromDate"
-               [toDate]="toDate"
+               [fromDate]="currentYearFrom()"
+               [toDate]="currentYearTo()"
                [socialChartData]="socialChartData"
                [chartOptions]="chartOptions"
                [chartType]="chartType"
@@ -899,8 +899,16 @@ export class AGMStatsComponent implements OnInit {
     return this.stats?.currentYear?.walks?.unfilledSlotsList || [];
   }
 
-  confirmedWalksList() {
-    return this.stats?.currentYear?.walks?.confirmedWalksList || [];
+  morningWalksList() {
+    return this.stats?.currentYear?.walks?.morningWalksList || [];
+  }
+
+  currentYearFrom() {
+    return this.stats?.currentYear?.periodFrom || this.fromDate;
+  }
+
+  currentYearTo() {
+    return this.stats?.currentYear?.periodTo || this.toDate;
   }
 
   aggregateOrganisers() {
@@ -927,7 +935,7 @@ export class AGMStatsComponent implements OnInit {
     if (!this.stats) {
       return [];
     }
-    const source = this.stats.yearlyStats?.length ? this.stats.yearlyStats : [this.stats.currentYear];
+    const source = this.stats.currentYear ? [this.stats.currentYear] : [];
     const events = source.flatMap(year => year.socials.socialsList).map(event => {
       const link = event.link || (event.description ? `/social/${this.stringUtils.kebabCase(event.description)}` : null);
       const id = (event as any).id || this.stringUtils.kebabCase(event.description);
