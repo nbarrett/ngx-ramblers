@@ -216,17 +216,19 @@ export async function agmStats(req: Request, res: Response) {
     debugLog("agmStats request:", {fromDate, toDate});
 
     const earliestDate = await earliestDataDate();
-    const totalRange = toDate - fromDate;
-    const rangeInYears = totalRange / (365.25 * 24 * 60 * 60 * 1000);
-    const numPeriods = Math.max(1, Math.round(rangeInYears));
-    const oneYearMs = 365.25 * 24 * 60 * 60 * 1000;
+    const from = dateTimeFromMillis(fromDate);
+    const to = dateTimeFromMillis(toDate);
+    const rangeInYears = to.diff(from, "years").years;
+    const numPeriods = Math.max(1, Math.round(rangeInYears || 1));
 
-    debugLog(`Range: ${rangeInYears.toFixed(2)} years, numPeriods: ${numPeriods}`);
+    debugLog(`Range: ${rangeInYears.toFixed(4)} years, numPeriods: ${numPeriods}`);
     const yearlyStats: YearComparison[] = [];
 
     for (let i = 0; i < numPeriods; i++) {
-      const periodFrom = i === 0 ? fromDate : fromDate + i * oneYearMs;
-      const periodTo = i === numPeriods - 1 ? toDate : fromDate + (i + 1) * oneYearMs;
+      const periodFromDateTime = i === 0 ? from : from.plus({years: i});
+      const periodToDateTime = i === numPeriods - 1 ? to : from.plus({years: i + 1});
+      const periodFrom = periodFromDateTime.toMillis();
+      const periodTo = periodToDateTime.toMillis();
       const periodYear = dateTimeFromMillis(periodFrom).year;
 
       debugLog(`Period ${i + 1}: from=${dateTimeFromMillis(periodFrom).toISO()}, to=${dateTimeFromMillis(periodTo).toISO()}, year=${periodYear}`);
