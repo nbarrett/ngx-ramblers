@@ -52,10 +52,11 @@ jobs:
     needs: set-environments
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
+      max-parallel: 3
       matrix:
         environment: ${{ fromJson(needs.set-environments.outputs.matrix) }}
     name: Deploy to ${{ matrix.environment }}
-    continue-on-error: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

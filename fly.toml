@@ -10,7 +10,7 @@ processes = ["app"]
 
 [[http_service.checks]]
 interval = "15s"
-timeout = "5s"
+timeout = "10s"
 grace_period = "60s"
 method = "GET"
 path = "/api/health"
