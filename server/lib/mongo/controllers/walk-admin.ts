@@ -315,7 +315,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
           {[`${GroupEventField.STATUS}`]: {$nin: ["cancelled", "deleted"]}}
         ]
       }
-    : {[`${GroupEventField.STATUS}`]: "confirmed"};
+    : {[`${GroupEventField.STATUS}`]: {$nin: ["cancelled", "deleted"]}};
 
   const confirmedStatusExpression = isWalksManager
     ? {
