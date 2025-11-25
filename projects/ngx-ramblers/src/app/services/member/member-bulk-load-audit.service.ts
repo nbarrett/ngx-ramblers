@@ -1,13 +1,14 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Observable, Subject } from "rxjs";
+import { firstValueFrom, Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
-import { Member, MemberBulkLoadAudit, MemberBulkLoadAuditApiResponse } from "../../models/member.model";
+import { Member, MemberBulkLoadAudit, MemberBulkLoadAuditApiResponse, MemberBulkLoadDateMap } from "../../models/member.model";
 import { CommonDataService } from "../common-data-service";
 import { DbUtilsService } from "../db-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { first } from "es-toolkit/compat";
+import { StringUtilsService } from "../string-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -18,6 +19,7 @@ export class MemberBulkLoadAuditService {
   private http = inject(HttpClient);
   private dbUtils = inject(DbUtilsService);
   private commonDataService = inject(CommonDataService);
+  private stringUtilsService = inject(StringUtilsService);
   private BASE_URL = "/api/database/member-bulk-load-audit";
   private bulkLoadNotifications = new Subject<MemberBulkLoadAuditApiResponse>();
 
@@ -57,5 +59,12 @@ export class MemberBulkLoadAuditService {
 
   public receivedInBulkLoad(member: Member, received: boolean, bulkLoadAudit: MemberBulkLoadAudit) {
     return bulkLoadAudit?.members?.find(memberInAudit => memberInAudit.membershipNumber === member.membershipNumber) ? received : !received;
+  }
+
+  public async createMemberBulkLoadDateMap(): Promise<MemberBulkLoadDateMap> {
+    this.logger.info("createMemberBulkLoadDateMap: fetching from server");
+    const dateMapObject = await firstValueFrom(this.http.get<MemberBulkLoadDateMap>(`${this.BASE_URL}/member-bulk-load-date-map`));
+    this.logger.info("createMemberBulkLoadDateMap: created map with", this.stringUtilsService.pluraliseWithCount(Object.keys(dateMapObject || {}).length, "entry", "entries"), "memberBulkLoadDateMap:", dateMapObject);
+    return dateMapObject;
   }
 }

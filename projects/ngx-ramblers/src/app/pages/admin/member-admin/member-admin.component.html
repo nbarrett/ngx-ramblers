@@ -199,7 +199,13 @@
                               tooltip="Click to ring {{member | fullNameWithAlias}} on {{member.mobileNumber}} (mobile devices only)">{{ member.mobileNumber }}</span></a>
                       </td>
                       <td class="nowrap">{{ member.createdDate | displayDateNoDay }}</td>
-                      <td class="nowrap">{{ member.membershipExpiryDate | displayDateNoDay }}</td>
+                      <td class="nowrap">
+                        @if (member.memberTerm === MemberTerm.LIFE) {
+                          Lifetime
+                        } @else {
+                          {{ member.membershipExpiryDate | displayDateNoDay }}
+                        }
+                      </td>
                       <td>
                         <app-switch-icon [on]="receivedInLastBulkLoad(member)"/>
                       </td>

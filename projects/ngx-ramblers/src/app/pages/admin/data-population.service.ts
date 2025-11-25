@@ -70,7 +70,7 @@ export class DataPopulationService {
       {
         category: "admin",
         name: "walks-manager-fields-help",
-        text: "* The **Assemble Name** is sent in the exported CSV file when our walks are sent to Ramblers. You can amend this field below. If this field doesn't exactly match what's stored in Assemble for the member, the Walks Manager CSV Import process will fail with a \"Volunteer Not Found\" error. \n* The **Assemble Id** is the identifier assigned by Assemble when the member is setup in that system. The reason it's stored in the member record here, is that it enables an Administrator to click on the **User Details** Assemble link below for checking purposes."
+        text: "* The **Walks Manager Name** is sent in the exported CSV file when our walks are sent to Ramblers. You can amend this field below. If this field doesn't exactly match what's stored in Walks Manager for the member, the Walks Manager CSV Import process will fail with a \"Volunteer Not Found\" error."
       },
       {
         category: "admin",

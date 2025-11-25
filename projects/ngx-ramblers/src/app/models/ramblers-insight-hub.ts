@@ -24,6 +24,8 @@ export const AUDIT_FIELDS: AuditField[] = [
     dateFormat: RamblersInsightHubDateFormat.TWO_DIGIT_YEAR
   },
   {fieldName: "membershipNumber", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.STRING},
+  {fieldName: "memberStatus", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.STRING},
+  {fieldName: "memberTerm", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.STRING},
   {fieldName: "mobileNumber", writeDataIf: WriteDataRule.NO_OLD_VALUE, type: WriteDataType.STRING},
   {fieldName: "email", writeDataIf: WriteDataRule.NO_OLD_VALUE, type: WriteDataType.STRING},
   {

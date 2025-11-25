@@ -1,5 +1,5 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faPaste } from "@fortawesome/free-solid-svg-icons";
+import { faPaste, faSort, faSortDown, faSortUp } from "@fortawesome/free-solid-svg-icons";
 import { omit } from "es-toolkit/compat";
 import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -7,7 +7,7 @@ import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { DateValue } from "../../../models/date.model";
 import { MailchimpConfig } from "../../../models/mailchimp.model";
-import { Member, MemberUpdateAudit } from "../../../models/member.model";
+import { Member, MemberTerm, MemberUpdateAudit } from "../../../models/member.model";
 import { MailProvider, SystemConfig } from "../../../models/system.model";
 import { EditMode } from "../../../models/ui-actions";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
@@ -46,6 +46,8 @@ import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pip
 import { LastConfirmedDateDisplayed } from "../../../pipes/last-confirmed-date-displayed.pipe";
 import { UpdatedAuditPipe } from "../../../pipes/updated-audit-pipe";
 import { FormatAuditPipe } from "../../../pipes/format-audit-pipe";
+import { sortBy } from "../../../functions/arrays";
+import { DeletedMemberService } from "../../../services/member/deleted-member.service";
 
 @Component({
   selector: "app-member-admin-modal",
@@ -73,6 +75,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   private memberDefaultsService = inject(MemberDefaultsService);
   private mailMessagingService = inject(MailMessagingService);
   private dbUtils = inject(DbUtilsService);
+  private deletedMemberService = inject(DeletedMemberService);
   protected dateUtils = inject(DateUtilsService);
   bsModalRef = inject(BsModalRef);
   public systemConfig: SystemConfig;
@@ -97,7 +100,15 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   public mailchimpConfig: MailchimpConfig;
   private subscriptions: Subscription[] = [];
   public readonly faPaste = faPaste;
+  protected readonly faSort = faSort;
+  protected readonly faSortUp = faSortUp;
+  protected readonly faSortDown = faSortDown;
   protected readonly MailProvider = MailProvider;
+  protected auditSortColumn: "updateTime" | "memberAction" | "auditMessage" = "updateTime";
+  protected auditSortDirection: "asc" | "desc" = "desc";
+  protected isLifeMember(): boolean {
+    return (this.member?.memberTerm?.toString()?.toLowerCase() === MemberTerm.LIFE);
+  }
 
   ngOnInit() {
     this.subscriptions.push(this.systemConfigService.events()
@@ -161,6 +172,27 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
+  protected sortedMemberUpdateAudits(): MemberUpdateAudit[] {
+    const comparator = sortBy(`${this.auditSortDirection === "asc" ? "" : "-"}${this.auditSortColumn}`);
+    return [...this.memberUpdateAudits].sort(comparator);
+  }
+
+  protected toggleAuditSort(column: "updateTime" | "memberAction" | "auditMessage") {
+    if (this.auditSortColumn === column) {
+      this.auditSortDirection = this.auditSortDirection === "asc" ? "desc" : "asc";
+    } else {
+      this.auditSortColumn = column;
+      this.auditSortDirection = column === "updateTime" ? "desc" : "asc";
+    }
+  }
+
+  protected auditSortIcon(column: "updateTime" | "memberAction" | "auditMessage") {
+    if (this.auditSortColumn !== column) {
+      return this.faSort;
+    }
+    return this.auditSortDirection === "asc" ? this.faSortUp : this.faSortDown;
+  }
+
   deleteMemberDetails() {
     this.allowDelete = false;
     this.allowConfirmDelete = true;
@@ -175,8 +207,25 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
       });
   }
 
-  confirmDeleteMemberDetails() {
-    this.memberService.delete(this.member).then(() => this.bsModalRef.hide());
+  async confirmDeleteMemberDetails() {
+    try {
+      await this.memberService.delete(this.member);
+      const deletedAt: number = this.dateUtils.dateTimeNowNoTime().toMillis();
+      const deletedBy: string = this.memberLoginService.loggedInMember()?.memberId;
+      if (deletedBy) {
+        await this.deletedMemberService.create({
+          deletedAt,
+          deletedBy,
+          memberId: this.member.id,
+          membershipNumber: this.member.membershipNumber
+        });
+      } else {
+        this.logger.warn("confirmDeleteMemberDetails: no logged in member id available for deletedMember record");
+      }
+      this.bsModalRef.hide();
+    } catch (error) {
+      this.notify.error({title: "Delete Member", message: error});
+    }
   }
 
 

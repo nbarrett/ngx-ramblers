@@ -6,7 +6,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { DateValue } from "../../../models/date.model";
-import { Member, MemberBulkLoadAudit, MemberFilterSelection } from "../../../models/member.model";
+import { Member, MemberBulkLoadAudit, MemberBulkLoadDateMap, MemberFilterSelection, MemberTerm } from "../../../models/member.model";
 import { Organisation } from "../../../models/system.model";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -37,6 +37,7 @@ import { FormsModule } from "@angular/forms";
 import { DatePicker } from "../../../date-and-time/date-picker";
 import { SenderRepliesAndSignoffComponent } from "./sender-replies-and-signoff";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 
 @Component({
     selector: "app-member-admin-send-emails-modal",
@@ -83,73 +84,78 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
               </tab>
               <tab heading="Member Selection">
                 <div class="img-thumbnail thumbnail-admin-edit">
+                  @if (loadingBulkLoadData) {
+                    <div class="alert alert-info">
+                      <fa-icon [icon]="spinnerIcon" [spin]="true"></fa-icon>
+                      Loading member bulk load history...
+                    </div>
+                  }
                   <div class="row">
                     <div class="col-sm-12">
                       <label for="radio-selections">Pre-select members</label>
                       <div id="radio-selections">
-                        <div class="row">
-                          <div class="col-sm-12">
-                            <div class="d-inline-flex align-items-center flex-wrap">
-                              <div class="form-check form-check-inline">
-                                <input type="radio" class="form-check-input" [value]="MemberSelection.RECENTLY_ADDED"
-                                  [ngModel]="notificationConfig.defaultMemberSelection"
-                                  [disabled]="notifyTarget.busy" id="recently-added"
-                                  (click)="populateMembersBasedOn(MemberSelection.RECENTLY_ADDED)">
-                                <label class="form-check-label text-nowrap" for="recently-added">
-                                  Added in the
-                                  last {{ stringUtils.pluraliseWithCount(notificationConfig.monthsInPast, "month") }}
-                                  on/after:
-                                </label>
-                                @if (currentMemberSelection === MemberSelection.RECENTLY_ADDED) {
-                                  <app-date-picker startOfDay
-                                    class="input-group ms-2"
-                                    (change)="onMemberFilterDateChange($event)"
-                                    [value]="memberFilterDate">
-                                  </app-date-picker>
-                                }
-                              </div>
-                            </div>
+                        <div class="row mb-3 mt-3">
+                          <div class="col-sm-12 d-flex align-items-center">
+                            <input type="radio" class="form-check-input me-2" [value]="MemberSelection.RECENTLY_ADDED"
+                              [ngModel]="notificationConfig.defaultMemberSelection"
+                              [disabled]="notifyTarget.busy" id="recently-added"
+                              (click)="populateMembersBasedOn(MemberSelection.RECENTLY_ADDED)">
+                            <label class="form-check-label text-nowrap me-2" for="recently-added">
+                              Added in the
+                              last {{ stringUtils.pluraliseWithCount(notificationConfig.monthsInPast, "month") }}
+                              on/after:
+                            </label>
+                            <app-date-picker startOfDay
+                              [class.d-none]="currentMemberSelection !== MemberSelection.RECENTLY_ADDED"
+                              (change)="onMemberFilterDateChange($event)"
+                              [value]="memberFilterDate">
+                            </app-date-picker>
                           </div>
                         </div>
-                        <div class="row">
-                          <div class="col-sm-12">
-                            <div class="d-inline-flex align-items-center flex-wrap">
-                              <div class="form-check form-check-inline">
-                                <input type="radio" class="form-check-input"
-                                  [value]="MemberSelection.EXPIRED_MEMBERS"
-                                  [ngModel]="notificationConfig.defaultMemberSelection"
-                                  [disabled]="notifyTarget.busy"
-                                  id="expired-members"
-                                  (click)="populateMembersBasedOn(MemberSelection.EXPIRED_MEMBERS)">
-                                <label class="form-check-label text-nowrap" for="expired-members">
-                                  {{ notificationConfig.monthsInPast }} months past expiry date:
-                                </label>
-                                @if (currentMemberSelection === MemberSelection.EXPIRED_MEMBERS) {
-                                  <app-date-picker startOfDay
-                                    class="calendar-in-label"
-                                    (change)="onMemberFilterDateChange($event)"
-                                    [value]="memberFilterDate">
-                                  </app-date-picker>
-                                }
-                              </div>
-                            </div>
+                        <div class="row mb-3">
+                          <div class="col-sm-12 d-flex align-items-center">
+                            <input type="radio" class="form-check-input me-2"
+                              [value]="MemberSelection.EXPIRED_MEMBERS"
+                              [ngModel]="notificationConfig.defaultMemberSelection"
+                              [disabled]="notifyTarget.busy"
+                              id="expired-members"
+                              (click)="populateMembersBasedOn(MemberSelection.EXPIRED_MEMBERS)">
+                            <label class="form-check-label text-nowrap me-2" for="expired-members">
+                              {{ stringUtils.pluraliseWithCount(notificationConfig.monthsInPast, "month") }} past expiry date:
+                            </label>
+                            <app-date-picker startOfDay
+                              [class.d-none]="currentMemberSelection !== MemberSelection.EXPIRED_MEMBERS"
+                              (change)="onMemberFilterDateChange($event)"
+                              [value]="memberFilterDate">
+                            </app-date-picker>
                           </div>
                         </div>
-                        <div class="row">
-                          <div class="col-sm-6">
-                            <div class="form-check">
-                              <input
-                                type="radio"
-                                class="form-check-input"
-                                [value]="MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS"
-                                [ngModel]="notificationConfig.monthsInPast"
-                                [disabled]="notifyTarget.busy"
-                                id="missing-from-bulk-load-members"
-                                (click)="populateMembersBasedOn(MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS)">
-                              <label class="form-check-label" for="missing-from-bulk-load-members">Missing from last
-                                bulk
-                              load</label>
-                            </div>
+                        <div class="row mb-3">
+                          <div class="col-sm-12 d-flex align-items-center">
+                            <input type="radio" class="form-check-input me-2"
+                              [value]="MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS"
+                              [ngModel]="notificationConfig.defaultMemberSelection"
+                              [disabled]="notifyTarget.busy"
+                              id="missing-from-bulk-load-members"
+                              (click)="populateMembersBasedOn(MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS)">
+                            <label class="form-check-label text-nowrap me-2" for="missing-from-bulk-load-members">
+                              @if (notificationConfig.monthsInPast) {
+                                Missing from bulk load for {{ stringUtils.pluraliseWithCount(notificationConfig.monthsInPast, "month") }} since:
+                              } @else {
+                                {{ bulkLoadDateLabel() }}
+                              }
+                            </label>
+                            @if (notificationConfig.monthsInPast) {
+                              <app-date-picker startOfDay
+                                [class.d-none]="currentMemberSelection !== MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS"
+                                (change)="onMemberFilterDateChange($event)"
+                                [value]="memberFilterDate">
+                              </app-date-picker>
+                            }
+                          </div>
+                        </div>
+                        <div class="row mb-3">
+                          <div class="col-sm-12">
                             <div class="form-check">
                               <input
                                 type="radio"
@@ -164,6 +170,8 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                               all and enter manually</label>
                             </div>
                           </div>
+                        </div>
+                        <div class="row mb-3">
                           <div class="col-sm-12">
                             <div class="form-group">
                               <label>{{ passwordResetCaption() }}</label>
@@ -217,13 +225,13 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
       }
       <div class="modal-footer">
         <div class="d-flex gap-2 flex-wrap">
-          <input type="submit" [disabled]="notifyTarget.busy || sendEmailsDisabled()"
+          <input type="submit" [disabled]="loadingBulkLoadData || notifyTarget.busy || sendEmailsDisabled()"
             value="Send {{notificationConfig?.subject?.text}} email"
             (click)="sendEmails()"
             title="Send {{notificationConfig?.subject?.text}} email to the {{stringUtils.pluraliseWithCount(selectedMemberIds.length,'member')}}"
             class="btn"
-            [class.btn-secondary]="notifyTarget.busy || sendEmailsDisabled()"
-            [class.btn-primary]="!(notifyTarget.busy || sendEmailsDisabled())">
+            [class.btn-secondary]="loadingBulkLoadData || notifyTarget.busy || sendEmailsDisabled()"
+            [class.btn-primary]="!(loadingBulkLoadData || notifyTarget.busy || sendEmailsDisabled())">
           <input type="submit" [disabled]="notifyTarget.busy" value="Cancel"
             (click)="cancelSendEmails()" title="Close this dialog"
             class="btn btn-primary">
@@ -251,13 +259,15 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   protected dateUtils = inject(DateUtilsService);
   bsModalRef = inject(BsModalRef);
   private latestMemberBulkLoadAudit: MemberBulkLoadAudit;
+  private memberBulkLoadDateMap: MemberBulkLoadDateMap = {};
+  public loadingBulkLoadData = true;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
   members: Member[] = [];
   public selectableMembers: MemberFilterSelection[] = [];
   public selectedMemberIds: string[] = [];
   currentMemberSelection: MemberSelection = MemberSelection.RECENTLY_ADDED;
-  memberFilterDate: DateValue;
+  public memberFilterDate: DateValue;
   public notificationConfigs: NotificationConfig[] = [];
   public mailMessagingConfig: MailMessagingConfig;
   private group: Organisation;
@@ -266,13 +276,15 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   public notificationConfigListing: NotificationConfigListing;
   protected readonly MemberSelection = MemberSelection;
   protected readonly first = first;
+  protected spinnerIcon = faSpinner;
   @ViewChild(NotificationDirective) notificationDirective: NotificationDirective;
 
-  ngOnInit() {
+  async ngOnInit() {
     this.logger.info("constructed with", this.stringUtils.pluraliseWithCount(this.members.length, "member"));
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.subscriptions.push(this.systemConfigService.events().subscribe(item => this.group = item.group));
     this.memberFilterDate = this.dateUtils.asDateValue(this.dateUtils.dateTimeNowNoTime().toMillis());
+    void this.loadBulkLoadData();
     this.mailMessagingService.events().subscribe((mailMessagingConfig: MailMessagingConfig) => {
       this.logger.info("mailMessagingConfig:", mailMessagingConfig);
       this.mailMessagingConfig = mailMessagingConfig;
@@ -286,6 +298,18 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
       this.logger.info("emailConfigs:", this.notificationConfigs, "selecting first one:", this.notificationConfig);
       this.populateMembersBasedOn(this.notificationConfig?.defaultMemberSelection);
     });
+  }
+
+  async loadBulkLoadData() {
+    try {
+      this.latestMemberBulkLoadAudit = await this.memberBulkLoadAuditService.findLatestBulkLoadAudit();
+      this.memberBulkLoadDateMap = await this.memberBulkLoadAuditService.createMemberBulkLoadDateMap();
+    } finally {
+      this.loadingBulkLoadData = false;
+    }
+    if (this.notificationConfig) {
+      this.populateMembersBasedOn(this.notificationConfig.defaultMemberSelection);
+    }
   }
 
   ngOnDestroy(): void {
@@ -364,7 +388,7 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
       },
       {
         name: MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS,
-        memberMapper: (member) => this.renderExpiryInformation(member),
+        memberMapper: (member) => this.renderBulkLoadInformation(member),
         memberFilter: (member) => this.missingFromBulkLoad(member)
       }];
   }
@@ -393,9 +417,11 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   }
 
   calculateMemberFilterDate() {
-    const dateFilter = this.dateUtils.dateTimeNowNoTime().minus({ months: this.notificationConfig.monthsInPast });
-    this.memberFilterDate = this.dateUtils.asDateValue(dateFilter);
-    this.logger.info("calculateMemberFilterDate:for this.emailConfig:", this.notificationConfig, "memberFilterDate:", this.memberFilterDate);
+    const now = this.dateUtils.dateTimeNowNoTime();
+    const monthsInPast = this.notificationConfig.monthsInPast;
+    const dateFilter = now.minus({ months: monthsInPast });
+    this.memberFilterDate = this.dateUtils.asDateValue(dateFilter.toMillis());
+    this.logger.info("calculateMemberFilterDate: now:", now.toISO(), "monthsInPast:", monthsInPast, "dateFilter:", dateFilter.toISO(), "memberFilterDate:", this.memberFilterDate);
   }
 
   clearSelectedMembers() {
@@ -406,12 +432,32 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
     });
   }
 
+  bulkLoadDateLabel(): string {
+    if (this.latestMemberBulkLoadAudit?.createdDate) {
+      return `Last bulk load: ${this.dateUtils.displayDate(this.latestMemberBulkLoadAudit.createdDate)}`;
+    }
+    return "Missing from last bulk load";
+  }
+
   renderExpiryInformation(member: Member): MemberFilterSelection {
     const disabled = !member.email;
     const today = this.dateUtils.dateTimeNowNoTime().toMillis();
     const expiredActive = member.membershipExpiryDate < today ? "expired" : "active";
     const memberGrouping = disabled ? "no email address" : this.memberBulkLoadAuditService.receivedInBulkLoad(member, true, this.latestMemberBulkLoadAudit) ? expiredActive : "missing from last bulk load";
     const datePrefix = memberGrouping === "expired" ? ": " : ", " + (member.membershipExpiryDate < today ? "expired" : "expiry") + ": ";
+    const memberInformation = `${this.fullNameWithAliasPipe.transform(member)} (${memberGrouping}${datePrefix}${this.dateUtils.displayDate(member.membershipExpiryDate) || "not known"})`;
+    return {id: member.id, member, memberInformation, memberGrouping, disabled};
+  }
+
+  renderBulkLoadInformation(member: Member): MemberFilterSelection {
+    const disabled = !member.email;
+    const today = this.dateUtils.dateTimeNowNoTime().toMillis();
+    const lastBulkLoadDate = this.memberBulkLoadDateMap[member.membershipNumber];
+    const bulkLoadDateText = lastBulkLoadDate
+      ? `last bulk load: ${this.dateUtils.displayDate(lastBulkLoadDate)}`
+      : "missing from last bulk load";
+    const memberGrouping = disabled ? "no email address" : bulkLoadDateText;
+    const datePrefix = ", " + (member.membershipExpiryDate < today ? "expired" : "expiry") + ": ";
     const memberInformation = `${this.fullNameWithAliasPipe.transform(member)} (${memberGrouping}${datePrefix}${this.dateUtils.displayDate(member.membershipExpiryDate) || "not known"})`;
     return {id: member.id, member, memberInformation, memberGrouping, disabled};
   }
@@ -440,9 +486,21 @@ export class SendEmailsModalComponent implements OnInit, OnDestroy {
   }
 
   expiredMembers(member: Member): boolean {
+    const memberStatus = member.memberStatus?.toLowerCase();
+    const paymentPending = memberStatus === "payment pending";
+    const lifeMember = member.memberTerm === MemberTerm.LIFE;
+    const recentlyLoaded = member.createdDate && member.createdDate >= this.dateUtils.dateTimeNowNoTime().minus({months: 1}).toMillis();
+    if (!member.groupMember || !member.email || !member.membershipExpiryDate || paymentPending || lifeMember || recentlyLoaded) {
+      return false;
+    }
     const expirationExceeded = member.membershipExpiryDate < this.memberFilterDate.value;
-    this.logger.off("populateMembersBasedOnFilter:expirationExceeded", expirationExceeded, member);
-    return member.groupMember && member.email && member.membershipExpiryDate && expirationExceeded;
+    const gracePeriodMonths = 1;
+    const gracePeriodDate = this.dateUtils.dateTimeNowNoTime().minus({ months: gracePeriodMonths }).toMillis();
+    const recentlyCreated = member.createdDate && member.createdDate >= gracePeriodDate;
+    const recentlyUpdated = member.updatedDate && member.updatedDate >= gracePeriodDate;
+    const withinGracePeriod = recentlyCreated || recentlyUpdated;
+    this.logger.off("populateMembersBasedOnFilter:expirationExceeded", expirationExceeded, "withinGracePeriod", withinGracePeriod, member);
+    return expirationExceeded && !withinGracePeriod;
   }
 
   missingFromBulkLoad(member: Member): boolean {

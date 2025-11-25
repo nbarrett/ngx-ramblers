@@ -31,6 +31,7 @@ import { AUDIT_FIELDS, AuditField } from "../../models/ramblers-insight-hub";
 import { isString } from "es-toolkit/compat";
 import { isNumber } from "es-toolkit/compat";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
+import { MemberTerm } from "../../models/member.model";
 
 @Injectable({
   providedIn: "root"
@@ -199,7 +200,12 @@ export class MemberBulkLoadService {
     let auditMessage: string;
     const oldDataValue = this.oldDataValueForField(auditField, member);
     const oldFormattedValue = this.formatValue(oldDataValue, auditField);
-    const newDataValue = this.newDataValueForField(auditField, ramblersMember, member);
+    let newDataValue = this.newDataValueForField(auditField, ramblersMember, member);
+    const shouldClearExpiry = fieldName === "membershipExpiryDate" && this.shouldClearExpiryDate(ramblersMember);
+    const recentlyLoaded = fieldName === "membershipExpiryDate" && this.recentlyLoaded(member);
+    if (fieldName === "membershipExpiryDate" && !newDataValue && (shouldClearExpiry || recentlyLoaded)) {
+      newDataValue = null;
+    }
     const newFormattedValue = this.formatValue(newDataValue, auditField);
     const dataDifferent: boolean = oldFormattedValue.toString() !== newFormattedValue.toString();
     switch (auditField.writeDataIf) {
@@ -218,6 +224,9 @@ export class MemberBulkLoadService {
       default:
         performMemberUpdate = !this.stringUtils.noValueFor(newDataValue);
         break;
+    }
+    if (fieldName === "membershipExpiryDate" && !newDataValue && (shouldClearExpiry || recentlyLoaded)) {
+      performMemberUpdate = !!member.membershipExpiryDate;
     }
     if (performMemberUpdate) {
       auditQualifier = " updated to ";
@@ -295,5 +304,23 @@ export class MemberBulkLoadService {
     } else {
       return this.stringUtils.noValueFor(value) ? NONE : value;
     }
+  }
+
+  private shouldClearExpiryDate(ramblersMember: RamblersMember) {
+    const memberTerm = ramblersMember.memberTerm;
+    const memberStatus = ramblersMember.memberStatus?.toLowerCase();
+    const lifeMember = memberTerm === MemberTerm.LIFE;
+    const paymentPending = memberStatus === "payment pending";
+    const noExpiryProvided = this.stringUtils.noValueFor(ramblersMember.membershipExpiryDate);
+    return noExpiryProvided || lifeMember || paymentPending;
+  }
+
+  private recentlyLoaded(member: Member) {
+    const createdDate = member.createdDate;
+    if (!createdDate) {
+      return false;
+    }
+    const threshold = this.dateUtils.dateTimeNowNoTime().minus({months: 1}).toMillis();
+    return createdDate >= threshold;
   }
 }

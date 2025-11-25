@@ -313,8 +313,11 @@
                 <app-date-picker startOfDay
                                  [label]="'Membership Expiry Date'"
                                  [size]="'md round'"
+                                 [placeholder]="isLifeMember() ? 'Lifetime' : ''"
+                                 [disabled]="isLifeMember()"
+                                 [readonly]="isLifeMember()"
                                  (change)="onMembershipDateChange($event)"
-                                 [value]="member.membershipExpiryDate">
+                                 [value]="isLifeMember() ? null : member.membershipExpiryDate">
                 </app-date-picker>
               </div>
             </div>
@@ -324,6 +327,24 @@
                 <input [(ngModel)]="member.membershipNumber" type="text"
                        class="form-control input-sm" id="membership-number"
                        placeholder="Enter Membership Number here">
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col col-sm-6">
+              <div class="form-group">
+                <label for="member-status">Member Status</label>
+                <input disabled [(ngModel)]="member.memberStatus" type="text"
+                       class="form-control input-sm" id="member-status"
+                       placeholder="Member Status">
+              </div>
+            </div>
+            <div class="col col-sm-6">
+              <div class="form-group">
+                <label for="member-term">Member Term</label>
+                <input disabled [(ngModel)]="member.memberTerm" type="text"
+                       class="form-control input-sm" id="member-term"
+                       placeholder="Member Term">
               </div>
             </div>
           </div>
@@ -430,26 +451,37 @@
             </div>
             <div class="row">
               <div class="col col-sm-12">
-                <table
-                  class="round styled-table table-striped table-hover table-sm table-pointer">
-                  <thead>
-                  <tr>
-                    <th>Update Time</th>
-                    <th>Member Action</th>
-                    <th>Audit Message</th>
-                  </tr>
-                  </thead>
-                  <tbody>
-                    @for (memberUpdateAudit of memberUpdateAudits; track memberUpdateAudit.id) {
-                      <tr>
-                        <td>{{ memberUpdateAudit.updateTime | displayDateAndTime }}</td>
-                        <td>{{ memberUpdateAudit.memberAction }}</td>
-                        <td>{{ memberUpdateAudit.auditMessage || NO_CHANGES_OR_DIFFERENCES }}
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
+                <div class="audit-table-container">
+                  <table
+                    class="round styled-table table-striped table-hover table-sm table-pointer">
+                    <thead>
+                    <tr>
+                      <th (click)="toggleAuditSort('updateTime')" class="sortable">
+                        Update Time
+                        <fa-icon [icon]="auditSortIcon('updateTime')" size="xs" class="ms-1"/>
+                      </th>
+                      <th (click)="toggleAuditSort('memberAction')" class="sortable">
+                        Member Action
+                        <fa-icon [icon]="auditSortIcon('memberAction')" size="xs" class="ms-1"/>
+                      </th>
+                      <th (click)="toggleAuditSort('auditMessage')" class="sortable">
+                        Audit Message
+                        <fa-icon [icon]="auditSortIcon('auditMessage')" size="xs" class="ms-1"/>
+                      </th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                      @for (memberUpdateAudit of sortedMemberUpdateAudits(); track memberUpdateAudit.id) {
+                        <tr>
+                          <td>{{ memberUpdateAudit.updateTime | displayDateAndTime }}</td>
+                          <td>{{ memberUpdateAudit.memberAction }}</td>
+                          <td>{{ memberUpdateAudit.auditMessage || NO_CHANGES_OR_DIFFERENCES }}
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>

@@ -75,6 +75,8 @@ export function successfulResponse(successfulResponse: SuccessfulResponse) {
 }
 
 export function handleError(req: Request, res: Response, messageType: string, debugLog: any, error: HttpError) {
+  const priorDebugValue = debugLog.enabled;
+  debugLog.enabled = true;
   if (error instanceof HttpError) {
     debugLog(messageType, "API call failed with HttpError: body", error.body, "statusCode:", error.statusCode);
     res.status(error.statusCode).json({request: {messageType}, error: error.body});
@@ -82,6 +84,7 @@ export function handleError(req: Request, res: Response, messageType: string, de
     debugLog(messageType, "API call failed with non-HttpError: body", error);
     res.status(500).json({request: {messageType}, error});
   }
+  debugLog.enabled = priorDebugValue;
 }
 
 export interface SuccessfulResponse {
@@ -97,4 +100,3 @@ export interface BrevoResponse {
   response: http.IncomingMessage;
   body?: any;
 }
-

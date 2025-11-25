@@ -219,9 +219,25 @@ export class MailListUpdaterService {
       title: "Brevo updates",
       message: "Processing " + this.stringUtils.pluraliseWithCount(createContactRequests.length, "contact creation request")
     });
-    if (createContactRequests.length > 0) {
+    if (createContactRequests.length === 0) {
+      return;
+    }
+    try {
       const createContactResponse = await this.mailService.createContacts(createContactRequests);
       this.logger.info("createContactResponse:", createContactResponse);
+      const failedCreates = (createContactResponse || []).filter(contactCreatedResponse => contactCreatedResponse && contactCreatedResponse.success === false);
+      if (failedCreates.length > 0) {
+        notify.error({
+          title: "Brevo updates",
+          message: `${this.stringUtils.pluraliseWithCount(failedCreates.length, "contact creation")} failed: ${failedCreates.map(item => {
+            const responseBody: any = (item as any).responseBody;
+            const contactId = item.id || responseBody?.id || "unknown";
+            const errorMessage = item.message || responseBody?.message || "unknown error";
+            return `${contactId} (${item.status} ${errorMessage})`;
+          }).join("; ")}`
+        });
+        await this.handleDuplicateCreates(failedCreates, members, notify);
+      }
       if (createContactResponse?.length > 0) {
         const updatedMembers = createContactResponse.map((contactCreatedResponse: ContactCreatedResponse) => {
           const member = members.find((member) => this.cleanEmail(member?.email) === this.cleanEmail(contactCreatedResponse?.id));
@@ -234,12 +250,65 @@ export class MailListUpdaterService {
         const updatedMembersResponse = updatedMembers.length > 0 ? await this.memberService.createOrUpdateAll(updatedMembers) : [];
         this.logger.info("updatedMembers from create contact requests:", updatedMembersResponse);
       }
+    } catch (error) {
+      this.logger.warn("createContactResponse error:", error);
+      const duplicateUpdates = this.fallbackDuplicateUpdates(createContactRequests, members, error);
+      if (duplicateUpdates?.length) {
+        notify.warning({
+          title: "Brevo updates",
+          message: `${this.stringUtils.pluraliseWithCount(duplicateUpdates.length, "duplicate contact")} being updated instead of created`
+        });
+        const updateResponse = await this.mailService.contactsBatchUpdate(duplicateUpdates);
+        this.logger.info("contactsBatchUpdate after duplicate extId create failure:", updateResponse);
+      } else {
+        notify.error({
+          title: "Error updating Brevo lists",
+          message: error
+        });
+        throw error;
+      }
+    }
+  }
+
+  private fallbackDuplicateUpdates(createContactRequests: CreateContactRequest[], members: Member[], error: any): CreateContactRequestWithObjectAttributes[] {
+    const errorMessage = this.stringUtils.stringifyObject(error || "").toLowerCase();
+    const duplicateError = errorMessage.includes("duplicate_parameter") || errorMessage.includes("ext_id");
+    if (!duplicateError) {
+      return [];
+    }
+    return createContactRequests.map(request => {
+      const member = members.find(m => m.id === request.extId || this.cleanEmail(m.email) === this.cleanEmail(request.email) || this.cleanEmail(m.mail?.email) === this.cleanEmail(request.email));
+      return member ? this.toCreateContactRequestWithObjectAttributes(member) : null;
+    }).filter(item => item);
+  }
+
+  private async handleDuplicateCreates(failedCreates: ContactCreatedResponse[], members: Member[], notify: AlertInstance) {
+    const duplicateCreates = failedCreates.filter(item => {
+      const responseBody: any = (item as any).responseBody;
+      const errorMessage = (item.message || responseBody?.message || "").toString().toLowerCase();
+      return errorMessage.includes("duplicate_parameter") || errorMessage.includes("ext_id");
+    });
+    if (duplicateCreates.length === 0) {
+      return;
+    }
+    const updateRequests: CreateContactRequestWithObjectAttributes[] = duplicateCreates.map(item => {
+      const member = members.find(m => this.cleanEmail(m.email) === this.cleanEmail(item.id as any) || this.cleanEmail(m.mail?.email) === this.cleanEmail(item.id as any) || m.id === item.id);
+      return member ? this.toCreateContactRequestWithObjectAttributes(member) : null;
+    }).filter(item => item);
+    if (updateRequests.length > 0) {
+      notify.warning({
+        title: "Brevo updates",
+        message: `${this.stringUtils.pluraliseWithCount(updateRequests.length, "duplicate contact")} being updated instead of created`
+      });
+      const updateResponse = await this.mailService.contactsBatchUpdate(updateRequests);
+      this.logger.info("contactsBatchUpdate after duplicate extId create failure:", updateResponse);
     }
   }
 
   private matchMemberToContact(member: Member, contact: Contact): boolean {
     this.logger.off("matchMemberToContact:member", member, "contact:", contact);
-    const match = (member?.mail?.id && member?.mail?.id === contact.id) || (member?.mail?.email && this.cleanEmail(member?.mail?.email) === this.cleanEmail(contact?.email)) || (member?.email && this.cleanEmail(member.email) === this.cleanEmail(contact?.email));
+    const extIdMatch = contact?.extId === member?.id;
+    const match = extIdMatch || (member?.mail?.id && member?.mail?.id === contact.id) || (member?.mail?.email && this.cleanEmail(member?.mail?.email) === this.cleanEmail(contact?.email)) || (member?.email && this.cleanEmail(member.email) === this.cleanEmail(contact?.email));
     this.logger.off("matchMemberToContact:member", member, "contact:", contact, "match:", match);
     return match;
   }
