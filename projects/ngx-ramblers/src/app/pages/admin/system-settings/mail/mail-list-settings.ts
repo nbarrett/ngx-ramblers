@@ -14,78 +14,82 @@ import { BrevoButtonComponent } from "../../../../modules/common/third-parties/b
 @Component({
     selector: "app-mail-list-settings",
     template: `
-    @if (mailMessagingConfig?.brevo?.lists?.lists) {
-      <hr/>
-      <div class="row mt-3">
-        <div class="col">
-          @if (!listUpdateRequest) {
-            <h5>{{ mailMessagingConfig?.brevo?.lists?.lists.indexOf(list) + 1 }}: {{ list.name }}</h5>
-            Subscribers: {{ list.uniqueSubscribers }}
-          }
-          @if (listUpdateRequest) {
-            <app-list-editor [listCreateRequest]="listUpdateRequest"/>
-            <app-brevo-button button title="Save" (click)="saveEdit()"/>
-            <app-brevo-button button class="ms-2" title="Cancel" (click)="cancelEdit()"/>
-          }
-        </div>
-        <div class="col-auto">
-          <div class="float-end">
-            @if (confirm.noneOutstanding()) {
-              <div>
-                @if (!listUpdateRequest) {
-                  <app-brevo-button button title="Edit"
-                    (click)="beginEdit()"/>
-                }
-                <app-brevo-button class="ms-2" button title="View"
-                  (click)="viewList(list.id)"
-                  [disabled]="listEditOrDeleteDisabled()"/>
-                <app-brevo-button class="ms-2" button [title]="'Delete'"
-                  (click)="deleteList(list.id)"
-                  [disabled]="listEditOrDeleteDisabled()"/>
-              </div>
+      @if (mailMessagingConfig?.brevo?.lists?.lists) {
+        <hr/>
+        <div class="row mt-3">
+          <div class="col">
+            @if (!listUpdateRequest) {
+              <h5>{{ mailMessagingConfig?.brevo?.lists?.lists.indexOf(list) + 1 }}: {{ list.name }}</h5>
+              Subscribers: {{ list.uniqueSubscribers }}
             }
-            @if (confirm.deleteConfirmOutstanding()) {
-              <app-brevo-button button [title]="'Confirm'"
-                (click)="confirmDeleteList(list.id)"
-                [disabled]="listEditOrDeleteDisabled()"/>
-              <app-brevo-button class="ms-2" button [title]="'Cancel'"
-                (click)="cancelDelete()"
-                [disabled]="listEditOrDeleteDisabled()"/>
+            @if (listUpdateRequest) {
+              <app-list-editor [listCreateRequest]="listUpdateRequest"/>
+              <app-brevo-button button title="Save" (click)="saveEdit()"/>
+              <app-brevo-button button class="ms-2" title="Cancel" (click)="cancelEdit()"/>
             }
           </div>
-        </div>
-      </div>
-      <div class="row mt-3">
-        <div class="col">
-          <div class="form-check">
-            <input [checked]="autoSubscribeNewMembers()"
-              (change)="autoSubscribeNewMembersChange()"
-              type="checkbox" class="form-check-input" id="auto-subscribe-new-members-{{list.id}}">
+          <div class="col-auto">
+            <div class="float-end">
+              @if (confirm.noneOutstanding()) {
+                <div>
+                  @if (!listUpdateRequest) {
+                    <app-brevo-button button title="Edit"
+                                      (click)="beginEdit()"/>
+                  }
+                  <app-brevo-button class="ms-2" button title="View"
+                                    (click)="viewList(list.id)"
+                                    [disabled]="listEditOrDeleteDisabled()"/>
+                  <app-brevo-button class="ms-2" button [title]="'Delete'"
+                                    (click)="deleteList(list.id)"
+                                    [disabled]="listEditOrDeleteDisabled()"/>
+                </div>
+              }
+              @if (confirm.deleteConfirmOutstanding()) {
+                <app-brevo-button button [title]="'Confirm'"
+                                  (click)="confirmDeleteList(list.id)"
+                                  [disabled]="listEditOrDeleteDisabled()"/>
+                <app-brevo-button class="ms-2" button [title]="'Cancel'"
+                                  (click)="cancelDelete()"
+                                  [disabled]="listEditOrDeleteDisabled()"/>
+              }
+            </div>
           </div>
         </div>
-        <div class="col">
-          <div class="form-check">
-            <input [checked]="requiresMemberEmailMarketingConsent()"
-              (change)="requiresMemberEmailMarketingConsentChange()"
-              [disabled]="!memberSubscribable()"
-              type="checkbox" class="form-check-input"
-              id="requires-member-email-marketing-consent-{{list.id}}">
-            <label class="form-check-label"
-              for="requires-member-email-marketing-consent-{{list.id}}">Only Auto-subscribe members that have given email
-              marketing consent via Ramblers Head Office Website
+        <div class="row mt-3">
+          <div class="col">
+            <div class="form-check">
+              <input [checked]="autoSubscribeNewMembers()"
+                     (change)="autoSubscribeNewMembersChange()"
+                     type="checkbox" class="form-check-input" id="auto-subscribe-new-members-{{list.id}}"> <label
+              class="custom-control-label"
+              for="auto-subscribe-new-members-{{list.id}}">Auto-subscribe new members
             </label>
+            </div>
+          </div>
+          <div class="col">
+            <div class="form-check">
+              <input [checked]="requiresMemberEmailMarketingConsent()"
+                     (change)="requiresMemberEmailMarketingConsentChange()"
+                     [disabled]="!memberSubscribable()"
+                     type="checkbox" class="form-check-input"
+                     id="requires-member-email-marketing-consent-{{list.id}}">
+              <label class="form-check-label"
+                     for="requires-member-email-marketing-consent-{{list.id}}">Only Auto-subscribe members that have
+                given email
+                marketing consent via Ramblers Head Office Website
+              </label>
+            </div>
+          </div>
+          <div class="col">
+            <div class="form-check">
+              <input [checked]="memberSubscribable()"
+                     (change)="memberSubscribableChange()"
+                     type="checkbox" class="form-check-input" id="self-subscribable-{{list.id}}">
+              <label class="form-check-label" for="self-subscribable-{{list.id}}">Member-subscribable</label>
+            </div>
           </div>
         </div>
-        <div class="col">
-          <div class="form-check">
-            <input [checked]="memberSubscribable()"
-              (change)="memberSubscribableChange()"
-              type="checkbox" class="form-check-input" id="self-subscribable-{{list.id}}">
-            <label class="form-check-label" for="self-subscribable-{{list.id}}">Member-subscribable</label>
-          </div>
-        </div>
-      </div>
-    }`,
+      }`,
     imports: [MailListEditorComponent, BrevoButtonComponent]
 })
 export class MailListSettingsComponent implements OnInit {

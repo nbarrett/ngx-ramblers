@@ -9,6 +9,7 @@ import { UploadedFile } from "../../../projects/ngx-ramblers/src/app/models/aws-
 import {
   MemberBulkLoadAudit,
   MemberBulkLoadAuditApiResponse,
+  MemberTerm,
   RamblersMember
 } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { DateFormat } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
@@ -223,6 +224,8 @@ export function uploadRamblersData(req, res) {
             jointWith: trim(dataRow["Joint With"]),
             title: trim(dataRow["Title"]),
             type: trim(dataRow["Type"]),
+            memberStatus: trim(dataRow["Member Status"]),
+            memberTerm: mapMemberTerm(trim(dataRow["Member Term"])),
             landlineTelephone: trim(dataRow["Landline Telephone"]),
             emailMarketingConsent: trim(dataRow["Email Marketing Consent"]),
             emailPermissionLastUpdated: trim(dataRow["Email Permission Last Updated"])
@@ -255,6 +258,17 @@ export function uploadRamblersData(req, res) {
       debugAndError("Data could not be extracted from", localFileName, error);
       returnResponse();
     }
+  }
+
+  function mapMemberTerm(value: string): MemberTerm {
+    const lower = value?.toLowerCase();
+    if (lower === MemberTerm.LIFE) {
+      return MemberTerm.LIFE;
+    }
+    if (lower === MemberTerm.ANNUAL) {
+      return MemberTerm.ANNUAL;
+    }
+    return null;
   }
 
 }

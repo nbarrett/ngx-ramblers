@@ -29,6 +29,7 @@ type SupportedInputTypes = DateValue | number | string;
                [id]="id"
                (ngModelChange)="onModelChange($event)"
                [disabled]="disabled"
+               [readonly]="readonly"
                [placeholder]="placeholder ||'enter date'"
                #dp="bsDatepicker"
                bsDatepicker
@@ -55,6 +56,7 @@ export class DatePicker implements OnInit {
   @Input() label: string;
   @Input() id: string;
   @Input() disabled;
+  @Input() readonly;
   @Input() prependLabel;
 
   @Input("value") set valueValue(value: SupportedInputTypes) {
@@ -84,6 +86,9 @@ export class DatePicker implements OnInit {
   private setValue(value: SupportedInputTypes) {
     if (value instanceof Event) {
       this.logger.warn("setValue:unexpected Event received:", value);
+    } else if (!value && value !== 0) {
+      this.dateValue = null;
+      this.logger.info("setValue:clearing dateValue due to empty value:", value);
     } else {
       const usedValue = this.startOfDay ? this.dateUtils.asValueNoTime(value) : value;
       if (isString(usedValue) || isNumber(usedValue)) {

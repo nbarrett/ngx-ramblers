@@ -17,7 +17,7 @@ import {
   SELECT_ALL,
   TableFilterItem
 } from "../../../models/table-filtering.model";
-import { Confirm, ConfirmType, EditMode } from "../../../models/ui-actions";
+import { Confirm, ConfirmType, EditMode, StoredValue } from "../../../models/ui-actions";
 import { SearchFilterPipe } from "../../../pipes/search-filter.pipe";
 import { ApiResponseProcessor } from "../../../services/api-response-processor.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -50,6 +50,9 @@ import { SwitchIconComponent } from "../system-settings/committee/switch-icon";
 import { DisplayDateNoDayPipe } from "../../../pipes/display-date-no-day.pipe";
 import { FullNameWithAliasPipe } from "../../../pipes/full-name-with-alias.pipe";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { ActivatedRoute, Router } from "@angular/router";
+import { UiActionsService } from "../../../services/ui-actions.service";
+import { MemberTerm } from "../../../models/member.model";
 
 
 @Component({
@@ -81,6 +84,9 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private profileService = inject(ProfileService);
   private memberLoginService = inject(MemberLoginService);
   private searchChangeObservable: Subject<string> = new Subject<string>();
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private uiActionsService: UiActionsService = inject(UiActionsService);
   public mailchimpConfig: MailchimpConfig;
   protected mailMessagingConfig: MailMessagingConfig;
   private latestMemberBulkLoadAudit: MemberBulkLoadAudit;
@@ -100,8 +106,29 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   protected readonly faUserXmark = faUserXmark;
   protected readonly faSearch = faSearch;
   protected readonly faUserCheck = faUserCheck;
+  protected readonly MemberTerm = MemberTerm;
+  private storedSortField = "";
+  private storedSortDescending = false;
+  private storedSortParamField = "";
 
   async ngOnInit() {
+    this.subscriptions.push(this.route.queryParamMap.subscribe(params => {
+      const searchParam = params.get(this.stringUtilsService.kebabCase(StoredValue.SEARCH));
+      const sortFieldParam = params.get(this.stringUtilsService.kebabCase(StoredValue.SORT));
+      const sortOrderParam = params.get(this.stringUtilsService.kebabCase(StoredValue.SORT_ORDER));
+      if (searchParam !== null) {
+        this.quickSearch = searchParam;
+        this.uiActionsService.saveValueFor(StoredValue.SEARCH, this.quickSearch);
+      } else {
+        this.quickSearch = this.uiActionsService.initialValueFor(StoredValue.SEARCH, "") as string;
+      }
+      const storedSortField = sortFieldParam
+        ? this.resolveSortField(sortFieldParam)
+        : this.uiActionsService.initialValueFor(StoredValue.SORT, "") as string;
+      const storedSortOrder = sortOrderParam || this.uiActionsService.initialValueFor(StoredValue.SORT_ORDER, "") as string;
+      this.storedSortParamField = sortFieldParam || "";
+      this.parseStoredSort(storedSortField, storedSortOrder);
+    }));
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.mailchimpConfig = await this.mailchimpConfigService.getConfig();
     this.logger.info("subscribing to systemConfigService events");
@@ -238,6 +265,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       results: [],
       availableFilters: (filter1.concat(filter2).concat(filter3)).filter(item => item)
     };
+    this.applyStoredSort();
     this.logger.info("filters:", filter1, filter2, filter3);
     this.memberFilter.selectedFilter = this.memberFilter.availableFilters[0];
   }
@@ -265,6 +293,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       this.memberFilter.results = this.memberFilter.reverseSort ? members.reverse() : members;
       this.logger.off("applyFilterToMembers:searchTerm:", searchTerm, "filterParameters.quickSearch:", this.quickSearch, "filtered", this.members.length, "members ->", this.memberFilter.results.length, "sort", sort, "this.memberFilter.reverseSort", this.memberFilter.reverseSort);
       this.notify.clearBusy();
+      this.persistFilters();
     }
   }
 
@@ -439,5 +468,72 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
         filter: (member: Member) => this.memberDefaultsService.subscribedToEmails(member, this.systemConfig, list.id),
       }));
     }
+  }
+
+  private parseStoredSort(field: string, order: string) {
+    if (!field) {
+      return;
+    }
+    this.storedSortField = field;
+    this.storedSortDescending = order === "desc";
+  }
+
+  private applyStoredSort() {
+    if (this.memberFilter && this.storedSortField) {
+      const resolvedField = this.resolveSortField(this.storedSortParamField || this.storedSortField) || this.storedSortField;
+      this.memberFilter.sortField = resolvedField;
+      this.memberFilter.sortFunction = this.deriveSortFunction(resolvedField);
+      this.memberFilter.reverseSort = this.storedSortDescending;
+      this.memberFilter.sortDirection = this.storedSortDescending ? DESCENDING : ASCENDING;
+    } else if (this.memberFilter) {
+      this.memberFilter.sortField = "memberName";
+      this.memberFilter.sortFunction = MEMBER_SORT;
+    }
+  }
+
+  private replaceQueryParams(params: Record<string, any>) {
+    this.router.navigate([], {queryParams: params, queryParamsHandling: "merge"});
+  }
+
+  private persistFilters() {
+    if (!this.memberFilter) {
+      return;
+    }
+    const sortField = this.memberFilter.sortField;
+    const sortOrder = this.memberFilter.reverseSort ? "desc" : "asc";
+    this.uiActionsService.saveValueFor(StoredValue.SEARCH, this.quickSearch || "");
+    this.uiActionsService.saveValueFor(StoredValue.SORT, sortField);
+    this.uiActionsService.saveValueFor(StoredValue.SORT_ORDER, sortOrder);
+    this.replaceQueryParams({
+      [this.stringUtilsService.kebabCase(StoredValue.SEARCH)]: this.quickSearch || null,
+      [this.stringUtilsService.kebabCase(StoredValue.SORT)]: this.stringUtilsService.kebabCase(sortField) || null,
+      [this.stringUtilsService.kebabCase(StoredValue.SORT_ORDER)]: sortOrder
+    });
+  }
+
+  private resolveSortField(paramField: string): string {
+    if (!paramField) {
+      return "";
+    }
+    const candidate = paramField.toLowerCase();
+    const defaultFields = [
+      "memberName",
+      "email",
+      "mobileNumber",
+      "createdDate",
+      "membershipExpiryDate",
+      "receivedInLastBulkLoad",
+      "groupMember",
+      "socialMember"
+    ];
+    const defaultMatch = defaultFields.find(field => this.stringUtilsService.kebabCase(field) === candidate);
+    if (defaultMatch) {
+      return defaultMatch;
+    }
+    const brevoListMatch = this.mailMessagingConfig?.brevo?.lists?.lists?.find(list => this.stringUtilsService.kebabCase(list.name) === candidate)?.name;
+    if (brevoListMatch) {
+      return brevoListMatch;
+    }
+    return paramField;
   }
 }

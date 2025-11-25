@@ -497,6 +497,7 @@ export interface Contact extends MailIdentifiers {
   modifiedAt: string;
   emailBlacklisted: boolean;
   attributes: Attributes;
+  extId?: string;
 }
 
 export interface ContactsListResponse {
@@ -577,6 +578,7 @@ export interface ListSetting {
 export interface MailIdentifiers {
   email: string;
   id: number;
+  extId?: string;
 }
 
 export interface ContactCreatedResponse extends StatusMappedResponseSingleInput {

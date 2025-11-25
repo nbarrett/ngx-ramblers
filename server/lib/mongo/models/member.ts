@@ -75,6 +75,8 @@ const memberSchema = new mongoose.Schema({
   jointWith: {type: String},
   title: {type: String},
   type: {type: String},
+  memberStatus: {type: String},
+  memberTerm: {type: String},
   landlineTelephone: {type: String},
   emailMarketingConsent: {type: Boolean},
   emailPermissionLastUpdated: {type: Number},

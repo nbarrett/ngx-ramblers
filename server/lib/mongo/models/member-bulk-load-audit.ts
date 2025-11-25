@@ -14,6 +14,14 @@ const RamblersMemberSchema = new mongoose.Schema({
   firstName: {type: String},
   lastName: {type: String},
   postcode: {type: String},
+  memberStatus: {type: String},
+  memberTerm: {type: String},
+  jointWith: {type: String},
+  title: {type: String},
+  type: {type: String},
+  landlineTelephone: {type: String},
+  emailMarketingConsent: {type: String},
+  emailPermissionLastUpdated: {type: String}
 }, {_id: false});
 
 const MemberBulkLoadAuditSchema = new mongoose.Schema({

@@ -108,6 +108,8 @@ export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Audi
   jointWith?: string;
   title?: string;
   type?: string;
+  memberStatus?: string;
+  memberTerm?: MemberTerm;
   landlineTelephone?: string;
   emailMarketingConsent?: boolean;
   emailPermissionLastUpdated?: number;
@@ -167,6 +169,8 @@ export interface RamblersMember extends HasEmailFirstAndLastName {
   membershipNumber: string;
   mobileNumber: string;
   postcode: string;
+  memberStatus?: string;
+  memberTerm?: MemberTerm;
   jointWith: string;
   title: string;
   type: string;
@@ -185,6 +189,15 @@ export interface MemberBulkLoadAudit extends Auditable {
   members: RamblersMember[];
 }
 
+export interface MemberBulkLoadDateMap {
+  [membershipNumber: string]: number;
+}
+
+export interface MemberLifecycleStatus {
+  memberStatus?: string;
+  memberTerm?: string;
+}
+
 export enum WriteDataRule {
   CHANGED = "changed",
   NO_OLD_VALUE = "no-old-value",
@@ -196,6 +209,11 @@ export enum WriteDataType {
   DATE = "date",
   STRING = "string",
   BOOLEAN = "boolean",
+}
+
+export enum MemberTerm {
+  LIFE = "life",
+  ANNUAL = "annual"
 }
 
 export interface UpdateAudit {

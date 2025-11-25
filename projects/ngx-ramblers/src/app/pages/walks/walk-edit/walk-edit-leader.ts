@@ -145,7 +145,7 @@ import { WalkStatus } from "../../../models/ramblers-walks-manager";
                      [(ngModel)]="displayedWalk.walk.fields.publishing.ramblers.contactName"
                      type="text"
                      class="form-control input-sm flex-grow-1 me-2" id="walk-leader-contact-id"
-                     placeholder="Name that matches the User Details in Assemble. This will be sent in Ramblers in CSV export file">
+                     placeholder="Name that matches the User Details in Walks Manager. This will be sent in Ramblers in CSV export file">
             </div>
           </div>
           <div class="col-sm-2">
