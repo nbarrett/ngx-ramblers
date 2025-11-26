@@ -142,29 +142,28 @@ if (app.get("env") === "dev") {
   app.use(errorHandler());
 }
 
+async function runMigrationsInBackground() {
+  debugLog("⏳Checking database migrations...");
+  try {
+    const migrationResult = await migrationRunner.runPendingMigrations();
+
+    if (migrationResult.appliedFiles.length > 0) {
+      debugLog(`✅ Applied ${migrationResult.appliedFiles.length} migration(s):`, migrationResult.appliedFiles);
+    }
+
+    if (!migrationResult.success) {
+      debugLog("❌ Migration failed:", migrationResult.error, "⚠️ Server will continue but site will show maintenance page");
+    }
+  } catch (migrationError) {
+    debugLog("❌ Migration check failed:", migrationError);
+    debugLog("⚠️ Server will continue but site will show maintenance page");
+  }
+}
+
 async function startServer() {
   try {
     debugLog("⏳Connecting to MongoDB...");
     await mongooseClient.connect();
-    if (envConfig.booleanValue(Environment.SKIP_MIGRATIONS_ON_STARTUP)) {
-      debugLog(`⏭️ Skipping automatic migrations (${Environment.SKIP_MIGRATIONS_ON_STARTUP} is true)`);
-    } else {
-      debugLog("⏳Checking database migrations...");
-      try {
-        const migrationResult = await migrationRunner.runPendingMigrations();
-
-        if (migrationResult.appliedFiles.length > 0) {
-          debugLog(`✅ Applied ${migrationResult.appliedFiles.length} migration(s):`, migrationResult.appliedFiles);
-        }
-
-        if (!migrationResult.success) {
-          debugLog("❌ Migration failed:", migrationResult.error, "⚠️ Server will continue but site will show maintenance page");
-        }
-      } catch (migrationError) {
-        debugLog("❌ Migration check failed:", migrationError);
-        debugLog("⚠️ Server will continue but site will show maintenance page");
-      }
-    }
 
     server.listen(port, "0.0.0.0", () => {
       debugLog(`🚀 Server is listening on port for ${envConfig.env} environment`, port);
@@ -176,6 +175,14 @@ async function startServer() {
     debugLog(`⏱️ Server timeouts configured: timeout=${server.timeout}ms, keepAliveTimeout=${server.keepAliveTimeout}ms, headersTimeout=${server.headersTimeout}ms`);
 
     createWebSocketServer(server, port);
+
+    if (envConfig.booleanValue(Environment.SKIP_MIGRATIONS_ON_STARTUP)) {
+      debugLog(`⏭️ Skipping automatic migrations (${Environment.SKIP_MIGRATIONS_ON_STARTUP} is true)`);
+    } else {
+      runMigrationsInBackground().catch(error => {
+        debugLog("❌ Unhandled error in background migrations:", error);
+      });
+    }
   } catch (error) {
     debugLog("❌ Failed to start server:", error);
     process.exit(1);
