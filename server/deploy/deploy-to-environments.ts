@@ -82,7 +82,7 @@ function deployToEnvironments(configFilePath: string, environmentsFilter: string
         debugLog(`Secrets file not found: ${secretsFilePath}`);
       }
     }
-    runCommand(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --strategy rolling`);
+    runCommand(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --strategy rolling --wait-timeout 600`);
     runCommand(`flyctl scale count ${environmentConfig.scaleCount} --app ${environmentConfig.appName} --yes`);
     runCommand(`flyctl scale memory ${environmentConfig.memory} --app ${environmentConfig.appName}`);
   });

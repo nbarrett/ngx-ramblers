@@ -73,9 +73,9 @@ export async function connect(debug?: debug.Debugger): Promise<boolean> {
   }
   try {
     await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 30000,
       maxPoolSize: 10,
-      connectTimeoutMS: 10000,
+      connectTimeoutMS: 30000,
       ssl: true
     });
     mongoose.connection.on("connected", () => {
