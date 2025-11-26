@@ -23,6 +23,7 @@
     "migrate": "migrate-mongo up -f migrations/migrate-mongo-config.ts",
     "migrate:create": "migrate-mongo create -f migrations/migrate-mongo-config.ts",
     "migrate:down": "migrate-mongo down -f migrations/migrate-mongo-config.ts",
+    "check:shai-hulud": "tsx deploy/check-shai-hulud.ts",
     "migrate:mark-old-applied": "ts-node lib/mongo/migrations/mark-migrations-applied.ts",
     "migrate:status": "migrate-mongo status -f migrations/migrate-mongo-config.ts",
     "postinstall": "tsc && npm run copy-assets",
