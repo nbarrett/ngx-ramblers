@@ -176,7 +176,7 @@ export class UrlService {
   }
 
   looksLikeASlug(value: string) {
-    return /[\s-]/.test(value);
+    return /^[a-z0-9-]+$/i.test(value);
   }
 
   pathContainsEventIdOrSlug(): boolean {

@@ -51,7 +51,7 @@ export class FileSizeSelectorComponent implements OnInit {
   }
 
   changeFileSize(fileSize: number) {
-    this.logger.debug("emitting fileSizeChanged with value:", fileSize);
+    this.logger.info("emitting fileSizeChanged with value:", fileSize);
     this.fileSizeChanged.emit(fileSize);
   }
 

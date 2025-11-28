@@ -1,17 +1,16 @@
 import TurndownService from "turndown";
 import Papa from "papaparse";
-import { inject, Injectable } from "@angular/core";
+import { HttpClient } from "@angular/common/http";
+import { inject, Injectable, Injector } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { EventType, ImportData, ImportStage } from "../../models/walk.model";
+import { EventType, ImageSource, ImportData, ImportStage, WalkImageRow } from "../../models/walk.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { LocalWalksAndEventsService } from "../walks-and-events/local-walks-and-events.service";
 import { RamblersWalksAndEventsService } from "../walks-and-events/ramblers-walks-and-events.service";
-import { Organisation, SystemConfig } from "../../models/system.model";
+import { Organisation, RootFolder, SystemConfig } from "../../models/system.model";
 import { SystemConfigService } from "../system/system-config.service";
-import { first } from "es-toolkit/compat";
-import { last } from "es-toolkit/compat";
+import { first, groupBy, isEqual, last, omit } from "es-toolkit/compat";
 import { DateUtilsService } from "../date-utils.service";
-import { omit } from "es-toolkit/compat";
 import { GroupEventService } from "../walks-and-events/group-event.service";
 import { MemberService } from "../member/member.service";
 import { NumberUtilsService } from "../number-utils.service";
@@ -36,19 +35,21 @@ import {
   HasGroupCodeAndName,
   InputSource
 } from "../../models/group-event.model";
-import { ServerFileNameData } from "../../models/aws-object.model";
+import { AwsFileUploadResponse, AwsFileUploadResponseData, ServerFileNameData } from "../../models/aws-object.model";
 import { enumValues, TypedKeyValue } from "../../functions/enums";
 import { Feature } from "../../models/walk-feature.model";
 import { ExtendedGroupEventQueryService } from "../walks-and-events/extended-group-event-query.service";
 import { EventDefaultsService } from "../event-defaults.service";
-import { groupBy } from "es-toolkit/compat";
-import { isEqual } from "es-toolkit/compat";
+import { MediaQueryService } from "../committee/media-query.service";
+import { S3_BASE_URL } from "../../models/content-metadata.model";
+import { FileUtilsService } from "../../file-utils.service";
 
 @Injectable({
   providedIn: "root"
 })
 export class WalksImportService {
 
+  private http = inject(HttpClient);
   private logger: Logger = inject(LoggerFactory).createLogger("WalksImportService", NgxLoggerLevel.ERROR);
   private systemConfigService = inject(SystemConfigService);
   private localWalksAndEventsService = inject(LocalWalksAndEventsService);
@@ -63,6 +64,8 @@ export class WalksImportService {
   private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   private stringUtilsService: StringUtilsService = inject(StringUtilsService);
   private eventDefaultsService = inject(EventDefaultsService);
+  private mediaQueryService = inject(MediaQueryService);
+  private injector = inject(Injector);
   public group: Organisation;
   private systemConfig: SystemConfig;
   private turndownService = new TurndownService();
@@ -93,6 +96,7 @@ export class WalksImportService {
       },
       errorMessages: [],
       messages: [],
+      maxImageSize: this.systemConfig.images?.imageLists?.defaultMaxImageSize || 256000,
       importStage: ImportStage.NONE, fileImportRows: [],
       existingWalksWithinRange: [],
       bulkLoadMembersAndMatchesToWalks: []
@@ -233,15 +237,37 @@ export class WalksImportService {
   async saveImportedWalks(importData: ImportData, notify: AlertInstance): Promise<void> {
     let createdWalks = 0;
     let createdMembers = 0;
+    let failedWalks = 0;
+    const duplicates = this.duplicateKeys(importData.bulkLoadMembersAndMatchesToWalks.map(item => item.event));
+    if (duplicates.length > 0) {
+      const skippedTitles = duplicates.map(d => d.key.title).join(", ");
+      notify.warning({
+        title: "Duplicate walks detected",
+        message: `Skipping ${duplicates.length} duplicate walk(s): ${skippedTitles}`
+      });
+      importData.bulkLoadMembersAndMatchesToWalks = importData.bulkLoadMembersAndMatchesToWalks
+        .filter(item => this.includeWalk(item.event, duplicates));
+      importData.messages.push(`Skipped ${duplicates.length} duplicate walk(s): ${skippedTitles}`);
+    }
     const deletions = await Promise.all(importData.existingWalksWithinRange.map(walk => this.localWalksAndEventsService.delete(walk)));
-    importData.messages.push(`${deletions.length} existing walks deleted`);
+    const deletionMessage = `${deletions.length} existing walks deleted`;
+    notify.warning(deletionMessage, true);
     await Promise.all(importData.bulkLoadMembersAndMatchesToWalks
       .filter(item => item.include)
       .map(async bulkLoadMemberAndMatchToWalks => {
       const member = bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.member;
         if (this.isAMatchFor(bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch)) {
-          createdWalks++;
-          return this.applyWalkLeaderIfSuppliedAndSaveWalk(bulkLoadMemberAndMatchToWalks.event, member);
+          try {
+            bulkLoadMemberAndMatchToWalks.event = await this.applyWalkLeaderIfSuppliedAndSaveWalk(bulkLoadMemberAndMatchToWalks.event, member);
+            createdWalks++;
+          } catch (error) {
+            failedWalks++;
+            const walkTitle = bulkLoadMemberAndMatchToWalks.event?.groupEvent?.title || "Unknown walk";
+            const errorMessage = `Failed to save walk: ${walkTitle}`;
+            this.logger.error(errorMessage, error);
+            importData.errorMessages.push(errorMessage);
+          }
+          return Promise.resolve();
       } else if (bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch === MemberAction.created) {
           if (bulkLoadMemberAndMatchToWalks.event) {
           const qualifier = `for ${member.firstName} ${member.lastName}`;
@@ -257,20 +283,51 @@ export class WalksImportService {
               notify.warning({title: "Walks Import", message});
               return null;
             });
-          createdMembers++;
-            createdWalks++;
-            return this.applyWalkLeaderIfSuppliedAndSaveWalk(bulkLoadMemberAndMatchToWalks.event, createdMember);
+          if (createdMember) {
+            try {
+              bulkLoadMemberAndMatchToWalks.event = await this.applyWalkLeaderIfSuppliedAndSaveWalk(bulkLoadMemberAndMatchToWalks.event, createdMember);
+              createdMembers++;
+              createdWalks++;
+            } catch (error) {
+              failedWalks++;
+              const walkTitle = bulkLoadMemberAndMatchToWalks.event?.groupEvent?.title || "Unknown walk";
+              const errorMessage = `Failed to save walk: ${walkTitle}`;
+              this.logger.error(errorMessage, error);
+              importData.errorMessages.push(errorMessage);
+            }
+          }
+          return Promise.resolve();
         } else {
           this.logger.info("member:", member, "was not matched to any walks");
           return Promise.resolve();
         }
       } else {
-          this.logger.info("processing memberAction:", bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch, "with event", bulkLoadMemberAndMatchToWalks.event);
-          createdWalks++;
-          return this.applyWalkLeaderIfSuppliedAndSaveWalk(bulkLoadMemberAndMatchToWalks.event);
+          try {
+            this.logger.info("processing memberAction:", bulkLoadMemberAndMatchToWalks.bulkLoadMemberAndMatch.memberMatch, "with event", bulkLoadMemberAndMatchToWalks.event);
+            bulkLoadMemberAndMatchToWalks.event = await this.applyWalkLeaderIfSuppliedAndSaveWalk(bulkLoadMemberAndMatchToWalks.event);
+            createdWalks++;
+          } catch (error) {
+            failedWalks++;
+            const walkTitle = bulkLoadMemberAndMatchToWalks.event?.groupEvent?.title || "Unknown walk";
+            const errorMessage = `Failed to save walk: ${walkTitle}`;
+            this.logger.error(errorMessage, error);
+            importData.errorMessages.push(errorMessage);
+          }
+          return Promise.resolve();
       }
     }));
-    importData.messages.push(`${this.stringUtils.pluraliseWithCount(createdMembers, "new member")} created, ${this.stringUtils.pluraliseWithCount(createdWalks, "walk")} imported`);
+    const successMessage = `${this.stringUtils.pluraliseWithCount(createdMembers, "new member")} created, ${this.stringUtils.pluraliseWithCount(createdWalks, "walk")} imported`;
+    if (failedWalks > 0) {
+      notify.warning({
+        title: "Walks Import Completed with Errors",
+        message: `${successMessage}. ${this.stringUtils.pluraliseWithCount(failedWalks, "walk")} failed to import.`
+      });
+    } else {
+      notify.success({
+        title: "Walks Import Completed",
+        message: successMessage
+      });
+    }
   }
 
   private async applyWalkLeaderIfSuppliedAndSaveWalk(walk: ExtendedGroupEvent, member?: Member): Promise<ExtendedGroupEvent> {
@@ -281,7 +338,7 @@ export class WalksImportService {
     }
     const oldUrl = unsavedWalk.groupEvent.url;
     unsavedWalk.groupEvent.url = await this.localWalksAndEventsService.urlFromTitle(unsavedWalk.groupEvent.title, unsavedWalk.id);
-    this.logger.info("applyWalkLeaderIfSuppliedAndSaveWalk: oldUrl:", oldUrl, "newUrl:", unsavedWalk.groupEvent.url, "for walk:", unsavedWalk.groupEvent.title);
+    this.logger.off("applyWalkLeaderIfSuppliedAndSaveWalk: oldUrl:", oldUrl, "newUrl:", unsavedWalk.groupEvent.url, "for walk:", unsavedWalk.groupEvent.title);
     const event = this.walkEventService.createEventIfRequired(unsavedWalk, EventType.APPROVED, "Imported from Walks Manager");
     this.walkEventService.writeEventIfRequired(unsavedWalk, event);
     return this.localWalksAndEventsService.createOrUpdate(unsavedWalk);
@@ -310,12 +367,42 @@ export class WalksImportService {
     });
   }
 
+  public importImagesFromFile(file: File): Promise<Record<string, string>[]> {
+    this.logger.info("importImagesFromFile:file:", file, "original file size:", this.numberUtils.humanFileSize(file.size));
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async (event: any) => {
+        const csvText = event.target.result;
+        const parsed = Papa.parse(csvText, {header: true, skipEmptyLines: true});
+        const nonCriticalErrors = parsed.errors.filter(error => error.code !== "TooFewFields");
+        this.logger.info("importImagesFromFile:parsed:", parsed, "nonCriticalErrors:", nonCriticalErrors);
+        if (nonCriticalErrors?.errors?.length > 0) {
+          this.logger.error(this.stringUtilsService.pluraliseWithCount(nonCriticalErrors.errors, "CSV parse error"), "were found:", nonCriticalErrors.errors);
+          reject(parsed.errors);
+          return;
+        }
+        const rows = parsed.data as Record<string, string>[];
+        this.logger.info("importImagesFromFile:file:", file, "rows:", rows);
+        resolve(rows);
+      };
+      reader.onerror = (err) => reject(err);
+      reader.readAsText(file);
+    });
+  }
+
+
+  private findWalkIdFromCsvRow(walk: ExtendedGroupEvent, fileImportRows: Record<string, string>[]): string | null {
+    const matchingRow = fileImportRows.find(row => row["Title"] === walk.groupEvent.title);
+    return matchingRow ? matchingRow["Walk ID"] : null;
+  }
+
   public csvRowToExtendedGroupEvent(row: Record<string, string>, groupCodeAndName: HasGroupCodeAndName): ExtendedGroupEvent {
     const csv: Record<WalkUploadColumnHeading, string> = {} as any;
     enumValues(WalkUploadColumnHeading).forEach((heading: WalkUploadColumnHeading) => {
       csv[heading] = this.stringUtilsService.decodeString(row[heading]) || "";
     });
 
+    const walkId = csv[WalkUploadColumnHeading.WALK_ID];
     const groupEvent: GroupEvent = {
       additional_details: this.htmlToMarkdown(csv[WalkUploadColumnHeading.ADDITIONAL_DETAILS]),
       area_code: "",
@@ -380,7 +467,7 @@ export class WalksImportService {
         (this.stringUtilsService.asBoolean(csv[WalkUploadColumnHeading.TOILETS_AVAILABLE]) ? this.ramblersWalksAndEventsService.toFeature(Feature.TOILETS) : null),
       ].filter(Boolean)
     };
-    return this.ramblersWalksAndEventsService.toExtendedGroupEvent(groupEvent, InputSource.FILE_IMPORT);
+    return this.ramblersWalksAndEventsService.toExtendedGroupEvent(groupEvent, InputSource.FILE_IMPORT, walkId);
   }
 
   private isAMatchFor(memberMatch: MemberAction) {
@@ -412,5 +499,306 @@ export class WalksImportService {
   private includeWalk(event: ExtendedGroupEvent, duplicateKeys: TypedKeyValue<GroupEventUniqueKey, ExtendedGroupEvent[]>[]): boolean {
     const groupEventUniqueKey = this.toGroupEventUniqueKey(event);
     return !duplicateKeys.find(item  => isEqual(item.key, groupEventUniqueKey));
+  }
+
+  public async processWalkImages(importData: ImportData, imageFiles: File[], notify: AlertInstance): Promise<void> {
+    if (!importData.imageImportRows || importData.imageImportRows.length === 0) {
+      this.logger.info("No image rows to process");
+      return;
+    }
+
+    this.logger.info("processWalkImages: processing", importData.imageImportRows.length, "image rows with", imageFiles.length, "image files");
+
+    const migratedWalkIds = importData.bulkLoadMembersAndMatchesToWalks
+      .filter(item => item.include && item.event?.fields?.migratedFromId)
+      .map(item => item.event.fields.migratedFromId);
+
+    this.logger.info("Fetching", migratedWalkIds.length, "saved walks from database by migratedFromId");
+    const savedWalks = await this.localWalksAndEventsService.all({
+      inputSource: importData.inputSource,
+      suppressEventLinking: true,
+      groupCode: importData.groupCodeAndName.group_code
+    });
+
+    const walkIdToWalk = new Map<string, ExtendedGroupEvent>();
+    savedWalks.forEach(walk => {
+      const migratedFromId = walk.fields.migratedFromId;
+      if (migratedFromId) {
+        walkIdToWalk.set(migratedFromId, walk);
+      }
+    });
+
+    this.logger.info("Built walkIdToWalk map with", walkIdToWalk.size, "entries from saved walks");
+    if (walkIdToWalk.size === 0) {
+      const noWalksMessage = "No saved walks matched the supplied image data";
+      this.logger.info(noWalksMessage);
+      notify.warning({title: "Image Import", message: noWalksMessage});
+      return;
+    }
+
+    const fileLookup = this.fileLookup(imageFiles);
+    const uploadsRequired = new Map<File, ExtendedGroupEvent[]>();
+    let rowsWithoutWalk = 0;
+    let rowsWithoutFile = 0;
+
+    importData.imageImportRows.forEach((imageRow: WalkImageRow) => {
+      const walk = walkIdToWalk.get(imageRow["Walk ID"]);
+      if (!walk) {
+        rowsWithoutWalk++;
+        return;
+      }
+      const file = this.fileForRow(imageRow, fileLookup);
+      if (!file) {
+        rowsWithoutFile++;
+        return;
+      }
+      const queue = uploadsRequired.get(file) || [];
+      queue.push(walk);
+      uploadsRequired.set(file, queue);
+    });
+
+    if (uploadsRequired.size === 0) {
+      const message = "No images to upload after matching files to walks";
+      this.logger.info(message);
+      notify.warning({title: "Image Import", message});
+      return;
+    }
+
+    let savedImages = 0;
+    let failedUploads = 0;
+    const totalFiles = uploadsRequired.size;
+    let processedFiles = 0;
+
+    for (const [file, walks] of uploadsRequired.entries()) {
+      try {
+        const uploadResponse = await this.uploadSingleWalkImage(file, notify, importData.maxImageSize || 500000);
+        processedFiles++;
+        const percent = Math.round(processedFiles / totalFiles * 100);
+        importData.imageUploadProgress = percent;
+        notify.progress({
+          title: "Image Import",
+          message: `Uploaded ${processedFiles} of ${totalFiles} images`
+        });
+
+        if (uploadResponse) {
+          const imageUrl = `${uploadResponse.fileNameData.rootFolder}/${uploadResponse.fileNameData.awsFileName}`;
+          this.logger.info("Uploaded image:", file.name, "to:", imageUrl, "applying to", walks.length, "walks");
+          for (const walk of walks) {
+            this.logger.info("Applying image to walk:", walk.groupEvent.title, "ID:", walk.id);
+            this.applyImageToWalk(walk, imageUrl);
+            this.logger.info("After applyImageToWalk, media:", walk.groupEvent.media);
+            const savedWalk = await this.localWalksAndEventsService.createOrUpdate(walk);
+            this.logger.info("Saved walk with media:", savedWalk.groupEvent.media);
+            savedImages++;
+          }
+        } else {
+          failedUploads++;
+        }
+      } catch (error) {
+        this.logger.error("Failed to upload image", file.name, error);
+        failedUploads++;
+        processedFiles++;
+        importData.imageUploadProgress = Math.round(processedFiles / totalFiles * 100);
+      }
+    }
+
+    importData.imageUploadProgress = 0;
+
+    const summaryParts: string[] = [];
+    summaryParts.push(`${this.stringUtils.pluraliseWithCount(savedImages, "image")} saved`);
+    if (rowsWithoutWalk > 0) {
+      summaryParts.push(`${this.stringUtils.pluraliseWithCount(rowsWithoutWalk, "image row")} had no matching walk`);
+    }
+    if (rowsWithoutFile > 0) {
+      summaryParts.push(`${this.stringUtils.pluraliseWithCount(rowsWithoutFile, "image row")} had no matching file`);
+    }
+    if (failedUploads > 0) {
+      summaryParts.push(`${this.stringUtils.pluraliseWithCount(failedUploads, "image")} failed to upload`);
+    }
+    const summary = summaryParts.join(". ");
+    if (rowsWithoutWalk > 0 || rowsWithoutFile > 0 || failedUploads > 0) {
+      notify.warning({title: "Image Import Complete", message: summary}, true);
+    } else {
+      notify.success({title: "Image Import Complete", message: summary}, true);
+    }
+  }
+
+  private applyImageToWalk(walk: ExtendedGroupEvent, imageUrl: string) {
+    this.mediaQueryService.applyImageSource(walk.groupEvent, walk.groupEvent.title, imageUrl);
+    if (!walk.fields.imageConfig) {
+      walk.fields.imageConfig = this.eventDefaultsService.defaultImageConfig(ImageSource.LOCAL);
+    }
+    walk.fields.imageConfig.source = ImageSource.LOCAL;
+  }
+
+  private fileLookup(imageFiles: File[]): Map<string, File> {
+    const lookup = new Map<string, File>();
+    imageFiles.forEach(file => {
+      const normalised = this.normaliseFileName(file.name);
+      const baseName = this.baseName(normalised);
+      lookup.set(normalised, file);
+      lookup.set(baseName, file);
+    });
+    return lookup;
+  }
+
+  private fileForRow(imageRow: WalkImageRow, fileLookup: Map<string, File>): File | undefined {
+    const localFileName = this.normaliseFileName(imageRow["Local Filename"]);
+    const localFileNameWithoutPath = localFileName ? localFileName.split('/').pop() : null;
+    const imageGuid = this.normaliseFileName(imageRow["Image GUID"]);
+    return fileLookup.get(localFileName)
+      || fileLookup.get(localFileNameWithoutPath)
+      || fileLookup.get(this.baseName(localFileName))
+      || fileLookup.get(this.baseName(localFileNameWithoutPath))
+      || fileLookup.get(imageGuid);
+  }
+
+  private normaliseFileName(fileName: string): string {
+    return fileName ? fileName.trim().toLowerCase() : null;
+  }
+
+  private baseName(fileName: string): string {
+    if (!fileName) {
+      return fileName;
+    }
+    const lastDotIndex = fileName.lastIndexOf(".");
+    return lastDotIndex > -1 ? fileName.substring(0, lastDotIndex) : fileName;
+  }
+
+  private uploadsByName(uploadResponses: AwsFileUploadResponseData[]): Map<string, AwsFileUploadResponseData> {
+    const uploads = new Map<string, AwsFileUploadResponseData>();
+    uploadResponses.forEach(upload => {
+      const originalName = this.normaliseFileName(upload?.uploadedFile?.originalname);
+      const awsFileName = this.normaliseFileName(upload?.fileNameData?.awsFileName);
+      if (originalName) {
+        uploads.set(originalName, upload);
+        uploads.set(this.baseName(originalName), upload);
+      }
+      if (awsFileName) {
+        uploads.set(awsFileName, upload);
+        uploads.set(this.baseName(awsFileName), upload);
+      }
+    });
+    return uploads;
+  }
+
+  private uploadForFile(file: File, uploads: Map<string, AwsFileUploadResponseData>): AwsFileUploadResponseData {
+    const name = this.normaliseFileName(file?.name);
+    const baseName = this.baseName(name);
+    return uploads.get(name) || uploads.get(baseName);
+  }
+
+  private async uploadSingleWalkImage(file: File, notify: AlertInstance, maxBytes: number): Promise<AwsFileUploadResponseData | null> {
+    const fileUtilsService = this.injector.get(FileUtilsService);
+    let fileToUpload = file;
+
+    if (fileUtilsService.isResizableName(file.name) && file.size > maxBytes) {
+      try {
+        const base64Content = await this.fileToBase64(file);
+        const resizedBase64 = await fileUtilsService.resizeBase64Image(base64Content, file.name, maxBytes, 1200);
+        if (resizedBase64) {
+          fileToUpload = this.base64ToFile(resizedBase64, file.name);
+        }
+      } catch (error) {
+        this.logger.warn("Failed to resize", file.name, error);
+      }
+    }
+
+    const formData = new FormData();
+    formData.append("file", fileToUpload, fileToUpload.name);
+
+    try {
+      const response: AwsFileUploadResponse = await this.http.post<AwsFileUploadResponse>(
+        `${S3_BASE_URL}/file-upload?root-folder=${RootFolder.walkImages}`,
+        formData
+      ).toPromise();
+
+      if (response?.errors?.length > 0) {
+        this.logger.error("Upload error for", file.name, response.errors);
+        return null;
+      }
+      return response?.responses?.[0] || null;
+    } catch (error) {
+      this.logger.error("Upload failed for", file.name, error);
+      return null;
+    }
+  }
+
+  private async uploadWalkImages(files: File[], notify: AlertInstance, maxBytes: number): Promise<AwsFileUploadResponseData[]> {
+    if (!files.length) {
+      return [];
+    }
+
+    notify.progress({title: "Image Import", message: `Preparing ${this.stringUtils.pluraliseWithCount(files.length, "image")} for upload...`});
+
+    const resizedFiles: File[] = [];
+    let resizedCount = 0;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fileUtilsService = this.injector.get(FileUtilsService);
+
+      if (fileUtilsService.isResizableName(file.name) && file.size > maxBytes) {
+        try {
+          const base64Content = await this.fileToBase64(file);
+          const resizedBase64 = await fileUtilsService.resizeBase64Image(base64Content, file.name, maxBytes, 1200);
+
+          if (resizedBase64) {
+            const resizedFile = this.base64ToFile(resizedBase64, file.name);
+            resizedFiles.push(resizedFile);
+            resizedCount++;
+            notify.progress({
+              title: "Image Import",
+              message: `Resized ${resizedCount} of ${files.length} images (${Math.round((i + 1) / files.length * 100)}%)`
+            });
+          } else {
+            resizedFiles.push(file);
+          }
+        } catch (error) {
+          this.logger.warn("Failed to resize", file.name, error);
+          resizedFiles.push(file);
+        }
+      } else {
+        resizedFiles.push(file);
+      }
+    }
+
+    if (resizedCount > 0) {
+      notify.success({
+        title: "Image Resize Complete",
+        message: `Resized ${this.stringUtils.pluraliseWithCount(resizedCount, "image")}`
+      });
+    }
+
+    notify.progress({title: "Image Import", message: `Uploading ${this.stringUtils.pluraliseWithCount(resizedFiles.length, "image")}...`});
+
+    const formData = new FormData();
+    resizedFiles.forEach(file => formData.append("file", file, file.name));
+    const response: AwsFileUploadResponse = await this.http.post<AwsFileUploadResponse>(`${S3_BASE_URL}/file-upload?root-folder=${RootFolder.walkImages}`, formData).toPromise();
+    if (response?.errors?.length > 0) {
+      notify.error({title: "Image Import", message: response.errors});
+    }
+    return response?.responses || [];
+  }
+
+  private fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  private base64ToFile(base64: string, fileName: string): File {
+    const arr = base64.split(",");
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], fileName, { type: mime });
   }
 }
