@@ -184,6 +184,7 @@ export interface RamblersEventsApiResponse extends ApiResponse {
 }
 
 export enum WalkUploadColumnHeading {
+  WALK_ID = "Walk ID",
   DATE = "Date",
   TITLE = "Title",
   DESCRIPTION = "Description",

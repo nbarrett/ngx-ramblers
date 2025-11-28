@@ -358,10 +358,21 @@ export enum ImportStage {
   MATCHING_COMPLETE = "matching-complete",
 }
 
+export interface WalkImageRow {
+  "Walk ID": string;
+  "Image GUID": string;
+  "Local Filename": string;
+  "Image Order": string;
+}
+
 export interface ImportData {
   inputSource: InputSource;
   importStage: ImportStage;
   fileImportRows: Record<string, string>[];
+  imageImportRows?: WalkImageRow[];
+  imageFiles?: File[];
+  maxImageSize?: number;
+  imageUploadProgress?: number;
   bulkLoadMembersAndMatchesToWalks: BulkLoadMemberAndMatchToWalk[];
   existingWalksWithinRange: ExtendedGroupEvent[];
   messages: string[];

@@ -23,18 +23,18 @@ import { AlertInstance } from "../../../services/notifier.service";
 @Component({
   selector: "app-walk-import-from-file",
   template: `
-    <div class="row mb-2">
+    <div class="row mb-3">
       <div class="col-sm-12">
         <div (click)="selectGroupSelection(ImportType.EXISTING_GROUP)"
-             class="form-check form-check-inline d-flex align-items-center">
-          <input class="form-check-input"
+             class="form-check d-flex align-items-center">
+          <input class="form-check-input me-3"
                  id="area-selection-mode"
                  name="group-selection"
                  type="radio"
                  [value]="ImportType.EXISTING_GROUP"
                  [disabled]="importData.importStage !== ImportStage.NONE"
                  [(ngModel)]="importTypeOptions.importType"/>
-          <label class="form-check-label me-3  text-nowrap"
+          <label class="form-check-label me-3 text-nowrap"
                  for="area-selection-mode">Import to Existing Group</label>
           <app-group-selector class="flex-grow-1" [disabled]="importTypeOptions.importType===ImportType.UNLISTED_GROUP"
                               [areaCode]="systemConfig.area.groupCode"
@@ -43,11 +43,11 @@ import { AlertInstance } from "../../../services/notifier.service";
         </div>
       </div>
     </div>
-    <div class="row mb-2">
+    <div class="row mb-3">
       <div class="col-sm-12">
         <div (click)="selectGroupSelection(ImportType.UNLISTED_GROUP)"
-             class="form-check form-check-inline d-flex flex-grow-1 align-items-center">
-          <input class="form-check-input"
+             class="form-check d-flex align-items-center">
+          <input class="form-check-input me-3"
                  id="group-selection-mode"
                  name="group-selection"
                  type="radio"
@@ -61,7 +61,7 @@ import { AlertInstance } from "../../../services/notifier.service";
                  [(ngModel)]="importTypeOptions.unlistedGroupCodeAndName.group_name"
                  id="unlisted-group-name"
                  class="form-control ms-2">
-          <label class="mx-3 text-nowrap " for="unlisted-group-code">Group Code</label>
+          <label class="mx-3 text-nowrap" for="unlisted-group-code">Group Code</label>
           <input [disabled]="importData.importStage !== ImportStage.NONE||importTypeOptions.importType === ImportType.EXISTING_GROUP"
                  type="text"
                  [(ngModel)]="importTypeOptions.unlistedGroupCodeAndName.group_code"
@@ -85,11 +85,12 @@ import { AlertInstance } from "../../../services/notifier.service";
           <div ng2FileDrop [ngClass]="{'file-over': hasFileOver}"
                (fileOver)="fileOver($event)"
                (onFileDrop)="onFileDropped($event)"
-               class="badge-drop-zone mt-2">Or drop file here
+               class="badge-drop-zone mt-2">Or drop walk CSV file here
           </div>
         </div>
       }
-    </div>`,
+    </div>
+    `,
   styles: `
   `,
   imports: [FontAwesomeModule, FileUploadModule, FormsModule, NgClass, GroupSelector]
@@ -149,6 +150,7 @@ export class WalkImportFromFile implements OnInit, OnDestroy {
     fileElement.click();
   }
 
+
   async onFileDropped(fileList: File[]) {
     const firstFile: File = first(fileList);
     this.importData.importStage = ImportStage.IMPORTING;
@@ -188,6 +190,9 @@ export class WalkImportFromFile implements OnInit, OnDestroy {
   }
 
   selectGroupSelection(importType: ImportType) {
+    if (!this.importTypeOptions) {
+      this.initialiseImportData();
+    }
     this.importTypeOptions.importType = importType;
     const groupCodeAndName: HasGroupCodeAndName = this.importTypeOptions.importType === ImportType.UNLISTED_GROUP ? this.importTypeOptions.unlistedGroupCodeAndName : this.importTypeOptions.existingGroupCodeAndName;
     this.importData.groupCodeAndName = groupCodeAndName;

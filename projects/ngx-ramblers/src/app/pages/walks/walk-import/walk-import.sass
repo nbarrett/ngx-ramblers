@@ -1,0 +1,144 @@
+@import "../../../assets/styles/colours.sass"
+
+:host ::ng-deep
+  .p-stepper
+    --stepper-border: #dfe7f3
+    --stepper-active: $ramblers-colour-sunset
+    --stepper-done: #198754
+    --stepper-muted: #6c757d
+    --stepper-bg: transparent
+
+    padding: 12px 0
+    margin: 0
+
+    .p-step
+      padding: 10px 0
+
+    .p-step-header
+      background: transparent
+      border: none
+      padding: 0
+
+      .p-step-number
+        display: none !important
+
+    .walk-step-header
+      display: flex
+      align-items: center
+      gap: 10px
+
+    .walk-step-number
+      width: 32px
+      height: 32px
+      border-radius: 50%
+      display: inline-flex
+      align-items: center
+      justify-content: center
+      font-weight: 700
+      background: #e9ecef
+      color: #495057
+      border: 1px solid var(--stepper-border)
+
+    .walk-step-text
+      display: flex
+      flex-direction: column
+      gap: 2px
+      text-align: left
+
+    .walk-step-label
+      font-weight: 600
+      color: #1f2933
+
+    .walk-step-hint
+      font-size: 12px
+      color: var(--stepper-muted)
+
+    .walk-step-chip
+      display: inline-flex
+      align-items: center
+      align-self: flex-start
+      padding: 2px 8px
+      border-radius: 999px
+      font-size: 12px
+      font-weight: 600
+      background: $ramblers-colour-mintcake-light
+      color: $ramblers-colour-granite
+
+    .p-step-active .walk-step-number
+      background: $ramblers-colour-sunset
+      color: $ramblers-colour-cloudy
+      border-color: $ramblers-colour-sunset
+
+    .p-step-active .walk-step-label
+      color: var(--stepper-active)
+
+    .p-stepper-separator
+      background: var(--stepper-border)
+
+    .p-steppanel
+      display: none
+      margin-left: 42px
+      border: 1px dashed var(--stepper-border)
+      border-radius: 10px
+      background: var(--stepper-bg)
+      padding: 12px 42px 12px 12px
+      box-sizing: border-box
+
+    .p-step-active + .p-steppanel
+      display: block
+
+  .audit-table-scroll
+    position: relative
+    max-height: 60vh
+    overflow-y: auto
+    overflow-x: hidden
+
+    table
+      margin-bottom: 0
+
+    thead
+      position: sticky
+      top: 0
+      z-index: 20
+      background-clip: padding-box
+
+      th
+        position: sticky
+        top: 0
+        z-index: 20
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05)
+
+  .stepper-nav
+    display: flex
+    gap: 8px
+    margin-top: 12px
+    justify-content: flex-end
+
+  .btn
+    padding: 12px 20px
+    border-radius: 6px
+    font-weight: 600
+    min-width: 120px
+    transition: all 0.2s ease
+
+    &:hover
+      transform: translateY(-1px)
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1)
+
+  .btn-primary
+    background: $ramblers-colour-sunrise
+    border-color: $ramblers-colour-sunrise
+    color: $ramblers-colour-granite
+
+    &:hover
+      background: darken($ramblers-colour-sunrise, 10%)
+      border-color: darken($ramblers-colour-sunrise, 10%)
+
+  .btn-secondary
+    background: #e9ecef
+    border-color: #dee2e6
+    color: $ramblers-colour-granite
+
+    &:hover
+      background: #dee2e6
+      border-color: #dee2e6

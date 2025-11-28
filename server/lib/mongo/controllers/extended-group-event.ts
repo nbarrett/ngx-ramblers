@@ -51,7 +51,7 @@ export async function urlFromTitle(req: Request, res: Response) {
     res.json({url});
     }
   } catch (error) {
-    debugLog("urlFromTitle: error:", error);
+    controller.errorDebugLog("urlFromTitle: error:", error);
     res.status(500).json({error: error.message});
   }
 }
@@ -59,14 +59,17 @@ export async function urlFromTitle(req: Request, res: Response) {
 export async function findBySlug(slugOrTitle: string): Promise<{ slug: string; document: ExtendedGroupEvent }> {
   const kebabCaseSlug = convertTitleToSlug(slugOrTitle);
   const queriedSlug = identifierLooksLikeASlug(slugOrTitle) ? slugOrTitle : kebabCaseSlug;
+  const escapedSlug = queriedSlug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  debugLog("findBySlug: requested:", slugOrTitle, "queriedSlug:", queriedSlug, "escapedSlug:", escapedSlug);
   const document = await controller.findOneDocument({
     criteria: {
       "groupEvent.url": {
-        $regex: queriedSlug,
+        $regex: `^${escapedSlug}$`,
         $options: "i"
       }
     }
   });
+  debugLog("findBySlug: result for queriedSlug:", queriedSlug, "document:", document?.groupEvent?.url, "id:", document?.id);
   if (document || (kebabCaseSlug === slugOrTitle)) {
     debugLog("findBySlug:queriedSlug", queriedSlug, "document:", document);
     return {slug: queriedSlug, document};
@@ -83,7 +86,7 @@ export async function count(req: Request, res: Response) {
     const count = await extendedGroupEvent.countDocuments(criteria);
     res.json({ count });
   } catch (error) {
-    debugLog("count: error:", error);
+    controller.errorDebugLog("count: error:", error);
     res.status(500).json({ error: error.message });
   }
 }
@@ -98,7 +101,7 @@ export function queryWalkLeaders(req: Request, res: Response): Promise<any> {
       });
     })
     .catch(error => {
-      debugLog(`queryWalkLeaderMemberIds: ${extendedGroupEvent.modelName} error: ${error}`);
+      controller.errorDebugLog(`queryWalkLeaderMemberIds: ${extendedGroupEvent.modelName} error: ${error}`);
       res.status(500).json({
         message: `${extendedGroupEvent.modelName} query failed`,
         request: req.query,

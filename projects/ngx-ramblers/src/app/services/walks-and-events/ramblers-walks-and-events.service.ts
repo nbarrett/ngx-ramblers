@@ -847,13 +847,13 @@ export class RamblersWalksAndEventsService {
     return {id, email, contactName, displayName, telephone};
   }
 
-  toExtendedGroupEvent(groupEvent: GroupEvent, inputSource: InputSource): ExtendedGroupEvent {
+  toExtendedGroupEvent(groupEvent: GroupEvent, inputSource: InputSource, migratedFromId?: string): ExtendedGroupEvent {
     const localContact: LocalContact = this.localContact(groupEvent);
     this.logger.off("groupEvent:", groupEvent, "contactName:", localContact.contactName, "displayName:", localContact.displayName);
 
     const extendedFields: ExtendedFields = {
       inputSource,
-      migratedFromId: null,
+      migratedFromId: migratedFromId || null,
       attachment: null,
       attendees: [],
       milesPerHour: 0,

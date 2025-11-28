@@ -32,6 +32,7 @@ import mongoose from "mongoose";
 import { EventField, GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { dateTimeFromIso } from "../shared/dates";
 import { DateTime } from "luxon";
+import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
 
 const debugLog = debug(envConfig.logNamespace("ramblers:list-events"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:list-events-no-op"));
@@ -49,15 +50,30 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
 
   if (body?.ids?.length === 1 && identifierLooksLikeASlug(body.ids[0])) {
     const slug = body.ids[0];
+    debugLog("slug request received:", slug);
     try {
       const config: SystemConfig = await systemConfig();
       const result = await findBySlug(slug);
-      debugLog("findBySlug returned:", result);
+      debugLog("findBySlug returned slug:", result?.slug, "id:", result?.document?.id, "url:", result?.document?.groupEvent?.url);
       const groupEvent: ExtendedGroupEvent = result.document;
       if (groupEvent) {
-        const response: RamblersEventsApiResponse = await queryBasedOnExistingEvent(groupEvent, body, config);
-        debugLog("Found cached event for slug:", slug, "groupEvent:", groupEvent, "response:", response);
-        res.json(response);
+        if (groupEvent.groupEvent?.id) {
+          const response: RamblersEventsApiResponse = await queryBasedOnExistingEvent(groupEvent, body, config);
+          debugLog("Found cached event for slug:", slug, "groupEvent:", groupEvent, "response:", response);
+          res.json(response);
+        } else {
+          debugLog("Slug matched local event without Ramblers id; returning cached event only");
+          const response: RamblersEventsApiResponse = {
+            request: {},
+            action: ApiAction.QUERY,
+            apiStatusCode: 200,
+            response: {
+              summary: {count: 1, offset: 0, limit: 1, total: 1},
+              data: [groupEvent.groupEvent]
+            }
+          };
+          res.json(response);
+        }
       } else {
         debugLog("No cached event found for slug:", slug, "querying and saving data");
         const apiResponse: RamblersEventsApiResponse = await listEventsBySlug(req, slug);
