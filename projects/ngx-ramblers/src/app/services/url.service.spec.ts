@@ -157,9 +157,51 @@ describe("UrlService", () => {
 
     });
 
-    it("absoluteUrl should return full current url ", () => {
-        const service: UrlService = TestBed.inject(UrlService);
-        expect(service.absoluteUrl()).toBe(URL_PATH);
+        it("absoluteUrl should return full current url ", () => {
+            const service: UrlService = TestBed.inject(UrlService);
+            expect(service.absoluteUrl()).toBe(URL_PATH);
+        });
+
+    describe("looksLikeASlug", () => {
+        let service: UrlService;
+
+        beforeEach(() => {
+            service = TestBed.inject(UrlService);
+        });
+
+        it("should detect lowercase kebab-case as slug", () => {
+            expect(service.looksLikeASlug("sandwich-dover")).toBeTrue();
+        });
+
+        it("should treat uppercase and numbers as valid slug characters", () => {
+            expect(service.looksLikeASlug("Sandwich123-Route")).toBeTrue();
+        });
+
+        it("should reject strings with spaces", () => {
+            expect(service.looksLikeASlug("Sandwich to Dover")).toBeFalse();
+        });
+
+        it("should return false for empty or null values", () => {
+            expect(service.looksLikeASlug("")).toBeFalse();
+            expect(service.looksLikeASlug(null)).toBeFalse();
+        });
+    });
+
+    describe("isMongoId", () => {
+        let service: UrlService;
+
+        beforeEach(() => {
+            service = TestBed.inject(UrlService);
+        });
+
+        it("should return true for 24-character hex strings", () => {
+            expect(service.isMongoId("689667240ac482029442c7bd")).toBeTrue();
+        });
+
+        it("should return false for non-hex or wrong length", () => {
+            expect(service.isMongoId("invalid-id")).toBeFalse();
+            expect(service.isMongoId("123")).toBeFalse();
+        });
     });
 
     describe("reformatLocalHref", () => {
@@ -217,6 +259,58 @@ describe("UrlService", () => {
             spyOn(stringUtils, "kebabCase").and.callThrough();
             expect(service.reformatLocalHref("path/With Mixed CASES")).toBe("path/with-mixed-cases");
             expect(stringUtils.kebabCase).toHaveBeenCalledWith("With Mixed CASES");
+        });
+    });
+
+    describe("pathContainsEventIdOrSlug", () => {
+        let service: UrlService;
+        let originalRouter: Router;
+
+        const setRouterPath = (path: string) => {
+            const segments = path.split("/").filter(item => item).map(item => ({path: item}));
+            (service as any).router = {
+                url: path,
+                parseUrl: () => ({root: {children: {primary: {segments}}}})
+            };
+        };
+
+        beforeEach(() => {
+            service = TestBed.inject(UrlService);
+            originalRouter = (service as any).router;
+        });
+
+        afterEach(() => {
+            (service as any).router = originalRouter;
+        });
+
+        it("should return true for kebab-case slug segments", () => {
+            setRouterPath("/walks/sandwich-dover-along-saxon-shore-way");
+            expect(service.pathContainsEventIdOrSlug()).toBeTrue();
+        });
+
+        it("should return true for identifiers that can be converted to a slug", () => {
+            setRouterPath("/walks/Sandwich to Dover along the Saxon Shore Way");
+            expect(service.pathContainsEventIdOrSlug()).toBeTrue();
+        });
+
+        it("should return false for numeric identifiers outside walk routes", () => {
+            setRouterPath("/admin/1234567890");
+            expect(service.pathContainsEventIdOrSlug()).toBeTrue();
+        });
+
+        it("should return true for mongo identifiers in walks path", () => {
+            setRouterPath("/walks/689667240ac482029442c7bd");
+            expect(service.pathContainsEventIdOrSlug()).toBeTrue();
+        });
+
+        it("should return true for mongo identifiers in social path", () => {
+            setRouterPath("/social/689667240ac482029442c7bd");
+            expect(service.pathContainsEventIdOrSlug()).toBeTrue();
+        });
+
+        it("should return false when there are insufficient path segments", () => {
+            setRouterPath("/walks");
+            expect(service.pathContainsEventIdOrSlug()).toBeFalse();
         });
     });
 

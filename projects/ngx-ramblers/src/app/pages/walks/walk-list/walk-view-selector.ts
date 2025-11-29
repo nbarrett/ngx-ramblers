@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DynamicContentPageComponent } from "../../../modules/common/dynamic-content-page/dynamic-content-page";
 import { WalkViewComponent } from "../walk-view/walk-view";
@@ -15,6 +15,9 @@ import { Status } from "../../../models/ramblers-upload-audit.model";
 import { HumanisePipe } from "../../../pipes/humanise.pipe";
 import { EventDispatchService } from "../../social/social-view/event-dispatch-service";
 import { DisplayedWalk } from "../../../models/walk.model";
+import { NavigationEnd, Router } from "@angular/router";
+import { Subscription } from "rxjs";
+import { filter } from "rxjs/operators";
 
 @Component({
   selector: "app-walks-selector",
@@ -46,7 +49,7 @@ import { DisplayedWalk } from "../../../models/walk.model";
     }
   `
 })
-export class WalksViewSelector implements OnInit {
+export class WalksViewSelector implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("SocialViewSelector", NgxLoggerLevel.ERROR);
   private eventDispatchService: EventDispatchService = inject(EventDispatchService);
   protected urlService: UrlService = inject(UrlService);
@@ -60,9 +63,24 @@ export class WalksViewSelector implements OnInit {
   protected readonly EventViewDispatch = EventViewDispatch;
   protected readonly Status = Status;
   protected displayedWalk: DisplayedWalk;
+  private router = inject(Router);
+  private navigationSubscription?: Subscription;
 
   async ngOnInit(): Promise<void> {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    await this.loadEventView();
+    this.navigationSubscription = this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe(() => {
+        void this.loadEventView();
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.navigationSubscription?.unsubscribe();
+  }
+
+  private async loadEventView(): Promise<void> {
     this.eventView = await this.eventDispatchService.eventView(this.notify, "Walk");
     if (this.eventView.eventView === EventViewDispatch.PENDING) {
       this.logger.info(`${this.eventView.eventView} until event returned`);
@@ -72,5 +90,4 @@ export class WalksViewSelector implements OnInit {
       this.logger.info(`${this.eventView.eventView} now event returned:`, this.socialEvent);
     }
   }
-
 }

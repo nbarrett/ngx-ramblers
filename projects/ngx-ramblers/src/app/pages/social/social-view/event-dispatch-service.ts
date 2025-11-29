@@ -48,7 +48,6 @@ export class EventDispatchService {
   }
 
   private async query(notify: AlertInstance, eventId: string, eventType: string): Promise<ExtendedGroupEvent> {
-    if (this.urlService.pathContainsEventIdOrSlug()) {
       const extendedGroupEvent: ExtendedGroupEvent = await this.walksAndEventsService.queryById(eventId);
       if (extendedGroupEvent) {
         this.logger.info(eventType + " found:", extendedGroupEvent);
@@ -57,13 +56,10 @@ export class EventDispatchService {
         this.notifyNotFound(eventType, eventId, notify);
       }
       return extendedGroupEvent;
-    } else {
-      return null;
-    }
   }
 
   private notifyNotFound(eventType: string, eventId: string, notify: AlertInstance) {
-    this.logger.warn(eventType + " not found:", eventId);
+    this.logger.info(eventType + " not found:", eventId);
     notify.warning({
       title: eventType + " not found",
       message: "Content for this event doesn't exist"

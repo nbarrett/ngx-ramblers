@@ -58,14 +58,13 @@ export async function urlFromTitle(req: Request, res: Response) {
 
 export async function findBySlug(slugOrTitle: string): Promise<{ slug: string; document: ExtendedGroupEvent }> {
   const kebabCaseSlug = convertTitleToSlug(slugOrTitle);
-  const queriedSlug = identifierLooksLikeASlug(slugOrTitle) ? slugOrTitle : kebabCaseSlug;
-  const escapedSlug = queriedSlug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  debugLog("findBySlug: requested:", slugOrTitle, "queriedSlug:", queriedSlug, "escapedSlug:", escapedSlug);
+  const queriedSlug = identifierMatchesSlugFormat(slugOrTitle) ? slugOrTitle : kebabCaseSlug;
+  const regex = slugRegexFor(queriedSlug);
+  debugLog("findBySlug: requested:", slugOrTitle, "queriedSlug:", queriedSlug, "regex:", regex);
   const document = await controller.findOneDocument({
     criteria: {
       "groupEvent.url": {
-        $regex: `^${escapedSlug}$`,
-        $options: "i"
+        $regex: regex
       }
     }
   });
@@ -110,8 +109,33 @@ export function queryWalkLeaders(req: Request, res: Response): Promise<any> {
     });
 }
 
-export function identifierLooksLikeASlug(identifier: string): boolean {
-  const looksLikeASlug = /[\s-]/.test(identifier);
-  debugLog("identifierLooksLikeASlug:", identifier, "returning:", looksLikeASlug);
+export function identifierMatchesSlugFormat(identifier: string): boolean {
+  const trimmedIdentifier = (identifier || "").trim();
+  const isMongoObjectId = /^[a-f\d]{24}$/i.test(trimmedIdentifier);
+  const isNumeric = /^\d+$/.test(trimmedIdentifier);
+  const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  const looksLikeASlug = Boolean(trimmedIdentifier) && !isMongoObjectId && !isNumeric && slugPattern.test(trimmedIdentifier);
+  debugLog("identifierMatchesSlugFormat:", identifier, "returning:", looksLikeASlug);
   return looksLikeASlug;
+}
+
+export function escapeSlugForRegex(slug: string): string {
+  return (slug || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function slugRegexFor(identifier: string): RegExp {
+  const escapedSlug = escapeSlugForRegex(identifier);
+  return new RegExp(`(?:/)?${escapedSlug}$`, "i");
+}
+
+export function identifierCanBeConvertedToSlug(identifier: string): boolean {
+  const trimmedIdentifier = (identifier || "").trim();
+  if (!trimmedIdentifier) {
+    return false;
+  }
+  const isMongoObjectId = /^[a-f\d]{24}$/i.test(trimmedIdentifier);
+  const isNumeric = /^\d+$/.test(trimmedIdentifier);
+  const canConvert = !isMongoObjectId && !isNumeric;
+  debugLog("identifierCanBeConvertedToSlug:", identifier, "returning:", canConvert);
+  return canConvert;
 }

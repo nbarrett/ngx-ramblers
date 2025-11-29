@@ -27,7 +27,7 @@ import {
   GroupEvent,
   InputSource
 } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
-import { findBySlug, identifierLooksLikeASlug } from "../mongo/controllers/extended-group-event";
+import { findBySlug, identifierCanBeConvertedToSlug, identifierMatchesSlugFormat } from "../mongo/controllers/extended-group-event";
 import mongoose from "mongoose";
 import { EventField, GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { dateTimeFromIso } from "../shared/dates";
@@ -36,7 +36,7 @@ import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-res
 
 const debugLog = debug(envConfig.logNamespace("ramblers:list-events"));
 const noopDebugLog = debug(envConfig.logNamespace("ramblers:list-events-no-op"));
-noopDebugLog.enabled = false;
+noopDebugLog.enabled = true;
 debugLog.enabled = false;
 
 export async function listEvents(req: Request, res: Response): Promise<void> {
@@ -48,8 +48,9 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
   const limit = limitFor(req.body);
   const ids = body.ids?.join(",");
 
-  if (body?.ids?.length === 1 && identifierLooksLikeASlug(body.ids[0])) {
-    const slug = body.ids[0];
+  const singleIdentifier = body?.ids?.length === 1 ? body.ids[0] : null;
+  if (singleIdentifier && (identifierMatchesSlugFormat(singleIdentifier) || identifierCanBeConvertedToSlug(singleIdentifier))) {
+    const slug = singleIdentifier;
     debugLog("slug request received:", slug);
     try {
       const config: SystemConfig = await systemConfig();
@@ -213,6 +214,7 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
     }
   }
 }
+
 
 function groupNameFrom(config: SystemConfig, event: GroupEvent): string {
   return event?.group_name || config?.group?.longName || "Unknown Group";

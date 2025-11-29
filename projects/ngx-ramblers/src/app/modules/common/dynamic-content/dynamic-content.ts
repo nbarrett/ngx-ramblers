@@ -1,5 +1,5 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
-import { ActivatedRoute, ParamMap } from "@angular/router";
+import { NavigationEnd, Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
@@ -9,11 +9,11 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { PageContentService } from "../../../services/page-content.service";
 import { PageService } from "../../../services/page.service";
-import { StringUtilsService } from "../../../services/string-utils.service";
 import { UrlService } from "../../../services/url.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { DynamicContentSiteEditComponent } from "./dynamic-content-site-edit";
 import { DynamicContentViewComponent } from "./dynamic-content-view";
+import { filter } from "rxjs/operators";
 
 @Component({
     selector: "app-dynamic-content",
@@ -35,10 +35,9 @@ import { DynamicContentViewComponent } from "./dynamic-content-view";
 export class DynamicContentComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentComponent", NgxLoggerLevel.ERROR);
-  private route = inject(ActivatedRoute);
   private notifierService = inject(NotifierService);
   private urlService = inject(UrlService);
-  stringUtils = inject(StringUtilsService);
+  private router = inject(Router);
   private pageContentService = inject(PageContentService);
   private pageService = inject(PageService);
   private authService = inject(AuthService);
@@ -79,26 +78,36 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.notify = this.notifier || this.notifierService.createAlertInstance(this.notifyTarget);
-    this.subscriptions.push(this.route.paramMap.subscribe((paramMap: ParamMap) => {
-      if (this.areaAsContentPath) {
-        this.contentPath = this.urlService.area() + this.pageService.anchorWithSuffix(this.anchor);
-      } else {
-        this.contentPath = this.pageService.contentPath(this.anchor);
-      }
-      if (!this.preventRedirect) {
-        this.urlService.redirectToNormalisedUrl(this.contentPath);
-      }
-      this.contentDescription = this.pageService.contentDescription(this.anchor);
-      this.logger.info("areaAsContentPath:", this.areaAsContentPath, "initialised with contentPath:", this.contentPath);
-      this.pageTitle = this.pageService.pageSubtitle();
-      this.logger.info("Finding page content for " + this.contentPath);
-      this.refreshPageContent();
-      this.authService.authResponse().subscribe(() => this.refreshPageContent());
-    }));
+    this.subscriptions.push(
+      this.router.events
+        .pipe(filter(event => event instanceof NavigationEnd))
+        .subscribe(() => this.updateContentFromRoute())
+    );
+    this.subscriptions.push(this.authService.authResponse().subscribe(() => this.refreshPageContent()));
+    this.updateContentFromRoute();
   }
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  private updateContentFromRoute() {
+    const anchorSuffix = this.pageService.anchorWithSuffix(this.anchor);
+    if (this.areaAsContentPath) {
+      this.contentPath = this.urlService.area() + anchorSuffix;
+    } else {
+      this.contentPath = this.pageService.contentPath(this.anchor);
+    }
+    if (!this.preventRedirect) {
+      this.urlService.redirectToNormalisedUrl(this.contentPath);
+    }
+    this.contentDescription = this.pageService.contentDescription(this.anchor);
+    this.logger.info("areaAsContentPath:", this.areaAsContentPath, "initialised with contentPath:", this.contentPath);
+    this.pageTitle = this.pageService.pageSubtitle();
+    this.logger.info("Finding page content for " + this.contentPath);
+    this.pageContent = null;
+    this.queryCompleted = false;
+    this.refreshPageContent();
   }
 
   private refreshPageContent() {
@@ -115,7 +124,7 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
             title: `Page not found`,
             message: `The ${queryPath} page content was not found`
           });
-          this.logger.info("Page content not found for", queryPath, "redirecting to", this.contentPath)
+          this.logger.info("Page content not found for", queryPath, "redirecting to", this.contentPath);
         }
       }).catch(error => {
       this.logger.info("Page content error found for", queryPath, error);
