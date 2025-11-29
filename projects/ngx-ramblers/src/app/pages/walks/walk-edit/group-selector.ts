@@ -68,7 +68,7 @@ export class GroupSelector implements OnInit {
 
   private updateSelectedGroupCodes() {
     const selectedGroup: RamblersGroupWithLabel = this.availableGroups.find(group => group.group_code === this.firstGroupCode());
-    this.groupChange(selectedGroup.group_code);
+    this.groupChange(selectedGroup?.group_code);
   }
 
   private firstGroupCode() {
@@ -102,7 +102,11 @@ export class GroupSelector implements OnInit {
 
   groupChange(groupCode: string) {
     const group = this.groups.find(group => group.group_code === groupCode);
-    this.logger.info("onChange of groupCode:", groupCode, "emitting group:", group);
-    this.groupChanged.emit(group);
+    if (group) {
+      this.logger.info("onChange of groupCode:", groupCode, "emitting group:", group);
+      this.groupChanged.emit(group);
+    } else {
+      this.logger.info("onChange of groupCode:", groupCode, "no group found");
+    }
   }
 }

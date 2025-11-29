@@ -22,7 +22,6 @@ import { Organisation, RootFolder } from "../models/system.model";
 import { SystemConfigService } from "./system/system-config.service";
 import { DateUtilsService } from "./date-utils.service";
 import { FALLBACK_MEDIA } from "../models/walk.model";
-import { FileUtilsService } from "../file-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -176,11 +175,32 @@ export class UrlService {
   }
 
   looksLikeASlug(value: string) {
-    return /^[a-z0-9-]+$/i.test(value);
+    return /^[a-z0-9-]+$/i.test((value || "").trim());
+  }
+
+  private identifierCanBeConvertedToSlug(value: string): boolean {
+    const trimmedValue = (value || "").trim();
+    if (!trimmedValue) {
+      return false;
+    }
+    const isMongoObjectId = this.isMongoId(trimmedValue);
+    const isNumeric = /^\d+$/.test(trimmedValue);
+    return !isMongoObjectId && !isNumeric;
+  }
+
+  dlooksLikeASlug(value: string) {
+    return /[\s-]/.test(value);
   }
 
   pathContainsEventIdOrSlug(): boolean {
-    return this.pathContainsMongoId() || this.pathContainsNumericRamblersId() || (this.pathSegments().length === 2 && this.looksLikeASlug(this.lastPathSegment()));
+    if (this.pathContainsMongoId() || this.pathContainsNumericRamblersId()) {
+      return true;
+    } else if (this.pathSegments().length === 2) {
+      const identifier = this.lastPathSegment();
+      return this.looksLikeASlug(identifier) || this.identifierCanBeConvertedToSlug(identifier);
+    } else {
+      return false;
+    }
   }
 
   pathContainsNumericRamblersId(): boolean {

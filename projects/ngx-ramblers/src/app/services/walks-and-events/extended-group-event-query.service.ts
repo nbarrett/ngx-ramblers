@@ -1,6 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import { cloneDeep } from "es-toolkit/compat";
-import { first } from "es-toolkit/compat";
+import { cloneDeep, first } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   EventEventField,
@@ -21,6 +20,7 @@ import { FilterParameters, HasBasicEventSelection } from "../../models/search.mo
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { EventQueryParameters } from "../../models/ramblers-walks-manager";
 import { UrlService } from "../url.service";
+import { isNumericRamblersId } from "../path-matchers";
 
 @Injectable({
   providedIn: "root"
@@ -97,43 +97,51 @@ export class ExtendedGroupEventQueryService {
   }
 
   eventIdCriteriaFor(identifier: string): MongoCriteria {
-    if (this.urlService.looksLikeASlug(identifier)) {
-      const slug = this.stringUtils.kebabCase(identifier);
-      return {
-        $or: [
-          {
-            $expr: {
-              $eq: [
-                {$arrayElemAt: [{$split: [`$${GroupEventField.URL}`, "/"]}, -1]},
-                slug
-              ]
-            }
-          },
-          {[GroupEventField.URL]: slug},
-          {
-            $expr: {
-              $eq: [
-                {
-                  $replaceAll: {
-                    input: {$toLower: `$${GroupEventField.TITLE}`},
-                    find: " ",
-                    replacement: "-"
-                  }
-                },
-                slug
-              ]
-            }
-          }
-        ]
-      };
+    if (!(this.urlService.isMongoId(identifier) || isNumericRamblersId(identifier)) && this.urlService.looksLikeASlug(identifier)) {
+      return this.slugCriteria(identifier);
     } else {
-      return {
-        $or: [
-          {[ID]: identifier},
-          {[EventField.MIGRATED_FROM_ID]: identifier}
-        ]
-      };
+      return this.identifierCriteria(identifier);
     }
+  }
+
+  private slugCriteria(identifier: string): MongoCriteria {
+    const slug = this.stringUtils.kebabCase(identifier);
+    return {
+      $or: [
+        {
+          $expr: {
+            $eq: [
+              {$arrayElemAt: [{$split: [`$${GroupEventField.URL}`, "/"]}, -1]},
+              slug
+            ]
+          }
+        },
+        {[GroupEventField.URL]: slug},
+        {
+          $expr: {
+            $eq: [
+              {
+                $replaceAll: {
+                  input: {$toLower: `$${GroupEventField.TITLE}`},
+                  find: " ",
+                  replacement: "-"
+                }
+              },
+              slug
+            ]
+          }
+        }
+      ]
+    };
+  }
+
+  private identifierCriteria(identifier: string): MongoCriteria {
+    return {
+      $or: [
+        {[ID]: identifier},
+        {[EventField.MIGRATED_FROM_ID]: identifier}
+      ]
+    };
   }
 
   sortFor(filterParameters: HasBasicEventSelection) {
