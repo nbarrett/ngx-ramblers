@@ -55,6 +55,7 @@ Chart.register(...registerables);
                [heading]="AGMStatsTab.WALKS"
                [dateRangeControls]="dateRangeControls"
                [walkChartData]="walkChartData"
+               [leaderChartData]="leaderChartData"
                [chartOptions]="chartOptions"
                [chartType]="chartType"
                [years]="yearsInRange()"
@@ -212,6 +213,11 @@ export class AGMStatsComponent implements OnInit {
   chartType: "bar" | "line" = "bar";
 
   walkChartData: ChartConfiguration["data"] = {
+    labels: [],
+    datasets: []
+  };
+
+  leaderChartData: ChartConfiguration["data"] = {
     labels: [],
     datasets: []
   };
@@ -565,6 +571,21 @@ export class AGMStatsComponent implements OnInit {
           data: yearlyPeriods.length ? yearlyPeriods.map(period => period.walks.totalWalks) : walkPeriods.map(period => period.data.totalWalks),
           backgroundColor: "rgba(54, 162, 235, 0.5)",
           borderColor: "rgba(54, 162, 235, 1)",
+          borderWidth: 2,
+          tension: 0.3,
+          fill: false
+        }
+      ]
+    };
+
+    this.leaderChartData = {
+      labels,
+      datasets: [
+        {
+          label: "Active Walk Leaders",
+          data: yearlyPeriods.length ? yearlyPeriods.map(period => period.walks.activeLeaders || 0) : walkPeriods.map(period => period.data.activeLeaders || 0),
+          backgroundColor: "rgba(153, 102, 255, 0.5)",
+          borderColor: "rgba(153, 102, 255, 1)",
           borderWidth: 2,
           tension: 0.3,
           fill: false

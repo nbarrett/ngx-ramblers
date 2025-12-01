@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, Input, SimpleChanges, TemplateRef, ViewChild, inject, OnChanges, AfterViewInit } from "@angular/core";
+import { Component, Input, SimpleChanges, TemplateRef, ViewChildren, inject, OnChanges, AfterViewInit, QueryList } from "@angular/core";
 import { BaseChartDirective } from "ng2-charts";
 import { ChartConfiguration } from "chart.js";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -33,6 +33,22 @@ import { LoggerFactory } from "../../../services/logger-factory.service";
             @if (walkChartData?.datasets?.length > 0) {
               <canvas baseChart
                       [data]="walkChartData"
+                      [options]="chartOptions"
+                      [type]="chartType">
+              </canvas>
+            } @else {
+              <div class="d-flex justify-content-center align-items-center" style="min-height: 300px;">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading chart...</span>
+                </div>
+              </div>
+            }
+          </div>
+          <h4 class="mt-4">Active Walk Leaders Per Year</h4>
+          <div class="chart-container">
+            @if (leaderChartData?.datasets?.length > 0) {
+              <canvas baseChart
+                      [data]="leaderChartData"
                       [options]="chartOptions"
                       [type]="chartType">
               </canvas>
@@ -452,6 +468,7 @@ export class AGMWalksTabComponent implements AfterViewInit, OnChanges {
   @Input() tabActive = false;
   @Input() dateRangeControls: TemplateRef<any>;
   @Input() walkChartData: ChartConfiguration["data"];
+  @Input() leaderChartData: ChartConfiguration["data"];
   @Input() chartOptions: ChartConfiguration["options"];
   @Input() chartType: "bar" | "line";
   @Input() years: string[] = [];
@@ -470,7 +487,7 @@ export class AGMWalksTabComponent implements AfterViewInit, OnChanges {
   @Input() sortIconFn: SortIconFn;
   @Input() changeClassFn: ChangeClassFn;
   @Input() getYearLabelFn: GetYearLabelFn;
-  @ViewChild(BaseChartDirective) chart?: BaseChartDirective;
+  @ViewChildren(BaseChartDirective) charts?: QueryList<BaseChartDirective>;
   showCancelled = false;
   showEvening = false;
   showUnfilled = false;
@@ -488,8 +505,8 @@ export class AGMWalksTabComponent implements AfterViewInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if ((changes["tabActive"] && this.tabActive) || changes["walkChartData"] || changes["chartType"]) {
-      setTimeout(() => this.chart?.update());
+    if ((changes["tabActive"] && this.tabActive) || changes["walkChartData"] || changes["leaderChartData"] || changes["chartType"]) {
+      setTimeout(() => this.charts?.forEach(chart => chart.update()));
     }
   }
 }
