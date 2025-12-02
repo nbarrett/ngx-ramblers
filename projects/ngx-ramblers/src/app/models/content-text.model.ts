@@ -6,7 +6,7 @@ import { fieldContainsValue, fieldEqualsValue, fieldStartsWithValue, MongoRegex 
 import { HasClass } from "./banner-configuration.model";
 import { EventsData } from "./social-events.model";
 import { DescribedDimensions } from "./aws-object.model";
-import { HasNgSelectAttributes } from "./ramblers-walks-manager";
+import { HasNgSelectAttributes, LocationDetails } from "./ramblers-walks-manager";
 
 export const EM_DASH = " — ";
 export const EM_DASH_WITH_SPACES = ` ${EM_DASH} `;
@@ -19,6 +19,27 @@ export enum StringMatch {
   EQUALS = "equals",
   STARTS_WITH = "starts-with",
   CONTAINS = "contains"
+}
+
+export enum IndexContentType {
+  ALBUMS = "albums",
+  PAGES = "pages"
+}
+
+export enum IndexRenderMode {
+  ACTION_BUTTONS = "action-buttons",
+  MAP = "map"
+}
+
+export enum LocationRenderingMode {
+  HIDDEN = "hidden",
+  VISIBLE = "visible"
+}
+
+export interface LocationRowData {
+  start: LocationDetails;
+  end?: LocationDetails;
+  renderingMode: LocationRenderingMode;
 }
 
 export enum ListStyle {
@@ -133,6 +154,7 @@ export interface PageContentRow extends HasColumnRange {
   albumIndex?: AlbumIndex;
   areaMap?: AreaMapData;
   fragment?: Fragment;
+  location?: LocationRowData;
 }
 
 export interface PageContentColumn extends Link, HasPageContentRows {
@@ -188,8 +210,17 @@ export interface AlbumData {
   height: number;
 }
 
+export interface IndexMapConfig {
+  height?: number;
+  clusteringEnabled?: boolean;
+  clusteringThreshold?: number;
+}
+
 export interface AlbumIndex {
   contentPaths: ContentPathMatch[];
+  contentTypes?: IndexContentType[];
+  renderModes?: IndexRenderMode[];
+  mapConfig?: IndexMapConfig;
 }
 
 export enum BuiltInAnchor {
@@ -246,6 +277,7 @@ export enum PageContentType {
   AREA_MAP = "area-map",
   TEXT = "text",
   SHARED_FRAGMENT = "shared-fragment",
+  LOCATION = "location",
 }
 
 export enum ImageType {

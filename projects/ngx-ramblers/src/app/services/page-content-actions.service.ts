@@ -370,6 +370,10 @@ export class PageContentActionsService {
     return row?.type === PageContentType.SHARED_FRAGMENT;
   }
 
+  public isLocation(row: PageContentRow): boolean {
+    return row?.type === PageContentType.LOCATION;
+  }
+
   public pageContentFound(pageContent: PageContent, queryCompleted: boolean) {
     const hasRows = pageContent?.rows?.length > 0;
     this.logger.debug("pageContentFound:hasRows:", hasRows, "queryCompleted:", queryCompleted);
