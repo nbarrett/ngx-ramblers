@@ -35,7 +35,8 @@ export class LocationExtractionService {
             contentText: description,
             href: href,
             accessLevel: AccessLevel.public,
-            imageSource: null
+            imageSource: null,
+            location: row.location.start
           });
         }
       });

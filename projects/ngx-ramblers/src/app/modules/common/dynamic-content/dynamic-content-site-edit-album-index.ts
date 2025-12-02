@@ -1,7 +1,7 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { faAdd, faEraser, faPencil, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { ContentPathMatch, IndexContentType, PageContent, PageContentRow, StringMatch } from "../../../models/content-text.model";
+import { ContentPathMatch, IndexContentType, IndexRenderMode, PageContent, PageContentRow, StringMatch } from "../../../models/content-text.model";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
@@ -29,7 +29,7 @@ import { NgSelectComponent } from "@ng-select/ng-select";
       </div>
     </div>
     <div class="row mb-3">
-      <div class="col-sm-12">
+      <div class="col-sm-6">
         <label for="content-types-{{id}}">Content Types</label>
         <ng-select
           [items]="contentTypeValues"
@@ -46,7 +46,59 @@ import { NgSelectComponent } from "@ng-select/ng-select";
         </ng-select>
         <small class="text-muted">Selection order determines display order</small>
       </div>
+      <div class="col-sm-6">
+        <label for="render-modes-{{id}}">Render Modes</label>
+        <ng-select
+          [items]="renderModeValues"
+          bindLabel="value"
+          bindValue="value"
+          [multiple]="true"
+          [closeOnSelect]="false"
+          [searchable]="false"
+          [clearable]="false"
+          id="render-modes-{{id}}"
+          [(ngModel)]="row.albumIndex.renderModes"
+          (ngModelChange)="onRenderModesChange()"
+          appearance="outline">
+        </ng-select>
+        <small class="text-muted">Selection order determines display order</small>
+      </div>
     </div>
+    @if (showMapConfig()) {
+      <div class="row mb-3">
+        <div class="col-sm-4">
+          <label for="map-height-{{id}}">Map Height (px)</label>
+          <input type="number"
+                 class="form-control"
+                 id="map-height-{{id}}"
+                 [(ngModel)]="row.albumIndex.mapConfig.height"
+                 min="300"
+                 max="900"
+                 step="10">
+        </div>
+        <div class="col-sm-4">
+          <div class="form-check mt-4">
+            <input class="form-check-input"
+                   type="checkbox"
+                   id="clustering-enabled-{{id}}"
+                   [(ngModel)]="row.albumIndex.mapConfig.clusteringEnabled">
+            <label class="form-check-label" for="clustering-enabled-{{id}}">
+              Enable Clustering
+            </label>
+          </div>
+        </div>
+        <div class="col-sm-4">
+          <label for="clustering-threshold-{{id}}">Clustering Threshold</label>
+          <input type="number"
+                 class="form-control"
+                 id="clustering-threshold-{{id}}"
+                 [(ngModel)]="row.albumIndex.mapConfig.clusteringThreshold"
+                 min="2"
+                 max="100"
+                 [disabled]="!row.albumIndex.mapConfig.clusteringEnabled">
+        </div>
+      </div>
+    }
     @for (contentPath of row.albumIndex.contentPaths; track trackByIndex(index, contentPath); let index = $index) {
       <div class="row align-items-end mb-2">
         <div class="col-sm-2">
@@ -117,6 +169,7 @@ export class AlbumIndexSiteEditComponent implements OnInit {
   protected readonly faSearch = faSearch;
   stringMatchingValues: KeyValue<string>[] = enumKeyValues(StringMatch);
   contentTypeValues: KeyValue<string>[] = enumKeyValues(IndexContentType);
+  renderModeValues: KeyValue<string>[] = enumKeyValues(IndexRenderMode);
 
 
   async ngOnInit() {
@@ -125,6 +178,10 @@ export class AlbumIndexSiteEditComponent implements OnInit {
     if (!this.row.albumIndex.contentTypes) {
       this.row.albumIndex.contentTypes = [IndexContentType.ALBUMS];
     }
+    if (!this.row.albumIndex.renderModes) {
+      this.row.albumIndex.renderModes = [IndexRenderMode.ACTION_BUTTONS];
+    }
+    this.ensureMapConfig();
     await this.refreshContentPreview();
     this.logger.info("albumIndex:", this.row?.albumIndex, "albumIndexPageContent:", this.albumIndexPageContent);
   }
@@ -151,6 +208,24 @@ export class AlbumIndexSiteEditComponent implements OnInit {
     this.logger.info("delete:", contentPath);
     this.row.albumIndex.contentPaths = this.row.albumIndex.contentPaths.filter(item => item !== contentPath);
     this.refreshContentPreview();
+  }
+
+  showMapConfig(): boolean {
+    return this.row.albumIndex?.renderModes?.includes(IndexRenderMode.MAP) || false;
+  }
+
+  onRenderModesChange() {
+    this.ensureMapConfig();
+  }
+
+  private ensureMapConfig() {
+    if (this.showMapConfig() && !this.row.albumIndex.mapConfig) {
+      this.row.albumIndex.mapConfig = {
+        height: 500,
+        clusteringEnabled: true,
+        clusteringThreshold: 10
+      };
+    }
   }
 
 
