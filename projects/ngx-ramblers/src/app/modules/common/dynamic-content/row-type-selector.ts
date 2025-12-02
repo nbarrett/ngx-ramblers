@@ -17,7 +17,7 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
               (ngModelChange)="onTypeChange()"
               [id]="actions.rowColumnIdentifierFor(rowIndex, 0, contentPath + '-type')">
         @for (type of enumKeyValuesForPageContentType; track type) {
-          <option [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}</option>
+          <option [ngValue]="type.value">{{ displayValue(type.value) }}</option>
         }
       </select>
     </div>
@@ -36,5 +36,12 @@ export class RowTypeSelectorComponent {
 
   onTypeChange() {
     this.typeChange.emit(this.row.type);
+  }
+
+  displayValue(value: string): string {
+    if (value === PageContentType.ALBUM_INDEX) {
+      return "Index";
+    }
+    return this.stringUtils.asTitle(value);
   }
 }
