@@ -162,9 +162,6 @@ async function runMigrationsInBackground() {
 
 async function startServer() {
   try {
-    debugLog("⏳Connecting to MongoDB...");
-    await mongooseClient.connect();
-
     server.listen(port, "0.0.0.0", () => {
       debugLog(`🚀 Server is listening on port for ${envConfig.env} environment`, port);
     });
@@ -176,13 +173,21 @@ async function startServer() {
 
     createWebSocketServer(server, port);
 
-    if (envConfig.booleanValue(Environment.SKIP_MIGRATIONS_ON_STARTUP)) {
-      debugLog(`⏭️ Skipping automatic migrations (${Environment.SKIP_MIGRATIONS_ON_STARTUP} is true)`);
-    } else {
-      runMigrationsInBackground().catch(error => {
-        debugLog("❌ Unhandled error in background migrations:", error);
-      });
-    }
+    debugLog("⏳Connecting to MongoDB in background...");
+    mongooseClient.connect().then(() => {
+      debugLog("✅ MongoDB connected successfully");
+
+      if (envConfig.booleanValue(Environment.SKIP_MIGRATIONS_ON_STARTUP)) {
+        debugLog(`⏭️ Skipping automatic migrations (${Environment.SKIP_MIGRATIONS_ON_STARTUP} is true)`);
+      } else {
+        runMigrationsInBackground().catch(error => {
+          debugLog("❌ Unhandled error in background migrations:", error);
+        });
+      }
+    }).catch(error => {
+      debugLog("❌ MongoDB connection failed:", error);
+      debugLog("⚠️ Server will continue but database operations will fail");
+    });
   } catch (error) {
     debugLog("❌ Failed to start server:", error);
     process.exit(1);
