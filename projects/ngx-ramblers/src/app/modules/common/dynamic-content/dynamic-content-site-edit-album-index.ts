@@ -1,7 +1,7 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { faAdd, faEraser, faPencil, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { ContentPathMatch, PageContent, PageContentRow, StringMatch } from "../../../models/content-text.model";
+import { ContentPathMatch, IndexContentType, PageContent, PageContentRow, StringMatch } from "../../../models/content-text.model";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
@@ -16,6 +16,7 @@ import { BadgeButtonComponent } from "../badge-button/badge-button";
 import { FormsModule } from "@angular/forms";
 import { TypeaheadDirective } from "ngx-bootstrap/typeahead";
 import { ActionButtonsComponent } from "../action-buttons/action-buttons";
+import { NgSelectComponent } from "@ng-select/ng-select";
 
 @Component({
     selector: "app-album-index-site-edit",
@@ -25,6 +26,25 @@ import { ActionButtonsComponent } from "../action-buttons/action-buttons";
       <div class="col-sm-12">
         <app-badge-button [icon]="faAdd" [caption]="'Add new Content Path Match'"
                           (click)="addNewAlbum()"/>
+      </div>
+    </div>
+    <div class="row mb-3">
+      <div class="col-sm-12">
+        <label for="content-types-{{id}}">Content Types</label>
+        <ng-select
+          [items]="contentTypeValues"
+          bindLabel="value"
+          bindValue="value"
+          [multiple]="true"
+          [closeOnSelect]="false"
+          [searchable]="false"
+          [clearable]="false"
+          id="content-types-{{id}}"
+          [(ngModel)]="row.albumIndex.contentTypes"
+          (ngModelChange)="refreshContentPreview()"
+          appearance="outline">
+        </ng-select>
+        <small class="text-muted">Selection order determines display order</small>
       </div>
     </div>
     @for (contentPath of row.albumIndex.contentPaths; track trackByIndex(index, contentPath); let index = $index) {
@@ -66,13 +86,13 @@ import { ActionButtonsComponent } from "../action-buttons/action-buttons";
     @if (albumIndexPageContent?.rows) {
       <div class="row">
         <div class="col-sm-12 mt-2">
-          <h6>{{ stringUtils.pluraliseWithCount(albumIndexPageContent?.rows?.[0]?.columns?.length, 'album') }} found
+          <h6>{{ stringUtils.pluraliseWithCount(albumIndexPageContent?.rows?.[0]?.columns?.length, 'item') }} found
           from {{ stringUtils.pluraliseWithCount(row?.albumIndex?.contentPaths?.length, 'content path match', 'content path matches') }}</h6>
         </div>
       </div>
     }
     <app-action-buttons [pageContent]="albumIndexPageContent" [rowIndex]="0" presentationMode/>`,
-    imports: [BadgeButtonComponent, FormsModule, TypeaheadDirective, ActionButtonsComponent]
+    imports: [BadgeButtonComponent, FormsModule, TypeaheadDirective, ActionButtonsComponent, NgSelectComponent]
 })
 export class AlbumIndexSiteEditComponent implements OnInit {
   public pageContentService: PageContentService = inject(PageContentService);
@@ -96,11 +116,15 @@ export class AlbumIndexSiteEditComponent implements OnInit {
   id: string;
   protected readonly faSearch = faSearch;
   stringMatchingValues: KeyValue<string>[] = enumKeyValues(StringMatch);
+  contentTypeValues: KeyValue<string>[] = enumKeyValues(IndexContentType);
 
 
   async ngOnInit() {
     this.logger.info("ngOnInit:albumIndex:", this.row.albumIndex);
     this.id = this.numberUtils.generateUid();
+    if (!this.row.albumIndex.contentTypes) {
+      this.row.albumIndex.contentTypes = [IndexContentType.ALBUMS];
+    }
     await this.refreshContentPreview();
     this.logger.info("albumIndex:", this.row?.albumIndex, "albumIndexPageContent:", this.albumIndexPageContent);
   }

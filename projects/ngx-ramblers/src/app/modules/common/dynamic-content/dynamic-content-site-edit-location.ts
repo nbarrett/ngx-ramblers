@@ -1,10 +1,11 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnInit, ViewChild } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { LocationRenderingMode, PageContentRow } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { FormsModule } from "@angular/forms";
 import { WalkLocationEditComponent } from "../../../pages/walks/walk-edit/walk-location-edit";
-import { NotifierService } from "../../../services/notifier.service";
+import { AlertInstance, NotifierService } from "../../../services/notifier.service";
+import { AlertTarget } from "../../../models/alert-target.model";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { StringUtilsService } from "../../../services/string-utils.service";
 
@@ -13,6 +14,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
   styleUrls: ["./dynamic-content.sass"],
   template: `
     @if (row?.location) {
+      <div #notificationTarget></div>
       <div class="row mb-3">
         <div class="col-md-3">
           <label for="rendering-mode-{{rowIndex}}">Rendering Mode</label>
@@ -63,11 +65,14 @@ export class DynamicContentSiteEditLocationComponent implements OnInit {
   @Input() row: PageContentRow;
   @Input() rowIndex: number;
 
+  @ViewChild("notificationTarget", {static: true}) notifyTarget: AlertTarget;
+
   renderingModes: KeyValue<string>[] = enumKeyValues(LocationRenderingMode);
   hasEndLocation = false;
-  notify = this.notifierService.createAlertInstance();
+  notify: AlertInstance;
 
   ngOnInit() {
+    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
     this.hasEndLocation = !!this.row.location?.end;
     if (!this.row.location) {
       this.logger.warn("Location row initialized without location data");
