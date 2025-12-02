@@ -14,6 +14,7 @@ export class DataPopulationService {
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("DataPopulationService", NgxLoggerLevel.OFF);
   private defaultContentMap: Map<string, string> = new Map();
+  private defaultContentByName: Map<string, string> = new Map();
 
   constructor() {
     this.buildDefaultContentMap();
@@ -22,19 +23,40 @@ export class DataPopulationService {
   private buildDefaultContentMap(): void {
     const defaultContent = this.defaultContentArray();
     defaultContent.forEach(item => {
-      const key = `${item.category}:${item.name}`;
-      this.defaultContentMap.set(key, item.text);
+      if (item.name) {
+        this.defaultContentByName.set(item.name, item.text);
+      }
+      const key = this.buildKey(item.category, item.name);
+      if (key) {
+        this.defaultContentMap.set(key, item.text);
+      }
     });
   }
 
   public hasDefaultContent(category: string, name: string): boolean {
-    const key = `${category}:${name}`;
-    return this.defaultContentMap.has(key);
+    return !!this.resolveDefaultContent(category, name);
   }
 
   public defaultContent(category: string, name: string): string | undefined {
-    const key = `${category}:${name}`;
-    return this.defaultContentMap.get(key);
+    return this.resolveDefaultContent(category, name);
+  }
+
+  private resolveDefaultContent(category: string, name: string): string | undefined {
+    const key = this.buildKey(category, name);
+    if (key && this.defaultContentMap.has(key)) {
+      return this.defaultContentMap.get(key);
+    }
+    if (name && this.defaultContentByName.has(name)) {
+      return this.defaultContentByName.get(name);
+    }
+    return undefined;
+  }
+
+  private buildKey(category?: string, name?: string): string | null {
+    if (!category || !name) {
+      return null;
+    }
+    return `${category}:${name}`;
   }
 
   public fragmentPaths(): string[] {
@@ -167,7 +189,39 @@ export class DataPopulationService {
           "* Each site can be enabled/disabled individually.",
         category: "admin"
       }
-    ];
+    ].concat(
+      [{
+        name: "ramblers-export-help",
+        text: "* Upload walks directly to [Ramblers  Walks Manager](https://walks-manager.ramblers.org.uk/walks-manager)\n" +
+          "* Export walks in CSV format\n" +
+          "* Review audits of previous upload sessions",
+        category: "walks-admin"
+      }], [{
+        name: "how-to-documentation-help",
+        text: "* Import walks from [Ramblers  Walks Manager](https://walks-manager.ramblers.org.uk/walks-manager)\n" +
+          "* You can do this when you want to change your website usage from the read-only view of Ramblers walks to when you create walks on this website and push them in bulk to Ramblers.",
+        category: "walks-admin"
+      }], [{
+        name: "add-walks-slots-help",
+        text: "* Add walk slots for any number of up and coming Sundays\n" +
+          "* Add a non-standard walk slot - for example on a Saturday or a weekday evening",
+        category: "walks-admin"
+      }], [{
+        name: "meetup-settings-help",
+        text: "* Maintain content that automatically gets added to our walk description \n" +
+          "* Configure defaults for Meetup publishing",
+        category: "walks-admin"
+      }], [{
+        name: "event-data-management-help",
+        text: "* Used to view and manage the total number of events per group code and event type categories\n" +
+          "* Bulk delete data within these categories",
+        category: "walks-admin"
+      }], [{
+        name: "how-to-documentation-help",
+        text: "* All documentation related to administering all walk-related activities",
+        category: "walks-admin"
+      }],
+    );
   }
 
   public async generateDefaultContentTextItems() {

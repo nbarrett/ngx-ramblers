@@ -1,5 +1,6 @@
 import { Component, HostListener, inject, Input, OnInit } from "@angular/core";
 import { faPencil } from "@fortawesome/free-solid-svg-icons";
+import { faMeetup } from "@fortawesome/free-brands-svg-icons";
 import { isEqual, max, min } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
@@ -83,6 +84,7 @@ export class ActionButtonsComponent implements OnInit {
   public slideIndex = 0;
   public maxViewableSlideCount: number;
   public faPencil = faPencil;
+  public faMeetup = faMeetup;
   public pageContentEditEvents: PageContentEditEvent[] = [];
   public pageContent: PageContent;
   public rowIndex: number;

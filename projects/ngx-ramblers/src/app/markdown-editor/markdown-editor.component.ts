@@ -34,7 +34,7 @@ import {
   faScissors,
   faSpinner
 } from "@fortawesome/free-solid-svg-icons";
-import { cloneDeep, isEmpty, isEqual, pick } from "es-toolkit/compat";
+import { cloneDeep, isEmpty, isEqual, isUndefined, pick } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
 import {
@@ -550,7 +550,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
   @Input("text") set acceptTextChangesFrom(text: string) {
     this.logger.info("text:", text);
-    if (text !== undefined) {
+    if (!isUndefined(text)) {
       this.textInputProvided = true;
     }
     if (!this.content) { this.content = {}; }
@@ -806,11 +806,16 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     }
   }
 
-  queryContent(): Promise<ContentText> {
+  async queryContent(): Promise<ContentText> {
     this.editorState.dataAction = DataAction.QUERY;
       this.logger.info("querying content:name", this.content?.name, "and category:", this.content?.category, "editorState:", this.editorState);
-      return this.contentTextService.findByNameAndCategory(this.content?.name, this.content?.category)
-        .then(content => this.apply(content));
+    const content = await this.contentTextService.findByNameAndCategory(this.content?.name, this.content?.category);
+    if (content) {
+      return this.apply(content);
+    } else {
+      const content = await this.contentTextService.findByNameAndCategory(this.content?.name, null);
+      return this.apply(content);
+    }
   }
 
   private apply(content: ContentText): ContentText {

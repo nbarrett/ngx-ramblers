@@ -140,6 +140,18 @@ import { RowTypeSelectorComponent } from "./row-type-selector";
                 <div class="row thumbnail-heading-frame">
                   <div class="thumbnail-heading">Row Actions</div>
                   <div class="row align-items-end">
+                    <div class="col-auto d-flex align-items-center">
+                      <div class="form-check form-check-inline mb-0">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               id="select-all-rows"
+                               [checked]="allRowsSelected()"
+                               [indeterminate]="selectAllRowsIndeterminate()"
+                               (change)="onSelectAllRowsChange($event)"
+                               [disabled]="!pageContent?.rows?.length">
+                        <label class="form-check-label" for="select-all-rows">Select All Rows</label>
+                      </div>
+                    </div>
                     <div class="col-sm-4 col-md-2">
                       <label for="action">Action</label>
                       <select class="form-control"
@@ -459,7 +471,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
           .then(response => {
             this.logger.debug("find by path:", this.destinationPath, "resulted in:", response);
             this.destinationPageContent = response;
-            this.insertionRowLookup = [{index: 0, description: `Row 1: In new page`}];
+            this.updateInsertionRowLookup();
           });
       });
     if (this.siteEditService.active()) {
@@ -848,8 +860,48 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   destinationPathLookupChange(value: string) {
     this.logger.debug("destinationPathLookupChange:", value);
-    this.destinationPathLookup.next(value);
-    this.destinationPath = value;
+    const reformattedPath = this.urlService.reformatLocalHref(value)?.replace(/^\/+/, "");
+    this.destinationPathLookup.next(reformattedPath);
+    this.destinationPath = reformattedPath;
+  }
+
+  private updateInsertionRowLookup() {
+    if (this.destinationPageContent?.rows?.length) {
+      this.insertionRowLookup = this.destinationPageContent.rows.map((row, index) => ({
+        index,
+        description: `Row ${index + 1}: ${this.rowSummary(row)}`
+      }));
+    } else {
+      this.insertionRowLookup = [{index: 0, description: "Row 1: In new page"}];
+    }
+    this.destinationPathInsertionRowIndex = 0;
+    this.destinationPathInsertBeforeAfterIndex = 0;
+  }
+
+  private rowSummary(row: PageContentRow): string {
+    const type = this.stringUtils.asTitle((row?.type || "row").toString().replace(/-/g, " "));
+    const columnCount = row?.columns?.length;
+    return columnCount ? `${type} (${this.stringUtils.pluraliseWithCount(columnCount, "column")})` : type;
+  }
+
+  onSelectAllRowsChange(event: Event) {
+    const checked = (event.target as HTMLInputElement).checked;
+    if (checked) {
+      (this.pageContent?.rows || []).forEach(row => this.pageContentRowService.selectRow(row));
+    } else {
+      this.pageContentRowService.deselectAll();
+    }
+  }
+
+  allRowsSelected(): boolean {
+    const total = this.pageContent?.rows?.length || 0;
+    return total > 0 && this.pageContentRowService.selectedRowCount() === total;
+  }
+
+  selectAllRowsIndeterminate(): boolean {
+    const total = this.pageContent?.rows?.length || 0;
+    const selected = this.pageContentRowService.selectedRowCount();
+    return selected > 0 && selected < total;
   }
 
   firstSelectedRowIndex(): number {
