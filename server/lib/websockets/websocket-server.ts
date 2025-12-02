@@ -55,6 +55,8 @@ export function createWebSocketServer(server: Server, port: number): void {
   wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
     debugLog("✅ Client connected");
 
+    ws.setMaxListeners(20);
+
     const socket = request.socket;
     socket.setTimeout(0);
     socket.setKeepAlive(true, 30000);
