@@ -4,6 +4,7 @@ import { last } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   ContentPathMatchConfigs,
+  IndexContentType,
   PageContent,
   PageContentColumn,
   PageContentRow,
@@ -20,6 +21,7 @@ import { UrlService } from "./url.service";
 import { PageContentActionsService } from "./page-content-actions.service";
 import { DataQueryOptions } from "../models/api-request.model";
 import { PageService } from "./page.service";
+import { LocationExtractionService } from "./location-extraction.service";
 
 @Injectable({
   providedIn: "root"
@@ -32,6 +34,7 @@ export class AlbumIndexService {
   public urlService: UrlService = inject(UrlService);
   public pageService: PageService = inject(PageService);
   public actions: PageContentActionsService = inject(PageContentActionsService);
+  private locationExtractionService: LocationExtractionService = inject(LocationExtractionService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   public logger = this.loggerFactory.createLogger("AlbumIndexService", NgxLoggerLevel.ERROR);
   public instance = this;
@@ -39,24 +42,55 @@ export class AlbumIndexService {
   public async albumIndexToPageContent(pageContentRow: PageContentRow, rowIndex: number): Promise<PageContent> {
     const albumIndex = pageContentRow.albumIndex;
     if (albumIndex?.contentPaths?.length > 0) {
+      const contentTypes = albumIndex.contentTypes || [IndexContentType.ALBUMS];
+
       const pathRegex = albumIndex.contentPaths.map(contentPath => ({
         path: ContentPathMatchConfigs[contentPath.stringMatch].mongoRegex(contentPath.contentPath)
       }));
 
       const pages: PageContent[] = await this.pageContentService.all({criteria: {$or: pathRegex}});
-      const pageContentToRows: PageContentToRows[] = pages.map(pageContent => ({
-        pageContent,
-        rows: pageContent.rows.filter(row => this.actions.isCarouselOrAlbum(row))
-      }));
-      const albumNames: string[] = pageContentToRows.map(pageContentToRow => pageContentToRow.rows.map(item => item.carousel.name)).flat(2);
-      const dataQueryOptions: DataQueryOptions = {criteria: {name: {$in: albumNames}}};
-      const albumMetadata: ContentMetadata[] = await this.contentMetadataService.all(dataQueryOptions);
-      const albumIndexes: PageContentColumn[] = pageContentToRows.map(pageContentToRowsItem => pageContentToRowsItem?.rows.map(row => {
+
+      let allColumns: PageContentColumn[] = [];
+
+      if (contentTypes.includes(IndexContentType.ALBUMS)) {
+        const albumColumns = await this.extractAlbumColumns(pages);
+        allColumns = allColumns.concat(albumColumns);
+      }
+
+      if (contentTypes.includes(IndexContentType.PAGES)) {
+        const locationColumns = this.locationExtractionService.extractLocationsFromPages(pages);
+        allColumns = allColumns.concat(locationColumns);
+      }
+
+      const albumIndexPageContent: PageContent = this.pageContentFrom(pageContentRow, allColumns, rowIndex);
+      this.logger.info("Generated index with", allColumns.length, "items from content types:", contentTypes, "based on:", pathRegex);
+      return albumIndexPageContent;
+    } else {
+      this.logger.info("no pages to query as no contentPaths defined in:", albumIndex);
+    }
+  }
+
+  private async extractAlbumColumns(pages: PageContent[]): Promise<PageContentColumn[]> {
+    const pageContentToRows: PageContentToRows[] = pages.map(pageContent => ({
+      pageContent,
+      rows: pageContent.rows.filter(row => this.actions.isCarouselOrAlbum(row))
+    }));
+    const albumNames: string[] = pageContentToRows.map(pageContentToRow =>
+      pageContentToRow.rows.map(item => item.carousel.name)
+    ).flat(2);
+    const dataQueryOptions: DataQueryOptions = {criteria: {name: {$in: albumNames}}};
+    const albumMetadata: ContentMetadata[] = await this.contentMetadataService.all(dataQueryOptions);
+
+    const albumColumns: PageContentColumn[] = pageContentToRows.map(pageContentToRowsItem =>
+      pageContentToRowsItem?.rows.map(row => {
         const href = pageContentToRowsItem.pageContent.path;
         const title = this.stringUtils.asTitle(last(this.urlService.pathSegmentsForUrl(href)));
         const contentMetadata: ContentMetadata = albumMetadata.find(metadata => metadata.name === row.carousel.name);
         this.logger.info("contentMetadata:", contentMetadata, "row:", row);
-        const imageSource = this.urlService.imageSourceFor({image: contentMetadata?.coverImage || first(contentMetadata?.files)?.image}, contentMetadata);
+        const imageSource = this.urlService.imageSourceFor(
+          {image: contentMetadata?.coverImage || first(contentMetadata?.files)?.image},
+          contentMetadata
+        );
         return ({
           title: row.carousel?.title || title,
           contentText: row?.carousel?.subtitle || row?.carousel?.introductoryText || row?.carousel?.preAlbumText || "no text found",
@@ -64,13 +98,10 @@ export class AlbumIndexService {
           imageSource,
           accessLevel: AccessLevel.public
         });
-      })).flat(2);
-      const albumIndexPageContent: PageContent = this.pageContentFrom(pageContentRow, albumIndexes, rowIndex);
-      this.logger.info("pages:", pages, "pageContentToRows:", pageContentToRows, "albumNames:", albumNames, "albumMetadata:", albumMetadata, "albumIndexes:", albumIndexes, "albumIndexPageContent:", albumIndexPageContent, "based on:", pathRegex);
-      return albumIndexPageContent;
-    } else {
-      this.logger.info("no pages to query as no contentPaths defined in:", albumIndex);
-    }
+      })
+    ).flat(2);
+
+    return albumColumns;
   }
 
   public pageContentFrom(pageContentRow: PageContentRow, albumIndexes: PageContentColumn[], rowIndex1: number): PageContent {
