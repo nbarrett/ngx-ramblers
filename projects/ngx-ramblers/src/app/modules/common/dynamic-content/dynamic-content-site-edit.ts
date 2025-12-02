@@ -21,11 +21,13 @@ import {
   FragmentWithLabel,
   InsertionPosition,
   InsertionRow,
+  LocationRenderingMode,
   PageContent,
   PageContentColumn,
   PageContentRow,
   PageContentType
 } from "../../../models/content-text.model";
+import { LocationDetails } from "../../../models/ramblers-walks-manager";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
@@ -62,6 +64,7 @@ import { DynamicContentSiteEditTextRowComponent } from "./dynamic-content-site-e
 import { move } from "../../../functions/arrays";
 import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events";
 import { DynamicContentSiteEditAreaMapComponent } from "./dynamic-content-site-edit-area-map";
+import { DynamicContentSiteEditLocationComponent } from "./dynamic-content-site-edit-location";
 import { DynamicContentViewComponent } from "./dynamic-content-view";
 import { FragmentService } from "../../../services/fragment.service";
 import { RowTypeSelectorComponent } from "./row-type-selector";
@@ -313,6 +316,9 @@ import { RowTypeSelectorComponent } from "./row-type-selector";
                   <app-dynamic-content-site-edit-area-map [row]="row" [id]="'area-map-' + rowIndex"
                                                           [pageContent]="pageContent"/>
                 }
+                @if (actions.isLocation(row)) {
+                  <app-dynamic-content-site-edit-location [row]="row" [rowIndex]="rowIndex"/>
+                }
               </div>
             }
             <ng-container *ngTemplateOutlet="saveButtonsAndPath"/>
@@ -366,7 +372,7 @@ import { RowTypeSelectorComponent } from "./row-type-selector";
       </ng-template>
     }`,
   styleUrls: ["./dynamic-content.sass"],
-  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtonsComponent, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentViewComponent, RowTypeSelectorComponent]
+  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtonsComponent, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditLocationComponent, DynamicContentViewComponent, RowTypeSelectorComponent]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
@@ -587,9 +593,31 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
       } else if (row.fragment.pageContentId) {
         this.fragmentService.ensureLoadedById(row.fragment.pageContentId);
       }
+    } else if (this.actions.isLocation(row)) {
+      if (!row?.location) {
+        row.location = {
+          start: this.defaultLocationDetails(),
+          end: null,
+          renderingMode: LocationRenderingMode.VISIBLE
+        };
+        this.logger.debug("initialising location to:", row.location);
+      }
     } else {
       this.logger.debug("not initialising data for ", row.type);
     }
+  }
+
+  private defaultLocationDetails(): LocationDetails {
+    return {
+      latitude: null,
+      longitude: null,
+      grid_reference_6: null,
+      grid_reference_8: null,
+      grid_reference_10: null,
+      postcode: "",
+      description: "",
+      w3w: ""
+    };
   }
 
   selectedFragmentForRow(row: PageContentRow): FragmentWithLabel | null {
