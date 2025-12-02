@@ -169,6 +169,7 @@ export interface PageContentColumn extends Link, HasPageContentRows {
   showTextAfterImage?: boolean;
   imageAspectRatio?: DescribedDimensions;
   styles?: ContentTextStyles;
+  location?: LocationDetails;
 }
 
 export interface PageContentEditEvent {
