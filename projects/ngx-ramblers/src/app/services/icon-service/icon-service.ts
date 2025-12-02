@@ -1,5 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import * as icons from "@fortawesome/free-solid-svg-icons";
+import * as solidIcons from "@fortawesome/free-solid-svg-icons";
 import {
   faBan,
   faCircleCheck,
@@ -10,6 +10,7 @@ import {
   faSpinner,
   faThumbsUp
 } from "@fortawesome/free-solid-svg-icons";
+import * as brandIcons from "@fortawesome/free-brands-svg-icons";
 import { map } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { KeyValue } from "../../functions/enums";
@@ -18,18 +19,19 @@ import { FontAwesomeIcon } from "../../models/images.model";
 import { MemberAction } from "../../models/member.model";
 import { WalkStatus } from "../../models/ramblers-walks-manager";
 
+
 @Injectable({
   providedIn: "root"
 })
 export class IconService {
 
   private logger: Logger = inject(LoggerFactory).createLogger("IconService", NgxLoggerLevel.ERROR);
-  public iconArray: KeyValue<any>[] = map(icons, (value, key) => ({key, value}));
+  public iconArray: KeyValue<any>[] = [...this.iconEntries(solidIcons), ...this.iconEntries(brandIcons)];
   public iconValues: any[] = this.iconArray.map(item => item.value);
   public iconKeys: string[] = this.iconArray.map(item => item.key);
 
   constructor() {
-    this.logger.debug("initialised with icons:", icons, this.iconArray, "values:", this.iconValues, "keys:", this.iconKeys);
+    this.logger.debug("initialised with icons:", this.iconArray, "values:", this.iconValues, "keys:", this.iconKeys);
   }
 
   iconForName(iconName: string): any {
@@ -38,6 +40,10 @@ export class IconService {
       const icon = this.iconArray.find(item => item?.key?.toLowerCase() === iconName?.toLowerCase());
       return icon?.value;
     }
+  }
+
+  iconEntries(source: Record<string, any>): KeyValue<any>[] {
+    return map(source, (value, key) => ({key, value}));
   }
 
   public toFontAwesomeIcon(status: string): FontAwesomeIcon {

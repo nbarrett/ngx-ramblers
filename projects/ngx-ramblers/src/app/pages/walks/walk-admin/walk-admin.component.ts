@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { faMeetup } from "@fortawesome/free-brands-svg-icons";
-import { faCalendarPlus, faFileExport, faFileImport } from "@fortawesome/free-solid-svg-icons";
+import { faBook, faCalendarPlus, faFileExport, faFileImport } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
@@ -69,6 +69,16 @@ import { faDatabase } from "@fortawesome/free-solid-svg-icons/faDatabase";
                                      description="Event data management help"/>
               </div>
             </div>
+            <div class="col-sm-6">
+              <div class="item-panel">
+                <div (click)="adminHowTo()" class="item-icon">
+                  <fa-icon [icon]="faBook" class="fa-3x ramblers"/>
+                  <h5>How To Documentation</h5>
+                </div>
+                <app-markdown-editor category="walks-admin" standalone class="item-text" name="how-to-documentation-help"
+                                     description="How-to documentation help"/>
+              </div>
+            </div>
           </div>
         </div>
       </app-page>
@@ -90,6 +100,7 @@ export class WalkAdminComponent implements OnInit, OnDestroy {
   faMeetup = faMeetup;
   protected readonly faFileImport = faFileImport;
   protected readonly faDatabase = faDatabase;
+  protected readonly faBook = faBook;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -116,6 +127,10 @@ export class WalkAdminComponent implements OnInit, OnDestroy {
 
   selectEventDataManagement() {
     this.urlService.navigateTo(["walks", "admin", "event-data-management"]);
+  }
+
+  adminHowTo() {
+    this.urlService.navigateToAbsoluteUrl("https://www.ngx-ramblers.org.uk/how-to/committee/walks/import");
   }
 
   addWalkSlots() {

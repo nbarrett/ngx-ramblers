@@ -91,6 +91,12 @@ export class UrlService {
     }
   }
 
+  navigateToAbsoluteUrl(url: string) {
+    if (!this.siteEdit.active()) {
+      this.document.location.href = url;
+    }
+  }
+
   absoluteUrl(): string {
     this.logger.debug("absUrl: document.location.href", this.document.location.href);
     return this.document.location.href;
