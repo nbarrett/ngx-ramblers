@@ -236,35 +236,35 @@ export class BackupAndRestoreService {
     backupName: string,
     envBackupConfig?: ReturnType<typeof getEnvironmentConfig>
   ): Promise<void> {
-    await this.updateSession(sessionId, { status: "in_progress" });
-
-    const dbName = options.database || config.mongo!.db;
-    const outDir = path.join(this.dumpBaseDir, "backups", backupName);
-
-    await fs.mkdir(outDir, { recursive: true });
-
-    const mongoUri = this.buildMongoUri(config.mongo!.uri, config.mongo!.username, config.mongo!.password, dbName);
-
-    const dumpArgs = [
-      "--uri", mongoUri,
-      "--gzip",
-      "--out", outDir
-    ];
-
-    if (options.collections && options.collections.length > 0) {
-      for (const collection of options.collections) {
-        dumpArgs.push("--collection", collection.trim());
-      }
-    }
-
     let originalScaleCount: number | undefined;
-    if (options.scaleDown) {
-      originalScaleCount = config.scaleCount;
-      await this.scaleApp(config, 0);
-      await this.addLog(sessionId, `Scaled down ${config.name}`);
-    }
-
     try {
+      await this.updateSession(sessionId, { status: "in_progress" });
+
+      const dbName = options.database || config.mongo!.db;
+      const outDir = path.join(this.dumpBaseDir, "backups", backupName);
+
+      await fs.mkdir(outDir, { recursive: true });
+
+      const mongoUri = this.buildMongoUri(config.mongo!.uri, config.mongo!.username, config.mongo!.password, dbName);
+
+      const dumpArgs = [
+        "--uri", mongoUri,
+        "--gzip",
+        "--out", outDir
+      ];
+
+      if (options.collections && options.collections.length > 0) {
+        for (const collection of options.collections) {
+          dumpArgs.push("--collection", collection.trim());
+        }
+      }
+
+      if (options.scaleDown) {
+        originalScaleCount = config.scaleCount;
+        await this.scaleApp(config, 0);
+        await this.addLog(sessionId, `Scaled down ${config.name}`);
+      }
+
       await this.addLog(sessionId, `Starting mongodump to ${outDir}`);
       await this.execCommand("mongodump", dumpArgs, sessionId);
 
@@ -315,10 +315,18 @@ export class BackupAndRestoreService {
           await this.notificationService.notifyBackupCompleted(completedSession);
         }
       }
+    } catch (error: any) {
+      await this.addLog(sessionId, `Error during backup: ${error.message}`);
+      await this.updateSessionError(sessionId, error.message);
+      throw error;
     } finally {
       if (options.scaleDown && originalScaleCount !== undefined) {
-        await this.scaleApp(config, originalScaleCount);
-        await this.addLog(sessionId, `Restored scale count for ${config.name}`);
+        try {
+          await this.scaleApp(config, originalScaleCount);
+          await this.addLog(sessionId, `Restored scale count for ${config.name}`);
+        } catch (scaleError: any) {
+          await this.addLog(sessionId, `Warning: Failed to restore scale count: ${scaleError.message}`);
+        }
       }
     }
   }
@@ -343,129 +351,134 @@ export class BackupAndRestoreService {
     config: EnvironmentConfig,
     options: RestoreOptions
   ): Promise<void> {
-    if (options.from.startsWith("s3://")) {
-      const envBackupConfig = getEnvironmentConfig(this.backupConfig, options.environment);
-      const s3BucketFromPath = options.from.replace("s3://", "").split("/")[0];
-      const s3Prefix = options.from.replace(`s3://${s3BucketFromPath}/`, "");
-      const configuredBucket = envBackupConfig?.aws?.bucket;
-      const region = envBackupConfig?.aws?.region || "us-east-1";
-      const accessKeyId = envBackupConfig?.aws?.accessKeyId;
-      const secretAccessKey = envBackupConfig?.aws?.secretAccessKey;
+    try {
+      if (options.from.startsWith("s3://")) {
+        const envBackupConfig = getEnvironmentConfig(this.backupConfig, options.environment);
+        const s3BucketFromPath = options.from.replace("s3://", "").split("/")[0];
+        const s3Prefix = options.from.replace(`s3://${s3BucketFromPath}/`, "");
+        const configuredBucket = envBackupConfig?.aws?.bucket;
+        const region = envBackupConfig?.aws?.region || "us-east-1";
+        const accessKeyId = envBackupConfig?.aws?.accessKeyId;
+        const secretAccessKey = envBackupConfig?.aws?.secretAccessKey;
 
-      const s3 = new S3Client({
-        region,
-        credentials: accessKeyId && secretAccessKey ? { accessKeyId, secretAccessKey } : undefined
-      });
+        const s3 = new S3Client({
+          region,
+          credentials: accessKeyId && secretAccessKey ? { accessKeyId, secretAccessKey } : undefined
+        });
 
-      const destDir = path.join(this.dumpBaseDir, s3Prefix);
-      let usedBucket = configuredBucket || s3BucketFromPath;
-      await this.addLog(sessionId, `Downloading backup from s3://${usedBucket}/${s3Prefix} to ${destDir}`);
-      let downloaded = await this.downloadS3Prefix(s3, usedBucket, s3Prefix, destDir, sessionId);
+        const destDir = path.join(this.dumpBaseDir, s3Prefix);
+        let usedBucket = configuredBucket || s3BucketFromPath;
+        await this.addLog(sessionId, `Downloading backup from s3://${usedBucket}/${s3Prefix} to ${destDir}`);
+        let downloaded = await this.downloadS3Prefix(s3, usedBucket, s3Prefix, destDir, sessionId);
 
-      if (downloaded === 0 && configuredBucket && configuredBucket !== s3BucketFromPath) {
-        usedBucket = s3BucketFromPath;
-        await this.addLog(sessionId, `No files downloaded; retrying with bucket from path: s3://${usedBucket}/${s3Prefix}`);
-        downloaded = await this.downloadS3Prefix(s3, usedBucket, s3Prefix, destDir, sessionId);
-      }
-      if (downloaded === 0) {
-        throw new Error(`No objects found at s3://${usedBucket}/${s3Prefix}`);
-      }
-      options = { ...options, from: s3Prefix };
-    }
-    await this.updateSession(sessionId, { status: "in_progress" });
-
-    const fromPath = path.join(this.dumpBaseDir, options.from);
-    const dbName = options.database || config.mongo!.db;
-
-    async function containsBsonFiles(dir: string): Promise<boolean> {
-      try {
-        const entries = await fs.readdir(dir, { withFileTypes: true });
-        for (const e of entries) {
-          if (e.isFile() && (e.name.endsWith(".bson") || e.name.endsWith(".bson.gz"))) return true;
+        if (downloaded === 0 && configuredBucket && configuredBucket !== s3BucketFromPath) {
+          usedBucket = s3BucketFromPath;
+          await this.addLog(sessionId, `No files downloaded; retrying with bucket from path: s3://${usedBucket}/${s3Prefix}`);
+          downloaded = await this.downloadS3Prefix(s3, usedBucket, s3Prefix, destDir, sessionId);
         }
-        return false;
-      } catch {
-        return false;
-      }
-    }
-
-    let restoreDir = fromPath;
-    if (!(await containsBsonFiles(restoreDir))) {
-      try {
-        const children = await fs.readdir(fromPath, { withFileTypes: true });
-        const dbDir = children.find(d => d.isDirectory() && d.name === dbName)?.name
-          || children.find(d => d.isDirectory())?.name;
-        if (dbDir) {
-          const candidate = path.join(fromPath, dbDir);
-          if (await containsBsonFiles(candidate)) {
-            restoreDir = candidate;
-          }
+        if (downloaded === 0) {
+          throw new Error(`No objects found at s3://${usedBucket}/${s3Prefix}`);
         }
-      } catch {
-        // ignore
+        options = { ...options, from: s3Prefix };
       }
-    }
+      await this.updateSession(sessionId, { status: "in_progress" });
 
-    const mongoUri = this.buildMongoUri(config.mongo!.uri, config.mongo!.username, config.mongo!.password, dbName);
+      const fromPath = path.join(this.dumpBaseDir, options.from);
+      const dbName = options.database || config.mongo!.db;
 
-    const restoreArgs = [
-      "--uri", mongoUri,
-      "--gzip"
-    ];
-
-    if (options.drop !== false) {
-      restoreArgs.push("--drop");
-    }
-
-    if (options.collections && options.collections.length > 0) {
-      const partialRoot = path.join(this.dumpBaseDir, "partial", sessionId, dbName);
-      await fs.mkdir(partialRoot, { recursive: true });
-
-      const tryCopy = async (src: string, dest: string) => {
+      async function containsBsonFiles(dir: string): Promise<boolean> {
         try {
-          await fs.copyFile(src, dest);
-          return true;
+          const entries = await fs.readdir(dir, { withFileTypes: true });
+          for (const e of entries) {
+            if (e.isFile() && (e.name.endsWith(".bson") || e.name.endsWith(".bson.gz"))) return true;
+          }
+          return false;
         } catch {
           return false;
         }
-      };
-
-      for (const collection of options.collections) {
-        const name = collection.trim();
-        if (!name) continue;
-        const patterns = [
-          { src: path.join(restoreDir, `${name}.bson.gz`), dest: path.join(partialRoot, `${name}.bson.gz`) },
-          { src: path.join(restoreDir, `${name}.bson`), dest: path.join(partialRoot, `${name}.bson`) }
-        ];
-        const metaPatterns = [
-          { src: path.join(restoreDir, `${name}.metadata.json.gz`), dest: path.join(partialRoot, `${name}.metadata.json.gz`) },
-          { src: path.join(restoreDir, `${name}.metadata.json`), dest: path.join(partialRoot, `${name}.metadata.json`) }
-        ];
-
-        for (const p of patterns) {
-          const copied = await tryCopy(p.src, p.dest);
-          if (copied) break;
-        }
-        for (const p of metaPatterns) {
-          const copied = await tryCopy(p.src, p.dest);
-          if (copied) break;
-        }
-        restoreArgs.push("--nsInclude", `${dbName}.${name}`);
       }
-      restoreDir = partialRoot;
-    }
-    restoreArgs.push("--dir", restoreDir);
 
-    await this.addLog(sessionId, `Starting mongorestore from ${restoreDir}`);
-    await this.execCommand("mongorestore", restoreArgs, sessionId);
-    await this.addLog(sessionId, `Restore completed to ${options.environment}`);
-    await this.updateSession(sessionId, { status: "completed", endTime: new Date() });
-
-    if (this.notificationService) {
-      const completedSession = await this.session(sessionId);
-      if (completedSession) {
-        await this.notificationService.notifyRestoreCompleted(completedSession);
+      let restoreDir = fromPath;
+      if (!(await containsBsonFiles(restoreDir))) {
+        try {
+          const children = await fs.readdir(fromPath, { withFileTypes: true });
+          const dbDir = children.find(d => d.isDirectory() && d.name === dbName)?.name
+            || children.find(d => d.isDirectory())?.name;
+          if (dbDir) {
+            const candidate = path.join(fromPath, dbDir);
+            if (await containsBsonFiles(candidate)) {
+              restoreDir = candidate;
+            }
+          }
+        } catch {
+        }
       }
+
+      const mongoUri = this.buildMongoUri(config.mongo!.uri, config.mongo!.username, config.mongo!.password, dbName);
+
+      const restoreArgs = [
+        "--uri", mongoUri,
+        "--gzip"
+      ];
+
+      if (options.drop !== false) {
+        restoreArgs.push("--drop");
+      }
+
+      if (options.collections && options.collections.length > 0) {
+        const partialRoot = path.join(this.dumpBaseDir, "partial", sessionId, dbName);
+        await fs.mkdir(partialRoot, { recursive: true });
+
+        const tryCopy = async (src: string, dest: string) => {
+          try {
+            await fs.copyFile(src, dest);
+            return true;
+          } catch {
+            return false;
+          }
+        };
+
+        for (const collection of options.collections) {
+          const name = collection.trim();
+          if (!name) continue;
+          const patterns = [
+            { src: path.join(restoreDir, `${name}.bson.gz`), dest: path.join(partialRoot, `${name}.bson.gz`) },
+            { src: path.join(restoreDir, `${name}.bson`), dest: path.join(partialRoot, `${name}.bson`) }
+          ];
+          const metaPatterns = [
+            { src: path.join(restoreDir, `${name}.metadata.json.gz`), dest: path.join(partialRoot, `${name}.metadata.json.gz`) },
+            { src: path.join(restoreDir, `${name}.metadata.json`), dest: path.join(partialRoot, `${name}.metadata.json`) }
+          ];
+
+          for (const p of patterns) {
+            const copied = await tryCopy(p.src, p.dest);
+            if (copied) break;
+          }
+          for (const p of metaPatterns) {
+            const copied = await tryCopy(p.src, p.dest);
+            if (copied) break;
+          }
+          restoreArgs.push("--nsInclude", `${dbName}.${name}`);
+        }
+        restoreDir = partialRoot;
+      }
+      restoreArgs.push("--dir", restoreDir);
+
+      await this.addLog(sessionId, `Starting mongorestore from ${restoreDir}`);
+      await this.execCommand("mongorestore", restoreArgs, sessionId);
+      await this.addLog(sessionId, `Restore completed to ${options.environment}`);
+      await this.updateSession(sessionId, { status: "completed", endTime: new Date() });
+
+      if (this.notificationService) {
+        const completedSession = await this.session(sessionId);
+        if (completedSession) {
+          await this.notificationService.notifyRestoreCompleted(completedSession);
+        }
+      }
+    } catch (error: any) {
+      await this.addLog(sessionId, `Error during restore: ${error.message}`);
+      await this.updateSessionError(sessionId, error.message);
+      throw error;
     }
   }
 
@@ -618,7 +631,28 @@ export class BackupAndRestoreService {
     await backupSession.updateOne({ _id: sessionId }, { $push: { logs: message } });
   }
 
+  async cleanupStuckSessions(): Promise<number> {
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+
+    const stuckSessions = await backupSession.find({
+      status: "in_progress",
+      startTime: { $lt: tenMinutesAgo }
+    });
+
+    let cleanedCount = 0;
+    for (const session of stuckSessions) {
+      await this.updateSessionError(
+        session._id!.toString(),
+        "Session timed out after 10 minutes without completion"
+      );
+      cleanedCount++;
+    }
+
+    return cleanedCount;
+  }
+
   async sessions(limit: number = 50): Promise<BackupSession[]> {
+    await this.cleanupStuckSessions();
     return backupSession.find().sort({startTime: -1}).limit(limit);
   }
 
