@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ensureModel } from "../utils/model-utils";
 import uniqueValidator from "mongoose-unique-validator";
 import { SocialEvent } from "../../../../projects/ngx-ramblers/src/app/models/deprecated";
 
@@ -60,5 +61,5 @@ const socialEventSchema = new mongoose.Schema({
 
 socialEventSchema.plugin(uniqueValidator);
 
-export const socialEvent: mongoose.Model<SocialEvent> = mongoose.model<SocialEvent>("social-event", socialEventSchema);
+export const socialEvent: mongoose.Model<SocialEvent> = ensureModel<SocialEvent>("social-event", socialEventSchema);
 

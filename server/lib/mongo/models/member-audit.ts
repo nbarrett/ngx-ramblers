@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ensureModel } from "../utils/model-utils";
 import { MemberAuthAudit } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 
 const memberAuditSchema = new mongoose.Schema({
@@ -10,4 +11,4 @@ const memberAuditSchema = new mongoose.Schema({
 
 memberAuditSchema.index({ userName: 1 }, { unique: false });
 
-export const memberAudit: mongoose.Model<MemberAuthAudit> = mongoose.model<MemberAuthAudit>("member-audit", memberAuditSchema);
+export const memberAudit: mongoose.Model<MemberAuthAudit> = ensureModel<MemberAuthAudit>("member-audit", memberAuditSchema);

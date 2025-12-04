@@ -14,6 +14,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { DynamicContentSiteEditComponent } from "./dynamic-content-site-edit";
 import { DynamicContentViewComponent } from "./dynamic-content-view";
 import { filter } from "rxjs/operators";
+import { MemberLoginService } from "../../../services/member/member-login.service";
 
 @Component({
     selector: "app-dynamic-content",
@@ -41,6 +42,7 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
   private pageContentService = inject(PageContentService);
   private pageService = inject(PageService);
   private authService = inject(AuthService);
+  private memberLoginService = inject(MemberLoginService);
 
 
   @Input("areaAsContentPath") set areaAsContentPathValue(areaAsContentPath: boolean) {
@@ -114,6 +116,13 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
     const anchorPath = `${this.urlService.firstPathSegment()}${this.anchor ? `#${this.anchor}` : ""}`;
     const queryPath = this.contentPath || anchorPath;
     this.logger.info("refreshPageContent for", this.contentPath, "anchorPath:", anchorPath, "queryPath:", queryPath);
+    if (!this.memberLoginService.allowContentEdits() && this.isFragmentPath(queryPath)) {
+      this.logger.warn("Blocking public access to fragment path:", queryPath);
+      this.notifyRestrictedAccess();
+      this.queryCompleted = true;
+      this.pageContent = null;
+      return;
+    }
     this.pageContentService.findByPath(queryPath)
       .then(pageContent => {
         if (pageContent) {
@@ -132,6 +141,12 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
   }
 
   private pageContentReceived(pageContent: PageContent) {
+    if (this.templateAccessRestricted(pageContent)) {
+      this.logger.warn("Blocking public access to template page:", pageContent?.path);
+      this.notifyRestrictedAccess();
+      this.pageContent = null;
+      return;
+    }
     this.pageContent = pageContent;
     if (pageContent) {
       this.logger.info("Page content found for", this.contentPath, "as:", pageContent);
@@ -143,6 +158,32 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
         message: `The ${this.contentPath} page content was not found`
       });
     }
+  }
+
+  private notifyRestrictedAccess() {
+    this.notify.error({
+      title: "Restricted content",
+      message: "Shared fragments and migration templates are not accessible to the public."
+    });
+  }
+
+  private templateAccessRestricted(pageContent: PageContent): boolean {
+    if (this.memberLoginService.allowContentEdits()) {
+      return false;
+    }
+    if (!pageContent) {
+      return false;
+    }
+    return this.isFragmentPath(pageContent.path) || this.isTemplateContent(pageContent);
+  }
+
+  private isFragmentPath(path: string): boolean {
+    const normalised = this.urlService.reformatLocalHref(path)?.replace(/^\/+/, "") || "";
+    return normalised.startsWith("fragments/");
+  }
+
+  private isTemplateContent(pageContent: PageContent): boolean {
+    return !!pageContent?.migrationTemplate?.templateType || !!pageContent?.migrationTemplate?.isTemplate;
   }
 
 }

@@ -27,7 +27,7 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
               [class]="'col-sm-' + (column.columns||12)">
               @for (nestedRow of column.rows; track nestedRow; let innerRowIndex = $index) {
                 @if (false) {
-                  <div>Row {{ rowIndex + 1 }}: {{ 'nested row ' + (innerRowIndex + 1) + ' ' + nestedRow.type }}</div>
+                  <div>{{ actions.nestedInnerRowHeading(rowIndex, innerRowIndex, nestedRow.type) }}</div>
                 }
                 @if (actions.isActionButtons(nestedRow)) {
                   <app-action-buttons
@@ -36,7 +36,9 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
                 }
                 @if (actions.isTextRow(nestedRow)) {
                   <app-dynamic-content-view-text-row
+                    [pageContent]="pageContent"
                     [row]="nestedRow"
+                    [parentRowIndex]="rowIndex"
                     [rowIndex]="innerRowIndex"
                     [contentPath]="contentPath"
                     [contentDescription]="contentDescription">
@@ -62,7 +64,7 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
                   <app-area-map [row]="nestedRow" [pageContent]="{rows: column.rows}"/>
                 }
                 @if (actions.isMap(nestedRow)) {
-                  <app-dynamic-content-view-map [row]="nestedRow"/>
+                  <app-dynamic-content-view-map [row]="nestedRow" [pageContent]="pageContent"/>
                 }
                 @if (actions.isSharedFragment(nestedRow) && nestedRow?.fragment?.pageContentId) {
                   @for (fragmentRow of fragmentRowsFor(nestedRow); track fragmentRow; let fragmentRowIndex = $index) {
@@ -73,6 +75,7 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
                     }
                     @if (actions.isTextRow(fragmentRow)) {
                       <app-dynamic-content-view-text-row
+                        [pageContent]="pageContent"
                         [row]="fragmentRow"
                         [rowIndex]="fragmentRowIndex"
                         [contentPath]="fragmentPathFor(nestedRow)"
@@ -102,16 +105,16 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
                 }
               }
               @if (!column.rows) {
+                @if (showImageBeforeText(column)) {
+                  <app-card-image
+                    [borderRadius]="column?.imageBorderRadius"
+                    [aspectRatio]="column?.imageAspectRatio"
+                    [alt]="column?.alt"
+                    unconstrainedHeight
+                    [imageSource]="imageSourceFor(column)">
+                  </app-card-image>
+                }
                 @if (column?.contentText) {
-                  @if (showImageBeforeText(column)) {
-                    <app-card-image
-                      [borderRadius]="column?.imageBorderRadius"
-                      [aspectRatio]="column?.imageAspectRatio"
-                      [alt]="column?.alt"
-                      unconstrainedHeight
-                      [imageSource]="imageSourceFor(column)">
-                    </app-card-image>
-                  }
                   <app-markdown-editor [text]="column.contentText"
                                        [styles]="column?.styles"
                                        [name]="actions.rowColumnIdentifierFor(rowIndex, columnIndex, contentPath)"
@@ -135,25 +138,23 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
     imports: [MarkdownEditorComponent, CardImageComponent, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, ActionButtons, AreaMap, DynamicContentViewMap]
 })
 export class DynamicContentViewTextRow implements OnInit {
-  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewTextRowComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewTextRow", NgxLoggerLevel.ERROR);
   siteEditService = inject(SiteEditService);
   actions = inject(PageContentActionsService);
   stringUtils = inject(StringUtilsService);
   fragmentService = inject(FragmentService);
 
-  @Input()
-  public row: PageContentRow;
-  @Input()
-  public rowIndex: number;
-  @Input()
-  public contentPath: string;
-  @Input()
-  public contentDescription: string;
-  @Input()
-  public bordered: boolean;
+  @Input() public row: PageContentRow;
+  @Input() public rowIndex: number;
+  @Input() public parentRowIndex: number;
+  @Input() public contentPath: string;
+  @Input() public contentDescription: string;
+  @Input() public bordered: boolean;
+  @Input() pageContent!: PageContent;
 
   ngOnInit() {
-    this.logger.info("ngOnInit called for", this.row, "containing", this.stringUtils.pluraliseWithCount(this.row?.columns.length, "column"));
+    const rowDescription = this.parentRowIndex ? this.actions.nestedInnerRowHeading(this.parentRowIndex, this.rowIndex, this.row.type) : "rowIndex:" + this.rowIndex + " type:" + this.row.type;
+    this.logger.info("ngOnInit called for:", rowDescription, this.row, "containing", this.stringUtils.pluraliseWithCount(this.row?.columns.length, "column"));
     this.loadNestedFragments();
   }
 

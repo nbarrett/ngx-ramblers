@@ -1,4 +1,5 @@
 import { Injectable } from "@angular/core";
+import { isUndefined } from "es-toolkit/compat";
 
 export interface GpxTrackPoint {
   latitude: number;
@@ -157,16 +158,37 @@ export class GpxParserService {
       if (isNaN(lat) || isNaN(lon)) {
         return;
       }
+
+      const name = this.getTextContent(element, "name");
+      const description = this.getTextContent(element, "desc");
+      const symbol = this.getTextContent(element, "sym");
+
+      if (!this.isUsefulWaypoint(name, description, symbol)) {
+        return;
+      }
+
       waypoints.push({
         latitude: lat,
         longitude: lon,
-        name: this.getTextContent(element, "name"),
-        description: this.getTextContent(element, "desc"),
-        symbol: this.getTextContent(element, "sym")
+        name,
+        description,
+        symbol
       });
     });
 
     return waypoints;
+  }
+
+  private isUsefulWaypoint(name?: string, description?: string, symbol?: string): boolean {
+    if (!name && !description && !symbol) {
+      return false;
+    }
+
+    if (name && /^.*\s+\d+$/.test(name) && !description) {
+      return false;
+    }
+
+    return true;
   }
 
   private calculateTrackStatistics(track: GpxTrack): void {
@@ -184,15 +206,15 @@ export class GpxParserService {
     for (let i = 0; i < track.points.length; i++) {
       const point = track.points[i];
 
-      if (point.elevation !== undefined) {
-        if (minElevation === undefined || point.elevation < minElevation) {
+      if (!isUndefined(point.elevation)) {
+        if (isUndefined(minElevation) || point.elevation < minElevation) {
           minElevation = point.elevation;
         }
-        if (maxElevation === undefined || point.elevation > maxElevation) {
+        if (isUndefined(maxElevation) || point.elevation > maxElevation) {
           maxElevation = point.elevation;
         }
 
-        if (previousElevation !== undefined) {
+        if (!isUndefined(previousElevation)) {
           const elevationChange = point.elevation - previousElevation;
           if (elevationChange > 0) {
             totalAscent += elevationChange;

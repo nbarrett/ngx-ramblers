@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ensureModel } from "../utils/model-utils";
 import { RefreshToken } from "../../../../projects/ngx-ramblers/src/app/models/auth-data.model";
 
 const refreshTokenSchema = new mongoose.Schema({
@@ -6,4 +7,4 @@ const refreshTokenSchema = new mongoose.Schema({
   memberPayload: {type: Object, required: true}
 }, {collection: "refreshTokens"});
 
-export const refreshToken: mongoose.Model<RefreshToken> = mongoose.model<RefreshToken>("refresh-token", refreshTokenSchema);
+export const refreshToken: mongoose.Model<RefreshToken> = ensureModel<RefreshToken>("refresh-token", refreshTokenSchema);

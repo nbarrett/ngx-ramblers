@@ -25,15 +25,10 @@ import { IndexService } from "../../../services/index.service";
     selector: "app-album-index-site-edit",
     styleUrls: ["./dynamic-content.sass"],
     template: `
-      <div class="row align-items-end mb-3 d-flex">
-        <div class="col-sm-12">
-          <app-badge-button [icon]="faAdd" [caption]="'Add new Content Path Match'"
-                            (click)="addNewAlbum()"/>
-        </div>
-      </div>
       <div class="row mb-3">
         <div class="col-sm-6">
-          <label for="content-types-{{id}}">Content Types</label>
+          <label for="content-types-{{id}}">
+            Content Types</label>
           <ng-select
             [items]="contentTypeValues"
             bindLabel="title"
@@ -50,7 +45,8 @@ import { IndexService } from "../../../services/index.service";
           <small class="text-muted">Selection order determines display order</small>
         </div>
         <div class="col-sm-6">
-          <label for="render-modes-{{id}}">Render Modes</label>
+          <label for="render-modes-{{id}}">
+            Render Modes</label>
           <ng-select
             [items]="renderModeValues"
             bindLabel="title"
@@ -69,7 +65,8 @@ import { IndexService } from "../../../services/index.service";
       </div>
       <div class="row mb-3">
         <div class="col-sm-6">
-          <label for="min-cols-{{id}}">Minimum Columns</label>
+          <label for="min-cols-{{id}}">
+            Minimum Columns</label>
           <input type="number"
                  class="form-control"
                  id="min-cols-{{id}}"
@@ -78,7 +75,8 @@ import { IndexService } from "../../../services/index.service";
                  max="12">
         </div>
         <div class="col-sm-6">
-          <label for="max-cols-{{id}}">Maximum Columns</label>
+          <label for="max-cols-{{id}}">
+            Maximum Columns</label>
           <input type="number"
                  class="form-control"
                  id="max-cols-{{id}}"
@@ -87,6 +85,55 @@ import { IndexService } from "../../../services/index.service";
                  max="12">
         </div>
       </div>
+      <div class="d-flex justify-content-start mb-2">
+        <app-badge-button [icon]="faAdd" [caption]="'Add new Content Path Match'"
+                          (click)="addNewAlbum()"/>
+      </div>
+      @for (contentPath of row.albumIndex.contentPaths; track trackByIndex(index, contentPath); let index = $index) {
+        <div class="row align-items-end mb-2">
+          <div class="col-sm-2">
+            <label
+              [for]="actions.rowColumnIdentifierFor(index, 0, contentPath + '-album-index-item')">
+              Match {{ index + 1 }}</label>
+            <select class="form-control input-sm"
+                    [(ngModel)]="row.albumIndex.contentPaths[index].stringMatch"
+                    (ngModelChange)="refreshContentPreview()"
+                    [id]="actions.rowColumnIdentifierFor(index, 0, contentPath + '-album-index-item')">
+              @for (type of stringMatchingValues; track type) {
+                <option
+                  [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
+                </option>
+              }
+            </select>
+          </div>
+          <div class="col-sm-10">
+            <form>
+              <label for="{{id}}-album-{{index}}">
+                Content Path {{ index + 1 }}</label>
+              <div class="d-flex">
+                <input autocomplete="off" [typeahead]="pageContentService.siteLinks"
+                       [typeaheadMinLength]="0"
+                       id="{{id}}-album-{{index}}"
+                       [(ngModel)]="row.albumIndex.contentPaths[index].contentPath"
+                       (ngModelChange)="refreshContentPreview()"
+                       [value]="contentPath"
+                       name="new-password"
+                       type="text" class="form-control flex-grow-1 me-2">
+                <app-badge-button class="mt-1" [icon]="faEraser" [caption]="'Remove Content Path Match'"
+                                  (click)="remove(contentPath)"/>
+              </div>
+            </form>
+          </div>
+        </div>
+      }
+      @if (indexPageContent?.rows) {
+        <div class="row mb-3">
+          <div class="col-sm-12">
+            <h6>{{ stringUtils.pluraliseWithCount(indexPageContent?.rows?.[0]?.columns?.length, 'item') }} found
+              from {{ stringUtils.pluraliseWithCount(row?.albumIndex?.contentPaths?.length, 'content path match', 'content path matches') }}</h6>
+          </div>
+        </div>
+      }
       @if (showMapConfig()) {
         <app-map-overlay-controls
           [config]="row.albumIndex.mapConfig"
@@ -138,50 +185,6 @@ import { IndexService } from "../../../services/index.service";
           </div>
         </div>
       }
-      @for (contentPath of row.albumIndex.contentPaths; track trackByIndex(index, contentPath); let index = $index) {
-        <div class="row align-items-end mb-2">
-          <div class="col-sm-2">
-            <label
-              [for]="actions.rowColumnIdentifierFor(index, 0, contentPath + '-album-index-item')">
-              Match {{ index + 1 }}</label>
-            <select class="form-control input-sm"
-                    [(ngModel)]="row.albumIndex.contentPaths[index].stringMatch"
-                    (ngModelChange)="refreshContentPreview()"
-                    [id]="actions.rowColumnIdentifierFor(index, 0, contentPath + '-album-index-item')">
-              @for (type of stringMatchingValues; track type) {
-                <option
-                  [ngValue]="type.value">{{ stringUtils.asTitle(type.value) }}
-                </option>
-              }
-            </select>
-          </div>
-          <div class="col-sm-10">
-            <form>
-              <label for="{{id}}-album-{{index}}">Content Path {{ index + 1 }}</label>
-              <div class="d-flex">
-                <input autocomplete="off" [typeahead]="pageContentService.siteLinks"
-                       [typeaheadMinLength]="0"
-                       id="{{id}}-album-{{index}}"
-                       [(ngModel)]="row.albumIndex.contentPaths[index].contentPath"
-                       (ngModelChange)="refreshContentPreview()"
-                       [value]="contentPath"
-                       name="new-password"
-                       type="text" class="form-control flex-grow-1 me-2">
-                <app-badge-button class="mt-1" [icon]="faEraser" [caption]="'Remove Content Path Match'"
-                                  (click)="remove(contentPath)"/>
-              </div>
-            </form>
-          </div>
-        </div>
-      }
-      @if (indexPageContent?.rows) {
-        <div class="row">
-          <div class="col-sm-12 mt-2">
-            <h6>{{ stringUtils.pluraliseWithCount(indexPageContent?.rows?.[0]?.columns?.length, 'item') }} found
-              from {{ stringUtils.pluraliseWithCount(row?.albumIndex?.contentPaths?.length, 'content path match', 'content path matches') }}</h6>
-          </div>
-        </div>
-      }
       <app-action-buttons [pageContent]="indexPageContent" [rowIndex]="0" presentationMode/>`,
     imports: [BadgeButtonComponent, FormsModule, TypeaheadDirective, ActionButtons, NgSelectComponent, MarginSelectComponent, MapOverlayControls, DynamicContentViewIndexMap]
 })
@@ -228,7 +231,9 @@ export class AlbumIndexSiteEditComponent implements OnInit {
   }
 
   protected async refreshContentPreview() {
+    this.logger.info("refreshContentPreview called with contentPaths:", this.row.albumIndex.contentPaths);
     this.indexPageContent = await this.indexService.albumIndexToPageContent(this.row, this.rowIndex);
+    this.logger.info("refreshContentPreview result:", this.indexPageContent?.rows?.[0]?.columns?.length, "items");
     if (this.showMapConfig() && this.indexPageContent?.rows?.[0]?.columns?.length > 0) {
       this.showMapPreview = true;
     }

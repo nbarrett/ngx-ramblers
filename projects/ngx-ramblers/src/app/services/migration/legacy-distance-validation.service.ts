@@ -2,6 +2,7 @@ import { inject, Injectable } from "@angular/core";
 import { DistanceUnit, WalkDistance } from "../../models/walk.model";
 import { NumberUtilsService } from "../number-utils.service";
 import { Walk } from "../../models/deprecated";
+import { isNull } from "es-toolkit/compat";
 
 @Injectable({
   providedIn: "root"
@@ -72,7 +73,7 @@ export class LegacyDistanceValidationService {
 
   private distanceUnits(distanceItems: string[]): DistanceUnit {
     const units = distanceItems.length > 1 ? distanceItems[1] : null;
-    if (units === null || units.toLowerCase().startsWith("m")) {
+    if (isNull(units) || units.toLowerCase().startsWith("m")) {
       return DistanceUnit.MILES;
     } else if (units.toLowerCase().startsWith("k")) {
       return DistanceUnit.KILOMETRES;
@@ -90,11 +91,11 @@ export class LegacyDistanceValidationService {
   }
 
   walkDistanceMilesAsString(walk) {
-    return this.walkDistanceMiles(walk) !== null ? `${this.walkDistanceMiles(walk)} mi` : "";
+    return !isNull(this.walkDistanceMiles(walk)) ? `${this.walkDistanceMiles(walk)} mi` : "";
   }
 
   walkDistanceKilometresAsString(walk) {
-    return this.walkDistanceMiles(walk) !== null ? `${this.walkDistanceKilometres(walk)} km` : "";
+    return !isNull(this.walkDistanceMiles(walk)) ? `${this.walkDistanceKilometres(walk)} km` : "";
   }
 
 }

@@ -37,6 +37,7 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
           @if (actions.isTextRow(row)) {
             <app-dynamic-content-view-text-row
               [row]="row"
+              [pageContent]="viewablePageContent"
               [rowIndex]="rowIndex"
               [contentPath]="contentPath"
               [contentDescription]="contentDescription"/>
@@ -61,7 +62,7 @@ import { DynamicContentViewIndex } from "./dynamic-content-view-index";
             <app-area-map [row]="row" [pageContent]="viewablePageContent"/>
           }
           @if (actions.isMap(row)) {
-            <app-dynamic-content-view-map [row]="row"/>
+            <app-dynamic-content-view-map [row]="row" [pageContent]="viewablePageContent"/>
           }
           @if (actions.isLocation(row)) {
             <app-dynamic-content-view-location [row]="row"/>

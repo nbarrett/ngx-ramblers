@@ -7,6 +7,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { NgOptionComponent, NgSelectComponent } from "@ng-select/ng-select";
 import { FormsModule } from "@angular/forms";
 import { NumberUtilsService } from "../../services/number-utils.service";
+import { isUndefined } from "es-toolkit/compat";
 
 @Component({
     selector: "app-colour-selector",
@@ -113,7 +114,7 @@ export class ColourSelectorComponent implements OnInit {
   }
 
   hasClass(data: any): data is HasClass {
-    return (data as HasClass)?.class !== undefined;
+    return !isUndefined((data as HasClass)?.class);
   }
 
   ngOnInit() {

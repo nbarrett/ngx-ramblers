@@ -15,6 +15,7 @@ export interface ParentPageConfig {
   parentPageMode?: "as-is" | "action-buttons";
   maxChildren?: number;
   pageTransformation?: PageTransformationConfig;
+  templateFragmentId?: string;
 }
 
 export interface SiteMigrationConfig extends Identifiable {
@@ -29,6 +30,7 @@ export interface SiteMigrationConfig extends Identifiable {
   galleryImagePath?: string;
   specificAlbums?: PageLink[];
   parentPages?: ParentPageConfig[];
+  templateFragmentId?: string;
   useNestedRows?: boolean;
   persistData?: boolean;
   uploadTos3?: boolean;

@@ -1,11 +1,16 @@
-import { PageContentRow, PageContentType } from "./content-text.model";
+import { MigrationTemplateMapMapping, PageContentRow, PageContentType, LocationRowData } from "./content-text.model";
+import { UIDateFormat } from "./date-format.model";
 
 export enum TransformationActionType {
   CONVERT_TO_MARKDOWN = "convert-to-markdown",
   CREATE_PAGE = "create-page",
+  CREATE_INDEX_PAGE = "create-index-page",
   ADD_ROW = "add-row",
   ADD_COLUMN = "add-column",
   ADD_NESTED_ROWS = "add-nested-rows",
+  ADD_LOCATION_ROW = "add-location-row",
+  ADD_INDEX_ROW = "add-index-row",
+  ADD_MAP_ROW = "add-map-row",
   FIND_AND_ADD_TEXT = "find-and-add-text",
   FIND_AND_ADD_IMAGE = "find-and-add-image",
   SPLIT_TEXT_BY_IMAGES = "split-text-by-images",
@@ -28,7 +33,13 @@ export enum TextMatchPattern {
   ALL_TEXT_UNTIL_IMAGE = "all-text-until-image",
   ALL_TEXT_AFTER_HEADING = "all-text-after-heading",
   CUSTOM_REGEX = "custom-regex",
-  REMAINING_TEXT = "remaining-text"
+  REMAINING_TEXT = "remaining-text",
+  TEXT_BEFORE_HEADING = "text-before-heading",
+  TEXT_FROM_HEADING = "text-from-heading",
+  FIRST_HEADING_AND_CONTENT = "first-heading-and-content",
+  HEADING_UNTIL_NEXT_HEADING = "heading-until-next-heading",
+  CONTENT_AFTER_FIRST_HEADING = "content-after-first-heading",
+  LEVEL_1_OR_2_HEADING = "level-1-or-2-heading"
 }
 
 export enum ImageMatchPattern {
@@ -36,7 +47,8 @@ export enum ImageMatchPattern {
   ALT_TEXT_PATTERN = "alt-text-pattern",
   FIRST_IMAGE = "first-image",
   ALL_IMAGES = "all-images",
-  REMAINING_IMAGES = "remaining-images"
+  REMAINING_IMAGES = "remaining-images",
+  PATTERN_MATCH = "pattern-match"
 }
 
 export enum SegmentType {
@@ -54,11 +66,13 @@ export interface ContentMatcher {
   textPattern?: TextMatchPattern;
   imagePattern?: ImageMatchPattern;
   customRegex?: string;
+  headingPattern?: string;
   filenamePattern?: string;
   altTextPattern?: string;
   limit?: number;
   breakOnImage?: boolean;
   groupTextWithImage?: boolean;
+  captionBeforeImage?: boolean;
   stopCondition?: StopCondition;
 }
 
@@ -106,6 +120,45 @@ export interface RowConfig {
   };
 }
 
+export interface LocationRowConfig {
+  extractFromContent?: boolean;
+  defaultLocation?: string;
+  hidden?: boolean;
+}
+
+export interface IndexRowConfig {
+  contentTypes?: string[];
+  renderModes?: string[];
+  contentPaths?: Array<{contentPath: string; stringMatch: string}>;
+  minCols?: number;
+  maxCols?: number;
+  mapConfig?: {
+    provider?: string;
+    osStyle?: string;
+    mapCenter?: [number, number];
+    mapZoom?: number;
+    height?: number;
+    clusteringEnabled?: boolean;
+    clusteringThreshold?: number;
+    showControlsDefault?: boolean;
+    allowControlsToggle?: boolean;
+  };
+}
+
+export interface MapRowConfig {
+  gpxFilePath?: string;
+  extractFromContent?: boolean;
+  height?: number;
+  provider?: string;
+  osStyle?: string;
+}
+
+export interface IndexPageConfig {
+  path: string;
+  title: string;
+  indexConfig: IndexRowConfig;
+}
+
 export interface TransformationAction {
   type: TransformationActionType;
   targetRow?: number;
@@ -117,6 +170,10 @@ export interface TransformationAction {
   showImageAfterText?: boolean;
   notePrefix?: string;
   dateFormat?: string;
+  locationRowConfig?: LocationRowConfig;
+  indexRowConfig?: IndexRowConfig;
+  mapRowConfig?: MigrationTemplateMapMapping;
+  indexPageConfig?: IndexPageConfig;
 }
 
 export interface PageTransformationConfig {
@@ -125,6 +182,7 @@ export interface PageTransformationConfig {
   steps: TransformationAction[];
   enabled: boolean;
   preset?: string;
+  excludePatterns?: string[] | string;
 }
 
 export interface TransformationContext {
@@ -137,6 +195,11 @@ export interface TransformationContext {
   remainingImages: any[];
   usedTextIndices: Set<number>;
   usedImageIndices: Set<number>;
+  mergedTextIndices?: Map<number, number[]>;
+  excludePatterns?: string[] | string;
+  extractedLocation?: LocationRowData;
+  consumedCaptions?: Set<string>;
+  extractedHeading?: string;
 }
 
 export function createDefaultTransformationConfig(): PageTransformationConfig {
@@ -171,7 +234,7 @@ export function createDefaultTransformationConfig(): PageTransformationConfig {
       {
         type: TransformationActionType.ADD_MIGRATION_NOTE,
         notePrefix: "Migrated from",
-        dateFormat: "yyyy-LL-dd HH:mm"
+        dateFormat: UIDateFormat.YEAR_MONTH_DAY_TIME_WITH_MINUTES
       }
     ]
   };
@@ -583,6 +646,94 @@ export function createWalkingRouteLayoutTransformationConfig(): PageTransformati
               }
             }
           ]
+        }
+      }
+    ]
+  };
+}
+
+
+export function createRouteWithLocationTransformationConfig(): PageTransformationConfig {
+  return {
+    name: "Route with Location",
+    description: "Create route page with intelligent location extraction and hidden Location row",
+    enabled: true,
+    preset: "routeWithLocation",
+    steps: [
+      {
+        type: TransformationActionType.CONVERT_TO_MARKDOWN
+      },
+      {
+        type: TransformationActionType.CREATE_PAGE
+      },
+      {
+        type: TransformationActionType.ADD_LOCATION_ROW,
+        locationRowConfig: {
+          extractFromContent: true,
+          hidden: true
+        }
+      },
+      {
+        type: TransformationActionType.ADD_ROW,
+        rowConfig: {
+          type: PageContentType.TEXT,
+          maxColumns: 1,
+          showSwiper: false,
+          description: "Full page content",
+          columns: [
+            {
+              columns: 12,
+              content: {
+                type: ContentMatchType.ALL_CONTENT
+              }
+            }
+          ]
+        }
+      },
+      {
+        type: TransformationActionType.ADD_MIGRATION_NOTE,
+        notePrefix: "Migrated from",
+        dateFormat: UIDateFormat.YEAR_MONTH_DAY_TIME_WITH_MINUTES
+      }
+    ]
+  };
+}
+
+export function createRouteIndexTransformationConfig(): PageTransformationConfig {
+  return {
+    name: "Route Index with Map",
+    description: "Create index page that displays routes on a map with action buttons",
+    enabled: true,
+    preset: "routeIndex",
+    steps: [
+      {
+        type: TransformationActionType.CREATE_INDEX_PAGE,
+        indexPageConfig: {
+          path: "/routes",
+          title: "Routes",
+          indexConfig: {
+            contentTypes: ["pages"],
+            renderModes: ["map", "action-buttons"],
+            contentPaths: [
+              {
+                contentPath: "routes/*",
+                stringMatch: "contains"
+              }
+            ],
+            minCols: 2,
+            maxCols: 4,
+            mapConfig: {
+              provider: "osm",
+              osStyle: "Leisure_27700",
+              mapCenter: [51.25, 0.75],
+              mapZoom: 10,
+              height: 500,
+              clusteringEnabled: true,
+              clusteringThreshold: 10,
+              showControlsDefault: true,
+              allowControlsToggle: true
+            }
+          }
         }
       }
     ]

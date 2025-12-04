@@ -22,10 +22,9 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { PipelineStage } from "mongoose";
 import * as transforms from "./transforms";
-import { kebabCase } from "es-toolkit/compat";
+import { isNull, isNumber, isUndefined, kebabCase } from "es-toolkit/compat";
 import { sortBy } from "../../../../projects/ngx-ramblers/src/app/functions/arrays";
 import { dateTimeFromIso, dateTimeFromMillis, dateTimeInTimezone } from "../../shared/dates";
-import { isNumber } from "es-toolkit/compat";
 import { systemConfig } from "../../config/system-config";
 import { EventPopulation } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import * as crudController from "./crud-controller";
@@ -614,7 +613,7 @@ async function calculateWalkStats(fromDate: number, toDate: number): Promise<Wal
     const leaderMap = new Map<string, {id: string; name: string; email: string; walkCount: number; totalMiles: number}>();
     const firstValue = (candidates: (string | null | undefined)[]) => {
       for (const value of candidates) {
-        if (value !== undefined && value !== null && value !== "") {
+        if (!isUndefined(value) && !isNull(value) && value !== "") {
           return value;
         }
       }

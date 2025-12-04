@@ -1,6 +1,6 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import { cloneDeep, isEmpty, isEqual, isNaN, isString, keys, without } from "es-toolkit/compat";
+import { cloneDeep, isEmpty, isEqual, isNaN, isString, isUndefined, keys, without } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
 import {
@@ -128,19 +128,19 @@ export class RamblersWalksAndEventsService {
   }
 
   static areMongoIdsSupplied(response: any): response is MongoIdsSupplied {
-    return (response as MongoIdsSupplied)?._id?.$in !== undefined;
+    return !isUndefined((response as MongoIdsSupplied)?._id?.$in);
   }
 
   static isEventStartDateGreaterThanOrEqualTo(response: any): response is EventStartDateGreaterThanOrEqualTo {
-    return (response as EventStartDateGreaterThanOrEqualTo)?.[GroupEventField.START_DATE]?.$gte !== undefined;
+    return !isUndefined((response as EventStartDateGreaterThanOrEqualTo)?.[GroupEventField.START_DATE]?.$gte);
   }
 
   static isWalkDateLessThan(response: any): response is EventStartDateLessThan {
-    return (response as EventStartDateLessThan)?.[GroupEventField.START_DATE]?.$lt !== undefined;
+    return !isUndefined((response as EventStartDateLessThan)?.[GroupEventField.START_DATE]?.$lt);
   }
 
   static isWalkDateLessThanOrEqualTo(response: any): response is EventStartDateLessThanOrEqualTo {
-    return (response as EventStartDateLessThanOrEqualTo)?.[GroupEventField.START_DATE]?.$lte !== undefined;
+    return !isUndefined((response as EventStartDateLessThanOrEqualTo)?.[GroupEventField.START_DATE]?.$lte);
   }
 
   groupNotifications(): Observable<RamblersGroupsApiResponseApiResponse> {

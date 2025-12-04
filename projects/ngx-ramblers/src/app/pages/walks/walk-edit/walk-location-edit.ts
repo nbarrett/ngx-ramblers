@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnInit, ViewChild } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute } from "@angular/router";
 import { faPencil } from "@fortawesome/free-solid-svg-icons";
@@ -18,7 +18,10 @@ import { FormsModule } from "@angular/forms";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { MapEditComponent } from "./map-edit";
 import { NgLabelTemplateDirective, NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
+import { isNull } from "es-toolkit/compat";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
+import { Subject } from "rxjs";
+import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 
 @Component({
     selector: "app-walk-location-edit",
@@ -83,6 +86,7 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
               @if (!showPostcodeSelect) {
                 <input [disabled]="disabled" [(ngModel)]="locationDetails.postcode"
                   (ngModelChange)="postcodeChange()"
+                  [class.is-invalid]="locationDetails.postcode && !postcodeValid()"
                   type="text" class="form-control input-sm" id="post-code"
                   placeholder="Enter Postcode here">
               }
@@ -102,6 +106,8 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
             <div class="input-group">
               <input [disabled]="disabled"
                 [(ngModel)]="locationDetails.grid_reference_10"
+                (ngModelChange)="gridReferenceInput($event)"
+                [class.is-invalid]="locationDetails.grid_reference_10 && !gridReferenceValid()"
                 type="text" class="form-control input-sm" id="grid-reference"
                 placeholder="Enter {{locationType}} Grid Reference here">
               <button type="button" class="btn btn-outline-secondary pointer"
@@ -162,7 +168,7 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
     styleUrls: ["./walk-edit.component.sass"],
     imports: [FormsModule, TooltipDirective, MapEditComponent, NgSelectComponent, NgOptionTemplateDirective, NgLabelTemplateDirective, CopyIconComponent]
 })
-export class WalkLocationEditComponent implements OnInit {
+export class WalkLocationEditComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkLocationEditComponent", NgxLoggerLevel.INFO);
   googleMapsService = inject(GoogleMapsService);
@@ -174,6 +180,7 @@ export class WalkLocationEditComponent implements OnInit {
   numberUtils = inject(NumberUtilsService);
   protected notifierService = inject(NotifierService);
   private notifyInstance: AlertInstance;
+  private gridReferenceInput$ = new Subject<string>();
   @ViewChild(MapEditComponent) mapComponent: MapEditComponent;
   @Input() set notify(value: AlertInstance | undefined) {
     this.notifyInstance = value ?? this.notifierService.createGlobalAlert();
@@ -204,9 +211,31 @@ export class WalkLocationEditComponent implements OnInit {
   public faPencil = faPencil;
   public showGoogleMapsView = false;
   public placeLookupBusy = false;
+  public gridRefLookupBusy = false;
+
+  gridReferenceValid(): boolean {
+    const gridRef = this.locationDetails?.grid_reference_10?.trim();
+    if (!gridRef) return true;
+    return /^[A-Z]{2}\s?\d{6,10}$/.test(gridRef.toUpperCase().replace(/\s/g, ""));
+  }
 
   async ngOnInit() {
     this.logger.info("locationType:", this.locationType, "locationDetails:", this.locationDetails);
+
+    this.gridReferenceInput$
+      .pipe(
+        debounceTime(500),
+        distinctUntilChanged()
+      )
+      .subscribe(gridRef => {
+        if (gridRef && gridRef.length >= 8) {
+          this.gridReferenceChange();
+        }
+      });
+  }
+
+  ngOnDestroy() {
+    this.gridReferenceInput$.complete();
   }
 
   toggleGoogleOrLeafletMapView() {
@@ -220,31 +249,120 @@ export class WalkLocationEditComponent implements OnInit {
     this.googleMapsUrl = this.display.googleMapsUrl(false, this.locationDetails.postcode, this.locationDetails.postcode);
   }
 
+  postcodeValid(): boolean {
+    const postcode = this.locationDetails?.postcode?.trim();
+    if (!postcode) return true;
+    return /^[A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2}$/i.test(postcode);
+  }
+
   async postcodeChange() {
     this.locationDetails.longitude = null;
     this.locationDetails.latitude = null;
     this.locationDetails.grid_reference_6 = null;
     this.locationDetails.grid_reference_8 = null;
     this.locationDetails.grid_reference_10 = null;
+
+    if (!this.postcodeValid() && this.locationDetails.postcode?.length >= 5) {
+      this.notify?.warning({
+        title: "Invalid format",
+        message: "UK postcode must be  1-2 letters, 1-2 digits, optional letter, space (optional), digit, 2 letters"
+      });
+      this.showLeafletView = false;
+      this.updateGoogleMapsUrl();
+      return Promise.resolve();
+    }
+
     if (this.locationDetails.postcode.length >= 5) {
       const postcode = this.locationDetails.postcode;
       this.locationDetails.postcode = postcode?.toUpperCase()?.trim();
       const gridReferenceLookupResponse: GridReferenceLookupResponse = await this.addressQueryService.gridReferenceLookup(postcode);
+
+      if (gridReferenceLookupResponse?.error) {
+        this.notify?.warning({
+          title: "Invalid postcode",
+          message: gridReferenceLookupResponse.error
+        });
+        this.showLeafletView = false;
+        this.updateGoogleMapsUrl();
+        return Promise.resolve();
+      }
+
+      if (!gridReferenceLookupResponse?.latlng) {
+        this.notify?.warning({
+          title: "Postcode not found",
+          message: `No location data found for postcode "${postcode}"`
+        });
+        this.showLeafletView = false;
+        this.updateGoogleMapsUrl();
+        return Promise.resolve();
+      }
+
+      this.notify?.clearBusy();
       this.locationDetails.grid_reference_6 = gridReferenceLookupResponse.gridReference6;
       this.locationDetails.grid_reference_8 = gridReferenceLookupResponse.gridReference8;
       this.locationDetails.grid_reference_10 = gridReferenceLookupResponse.gridReference10;
-      if (gridReferenceLookupResponse.latlng) {
-        this.locationDetails.latitude = gridReferenceLookupResponse.latlng.lat;
-        this.locationDetails.longitude = gridReferenceLookupResponse.latlng.lng;
-      }
+      this.locationDetails.latitude = gridReferenceLookupResponse.latlng.lat;
+      this.locationDetails.longitude = gridReferenceLookupResponse.latlng.lng;
       this.showLeafletView = true;
       this.toggleGoogleOrLeafletMapView();
       return this.updateGoogleMapsUrl();
     } else {
+      this.notify?.clearBusy();
       this.toggleGoogleOrLeafletMapView();
       this.showLeafletView = false;
       this.updateGoogleMapsUrl();
       return Promise.resolve();
+    }
+  }
+
+  gridReferenceInput(value: string) {
+    const trimmed = value?.trim();
+    if (trimmed && !this.gridReferenceValid()) {
+      this.notify?.warning({
+        title: "Invalid format",
+        message: "Grid reference must be 2 letters followed by 6-10 digits (e.g., TQ8441731443)"
+      });
+    } else if (trimmed && this.gridReferenceValid()) {
+      this.notify?.clearBusy();
+    }
+    this.gridReferenceInput$.next(value);
+  }
+
+  async gridReferenceChange() {
+    const gridRef = this.locationDetails?.grid_reference_10?.trim();
+    if (!gridRef || gridRef.length < 8 || this.disabled) {
+      return;
+    }
+    this.gridRefLookupBusy = true;
+    this.notify?.progress(`Looking up grid reference "${gridRef}"`, true);
+    try {
+      const result = await this.addressQueryService.placeNameLookup(gridRef);
+      if (!result) {
+        throw new Error("Grid reference lookup failed");
+      }
+      if (result.error) {
+        this.notify?.error({
+          title: "Grid reference lookup failed",
+          message: result.error
+        });
+        return;
+      }
+      this.applyPlaceLookupResult(result, gridRef);
+      this.notify?.success({
+        title: "Grid reference resolved",
+        message: `Location found for "${gridRef}"`
+      });
+    } catch (error: any) {
+      this.logger.error("gridReferenceChange:error", error);
+      this.notify?.error({
+        title: "Lookup failed",
+        message: error?.message || "Unable to resolve grid reference"
+      });
+    } finally {
+      this.gridRefLookupBusy = false;
+      if (this.notify) {
+        this.notify.clearBusy();
+      }
     }
   }
 
@@ -371,7 +489,7 @@ export class WalkLocationEditComponent implements OnInit {
     if (!option) {
       return "";
     }
-    return option.distance == null ? "keep existing" : `${this.numberUtils.asNumber(option.distance, 0)} m from pin`;
+    return isNull(option.distance) ? "keep existing" : `${this.numberUtils.asNumber(option.distance, 0)} m from pin`;
   }
 
   invalidateMapSize() {

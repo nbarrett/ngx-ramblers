@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ensureModel } from "../utils/model-utils";
 import { MemberBulkLoadAudit } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 
 const StatusMessageSchema = new mongoose.Schema({
@@ -35,4 +36,4 @@ const MemberBulkLoadAuditSchema = new mongoose.Schema({
   members: [RamblersMemberSchema]
 }, {collection: "memberBulkLoadAudit"});
 
-export const memberBulkLoadAudit: mongoose.Model<MemberBulkLoadAudit> = mongoose.model<MemberBulkLoadAudit>("member-bulk-load-audit", MemberBulkLoadAuditSchema);
+export const memberBulkLoadAudit: mongoose.Model<MemberBulkLoadAudit> = ensureModel<MemberBulkLoadAudit>("member-bulk-load-audit", MemberBulkLoadAuditSchema);

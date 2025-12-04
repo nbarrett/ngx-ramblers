@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ensureModel } from "../utils/model-utils";
 
 const AuditLogSchema = new mongoose.Schema({
   time: { type: Number },
@@ -18,5 +19,4 @@ const MigrationHistorySchema = new mongoose.Schema({
   auditLog: [AuditLogSchema]
 }, { collection: "migrationHistory" });
 
-export const migrationHistory = mongoose.model("migration-history", MigrationHistorySchema);
-
+export const migrationHistory = ensureModel("migration-history", MigrationHistorySchema);

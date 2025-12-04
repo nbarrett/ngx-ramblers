@@ -112,7 +112,7 @@ import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-rati
                 Use Icon</label>
             </div>
           </div>
-          @if (imageType === 'icon') {
+          @if (imageType === ImageType.ICON) {
             <div class="form-group">
               <label class="form-label"
                      [for]="idFor('icon')">Icon</label>
@@ -122,7 +122,7 @@ import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-rati
                      class="form-control input-sm" placeholder="Enter icon value">
             </div>
           }
-          @if (imageType === 'image') {
+          @if (imageType === ImageType.IMAGE) {
             <div class="form-group">
               <label class="form-label"
                      [for]="idFor('imageSource')">Image Source</label>
@@ -199,6 +199,21 @@ import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-rati
 })
 export class CardEditorComponent implements OnInit {
 
+  @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {
+    this.presentationMode = coerceBooleanProperty(presentationMode);
+  }
+
+  @Input("columnIndex") set columnIndexValue(columnIndex: number) {
+    this._columnIndex = columnIndex;
+    if (this.pageContentEdit) {
+      this.pageContentEdit.columnIndex = columnIndex;
+    }
+  }
+
+  get columnIndex(): number {
+    return this._columnIndex;
+  }
+
   private logger: Logger = inject(LoggerFactory).createLogger("CardEditorComponent", NgxLoggerLevel.ERROR);
   memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   iconService = inject(IconService);
@@ -208,21 +223,10 @@ export class CardEditorComponent implements OnInit {
   actions = inject(PageContentActionsService);
   private numberUtils = inject(NumberUtilsService);
 
-  @Input("presentationMode") set presentationModeValue(presentationMode: boolean) {
-    this.presentationMode = coerceBooleanProperty(presentationMode);
-  }
-
   @Input() public pageContent: PageContent;
   @Input() public column: PageContentColumn;
   @Input() public rowIndex: number;
   private _columnIndex: number;
-
-  @Input("columnIndex") set columnIndexValue(columnIndex: number) {
-    this._columnIndex = columnIndex;
-    if (this.pageContentEdit) {
-      this.pageContentEdit.columnIndex = columnIndex;
-    }
-  }
 
   @Input() public smallIconContainer: boolean;
   @Output() pageContentEditEvents: EventEmitter<PageContentEditEvent> = new EventEmitter();
@@ -236,9 +240,7 @@ export class CardEditorComponent implements OnInit {
   private uniqueCheckboxId: string;
   protected readonly PageContentType = PageContentType;
 
-  get columnIndex(): number {
-    return this._columnIndex;
-  }
+  protected readonly ImageType = ImageType;
 
   columnClass(): string {
     const custom = this.column?.styles?.class;
@@ -362,5 +364,4 @@ export class CardEditorComponent implements OnInit {
       return this.siteEditService.active();
     }
   }
-
 }

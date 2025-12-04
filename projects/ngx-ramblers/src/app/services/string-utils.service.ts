@@ -115,7 +115,7 @@ StringUtilsService {
     if (isBoolean(value)) {
       return value.toString();
     }
-    if (value === null || value === undefined || value === "") {
+    if (isNull(value) || isUndefined(value) || value === "") {
       return defaultValue || "(none)";
     }
     return value;

@@ -115,10 +115,10 @@ export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
   },
   {
     accessLevel: "committee",
-    title: "Fragment Index",
+    title: "Content templates",
     icon: "faList",
-    href: "admin/fragment-index",
-    contentText: "Lists all Shared Fragments, shows a live preview for each, and links to all pages that reference them"
+    href: "admin/content-templates",
+    contentText: "Browse shared fragments, user templates, and migration templates with live previews and usage links"
   }
 ];
 

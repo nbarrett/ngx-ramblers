@@ -1,5 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import { cloneDeep, first, isEqual, kebabCase, remove } from "es-toolkit/compat";
+import { cloneDeep, first, isEqual, isNull, isUndefined, kebabCase, remove } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   ActionType,
@@ -10,7 +10,8 @@ import {
   DEFAULT_GALLERY_OPTIONS,
   DEFAULT_GRID_OPTIONS,
   HasColumnRange,
-  HasPageContentRows, Index,
+  HasPageContentRows,
+  Index,
   PageContent,
   PageContentColumn,
   PageContentRow,
@@ -167,6 +168,27 @@ export class PageContentActionsService {
     } : {accessLevel: AccessLevel.public};
   }
 
+  public rowHeading(rowIndex: number, columnCount: number): string {
+    return `Row ${rowIndex + 1}${(this.columnCount(columnCount))}`;
+  }
+
+  private columnCount(columnCount: number) {
+    return columnCount > 0 ? ` (${this.stringUtils.pluraliseWithCount(columnCount, "column")})` : "";
+  }
+
+  public nestedRowHeading(rowIndex: number, columnIndex: number, rowCount: number): string {
+    return `Row ${rowIndex + 1} column ${columnIndex + 1} (${this.stringUtils.pluraliseWithCount(rowCount, "nested row")})`;
+  }
+
+  public nestedRowDescription(nestedRowIndex: number, columnIndex: number, columnCount: number): string {
+    return `Row ${nestedRowIndex + 1} (nested row ${nestedRowIndex + 1}  column ${columnIndex + 1}${(this.columnCount(columnCount))})`;
+  }
+
+  public nestedInnerRowHeading(rowIndex: number, innerRowIndex: number, rowType: PageContentType): string {
+    return `Row ${rowIndex + 1}: nested row ${innerRowIndex + 1} ${rowType}`;
+  }
+
+
   addNestedRows(column: PageContentColumn) {
     if (!column.rows) {
       column.rows = [];
@@ -197,7 +219,7 @@ export class PageContentActionsService {
       targetColumn.alt = sourceColumn.alt;
       delete sourceColumn.alt;
     }
-    if (sourceColumn.imageBorderRadius !== undefined) {
+    if (!isUndefined(sourceColumn.imageBorderRadius)) {
       targetColumn.imageBorderRadius = sourceColumn.imageBorderRadius;
       delete sourceColumn.imageBorderRadius;
     }
@@ -205,11 +227,11 @@ export class PageContentActionsService {
       targetColumn.imageAspectRatio = sourceColumn.imageAspectRatio;
       delete sourceColumn.imageAspectRatio;
     }
-    if (sourceColumn.showTextAfterImage !== undefined) {
+    if (!isUndefined(sourceColumn.showTextAfterImage)) {
       targetColumn.showTextAfterImage = sourceColumn.showTextAfterImage;
       delete sourceColumn.showTextAfterImage;
     }
-    if (sourceColumn.showPlaceholderImage !== undefined) {
+    if (!isUndefined(sourceColumn.showPlaceholderImage)) {
       targetColumn.showPlaceholderImage = sourceColumn.showPlaceholderImage;
       delete sourceColumn.showPlaceholderImage;
     }
@@ -310,19 +332,19 @@ export class PageContentActionsService {
   }
 
   private columnPrefixFor(columnIndex: number) {
-    return columnIndex !== null ? `column-${columnIndex + 1}` : "";
+    return !isNull(columnIndex) ? `column-${columnIndex + 1}` : "";
   }
 
   private rowPrefixFor(rowIndex: number) {
-    return rowIndex !== null ? `row-${rowIndex + 1}` : "";
+    return !isNull(rowIndex) ? `row-${rowIndex + 1}` : "";
   }
 
   private nestedRowPrefixFor(rowIndex: number) {
-    return rowIndex !== null ? `nested-row-${rowIndex + 1}` : "";
+    return !isNull(rowIndex) ? `nested-row-${rowIndex + 1}` : "";
   }
 
   private nestedColumnPrefixFor(nestedColumnIndex: number) {
-    return nestedColumnIndex !== null ? `nested-column-${nestedColumnIndex + 1}` : "";
+    return !isNull(nestedColumnIndex) ? `nested-column-${nestedColumnIndex + 1}` : "";
   }
 
   rowColumnIdentifierFor(rowIndex: number, columnIndex: number, identifier: string): string {
@@ -372,7 +394,7 @@ export class PageContentActionsService {
   public ensureMapData(row: PageContentRow) {
     if (!row?.map) {
       row.map = {
-        title: "",
+        text: "",
         mapCenter: [51.25, 0.75],
         mapZoom: 10,
         mapHeight: 500,
@@ -384,10 +406,10 @@ export class PageContentActionsService {
       };
       this.logger.debug("ensureMapData: initialised map for row:", row);
     } else {
-      if (row.map.showControlsDefault === undefined) {
+      if (isUndefined(row.map.showControlsDefault)) {
         row.map.showControlsDefault = true;
       }
-      if (row.map.allowControlsToggle === undefined) {
+      if (isUndefined(row.map.allowControlsToggle)) {
         row.map.allowControlsToggle = true;
       }
     }
@@ -521,7 +543,7 @@ export class PageContentActionsService {
   public nestedRowDragTooltip(columnIndex: number, nestedRowIndex: number): string | null {
     const sCol = this.draggedNestedColumnIndex;
     const sRow = this.draggedNestedRowIndex;
-    if (sCol === null || sRow === null) {
+    if (isNull(sCol) || isNull(sRow)) {
       return null;
     }
     if (this.nestedDragTargetColumnIndex !== columnIndex || this.nestedDragTargetRowIndex !== nestedRowIndex) {
@@ -536,7 +558,7 @@ export class PageContentActionsService {
 
   public columnDragTooltip(rowIndex: number, columnIndex: number, isNestedLevel: boolean, parentColumnIndex: number | null): string | null {
     const srcIndex = this.draggedColumnIndex;
-    if (srcIndex === null || srcIndex === undefined) { return null; }
+    if (isNull(srcIndex) || isUndefined(srcIndex)) { return null; }
     if (!this.dragHasMoved) { return null; }
     if (this.draggedColumnIsNested !== isNestedLevel) { return null; }
     if (this.dragOverColumnRowIndex !== rowIndex || this.dragOverColumnIndex !== columnIndex) { return null; }

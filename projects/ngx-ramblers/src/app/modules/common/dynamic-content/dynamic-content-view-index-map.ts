@@ -46,6 +46,10 @@ import { MapOverlay } from "../../../shared/components/map-overlay";
     :host ::ng-deep .leaflet-popup-content
       margin: 13px 19px
 
+    :host ::ng-deep .leaflet-pane.leaflet-tooltip-pane
+      z-index: 10000
+      pointer-events: none
+
     :host ::ng-deep .leaflet-tooltip
       background-color: #000
       border: none

@@ -14,6 +14,7 @@ import { StoredValue } from "../../../models/ui-actions";
 import { Location } from "@angular/common";
 import { ActivatedRoute } from "@angular/router";
 import { StringUtilsService } from "../../../services/string-utils.service";
+import { isNull } from "es-toolkit/compat";
 
 @Component({
     selector: "app-dynamic-content-view-index",
@@ -92,7 +93,7 @@ export class DynamicContentViewIndex implements OnInit {
     const searchParam = this.stringUtils.kebabCase(StoredValue.SEARCH);
     const urlSearchValue = this.route.snapshot.queryParamMap.get(searchParam);
 
-    if (urlSearchValue !== null) {
+    if (!isNull(urlSearchValue)) {
       this.searchText = urlSearchValue;
       this.ui.saveValueFor(StoredValue.SEARCH, urlSearchValue);
     } else {

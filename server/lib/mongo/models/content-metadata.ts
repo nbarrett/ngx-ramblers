@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ensureModel } from "../utils/model-utils";
 import uniqueValidator from "mongoose-unique-validator";
 import { ContentMetadata } from "../../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
 
@@ -34,4 +35,4 @@ const contentMetadataSchema = new mongoose.Schema({
 
 contentMetadataSchema.plugin(uniqueValidator);
 
-export const contentMetadata: mongoose.Model<ContentMetadata> = mongoose.model<ContentMetadata>("content-metadata", contentMetadataSchema);
+export const contentMetadata: mongoose.Model<ContentMetadata> = ensureModel<ContentMetadata>("content-metadata", contentMetadataSchema);

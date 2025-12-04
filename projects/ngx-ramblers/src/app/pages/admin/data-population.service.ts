@@ -85,9 +85,24 @@ export class DataPopulationService {
   private defaultContentArray(): ContentText[] {
     return [
       {
+        category: "template-type",
+        name: "shared-fragment",
+        text: "**Shared fragments** are reusable page components (like headers, footers, or sidebars) that can be inserted into multiple pages across your site. Changes to the fragment automatically update everywhere it's used."
+      },
+      {
+        category: "template-type",
+        name: "user-template",
+        text: "**User templates** are custom page layouts you create for quickly building new pages with consistent structure. Use these to maintain design consistency across similar pages (e.g., all route pages follow the same layout)."
+      },
+      {
+        category: "template-type",
+        name: "migration-template",
+        text: "**Migration templates** combine visual structure with data mappings to transform old content into new page layouts. Define where each piece of content should go (e.g., extract location from text, populate map from GPX files), then apply the template to migrate multiple pages automatically."
+      },
+      {
         category: "admin",
-        name: "fragment-index",
-        text: "This page lists all Shared Fragments (paths starting with `fragments/`), renders a live preview of each, and shows links to every page that references them. Use the filter to quickly find a fragment by path."
+        name: "content-templates",
+        text: "This page lists Shared Fragments, User Templates, and Migration Templates (paths starting with `fragments/`). Each entry renders a live preview, shows where it is used, and allows admins to clone template content into a destination path."
       },
       {
         category: "admin",

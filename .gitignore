@@ -49,3 +49,4 @@ Thumbs.db
 /server/chrome/
 /server/chromedriver/
 /test-data/
+/.gemini-clipboard/

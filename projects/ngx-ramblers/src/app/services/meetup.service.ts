@@ -1,6 +1,6 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import { has } from "es-toolkit/compat";
+import { has, isUndefined } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { mergeMap } from "rxjs/operators";
@@ -84,7 +84,7 @@ export class MeetupService {
   }
 
   isMeetupErrorResponse(message: MeetupEventResponse[] | MeetupErrorResponse): message is MeetupErrorResponse {
-    return message && (message as MeetupErrorResponse).status !== undefined;
+    return message && !isUndefined((message as MeetupErrorResponse).status);
   }
 
   publishStatuses(): string[] {

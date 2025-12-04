@@ -129,16 +129,16 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
                   @if (eventStat.edited) {
                     <td>
                       <input type="text" [(ngModel)]="eventStat.editedGroupCode"
-                             class="form-control form-control-sm"
+                             class="form-control"
                              [ngModelOptions]="{standalone: true}"
                              (ngModelChange)="markAsEdited(eventStat)">
                     </td>
                     <td>
-                      <input type="text" [(ngModel)]="eventStat.editedGroupName" class="form-control form-control-sm"
+                      <input type="text" [(ngModel)]="eventStat.editedGroupName" class="form-control"
                              [ngModelOptions]="{standalone: true}" (ngModelChange)="markAsEdited(eventStat)">
                     </td>
                     <td>
-                      <select class="form-control form-control-sm"
+                      <select class="form-control"
                               [(ngModel)]="eventStat.editedInputSource"
                               [ngModelOptions]="{standalone: true}"
                               (ngModelChange)="markAsEdited(eventStat)">

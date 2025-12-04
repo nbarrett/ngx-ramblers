@@ -90,7 +90,7 @@ interface RamblersGroup {
                                               </td>
                                               <td>
                                                   <input type="color"
-                                                         class="form-control form-control-sm form-control-color"
+                                                         class="form-control form-control-color"
                                                          [(ngModel)]="group.color">
                                               </td>
                                               <td class="text-center align-middle">

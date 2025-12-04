@@ -109,6 +109,8 @@ export interface HasColumnRange {
 export interface PageContent extends HasPageContentRows {
   id?: string;
   path?: string;
+  migrationTemplate?: MigrationTemplateMetadata;
+  debugLogs?: string[];
 }
 
 export interface PageContentToRows {
@@ -118,7 +120,7 @@ export interface PageContentToRows {
 
 export interface PageContentApiResponse extends ApiResponse {
   request: any;
-  response?: PageContent | PageContent[];
+  response?: ContentText | ContentText[];
 }
 
 export enum AreaMapClickAction {
@@ -153,8 +155,14 @@ export interface MapRoute {
   opacity?: number;
 }
 
+export interface MapMarker {
+  latitude: number;
+  longitude: number;
+  label?: string;
+}
+
 export interface MapData {
-  title?: string;
+  text?: string;
   mapCenter?: [number, number];
   mapZoom?: number;
   mapHeight?: number;
@@ -166,6 +174,7 @@ export interface MapData {
   allowWaypointsToggle?: boolean;
   autoFitBounds?: boolean;
   routes: MapRoute[];
+  markers?: MapMarker[];
 }
 
 export interface PageContentRow extends HasColumnRange {
@@ -181,6 +190,8 @@ export interface PageContentRow extends HasColumnRange {
   map?: MapData;
   fragment?: Fragment;
   location?: LocationRowData;
+  migrationPlaceholder?: boolean;
+  hidden?: boolean;
 }
 
 export interface PageContentColumn extends Link, HasPageContentRows {
@@ -196,6 +207,140 @@ export interface PageContentColumn extends Link, HasPageContentRows {
   imageAspectRatio?: DescribedDimensions;
   styles?: ContentTextStyles;
   location?: LocationDetails;
+}
+
+export enum MigrationTemplateSourceType {
+  EXTRACT = "extract",
+  STATIC = "static",
+  METADATA = "metadata"
+}
+
+export enum ContentTemplateType {
+  SHARED_FRAGMENT = "shared-fragment",
+  USER_TEMPLATE = "user-template",
+  MIGRATION_TEMPLATE = "migration-template"
+}
+
+export interface MigrationTemplateLocationMapping {
+  extractFromContent?: boolean;
+  hideRow?: boolean;
+  defaultLocation?: string;
+}
+
+export interface MigrationTemplateMapMapping {
+  extractGpxFromContent?: boolean;
+  gpxFilePath?: string;
+  useLocationFromRow?: boolean;
+  height?: number;
+  provider?: string;
+  osStyle?: string;
+  extractFromContent?: boolean;
+}
+
+export interface MigrationTemplateIndexMapping {
+  useStaticConfig?: boolean;
+}
+
+export enum NestedRowContentSource {
+  REMAINING_IMAGES = "remaining-images",
+  REMAINING_TEXT = "remaining-text",
+  ALL_CONTENT = "all-content",
+  ALL_IMAGES = "all-images",
+  PATTERN_MATCH = "pattern-match"
+}
+
+export enum NestedRowPackingBehavior {
+  ONE_PER_ITEM = "one-per-item",
+  ALL_IN_ONE = "all-in-one",
+  COLLECT_WITH_BREAKS = "collect-with-breaks"
+}
+
+export enum BreakStopCondition {
+  IMAGE = "image",
+  HEADING = "heading",
+  PARAGRAPH = "paragraph"
+}
+
+export interface NestedRowMappingConfig {
+  contentSource: NestedRowContentSource;
+  packingBehavior: NestedRowPackingBehavior;
+  breakOn?: BreakStopCondition;
+  stopOn?: BreakStopCondition;
+  groupTextWithImage?: boolean;
+  filenamePattern?: string;
+  textPattern?: string;
+  customTextPattern?: string;
+  imagePattern?: string;
+  headingPattern?: string;
+}
+
+export enum ColumnContentType {
+  IMAGE = "image",
+  TEXT = "text",
+  MIXED = "mixed"
+}
+
+export enum ImagePattern {
+  FIRST = "first",
+  LAST = "last",
+  ALL = "all",
+  PATTERN_MATCH = "pattern-match"
+}
+
+export interface ColumnMappingContext {
+  rowIndex: number;
+  columnIndex: number;
+  nestedRowIndex?: number;
+  nestedColumnIndex?: number;
+}
+
+export interface ColumnMappingConfig {
+  columnIndex: number;
+  nestedRowIndex?: number;
+  nestedColumnIndex?: number;
+  sourceType?: MigrationTemplateSourceType;
+  extractPreset?: string;
+  extractPattern?: string;
+  textPattern?: string;
+  contentType?: ColumnContentType;
+  imagePattern?: ImagePattern;
+  imagePatternValue?: string;
+  groupShortTextWithImage?: boolean;
+  captionBeforeImage?: boolean;
+  nestedRowMapping?: NestedRowMappingConfig;
+  targetNestedRowIndex?: number;
+  targetNestedColumnIndex?: number;
+}
+
+export interface MigrationTemplateMapping {
+  targetRowIndex: number;
+  targetColumnIndex?: number;
+  targetNestedRowIndex?: number;
+  targetNestedColumnIndex?: number;
+  sourceType?: MigrationTemplateSourceType;
+  sourceIdentifier?: string;
+  metadataPrefix?: string;
+  metadataDateFormat?: string;
+  extractPreset?: string;
+  extractPattern?: string;
+  textPattern?: string;
+  location?: MigrationTemplateLocationMapping;
+  map?: MigrationTemplateMapMapping;
+  index?: MigrationTemplateIndexMapping;
+  columnMappings?: ColumnMappingConfig[];
+  hideIfEmpty?: boolean;
+  excludePatterns?: string[] | string;
+  notes?: string;
+}
+
+export interface MigrationTemplateMetadata {
+  isTemplate?: boolean;
+  templateType?: ContentTemplateType;
+  templateName?: string;
+  templateDescription?: string;
+  mappings?: MigrationTemplateMapping[];
+  fragmentId?: string;
+  fragmentPath?: string;
 }
 
 export interface PageContentEditEvent {
@@ -245,6 +390,8 @@ export interface IndexMapConfig {
   osStyle?: string;
   mapCenter?: [number, number];
   mapZoom?: number;
+  showControlsDefault?: boolean;
+  allowControlsToggle?: boolean;
 }
 
 export interface Index {
@@ -433,7 +580,6 @@ export interface GalleryViewOptions {
   loadingStrategy?: "preload" | "lazy" | "default";
   thumbPosition?: "top" | "left" | "right" | "bottom";
   thumbView?: "default" | "contain";
-  thumbDetached?: boolean;
   thumbAutosize?: boolean;
   itemAutosize?: boolean;
   autoHeight?: boolean;
@@ -466,7 +612,15 @@ export interface PageContentGroup {
   pageContents: PageContent[];
 }
 
-/** @deprecated Use PageContentGroup instead */
 export interface DuplicatePageContent extends PageContentGroup {
   duplicatePageContents: PageContent[];
+}
+
+export interface Transformation {
+  template: {
+    type: PageContentType;
+    maxColumns: number;
+    showSwiper: boolean;
+  };
+  contentText: string;
 }

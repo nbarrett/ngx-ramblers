@@ -1,5 +1,5 @@
 import { LatLngLiteral } from "leaflet";
-import { gridReference10From, gridReference6From, gridReference8From } from "./grid-reference";
+import { gridReference10From, gridReference6From, gridReference8From, parseGridReference } from "./grid-reference";
 import { GridReferenceLookupApiResponse, GridReferenceLookupResponse } from "../../../projects/ngx-ramblers/src/app/models/address-model";
 import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
 import { ApiRequest } from "../../../projects/ngx-ramblers/src/app/models/api-request.model";
@@ -10,6 +10,7 @@ import url from "url";
 import querystring from "querystring";
 import { ENDPOINT } from "./shared";
 import { gridReferenceLookupFromLatLng } from "./reverse-geocode";
+import proj4 from "proj4";
 
 interface PlacesLookupResult {
   name_1?: string;
@@ -35,10 +36,15 @@ interface PlacesServiceResponse {
 }
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("place-name-lookup"));
-debugLog.enabled = false;
+debugLog.enabled = true;
 const baseUrl = url.parse(ENDPOINT, false);
 const NOMINATIM_ENDPOINT = "https://nominatim.openstreetmap.org";
 const nominatimUrl = url.parse(NOMINATIM_ENDPOINT, false);
+
+const bngToWgs84 = proj4(
+  "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.060,0.1502,0.2470,0.8421,-20.4894 +units=m +no_defs",
+  "+proj=longlat +datum=WGS84 +no_defs"
+);
 
 function toDescription(place: PlacesLookupResult): string {
   return [
@@ -106,6 +112,13 @@ interface NominatimPlaceResult {
   importance?: number;
   address?: {
     postcode?: string;
+    country_code?: string;
+    county?: string;
+    state?: string;
+    region?: string;
+    city?: string;
+    town?: string;
+    village?: string;
   };
 }
 
@@ -113,8 +126,48 @@ function toNominatimPlace(response: any): NominatimPlaceResult[] {
   return Array.isArray(response) ? response : [];
 }
 
-function selectNominatimPlace(places: NominatimPlaceResult[]): NominatimPlaceResult | undefined {
-  return places.slice().sort((a, b) => (b.importance || 0) - (a.importance || 0))[0];
+function getPlaceTypeScore(place: NominatimPlaceResult): number {
+  if (place.address?.city) return 3;
+  if (place.address?.town) return 2;
+  if (place.address?.village) return 1;
+  return 0;
+}
+
+function selectNominatimPlace(places: NominatimPlaceResult[], preferredCounty?: string): NominatimPlaceResult | undefined {
+  if (places.length === 0) {
+    return undefined;
+  }
+  if (places.length === 1) {
+    return places[0];
+  }
+  const ukPlaces = places.filter(place =>
+    place.address?.country_code === "gb" ||
+    place.display_name.includes("UK") ||
+    place.display_name.includes("United Kingdom")
+  );
+
+  const placesToSearch = ukPlaces.length > 0 ? ukPlaces : places;
+
+  return placesToSearch.slice().sort((a, b) => {
+    if (preferredCounty) {
+      const aMatchesCounty = a.address?.county?.toLowerCase().includes(preferredCounty.toLowerCase()) ||
+                             a.display_name.toLowerCase().includes(preferredCounty.toLowerCase());
+      const bMatchesCounty = b.address?.county?.toLowerCase().includes(preferredCounty.toLowerCase()) ||
+                             b.display_name.toLowerCase().includes(preferredCounty.toLowerCase());
+      if (aMatchesCounty && !bMatchesCounty) return -1;
+      if (!aMatchesCounty && bMatchesCounty) return 1;
+    }
+
+    const placeTypeDiff = getPlaceTypeScore(b) - getPlaceTypeScore(a);
+    if (placeTypeDiff !== 0) return placeTypeDiff;
+
+    const importanceDiff = (b.importance || 0) - (a.importance || 0);
+    if (Math.abs(importanceDiff) > 0.01) return importanceDiff;
+
+    const aAdmin = [a.address?.county, a.address?.state, a.address?.region].filter(Boolean).length;
+    const bAdmin = [b.address?.county, b.address?.state, b.address?.region].filter(Boolean).length;
+    return bAdmin - aAdmin;
+  })[0];
 }
 
 function toLatLng(place: NominatimPlaceResult): LatLngLiteral {
@@ -130,6 +183,38 @@ function extractGridReference(response: GridReferenceLookupApiResponse): GridRef
     return payload[0];
   }
   return payload as GridReferenceLookupResponse;
+}
+
+async function lookupGridReference(query: string): Promise<{status: number; response?: GridReferenceLookupResponse}> {
+  const parsed = parseGridReference(query);
+  if (!parsed) {
+    return {status: 400};
+  }
+
+  const {eastings, northings} = parsed;
+  debugLog(`lookupGridReference: parsed ${query} to eastings=${eastings}, northings=${northings}`);
+
+  const [lng, lat] = bngToWgs84.forward([eastings, northings]);
+  debugLog(`lookupGridReference: converted to WGS84 lat=${lat}, lng=${lng}`);
+
+  const gridReferenceResponse = await gridReferenceLookupFromLatLng({lat, lng}, undefined, undefined, debugLog);
+  const gridReference = extractGridReference(gridReferenceResponse);
+
+  if (!gridReference) {
+    return {status: gridReferenceResponse?.apiStatusCode || 404};
+  }
+
+  return {
+    status: gridReferenceResponse?.apiStatusCode || 200,
+    response: {
+      ...gridReference,
+      gridReference6: gridReference6From(eastings, northings),
+      gridReference8: gridReference8From(eastings, northings),
+      gridReference10: gridReference10From(eastings, northings),
+      latlng: {lat, lng},
+      description: gridReference.description || query
+    }
+  };
 }
 
 async function lookupUsingPostcodes(query: string): Promise<{status: number; response?: GridReferenceLookupResponse}> {
@@ -159,7 +244,7 @@ async function lookupUsingPostcodes(query: string): Promise<{status: number; res
   };
 }
 
-async function lookupUsingNominatim(query: string): Promise<{status: number; response?: GridReferenceLookupResponse}> {
+async function lookupUsingNominatim(query: string, preferredCounty?: string): Promise<{status: number; response?: GridReferenceLookupResponse}> {
   const nominatimResponse = await messageHandlers.httpRequest({
     apiRequest: {
       hostname: nominatimUrl.hostname,
@@ -177,10 +262,12 @@ async function lookupUsingNominatim(query: string): Promise<{status: number; res
     req: undefined,
     debug: debugLog
   }) as {apiStatusCode: number; response: NominatimPlaceResult[]};
-  const place = selectNominatimPlace(nominatimResponse.response);
+  debugLog(`lookupUsingNominatim: found ${nominatimResponse.response?.length || 0} results${preferredCounty ? `, preferring county: ${preferredCounty}` : ""}`);
+  const place = selectNominatimPlace(nominatimResponse.response, preferredCounty);
   if (!place) {
     return {status: nominatimResponse.apiStatusCode || 404};
   }
+  debugLog(`lookupUsingNominatim: selected place: ${place.display_name}`);
   const latlng = toLatLng(place);
   const gridReferenceResponse = await gridReferenceLookupFromLatLng(latlng);
   const gridReference = extractGridReference(gridReferenceResponse);
@@ -201,8 +288,9 @@ async function lookupUsingNominatim(query: string): Promise<{status: number; res
 
 export async function placeNameLookup(req, res) {
   const query = (req.query.query || "").toString().trim();
+  const preferredCounty = (req.query.preferredCounty || "").toString().trim();
   const apiRequest: ApiRequest = {
-    parameters: {query},
+    parameters: {query, preferredCounty},
     url: req.url,
     body: {}
   };
@@ -214,17 +302,24 @@ export async function placeNameLookup(req, res) {
       response: {error: "Query is required"}
     });
   }
+  debugLog(`placeNameLookup: query="${query}"${preferredCounty ? `, preferredCounty="${preferredCounty}"` : ""}`);
   try {
-    const postcodesResult = await lookupUsingPostcodes(query);
-    let status = postcodesResult.status;
-    let responseBody = postcodesResult.response;
+    const gridRefResult = await lookupGridReference(query);
+    let status = gridRefResult.status;
+    let responseBody = gridRefResult.response;
     let errorMessage;
+
     if (!responseBody) {
-      const fallbackResult = await lookupUsingNominatim(query);
-      status = fallbackResult.status;
-      responseBody = fallbackResult.response;
+      const postcodesResult = await lookupUsingPostcodes(query);
+      status = postcodesResult.status;
+      responseBody = postcodesResult.response;
       if (!responseBody) {
-        errorMessage = fallbackResult.response?.error;
+        const fallbackResult = await lookupUsingNominatim(query, preferredCounty || undefined);
+        status = fallbackResult.status;
+        responseBody = fallbackResult.response;
+        if (!responseBody) {
+          errorMessage = fallbackResult.response?.error;
+        }
       }
     }
     if (!responseBody) {

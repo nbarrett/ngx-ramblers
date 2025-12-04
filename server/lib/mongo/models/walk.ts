@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ensureModel } from "../utils/model-utils";
 import uniqueValidator from "mongoose-unique-validator";
 import { Walk } from "../../../../projects/ngx-ramblers/src/app/models/deprecated";
 
@@ -128,4 +129,5 @@ const walkSchema = new mongoose.Schema({
 
 walkSchema.plugin(uniqueValidator);
 
-export const walk: mongoose.Model<Walk> = mongoose.model<Walk>("walks", walkSchema);
+const walkModelName = "walks";
+export const walk: mongoose.Model<Walk> = ensureModel<Walk>(walkModelName, walkSchema);

@@ -5,6 +5,7 @@ import { MapStyleInfo, OS_MAP_STYLE_LIST } from "../../models/map.model";
 import { KeyValue } from "../../functions/enums";
 import { BadgeButtonComponent } from "../../modules/common/badge-button/badge-button";
 import { faUndo } from "@fortawesome/free-solid-svg-icons";
+import { isUndefined } from "es-toolkit/compat";
 
 export interface MapOverlayConfig {
   provider?: string;
@@ -374,7 +375,7 @@ export class MapOverlayControls implements OnInit {
       if (!this.config.textOpacity) this.config.textOpacity = this.defaultConfig.textOpacity;
     }
     if (this.showClusteringControls) {
-      if (this.config.clusteringEnabled === undefined) this.config.clusteringEnabled = this.defaultConfig.clusteringEnabled;
+      if (isUndefined(this.config.clusteringEnabled)) this.config.clusteringEnabled = this.defaultConfig.clusteringEnabled;
       if (!this.config.clusteringThreshold) this.config.clusteringThreshold = this.defaultConfig.clusteringThreshold;
     }
   }

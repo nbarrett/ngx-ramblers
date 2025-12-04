@@ -1,6 +1,7 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { MailchimpCampaign, MailchimpCampaignVersion2 } from "../../models/mailchimp.model";
+import { isUndefined } from "es-toolkit/compat";
 import {
   AccessLevel,
   AccessLevelData,
@@ -26,7 +27,7 @@ export class MemberResourcesReferenceDataService {
   private memberLoginService = inject(MemberLoginService);
 
   static isMailchimpCampaign(campaign: MailchimpCampaignVersion2 | MailchimpCampaign): campaign is MailchimpCampaign {
-    return (campaign as MailchimpCampaign)?.long_archive_url !== undefined;
+    return !isUndefined((campaign as MailchimpCampaign)?.long_archive_url);
   }
 
   resourceSubjectForSubject(subject: string): ResourceSubject {

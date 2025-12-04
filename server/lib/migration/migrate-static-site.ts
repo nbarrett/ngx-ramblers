@@ -27,7 +27,7 @@ import { AccessLevel } from "../../../projects/ngx-ramblers/src/app/models/membe
 import { ContentMetadata } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
 import { createTurndownService } from "./turndown-service-factory";
 
-const debugLog = debug(envConfig.logNamespace("static-html-site-migrator"));
+const debugLog = debug(envConfig.logNamespace("migrate-static-site"));
 debugLog.enabled = true;
 const turndownService = createTurndownService();
 const s3 = new S3({});

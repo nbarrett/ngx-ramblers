@@ -1,11 +1,10 @@
 import { inject, Injectable } from "@angular/core";
 import { Router } from "@angular/router";
-import { max } from "es-toolkit/compat";
+import { isUndefined, kebabCase, max } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ALL_PHOTOS, ImageTag, RECENT_PHOTOS } from "../models/content-metadata.model";
 import { sortBy } from "../functions/arrays";
 import { Logger, LoggerFactory } from "./logger-factory.service";
-import { kebabCase } from "es-toolkit/compat";
 import { StoredValue } from "../models/ui-actions";
 import { StringUtilsService } from "./string-utils.service";
 
@@ -72,7 +71,7 @@ export class ImageTagDataService {
   }
 
   isImageTag(tagOrValue: ImageTag | number | string): tagOrValue is ImageTag {
-    return (tagOrValue as ImageTag)?.key !== undefined;
+    return !isUndefined((tagOrValue as ImageTag)?.key);
   }
 
   select(imageTags: ImageTag[], tagOrValue: ImageTag | number | string) {

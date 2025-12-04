@@ -1,5 +1,6 @@
 import { Injectable } from "@angular/core";
 import * as L from "leaflet";
+import { isUndefined } from "es-toolkit/compat";
 
 export interface MapRecreationContext {
   mapRef?: L.Map;
@@ -51,11 +52,11 @@ export class MapRecreationService {
     }
 
     if (context.leafletLayers) context.leafletLayers.length = 0;
-    if (context.clusterGroupRef !== undefined) context.clusterGroupRef = undefined;
+    if (!isUndefined(context.clusterGroupRef)) context.clusterGroupRef = undefined;
     if (context.allMarkers) context.allMarkers.length = 0;
-    if (context.openPopupCount !== undefined) context.openPopupCount = 0;
-    if (context.fitBounds !== undefined) context.fitBounds = undefined;
-    if (context.options !== undefined) context.options = null;
+    if (!isUndefined(context.openPopupCount)) context.openPopupCount = 0;
+    if (!isUndefined(context.fitBounds)) context.fitBounds = undefined;
+    if (!isUndefined(context.options)) context.options = null;
 
     callbacks.onSetShowMap(false);
 

@@ -13,6 +13,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { MigrationFileStatus, MigrationSortColumn } from "../../../models/mongo-migration-model";
 import { sortBy } from "../../../functions/arrays";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
+import { isNull } from "es-toolkit/compat";
 
 @Component({
   selector: "app-site-maintenance",
@@ -115,7 +116,7 @@ import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
                                   <td>
                                     <button class="btn btn-sm"
                                             [ngClass]="isFailed(migration.status) ? 'btn-danger' : 'btn-primary'"
-                                            [disabled]="retrying || retryingFile !== null"
+                                            [disabled]="retrying || !isNull(retryingFile)"
                                             (click)="retryMigrationFile(migration.file)">
                                       <fa-icon [icon]="retryingFile === migration.file ? faSpinner : faRedo" [spin]="retryingFile === migration.file" class="me-1"/>
                                       {{ isFailed(migration.status) ? 'Retry' : isApplied(migration.status) ? 'Re-run' : 'Run' }}
@@ -255,6 +256,7 @@ import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
   imports: [PageComponent, FontAwesomeModule, NgClass, DatePipe]
 })
 export class SiteMaintenanceComponent implements OnInit, OnDestroy {
+  protected readonly isNull = isNull;
   private logger: Logger = inject(LoggerFactory).createLogger(SiteMaintenanceComponent, NgxLoggerLevel.OFF);
   private memberLoginService = inject(MemberLoginService);
   private siteMaintenanceService = inject(SiteMaintenanceService);
