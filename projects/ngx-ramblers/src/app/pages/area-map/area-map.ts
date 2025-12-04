@@ -4,8 +4,8 @@ import { FormsModule } from "@angular/forms";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
 import { GroupAreasService } from "../../services/group-areas.service";
 import { MapTilesService } from "../../services/maps/map-tiles.service";
-import { MapControlsComponent, MapControlsConfig, MapControlsState } from "../../shared/components/map-controls.component";
-import { MapOverlayComponent } from "../../shared/components/map-overlay.component";
+import { MapControls, MapControlsConfig, MapControlsState } from "../../shared/components/map-controls";
+import { MapOverlay } from "../../shared/components/map-overlay";
 import { MapControlsStateService } from "../../shared/services/map-controls-state.service";
 import { MapRecreationService } from "../../shared/services/map-recreation.service";
 import { MapProvider } from "../../models/map.model";
@@ -200,9 +200,9 @@ import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
       }
     </div>
   `,
-  imports: [FormsModule, LeafletModule, MapControlsComponent, MapOverlayComponent, NgSelectComponent]
+  imports: [FormsModule, LeafletModule, MapControls, MapOverlay, NgSelectComponent]
 })
-export class AreaMapComponent implements OnInit, OnDestroy {
+export class AreaMap implements OnInit, OnDestroy {
   private _row?: PageContentRow;
   private _pageContent?: PageContent;
   @Input() region?: string;

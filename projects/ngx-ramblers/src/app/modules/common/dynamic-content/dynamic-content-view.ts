@@ -8,16 +8,17 @@ import { PageContentActionsService } from "../../../services/page-content-action
 import { UrlService } from "../../../services/url.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { Subscription } from "rxjs";
-import { ActionButtonsComponent } from "../action-buttons/action-buttons";
-import { DynamicContentViewTextRowComponent } from "./dynamic-content-view-text-row";
-import { DynamicContentViewCarouselComponent } from "./dynamic-content-view-carousel";
-import { DynamicContentViewAlbumIndexComponent } from "./dynamic-content-view-album-index";
-import { DynamicContentViewAlbumComponent } from "./dynamic-content-view-album";
+import { ActionButtons } from "../action-buttons/action-buttons";
+import { DynamicContentViewTextRow } from "./dynamic-content-view-text-row";
+import { DynamicContentViewCarousel } from "./dynamic-content-view-carousel";
+import { DynamicContentViewAlbum } from "./dynamic-content-view-album";
 import { EventsRow } from "../events/events-row";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { AreaMapComponent } from "../../../pages/area-map/area-map";
-import { DynamicContentViewLocationComponent } from "./dynamic-content-view-location";
+import { AreaMap } from "../../../pages/area-map/area-map";
+import { DynamicContentViewMap } from "./dynamic-content-view-map";
+import { DynamicContentViewLocation } from "./dynamic-content-view-location";
 import { FragmentService } from "../../../services/fragment.service";
+import { DynamicContentViewIndex } from "./dynamic-content-view-index";
 
 @Component({
     selector: "app-dynamic-content-view",
@@ -45,8 +46,8 @@ import { FragmentService } from "../../../services/fragment.service";
               [row]="row"
               [index]="actions.carouselOrAlbumIndex(row, viewablePageContent)"/>
           }
-          @if (actions.isAlbumIndex(row)) {
-            <app-dynamic-content-view-album-index [row]="row"/>
+          @if (actions.isIndex(row)) {
+            <app-dynamic-content-view-index [row]="row"/>
           }
           @if (actions.isAlbum(row)) {
             <app-dynamic-content-view-album
@@ -58,6 +59,9 @@ import { FragmentService } from "../../../services/fragment.service";
           }
           @if (actions.isAreaMap(row)) {
             <app-area-map [row]="row" [pageContent]="viewablePageContent"/>
+          }
+          @if (actions.isMap(row)) {
+            <app-dynamic-content-view-map [row]="row"/>
           }
           @if (actions.isLocation(row)) {
             <app-dynamic-content-view-location [row]="row"/>
@@ -72,15 +76,15 @@ import { FragmentService } from "../../../services/fragment.service";
               <fa-icon [icon]="notify?.alertTarget?.alert?.icon"></fa-icon>
               <strong class="ms-2">{{ notify?.alertTarget?.alertTitle }}</strong>
               <span class="p-2">{{ notify?.alertTarget?.alertMessage }}. <a [href]="area"
-                                                                          class="rams-text-decoration-pink"
-                                                                          type="button"> Go Back to {{ area }}
+                                                                            class="rams-text-decoration-pink"
+                                                                            type="button"> Go Back to {{ area }}
                 page</a></span>
             </div>
           }
         }
       }`,
     styleUrls: ["./dynamic-content.sass"],
-  imports: [ActionButtonsComponent, DynamicContentViewTextRowComponent, DynamicContentViewCarouselComponent, DynamicContentViewAlbumIndexComponent, DynamicContentViewAlbumComponent, EventsRow, FontAwesomeModule, AreaMapComponent, DynamicContentViewLocationComponent]
+  imports: [ActionButtons, DynamicContentViewTextRow, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, FontAwesomeModule, AreaMap, DynamicContentViewMap, DynamicContentViewLocation]
 })
 export class DynamicContentViewComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewComponent", NgxLoggerLevel.ERROR);

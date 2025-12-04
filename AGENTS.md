@@ -28,7 +28,28 @@ These rules MUST be followed in EVERY session without exception:
 - **No "get" prefixes** on methods (use `user()` not `getUser()`)
 - **Follow existing patterns** - don't introduce new approaches
 
-### 5. DEBUGGING AND LOGGING
+### 5. DRY PRINCIPLE (Don't Repeat Yourself)
+- **EVERY request implicitly requires DRY abstractions for maintainability**
+- **ALWAYS reuse existing components, services, and utilities** - never duplicate functionality
+- **Before implementing ANY feature**:
+  1. Search the codebase for existing implementations
+  2. Check for similar components, services, or utilities
+  3. If found, reuse and enhance rather than duplicate
+  4. If similar functionality exists in multiple places, refactor to a shared abstraction first
+- **When making changes**:
+  - Ask: "Where else is this functionality used?"
+  - Update all instances, or better yet, consolidate to a single reusable implementation
+  - Look for wrapper components that might be duplicating logic
+  - Consider whether the change should be in a core reusable component vs. a specific context
+- **Red flags indicating DRY violations**:
+  - Copy-pasting code between files
+  - Similar logic in multiple components/services
+  - Reimplementing existing functionality with slight variations
+  - Making the same fix in multiple places
+- **Approach**: Every piece of work should leave the codebase more DRY than you found it
+- When in doubt, ask: "Does this already exist in the codebase?" and "Can this be shared?"
+
+### 6. DEBUGGING AND LOGGING
 - **NEVER use `console.log()` for debugging**
 - **Frontend**: Use the existing `Logger` service (injected via `LoggerFactory`)
 - **Backend**: Use the existing `debug` module (e.g., `debug(envConfig.logNamespace("component-name"))`)

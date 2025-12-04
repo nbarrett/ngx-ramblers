@@ -155,7 +155,7 @@ export interface MapControlsState {
     </div>
   `
 })
-export class MapControlsComponent implements OnInit {
+export class MapControls implements OnInit {
   @Input() config: MapControlsConfig = {
     showProvider: true,
     showStyle: true,

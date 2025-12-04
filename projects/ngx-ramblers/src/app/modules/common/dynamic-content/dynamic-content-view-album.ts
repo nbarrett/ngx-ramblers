@@ -56,7 +56,7 @@ import { DisplayDayPipe } from "../../../pipes/display-day.pipe";
     }`,
     imports: [MarkdownComponent, CardImageComponent, AlbumComponent, DisplayDayPipe]
 })
-export class DynamicContentViewAlbumComponent implements OnInit {
+export class DynamicContentViewAlbum implements OnInit {
   public lazyLoadingMetadata: LazyLoadingMetadata;
   public contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
   public actions: PageContentActionsService = inject(PageContentActionsService);

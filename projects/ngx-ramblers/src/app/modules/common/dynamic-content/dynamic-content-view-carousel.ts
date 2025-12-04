@@ -17,7 +17,7 @@ import { CarouselComponent } from "../../../carousel/view/carousel";
       }`,
     imports: [CarouselComponent]
 })
-export class DynamicContentViewCarouselComponent implements OnInit {
+export class DynamicContentViewCarousel implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewCarouselComponent", NgxLoggerLevel.ERROR);
   actions = inject(PageContentActionsService);
 

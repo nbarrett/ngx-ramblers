@@ -4,14 +4,13 @@ import { NgxLoggerLevel } from "ngx-logger";
 import {
   ActionType,
   AlbumData,
-  AlbumIndex,
   AlbumView,
   ColumnInsertData,
   ContentText,
   DEFAULT_GALLERY_OPTIONS,
   DEFAULT_GRID_OPTIONS,
   HasColumnRange,
-  HasPageContentRows,
+  HasPageContentRows, Index,
   PageContent,
   PageContentColumn,
   PageContentRow,
@@ -127,7 +126,7 @@ export class PageContentActionsService {
     };
   };
 
-  defaultAlbumIndex(): AlbumIndex {
+  defaultIndex(): Index {
     return {
       contentPaths: [],
     };
@@ -350,7 +349,7 @@ export class PageContentActionsService {
     return this.isAlbum(row) || this.isCarousel(row);
   }
 
-  public isAlbumIndex(row: PageContentRow) {
+  public isIndex(row: PageContentRow) {
     return row?.type === PageContentType.ALBUM_INDEX;
   }
 
@@ -364,6 +363,34 @@ export class PageContentActionsService {
 
   public isAreaMap(row: PageContentRow) {
     return row?.type === PageContentType.AREA_MAP;
+  }
+
+  public isMap(row: PageContentRow) {
+    return row?.type === PageContentType.MAP;
+  }
+
+  public ensureMapData(row: PageContentRow) {
+    if (!row?.map) {
+      row.map = {
+        title: "",
+        mapCenter: [51.25, 0.75],
+        mapZoom: 10,
+        mapHeight: 500,
+        provider: "osm",
+        osStyle: "Leisure_27700",
+        showControlsDefault: true,
+        allowControlsToggle: true,
+        routes: []
+      };
+      this.logger.debug("ensureMapData: initialised map for row:", row);
+    } else {
+      if (row.map.showControlsDefault === undefined) {
+        row.map.showControlsDefault = true;
+      }
+      if (row.map.allowControlsToggle === undefined) {
+        row.map.allowControlsToggle = true;
+      }
+    }
   }
 
   public isSharedFragment(row: PageContentRow) {

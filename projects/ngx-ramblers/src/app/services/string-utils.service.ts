@@ -107,16 +107,18 @@ StringUtilsService {
         }
       }).sort().join(", ");
     } else {
-      return inputValue || defaultValue || "(none)";
+      return this.stringifiedValue(inputValue, defaultValue);
     }
   }
 
-  private stringifiedValue(value: any, defaultValue: string):string {
+  private stringifiedValue(value: any, defaultValue: string): string {
     if (isBoolean(value)) {
       return value.toString();
-    } else {
-      return value || defaultValue || "(none)";
     }
+    if (value === null || value === undefined || value === "") {
+      return defaultValue || "(none)";
+    }
+    return value;
   }
 
   isAlertMessage(message: any): message is AlertMessage {

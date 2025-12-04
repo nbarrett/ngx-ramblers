@@ -29,7 +29,9 @@ const PageContentRow = new mongoose.Schema({
   events: {type: Object},
   albumIndex: {type: Object},
   areaMap: {type: Object},
+  map: {type: Object},
   fragment: {type: Object},
+  location: {type: Object},
 }, { _id : false });
 
 const pageContentSchema = new mongoose.Schema({

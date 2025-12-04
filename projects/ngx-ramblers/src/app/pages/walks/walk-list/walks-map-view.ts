@@ -21,13 +21,13 @@ import { MediaQueryService } from "../../../services/committee/media-query.servi
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 import {
-  MapControlsComponent,
+  MapControls,
   MapControlsConfig,
   MapControlsState
-} from "../../../shared/components/map-controls.component";
+} from "../../../shared/components/map-controls";
 import { MapControlsStateService } from "../../../shared/services/map-controls-state.service";
 import { MapRecreationService } from "../../../shared/services/map-recreation.service";
-import { MapOverlayComponent } from "../../../shared/components/map-overlay.component";
+import { MapOverlay } from "../../../shared/components/map-overlay";
 
 @Component({
   selector: "app-walks-map-view",
@@ -175,7 +175,7 @@ import { MapOverlayComponent } from "../../../shared/components/map-overlay.comp
       <div class="mt-3"></div>
     }
   `,
-  imports: [LeafletModule, FormsModule, FontAwesomeModule, MapControlsComponent, MapOverlayComponent]
+  imports: [LeafletModule, FormsModule, FontAwesomeModule, MapControls, MapOverlay]
 })
 export class WalksMapViewComponent implements OnInit, OnChanges {
   @Input() filteredWalks: DisplayedWalk[] = [];

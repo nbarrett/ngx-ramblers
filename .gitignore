@@ -48,3 +48,4 @@ Thumbs.db
 /data/mongo-scripts/
 /server/chrome/
 /server/chromedriver/
+/test-data/
