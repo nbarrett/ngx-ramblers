@@ -2,7 +2,7 @@ import { ExclusionsConfig } from "../../../projects/ngx-ramblers/src/app/models/
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 
-const debugLog = debug(envConfig.logNamespace("static-html-site-migrator"));
+const debugLog = debug(envConfig.logNamespace("text-exclusions"));
 
 export function coerceList(value: string[] | string | undefined): string[] {
   if (!value) return []
@@ -125,11 +125,11 @@ export function applyTextExclusions(text: string, cfg: ExclusionsConfig): string
   const patterns = [...coerceList(cfg.excludeTextPatterns), ...builtIns]
   let out = removeTextPatterns(text, patterns)
   out = removeHtmlComments(out)
-  out = removeHtmlTagBlocks(out, ["script", "style", "noscript"]) 
-  out = unwrapPresentationalTags(out, ["font", "center", "big", "small", "u", "s", "strike", "tt", "acronym"]) 
+  out = removeHtmlTagBlocks(out, ["script", "style", "noscript"])
+  out = unwrapPresentationalTags(out, ["font", "center", "big", "small", "u", "s", "strike", "tt", "acronym"])
   out = removeMarkdownBlocks(out, coerceBlocks(cfg.excludeMarkdownBlocks))
   out = removeExcludedImages(out, coerceList(cfg.excludeImageUrls))
-  out = removeHtmlAttributes(out, ["class", "id", "style", "align", "border", "valign", "bgcolor", "cellpadding", "cellspacing", "hspace", "vspace", "frame", "rules", "width", "height"]) 
+  out = removeHtmlAttributes(out, ["class", "id", "style", "align", "border", "valign", "bgcolor", "cellpadding", "cellspacing", "hspace", "vspace", "frame", "rules", "width", "height"])
   out = removeEventHandlerAttributes(out)
   out = removeAttributeLists(out)
   out = removeInlineCssRules(out)
@@ -164,6 +164,7 @@ export function cleanMarkdown(text: string): string {
     .replace(/\\\[/g, "[")
     .replace(/\\]/g, "]")
     .replace(/\\n/g, "\n")
+    .replace(/\u00a0/g, " ")
 }
 
 export function removeHtmlAttributes(input: string, attributes: string[]): string {

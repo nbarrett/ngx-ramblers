@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ensureModel } from "../utils/model-utils";
 
 export interface BackupSession {
   _id?: string;
@@ -67,5 +68,4 @@ const backupSessionSchema = new mongoose.Schema({
 backupSessionSchema.index({ environment: 1 });
 backupSessionSchema.index({ startTime: -1 });
 
-export const backupSession: mongoose.Model<BackupSession> =
-  mongoose.model<BackupSession>("backupSession", backupSessionSchema);
+export const backupSession: mongoose.Model<BackupSession> = ensureModel<BackupSession>("backupSession", backupSessionSchema);

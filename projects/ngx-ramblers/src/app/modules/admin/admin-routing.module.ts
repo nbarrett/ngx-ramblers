@@ -18,8 +18,8 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
         .then(m => m.AdminComponent), canActivate: [SystemHealthyGuard, AreaExistsGuard]
     },
     {
-      path: "fragment-index", loadComponent: () => import("../../pages/admin/content/fragment-index")
-        .then(m => m.FragmentIndexComponent), canActivate: [SystemHealthyGuard, AdminAuthGuard]
+      path: "content-templates", loadComponent: () => import("../../pages/admin/content/content-templates")
+        .then(m => m.ContentTemplatesComponent), canActivate: [SystemHealthyGuard, AdminAuthGuard]
     },
     {
       path: "expenses", loadComponent: () => import("../../pages/admin/expenses/expenses.component")

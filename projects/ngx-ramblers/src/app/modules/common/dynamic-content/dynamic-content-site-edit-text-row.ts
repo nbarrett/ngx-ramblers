@@ -1,9 +1,10 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import {
   faAdd,
   faArrowDown,
   faArrowsUpDown,
   faArrowUp,
+  faLayerGroup,
   faMagnifyingGlass,
   faPencil,
   faRemove
@@ -11,14 +12,19 @@ import {
 import { NgxLoggerLevel } from "ngx-logger";
 import { AwsFileData, DescribedDimensions } from "../../../models/aws-object.model";
 import {
+  ColumnContentType,
+  ColumnMappingContext,
   EditorInstanceState,
-  FragmentWithLabel,
+  EM_DASH_WITH_SPACES,
+  FragmentWithLabel, MigrationTemplateSourceType,
+  NestedRowContentSource,
   PageContent,
   PageContentColumn,
   PageContentEditEvent,
   PageContentRow,
   SplitEvent
 } from "../../../models/content-text.model";
+import { ImageMatchPattern, TextMatchPattern } from "../../../models/page-transformation.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
@@ -39,7 +45,7 @@ import { MarginSelectComponent } from "./dynamic-content-margin-select";
 import { FALLBACK_MEDIA } from "../../../models/walk.model";
 import { AspectRatioSelectorComponent } from "../../../carousel/edit/aspect-ratio-selector/aspect-ratio-selector";
 import { ImageActionsDropdownComponent } from "./image-actions-dropdown";
-import { isUndefined } from "es-toolkit/compat";
+import { isNull, isUndefined } from "es-toolkit/compat";
 import { FileUtilsService } from "../../../file-utils.service";
 import { RowTypeSelectorComponent } from "./row-type-selector";
 import { FragmentService } from "../../../services/fragment.service";
@@ -47,6 +53,8 @@ import { FragmentSelectorComponent } from "./fragment-selector.component";
 import { DynamicContentViewComponent } from "./dynamic-content-view";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { DynamicContentSiteEditMap } from "./dynamic-content-site-edit-map";
+import { AlertComponent } from "ngx-bootstrap/alert";
+import { ALERT_WARNING } from "../../../models/alert-target.model";
 
 @Component({
     selector: "app-dynamic-content-site-edit-text-row",
@@ -55,53 +63,181 @@ import { DynamicContentSiteEditMap } from "./dynamic-content-site-edit-map";
         <div [class]="actions.rowClasses(row)">
           @for (column of row?.columns; let columnIndex = $index; track columnIndex) {
             <div [class]="'col-sm-' + (focusSensitiveColumns(column))">
+              <ng-template #columnMappingControls>
+                @if (allowColumnMappings && isMigrationTemplateSelected && isMigrationTemplateSelected() && templateMappingMode && columnMapping && columnContentTypeOptions && imagePatternOptions && columnMappingFor(rowIndex, columnIndex)) {
+                  <div class="row thumbnail-heading-frame thumbnail-heading-mapping-mode">
+                    <div class="thumbnail-heading">Column Mapping</div>
+                    @if (templateSourceOptions && templateSourceOptions.length > 0) {
+                      <div class="col-md-12">
+                        <label class="form-label-sm" [for]="'col-source-' + rowIndex + '-' + columnIndex">
+                          Mapping source</label>
+                        <select class="form-select form-select-sm"
+                                [id]="'col-source-' + rowIndex + '-' + columnIndex"
+                                [ngModel]="columnMappingFor(rowIndex, columnIndex)?.sourceType || ''"
+                                (ngModelChange)="onColumnMappingSource(rowIndex, columnIndex, $event)">
+                          <option value="">Static (use template content)</option>
+                          @for (option of templateSourceOptions; track option.value) {
+                            <option [value]="option.value">{{ option.label }}</option>
+                          }
+                        </select>
+                      </div>
+                      @if (columnMappingFor(rowIndex, columnIndex)?.sourceType === MigrationTemplateSourceType.EXTRACT && templateExtractOptions && templateExtractOptions.length > 0) {
+                        <div class="col-md-12">
+                          <label class="form-label-sm" [for]="'col-text-pattern-' + rowIndex + '-' + columnIndex">
+                            Text pattern</label>
+                          <select class="form-select form-select-sm"
+                                  [id]="'col-text-pattern-' + rowIndex + '-' + columnIndex"
+                                  [ngModel]="columnMappingFor(rowIndex, columnIndex)?.textPattern || ''"
+                                  (ngModelChange)="onColumnMappingProperty(rowIndex, columnIndex, 'textPattern', $event)">
+                            <option value="">Select pattern...</option>
+                            @for (option of templateExtractOptions; track option.value) {
+                              <option [value]="option.value">{{ option.label }}</option>
+                            }
+                          </select>
+                        </div>
+                        @if (columnMappingFor(rowIndex, columnIndex)?.textPattern === TextMatchPattern.CUSTOM_REGEX) {
+                          <div class="col-md-12">
+                            <label class="form-label-sm" [for]="'col-custom-pattern-' + rowIndex + '-' + columnIndex">
+                              Custom regex</label>
+                            <input type="text" class="form-control"
+                                   [id]="'col-custom-pattern-' + rowIndex + '-' + columnIndex"
+                                   [ngModel]="columnMappingFor(rowIndex, columnIndex)?.extractPattern || ''"
+                                   (ngModelChange)="onColumnMappingProperty(rowIndex, columnIndex, 'extractPattern', $event)"
+                                   placeholder="Regex pattern">
+                          </div>
+                        }
+                      }
+                    }
+                    @if ([TextMatchPattern.TEXT_BEFORE_HEADING].includes(columnMappingFor(rowIndex, columnIndex)?.textPattern)) {
+                      <div class="col-md-12">
+                        <label class="form-label-sm" [for]="'col-heading-pattern-' + rowIndex + '-' + columnIndex">
+                          Heading pattern</label>
+                        <input type="text" class="form-control"
+                               [id]="'col-heading-pattern-' + rowIndex + '-' + columnIndex"
+                               [ngModel]="columnMappingFor(rowIndex, columnIndex)?.extractPattern || ''"
+                               (ngModelChange)="onColumnMappingProperty(rowIndex, columnIndex, 'extractPattern', $event)"
+                               placeholder="e.g., Points of Interest">
+                        <small class="form-text text-muted">Heading text to split on</small>
+                      </div>
+                    }
+                    <div class="col-12">
+                      <label class="form-label-sm" [for]="'col-content-type-' + rowIndex + '-' + columnIndex">
+                        Content Type</label>
+                      <select class="form-select form-select-sm"
+                              [id]="'col-content-type-' + rowIndex + '-' + columnIndex"
+                              [ngModel]="columnMappingFor(rowIndex, columnIndex)?.contentType || ''"
+                              (ngModelChange)="onColumnMappingProperty(rowIndex, columnIndex, 'contentType', $event)">
+                        <option value="">Select type...</option>
+                        @for (option of columnContentTypeOptions; track option.value) {
+                          <option [value]="option.value">{{ option.label }}</option>
+                        }
+                      </select>
+                    </div>
+                    @if ([ColumnContentType.IMAGE, ColumnContentType.MIXED].includes(columnMappingFor(rowIndex, columnIndex)?.contentType)) {
+                      <div class="col-md-12">
+                        <label class="form-label-sm" [for]="'col-image-pattern-' + rowIndex + '-' + columnIndex">
+                          Image Pattern</label>
+                        <select class="form-select form-select-sm"
+                                [id]="'col-image-pattern-' + rowIndex + '-' + columnIndex"
+                                [ngModel]="columnMappingFor(rowIndex, columnIndex)?.imagePattern || ''"
+                                (ngModelChange)="onColumnMappingProperty(rowIndex, columnIndex, 'imagePattern', $event)">
+                          <option value="">Select pattern...</option>
+                          @for (option of imagePatternOptions; track option.value) {
+                            <option [value]="option.value">{{ option.label }}</option>
+                          }
+                        </select>
+                      </div>
+                      @if (columnMappingFor(rowIndex, columnIndex)?.imagePattern === ImageMatchPattern.PATTERN_MATCH) {
+                        <div class="col-md-12">
+                          <label class="form-label-sm"
+                                 [for]="'col-image-pattern-value-' + rowIndex + '-' + columnIndex">
+                            Pattern Value</label>
+                          <input type="text" class="form-control"
+                                 [id]="'col-image-pattern-value-' + rowIndex + '-' + columnIndex"
+                                 [ngModel]="columnMappingFor(rowIndex, columnIndex)?.imagePatternValue || ''"
+                                 (ngModelChange)="onColumnMappingProperty(rowIndex, columnIndex, 'imagePatternValue', $event)"
+                                 placeholder="Regex or filename pattern">
+                        </div>
+                      }
+                    }
+                    @if ([ColumnContentType.IMAGE, ColumnContentType.MIXED].includes(columnMappingFor(rowIndex, columnIndex)?.contentType)) {
+                      <div class="col-12">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox"
+                                 [id]="'col-group-text-' + rowIndex + '-' + columnIndex"
+                                 [ngModel]="columnMappingFor(rowIndex, columnIndex)?.groupShortTextWithImage || false"
+                                 (ngModelChange)="onColumnMappingProperty(rowIndex, columnIndex, 'groupShortTextWithImage', $event)">
+                          <label class="form-check-label"
+                                 [for]="'col-group-text-' + rowIndex + '-' + columnIndex">
+                            Group short text following image (captions/labels)
+                          </label>
+                        </div>
+                      </div>
+                    }
+                    <div class="col-12 mt-2">
+                      <label class="form-label-sm" [for]="'col-notes-' + rowIndex + '-' + columnIndex">
+                        Documentation notes
+                        <small class="text-muted">(describe what this mapping does)</small>
+                      </label>
+                      <textarea class="form-control"
+                                [id]="'col-notes-' + rowIndex + '-' + columnIndex"
+                                rows="2"
+                                [ngModel]="columnMappingFor(rowIndex, columnIndex)?.notes || ''"
+                                (ngModelChange)="onColumnMappingProperty(rowIndex, columnIndex, 'notes', $event)"
+                                placeholder="e.g., Extracts the route/map image with caption"></textarea>
+                    </div>
+                  </div>
+                }
+              </ng-template>
               @if (!column.rows) {
                 <ng-template #rowContentEditing>
-                  <div class="row-content-editing">
-                    <div class="thumbnail-site-edit h-100 mt-2"
-                         (dragover)="onColumnDragOver($event, rowIndex, columnIndex)"
-                         (drop)="onColumnDrop($event, columnIndex)">
-                  <div class="thumbnail-heading" [attr.draggable]="true"
-                       (dragstart)="onColumnDragStart($event, rowIndex, columnIndex)"
-                       [tooltip]="actions.columnDragTooltip(rowIndex, columnIndex, isNestedLevel(), parentColumnIndex)"
-                       [isOpen]="!!actions.columnDragTooltip(rowIndex, columnIndex, isNestedLevel(), parentColumnIndex)" container="body" triggers="">
-                        Col {{ columnIndex + 1 }}
+                  <div class="thumbnail-site-edit h-100 mt-2"
+                       (dragover)="onColumnDragOver($event, rowIndex, columnIndex)"
+                       (drop)="onColumnDrop($event, columnIndex)">
+                    <div class="thumbnail-heading" [attr.draggable]="true"
+                         (dragstart)="onColumnDragStart($event, rowIndex, columnIndex)"
+                         [tooltip]="actions.columnDragTooltip(rowIndex, columnIndex, isNestedLevel(), parentColumnIndex)"
+                         [isOpen]="!!actions.columnDragTooltip(rowIndex, columnIndex, isNestedLevel(), parentColumnIndex)"
+                         container="body" triggers="">
+                      Col {{ columnIndex + 1 }}
+                      <app-badge-button noRightMargin class="ms-2"
+                                        (click)="toggleAll(column, markdownEditorComponent)"
+                                        [icon]="controlsShown(column) ? faMagnifyingGlass : faPencil"
+                                        [caption]="controlsShown(column) ? 'view' : 'Edit'"/>
+                      <app-badge-button noRightMargin class="ms-2"
+                                        (click)="actions.deleteColumn(row, columnIndex, pageContent)"
+                                        [icon]="faRemove"
+                                        [tooltip]="'Delete column'"/>
+                      @if (controlsShown(column) && !isNarrow(column) && canJoinWithPreviousRow()) {
                         <app-badge-button noRightMargin class="ms-2"
-                                          (click)="toggleAll(column, markdownEditorComponent)"
-                                          [icon]="controlsShown(column) ? faMagnifyingGlass : faPencil"
-                                          [caption]="controlsShown(column) ? 'view' : 'Edit'"/>
+                                          (click)="joinWithPreviousRow()"
+                                          [icon]="faArrowUp"
+                                          [tooltip]="'Join with row above'"/>
+                      }
+                      @if (controlsShown(column) && !isNarrow(column) && canJoinWithNextRow()) {
                         <app-badge-button noRightMargin class="ms-2"
-                                          (click)="actions.deleteColumn(row, columnIndex, pageContent)"
-                                          [icon]="faRemove"
-                                          [tooltip]="'Delete column'"/>
-                        @if (controlsShown(column) && !isNarrow(column) && canJoinWithPreviousRow()) {
-                          <app-badge-button noRightMargin class="ms-2"
-                                            (click)="joinWithPreviousRow()"
-                                            [icon]="faArrowUp"
-                                            [tooltip]="'Join with row above'"/>
-                        }
-                        @if (controlsShown(column) && !isNarrow(column) && canJoinWithNextRow()) {
-                          <app-badge-button noRightMargin class="ms-2"
-                                            (click)="joinWithNextRow()"
-                                            [icon]="faArrowDown"
-                                            [tooltip]="'Join with row below'"/>
-                        }
-                        @if (controlsShown(column) && !isNarrow(column)) {
-                          <span class="ms-2 d-inline-flex align-items-center gap-2">
-                        <app-image-actions-dropdown [fullWidth]="false" [hasImage]="!!column.imageSource"
-                                                    (edit)="editImage(rowIndex, columnIndex)"
-                                                    (replace)="replaceImage(column, rowIndex, columnIndex)"
-                                                    (remove)="removeImage(column)"/>
-                        <app-actions-dropdown [columnIndex]="columnIndex" [rowIndex]="rowIndex"
-                                              [pageContent]="pageContent" [column]="column" [row]="row"
-                                              [fullWidth]="false" [showRowActions]="false"/>
-                      </span>
-                        }
-                        <span class="drag-handle ms-2 float-end" [attr.draggable]="true"
-                              (dragstart)="onColumnDragStart($event, rowIndex, columnIndex)">
-                      <fa-icon [icon]="faArrowsUpDown"/>
+                                          (click)="joinWithNextRow()"
+                                          [icon]="faArrowDown"
+                                          [tooltip]="'Join with row below'"/>
+                      }
+                      @if (controlsShown(column) && !isNarrow(column)) {
+                        <span class="ms-2 d-inline-flex align-items-center gap-2">
+                      <app-image-actions-dropdown [fullWidth]="false" [hasImage]="!!column.imageSource"
+                                                  (edit)="editImage(rowIndex, columnIndex)"
+                                                  (replace)="replaceImage(column, rowIndex, columnIndex)"
+                                                  (remove)="removeImage(column)"/>
+                      <app-actions-dropdown [columnIndex]="columnIndex" [rowIndex]="rowIndex"
+                                            [pageContent]="pageContent" [column]="column" [row]="row"
+                                            [fullWidth]="false" [showRowActions]="false"/>
                     </span>
-                      </div>
+                      }
+                      <span class="drag-handle ms-2 float-end" [attr.draggable]="true"
+                            (dragstart)="onColumnDragStart($event, rowIndex, columnIndex)">
+                    <fa-icon [icon]="faArrowsUpDown"/>
+                  </span>
+                    </div>
+                    <ng-container [ngTemplateOutlet]="columnMappingControls"></ng-container>
+                    <div class="row-content-editing">
                       @if (editActive(rowIndex, columnIndex)) {
                         <div class="mt-2">
                           <app-image-cropper-and-resizer
@@ -114,21 +250,24 @@ import { DynamicContentSiteEditMap } from "./dynamic-content-site-edit-map";
                         </div>
                       }
                       <ng-template #imageSourceControl>
-                        <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'name')">Image Source</label>
+                        <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'name')">
+                          Image Source</label>
                         <input [(ngModel)]="column.imageSource"
                                (paste)="onImageSourcePaste($event, rowIndex, columnIndex)"
                                [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'name')"
                                type="text" class="form-control">
                       </ng-template>
                       <ng-template #imageAltControl>
-                        <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-alt')">Alt Text</label>
+                        <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-alt')">
+                          Alt Text</label>
                         <input [(ngModel)]="column.alt"
                                [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-alt')"
                                type="text" class="form-control"
                                placeholder="Describe image for accessibility">
                       </ng-template>
                       <ng-template #imageBorderRadiusControl let-styleAttr="style">
-                        <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')">Border Radius</label>
+                        <label [for]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')">
+                          Border Radius</label>
                         <input [(ngModel)]="column.imageBorderRadius"
                                [id]="actions.rowColumnIdentifierFor(rowIndex,columnIndex,'image-border-radius')"
                                type="number" class="form-control" [style.max-width]="styleAttr">
@@ -177,63 +316,63 @@ import { DynamicContentSiteEditMap } from "./dynamic-content-site-edit-map";
                         @if (imageDisplay(rowIndex, columnIndex, column).showAfter) {
                           <ng-container [ngTemplateOutlet]="cardImageBlock"></ng-container>
                         }
-                    </div>
-                    <ng-template #placeholderToggle>
-                      <div class="form-check form-check-inline mb-0">
-                        <input [name]="getUniqueCheckboxId('show-placeholder-image')" type="checkbox"
-                               class="form-check-input"
-                               [id]="getUniqueCheckboxId('show-placeholder-image')"
-                               [checked]="column.showPlaceholderImage"
-                               (change)="onShowPlaceholderImageChanged($event, column)">
-                        <label class="form-check-label" [for]="getUniqueCheckboxId('show-placeholder-image')">Show
-                          Placeholder Image</label>
                       </div>
-                    </ng-template>
-                    @if (controlsShown(column)) {
+                      <ng-template #placeholderToggle>
+                        <div class="form-check form-check-inline mb-0">
+                          <input [name]="getUniqueCheckboxId('show-placeholder-image')" type="checkbox"
+                                 class="form-check-input"
+                                 [id]="getUniqueCheckboxId('show-placeholder-image')"
+                                 [checked]="column.showPlaceholderImage"
+                                 (change)="onShowPlaceholderImageChanged($event, column)">
+                          <label class="form-check-label" [for]="getUniqueCheckboxId('show-placeholder-image')">
+                            Show Placeholder Image</label>
+                        </div>
+                      </ng-template>
+                      @if (controlsShown(column)) {
                         <div class="form-group mt-2">
                           <div class="form-check form-check-inline mb-0 me-4">
                             <input [name]="getUniqueCheckboxId('show-text-after-image')"
                                    type="checkbox" class="form-check-input"
                                    [id]="getUniqueCheckboxId('show-text-after-image')"
                                    [(ngModel)]="column.showTextAfterImage">
-                            <label class="form-check-label" [for]="getUniqueCheckboxId('show-text-after-image')">Text
-                              After
-                              Image</label>
+                            <label class="form-check-label" [for]="getUniqueCheckboxId('show-text-after-image')">
+                              Text After Image</label>
                           </div>
                           @if (!column.imageSource && !isNarrow(column)) {
                             <ng-container [ngTemplateOutlet]="placeholderToggle"></ng-container>
                           }
                         </div>
                       }
-                    @if (controlsShown(column)) {
-                      @if (isNarrow(column)) {
-                        <div class="row mt-2">
-                          <div class="col-sm-12">
-                            <ng-container [ngTemplateOutlet]="imageSourceControl"></ng-container>
+                      @if (controlsShown(column)) {
+                        @if (isNarrow(column)) {
+                          <div class="row mt-2">
+                            <div class="col-sm-12">
+                              <ng-container [ngTemplateOutlet]="imageSourceControl"></ng-container>
+                            </div>
+                            <div class="col-sm-12">
+                              <ng-container [ngTemplateOutlet]="imageAltControl"></ng-container>
+                            </div>
+                            <div class="col-sm-12">
+                              <ng-container [ngTemplateOutlet]="imageBorderRadiusControl"></ng-container>
+                            </div>
                           </div>
-                          <div class="col-sm-12">
-                            <ng-container [ngTemplateOutlet]="imageAltControl"></ng-container>
+                        } @else {
+                          <div class="row mt-2">
+                            <div class="col-12">
+                              <ng-container [ngTemplateOutlet]="imageSourceControl"></ng-container>
+                            </div>
                           </div>
-                          <div class="col-sm-12">
-                            <ng-container [ngTemplateOutlet]="imageBorderRadiusControl"></ng-container>
+                          <div class="row mt-2">
+                            <div class="col">
+                              <ng-container [ngTemplateOutlet]="imageAltControl"></ng-container>
+                            </div>
+                            <div class="col-auto">
+                              <ng-container [ngTemplateOutlet]="imageBorderRadiusControl"
+                                            [ngTemplateOutletContext]="{style: '140px'}"></ng-container>
+                            </div>
                           </div>
-                        </div>
-                      } @else {
-                        <div class="row mt-2">
-                          <div class="col-12">
-                            <ng-container [ngTemplateOutlet]="imageSourceControl"></ng-container>
-                          </div>
-                        </div>
-                        <div class="row mt-2">
-                          <div class="col">
-                            <ng-container [ngTemplateOutlet]="imageAltControl"></ng-container>
-                          </div>
-                          <div class="col-auto">
-                            <ng-container [ngTemplateOutlet]="imageBorderRadiusControl" [ngTemplateOutletContext]="{style: '140px'}"></ng-container>
-                          </div>
-                        </div>
+                        }
                       }
-                    }
                       @if (controlsShown(column)) {
                         @if (!column.imageSource && isNarrow(column)) {
                           <div class="form-group">
@@ -292,12 +431,13 @@ import { DynamicContentSiteEditMap } from "./dynamic-content-site-edit-map";
                   <div class="column-nested-rows">
                     <div class="thumbnail-site-edit" (dragover)="onColumnDragOver($event, rowIndex, columnIndex)"
                          (drop)="onColumnDrop($event, columnIndex)">
-                  <div class="thumbnail-heading" [attr.draggable]="true"
-                       (dragstart)="onColumnDragStart($event, rowIndex, columnIndex)"
-                       [tooltip]="actions.columnDragTooltip(rowIndex, columnIndex, isNestedLevel(), parentColumnIndex)"
-                       [isOpen]="!!actions.columnDragTooltip(rowIndex, columnIndex, isNestedLevel(), parentColumnIndex)" container="body" triggers="">
-                        Row {{ rowIndex + 1 }} column {{ columnIndex + 1 }}
-                        ({{ stringUtils.pluraliseWithCount(column.rows?.length, 'nested row') }})
+                      <div class="thumbnail-heading" [attr.draggable]="true"
+                           (dragstart)="onColumnDragStart($event, rowIndex, columnIndex)"
+                           [tooltip]="actions.columnDragTooltip(rowIndex, columnIndex, isNestedLevel(), parentColumnIndex)"
+                           [isOpen]="!!actions.columnDragTooltip(rowIndex, columnIndex, isNestedLevel(), parentColumnIndex)"
+                           container="body"
+                           triggers="">
+                        {{ actions.nestedRowHeading(rowIndex, columnIndex, column.rows?.length) }}
                         <span class="drag-handle ms-2 float-end" [attr.draggable]="true"
                               (dragstart)="onColumnDragStart($event, rowIndex, columnIndex)">
                       <fa-icon [icon]="faArrowsUpDown"/>
@@ -314,6 +454,141 @@ import { DynamicContentSiteEditMap } from "./dynamic-content-site-edit-map";
                           <app-column-width [column]="column" (expandToggle)="expanded=$event"/>
                         </div>
                       </div>
+                      <ng-container [ngTemplateOutlet]="columnMappingControls"></ng-container>
+                      @if (allowColumnMappings && column.rows && column.rows.length > 0 && isMigrationTemplateSelected && isMigrationTemplateSelected() && templateMappingMode && columnMapping) {
+                        <div class="row thumbnail-heading-frame thumbnail-heading-mapping-mode">
+                          <div class="thumbnail-heading">Nested Rows Configuration</div>
+                          @if (columnMappingFor(rowIndex, columnIndex)?.sourceType === MigrationTemplateSourceType.EXTRACT) {
+                              <div class="row">
+                                <div class="col-md-12">
+                                  <label class="form-label-sm" [for]="'col-packing-' + rowIndex + '-' + columnIndex">
+                                    Packing behavior</label>
+                                  <select class="form-select form-select-sm"
+                                          [id]="'col-packing-' + rowIndex + '-' + columnIndex"
+                                          [ngModel]="columnMappingFor(rowIndex, columnIndex)?.nestedRowMapping?.packingBehavior || ''"
+                                          (ngModelChange)="onNestedRowMappingUpdate(rowIndex, columnIndex, {packingBehavior: $event})">
+                                    <option value="">Select behavior...</option>
+                                    <option value="one-per-item">One row per item</option>
+                                    <option value="all-in-one">All in one row</option>
+                                    <option value="collect-with-breaks">Collect with breaks</option>
+                                  </select>
+                                  <small class="form-text text-muted">How to distribute content across nested
+                                    rows</small>
+                                </div>
+                                <div class="col-md-12">
+                                  <label class="form-label-sm"
+                                         [for]="'col-content-source-' + rowIndex + '-' + columnIndex">
+                                    Content type</label>
+                                  <select class="form-select form-select-sm"
+                                          [id]="'col-content-source-' + rowIndex + '-' + columnIndex"
+                                          [ngModel]="columnMappingFor(rowIndex, columnIndex)?.nestedRowMapping?.contentSource || ''"
+                                          (ngModelChange)="onNestedRowMappingUpdate(rowIndex, columnIndex, {contentSource: $event})">
+                                    <option value="">Select source...</option>
+                                    <option value="remaining-images">Remaining images</option>
+                                    <option value="remaining-text">Remaining text</option>
+                                    <option value="all-content">All content</option>
+                                    <option value="all-images">All images</option>
+                                    <option value="pattern-match">Pattern match</option>
+                                  </select>
+                                  <small class="form-text text-muted">What content to extract from source page</small>
+                                </div>
+                                @if (columnMappingFor(rowIndex, columnIndex)?.nestedRowMapping?.contentSource === NestedRowContentSource.PATTERN_MATCH) {
+                                  @if (templateExtractOptions?.length) {
+                                    <div class="col-12">
+                                      <label class="form-label-sm"
+                                             [for]="'col-pattern-' + rowIndex + '-' + columnIndex">
+                                        Text pattern</label>
+                                      <select class="form-select form-select-sm"
+                                              [id]="'col-pattern-' + rowIndex + '-' + columnIndex"
+                                              [ngModel]="columnMappingFor(rowIndex, columnIndex)?.nestedRowMapping?.textPattern || ''"
+                                              (ngModelChange)="onNestedRowMappingUpdate(rowIndex, columnIndex, {textPattern: $event})">
+                                        <option value="">Select pattern...</option>
+                                        @for (option of templateExtractOptions; track option.value) {
+                                          <option [value]="option.value">{{ option.label }}</option>
+                                        }
+                                      </select>
+                                      <small class="form-text text-muted">Choose how to split narrative text</small>
+                                    </div>
+                                  } @else {
+                                    <div class="col-12">
+                                      <label class="form-label-sm"
+                                             [for]="'col-pattern-' + rowIndex + '-' + columnIndex">
+                                        Pattern</label>
+                                      <input type="text" class="form-control"
+                                             [id]="'col-pattern-' + rowIndex + '-' + columnIndex"
+                                             [ngModel]="columnMappingFor(rowIndex, columnIndex)?.nestedRowMapping?.textPattern || ''"
+                                             (ngModelChange)="onNestedRowMappingUpdate(rowIndex, columnIndex, {textPattern: $event})"
+                                             placeholder="Regex pattern">
+                                      <small class="form-text text-muted">Regular expression to match content</small>
+                                    </div>
+                                  }
+                                  @if (columnMappingFor(rowIndex, columnIndex)?.nestedRowMapping?.textPattern === TextMatchPattern.CUSTOM_REGEX) {
+                                    <div class="col-12">
+                                      <label class="form-label-sm"
+                                             [for]="'col-custom-pattern-' + rowIndex + '-' + columnIndex">
+                                        Custom regex</label>
+                                      <input type="text" class="form-control"
+                                             [id]="'col-custom-pattern-' + rowIndex + '-' + columnIndex"
+                                             [ngModel]="columnMappingFor(rowIndex, columnIndex)?.nestedRowMapping?.customTextPattern || ''"
+                                             (ngModelChange)="onNestedRowMappingUpdate(rowIndex, columnIndex, {customTextPattern: $event})"
+                                             placeholder="Regex pattern">
+                                      <small class="form-text text-muted">Regular expression applied to source text</small>
+                                    </div>
+                                  }
+                                  @if ([TextMatchPattern.TEXT_BEFORE_HEADING, TextMatchPattern.TEXT_FROM_HEADING, TextMatchPattern.HEADING_UNTIL_NEXT_HEADING, TextMatchPattern.FIRST_HEADING_AND_CONTENT].includes(columnMappingFor(rowIndex, columnIndex)?.nestedRowMapping?.textPattern)) {
+                                    <div class="col-12">
+                                      <label class="form-label-sm"
+                                             [for]="'col-heading-pattern-' + rowIndex + '-' + columnIndex">
+                                        Heading pattern</label>
+                                      <input type="text" class="form-control"
+                                             [id]="'col-heading-pattern-' + rowIndex + '-' + columnIndex"
+                                             [ngModel]="columnMappingFor(rowIndex, columnIndex)?.nestedRowMapping?.headingPattern || ''"
+                                             (ngModelChange)="onNestedRowMappingUpdate(rowIndex, columnIndex, {headingPattern: $event})"
+                                             placeholder="e.g., Points of Interest">
+                                      <small class="form-text text-muted">Heading text to split on</small>
+                                    </div>
+                                  }
+                                }
+                                @if ([NestedRowContentSource.REMAINING_IMAGES, NestedRowContentSource.ALL_IMAGES].includes(columnMappingFor(rowIndex, columnIndex)?.nestedRowMapping?.contentSource)) {
+                                  <div class="col-12">
+                                    <div class="form-check">
+                                      <input class="form-check-input"
+                                             type="checkbox"
+                                             [id]="'col-group-text-' + rowIndex + '-' + columnIndex"
+                                             [ngModel]="columnMappingFor(rowIndex, columnIndex)?.nestedRowMapping?.groupTextWithImage || false"
+                                             (ngModelChange)="onNestedRowMappingUpdate(rowIndex, columnIndex, {groupTextWithImage: $event})">
+                                      <label class="form-check-label"
+                                             [for]="'col-group-text-' + rowIndex + '-' + columnIndex">
+                                        Group short text with image
+                                      </label>
+                                    </div>
+                                    <small class="form-text text-muted">When enabled, nearby short text (< 100 chars)
+                                      will be associated with images as captions</small>
+                                  </div>
+                                }
+                                <div class="col-12 mt-2">
+                                  <label class="form-label-sm" [for]="'col-notes-nested-' + rowIndex + '-' + columnIndex">
+                                    Documentation notes
+                                    <small class="text-muted">(describe what this nested row mapping does)</small>
+                                  </label>
+                                  <textarea class="form-control"
+                                            [id]="'col-notes-nested-' + rowIndex + '-' + columnIndex"
+                                            rows="2"
+                                            [ngModel]="columnMappingFor(rowIndex, columnIndex)?.notes || ''"
+                                            (ngModelChange)="onColumnMappingProperty(rowIndex, columnIndex, 'notes', $event)"
+                                            placeholder="e.g., Points-of-interest sidebar with remaining images"></textarea>
+                                </div>
+                              </div>
+                          } @else {
+                            <alert type="warning" class="flex-grow-1">
+                              <fa-icon [icon]="ALERT_WARNING.icon"/>
+                              <strong class="ms-2">Mapping Source{{ EM_DASH_WITH_SPACES }}</strong>
+                              <span class="ms-1">Switch to "Extract from source content" to enable dynamic nested row generation</span>
+                            </alert>
+                          }
+                        </div>
+
+                      }
                       @for (nestedRow of column.rows; track nestedRow; let nestedRowIndex = $index) {
                         <div class="thumbnail-site-edit mt-3"
                              (dragover)="onNestedRowDragOver(columnIndex, nestedRowIndex, $event)"
@@ -324,49 +599,55 @@ import { DynamicContentSiteEditMap } from "./dynamic-content-site-edit-map";
                                [tooltip]="actions.nestedRowDragTooltip(columnIndex, nestedRowIndex)"
                                [isOpen]="!!actions.nestedRowDragTooltip(columnIndex, nestedRowIndex)" container="body"
                                triggers="">
-                            Row {{ rowIndex + 1 }} (nested row {{ nestedRowIndex + 1 }}
-                            column {{ columnIndex + 1 }}
-                            ({{ stringUtils.pluraliseWithCount(nestedRow?.columns.length, 'column') }}))
+                            {{actions.nestedRowDescription(nestedRowIndex, columnIndex, nestedRow?.columns?.length)}}
                             <app-badge-button class="ms-2"
                                               (click)="actions.deleteRow(pageContent, nestedRowIndex, true, column)"
                                               [icon]="faRemove"
                                               [tooltip]="'Delete nested row'"/>
+                            @if (showPlaceholderToggle(columnIndex)) {
+                              <app-badge-button class="ms-2"
+                                                [active]="nestedRow.migrationPlaceholder"
+                                                [icon]="faLayerGroup"
+                                                [caption]="nestedRow.migrationPlaceholder ? 'Dynamic target' : 'Use as dynamic target'"
+                                                [tooltip]="placeholderTooltip(nestedRow)"
+                                                (click)="togglePlaceholder(nestedRow)"/>
+                            }
                             <span class="drag-handle ms-2 float-end" [attr.draggable]="true"
                                   (dragstart)="onNestedRowDragStart(columnIndex, nestedRowIndex)">
                           <fa-icon [icon]="faArrowsUpDown"/>
                         </span>
                           </div>
-                      <div class="row align-items-end mb-3">
-                        <div [ngClass]="column.columns >= 6 || expanded ? 'col' : 'col-sm-12'">
-                          <app-row-type-selector
-                            [row]="nestedRow"
-                            [rowIndex]="nestedRowIndex"
-                            [contentPath]="contentPath"
-                            (typeChange)="onNestedRowTypeChange(nestedRow)"/>
-                        </div>
-                        <div [ngClass]="column.columns >= 6 || expanded ? 'col' : 'col-sm-12'">
-                          <app-margin-select label="Margin Top"
-                                             [data]="nestedRow"
-                                             field="marginTop"/>
-                        </div>
-                        <div [ngClass]="column.columns >= 6 || expanded ? 'col' : 'col-sm-12'">
-                          <app-margin-select label="Margin Bottom"
-                                             [data]="nestedRow"
-                                             field="marginBottom"/>
-                        </div>
-                        <div [ngClass]="column.columns >= 6 || expanded ? 'col-auto' : 'col-sm-12 mt-3'">
-                          <app-actions-dropdown [rowIndex]="nestedRowIndex" fullWidth
-                                                [pageContent]="pageContent"
-                                                [rowIsNested]="true"
-                                                [column]="column"
-                                                [row]="nestedRow"/>
-                        </div>
-                      </div>
+                          <div class="row align-items-end mb-3">
+                            <div [ngClass]="column.columns >= 6 || expanded ? 'col' : 'col-sm-12'">
+                              <app-row-type-selector
+                                [row]="nestedRow"
+                                [rowIndex]="nestedRowIndex"
+                                [contentPath]="contentPath"
+                                (typeChange)="onNestedRowTypeChange(nestedRow)"/>
+                            </div>
+                            <div [ngClass]="column.columns >= 6 || expanded ? 'col' : 'col-sm-12'">
+                              <app-margin-select label="Margin Top"
+                                                 [data]="nestedRow"
+                                                 field="marginTop"/>
+                            </div>
+                            <div [ngClass]="column.columns >= 6 || expanded ? 'col' : 'col-sm-12'">
+                              <app-margin-select label="Margin Bottom"
+                                                 [data]="nestedRow"
+                                                 field="marginBottom"/>
+                            </div>
+                            <div [ngClass]="column.columns >= 6 || expanded ? 'col-auto' : 'col-sm-12 mt-3'">
+                              <app-actions-dropdown [rowIndex]="nestedRowIndex" fullWidth
+                                                    [pageContent]="pageContent"
+                                                    [rowIsNested]="true"
+                                                    [column]="column"
+                                                    [row]="nestedRow"/>
+                            </div>
+                          </div>
                           @if (actions.isSharedFragment(nestedRow)) {
                             <div class="row mt-2">
                               <div class="col-12">
-                                <label [for]="'nested-shared-fragment-path-' + rowIndex + '-' + nestedRowIndex">Shared
-                                  Fragment</label>
+                                <label [for]="'nested-shared-fragment-path-' + rowIndex + '-' + nestedRowIndex">
+                                  Shared Fragment</label>
                                 <app-fragment-selector
                                   [elementId]="'nested-shared-fragment-path-' + rowIndex + '-' + nestedRowIndex"
                                   [selectedFragment]="selectedFragmentForRow(nestedRow)"
@@ -391,12 +672,25 @@ import { DynamicContentSiteEditMap } from "./dynamic-content-site-edit-map";
                           }
                           <app-dynamic-content-site-edit-text-row
                             [row]="nestedRow"
+                            [rootRowIndex]="rootRowIndex ?? rowIndex"
+                            [rootColumnIndex]="!isUndefined(rootColumnIndex) ? rootColumnIndex : columnIndex"
                             [parentRowIndex]="rowIndex"
                             [parentColumnIndex]="columnIndex"
                             [rowIndex]="nestedRowIndex"
                             [contentDescription]="contentDescription"
                             [contentPath]="contentPath"
-                            [pageContent]="pageContent"/>
+                            [pageContent]="pageContent"
+                            [isMigrationTemplateSelected]="isMigrationTemplateSelected"
+                            [templateMappingMode]="templateMappingMode"
+                            [columnMapping]="columnMapping"
+                            (columnMappingSourceChange)="columnMappingSourceChange.emit($event)"
+                            (columnNestedRowMappingUpdate)="columnNestedRowMappingUpdate.emit($event)"
+                            (columnMappingPropertyUpdate)="columnMappingPropertyUpdate.emit($event)"
+                            [columnContentTypeOptions]="columnContentTypeOptions"
+                            [imagePatternOptions]="imagePatternOptions"
+                            [templateSourceOptions]="templateSourceOptions"
+                            [templateExtractOptions]="templateExtractOptions"
+                            [allowColumnMappings]="allowColumnMappings"/>
                           @if (actions.isMap(nestedRow)) {
                             <app-dynamic-content-site-edit-map
                               [row]="nestedRow"
@@ -426,7 +720,7 @@ import { DynamicContentSiteEditMap } from "./dynamic-content-site-edit-map";
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-  imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap]
+  imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap, AlertComponent]
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
@@ -448,6 +742,10 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   @Input()
   public parentColumnIndex: number;
   @Input()
+  public rootRowIndex?: number;
+  @Input()
+  public rootColumnIndex?: number;
+  @Input()
   public rowIndex: number;
   @Input()
   public contentDescription: string;
@@ -455,8 +753,32 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   public contentPath: string;
   @Input()
   public pageContent: PageContent;
+  @Input()
+  public isMigrationTemplateSelected?: () => boolean;
+  @Input()
+  public templateMappingMode?: boolean;
+  @Input()
+  public columnMapping?: (rowIndex: number, columnIndex: number, nestedRowIndex?: number, nestedColumnIndex?: number) => any;
+  @Input()
+  public columnContentTypeOptions?: {value: string; label: string}[];
+  @Input()
+  public imagePatternOptions?: {value: string; label: string}[];
+  @Input()
+  public templateSourceOptions?: {value: string; label: string}[];
+  @Input()
+  public templateExtractOptions?: {value: string; label: string}[];
+  @Input()
+  public allowColumnMappings = true;
+
+  @Output()
+  public columnMappingSourceChange = new EventEmitter<ColumnMappingContext & {value: any}>();
+  @Output()
+  public columnNestedRowMappingUpdate = new EventEmitter<ColumnMappingContext & {updates: any}>();
+  @Output()
+  public columnMappingPropertyUpdate = new EventEmitter<ColumnMappingContext & {key: string; value: any}>();
   faPencil = faPencil;
   faAdd = faAdd;
+  faLayerGroup = faLayerGroup;
   public pageContentEditEvents: PageContentEditEvent[] = [];
   private uniqueCheckboxId: string;
   private controlsVisible = new WeakMap<PageContentColumn, boolean>();
@@ -466,10 +788,55 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   protected readonly faArrowsUpDown = faArrowsUpDown;
   protected readonly faMagnifyingGlass = faMagnifyingGlass;
 
+  protected readonly ALERT_WARNING = ALERT_WARNING;
+  protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
+
+  protected readonly TextMatchPattern = TextMatchPattern;
+  protected readonly ColumnContentType = ColumnContentType;
+  protected readonly ImageMatchPattern = ImageMatchPattern;
+  protected readonly NestedRowContentSource = NestedRowContentSource;
+
   ngOnInit() {
     this.uniqueCheckboxId = `text-row-${this.numberUtils.generateUid()}`;
     this.logger.info("ngOnInit called for", this.row, "containing", this.stringUtils.pluraliseWithCount(this.row?.columns.length, "column"));
     this.loadNestedFragments();
+  }
+
+  columnMappingFor(rowIndex: number, columnIndex: number) {
+    if (!this.columnMapping) {
+      return undefined;
+    }
+    const context = this.mappingContext(rowIndex, columnIndex);
+    return this.columnMapping(context.rowIndex, context.columnIndex, context.nestedRowIndex, context.nestedColumnIndex);
+  }
+
+  onColumnMappingSource(rowIndex: number, columnIndex: number, value: any) {
+    const context = this.mappingContext(rowIndex, columnIndex);
+    this.columnMappingSourceChange.emit({...context, value});
+  }
+
+  onColumnMappingProperty(rowIndex: number, columnIndex: number, key: string, value: any) {
+    const context = this.mappingContext(rowIndex, columnIndex);
+    this.columnMappingPropertyUpdate.emit({...context, key, value});
+  }
+
+  onNestedRowMappingUpdate(rowIndex: number, columnIndex: number, updates: any) {
+    const context = this.mappingContext(rowIndex, columnIndex);
+    this.columnNestedRowMappingUpdate.emit({...context, updates});
+  }
+
+  private mappingContext(rowIndex: number, columnIndex: number): ColumnMappingContext {
+    const resolvedRowIndex = this.rootRowIndex ?? this.parentRowIndex ?? rowIndex;
+    if (isUndefined(this.parentColumnIndex) || isNull(this.parentColumnIndex)) {
+      return {rowIndex: resolvedRowIndex, columnIndex};
+    }
+    const resolvedColumnIndex = this.rootColumnIndex ?? this.parentColumnIndex;
+    return {
+      rowIndex: resolvedRowIndex,
+      columnIndex: resolvedColumnIndex,
+      nestedRowIndex: this.rowIndex,
+      nestedColumnIndex: columnIndex
+    };
   }
 
   private async loadNestedFragments() {
@@ -595,6 +962,25 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     }
   }
 
+  showPlaceholderToggle(columnIndex: number): boolean {
+    if (!this.isMigrationTemplateSelected || !this.columnMapping || !this.templateMappingMode) {
+      return false;
+    }
+    if (!this.isMigrationTemplateSelected()) {
+      return false;
+    }
+    const mapping = this.columnMappingFor(this.rowIndex, columnIndex);
+    return mapping?.sourceType === "extract";
+  }
+
+  togglePlaceholder(row: PageContentRow) {
+    row.migrationPlaceholder = !row.migrationPlaceholder;
+  }
+
+  placeholderTooltip(row: PageContentRow): string {
+    return row.migrationPlaceholder ? "Dynamic content will replace this nested row during migration" : "Use this nested row as the template for generated content";
+  }
+
   allowDrop($event: DragEvent) { $event.preventDefault(); }
 
   onColumnDragStart(event: DragEvent, rowIndex: number, columnIndex: number) {
@@ -627,7 +1013,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     const sourceColumnIndex = this.actions.draggedColumnIndex;
     const sourceRow = this.actions.draggedColumnSourceRow;
     const targetRow = this.row;
-    if (sourceRow === null || sourceColumnIndex === null) { return; }
+    if (isNull(sourceRow) || isNull(sourceColumnIndex)) { return; }
     const insertAfter = this.actions.dragInsertAfter && this.actions.dragOverColumnRowIndex === this.rowIndex && this.actions.dragOverColumnIndex === targetColumnIndex;
     let insertionIndex = targetColumnIndex + (insertAfter ? 1 : 0);
     if (sourceRow === targetRow && sourceColumnIndex === targetColumnIndex && !insertAfter) {
@@ -649,7 +1035,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     const sourceColumnIndex = this.actions.draggedColumnIndex;
     const sourceRow = this.actions.draggedColumnSourceRow;
     const targetRow = this.row;
-    if (sourceRow === null || sourceColumnIndex === null) { return; }
+    if (isNull(sourceRow) || isNull(sourceColumnIndex)) { return; }
     this.actions.moveColumnToEmptyRow(sourceRow, sourceColumnIndex, targetRow, this.pageContent);
     this.actions.clearColumnDragState();
   }
@@ -683,8 +1069,8 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
 
 
-  private isNestedLevel(): boolean {
-    return this.parentRowIndex !== undefined && this.parentRowIndex !== null;
+  public isNestedLevel(): boolean {
+    return !isUndefined(this.parentRowIndex) && !isNull(this.parentRowIndex);
   }
 
   onNestedRowDragStart(columnIndex: number, nestedRowIndex: number) {
@@ -695,7 +1081,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   onNestedRowDrop(targetColumnIndex: number, targetNestedRowIndex: number) {
     const sourceColumnIndex = this.actions.draggedNestedColumnIndex;
     const sourceNestedRowIndex = this.actions.draggedNestedRowIndex;
-    if (sourceColumnIndex === null || sourceNestedRowIndex === null) { return; }
+    if (isNull(sourceColumnIndex) || isNull(sourceNestedRowIndex)) { return; }
     if (sourceColumnIndex === targetColumnIndex && sourceNestedRowIndex === targetNestedRowIndex) {
       this.actions.clearNestedRowDragState();
       return;
@@ -749,7 +1135,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     }
 
     const rowsToInsert: PageContentRow[] = [];
-    if (splitData.textAfter !== undefined) {
+    if (!isUndefined(splitData.textAfter)) {
       rowsToInsert.push(this.createRowFromSplitRow({text: splitData.textAfter}));
     }
     if (splitData.additionalRows && splitData.additionalRows.length > 0) {
@@ -800,13 +1186,13 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     const newRow: PageContentRow = this.actions.defaultRowFor("text");
     const newColumn = newRow.columns && newRow.columns.length > 0 ? newRow.columns[0] : null;
     if (newColumn) {
-      if (rowData.text !== undefined) {
+      if (!isUndefined(rowData.text)) {
         newColumn.contentText = rowData.text;
       }
-      if (rowData.imageSource !== undefined) {
+      if (!isUndefined(rowData.imageSource)) {
         newColumn.imageSource = rowData.imageSource;
       }
-      if (rowData.alt !== undefined) {
+      if (!isUndefined(rowData.alt)) {
         newColumn.alt = rowData.alt;
       }
     }
@@ -816,7 +1202,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
   private processRowInsert(rowsToInsert: PageContentRow[], rowIndex: number, columnIndex: number, userChoice: boolean | undefined, column: PageContentColumn) {
     const parentRowHasMultipleColumns = (this.row.columns?.length || 0) > 1;
-    const createNestedRows = userChoice !== undefined ? userChoice : parentRowHasMultipleColumns;
+    const createNestedRows = !isUndefined(userChoice) ? userChoice : parentRowHasMultipleColumns;
     this.logger.info("Parent row has", this.row.columns?.length, "columns, userChoice:", userChoice, "createNestedRows:", createNestedRows);
     if (createNestedRows) {
       this.logger.info("Creating nested rows in column", columnIndex, "count:", rowsToInsert.length);
@@ -836,7 +1222,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
       return;
     }
 
-    const isNestedRow = this.parentRowIndex !== undefined && this.parentRowIndex !== null;
+    const isNestedRow = !isUndefined(this.parentRowIndex) && !isNull(this.parentRowIndex);
     this.logger.info("insertRowsAfterCurrent: isNestedRow:", isNestedRow, "parentRowIndex:", this.parentRowIndex, "rowIndex:", rowIndex, "rowsToInsert.length:", rowsToInsert.length);
     this.logger.info("this.row:", this.row);
 
@@ -959,4 +1345,6 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     const parentRow = this.pageContent.rows[this.parentRowIndex];
     return parentRow?.columns?.find(col => col.rows && col.rows.includes(this.row));
   }
+
+  protected readonly MigrationTemplateSourceType = MigrationTemplateSourceType;
 }

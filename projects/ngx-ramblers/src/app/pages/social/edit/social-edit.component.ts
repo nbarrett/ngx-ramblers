@@ -1,8 +1,7 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { faCopy, faEye, faPencil } from "@fortawesome/free-solid-svg-icons";
-import { cloneDeep } from "es-toolkit/compat";
-import { first } from "es-toolkit/compat";
+import { cloneDeep, first, isNull, isString } from "es-toolkit/compat";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import { BsModalService } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -40,7 +39,6 @@ import { EditGroupEventImagesComponent } from "../../../common/walks-and-events/
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { TimePicker } from "../../../date-and-time/time-picker";
-import { isString } from "es-toolkit/compat";
 import { EventsMigrationService } from "../../../services/migration/events-migration.service";
 
 @Component({
@@ -566,7 +564,7 @@ export class SocialEditComponent implements OnInit, OnDestroy {
 
   selectMemberContactDetails(memberId: string) {
     const socialEvent = this.socialEvent;
-    if (memberId === null) {
+    if (isNull(memberId)) {
       socialEvent.fields.contactDetails = this.eventDefaultsService.defaultContactDetails();
     } else {
       this.logger.debug("looking for member id", memberId, "in memberFilterSelections", this.display.memberFilterSelections);

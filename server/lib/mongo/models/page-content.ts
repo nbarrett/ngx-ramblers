@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ensureModel } from "../utils/model-utils";
 import { PageContent } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 
 const PageContentColumn = new mongoose.Schema({
@@ -36,7 +37,9 @@ const PageContentRow = new mongoose.Schema({
 
 const pageContentSchema = new mongoose.Schema({
   path: {type: String, required: true, unique: true},
-  rows: [PageContentRow]
+  rows: [PageContentRow],
+  migrationTemplate: {type: Object},
+  debugLogs: [{type: String}]
 }, {collection: "pageContent"});
 
-export const pageContent: mongoose.Model<PageContent> = mongoose.model<PageContent>("page-content", pageContentSchema);
+export const pageContent: mongoose.Model<PageContent> = ensureModel<PageContent>("page-content", pageContentSchema);

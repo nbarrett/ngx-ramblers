@@ -4,11 +4,14 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faAdd, faArrowDown, faArrowUp, faClose } from "@fortawesome/free-solid-svg-icons";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { StringUtilsService } from "../../../../services/string-utils.service";
+import { UiActionsService } from "../../../../services/ui-actions.service";
 import { RowTypeSelectorInlineComponent } from "../../../../modules/common/dynamic-content/row-type-selector-inline";
 import { FragmentSelectorComponent } from "../../../../modules/common/dynamic-content/fragment-selector.component";
 import { MarginSelectComponent } from "../../../../modules/common/dynamic-content/dynamic-content-margin-select";
 import { FragmentService } from "../../../../services/fragment.service";
 import { EM_DASH_WITH_SPACES, FragmentWithLabel, PageContentType } from "../../../../models/content-text.model";
+import { UIDateFormat } from "../../../../models/date-format.model";
+import { StoredValue } from "../../../../models/ui-actions";
 import { PageContentService } from "../../../../services/page-content.service";
 import {
   ColumnConfig,
@@ -17,6 +20,8 @@ import {
   createCustomRegexTransformationConfig,
   createDefaultTransformationConfig,
   createRouteMapLayoutTransformationConfig,
+  createRouteWithLocationTransformationConfig,
+  createRouteIndexTransformationConfig,
   createTwoColumnWithImageTransformationConfig,
   createWalkingRouteLayoutTransformationConfig,
   ImageMatchPattern,
@@ -28,7 +33,7 @@ import {
   TransformationAction,
   TransformationActionType
 } from "../../../../models/page-transformation.model";
-import { isObject } from "es-toolkit/compat";
+import { isObject, isUndefined } from "es-toolkit/compat";
 
 @Component({
   selector: "app-page-transformation-editor",
@@ -38,11 +43,11 @@ import { isObject } from "es-toolkit/compat";
         <div class="row mb-2">
           <div class="col-sm-4">
             <label class="form-label-sm">Name</label>
-            <input type="text" class="form-control form-control-sm" placeholder="Enter name" [(ngModel)]="config.name">
+            <input type="text" class="form-control" placeholder="Enter name" [(ngModel)]="config.name">
           </div>
           <div class="col-sm-6">
             <label class="form-label-sm">Description</label>
-            <input type="text" class="form-control form-control-sm" placeholder="Enter description"
+            <input type="text" class="form-control" placeholder="Enter description"
                    [(ngModel)]="config.description">
           </div>
           <div class="col-sm-2">
@@ -64,6 +69,8 @@ import { isObject } from "es-toolkit/compat";
             <option value="routeMap">Route Map</option>
             <option value="allImages">Image Carousel</option>
             <option value="walkingRoute">Walking Route</option>
+            <option value="routeWithLocation">Route with Location</option>
+            <option value="routeIndex">Route Index with Map</option>
           </select>
           @if (config?.preset) {
             <span class="small text-muted">Preset: <strong>{{ presetLabel() }}</strong> — {{ changedPaths().length }} changed</span>
@@ -105,8 +112,12 @@ import { isObject } from "es-toolkit/compat";
                         (ngModelChange)="onStepTypeChange(step)">
                   <option [value]="TransformationActionType.CONVERT_TO_MARKDOWN">Convert to Markdown</option>
                   <option [value]="TransformationActionType.CREATE_PAGE">Create Page</option>
+                  <option [value]="TransformationActionType.CREATE_INDEX_PAGE">Create Index Page</option>
                   <option [value]="TransformationActionType.ADD_ROW">Add Row</option>
                   <option [value]="TransformationActionType.ADD_COLUMN">Add Column</option>
+                  <option [value]="TransformationActionType.ADD_LOCATION_ROW">Add Location Row</option>
+                  <option [value]="TransformationActionType.ADD_INDEX_ROW">Add Index Row</option>
+                  <option [value]="TransformationActionType.ADD_MAP_ROW">Add Map Row</option>
                   <option [value]="TransformationActionType.ADD_MIGRATION_NOTE">Add Migration Note</option>
                 </select>
                 @if (step.type === TransformationActionType.ADD_ROW && step.rowConfig) {
@@ -117,7 +128,7 @@ import { isObject } from "es-toolkit/compat";
                     [cssClass]="'form-select form-select-sm inline-select'"/>
                   @if (step.rowConfig.type === PageContentType.ACTION_BUTTONS) {
                     <span class="step-label">Max Cols:</span>
-                    <input type="number" min="1" max="12" class="form-control form-control-sm inline-input"
+                    <input type="number" min="1" max="12" class="form-control inline-input"
                            [(ngModel)]="step.rowConfig.maxColumns">
                   }
                 }
@@ -125,12 +136,13 @@ import { isObject } from "es-toolkit/compat";
                   <div class="d-flex gap-2 align-items-end ms-2">
                     <div>
                       <label class="form-label-sm">Prefix</label>
-                      <input type="text" class="form-control form-control-sm" placeholder="Migrated from"
+                      <input type="text" class="form-control" placeholder="Migrated from"
                              [(ngModel)]="step.notePrefix">
                     </div>
                     <div>
                       <label class="form-label-sm">Date Format</label>
-                      <input type="text" class="form-control form-control-sm" placeholder="yyyy-LL-dd HH:mm"
+                      <input type="text" class="form-control"
+                             [attr.placeholder]="migrationNoteDateFormat"
                              [(ngModel)]="step.dateFormat">
                     </div>
                   </div>
@@ -139,11 +151,11 @@ import { isObject } from "es-toolkit/compat";
               <div class="p-2">
                 @if (step.type === TransformationActionType.ADD_ROW) {
                   <div class="row-configuration mt-2">
-                    @if (step.rowConfig.description !== undefined) {
+                    @if (!isUndefined(step.rowConfig.description)) {
                       <div class="row mb-1">
                         <div class="col-sm-12">
                           <label class="form-label-sm">Description</label>
-                          <input type="text" class="form-control form-control-sm"
+                          <input type="text" class="form-control"
                                  placeholder="Optional row description"
                                  [(ngModel)]="step.rowConfig.description">
                         </div>
@@ -194,7 +206,7 @@ import { isObject } from "es-toolkit/compat";
                               <div class="d-flex gap-2 flex-wrap align-items-center mb-2">
                                 <span class="field-label">Width</span>
                                 <input type="number" min="1" max="12"
-                                       class="form-control form-control-sm inline-width-input"
+                                       class="form-control inline-width-input"
                                        [(ngModel)]="column.columns">
                                 @if (!column.rows || column.rows.length === 0) {
                                   <span class="field-label">Content Type</span>
@@ -213,13 +225,19 @@ import { isObject } from "es-toolkit/compat";
                                 }
                                 @if (column.content.type === ContentMatchType.TEXT) {
                                   <span class="field-label">Text Pattern</span>
-                                  <select class="form-select form-select-sm inline-pattern-select"
-                                          [(ngModel)]="column.content.textPattern">
+                                   <select class="form-select form-select-sm inline-pattern-select"
+                                           [(ngModel)]="column.content.textPattern">
                                     <option [value]="TextMatchPattern.ALL_TEXT_UNTIL_IMAGE">Until image</option>
                                     <option [value]="TextMatchPattern.ALL_TEXT_AFTER_HEADING">After heading</option>
                                     <option [value]="TextMatchPattern.REMAINING_TEXT">Remaining</option>
                                     <option [value]="TextMatchPattern.PARAGRAPH">Paragraph</option>
                                     <option [value]="TextMatchPattern.STARTS_WITH_HEADING">With heading</option>
+                                    <option [value]="TextMatchPattern.TEXT_BEFORE_HEADING" tooltip="Extract text before specified heading">Before heading</option>
+                                    <option [value]="TextMatchPattern.TEXT_FROM_HEADING" tooltip="Extract text from specified heading onwards">From heading</option>
+                                    <option [value]="TextMatchPattern.FIRST_HEADING_AND_CONTENT" tooltip="Extract first heading and following content">First heading + content</option>
+                                    <option [value]="TextMatchPattern.HEADING_UNTIL_NEXT_HEADING" tooltip="Extract heading and content until next heading">Heading until next heading</option>
+                                    <option [value]="TextMatchPattern.CONTENT_AFTER_FIRST_HEADING" tooltip="Extract content after first heading only">Content after first heading</option>
+                                    <option [value]="TextMatchPattern.LEVEL_1_OR_2_HEADING" tooltip="Extract first level 1 or 2 heading">Level 1 or 2 heading</option>
                                     <option [value]="TextMatchPattern.CUSTOM_REGEX">Custom regex</option>
                                   </select>
                                 }
@@ -240,7 +258,7 @@ import { isObject } from "es-toolkit/compat";
                                 <div class="row mb-1">
                                   <div class="col-sm-12">
                                     <label class="form-label-sm">Filename Pattern</label>
-                                    <input type="text" class="form-control form-control-sm"
+                                    <input type="text" class="form-control"
                                            placeholder="e.g., *route*.jpg or *map*|*route*"
                                            [(ngModel)]="column.content.filenamePattern">
                                   </div>
@@ -251,7 +269,7 @@ import { isObject } from "es-toolkit/compat";
                                 <div class="row mb-1">
                                   <div class="col-sm-12">
                                     <label class="form-label-sm">Alt Text Pattern</label>
-                                    <input type="text" class="form-control form-control-sm" placeholder="e.g., map"
+                                    <input type="text" class="form-control" placeholder="e.g., map"
                                            [(ngModel)]="column.content.altTextPattern">
                                   </div>
                                 </div>
@@ -273,14 +291,14 @@ import { isObject } from "es-toolkit/compat";
                                 <div class="row mb-1">
                                   <div class="col-sm-12">
                                     <label class="form-label-sm">Custom Regex Pattern</label>
-                                    <input type="text" class="form-control form-control-sm"
+                                    <input type="text" class="form-control"
                                            placeholder="e.g., ^### .+"
                                            [(ngModel)]="column.content.customRegex">
                                   </div>
                                 </div>
                               }
 
-                              <div class="row thumbnail-heading-frame mt-2">
+                              <div class="row thumbnail-heading-frame thumbnail-heading-mapping-mode">
                                 <div class="thumbnail-heading">Nested Rows Configuration</div>
                                 <div class="row">
                                   <div class="col-sm-12 p-2">
@@ -393,7 +411,7 @@ import { isObject } from "es-toolkit/compat";
                                             <div class="row mb-1">
                                               <div class="col-sm-12">
                                                 <label class="form-label-sm">Filename Pattern</label>
-                                                <input type="text" class="form-control form-control-sm" placeholder="e.g., *route* or *map*|*route*" [(ngModel)]="column.nestedRows.contentMatcher.filenamePattern">
+                                                <input type="text" class="form-control" placeholder="e.g., *route* or *map*|*route*" [(ngModel)]="column.nestedRows.contentMatcher.filenamePattern">
                                               </div>
                                             </div>
                                           }
@@ -402,7 +420,7 @@ import { isObject } from "es-toolkit/compat";
                                             <div class="row mb-1">
                                               <div class="col-sm-12">
                                                 <label class="form-label-sm">Alt Text Pattern</label>
-                                                <input type="text" class="form-control form-control-sm" placeholder="e.g., map" [(ngModel)]="column.nestedRows.contentMatcher.altTextPattern">
+                                                <input type="text" class="form-control" placeholder="e.g., map" [(ngModel)]="column.nestedRows.contentMatcher.altTextPattern">
                                               </div>
                                             </div>
                                           }
@@ -413,16 +431,16 @@ import { isObject } from "es-toolkit/compat";
                                               <div class="form-check">
                                                 <input type="checkbox" class="form-check-input"
                                                        [id]="'stop-heading-' + stepIndex + '-' + colIndex"
-                                                       [checked]="hasStopCondition(column, SegmentType.HEADING)"
-                                                       (change)="toggleStopCondition(column, SegmentType.HEADING)">
+                                                       [ngModel]="hasStopCondition(column, SegmentType.HEADING)"
+                                                       (ngModelChange)="toggleStopCondition(column, SegmentType.HEADING, $event)">
                                                 <label class="form-check-label"
                                                        [for]="'stop-heading-' + stepIndex + '-' + colIndex">Heading</label>
                                               </div>
                                               <div class="form-check">
                                                 <input type="checkbox" class="form-check-input"
                                                        [id]="'stop-image-' + stepIndex + '-' + colIndex"
-                                                       [checked]="hasStopCondition(column, SegmentType.IMAGE)"
-                                                       (change)="toggleStopCondition(column, SegmentType.IMAGE)">
+                                                       [ngModel]="hasStopCondition(column, SegmentType.IMAGE)"
+                                                       (ngModelChange)="toggleStopCondition(column, SegmentType.IMAGE, $event)">
                                                 <label class="form-check-label"
                                                        [for]="'stop-image-' + stepIndex + '-' + colIndex">Image</label>
                                               </div>
@@ -484,26 +502,35 @@ import { isObject } from "es-toolkit/compat";
                                                       @if (nestedRow.columns[0].content.type === ContentMatchType.TEXT) {
                                                         <select class="form-select form-select-sm inline-pattern-select"
                                                                 [(ngModel)]="nestedRow.columns[0].content.textPattern">
-                                                          <option [value]="TextMatchPattern.PARAGRAPH">Paragraph
-                                                          </option>
-                                                          <option [value]="TextMatchPattern.ALL_TEXT_UNTIL_IMAGE">Until
-                                                            image
-                                                          </option>
-                                                          <option [value]="TextMatchPattern.ALL_TEXT_AFTER_HEADING">
-                                                            After heading
-                                                          </option>
+                                                           <option [value]="TextMatchPattern.PARAGRAPH" tooltip="Extract first paragraph only">Paragraph</option>
+                                                           <option [value]="TextMatchPattern.ALL_TEXT_UNTIL_IMAGE" tooltip="Extract all text until first image">Until image</option>
+                                                           <option [value]="TextMatchPattern.ALL_TEXT_AFTER_HEADING" tooltip="Extract all text after specified heading">After heading</option>
+                                                           <option [value]="TextMatchPattern.TEXT_BEFORE_HEADING" tooltip="Extract text before specified heading">Before heading</option>
+                                                           <option [value]="TextMatchPattern.TEXT_FROM_HEADING" tooltip="Extract text from specified heading onwards">From heading</option>
+                                                           <option [value]="TextMatchPattern.FIRST_HEADING_AND_CONTENT" tooltip="Extract first heading and following content">First heading + content</option>
+                                                           <option [value]="TextMatchPattern.HEADING_UNTIL_NEXT_HEADING" tooltip="Extract heading and content until next heading">Heading until next heading</option>
+                                                           <option [value]="TextMatchPattern.CONTENT_AFTER_FIRST_HEADING" tooltip="Extract content after first heading only">Content after first heading</option>
+                                                           <option [value]="TextMatchPattern.LEVEL_1_OR_2_HEADING" tooltip="Extract first level 1 or 2 heading">Level 1 or 2 heading</option>
+                                                           <option [value]="TextMatchPattern.REMAINING_TEXT" tooltip="Extract all remaining text">Remaining</option>
+                                                           <option [value]="TextMatchPattern.STARTS_WITH_HEADING" tooltip="Extract text starting with heading">With heading</option>
+                                                           <option [value]="TextMatchPattern.CUSTOM_REGEX" tooltip="Use custom regular expression">Custom regex</option>
                                                           <option [value]="TextMatchPattern.REMAINING_TEXT">Remaining
                                                           </option>
-                                                          <option [value]="TextMatchPattern.STARTS_WITH_HEADING">With
-                                                            heading
-                                                          </option>
+                                                           <option [value]="TextMatchPattern.TEXT_BEFORE_HEADING">Before heading</option>
+                                                           <option [value]="TextMatchPattern.TEXT_FROM_HEADING">From heading</option>
+                                                           <option [value]="TextMatchPattern.FIRST_HEADING_AND_CONTENT">First heading + content</option>
+                                                           <option [value]="TextMatchPattern.HEADING_UNTIL_NEXT_HEADING">Heading until next heading</option>
+                                                           <option [value]="TextMatchPattern.CONTENT_AFTER_FIRST_HEADING">Content after first heading</option>
+                                                           <option [value]="TextMatchPattern.LEVEL_1_OR_2_HEADING">Level 1 or 2 heading</option>
+                                                           <option [value]="TextMatchPattern.STARTS_WITH_HEADING">With heading
+                                                           </option>
                                                           <option [value]="TextMatchPattern.CUSTOM_REGEX">Custom regex
                                                           </option>
                                                         </select>
                                                         @if (nestedRow.columns[0].content.textPattern === TextMatchPattern.PARAGRAPH) {
                                                           <span class="field-label">Limit:</span>
                                                           <input type="number" min="1"
-                                                                 class="form-control form-control-sm inline-input"
+                                                                 class="form-control inline-input"
                                                                  [(ngModel)]="nestedRow.columns[0].content.limit"
                                                                  placeholder="1">
                                                         }
@@ -524,7 +551,7 @@ import { isObject } from "es-toolkit/compat";
                                                           <div class="row mb-1">
                                                             <div class="col-sm-12">
                                                               <label class="form-label-sm">Filename Pattern</label>
-                                                          <input type="text" class="form-control form-control-sm" placeholder="e.g., *route* or *map*|*route*"
+                                                          <input type="text" class="form-control" placeholder="e.g., *route* or *map*|*route*"
                                                                  [(ngModel)]="nestedRow.columns[0].content.filenamePattern">
                                                             </div>
                                                           </div>
@@ -533,7 +560,7 @@ import { isObject } from "es-toolkit/compat";
                                                           <div class="row mb-1">
                                                             <div class="col-sm-12">
                                                               <label class="form-label-sm">Alt Text Pattern</label>
-                                                              <input type="text" class="form-control form-control-sm" placeholder="e.g., map"
+                                                              <input type="text" class="form-control" placeholder="e.g., map"
                                                                      [(ngModel)]="nestedRow.columns[0].content.altTextPattern">
                                                             </div>
                                                           </div>
@@ -564,9 +591,223 @@ import { isObject } from "es-toolkit/compat";
                     <div class="row mb-1">
                       <div class="col-sm-6">
                         <label class="form-label-sm">Target Row</label>
-                        <input type="number" min="0" class="form-control form-control-sm" [(ngModel)]="step.targetRow"
+                        <input type="number" min="0" class="form-control" [(ngModel)]="step.targetRow"
                                placeholder="e.g., 0">
                       </div>
+                    </div>
+                  </div>
+                }
+
+                @if (step.type === TransformationActionType.ADD_LOCATION_ROW) {
+                  <div class="location-row-configuration mt-2 p-2 bg-light rounded">
+                    <div class="row mb-2">
+                      <div class="col-sm-6">
+                        <div class="form-check">
+                          <input type="checkbox" class="form-check-input" id="extract-location"
+                                 [(ngModel)]="step.locationRowConfig.extractFromContent">
+                          <label class="form-check-label" for="extract-location">
+                            Extract location from content
+                          </label>
+                        </div>
+                      </div>
+                      <div class="col-sm-6">
+                        <div class="form-check">
+                          <input type="checkbox" class="form-check-input" id="hidden-location"
+                                 [(ngModel)]="step.locationRowConfig.hidden">
+                          <label class="form-check-label" for="hidden-location">
+                            Hide location row
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="row mb-1">
+                      <div class="col-sm-12">
+                        <label class="form-label-sm">Default Location</label>
+                        <input type="text" class="form-control" placeholder="e.g., TN15 6XB or TQ123456"
+                               [(ngModel)]="step.locationRowConfig.defaultLocation">
+                      </div>
+                    </div>
+                  </div>
+                }
+
+                @if (step.type === TransformationActionType.ADD_INDEX_ROW) {
+                  <div class="index-row-configuration mt-2 p-2 bg-light rounded">
+                    <div class="row mb-2">
+                      <div class="col-sm-6">
+                        <label class="form-label-sm">Content Types</label>
+                        <div class="d-flex gap-3">
+                          <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="content-albums"
+                                   [ngModel]="includesContentType(step, 'albums')"
+                                   (ngModelChange)="toggleContentType(step, 'albums', $event)">
+                            <label class="form-check-label" for="content-albums">Albums</label>
+                          </div>
+                          <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="content-pages"
+                                   [ngModel]="includesContentType(step, 'pages')"
+                                   (ngModelChange)="toggleContentType(step, 'pages', $event)">
+                            <label class="form-check-label" for="content-pages">Pages</label>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="col-sm-6">
+                        <label class="form-label-sm">Render Modes</label>
+                        <div class="d-flex gap-3">
+                          <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="render-buttons"
+                                   [ngModel]="includesRenderMode(step, 'action-buttons')"
+                                   (ngModelChange)="toggleRenderMode(step, 'action-buttons', $event)">
+                            <label class="form-check-label" for="render-buttons">Action Buttons</label>
+                          </div>
+                          <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="render-map"
+                                   [ngModel]="includesRenderMode(step, 'map')"
+                                   (ngModelChange)="toggleRenderMode(step, 'map', $event)">
+                            <label class="form-check-label" for="render-map">Map</label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="row mb-2">
+                      <div class="col-sm-6">
+                        <label class="form-label-sm">Min Columns</label>
+                        <input type="number" min="1" max="12" class="form-control"
+                               [(ngModel)]="step.indexRowConfig.minCols" placeholder="2">
+                      </div>
+                      <div class="col-sm-6">
+                        <label class="form-label-sm">Max Columns</label>
+                        <input type="number" min="1" max="12" class="form-control"
+                               [(ngModel)]="step.indexRowConfig.maxCols" placeholder="4">
+                      </div>
+                    </div>
+                    @if (includesRenderMode(step, 'map')) {
+                      <div class="row thumbnail-heading-frame mt-2">
+                        <div class="thumbnail-heading">Map Configuration</div>
+                        <div class="row">
+                          <div class="col-sm-12 p-2">
+                            <div class="row mb-2">
+                              <div class="col-sm-6">
+                                <label class="form-label-sm">Map Height (px)</label>
+                                <input type="number" min="200" class="form-control"
+                                       [(ngModel)]="step.indexRowConfig.mapConfig.height" placeholder="500">
+                              </div>
+                              <div class="col-sm-6">
+                                <label class="form-label-sm">Map Provider</label>
+                                <select class="form-select form-select-sm" [(ngModel)]="step.indexRowConfig.mapConfig.provider">
+                                  <option value="osm">OpenStreetMap</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div class="row mb-2">
+                              <div class="col-sm-6">
+                                <div class="form-check">
+                                  <input type="checkbox" class="form-check-input" id="clustering-enabled"
+                                         [(ngModel)]="step.indexRowConfig.mapConfig.clusteringEnabled">
+                                  <label class="form-check-label" for="clustering-enabled">
+                                    Enable Clustering
+                                  </label>
+                                </div>
+                              </div>
+                              <div class="col-sm-6">
+                                <label class="form-label-sm">Clustering Threshold</label>
+                                <input type="number" min="1" class="form-control"
+                                       [(ngModel)]="step.indexRowConfig.mapConfig.clusteringThreshold" placeholder="10">
+                              </div>
+                            </div>
+                            <div class="row mb-2">
+                              <div class="col-sm-6">
+                                <div class="form-check">
+                                  <input type="checkbox" class="form-check-input" id="show-controls"
+                                         [(ngModel)]="step.indexRowConfig.mapConfig.showControlsDefault">
+                                  <label class="form-check-label" for="show-controls">
+                                    Show Controls by Default
+                                  </label>
+                                </div>
+                              </div>
+                              <div class="col-sm-6">
+                                <div class="form-check">
+                                  <input type="checkbox" class="form-check-input" id="allow-controls-toggle"
+                                         [(ngModel)]="step.indexRowConfig.mapConfig.allowControlsToggle">
+                                  <label class="form-check-label" for="allow-controls-toggle">
+                                    Allow Controls Toggle
+                                  </label>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+
+                @if (step.type === TransformationActionType.ADD_MAP_ROW) {
+                  <div class="map-row-configuration mt-2 p-2 bg-light rounded">
+                    <div class="row mb-2">
+                      <div class="col-sm-6">
+                        <label class="form-label-sm">GPX File Path</label>
+                        <input type="text" class="form-control" placeholder="e.g., routes/my-route.gpx"
+                               [(ngModel)]="step.mapRowConfig.gpxFilePath">
+                      </div>
+                      <div class="col-sm-6">
+                        <div class="form-check mt-4">
+                          <input type="checkbox" class="form-check-input" id="extract-gpx"
+                                 [(ngModel)]="step.mapRowConfig.extractFromContent"
+                                 (ngModelChange)="onExtractGpxFromContentChange($event)">
+                          <label class="form-check-label" for="extract-gpx">
+                            Extract GPX from content
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="row mb-2">
+                      <div class="col-sm-6">
+                        <div class="form-check">
+                          <input type="checkbox" class="form-check-input" id="use-location-from-row"
+                                 [(ngModel)]="step.mapRowConfig.useLocationFromRow">
+                          <label class="form-check-label" for="use-location-from-row">
+                            Auto-find closest location row
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="row mb-2">
+                      <div class="col-sm-4">
+                        <label class="form-label-sm">Map Height (px)</label>
+                        <input type="number" min="200" class="form-control"
+                               [(ngModel)]="step.mapRowConfig.height" placeholder="500">
+                      </div>
+                      <div class="col-sm-4">
+                        <label class="form-label-sm">Provider</label>
+                        <select class="form-select form-select-sm" [(ngModel)]="step.mapRowConfig.provider">
+                          <option value="osm">OpenStreetMap</option>
+                        </select>
+                      </div>
+                      <div class="col-sm-4">
+                        <label class="form-label-sm">OS Style</label>
+                        <input type="text" class="form-control" placeholder="Leisure_27700"
+                               [(ngModel)]="step.mapRowConfig.osStyle">
+                      </div>
+                    </div>
+                  </div>
+                }
+
+                @if (step.type === TransformationActionType.CREATE_INDEX_PAGE) {
+                  <div class="index-page-configuration mt-2 p-2 bg-light rounded">
+                    <div class="row mb-2">
+                      <div class="col-sm-6">
+                        <label class="form-label-sm">Page Path</label>
+                        <input type="text" class="form-control" placeholder="e.g., /routes"
+                               [(ngModel)]="step.indexPageConfig.path">
+                      </div>
+                      <div class="col-sm-6">
+                        <label class="form-label-sm">Page Title</label>
+                        <input type="text" class="form-control" placeholder="e.g., Routes"
+                               [(ngModel)]="step.indexPageConfig.title">
+                      </div>
+                    </div>
+                    <div class="alert alert-info p-2 mb-2">
+                      <small>Use ADD_INDEX_ROW configuration below to configure the index display</small>
                     </div>
                   </div>
                 }
@@ -679,14 +920,17 @@ import { isObject } from "es-toolkit/compat";
   `],
   imports: [FormsModule, FontAwesomeModule, TooltipDirective, RowTypeSelectorInlineComponent, FragmentSelectorComponent, MarginSelectComponent]
 })
-export class PageTransformationEditorComponent implements OnInit {
+export class PageTransformationEditor implements OnInit {
+  protected readonly isUndefined = isUndefined;
   @Input() config: PageTransformationConfig;
   @Output() configChange = new EventEmitter<PageTransformationConfig>();
 
   stringUtils = inject(StringUtilsService);
   fragmentService = inject(FragmentService);
   pageContentService = inject(PageContentService);
+  uiActionsService = inject(UiActionsService);
   selectedPreset = "";
+  initialExtractFromContentValue: boolean;
   private baselineConfig: PageTransformationConfig | null = null;
   private fragmentCache = new Map<string, FragmentWithLabel>();
 
@@ -700,8 +944,10 @@ export class PageTransformationEditorComponent implements OnInit {
   protected readonly ImageMatchPattern = ImageMatchPattern;
   protected readonly PageContentType = PageContentType;
   protected readonly SegmentType = SegmentType;
+  protected readonly migrationNoteDateFormat = UIDateFormat.YEAR_MONTH_DAY_TIME_WITH_MINUTES;
 
   async ngOnInit() {
+    this.initialExtractFromContentValue = this.uiActionsService.initialBooleanValueFor(StoredValue.MIGRATION_MAP_EXTRACT_FROM_CONTENT, false);
     if (!this.config) {
       this.config = createDefaultTransformationConfig();
       this.emitChange();
@@ -758,6 +1004,10 @@ export class PageTransformationEditorComponent implements OnInit {
         return createAllImagesLayoutTransformationConfig();
       case "walkingRoute":
         return createWalkingRouteLayoutTransformationConfig();
+      case "routeWithLocation":
+        return createRouteWithLocationTransformationConfig();
+      case "routeIndex":
+        return createRouteIndexTransformationConfig();
       default:
         return createDefaultTransformationConfig();
     }
@@ -772,6 +1022,8 @@ export class PageTransformationEditorComponent implements OnInit {
       case "routeMap": return "Route Map";
       case "allImages": return "Image Carousel";
       case "walkingRoute": return "Walking Route";
+      case "routeWithLocation": return "Route with Location";
+      case "routeIndex": return "Route Index with Map";
       default: return id || "None";
     }
   }
@@ -862,11 +1114,68 @@ export class PageTransformationEditorComponent implements OnInit {
     if (step.type === TransformationActionType.ADD_ROW && !step.rowConfig) {
       step.rowConfig = this.createDefaultRowConfig();
     } else if (step.type === TransformationActionType.ADD_NESTED_ROWS) {
-      if (step.targetRow === undefined) step.targetRow = 0;
-      if (step.targetColumn === undefined) step.targetColumn = 0;
+      if (isUndefined(step.targetRow)) step.targetRow = 0;
+      if (isUndefined(step.targetColumn)) step.targetColumn = 0;
     } else if (step.type === TransformationActionType.ADD_MIGRATION_NOTE) {
       if (!step.notePrefix) step.notePrefix = "Migrated from";
-      if (!step.dateFormat) step.dateFormat = "yyyy-LL-dd HH:mm";
+      if (!step.dateFormat) step.dateFormat = this.migrationNoteDateFormat;
+    } else if (step.type === TransformationActionType.ADD_LOCATION_ROW) {
+      if (!step.locationRowConfig) {
+        step.locationRowConfig = {
+          extractFromContent: true,
+          hidden: true
+        };
+      }
+    } else if (step.type === TransformationActionType.ADD_INDEX_ROW) {
+      if (!step.indexRowConfig) {
+        step.indexRowConfig = {
+          contentTypes: ["pages"],
+          renderModes: ["action-buttons"],
+          minCols: 2,
+          maxCols: 4,
+          mapConfig: {
+            height: 500,
+            clusteringEnabled: true,
+            clusteringThreshold: 10,
+            provider: "osm",
+            osStyle: "Leisure_27700",
+            showControlsDefault: true,
+            allowControlsToggle: true
+          }
+        };
+      }
+    } else if (step.type === TransformationActionType.ADD_MAP_ROW) {
+      if (!step.mapRowConfig) {
+        step.mapRowConfig = {
+          height: 500,
+          provider: "osm",
+          osStyle: "Leisure_27700",
+          extractFromContent: this.initialExtractFromContentValue,
+          useLocationFromRow: true
+        };
+      }
+    } else if (step.type === TransformationActionType.CREATE_INDEX_PAGE) {
+      if (!step.indexPageConfig) {
+        step.indexPageConfig = {
+          path: "/routes",
+          title: "Routes",
+          indexConfig: {
+            contentTypes: ["pages"],
+            renderModes: ["action-buttons", "map"],
+            minCols: 2,
+            maxCols: 4,
+            mapConfig: {
+              height: 500,
+              clusteringEnabled: true,
+              clusteringThreshold: 10,
+              provider: "osm",
+              osStyle: "Leisure_27700",
+              showControlsDefault: true,
+              allowControlsToggle: true
+            }
+          }
+        };
+      }
     }
     this.emitChange();
   }
@@ -964,6 +1273,12 @@ export class PageTransformationEditorComponent implements OnInit {
       case "walkingRoute":
         this.config = createWalkingRouteLayoutTransformationConfig();
         break;
+      case "routeWithLocation":
+        this.config = createRouteWithLocationTransformationConfig();
+        break;
+      case "routeIndex":
+        this.config = createRouteIndexTransformationConfig();
+        break;
     }
 
     this.ensureDefaultsForAllSteps();
@@ -998,7 +1313,7 @@ export class PageTransformationEditorComponent implements OnInit {
     return column.nestedRows?.contentMatcher?.stopCondition?.onDetect?.includes(segmentType) || false;
   }
 
-  toggleStopCondition(column: ColumnConfig, segmentType: SegmentType) {
+  toggleStopCondition(column: ColumnConfig, segmentType: SegmentType, isChecked: boolean) {
     if (!column.nestedRows?.contentMatcher?.stopCondition) {
       if (!column.nestedRows) {
         column.nestedRows = {
@@ -1013,16 +1328,20 @@ export class PageTransformationEditorComponent implements OnInit {
           }
         };
       }
-      column.nestedRows.contentMatcher.stopCondition = { onDetect: [] };
+      column.nestedRows.contentMatcher.stopCondition = {onDetect: []};
     }
 
     const stopCondition = column.nestedRows.contentMatcher.stopCondition;
     const index = stopCondition.onDetect.indexOf(segmentType);
 
-    if (index > -1) {
-      stopCondition.onDetect.splice(index, 1);
+    if (isChecked) {
+      if (index === -1) {
+        stopCondition.onDetect.push(segmentType);
+      }
     } else {
-      stopCondition.onDetect.push(segmentType);
+      if (index > -1) {
+        stopCondition.onDetect.splice(index, 1);
+      }
     }
 
     this.emitChange();
@@ -1068,28 +1387,6 @@ export class PageTransformationEditorComponent implements OnInit {
       rowConfig.fragment = {pageContentId: ""};
     }
     this.emitChange();
-  }
-
-  getContentDescription(content: any): string {
-    if (!content || !content.type) {
-      return "No content configured";
-    }
-
-    const parts: string[] = [content.type];
-
-    if (content.type === ContentMatchType.TEXT && content.textPattern) {
-      parts.push(`(${content.textPattern})`);
-      if (content.limit) {
-        parts.push(`limit: ${content.limit}`);
-      }
-    } else if (content.type === ContentMatchType.IMAGE && content.imagePattern) {
-      parts.push(`(${content.imagePattern})`);
-      if (content.filenamePattern) {
-        parts.push(`pattern: ${content.filenamePattern}`);
-      }
-    }
-
-    return parts.join(" ");
   }
 
   setNestedMode(column: ColumnConfig, mode: Mode) {
@@ -1184,6 +1481,85 @@ export class PageTransformationEditorComponent implements OnInit {
       }
       delete nestedRow.fragment;
     }
+    this.emitChange();
+  }
+
+  onExtractGpxFromContentChange(isChecked: boolean) {
+    this.uiActionsService.saveValueFor(StoredValue.MIGRATION_MAP_EXTRACT_FROM_CONTENT, isChecked);
+  }
+
+  includesContentType(step: TransformationAction, contentType: string): boolean {
+    return step.indexRowConfig?.contentTypes?.includes(contentType) || false;
+  }
+
+  toggleContentType(step: TransformationAction, contentType: string, isChecked: boolean) {
+    if (!step.indexRowConfig) {
+      step.indexRowConfig = {
+        contentTypes: [],
+        renderModes: ["action-buttons"],
+        minCols: 2,
+        maxCols: 4
+      };
+    }
+    if (!step.indexRowConfig.contentTypes) {
+      step.indexRowConfig.contentTypes = [];
+    }
+
+    const index = step.indexRowConfig.contentTypes.indexOf(contentType);
+    if (isChecked) {
+      if (index === -1) {
+        step.indexRowConfig.contentTypes.push(contentType);
+      }
+    } else {
+      if (index > -1) {
+        step.indexRowConfig.contentTypes.splice(index, 1);
+      }
+    }
+    this.emitChange();
+  }
+
+  includesRenderMode(step: TransformationAction, renderMode: string): boolean {
+    return step.indexRowConfig?.renderModes?.includes(renderMode) || false;
+  }
+
+  toggleRenderMode(step: TransformationAction, renderMode: string, isChecked: boolean) {
+    if (!step.indexRowConfig) {
+      step.indexRowConfig = {
+        contentTypes: ["pages"],
+        renderModes: [],
+        minCols: 2,
+        maxCols: 4
+      };
+    }
+    if (!step.indexRowConfig.renderModes) {
+      step.indexRowConfig.renderModes = [];
+    }
+
+    const index = step.indexRowConfig.renderModes.indexOf(renderMode);
+    if (isChecked) {
+      if (index === -1) {
+        step.indexRowConfig.renderModes.push(renderMode);
+      }
+    } else {
+      if (index > -1) {
+        step.indexRowConfig.renderModes.splice(index, 1);
+      }
+    }
+
+    if (renderMode === "map" && step.indexRowConfig.renderModes.includes("map")) {
+      if (!step.indexRowConfig.mapConfig) {
+        step.indexRowConfig.mapConfig = {
+          height: 500,
+          clusteringEnabled: true,
+          clusteringThreshold: 10,
+          provider: "osm",
+          osStyle: "Leisure_27700",
+          showControlsDefault: true,
+          allowControlsToggle: true
+        };
+      }
+    }
+
     this.emitChange();
   }
 }

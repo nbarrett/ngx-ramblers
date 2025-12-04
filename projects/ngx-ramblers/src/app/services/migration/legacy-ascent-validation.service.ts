@@ -1,5 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import { isEmpty } from "es-toolkit/compat";
+import { isEmpty, isNull } from "es-toolkit/compat";
 import { DistanceUnit } from "../../models/walk.model";
 import { NumberUtilsService } from "../number-utils.service";
 import { LegacyWalkAscent, Walk } from "../../models/deprecated";
@@ -84,7 +84,7 @@ export class LegacyAscentValidationService {
       return DistanceUnit.UNKNOWN;
     } else {
       const units = ascentItems.length > 1 ? ascentItems[1] : null;
-      if (units === null || units.toLowerCase().startsWith("f")) {
+      if (isNull(units) || units.toLowerCase().startsWith("f")) {
         return DistanceUnit.FEET;
       } else if (units.toLowerCase().startsWith("m")) {
         return DistanceUnit.METRES;

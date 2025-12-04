@@ -36,7 +36,7 @@ import { Actor, Duration } from "@serenity-js/core";
 import { NavigateAndWait } from "./screenplay/tasks/navigate-and-wait";
 import { ExecutePageScript, ScrapeResult } from "./screenplay/interactions/execute-page-script";
 
-const debugLog = debug(envConfig.logNamespace("static-html-site-migrator-serenity"));
+const debugLog = debug(envConfig.logNamespace("serenity-migration-engine"));
 debugLog.enabled = false;
 const turndownService = createTurndownService();
 const s3 = new S3({});
@@ -69,9 +69,6 @@ async function closeBrowser(ctx: Ctx): Promise<void> {
     await ctx.browser.deleteSession();
     ctx.browser = null;
   }
-}
-
-async function configureBrowserDiagnostics(browser: WebdriverIO.Browser): Promise<void> {
 }
 
 function toContentPath(path: string): string {

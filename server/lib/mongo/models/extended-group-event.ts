@@ -1,4 +1,5 @@
 import mongoose, { Model, Schema } from "mongoose";
+import { ensureModel } from "../utils/model-utils";
 import uniqueValidator from "mongoose-unique-validator";
 import { media, metaData, riskAssessmentRecord, walkEvent, walkVenue } from "./walk";
 import { notification } from "./social-event";
@@ -167,4 +168,4 @@ function deriveStatusFromEvents(doc: any) {
   }
 }
 
-export const extendedGroupEvent: Model<ExtendedGroupEvent> = mongoose.model<ExtendedGroupEvent>("extendedGroupEvents", extendedGroupEventSchema);
+export const extendedGroupEvent: Model<ExtendedGroupEvent> = ensureModel<ExtendedGroupEvent>("extendedGroupEvents", extendedGroupEventSchema);

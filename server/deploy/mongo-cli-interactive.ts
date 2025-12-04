@@ -1,12 +1,15 @@
-import { select, input, confirm, checkbox } from "@inquirer/prompts";
+import { confirm, input, select } from "@inquirer/prompts";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { spawn } from "child_process";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { DateTime } from "luxon";
-import { RamblersWalksManagerDateFormat as DateFormat } from "../../projects/ngx-ramblers/src/app/models/date-format.model";
+import {
+  RamblersWalksManagerDateFormat as DateFormat
+} from "../../projects/ngx-ramblers/src/app/models/date-format.model";
 import type { EnvironmentConfig } from "./types.js";
-import { loadConfigs, getAwsConfigForEnvironment } from "./config-loader.js";
+import { getAwsConfigForEnvironment, loadConfigs } from "./config-loader.js";
+import { isUndefined } from "es-toolkit/compat";
 
 interface BackupAnswers {
   environment: string;
@@ -178,7 +181,7 @@ async function runBackup(configs: EnvironmentConfig[], dumpBaseDir: string) {
         console.log(`✅ Uploaded to s3://${s3Bucket}/${s3Key}`);
       }
     } finally {
-      if (scaleDown && originalScaleCount !== undefined) {
+      if (scaleDown && !isUndefined(originalScaleCount)) {
         console.log(`⏫ Restoring scale count for ${env.name}...`);
         await execCommand("flyctl", ["scale", "count", originalScaleCount.toString(), "--app", env.appName]);
       }
@@ -327,7 +330,11 @@ async function listBackups(dumpBaseDir: string) {
   }
 }
 
-async function listBackupsForSelection(dumpBaseDir: string): Promise<Array<{ name: string; path: string; timestamp: Date }>> {
+async function listBackupsForSelection(dumpBaseDir: string): Promise<{
+  name: string;
+  path: string;
+  timestamp: Date
+}[]> {
   const backupsDir = path.join(dumpBaseDir, "backups");
   try {
     const entries = await fs.readdir(backupsDir);
@@ -370,7 +377,7 @@ async function execCommand(cmd: string, args: string[]): Promise<void> {
         reject(new Error(`${cmd} exited with code ${code}`));
       }
     });
-    proc.on("error", (error) => reject(error));
+    proc.on("error", error => reject(error));
   });
 }
 
@@ -396,7 +403,7 @@ async function uploadDirToS3(s3: S3Client, localDir: string, bucket: string, pre
   }
 }
 
-main().catch((error) => {
+main().catch(error => {
   console.error("\n❌ Fatal error:", error);
   process.exit(1);
 });

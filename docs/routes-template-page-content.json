@@ -1,0 +1,241 @@
+{
+  "id": "693229ba7d392d185c1fefb8",
+  "path": "fragments/templates/routes-template",
+  "rows": [
+    {
+      "type": "text",
+      "maxColumns": 1,
+      "showSwiper": false,
+      "columns": [
+        {
+          "columns": 12,
+          "contentText": "# Title Of Route\n\n## Subtitle placeholder",
+          "accessLevel": "public"
+        }
+      ]
+    },
+    {
+      "type": "location",
+      "maxColumns": 1,
+      "showSwiper": false,
+      "columns": [
+        {
+          "columns": 12,
+          "accessLevel": "public"
+        }
+      ],
+      "marginBottom": 3,
+      "location": {
+        "start": {
+          "latitude": null,
+          "longitude": null,
+          "grid_reference_6": null,
+          "grid_reference_8": null,
+          "grid_reference_10": null,
+          "postcode": "",
+          "description": "",
+          "w3w": ""
+        },
+        "end": null,
+        "renderingMode": "visible"
+      }
+    },
+    {
+      "type": "text",
+      "maxColumns": 2,
+      "showSwiper": false,
+      "columns": [
+        {
+          "columns": 8,
+          "accessLevel": "public",
+          "rows": [
+            {
+              "type": "text",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12,
+                  "accessLevel": "public",
+                  "imageSource": "",
+                  "imageBorderRadius": 6,
+                  "showPlaceholderImage": true,
+                  "showTextAfterImage": true
+                }
+              ]
+            },
+            {
+              "type": "map",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12
+                }
+              ],
+              "map": {
+                "title": "Route map",
+                "mapCenter": [
+                  51.073,
+                  0.58
+                ],
+                "mapZoom": 11,
+                "mapHeight": 500,
+                "provider": "os",
+                "osStyle": "Leisure_27700",
+                "showControlsDefault": false,
+                "allowControlsToggle": false,
+                "showWaypointsDefault": true,
+                "allowWaypointsToggle": true,
+                "autoFitBounds": true,
+                "routes": [],
+                "markers": []
+              },
+              "marginTop": 3,
+              "marginBottom": 3
+            },
+            {
+              "type": "text",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12,
+                  "accessLevel": "public"
+                }
+              ]
+            },
+            {
+              "type": "shared-fragment",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [],
+              "fragment": {
+                "pageContentId": "68f19abf6c5f463b7d50ffc7"
+              }
+            }
+          ]
+        },
+        {
+          "columns": 4,
+          "accessLevel": "public",
+          "rows": [
+            {
+              "type": "text",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12,
+                  "accessLevel": "public",
+                  "imageSource": "",
+                  "imageBorderRadius": 6,
+                  "showPlaceholderImage": true,
+                  "showTextAfterImage": true,
+                  "contentText": "places of interest text"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "maxColumns": 1,
+      "showSwiper": false,
+      "columns": [
+        {
+          "columns": 12,
+          "contentText": "Automatically migrated note",
+          "accessLevel": "public"
+        }
+      ],
+      "marginTop": 3
+    }
+  ],
+  "migrationTemplate": {
+    "isTemplate": true,
+    "mappings": [
+      {
+        "targetRowIndex": 0,
+        "columnMappings": [
+          {
+            "columnIndex": 0,
+            "sourceType": "extract",
+            "contentType": "mixed",
+            "textPattern": "level-1-or-2-heading",
+            "imagePattern": "first",
+            "groupShortTextWithImage": false,
+            "notes": "Extracts the first heading (level 1 or 2) and the first image, displayed vertically (heading above image)."
+          }
+        ]
+      },
+      {
+        "targetRowIndex": 1,
+        "sourceType": "extract",
+        "location": {
+          "extractFromContent": true,
+          "defaultLocation": "",
+          "hideRow": false
+        },
+        "notes": "Parses grid references or place names from the narrative. The row is hidden but the location data is used by the map. If your walks are in a specific county, you can add 'preferredCounty': 'Kent' (or your county) to improve location matching."
+      },
+      {
+        "targetRowIndex": 2,
+        "sourceType": "extract",
+        "map": {
+          "useLocationFromRow": true,
+          "targetNestedRowIndex": 1
+        },
+        "columnMappings": [
+          {
+            "columnIndex": 0,
+            "sourceType": "extract",
+            "contentType": "mixed",
+            "imagePattern": "pattern-match",
+            "imagePatternValue": "*route*|*map*",
+            "groupTextWithImage": true,
+            "nestedRowIndex": 0,
+            "nestedColumnIndex": 0,
+            "notes": "First nested row (index 0), column 0: Route/map image with caption, matching *route* or *map* in filename."
+          },
+          {
+            "columnIndex": 0,
+            "sourceType": "extract",
+            "contentType": "text",
+            "nestedRowIndex": 2,
+            "nestedColumnIndex": 0,
+            "textPattern": "text-before-heading",
+            "notes": "All up to Points of Interest!!",
+            "extractPattern": "Points of Interest"
+          },
+          {
+            "columnIndex": 1,
+            "sourceType": "extract",
+            "contentType": "mixed",
+            "nestedRowMapping": {
+              "contentSource": "remaining-images",
+              "packingBehavior": "one-per-item",
+              "groupTextWithImage": true,
+              "textPattern": "text-from-heading",
+              "headingPattern": "Points of Interest"
+            },
+            "notes": "Right column: Points-of-interest sidebar with remaining images, one per nested row."
+          }
+        ],
+        "notes": "Configures the nested map row (index 1) to auto-center using the extracted location from row 1 and maps each nested column to the appropriate source content."
+      },
+      {
+        "targetRowIndex": 3,
+        "sourceType": "metadata",
+        "sourceIdentifier": "migration-note",
+        "metadataPrefix": "Automatically migrated from",
+        "metadataDateFormat": "yyyy-LL-dd HH:mm",
+        "notes": "Appends a migration note with the original page path and migration timestamp."
+      }
+    ],
+    "templateType": "migration-template"
+  },
+  "debugLogs": []
+}

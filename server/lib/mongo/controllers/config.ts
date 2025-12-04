@@ -9,7 +9,7 @@ import * as transforms from "./transforms";
 import { createDocumentRequest, parseError, toObjectWithId } from "./transforms";
 import { enumForKey, enumValues } from "../../../../projects/ngx-ramblers/src/app/functions/enums";
 import { ApiAction } from "../../../../projects/ngx-ramblers/src/app/models/api-response.model";
-import { isArray, isObject } from "es-toolkit/compat";
+import { isArray, isNull, isObject, isUndefined } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("config"));
 debugLog.enabled = false;
@@ -149,7 +149,7 @@ function isAdminFromRequest(req: Request): boolean {
 
 function redactSensitive(value: any): any {
   function cleanse(obj: any): any {
-    if (obj === null || obj === undefined) return obj;
+    if (isNull(obj) || isUndefined(obj)) return obj;
     if (isArray(obj)) return obj.map(cleanse);
     if (!isObject(obj)) return obj;
     const out: any = isArray(obj) ? [] : {};
@@ -167,8 +167,8 @@ function redactSensitive(value: any): any {
 
 function restoreSensitiveFields(existingValue: any, incomingValue: any): any {
   function restore(existing: any, incoming: any): any {
-    if (existing === null || existing === undefined) return incoming;
-    if (incoming === null || incoming === undefined) return existing;
+    if (isNull(existing) || isUndefined(existing)) return incoming;
+    if (isNull(incoming) || isUndefined(incoming)) return existing;
     if (isArray(existing) && isArray(incoming)) {
       return incoming.map((item, idx) => restore(existing[idx], item));
     }
@@ -179,7 +179,7 @@ function restoreSensitiveFields(existingValue: any, incomingValue: any): any {
           if (!(k in incoming)) {
             merged[k] = v;
           }
-        } else if (isObject(v) && k in incoming && incoming[k] !== null) {
+        } else if (isObject(v) && k in incoming && !isNull(incoming[k])) {
           merged[k] = restore(v, incoming[k]);
         }
       }

@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, inject, Input, OnInit, QueryList, ViewChild, ViewChildren } from "@angular/core";
+import { Component, inject, Input, OnInit, QueryList, ViewChildren } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { LocationRenderingMode, PageContentRow } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -10,13 +10,13 @@ import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { INITIALISED_LOCATION } from "../../../models/walk.model";
 import { cloneDeep } from "es-toolkit/compat";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 @Component({
   selector: "app-dynamic-content-site-edit-location",
   styleUrls: ["./dynamic-content.sass"],
   template: `
     @if (row?.location) {
-      <div #notificationTarget></div>
       <div class="row mb-3">
         <div class="col-md-3">
           <label for="rendering-mode-{{rowIndex}}">Rendering Mode</label>
@@ -58,19 +58,33 @@ import { cloneDeep } from "es-toolkit/compat";
           </div>
         }
       </div>
+
+      @if (showAlertMessage()) {
+        <div class="row">
+          <div class="col-12 mt-3">
+            <div class="alert {{notifyTarget.alertClass}}">
+              <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
+              @if (notifyTarget.alertTitle) {
+                <strong class="ms-2">{{ notifyTarget.alertTitle }}:</strong>
+              }
+              <span class="ms-1">{{ notifyTarget.alertMessage }}</span>
+            </div>
+          </div>
+        </div>
+      }
     }
   `,
-  imports: [FormsModule, WalkLocationEditComponent]
+  imports: [FormsModule, WalkLocationEditComponent, FontAwesomeModule]
 })
-export class DynamicContentSiteEditLocation implements OnInit, AfterViewInit {
+export class DynamicContentSiteEditLocation implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditLocation", NgxLoggerLevel.INFO);
   stringUtils = inject(StringUtilsService);
 
   @Input() row: PageContentRow;
   @Input() rowIndex: number;
   private notifierService = inject(NotifierService);
-  notify: AlertInstance;
-  @ViewChild("notificationTarget", {static: true}) notifyTarget: AlertTarget;
+  notifyTarget: AlertTarget = {};
+  notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
   @ViewChildren(WalkLocationEditComponent) locationComponents: QueryList<WalkLocationEditComponent>;
 
   renderingModes: KeyValue<string>[] = enumKeyValues(LocationRenderingMode);
@@ -79,10 +93,6 @@ export class DynamicContentSiteEditLocation implements OnInit, AfterViewInit {
   ngOnInit() {
     this.ensureLocationDefaults();
     this.hasEndLocation = !!this.row.location?.end;
-  }
-
-  ngAfterViewInit() {
-    this.notify = this.notifyTarget ? this.notifierService.createAlertInstance(this.notifyTarget) : this.notifierService.createGlobalAlert();
   }
 
   toggleEndLocation() {
@@ -96,6 +106,10 @@ export class DynamicContentSiteEditLocation implements OnInit, AfterViewInit {
         component.invalidateMapSize();
       });
     }, 100);
+  }
+
+  showAlertMessage(): boolean {
+    return this.notifyTarget.busy || this.notifyTarget.showAlert;
   }
 
   private ensureLocationDefaults() {

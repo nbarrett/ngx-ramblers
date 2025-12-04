@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { MailchimpApiError, MailchimpConfig, MailchimpErrorResponse, MailchimpHttpErrorResponse } from "../../../projects/ngx-ramblers/src/app/models/mailchimp.model";
+import { isUndefined } from "es-toolkit/compat";
 
 export function successfulResponse(req: Request, res: Response, response, messageType, debug) {
   debug("successfulResponse:", JSON.stringify(response));
@@ -39,14 +40,13 @@ export function listTypeToId(req: Request, debug, config: MailchimpConfig): stri
 }
 
 function isMailchimpHttpErrorResponse(object: MailchimpApiError): object is MailchimpHttpErrorResponse {
-  return (object as MailchimpHttpErrorResponse)?.response?.status !== undefined;
+  return !isUndefined((object as MailchimpHttpErrorResponse)?.response?.status);
 }
 
 function isMailchimpErrorResponse(object: MailchimpErrorResponse): object is MailchimpErrorResponse {
-  return (object as MailchimpErrorResponse)?.instance !== undefined;
+  return !isUndefined((object as MailchimpErrorResponse)?.instance);
 }
 
 function isError(object: MailchimpApiError): object is Error {
-  return (object as Error)?.stack !== undefined;
+  return !isUndefined((object as Error)?.stack);
 }
-

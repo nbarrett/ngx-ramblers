@@ -422,7 +422,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                           <div class="col-md-6 mb-2">
                             <label class="form-label">Bucket</label>
                             <input type="text"
-                                   class="form-control form-control-sm"
+                                   class="form-control"
                                    [(ngModel)]="editableConfig.aws.bucket"
                                    name="globalAwsBucket"
                                    placeholder="e.g. ngx-ramblers-backups">
@@ -430,7 +430,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                           <div class="col-md-6 mb-2">
                             <label class="form-label">Region</label>
                             <input type="text"
-                                   class="form-control form-control-sm"
+                                   class="form-control"
                                    [(ngModel)]="editableConfig.aws.region"
                                    name="globalAwsRegion"
                                    placeholder="e.g. eu-west-2">
@@ -493,7 +493,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                               <div class="col-md-12 mb-3">
                                 <label class="form-label">Environment Name</label>
                                 <input type="text"
-                                       class="form-control form-control-sm"
+                                       class="form-control"
                                        [(ngModel)]="currentEnvironment.environment"
                                        name="envName"
                                        autocomplete="off"
@@ -507,7 +507,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                               <div class="col-md-6 mb-2">
                                 <label class="form-label">Bucket</label>
                                 <input type="text"
-                                       class="form-control form-control-sm"
+                                       class="form-control"
                                        [(ngModel)]="currentEnvironment.aws.bucket"
                                        name="awsBucket"
                                        autocomplete="off">
@@ -515,7 +515,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                               <div class="col-md-6 mb-2">
                                 <label class="form-label">Region</label>
                                 <input type="text"
-                                       class="form-control form-control-sm"
+                                       class="form-control"
                                        [(ngModel)]="currentEnvironment.aws.region"
                                        name="awsRegion"
                                        autocomplete="off"
@@ -546,7 +546,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                               <div class="col-md-12 mb-2">
                                 <label class="form-label">Connection URI</label>
                                 <input type="text"
-                                       class="form-control form-control-sm"
+                                       class="form-control"
                                        [(ngModel)]="currentEnvironment.mongo.uri"
                                        (blur)="parseMongoUri()"
                                        name="mongoUri"
@@ -556,7 +556,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                               <div class="col-md-4 mb-2">
                                 <label class="form-label">Database</label>
                                 <input type="text"
-                                       class="form-control form-control-sm"
+                                       class="form-control"
                                        [(ngModel)]="currentEnvironment.mongo.db"
                                        name="mongoDb"
                                        autocomplete="off">
@@ -564,7 +564,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                               <div class="col-md-4 mb-2">
                                 <label class="form-label">Username</label>
                                 <input type="text"
-                                       class="form-control form-control-sm"
+                                       class="form-control"
                                        [(ngModel)]="currentEnvironment.mongo.username"
                                        name="mongoUser"
                                        autocomplete="off">
@@ -593,7 +593,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                               <div class="col-md-4 mb-2">
                                 <label class="form-label">App Name</label>
                                 <input type="text"
-                                       class="form-control form-control-sm"
+                                       class="form-control"
                                        [(ngModel)]="currentEnvironment.flyio.appName"
                                        name="flyAppName"
                                        autocomplete="off">
@@ -601,7 +601,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                               <div class="col-md-4 mb-2">
                                 <label class="form-label">Memory</label>
                                 <input type="text"
-                                       class="form-control form-control-sm"
+                                       class="form-control"
                                        [(ngModel)]="currentEnvironment.flyio.memory"
                                        name="flyMemory"
                                        autocomplete="off"
@@ -610,7 +610,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                               <div class="col-md-4 mb-2">
                                 <label class="form-label">Scale Count</label>
                                 <input type="number"
-                                       class="form-control form-control-sm"
+                                       class="form-control"
                                        [(ngModel)]="currentEnvironment.flyio.scaleCount"
                                        name="flyScale"
                                        autocomplete="off">
@@ -618,7 +618,7 @@ import { BackupsMultiSelectComponent } from "../../../modules/common/selectors/b
                               <div class="col-md-12 mb-2">
                                 <label class="form-label">Organisation</label>
                                 <input type="text"
-                                       class="form-control form-control-sm"
+                                       class="form-control"
                                        [(ngModel)]="currentEnvironment.flyio.organization"
                                        name="flyOrg"
                                        autocomplete="off"

@@ -38,6 +38,7 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
 import { PageTransformationEngine } from "./page-transformation-engine";
 import { createTurndownService } from "./turndown-service-factory";
+import mongoose from "mongoose";
 
 const debugLog = debug(envConfig.logNamespace("static-html-site-migrator"));
 debugLog.enabled = true;
@@ -48,6 +49,7 @@ const awsConfig: AWSConfig = queryAWSConfig();
 type Ctx = {
   config: SiteMigrationConfig;
   browser: Browser;
+  templateCache: Map<string, PageContent | null>;
 };
 
 function withDefaults(config: SiteMigrationConfig): SiteMigrationConfig {
@@ -70,6 +72,36 @@ async function closeBrowser(ctx: Ctx): Promise<void> {
     await ctx.browser.close();
     ctx.browser = null;
   }
+}
+
+async function loadTemplate(ctx: Ctx, identifier?: string): Promise<PageContent | null> {
+  if (!identifier) {
+    return null;
+  }
+  if (ctx.templateCache.has(identifier)) {
+    return ctx.templateCache.get(identifier) || null;
+  }
+  let template: PageContent | null = null;
+  if (mongoose.isValidObjectId(identifier)) {
+    template = await pageContentModel.findById(identifier).lean<PageContent>().exec();
+  }
+  if (!template) {
+    template = await pageContentModel.findOne({path: identifier}).lean<PageContent>().exec();
+  }
+  if (!template) {
+    debugLog(`❌ Template not found for identifier ${identifier}`);
+  } else {
+    debugLog(`✅ Loaded template ${template.path || identifier}`);
+  }
+  ctx.templateCache.set(identifier, template);
+  return template;
+}
+
+async function templateForParent(ctx: Ctx, parentPageConfig?: ParentPageConfig): Promise<PageContent | null> {
+  if (parentPageConfig?.templateFragmentId) {
+    return loadTemplate(ctx, parentPageConfig.templateFragmentId);
+  }
+  return loadTemplate(ctx, ctx.config.templateFragmentId);
 }
 
 function configurePageDiagnostics(page: Page): void {
@@ -650,13 +682,41 @@ async function scrapeParentPageLinks(ctx: Ctx, parentPageConfig: ParentPageConfi
   }
 }
 
-async function migrateChildPage(ctx: Ctx, childLink: PageLink, pageTransformationConfig?: any): Promise<PageContent> {
+async function migrateUsingTemplate(
+  ctx: Ctx,
+  scrapedPage: ScrapedPage,
+  template: PageContent,
+  pagePath: string,
+  pageTitle: string
+): Promise<PageContent> {
+  const engine = new PageTransformationEngine();
+  const transformedPage = await engine.transformWithTemplate(scrapedPage, template, (img: ScrapedImage) => uploadImageToS3(ctx, img));
+  transformedPage.path = pagePath;
+  const templateLabel = template.path || template.migrationTemplate?.templateName || "template";
+  if (ctx.config.persistData) {
+    const saved = await mongooseClient.upsert<PageContent>(pageContentModel, {path: pagePath}, transformedPage);
+    progress(`✅ Migrated ${pageTitle} to [${pagePath}](${pagePath}) using template ${templateLabel}`);
+    return saved;
+  }
+  progress(`✅ Migrated ${pageTitle} to [${pagePath}](${pagePath}) (dry run) using template ${templateLabel}`);
+  return transformedPage;
+}
+
+async function migrateChildPage(
+  ctx: Ctx,
+  childLink: PageLink,
+  pageTransformationConfig?: any,
+  template?: PageContent
+): Promise<PageContent> {
   const scrapedPage = await scrapePageContent(ctx, childLink);
   if (!scrapedPage.segments || scrapedPage.segments.length === 0) {
     debugLog(`⚠️ No content found for ${childLink.path}`);
     return null;
   }
   const pagePath = childLink.contentPath || toContentPath(childLink.path);
+  if (template) {
+    return migrateUsingTemplate(ctx, scrapedPage, template, pagePath, childLink.title);
+  }
 
   if (pageTransformationConfig && pageTransformationConfig.enabled) {
     debugLog(`✅ Using page transformation: ${pageTransformationConfig.name}`);
@@ -764,6 +824,7 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
     debugLog(`✅ Processing parent page: ${parentPageConfig.url}`);
     const mode = parentPageConfig.parentPageMode || (parentPageConfig.migrateParent ? "as-is" : undefined);
     const transformationConfig = parentPageConfig.pageTransformation || ctx.config.defaultPageTransformation;
+    const parentTemplate = await templateForParent(ctx, parentPageConfig);
     if (mode === "as-is") {
       const parentLink: PageLink = {
         path: parentPageConfig.url.startsWith("http") ? parentPageConfig.url : `${ctx.config.baseUrl}/${parentPageConfig.url}`,
@@ -773,7 +834,7 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
       const parentPageContent = await migrateChildPage(ctx, {
         ...parentLink,
         contentPath: parentContentPath
-      }, transformationConfig);
+      }, transformationConfig, parentTemplate);
       if (parentPageContent) pageContents.push(parentPageContent);
     } else if (mode === "action-buttons") {
       const parentContentPath = (parentPageConfig.pathPrefix || "").replace(/^\/+|\/+$/g, "");
@@ -837,7 +898,7 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
       progress(`Limiting to ${pluraliseWithCount(parentPageConfig.maxChildren, "child page")}`);
     }
     for (const childLink of childLinks) {
-      const pageContent = await migrateChildPage(ctx, childLink, transformationConfig);
+      const pageContent = await migrateChildPage(ctx, childLink, transformationConfig, parentTemplate);
       if (pageContent) {
         pageContents.push(pageContent);
         debugLog(`✅ Migrated ${childLink.title} to /${pageContent.path}`);
@@ -849,7 +910,7 @@ async function migrateParentPages(ctx: Ctx, contentTextItems: ContentText[]): Pr
 
 export async function migrateStaticSite(configInput: SiteMigrationConfig): Promise<MigrationResult> {
   const config: SiteMigrationConfig = withDefaults(configInput);
-  const ctx: Ctx = {config, browser: null};
+  const ctx: Ctx = {config, browser: null, templateCache: new Map()};
   try {
     debugLog(`✅ Starting migration for ${config.siteIdentifier}`);
     const pageContents: PageContent[] = [];
@@ -858,9 +919,16 @@ export async function migrateStaticSite(configInput: SiteMigrationConfig): Promi
       const parentPageContents = await migrateParentPages(ctx, contentTextItems);
       pageContents.push(...parentPageContents);
     } else {
+      const siteTemplate = await loadTemplate(ctx, config.templateFragmentId);
       const pages = await scrapeAllPages(ctx);
       for (const content of pages) {
-        const pageContent = config.useNestedRows ? await createPageContentWithNestedRows(ctx, content, contentTextItems) : await createPageContent(ctx, content, contentTextItems);
+        let pageContent: PageContent;
+        if (siteTemplate) {
+          const pagePath = toContentPath(content.path);
+          pageContent = await migrateUsingTemplate(ctx, content, siteTemplate, pagePath, content.title);
+        } else {
+          pageContent = config.useNestedRows ? await createPageContentWithNestedRows(ctx, content, contentTextItems) : await createPageContent(ctx, content, contentTextItems);
+        }
         pageContents.push(pageContent);
         debugLog(`✅ Migrated ${content.title} to ${pageContent.path}`);
         progress(`✅ Migrated ${content.title} to ${pageContent.path}`);

@@ -15,6 +15,7 @@ import * as transforms from "./transforms";
 import { dateTimeNowAsValue } from "../../shared/dates";
 import * as crudController from "./crud-controller";
 import { member } from "../models/member";
+import { isUndefined } from "es-toolkit/compat";
 
 const debugLog = debug(envConfig.logNamespace("database:auth:common"));
 export const pleaseTryAgain = `. Please try again or`;
@@ -159,5 +160,5 @@ export function toMemberCookie(member: Member): MemberCookie {
 
 export function isMemberCookie(object: any): object is MemberCookie {
   const request = object as MemberCookie;
-  return request?.memberId !== undefined;
+  return !isUndefined(request?.memberId);
 }

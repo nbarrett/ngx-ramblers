@@ -2,6 +2,7 @@ import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { cloneDeep } from "es-toolkit/compat";
 import { extend } from "es-toolkit/compat";
 import { sortBy } from "es-toolkit/compat";
+import { isNull } from "es-toolkit/compat";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
@@ -116,7 +117,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       const searchParam = params.get(this.stringUtilsService.kebabCase(StoredValue.SEARCH));
       const sortFieldParam = params.get(this.stringUtilsService.kebabCase(StoredValue.SORT));
       const sortOrderParam = params.get(this.stringUtilsService.kebabCase(StoredValue.SORT_ORDER));
-      if (searchParam !== null) {
+      if (!isNull(searchParam)) {
         this.quickSearch = searchParam;
         this.uiActionsService.saveValueFor(StoredValue.SEARCH, this.quickSearch);
       } else {

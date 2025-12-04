@@ -7,7 +7,6 @@ import { SystemConfig } from "../models/system.model";
 import { ImageConfig, ImageSource, MODERATE, WalkType } from "../models/walk.model";
 import { DateUtilsService } from "./date-utils.service";
 import { SystemConfigService } from "./system/system-config.service";
-import { WalkEvent } from "../models/walk-event.model";
 import { WalksConfigService } from "./system/walks-config.service";
 import { WalksConfig } from "../models/walk-notification.model";
 import { Member } from "../models/member.model";
@@ -15,8 +14,9 @@ import { DEFAULT_BASIC_EVENT_SELECTION } from "../models/search.model";
 import { Observable, ReplaySubject } from "rxjs";
 import { shareReplay } from "rxjs/operators";
 import { StringUtilsService } from "./string-utils.service";
-import { has, isArray, isObject, isUndefined } from "es-toolkit/compat";
+import { has, isNull, isUndefined } from "es-toolkit/compat";
 import { DeepPartial } from "../models/utility-types";
+import { assignDeep } from "../functions/object-utils";
 
 @Injectable({
   providedIn: "root"
@@ -169,29 +169,9 @@ export class EventDefaultsService {
   private mergeExtendedGroupEvent(target: ExtendedGroupEvent, source?: DeepPartial<ExtendedGroupEvent>): ExtendedGroupEvent {
     if (!source) {
       return target;
+    } else {
+      return assignDeep(target, source);
     }
-    return this.assignDeep(target, source);
-  }
-
-  private assignDeep<T>(target: T, source: DeepPartial<T>): T {
-    if (!source) {
-      return target;
-    }
-    const targetRecord = target as Record<string, any>;
-    const sourceRecord = source as Record<string, any>;
-    Object.keys(sourceRecord).forEach(key => {
-      const sourceValue = sourceRecord[key];
-      if (isUndefined(sourceValue)) {
-        return;
-      }
-      if (isObject(sourceValue) && !isArray(sourceValue)) {
-        const currentTarget = isObject(targetRecord[key]) && !isArray(targetRecord[key]) ? targetRecord[key] : {};
-        targetRecord[key] = this.assignDeep(currentTarget, sourceValue as DeepPartial<any>);
-      } else {
-        targetRecord[key] = sourceValue;
-      }
-    });
-    return target;
   }
 
 
@@ -203,7 +183,7 @@ export class EventDefaultsService {
     if (!walk?.groupEvent) {
       return;
     }
-    if (walk.groupEvent.end_date_time === null) {
+    if (isNull(walk.groupEvent.end_date_time)) {
       this.logger.info("Migrating old walk data: setting end_date_time to start_date_time for walk", walk.id);
       walk.groupEvent.end_date_time = walk.groupEvent.start_date_time;
     }

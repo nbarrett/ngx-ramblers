@@ -21,32 +21,59 @@ export class LocationExtractionService {
   extractLocationsFromPages(pages: PageContent[]): PageContentColumn[] {
     const columns: PageContentColumn[] = [];
 
+    this.logger.info("extractLocationsFromPages: processing", pages.length, "pages");
     pages.forEach(pageContent => {
+      const href = pageContent.path;
+      const title = this.stringUtils.asTitle(last(this.urlService.pathSegmentsForUrl(href)));
+      const imageSource = this.findFirstImageInPage(pageContent);
+
       const locationRows = pageContent.rows.filter(row => this.actions.isLocation(row));
+      this.logger.info("Page", pageContent.path, "has", locationRows.length, "location rows out of", pageContent.rows.length, "total rows");
 
-      locationRows.forEach(row => {
-        if (row.location?.start && this.hasValidLocation(row.location.start)) {
-          const href = pageContent.path;
-          const title = this.stringUtils.asTitle(last(this.urlService.pathSegmentsForUrl(href)));
-          const description = this.formatLocationDescription(row.location.start, row.location.end);
-          const imageSource = this.findFirstImageInPage(pageContent);
+      let location = null;
+      let description = null;
 
-          this.logger.info("Location:", title, "- description:", description, "- imageSource:", imageSource);
-
-          columns.push({
-            title: title,
-            contentText: description,
-            href: href,
-            accessLevel: AccessLevel.public,
-            imageSource: imageSource,
-            location: row.location.start
-          });
+      if (locationRows.length > 0) {
+        const firstLocationRow = locationRows[0];
+        if (firstLocationRow.location?.start && this.hasValidLocation(firstLocationRow.location.start)) {
+          location = firstLocationRow.location.start;
+          description = this.formatLocationDescription(firstLocationRow.location.start, firstLocationRow.location.end);
         }
+      }
+
+      if (!description) {
+        description = this.extractFirstParagraph(pageContent);
+      }
+
+      this.logger.info("Page:", title, "- location:", location ? "found" : "missing", "- imageSource:", imageSource);
+
+      columns.push({
+        title,
+        contentText: description || "No description available",
+        href,
+        accessLevel: AccessLevel.public,
+        imageSource,
+        location
       });
     });
 
-    this.logger.info("Extracted", columns.length, "locations from", pages.length, "pages");
+    this.logger.info("Extracted", columns.length, "page entries from", pages.length, "pages,",
+                     columns.filter(c => c.location).length, "with locations");
     return columns;
+  }
+
+  private extractFirstParagraph(pageContent: PageContent): string | null {
+    for (const row of pageContent.rows || []) {
+      for (const column of row.columns || []) {
+        if (column.contentText) {
+          const text = column.contentText.trim();
+          if (text.length > 0) {
+            return text.length > 200 ? text.substring(0, 197) + "..." : text;
+          }
+        }
+      }
+    }
+    return null;
   }
 
   private formatLocationDescription(start: LocationDetails, end?: LocationDetails): string {

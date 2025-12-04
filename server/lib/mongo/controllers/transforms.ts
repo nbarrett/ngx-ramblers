@@ -1,4 +1,4 @@
-import { each, includes, isArray, isEmpty, isObject, isString, omit, set } from "es-toolkit/compat";
+import { each, includes, isArray, isEmpty, isObject, isString, isUndefined, omit, set } from "es-toolkit/compat";
 import debug from "debug";
 import mongoose from "mongoose";
 import { DataQueryOptions, MongoId } from "../../../../projects/ngx-ramblers/src/app/models/api-request.model";
@@ -156,9 +156,9 @@ export function parseErrorNew(error: any) {
 
 export function isControllerRequest(object: any): object is ControllerRequest {
   const request = object as ControllerRequest;
-  return request?.params !== undefined || request?.body !== undefined;
+  return !isUndefined(request?.params) || !isUndefined(request?.body);
 }
 
 export function hasBody(object: any): object is HasBody {
-  return !isEmpty(object?.body) && object?.body !== undefined;
+  return !isEmpty(object?.body) && !isUndefined(object?.body);
 }

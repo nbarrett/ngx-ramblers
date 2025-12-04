@@ -4,8 +4,11 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { DateTime } from "luxon";
-import { RamblersWalksManagerDateFormat as DateFormat } from "../../projects/ngx-ramblers/src/app/models/date-format.model";
+import {
+  RamblersWalksManagerDateFormat as DateFormat
+} from "../../projects/ngx-ramblers/src/app/models/date-format.model";
 import type { BackupOptions, EnvironmentConfig, RestoreOptions } from "./types.js";
+import { isUndefined } from "es-toolkit/compat";
 
 async function main() {
   const program = new Command();
@@ -117,7 +120,7 @@ async function main() {
         if (rawOptions.scaleDown) {
           originalScaleCount = config.scaleCount;
           await new Promise<void>((resolve, reject) => {
-            scaleApp(config.name, 0, (err) => {
+            scaleApp(config.name, 0, err => {
               if (err) return reject(new Error(err));
               console.log(`Scaled down ${config.name}`);
               resolve();
@@ -127,7 +130,7 @@ async function main() {
 
         try {
           await new Promise<void>((resolve, reject) => {
-            execCmd("mongodump", dumpArgs, (err) => {
+            execCmd("mongodump", dumpArgs, err => {
               if (err) return reject(new Error(err));
               resolve();
             });
@@ -144,9 +147,9 @@ async function main() {
             console.log(`Uploaded to s3://${s3Bucket}/${s3Key}`);
           }
         } finally {
-          if (rawOptions.scaleDown && originalScaleCount !== undefined) {
+          if (rawOptions.scaleDown && !isUndefined(originalScaleCount)) {
             await new Promise<void>((resolve, reject) => {
-              scaleApp(config.name, originalScaleCount, (err) => {
+              scaleApp(config.name, originalScaleCount, err => {
                 if (err) return reject(new Error(err));
                 console.log(`Restored scale count for ${config.name}`);
                 resolve();
@@ -223,7 +226,7 @@ async function main() {
       }
 
       await new Promise<void>((resolve, reject) => {
-        execCmd("mongorestore", restoreArgs, (err) => {
+        execCmd("mongorestore", restoreArgs, err => {
           if (err) return reject(new Error(err));
           resolve();
         });

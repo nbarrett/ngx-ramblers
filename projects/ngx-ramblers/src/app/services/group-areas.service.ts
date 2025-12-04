@@ -5,6 +5,7 @@ import { forkJoin, Observable, of } from "rxjs";
 import { catchError, map, switchMap } from "rxjs/operators";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
+import { isNull } from "es-toolkit/compat";
 
 @Injectable({ providedIn: "root" })
 export class GroupAreasService {
@@ -141,7 +142,7 @@ export class GroupAreasService {
         );
 
         return forkJoin(areaRequests).pipe(
-          map((results: (GroupAreaConfig | null)[]) => results.filter(area => area !== null) as GroupAreaConfig[])
+          map((results: (GroupAreaConfig | null)[]) => results.filter(area => !isNull(area)) as GroupAreaConfig[])
         );
       })
     );

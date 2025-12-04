@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ensureModel } from "../utils/model-utils";
 import uniqueValidator from "mongoose-unique-validator";
 import { NotificationConfig } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
@@ -29,4 +30,4 @@ const notificationConfigSchema = new mongoose.Schema({
 
 notificationConfigSchema.plugin(uniqueValidator);
 
-export const notificationConfig: mongoose.Model<NotificationConfig> = mongoose.model<NotificationConfig>("notification-config", notificationConfigSchema);
+export const notificationConfig: mongoose.Model<NotificationConfig> = ensureModel<NotificationConfig>("notification-config", notificationConfigSchema);

@@ -16,7 +16,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { AreaMapClickAction, AreaMapData, PageContent, PageContentRow } from "../../models/content-text.model";
 import { AreaMapCmsService } from "../../services/area-map-cms.service";
 import { Subscription } from "rxjs";
-import { isArray, isFunction, isNumber, isString } from "es-toolkit/compat";
+import { isArray, isFunction, isNull, isNumber, isString, isUndefined } from "es-toolkit/compat";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { BroadcastService } from "../../services/broadcast-service";
@@ -562,7 +562,7 @@ export class AreaMap implements OnInit, OnDestroy {
       if (map.getContainer()) {
         const zoom = map.getZoom();
         const center = map.getCenter();
-        if (zoom !== undefined && center && !isNaN(center.lat) && !isNaN(center.lng)) {
+        if (!isUndefined(zoom) && center && !isNaN(center.lat) && !isNaN(center.lng)) {
           this.logger.info("Map ready - actual zoom level applied:", zoom);
           this.logger.info("Map ready - actual center applied:", { lat: center.lat, lng: center.lng });
         } else {
@@ -578,7 +578,7 @@ export class AreaMap implements OnInit, OnDestroy {
           if (this.mapRef && this.mapRef.getContainer()) {
             const zoom = this.mapRef.getZoom();
             const center = this.mapRef.getCenter();
-            if (zoom !== undefined && center && !isNaN(center.lat) && !isNaN(center.lng)) {
+            if (!isUndefined(zoom) && center && !isNaN(center.lat) && !isNaN(center.lng)) {
               this.logger.info("Map ready (delayed) - zoom:", zoom);
               this.logger.info("Map ready (delayed) - center:", {
                 lat: center.lat,
@@ -789,7 +789,7 @@ export class AreaMap implements OnInit, OnDestroy {
       zoom = Math.min(18, Math.max(2, this.cmsSettings.mapZoom));
     } else {
       const savedZoom = this.standalone ? this.uiActions.initialValueFor(StoredValue.AREA_MAP_ZOOM, null) as any : null;
-      if (savedZoom !== null) {
+      if (!isNull(savedZoom)) {
         let parsedZoom = 9;
         if (isNumber(savedZoom) && !isNaN(savedZoom) && isFinite(savedZoom)) {
           parsedZoom = savedZoom;

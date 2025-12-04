@@ -20,6 +20,7 @@ import {
 import { getEnvironmentConfig } from "./backup-config";
 import type { EnvironmentConfig } from "../../deploy/types";
 import { NamedError } from "../../../projects/ngx-ramblers/src/app/models/api-response.model";
+import { isUndefined } from "es-toolkit/compat";
 
 export interface BackupOptions {
   environment: string;
@@ -320,7 +321,7 @@ export class BackupAndRestoreService {
       await this.updateSessionError(sessionId, error.message);
       throw error;
     } finally {
-      if (options.scaleDown && originalScaleCount !== undefined) {
+      if (options.scaleDown && !isUndefined(originalScaleCount)) {
         try {
           await this.scaleApp(config, originalScaleCount);
           await this.addLog(sessionId, `Restored scale count for ${config.name}`);

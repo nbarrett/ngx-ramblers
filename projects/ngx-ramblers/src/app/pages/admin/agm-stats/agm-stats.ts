@@ -22,7 +22,7 @@ import { faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
 import { sortBy } from "../../../functions/arrays";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
-import { isNumber, kebabCase } from "es-toolkit/compat";
+import { isNull, isNumber, isUndefined, kebabCase } from "es-toolkit/compat";
 import { AGMWalksTabComponent } from "./agm-walks-tab";
 import { AGMSocialsTabComponent, SocialRow } from "./agm-socials-tab";
 import { AGMExpensesTabComponent } from "./agm-expenses-tab";
@@ -317,7 +317,7 @@ export class AGMStatsComponent implements OnInit {
   }
 
   private parseDateInput(value: string | number | null, fallback: number): number {
-    if (value === null || value === undefined) {
+    if (isNull(value) || isUndefined(value)) {
       return fallback;
     }
     if (isNumber(value)) {
@@ -344,7 +344,7 @@ export class AGMStatsComponent implements OnInit {
   }
 
   private replaceQueryParams(params: Record<string, string | number>) {
-    const queryParams = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null));
+    const queryParams = Object.fromEntries(Object.entries(params).filter(([, v]) => !isUndefined(v) && !isNull(v)));
     this.router.navigate([], { relativeTo: this.route, queryParams, queryParamsHandling: "merge" });
   }
 
@@ -512,12 +512,12 @@ export class AGMStatsComponent implements OnInit {
       this.stats.twoYearsAgo ? { label: formatDateRange(period1From, period1To), data: this.stats.twoYearsAgo.walks } : null,
       this.stats.previousYear ? { label: formatDateRange(period2From, period2To), data: this.stats.previousYear.walks } : null,
       { label: formatDateRange(period3From, period3To), data: this.stats.currentYear.walks }
-    ].filter(p => p !== null);
+    ].filter(p => !isNull(p));
     const socialPeriods = [
       this.stats.twoYearsAgo ? { label: walkPeriods[0].label, data: this.stats.twoYearsAgo.socials } : null,
       this.stats.previousYear ? { label: walkPeriods[1].label, data: this.stats.previousYear.socials } : null,
       { label: walkPeriods[walkPeriods.length - 1].label, data: this.stats.currentYear.socials }
-    ].filter(p => p !== null);
+    ].filter(p => !isNull(p));
     const yearlyPeriods = this.stats.yearlyStats?.filter(yearStat => yearStat.year >= this.dateUtils.asDateTime(effectiveFrom).year && yearStat.year <= this.dateUtils.asDateTime(this.toDate).year)
       .map(yearStat => ({
         label: formatCompactDateRange(yearStat.periodFrom, yearStat.periodTo),

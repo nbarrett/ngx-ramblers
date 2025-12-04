@@ -1,4 +1,5 @@
 import mongoose, { Model } from "mongoose";
+import { ensureModel } from "../utils/model-utils";
 import uniqueValidator from "mongoose-unique-validator";
 import { Member } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 
@@ -83,4 +84,4 @@ const memberSchema = new mongoose.Schema({
 }, {collection: "members"});
 
 memberSchema.plugin(uniqueValidator);
-export const member: Model<Member> = mongoose.model<Member>("member", memberSchema);
+export const member: Model<Member> = ensureModel<Member>("member", memberSchema);

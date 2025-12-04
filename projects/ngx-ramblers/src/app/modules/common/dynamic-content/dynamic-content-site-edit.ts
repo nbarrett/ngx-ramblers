@@ -2,14 +2,18 @@ import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import {
   faAdd,
   faArrowsUpDown,
+  faCheck,
+  faCircleCheck,
+  faCopy,
   faEye,
+  faPaste,
   faPencil,
   faRemove,
   faSave,
   faSpinner,
   faUndo
 } from "@fortawesome/free-solid-svg-icons";
-import { cloneDeep, first, isEmpty, last, uniq } from "es-toolkit/compat";
+import { cloneDeep, first, isEmpty, isNull, isNumber, isString, isUndefined, last, uniq } from "es-toolkit/compat";
 import { BsDropdownConfig } from "ngx-bootstrap/dropdown";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
@@ -17,16 +21,28 @@ import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import {
   Action,
+  ColumnContentType,
   ColumnInsertData,
+  ColumnMappingConfig,
+  ContentTemplateType,
+  EM_DASH_WITH_SPACES,
   FragmentWithLabel,
+  ImagePattern,
   InsertionPosition,
   InsertionRow,
   LocationRenderingMode,
+  MigrationTemplateLocationMapping,
+  MigrationTemplateMapMapping,
+  MigrationTemplateMapping,
+  MigrationTemplateMetadata,
+  MigrationTemplateSourceType,
+  NestedRowMappingConfig,
   PageContent,
   PageContentColumn,
   PageContentRow,
   PageContentType
 } from "../../../models/content-text.model";
+import { TextMatchPattern } from "../../../models/page-transformation.model";
 import { LocationDetails } from "../../../models/ramblers-walks-manager";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -39,8 +55,10 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
+import { DataPopulationService } from "../../../pages/admin/data-population.service";
 import { fieldStartsWithValue } from "../../../functions/mongo";
 import { PageService } from "../../../services/page.service";
+import { assignDeep } from "../../../functions/object-utils";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { StoredValue } from "../../../models/ui-actions";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -69,6 +87,8 @@ import { DynamicContentViewComponent } from "./dynamic-content-view";
 import { FragmentService } from "../../../services/fragment.service";
 import { RowTypeSelectorComponent } from "./row-type-selector";
 import { IndexService } from "../../../services/index.service";
+import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-editor.component";
+import { faClone } from "@fortawesome/free-solid-svg-icons/faClone";
 
 @Component({
   selector: "app-dynamic-content-site-edit",
@@ -139,6 +159,78 @@ import { IndexService } from "../../../services/index.service";
                 </form>
               </div>
             </div>
+            @if (templateOptionsVisible) {
+              <div class="row mt-2 mb-3 thumbnail-heading-frame">
+                <div class="thumbnail-heading">Template Options</div>
+                <div class="col-12">
+                  <div class="p-3">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                      @for (option of contentTemplateTypeOptions; track option.value; let isLast = $last) {
+                        <app-badge-button
+                          [active]="isTemplateType(option.value)"
+                          [icon]="templateButtonIcon(option.value)"
+                          [caption]="option.label"
+                          [tooltip]="option.description"
+                          [noRightMargin]="!isLast"
+                          (click)="setTemplateType(option.value)"/>
+                      }
+                      <app-badge-button
+                        [icon]="faRemove"
+                        caption="Remove"
+                        [tooltip]="'Remove template configuration'"
+                        (click)="removeTemplate()"/>
+                      @if (isMigrationTemplateSelected()) {
+                        <div class="form-check form-switch mb-0 ms-auto">
+                          <input class="form-check-input" type="checkbox" id="migration-template-mapping-mode"
+                                 [ngModel]="templateMappingMode"
+                                 (ngModelChange)="setTemplateMappingMode($event)"
+                                 [disabled]="!isMigrationTemplateSelected()">
+                          <label class="form-check-label" for="migration-template-mapping-mode">Mapping mode</label>
+                        </div>
+                      }
+                    </div>
+                    @if (templateType()) {
+                      <div class="small text-muted mt-2">
+                        <app-markdown-editor [text]="templateTypeDescription()" [presentationMode]="true"/>
+                      </div>
+                    }
+                  </div>
+                </div>
+                <div class="col-12">
+                  <div class="p-3">
+                    <div class="d-flex gap-2 flex-wrap align-items-end">
+                      <div class="flex-grow-1">
+                        <label class="form-label-sm" for="template-library-select">Select template</label>
+                        <select class="form-select form-select-sm" id="template-library-select"
+                                [(ngModel)]="selectedTemplateFragmentId">
+                          <option value="">Select a template…</option>
+                          @for (fragment of templateFragments; track fragment.id) {
+                            <option [ngValue]="fragment.id">{{ templateFragmentLabel(fragment) }}</option>
+                          }
+                        </select>
+                      </div>
+                      <app-badge-button
+                        [icon]="faClone"
+                        caption="Replace"
+                        [tooltip]="'Replace page content with template'"
+                        [disabled]="!selectedTemplateFragmentId"
+                        (click)="applySelectedTemplate(true)"/>
+                      <app-badge-button
+                        [icon]="faAdd"
+                        caption="Append"
+                        [tooltip]="'Append template to page'"
+                        [disabled]="!selectedTemplateFragmentId"
+                        (click)="applySelectedTemplate(false)"/>
+                    </div>
+                    @if (templateFragmentsLoading) {
+                      <div class="small text-muted mt-2">Loading templates…</div>
+                    } @else if (!templateFragments?.length) {
+                      <div class="small text-muted mt-2">No templates published yet.</div>
+                    }
+                  </div>
+                </div>
+              </div>
+            }
             @for (row of pageContent?.rows; track row; let rowIndex = $index) {
               @if (pageContentRowService.rowsSelected() && rowIndex === firstSelectedRowIndex()) {
                 <div class="row thumbnail-heading-frame">
@@ -230,9 +322,13 @@ import { IndexService } from "../../../services/index.service";
                    (drop)="onRowDrop(rowIndex)">
                 <div class="thumbnail-heading" [attr.draggable]="true" (dragstart)="onRowDragStart($event, rowIndex)"
                      (dragend)="onRowDragEnd()" [tooltip]="rowDragTooltip(rowIndex)"
-                     [isOpen]="!!rowDragTooltip(rowIndex)" container="body" triggers="">Row {{ rowIndex + 1 }}
-                  @if (actions.isTextRow(row)) {
-                    ({{ stringUtils.pluraliseWithCount(row?.columns.length, 'column') }})
+                     [isOpen]="!!rowDragTooltip(rowIndex)" container="body" triggers="">
+                  {{ actions.rowHeading(rowIndex, row?.columns.length) }}
+                  @if (isMigrationTemplateSelected()) {
+                    @let mappingSummary = templateMappingSummary(row, rowIndex);
+                    @if (mappingSummary) {
+                      <span class="badge bg-light text-dark border ms-2">{{ mappingSummary }}</span>
+                    }
                   }
                   <app-badge-button noRightMargin class="ms-2"
                                     (click)="deleteRow(rowIndex)"
@@ -267,6 +363,189 @@ import { IndexService } from "../../../services/index.service";
                     </div>
                   </div>
                 </div>
+                @if (isMigrationTemplateSelected() && templateMappingMode) {
+                  <div class="row thumbnail-heading-frame thumbnail-heading-mapping-mode">
+                    <div class="thumbnail-heading-with-select">
+                      <div class="d-flex flex-wrap align-items-center gap-2">
+                        <label [for]="'mapping-source-' + rowIndex">Mapping source</label>
+                        <select class="form-control input-sm"
+                                style="width: auto; max-width: 300px;"
+                                [id]="'mapping-source-' + rowIndex"
+                                [ngModel]="templateMappingSourceType(rowIndex)"
+                                (ngModelChange)="onMappingSourceChange(rowIndex, $event)">
+                          <option value="">Not mapped</option>
+                          @for (option of templateSourceOptions; track option.value) {
+                            <option [value]="option.value">{{ option.label }}</option>
+                          }
+                        </select>
+                      </div>
+                    </div>
+                    <div class="row">
+                      @if (templateMappingSourceType(rowIndex) === MigrationTemplateSourceType.EXTRACT && !actions.isLocation(row) && !actions.isMap(row) && !isConfigurationOnlyMapping(rowIndex)) {
+                        <div class="col-md-4">
+                          <label class="form-label-sm" [for]="'mapping-text-pattern-' + rowIndex">Text pattern</label>
+                          <select class="form-select form-select-sm"
+                                  [id]="'mapping-text-pattern-' + rowIndex"
+                                  [ngModel]="templateMappingExtractPreset(rowIndex)"
+                                  (ngModelChange)="onExtractPresetChange(rowIndex, $event)">
+                            <option value="">Select pattern...</option>
+                            @for (option of templateExtractOptions; track option.value) {
+                              <option [value]="option.value">{{ option.label }}</option>
+                            }
+                          </select>
+                        </div>
+                      }
+                      @if (templateMappingSourceType(rowIndex) === MigrationTemplateSourceType.EXTRACT && actions.isLocation(row)) {
+                        <div class="col-md-12">
+                          <div class="alert alert-warning mb-0 py-2">
+                            <fa-icon [icon]="faCircleCheck"/>
+                            <strong class="ms-2">Location configuration{{ EM_DASH_WITH_SPACES }}</strong>
+                            <span class="ms-1">Use the checkboxes and fields below to configure how location data is extracted</span>
+                          </div>
+                        </div>
+                      }
+                      @if (templateMappingSourceType(rowIndex) === MigrationTemplateSourceType.EXTRACT && actions.isMap(row)) {
+                        <div class="col-md-12">
+                          <div class="alert alert-warning mb-0 py-2">
+                            <fa-icon [icon]="faCircleCheck"/>
+                            <strong class="ms-2">Map configuration -</strong>
+                            <span class="ms-1">Use the checkboxes and fields below to configure GPX extraction and location settings</span>
+                          </div>
+                        </div>
+                      }
+                      @if (templateMappingBy(rowIndex)?.textPattern === TextMatchPattern.CUSTOM_REGEX || templateMappingBy(rowIndex)?.extractPattern) {
+                        <div class="col-md-4">
+                          <label class="form-label-sm" [for]="'mapping-extract-pattern-' + rowIndex">
+                            Custom regex pattern</label>
+                          <input type="text" class="form-control"
+                                 [id]="'mapping-extract-pattern-' + rowIndex"
+                                 [ngModel]="templateMappingBy(rowIndex)?.extractPattern || ''"
+                                 (ngModelChange)="updateExtractPattern(rowIndex, $event)"
+                                 placeholder="e.g., ^### .+">
+                        </div>
+                      }
+                      @if (templateMappingSourceType(rowIndex) === MigrationTemplateSourceType.METADATA) {
+                        <div class="col-md-4">
+                          <label class="form-label-sm" [for]="'mapping-metadata-' + rowIndex">
+                            Metadata field</label>
+                          <select class="form-select form-select-sm"
+                                  [id]="'mapping-metadata-' + rowIndex"
+                                  [ngModel]="templateMappingBy(rowIndex)?.sourceIdentifier || ''"
+                                  (ngModelChange)="updateMetadataSelection(rowIndex, $event)">
+                            <option value="">Select field...</option>
+                            @for (option of templateMetadataOptions; track option.value) {
+                              <option [value]="option.value">{{ option.label }}</option>
+                            }
+                          </select>
+                        </div>
+                      }
+                      @if (templateMappingSourceType(rowIndex) === MigrationTemplateSourceType.STATIC) {
+                        <div class="col-md-8">
+                          <label class="form-label-sm" [for]="'mapping-static-value-' + rowIndex">
+                            Static value or instructions</label>
+                          <input type="text" class="form-control"
+                                 [id]="'mapping-static-value-' + rowIndex"
+                                 [ngModel]="templateMappingBy(rowIndex)?.notes || ''"
+                                 (ngModelChange)="updateMappingNotes(rowIndex, $event)">
+                        </div>
+                      }
+                      @if (templateMappingSourceType(rowIndex) && templateMappingSourceType(rowIndex) !== MigrationTemplateSourceType.STATIC) {
+                        <div class="col-12 mt-2">
+                          <label class="form-label-sm" [for]="'mapping-notes-' + rowIndex">
+                            Documentation notes
+                            <small class="text-muted">(optional - describe what this mapping does)</small>
+                          </label>
+                          <textarea class="form-control"
+                                    [id]="'mapping-notes-' + rowIndex"
+                                    rows="2"
+                                    [ngModel]="templateMappingBy(rowIndex)?.notes || ''"
+                                    (ngModelChange)="updateMappingNotes(rowIndex, $event)"
+                                    placeholder="e.g., Extracts the first level 1 or 2 heading from the source content"></textarea>
+                        </div>
+                      }
+                      @if (templateMappingSourceType(rowIndex) === MigrationTemplateSourceType.EXTRACT && actions.isLocation(row)) {
+                        <div class="col-12">
+                          <div class="row g-3 align-items-center">
+                            <div class="col-md-3">
+                              <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox"
+                                       [id]="'mapping-location-extract-' + rowIndex"
+                                       [ngModel]="templateMappingBy(rowIndex)?.location?.extractFromContent || false"
+                                       (ngModelChange)="updateLocationMapping(rowIndex, 'extractFromContent', $event)">
+                                <label class="form-check-label"
+                                       [for]="'mapping-location-extract-' + rowIndex">
+                                  Extract from content
+                                </label>
+                              </div>
+                            </div>
+                            <div class="col-md-3">
+                              <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox"
+                                       [id]="'mapping-location-hide-' + rowIndex"
+                                       [ngModel]="templateMappingBy(rowIndex)?.location?.hideRow || false"
+                                       (ngModelChange)="updateLocationMapping(rowIndex, 'hideRow', $event)">
+                                <label class="form-check-label"
+                                       [for]="'mapping-location-hide-' + rowIndex">
+                                  Hide location row
+                                </label>
+                              </div>
+                            </div>
+                            <div class="col-md-6">
+                              <label class="form-label-sm"
+                                     [for]="'mapping-location-default-' + rowIndex">
+                                Default location
+                              </label>
+                              <input type="text" class="form-control"
+                                     [id]="'mapping-location-default-' + rowIndex"
+                                     [ngModel]="templateMappingBy(rowIndex)?.location?.defaultLocation || ''"
+                                     (ngModelChange)="updateLocationMapping(rowIndex, 'defaultLocation', $event)">
+                            </div>
+                          </div>
+                        </div>
+                      }
+                      @if (actions.isMap(row)) {
+                        <div class="col-12">
+                          <div class="row g-3 align-items-end">
+                            <div class="col-md-4">
+                              <div class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       [id]="'mapping-map-extract-gpx-' + rowIndex"
+                                       [ngModel]="templateMappingBy(rowIndex)?.map?.extractGpxFromContent || false"
+                                       (ngModelChange)="updateMapMapping(rowIndex, 'extractGpxFromContent', $event)">
+                                <label class="form-check-label"
+                                       [for]="'mapping-map-extract-gpx-' + rowIndex">
+                                  Extract GPX from content
+                                </label>
+                              </div>
+                            </div>
+                            <div class="col-md-4">
+                              <label class="form-label-sm"
+                                     [for]="'mapping-map-gpx-path-' + rowIndex">
+                                GPX file path
+                              </label>
+                              <input type="text" class="form-control"
+                                     [id]="'mapping-map-gpx-path-' + rowIndex"
+                                     [ngModel]="templateMappingBy(rowIndex)?.map?.gpxFilePath || ''"
+                                     (ngModelChange)="updateMapMapping(rowIndex, 'gpxFilePath', $event)">
+                            </div>
+                            <div class="col-md-4">
+                              <div class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       [id]="'mapping-map-location-row-' + rowIndex"
+                                       [ngModel]="templateMappingBy(rowIndex)?.map?.useLocationFromRow || false"
+                                       (ngModelChange)="updateMapMapping(rowIndex, 'useLocationFromRow', $event)">
+                                <label class="form-check-label"
+                                       [for]="'mapping-map-location-row-' + rowIndex">
+                                  Use location from row
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
                 @if (actions.isCarouselOrAlbum(row)) {
                   <div class="row">
                     <div (nameInputChange)="editAlbumName=$event" class="col" app-row-settings-carousel
@@ -307,9 +586,21 @@ import { IndexService } from "../../../services/index.service";
                 }
                 <app-dynamic-content-site-edit-text-row [row]="row"
                                                         [rowIndex]="rowIndex"
+                                                        [rootRowIndex]="rowIndex"
                                                         [contentDescription]="contentDescription"
                                                         [contentPath]="contentPath"
-                                                        [pageContent]="pageContent"/>
+                                                        [pageContent]="pageContent"
+                                                        [isMigrationTemplateSelected]="isMigrationTemplateSelected.bind(this)"
+                                                        [templateMappingMode]="templateMappingMode"
+                                                        [columnMapping]="columnMapping.bind(this)"
+                                                        (columnMappingSourceChange)="onColumnMappingSourceChange($event.rowIndex, $event.columnIndex, $event.value, $event.nestedRowIndex, $event.nestedColumnIndex)"
+                                                        (columnNestedRowMappingUpdate)="updateColumnNestedRowMapping($event.rowIndex, $event.columnIndex, $event.updates, $event.nestedRowIndex, $event.nestedColumnIndex)"
+                                                        (columnMappingPropertyUpdate)="updateColumnMappingProperty($event.rowIndex, $event.columnIndex, $event.key, $event.value, $event.nestedRowIndex, $event.nestedColumnIndex)"
+                                                        [columnContentTypeOptions]="columnContentTypeOptions"
+                                                        [imagePatternOptions]="imagePatternOptions"
+                                                        [templateSourceOptions]="templateSourceOptions"
+                                                        [templateExtractOptions]="templateExtractOptions"
+                                                        [allowColumnMappings]="columnMappingEnabled(rowIndex)"/>
                 @if (actions.isEvents(row)) {
                   <app-dynamic-content-site-edit-events [row]="row" [rowIndex]="rowIndex"/>
                 }
@@ -331,53 +622,119 @@ import { IndexService } from "../../../services/index.service";
         </div>
       }
       <ng-template #saveButtonsAndPath>
-        <div class="d-inline-flex align-items-center flex-wrap">
-          <app-badge-button [disabled]="actions.rowsInEdit.length>0 || savingPage" (click)="onSaveClicked()"
-                            [tooltip]="actions.rowsInEdit.length>0?'Finish current row edit before saving':'Save page changes'"
-                            [icon]="savingPage?faSpinner:faSave" [spin]="savingPage"
-                            caption="Save page changes"/>
-          <app-badge-button [disabled]="savingPage" (click)="revertPageContent()"
-                            [tooltip]="'Revert page changes'"
-                            [icon]="faUndo"
-                            caption="Revert page changes"/>
-          @if (insertableContent?.length > 0) {
-            <app-badge-button (click)="insertData()"
-
-                              [tooltip]="'Insert missing data'"
-                              [icon]="faAdd" caption="Insert data"/>
-          }
-          @if (pageContent.rows?.length === 0) {
-            <app-badge-button (click)="createContent()"
-                              [tooltip]="'Add first row'"
-                              [icon]="faAdd" caption="Add first row"/>
-          }
-          @if (unreferencedPaths?.length > 0) {
-            <app-badge-button (click)="toggleShowUnreferencedPages()"
-                              [icon]="faEye"
-                              [active]="showUnreferenced"
-                              caption="{{showUnreferenced? 'Hide':'Show'}} {{stringUtils.pluraliseWithCount(unreferencedPaths?.length, 'unreferenced page')}}"/>
-          }
-          <app-badge-button (click)="deletePageContent()"
-                            [icon]="faRemove"
-                            delay=500 caption="Delete page"
-                            [tooltip]="deletePagContentTooltip()"
-                            [disabled]="savingPage || allReferringPages().length !== 0"/>
-          @if (this.allReferringPageCount() > 0) {
-            <div class="align-middle">Referred to
-              by: @for (referringPage of allReferringPages(); track referringPage; let linkIndex = $index) {
-                <a class="ms-2 rams-text-decoration-pink"
-                   [href]="referringPage">{{ formatHref(referringPage) }}{{ linkIndex < allReferringPageCount() - 1 ? ',' : '' }}</a>
+        <div class="d-flex align-items-center flex-wrap gap-3 w-100">
+          <div class="d-flex align-items-center flex-wrap gap-2">
+            <app-badge-button [disabled]="actions.rowsInEdit.length>0 || savingPage" (click)="onSaveClicked()"
+                              [tooltip]="actions.rowsInEdit.length>0?'Finish current row edit before saving':'Save page changes'"
+                              [icon]="savingPage?faSpinner:faSave" [spin]="savingPage"
+                              caption="Save page changes"/>
+            <app-badge-button [disabled]="savingPage" (click)="revertPageContent()"
+                              [tooltip]="'Revert page changes'"
+                              [icon]="faUndo"
+                              caption="Revert page changes"/>
+            @if (insertableContent?.length > 0) {
+              <app-badge-button (click)="insertData()"
+                                [tooltip]="'Insert missing data'"
+                                [icon]="faAdd" caption="Insert data"/>
+            }
+            @if (pageContent.rows?.length === 0) {
+              <app-badge-button (click)="createContent()"
+                                [tooltip]="'Add first row'"
+                                [icon]="faAdd" caption="Add first row"/>
+            }
+            @if (unreferencedPaths?.length > 0) {
+              <app-badge-button (click)="toggleShowUnreferencedPages()"
+                                [icon]="faEye"
+                                [active]="showUnreferenced"
+                                caption="{{showUnreferenced? 'Hide':'Show'}} {{stringUtils.pluraliseWithCount(unreferencedPaths?.length, 'unreferenced page')}}"/>
+            }
+            @if (!canEnableTemplateMode() && !templateModeActive()) {
+              <app-badge-button
+                [icon]="faSave"
+                caption="Save as template"
+                [tooltip]="'Copy this page structure to template library'"
+                (click)="createTemplateFromPage()"/>
+            }
+            @if (templateOptionsVisible) {
+              <app-badge-button
+                [icon]="faCopy"
+                caption="Copy current page content"
+                [tooltip]="'Copy page content JSON to clipboard'"
+                (click)="copyCurrentPageContent()"/>
+              <app-badge-button
+                [icon]="faPaste"
+                [active]="pastePageContentVisible"
+                caption="Paste page content"
+                [tooltip]="'Paste JSON from another page or template'"
+                (click)="togglePastePageContent()"/>
+            }
+            @if (pageContent?.debugLogs?.length) {
+              <app-badge-button
+                [icon]="faCopy"
+                caption="Copy debug logs ({{ pageContent.debugLogs.length }})"
+                [tooltip]="'Copy migration debug logs to clipboard'"
+                (click)="copyDebugLogs()"/>
+            }
+            <app-badge-button (click)="deletePageContent()"
+                              [icon]="faRemove"
+                              delay=500 caption="Delete page"
+                              [tooltip]="deletePagContentTooltip()"
+                              [disabled]="savingPage || allReferringPages().length !== 0"/>
+          </div>
+          @if (pastePageContentVisible) {
+            <div class="w-100">
+              <label class="form-label-sm" for="paste-page-content">Paste PageContent JSON</label>
+              <textarea id="paste-page-content"
+                        class="form-control"
+                        rows="6"
+                        placeholder='{"path": "fragments/templates/routes-template", "rows": [...] }'
+                        [(ngModel)]="pastePageContentText"></textarea>
+              @if (pastePageContentError) {
+                <div class="text-danger mt-1">{{ pastePageContentError }}</div>
               }
+              <div class="d-flex flex-wrap gap-2 mt-2">
+                <app-badge-button
+                  [icon]="pastingPageContent ? faSpinner : faSave"
+                  [spin]="pastingPageContent"
+                  caption="Apply pasted content"
+                  [disabled]="pastingPageContent"
+                  (click)="applyPastedPageContent()"/>
+                <app-badge-button
+                  [icon]="faRemove"
+                  caption="Cancel"
+                  (click)="cancelPastePageContent()"/>
+              </div>
             </div>
           }
-          @if (this.allReferringPageCount() === 0) {
-            <div class="align-middle mb-2">Not Referred to by any other pages or links</div>
+          @if (canEnableTemplateMode()) {
+            <div class="ms-auto">
+              <label class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox"
+                       [ngModel]="templateOptionsVisible"
+                       (ngModelChange)="onTemplateToggle($event)">
+                <span class="form-check-label">Template options</span>
+              </label>
+            </div>
           }
+          <div class="row w-100 mt-3">
+            <div class="col-12">
+              @if (this.allReferringPageCount() > 0) {
+                <div>Referred to
+                  by: @for (referringPage of allReferringPages(); track referringPage; let linkIndex = $index) {
+                    <a class="ms-2 rams-text-decoration-pink"
+                       [href]="referringPage">{{ formatHref(referringPage) }}{{ linkIndex < allReferringPageCount() - 1 ? ',' : '' }}</a>
+                  }
+                </div>
+              } @else {
+                <div>Not Referred to by any other pages or links</div>
+              }
+            </div>
+          </div>
         </div>
       </ng-template>
     }`,
   styleUrls: ["./dynamic-content.sass"],
-  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent]
+  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent, MarkdownEditorComponent]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
@@ -409,6 +766,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   protected fragmentService = inject(FragmentService);
   protected actions = inject(PageContentActionsService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
+  protected dataPopulationService = inject(DataPopulationService);
   @Input() contentPathReadOnly: boolean;
   @Input() public queryCompleted: boolean;
   @Input() public notify: AlertInstance;
@@ -423,6 +781,94 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   private defaultPageContent: PageContent;
   private destinationPageContent: PageContent;
   public pageTitle: string;
+  public templateOptionsVisible = true;
+  public templateMappingMode = false;
+  private preferredTemplateMappingMode = false;
+  public templateFragments: PageContent[] = [];
+  public templateFragmentsLoading = false;
+  public selectedTemplateFragmentId = "";
+  public publishingTemplateFragment = false;
+  public pastePageContentVisible = false;
+  public pastePageContentText = "";
+  public pastePageContentError = "";
+  public pastingPageContent = false;
+  protected readonly MigrationTemplateSourceType = MigrationTemplateSourceType;
+  readonly contentTemplateTypeOptions = [
+    {
+      value: ContentTemplateType.SHARED_FRAGMENT,
+      label: "Shared fragment",
+      description: "Reusable page components (headers, footers, sidebars) that can be inserted into multiple pages"
+    },
+    {
+      value: ContentTemplateType.USER_TEMPLATE,
+      label: "User template",
+      description: "Custom page layouts you create for quickly building new pages with consistent structure"
+    },
+    {
+      value: ContentTemplateType.MIGRATION_TEMPLATE,
+      label: "Migration template",
+      description: "Templates with data mappings for migrating content from old pages to new structure"
+    }
+  ];
+  readonly templateButtonIcons = {
+    [ContentTemplateType.SHARED_FRAGMENT]: faClone,
+    [ContentTemplateType.USER_TEMPLATE]: faSave,
+    [ContentTemplateType.MIGRATION_TEMPLATE]: faPencil
+  };
+  readonly templateSourceOptions = [
+    {value: MigrationTemplateSourceType.EXTRACT, label: "Extract from source"},
+    {value: MigrationTemplateSourceType.METADATA, label: "Use metadata"},
+    {value: MigrationTemplateSourceType.STATIC, label: "Static value"}
+  ];
+  readonly templateExtractOptions = [
+    {value: TextMatchPattern.FIRST_HEADING_AND_CONTENT, label: "First heading + content"},
+    {value: TextMatchPattern.LEVEL_1_OR_2_HEADING, label: "Level 1 or 2 heading"},
+    {value: TextMatchPattern.PARAGRAPH, label: "Paragraph"},
+    {value: TextMatchPattern.ALL_TEXT_UNTIL_IMAGE, label: "All text until image"},
+    {value: TextMatchPattern.ALL_TEXT_AFTER_HEADING, label: "All text after heading"},
+    {value: TextMatchPattern.TEXT_BEFORE_HEADING, label: "Text before heading"},
+    {value: TextMatchPattern.TEXT_FROM_HEADING, label: "Text from heading"},
+    {value: TextMatchPattern.HEADING_UNTIL_NEXT_HEADING, label: "Heading until next heading"},
+    {value: TextMatchPattern.CONTENT_AFTER_FIRST_HEADING, label: "Content after first heading"},
+    {value: TextMatchPattern.STARTS_WITH_HEADING, label: "Starts with heading"},
+    {value: TextMatchPattern.REMAINING_TEXT, label: "Remaining text"},
+    {value: TextMatchPattern.CUSTOM_REGEX, label: "Custom regex"}
+  ];
+  readonly templateMetadataOptions = [
+    {value: "title", label: "Source title"},
+    {value: "path", label: "Source path"},
+    {value: "menuTitle", label: "Menu title"},
+    {value: "publishDate", label: "Publish date"},
+    {value: "migration-note", label: "Migration note"}
+  ];
+  readonly nestedRowContentSourceOptions = [
+    {value: "remaining-images", label: "Remaining images"},
+    {value: "remaining-text", label: "Remaining text"},
+    {value: "all-content", label: "All content"},
+    {value: "all-images", label: "All images"},
+    {value: "pattern-match", label: "Pattern match"}
+  ];
+  readonly columnContentTypeOptions = [
+    {value: ColumnContentType.IMAGE, label: "Image"},
+    {value: ColumnContentType.TEXT, label: "Text"},
+    {value: ColumnContentType.MIXED, label: "Mixed (image + text)"}
+  ];
+  readonly imagePatternOptions = [
+    {value: ImagePattern.FIRST, label: "First"},
+    {value: ImagePattern.LAST, label: "Last"},
+    {value: ImagePattern.ALL, label: "All"},
+    {value: ImagePattern.PATTERN_MATCH, label: "Pattern match"}
+  ];
+  readonly nestedRowPackingOptions = [
+    {value: "one-per-item", label: "One row per item"},
+    {value: "all-in-one", label: "All items in one row"},
+    {value: "collect-with-breaks", label: "Collect with breaks"}
+  ];
+  readonly breakStopConditionOptions = [
+    {value: "image", label: "Image"},
+    {value: "heading", label: "Heading"},
+    {value: "paragraph", label: "Paragraph"}
+  ];
   faPencil = faPencil;
   faRemove = faRemove;
   faAdd = faAdd;
@@ -430,6 +876,10 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   faUndo = faUndo;
   faSpinner = faSpinner;
   faArrowsUpDown = faArrowsUpDown;
+  faCopy = faCopy;
+  faPaste = faPaste;
+  faCircleCheck = faCircleCheck;
+  TextMatchPattern = TextMatchPattern;
   public savingPage = false;
   providers: [{ provide: BsDropdownConfig, useValue: { isAnimated: true, autoClose: true } }];
   public destinationPath: string;
@@ -455,6 +905,10 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   protected readonly last = last;
   protected readonly Action = Action;
   private rowDragTargetIndex: number = null;
+
+  protected readonly faClone = faClone;
+
+  protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
 
   ngOnInit() {
     this.logger.debug("ngOnInit");
@@ -511,6 +965,752 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
     }
   }
 
+  templateModeActive(): boolean {
+    return !!this.templateType();
+  }
+
+  isFragmentPath(): boolean {
+    return this.pageContent?.path?.startsWith("fragments/") || false;
+  }
+
+  canEnableTemplateMode(): boolean {
+    return this.isFragmentPath();
+  }
+
+  templateType(): ContentTemplateType | "" {
+    const template = this.pageContent?.migrationTemplate;
+    if (!template) {
+      return "";
+    }
+    if (template.templateType) {
+      return template.templateType;
+    }
+    if (template.isTemplate) {
+      template.templateType = ContentTemplateType.MIGRATION_TEMPLATE;
+      return template.templateType;
+    }
+    return "";
+  }
+
+  templateTypeDescription(): string {
+    const type = this.templateType();
+    if (!type) {
+      return "";
+    }
+    const name = type.replace(/-/g, "-");
+    return this.dataPopulationService.defaultContent("template-type", name) || "";
+  }
+
+  onTemplateToggle(enabled: boolean) {
+    if (!this.canEnableTemplateMode()) {
+      this.notify.warning({
+        title: "Template Options",
+        message: "Templates can only be created in fragment paths (fragments/...). Use 'Create template' button to copy this page to a template."
+      });
+      return;
+    }
+    if (enabled) {
+      this.ensureTemplateStructures();
+    }
+    this.templateOptionsVisible = enabled;
+    this.uiActionsService.saveValueFor(StoredValue.TEMPLATE_OPTIONS_VISIBLE, enabled);
+  }
+
+  async createTemplateFromPage() {
+    if (!this.pageContent?.rows?.length) {
+      this.notify.error({title: "Create Template", message: "Add at least one row before creating a template"});
+      return;
+    }
+
+    const fragmentPath = this.defaultTemplateFragmentPath();
+
+    try {
+      const existingFragment = await this.pageContentService.findByPath(fragmentPath);
+      if (existingFragment) {
+        this.notify.warning({
+          title: "Template Exists",
+          message: `A template already exists at ${fragmentPath}. Navigate there to edit it.`
+        });
+        return;
+      }
+    } catch (error) {
+      this.logger.info("Fragment doesn't exist, which is good - we can create it");
+    }
+
+    const fragmentPayload: PageContent = {
+      path: fragmentPath,
+      rows: await this.actions.copyContentTextIdsInRows(this.pageContent.rows || []),
+      migrationTemplate: {
+        isTemplate: true,
+        templateType: ContentTemplateType.MIGRATION_TEMPLATE,
+        mappings: []
+      }
+    };
+
+    try {
+      const saved = await this.pageContentService.createOrUpdate(fragmentPayload);
+      await this.fragmentService.ensureLoadedById(saved.id);
+      this.notify.success({
+        title: "Template Created",
+        message: `Template created at ${saved.path}. Navigating to configure mappings...`
+      });
+
+      setTimeout(() => {
+        this.urlService.navigateTo(["admin", "page-content", saved.path]);
+      }, 1000);
+    } catch (error) {
+      this.notify.error({title: "Create Template", message: error});
+    }
+  }
+
+  async copyCurrentPageContent() {
+    try {
+      const pageContentJson = JSON.stringify(this.pageContent, null, 2);
+      await navigator.clipboard.writeText(pageContentJson);
+      this.notify.success({
+        title: "Copy Page Content",
+        message: "Page content JSON copied to clipboard"
+      });
+    } catch (error) {
+      this.notify.error({
+        title: "Copy Page Content",
+        message: "Failed to copy to clipboard: " + (error?.message || "Unknown error")
+      });
+    }
+  }
+
+  async copyDebugLogs() {
+    try {
+      const debugLogsText = (this.pageContent?.debugLogs || []).join("\n");
+      await navigator.clipboard.writeText(debugLogsText);
+      this.notify.success({
+        title: "Copy Debug Logs",
+        message: `Copied ${this.pageContent?.debugLogs?.length || 0} debug log entries to clipboard`
+      });
+    } catch (error) {
+      this.notify.error({
+        title: "Copy Debug Logs",
+        message: "Failed to copy to clipboard: " + (error?.message || "Unknown error")
+      });
+    }
+  }
+
+  togglePastePageContent() {
+    this.pastePageContentVisible = !this.pastePageContentVisible;
+    if (!this.pastePageContentVisible) {
+      this.resetPastePageContentState();
+    }
+  }
+
+  cancelPastePageContent() {
+    this.pastePageContentVisible = false;
+    this.resetPastePageContentState();
+  }
+
+  private resetPastePageContentState() {
+    this.pastePageContentText = "";
+    this.pastePageContentError = "";
+    this.pastingPageContent = false;
+  }
+
+  private extractPastedPageContent(value: any): PageContent | null {
+    if (!value || typeof value !== "object") {
+      return null;
+    }
+    if (Array.isArray(value)) {
+      return null;
+    }
+    if (value.rows && value.path) {
+      return value as PageContent;
+    }
+    if (value.response) {
+      return this.extractPastedPageContent(value.response);
+    }
+    if (value.data) {
+      return this.extractPastedPageContent(value.data);
+    }
+    if (value.pageContent) {
+      return this.extractPastedPageContent(value.pageContent);
+    }
+    return null;
+  }
+
+  async applyPastedPageContent() {
+    if (this.pastingPageContent) {
+      return;
+    }
+    const raw = this.pastePageContentText?.trim();
+    if (!raw) {
+      this.pastePageContentError = "Paste JSON representing PageContent";
+      return;
+    }
+    this.pastingPageContent = true;
+    this.pastePageContentError = "";
+    try {
+      const parsed = JSON.parse(raw);
+      const extracted = this.extractPastedPageContent(parsed);
+      if (!extracted) {
+        throw new Error("Unable to locate PageContent in pasted JSON");
+      }
+      extracted.path = this.urlService.reformatLocalHref(extracted.path || this.pageContent?.path || "");
+      await this.initialisePageContent(extracted);
+      this.notify.success({
+        title: "Paste Page Content",
+        message: `Applied pasted content to ${extracted.path}`
+      });
+      this.cancelPastePageContent();
+    } catch (error) {
+      this.pastePageContentError = error instanceof Error ? error.message : "Invalid JSON supplied";
+    } finally {
+      this.pastingPageContent = false;
+    }
+  }
+
+  isTemplateType(type: ContentTemplateType): boolean {
+    return this.templateType() === type;
+  }
+
+  setTemplateType(type: ContentTemplateType) {
+    if (!this.pageContent) {
+      return;
+    }
+    this.ensureTemplateStructures();
+    this.pageContent.migrationTemplate.templateType = type;
+    this.pageContent.migrationTemplate.isTemplate = true;
+    const mappingEnabled = type === ContentTemplateType.MIGRATION_TEMPLATE ? this.preferredTemplateMappingMode : false;
+    this.setTemplateMappingMode(mappingEnabled, true);
+  }
+
+  removeTemplate() {
+    if (!this.pageContent?.migrationTemplate) {
+      return;
+    }
+    this.pageContent.migrationTemplate.isTemplate = false;
+    delete this.pageContent.migrationTemplate.templateType;
+    this.setTemplateMappingMode(false, false);
+  }
+
+  isMigrationTemplateSelected(): boolean {
+    return this.templateType() === ContentTemplateType.MIGRATION_TEMPLATE;
+  }
+
+  templateButtonIcon(type: ContentTemplateType) {
+    return this.templateButtonIcons[type] || faCheck;
+  }
+
+  defaultTemplateFragmentPath(): string {
+    const base = this.pageContent?.path || "template";
+    const slug = this.stringUtils.kebabCase(base);
+    const normalised = slug?.startsWith("fragments/") ? slug.replace(/^fragments\//, "") : slug;
+    return `fragments/templates/${normalised}`;
+  }
+
+  templateFragmentLabel(fragment: PageContent): string {
+    return fragment?.path || "Unknown";
+  }
+
+  private fragmentIsTemplate(fragment: PageContent): boolean {
+    return !!this.fragmentTemplateType(fragment);
+  }
+
+  private fragmentTemplateType(fragment: PageContent): ContentTemplateType | "" {
+    if (!fragment) {
+      return "";
+    }
+    if (fragment?.migrationTemplate?.templateType) {
+      return fragment.migrationTemplate.templateType;
+    }
+    if (fragment?.migrationTemplate?.isTemplate) {
+      return ContentTemplateType.MIGRATION_TEMPLATE;
+    }
+    const normalised = this.urlService.reformatLocalHref(fragment?.path || "")?.replace(/^\/+/, "") || "";
+    if (normalised.startsWith("fragments/templates/")) {
+      return ContentTemplateType.USER_TEMPLATE;
+    }
+    return "";
+  }
+
+  setTemplateMappingMode(value: boolean, persist = true) {
+    this.logger.debug("setTemplateMappingMode:value:", value, "persist:", persist, "isMigrationTemplateSelected:", this.isMigrationTemplateSelected());
+    this.templateMappingMode = value;
+    if (persist) {
+      this.uiActionsService.saveValueFor(StoredValue.MIGRATION_TEMPLATE_MAPPING_MODE, this.templateMappingMode);
+      this.preferredTemplateMappingMode = this.templateMappingMode;
+    }
+    this.syncTemplateMappingAvailability();
+  }
+
+  templateMappingBy(rowIndex: number, columnIndex?: number): MigrationTemplateMapping | undefined {
+    if (!this.isMigrationTemplateSelected()) {
+      return undefined;
+    }
+    const template = this.pageContent?.migrationTemplate;
+    if (!template?.mappings) {
+      return undefined;
+    }
+    return template.mappings.find(mapping => this.mappingMatches(mapping, rowIndex, columnIndex));
+  }
+
+  templateMappingSourceType(rowIndex: number): string {
+    const mapping = this.templateMappingBy(rowIndex);
+    if (!mapping) {
+      return "";
+    } else if (mapping.sourceType) {
+      return mapping.sourceType;
+    } else if (mapping.columnMappings && mapping.columnMappings.length > 0) {
+      const firstColumnMapping = mapping.columnMappings[0];
+      return firstColumnMapping.sourceType || "";
+    } else {
+      return "";
+    }
+  }
+
+  columnMappingEnabled(rowIndex: number): boolean {
+    if (!this.isMigrationTemplateSelected()) {
+      return false;
+    }
+    return this.templateMappingSourceType(rowIndex) !== MigrationTemplateSourceType.METADATA;
+  }
+
+  templateMappingExtractPreset(rowIndex: number): string {
+    const mapping = this.templateMappingBy(rowIndex);
+    if (!mapping) {
+      return "";
+    }
+    if (mapping.textPattern || mapping.extractPreset || mapping.extractPattern) {
+      return this.actualExtractPreset(mapping);
+    }
+    if (mapping.columnMappings && mapping.columnMappings.length > 0) {
+      const firstColumnMapping = mapping.columnMappings[0];
+      if (firstColumnMapping.textPattern) {
+        return firstColumnMapping.textPattern;
+      }
+      if (firstColumnMapping.extractPreset) {
+        return firstColumnMapping.extractPreset;
+      }
+      if (firstColumnMapping.extractPattern) {
+        const matchedOption = this.templateExtractOptions.find(option => option.value === firstColumnMapping.extractPattern);
+        if (matchedOption) {
+          return matchedOption.value;
+        } else {
+          return TextMatchPattern.CUSTOM_REGEX;
+        }
+      }
+    }
+    return "";
+  }
+
+  isConfigurationOnlyMapping(rowIndex: number): boolean {
+    const mapping = this.templateMappingBy(rowIndex);
+    if (!mapping) {
+      return false;
+    }
+    const hasMapOrLocationConfig = !!(mapping.map || mapping.location);
+    const hasContentExtraction = !!(
+      mapping.textPattern ||
+      mapping.extractPreset ||
+      mapping.extractPattern ||
+      (mapping.columnMappings && mapping.columnMappings.length > 0)
+    );
+    return hasMapOrLocationConfig && !hasContentExtraction;
+  }
+
+  templateMappingSummary(row: PageContentRow, rowIndex: number): string | null {
+    if (!this.isMigrationTemplateSelected()) {
+      return null;
+    }
+    const mapping = this.templateMappingBy(rowIndex);
+    if (!mapping?.sourceType) {
+      return null;
+    }
+    if (mapping.sourceType === MigrationTemplateSourceType.EXTRACT) {
+      if (row.type === PageContentType.LOCATION && mapping.location?.extractFromContent) {
+        return mapping.location?.hideRow ? "Extract location (hidden)" : "Extract location";
+      }
+      const label = this.extractPresetLabel(mapping.extractPreset || mapping.extractPattern);
+      return label ? `Extract ${label.toLowerCase()}` : "Extract";
+    }
+    if (mapping.sourceType === MigrationTemplateSourceType.METADATA) {
+      const label = this.metadataLabel(mapping.sourceIdentifier);
+      return label ? `Metadata: ${label}` : "Metadata";
+    }
+    if (mapping.sourceType === MigrationTemplateSourceType.STATIC) {
+      return "Static";
+    }
+    return null;
+  }
+
+  onMappingSourceChange(rowIndex: number, value: MigrationTemplateSourceType | "") {
+    if (!this.isMigrationTemplateSelected()) {
+      return;
+    }
+    if (!value) {
+      this.clearTemplateMapping(rowIndex);
+      return;
+    }
+    const mapping = this.ensureTemplateMapping(rowIndex);
+    mapping.sourceType = value;
+    if (value !== MigrationTemplateSourceType.EXTRACT) {
+      delete mapping.extractPreset;
+      delete mapping.extractPattern;
+      delete mapping.location;
+    }
+    if (value !== MigrationTemplateSourceType.METADATA) {
+      delete mapping.sourceIdentifier;
+    }
+    if (value !== MigrationTemplateSourceType.STATIC) {
+      delete mapping.notes;
+    }
+  }
+
+  onExtractPresetChange(rowIndex: number, preset: string) {
+    if (!this.isMigrationTemplateSelected()) {
+      return;
+    }
+    const mapping = this.ensureTemplateMapping(rowIndex);
+    if (preset) {
+      mapping.textPattern = preset;
+      delete mapping.extractPattern;
+      delete mapping.extractPreset;
+    } else {
+      delete mapping.textPattern;
+      delete mapping.extractPattern;
+      delete mapping.extractPreset;
+    }
+  }
+
+  updateExtractPattern(rowIndex: number, value: string) {
+    if (!this.isMigrationTemplateSelected()) {
+      return;
+    }
+    const mapping = this.ensureTemplateMapping(rowIndex);
+    mapping.extractPattern = value || undefined;
+  }
+
+  updateMetadataSelection(rowIndex: number, value: string) {
+    if (!this.isMigrationTemplateSelected()) {
+      return;
+    }
+    const mapping = this.ensureTemplateMapping(rowIndex);
+    mapping.sourceIdentifier = value || undefined;
+  }
+
+  updateMappingNotes(rowIndex: number, value: string) {
+    if (!this.isMigrationTemplateSelected()) {
+      return;
+    }
+    const mapping = this.ensureTemplateMapping(rowIndex);
+    mapping.notes = value || undefined;
+  }
+
+  updateLocationMapping<K extends keyof MigrationTemplateLocationMapping>(rowIndex: number, key: K, value: MigrationTemplateLocationMapping[K]) {
+    if (!this.isMigrationTemplateSelected()) {
+      return;
+    }
+    const mapping = this.ensureTemplateMapping(rowIndex);
+    mapping.location = mapping.location || {};
+    if (isString(value) && value.trim().length === 0) {
+      delete mapping.location[key];
+    } else {
+      mapping.location[key] = value;
+    }
+    if (mapping.location && Object.keys(mapping.location).length === 0) {
+      delete mapping.location;
+    } else {
+      mapping.sourceType = MigrationTemplateSourceType.EXTRACT;
+    }
+  }
+
+  updateMapMapping<K extends keyof MigrationTemplateMapMapping>(rowIndex: number, key: K, value: MigrationTemplateMapMapping[K]) {
+    if (!this.isMigrationTemplateSelected()) {
+      return;
+    }
+    const mapping = this.ensureTemplateMapping(rowIndex);
+    mapping.map = mapping.map || {};
+    if (isString(value) && value.trim().length === 0) {
+      delete mapping.map[key];
+    } else if (isNumber(value) || !isUndefined(value)) {
+      mapping.map[key] = value;
+    }
+    if (mapping.map && Object.keys(mapping.map).length === 0) {
+      delete mapping.map;
+    } else {
+      mapping.sourceType = MigrationTemplateSourceType.EXTRACT;
+    }
+  }
+
+  hasColumnsWithNestedRows(row: PageContentRow): boolean {
+    return row.columns?.some(col => col.rows && col.rows.length > 0) || false;
+  }
+
+  columnMapping(rowIndex: number, columnIndex: number, nestedRowIndex?: number, nestedColumnIndex?: number): ColumnMappingConfig | undefined {
+    if (!this.isMigrationTemplateSelected()) {
+      return undefined;
+    }
+    const template = this.pageContent?.migrationTemplate;
+    if (!template?.mappings) {
+      return undefined;
+    }
+    for (const mapping of template.mappings) {
+      if (mapping.targetRowIndex === rowIndex && mapping.columnMappings) {
+        const columnMapping = mapping.columnMappings.find(cm => this.columnMappingMatches(cm, columnIndex, nestedRowIndex, nestedColumnIndex));
+        if (columnMapping) {
+          return columnMapping;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  private columnMappingMatches(mapping: ColumnMappingConfig, columnIndex: number, nestedRowIndex?: number, nestedColumnIndex?: number): boolean {
+    if (mapping.columnIndex !== columnIndex) {
+      return false;
+    }
+    const mappingNestedRowIndex = mapping.nestedRowIndex ?? mapping.targetNestedRowIndex;
+    const mappingNestedColumnIndex = mapping.nestedColumnIndex ?? mapping.targetNestedColumnIndex;
+    if ((nestedRowIndex ?? undefined) !== (mappingNestedRowIndex ?? undefined)) {
+      return false;
+    }
+    if ((nestedColumnIndex ?? undefined) !== (mappingNestedColumnIndex ?? undefined)) {
+      return false;
+    }
+    return true;
+  }
+
+  ensureColumnMapping(rowIndex: number, columnIndex: number, nestedRowIndex?: number, nestedColumnIndex?: number): ColumnMappingConfig {
+    const rowMapping = this.ensureTemplateMapping(rowIndex);
+    rowMapping.columnMappings = rowMapping.columnMappings || [];
+    let colMapping = rowMapping.columnMappings.find(cm => this.columnMappingMatches(cm, columnIndex, nestedRowIndex, nestedColumnIndex));
+    if (!colMapping) {
+      colMapping = {columnIndex};
+      if (!isUndefined(nestedRowIndex)) {
+        colMapping.nestedRowIndex = nestedRowIndex;
+      }
+      if (!isUndefined(nestedColumnIndex)) {
+        colMapping.nestedColumnIndex = nestedColumnIndex;
+      }
+      rowMapping.columnMappings.push(colMapping);
+    } else {
+      if (!isUndefined(nestedRowIndex)) {
+        colMapping.nestedRowIndex = nestedRowIndex;
+        delete colMapping.targetNestedRowIndex;
+      }
+      if (!isUndefined(nestedColumnIndex)) {
+        colMapping.nestedColumnIndex = nestedColumnIndex;
+        delete colMapping.targetNestedColumnIndex;
+      }
+    }
+    return colMapping;
+  }
+
+  clearColumnMapping(rowIndex: number, columnIndex: number, nestedRowIndex?: number, nestedColumnIndex?: number) {
+    const rowMapping = this.templateMappingBy(rowIndex);
+    if (rowMapping?.columnMappings) {
+      rowMapping.columnMappings = rowMapping.columnMappings.filter(cm => !this.columnMappingMatches(cm, columnIndex, nestedRowIndex, nestedColumnIndex));
+      if (rowMapping.columnMappings.length === 0) {
+        delete rowMapping.columnMappings;
+      }
+    }
+  }
+
+  onColumnMappingSourceChange(rowIndex: number, columnIndex: number, value: MigrationTemplateSourceType | "", nestedRowIndex?: number, nestedColumnIndex?: number) {
+    if (!this.isMigrationTemplateSelected()) {
+      return;
+    }
+    if (!value) {
+      this.clearColumnMapping(rowIndex, columnIndex, nestedRowIndex, nestedColumnIndex);
+      return;
+    }
+    const colMapping = this.ensureColumnMapping(rowIndex, columnIndex, nestedRowIndex, nestedColumnIndex);
+    colMapping.sourceType = value;
+    if (value !== "extract") {
+      delete colMapping.extractPreset;
+      delete colMapping.extractPattern;
+      delete colMapping.nestedRowMapping;
+    }
+  }
+
+  updateColumnNestedRowMapping(rowIndex: number, columnIndex: number, updates: Partial<NestedRowMappingConfig>, nestedRowIndex?: number, nestedColumnIndex?: number) {
+    if (!this.isMigrationTemplateSelected()) {
+      return;
+    }
+    const colMapping = this.ensureColumnMapping(rowIndex, columnIndex, nestedRowIndex, nestedColumnIndex);
+    const target = colMapping.nestedRowMapping = colMapping.nestedRowMapping || {} as NestedRowMappingConfig;
+    assignDeep(target, updates);
+  }
+
+  updateColumnMappingProperty(rowIndex: number, columnIndex: number, key: string, value: any, nestedRowIndex?: number, nestedColumnIndex?: number) {
+    if (!this.isMigrationTemplateSelected()) {
+      return;
+    }
+    const colMapping = this.ensureColumnMapping(rowIndex, columnIndex, nestedRowIndex, nestedColumnIndex);
+    if (isString(value) && value.trim().length === 0) {
+      delete colMapping[key];
+    } else {
+      colMapping[key] = value;
+    }
+  }
+
+  async refreshTemplateFragments(showSpinner = true) {
+    if (showSpinner) {
+      this.templateFragmentsLoading = true;
+    }
+    try {
+      const fragmentPaths = this.fragmentService.fragmentLinks || [];
+      await Promise.all(fragmentPaths.map(path => this.fragmentService.ensureLoaded(path)));
+      this.templateFragments = this.fragmentService.fragments.filter(fragment => this.fragmentIsTemplate(fragment));
+      if (!this.templateFragments.length) {
+        this.selectedTemplateFragmentId = "";
+      } else if (!this.selectedTemplateFragmentId || !this.templateFragments.some(fragment => fragment.id === this.selectedTemplateFragmentId)) {
+        this.selectedTemplateFragmentId = this.templateFragments[0].id;
+      }
+    } catch (error) {
+      this.notify.error({title: "Template Library", message: error});
+    } finally {
+      if (showSpinner) {
+        this.templateFragmentsLoading = false;
+      }
+    }
+  }
+
+  async applySelectedTemplate(replace: boolean) {
+    const fragmentId = this.selectedTemplateFragmentId;
+    if (!fragmentId) {
+      return;
+    }
+    await this.applyTemplateFragmentById(fragmentId, replace || !(this.pageContent?.rows?.length));
+  }
+
+  private async applyTemplateFragmentById(fragmentId: string, replace: boolean) {
+    await this.fragmentService.ensureLoadedById(fragmentId);
+    const fragment = this.fragmentService.contentById(fragmentId);
+    if (!fragment) {
+      this.notify.error({title: "Template Library", message: "Template fragment could not be loaded"});
+      return;
+    }
+    const rows = await this.actions.copyContentTextIdsInRows(fragment.rows || []);
+    if (!this.pageContent.rows || replace) {
+      this.pageContent.rows = rows;
+    } else {
+      this.pageContent.rows.push(...rows);
+    }
+    const label = this.templateFragmentLabel(fragment);
+    this.notify.success({title: "Template Library", message: `Applied template ${label}`});
+  }
+
+  private ensureTemplateStructures() {
+    if (!this.pageContent) {
+      return;
+    }
+    if (!this.pageContent.migrationTemplate) {
+      this.pageContent.migrationTemplate = {} as MigrationTemplateMetadata;
+    }
+    if (!Array.isArray(this.pageContent.migrationTemplate.mappings)) {
+      this.pageContent.migrationTemplate.mappings = [];
+    }
+    this.syncTemplateMappingAvailability();
+  }
+
+  private ensureTemplateMapping(rowIndex: number, columnIndex?: number): MigrationTemplateMapping {
+    if (!this.isMigrationTemplateSelected()) {
+      throw new Error("Template mappings are only available for migration templates");
+    }
+    this.ensureTemplateStructures();
+    const existing = this.templateMappingBy(rowIndex, columnIndex);
+    if (existing) {
+      return existing;
+    }
+    const mapping: MigrationTemplateMapping = {targetRowIndex: rowIndex};
+    if (!isNull(columnIndex) && !isUndefined(columnIndex)) {
+      mapping.targetColumnIndex = columnIndex;
+    }
+    this.pageContent.migrationTemplate.mappings.push(mapping);
+    return mapping;
+  }
+
+  private clearTemplateMapping(rowIndex: number, columnIndex?: number) {
+    if (!this.isMigrationTemplateSelected()) {
+      return;
+    }
+    const template = this.pageContent?.migrationTemplate;
+    if (!template?.mappings) {
+      return;
+    }
+    template.mappings = template.mappings.filter(mapping => !this.mappingMatches(mapping, rowIndex, columnIndex));
+  }
+
+  private mappingMatches(mapping: MigrationTemplateMapping, rowIndex: number, columnIndex?: number): boolean {
+    const mappingColumn = mapping.targetColumnIndex ?? undefined;
+    const targetColumn = columnIndex ?? undefined;
+    return mapping.targetRowIndex === rowIndex && mappingColumn === targetColumn;
+  }
+
+  private extractPresetLabel(value?: string): string | undefined {
+    if (!value) {
+      return undefined;
+    }
+    return this.templateExtractOptions.find(option => option.value === value)?.label || value;
+  }
+
+  private metadataLabel(value?: string): string | undefined {
+    if (!value) {
+      return undefined;
+    } else {
+      return this.templateMetadataOptions.find(option => option.value === value)?.label || value;
+    }
+  }
+
+  private ensureMappingSourceTypes() {
+    if (!this.isMigrationTemplateSelected()) {
+      return;
+    }
+    const mappings = this.pageContent?.migrationTemplate?.mappings;
+    if (!mappings) {
+      return;
+    }
+    mappings.forEach(mapping => {
+      if (!mapping.sourceType) {
+        if (mapping.location && Object.keys(mapping.location).length > 0) {
+          mapping.sourceType = MigrationTemplateSourceType.EXTRACT;
+        } else if (mapping.map && Object.keys(mapping.map).length > 0) {
+          mapping.sourceType = MigrationTemplateSourceType.EXTRACT;
+        }
+      }
+    });
+  }
+
+  actualExtractPreset(mapping: MigrationTemplateMapping): string {
+    if (mapping.textPattern) {
+      return mapping.textPattern;
+    }
+    if (mapping.extractPreset) {
+      return mapping.extractPreset;
+    }
+    if (mapping.extractPattern) {
+      const matchedOption = this.templateExtractOptions.find(option => option.value === mapping.extractPattern);
+      if (matchedOption) {
+        return matchedOption.value;
+      } else {
+        return TextMatchPattern.CUSTOM_REGEX;
+      }
+    }
+    return "";
+  }
+
+  private syncTemplateMappingAvailability() {
+    this.logger.debug("syncTemplateMappingAvailability:isMigrationTemplateSelected:", this.isMigrationTemplateSelected(), "templateMappingMode:", this.templateMappingMode, "Logic removed to prevent overriding user preference");
+  }
+
+  private computedTemplateFragmentPath(): string {
+    const raw = this.pageContent?.migrationTemplate?.fragmentPath || this.defaultTemplateFragmentPath();
+    const reformatted = this.urlService.reformatLocalHref(raw)?.replace(/^\/+/, "") || "";
+    if (reformatted.startsWith("fragments/")) {
+      return reformatted;
+    } else {
+      return `fragments/${reformatted}`;
+    }
+  }
+
   insertData() {
     this.insertableContent.forEach(item => {
       const pageContentColumns: PageContentColumn[] = this.actions.findPageContentColumnsOfType(this.pageContent, item.type);
@@ -530,6 +1730,11 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
   private async runInitCode() {
     this.showUnreferenced = this.uiActionsService.initialBooleanValueFor(StoredValue.SHOW_UNREFERENCED_PAGES, false);
+    this.templateOptionsVisible = this.uiActionsService.initialBooleanValueFor(StoredValue.TEMPLATE_OPTIONS_VISIBLE, true);
+    this.templateMappingMode = this.uiActionsService.initialBooleanValueFor(StoredValue.MIGRATION_TEMPLATE_MAPPING_MODE, false);
+    this.logger.debug("ngOnInit:templateMappingMode after loading:", this.templateMappingMode);
+    this.preferredTemplateMappingMode = this.templateMappingMode;
+    this.syncTemplateMappingAvailability();
     this.logger.debug("ngOnInit:runInitCode:pageContent:", this.pageContent, "path:", this.urlService.urlPath());
     await this.loadAllFragments();
     await this.pageContentService.allReferringPages(this.contentPath)
@@ -690,7 +1895,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   onRowDrop(targetIndex: number) {
-    if (this.actions.draggedRowIndex === null || this.actions.draggedRowIndex === undefined) {
+    if (isNull(this.actions.draggedRowIndex) || isUndefined(this.actions.draggedRowIndex)) {
       return;
     }
     if (targetIndex === this.actions.draggedRowIndex) {
@@ -709,7 +1914,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   rowDragTooltip(index: number): string | null {
     const dragged = this.actions.draggedRowIndex;
     const target = this.rowDragTargetIndex;
-    if (dragged === null || dragged === undefined) {
+    if (isNull(dragged) || isUndefined(dragged)) {
       return null;
     }
     if (!this.actions.dragHasMoved) {
@@ -940,7 +2145,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   firstSelectedRowIndex(): number {
-    const indexes = this.pageContent?.rows?.map((row, index) => this.pageContentRowService.isSelected(row) ? index : null).filter(v => v !== null) as number[];
+    const indexes = this.pageContent?.rows?.map((row, index) => this.pageContentRowService.isSelected(row) ? index : null).filter(v => !isNull(v)) as number[];
     return indexes?.length ? Math.min(...indexes) : -1;
   }
 
@@ -955,10 +2160,13 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
       this.queriedContentPath = pageContent.path;
       pageContent.rows.forEach(row => this.initialiseRowIfRequired(row));
       this.pageContent = pageContent;
+      this.ensureTemplateStructures();
+      this.ensureMappingSourceTypes();
       this.logger.info("initialisePageContent.pageContent:", this.pageContent, "urlPath:", this.urlService.urlPath());
       await this.collectPagesBelowPath(pageContent);
       await this.collectNestedAlbumIndexes();
       await this.unreferencedPagesStartingWith(pageContent);
+      await this.refreshTemplateFragments(false);
     }
   }
 

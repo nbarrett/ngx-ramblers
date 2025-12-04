@@ -2,6 +2,7 @@ import { Component, ElementRef, EventEmitter, HostListener, Input, OnChanges, On
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { MapRoute } from "../../../models/content-text.model";
+import { isUndefined } from "es-toolkit/compat";
 
 @Component({
   selector: "app-map-route-style-palette",
@@ -233,7 +234,7 @@ export class MapRouteStylePaletteComponent implements OnInit, OnChanges {
     if (!this.route.weight) {
       this.route.weight = this.defaultWeight;
     }
-    if (this.route.opacity === undefined) {
+    if (isUndefined(this.route.opacity)) {
       this.route.opacity = this.defaultOpacity;
     }
     if (!this.route.color) {

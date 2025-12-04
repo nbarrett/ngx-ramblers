@@ -1,0 +1,238 @@
+{
+  "id": "69393a647202e9abd62bd046",
+  "path": "walks/routes/2-cudham-berry-s-green",
+  "debugLogs": [
+    "✅ Starting template-based transformation for page: https://www.kentramblers.org.uk/KentWalks/public/walk_002.htm",
+    "   Template has 4 rows",
+    "Converting to markdown",
+    "   Text segments: 4, Images: 4",
+    "   First text segment preview: Kent Ramblers Walk 2...",
+    "   Raw markdown (full):\nKent Ramblers Walk 2\n\n## Cudham, Luxted & Berry's Green\n\nDistance:         3.9 Miles (1.75 Hours)\n\nOS Map:          Explorer 147 (Start at grid reference TQ446597)\n\nClick map to magnify and click again to magnify further\n\nPark in car park at Cudham recreation ground (on left, just past Blacksmith’s Arms, when approaching from Green Street Green).  No charge.  Closing times vary from as early as 4.30pm in December to 8.30pm in May.\n\nLeave car park at north end (by the noticeboard) on asphalt path past tennis court and toilets.  On reaching churchyard, follow path round to left, past church and into Church Approach.  Descend to Cudham Lane and cross carefully into Church Hill.  Bear left at junction but almost immediately take footpath on right.  Do not take the path going forward but turn sharp left down steps (waymarked Berrys Green Circular Walk/Cudham Circular Walk) then through gate and down hill on right hand side of field.  Carry straight on down to valley bottom and up the other side into wood.  Climb through wood and between fences to Single Street.\n\nCross road and take path between houses to field.  Turn sharp right and follow path along top edges of fields, soon between fences, to road at Luxted.  Turn left and follow road carefully.  When road soon bears right, keep left down Birdhouse Lane.  Follow lane downhill, up other side and through former Scout Activity Centre.  Go through gap to left of white metal gate marked “No Vehicles”; soon track becomes a path between hedges.  Emerge into fields and follow left hand edges to Jail Lane.  Turn right (taking care and using left hand side of road for maximum visibility) until footpath sign on left (to Biggin Hill ¾m).\n\nTake path along edge of field, past copse on left and over stile.  Continue along right hand edge of field for short distance to another stile.  Do not cross this stile but turn left uphill with fence on your right and follow waymarks, ignoring a right turn, until you reach the asphalt drives to Foal Farm and golf club.  Cross drives carefully onto golf course and follow yellow waymarks across golf course towards stile just left of copse (once over bund aim right of house ahead).  After leaving golf course follow path between fences to road at Berry’s Green.\n\nGo straight across into Restavon Park, an estate of prefabricated homes.  Follow drive downhill and soon after it bends to left take signposted path on right between homes into wood.Take first left along broad track.  Nearing lane, bear right along permissive path between fences.  After path starts to climb, take left fork steeply up to stile, cross and continue to climb steeply to seat with fine views across valley.  After admiring the view continue upwards to join Cudham Lane opposite Blacksmith’s Arms.  Turn right and shortly reach car park\n\n## Points of Interest\n\n### Wildflower Meadow\n\nThis section of the walk passes through grassland created from formerly arable fields.  It is used to grow hay rich in local species to create grassland typical of the North Downs such as the common knapweed and wild carrot, below.\n\nThe purplish-red flowers at the centre of the wild carrot floret were considered by the herbalist Nicholas Culpeper to be an aid to conception when boiled in wine and drunk.\n\n### Downe Camp\n\nThe 66 acre site was bought by founder of the Scouts, Lord Baden-Powell, in 1929 to train leaders.  From 1933 it was used as an adventure camp for Scouts.  In 2020 the site was put up for sale by the Scouts to help solve a financial crisis resulting from the Covid-19 pandemic.\n\n* * *\n\nIn addition to the walking routes on our web site we have published three popular walking guides:\n\n[Guide to Tunbridge Wells Circular Walk and other walks in the area](../../Books/index.htm#TWCW)\n\n[Guide to the Kent Coast Path: Part 1, Camber to Ramsgate](../../Books/index.htm#KCP1)\n\n[Guide to Three River Valley Walks in West Kent: Darent Valley Path, Eden Valley Walk and Medway Valley Walk](../../Books/index.htm#TRVWWK)\n\n* * *\n\nPlease report any problems with this walk to [info@kentramblers.org.uk](mailto:info@kentramblers.org.uk).\n\n* * *\n\nRamblers' volunteers in Kent work tirelessly to ensure that our paths are as well protected and maintained as possible.  Of course we also organise led walks but most of our members are independent walkers who simply want to support our footpath work.  Please [join us](http://www.ramblers.org.uk/membership/whyjoin.html) and become a supporter too.  You need us and we really need you.\n\n* * *\n\nMap contains Ordnance Survey data © Crown copyright and database rights 2020.  Some paths on map are based on data provided by Kent County Council but do not constitute legal evidence of the line of a right of way",
+    "🔄 Starting template transformation with 4 rows",
+    "   Processing row 0 (type: text)",
+    "   Found 1 mapping(s) for this row",
+    "     Processing column 0: contentType=mixed, textPattern=level-1-or-2-heading, imagePattern=first, nestedRowIndex=none, nestedColumnIndex=none",
+    "   Searching for level 1 or 2 heading in 4 unused text segments",
+    "   All segments:",
+    "     [0] Kent Ramblers Walk 2",
+    "     [1] ## Cudham, Luxted & Berry's Green\n\nDistance:         3.9 Miles (1.75 Hours)\n\nOS ",
+    "     [2] Click map to magnify and click again to magnify further\n\nPark in car park at Cud",
+    "     [3] The purplish-red flowers at the centre of the wild carrot floret were considered",
+    "   Found level 1 or 2 heading: ## Cudham, Luxted & Berry's Green",
+    "   Note: Not marking segment 2 as used to allow caption/narrative extraction from same segment",
+    "   Stored heading text for deduplication: \"Cudham, Luxted & Berry's Green\"",
+    "   Processing row 1 (type: location)",
+    "   Found 1 mapping(s) for this row",
+    "   Processing row 2 (type: text)",
+    "   Found 1 mapping(s) for this row",
+    "     Processing column 0: contentType=mixed, textPattern=none, imagePattern=pattern-match, nestedRowIndex=0, nestedColumnIndex=0",
+    "     Column has nested rows, populating specific nested row index 0",
+    "       Populating nested row 0, column 0 with extracted content",
+    "     Processing column 1: contentType=mixed, textPattern=none, imagePattern=none, nestedRowIndex=none, nestedColumnIndex=none",
+    "     Column has nested rows, using nested row mapping",
+    "     Processing column 0: contentType=text, textPattern=text-before-heading, imagePattern=none, nestedRowIndex=2, nestedColumnIndex=0",
+    "     Column has nested rows, populating specific nested row index 2",
+    "       Populating nested row 2, column 0 with extracted content",
+    "   Processing row 3 (type: text)",
+    "   Found 1 mapping(s) for this row",
+    "✅ Template transformation complete: 4 rows created"
+  ],
+  "rows": [
+    {
+      "type": "text",
+      "maxColumns": 1,
+      "showSwiper": false,
+      "columns": [
+        {
+          "imageSource": "https://www.kentramblers.org.uk/KentWalks/public/images/banner_002.jpg",
+          "imageBorderRadius": 6,
+          "columns": 12,
+          "contentText": "## Cudham, Luxted & Berry's Green",
+          "accessLevel": "public"
+        }
+      ]
+    },
+    {
+      "type": "location",
+      "maxColumns": 1,
+      "showSwiper": false,
+      "columns": [
+        {
+          "columns": 12,
+          "accessLevel": "public"
+        }
+      ],
+      "marginBottom": 3,
+      "location": {
+        "start": {
+          "latitude": 51.318037946791776,
+          "longitude": 0.0735911054005068,
+          "grid_reference_6": "TQ446597",
+          "grid_reference_8": "TQ44605970",
+          "grid_reference_10": "TQ4460059700",
+          "postcode": "TN14 7QB",
+          "description": "TQ446597",
+          "w3w": ""
+        },
+        "end": {
+          "latitude": 51.3209536,
+          "longitude": 0.0710545,
+          "grid_reference_6": "TQ444600",
+          "grid_reference_8": "TQ44426000",
+          "grid_reference_10": "TQ4442160001",
+          "postcode": "TN14 7QL",
+          "description": "to Cudham Lane and cross carefully into Church",
+          "w3w": ""
+        },
+        "renderingMode": "visible"
+      }
+    },
+    {
+      "type": "text",
+      "maxColumns": 2,
+      "showSwiper": false,
+      "columns": [
+        {
+          "columns": 8,
+          "accessLevel": "public",
+          "rows": [
+            {
+              "type": "text",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12,
+                  "accessLevel": "public",
+                  "imageSource": "https://www.kentramblers.org.uk/KentWalks/public/map_002.jpg",
+                  "imageBorderRadius": 6,
+                  "showPlaceholderImage": true,
+                  "showTextAfterImage": true,
+                  "alt": "map 002"
+                }
+              ]
+            },
+            {
+              "type": "map",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12
+                }
+              ],
+              "map": {
+                "title": "Route map",
+                "mapCenter": [
+                  51.319503603002914,
+                  0.07232056251437609
+                ],
+                "mapZoom": 9,
+                "mapHeight": 500,
+                "provider": "os",
+                "osStyle": "Leisure_27700",
+                "showControlsDefault": false,
+                "allowControlsToggle": false,
+                "showWaypointsDefault": true,
+                "allowWaypointsToggle": true,
+                "autoFitBounds": true,
+                "routes": [],
+                "markers": [
+                  {
+                    "latitude": 51.318037946791776,
+                    "longitude": 0.0735911054005068,
+                    "label": "TQ446597"
+                  },
+                  {
+                    "latitude": 51.3209536,
+                    "longitude": 0.0710545,
+                    "label": "to Cudham Lane and cross carefully into Church"
+                  }
+                ]
+              },
+              "marginTop": 3,
+              "marginBottom": 3
+            },
+            {
+              "type": "text",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12,
+                  "accessLevel": "public",
+                  "contentText": "Kent Ramblers Walk 2\n\n## Cudham, Luxted & Berry's Green\n\nDistance:         3.9 Miles (1.75 Hours)\n\nOS Map:          Explorer 147 (Start at grid reference TQ446597)"
+                }
+              ]
+            },
+            {
+              "type": "shared-fragment",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [],
+              "fragment": {
+                "pageContentId": "68f19abf6c5f463b7d50ffc7"
+              }
+            }
+          ]
+        },
+        {
+          "columns": 4,
+          "accessLevel": "public",
+          "rows": [
+            {
+              "type": "text",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12,
+                  "accessLevel": "public",
+                  "imageSource": "https://www.kentramblers.org.uk/KentWalks/public/images/P002a.jpg",
+                  "imageBorderRadius": 6,
+                  "showPlaceholderImage": true,
+                  "showTextAfterImage": true,
+                  "contentText": "places of interest text",
+                  "alt": "Image"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12,
+                  "accessLevel": "public",
+                  "imageSource": "https://www.kentramblers.org.uk/KentWalks/public/images/P002b.jpg",
+                  "imageBorderRadius": 6,
+                  "showPlaceholderImage": true,
+                  "showTextAfterImage": true,
+                  "contentText": "places of interest text",
+                  "alt": "Image"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "maxColumns": 1,
+      "showSwiper": false,
+      "columns": [
+        {
+          "columns": 12,
+          "contentText": "Automatically migrated from [https://www.kentramblers.org.uk/KentWalks/public/walk_002.htm](https://www.kentramblers.org.uk/KentWalks/public/walk_002.htm) on 2025-12-11 08:26",
+          "accessLevel": "public"
+        }
+      ],
+      "marginTop": 3
+    }
+  ],
+  "migrationTemplate": {
+    "mappings": []
+  }
+}

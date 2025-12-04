@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ensureModel } from "../utils/model-utils";
 import { ContentText } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 
 const contextTextSchema = new mongoose.Schema({
@@ -8,4 +9,4 @@ const contextTextSchema = new mongoose.Schema({
   styles: {type: Object}
 }, {collection: "contentText"});
 
-export const contentText: mongoose.Model<ContentText> = mongoose.model<ContentText>("content-text", contextTextSchema);
+export const contentText: mongoose.Model<ContentText> = ensureModel<ContentText>("content-text", contextTextSchema);

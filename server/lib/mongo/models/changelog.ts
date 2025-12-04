@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ensureModel } from "../utils/model-utils";
 
 export interface ChangelogEntry {
   fileName: string;
@@ -15,4 +16,4 @@ const changelogSchema = new mongoose.Schema({
 }, { collection: "changelog" });
 
 export const changelog: mongoose.Model<ChangelogEntry> =
-  mongoose.model<ChangelogEntry>("changelog", changelogSchema);
+  ensureModel<ChangelogEntry>("changelog", changelogSchema);

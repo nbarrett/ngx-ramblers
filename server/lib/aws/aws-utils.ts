@@ -1,8 +1,9 @@
 import { AwsInfo, AwsUploadErrorResponse } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import path from "path";
+import { isUndefined } from "es-toolkit/compat";
 
 export function isAwsUploadErrorResponse(response: AwsInfo | AwsUploadErrorResponse): response is AwsUploadErrorResponse {
-  return (response as AwsUploadErrorResponse)?.error !== undefined;
+  return !isUndefined((response as AwsUploadErrorResponse)?.error);
 }
 
 export function extensionFrom(name: string): string {

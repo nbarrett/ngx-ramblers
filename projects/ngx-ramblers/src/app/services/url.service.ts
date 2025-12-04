@@ -1,7 +1,7 @@
 import { DOCUMENT, Location } from "@angular/common";
 import { inject, Injectable } from "@angular/core";
 import { ActivatedRoute, Params, QueryParamsHandling, Router } from "@angular/router";
-import { first, isEmpty, last, tail } from "es-toolkit/compat";
+import { first, isEmpty, isUndefined, last, tail } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   BASE64_PREFIX_HEIC,
@@ -294,7 +294,7 @@ export class UrlService {
   }
 
   isUrlWithId(linkConfig: LinkConfig | AWSLinkConfig): linkConfig is LinkConfig {
-    return (linkConfig as LinkConfig).id !== undefined;
+    return !isUndefined((linkConfig as LinkConfig).id);
   }
 
   absolutePathForAWSFileName(fileName: string): string {

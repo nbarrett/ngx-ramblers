@@ -338,7 +338,7 @@ export class MailNotificationTemplateMappingComponent implements OnInit, OnDestr
   }
 
   subject(): string {
-    return this.notificationConfig?.subject?.text || '(no subject)';
+    return this.notificationConfig?.subject?.text || "(no subject)";
   }
 
   toBannerInformation(bannerConfig: BannerConfig) {

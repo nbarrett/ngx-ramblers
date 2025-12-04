@@ -51,7 +51,9 @@ export class IndexService {
         path: ContentPathMatchConfigs[contentPath.stringMatch].mongoRegex(contentPath.contentPath)
       }));
 
+      this.logger.info("Query criteria:", {$or: pathRegex});
       const pages: PageContent[] = await this.pageContentService.all({criteria: {$or: pathRegex}});
+      this.logger.info("Found", pages.length, "pages matching criteria. Sample paths:", pages.slice(0, 5).map(p => p.path));
 
       let allColumns: PageContentColumn[] = [];
 

@@ -86,7 +86,7 @@ const routes: Routes = [
   },
   {
     path: "fragments",
-    redirectTo: "/admin/fragment-index",
+    redirectTo: "/admin/content-templates",
     pathMatch: "full"
   },
   {

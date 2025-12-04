@@ -3,7 +3,7 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { UrlService } from "../../../services/url.service";
 import { NgxLoggerLevel } from "ngx-logger";
-import { NavBarJustification, SystemConfig } from "../../../models/system.model";
+import { NavBarJustification, NavBarLocation, SystemConfig } from "../../../models/system.model";
 import { Subscription } from "rxjs";
 import { PageNavigatorComponent } from "../../../page-navigator/page-navigator.component";
 import { HeaderButtonsComponent } from "../../../header-buttons/header-buttons";
@@ -53,7 +53,7 @@ export class NavbarContentComponent  implements OnInit, OnDestroy {
     const location = this.systemConfig?.header?.navBar?.location;
     const justification = this.systemConfig?.header?.navBar?.justification || NavBarJustification.RIGHT;
 
-    if (location === 'below-logo') {
+    if (location === NavBarLocation.BELOW_LOGO) {
       switch (justification) {
         case NavBarJustification.LEFT:
           return "d-flex justify-content-center justify-content-lg-start";
@@ -72,7 +72,7 @@ export class NavbarContentComponent  implements OnInit, OnDestroy {
     const location = this.systemConfig?.header?.navBar?.location;
     const justification = this.systemConfig?.header?.navBar?.justification || NavBarJustification.RIGHT;
 
-    if (location === 'below-logo') {
+    if (location === NavBarLocation.BELOW_LOGO) {
       switch (justification) {
         case NavBarJustification.LEFT:
           return "text-center text-lg-start justify-content-center justify-content-lg-start";

@@ -4,6 +4,7 @@ import { UiActionsService } from "../../services/ui-actions.service";
 import { StoredValue } from "../../models/ui-actions";
 import { MapTilesService } from "../../services/maps/map-tiles.service";
 import { MapControlsState } from "../components/map-controls";
+import { isUndefined } from "es-toolkit/compat";
 
 @Injectable({
   providedIn: "root"
@@ -42,14 +43,14 @@ export class MapControlsStateService {
 
     const parsedHeight = parseInt(storedHeight as any, 10);
     const mapHeight = !isNaN(parsedHeight) ? Math.min(900, Math.max(300, parsedHeight))
-      : (defaults.mapHeight !== undefined ? defaults.mapHeight : 520);
+      : (!isUndefined(defaults.mapHeight) ? defaults.mapHeight : 520);
 
     return {
       provider,
       osStyle,
       mapHeight,
-      smoothScroll: defaults.smoothScroll !== undefined ? storedSmooth : undefined,
-      autoShowAll: defaults.autoShowAll !== undefined ? storedAuto : undefined
+      smoothScroll: !isUndefined(defaults.smoothScroll) ? storedSmooth : undefined,
+      autoShowAll: !isUndefined(defaults.autoShowAll) ? storedAuto : undefined
     };
   }
 

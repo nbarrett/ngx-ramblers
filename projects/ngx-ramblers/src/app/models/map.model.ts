@@ -61,3 +61,9 @@ export const OSMapStyle: Record<OSMapStyleKey, MapStyleInfo> = {
 } as const;
 
 export const OS_MAP_STYLE_LIST: MapStyleInfo[] = Object.values(OSMapStyle).filter(s => !s.key.endsWith("_3857"));
+
+export interface ExtractedLocation {
+  type: "postcode" | "gridReference" | "placeName";
+  value: string;
+  context?: string;
+}

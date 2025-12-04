@@ -1,0 +1,310 @@
+{
+  "id": "69393a437202e9abd62bd037",
+  "path": "walks/routes/darent-valley-path",
+  "debugLogs": [
+    "✅ Starting template-based transformation for page: https://www.kentramblers.org.uk/KentWalks/DVP/index.htm",
+    "   Template has 4 rows",
+    "Converting to markdown",
+    "   Text segments: 8, Images: 8",
+    "   First text segment preview: Darent Valley Path...",
+    "   Raw markdown (full):\nDarent Valley Path\n\nStarting point at Chipstead\n\nOtford\n\nEynsford Viaduct\n\nEynsford Bridge\n\nDarenth\n\nBrooklands Lakes\n\n## Darent Valley Path\n\nThe Darent Valley Path starts alternatively at Sevenoaks Station or Chipstead and finishes on the bank of the Thames just north of Dartford.  About 18 miles long, the route is steeped in history.  In Roman times there were villas every couple of miles along the valley and the finest example, Lullingstone, has been excavated and opened to the public.  For centuries the Darent was an important source of power and there were many water mills of various kinds; several survive although none is currently in use.  Picturesque villages include Otford, Shoreham, Eynsford and Farningham.  Lavender is perhaps the valley's most visible crop and there are castles at both Lullingstone and Eynsford.\n\nRelevant links:\n\n[Long Distance Walkers Association](https://www.ldwa.org.uk/ldp/members/show_path.php?path_name=Darent+Valley+Path)\n\n[Explore Kent](https://explorekent.org/activities/darent-valley-path/)",
+    "🔄 Starting template transformation with 4 rows",
+    "   Processing row 0 (type: text)",
+    "   Found 1 mapping(s) for this row",
+    "     Processing column 0: contentType=mixed, textPattern=level-1-or-2-heading, imagePattern=first, nestedRowIndex=none, nestedColumnIndex=none",
+    "   Searching for level 1 or 2 heading in 8 unused text segments",
+    "   All segments:",
+    "     [0] Darent Valley Path",
+    "     [1] Starting point at Chipstead",
+    "     [2] Otford",
+    "     [3] Eynsford Viaduct",
+    "     [4] Eynsford Bridge",
+    "     [5] Darenth",
+    "     [6] Brooklands Lakes\n\n## Darent Valley Path",
+    "     [7] The Darent Valley Path starts alternatively at Sevenoaks Station or Chipstead an",
+    "   Found level 1 or 2 heading: ## Darent Valley Path",
+    "   Note: Not marking segment 13 as used to allow caption/narrative extraction from same segment",
+    "   Stored heading text for deduplication: \"Darent Valley Path\"",
+    "   Processing row 1 (type: location)",
+    "   Found 1 mapping(s) for this row",
+    "   Processing row 2 (type: text)",
+    "   Found 1 mapping(s) for this row",
+    "     Processing column 0: contentType=mixed, textPattern=none, imagePattern=pattern-match, nestedRowIndex=0, nestedColumnIndex=0",
+    "     Column has nested rows, populating specific nested row index 0",
+    "       Populating nested row 0, column 0 with extracted content",
+    "     Processing column 1: contentType=mixed, textPattern=none, imagePattern=none, nestedRowIndex=none, nestedColumnIndex=none",
+    "     Column has nested rows, using nested row mapping",
+    "     Processing column 0: contentType=text, textPattern=text-before-heading, imagePattern=none, nestedRowIndex=2, nestedColumnIndex=0",
+    "     Column has nested rows, populating specific nested row index 2",
+    "       Populating nested row 2, column 0 with extracted content",
+    "   Processing row 3 (type: text)",
+    "   Found 1 mapping(s) for this row",
+    "✅ Template transformation complete: 4 rows created"
+  ],
+  "rows": [
+    {
+      "type": "text",
+      "maxColumns": 1,
+      "showSwiper": false,
+      "columns": [
+        {
+          "imageSource": "https://www.kentramblers.org.uk/banners/autumn_oasts.jpg",
+          "imageBorderRadius": 6,
+          "columns": 12,
+          "contentText": "## Darent Valley Path",
+          "accessLevel": "public"
+        }
+      ]
+    },
+    {
+      "type": "location",
+      "maxColumns": 1,
+      "showSwiper": false,
+      "columns": [
+        {
+          "columns": 12,
+          "accessLevel": "public"
+        }
+      ],
+      "marginBottom": 3,
+      "location": {
+        "start": {
+          "latitude": 51.2764117,
+          "longitude": 0.1819438,
+          "grid_reference_6": "TQ523553",
+          "grid_reference_8": "TQ52305535",
+          "grid_reference_10": "TQ5230155351",
+          "postcode": "TN13 1DP",
+          "description": "Sevenoaks Station",
+          "w3w": ""
+        },
+        "end": {
+          "latitude": 51.456098504173625,
+          "longitude": 0.2467478084920153,
+          "grid_reference_6": "TQ561754",
+          "grid_reference_8": "TQ56197540",
+          "grid_reference_10": "TQ5619575407",
+          "postcode": "DA2",
+          "description": "Thames just north of Dartford",
+          "w3w": ""
+        },
+        "renderingMode": "visible"
+      }
+    },
+    {
+      "type": "text",
+      "maxColumns": 2,
+      "showSwiper": false,
+      "columns": [
+        {
+          "columns": 8,
+          "accessLevel": "public",
+          "rows": [
+            {
+              "type": "text",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12,
+                  "accessLevel": "public",
+                  "imageSource": "https://www.kentramblers.org.uk/KentWalks/DVP/images/route.gif",
+                  "imageBorderRadius": 6,
+                  "showPlaceholderImage": true,
+                  "showTextAfterImage": true,
+                  "alt": "route"
+                }
+              ]
+            },
+            {
+              "type": "map",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12
+                }
+              ],
+              "map": {
+                "title": "Route map",
+                "mapCenter": [
+                  51.366305993876125,
+                  0.214035428669941
+                ],
+                "mapZoom": 4,
+                "mapHeight": 500,
+                "provider": "os",
+                "osStyle": "Leisure_27700",
+                "showControlsDefault": false,
+                "allowControlsToggle": false,
+                "showWaypointsDefault": true,
+                "allowWaypointsToggle": true,
+                "autoFitBounds": true,
+                "routes": [],
+                "markers": [
+                  {
+                    "latitude": 51.2764117,
+                    "longitude": 0.1819438,
+                    "label": "Sevenoaks Station"
+                  },
+                  {
+                    "latitude": 51.456098504173625,
+                    "longitude": 0.2467478084920153,
+                    "label": "Thames just north of Dartford"
+                  }
+                ]
+              },
+              "marginTop": 3,
+              "marginBottom": 3
+            },
+            {
+              "type": "text",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12,
+                  "accessLevel": "public",
+                  "contentText": "The Darent Valley Path starts alternatively at Sevenoaks Station or Chipstead and finishes on the bank of the Thames just north of Dartford.  About 18 miles long, the route is steeped in history.  In Roman times there were villas every couple of miles along the valley and the finest example, Lullingstone, has been excavated and opened to the public.  For centuries the Darent was an important source of power and there were many water mills of various kinds; several survive although none is currently in use.  Picturesque villages include Otford, Shoreham, Eynsford and Farningham.  Lavender is perhaps the valley's most visible crop and there are castles at both Lullingstone and Eynsford.\n\nRelevant links:\n\n[Long Distance Walkers Association](https://www.ldwa.org.uk/ldp/members/show_path.php?path_name=Darent+Valley+Path)\n\n[Explore Kent](https://explorekent.org/activities/darent-valley-path/)"
+                }
+              ]
+            },
+            {
+              "type": "shared-fragment",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [],
+              "fragment": {
+                "pageContentId": "68f19abf6c5f463b7d50ffc7"
+              }
+            }
+          ]
+        },
+        {
+          "columns": 4,
+          "accessLevel": "public",
+          "rows": [
+            {
+              "type": "text",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12,
+                  "accessLevel": "public",
+                  "imageSource": "https://www.kentramblers.org.uk/KentWalks/DVP/images/chipstead.JPG",
+                  "imageBorderRadius": 6,
+                  "showPlaceholderImage": true,
+                  "showTextAfterImage": true,
+                  "contentText": "Starting point at Chipstead",
+                  "alt": "Image"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12,
+                  "accessLevel": "public",
+                  "imageSource": "https://www.kentramblers.org.uk/KentWalks/DVP/images/otford.jpg",
+                  "imageBorderRadius": 6,
+                  "showPlaceholderImage": true,
+                  "showTextAfterImage": true,
+                  "contentText": "Otford",
+                  "alt": "Image"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12,
+                  "accessLevel": "public",
+                  "imageSource": "https://www.kentramblers.org.uk/KentWalks/DVP/images/viaduct.jpg",
+                  "imageBorderRadius": 6,
+                  "showPlaceholderImage": true,
+                  "showTextAfterImage": true,
+                  "contentText": "Eynsford Viaduct",
+                  "alt": "Image"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12,
+                  "accessLevel": "public",
+                  "imageSource": "https://www.kentramblers.org.uk/KentWalks/DVP/images/eynsford.jpg",
+                  "imageBorderRadius": 6,
+                  "showPlaceholderImage": true,
+                  "showTextAfterImage": true,
+                  "contentText": "Eynsford Bridge",
+                  "alt": "Image"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12,
+                  "accessLevel": "public",
+                  "imageSource": "https://www.kentramblers.org.uk/KentWalks/DVP/images/darenth.jpg",
+                  "imageBorderRadius": 6,
+                  "showPlaceholderImage": true,
+                  "showTextAfterImage": true,
+                  "contentText": "Darenth",
+                  "alt": "Image"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "maxColumns": 1,
+              "showSwiper": false,
+              "columns": [
+                {
+                  "columns": 12,
+                  "accessLevel": "public",
+                  "imageSource": "https://www.kentramblers.org.uk/KentWalks/DVP/images/brooklands.jpg",
+                  "imageBorderRadius": 6,
+                  "showPlaceholderImage": true,
+                  "showTextAfterImage": true,
+                  "contentText": "Brooklands Lakes",
+                  "alt": "Image"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "maxColumns": 1,
+      "showSwiper": false,
+      "columns": [
+        {
+          "columns": 12,
+          "contentText": "Automatically migrated from [https://www.kentramblers.org.uk/KentWalks/DVP/index.htm](https://www.kentramblers.org.uk/KentWalks/DVP/index.htm) on 2025-12-11 08:26",
+          "accessLevel": "public"
+        }
+      ],
+      "marginTop": 3
+    }
+  ],
+  "migrationTemplate": {
+    "mappings": []
+  }
+}

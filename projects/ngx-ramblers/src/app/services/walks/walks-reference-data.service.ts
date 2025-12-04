@@ -1,6 +1,6 @@
 import { Injectable } from "@angular/core";
 import { faCutlery, faMapMarker } from "@fortawesome/free-solid-svg-icons";
-import { isString } from "es-toolkit/compat";
+import { isString, isUndefined } from "es-toolkit/compat";
 import { WalkAccessMode } from "../../models/walk-edit-mode.model";
 import { WalkEventType } from "../../models/walk-event-type.model";
 import { VenueType } from "../../models/event-venue.model";
@@ -118,7 +118,7 @@ export class WalksReferenceService {
   }
 
   private isEventType(eventType: EventType | string): eventType is EventType {
-    return (eventType as EventType) !== undefined;
+    return !isUndefined(eventType as EventType);
   }
 
   toEventType(eventType: EventType | string): EventType {

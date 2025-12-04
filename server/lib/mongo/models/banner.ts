@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ensureModel } from "../utils/model-utils";
 import uniqueValidator from "mongoose-unique-validator";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
 
@@ -23,4 +24,4 @@ const bannerConfigSchema = new mongoose.Schema({
 
 bannerConfigSchema.plugin(uniqueValidator);
 
-export const banner: mongoose.Model<BannerConfig> = mongoose.model<BannerConfig>("banner", bannerConfigSchema);
+export const banner: mongoose.Model<BannerConfig> = ensureModel<BannerConfig>("banner", bannerConfigSchema);

@@ -1,8 +1,19 @@
-import { Component, EventEmitter, inject, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from "@angular/core";
+import {
+  Component,
+  EventEmitter,
+  inject,
+  Input,
+  OnChanges,
+  OnDestroy,
+  OnInit,
+  Output,
+  SimpleChanges
+} from "@angular/core";
 import * as L from "leaflet";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
-import { MapData, MapRoute, PageContentRow } from "../../../models/content-text.model";
+import { MapData, MapMarker, MapRoute, PageContent, PageContentRow } from "../../../models/content-text.model";
 import { MapTilesService } from "../../../services/maps/map-tiles.service";
+import { MapMarkerStyleService } from "../../../services/maps/map-marker-style.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { GpxParserService, GpxTrack, GpxWaypoint } from "../../../services/maps/gpx-parser.service";
@@ -13,6 +24,9 @@ import { ServerFileNameData } from "../../../models/aws-object.model";
 import { MapControls, MapControlsConfig, MapControlsState } from "../../../shared/components/map-controls";
 import { MapOverlay } from "../../../shared/components/map-overlay";
 import { MapProvider } from "../../../models/map.model";
+import { isUndefined } from "es-toolkit/compat";
+import { MarkdownComponent } from "ngx-markdown";
+import { PageContentActionsService } from "../../../services/page-content-actions.service";
 
 interface MapRouteViewModel extends MapRoute {
   gpxFileUrl?: string;
@@ -40,7 +54,7 @@ interface RouteGpxData {
       border-top-left-radius: 0 !important
       border-top-right-radius: 0 !important
 
-    .map-title
+    .map-text
       margin-bottom: 1rem
 
     .route-legend
@@ -124,93 +138,98 @@ interface RouteGpxData {
       background: #fff
   `],
   template: `
-      @if (row?.map) {
-          @if (row.map.title) {
-              <h4 class="map-title">{{ row.map.title }}</h4>
-          }
+    @if (row?.map) {
+      <div [class]="actions.rowClasses(row)">
+        @if (row.map.text) {
+          <div class="map-text" markdown>{{ row.map.text }}</div>
+        }
 
-          @if (visibleRoutes.length > 1) {
-              <div class="route-legend">
-                  <h6>Routes</h6>
-                  @for (route of visibleRoutes; track route.id) {
-                      <div class="route-legend-item">
-                          <div class="route-color-box" [style.backgroundColor]="route.color"></div>
-                          <span class="route-name">{{ route.name }}</span>
-                      </div>
-                  }
-              </div>
+      @if (visibleRoutes.length > 1) {
+        <div class="route-legend">
+          <h6>Routes</h6>
+          @for (route of visibleRoutes; track route.id) {
+            <div class="route-legend-item">
+              <div class="route-color-box" [style.backgroundColor]="route.color"></div>
+              <span class="route-name">{{ route.name }}</span>
+            </div>
           }
-          @if (!hasVisibleRoutes && !loadingRoutes) {
-              <div class="alert alert-info">
-                  No visible routes to display
-              </div>
-          } @else {
-              <div class="map-section">
-                  @if (showControls) {
-                      <div class="rounded-top img-thumbnail p-2 map-controls-docked">
-                          <app-map-controls
-                                  [config]="mapControlsConfig"
-                                  [state]="mapControlsState"
-                                  (providerChange)="onProviderChange($event)"
-                                  (styleChange)="onStyleChange($event)"
-                                  (heightChange)="onHeightChange($event)">
-                          </app-map-controls>
-                      </div>
-                  }
-                  <div [class]="showControls ? 'map-controls-overlap' : 'rounded'">
-                      <div class="map-wrapper">
-                          @if (loadingRoutes || !options) {
-                              <div class="card shadow d-flex align-items-center justify-content-center rounded"
-                                   [style.height.px]="mapHeight">
-                                  <div class="spinner-border text-secondary" role="status">
-                                      <span class="visually-hidden">Loading…</span>
-                                  </div>
-                              </div>
-                          } @else if (showMap) {
-                              <div class="card shadow rounded"
-                                   [style.height.px]="mapHeight"
-                                   leaflet
-                                   [leafletOptions]="options"
-                                   [leafletLayers]="leafletLayers"
-                                   [leafletFitBounds]="fitBounds"
-                                   (leafletMapReady)="onMapReady($event)">
-                              </div>
-                              <app-map-overlay
-                                      [showControls]="showControls"
-                                      [allowToggle]="allowControlsToggle"
-                                      [showWaypoints]="showWaypoints"
-                                      [allowWaypointsToggle]="allowWaypointsToggle"
-                                      (toggleControls)="toggleControls()"
-                                      (toggleWaypoints)="toggleWaypoints()">
-                                  <div slot="bottom-overlay" class="map-overlay bottom-right">
-                                      <div class="overlay-content">
-                      <span class="badge bg-primary text-white border rounded-pill small fw-bold">
-                        {{ routeCountText }}
-                      </span>
-                                      </div>
-                                  </div>
-                              </app-map-overlay>
-                          }
-                      </div>
-                  </div>
-              </div>
-          }
+        </div>
       }
+      @if (!hasVisibleRoutes && !loadingRoutes) {
+        <div class="alert alert-info">
+          No visible routes to display
+        </div>
+      } @else {
+        <div class="map-section">
+          @if (showControls) {
+            <div class="rounded-top img-thumbnail p-2 map-controls-docked">
+              <app-map-controls
+                [config]="mapControlsConfig"
+                [state]="mapControlsState"
+                (providerChange)="onProviderChange($event)"
+                (styleChange)="onStyleChange($event)"
+                (heightChange)="onHeightChange($event)">
+              </app-map-controls>
+            </div>
+          }
+          <div [class]="showControls ? 'map-controls-overlap' : 'rounded'">
+            <div class="map-wrapper">
+              @if (loadingRoutes || !options) {
+                <div class="card shadow d-flex align-items-center justify-content-center rounded"
+                     [style.height.px]="mapHeight">
+                  <div class="spinner-border text-secondary" role="status">
+                    <span class="visually-hidden">Loading…</span>
+                  </div>
+                </div>
+              } @else if (showMap) {
+                <div class="card shadow rounded"
+                     [style.height.px]="mapHeight"
+                     leaflet
+                     [leafletOptions]="options"
+                     [leafletLayers]="leafletLayers"
+                     [leafletFitBounds]="fitBounds"
+                     (leafletMapReady)="onMapReady($event)">
+                </div>
+                <app-map-overlay
+                  [showControls]="showControls"
+                  [allowToggle]="allowControlsToggle"
+                  [showWaypoints]="showWaypoints"
+                  [allowWaypointsToggle]="allowWaypointsToggle"
+                  (toggleControls)="toggleControls()"
+                  (toggleWaypoints)="toggleWaypoints()">
+                  <div slot="bottom-overlay" class="map-overlay bottom-right">
+                    <div class="overlay-content">
+                        <span class="badge bg-primary text-white border rounded-pill small fw-bold">
+                          {{ routeCountText }}
+                        </span>
+                    </div>
+                  </div>
+                </app-map-overlay>
+              }
+            </div>
+          </div>
+        </div>
+      }
+      </div>
+    }
   `,
-  imports: [LeafletModule, MapControls, MapOverlay]
+  imports: [LeafletModule, MapControls, MapOverlay, MarkdownComponent]
 })
 export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
   @Input() row!: PageContentRow;
   @Input() refreshKey?: number;
   @Input() editing = false;
+  @Input() pageContent?: PageContent;
   @Output() mapConfigChange = new EventEmitter<Partial<MapData>>();
 
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewMap", NgxLoggerLevel.INFO);
   private mapTiles = inject(MapTilesService);
+  private mapMarkerStyle = inject(MapMarkerStyleService);
   private gpxParser = inject(GpxParserService);
   private http = inject(HttpClient);
   private urlService = inject(UrlService);
-
+  private mapTilesService = inject(MapTilesService);
+  public actions = inject(PageContentActionsService);
   public options: L.MapOptions | undefined;
   public leafletLayers: L.Layer[] = [];
   public fitBounds: L.LatLngBounds | undefined;
@@ -251,12 +270,16 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
   }
 
   async ngOnChanges(changes: SimpleChanges) {
-    if (!this.componentReady) {
-      return;
-    }
-    if ((changes["row"] && !changes["row"].firstChange) ||
-      (changes["refreshKey"] && !changes["refreshKey"].firstChange)) {
-      await this.refreshFromInput();
+    if (this.componentReady) {
+      if ((changes["row"] && !changes["row"].firstChange)
+        || (changes["refreshKey"] && !changes["refreshKey"].firstChange)) {
+        this.logger.info(changes, "refreshFromInput called");
+        await this.refreshFromInput();
+      } else {
+        this.logger.info("componentReady:true:changes:", changes, "changes not of right type - refreshFromInput not called");
+      }
+    } else {
+      this.logger.info("componentReady:false:changes:", changes, "refreshFromInput not called");
     }
   }
 
@@ -267,11 +290,10 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
   private async refreshFromInput() {
     this.resetState();
     this.initializeRoutes();
-    await this.initializeMap();
+    await this.initialiseMap();
   }
 
   private resetState() {
-    this.logger.info("resetState: Setting loadingRoutes=true, options=undefined");
     this.detachMapListeners();
     this.options = undefined;
     this.leafletLayers = [];
@@ -290,21 +312,24 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
   }
 
   private initializeRoutes() {
+    this.mapTilesService.syncMarkersFromLocation(this.pageContent, this.row);
     const routes = this.row.map?.routes || [];
+    const markers = this.row.map?.markers || [];
+    const validMarkers = markers.filter(m => m.latitude != null && m.longitude != null);
     this.visibleRoutes = routes
       .filter(route => route.visible !== false)
       .map(route => ({...route, gpxFileUrl: this.routeUrl(route)}));
-    this.hasVisibleRoutes = this.visibleRoutes.length > 0;
+    this.hasVisibleRoutes = this.visibleRoutes.length > 0 || validMarkers.length > 0;
     this.routeCountText = this.visibleRoutes.length === 1 ? "1 route" : `${this.visibleRoutes.length} routes`;
     this.mapHeight = this.row.map?.mapHeight || 500;
     const provider = (this.row.map?.provider || "osm") as MapProvider;
     const osStyle = this.row.map?.osStyle || "Leisure_27700";
     this.allowControlsToggle = this.row.map?.allowControlsToggle !== false;
     const showDefault = this.row.map?.showControlsDefault;
-    this.showControls = showDefault === undefined ? true : showDefault;
+    this.showControls = isUndefined(showDefault) ? true : showDefault;
     this.allowWaypointsToggle = this.row.map?.allowWaypointsToggle !== false;
     const showWaypointsDefault = this.row.map?.showWaypointsDefault;
-    this.showWaypoints = showWaypointsDefault === undefined ? true : showWaypointsDefault;
+    this.showWaypoints = isUndefined(showWaypointsDefault) ? true : showWaypointsDefault;
     this.mapControlsState = {
       provider,
       osStyle,
@@ -312,45 +337,40 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
     };
   }
 
-  private async initializeMap() {
+  private async initialiseMap() {
     if (!this.row.map) {
-      this.logger.info("initializeMap: No map data");
-      return;
-    }
-
-    if (!this.hasVisibleRoutes) {
-      this.logger.info("initializeMap: No visible routes");
+      this.logger.info("initialiseMap: No map data");
+    } else if (!this.hasVisibleRoutes) {
+      this.logger.info("initialiseMap: No visible routes or markers");
       this.showMap = false;
-      return;
+    } else {
+      this.logger.info("initialiseMap: Start - loadingRoutes=true, options=undefined");
+      this.loadingRoutes = true;
+      this.options = undefined;
+      this.logger.info("initialiseMap: About to load routes (spinner should show)");
+      await this.loadRoutes();
+      this.logger.info("initialiseMap: Routes loaded, creating map options");
+      const provider = this.mapControlsState.provider;
+      const style = this.mapControlsState.osStyle;
+      const base = this.mapTiles.createBaseLayer(provider, style);
+      const crs = this.mapTiles.crsForStyle(provider, style);
+      const maxZoom = this.mapTiles.maxZoomForStyle(provider, style);
+      const hasSavedPosition = this.row.map.mapCenter && this.row.map.mapZoom;
+      const willAutoFit = !isUndefined(this.fitBounds);
+      const useDefaultPosition = !hasSavedPosition || willAutoFit;
+      this.options = {
+        layers: [base],
+        zoom: useDefaultPosition ? 10 : this.row.map.mapZoom,
+        center: useDefaultPosition
+          ? L.latLng(51.25, 0.75)
+          : L.latLng(this.row.map.mapCenter[0], this.row.map.mapCenter[1]),
+        crs,
+        maxZoom,
+        zoomSnap: 0.1,
+        zoomDelta: 0.5
+      };
+      this.logger.info("initialiseMap: Complete - useDefaultPosition:", useDefaultPosition, "willAutoFit:", willAutoFit, "options set, map should appear");
     }
-
-    this.logger.info("initializeMap: Start - loadingRoutes=true, options=undefined");
-    this.loadingRoutes = true;
-    this.options = undefined;
-
-    this.logger.info("initializeMap: About to load routes (spinner should show)");
-    await this.loadRoutes();
-
-    this.logger.info("initializeMap: Routes loaded, creating map options");
-    const provider = this.mapControlsState.provider;
-    const style = this.mapControlsState.osStyle;
-    const base = this.mapTiles.createBaseLayer(provider, style);
-    const crs = this.mapTiles.crsForStyle(provider, style);
-    const maxZoom = this.mapTiles.maxZoomForStyle(provider, style);
-
-    this.options = {
-      layers: [base],
-      zoom: this.row.map.mapZoom || 10,
-      center: L.latLng(
-        this.row.map.mapCenter?.[0] || 51.25,
-        this.row.map.mapCenter?.[1] || 0.75
-      ),
-      crs,
-      maxZoom,
-      zoomSnap: 0.1,
-      zoomDelta: 0.5
-    };
-    this.logger.info("initializeMap: Complete - options set, map should appear");
   }
 
   private async loadRoutes() {
@@ -386,19 +406,26 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
     this.logger.info("loadRoutes: All routes loaded, setting loadingRoutes=false");
     this.loadingRoutes = false;
 
-    if (routeLayers.length > 0) {
-      this.leafletLayers = routeLayers;
+    const markers = this.row.map?.markers || [];
+    const markerLayers = this.createStandaloneMarkers(markers);
+    const allLayers = [...routeLayers, ...markerLayers];
+    const hasContent = allLayers.length > 0;
+
+    if (hasContent) {
+      this.leafletLayers = allLayers;
       const hasSavedPosition = this.row.map?.mapCenter && this.row.map?.mapZoom;
       const shouldAutoFit = this.row.map?.autoFitBounds !== false;
+      this.logger.info("loadRoutes: Auto-fit check - shouldAutoFit:", shouldAutoFit, "hasSavedPosition:", hasSavedPosition, "autoFitBounds setting:", this.row.map?.autoFitBounds);
       if (shouldAutoFit || !hasSavedPosition) {
         this.calculateFitBounds();
+        this.logger.info("loadRoutes: Calculated fitBounds:", this.fitBounds ? `${this.fitBounds.getSouthWest()} to ${this.fitBounds.getNorthEast()}` : "none");
       }
       this.showMap = true;
-      this.logger.info("loadRoutes: Map ready to display - showMap=true");
+      this.logger.info("loadRoutes: Map ready to display (routes:", routeLayers.length, "markers:", markerLayers.length, ") - showMap=true");
       this.updateMapSize();
     } else {
       this.showMap = false;
-      this.logger.info("loadRoutes: No layers created, hiding map");
+      this.logger.info("loadRoutes: No layers or markers, hiding map");
     }
   }
 
@@ -414,7 +441,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
 
     try {
       const gpxContent = await firstValueFrom(
-        this.http.get(route.gpxFileUrl, { responseType: "text" })
+        this.http.get(route.gpxFileUrl, {responseType: "text"})
       );
       const parsedGpx = this.gpxParser.parseGpxFile(gpxContent);
 
@@ -443,7 +470,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
     const descriptions = tracks.map(t => t.description).filter(Boolean);
     const elevations = tracks
       .flatMap(t => [t.minElevation, t.maxElevation])
-      .filter((e): e is number => e !== undefined);
+      .filter((e): e is number => !isUndefined(e));
 
     return {
       name: tracks[0].name,
@@ -510,11 +537,11 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
       content += `<div class="mt-1"><small>Distance: ${distanceKm} km</small></div>`;
     }
 
-    if (track.totalAscent !== undefined && track.totalDescent !== undefined) {
+    if (!isUndefined(track.totalAscent) && !isUndefined(track.totalDescent)) {
       content += `<div><small>Ascent: ${track.totalAscent.toFixed(0)}m | Descent: ${track.totalDescent.toFixed(0)}m</small></div>`;
     }
 
-    if (track.minElevation !== undefined && track.maxElevation !== undefined) {
+    if (!isUndefined(track.minElevation) && !isUndefined(track.maxElevation)) {
       content += `<div><small>Elevation: ${track.minElevation.toFixed(0)}m - ${track.maxElevation.toFixed(0)}m</small></div>`;
     }
 
@@ -523,13 +550,22 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
 
   private calculateFitBounds() {
     const allLatLngs: L.LatLng[] = [];
-
-    this.leafletLayers.forEach(layer => {
-      allLatLngs.push(...this.latLngsFromLayer(layer));
+    this.logger.info("calculateFitBounds: Processing", this.leafletLayers.length, "layers");
+    this.leafletLayers.forEach((layer, index) => {
+      if (!layer) {
+        this.logger.warn(`calculateFitBounds: Layer ${index} is undefined, skipping`);
+        return;
+      }
+      const layerLatLngs = this.latLngsFromLayer(layer);
+      this.logger.info(`calculateFitBounds: Layer ${index} (${layer.constructor.name}) contributed ${layerLatLngs.length} points`);
+      allLatLngs.push(...layerLatLngs);
     });
 
+    this.logger.info("calculateFitBounds: Total points collected:", allLatLngs.length);
     if (allLatLngs.length > 0) {
-      this.fitBounds = L.latLngBounds(allLatLngs);
+      const bounds = L.latLngBounds(allLatLngs);
+      this.fitBounds = bounds.pad(0.15);
+      this.logger.info("calculateFitBounds: Bounds set to:", this.fitBounds.getSouthWest(), "to", this.fitBounds.getNorthEast(), "(with 15% padding)");
     }
   }
 
@@ -551,7 +587,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
     this.showControls = !this.showControls;
     if (this.editing && this.row.map) {
       this.row.map.showControlsDefault = this.showControls;
-      this.mapConfigChange.emit({ showControlsDefault: this.showControls });
+      this.mapConfigChange.emit({showControlsDefault: this.showControls});
     }
     setTimeout(() => this.updateMapSize(), 200);
   }
@@ -563,7 +599,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
     this.showWaypoints = !this.showWaypoints;
     if (this.editing && this.row.map) {
       this.row.map.showWaypointsDefault = this.showWaypoints;
-      this.mapConfigChange.emit({ showWaypointsDefault: this.showWaypoints });
+      this.mapConfigChange.emit({showWaypointsDefault: this.showWaypoints});
     }
     this.updateLayersForWaypoints();
   }
@@ -585,21 +621,21 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
   }
 
   onProviderChange(provider: MapProvider) {
-    this.mapControlsState = { ...this.mapControlsState, provider };
-    this.updateRowMap({ provider });
-    void this.initializeMap();
+    this.mapControlsState = {...this.mapControlsState, provider};
+    this.updateRowMap({provider});
+    this.initialiseMap();
   }
 
   onStyleChange(style: string) {
-    this.mapControlsState = { ...this.mapControlsState, osStyle: style };
-    this.updateRowMap({ osStyle: style });
-    void this.initializeMap();
+    this.mapControlsState = {...this.mapControlsState, osStyle: style};
+    this.updateRowMap({osStyle: style});
+    this.initialiseMap();
   }
 
   onHeightChange(height: number) {
     this.mapHeight = height;
-    this.mapControlsState = { ...this.mapControlsState, mapHeight: height };
-    this.updateRowMap({ mapHeight: height });
+    this.mapControlsState = {...this.mapControlsState, mapHeight: height};
+    this.updateRowMap({mapHeight: height});
     this.updateMapSize();
   }
 
@@ -615,49 +651,52 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
     const filePath = this.filePath(route.gpxFile as Partial<ServerFileNameData> | undefined);
     if (!filePath) {
       return undefined;
-    }
-    if (this.urlService.isRemoteUrl(filePath)) {
+    } else if (this.urlService.isRemoteUrl(filePath)) {
       return filePath;
+    } else {
+      return this.urlService.resourceRelativePathForAWSFileName(filePath) || undefined;
     }
-    return this.urlService.resourceRelativePathForAWSFileName(filePath) || undefined;
   }
 
   private filePath(fileData: Partial<ServerFileNameData> | undefined): string | undefined {
     if (!fileData || !fileData.awsFileName) {
       return undefined;
-    }
-    if (fileData.rootFolder && !fileData.awsFileName.startsWith(`${fileData.rootFolder}/`)) {
+    } else if (fileData.rootFolder && !fileData.awsFileName.startsWith(`${fileData.rootFolder}/`)) {
       return `${fileData.rootFolder}/${fileData.awsFileName}`;
+    } else {
+      return fileData.awsFileName;
     }
-    return fileData.awsFileName;
   }
 
   private attachMapListeners() {
     if (!this.mapRef) {
       return;
+    } else {
+      this.mapRef.on("moveend", this.mapViewChangeHandler);
+      this.mapRef.on("zoomend", this.mapViewChangeHandler);
     }
-    this.mapRef.on("moveend", this.mapViewChangeHandler);
-    this.mapRef.on("zoomend", this.mapViewChangeHandler);
   }
 
   private detachMapListeners() {
     if (!this.mapRef) {
       return;
+    } else {
+      this.mapRef.off("moveend", this.mapViewChangeHandler);
+      this.mapRef.off("zoomend", this.mapViewChangeHandler);
     }
-    this.mapRef.off("moveend", this.mapViewChangeHandler);
-    this.mapRef.off("zoomend", this.mapViewChangeHandler);
   }
 
   private captureMapView() {
     if (!this.editing || !this.mapRef || !this.row?.map) {
       return;
+    } else {
+      const center = this.mapRef.getCenter();
+      const zoom = this.mapRef.getZoom();
+      this.updateRowMap({
+        mapCenter: [center.lat, center.lng],
+        mapZoom: zoom
+      });
     }
-    const center = this.mapRef.getCenter();
-    const zoom = this.mapRef.getZoom();
-    this.updateRowMap({
-      mapCenter: [center.lat, center.lng],
-      mapZoom: zoom
-    });
   }
 
   private updateRowMap(partial: Partial<MapData>) {
@@ -668,7 +707,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
     const currentMap = this.row.map as Record<string, any>;
     (Object.keys(partial) as (keyof MapData)[]).forEach(key => {
       const nextValue = partial[key];
-      if (nextValue === undefined) {
+      if (isUndefined(nextValue)) {
         return;
       }
       const previous = currentMap[key as string];
@@ -714,6 +753,20 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
       interactive: false
     });
     return [start, end];
+  }
+
+  private createStandaloneMarkers(markers: MapMarker[]): L.Layer[] {
+    const provider = (this.row.map?.provider || "osm") as "osm" | "os";
+    const osStyle = this.row.map?.osStyle || "Leisure_27700";
+    const icon = this.mapMarkerStyle.markerIcon(provider, osStyle);
+    return markers.map(marker => {
+      const latlng: [number, number] = [marker.latitude, marker.longitude];
+      const leafletMarker = L.marker(latlng, {icon});
+      if (marker.label) {
+        leafletMarker.bindPopup(`<div><strong>${this.escapeHtml(marker.label)}</strong></div>`);
+      }
+      return leafletMarker;
+    });
   }
 
   private createArrowMarkers(latLngs: [number, number][], track: GpxTrack, weight: number): L.Marker[] {
@@ -763,26 +816,20 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
       return markers;
     }
 
+    const provider = (this.row.map?.provider || "osm") as "osm" | "os";
+    const osStyle = this.row.map?.osStyle || "Leisure_27700";
+    const icon = this.mapMarkerStyle.markerIcon(provider, osStyle);
+
     let unnamedIndex = 1;
     waypoints.forEach(waypoint => {
       const label = waypoint.name || `${route.name || "Waypoint"} ${unnamedIndex++}`;
       const popup = this.createWaypointPopupContent(label, waypoint.description);
-      markers.push(this.buildWaypointMarker([waypoint.latitude, waypoint.longitude], popup));
+      const marker = L.marker([waypoint.latitude, waypoint.longitude], {icon});
+      marker.bindPopup(popup);
+      markers.push(marker);
     });
 
     return markers;
-  }
-
-  private buildWaypointMarker(position: [number, number], popupContent: string): L.Marker {
-    const icon = L.divIcon({
-      className: "waypoint-marker",
-      html: `<div class="marker-pin"><span class="marker-dot"></span></div>`,
-      iconSize: [28, 36],
-      iconAnchor: [14, 32]
-    });
-    const marker = L.marker(position, { icon });
-    marker.bindPopup(popupContent);
-    return marker;
   }
 
   private createWaypointPopupContent(name: string, description?: string): string {
@@ -819,12 +866,12 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
     const height = Math.round(size / 2.4);
     const strokeWidth = Math.max(1.5, weight / 3);
     const html = `
-      <div class="route-arrow" style="transform: rotate(${bearing - 90}deg);">
-        <svg viewBox="0 0 24 8" width="${size}" height="${height}">
-          <path d="M2 4 L16 4" stroke-width="${strokeWidth}" stroke-linecap="round"></path>
-          <polygon points="16,0 24,4 16,8"></polygon>
-        </svg>
-      </div>`;
+        <div class="route-arrow" style="transform: rotate(${bearing - 90}deg);">
+          <svg viewBox="0 0 24 8" width="${size}" height="${height}">
+            <path d="M2 4 L16 4" stroke-width="${strokeWidth}" stroke-linecap="round"></path>
+            <polygon points="16,0 24,4 16,8"></polygon>
+          </svg>
+        </div>`;
     return L.marker(position, {
       icon: L.divIcon({
         className: "route-arrow-icon",
@@ -849,19 +896,17 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
   private latLngsFromLayer(layer: L.Layer): L.LatLng[] {
     if (layer instanceof L.Polyline) {
       return this.flattenLatLngs(layer.getLatLngs());
-    }
-    if (layer instanceof L.CircleMarker) {
+    } else if (layer instanceof L.CircleMarker) {
       return [layer.getLatLng()];
-    }
-    if (layer instanceof L.Marker) {
+    } else if (layer instanceof L.Marker) {
       return [layer.getLatLng()];
-    }
-    if (layer instanceof L.LayerGroup) {
+    } else if (layer instanceof L.LayerGroup) {
       const nested: L.LatLng[] = [];
       layer.getLayers().forEach(child => nested.push(...this.latLngsFromLayer(child)));
       return nested;
+    } else {
+      return [];
     }
-    return [];
   }
 
   private flattenLatLngs(latLngs: L.LatLng[] | L.LatLng[][] | L.LatLng[][][]): L.LatLng[] {

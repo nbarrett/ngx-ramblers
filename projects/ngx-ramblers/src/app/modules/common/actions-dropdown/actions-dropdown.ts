@@ -15,6 +15,7 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { NgClass } from "@angular/common";
 import { ContentFormattingSelectorComponent } from "../content-formatting-selector/content-formatting-selector";
+import { isNull, isUndefined } from "es-toolkit/compat";
 
 @Component({
     selector: "app-actions-dropdown",
@@ -232,7 +233,7 @@ export class ActionsDropdownComponent implements OnInit {
   @Input() public showColumnActions = true;
 
   ngOnInit() {
-    if (this.columnIndex === undefined || this.columnIndex === null || isNaN(this.columnIndex as any)) {
+    if (isUndefined(this.columnIndex) || isNull(this.columnIndex) || isNaN(this.columnIndex as any)) {
       this.showColumnActions = false;
     }
     this.logger.info("actionType:", this.actionType(), "row:", this.row, "column:", this.column, "rowIndex:", this.rowIndex, "columnIndex:", this.columnIndex, "rowIsNested:", this.rowIsNested, "pageContent:", this.pageContent, "markdownEditorComponent:", this.markdownEditorComponent, "showRowActions:", this.showRowActions, "showColumnActions:", this.showColumnActions);

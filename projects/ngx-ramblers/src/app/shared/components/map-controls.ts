@@ -5,6 +5,7 @@ import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { MapProvider, MapStyleInfo, OS_MAP_STYLE_LIST } from "../../models/map.model";
 import { MapTilesService } from "../../services/maps/map-tiles.service";
+import { isUndefined } from "es-toolkit/compat";
 
 export interface MapControlsConfig {
   showProvider?: boolean;
@@ -112,7 +113,7 @@ export interface MapControlsState {
         </div>
       }
 
-      @if (config.showHeight && state.mapHeight !== undefined) {
+      @if (config.showHeight && !isUndefined(state.mapHeight)) {
         <div class="d-flex align-items-center map-control-item">
           <span class="small mx-2 text-nowrap">Height</span>
           <input type="range" class="form-range map-control-range"
@@ -126,7 +127,7 @@ export interface MapControlsState {
         </div>
       }
 
-      @if (config.showSmoothScroll && state.smoothScroll !== undefined) {
+      @if (config.showSmoothScroll && !isUndefined(state.smoothScroll)) {
         <div class="form-check form-switch">
           <input class="form-check-input" type="checkbox" id="smooth-scroll-toggle"
                  [ngModel]="state.smoothScroll"
@@ -138,7 +139,7 @@ export interface MapControlsState {
         </div>
       }
 
-      @if (config.showAutoShowAll && state.autoShowAll !== undefined) {
+      @if (config.showAutoShowAll && !isUndefined(state.autoShowAll)) {
         <div class="form-check form-switch">
           <input class="form-check-input" type="checkbox" id="auto-show-toggle"
                  [ngModel]="state.autoShowAll"
@@ -182,6 +183,7 @@ export class MapControls implements OnInit {
   public osStyles: MapStyleInfo[] = OS_MAP_STYLE_LIST;
   public hasOsApiKey = false;
   protected readonly faCircleInfo = faCircleInfo;
+  protected readonly isUndefined = isUndefined;
 
   private mapTiles = inject(MapTilesService);
 
