@@ -75,13 +75,35 @@ import { JsonPipe } from "@angular/common";
         </div>
       </div>
       @if (renderMapEdit) {
+        @if (enumValueForKey(WalkType, displayedWalk?.walk?.groupEvent?.shape) === WalkType.LINEAR) {
+          <div class="row mb-3">
+            <div class="col d-flex justify-content-center gap-2">
+              <div class="btn-group" role="group">
+                <button type="button" class="btn btn-primary" [class.active]="!showCombinedMap"
+                        (click)="showCombinedMap = false">
+                  Separate Maps
+                </button>
+                <button type="button" class="btn btn-primary" [class.active]="showCombinedMap"
+                        (click)="showCombinedMap = true">
+                  Combined Map
+                </button>
+              </div>
+              <button type="button" class="btn btn-secondary"
+                      (click)="swapStartAndEndLocations()">
+                Swap Start & End Locations
+              </button>
+            </div>
+          </div>
+        }
         <div class="row">
           <div class="col">
             <app-walk-location-edit locationType="Starting"
                                     [locationDetails]="displayedWalk?.walk?.groupEvent.start_location"
+                                    [endLocationDetails]="showCombinedMap ? displayedWalk?.walk?.groupEvent.end_location : null"
+                                    [showCombinedMap]="showCombinedMap"
                                     [notify]="notify"/>
           </div>
-          @if (enumValueForKey(WalkType, displayedWalk?.walk?.groupEvent?.shape) === WalkType.LINEAR) {
+          @if (enumValueForKey(WalkType, displayedWalk?.walk?.groupEvent?.shape) === WalkType.LINEAR && !showCombinedMap) {
             <div class="col">
               <app-walk-location-edit locationType="Finishing"
                                       [locationDetails]="displayedWalk?.walk?.groupEvent?.end_location"
@@ -89,16 +111,6 @@ import { JsonPipe } from "@angular/common";
             </div>
           }
         </div>
-        @if (enumValueForKey(WalkType, displayedWalk?.walk?.groupEvent?.shape) === WalkType.LINEAR) {
-          <div class="row mt-2">
-            <div class="col d-flex justify-content-center">
-              <button type="button" class="btn btn-primary"
-                      (click)="swapStartAndEndLocations()">
-                Swap Start & End Locations
-              </button>
-            </div>
-          </div>
-        }
       }
     </div>
   `
@@ -114,6 +126,7 @@ export class WalkEditDetailsComponent {
   @Input() renderMapEdit = false;
   @Input() allowDetailView = false;
   @Input() notify!: AlertInstance;
+  public showCombinedMap = false;
 
   protected readonly WalkType = WalkType;
   protected display = inject(WalkDisplayService);

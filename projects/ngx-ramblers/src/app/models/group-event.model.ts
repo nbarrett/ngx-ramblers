@@ -90,6 +90,7 @@ export interface ExtendedFields {
   riskAssessment: RiskAssessmentRecord[];
   venue?: Venue;
   inputSource: InputSource;
+  gpxFile?: FileNameData;
 }
 
 export interface ExtendedGroupEvent extends Identifiable {

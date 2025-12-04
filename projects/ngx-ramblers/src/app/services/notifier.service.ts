@@ -17,7 +17,7 @@ import { StringUtilsService } from "./string-utils.service";
 export class AlertInstance {
   private logger: Logger;
   faPencil = faPencil;
-  constructor(public alertTarget: AlertTarget, level: NgxLoggerLevel, loggerFactory: LoggerFactory, private stringUtils: StringUtilsService) {
+  constructor(public alertTarget: AlertTarget = {}, level: NgxLoggerLevel, loggerFactory: LoggerFactory, private stringUtils: StringUtilsService) {
     this.logger = loggerFactory.createLogger("AlertInstance", level || NgxLoggerLevel.ERROR);
     this.alertTarget.alertClass = ALERT_SUCCESS.class;
     this.alertTarget.alert = ALERT_SUCCESS;
@@ -108,9 +108,12 @@ export class NotifierService {
   private stringUtils = inject(StringUtilsService);
   private loggerFactory = inject(LoggerFactory);
 
-  createAlertInstance(alertTarget: AlertTarget, level?: NgxLoggerLevel): AlertInstance {
-    return new AlertInstance(alertTarget, level, this.loggerFactory, this.stringUtils);
+  createAlertInstance(alertTarget?: AlertTarget, level?: NgxLoggerLevel): AlertInstance {
+    return new AlertInstance(alertTarget || {}, level, this.loggerFactory, this.stringUtils);
+  }
+
+  createGlobalAlert(level?: NgxLoggerLevel): AlertInstance {
+    return this.createAlertInstance({}, level);
   }
 
 }
-

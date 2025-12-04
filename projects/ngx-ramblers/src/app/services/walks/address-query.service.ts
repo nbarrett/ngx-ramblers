@@ -12,7 +12,7 @@ import { LatLng, LatLngLiteral } from "leaflet";
 })
 export class AddressQueryService {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("AddressQueryService", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("AddressQueryService", NgxLoggerLevel.INFO);
   private BASE_URL = "/api/addresses";
   private http = inject(HttpClient);
   private commonDataService = inject(CommonDataService);
@@ -37,6 +37,14 @@ export class AddressQueryService {
     this.logger.info("reverseGeocode:body", body);
     const response = await this.commonDataService.responseFrom(this.logger, this.http.post<GridReferenceLookupApiResponse>(`${this.BASE_URL}/reverse-geocode`, body), this.postcodeNotifications);
     return response.response as GridReferenceLookupResponse[];
+  }
+
+  async placeNameLookup(query: string): Promise<GridReferenceLookupResponse> {
+    const params = this.commonDataService.toHttpParams({query});
+    this.logger.info("placeNameLookup:query", query);
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<GridReferenceLookupApiResponse>(`${this.BASE_URL}/place-names`, {params}), this.postcodeNotifications);
+    this.logger.info("placeNameLookup:response", response);
+    return response.response as GridReferenceLookupResponse;
   }
 
 }

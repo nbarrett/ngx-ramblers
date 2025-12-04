@@ -5,7 +5,7 @@ import { BezierEasingOptions } from "ng-gallery/lib/smooth-scroll";
 import { fieldContainsValue, fieldEqualsValue, fieldStartsWithValue, MongoRegex } from "../functions/mongo";
 import { HasClass } from "./banner-configuration.model";
 import { EventsData } from "./social-events.model";
-import { DescribedDimensions } from "./aws-object.model";
+import { DescribedDimensions, FileNameData } from "./aws-object.model";
 import { HasNgSelectAttributes, LocationDetails } from "./ramblers-walks-manager";
 
 export const EM_DASH = " — ";
@@ -143,6 +143,31 @@ export interface AreaMapData {
   areaColors?: Record<string, string>;
 }
 
+export interface MapRoute {
+  id: string;
+  name: string;
+  gpxFile?: FileNameData;
+  color?: string;
+  visible?: boolean;
+  weight?: number;
+  opacity?: number;
+}
+
+export interface MapData {
+  title?: string;
+  mapCenter?: [number, number];
+  mapZoom?: number;
+  mapHeight?: number;
+  provider?: string;
+  osStyle?: string;
+  showControlsDefault?: boolean;
+  allowControlsToggle?: boolean;
+  showWaypointsDefault?: boolean;
+  allowWaypointsToggle?: boolean;
+  autoFitBounds?: boolean;
+  routes: MapRoute[];
+}
+
 export interface PageContentRow extends HasColumnRange {
   type: PageContentType;
   showSwiper: boolean;
@@ -151,8 +176,9 @@ export interface PageContentRow extends HasColumnRange {
   marginBottom?: number;
   carousel?: AlbumData;
   events?: EventsData;
-  albumIndex?: AlbumIndex;
+  albumIndex?: Index;
   areaMap?: AreaMapData;
+  map?: MapData;
   fragment?: Fragment;
   location?: LocationRowData;
 }
@@ -215,13 +241,19 @@ export interface IndexMapConfig {
   height?: number;
   clusteringEnabled?: boolean;
   clusteringThreshold?: number;
+  provider?: string;
+  osStyle?: string;
+  mapCenter?: [number, number];
+  mapZoom?: number;
 }
 
-export interface AlbumIndex {
+export interface Index {
   contentPaths: ContentPathMatch[];
   contentTypes?: IndexContentType[];
   renderModes?: IndexRenderMode[];
   mapConfig?: IndexMapConfig;
+  minCols?: number;
+  maxCols?: number;
 }
 
 export enum BuiltInAnchor {
@@ -276,6 +308,7 @@ export enum PageContentType {
   CAROUSEL = "carousel",
   EVENTS = "events",
   AREA_MAP = "area-map",
+  MAP = "map",
   TEXT = "text",
   SHARED_FRAGMENT = "shared-fragment",
   LOCATION = "location",

@@ -15,10 +15,19 @@ import { ENDPOINT, normalisePostcode, postcodeLookupServiceResponseMapper } from
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("postcode-lookup"));
 debugLog.enabled = false;
 
+function deriveGridReferences(postcodeLookupResponse: PostcodeLookupResponse): {gridReference6: string; gridReference8: string; gridReference10: string} {
+  if (postcodeLookupResponse.error || !Number.isFinite(postcodeLookupResponse?.eastings) || !Number.isFinite(postcodeLookupResponse?.northings)) {
+    return {gridReference6: null, gridReference8: null, gridReference10: null};
+  }
+  return {
+    gridReference6: gridReference6From(postcodeLookupResponse.eastings, postcodeLookupResponse.northings),
+    gridReference8: gridReference8From(postcodeLookupResponse.eastings, postcodeLookupResponse.northings),
+    gridReference10: gridReference10From(postcodeLookupResponse.eastings, postcodeLookupResponse.northings)
+  };
+}
+
 function transformPostcodeLookup(postcodeLookupResponse: PostcodeLookupResponse): GridReferenceLookupResponse {
-  const gridReference6 = postcodeLookupResponse.error ? null : gridReference6From(postcodeLookupResponse?.eastings, postcodeLookupResponse?.northings);
-  const gridReference8 = postcodeLookupResponse.error ? null : gridReference8From(postcodeLookupResponse?.eastings, postcodeLookupResponse?.northings);
-  const gridReference10 = postcodeLookupResponse.error ? null : gridReference10From(postcodeLookupResponse?.eastings, postcodeLookupResponse?.northings);
+  const {gridReference6, gridReference8, gridReference10} = deriveGridReferences(postcodeLookupResponse);
   debugLog("gridReferenceLookup:postcode", postcodeLookupResponse.postcode, "gridReferences:", {
     gridReference6,
     gridReference8,

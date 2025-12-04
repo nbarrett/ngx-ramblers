@@ -41,7 +41,6 @@ import { UrlService } from "../../../services/url.service";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { fieldStartsWithValue } from "../../../functions/mongo";
 import { PageService } from "../../../services/page.service";
-import { AlbumIndexService } from "../../../services/album-index.service";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { StoredValue } from "../../../models/ui-actions";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -57,17 +56,19 @@ import { RowSettingsActionButtonsComponent } from "./dynamic-content-row-setting
 import { MarginSelectComponent } from "./dynamic-content-margin-select";
 import { ActionsDropdownComponent } from "../actions-dropdown/actions-dropdown";
 import { BulkActionSelectorComponent } from "./bulk-action-selector";
-import { AlbumIndexSiteEditComponent } from "./dynamic-content-site-edit-album-index";
-import { ActionButtonsComponent } from "../action-buttons/action-buttons";
+import { AlbumIndexSiteEditComponent } from "./dynamic-content-site-edit-index";
+import { ActionButtons } from "../action-buttons/action-buttons";
 import { DynamicContentSiteEditAlbumComponent } from "./dynamic-content-site-edit-album";
 import { DynamicContentSiteEditTextRowComponent } from "./dynamic-content-site-edit-text-row";
 import { move } from "../../../functions/arrays";
 import { DynamicContentSiteEditEvents } from "./dynamic-content-site-edit-events";
 import { DynamicContentSiteEditAreaMapComponent } from "./dynamic-content-site-edit-area-map";
-import { DynamicContentSiteEditLocationComponent } from "./dynamic-content-site-edit-location";
+import { DynamicContentSiteEditMap } from "./dynamic-content-site-edit-map";
+import { DynamicContentSiteEditLocation } from "./dynamic-content-site-edit-location";
 import { DynamicContentViewComponent } from "./dynamic-content-view";
 import { FragmentService } from "../../../services/fragment.service";
 import { RowTypeSelectorComponent } from "./row-type-selector";
+import { IndexService } from "../../../services/index.service";
 
 @Component({
   selector: "app-dynamic-content-site-edit",
@@ -251,7 +252,7 @@ import { RowTypeSelectorComponent } from "./row-type-selector";
                         [contentPath]="contentPath"
                         (typeChange)="changePageContentRowType(row)"/>
                     </div>
-                    @if (actions.isActionButtons(row) || actions.isAlbumIndex(row)) {
+                    @if (actions.isActionButtons(row) || actions.isIndex(row)) {
                       <div class="d-inline-flex align-items-end flex-wrap gap-3" app-row-settings-action-buttons
                            [row]="row"></div>
                     }
@@ -272,7 +273,7 @@ import { RowTypeSelectorComponent } from "./row-type-selector";
                          [row]="row"></div>
                   </div>
                 }
-                @if (actions.isAlbumIndex(row)) {
+                @if (actions.isIndex(row)) {
                   <app-album-index-site-edit [row]="row" [rowIndex]="rowIndex"/>
                 }
                 @if (actions.isSharedFragment(row)) {
@@ -315,6 +316,10 @@ import { RowTypeSelectorComponent } from "./row-type-selector";
                 @if (actions.isAreaMap(row)) {
                   <app-dynamic-content-site-edit-area-map [row]="row" [id]="'area-map-' + rowIndex"
                                                           [pageContent]="pageContent"/>
+                }
+                @if (actions.isMap(row)) {
+                  <app-dynamic-content-site-edit-map [row]="row" [id]="'map-' + rowIndex"
+                                                     [pageContent]="pageContent"/>
                 }
                 @if (actions.isLocation(row)) {
                   <app-dynamic-content-site-edit-location [row]="row" [rowIndex]="rowIndex"/>
@@ -372,7 +377,7 @@ import { RowTypeSelectorComponent } from "./row-type-selector";
       </ng-template>
     }`,
   styleUrls: ["./dynamic-content.sass"],
-  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtonsComponent, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditLocationComponent, DynamicContentViewComponent, RowTypeSelectorComponent]
+  imports: [FontAwesomeModule, BadgeButtonComponent, TooltipDirective, NgTemplateOutlet, RouterLink, NgClass, FormsModule, TypeaheadDirective, FragmentSelectorComponent, RowSettingsCarouselComponent, RowSettingsActionButtonsComponent, MarginSelectComponent, ActionsDropdownComponent, BulkActionSelectorComponent, AlbumIndexSiteEditComponent, ActionButtons, DynamicContentSiteEditAlbumComponent, DynamicContentSiteEditTextRowComponent, DynamicContentSiteEditEvents, DynamicContentSiteEditAreaMapComponent, DynamicContentSiteEditMap, DynamicContentSiteEditLocation, DynamicContentViewComponent, RowTypeSelectorComponent]
 })
 export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
 
@@ -394,7 +399,7 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   private systemConfigService = inject(SystemConfigService);
   protected pageContentRowService = inject(PageContentRowService);
   protected siteEditService = inject(SiteEditService);
-  private albumIndexService = inject(AlbumIndexService);
+  private indexService = inject(IndexService);
   protected memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   protected urlService = inject(UrlService);
   protected pageService = inject(PageService);
@@ -582,9 +587,9 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
         row.carousel.albumView = defaultAlbum.albumView;
         row.carousel.eventType = defaultAlbum.eventType;
       }
-    } else if (this.actions.isAlbumIndex(row)) {
+    } else if (this.actions.isIndex(row)) {
       if (!row?.albumIndex?.contentPaths) {
-        row.albumIndex = this.actions.defaultAlbumIndex();
+        row.albumIndex = this.actions.defaultIndex();
         this.logger.debug("initialising albumIndex to:", row.albumIndex);
       }
     } else if (this.actions.isSharedFragment(row)) {
@@ -602,6 +607,8 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
         };
         this.logger.debug("initialising location to:", row.location);
       }
+    } else if (this.actions.isMap(row)) {
+      this.actions.ensureMapData(row);
     } else {
       this.logger.debug("not initialising data for ", row.type);
     }
@@ -784,8 +791,8 @@ export class DynamicContentSiteEditComponent implements OnInit, OnDestroy {
   }
 
   private async collectNestedAlbumIndexes() {
-    const albumIndexRows: PageContentRow[] = this.pagesBelow.map(item => item.rows.filter(row => this.actions.isAlbumIndex(row))).flat(3);
-    const albums = await Promise.all(albumIndexRows.map(albumIndexRow => this.albumIndexService.albumIndexToPageContent(albumIndexRow, albumIndexRows.indexOf(albumIndexRow))));
+    const albumIndexRows: PageContentRow[] = this.pagesBelow.map(item => item.rows.filter(row => this.actions.isIndex(row))).flat(3);
+    const albums = await Promise.all(albumIndexRows.map(albumIndexRow => this.indexService.albumIndexToPageContent(albumIndexRow, albumIndexRows.indexOf(albumIndexRow))));
     this.logger.debug("collectNestedAlbumIndexes:albums:", albums);
     albums.forEach(album => this.collectAlbumIndexData(album));
   }

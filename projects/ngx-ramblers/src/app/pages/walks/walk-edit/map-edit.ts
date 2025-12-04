@@ -29,7 +29,6 @@ import { MapMarkerStyleService } from "../../../services/maps/map-marker-style.s
       <div [class]="class"
         leaflet [leafletOptions]="options"
         [leafletLayers]="layers"
-        
         (leafletMapZoom)="onMapZoom($event)"
         (leafletMapReady)="onMapReady($event)"
         (leafletClick)="onMapClick($event)">
@@ -57,9 +56,17 @@ export class MapEditComponent implements OnInit, OnDestroy {
     this.setDefaultLatLng().then(() => this.initializeMap());
   }
   @Input() class!: string;
-  @Input() notify!: AlertInstance;
+  private notifyInstance: AlertInstance;
+  @Input() set notify(value: AlertInstance | undefined) {
+    this.notifyInstance = value ?? this.notifierService.createGlobalAlert();
+  }
+  get notify(): AlertInstance {
+    return this.notifyInstance;
+  }
   @Input() public locationType!: string;
   @Input() walkStatus?: WalkStatus;
+  @Input() endLocationDetails: LocationDetails | null = null;
+  @Input() showCombinedMap = false;
   @Output() postcodeOptionsChange = new EventEmitter<{ postcode: string, distance: number }[]>();
   @Output() showPostcodeSelectChange = new EventEmitter<boolean>();
   public locationDetails: LocationDetails;
@@ -158,10 +165,21 @@ export class MapEditComponent implements OnInit, OnDestroy {
     const crs = this.mapTiles.crsForStyle(provider as any, style);
     const maxZoom = this.mapTiles.maxZoomForStyle(provider as any, style);
     const initialZoom = Math.max(1, Math.min(15, maxZoom) - 1);
+
+    let center = L.latLng(latitude, longitude);
+    let bounds: L.LatLngBounds | undefined;
+
+    if (this.showCombinedMap && this.endLocationDetails?.latitude && this.endLocationDetails?.longitude) {
+      const startLatLng = L.latLng(latitude, longitude);
+      const endLatLng = L.latLng(this.endLocationDetails.latitude, this.endLocationDetails.longitude);
+      bounds = L.latLngBounds(startLatLng, endLatLng);
+      center = bounds.getCenter();
+    }
+
     this.options = {
       layers: [base],
       zoom: initialZoom,
-      center: L.latLng(latitude, longitude),
+      center,
       crs,
       maxZoom
     };
@@ -173,7 +191,17 @@ export class MapEditComponent implements OnInit, OnDestroy {
       ),
     ];
 
-    this.fitBounds = undefined as any;
+    if (this.showCombinedMap && this.endLocationDetails?.latitude && this.endLocationDetails?.longitude) {
+      const endMarkerIcon = this.markerStyle.markerIcon(provider as any, style, this.walkStatus);
+      this.layers.push(
+        L.marker([this.endLocationDetails.latitude, this.endLocationDetails.longitude], {
+          draggable: false,
+          icon: endMarkerIcon as any
+        })
+      );
+    }
+
+    this.fitBounds = bounds as any;
     this.logger.info("Map configured with options:", this.options, "layers:", this.layers, "fitBounds:", this.fitBounds);
   }
 
@@ -196,15 +224,22 @@ export class MapEditComponent implements OnInit, OnDestroy {
         this.zone.run(() => {
           const zoomLevel = map.getZoom();
           this.logger.info("Map zoom level changed:", zoomLevel);
+          if (!this.showCombinedMap && this.locationDetails?.latitude && this.locationDetails?.longitude) {
+            map.panTo(L.latLng(this.locationDetails.latitude, this.locationDetails.longitude));
+          }
         });
       });
       this.logger.info("Map ready:", map, "detectChanges called");
       try {
-        const { latitude, longitude } = this.locationDetails;
-        const current = map.getZoom() || 15;
-        const clamped = Math.min(current, map.getMaxZoom());
-        const oneOut = Math.max(1, clamped - 1);
-        map.setView(L.latLng(latitude, longitude), oneOut);
+        if (this.fitBounds) {
+          map.fitBounds(this.fitBounds, { padding: [50, 50] });
+        } else {
+          const { latitude, longitude } = this.locationDetails;
+          const current = map.getZoom() || 15;
+          const clamped = Math.min(current, map.getMaxZoom());
+          const oneOut = Math.max(1, clamped - 1);
+          map.setView(L.latLng(latitude, longitude), oneOut);
+        }
       } catch {}
     }
 
@@ -224,7 +259,7 @@ export class MapEditComponent implements OnInit, OnDestroy {
   }
 
   private async updateWalkLocation(latlng: LatLng) {
-    this.notify.hide();
+    this.notify?.hide();
     this.locationDetails.latitude = latlng.lat;
     this.locationDetails.longitude = latlng.lng;
 
@@ -240,6 +275,7 @@ export class MapEditComponent implements OnInit, OnDestroy {
         } else {
           const closestResponse = sortedResponses[0];
           const closestResponseMatchingPostcode = sortedResponses.find(item => item.postcode === this.locationDetails.postcode);
+
           const showAlert = !closestResponseMatchingPostcode || closestResponseMatchingPostcode.postcode !== closestResponse.postcode;
           if (showAlert) {
             const postcodeOptions = sortedResponses.map(item => ({
@@ -269,8 +305,9 @@ export class MapEditComponent implements OnInit, OnDestroy {
         }
       })
       .catch(error => {
-        this.notify.error({title: "Error looking up grid reference", message: error});
-        return {error: error.message};
+        this.logger.error("gridReferenceLookupFromLatLng:error", error);
+        this.notify.error({title: "Error looking up grid reference", message: error?.message || error});
+        return {error: error?.message || error};
       });
   }
 
@@ -285,5 +322,12 @@ export class MapEditComponent implements OnInit, OnDestroy {
 
   onMapZoom($event: LeafletEvent) {
     this.logger.info("Map zoomed:", $event);
+  }
+
+  invalidateSize() {
+    if (this.map) {
+      this.logger.info("Invalidating map size");
+      this.map.invalidateSize();
+    }
   }
 }

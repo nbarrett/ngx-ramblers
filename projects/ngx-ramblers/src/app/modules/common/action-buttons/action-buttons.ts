@@ -70,7 +70,7 @@ import { CardEditorComponent } from "../card-editor/card-editor";
       }`,
     imports: [SvgComponent, CardEditorComponent]
 })
-export class ActionButtonsComponent implements OnInit {
+export class ActionButtons implements OnInit {
 
   public pageContentService: PageContentService = inject(PageContentService);
   public pageContentEditService: PageContentEditService = inject(PageContentEditService);

@@ -46,6 +46,7 @@ import { FragmentService } from "../../../services/fragment.service";
 import { FragmentSelectorComponent } from "./fragment-selector.component";
 import { DynamicContentViewComponent } from "./dynamic-content-view";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { DynamicContentSiteEditMap } from "./dynamic-content-site-edit-map";
 
 @Component({
     selector: "app-dynamic-content-site-edit-text-row",
@@ -396,6 +397,12 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                             [contentDescription]="contentDescription"
                             [contentPath]="contentPath"
                             [pageContent]="pageContent"/>
+                          @if (actions.isMap(nestedRow)) {
+                            <app-dynamic-content-site-edit-map
+                              [row]="nestedRow"
+                              [id]="'nested-map-' + rowIndex + '-' + columnIndex + '-' + nestedRowIndex"
+                              [pageContent]="pageContent"/>
+                          }
                         </div>
                       }
                     </div>
@@ -419,7 +426,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-  imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet]
+  imports: [MarkdownEditorComponent, FormsModule, ColumnWidthComponent, BadgeButtonComponent, ActionsDropdownComponent, ImageCropperAndResizerComponent, CardImageComponent, NgClass, MarginSelectComponent, AspectRatioSelectorComponent, ImageActionsDropdownComponent, TooltipDirective, RowTypeSelectorComponent, FragmentSelectorComponent, DynamicContentViewComponent, FontAwesomeModule, NgTemplateOutlet, DynamicContentSiteEditMap]
 })
 export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
@@ -674,7 +681,7 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     }
   }
 
-  
+
 
   private isNestedLevel(): boolean {
     return this.parentRowIndex !== undefined && this.parentRowIndex !== null;
@@ -872,7 +879,9 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
 
   private initialiseRowIfRequired(row: PageContentRow) {
     this.logger.debug("initialiseRowIfRequired for row:", row);
-    if (this.actions.isSharedFragment(row)) {
+    if (this.actions.isMap(row)) {
+      this.actions.ensureMapData(row);
+    } else if (this.actions.isSharedFragment(row)) {
       if (!row?.fragment) {
         row.fragment = {pageContentId: ""};
       } else if (row.fragment.pageContentId) {

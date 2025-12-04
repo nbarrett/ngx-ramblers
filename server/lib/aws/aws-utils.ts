@@ -22,6 +22,8 @@ export function contentTypeFrom(fileName: string): string {
     return "application/pdf";
   } else if ([".doc", ".docx", ".dot"].includes(extension)) {
     return "application/msword";
+  } else if ([".gpx"].includes(extension)) {
+    return "application/gpx+xml";
   } else {
     return "image/jpeg";
   }

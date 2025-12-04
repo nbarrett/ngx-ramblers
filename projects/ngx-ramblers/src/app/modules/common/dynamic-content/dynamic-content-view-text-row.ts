@@ -9,12 +9,13 @@ import { MarkdownEditorComponent } from "../../../markdown-editor/markdown-edito
 import { CardImageComponent } from "../card/image/card-image";
 import { FALLBACK_MEDIA } from "../../../models/walk.model";
 import { FragmentService } from "../../../services/fragment.service";
-import { DynamicContentViewCarouselComponent } from "./dynamic-content-view-carousel";
-import { DynamicContentViewAlbumIndexComponent } from "./dynamic-content-view-album-index";
-import { DynamicContentViewAlbumComponent } from "./dynamic-content-view-album";
+import { DynamicContentViewCarousel } from "./dynamic-content-view-carousel";
+import { DynamicContentViewAlbum } from "./dynamic-content-view-album";
 import { EventsRow } from "../events/events-row";
-import { ActionButtonsComponent } from "../action-buttons/action-buttons";
-import { AreaMapComponent } from "../../../pages/area-map/area-map";
+import { ActionButtons } from "../action-buttons/action-buttons";
+import { AreaMap } from "../../../pages/area-map/area-map";
+import { DynamicContentViewMap } from "./dynamic-content-view-map";
+import { DynamicContentViewIndex } from "./dynamic-content-view-index";
 
 @Component({
     selector: "app-dynamic-content-view-text-row",
@@ -46,8 +47,8 @@ import { AreaMapComponent } from "../../../pages/area-map/area-map";
                     [row]="nestedRow"
                     [index]="actions.carouselOrAlbumIndex(nestedRow, {rows: column.rows})"/>
                 }
-                @if (actions.isAlbumIndex(nestedRow)) {
-                  <app-dynamic-content-view-album-index [row]="nestedRow"/>
+                @if (actions.isIndex(nestedRow)) {
+                  <app-dynamic-content-view-index [row]="nestedRow"/>
                 }
                 @if (actions.isAlbum(nestedRow)) {
                   <app-dynamic-content-view-album
@@ -59,6 +60,9 @@ import { AreaMapComponent } from "../../../pages/area-map/area-map";
                 }
                 @if (actions.isAreaMap(nestedRow)) {
                   <app-area-map [row]="nestedRow" [pageContent]="{rows: column.rows}"/>
+                }
+                @if (actions.isMap(nestedRow)) {
+                  <app-dynamic-content-view-map [row]="nestedRow"/>
                 }
                 @if (actions.isSharedFragment(nestedRow) && nestedRow?.fragment?.pageContentId) {
                   @for (fragmentRow of fragmentRowsFor(nestedRow); track fragmentRow; let fragmentRowIndex = $index) {
@@ -80,8 +84,8 @@ import { AreaMapComponent } from "../../../pages/area-map/area-map";
                         [row]="fragmentRow"
                         [index]="actions.carouselOrAlbumIndex(fragmentRow, fragmentContentFor(nestedRow))"/>
                     }
-                    @if (actions.isAlbumIndex(fragmentRow)) {
-                      <app-dynamic-content-view-album-index [row]="fragmentRow"/>
+                    @if (actions.isIndex(fragmentRow)) {
+                      <app-dynamic-content-view-index [row]="fragmentRow"/>
                     }
                     @if (actions.isAlbum(fragmentRow)) {
                       <app-dynamic-content-view-album
@@ -128,9 +132,9 @@ import { AreaMapComponent } from "../../../pages/area-map/area-map";
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-    imports: [MarkdownEditorComponent, CardImageComponent, DynamicContentViewCarouselComponent, DynamicContentViewAlbumIndexComponent, DynamicContentViewAlbumComponent, EventsRow, ActionButtonsComponent, AreaMapComponent]
+    imports: [MarkdownEditorComponent, CardImageComponent, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, ActionButtons, AreaMap, DynamicContentViewMap]
 })
-export class DynamicContentViewTextRowComponent implements OnInit {
+export class DynamicContentViewTextRow implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewTextRowComponent", NgxLoggerLevel.ERROR);
   siteEditService = inject(SiteEditService);
   actions = inject(PageContentActionsService);

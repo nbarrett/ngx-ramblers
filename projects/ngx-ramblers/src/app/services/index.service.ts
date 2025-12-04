@@ -1,6 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import { first } from "es-toolkit/compat";
-import { last } from "es-toolkit/compat";
+import { first, last } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   ContentPathMatchConfigs,
@@ -19,14 +18,16 @@ import { PageContentService } from "./page-content.service";
 import { ContentMetadataService } from "./content-metadata.service";
 import { UrlService } from "./url.service";
 import { PageContentActionsService } from "./page-content-actions.service";
-import { DataQueryOptions } from "../models/api-request.model";
+import { DataQueryOptions, FilterCriteria } from "../models/api-request.model";
 import { PageService } from "./page.service";
 import { LocationExtractionService } from "./location-extraction.service";
+import { WalksAndEventsService } from "./walks-and-events/walks-and-events.service";
+import { ExtendedGroupEventQueryService } from "./walks-and-events/extended-group-event-query.service";
 
 @Injectable({
   providedIn: "root"
 })
-export class AlbumIndexService {
+export class IndexService {
 
   public pageContentService: PageContentService = inject(PageContentService);
   public contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
@@ -35,8 +36,10 @@ export class AlbumIndexService {
   public pageService: PageService = inject(PageService);
   public actions: PageContentActionsService = inject(PageContentActionsService);
   private locationExtractionService: LocationExtractionService = inject(LocationExtractionService);
+  private walksAndEventsService: WalksAndEventsService = inject(WalksAndEventsService);
+  private extendedGroupEventQueryService: ExtendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  public logger = this.loggerFactory.createLogger("AlbumIndexService", NgxLoggerLevel.ERROR);
+  public logger = this.loggerFactory.createLogger("IndexService", NgxLoggerLevel.INFO);
   public instance = this;
 
   public async albumIndexToPageContent(pageContentRow: PageContentRow, rowIndex: number): Promise<PageContent> {
@@ -81,35 +84,108 @@ export class AlbumIndexService {
     const dataQueryOptions: DataQueryOptions = {criteria: {name: {$in: albumNames}}};
     const albumMetadata: ContentMetadata[] = await this.contentMetadataService.all(dataQueryOptions);
 
-    const albumColumns: PageContentColumn[] = pageContentToRows.map(pageContentToRowsItem =>
-      pageContentToRowsItem?.rows.map(row => {
+    const eventIds: string[] = pageContentToRows
+      .flatMap(pageContentToRowsItem => pageContentToRowsItem.rows)
+      .map(row => row.carousel?.eventId)
+      .filter(eventId => !!eventId);
+
+    const walkMap = new Map();
+    if (eventIds.length > 0) {
+      this.logger.info("Fetching", eventIds.length, "walks in a single batch query for album locations, eventIds:", eventIds);
+      try {
+        const queryParams = {
+          ids: eventIds,
+          inputSource: null,
+          suppressEventLinking: true,
+          dataQueryOptions: this.extendedGroupEventQueryService.dataQueryOptions({
+            selectType: FilterCriteria.ALL_EVENTS,
+            ascending: false
+          })
+        };
+        this.logger.info("Query parameters:", queryParams);
+        const walks = await this.walksAndEventsService.all(queryParams);
+        this.logger.info("Received walks:", walks);
+        walks.forEach(walk => {
+          const walkId = walk?.id || walk?.groupEvent?.id;
+          if (walkId) {
+            walkMap.set(walkId, walk);
+          }
+        });
+        this.logger.info("Fetched", walkMap.size, "walks successfully in single query");
+      } catch (error) {
+        this.logger.error("Failed to batch fetch walks:", error);
+      }
+    }
+
+    const columns: PageContentColumn[] = [];
+
+    for (const pageContentToRowsItem of pageContentToRows) {
+      for (const row of pageContentToRowsItem.rows) {
         const href = pageContentToRowsItem.pageContent.path;
         const title = this.stringUtils.asTitle(last(this.urlService.pathSegmentsForUrl(href)));
         const contentMetadata: ContentMetadata = albumMetadata.find(metadata => metadata.name === row.carousel.name);
-        this.logger.info("contentMetadata:", contentMetadata, "row:", row);
-        const imageSource = this.urlService.imageSourceFor(
-          {image: contentMetadata?.coverImage || first(contentMetadata?.files)?.image},
+        const coverImage = contentMetadata?.coverImage;
+        const firstFileImage = first(contentMetadata?.files)?.image;
+        const selectedImage = coverImage || firstFileImage;
+        this.logger.info("Album:", row.carousel.name, "- coverImage:", coverImage, "firstFileImage:", firstFileImage, "selectedImage:", selectedImage);
+        let imageSource = this.urlService.imageSourceFor(
+          {image: selectedImage},
           contentMetadata
         );
-        return ({
+        if (!imageSource) {
+          const firstPageImage = this.findFirstImageInPage(pageContentToRowsItem.pageContent);
+          this.logger.info("No metadata image found, using first page image:", firstPageImage);
+          imageSource = firstPageImage;
+        }
+        this.logger.info("Final imageSource:", imageSource);
+
+        let location = null;
+        if (row.carousel?.eventId) {
+          const walk = walkMap.get(row.carousel.eventId);
+          if (walk?.groupEvent) {
+            location = walk.groupEvent.start_location || walk.groupEvent.meeting_location || walk.groupEvent.end_location;
+            this.logger.info("Album", row.carousel.name, "linked to walk", row.carousel.eventId, "with location:", location);
+          }
+        }
+
+        columns.push({
           title: row.carousel?.title || title,
           contentText: row?.carousel?.subtitle || row?.carousel?.introductoryText || row?.carousel?.preAlbumText || "no text found",
           href,
           imageSource,
-          accessLevel: AccessLevel.public
+          accessLevel: AccessLevel.public,
+          location
         });
-      })
-    ).flat(2);
+      }
+    }
 
-    return albumColumns;
+    return columns;
   }
 
-  public pageContentFrom(pageContentRow: PageContentRow, albumIndexes: PageContentColumn[], rowIndex1: number): PageContent {
+  private findFirstImageInPage(pageContent: PageContent): string | undefined {
+    for (const row of pageContent.rows || []) {
+      for (const column of row.columns || []) {
+        if (column.imageSource) {
+          return column.imageSource;
+        }
+        if (column.rows) {
+          const nestedImage = this.findFirstImageInPage({rows: column.rows} as PageContent);
+          if (nestedImage) {
+            return nestedImage;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  public pageContentFrom(pageContentRow: PageContentRow, albumIndexes: PageContentColumn[], rowIndex: number): PageContent {
     const pageContent = {
-      path: "generated-album-index-row-"+ rowIndex1,
+      path: "generated-album-index-row-"+ rowIndex,
       rows: [{
         type: PageContentType.ACTION_BUTTONS,
-        maxColumns: pageContentRow.maxColumns,
+        minColumns: pageContentRow.albumIndex?.minCols ?? pageContentRow.minColumns,
+        maxColumns: pageContentRow.albumIndex?.maxCols ?? pageContentRow.maxColumns,
         showSwiper: pageContentRow.showSwiper,
         columns: albumIndexes
       }]

@@ -3,7 +3,7 @@ import { MapProvider } from "../../models/map.model";
 import { UiActionsService } from "../../services/ui-actions.service";
 import { StoredValue } from "../../models/ui-actions";
 import { MapTilesService } from "../../services/maps/map-tiles.service";
-import { MapControlsState } from "../components/map-controls.component";
+import { MapControlsState } from "../components/map-controls";
 
 @Injectable({
   providedIn: "root"
