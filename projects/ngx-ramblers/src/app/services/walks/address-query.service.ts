@@ -12,7 +12,7 @@ import { LatLng, LatLngLiteral } from "leaflet";
 })
 export class AddressQueryService {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("AddressQueryService", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("AddressQueryService", NgxLoggerLevel.ERROR);
   private BASE_URL = "/api/addresses";
   private http = inject(HttpClient);
   private commonDataService = inject(CommonDataService);

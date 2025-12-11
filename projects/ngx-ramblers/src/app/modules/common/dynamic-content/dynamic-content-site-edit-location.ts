@@ -77,7 +77,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
   imports: [FormsModule, WalkLocationEditComponent, FontAwesomeModule]
 })
 export class DynamicContentSiteEditLocation implements OnInit {
-  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditLocation", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditLocation", NgxLoggerLevel.ERROR);
   stringUtils = inject(StringUtilsService);
 
   @Input() row: PageContentRow;

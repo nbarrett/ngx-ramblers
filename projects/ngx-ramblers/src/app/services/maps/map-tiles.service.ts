@@ -18,7 +18,7 @@ export class MapTilesService {
 
   private systemConfig = inject(SystemConfigService);
   private projInitialized = false;
-  private logger = inject(LoggerFactory).createLogger("MapTilesService", NgxLoggerLevel.INFO);
+  private logger = inject(LoggerFactory).createLogger("MapTilesService", NgxLoggerLevel.ERROR);
 
   hasOsApiKey(): boolean {
     return this.osApiKeyConfigured();

@@ -39,7 +39,7 @@ export class IndexService {
   private walksAndEventsService: WalksAndEventsService = inject(WalksAndEventsService);
   private extendedGroupEventQueryService: ExtendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
-  public logger = this.loggerFactory.createLogger("IndexService", NgxLoggerLevel.INFO);
+  public logger = this.loggerFactory.createLogger("IndexService", NgxLoggerLevel.ERROR);
   public instance = this;
 
   public async albumIndexToPageContent(pageContentRow: PageContentRow, rowIndex: number): Promise<PageContent> {

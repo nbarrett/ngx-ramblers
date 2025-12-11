@@ -13,7 +13,7 @@ import { last } from "es-toolkit/compat";
   providedIn: "root"
 })
 export class LocationExtractionService {
-  private logger = inject(LoggerFactory).createLogger("LocationExtractionService", NgxLoggerLevel.INFO);
+  private logger = inject(LoggerFactory).createLogger("LocationExtractionService", NgxLoggerLevel.ERROR);
   private actions = inject(PageContentActionsService);
   private urlService = inject(UrlService);
   private stringUtils = inject(StringUtilsService);

@@ -222,7 +222,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy {
   @Input() pageContent?: PageContent;
   @Output() mapConfigChange = new EventEmitter<Partial<MapData>>();
 
-  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewMap", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewMap", NgxLoggerLevel.ERROR);
   private mapTiles = inject(MapTilesService);
   private mapMarkerStyle = inject(MapMarkerStyleService);
   private gpxParser = inject(GpxParserService);

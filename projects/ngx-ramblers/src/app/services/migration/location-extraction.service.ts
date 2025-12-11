@@ -8,7 +8,7 @@ import { bestLocation, extractLocations } from "../../common/locations/location-
   providedIn: "root"
 })
 export class MigrationLocationExtractionService {
-  private logger: Logger = inject(LoggerFactory).createLogger("MigrationLocationExtractionService", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("MigrationLocationExtractionService", NgxLoggerLevel.ERROR);
 
   extractLocations(text: string): ExtractedLocation[] {
     const locations = extractLocations(text);

@@ -170,7 +170,7 @@ import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 })
 export class WalkLocationEditComponent implements OnInit, OnDestroy {
 
-  private logger: Logger = inject(LoggerFactory).createLogger("WalkLocationEditComponent", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("WalkLocationEditComponent", NgxLoggerLevel.ERROR);
   googleMapsService = inject(GoogleMapsService);
   private addressQueryService = inject(AddressQueryService);
   route = inject(ActivatedRoute);
