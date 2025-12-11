@@ -40,8 +40,33 @@ export function extractLocations(text: string): ExtractedLocation[] {
     }
   });
 
-  const fromToRegex = /(?:walk|route|path|trail|hike)\s+from\s+(.+?)\s+to\s+([^,.\n]+?)(?=\s+was|\s+is|\s+were|\.|\n|,\s+a\s+|,\s+opened)/gi;
+  const fromToRegex = /(?:walk|route|path|trail|hike)\s+from\s+(.+?)\s+to\s+([^,.\n]+?)(?=\s+was|\s+is|\s+were|\.|\n|,\s+a\s+|,\s+opened|,\s+offers)/gi;
   const fromToMatches = Array.from(text.matchAll(fromToRegex));
+
+  const simpleFromToRegex = /from\s+([A-Z][a-zA-Z\s]+?)\s+to\s+([A-Z][a-zA-Z\s]+?)(?=[,.\n]|and)/gi;
+  const simpleFromToMatches = Array.from(text.matchAll(simpleFromToRegex));
+  simpleFromToMatches.forEach(match => {
+    let fromPlace = match[1].trim();
+    const toPlace = match[2].trim();
+
+    fromPlace = fromPlace.replace(/,\s+a\s+few\s+miles.*$/, "").trim();
+
+    if (fromPlace && fromPlace.length > 2 && fromPlace.length < 150) {
+      locations.push({
+        type: "placeName",
+        value: fromPlace,
+        context: "start location"
+      });
+    }
+
+    if (toPlace && toPlace.length > 2 && toPlace.length < 100) {
+      locations.push({
+        type: "placeName",
+        value: toPlace,
+        context: "end location"
+      });
+    }
+  });
   fromToMatches.forEach(match => {
     let fromPlace = match[1].trim();
     const toPlace = match[2].trim();
@@ -65,10 +90,57 @@ export function extractLocations(text: string): ExtractedLocation[] {
     }
   });
 
-  const startLocationRegex = /start(?:ing)?\s+(?:point|location|from|at)[:\/\s-]+([^.\n)]+)/gi;
+  const startLocationRegex = /start(?:ing)?\s+(?:point|location|from|at)?[:\/\s-]+([^.\n)]+)/gi;
   const startMatches = Array.from(text.matchAll(startLocationRegex));
+
+const startsAtRegex = /starts?\s+(?:alternatively\s+)?at\s+([^,\n]+?)(?:\s+or\s+([^,\n]+?))?/gi;
+  const startsAtMatches = Array.from(text.matchAll(startsAtRegex));
+  startsAtMatches.forEach(match => {
+    const place1 = match[1]?.trim();
+    const place2 = match[2]?.trim();
+
+    if (place1 && place1.length > 2) {
+      locations.push({
+        type: "placeName",
+        value: place1,
+        context: "start location"
+      });
+    }
+
+    if (place2 && place2.length > 2) {
+      locations.push({
+        type: "placeName",
+        value: place2,
+        context: "start location"
+      });
+    }
+  });
+
+  const alternativeStartsRegex = /starts?\s+alternatively\s+at\s+([^,\n]+?)\s+or\s+([^,\n]+?)/gi;
+  const alternativeStartsMatches = Array.from(text.matchAll(alternativeStartsRegex));
+  alternativeStartsMatches.forEach(match => {
+    const place1 = match[1]?.trim();
+    const place2 = match[2]?.trim();
+
+    if (place1 && place1.length > 2) {
+      locations.push({
+        type: "placeName",
+        value: place1,
+        context: "start location"
+      });
+    }
+
+    if (place2 && place2.length > 2) {
+      locations.push({
+        type: "placeName",
+        value: place2,
+        context: "start location"
+      });
+    }
+  });
   startMatches.forEach(match => {
-    const place = match[1].trim();
+    let place = match[1].trim();
+    place = place.replace(/^(?:at|in|on)\s+/i, "");
     if (place && place.length > 2) {
       locations.push({
         type: "placeName",
@@ -80,6 +152,60 @@ export function extractLocations(text: string): ExtractedLocation[] {
 
   const endLocationRegex = /end(?:ing|s)?\s+(?:point|location|at)[:\/\s-]+([^.\n)]+)/gi;
   const endMatches = Array.from(text.matchAll(endLocationRegex));
+
+  const finishesAtRegex = /finishes?\s+(?:on|at)\s+(?:the\s+)?([a-zA-Z\s]+?)(?=(?:\s+just\s+north\s+of\b)|[,.\n]|$)(?:\s+just\s+north\s+of\s+(?:the\s+)?([a-zA-Z\s]+?)(?=[,.\n]|$))?/gi;
+  const finishesAtMatches = Array.from(text.matchAll(finishesAtRegex));
+
+  const generalFinishesRegex = /finishes?\s+([^.\n]+?)(?=(?:\s+just\s+north\s+of\b)|[.\n]|$)(?:\s+just\s+north\s+of\s+([^.\n]+?)(?=[.\n]|$))?/gi;
+  const generalFinishesMatches = Array.from(text.matchAll(generalFinishesRegex));
+  generalFinishesMatches.forEach(match => {
+    const place1 = match[1]?.trim();
+    const place2 = match[2]?.trim();
+
+    if (place1 && place1.length > 2) {
+      let endLocation = place1;
+      if (place1.includes("bank of the ")) {
+        endLocation = place1.replace(/bank of the\s+/, "");
+      }
+      locations.push({
+        type: "placeName",
+        value: endLocation,
+        context: "end location"
+      });
+    }
+
+    if (place2 && place2.length > 2) {
+      locations.push({
+        type: "placeName",
+        value: place2,
+        context: "mentioned location"
+      });
+    }
+  });
+  finishesAtMatches.forEach(match => {
+    const place1 = match[1]?.trim();
+    const place2 = match[2]?.trim();
+
+    if (place1 && place1.length > 2) {
+      let endLocation = place1;
+      if (place1.includes("bank of the ")) {
+        endLocation = place1.replace(/bank of the\s+/, "");
+      }
+      locations.push({
+        type: "placeName",
+        value: endLocation,
+        context: "end location"
+      });
+    }
+
+    if (place2 && place2.length > 2) {
+      locations.push({
+        type: "placeName",
+        value: place2,
+        context: "mentioned location"
+      });
+    }
+  });
   endMatches.forEach(match => {
     const place = match[1].trim();
     if (place && place.length > 2) {
@@ -156,9 +282,18 @@ export function bestLocation(locations: ExtractedLocation[]): ExtractedLocation 
 
   const startLocations = locations.filter(l => l.context === "start location");
   if (startLocations.length > 0) {
+    startLocations.sort((a, b) => {
+      if (a.value.includes("Station") && !b.value.includes("Station")) return -1;
+      if (!a.value.includes("Station") && b.value.includes("Station")) return 1;
+      return b.value.length - a.value.length;
+    });
     return startLocations[0];
+  }
+
+  const endLocations = locations.filter(l => l.context === "end location");
+  if (endLocations.length > 0) {
+    return endLocations[0];
   }
 
   return locations[0];
 }
-

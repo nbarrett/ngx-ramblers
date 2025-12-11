@@ -209,7 +209,7 @@ import { isUndefined } from "es-toolkit/compat";
   imports: [CommonModule, FormsModule, MapOverlayControls, BadgeButtonComponent, AlertComponent, FontAwesomeModule, DynamicContentViewMap, MapRouteStylePaletteComponent]
 })
 export class DynamicContentSiteEditMap implements OnInit, OnDestroy {
-  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditMap", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditMap", NgxLoggerLevel.ERROR);
   private broadcastService = inject(BroadcastService);
   private numberUtils = inject(NumberUtilsService);
   private fileUploadService = inject(FileUploadService);

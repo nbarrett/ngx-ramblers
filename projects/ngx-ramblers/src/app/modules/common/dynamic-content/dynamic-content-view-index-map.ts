@@ -146,7 +146,7 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
     autoShowAll: false
   };
 
-  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewIndexMap", NgxLoggerLevel.INFO);
+  private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewIndexMap", NgxLoggerLevel.ERROR);
   private mapTiles = inject(MapTilesService);
   private markerStyle = inject(MapMarkerStyleService);
   private urlService = inject(UrlService);
