@@ -525,6 +525,8 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   private deletionsCleared = false;
   private actionableMap: { [id: string]: boolean } = {};
 
+  private postActionRefreshed = false;
+
   ngOnInit() {
     this.logger.debug("ngOnInit");
     this.audits = [];
@@ -625,8 +627,6 @@ export class WalkExportComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
-
-  private postActionRefreshed = false;
 
   async uploadToRamblers() {
     const downloadCheck = await this.downloadStatusService.canStartNewDownload();
@@ -1036,27 +1036,27 @@ export class WalkExportComponent implements OnInit, OnDestroy {
     const uncancels = this.ramblersWalksAndEventsService.walkUncancellationList(this.exportableWalks()).length;
     if (rows > 0) {
       const extras: string[] = [];
-      if (deletes > 0) { extras.push(`${this.stringUtils.pluraliseWithCount(deletes, 'deletion')}`); }
-      if (cancels > 0) { extras.push(`${this.stringUtils.pluraliseWithCount(cancels, 'cancellation')}`); }
-      if (uncancels > 0) { extras.push(`${this.stringUtils.pluraliseWithCount(uncancels, 'uncancellation')}`); }
-      const extraText = extras.length ? ` (+ ${extras.join(', ')})` : '';
-      return `Upload ${this.stringUtils.pluraliseWithCount(rows, 'walk')} to Ramblers${extraText}`;
+      if (deletes > 0) { extras.push(`${this.stringUtils.pluraliseWithCount(deletes, "deletion")}`); }
+      if (cancels > 0) { extras.push(`${this.stringUtils.pluraliseWithCount(cancels, "cancellation")}`); }
+      if (uncancels > 0) { extras.push(`${this.stringUtils.pluraliseWithCount(uncancels, "uncancellation")}`); }
+      const extraText = extras.length ? ` (+ ${extras.join(", ")})` : "";
+      return `Upload ${this.stringUtils.pluraliseWithCount(rows, "walk")} to Ramblers${extraText}`;
     }
     if (cancels > 0 || deletes > 0 || uncancels > 0) {
       const parts: string[] = [];
-      if (deletes > 0) { parts.push(this.stringUtils.pluraliseWithCount(deletes, 'deletion')); }
-      if (cancels > 0) { parts.push(this.stringUtils.pluraliseWithCount(cancels, 'cancellation')); }
-      if (uncancels > 0) { parts.push(this.stringUtils.pluraliseWithCount(uncancels, 'uncancellation')); }
-      return `Process ${parts.join(' and ')}`;
+      if (deletes > 0) { parts.push(this.stringUtils.pluraliseWithCount(deletes, "deletion")); }
+      if (cancels > 0) { parts.push(this.stringUtils.pluraliseWithCount(cancels, "cancellation")); }
+      if (uncancels > 0) { parts.push(this.stringUtils.pluraliseWithCount(uncancels, "uncancellation")); }
+      return `Process ${parts.join(" and ")}`;
     }
-    return `Upload ${this.stringUtils.pluraliseWithCount(rows, 'walk')} to Ramblers`;
+    return `Upload ${this.stringUtils.pluraliseWithCount(rows, "walk")} to Ramblers`;
   }
 
   csvDisabled(): boolean {
     const rows = this.walksDownloadFileContents.length;
     return rows === 0 || this.exportInProgress || !this.downloadConflict.allowed;
   }
-  
+
 
   timing(audit: RamblersUploadAudit): string {
     const summary = audit.type === AuditType.SUMMARY;

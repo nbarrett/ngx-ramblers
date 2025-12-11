@@ -44,7 +44,7 @@ import { LocationDetails } from "../../../projects/ngx-ramblers/src/app/models/r
 import * as exclusions from "./text-exclusions";
 import { humaniseFileStemFromUrl } from "../shared/string-utils";
 import { DateTime } from "luxon";
-import { bestLocation, extractLocations } from "../shared/location-extractor";
+import { bestLocation, extractLocations } from "../../../projects/ngx-ramblers/src/app/common/locations/location-extractor";
 import { ExtractedLocation } from "../../../projects/ngx-ramblers/src/app/models/map.model";
 import { isNull, isUndefined } from "es-toolkit/compat";
 
@@ -797,15 +797,12 @@ export class PageTransformationEngine {
       if (info.index === headingIndex) {
         const headingBoundary = this.headingBoundaryIndex(info.cleaned);
         if (!isNull(headingBoundary)) {
-          const textAfterHeading = info.cleaned.substring(headingBoundary).trim();
-          const headingMatch = textAfterHeading.match(/^#+\s+[^\n]+\n*/);
-          const textAfterHeadingLine = headingMatch ? textAfterHeading.substring(headingMatch[0].length).trim() : textAfterHeading;
-          if (textAfterHeadingLine) {
-            contentParts.push(textAfterHeadingLine);
-            debugLog(`   Found text after heading in heading segment ${info.index}: "${textAfterHeadingLine.substring(0, 50)}..."`);
-            debugLog(`   Not marking heading segment ${info.index} as used to allow TEXT_BEFORE_HEADING extraction`);
-            ctx.consumedCaptions?.add(textAfterHeadingLine);
+          const textFromHeading = info.cleaned.substring(headingBoundary).trim();
+          if (textFromHeading) {
+            contentParts.push(textFromHeading);
+            debugLog(`   Retained heading segment ${info.index}: "${textFromHeading.substring(0, 50)}..."`);
           }
+          indicesToMark.push(info.index);
         } else {
           contentParts.push(info.cleaned);
           indicesToMark.push(info.index);

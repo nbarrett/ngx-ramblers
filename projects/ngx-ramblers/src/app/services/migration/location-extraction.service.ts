@@ -1,8 +1,8 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { bestLocation, extractLocations } from "server/lib/shared/location-extractor";
 import { ExtractedLocation } from "../../models/map.model";
+import { bestLocation, extractLocations } from "../../common/locations/location-extractions";
 
 @Injectable({
   providedIn: "root"

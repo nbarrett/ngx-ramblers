@@ -21,7 +21,7 @@ export function extractLocations(text: string): ExtractedLocation[] {
     locations.push({
       type: "postcode",
       value: match[1].replace(/\s/g, ""),
-      context: this.contextFor(text, matchIndex)
+      context: contextFor(text, matchIndex)
     });
   });
 
@@ -35,7 +35,7 @@ export function extractLocations(text: string): ExtractedLocation[] {
       locations.push({
         type: "gridReference",
         value,
-        context: this.contextFor(text, matchIndex)
+        context: contextFor(text, matchIndex)
       });
     }
   });
@@ -108,7 +108,7 @@ export function extractLocations(text: string): ExtractedLocation[] {
   const ofPlaceMatches = Array.from(text.matchAll(ofPlaceRegex));
   ofPlaceMatches.forEach(match => {
     const place = match[1].trim();
-    if (place && place.length > 3 && !this.isCommonWord(place)) {
+    if (place && place.length > 3 && !isCommonWord(place)) {
       const alreadyAdded = locations.some(l =>
         l.type === "placeName" && l.value.includes(place)
       );
@@ -121,8 +121,6 @@ export function extractLocations(text: string): ExtractedLocation[] {
       }
     }
   });
-
-  this.logger.info("Extracted", locations.length, "locations from text");
   return locations;
 }
 

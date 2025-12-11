@@ -787,14 +787,13 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
   protected readonly faArrowDown = faArrowDown;
   protected readonly faArrowsUpDown = faArrowsUpDown;
   protected readonly faMagnifyingGlass = faMagnifyingGlass;
-
   protected readonly ALERT_WARNING = ALERT_WARNING;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
-
   protected readonly TextMatchPattern = TextMatchPattern;
   protected readonly ColumnContentType = ColumnContentType;
   protected readonly ImageMatchPattern = ImageMatchPattern;
   protected readonly NestedRowContentSource = NestedRowContentSource;
+  protected readonly MigrationTemplateSourceType = MigrationTemplateSourceType;
 
   ngOnInit() {
     this.uniqueCheckboxId = `text-row-${this.numberUtils.generateUid()}`;
@@ -1345,6 +1344,4 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
     const parentRow = this.pageContent.rows[this.parentRowIndex];
     return parentRow?.columns?.find(col => col.rows && col.rows.includes(this.row));
   }
-
-  protected readonly MigrationTemplateSourceType = MigrationTemplateSourceType;
 }
