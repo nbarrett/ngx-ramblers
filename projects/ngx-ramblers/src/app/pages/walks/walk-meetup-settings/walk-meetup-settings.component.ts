@@ -50,6 +50,8 @@ export class WalkMeetupSettingsComponent implements OnInit {
   faMeetup = faMeetup;
   public view: View = View.VIEW;
 
+  protected readonly View = View;
+
   ngOnInit() {
     this.logger.debug("ngOnInit");
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
@@ -119,6 +121,4 @@ export class WalkMeetupSettingsComponent implements OnInit {
   save() {
     this.meetupService.saveConfig(this.notify, this.config);
   }
-
-  protected readonly View = View;
 }

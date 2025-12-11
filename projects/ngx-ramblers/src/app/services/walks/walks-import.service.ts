@@ -644,7 +644,7 @@ export class WalksImportService {
 
   private fileForRow(imageRow: WalkImageRow, fileLookup: Map<string, File>): File | undefined {
     const localFileName = this.normaliseFileName(imageRow["Local Filename"]);
-    const localFileNameWithoutPath = localFileName ? localFileName.split('/').pop() : null;
+    const localFileNameWithoutPath = localFileName ? localFileName.split("/").pop() : null;
     const imageGuid = this.normaliseFileName(imageRow["Image GUID"]);
     return fileLookup.get(localFileName)
       || fileLookup.get(localFileNameWithoutPath)

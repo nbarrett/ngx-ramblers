@@ -1,4 +1,4 @@
-import { ExtractedLocation } from "../../../projects/ngx-ramblers/src/app/models/map.model";
+import { ExtractedLocation } from "../../models/map.model";
 
 const commonWords = [
   "March", "April", "June", "July", "August", "September", "October", "November", "December",

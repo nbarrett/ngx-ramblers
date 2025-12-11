@@ -861,14 +861,14 @@ export class AreaMap implements OnInit, OnDestroy {
         const overlays: L.Layer[] = sortedAreas.map((area, index) => {
           const borderColor = area.color || this.getOrCreateColorForArea(area.name);
           const fillColor = borderColor.replace(/(\d+)%\)$/, (match, lightness) =>
-            `${Math.min(90, parseInt(lightness) + 30)}%)`
+            `${Math.min(90, parseInt(lightness, 10) + 30)}%)`
           );
 
           const polygon = L.geoJSON(area.geoJsonFeature, {
             style: {
               color: borderColor,
               weight: 2,
-              fillColor: fillColor,
+              fillColor,
               fillOpacity: this.opacityNormal
             }
           });

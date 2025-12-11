@@ -39,8 +39,8 @@
     "tsc": "tsc --project ./tsconfig.json",
     "tsc-check": "tsc --project ./tsconfig.json --noEmit",
     "tsc-watch": "tsc --project ./tsconfig.json --watch",
-    "unit-test": "node ./scripts/run-unit-tests.js",
-    "unit-test:once": "node ./scripts/run-unit-tests.js --always-build"
+    "unit-test": ". test-setenv.sh && npm run build && mocha --watch",
+    "unit-test:once": "bash -lc 'source ./test-setenv.sh && npm run build && mocha'"
   },
   "nodemonConfig": {
     "ignore": [

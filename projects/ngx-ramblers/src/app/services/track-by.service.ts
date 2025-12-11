@@ -12,9 +12,9 @@ export class TrackByService {
    * Uses the most unique identifier available, falling back to index only as last resort.
    */
   displayedWalk(index: number, displayedWalk: DisplayedWalk): string {
-    return displayedWalk?.walk?.id 
-      || displayedWalk?.walk?.groupEvent?.id 
-      || displayedWalk?.walk?.groupEvent?.url 
+    return displayedWalk?.walk?.id
+      || displayedWalk?.walk?.groupEvent?.id
+      || displayedWalk?.walk?.groupEvent?.url
       || `fallback-${index}`;
   }
 
@@ -22,9 +22,9 @@ export class TrackByService {
    * TrackBy function for ExtendedGroupEvent objects.
    */
   extendedGroupEvent(index: number, event: ExtendedGroupEvent): string {
-    return event?.id 
-      || event?.groupEvent?.id 
-      || event?.groupEvent?.url 
+    return event?.id
+      || event?.groupEvent?.id
+      || event?.groupEvent?.url
       || `fallback-${index}`;
   }
 
