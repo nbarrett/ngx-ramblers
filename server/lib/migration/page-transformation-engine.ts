@@ -719,26 +719,64 @@ export class PageTransformationEngine {
       return this.extractRemainingText(ctx);
     }
     const segments = this.unusedTextSegments(ctx).filter(info => info.index < headingIndex);
+    const headingSegment = this.unusedTextSegments(ctx).find(info => info.index === headingIndex);
+
     debugLog(`   Text-before-heading: heading index ${headingIndex}, segments before: ${segments.length}`);
     segments.forEach(info => debugLog(`     Segment ${info.index}: "${info.cleaned.substring(0, 50)}..."`));
-    const content = segments.map(info => info.cleaned).join("\n\n").trim();
+
+    const contentParts: string[] = segments.map(info => {
+      let text = info.cleaned;
+      const lines = text.split("\n").filter(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return true;
+        if (this.isHeadingText(trimmed)) {
+          debugLog(`   Filtering out heading line from segment ${info.index}: "${trimmed}"`);
+          return false;
+        }
+        if (ctx.extractedHeading && (trimmed === ctx.extractedHeading || trimmed === `## ${ctx.extractedHeading}` || trimmed === `# ${ctx.extractedHeading}`)) {
+          debugLog(`   Filtering out extracted heading from segment ${info.index}: "${trimmed}"`);
+          return false;
+        }
+        return true;
+      });
+      if (lines.length !== text.split("\n").length) {
+        text = lines.join("\n").trim();
+      }
+      return text;
+    }).filter(text => text.length > 0);
+    const indicesToMark: number[] = segments.map(info => info.index);
+
+    if (headingSegment) {
+      const headingBoundary = this.headingBoundaryIndex(headingSegment.cleaned);
+      if (!isNull(headingBoundary) && headingBoundary > 0) {
+        const textBeforeHeading = headingSegment.cleaned.substring(0, headingBoundary).trim();
+        if (textBeforeHeading) {
+          contentParts.push(textBeforeHeading);
+          debugLog(`   Found text before heading in heading segment ${headingSegment.index}: "${textBeforeHeading.substring(0, 50)}..."`);
+          debugLog(`   Not marking segment ${headingSegment.index} as used to allow TEXT_FROM_HEADING extraction`);
+          ctx.consumedCaptions?.add(textBeforeHeading);
+        }
+      }
+    }
+
+    const content = contentParts.join("\n\n").trim();
     const shouldAppendPostHeading = content.length === 0;
     if (shouldAppendPostHeading) {
       const postSegments = this.unusedTextSegments(ctx).filter(info => info.index > headingIndex);
       if (postSegments.length === 0) {
         return segments.length > 0 ? {contentText: content} : null;
       }
-      const combinedIndices = [...segments.map(info => info.index), ...postSegments.map(info => info.index)];
+      const combinedIndices = [...indicesToMark, ...postSegments.map(info => info.index)];
       const combinedText = [content, postSegments.map(info => info.cleaned).join("\n\n")].filter(Boolean).join("\n\n");
       this.markTextIndices(ctx, combinedIndices);
       debugLog(`   Narrative before heading empty, appended ${postSegments.length} post-heading segments`);
       return {contentText: combinedText};
     }
-    if (segments.length === 0) {
+    if (indicesToMark.length === 0) {
       return null;
     }
-    this.markTextIndices(ctx, segments.map(info => info.index));
-    debugLog(`   Found ${segments.length} text segments before heading index ${headingIndex}`);
+    this.markTextIndices(ctx, indicesToMark);
+    debugLog(`   Found ${indicesToMark.length} text segments (including text before heading in heading segment)`);
     return {contentText: content};
   }
 
@@ -747,13 +785,40 @@ export class PageTransformationEngine {
     if (headingIndex === -1) {
       return this.extractRemainingText(ctx);
     }
-    const segments = this.unusedTextSegments(ctx).filter(info => info.index >= headingIndex);
-    if (segments.length === 0) {
+    const allSegments = this.unusedTextSegments(ctx).filter(info => info.index >= headingIndex);
+    if (allSegments.length === 0) {
       return null;
     }
-    this.markTextIndices(ctx, segments.map(info => info.index));
-    debugLog(`   Found ${segments.length} text segments from heading index ${headingIndex}`);
-    return {contentText: segments.map(info => info.cleaned).join("\n\n")};
+
+    const contentParts: string[] = [];
+    const indicesToMark: number[] = [];
+
+    for (const info of allSegments) {
+      if (info.index === headingIndex) {
+        const headingBoundary = this.headingBoundaryIndex(info.cleaned);
+        if (!isNull(headingBoundary)) {
+          const textAfterHeading = info.cleaned.substring(headingBoundary).trim();
+          const headingMatch = textAfterHeading.match(/^#+\s+[^\n]+\n*/);
+          const textAfterHeadingLine = headingMatch ? textAfterHeading.substring(headingMatch[0].length).trim() : textAfterHeading;
+          if (textAfterHeadingLine) {
+            contentParts.push(textAfterHeadingLine);
+            debugLog(`   Found text after heading in heading segment ${info.index}: "${textAfterHeadingLine.substring(0, 50)}..."`);
+            debugLog(`   Not marking heading segment ${info.index} as used to allow TEXT_BEFORE_HEADING extraction`);
+            ctx.consumedCaptions?.add(textAfterHeadingLine);
+          }
+        } else {
+          contentParts.push(info.cleaned);
+          indicesToMark.push(info.index);
+        }
+      } else {
+        contentParts.push(info.cleaned);
+        indicesToMark.push(info.index);
+      }
+    }
+
+    this.markTextIndices(ctx, indicesToMark);
+    debugLog(`   Found ${allSegments.length} text segments from heading index ${headingIndex} (${indicesToMark.length} marked as used)`);
+    return {contentText: contentParts.join("\n\n")};
   }
 
   private extractFirstHeadingAndContent(ctx: TransformationContext): Partial<PageContentColumn> {
@@ -875,7 +940,7 @@ export class PageTransformationEngine {
     };
   }
 
-  private captionFromNextText(ctx: TransformationContext, index: number): TextSegmentInfo {
+  private captionFromNextText(ctx: TransformationContext, index: number, allowLongCaptions = false): TextSegmentInfo {
     const candidate = this.nextUnusedTextSegment(ctx, index);
     if (!candidate) {
       return undefined;
@@ -884,7 +949,7 @@ export class PageTransformationEngine {
       const headingIndex = this.headingBoundaryIndex(candidate.cleaned);
       if (!isNull(headingIndex) && headingIndex > 0) {
         const textBeforeHeading = candidate.cleaned.substring(0, headingIndex).trim();
-        if (textBeforeHeading && textBeforeHeading.length <= 100) {
+        if (textBeforeHeading && (allowLongCaptions || textBeforeHeading.length <= 100)) {
           return {
             index: candidate.index,
             cleaned: textBeforeHeading,
@@ -895,7 +960,7 @@ export class PageTransformationEngine {
       }
       return undefined;
     }
-    if (candidate.cleaned.length > 100) {
+    if (!allowLongCaptions && candidate.cleaned.length > 100) {
       return undefined;
     }
     return candidate;
@@ -925,14 +990,20 @@ export class PageTransformationEngine {
     return undefined;
   }
 
-  private getCaptionForImage(ctx: TransformationContext, imageIndex: number, matcher: {groupTextWithImage?: boolean; captionBeforeImage?: boolean}): TextSegmentInfo {
+  private getCaptionForImage(
+    ctx: TransformationContext, imageIndex: number,
+    matcher: {
+      groupTextWithImage?: boolean;
+      captionBeforeImage?: boolean;
+      allowLongCaptions?: boolean
+    }): TextSegmentInfo {
     if (!matcher?.groupTextWithImage) {
       return undefined;
     }
     if (matcher.captionBeforeImage) {
       return this.captionFromPreviousText(ctx, imageIndex);
     }
-    return this.captionFromNextText(ctx, imageIndex + 1);
+    return this.captionFromNextText(ctx, imageIndex + 1, matcher.allowLongCaptions);
   }
 
   private captionForImage(ctx: TransformationContext, imageIndex: number, matcher: ContentMatcher, filename: string): TextSegmentInfo | undefined {
@@ -2516,7 +2587,8 @@ export class PageTransformationEngine {
           type: ContentMatchType.IMAGE,
           imagePattern: ImageMatchPattern.REMAINING_IMAGES,
           filenamePattern: config.filenamePattern || config.imagePattern || mapping.imagePatternValue,
-          groupTextWithImage: config.groupTextWithImage ?? mapping.groupShortTextWithImage
+          groupTextWithImage: config.groupTextWithImage ?? mapping.groupShortTextWithImage,
+          allowLongCaptions: Boolean(config.textPattern && config.headingPattern)
         }, ctx, uploadImageFn);
       case NestedRowContentSource.ALL_IMAGES:
         if (aggregate) {
