@@ -73,6 +73,7 @@ export interface ContentMatcher {
   breakOnImage?: boolean;
   groupTextWithImage?: boolean;
   captionBeforeImage?: boolean;
+  allowLongCaptions?: boolean;
   stopCondition?: StopCondition;
 }
 
