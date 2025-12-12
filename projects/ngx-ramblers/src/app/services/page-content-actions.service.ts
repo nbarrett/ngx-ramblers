@@ -415,6 +415,18 @@ export class PageContentActionsService {
     }
   }
 
+  public ensureAlbumIndexMapConfigDefaults(row: PageContentRow) {
+    if (!row?.albumIndex?.mapConfig) {
+      return;
+    }
+    if (isUndefined(row.albumIndex.mapConfig.showControlsDefault)) {
+      row.albumIndex.mapConfig.showControlsDefault = true;
+    }
+    if (isUndefined(row.albumIndex.mapConfig.allowControlsToggle)) {
+      row.albumIndex.mapConfig.allowControlsToggle = true;
+    }
+  }
+
   public isSharedFragment(row: PageContentRow) {
     return row?.type === PageContentType.SHARED_FRAGMENT;
   }

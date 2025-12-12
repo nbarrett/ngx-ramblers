@@ -15,6 +15,7 @@ import {
 } from "../../../shared/components/map-controls";
 import { MapProvider } from "../../../models/map.model";
 import { MapOverlay } from "../../../shared/components/map-overlay";
+import { UiActionsService } from "../../../services/ui-actions.service";
 
 @Component({
   selector: "app-dynamic-content-view-index-map",
@@ -100,6 +101,8 @@ import { MapOverlay } from "../../../shared/components/map-overlay";
           @if (allowControlsToggle) {
             <app-map-overlay
               [showControls]="showControls"
+              [allowToggle]="allowControlsToggle"
+              [allowWaypointsToggle]="false"
               (toggleControls)="toggleControls()">
             </app-map-overlay>
           }
@@ -150,13 +153,15 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   private mapTiles = inject(MapTilesService);
   private markerStyle = inject(MapMarkerStyleService);
   private urlService = inject(UrlService);
+  private uiActions = inject(UiActionsService);
 
   ngOnInit() {
     this.mapTiles.initializeProjections();
     this.mapControlsState.provider = this.provider as MapProvider;
     this.mapControlsState.osStyle = this.osStyle;
     this.mapControlsState.mapHeight = this.mapHeight;
-    this.showControls = this.showControlsDefault;
+    this.showControls = this.uiActions.booleanOf(this.showControlsDefault, true);
+    this.allowControlsToggle = this.uiActions.booleanOf(this.allowControlsToggle, true);
     this.initializeMap();
   }
 
@@ -186,7 +191,10 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
       this.mapRef.setView(L.latLng(this.mapCenter[0], this.mapCenter[1]), this.mapRef.getZoom());
     }
     if (changes["showControlsDefault"] && !changes["showControlsDefault"].firstChange) {
-      this.showControls = this.showControlsDefault;
+      this.showControls = this.uiActions.booleanOf(this.showControlsDefault, true);
+    }
+    if (changes["allowControlsToggle"] && !changes["allowControlsToggle"].firstChange) {
+      this.allowControlsToggle = this.uiActions.booleanOf(this.allowControlsToggle, true);
     }
   }
 
@@ -354,4 +362,5 @@ export class DynamicContentViewIndexMap implements OnInit, OnChanges {
   toggleControls() {
     this.showControls = !this.showControls;
   }
+
 }

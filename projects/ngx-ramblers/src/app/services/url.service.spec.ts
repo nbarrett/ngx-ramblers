@@ -32,7 +32,7 @@ describe("UrlService", () => {
                         }, url: "/admin/member-bulk-load/12398719823"
                     }
                 },
-                {provide: ActivatedRoute, useValue: {snapshot: {url: Array("admin", "member-bulk-load")}}},
+                {provide: ActivatedRoute, useValue: {snapshot: {url: ["admin", "member-bulk-load"]}}},
                 {provide: DOCUMENT, useValue: LOCATION_VALUE},
                 StringUtilsService,
                 provideHttpClient(withInterceptorsFromDi()),

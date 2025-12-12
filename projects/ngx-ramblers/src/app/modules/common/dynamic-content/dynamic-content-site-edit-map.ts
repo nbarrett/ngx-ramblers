@@ -1,7 +1,8 @@
-import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, DoCheck, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   EM_DASH_WITH_SPACES,
+  MapData,
   MapRoute,
   PageContent,
   PageContentRow,
@@ -12,7 +13,7 @@ import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
-import { MapOverlayControls } from "../../../shared/components/map-overlay-controls";
+import { MapOverlayConfig, MapOverlayControls } from "../../../shared/components/map-overlay-controls";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
 import { faAdd, faEye, faEyeSlash, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { NumberUtilsService } from "../../../services/number-utils.service";
@@ -32,24 +33,6 @@ import { isUndefined } from "es-toolkit/compat";
   styleUrls: ["./dynamic-content.sass"],
   template: `
     @if (row?.map) {
-      <app-map-overlay-controls
-        [config]="row.map"
-        [id]="id"
-        [showOpacityControls]="false"
-        [defaults]="{
-          provider: 'osm',
-          osStyle: 'Leisure_27700',
-          mapCenter: [51.25, 0.75],
-          mapZoom: 10,
-          mapHeight: 500,
-          showControlsDefault: true,
-          allowControlsToggle: true,
-          showWaypointsDefault: true,
-          allowWaypointsToggle: true,
-          autoFitBounds: true
-        }"
-        (configChange)="onOverlayConfigChange()"/>
-
       <div class="row mb-3 thumbnail-heading-frame">
         <div class="thumbnail-heading">Map Markers</div>
         <div class="col-12">
@@ -58,6 +41,7 @@ import { isUndefined } from "es-toolkit/compat";
               <input class="form-check-input"
                      type="checkbox"
                      id="use-location-{{id}}-{{row.type}}"
+                     [disabled]="!hasLocationRow()"
                      [ngModel]="useLocationFromPage()"
                      (ngModelChange)="toggleUseLocationFromPage($event)">
               <label class="form-check-label" for="use-location-{{id}}-{{row.type}}">
@@ -202,18 +186,37 @@ import { isUndefined } from "es-toolkit/compat";
               <span>{{ EM_DASH_WITH_SPACES }}Add at least one visible route with a GPX upload or a marker to see the map preview</span>
             </alert>
           }
+          <div class="mt-3">
+            <app-map-overlay-controls
+              [config]="row.map"
+              [id]="id"
+              [showOpacityControls]="false"
+              [defaults]="{
+                provider: 'osm',
+                osStyle: 'Leisure_27700',
+                mapCenter: [51.25, 0.75],
+                mapZoom: 10,
+                mapHeight: 500,
+                showControlsDefault: true,
+                allowControlsToggle: true,
+                showWaypointsDefault: true,
+                allowWaypointsToggle: true,
+                autoFitBounds: true
+              }"
+              (configChange)="onOverlayConfigChange($event)"/>
+          </div>
         </div>
       </div>
     }
   `,
   imports: [CommonModule, FormsModule, MapOverlayControls, BadgeButtonComponent, AlertComponent, FontAwesomeModule, DynamicContentViewMap, MapRouteStylePaletteComponent]
 })
-export class DynamicContentSiteEditMap implements OnInit, OnDestroy {
+export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditMap", NgxLoggerLevel.ERROR);
   private broadcastService = inject(BroadcastService);
   private numberUtils = inject(NumberUtilsService);
   private fileUploadService = inject(FileUploadService);
-
+  @ViewChild(DynamicContentViewMap) private mapPreview?: DynamicContentViewMap;
   @Input() row!: PageContentRow;
   @Input() id!: string;
   @Input() pageContent?: PageContent;
@@ -228,10 +231,16 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy {
   protected readonly ALERT_WARNING = ALERT_WARNING;
   private mapTilesService = inject(MapTilesService);
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
+  private lastSyncedLocationSignature: string | undefined;
 
   ngOnInit() {
     this.ensureMapData();
-    this.syncMarkersFromLocation();
+    if (this.useLocationFromPage()) {
+      this.syncMarkersFromLocation();
+      this.lastSyncedLocationSignature = this.locationSignature();
+    } else {
+      this.lastSyncedLocationSignature = undefined;
+    }
   }
 
   ngOnDestroy() {
@@ -239,6 +248,27 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy {
       uploader.clearQueue();
     });
     this.uploaders.clear();
+  }
+
+  ngDoCheck() {
+    if (!this.row.map?.useLocationFromPage) {
+      return;
+    }
+    if (!this.hasLocationRow()) {
+      this.lastSyncedLocationSignature = undefined;
+      this.clearMarkers();
+      return;
+    }
+    const signature = this.locationSignature();
+    if (!signature) {
+      this.lastSyncedLocationSignature = undefined;
+      this.clearMarkers();
+      return;
+    }
+    if (signature !== this.lastSyncedLocationSignature) {
+      this.lastSyncedLocationSignature = signature;
+      this.syncMarkersFromLocation();
+    }
   }
 
   private ensureMapData() {
@@ -249,6 +279,7 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy {
         mapCenter: [51.25, 0.75],
         mapZoom: 10,
         mapHeight: 500,
+        useLocationFromPage: this.hasLocationRow(),
         provider: "osm",
         osStyle: "Leisure_27700",
         showControlsDefault: true,
@@ -275,11 +306,15 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy {
       if (isUndefined(this.row.map.autoFitBounds)) {
         this.row.map.autoFitBounds = true;
       }
+      if (isUndefined(this.row.map.useLocationFromPage)) {
+        this.row.map.useLocationFromPage = this.hasLocationRow();
+      }
     }
   }
 
-  onOverlayConfigChange() {
-    this.broadcastChange();
+  onOverlayConfigChange(config: MapOverlayConfig) {
+    this.broadcastChange(true);
+    void this.mapPreview?.applyOverlayConfigFromEditor(config as MapData);
   }
 
   protected broadcastChange(skipPreviewIncrement: boolean = false) {
@@ -396,12 +431,67 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy {
   }
 
   private syncMarkersFromLocation() {
+    if (!this.row.map || !this.pageContent) {
+      return;
+    }
+    const before = this.mapLocationSnapshot();
     this.mapTilesService.syncMarkersFromLocation(this.pageContent, this.row);
-    this.broadcastChange();
+    const after = this.mapLocationSnapshot();
+    if (before !== after) {
+      this.broadcastChange();
+    }
   }
 
   useLocationFromPage(): boolean {
-    return !!this.pageContent?.rows?.some(r => r.type === PageContentType.LOCATION && r.location);
+    return !!(this.row.map?.useLocationFromPage && this.hasLocationRow());
+  }
+
+  hasLocationRow(): boolean {
+    return !!this.locationRow();
+  }
+
+  private locationRow(): PageContentRow | undefined {
+    return this.pageContent?.rows?.find(candidate => candidate.type === PageContentType.LOCATION && candidate.location);
+  }
+
+  private locationSignature(): string | undefined {
+    const locationRow = this.locationRow();
+    if (!locationRow?.location) {
+      return undefined;
+    }
+    const start = locationRow.location.start;
+    const end = locationRow.location.end;
+    const hasStart = start?.latitude != null && start?.longitude != null;
+    const hasEnd = end?.latitude != null && end?.longitude != null;
+    if (!hasStart && !hasEnd) {
+      return undefined;
+    }
+    const startSig = hasStart ? `${start?.latitude ?? ""}|${start?.longitude ?? ""}|${start?.description ?? ""}` : "";
+    const endSig = hasEnd ? `${end?.latitude ?? ""}|${end?.longitude ?? ""}|${end?.description ?? ""}` : "";
+    return `${startSig}::${endSig}`;
+  }
+
+  private mapLocationSnapshot(): string {
+    if (!this.row.map) {
+      return "";
+    }
+    const markers = (this.row.map.markers || []).map(marker => ({
+      latitude: marker.latitude,
+      longitude: marker.longitude,
+      label: marker.label
+    }));
+    return JSON.stringify({
+      center: this.row.map.mapCenter || [],
+      zoom: this.row.map.mapZoom,
+      markers
+    });
+  }
+
+  private clearMarkers() {
+    if (this.row.map?.markers?.length) {
+      this.row.map.markers = [];
+      this.broadcastChange();
+    }
   }
 
   toggleUseLocationFromPage(enabled: boolean) {
@@ -409,41 +499,29 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy {
       return;
     }
 
-    if (enabled) {
-      const locationRow = this.pageContent?.rows?.find(r => r.type === PageContentType.LOCATION && r.location);
-      if (locationRow?.location) {
-        this.row.map.markers = [];
+    const previous = this.row.map.useLocationFromPage;
+    this.row.map.useLocationFromPage = enabled;
 
-        if (locationRow.location.start?.latitude != null && locationRow.location.start?.longitude != null) {
-          this.row.map.markers.push({
-            latitude: locationRow.location.start.latitude,
-            longitude: locationRow.location.start.longitude,
-            label: locationRow.location.start.description || "Start"
-          });
-        }
-
-        if (locationRow.location.end?.latitude != null && locationRow.location.end?.longitude != null) {
-          this.row.map.markers.push({
-            latitude: locationRow.location.end.latitude,
-            longitude: locationRow.location.end.longitude,
-            label: locationRow.location.end.description || "End"
-          });
-        }
-
-        if (locationRow.location.start?.latitude != null && locationRow.location.start?.longitude != null) {
-          this.row.map.mapCenter = [locationRow.location.start.latitude, locationRow.location.start.longitude];
-          if (!this.row.map.mapZoom || this.row.map.mapZoom < 10) {
-            this.row.map.mapZoom = 14;
-          }
-        }
-
-        this.logger.info("toggleUseLocationFromPage: Added markers:", this.row.map.markers, "centered at:", this.row.map.mapCenter);
-      }
-    } else {
-      this.row.map.markers = [];
-      this.logger.info("toggleUseLocationFromPage: Cleared all markers");
+    if (previous !== enabled) {
+      this.broadcastChange(true);
     }
-    this.broadcastChange();
+
+    if (!enabled) {
+      this.lastSyncedLocationSignature = undefined;
+      this.clearMarkers();
+      return;
+    }
+
+    if (!this.hasLocationRow()) {
+      return;
+    }
+
+    const signature = this.locationSignature();
+    this.lastSyncedLocationSignature = signature;
+    if (!signature) {
+      return;
+    }
+    this.syncMarkersFromLocation();
   }
 
   removeMarker(index: number) {

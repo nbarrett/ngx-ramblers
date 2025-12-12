@@ -40,6 +40,7 @@ COPY package*.json ./
 # Copy Angular configuration files
 COPY angular.json ./
 COPY ts*.json ./
+COPY tools /usr/src/app/tools
 
 # Copy the Angular application code to the working directory
 COPY projects/ngx-ramblers /usr/src/app/projects/ngx-ramblers

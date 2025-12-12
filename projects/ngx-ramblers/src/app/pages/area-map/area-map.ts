@@ -14,9 +14,9 @@ import { StoredValue } from "../../models/ui-actions";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AreaMapClickAction, AreaMapData, PageContent, PageContentRow } from "../../models/content-text.model";
-import { AreaMapCmsService } from "../../services/area-map-cms.service";
 import { Subscription } from "rxjs";
 import { isArray, isFunction, isNull, isNumber, isString, isUndefined } from "es-toolkit/compat";
+import { range } from "es-toolkit";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { SystemConfigService } from "../../services/system/system-config.service";
 import { BroadcastService } from "../../services/broadcast-service";
@@ -272,7 +272,6 @@ export class AreaMap implements OnInit, OnDestroy {
   private mapControlsStateService = inject(MapControlsStateService);
   private mapRecreation = inject(MapRecreationService);
   private uiActions = inject(UiActionsService);
-  private cmsService = inject(AreaMapCmsService);
   private systemConfigService = inject(SystemConfigService);
   private broadcastService = inject(BroadcastService);
   private cmsSettings?: AreaMapData;
@@ -543,10 +542,6 @@ export class AreaMap implements OnInit, OnDestroy {
     this.updateMap();
   }
 
-  onClickActionChange() {
-    this.uiActions.saveValueFor(StoredValue.AREA_MAP_CLICK_ACTION, this.clickAction);
-  }
-
   toggleControls() {
     if (!this.standalone) {
       return;
@@ -605,11 +600,12 @@ export class AreaMap implements OnInit, OnDestroy {
     setTimeout(() => {
       if (!this.mapRef || !this.mapRef.getContainer()) {
         return;
-      }
-      try {
-        this.mapRef.invalidateSize(true);
-      } catch (e) {
-        this.logger.debug("Map not fully initialized yet, will retry on next render:", e);
+      } else {
+        try {
+          this.mapRef.invalidateSize(true);
+        } catch (e) {
+          this.logger.debug("Map not fully initialized yet, will retry on next render:", e);
+        }
       }
     }, 100);
   }
@@ -741,7 +737,7 @@ export class AreaMap implements OnInit, OnDestroy {
 
     const collides = (bounds: L.Bounds) => this.labelPlacements.some(existing => existing.intersects(bounds));
 
-    for (let step = 0; step <= maxSteps; step++) {
+    for (const step of range(0, maxSteps)) {
       for (const direction of directions) {
         const offset = direction.multiplyBy(stepDistance * step);
         const candidatePoint = originPoint.add(offset);
@@ -996,7 +992,6 @@ export class AreaMap implements OnInit, OnDestroy {
     if (this.mapRef && this.standalone) {
       const currentZoom = this.mapRef.getZoom();
       this.logger.info("Zoom changed to:", currentZoom);
-
       if (currentZoom && isFinite(currentZoom) && currentZoom >= 2 && currentZoom <= 18) {
         this.logger.info("Saving zoom level to storage:", currentZoom);
         this.uiActions.saveValueFor(StoredValue.AREA_MAP_ZOOM, currentZoom);
@@ -1031,6 +1026,10 @@ export class AreaMap implements OnInit, OnDestroy {
       </div>
     `;
 
+    if (!this.mapRef) {
+      return;
+    }
+
     const popup = L.popup({
       closeButton: true,
       autoClose: true,
@@ -1039,7 +1038,7 @@ export class AreaMap implements OnInit, OnDestroy {
     })
       .setLatLng(e.latlng)
       .setContent(content)
-      .openOn(this.mapRef!);
+      .openOn(this.mapRef);
 
     const escHandler = (event: KeyboardEvent) => {
       if (event.key === "Escape") {

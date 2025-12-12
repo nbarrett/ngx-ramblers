@@ -3,7 +3,7 @@ import * as L from "leaflet";
 import "proj4leaflet";
 import proj4 from "proj4";
 import { SystemConfigService } from "../system/system-config.service";
-import { PageContent, PageContentRow, PageContentType } from "../../models/content-text.model";
+import { MapMarker, PageContent, PageContentRow, PageContentType } from "../../models/content-text.model";
 import { LoggerFactory } from "../logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 
@@ -101,40 +101,47 @@ export class MapTilesService {
           this.logger.info("syncMarkersFromLocation: no start or end location found in location:", locationRow.location);
         } else {
           this.logger.info("syncMarkersFromLocation: sufficient data to initialise markers map:", row.map, "from pageContent rows:", pageContent?.rows);
+          const desiredMarkers: MapMarker[] = [];
+          if (hasStartLocation) {
+            desiredMarkers.push({
+              latitude: locationRow.location.start.latitude,
+              longitude: locationRow.location.start.longitude,
+              label: locationRow.location.start.description || "Start"
+            });
+          }
+          if (hasEndLocation) {
+            desiredMarkers.push({
+              latitude: locationRow.location.end.latitude,
+              longitude: locationRow.location.end.longitude,
+              label: locationRow.location.end.description || "End"
+            });
+          }
+
           const currentMarkers = row.map.markers || [];
-          const hasMatchingMarkers = currentMarkers.some(m =>
-            (hasStartLocation && m.latitude === locationRow.location.start.latitude && m.longitude === locationRow.location.start.longitude) ||
-            (hasEndLocation && m.latitude === locationRow.location.end?.latitude && m.longitude === locationRow.location.end?.longitude)
-          );
-          if (hasMatchingMarkers) {
+          if (!this.haveMarkersChanged(currentMarkers, desiredMarkers)) {
             this.logger.info("syncMarkersFromLocation: Markers already synced with location row");
           } else {
             this.logger.info("syncMarkersFromLocation: Auto-syncing markers from location row");
-            row.map.markers = [];
-            if (hasStartLocation) {
-              row.map.markers.push({
-                latitude: locationRow.location.start.latitude,
-                longitude: locationRow.location.start.longitude,
-                label: locationRow.location.start.description || "Start"
-              });
-            }
-            if (hasEndLocation) {
-              row.map.markers.push({
-                latitude: locationRow.location.end.latitude,
-                longitude: locationRow.location.end.longitude,
-                label: locationRow.location.end.description || "End"
-              });
-            }
-            if (hasStartLocation) {
-              row.map.mapCenter = [locationRow.location.start.latitude, locationRow.location.start.longitude];
-              if (!row.map.mapZoom || row.map.mapZoom < 10) {
-                row.map.mapZoom = 14;
-              }
-            }
+            row.map.markers = desiredMarkers;
             this.logger.info("syncMarkersFromLocation: Auto-synced markers:", row.map.markers, "centered at:", row.map.mapCenter);
           }
         }
       }
     }
+  }
+
+  private haveMarkersChanged(current: MapMarker[], next: MapMarker[]): boolean {
+    if (current.length !== next.length) {
+      return true;
+    }
+    return next.some((marker, index) => {
+      const candidate = current[index];
+      if (!candidate) {
+        return true;
+      }
+      return candidate.latitude !== marker.latitude ||
+        candidate.longitude !== marker.longitude ||
+        candidate.label !== marker.label;
+    });
   }
 }

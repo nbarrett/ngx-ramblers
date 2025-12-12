@@ -86,7 +86,11 @@
                   "with": "projects/ngx-ramblers/src/environments/environment.production.ts"
                 }
               ],
-              "optimization": {"styles": {"inlineCritical": false }},
+              "optimization": {
+                "styles": {
+                  "inlineCritical": false
+                }
+              },
               "outputHashing": "all"
             },
             "development": {
@@ -137,6 +141,16 @@
             ],
             "scripts": []
           }
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "lintFilePatterns": [
+              "projects/ngx-ramblers/**/*.ts",
+              "projects/ngx-ramblers/**/*.html"
+            ],
+            "eslintConfig": ".eslint-config/projects/ngx-ramblers/eslint.config.js"
+          }
         }
       }
     }
@@ -147,6 +161,9 @@
     }
   },
   "cli": {
-    "analytics": "2bb37b0d-21c6-47ef-b513-a7c5a141a02c"
+    "analytics": "2bb37b0d-21c6-47ef-b513-a7c5a141a02c",
+    "schematicCollections": [
+      "angular-eslint"
+    ]
   }
 }

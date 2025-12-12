@@ -123,7 +123,7 @@ export class FileUtilsService {
       const primaryType = preferWebp ? "image/webp" : IMAGE_JPEG;
       const secondaryType = preferWebp ? IMAGE_JPEG : "image/webp";
 
-      let primaryHi = await growToTarget(primaryType);
+      const primaryHi = await growToTarget(primaryType);
       let chosenType = primaryType;
       let chosenHi = primaryHi;
       if (chosenHi.size < targetChars * 0.8 && !hasAlpha()) {

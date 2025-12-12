@@ -1,6 +1,8 @@
-import { Component, Input, Output, EventEmitter } from "@angular/core";
+import { Component, EventEmitter, inject, Input, Output } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
+import { Logger, LoggerFactory } from "../../services/logger-factory.service";
+import { NgxLoggerLevel } from "ngx-logger";
 
 @Component({
   selector: "app-map-overlay",
@@ -10,14 +12,14 @@ import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
         <div class="overlay-content">
           <div class="d-flex flex-column gap-2">
             @if (allowToggle) {
-              <button type="button" class="badge bg-warning text-dark border-0" (click)="onToggleControls()">
+              <button type="button" class="badge bg-warning text-dark border-0" (click)="onToggleMapControls()">
                 <fa-icon [icon]="showControls ? faEyeSlash : faEye"></fa-icon>
                 <span class="ms-1">{{ showControls ? 'Hide map options' : 'Show map options' }}</span>
               </button>
             }
             @if (allowWaypointsToggle) {
               <button type="button" class="badge bg-info text-white border-0" (click)="onToggleWaypoints()">
-                <fa-icon [icon]="showWaypoints ? faEyeSlash : faEye"></fa-icon>
+                <fa-icon [icon]="showWaypoints ? faEyeSlash : faEye"/>
                 <span class="ms-1">{{ showWaypoints ? 'Hide waypoints' : 'Show waypoints' }}</span>
               </button>
             }
@@ -51,21 +53,25 @@ export class MapOverlay {
   @Input() allowWaypointsToggle = true;
   @Output() toggleControls = new EventEmitter<void>();
   @Output() toggleWaypoints = new EventEmitter<void>();
-
+  private logger: Logger = inject(LoggerFactory).createLogger("MapOverlay", NgxLoggerLevel.ERROR);
   protected readonly faEye = faEye;
   protected readonly faEyeSlash = faEyeSlash;
 
-  onToggleControls() {
+  onToggleMapControls() {
     if (!this.allowToggle) {
-      return;
+      this.logger.info("toggleControls not being emitted as allowToggle:" + this.allowToggle);
+    } else {
+      this.logger.info("toggleControls not being emitted as showControls:" + this.showControls);
+      this.toggleControls.emit();
     }
-    this.toggleControls.emit();
   }
 
   onToggleWaypoints() {
     if (!this.allowWaypointsToggle) {
-      return;
+      this.logger.info("toggleWaypoints not being emitted as allowWaypointsToggle:" + this.allowWaypointsToggle);
+    } else {
+      this.logger.info("toggleWaypoints: " + this.allowWaypointsToggle, "emitting", this.showWaypoints);
+      this.toggleWaypoints.emit();
     }
-    this.toggleWaypoints.emit();
   }
 }
